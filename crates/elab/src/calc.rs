@@ -91,10 +91,17 @@ struct Ends {
 
 /// The chain `expr`. Its first term is inferred: what in it can't say its
 /// type yet (a record literal, a `.field`, a number) waits in the queue.
+/// Each step is a resume point for the checks queued inside the `calc`
+/// (stage 7, D2126), once the step's relation and right side have said the
+/// type: the step's proposition is then built from, and its proof checked
+/// against, what they filled in (`calc 0` / `_ ≤ n` has its `0` a `Nat`
+/// before `≤` is decided by computation). As at W1, only the `calc`'s own
+/// checks are resumed (invariant 3), and no default is applied.
 fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let Expr::Calc { first, steps, .. } = expr else {
         unreachable!("only called on a calc");
     };
+    let queued_from = cx.e.queue.len();
     let (start, ty) = infer(cx, first)?;
     let (start, ty) = insert(cx, start, ty)?;
     let ty_term = Rc::new(cx.quote(&ty)?);
@@ -109,6 +116,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
             .as_ref()
             .map_or_else(|| start.clone(), |l| l.end.clone());
         let next = check(cx, &step.rhs, &ty)?;
+        cx.e.resume_from(queued_from)?;
         let prop_term = relation(cx, rel, &ty_term, end, next.clone())?;
         let prop = cx.eval(&prop_term)?;
         let line = written(cx, &prop_term);
@@ -165,8 +173,12 @@ fn ordering(cx: &Ctx, which: Builtin, a: Term, b: Term) -> Result<Term> {
     Ok(Term::app(Term::app(Term::Def(id), a), b))
 }
 
-/// A term as written, for messages (orders print as `a <= b`).
+/// A term as written, for messages (orders print as `a <= b`), with what
+/// the queue has filled in written in (`calc 3` has its `3` as a waiting
+/// literal's placeholder until a step says its type).
 fn written(cx: &Ctx, term: &Term) -> String {
+    let filled = cx.e.zonk_keeping(term, cx.level(), &|_| true);
+    let term = filled.as_ref().unwrap_or(term);
     stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.shown_names(false), term)
 }
 

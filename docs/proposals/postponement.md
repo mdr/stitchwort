@@ -8,8 +8,12 @@ attempt's design is written ([Stage 4: design for the third attempt](#stage-4-de
 decisions D2087, D2090, D2091) and built in steps 4.0 to 4.3 ([As built (step
 4.3)](#as-built-step-43): number literals wait); stage 5 removes the retry paths nothing
 uses any more and keeps two that are still used ([As built (stage 5)](#as-built-stage-5)). Stage 7's
-design (proof searches last; inferred literals wait, D2118) is written, with five questions ([Stage 7:
-design](#stage-7-design-expected-type-first-proof-searches-last); SW-988). Tickets SW-817 (anchor), SW-847 and SW-885; context
+design (proof searches last; inferred literals wait, D2118) is written ([Stage 7:
+design](#stage-7-design-expected-type-first-proof-searches-last); SW-988; decisions D2126 to D2130)
+and built in SW-1010 ([As built (stage 7)](#as-built-stage-7)): proof searches and `rfl` as
+arguments are checked last, a failed `omega` or `ring` waits as `rewrite` and `cases` do, and
+inferred number literals wait; D2128's "any unsolved unknown" is left out (D2140: it hides the
+failure the after-expected path needs; SW-1014 reworks that path first). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -3628,6 +3632,192 @@ examples [run]. Revisit if a case needs the expected type between two non-search
 meets `List.Any ?p xs` against `List.Any f xs` by arguments (case 7, SW-771 item 2, likely SW-976
 (3)); (b) stage 6's waiting for a flex-flex pair instead of equating the unknowns (case 6,
 SW-967 (3))?** **[Recommend yes, both to backlog.]**
+
+## As built (stage 7)
+
+Built on main (`5889a19d`) in the SW-1010 lane, 1 November 2026, after Matt's decisions: D2126
+(inferred literals wait, with the design's three changes and its message rules), D2127 (rule 1,
+`rfl` in its own step once `float-playlist.sw`'s break is understood), D2128 (a failed `omega` or
+`ring` waits, on any unsolved unknown), D2129 (today's expected-type propagation stays), D2130 (case
+6 and case 7 to backlog: SW-1009, SW-1008). Labels as in the design section above; "main" is
+`5889a19d`'s binary.
+
+| commit | step |
+|---|---|
+| `22eb08b4` | rule 1 without `rfl`; `scan-layout.sw`'s cause found and fixed |
+| `a257d946` | rule 1's instance step scoped to the call's own obligations (`float-playlist.sw`'s cause) |
+| `8aa6b9bd` | `rfl` joins rule 1 (SW-1007) |
+| `07fcfaaf` | rule 2, part (a): `omega` and `ring` wait as `rewrite` and `cases` do; part (b) stopped |
+| `c0598541` | rule 4: inferred literals wait (D2126), with the consumer rules |
+| this commit | hash snapshots, this section |
+
+**Rule 1** (`check::check_searches_last`) [run]. As designed: an explicit argument that is `omega`,
+`cases`, `ring`, `rewrite` or the builtin `rfl` (not a local named `rfl`), bracketed or not, with
+no later parameter's type depending on it, holds a placeholder (`hold_argument`, now also used by
+the two older paths that held one), and after W1 the call's type is compared with the expected
+type (`unify`, then `unify_solving_arguments`, a failure left for the call's own comparison), the
+call's own ready instances are found, W1 runs again, and each search runs in written order against
+its goal read afresh (`quote_folded`, then `eval`). The search's term fills its place as the
+after-expected path's does (unification with the placeholder, then `fill_placeholder` in the
+term), not through the queue's fill: the design's guess that the fill was `scan-layout.sw`'s cause
+was wrong (below), and nothing needed the queue's. Two things the design didn't have, each found
+from a break:
+- **`scan-layout.sw`** (the prototype's break). The `+` of `(offset item => offset + item.size)`,
+  inside the `rewrite` rule `List.foldLeftTakeSucc … k omega`, was found by rule 1's instance step,
+  inside the application. The rule's own settle (`settle_rule`) then found nothing, returned
+  `false`, and `rewrite.rs` read the rule's type afresh only when it returns `true`: the type,
+  computed while the dictionary was unknown, stayed `Add.%add [Nat] Nat.instAdd …` as a stuck value
+  (quoted, it printed as solved), and the closing `rfl` failed on two sides that print the same.
+  Evidence: the `rfl` error's two terms, dumped, differ only in `Add.%add [Nat] Nat.instAdd x y`
+  against `Nat.add x y`; with the instance step switched off the file checks. Fix: the
+  application's type is read afresh when the instance step found any.
+- **`float-playlist.sw`**, through `std/Float/Theory.sw:1215` (`unitsRoundNonpos`, the prototype's
+  break with `rfl`): not about `rfl`. The prototype's instance step found every ready obligation of
+  the declaration, so in `Eq.cong (x => x + 9223372036854775808) (magnitudeExact (Succ k) rfl hm)`
+  it found the `+` of the *outer* call's lambda while that lambda's literal still waited for the
+  outer call's W1. The outer call's type `f a = f b` then computed through `Nat.add` to a value
+  stuck on the literal's placeholder (`Succ (k + ?5)`), which isn't computed again once the literal
+  is filled, and no longer matched the expected type. Reduced: `Eq.trans (…) (Eq.cong (x => x + 5)
+  (cappedExact (Succ k) (omega) hm))` fails the same way with `omega` held ("this has type `capped
+  (Succ k) + 5 = k + 5 + 1`": the `5` not computed into the `+ 1`), so the first rule-1 commit had
+  the bug too. Fix: the step finds only the obligations made since the application began, as W1
+  resumes only its own checks (invariant 3). The design named `solve_ready_instances`; scoped is
+  what its own invariant-3 paragraph says rule 1 keeps.
+
+`rfl` then joins with no other change. SW-1007 (`startsOf _ 3 rfl` against `Starts [3, 4] 3`,
+"`firstOf [3, 4]` and `Some 3` aren't equal" on main) checks, so step 7.0's separate fix to the
+after-expected loop wasn't made; an argument kept for after the expected type that isn't a search
+(a lambda) is still checked against its goal as computed when it was put off.
+
+**Rule 2** [run]. Part (a) is built: `omega` and `ring` go through `queue::tactic_or_wait`, so one
+that fails while its goal holds an unknown of `search_pending` waits for it, whole, and runs again
+on the goal now known (`WaitingTactic` shows them as `(omega …)`, `(ring …)`). Inside a split of a
+`cases` they run as before, as `cases` does there: the split goes on splitting only where an
+alternative fails, so a wait there would stop it. In aoc this changes nothing (`tactic waited` 1,
+`omega failed on pending` 0); `omega-waits.sw` shows it.
+
+**Part (b), "any unsolved unknown", is not built (D2140, Matt, 1 November 2026: stage 7 keeps
+part (a) only; part (b) is SW-1014, a rework so that the after-expected comparison doesn't depend
+on a failure).** Built (every unsolved
+unknown in the zonked goal, any of which wakes the item), it fixes case 4 (`lambdaFirst`) and turns
+`reject/lambda-after-expected-unfolded.sw` into an accepted program, but breaks the library and
+aoc: `std/List/Grid.sw:52` (`E-UNSOLVED`), `std/Parse/Reads.sw` (4 sites, `E-TYPE-MISMATCH`), so
+every namespace using them, and 9 sites in 7 aoc proof files (2021 days 8, 12, 16, 18; 2024 days 4
+(two files) and 7). The cause, traced at `Grid.sw:52` (`Both (rewrite <- rowSame in …) …` inside
+two lambdas given to `List.anyElim`): the `rewrite`'s goal is a bare unknown `?48 …`, an ordinary
+one, not the queue's. On main the `rewrite` fails, the failure makes both lambdas fail in place,
+and the after-expected path checks them again once the call's type is compared with its goal,
+which is what solves `?48` (trace: two "after-expected" lambdas at the spans of the two lambdas,
+and the `rewrite` failing with no blocker, then succeeding). With (b) the `rewrite` waits on `?48`
+instead, the lambdas succeed in place, the after-expected path never runs, and nothing solves
+`?48`. So the design's assumption W1 ("an unknown still unsolved at the end is an error anyway, so
+waiting on it can't turn an accepted program into a stuck one") doesn't hold: the failure itself is
+what makes the call compare its type with the goal by `unify_solving_arguments`. The options
+that were put to Matt (D2140 chose (i) now, and (iii) as SW-1014):
+- **(i) keep (a) only** (built): case 4 stays open (it is in a `let`, where nothing is expected and
+  there is no after-expected path);
+- **(ii) (b) only where no after-expected attempt encloses the search**: a flag set while an
+  argument is checked in place with an after-expected retry possible; there a search waits only on
+  the queue's unknowns, as now. Case 4 would check; the lambda-after-expected example would stay
+  rejected. One more piece of state the queue has to restore [inferred];
+- **(iii) make the after-expected path not depend on failure**: an argument whose check queued a
+  search waiting on an ordinary unknown counts as failed in place. Larger, and it re-runs the
+  argument [inferred].
+
+**Rule 4: inferred literals wait** (D2126) [run]. `infer` of a number literal checks it against a
+new type unknown made with no variables (`new_meta`), so it waits (K4). With the design's other
+two changes, a literal whose type mentions no variable has a closed placeholder (`queue`), and
+`calc` resumes its own checks after each step's right side (`resume_from`, no defaults). The
+consumer rules, each bringing its output back to main's:
+- `W-NO-EFFECT`: a waiting literal is pure (`no_effect::check_value`, through
+  `queue::waiting_literal`): `sequence-expression.sw`, `abilities-edge.sw` and
+  `sequence-in-let-value.sw` keep their warnings;
+- an `omega` or `ring` fact is a closed pattern, settled as a `rewrite` rule is
+  (`Elaborator::settled_fact`; invariant 7's list in `queue.rs` names it):
+  `ring-coefficient-after.sw` says "this is `Nat`" again;
+- `++` on an unknown type is a queued check (`check::Append`), resumed when the type is known and
+  reported, if still unknown at the end, with main's message: `append-numbers.sw` again says "this
+  is a `Nat`", after the `1`'s default;
+- a numeral where a type is expected is `E-NOT-A-TYPE` at once (`check_type`), and a numeral given
+  arguments is a `Nat` head (`infer_app_with`): `tuple-value-for-type.sw` and
+  `unfold-of-failed-definition.sw` as on main.
+
+One more, not in the design's table: a `calc` step's message printed the start term as the
+literal's placeholder, filled but not written in ("the line says `?1 = List.sum xs`",
+`calc-pipe-step-proof.sw`). `calc.rs`'s `written` now zonks the term first.
+
+**Examples** [run: every accept, reject, soundness, goals and extract file and every project,
+`check` output and exit code, against main's]:
+
+| example | change | why |
+|---|---|---|
+| `reject/partial-constructor-mismatch.sw` | `Eq.cong (Call o) rfl` against `Call o f = Call o g`: "`f` and `g` aren't equal" at the `rfl` (`E-REFL`), where main said "expected `Call o f = Call o g`, but this has type `Call o f = Call o f`" | `rfl` checked early made `g` be `f` (the design's expected change). The file gains `callCongSame`, a proof of the wrong equation, which keeps SW-410's mismatch of two partly applied constructor calls (`E-TYPE-MISMATCH`, main's message) |
+| `reject/sequence-in-let-value.sw` | error at the `1` (8:30), "expected `Text`, but this has type `Nat`", note "a numeral can only be the prelude's `Nat` or `Int`"; main blamed `x` (8:36) | `x`'s type is fixed by `Text` before the literal resumes: the design's accepted new place. Its comment now says so |
+| `accept/searches-after-call.sw` (new) | checks; main rejects | cases 1, 2, 3 (SW-969, SW-971), and `outerLambda`, the reduced `Theory.sw:1215` shape |
+| `accept/rfl-after-call.sw` (new) | checks; main rejects | case 5, SW-1007 |
+| `accept/omega-waits.sw` (new) | checks; main rejects ("unsupported structure") | rule 2 (a) |
+| `accept/literal-tuples.sw` (new) | checks, its test passes; main rejects `-4` | case 8 (D2118), with the let-pattern and `calc` shapes the two fixes are for |
+| `reject/search-after-call-false.sw` (new) | `omega`'s message shows `x.snd`; main's shows `?2 counts given x` | a search still failing, with the goal as known |
+
+Every other output is byte-identical to main's. `accept/argument-order-expected.sw` is kept (its
+forms are the theorem-body ones, which still go through the after-expected path); its header now
+says which twins check.
+
+**The cases** [run]: 1, 2, 3, 5 and 8 check; 4 is open until SW-1014 (rule 2 (b)); 6 and 7 are
+SW-1009 and SW-1008; 9 was not reproduced.
+
+**Hashes** [run]: `hash_stability`'s prelude snapshot (std and the core) is unchanged. Three
+example snapshots change, each with the statement unchanged:
+- `project-trip-journal`: `Trip.Proofs.inCombined` (and its four `%match` helpers),
+  `keptFromCombined` (and its helper), and `photoIdsKept`, which uses both. Cause: rule 1 on their
+  `rewrite` arguments (`(rewrite e in keptWhereOwned …)`, `(rewrite found in …)`): checked last,
+  their proofs are built against the goal as the call fixed it. Evidence: with `rewrite` taken out
+  of rule 1, `inCombined`'s hashes are main's again;
+- `let-patterns` (`test "in a test"`, `let (a, b) := (1, 2); a + b == 3`) and
+  `shared-field-update` (`test "pair"`, `{ (1, "x") | fst = 2 } == (2, "x")`): literals inferred
+  inside tuples now wait. Dumped terms: main's `Nat.add a b` (the pattern's variables) is
+  `Nat.add 1 2`, and the update applied to its `let` variable is applied to `2`: the uses are
+  written as the waiting literals' values, filled in, where main had the variables; the values are
+  the same. Which code writes the value rather than the variable was not traced [inferred: the
+  checks that waited for the literals' type are completed from values];
+- four new snapshots for the new accept examples.
+
+**Counters** (aoc, `check --no-cache`) [run]: 1,244 queued, 1,079 resumed, 64 defaulted, 0 stuck;
+`retried` 0 (stage 5 counted 1, 2021 Day17's tuple list, which waits now); `tactic waited` 1;
+`leaf uninferred` 4. `check::retrying` still fires once each in `reject/decreasing-lambda-in-data.sw`
+(where its second run gives the intended `E-DECREASING`) and `accept/lambda-propagated-alias.sw`
+(no effect), so `retrying` and `late_literals` stay: the lambda gap of stage 5 remains.
+
+**Time**: aoc `check --no-cache`, one pair: this lane 61.3 s user (63.3 s wall, load 7), main
+67.5 s user (86.0 s wall, load 16). No slowdown.
+
+**Gates** [run]: lane tiers `elab` and `examples` after each step; `task test:one` on `no_effect`
+and `guide`; `check --no-cache` over aoc (207 namespaces) and rogue (3); `task audit` (std 2,487,
+aoc 2,113, rogue 190: all passed, no warnings); the `hashes` lane tier, snapshots regenerated
+(`task snap:hashes`); `cargo clippy --workspace --all-targets -D warnings`; `cargo fmt`.
+
+**Search patterns and `rewrite` rules** (after the first merge attempt, which the merge tier
+stopped) [run]. With `++` waiting, the search pattern `_ ++ _ = _` as written elaborated, its `++`
+a placeholder no default fills, and was searched as a third reading beside the list and text ones
+(`search_match`'s `an_append_of_holes_is_tried_as_lists_and_as_texts`, `search`'s
+`the_query_log_gets_a_line_per_search`). Now a pattern whose own checks still wait once settled
+doesn't elaborate (`Elaborator::pattern_stuck`, in `search.rs`), as on main, where the `++` failed
+at once. One more change from it: `_.length = _`, whose `.length` waits on a receiver nothing
+types, is now that check's `E-CANNOT-INFER`; main searched it with the placeholder as a hole and
+listed `Eq.sym` first. And `List.length (_ ++ _) = _` as written now elaborates (its `++` waits
+until `List.length` says lists), giving the same pattern as the list reading up to how its holes
+are numbered; readings are now compared with their holes renumbered, so it is searched once, and
+the test's elaborated pattern is `… = ?5` where it was `… = ?4` (the waiting `++` made an unknown
+first). A `rewrite` rule whose side is headed by a waiting check's placeholder reports that check's
+error rather than "starts with an unknown function" (`rewrite.rs`, `waiting_head`; new
+`reject/rewrite-rule-append-holes.sw`), and a `++` whose operands' type stays unknown now says
+"nothing here says whether this joins texts or lists" where main printed `?0 xs` (D2091). Waiting
+literals in patterns are settled to their defaults as before (`settle_pattern`); `search --at`'s
+goal benchmarks (`search_at_on_aoc_goals`) pass.
+
+**Open**: rule 2 (b), SW-1014; step 7.0's afresh read for after-expected arguments that aren't
+searches; the stage 5 lambda gap (a lambda checked against an unknown applied to variables), after
+which `retrying` can go.
 
 ## Review 1 and how it was addressed
 

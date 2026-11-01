@@ -57,7 +57,7 @@ use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
-use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check, infer, insert};
+use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check};
 
 /// The library names the emitted proofs use: the pre-pass loads their files
 /// wherever `ring` is written (`module.rs`, `free_names`).
@@ -87,9 +87,22 @@ pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
         .with_note("give it a type: `(ring: a * (b + c) = a * b + a * c)`")
 }
 
-/// `ring` against the goal `expected`, counted where the goal holds an
-/// unknown the declaration will still settle (`queue::counted_search`).
+/// `ring` against the goal `expected`. Outside a split of a `cases`, one
+/// that fails while the goal holds an unknown the declaration will still
+/// settle waits for it, whole, and tries again, as `rewrite` and `cases`
+/// do (`queue::tactic_or_wait`; stage 7, rule 2, in
+/// docs/proposals/postponement.md). Inside a split it runs as before, as
+/// `cases` does there.
 pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if cx.cases.is_some() {
+        return counted_ring(cx, expr, expected);
+    }
+    crate::queue::tactic_or_wait(cx, expr, expected, counted_ring)
+}
+
+/// `ring`, counted where the goal holds an unknown the declaration will
+/// still settle (`queue::counted_search`).
+fn counted_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     crate::queue::counted_search(cx, expected, crate::queue::Search::Ring, |cx| {
         ring_goal(cx, expr, expected)
     })
@@ -123,8 +136,7 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         let mut minus = false;
         split_fact(fact, false, Vec::new(), &mut minus, &mut terms);
         for term in terms {
-            let (proof, ty) = infer(cx, term.proof)?;
-            let (proof, ty) = insert(cx, proof, ty)?;
+            let (proof, ty) = crate::Elaborator::settled_fact(cx, term.proof)?;
             let forced = force(cx.g(), ty.clone())?;
             let (hl, hr) = match equation(cx, &lib, &forced)? {
                 Some((s, hl, hr)) if s == sort => (hl, hr),

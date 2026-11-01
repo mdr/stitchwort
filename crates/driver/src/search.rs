@@ -299,6 +299,34 @@ fn op_compares(op: BinOp) -> bool {
     )
 }
 
+/// `shown`, a pattern as printed, with its holes (`?N`) numbered in the
+/// order they first appear: two readings that differ only in which
+/// unknowns their elaboration made are the same pattern.
+fn holes_renumbered(shown: &str) -> String {
+    let mut seen: Vec<&str> = Vec::new();
+    let mut out = String::with_capacity(shown.len());
+    let mut rest = shown;
+    while let Some(at) = rest.find('?') {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 1..];
+        let digits = after.len() - after.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+        if digits == 0 {
+            out.push('?');
+            rest = after;
+            continue;
+        }
+        let hole = &after[..digits];
+        let n = seen.iter().position(|h| *h == hole).unwrap_or_else(|| {
+            seen.push(hole);
+            seen.len() - 1
+        });
+        out.push_str(&format!("?{n}"));
+        rest = &after[digits..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The readings of pattern `text` (SW-927): itself first, then with the
 /// first hole of each overloaded operator's group ascribed each type it
 /// may have (`(_: List _) ++ _`, `(_: Text) ++ _`), every combination, at
@@ -574,7 +602,13 @@ impl Session {
                     Ok((patterns, named)) => {
                         let g = &self.elab.globals;
                         let shown = patterns[0].show(g);
-                        if readings.iter().any(|(s, _)| *s == shown) {
+                        // The same pattern up to how its holes are
+                        // numbered (`List.length (_ ++ _) = _` as written,
+                        // its `++` settled by `List.length`, and the
+                        // reading with the first hole a list) is searched
+                        // once.
+                        let key = holes_renumbered(&shown);
+                        if readings.iter().any(|(s, _)| holes_renumbered(s) == key) {
                             continue;
                         }
                         for h in named {

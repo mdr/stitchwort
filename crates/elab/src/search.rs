@@ -790,6 +790,11 @@ impl Elaborator {
             } else {
                 term
             };
+            // What still waits after settling is a choice the pattern
+            // doesn't make: this reading doesn't elaborate.
+            if let Some(stuck) = self.pattern_stuck()? {
+                return Err(stuck);
+            }
             let value = cx.eval(&term)?;
             let ty = Ty::of(g, ty).ok();
             if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?

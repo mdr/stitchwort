@@ -1360,10 +1360,19 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         )),
         // `-k` with nothing expected is an `Int`.
         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
-        Expr::Num(n, _) => Ok((
-            Term::Nat(Rc::new(n.clone())),
-            Value::Data(nat(cx)?, Vec::new()),
-        )),
+        // A number with nothing expected waits for its type as a checked
+        // one does (K4, D2126): its type is a new unknown, which a later use
+        // may say, and which is `Nat` by default. The unknown mentions no
+        // variable: a numeral's type is `Nat`, `Int`, `Float`, `SafeNat`,
+        // `SafeInt` or `Fin n`, and only `Fin n` could, which an inferred
+        // literal never was (it was `Nat` at once). Applied to the variables
+        // in scope, a `match` on one of them would substitute into it, and
+        // `?0 (Node x kids) = Nat` can't be solved.
+        Expr::Num(n, _) => {
+            let ty = Value::Neutral(Head::Meta(cx.g().new_meta(cx.span)), Default::default());
+            let term = crate::numbers::check_literal(cx, n, false, &ty)?;
+            Ok((term, ty))
+        }
         Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
         Expr::Char(c, _) => {
             let char_data = builtin_data(cx, Builtin::Char)?;
@@ -1615,7 +1624,17 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         return crate::dot::infer_call(cx, recv, field, args);
     }
     let Expr::Var(name) = head else {
-        let head = infer(cx, head)?;
+        let head = match head {
+            // A numeral given arguments is never a function, whatever its
+            // type turns out to be: decided by its syntax, as a `Nat`, not
+            // by the literal waiting for its type while the arguments ask
+            // for a function (stage 7, D2126).
+            Expr::Num(n, _) => (
+                Term::Nat(Rc::new(n.clone())),
+                Value::Data(nat(cx)?, Vec::new()),
+            ),
+            _ => infer(cx, head)?,
+        };
         return apply_args(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
@@ -2186,8 +2205,10 @@ fn apply_args_postponing(
     first_error: &mut Option<Diagnostic>,
 ) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
-    // The checks queued from here on are this application's (`queue.rs`).
+    // The checks queued from here on are this application's (`queue.rs`),
+    // and so are the unknowns made from here on.
     let queued_from = cx.e.queue.len();
+    let metas_from = cx.g().metas.borrow().len();
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
     // type expected of it, if `infer_expecting` says what that is.
@@ -2202,6 +2223,9 @@ fn apply_args_postponing(
         _ => None,
     };
     let mut after_expected = Vec::new();
+    // Proof searches, checked once the rest of the call has said what
+    // their goals are (rule 1 of stage 7).
+    let mut searches = Vec::new();
     // The argument just passed, when it was a name given as a function.
     let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
@@ -2241,14 +2265,7 @@ fn apply_args_postponing(
                         first_error.get_or_insert(e);
                     }
                 }
-                let meta = cx.fresh_meta();
-                let placeholder = cx.eval(&meta)?;
-                ty = cod.apply(cx.g(), placeholder.clone())?;
-                let id = match meta.spine().0 {
-                    Term::Meta(m) => *m,
-                    _ => unreachable!("a fresh metavariable is headed by one"),
-                };
-                term = Term::app(term, meta);
+                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                 after_expected.push((*value, dom, placeholder, id));
             }
             Arg::NamedExplicit(..) => {
@@ -2284,6 +2301,18 @@ fn apply_args_postponing(
                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
                     not_a_function_hint(cx, &term, previous_function_name, value, e)
                 })?;
+                // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
+                // checked last, once the other arguments, the application's
+                // own waiting checks, the expected type and the instances
+                // now findable have fixed its goal (stage 7, rule 1;
+                // docs/proposals/postponement.md): checked here, it would
+                // fail on the unknowns they fix, or solve them by a guess
+                // (`P.ext _ _ cases cases` making the second `_` the first).
+                if proof_search(cx, value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    searches.push((*value, dom, placeholder, id));
+                    continue;
+                }
                 // When retrying, a list of numbers whose element type isn't
                 // known is checked last: in `List.map [1, 2] (x => x): List
                 // Int` the list comes first (D303), and only the lambda ties
@@ -2297,14 +2326,7 @@ fn apply_args_postponing(
                     && numbers_in_list(value)
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
                 {
-                    let meta = cx.fresh_meta();
-                    let placeholder = cx.eval(&meta)?;
-                    ty = cod.apply(cx.g(), placeholder.clone())?;
-                    let id = match meta.spine().0 {
-                        Term::Meta(m) => *m,
-                        _ => unreachable!("a fresh metavariable is headed by one"),
-                    };
-                    term = Term::app(term, meta);
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                     postponed.push((*value, dom, placeholder, id));
                     continue;
                 }
@@ -2333,14 +2355,7 @@ fn apply_args_postponing(
                             return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
                         }
                         first_error.get_or_insert(e);
-                        let meta = cx.fresh_meta();
-                        let placeholder = cx.eval(&meta)?;
-                        ty = cod.apply(cx.g(), placeholder.clone())?;
-                        let id = match meta.spine().0 {
-                            Term::Meta(m) => *m,
-                            _ => unreachable!("a fresh metavariable is headed by one"),
-                        };
-                        term = Term::app(term, meta);
+                        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                         after_expected.push((*value, dom, placeholder, id));
                         continue;
                     }
@@ -2393,6 +2408,10 @@ fn apply_args_postponing(
     // expected of it: the checks queued while it was elaborated, and only
     // those, are resumed if they can be (W1, scoped; D2014).
     cx.e.resume_application(queued_from)?;
+    if !searches.is_empty() {
+        let from = (queued_from, metas_from);
+        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), from)?;
+    }
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
         // parameters left to insert (they'd be made again there).
@@ -2423,6 +2442,112 @@ fn apply_args_postponing(
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// Whether `value`, an argument, is a proof search that rule 1 of stage 7
+/// checks after the rest of its application: `omega`, `cases`, `ring` or
+/// `rewrite`, or the builtin `rfl`, bracketed or not.
+///
+/// `rfl` is a comparison, not a search, but checked early it chooses as a
+/// search does: against a goal whose unknowns the call will fix, it can
+/// only solve them by equating its sides, a guess (`Eq.cong (Call o) rfl`
+/// against `Call o f = Call o g` made `g` be `f`), and a goal computed
+/// before a `_` was solved stays stuck (SW-1007).
+fn proof_search(cx: &Ctx, value: &Expr) -> bool {
+    match value {
+        Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
+        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
+        Expr::Bracketed(inner, _) => proof_search(cx, inner),
+        _ => false,
+    }
+}
+
+/// An explicit argument held back: a placeholder in its place in `term`,
+/// and `ty` the rest of the application's type with the placeholder for
+/// it. The placeholder's value and its unknown.
+fn hold_argument(
+    cx: &mut Ctx,
+    term: &mut Term,
+    ty: &mut Value,
+    cod: &Closure,
+) -> Result<(Value, usize)> {
+    let meta = cx.fresh_meta();
+    let placeholder = cx.eval(&meta)?;
+    *ty = cod.apply(cx.g(), placeholder.clone())?;
+    let id = match meta.spine().0 {
+        Term::Meta(m) => *m,
+        _ => unreachable!("a fresh metavariable is headed by one"),
+    };
+    *term = Term::app(term.clone(), meta);
+    Ok((placeholder, id))
+}
+
+/// Rule 1 of stage 7 (docs/proposals/postponement.md): the proof searches
+/// `searches` of the application `term` of type `ty`, held back by
+/// `apply_args_postponing`, checked now that the other arguments are and
+/// the application's own waiting checks have been resumed (W1). First, if
+/// something is expected of the call and no implicit parameter is left to
+/// insert, its type is compared with it, as the after-expected path does
+/// (a failure is left for the call's own last comparison to report); then
+/// the instances whose types are now known are found and W1 runs again;
+/// then each search, in written order, against its goal read afresh, so a
+/// call stuck on an unknown solved since computes.
+///
+/// Only the application's own instances are found here, those made since
+/// it began (`metas_from`), as W1 resumes only its own checks (invariant
+/// 3). One of a call around it may belong to a lambda whose literal still
+/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (omega))`):
+/// found now, the outer call's type would compute through it to a value
+/// stuck on the literal's placeholder (`Succ (k + ?5)`), which isn't
+/// computed again once the literal is filled, and so no longer matches
+/// its expected type (`std/Float/Theory.sw`'s `unitsRoundNonpos`).
+///
+/// If instances were found, `ty` is read afresh too: a value computed while
+/// a dictionary was unknown stays stuck on it (`Add.%add [Nat] ?d x y`), and
+/// whoever reads the type next may not compute it again. A `rewrite` rule
+/// does so only if settling its own checks found something
+/// (`rewrite.rs`), which these instances, found here first, no longer are
+/// (`examples/accept/scan-layout.sw`).
+fn check_searches_last(
+    cx: &mut Ctx,
+    term: &mut Term,
+    ty: &mut Value,
+    searches: Vec<(&Expr, Value, Value, usize)>,
+    expecting: Option<&Value>,
+    (queued_from, metas_from): (usize, usize),
+) -> Result<()> {
+    if let Some(expected) = expecting {
+        let implicit_next = matches!(
+            force(cx.g(), ty.clone())?,
+            Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
+        );
+        if !implicit_next {
+            let _ = crate::undo::unify(cx, ty, expected)?
+                || crate::undo::unify_solving_arguments(cx, ty, expected)?;
+        }
+    }
+    let own: Vec<usize> = (cx.e.obligations.borrow().iter())
+        .filter_map(|ob| match ob.meta.spine().0 {
+            Term::Meta(m) if *m >= metas_from => Some(*m),
+            _ => None,
+        })
+        .collect();
+    if !own.is_empty() && cx.e.solve_ready_instances_keeping(&[], Some(&own))? {
+        *ty = cx.eval(&cx.quote_folded(ty)?)?;
+    }
+    cx.e.resume_application(queued_from)?;
+    for (value, dom, placeholder, id) in searches {
+        let dom = cx.eval(&cx.quote_folded(&dom)?)?;
+        let checked = check_arg(cx, term, value, &dom)?;
+        let evaluated = cx.eval(&checked)?;
+        if !cx.unify(&evaluated, &placeholder)? {
+            return Err(cx.mismatch(&placeholder, &evaluated));
+        }
+        if let Some(filled) = fill_placeholder(term, id, &checked) {
+            *term = filled;
+        }
+    }
+    cx.e.resume_application(queued_from)
 }
 
 /// Whether `expr` is a number literal or a list of numbers: what it is
@@ -3788,33 +3913,85 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
 /// `a`. What in `a` can't say its type yet (a record literal, a `.field`, a
 /// number) waits in the queue, so `a` is always inferred first and `b`
-/// checked against it.
+/// checked against it. While that type is an unknown, the choice waits for
+/// it as a number group's operator does (stage 7, D2126): `1 ++ 2` is
+/// reported once the `1` has taken its default, `Nat`.
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (a, ty) = infer(cx, a)?;
     let (a, ty) = insert(cx, a, ty)?;
     let b = check(cx, b, &ty)?;
-    let text = builtin_data(cx, Builtin::Text)?;
-    let list = builtin_data(cx, Builtin::List)?;
-    let head = match force(cx.g(), ty.clone())? {
-        Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
-        Value::Data(d, params) if d == list => {
-            let elem = cx.quote_folded(&params[0])?;
-            Term::app_icit(
-                Term::Def(builtin_def(cx, Builtin::Append)?),
-                elem,
-                Icit::Implicit,
-            )
-        }
-        other => {
-            let other = cx.show(&other);
-            return Err(cx.error(
-                "E-TYPE-MISMATCH",
-                "`++` joins two texts or two lists",
-                format!("this is {} `{}`", crate::article(&other), other),
-            ));
-        }
+    let joined = Append {
+        a,
+        b,
+        ty: ty.clone(),
     };
-    Ok((Term::app(Term::app(head, a), b), ty))
+    if let Value::Neutral(Head::Meta(_), _) = force(cx.g(), ty.clone())? {
+        let error = joined.error(cx);
+        let term = crate::queue::queue(cx, Rc::new(joined), ty.clone(), ty.clone(), error)?;
+        return Ok((term, ty));
+    }
+    Ok((joined.joined(cx)?, ty))
+}
+
+/// `a ++ b`, elaborated, of type `ty`: the call, once `ty` is known, or a
+/// check queued until it is ([`append`]).
+struct Append {
+    a: Term,
+    b: Term,
+    ty: Value,
+}
+
+impl Append {
+    /// The call that joins them, chosen by their type.
+    fn joined(&self, cx: &Ctx) -> Result<Term> {
+        let text = builtin_data(cx, Builtin::Text)?;
+        let list = builtin_data(cx, Builtin::List)?;
+        let head = match force(cx.g(), self.ty.clone())? {
+            Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
+            Value::Data(d, params) if d == list => {
+                let elem = cx.quote_folded(&params[0])?;
+                Term::app_icit(
+                    Term::Def(builtin_def(cx, Builtin::Append)?),
+                    elem,
+                    Icit::Implicit,
+                )
+            }
+            _ => return Err(self.error(cx)),
+        };
+        Ok(Term::app(Term::app(head, self.a.clone()), self.b.clone()))
+    }
+
+    /// What they are isn't a text or a list, or (while their type is an
+    /// unknown, the error if it stays one) nothing says which.
+    fn error(&self, cx: &Ctx) -> Diagnostic {
+        if let Ok(Value::Neutral(Head::Meta(_), _)) = force(cx.g(), self.ty.clone()) {
+            return cx
+                .error(
+                    "E-TYPE-MISMATCH",
+                    "`++` joins two texts or two lists",
+                    "nothing here says whether this joins texts or lists",
+                )
+                .with_note("give one side a type: `(xs: List Nat) ++ ys`");
+        }
+        let other = cx.show(&self.ty);
+        cx.error(
+            "E-TYPE-MISMATCH",
+            "`++` joins two texts or two lists",
+            format!("this is {} `{}`", crate::article(&other), other),
+        )
+    }
+}
+
+impl crate::queue::Check for Append {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        Ok(crate::queue::Resumed::Done(self.joined(cx)?))
+    }
+
+    fn display(&self, cx: &Ctx) -> Option<String> {
+        let a = cx.show(&cx.eval(&self.a).ok()?);
+        let b = cx.show(&cx.eval(&self.b).ok()?);
+        Some(format!("({a} ++ {b})"))
+    }
 }
 
 /// `if c then a else b` is `ifThenElse c (_ => a) (_ => b)`, and
@@ -5474,6 +5651,17 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     if let Expr::Tuple(a, b, _) = expr {
         let (term, _) = type_tuple(cx, a, b)?;
         return Ok((term, Sort::Type(0)));
+    }
+    // A numeral is never a type, whatever its own type turns out to be:
+    // decided by its syntax, not by the literal waiting for its type and
+    // then meeting `Type` (stage 7, D2126).
+    let mut written = expr;
+    while let Expr::Bracketed(inner, _) = written {
+        written = inner;
+    }
+    if let Expr::Num(..) = written {
+        let nat = Value::Data(nat(cx)?, Vec::new());
+        return Err(not_a_type(cx, span, &nat));
     }
     // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
     if let Some(logic) = crate::logic::classify(cx, expr) {

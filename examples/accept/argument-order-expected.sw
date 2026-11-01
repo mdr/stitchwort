@@ -1,8 +1,12 @@
 -- Arguments whose types a later argument or the expected type fixes, in
--- the shapes AoC 2021 met that check today (SW-988, the design of stage 7
--- in docs/proposals/postponement.md). Each has a twin in
--- docs/proposals/postponement/stage7/ that doesn't check yet; these keep
--- the forms that do while the order changes.
+-- the shapes AoC 2021 met that checked before stage 7 (SW-988, the design
+-- of stage 7 in docs/proposals/postponement.md): as a theorem's body,
+-- where an argument that fails in place is checked again once the call's
+-- type is compared with the goal. Each has a twin in
+-- docs/proposals/postponement/stage7/ where nothing is expected of the
+-- call; stage 7 made those of days 13, 14 and 10's `rfl` check
+-- (searches-after-call.sw, rfl-after-call.sw). The lambda of day 10 and
+-- the two below them (days 12 and 16) are still open there.
 import Std (Bool, Char, Eq, List, Nat, Option)
 
 -- A function, then the list that says its parameter's type, then `omega`
