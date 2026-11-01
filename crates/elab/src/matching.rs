@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::{Head, quote};
+use stitchwort_core::value::{Head, quote, quote_at_most};
 use stitchwort_core::{Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
@@ -416,15 +416,21 @@ fn lifted(
         } else {
             (term, ty)
         };
-        let normal = quote(g, base, &cx.eval(&term)?)?;
         // A decision that computes to `Bool.decTrue b` (`c < x` on a `Fin`,
         // by `Ord.byKey`, is `Bool.decTrue (Nat.leq (Succ c.toNat) x.toNat)`)
         // is matched as `b`, the comparison itself, as `Nat`'s is: that is
         // what an `if` on it holds once unfolded, so the branches see it
-        // decided (D1073).
-        let (term, normal) = match decided.then(|| tested_bool(cx, &normal)).flatten() {
-            Some(b) => (b.clone(), b),
-            None => (term, normal),
+        // decided (D1073). Any other scrutinee's normal form is left for the
+        // occurrence test to compute, as far as it needs ([`normals`]).
+        let (term, normal) = if decided {
+            let normal = (|| Ok(quote(g, base, &cx.eval(&term)?)?))()
+                .map_err(|d| in_scrutinee(d, s.expr.span()))?;
+            match tested_bool(cx, &normal) {
+                Some(b) => (b.clone(), Some(b)),
+                None => (term, Some(normal)),
+            }
+        } else {
+            (term, None)
         };
         let ty_term = cx.quote(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the
@@ -488,8 +494,10 @@ fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
 #[derive(Clone)]
 struct Scrut {
     term: Term,
-    /// As types hold it (evaluated and read back), for the occurrence test.
-    normal: Term,
+    /// As types hold it (evaluated and read back), if already known: a
+    /// decided proposition's, read as the `Bool` it tests. Otherwise
+    /// [`normals`] computes it for the occurrence test.
+    normal: Option<Term>,
     ty: Value,
     ty_term: Term,
     name: Option<ast::Name>,
@@ -550,11 +558,10 @@ pub(crate) fn generalised_named(
     let base = cx.level();
     let mark = cx.mark();
     let result = (|| {
-        let normal = quote(cx.g(), base, &cx.eval(&term)?)?;
         let ty_term = cx.quote(&ty)?;
         let scrut = Scrut {
             term,
-            normal,
+            normal: None,
             ty,
             ty_term,
             name,
@@ -714,7 +721,7 @@ impl crate::queue::Check for WaitingMatch {
         }
         let mut exprs = self.exprs.clone();
         for s in &mut exprs {
-            s.normal = quote(g, base, &cx.eval(&s.term)?)?;
+            s.normal = None;
             s.ty = cx.eval(&cx.quote_folded(&s.ty)?)?;
             s.ty_term = cx.quote(&s.ty)?;
         }
@@ -778,13 +785,30 @@ fn generalised_now(
 ) -> Result<Term> {
     let g = cx.g();
     let e = exprs.len();
+    // What the scrutinees are looked for in: the variables' types and the
+    // goal, as types hold them.
+    let in_match = |e: stitchwort_core::budget::ResourceError| {
+        ran_out_at(e.into(), span, "while generalising this `match`")
+    };
+    let type_terms: Vec<Term> = (0..base)
+        .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
+            true => Ok(Term::Refl), // never copied, so never read
+            false => quote(g, base, &cx.types[l]).map_err(in_match),
+        })
+        .collect::<Result<_>>()?;
+    let goal_term = quote(g, base, goal).map_err(in_match)?;
+    let normals = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
         for (j, b) in exprs.iter().enumerate() {
             if i == j {
                 continue;
             }
-            if occurs(&a.normal, &b.normal) {
+            // With several scrutinees, each is read back in full.
+            let (Some(a_normal), Some(b_normal)) = (&normals[i], &normals[j]) else {
+                unreachable!("read back in full")
+            };
+            if occurs(a_normal, b_normal) {
                 return Err(motive_error(
                     span,
                     "one scrutinee of this `match` is part of another, which this version \
@@ -793,7 +817,7 @@ fn generalised_now(
                 .with_label(a.span, "this is part of")
                 .with_label(b.span, "this"));
             }
-            if occurs(&a.normal, &b.ty_term) {
+            if occurs(a_normal, &b.ty_term) {
                 return Err(motive_error(
                     span,
                     "the type of one scrutinee of this `match` mentions another, which this \
@@ -806,24 +830,20 @@ fn generalised_now(
     }
     // The variables to copy: those whose types mention a scrutinee, and
     // those whose types mention a copied one.
-    let occurrences: Vec<&Term> = exprs.iter().map(|s| &s.normal).collect();
+    let occurrences: Vec<Option<&Term>> = normals.iter().map(Option::as_ref).collect();
     let mut copied: Vec<usize> = Vec::new();
-    let mut type_terms: Vec<Term> = Vec::new();
-    for l in 0..base {
+    for (l, ty) in type_terms.iter().enumerate() {
         if skip.is_some_and(|skip| skip(cx, l)) {
-            type_terms.push(Term::Refl); // never copied, so never read
             continue;
         }
-        let ty = quote(g, base, &cx.types[l])?;
-        let free = free_levels(&ty, base);
+        let free = free_levels(ty, base);
         // A `let`-bound variable is copied too, as a plain hypothesis: in
         // the alternatives its value is forgotten and only its (refined)
         // type is known.
         let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
-        if unrefined && (any_occurs(&occurrences, &ty) || free.iter().any(|f| copied.contains(f))) {
+        if unrefined && (any_occurs(&occurrences, ty) || free.iter().any(|f| copied.contains(f))) {
             copied.push(l);
         }
-        type_terms.push(ty);
     }
     // A scrutinee's type can't mention a copied variable: its copy comes
     // after the scrutinee (§4.4's cycle).
@@ -841,7 +861,7 @@ fn generalised_now(
         }
     }
     let not_found = if skip.is_none() {
-        not_found(cx, &exprs, &copied, &type_terms, goal, base)?
+        not_found(cx, &exprs, &normals, &copied, &type_terms, goal, &goal_term)?
     } else {
         Vec::new()
     };
@@ -895,7 +915,7 @@ fn generalised_now(
         exprs: &occurrences,
         copies: &copies,
     };
-    let goal_term = generalise.apply(g, &quote(g, base, goal)?)?;
+    let goal_term = generalise.apply(g, &goal_term)?;
     let motive = cx.eval(&goal_term)?;
     let motive_later = skip.is_none() && check_motive(cx, base, &extra, &motive, span)?;
     let levels: Vec<usize> = columns
@@ -913,8 +933,12 @@ fn generalised_now(
         exprs
             .iter()
             .enumerate()
-            .filter(|(_, s)| !matches!(s.normal.strip_loc(), Term::Var(_)))
-            .map(|(i, s)| (base, s.normal.clone(), s.span, base + i)),
+            .zip(&normals)
+            .filter_map(|((i, s), normal)| {
+                let normal = normal.as_ref()?;
+                (!matches!(normal.strip_loc(), Term::Var(_)))
+                    .then(|| (base, normal.clone(), s.span, base + i))
+            }),
     );
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
         let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
@@ -937,6 +961,68 @@ fn generalised_now(
     lift::draft_with(cx, base, extra, body, &motive, span, motive_later)
 }
 
+/// The scrutinees' normal forms, for the occurrence test: each as types
+/// hold it (evaluated and read back), or `None` if it is larger than
+/// everything it is looked for in (the variables' types `type_terms`, the
+/// goal `goal`, the scrutinees' types), so occurs in none of them.
+///
+/// A scrutinee is read back only that far: one whose normal form is huge,
+/// like a search bounded by a literal (`search xs 1 10000`), unfolded
+/// through 10,000 `if`s each stuck on the unknown `xs`, isn't computed
+/// past the size of the largest of them (SW-982). Read-back visits at most
+/// as many values as its term has nodes, so one that gives up past `cap`
+/// visits had more than `cap` nodes, and a term can only occur in one at
+/// least as large.
+///
+/// With several scrutinees each is read back in full, since whether one is
+/// part of another (which this version can't generalise) is a question
+/// about the scrutinees themselves, however large.
+fn normals(
+    cx: &Ctx,
+    exprs: &[Scrut],
+    type_terms: &[Term],
+    goal: &Term,
+    base: usize,
+) -> Result<Vec<Option<Term>>> {
+    let g = cx.g();
+    let cap = match exprs {
+        [_] => (type_terms.iter())
+            .chain([goal])
+            .chain(exprs.iter().map(|s| &s.ty_term))
+            .map(crate::search::size)
+            .max()
+            .unwrap_or(0) as u64,
+        _ => u64::MAX,
+    };
+    exprs
+        .iter()
+        .map(|s| match &s.normal {
+            Some(normal) => Ok(Some(normal.clone())),
+            None => (|| {
+                let value = cx.eval(&s.term)?;
+                Ok(quote_at_most(g, base, &value, cap)?)
+            })()
+            .map_err(|d| in_scrutinee(d, s.span)),
+        })
+        .collect()
+}
+
+/// `d`, if it is running out of resources with nothing saying where, said
+/// to have happened computing the scrutinee at `span`.
+fn in_scrutinee(d: Diagnostic, span: stitchwort_syntax::Span) -> Diagnostic {
+    ran_out_at(d, span, "while computing what this `match` matches on")
+}
+
+/// `d`, if it is running out of resources with nothing saying where,
+/// labelled `label` at `span`.
+fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diagnostic {
+    if d.code == "E-RESOURCE" && d.labels.is_empty() {
+        d.with_label(span, label)
+    } else {
+        d
+    }
+}
+
 /// The warnings for the named expression scrutinees that occur neither in
 /// the goal nor in a hypothesis, by index: such a `match` replaces nothing,
 /// so every alternative has the goal unchanged. Each is given only if the
@@ -946,32 +1032,31 @@ fn generalised_now(
 fn not_found(
     cx: &Ctx,
     exprs: &[Scrut],
+    normals: &[Option<Term>],
     copied: &[usize],
     type_terms: &[Term],
     goal: &Value,
-    base: usize,
+    goal_normal: &Term,
 ) -> Result<Vec<(usize, Diagnostic)>> {
     let g = cx.g();
-    let mut goal_normal = None;
     let mut out = Vec::new();
     if !crate::patlet::proposition(cx, goal)? {
         return Ok(out);
     }
-    for (i, s) in exprs.iter().enumerate() {
+    for ((i, s), normal) in exprs.iter().enumerate().zip(normals) {
+        // One larger than every type and the goal occurs in none of them.
+        let found = |t: &Term| normal.as_ref().is_some_and(|n| occurs(n, t));
         if s.name.is_none()
-            || matches!(s.normal.strip_loc(), Term::Var(_))
-            || copied.iter().any(|&l| occurs(&s.normal, &type_terms[l]))
+            || normal
+                .as_ref()
+                .is_some_and(|n| matches!(n.strip_loc(), Term::Var(_)))
+            || copied.iter().any(|&l| found(&type_terms[l]))
+            || found(goal_normal)
         {
             continue;
         }
-        let goal_normal = match &goal_normal {
-            Some(term) => term,
-            None => goal_normal.insert(quote(g, base, goal)?),
-        };
-        if occurs(&s.normal, goal_normal) {
-            continue;
-        }
-        let shown = pretty::term_for_message_in(g, cx.e, &cx.names, &s.normal);
+        let shown =
+            pretty::term_for_message_in(g, cx.e, &cx.names, normal.as_ref().unwrap_or(&s.term));
         let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.names, goal_normal);
         out.push((
             i,
@@ -1144,8 +1229,8 @@ pub(crate) fn occurs(needle: &Term, hay: &Term) -> bool {
         .any(|(t, under)| same_shifted(needle, t, under, 0))
 }
 
-fn any_occurs(needles: &[&Term], hay: &Term) -> bool {
-    needles.iter().any(|n| occurs(n, hay))
+fn any_occurs(needles: &[Option<&Term>], hay: &Term) -> bool {
+    needles.iter().flatten().any(|n| occurs(n, hay))
 }
 
 /// The occurrence test (§4.4): the same term, looking through source
@@ -1246,7 +1331,8 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
 struct Generalise<'a> {
     base: usize,
     depth: usize,
-    exprs: &'a [&'a Term],
+    /// `None` for a scrutinee that occurs nowhere ([`normals`]).
+    exprs: &'a [Option<&'a Term>],
     copies: &'a HashMap<usize, usize>,
 }
 
@@ -1254,7 +1340,7 @@ impl Generalise<'_> {
     fn apply(&self, g: &stitchwort_core::Globals, term: &Term) -> Result<Term> {
         let hook = |t: &Term, under: usize| {
             self.exprs.iter().enumerate().find_map(|(i, e)| {
-                same_shifted(e, t, under, 0)
+                e.is_some_and(|e| same_shifted(e, t, under, 0))
                     .then(|| Term::Var(self.depth + under - 1 - (self.base + i)))
             })
         };

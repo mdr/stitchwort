@@ -587,3 +587,58 @@ fn running_out_of_steps_names_the_declaration_being_checked() {
     );
     assert_eq!(resource.labels.len(), 1, "{resource:?}");
 }
+
+const SEARCH: &str = "import Std (List, Nat, Option)\n\n\
+    def search (xs: List Nat) (number: Nat): Nat → Option Nat\n  \
+    | 0 => None\n  \
+    | Succ more =>\n    \
+    if xs.all (x => x == 0) then Some number\n    \
+    else search (xs.map (x => x - 1)) (Succ number) more\n\n\
+    def answer (xs: List Nat): Option Nat := search xs 1 1000\n\n\
+    def isSome: Option Nat → Bool\n  | Some _ => True\n  | None => False\n";
+
+/// A `match` on a bounded search reads its scrutinee back only as far as
+/// the largest term it could occur in (SW-982): here the type `Nat`, so it
+/// checks under a size limit far below the size of the search unfolded
+/// through its 1000 steps, each stuck on `xs`.
+#[test]
+fn a_match_reads_its_scrutinee_back_only_as_far_as_it_could_occur() {
+    let mut session = Session::new();
+    session.load("search.sw", SEARCH).expect("checks");
+    session.elab.limits = Limits {
+        size: 1_000,
+        ..Limits::default()
+    };
+    session
+        .load(
+            "use.sw",
+            "def describe (xs: List Nat): Nat :=\n  \
+             match answer xs with\n    | Some n => n\n    | None => 0\n",
+        )
+        .expect("checks within the size limit");
+}
+
+/// A `match` whose goal does mention a scrutinee that large still reads the
+/// goal back: running out there points at the `match`.
+#[test]
+fn running_out_generalising_a_match_points_at_it() {
+    let mut session = Session::new();
+    session.load("search.sw", SEARCH).expect("checks");
+    session.elab.limits = Limits {
+        size: 1_000,
+        ..Limits::default()
+    };
+    let diagnostics = session
+        .load(
+            "use.sw",
+            "theorem same (xs: List Nat): isSome (answer xs) = isSome (answer xs) :=\n  \
+             match answer xs with\n    | Some n => rfl\n    | None => rfl\n",
+        )
+        .unwrap_err();
+    let resource = diagnostics
+        .iter()
+        .find(|d| d.code == "E-RESOURCE")
+        .unwrap_or_else(|| panic!("{diagnostics:?}"));
+    let labels: Vec<&str> = resource.labels.iter().map(|l| l.message.as_str()).collect();
+    assert_eq!(labels, ["while generalising this `match`"], "{resource:?}");
+}
