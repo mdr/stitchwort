@@ -165,7 +165,7 @@ The rules, in brief (the full set is in [projects.md](../projects.md)):
 
 ## The standard library
 
-The library's source is in `crates/elab/src/std/`, and `stitchwort std-source List/Toolkit.sw` prints a file; in the editor, go to definition opens it. A few conventions run through it:
+The library's source is in `crates/elab/src/std/`, and `stitchwort std-source List/Toolkit.sw` prints a file; in the editor, go to definition opens it. To find out what a function does without reading its file, `stitchwort doc List.filterMap` prints its header, the comment above it, the tests and theorems named after it as examples, and the theorems about it; `stitchwort doc List` lists what a namespace declares, with a line on each (`--theorems 0` skips the check, for an instant answer). A few conventions run through it:
 
 - The main argument comes first, then the other arguments, then any function arguments: `List.map xs f`, `Text.split line ','`, `Map.get map key`, `xs.foldLeft 0 (total n => total + n)`. Dot notation and pipes put the value there (`xs.map f`, `xs |> .map f`), and a function ending in a lambda suits a lambda that spans lines. A function with two arguments of the same type is named so that the dot reads as a sentence: `t.startsWith p`, `a.sub b`, `xs.append ys`.
 - Functions are total. Where an answer may not exist, the result is an `Option` (`List.maximum`, `Text.toNat`, `Map.get`), or the function takes a default (`getOrElse`, `List.headOr`).

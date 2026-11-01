@@ -358,6 +358,18 @@ stitchwort search --rewrite 'List.map (List.map _ _) _' # equations and Iffs to 
 stitchwort search 'Nat → List _ → List _' --definitions # a function by its type
 ```
 
+**To find out what a function does, run `stitchwort doc NAME` before reading
+its source** (`stitchwort doc List.filterMap`, `stitchwort doc Shape.scale` in
+a project). It prints the header with its parameter names, the doc, the tests
+and `…Example` theorems named after it (the quickest way to see how it is
+called and what it returns), and its theorems, the rewrite rules first, with
+the command that lists all. `stitchwort doc Option` or `stitchwort doc
+Aoc.Year2024.Day06` lists a namespace's declarations with their summaries.
+`--theorems 0` skips the check, so it is instant
+([syntax.md](syntax.md#what-a-declaration-does-stitchwort-doc)). `stitchwort
+search '"filterMap"'` ranks the declaration with that name first, then the
+theorems that merely contain it.
+
 **At a `?`, run `stitchwort search --at FILE:LINE` before writing a proof by
 hand.** It lists the lemmas that close the goal there, as proofs to paste,
 each checked by the kernel (`exact`, `withHypotheses`, `afterObligations`),

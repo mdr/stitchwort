@@ -22,7 +22,7 @@ Whitespace around `:` doesn't matter to the parser: `(n : Nat)`, `(n: Nat)` and 
 
 ## Doc comments
 
-A declaration's **doc** is the comment above it (docs/proposals/documentation.md; stage 1a, SW-1018). No syntax is new: `--|` is a `--` comment, and the compiler ignores both. Tools read the text when they show it: `stitchwort search` prints a one-line summary under each result, `check --index` gives each symbol its `doc`, `summary` and `docMarker`, and the language server shows the full doc when you hover a name (the playground shows only the summary).
+A declaration's **doc** is the comment above it (docs/proposals/documentation.md; stage 1a, SW-1018). No syntax is new: `--|` is a `--` comment, and the compiler ignores both. Tools read the text when they show it: `stitchwort search` prints a one-line summary under each result, `check --index` gives each symbol its `doc`, `summary` and `docMarker`, `stitchwort doc NAME` prints the full doc with the declaration's examples and theorems (below), and the language server shows the full doc when you hover a name (the playground shows only the summary).
 
 ```
 --| Keeps the `Some` results, in order.
@@ -40,6 +40,28 @@ def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
 - **The summary** is the doc's first sentence: the first paragraph's lines joined by single spaces, up to the first `.` outside backticks that is followed by whitespace or the end (not the ones in `e.g.` and `i.e.`). One over 160 characters is cut at the last space before the 160th that is outside backticks, and ends in `…`. It is never made from the type.
 
 Docs are read from the declaration's file as it is, when they are shown. They are not part of elaboration, hashes or the check cache, so editing one re-elaborates and re-hashes nothing. The code is `stitchwort_syntax::docs`.
+
+### What a declaration does, `stitchwort doc`
+
+`stitchwort doc NAME` (SW-1019; docs/proposals/documentation.md §5.3 to §5.5) shows a declaration in one place: its header as written (with the parameter names the elaborated type drops), its doc, where it is and what to import, the **examples** attached to it, and the **theorems** about it. **To find out what a function does, run it before reading the source.**
+
+```
+stitchwort doc List.filterMap                # the library, from anywhere
+stitchwort doc Shape.scale                   # a project name, as `import N (..)` sees it
+stitchwort doc Aoc.Common.Range.size         # or in full
+stitchwort doc Option                        # a type: its constructors, then the namespace's declarations
+stitchwort doc Std.List.Cons                 # a constructor, field or ability operation shows what it belongs to
+stitchwort doc Aoc.Year2024.Day06            # a namespace: its file docs, then each definition, type, interface and ability with its summary
+stitchwort doc Text.padLeft --theorems 0     # no check: header, doc and examples from parsing alone (about 0.3 s)
+stitchwort doc List.map --json               # version 1
+```
+
+- **The name** is a full name, a library name without `Std.`, or a project name as `import N (..)` sees it (project namespaces are tried the way `import` does). Several matches are listed, and exit status is 2 (write one in full); none prints the names that look like it and exits 1; a name found exits 0, documented or not. A type that is also a namespace (`List`, `Option`, `Map`) prints the type first, then the namespace's listing. The project is the one found from the folder you're in, or `--project DIR`, or `FILE` instead of one; with none, the library alone.
+- **Examples** (D2135, D2144): a `test` whose description is a qualified name of the declaration (`test "List.unzip"`; any suffix with two components or more counts), or starts with one and then a space, `,` or `:` (`test "Result.map, an error"`), or is its unqualified name when it is a function (a definition with a function type) and the test is in its file; and a theorem named `X.yExample`, `X.yExample2`, … for the declaration `X.y`. They are printed with their source and never run: `stitchwort test` runs the tests and `check` the theorems. A closed theorem proved by `rfl` that merely mentions the declaration is not an example (D2145); it is among its theorems.
+- **Theorems** (D2141): for a definition, the theorems whose statement mentions it (what `stitchwort search NAME --theorems` finds, but for the `…Example` theorems, which are examples), in three groups, then in search's order (fewest premises, smallest, by name): **`rewrite`**, named after it, with an equation or `Iff` whose left side is headed by it (`List.filterMapAppend`); **`named`**, the other theorems named after it (`List.memFilterMapElim`); **`other`**, the rest (`Char.toTextDigits` mentions `List.filterMap` but is about digits). "Named after" means the theorem's last name component contains the declaration's as whole camel-case words, whatever the case of the first letter. At most 8 are shown (`--theorems N`; `0` shows none and skips the check, so there is no elaborated `type` in the JSON), with the total and the `stitchwort search` command, with `--limit` set, that lists all of them. A statement is printed without the leading parameters that only later ones use. Theorems are not listed for a type, interface, ability, constructor, field, operation, theorem or instance.
+- **Scope** (D2146): for a library name, the library's theorems and tests (`--project` or a file adds the project's). For a project name, the declaration's namespace and the namespaces that use it, directly or not (they import from it or write a name that resolves into it: the project's own dependency graph), and only those are checked and searched: a namespace that doesn't use it isn't looked in, or even checked. For `Aoc.Common` that is most of the project; for a day's code it is the day's own namespaces.
+- **JSON** (version 1): `name`, `kind` (`definition`, `theorem`, `instance`, `type`, `interface`, `ability`, `constructor`, `field`, `operation`), `header`, `type` (absent without a check, or for a type, interface or ability), `file`, `line`, `import`, `container` (for a member), `doc`, `summary` and `docMarker` (`null` without a doc), `members`, `examples` (`kind`, `name`, `file`, `line`, `source`), `theorems` (`total`, `shown` with `name`, `type`, `statement`, `file`, `line`, `summary`, `group`, and `command`; `null` when not listed) and `warnings`; a type that is a namespace has the listing under `namespace`. A namespace is `{version, namespace, fileDocs, members}`. Several matches are `{version, matches}`, none `{version, matches: [], closest}`.
+- **Cost**: the doc, summary, header and examples need only parsing (about 0.3 s, std included). The elaborated type and the theorems load the library through the check cache: about 0.4 s warm for a library name, 18 s cold; a project name also checks its namespace and those that use it.
 
 ## Declarations
 
@@ -1348,7 +1370,7 @@ A result whose declaration has a doc (above) gets one more line, its summary: `s
     Keeps the `Some` results, in order.
 ```
 
-The summary is shown, never matched: no query finds a result by the words of its doc. A constructor has none, since its location is its type's.
+The summary is shown, never matched: no query finds a result by the words of its doc. A constructor has none, since its location is its type's. With only `"text"` parts, a result whose name is the text (the last component for `"filterMap"`, the whole name at a dot for `"List.filterMap"`) comes first (D2154); it used to come last, behind the theorems about it. To read what a name does, rather than find it, use [`stitchwort doc`](#what-a-declaration-does-stitchwort-doc).
 
 **The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
 
