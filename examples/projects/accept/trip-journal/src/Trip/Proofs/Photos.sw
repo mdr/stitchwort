@@ -107,35 +107,34 @@ theorem inCombined (local: Trip) (remote: Trip) (dr: List.Distinct (List.map rem
       List.anyElim (a => id ∈ a.photos.map Photo.id) (id ∈ photoIds combined) remote.albums
         (List.memFlatMapElim (a => a.photos.map Photo.id) id remote.albums inRemote)
         (album inAlbums inAlbum =>
-          match List.decMem album.id (List.map local.albums (a => a.id)) with
-            | Yes shared =>
-              Exists.elim (List.memMapElim (a => a.id) album.id local.albums shared) (mine both =>
-                match both with
-                  | Both inMine sameId =>
-                    let found: remote.albums.find (other => other.id == mine.id) = Some album :=
-                      rewrite sameId in List.findKeyDistinct (a => a.id) remote.albums dr album inAlbums
-                    List.memFlatMapIntro (a => a.photos.map Photo.id) (withPhotosOf remote.albums mine) id combined
-                      (List.memMap (albumEntries local remote) (withPhotosOf remote.albums mine, locate local.legs mine.start)
-                        (List.memAppendLeft (withPhotosOf remote.albums mine, locate local.legs mine.start) fromLocal
-                          (List.differenceBy fromRemote fromLocal (entry => entry.fst.id))
-                          (List.memMap local.albums mine inMine (a => (withPhotosOf remote.albums a, locate local.legs a.start))))
-                        (entry => entry.fst))
-                      (rewrite found in
-                        Exists.elim (List.memMapElim Photo.id id album.photos inAlbum) (photo pb =>
-                          match pb with
-                            | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByLeft Photo.id album.photos mine.photos photo inPhotos)))
-            | No fresh =>
-              let freshKey: album.id ∉ List.map fromLocal (entry => entry.fst.id) :=
-                rewrite List.mapMap local.albums (entry => entry.fst.id) (a => (withPhotosOf remote.albums a, locate local.legs a.start)),
-                  List.mapCong local.albums (a => (withPhotosOf remote.albums a).id) (a => a.id) (a => withPhotosOfId remote.albums a) in
-                fresh
-              List.memFlatMapIntro (a => a.photos.map Photo.id) album id combined
-                (List.memMap (albumEntries local remote) (album, locate remote.legs album.start)
-                  (List.memAppendRight (album, locate remote.legs album.start) fromLocal (List.differenceBy fromRemote fromLocal (entry => entry.fst.id))
-                    ((List.memDifferenceBy (album, locate remote.legs album.start) fromRemote fromLocal (entry => entry.fst.id)).backward
-                      (Both (List.memMap remote.albums album inAlbums (a => (a, locate remote.legs a.start))) freshKey)))
-                  (entry => entry.fst))
-                inAlbum)
+          if shared: album.id ∈ List.map local.albums (a => a.id) then
+            Exists.elim (List.memMapElim (a => a.id) album.id local.albums shared) (mine both =>
+              match both with
+                | Both inMine sameId =>
+                  let found: remote.albums.find (other => other.id == mine.id) = Some album :=
+                    rewrite sameId in List.findKeyDistinct (a => a.id) remote.albums dr album inAlbums
+                  List.memFlatMapIntro (a => a.photos.map Photo.id) (withPhotosOf remote.albums mine) id combined
+                    (List.memMap (albumEntries local remote) (withPhotosOf remote.albums mine, locate local.legs mine.start)
+                      (List.memAppendLeft (withPhotosOf remote.albums mine, locate local.legs mine.start) fromLocal
+                        (List.differenceBy fromRemote fromLocal (entry => entry.fst.id))
+                        (List.memMap local.albums mine inMine (a => (withPhotosOf remote.albums a, locate local.legs a.start))))
+                      (entry => entry.fst))
+                    (rewrite found in
+                      Exists.elim (List.memMapElim Photo.id id album.photos inAlbum) (photo pb =>
+                        match pb with
+                          | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByLeft Photo.id album.photos mine.photos photo inPhotos)))
+          else
+            let freshKey: album.id ∉ List.map fromLocal (entry => entry.fst.id) :=
+              rewrite List.mapMap local.albums (entry => entry.fst.id) (a => (withPhotosOf remote.albums a, locate local.legs a.start)),
+                List.mapCong local.albums (a => (withPhotosOf remote.albums a).id) (a => a.id) (a => withPhotosOfId remote.albums a) in
+              shared
+            List.memFlatMapIntro (a => a.photos.map Photo.id) album id combined
+              (List.memMap (albumEntries local remote) (album, locate remote.legs album.start)
+                (List.memAppendRight (album, locate remote.legs album.start) fromLocal (List.differenceBy fromRemote fromLocal (entry => entry.fst.id))
+                  ((List.memDifferenceBy (album, locate remote.legs album.start) fromRemote fromLocal (entry => entry.fst.id)).backward
+                    (Both (List.memMap remote.albums album inAlbums (a => (a, locate remote.legs a.start))) freshKey)))
+                (entry => entry.fst))
+              inAlbum)
 
 -- Every photo of either copy is in some merged album (and, by
 -- `mergeWellFormed`, in only one).

@@ -40,9 +40,9 @@ theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
--- `Decidable.elim` for a proof: a theorem with `decreasing (m1, m2)` makes its
--- recursive calls through it (docs/proposals/well-founded-recursion.md, stage
--- 3d).
+-- `Decidable.elim` for a proof: `if` with proofs as branches is this
+-- (SW-1015), and a theorem with `decreasing (m1, m2)` makes its recursive
+-- calls through it (docs/proposals/well-founded-recursion.md, stage 3d).
 theorem Decidable.elimProof: [p: Prop] → [a: Prop] → Decidable p → (p → a) → (Not p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
