@@ -187,7 +187,11 @@ impl Session {
     /// Searches the statement of every theorem of the program (not the
     /// library's) whose full name `keep` keeps, whether its proof checked or
     /// failed, within `budget`, in the order they were declared
-    /// (docs/proposals/counterexample-search.md §7.3).
+    /// (docs/proposals/counterexample-search.md §7.3). Not a definition's
+    /// generated equations (`f.eqK`, docs/proposals/function-equations.md):
+    /// they restate its arms and are proved by construction, so a search
+    /// could only spend its inputs on them, a line per arm of every
+    /// function (SW-1051).
     pub fn search_theorems(
         &mut self,
         budget: Budget,
@@ -203,6 +207,7 @@ impl Session {
                 (def.theorem
                     && !path.contains('%')
                     && !path.starts_with("Std.")
+                    && !stitchwort_elab::is_equation_name(&def.name)
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
                 .then(|| (id, def.name.to_string(), state == State::Final))
