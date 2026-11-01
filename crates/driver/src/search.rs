@@ -678,7 +678,12 @@ impl Session {
             merge(g, readings.into_iter().map(|(_, f)| f).collect())
         } else {
             let mut stats = Stats::default();
-            let hits = list(g, &candidates, &keep, &mut stats);
+            let mut hits = list(g, &candidates, &keep, &mut stats);
+            // Only `"text"` parts: a name that is the text itself first
+            // (D2154).
+            if query.mentions.is_empty() {
+                exact_name_first(g, &mut hits, &query.names);
+            }
             Found {
                 hits,
                 tier: SearchTier::Unfiltered,
@@ -935,6 +940,23 @@ fn list(
     stats.candidates = candidates.len();
     stitchwort_elab::search::rank(g, &mut hits);
     hits
+}
+
+/// Moves the hits whose name is one of the `"text"` parts to the front,
+/// keeping the order within each half (D2154, documentation.md §5.2): the
+/// last component of the name equals the text (`List.filterMap` for
+/// `"filterMap"`), or the name ends with the text at a dot (`"List.filterMap"`).
+fn exact_name_first(g: &Globals, hits: &mut [Hit], names: &[String]) {
+    let exact = |hit: &Hit| {
+        let path = hit.item.path(g);
+        names.iter().any(|n| {
+            path == *n
+                || path
+                    .strip_suffix(n.as_str())
+                    .is_some_and(|rest| rest.ends_with('.'))
+        })
+    };
+    hits.sort_by_cached_key(|hit| !exact(hit));
 }
 
 /// A declaration hidden unless `--all`: a generated helper (`%` in its

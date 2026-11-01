@@ -360,6 +360,27 @@ def noDocHere (n: Nat): Nat := n
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// D2154: with only `"text"` parts, the results whose name is the text rank
+/// first (they ranked last: a theorem about `filterMap` has a smaller type);
+/// within each half the order is the usual one.
+#[test]
+fn a_text_only_query_ranks_the_exact_name_first() {
+    let dir = folder("exact");
+    let (code, report) = json(&dir, &["\"filterMap\""]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(
+        names(&report)[..2],
+        ["Std.Map.filterMap", "Std.List.filterMap"]
+    );
+    // A qualified text names the declaration too.
+    let (_, report) = json(&dir, &["\"List.filterMap\""]);
+    assert_eq!(names(&report)[0], "Std.List.filterMap");
+    // A name part or a pattern beside it: the ranking is unchanged.
+    let (_, report) = json(&dir, &["\"filterMap\", List.map"]);
+    assert_ne!(names(&report)[0], "Std.List.filterMap", "{report}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 const GOALS: &str = "\
 import Std (Nat)
 
