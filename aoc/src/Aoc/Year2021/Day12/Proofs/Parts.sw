@@ -5,13 +5,12 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
-import Aoc.Year2021.Day10.Proofs (toNatAtMostOne)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
 -- The search starts in `start`, with every small cave unvisited and the
 -- spare visit left in part 2.
 theorem tracksStart (passages: List (Text, Text)) (twice: Bool): Tracks passages twice (smallCaves passages) twice ["start"] :=
-  let once := (c: Text) => (toNatAtMostOne ("start" == c): visits ["start"] c ≤ 1)
+  let once := (c: Text) => (Bool.toNatLeOne ("start" == c): visits ["start"] c ≤ 1)
   Both
     (c named small notStart notEnd => {
       forward = _ => rewrite differ "start" c (same => notStart (Eq.sym same)) in rfl,
@@ -61,7 +60,7 @@ theorem pathsCorrect (passages: List (Text, Text)) (promise: NoBigNeighbours pas
             rest (smallCaves passages) twice "start" ["start"] (tracksStart passages twice) completes
         rewrite isStart in
           List.memMap _ rest
-            (followRoutes (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4) rest (omega [toNatAtMostOne twice]) follows)
+            (followRoutes (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4) rest (omega [Bool.toNatLeOne twice]) follows)
             (Cons "start")
 }
 

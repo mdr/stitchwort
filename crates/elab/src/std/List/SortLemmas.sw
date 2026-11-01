@@ -218,6 +218,14 @@ theorem List.takeAppend: (xs: List a) → (ys: List a) → List.take (List.appen
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong (Cons x) (List.takeAppend xs ys)
 
+-- `List.takeAppend` and `List.dropAppend` at a count known to be the
+-- first list's length.
+theorem List.takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length xs = k): List.take (List.append xs ys) k = xs :=
+  rewrite <- h in List.takeAppend xs ys
+
+theorem List.dropAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length xs = k): List.drop (List.append xs ys) k = ys :=
+  rewrite <- h in List.dropAppend xs ys
+
 theorem List.headTake: (xs: List a) → (d: a) → (k: Nat) → 1 ≤ k → List.headOr (List.take xs k) d = List.headOr xs d
   | xs, d, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Nil, d, Succ k, h => rfl

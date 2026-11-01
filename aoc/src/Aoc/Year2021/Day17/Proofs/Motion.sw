@@ -14,21 +14,11 @@ theorem dragSign: (dx: Int) → dx - Int.sign dx = drag dx
 
 theorem stepIsMove (probe: Probe): step probe = move probe := rewrite dragSign probe.dx in rfl
 
--- Iterating two functions that agree everywhere gives the same result.
-theorem iterateCong (f: a → a) (g: a → a) (same: (x: a) → f x = g x): (n: Nat) → (x: a) → Nat.iterate n f x = Nat.iterate n g x
-  | 0, x => rfl
-  | Succ n, x => rewrite same x in iterateCong f g same n (g x)
-
 -- The probe after `n` steps of the program, from `velocity`.
 def flight (n: Nat) (velocity: Velocity): Probe := Nat.iterate n step (launch velocity)
 
 theorem flightIsAfter (n: Nat) (velocity: Velocity): flight n velocity = after n velocity :=
-  iterateCong step move stepIsMove n (launch velocity)
-
--- A property every step keeps holds after any number of steps.
-theorem iterateKeeps (f: a → a) (keep: a → Prop) (kept: (x: a) → keep x → keep (f x)): (n: Nat) → (x: a) → keep x → keep (Nat.iterate n f x)
-  | 0, x, h => h
-  | Succ n, x, h => iterateKeeps f keep kept n (f x) (kept x h)
+  Nat.iterateCong step move stepIsMove n (launch velocity)
 
 -- After `n` steps the y velocity is `n` less, and twice the height gained
 -- is `n * (2 * dy + 1 - n)`.

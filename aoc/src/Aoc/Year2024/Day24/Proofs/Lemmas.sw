@@ -18,14 +18,6 @@ theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits)
 theorem allMember (p: a → Bool) (xs: List a) (x: a) (all: List.all xs p = True) (member: x ∈ xs): p x = True :=
   List.allMem (y => p y = True) x xs (List.allToAll p xs all) member
 
--- Filtering keeps at most what there was.
-theorem filterNoLonger: (xs: List a) → (keep: a → Bool) → (xs.filter keep).length ≤ xs.length
-  | Nil, keep => rfl
-  | Cons x rest, keep =>
-    match keep x with
-      | True => filterNoLonger rest keep
-      | False => omega [filterNoLonger rest keep]
-
 -- What `Map.lookupLast` finds is one of the pairs.
 theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
   | Nil, found => Void.exfalso (Option.noneNotSome value found)
@@ -46,16 +38,12 @@ theorem findMapSome (f: a → Option b) (result: b): (xs: List a) → List.findM
       | Some value => Witness x (Eq.trans here found)
       | None => findMapSome f result rest found
 
-theorem toNatSmall: (bit: Bool) → bit.toNat < 2
-  | False => omega
-  | True => omega
-
 -- The lowest bit of `fromBits`, and the rest.
 theorem fromBitsLow (bit: Bool) (rest: List Bool): Nat.testBit (fromBits (Cons bit rest)) 0 = bit :=
   rewrite testBitZero (fromBits (Cons bit rest)), Nat.modAddMul bit.toNat (fromBits rest) 2 in toNatOdd bit
 
 theorem fromBitsHigh (bit: Bool) (rest: List Bool) (index: Nat): Nat.testBit (fromBits (Cons bit rest)) (Succ index) = Nat.testBit (fromBits rest) index :=
-  rewrite Nat.testBitSucc (fromBits (Cons bit rest)) index, (omega [toNatSmall bit]: (bit.toNat + fromBits rest * 2) / 2 = fromBits rest) in rfl
+  rewrite Nat.testBitSucc (fromBits (Cons bit rest)) index, (omega [Bool.toNatLeOne bit]: (bit.toNat + fromBits rest * 2) / 2 = fromBits rest) in rfl
 
 -- The bits `allSome` gives for a range: below the range's length, bit `k`
 -- of `fromBits` is what `f` gives for the range's `k`th number.

@@ -3,23 +3,11 @@
 
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
-import Aoc.Year2024.Day24.Proofs (filterNoLonger)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
-
--- Filtering out an element that is there makes the list shorter.
-theorem filterDropsShorter (keep: a → Bool) (x: a) (dropped: keep x = False): (xs: List a) → x ∈ xs → (xs.filter keep).length < xs.length
-  | Nil, member => Void.exfalso member
-  | Cons y rest, member =>
-    match member with
-      | Inl same => rewrite same, dropped in omega [filterNoLonger rest keep]
-      | Inr later =>
-        match keep y with
-          | True => filterDropsShorter keep x dropped rest later
-          | False => omega [filterDropsShorter keep x dropped rest later]
 
 -- Leaving out a cave that is there makes the list shorter.
 theorem withoutShorter (caves: List Text) (cave: Text) (member: cave ∈ caves): (without caves cave).length < caves.length :=
-  filterDropsShorter (c => not (c == cave)) cave (rewrite DecEq.refl cave in rfl) caves member
+  List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave in rfl) caves member
 
 -- A step that goes on makes the search's reach smaller.
 theorem stepDecreases (unvisited: List Text) (spare: Bool) (cave: Text) (other: Text) (left: List Text) (stillSpare: Bool)

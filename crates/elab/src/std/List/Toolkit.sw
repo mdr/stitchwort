@@ -475,6 +475,15 @@ def List.Distinct: List a → Prop
   | Nil => Unit
   | Cons x xs => And (x ∉ xs) (List.Distinct xs)
 
+-- Decides `List.Distinct xs` by checking each element against those after
+-- it (quadratic; `List.allDistinct` is the faster test, given an `Ord`).
+-- Its type spells out `List.Distinct`, as `List.decMem`'s does.
+instance List.decDistinct [auto eq: DecEq a]: (xs: List a) → Decidable (List.Distinct xs)
+  | Nil => Yes Trivial
+  | Cons x xs => Decidable.and (Decidable.not (List.decMem x xs)) (List.decDistinct xs)
+
+test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ not (List.Distinct [1, 2, 1]) ∧ List.Distinct ([]: List Nat)
+
 -- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 -- including, `s + c`.
 theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFrom c s → And (s ≤ x) (x < s + c)
@@ -689,6 +698,9 @@ def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=
 -- Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`. `f` may
 -- perform abilities, which run in list order.
 def List.flatMap (xs: List a) (f: a → {e} List b): {e} List b := List.concat (List.map xs f)
+
+theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: (x: a) → f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
+  Eq.cong List.concat (List.mapCong xs f1 f2 ef)
 
 -- Every pair, the first elements in order and the second elements within
 -- each: `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.

@@ -29,7 +29,7 @@ theorem filterFull (keep: a → Bool): (xs: List a) → Nat.leq (Succ (xs.filter
   | Nil, full, x, member => Void.exfalso member
   | Cons first rest, full, x, member =>
     match kept: keep first with
-      | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (omega [filterNoLonger rest keep]: Nat.leq (Succ (rest.filter keep).length) (Succ rest.length) = True)) full))
+      | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (omega [List.lengthFilterLe rest keep]: Nat.leq (Succ (rest.filter keep).length) (Succ rest.length) = True)) full))
       | True =>
         match member with
           | Inl same => rewrite <- same in kept

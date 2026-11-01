@@ -38,15 +38,5 @@ theorem checkTimersOk (timers: List Nat) (checked: List Nat) (h: Fail.toResult (
   match e: firstAbove8 timers with
     | Some (index, _) => Void.exfalso (Result.errNotOk _ checked h)
     | None =>
-      let notAbove := findIndexedNone (t => 8 < t) 0 timers e
+      let notAbove := List.findNoneAll timers (t => 8 < t) (List.findWithIndexFromNone (t => 8 < t) 0 timers e)
       rewrite <- Result.okInjective timers checked h, List.allCong timers (t => t ≤ 8) (t => not (8 < t)) (t => cases) in notAbove
-
--- No element of a list paired with its index is `bad`: none of the
--- elements is.
-theorem findIndexedNone (bad: a → Bool): (i: Nat) → (xs: List a) →
-    (List.withIndexFrom i xs).find (((_, x)) => bad x) = None → xs.all (x => not (bad x)) = True
-  | i, Nil, h => rfl
-  | i, Cons x rest, h =>
-    match e: bad x with
-      | False => findIndexedNone bad (Succ i) rest h
-      | True => Void.exfalso (Option.noneNotSome _ (Eq.sym h))

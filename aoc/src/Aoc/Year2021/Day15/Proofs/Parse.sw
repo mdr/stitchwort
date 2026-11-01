@@ -10,8 +10,7 @@
 namespace Aoc.Year2021.Day15.Proofs
 import Aoc.Year2021.Day15 (..)
 import Aoc.Year2021.Day15.Spec (..)
-import Aoc.Year2021.Day09.Proofs (findIndexedNone, sameOfNotDiffer)
-import Std (Decidable, Eq, Fail, Fin, List, Nat, Result, Void)
+import Std (Bool, DecEq, Decidable, Eq, Fail, Fin, List, Nat, Result, Void)
 
 -- What `parseCave` reads is a rectangle with a digit.
 theorem parseRectangle (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Rectangle cave :=
@@ -34,11 +33,11 @@ theorem checkCaveOk (rows: List (List (Fin 10))) (cave: Cave) (h: Fail.toResult 
         | Some (index, _) => Void.exfalso (Result.errNotOk _ cave h)
         | None =>
           let same: rows = cave.rows := Eq.cong Cave.rows (Result.okInjective _ cave h)
-          let notRagged := findIndexedNone (row => row.length != width rows) 0 rows e
+          let notRagged := List.findNoneAll rows (row => row.length != width rows) (List.findWithIndexFromNone (row => row.length != width rows) 0 rows e)
           let wide: Not (width rows = 0) := Decidable.toBoolFalse _ empty
           rewrite <- same in
             Both (omega [wide])
-              (row member => sameOfNotDiffer row.length (width rows) (List.allMem _ row rows (List.allToAll _ rows notRagged) member))
+              (row member => DecEq.neFalse row.length (width rows) (Bool.notTrue _ (List.allMem _ row rows (List.allToAll _ rows notRagged) member)))
 
 -- Part 1's answer is the lowest total risk, for every input the parser
 -- accepts.

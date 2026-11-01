@@ -33,14 +33,7 @@ theorem checkShapesOk (lines: List Line) (checked: List Line) (h: Fail.toResult 
     checked.all (line => horizontalOrVertical line ∨ diagonal line) = True :=
   match e: firstBent lines with
     | Some (index, _) => Void.exfalso (Result.errNotOk _ checked h)
-    | None => rewrite <- Result.okInjective lines checked h in findIndexedNone (line => line.isStraight ∨ line.isDiagonal) 0 lines e
-
--- No element of a list paired with its index fails `good`: every element
--- passes it.
-theorem findIndexedNone (good: a → Bool): (i: Nat) → (xs: List a) →
-    (List.withIndexFrom i xs).find (((_, x)) => not (good x)) = None → xs.all good = True
-  | i, Nil, h => rfl
-  | i, Cons x rest, h =>
-    match e: good x with
-      | True => findIndexedNone good (Succ i) rest h
-      | False => Void.exfalso (Option.noneNotSome _ (Eq.sym h))
+    | None =>
+      rewrite <- Result.okInjective lines checked h in
+        List.findNotNoneAll lines (line => line.isStraight ∨ line.isDiagonal)
+          (List.findWithIndexFromNone (line => not (line.isStraight ∨ line.isDiagonal)) 0 lines e)

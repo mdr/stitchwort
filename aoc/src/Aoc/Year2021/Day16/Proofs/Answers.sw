@@ -4,7 +4,6 @@
 -- for every packet the parser reads.
 
 namespace Aoc.Year2021.Day16.Proofs
-import Aoc.Year2021.Day14.Proofs (maximumSome)
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (..)
 import Std (Bool, Decidable, Eq, Exists, Fail, List, Nat, Option, Result, Text, Void)
@@ -56,7 +55,7 @@ theorem applyComputes (operation: Operation) (values: List Nat) (fits: fitsOpera
     | Maximum, values =>
       match m: List.maximum values with
         | Some most =>
-          let found := maximumSome values most m
+          let found := List.maximumSome values most m
           MaximumOf found.left found.right
         | None =>
           match values with

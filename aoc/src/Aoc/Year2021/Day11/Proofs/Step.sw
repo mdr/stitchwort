@@ -72,12 +72,7 @@ theorem allZeroCorrect (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool) 
     (step levels).gridCells.all (cell => cell.snd == 0) = levels.gridCells.all (cell => flashed cell.fst) :=
   let same := flashersUnique levels (flashedAt (flashers levels)) flashed (flashersCorrect levels) spec
   calc (step levels).gridCells.all (cell => cell.snd == 0)
-    _ = ((step levels).gridCells.map (cell => cell.snd == 0)).all (b => b) := Eq.sym (allMapBool (step levels).gridCells (b => b) (cell => cell.snd == 0))
+    _ = ((step levels).gridCells.map (cell => cell.snd == 0)).all (b => b) := Eq.sym (List.allMapBool (step levels).gridCells (b => b) (cell => cell.snd == 0))
     _ = (levels.gridCells.map (cell => flashedAt (flashers levels) cell.fst)).all (b => b) := rewrite stepCells levels
-    _ = levels.gridCells.all (cell => flashedAt (flashers levels) cell.fst) := allMapBool levels.gridCells (b => b) (cell => flashedAt (flashers levels) cell.fst)
+    _ = levels.gridCells.all (cell => flashedAt (flashers levels) cell.fst) := List.allMapBool levels.gridCells (b => b) (cell => flashedAt (flashers levels) cell.fst)
     _ = levels.gridCells.all (cell => flashed cell.fst) := List.allCong levels.gridCells _ _ (cell => same cell.fst)
-
--- `all` of a `map`.
-theorem allMapBool: (xs: List a) → (p: b → Bool) → (f: a → b) → (xs.map f).all p = xs.all (x => p (f x))
-  | Nil, p, f => rfl
-  | Cons x rest, p, f => rewrite allMapBool rest p f in rfl

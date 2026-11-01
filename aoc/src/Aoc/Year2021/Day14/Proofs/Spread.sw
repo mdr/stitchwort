@@ -1,26 +1,13 @@
 -- The program's list of element counts has the same members as the
 -- puzzle's (`quantitiesInto`, `quantitiesBack`), so the same greatest and
--- least (`maximumSame`, `minimumSame`), and the answer is the puzzle's for
--- every number of steps (`spreadAfterCorrect`).
+-- least (std's `List.maximumSameMembers`, `List.minimumSameMembers`), and
+-- the answer is the puzzle's for every number of steps
+-- (`spreadAfterCorrect`).
 
 namespace Aoc.Year2021.Day14.Proofs
 import Aoc.Year2021.Day14 (..)
 import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
-
--- Membership and counting.
-
--- A member is counted at least once...
-theorem countPositive [auto eq: DecEq a] (c: a) (xs: List a) (member: c ∈ xs): 0 < List.count xs (== c) :=
-  omega [List.countFalse xs, List.countLtMem xs (x => False) (== c) (x _ never => cases) c member (DecEq.refl c) rfl]
-
--- ...and an element counted is a member.
-theorem positiveMember [auto eq: DecEq a] (c: a): (xs: List a) → 0 < List.count xs (== c) → c ∈ xs
-  | Nil, positive => omega
-  | Cons x rest, positive =>
-    match t: x == c with
-      | True => Inl (DecEq.sound x c t)
-      | False => Inr (positiveMember c rest (omega [List.countCons rest x (== c)]))
 
 -- A sum with a positive term has a member that gives it.
 theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < List.sumBy xs f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
@@ -43,7 +30,7 @@ theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → 
 -- A pair of the polymer has a count in the counts that stand for it.
 theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: (Char, Char)) (member: pair ∈ List.zipWithNext polymer):
     pair ∈ Map.keys counts :=
-  let counted := countPositive pair (List.zipWithNext polymer) member
+  let counted := List.countPositive (List.zipWithNext polymer) (== pair) pair member (DecEq.refl pair)
   let asSum := List.countSumBy (List.zipWithNext polymer) (== pair)
   let weighted := represents (other => Bool.toNat (other == pair))
   match sumByPositive ((entry: ((Char, Char), Nat)) => entry.snd * Bool.toNat (entry.fst == pair)) (Map.toList counts) (omega [counted, asSum, weighted]) with
@@ -69,7 +56,7 @@ theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (rep
     | Witness c (Both _ same) =>
       let equal := elementCountQuantity first tail counts represents c
       let counted: 0 < List.count (Cons first tail) (== c) := omega [equal, same, positive]
-      let inPolymer := positiveMember c (Cons first tail) counted
+      let inPolymer := List.memOfCountPositive c (Cons first tail) counted
       let inDistinct := (List.memDistinct c (Cons first tail)).backward inPolymer
       rewrite <- same, equal in List.memMap (List.distinct (Cons first tail)) c inDistinct (quantity (Cons first tail))
 
@@ -89,7 +76,7 @@ theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (rep
                 Inr (rewrite <- ends in List.memMap (Map.keys counts) pair (pairCounted counts polymer represents pair inPairs) Pair.snd)
       let inCandidates := (List.memDistinct c (Cons first keyEnds)).backward candidate
       let equal := elementCountQuantity first tail counts represents c
-      let positive := countPositive c polymer inPolymer
+      let positive := List.countPositive polymer (== c) c inPolymer (DecEq.refl c)
       List.memFilterIntro (List.map (List.distinct (Cons first keyEnds)) (elementCount first counts)) (quantity => 0 < quantity) v
         (rewrite <- same, <- equal in List.memMap (List.distinct (Cons first keyEnds)) c inCandidates (elementCount first counts))
         (cases)
@@ -100,8 +87,8 @@ theorem spreadCorrect (first: Char) (rest: List Char) (tail: List Char) (counts:
     spread (Cons first rest) counts = spreadOf (Cons first tail) :=
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
-  rewrite maximumSame (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back,
-    minimumSame (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back in rfl
+  rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back,
+    List.minimumSameMembers (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back in rfl
 
 -- The answer is the puzzle's after any number of steps, if no two rules
 -- are for the same pair.

@@ -8,7 +8,7 @@ import Std (Bool, Eq, Exists, Nat, Void)
 
 -- A probe past the target is never in it again.
 theorem pastNever (target: Target) (probe: Probe) (h: past target probe = True) (n: Nat): inTarget target (Nat.iterate n step probe) = False :=
-  pastOutside target _ (iterateKeeps step (q => past target q = True) (pastStays target) n probe h)
+  pastOutside target _ (Nat.iterateKeeps step (q => past target q = True) (pastStays target) n probe h)
 
 -- What `hitsWithin` finds is there.
 theorem hitsWithinSound (target: Target): (steps: Nat) → (probe: Probe) → hitsWithin target steps probe = True →

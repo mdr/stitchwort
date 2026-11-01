@@ -99,7 +99,7 @@ theorem basinSizeOpen (map: HeightMap) (low: Position) (open: map.isOpen low = T
   Witness result.keys
     (Both (Map.keysDistinct result)
       (Both (location => { forward = found => foundInBasin map low open location found, backward = inBasin => inBasinFound map low location inBasin })
-        (Eq.trans (List.lengthMap result.toList Pair.fst) (Eq.sym (Map.sizeToList result)))))
+        (Map.lengthKeys result)))
 
 -- A height that isn't "not 9" is 9...
 theorem nineOfClosed (height: Nat) (closed: (height != 9) = False): height = 9 :=

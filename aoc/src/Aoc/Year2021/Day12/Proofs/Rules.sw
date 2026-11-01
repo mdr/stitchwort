@@ -5,7 +5,6 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
-import Aoc.Year2021.Day10.Proofs (toNatAtMostOne)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Text, Void)
 
 -- The visit rule as far as a path has gone: with `twice` (part 2) one
@@ -275,7 +274,7 @@ theorem smallBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: Lis
       Exists.elim some (d both =>
         let (Both smallD twiceD) := both
         let same := once d y smallD small (Nat.leTrans 2 (visits sofar d) _ twiceD (visitsGrow sofar (Cons y more) d)) (omega)
-        Void.exfalso (omega [rewrite same at twiceD, toNatAtMostOne twice]))
+        Void.exfalso (omega [rewrite same at twiceD, Bool.toNatLeOne twice]))
 
 -- Each route the steps allow finishes a path by the rules...
 theorem followsCompletes (passages: List (Text, Text)) (next: Text → List Text)

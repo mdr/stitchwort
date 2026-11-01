@@ -133,11 +133,7 @@ theorem sumRewired (wiring: Segment → Segment) (wired: IsWiring wiring) (h: Se
 
 theorem allRewired (wiring: Segment → Segment) (wired: IsWiring wiring) (h: Segment → Bool):
     segments.all (wire => h (wiring wire)) = segments.all h :=
-  Eq.trans (Eq.sym (allMapped wiring h segments)) (List.allPerm (segments.map wiring) segments wired h)
-
-theorem allMapped (f: a → b) (q: b → Bool): (xs: List a) → List.all (xs.map f) q = List.all xs (x => q (f x))
-  | Nil => rfl
-  | Cons x rest => rewrite allMapped f q rest in rfl
+  Eq.trans (Eq.sym (List.allMapBool segments h wiring)) (List.allPerm (segments.map wiring) segments wired h)
 
 -- Under a wiring, a pattern shows at most one digit, so it shows the digit
 -- `shown` finds.

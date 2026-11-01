@@ -451,6 +451,16 @@ theorem List.appendNil: (xs: List a) → List.append xs Nil = xs
   | Nil => rfl
   | Cons x xs => Eq.cong (Cons x) (List.appendNil xs)
 
+-- Appending to a list that isn't empty, or appending one that isn't, gives
+-- a list that isn't empty.
+theorem List.appendNotNilLeft: (xs: List a) → (ys: List a) → Not (xs = Nil) → Not (List.append xs ys = Nil)
+  | Nil, ys, some, empty => some rfl
+  | Cons x rest, ys, some, empty => List.consNotNil x (List.append rest ys) empty
+
+theorem List.appendNotNilRight: (xs: List a) → (ys: List a) → Not (ys = Nil) → Not (List.append xs ys = Nil)
+  | Nil, ys, some, empty => some empty
+  | Cons x rest, ys, some, empty => List.consNotNil x (List.append rest ys) empty
+
 theorem List.appendAssoc: (xs: List a) → (ys: List a) → (zs: List a) → List.append (List.append xs ys) zs = List.append xs (List.append ys zs)
   | Nil, ys, zs => rfl
   | Cons x xs, ys, zs => Eq.cong (Cons x) (List.appendAssoc xs ys zs)
@@ -510,6 +520,39 @@ theorem List.lengthFilter: (xs: List a) → (p: a → Bool) → List.length (Lis
       match keep: p x with
         | True => rfl
         | False => rfl
+
+-- A count is at most the length, and so is a `filter`'s length; filtering
+-- out an element that is there makes the list shorter.
+theorem List.countLeLength: (xs: List a) → (p: a → Bool) → List.count xs p ≤ List.length xs
+  | Nil, p => Nat.leRefl 0
+  | Cons x rest, p =>
+    rewrite List.countCons rest x p in omega [List.countLeLength rest p, Bool.toNatLeOne (p x)]
+
+theorem List.lengthFilterLe (xs: List a) (p: a → Bool): List.length (List.filter xs p) ≤ List.length xs :=
+  rewrite List.lengthFilter xs p in List.countLeLength xs p
+
+theorem List.lengthFilterLt (p: a → Bool) (x: a) (dropped: p x = False): (xs: List a) → x ∈ xs → List.length (List.filter xs p) < List.length xs
+  | Nil, member => Void.exfalso member
+  | Cons y rest, Inl same => rewrite same, dropped in omega [List.lengthFilterLe rest p]
+  | Cons y rest, Inr later =>
+    match p y with
+      | True => List.lengthFilterLt p x dropped rest later
+      | False => omega [List.lengthFilterLt p x dropped rest later]
+
+-- An element that passes makes the count positive, and the other way
+-- round, for an element counted by `== c`.
+theorem List.countPositive: (xs: List a) → (p: a → Bool) → (x: a) → x ∈ xs → p x = True → 0 < List.count xs p
+  | Nil, p, x, member, passes => Void.exfalso member
+  | Cons y rest, p, x, Inl same, passes => rewrite List.countCons rest y p, same, passes in omega
+  | Cons y rest, p, x, Inr later, passes =>
+    rewrite List.countCons rest y p in omega [List.countPositive rest p x later passes]
+
+theorem List.memOfCountPositive [auto eq: DecEq a] (c: a): (xs: List a) → 0 < List.count xs (== c) → c ∈ xs
+  | Nil, positive => Void.exfalso (omega: Void)
+  | Cons x rest, positive =>
+    match t: x == c with
+      | True => Inl (DecEq.sound x c t)
+      | False => Inr (List.memOfCountPositive c rest (omega [List.countCons rest x (== c)]))
 
 -- Filtering twice is filtering once by both tests.
 theorem List.filterFilter (p: a → Bool) (q: a → Bool): (xs: List a) → List.filter (List.filter xs p) q = List.filter xs (x => p x ∧ q x)
@@ -1210,6 +1253,33 @@ theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px
       | True => Option.someNotNone z h
       | False => List.findNoneNotMem zs p x px m h
 
+-- Finding nothing means every element fails, as an `all`: `find xs bad =
+-- None` gives `xs.all (x => ¬(bad x))`, and a search for one that
+-- isn't `good` finding nothing gives `xs.all good`.
+theorem List.findNoneAll: (xs: List a) → (p: a → Bool) → List.find xs p = None → List.all xs (x => ¬(p x)) = True
+  | Nil, p, h => rfl
+  | Cons x rest, p, h =>
+    match e: p x with
+      | False => List.findNoneAll rest p h
+      | True => Void.exfalso (Option.someNotNone x h)
+
+theorem List.findNotNoneAll: (xs: List a) → (good: a → Bool) → List.find xs (x => ¬(good x)) = None → List.all xs good = True
+  | Nil, good, h => rfl
+  | Cons x rest, good, h =>
+    match e: good x with
+      | True => List.findNotNoneAll rest good h
+      | False => Void.exfalso (Option.someNotNone x h)
+
+-- Searching the elements paired with their indices (`withIndex`) by the
+-- element alone finds nothing exactly when searching the list does.
+theorem List.findWithIndexFromNone (p: a → Bool): (i: Nat) → (xs: List a) →
+    List.find (List.withIndexFrom i xs) (((_, x)) => p x) = None → List.find xs p = None
+  | i, Nil, h => rfl
+  | i, Cons x rest, h =>
+    match e: p x with
+      | False => List.findWithIndexFromNone p (Succ i) rest h
+      | True => Void.exfalso (Option.someNotNone (MkPair i x) h)
+
 -- `List.find` over `List.range`: what it finds is the least number that
 -- passes, and when it finds nothing, no number in the range passes.
 
@@ -1310,6 +1380,117 @@ theorem List.minimumSome [auto ord: Ord a] (xs: List a) (least: a) (found: List.
 theorem List.minimumExists [auto ord: Ord a]: (xs: List a) → (x: a) → x ∈ xs → ∃ (least: a) => List.minimum xs = Some least
   | Nil, x, member => Void.exfalso member
   | Cons y ys, x, member => Witness (List.foldLeft ys y Ord.min) rfl
+
+-- A list with an element has a least one: `List.minimum` isn't `None`.
+theorem List.minimumNone [auto ord: Ord a] (xs: List a) (none: List.minimum xs = None) (x: a) (member: x ∈ xs): Void :=
+  match xs with
+    | Nil => member
+    | Cons y ys => Option.someNotNone (List.foldLeft ys y Ord.min) none
+
+-- Lists with the same members have the same least member.
+theorem List.minimumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (into: (v: a) → v ∈ xs → v ∈ ys) (back: (v: a) → v ∈ ys → v ∈ xs):
+    List.minimum xs = List.minimum ys :=
+  match mx: List.minimum xs with
+    | None =>
+      match my: List.minimum ys with
+        | None => rfl
+        | Some y => Void.exfalso (List.minimumNone xs mx y (back y (List.minimumSome ys y my).left))
+    | Some x =>
+      match my: List.minimum ys with
+        | None => Void.exfalso (List.minimumNone ys my x (into x (List.minimumSome xs x mx).left))
+        | Some y =>
+          let (Both xIn xLeast) := List.minimumSome xs x mx
+          let (Both yIn yLeast) := List.minimumSome ys y my
+          Eq.cong Some (Ord.leAntisymm x y (xLeast y (back y yIn)) (yLeast x (into x xIn)))
+
+-- `List.maximum`, as for `List.minimum` above: the greatest of a list that
+-- holds `most` and nothing else is `most`, an empty list has none, and what
+-- it finds is in the list and at least each element. (`List.foldMaxGe`,
+-- `List.leFoldMax` and `List.foldMaxMem` below are about folds of
+-- `Nat.max`; these are about `Ord.max`, which `List.maximum` folds.)
+
+-- Folding `Ord.max` from `most` over elements that are all `most`.
+theorem List.foldMaxAll [auto ord: Ord a] (most: a): (xs: List a) → ((x: a) → x ∈ xs → x = most) → List.foldLeft xs most Ord.max = most
+  | Nil, all => rfl
+  | Cons x rest, all =>
+    rewrite all x (Inl rfl), Ord.maxSelf most in List.foldMaxAll most rest (y member => all y (Inr member))
+
+theorem List.maximumAllEqual [auto ord: Ord a] (most: a): (xs: List a) → most ∈ xs → ((x: a) → x ∈ xs → x = most) → List.maximum xs = Some most
+  | Nil, member, all => Void.exfalso member
+  | Cons x rest, member, all =>
+    rewrite all x (Inl rfl) in Eq.cong Some (List.foldMaxAll most rest (y member => all y (Inr member)))
+
+theorem List.maximumEmpty [auto ord: Ord a]: (xs: List a) → ((x: a) → x ∈ xs → Void) → List.maximum xs = None
+  | Nil, none => rfl
+  | Cons x rest, none => Void.exfalso (none x (Inl rfl))
+
+-- Folding with `Ord.max` gives at least the start and each element, and
+-- gives the start or an element.
+theorem List.foldMaxGeStart [auto ord: Ord a]: (xs: List a) → (start: a) → start <= List.foldLeft xs start Ord.max
+  | Nil, start => Ord.leRefl start
+  | Cons y ys, start =>
+    Ord.leTrans start (Ord.max start y) (List.foldLeft ys (Ord.max start y) Ord.max) (Ord.leMaxLeft start y) (List.foldMaxGeStart ys (Ord.max start y))
+
+theorem List.foldMaxGeMember [auto ord: Ord a]: (xs: List a) → (start: a) → (x: a) → x ∈ xs → x <= List.foldLeft xs start Ord.max
+  | Nil, start, x, member => Void.exfalso member
+  | Cons y ys, start, x, Inl same =>
+    rewrite Eq.sym same in
+      Ord.leTrans y (Ord.max start y) (List.foldLeft ys (Ord.max start y) Ord.max) (Ord.leMaxRight start y) (List.foldMaxGeStart ys (Ord.max start y))
+  | Cons y ys, start, x, Inr member => List.foldMaxGeMember ys (Ord.max start y) x member
+
+theorem List.foldMaxMember [auto ord: Ord a]: (xs: List a) → (start: a) → Or (List.foldLeft xs start Ord.max = start) (List.foldLeft xs start Ord.max ∈ xs)
+  | Nil, start => Inl rfl
+  | Cons y ys, start =>
+    match List.foldMaxMember ys (Ord.max start y) with
+      | Inr member => Inr (Inr member)
+      | Inl same =>
+        match Ord.maxEither start y with
+          | Inl isStart => Inl (Eq.trans same isStart)
+          | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
+
+-- The greatest element is in the list and at least every element.
+theorem List.maximumSome [auto ord: Ord a] (xs: List a) (most: a) (found: List.maximum xs = Some most): And (most ∈ xs) ((x: a) → x ∈ xs → x <= most) :=
+  match xs with
+    | Nil => Void.exfalso (Option.noneNotSome most found)
+    | Cons y ys =>
+      let same := Option.someInjective (List.foldLeft ys y Ord.max) most found
+      Both
+        (match List.foldMaxMember ys y with
+          | Inl isY => Inl (Eq.sym (Eq.trans (Eq.sym same) isY))
+          | Inr member => Inr (rewrite same at member))
+        (x member =>
+          rewrite Eq.sym same in
+            match member with
+              | Inl isY => rewrite Eq.sym isY in List.foldMaxGeStart ys y
+              | Inr inRest => List.foldMaxGeMember ys y x inRest)
+
+-- A list with an element has a greatest one: it isn't `None`.
+theorem List.maximumExists [auto ord: Ord a]: (xs: List a) → (x: a) → x ∈ xs → ∃ (most: a) => List.maximum xs = Some most
+  | Nil, x, member => Void.exfalso member
+  | Cons y ys, x, member => Witness (List.foldLeft ys y Ord.max) rfl
+
+theorem List.maximumNone [auto ord: Ord a] (xs: List a) (none: List.maximum xs = None) (x: a) (member: x ∈ xs): Void :=
+  match xs with
+    | Nil => member
+    | Cons y ys => Option.someNotNone (List.foldLeft ys y Ord.max) none
+
+-- Lists with the same members have the same greatest member.
+theorem List.maximumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (into: (v: a) → v ∈ xs → v ∈ ys) (back: (v: a) → v ∈ ys → v ∈ xs):
+    List.maximum xs = List.maximum ys :=
+  match mx: List.maximum xs with
+    | None =>
+      match my: List.maximum ys with
+        | None => rfl
+        | Some y => Void.exfalso (List.maximumNone xs mx y (back y (List.maximumSome ys y my).left))
+    | Some x =>
+      match my: List.maximum ys with
+        | None => Void.exfalso (List.maximumNone ys my x (into x (List.maximumSome xs x mx).left))
+        | Some y =>
+          let (Both xIn xMost) := List.maximumSome xs x mx
+          let (Both yIn yMost) := List.maximumSome ys y my
+          Eq.cong Some (Ord.leAntisymm x y (yMost x (into x xIn)) (xMost y (back y yIn)))
+
+test "List.maximum and List.minimum" := List.maximum [3, 9, 2] == Some 9 ∧ List.minimum [3, 9, 2] == Some 2 ∧ List.maximum ([]: List Nat) == None
 
 -- An element that passes makes `List.any` true.
 theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y = True) → y ∈ xs → List.any xs q = True
@@ -1542,6 +1723,11 @@ test "List.foldLeftZipLeft" := List.foldLeft (List.zip [1, 2, 3] ["a", "b", "c",
 theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.any (List.map xs f) p = List.any xs (x => p (f x))
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.anyMap xs p f
+
+-- The same for `List.all`. (`List.allMap` is about the proposition `List.All`.)
+theorem List.allMapBool: (xs: List a) → (p: b → Bool) → (f: a → b) → List.all (List.map xs f) p = List.all xs (x => p (f x))
+  | Nil, p, f => rfl
+  | Cons x xs, p, f => rewrite List.allMapBool xs p f in rfl
 
 -- Some element of a `flatMap` passes exactly when some list it is made of
 -- has one.

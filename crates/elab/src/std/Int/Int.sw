@@ -19,6 +19,11 @@ theorem Int.toIntMul (m: Nat) (n: Nat): Nat.toInt (m * n) = Int.mul (Nat.toInt m
 
 theorem Int.toNatToInt (n: Nat): Int.toNat (Nat.toInt n) = n := rfl
 
+-- And back: an `Int` that isn't negative is its `toNat`.
+theorem Int.toIntToNat: (z: Int) → 0 ≤ z → Nat.toInt (Int.toNat z) = z
+  | OfNat k, nonneg => rfl
+  | NegSucc k, nonneg => Void.exfalso (Bool.falseNotTrue nonneg)
+
 theorem Int.natAbsToInt (n: Nat): Int.natAbs (Nat.toInt n) = n := rfl
 
 theorem Int.natAbsNeg: (x: Int) → Int.natAbs (Int.neg x) = Int.natAbs x

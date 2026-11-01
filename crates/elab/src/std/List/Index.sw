@@ -11,6 +11,12 @@ def List.getOr: List a → Nat → (fallback: a) → a
 
 theorem List.getOrExample: List.getOr [7, 8] 1 0 = 8 := rfl
 
+-- An element at an index below the length is in the list.
+theorem List.getOrMem: (xs: List a) → (i: Nat) → (fallback: a) → i < List.length xs → List.getOr xs i fallback ∈ xs
+  | Nil, i, fallback, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x rest, Zero, fallback, h => Inl rfl
+  | Cons x rest, Succ i, fallback, h => Inr (List.getOrMem rest i fallback h)
+
 theorem List.getOrAppendLeft: (xs: List a) → (i: Nat) → (d: a) → (ys: List a) → i < List.length xs →
     List.getOr (List.append xs ys) i d = List.getOr xs i d
   | Nil, i, d, ys, h => Void.exfalso (Bool.falseNotTrue h)

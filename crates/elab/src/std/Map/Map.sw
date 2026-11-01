@@ -433,6 +433,10 @@ theorem Map.foldLeftToList (f: b → k → v → b) (z: b) (m: Map k v [ord := o
 theorem Map.sizeToList (m: Map k v [ord := o]): Map.size m = List.length (Map.toList m) :=
   Map.indRaw [p := m' => Map.size m' = List.length (Map.toList m')] (r => Map.Raw.sizeToList r) m
 
+-- A map has as many keys as entries.
+theorem Map.lengthKeys (m: Map k v [ord := o]): List.length (Map.keys m) = Map.size m :=
+  Eq.trans (List.lengthMap (Map.toList m) Pair.fst) (Eq.sym (Map.sizeToList m))
+
 -- Inserting adds an entry unless the key is there already.
 theorem Map.sizeInsert [auto ord: Ord k] (m: Map k v) (key: k) (value: v):
     Map.size (Map.insert m key value) = (if Map.contains m key then Map.size m else Map.size m + 1) :=

@@ -15,6 +15,16 @@ theorem Nat.iterateSuccLast (f: a → a): (n: Nat) → (x: a) → Nat.iterate (S
   | Zero, x => rfl
   | Succ n, x => Nat.iterateSuccLast f n (f x)
 
+-- Iterating two functions that agree everywhere gives the same result.
+theorem Nat.iterateCong (f: a → a) (g: a → a) (same: (x: a) → f x = g x): (n: Nat) → (x: a) → Nat.iterate n f x = Nat.iterate n g x
+  | Zero, x => rfl
+  | Succ n, x => rewrite same x in Nat.iterateCong f g same n (g x)
+
+-- A property every step keeps holds after any number of steps.
+theorem Nat.iterateKeeps (f: a → a) (keep: a → Prop) (kept: (x: a) → keep x → keep (f x)): (n: Nat) → (x: a) → keep x → keep (Nat.iterate n f x)
+  | Zero, x, h => h
+  | Succ n, x, h => Nat.iterateKeeps f keep kept n (f x) (kept x h)
+
 test "Nat.iterate" := Nat.iterate 3 (* 2) 1 == 8 ∧ Nat.iterate 0 (* 2) 5 == 5
 test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!!"
 
