@@ -2282,14 +2282,14 @@ fn apply_args_postponing(
                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
                     not_a_function_hint(cx, &term, previous_function_name, value, e)
                 })?;
-                // A proof search (`omega`, `cases`, `ring`, `rewrite`) is
+                // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
                 // checked last, once the other arguments, the application's
                 // own waiting checks, the expected type and the instances
                 // now findable have fixed its goal (stage 7, rule 1;
                 // docs/proposals/postponement.md): checked here, it would
                 // fail on the unknowns they fix, or solve them by a guess
                 // (`P.ext _ _ cases cases` making the second `_` the first).
-                if proof_search(value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
+                if proof_search(cx, value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
                     let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                     searches.push((*value, dom, placeholder, id));
                     continue;
@@ -2427,11 +2427,18 @@ fn apply_args_postponing(
 
 /// Whether `value`, an argument, is a proof search that rule 1 of stage 7
 /// checks after the rest of its application: `omega`, `cases`, `ring` or
-/// `rewrite`, bracketed or not.
-fn proof_search(value: &Expr) -> bool {
+/// `rewrite`, or the builtin `rfl`, bracketed or not.
+///
+/// `rfl` is a comparison, not a search, but checked early it chooses as a
+/// search does: against a goal whose unknowns the call will fix, it can
+/// only solve them by equating its sides, a guess (`Eq.cong (Call o) rfl`
+/// against `Call o f = Call o g` made `g` be `f`), and a goal computed
+/// before a `_` was solved stays stuck (SW-1007).
+fn proof_search(cx: &Ctx, value: &Expr) -> bool {
     match value {
         Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
-        Expr::Bracketed(inner, _) => proof_search(inner),
+        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
+        Expr::Bracketed(inner, _) => proof_search(cx, inner),
         _ => false,
     }
 }
