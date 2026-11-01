@@ -12,7 +12,7 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
-12, 13, 14, 15 and 16 do (day 15's is a rectangle with a digit; day 12's promise, that no passage joins two big caves, is
+12, 13, 14, 15, 16 and 17 do (day 15's is a rectangle with a digit; day 17's is a target right of the start and below it; day 12's promise, that no passage joins two big caves, is
 one the puzzle leaves unsaid; day 13's parser folds the paper to check
 each fold's promise; day 14's is one rule per pair; day 16's is that a
 minimum or maximum has a sub-packet and a comparison exactly two); day 9's answers need no promise at all, and
@@ -3928,3 +3928,206 @@ Release build:
    and doesn't try hypotheses as rewrites (item 4).
 5. A recursive call's result can't justify the next call's decrease, so
    run-time guards stand in (item 6).
+
+## Day 17: Trick Shot
+
+One line names a target area: a range of x and a range of y, ends
+included. A probe starts at (0, 0) with a whole-number velocity. Each
+step it moves by its velocity, drag moves its x velocity one toward 0,
+and gravity lowers its y velocity by one. A velocity hits if the probe is
+in the area after some step. Part 1 is the highest y any hitting velocity
+reaches; part 2 counts the hitting velocities. Answers on Matt's input
+(`x=155..182, y=-117..-67`): 6786 and 2313 (his Scala solution's); the
+puzzle's example (`x=20..30, y=-10..-5`) gives 45 and 112. Compiler: the
+installed release build of `main`, 1 November 2026.
+
+### The program
+
+It tries every velocity in a box and simulates each for a bounded number
+of steps (`hitsWithin`), stopping early once the probe is `past` the
+target for good: right of it and not moving left (`overshot`), left of it
+and not moving right (`short`), or below it and falling (`fallen`). The
+box is `1 ≤ dx ≤ right` and `bottom ≤ dy < -bottom`, the bound `-2 *
+bottom` steps (`candidates`, `aimed`, `steps`). Part 2 is the length of
+the hitting list; part 1 the largest `peak` over it, `peak` being
+`triangle dy` (1 + 2 + … + dy, or 0 for `dy ≤ 0`). `solvePart1` is an
+`Option`: `None` if nothing hits. The parser (`text`, `int`) fails unless
+`0 < left` and `top < 0` (`placed`): the box depends on both. Both
+answers and every test were right on the first run.
+
+**The spec** (Spec/Spec.sw) is the puzzle's rules over every velocity and
+every number of steps: `drag` (one toward 0, stays at 0), `move`, `after
+n velocity` (`Nat.iterate`), `Within`, and `Hits target velocity := ∃ n,
+Within target (after n velocity)`. Part 1 is `Highest target height`:
+some hitting velocity reaches `height` at some step, and no hitting
+velocity is higher at any step. Part 2 is `HittingCount target count`:
+there is a list of `count` distinct velocities, and a velocity hits
+exactly when it is in the list.
+
+### Proved, for every target the parser accepts
+
+In `Aoc.Year2021.Day17.Proofs` (Proofs/, 6 files, 356 lines, 48
+theorems):
+
+- **The step is the puzzle's**: `stepIsMove` (the program's `dx - sign
+  dx` is `drag`), so `flightIsAfter`: the program's `flight n v` is the
+  spec's `after n v`.
+- **Closed form**: `yAfter`, `2 * y = 2 * y0 + n * (2 * dy + 1 - n)`
+  after `n` steps (by `ring` with the induction hypothesis), and `dyAfter`.
+- **Past is for good**: `pastStays` (each of the three ways lasts a
+  step) and `pastNever`: a probe past the target is never in it again.
+- **The simulation decides hitting within its bound**:
+  `hitsWithinSound` (`hitsWithin target k probe = True` gives an `n ≤ k`
+  with the probe in the target after `n` steps) and `hitsWithinComplete`
+  (the converse), for any target: stopping early is safe.
+- **The box and the bound**, for a target with `0 < left` and `top < 0`,
+  and a velocity whose probe is in the target after `n` steps:
+  `dxAtLeastOne` (else `short` at the launch), `dxAtMostRight` (else
+  `overshot` after one step), `dyAtLeastBottom` (else `fallen` after one
+  step), and `hitLate`: `2 * dy + 2 ≤ n ≤ -2 * bottom`. For `hitLate`,
+  `n * (2 * dy + 1 - n)` is not negative while `n ≤ 2 * dy + 1` (the
+  probe is at y ≥ 0, above the target), and at most `-n` after
+  (`Int.mulNonneg` and a `ring` identity each). So `hitsCandidate`: every
+  hitting velocity is one of `candidates`.
+- **Peak**: `peakAbove` (no step is above `peak`; `consecutiveNonneg`,
+  `0 ≤ d * (d + 1)`, is the key fact) and `peakReached` (after `dy`
+  steps the probe is at `peak`).
+- **Answers**, each assuming `0 < target.left` and `target.top < 0`:
+  `hittingCorrect` (`Hits target v ↔ v ∈ hitting target`, for every
+  velocity `v`), `hittingDistinct`, `part2Correct` (`HittingCount target
+  (solvePart2 target)`), `part1Correct` (`solvePart1 target = Some h →
+  Highest target h`) and `part1None` (`solvePart1 target = None →
+  ¬Hits target v` for every `v`).
+- **The parser's guarantee**, `parseTargetPlaced`: a target `parseTarget`
+  reads has `0 < left` and `top < 0`. `part1FromInput`,
+  `part1NoneFromInput` and `part2FromInput` state the answers for every
+  input the parser accepts, with no hypothesis left.
+- Tests: the example's answers (also as `rfl` theorems), the puzzle's
+  worked velocities by the spec (7,2, 6,3, 9,0 and 6,9 hit after 7, 9, 4
+  and 20 steps; 17,-4 misses) and by the program, 6,9's peak of 45, the
+  box's size, `drag`, the parser's errors, and the real input.
+
+Not proved: nothing left open. The two hypotheses, `0 < left` and `top
+< 0`, are what the box needs (a target left of the start needs negative
+`dx`; for one above the start this argument gives no upper bound on
+`dy`), and the parser checks both. Nothing else is assumed, not even
+`left ≤ right` or `bottom ≤ top`. No opaque definitions. Day 14's
+`maximumSome` and `maximumNone` are imported.
+
+`stitchwort audit Aoc.Year2021.Day17`: `audited 54 theorems: 0 failed, 2
+with warnings, 52 passed`. Both warnings are narrow hypotheses:
+`parseTargetPlaced` (random texts never parse; SW-967 item 8) and
+`hitsCandidate` (random velocities never hit the random target). The
+test theorem `exampleHitIsCandidate` applies `hitsCandidate` to 7,2 on
+the example, so its hypotheses can hold.
+
+Breaking the program breaks the proofs: `steps` one smaller fails
+`hitsCandidate` and `hittingCorrect` (`E-OMEGA`, with the model `bottom =
+-1`, `dy = 0`, `n = 2`: the bound is tight); `short` with `x ≤ left`
+fails `pastOutside` with a counterexample (a probe at `left`, in the
+target).
+
+### 1. `omega` can't see through `i.toInt + 1 - 1`
+
+On a scratch file, `theorem a (i: Nat): 0 ≤ i.toInt + 1 - 1 := omega`
+and `theorem c (i: Nat): i.toInt + 1 - 1 = i.toInt := omega` both fail:
+"`omega` can't prove `0 ≤ Std.Int.subNatNatFrom (i + 1) 1 (0 - i)`",
+with that call as its only atom. The goal computes (`OfNat i + 1` to
+`OfNat (i + 1)`, then the subtraction into `Int.subNatNatFrom`) before
+`omega` reads it, and `omega` knows nothing about the call it computes
+to. `0 ≤ i.toInt - 1 + 1` checks. It came up in `candidatesDistinct`
+(`Int.toNat ((aimed target i j).dx - 1) = i`). Workaround: `ring` proves
+the equation, and a lemma over a variable (`toNatBack z i (h: z =
+i.toInt)`) keeps the computed form out. Fix: let `omega` read the
+arithmetic as written, or teach it `Int.subNatNatFrom` (small-medium).
+
+### 2. `omega` has no `(p || q) = True`
+
+`past` is three conditions joined by `∨`, and `cases` on `pastStays`
+hit `E-CASES-BUDGET` (12 splits, 4 of them fallbacks on `probe` and its
+fields; the note's advice, a fact deciding several cases, was right).
+`omega` takes `(p && q) = True` as a goal and as a fact, and `(p || q) =
+False`, but not `(p || q) = True` either way. Workaround: name the three
+parts (`overshot`, `short`, `fallen`), prove each lasts by `omega`, and
+put them together with `Bool.orElim`, `Bool.orLeft` and `Bool.orRight`;
+a three-way `signCases` lemma took `Int.sign` apart. Fix: `omega` splits
+a `(p || q) = True` fact and tries each side of such a goal (small).
+
+### 3. `search --at` and lemma search
+
+Used on four goals. At `dyAfter`'s base case it said `omega`, `cases`
+or `byDecision` closes it. At its step it offered three rewrites, the
+first (`Nat.iterateSucc`) leaving the goal as it was (SW-963 item 6),
+and not the induction hypothesis (SW-971 item 5). At `hittingDistinct`
+its one `applies` result, `List.distinctFilter`, was the right step. At
+the goal that leaves, `List.Distinct (candidates target)`, it found
+nothing: `candidates` is a `flatMap`, the goal computes to `List.concat
+(List.map …)`, and `List.distinctFlatMap` (which closed it) no longer
+matches (SW-965 item 3, new evidence). The first query took 56 s
+(building the index), the others 2 s.
+
+I wrote `iterateCong` without searching first; 2024 day 22 has the same
+lemma (`stitchwort search 'Nat.iterate _ _ _ = Nat.iterate _ _ _'`
+lists both). Search found the rest of what I looked for
+(`Bool.falseNotTrue` for `False = True → Void`).
+
+Std candidates: `Nat.iterateCong` (two copies now) and `Nat.iterateKeeps`
+(a property every step keeps holds after `n` steps), small;
+`Int.toNat` lemmas (`0 ≤ z → (Int.toNat z).toInt = z`, `z = i.toInt →
+Int.toNat z = i`), small; `Int.signCases` (`sign` is 1, 0 or -1 with the
+sign of its argument), small; `0 ≤ d * (d + 1)` on `Int`, small;
+`2 * Nat.sumBetween 1 k = k * (k + 1)` (with it the program could use
+std's `sumBetween` for the triangle in place of its own `triangle`),
+small.
+
+### 4. Messages and smaller things
+
+- **A negative number in a list whose type comes later**: in a test,
+  `[(7, 2), …, (17, -4)].map (((dx, dy)) => … { dx, dy } …)` is
+  `E-TYPE-MISMATCH` "a `Nat` can't be negative" at `-4`, though the same
+  list without `-4` checks, its numbers becoming `Int` from the record
+  the lambda builds. The negative check is made before the literal's type
+  is known. Workaround: `([…]: List (Int, Int))`. The elaboration-order
+  family (SW-963 item 2, SW-971 item 1) with a new symptom. Fix: postpone
+  the check with the literal (small-medium).
+- **A record literal right after a theorem's `:`** is read as an
+  ability row: `theorem t: { dx = 7, dy = 2 } ∈ xs := …` is `E-PARSE`
+  "expected `}`, but found `=`", with no hint. syntax.md says this for
+  arrows. Workaround: `({ dx = 7, dy = 2 }: Velocity)`. Fix: a note
+  suggesting the brackets when `=` follows a name there (small).
+- `cases`' open-case line in the break test listed fallback splits as
+  `top = n✝.toInt` and a vacuous `n✝ ≤ n✝`, which made the case hard to
+  read; the counterexample note under it was clear (small).
+- Good: `ring [yAfter n (step probe)]` proved the closed form's step on
+  `Int` with `Nat` casts first time, and `ring` the identities for
+  `hitLate` and `twiceBelowPeak`; `omega` moved between `Nat` and `Int`
+  through `.toInt` everywhere it was asked (`n ≤ steps target` from
+  `n.toInt ≤ -2 * bottom` and `(Int.toNat (-2 * bottom)).toInt = -2 *
+  bottom`); `Velocity.ext` and `rewrite same at (term)` built the
+  candidate membership; `match e: Int.leq …` split on a comparison (and
+  without `e:` it turned the goal `1 ≤ dx` into `True = True` and `False
+  = True`, which is right but surprised me at first). Every proof file
+  checked on its first or second try.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day17.main` on the input | 0.41 s user (0.97 s with `--no-cache`) |
+| `stitchwort check --no-cache Aoc.Year2021.Day17.Proofs Aoc.Year2021.Day17.Tests` | 3.9 s user |
+
+117 lines of program, 38 of spec, 356 of proofs, 60 of tests.
+
+### Ranked
+
+1. `omega` fails on `i.toInt + 1 - 1`: the goal computes into
+   `Int.subNatNatFrom` first (item 1).
+2. `search --at` misses `List.distinctFlatMap` once `flatMap` has
+   computed (item 3; SW-965 item 3).
+3. `omega` has no `(p || q) = True`, as a goal or a fact (item 2).
+4. A negative literal is rejected as a `Nat` before its type is known
+   (item 4).
+5. Std lacks `Nat.iterate` congruence and invariant lemmas, `Int.toNat`
+   lemmas and a `sumBetween` closed form (item 3).
