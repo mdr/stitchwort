@@ -21,7 +21,7 @@
 --|   once the answer is decided.
 -- (docs/proposals/effect-polymorphism.md and effect-polymorphic-list.md)
 
---| `f` on each element, in order. `f` may perform abilities, such as `Fail`:
+--| `f` on each element, in order: as long as the list ([`List.lengthMap`]). `f` may perform abilities, such as `Fail`:
 --| `xs.map Range.read` fails at the first element that isn't a range. With a
 --| pure `f` the row is empty and `{e} b` is `b`, so this is the plain map: its
 --| lemmas are proved by computation as before, and the backends compile it to
@@ -48,7 +48,8 @@ def List.filterStep (x: a) (rest: List a): Bool → List a
   | True => Cons x rest
   | False => rest
 
---| The elements satisfying `p`, in order. `p` may perform abilities: it runs on
+--| The elements satisfying `p`, in order ([`List.memFilter`]; there are `List.count xs p` of them,
+--| [`List.lengthFilter`]). `p` may perform abilities: it runs on
 --| each element once, in list order (the `let` runs it before the rest of the
 --| list is filtered), so a `Fail` reports the first bad element.
 def List.filter: List a → (p: a → {e} Bool) → {e} List a
@@ -57,7 +58,7 @@ def List.filter: List a → (p: a → {e} Bool) → {e} List a
     let keep := p x
     List.filterStep x (List.filter xs p) keep
 
---| Left fold; tail-recursive. `List.foldLeft [x, y] initial f` is `f (f initial x) y`.
+--| Left fold, tail-recursive: `List.foldLeft [x, y] initial f` is `f (f initial x) y`.
 --| `f` may perform abilities, which run in list order.
 def List.foldLeft: List a → (initial: b) → (f: b → a → {e} b) → {e} b
   | Nil, initial, f => initial
@@ -70,14 +71,14 @@ def List.scanLeft: List a → (initial: b) → (f: b → a → b) → List b
   | Nil, initial, f => Cons initial Nil
   | Cons x xs, initial, f => Cons initial (List.scanLeft xs (f initial x) f)
 
---| Right fold. `List.foldRight [x, y] initial f` is `f x (f y initial)`. Runs
+--| Right fold: `List.foldRight [x, y] initial f` is `f x (f y initial)`. Runs
 --| as a loop over the reversed list, so it is stack-safe on long lists. `f`
 --| may perform abilities, which run last element first, as the definition
 --| reads: `f y initial` is computed before `f x …`.
 def List.foldRight (xs: List a) (initial: b) (f: a → b → {e} b): {e} b := List.foldLeft (List.reverseOnto xs Nil) initial (acc x => f x acc)
 
 --| The sum of the elements, of any type with `Add`: `[1, 2, 3].sum` is `6`,
---| `[3, -5, 1].sum` is `-1`.
+--| `[3, -5, 1].sum` is `-1`. The sum of a join is the sum of the sums ([`List.sumAppend`]).
 -- (docs/proposals/interfaces.md §7.7)
 def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft xs Add.zero Add.add
 
@@ -89,20 +90,23 @@ def List.sumBy [auto add: Add b] (xs: List a) (f: a → {e} b): {e} b := List.fo
 --| The product of the elements, of any type with `Mul`.
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft xs Mul.one Mul.mul
 
+--| The largest element by the type's `Ord`, or `None` for an empty list.
 def List.maximum [auto ord: Ord a]: List a → Option a
   | Nil => None
   | Cons x xs => Some (List.foldLeft xs x Ord.max)
 
+--| The smallest element by the type's `Ord`, or `None` for an empty list.
 def List.minimum [auto ord: Ord a]: List a → Option a
   | Nil => None
   | Cons x xs => Some (List.foldLeft xs x Ord.min)
 
---| Pairs up to the shorter list's length.
+--| The elements of two lists paired up, up to the shorter list's length: `[1, 2, 3].zip ["a", "b"]` is `[(1, "a"), (2, "b")]`.
 def List.zip: List a → List b → List (Pair a b)
   | Nil, ys => Nil
   | Cons x xs, Nil => Nil
   | Cons x xs, Cons y ys => Cons (MkPair x y) (List.zip xs ys)
 
+--| `f` of the elements of two lists, pair by pair, up to the shorter list's length ([`List.lengthZipWithLe`]).
 def List.zipWith: List a → List b → (f: a → b → c) → List c
   | Nil, ys, f => Nil
   | Cons x xs, Nil, f => Nil
@@ -132,7 +136,7 @@ def List.zipWithNext: List a → List (Pair a a)
 
 --| Whether `holds` is true of each element and the next:
 --| `[1, 2, 4].chain (x y => x < y)` is true. True for fewer than two elements.
---| `List.Sorted le xs` says the same as a `Prop` (`List.sortedOfChain`).
+--| `List.Sorted le xs` says the same as a `Prop` ([`List.sortedOfChain`]).
 def List.chain: List a → (holds: a → a → Bool) → Bool
   | Nil, holds => True
   | Cons x Nil, holds => True
@@ -148,19 +152,19 @@ theorem List.chainCong: (xs: List a) → (holds1: a → a → Bool) → (holds2:
 test "List.zipWithNext" := List.zipWithNext [1, 2, 3] == [MkPair 1 2, MkPair 2 3] ∧ List.zipWithNext [7] == Nil ∧ List.zipWithNext (Nil: List Nat) == Nil
 test "List.chain" := List.chain [1, 2, 4] (x y => x < y) ∧ ¬(List.chain [1, 3, 2] (x y => x < y)) ∧ List.chain [5] (x y => x < y)
 
---| The first n elements (all of them if there are fewer).
+--| The first n elements (all of them if there are fewer): n of them when the list is long enough ([`List.lengthTake`]).
 def List.take: List a → Nat → List a
   | xs, Zero => Nil
   | Nil, Succ n => Nil
   | Cons x xs, Succ n => Cons x (List.take xs n)
 
---| All but the first n elements.
+--| All but the first n elements; after `List.take` of the same n, the whole list ([`List.appendTakeDrop`]).
 def List.drop: List a → Nat → List a
   | xs, Zero => xs
   | Nil, Succ n => Nil
   | Cons x xs, Succ n => List.drop xs n
 
---| The element at index i, counting from 0.
+--| The element at index i, counting from 0, or `None` past the end.
 def List.get: List a → Nat → Option a
   | Nil, i => None
   | Cons x xs, Zero => Some x
@@ -186,42 +190,46 @@ def Nat.succIf (n: Nat): Bool → Nat
   | True => Succ n
   | False => n
 
---| How many elements satisfy `p`. `p` may perform abilities, which run in
---| list order.
+--| How many elements satisfy `p`, at most the length ([`List.countLeLength`]).
+--| `p` may perform abilities, which run in list order.
 def List.count (xs: List a) (p: a → {e} Bool): {e} Nat := List.foldLeft xs 0 (n x => Nat.succIf n (p x))
 
---| The first element satisfying `p`. `p` may perform abilities: it runs in
---| list order and isn't called after the element found.
+--| The first element satisfying `p`, which is in the list ([`List.findSome`]).
+--| `p` may perform abilities: it runs in list order and isn't called after the
+--| element found.
 def List.find: List a → (p: a → {e} Bool) → {e} Option a
   | Nil, p => None
   | Cons x xs, p => if p x then Some x else List.find xs p
 
+--| The list with the option's value in front, if it has one.
 @[noReceiver]
 def List.consSome: Option b → List b → List b
   | None, rest => rest
   | Some y, rest => Cons y rest
 
---| Keeps the `Some` results, in order. `f` may perform abilities, which run in
+--| Keeps the `Some` results, in order. `[1, 2, 3].filterMap (x => if x > 1 then Some (x * 10) else None)`
+--| is `[20, 30]`. `f` may perform abilities, which run in
 --| list order (`f x` is the first argument, so it runs before the rest).
 def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
   | Nil, f => Nil
   | Cons x xs, f => List.consSome (f x) (List.filterMap xs f)
 
---| Joins a list of lists.
+--| Joins a list of lists, in order: `[[1, 2], [], [3]].concat` is `[1, 2, 3]`.
 def List.concat: List (List a) → List a
   | Nil => Nil
   | Cons xs xss => List.append xs (List.concat xss)
 
---| `List.replicate n x` is n copies of x.
+--| n copies of `x`: `List.replicate 3 'a'` is `['a', 'a', 'a']` ([`List.lengthReplicate`]).
 def List.replicate: Nat → a → List a
   | Zero, x => Nil
   | Succ n, x => Cons x (List.replicate n x)
 
+--| `n` numbers counting up from `i`: `List.rangeFrom 3 5` is `[5, 6, 7]` ([`List.lengthRangeFrom`]).
 def List.rangeFrom: Nat → Nat → List Nat
   | Zero, i => Nil
   | Succ n, i => Cons i (List.rangeFrom n (Succ i))
 
---| `List.range n` is `[0, 1, ..., n - 1]`.
+--| The numbers from 0 up to, not including, `n`: `List.range 3` is `[0, 1, 2]`.
 def List.range (n: Nat): List Nat := List.rangeFrom n 0
 
 --| `List.between lo hi` is `[lo, lo + 1, ..., hi]`, both ends included; empty
@@ -229,8 +237,10 @@ def List.range (n: Nat): List Nat := List.rangeFrom n 0
 def List.between (lo: Nat) (hi: Nat): List Nat := List.rangeFrom (hi + 1 - lo) lo
 test "List.between, empty and single" := List.between 5 0 == Nil ∧ List.between 0 0 == [0] ∧ List.between 7 7 == [7]
 
+--| The elements in the opposite order: reversing twice gives the list back ([`List.reverseReverse`]).
 def List.reverse (xs: List a): List a := List.reverseOnto xs Nil
 
+--| The last element, or `None` for an empty list.
 def List.last: List a → Option a
   | Nil => None
   | Cons x Nil => Some x
@@ -252,7 +262,7 @@ def List.elem: List a → (target: a) → (decEq: (x: a) → (y: a) → Decidabl
   | Nil, target, decEq => False
   | Cons x xs, target, decEq => if Decidable.toBool (decEq target x) then True else List.elem xs target decEq
 
---| Whether `x` is on the list, by its `DecEq` (`List.memContains` says it is
+--| Whether `x` is on the list, by its `DecEq` ([`List.memContains`] says it is
 --| membership).
 def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (member => member == x)
 
@@ -299,13 +309,13 @@ def List.partitionOnto (p: a → {e} Bool): List a → (sides: Pair (List a) (Li
     List.partitionOnto p xs (List.partitionStep x sides keep)
 
 --| The elements that satisfy `p`, and those that don't, each in order: the
---| two `filter`s (`List.partitionFilters`) in one pass. `p` may perform
+--| two `filter`s ([`List.partitionFilters`]) in one pass. `p` may perform
 --| abilities: it runs once per element, in list order.
 def List.partition (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := List.partitionOnto p xs (MkPair Nil Nil)
 
 test "List.partition" := List.partition [1, 5, 2, 7] (x => x > 4) == MkPair [5, 7] [1, 2] ∧ List.partition (Nil: List Nat) (x => x > 4) == MkPair Nil Nil
 
---| The value for the first pair whose key equals `key`.
+--| The value for the first pair whose key equals `key`, or `None` if there is none.
 def List.lookup [auto eq: DecEq k]: List (Pair k v) → (key: k) → Option v
   | Nil, key => None
   | Cons (MkPair entryKey value) rest, key => if entryKey == key then Some value else rest.lookup key
@@ -353,12 +363,14 @@ def List.AllLength (n: Nat): List (List a) → Prop
 
 --| The groups of consecutive elements that don't satisfy `p`, in order: `p`
 --| marks the separators, which are dropped, and no group is empty. So
---| `List.splitBy [1, 2, 0, 0, 3] (x => x == 0)` is `[[1, 2], [3]]`.
+--| `List.splitBy [1, 2, 0, 0, 3] (x => x == 0)` is `[[1, 2], [3]]`. No group
+--| is empty or has a separator ([`List.splitByGroups`]), and the groups
+--| joined are the elements that aren't separators ([`List.splitByConcat`]).
 def List.splitBy (xs: List a) (p: a → Bool): List (List a) := List.finishGroups (List.splitGroups xs p)
 
 --| Reads the list from the right: the group still open at the front, and the
 --| groups finished after it. A right fold, so it runs as a loop over the
---| reversed list (stack-safe on long lists); `List.splitGroupsCons` is its step.
+--| reversed list (stack-safe on long lists); [`List.splitGroupsCons`] is its step.
 def List.splitGroups (xs: List a) (p: a → Bool): Pair (List a) (List (List a)) :=
   List.foldRight xs (MkPair Nil Nil) (x st => List.splitStep x (p x) st)
 
@@ -368,6 +380,7 @@ def List.splitStep (x: a): Bool → Pair (List a) (List (List a)) → Pair (List
   | True, MkPair cur done => MkPair Nil (List.closeGroup cur done)
   | False, MkPair cur done => MkPair (Cons x cur) done
 
+--| The groups of `List.splitBy`, with the group still open closed.
 def List.finishGroups: Pair (List a) (List (List a)) → List (List a)
   | MkPair cur done => List.closeGroup cur done
 
@@ -376,6 +389,7 @@ def List.closeGroup: List a → List (List a) → List (List a)
   | Nil, done => done
   | Cons y ys, done => Cons (Cons y ys) done
 
+--| How many elements a state of `List.splitBy` holds, in the open group and the finished ones.
 def List.splitTotal (st: Pair (List a) (List (List a))): Nat := List.length (Pair.fst st) + List.sumBy (Pair.snd st) List.length
 
 --| The group has no separator in it.
@@ -388,9 +402,11 @@ def List.Groups (p: a → Bool): List (List a) → Prop
   | Nil => Unit
   | Cons g gs => And (And (0 < List.length g) (List.NonSep p g)) (List.Groups p gs)
 
+--| A state of `List.splitBy` is well formed: no group has a separator, and no finished group is empty.
 def List.SplitOk (p: a → Bool): Pair (List a) (List (List a)) → Prop
   | MkPair cur done => And (List.NonSep p cur) (List.Groups p done)
 
+--| A state of `List.splitBy` holds exactly the elements of `xs` that aren't separators, in order.
 @[noReceiver]
 def List.SplitKeeps (p: a → Bool) (xs: List a) (st: Pair (List a) (List (List a))): Prop :=
   List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter xs (x => ¬(p x))
@@ -408,11 +424,12 @@ def List.occurrences: List a → (p: a → Bool) → Nat
 --| many elements of one as of the other. For elements with decidable equality
 --| this is the usual meaning (test with `Nat.equal v` for each `v`). Counting
 --| turns the proofs into arithmetic, and needs no equality on the elements.
+--| Permutations are as long as each other ([`List.permLength`]).
 def List.Perm (xs: List a) (ys: List a): Prop := (p: a → Bool) → List.occurrences xs p = List.occurrences ys p
 
 --| `s` is `xs` with some elements left out, the rest kept in order: each
 --| element of `s` is matched with an element of `xs`, or `xs`'s first element
---| is skipped.
+--| is skipped. So `s` is no longer than `xs` ([`List.subsequenceLength`]).
 def List.Subsequence: List a → List a → Prop
   | Nil, ys => Unit
   | Cons x xs, Nil => Void
@@ -510,6 +527,7 @@ def List.mapAccumLeftGo (f: s → a → Pair s b) (state: s) (done: List b): Lis
     let next := f state x
     List.mapAccumLeftGo f (Pair.fst next) (Cons (Pair.snd next) done) xs
 
+--| Maps with a state threaded left to right (Haskell's `mapAccumL`): the final state and the results.
 def List.mapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial Nil xs
 
 --| Splits a list of pairs into the list of firsts and the list of seconds.
@@ -537,8 +555,9 @@ def List.chunksOfPositive (n: Nat) (xs: List a) [auto pos: n ≠ 0]: List (List 
     | Nil => Nil
     | Cons y ys => Cons (List.take (Cons y ys) n) (List.chunksOfPositive n (List.drop (Cons y ys) n) [decreasing := List.dropConsLess ys n y pos])
 
---| `xs` is the main value: `xs.chunksOf 2`. `[1, 2, 3].chunksOf 2` is
---| `[[1, 2], [3]]`.
+--| Chunks of `n` elements, in order, the last one shorter if need be:
+--| `[1, 2, 3].chunksOf 2` is `[[1, 2], [3]]`. `n = 0` gives the whole list as
+--| one chunk (none for an empty list).
 def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
   match n with
     | Zero => match xs with
@@ -574,6 +593,7 @@ test "List.distinctEq empty" := (Nil: List Nat).distinctEq == Nil
 test "List.distinctEq all repeats" := [4, 4, 4].distinctEq == [4]
 test "List.distinctEq already distinct" := [2, 5, 1].distinctEq == [2, 5, 1]
 
+--| One step of `List.maxBy`: `x` if its key is larger than `best`'s, otherwise `best`.
 def List.maxByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Less => x
   | _ => best
@@ -588,6 +608,7 @@ def List.maxBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
     | Nil => None
     | Cons x ys => Some (List.foldLeft ys x (best y => List.maxByStep f best y))
 
+--| One step of `List.minBy`: `x` if its key is smaller than `best`'s, otherwise `best`.
 def List.minByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Greater => x
   | _ => best
@@ -607,7 +628,8 @@ def List.takeWhile (xs: List a) (p: a → {e} Bool): {e} List a :=
     | Nil => Nil
     | Cons x ys => if p x then Cons x (List.takeWhile ys p) else Nil
 
---| What is left after `List.takeWhile`: from the first element not satisfying `p`.
+--| What is left after `List.takeWhile`: from the first element not satisfying `p`
+--| ([`List.takeWhileDropWhile`]).
 def List.dropWhile (xs: List a) (p: a → Bool): List a :=
   match xs with
     | Nil => Nil
@@ -619,7 +641,7 @@ def List.spanOnto (taken: List a) (p: a → {e} Bool): List a → {e} Pair (List
   | Nil => MkPair (List.reverse taken) Nil
   | Cons x xs => if p x then List.spanOnto (Cons x taken) p xs else MkPair (List.reverse taken) (Cons x xs)
 
---| `List.takeWhile` and `List.dropWhile` together (`List.spanTakeDrop`), in
+--| `List.takeWhile` and `List.dropWhile` together ([`List.spanTakeDrop`]), in
 --| one pass. `p` may perform abilities: it runs in list order and isn't
 --| called after the first element that fails it.
 def List.span (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := List.spanOnto Nil p xs
@@ -638,7 +660,7 @@ def List.removeAt: List a → Nat → List a
 def List.dropRight (xs: List a) (n: Nat): List a := List.take xs (List.length xs - n)
 
 --| Every suffix, longest first, ending with the empty list:
---| `[1, 2].tails` is `[[1, 2], [2], []]`.
+--| `[1, 2].tails` is `[[1, 2], [2], []]`: one more than the elements ([`List.lengthTails`]).
 def List.tails: List a → List (List a)
   | Nil => Cons Nil Nil
   | Cons x xs => Cons (Cons x xs) (List.tails xs)
@@ -647,8 +669,8 @@ def List.tails: List a → List (List a)
 --| `[1, 2, 3, 4].windows 3` is `[[1, 2, 3], [2, 3, 4]]`. A list of length n
 --| has n + 1 - size of them: none when it is shorter than `size`, and for
 --| `size = 0`, n + 1 empty windows (one before each element and one at the
---| end). Lemmas: `List.lengthWindows`, `List.lengthOfMemWindows`,
---| `List.windowsCons`, `List.windowsShort`, `List.windowsTails`.
+--| end). Lemmas: [`List.lengthWindows`], [`List.lengthOfMemWindows`],
+--| [`List.windowsCons`], [`List.windowsShort`], [`List.windowsTails`].
 def List.windows (xs: List a) (size: Nat): List (List a) := List.windowsCount size (List.length xs + 1 - size) xs
 
 --| The first `count` windows of `size` elements of `xs`, one step apart.
@@ -661,12 +683,13 @@ test "List.windows" :=
   [1, 2, 3, 4].windows 3 == [[1, 2, 3], [2, 3, 4]] ∧ [1, 2].windows 3 == Nil ∧ [1, 2].windows 2 == [[1, 2]]
     ∧ [1, 2].windows 0 == [Nil, Nil, Nil] ∧ (Nil: List Nat).windows 1 == Nil
 
---| The index of the first element satisfying `p`.
+--| The index of the first element satisfying `p`, counting from `i`.
 @[noReceiver]
 def List.findIndexFrom (i: Nat) (p: a → Bool): List a → Option Nat
   | Nil => None
   | Cons x xs => if p x then Some i else List.findIndexFrom (Succ i) p xs
 
+--| The index of the first element satisfying `p`, counting from 0, or `None` if none does.
 def List.findIndex (xs: List a) (p: a → Bool): Option Nat := List.findIndexFrom 0 p xs
 
 --| Each element with its index from `i`.
@@ -675,8 +698,9 @@ def List.withIndexFrom (i: Nat): List a → List (Pair Nat a)
   | Nil => Nil
   | Cons x xs => Cons (MkPair i x) (List.withIndexFrom (Succ i) xs)
 
---| Pairs each element with its position, counting from 0, the position first
---| (Rust's `enumerate`): `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`.
+--| Pairs each element with its position, counting from 0, the position first:
+--| `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`. Rust's `enumerate`
+--| ([`List.withIndexRange`]).
 def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
 
 --| `f` of each element's index and the element:
@@ -702,7 +726,8 @@ def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=
     | Cons x ys => List.findMapStep (f x) (() => List.findMap ys f)
 
 --| Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`. `f` may
---| perform abilities, which run in list order.
+--| perform abilities, which run in list order. Its length is the sum of the
+--| lengths ([`List.lengthFlatMap`]).
 def List.flatMap (xs: List a) (f: a → {e} List b): {e} List b := List.concat (List.map xs f)
 
 theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: (x: a) → f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
@@ -713,7 +738,8 @@ theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef:
 def List.cross (xs: List a) (ys: List b): List (Pair a b) := List.flatMap xs (x => List.map ys (y => MkPair x y))
 
 --| Every element with each later one, in order: `[1, 2, 3].pairs` is
---| `[(1, 2), (1, 3), (2, 3)]`. A list of n elements has n(n - 1)/2 of them.
+--| `[(1, 2), (1, 3), (2, 3)]`. A list of n elements has n(n - 1)/2 of them
+--| ([`List.lengthPairs`]).
 def List.pairs: List a → List (Pair a a)
   | Nil => Nil
   | Cons x xs => List.append (List.map xs (y => MkPair x y)) (List.pairs xs)
@@ -744,7 +770,7 @@ test "List.pairs count" := List.length (List.range 10).pairs == 45
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] ∧ [1].cross (Nil: List Nat) == Nil
 
 --| Callbacks that agree on the list's elements (not everywhere, as for
---| `List.mapCong`) give the same result.
+--| [`List.mapCong`]) give the same result.
 theorem List.mapCongMem: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | Nil, f1, f2, ef => rfl
   | Cons x xs, f1, f2, ef => rewrite ef x (Inl rfl), List.mapCongMem xs f1 f2 (y m => ef y (Inr m))

@@ -1,10 +1,14 @@
 --| Helpers for `Option`: `map`, `flatMap`, `orElse`, `merge`, `map2` and the
 --| like. Their lemmas are in Option/Lemmas.sw.
 
+--| `f` of the value, which may itself be missing, or `None` if there is no value:
+--| `(Some 4).flatMap (n => if n > 2 then Some (n * 2) else None)` is `Some 8`.
 def Option.flatMap: Option a → (f: a → Option b) → Option b
   | None, f => None
   | Some x, f => f x
 
+--| `f` of the value, if there is one: `(Some 3).map (n => n + 1)` is `Some 4`, and `None` stays `None`
+--| ([`Option.mapEqNone`]).
 def Option.map: Option a → (f: a → b) → Option b
   | None, f => None
   | Some x, f => Some (f x)
@@ -19,7 +23,7 @@ def Option.isNone: Option a → Bool
   | None => True
   | Some x => False
 
---| The first option if it is a `Some`, else the second: `x.orElse y`.
+--| The first option if it is a `Some`, else the second: `x.orElse y` ([`Option.orElseEqSome`]).
 def Option.orElse: Option a → Option a → Option a
   | Some x, y => Some x
   | None, y => y

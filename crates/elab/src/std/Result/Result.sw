@@ -29,7 +29,7 @@ def Result.isOk: Result a e → Bool
   | Err m => False
 
 --| `f` of each element in turn: every value, or the first error. A loop, so
---| it is stack-safe on long lists; `Result.traverseCons` is its step.
+--| it is stack-safe on long lists; [`Result.traverseCons`] is its step.
 def Result.traverse (xs: List a) (f: a → Result b e): Result (List b) e := Result.traverseLoop f Nil xs
 
 --| The loop of `Result.traverse`: `done` holds the values so far, last first.

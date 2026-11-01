@@ -1,4 +1,4 @@
---| core/Data.sw. The core data types: `Nat` and its arithmetic, `Bool`,
+--| The core data types: `Nat` and its arithmetic, `Bool`,
 --| `List`, `Option`, `Pair`, and the first list functions.
 -- Loaded with the core: The registry's built-ins are these types and their
 -- operations, `Bool.True`/`False` are written by name, and the runner uses
@@ -6,7 +6,8 @@
 
 -- Numbers
 
---| Numbers are stored compactly, but mean exactly this. `Nat.add`, `Nat.sub`,
+--| A natural number: 0, 1, 2 and so on, as `Zero` and `Succ` of the number
+--| before. Numbers are stored compactly, but mean exactly this. `Nat.add`, `Nat.sub`,
 --| `Nat.mul`, `Nat.leq`, `Nat.equal`, `Nat.divFuel`, `Nat.decEq`,
 --| `Nat.equalRefl` and `Nat.equalSound` also have native implementations, used
 --| when all their arguments are numbers. Each computes exactly what the
@@ -28,21 +29,24 @@ def Nat.sub: Nat → Nat → Nat
   | Zero, Succ n => Zero
   | Succ m, Succ n => Nat.sub m n
 
---| `a * b`
+--| `a * b`: multiplication of numbers.
 def Nat.mul: Nat → Nat → Nat
   | Zero, n => 0
   | Succ m, n => n + Nat.mul m n
 
+--| The number before `n`, and 0 for 0.
 def Nat.pred: Nat → Nat
   | Zero => Zero
   | Succ n => n
 
 -- Booleans
 
+--| `True` or `False`: what a test computes, and what `if` branches on.
 type Bool: Type =
   | False
   | True
 
+--| The opposite of `b`: `True` for `False` and `False` for `True`.
 def Bool.not: Bool → Bool
   | False => True
   | True => False
@@ -53,34 +57,39 @@ def Bool.ifThenElse: [a: Type] → Bool → (Unit → a) → (Unit → a) → a
   | True, thenBranch, elseBranch => thenBranch Trivial
   | False, thenBranch, elseBranch => elseBranch Trivial
 
---| `m <= n` and `m < n` are propositions, defined by computation.
+--| Whether `m <= n`, as a `Bool`.
 def Nat.leq: Nat → Nat → Bool
   | Zero, n => True
   | Succ m, Zero => False
   | Succ m, Succ n => Nat.leq m n
 
+--| `m <= n` as a proposition, defined by computation: `Nat.leq m n` is `True`.
 def Nat.LessEq (m: Nat) (n: Nat): Prop := Nat.leq m n = True
 
+--| `m < n` as a proposition, defined by computation: `m + 1 <= n`.
 def Nat.LessThan (m: Nat) (n: Nat): Prop := Nat.leq (Succ m) n = True
 
 -- Lists
 
+--| A sequence of values of one type: `[1, 2, 3]` is `Cons 1 (Cons 2 (Cons 3 Nil))`.
 type List (a: Type): Type =
   | Nil
   | Cons (head: a) (tail: List a)
 
---| `n` plus the length of `xs`, counted in a loop: what the runtimes run for
+--| `n` plus the length of `xs`, counted in a loop. The runtimes run it for
 --| `List.length`, so a long list doesn't run out of stack
 --| (`List.lengthOntoEq` proves them equal).
 def List.lengthOnto: List a → Nat → Nat
   | Nil, n => n
   | Cons x xs, n => List.lengthOnto xs (Succ n)
 
---| `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
+--| The number of elements: `[5, 6, 7].length` is 3.
+-- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
 def List.length: List a → Nat
   | Nil => 0
   | Cons x xs => Succ (List.length xs)
 
+--| `xs ++ ys`: the elements of `xs`, then those of `ys`.
 def List.append: List a → List a → List a
   | Nil, ys => ys
   | Cons x xs, ys => Cons x (List.append xs ys)
@@ -90,7 +99,7 @@ type Option (a: Type): Type =
   | None
   | Some (value: a)
 
---| Two values together. Its fields' accessors, `Pair.fst` and `Pair.snd`, are
+--| Two values together, of any two types: `(1, "a")`. Its fields' accessors, `Pair.fst` and `Pair.snd`, are
 --| generated.
 type Pair (a: Type) (b: Type): Type =
   | MkPair (fst: a) (snd: b)

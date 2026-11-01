@@ -11,8 +11,8 @@
 --|     (a, b))
 --|
 --| `pairs 6` is `[(1, 5), (2, 4), (3, 3)]`. Proofs about a collected
---| computation needn't know about the handler: `Each.collectEach`,
---| `Each.collectRequire` and `Each.collectPure` turn it into
+--| computation needn't know about the handler: [`Each.collectEach`],
+--| [`Each.collectRequire`] and [`Each.collectPure`] turn it into
 --| `List.flatMap`, `if` and `[v]`.
 
 --| The two operations, as in Koka's and Eff's nondeterminism: `fork` asks
@@ -46,7 +46,7 @@ def Each.collect (prog: () → {Each} a): List a :=
 -- lemmas compute.
 def Each.both (k: Bool → List a): List a := List.append (k True) (k False)
 
---| The same, inside other abilities, which pass through: each continuation
+--| Every result, in order, inside other abilities, which pass through: each continuation
 --| performs them separately (put `Each` innermost for one state per choice,
 --| as with `allResults` in `examples/accept/abilities.sw`).
 def Each.collectIn (prog: () → {Each | e} a): {e} List a :=

@@ -37,11 +37,12 @@ def Ord.reverse [auto ord: Ord a]: Ord a :=
     (x y => ord.flip y x)
     (x y z h1 h2 => ord.trans z y x h2 h1)
 
---| The larger, and the smaller (the first, if they're equal).
+--| The larger of two values by the type's `Ord`, the first if they're equal.
 def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
   | Less => y
   | _ => x
 
+--| The smaller of two values by the type's `Ord`, the first if they're equal.
 def Ord.min [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
   | Greater => y
   | _ => x

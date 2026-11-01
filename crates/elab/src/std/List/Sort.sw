@@ -8,12 +8,14 @@
 -- namespaces they go in (`List.sort` is `Std.List.sort`), so one file can add
 -- to several namespaces. It is checked when a program uses something in it.
 
---| `x + (x + 1) + ... + (y - 1)`
+--| The sum of the numbers from `x` up to, not including, `y`: `x + (x + 1) + ... + (y - 1)`.
 def Nat.span (x: Nat) (y: Nat): Nat := List.sum (List.rangeFrom (y - x) x)
 
---| first + (first + 1) + ... + last: an arithmetic series, the number of
---| terms times their average. There are `last + 1 - first` terms, which is 0
---| when first > last (as in `List.between`), so then the sum is 0.
+--| The sum of the numbers from `first` to `last`, both included, in one step
+--| ([`Nat.sumBetweenCorrect`]). It is `first + (first + 1) + ... + last`, an
+--| arithmetic series: the number of terms times their average. There are
+--| `last + 1 - first` terms, which is 0 when first > last (as in
+--| `List.between`), so then the sum is 0.
 def Nat.sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last + 1 - first) / 2
 
 test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 ∧ Nat.sumBetween 5 5 == 5 ∧ Nat.sumBetween 1 100 == 5050
@@ -39,7 +41,8 @@ def Ordering.isLessEq: Ordering → Bool
   | Greater => False
 
 --| Merges two lists sorted by `le` ("may come before"), taking from the first
---| list on ties.
+--| list on ties. The result is sorted ([`List.mergeSorted`]) and has the
+--| elements of both ([`List.mergeCount`]).
 @[noReceiver]
 def List.merge (le: a → a → Bool): List a → List a → List a
   | Nil, ys => ys
@@ -47,17 +50,20 @@ def List.merge (le: a → a → Bool): List a → List a → List a
   | Cons x xs, Cons y ys =>
     if le x y then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)
 
---| Bottom-up merge sort, structurally recursive throughout. The runs are kept
---| like the digits of a binary counter: slot `i` is empty or holds a sorted run
---| of 2^i elements, newest first. Adding an element carries: two runs of the
---| same size merge into the next slot. Each element takes part in about log n
---| merges, so sorting is O(n log n).
+-- Bottom-up merge sort, structurally recursive throughout. The runs are kept
+-- like the digits of a binary counter: slot `i` is empty or holds a sorted run
+-- of 2^i elements, newest first. Adding an element carries: two runs of the
+-- same size merge into the next slot. Each element takes part in about log n
+-- merges, so sorting is O(n log n).
+
+--| Adds a sorted run to the merge sort's slots, merging runs of the same size as a binary counter carries.
 @[noReceiver]
 def List.pushRun (le: a → a → Bool) (run: List a): List (Option (List a)) → List (Option (List a))
   | Nil => Cons (Some run) Nil
   | Cons None rest => Cons (Some run) rest
   | Cons (Some older) rest => Cons None (List.pushRun le (List.merge le older run) rest)
 
+--| The merge sort's slots after adding each element of the list as a run of one.
 @[noReceiver]
 def List.buildRuns (le: a → a → Bool) (runs: List (Option (List a))): List a → List (Option (List a))
   | Nil => runs
@@ -72,14 +78,18 @@ def List.mergeRuns (le: a → a → Bool) (acc: List a): List (Option (List a)) 
 
 --| Sorts by `le`, which says whether its first argument may come before its
 --| second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
---| order. `List.sortWithSorted` and `List.sortWithPerm` say it's correct.
+--| order. It is sorted, for a total `le` ([`List.sortWithSorted`]), and a
+--| permutation of the list ([`List.sortWithPerm`]).
 def List.sortWith (xs: List a) (le: a → a → Bool): List a := List.mergeRuns le Nil (List.buildRuns le Nil xs)
 
---| Sorts by a comparison, such as `Nat.compare` or `Text.compare`.
+--| Sorts by a comparison, such as `Nat.compare` or `Text.compare`: sorted
+--| ([`List.sortBySorted`]) and a permutation of the list ([`List.sortByPerm`]).
 def List.sortBy (xs: List a) (cmp: a → a → Ordering): List a := List.sortWith xs (x y => Ordering.isLessEq (cmp x y))
 
 --| Sorts into ascending order, by the type's `Ord`: numbers, texts, lists,
---| pairs, … Another order is passed by name, `List.sort [ord := …] xs`.
+--| pairs, … Another order is passed by name, `List.sort [ord := …] xs`. The
+--| result is sorted ([`List.sortSorted`]), a permutation of the list
+--| ([`List.sortPerm`]), and as long ([`List.sortLength`]).
 -- (docs/proposals/interfaces.md §7.4)
 def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy xs Ord.compare
 
@@ -105,16 +115,18 @@ def List.Pairwise (rel: a → a → Prop): List a → Prop
 test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] == [3, 3, 2, 1]
 
 --| The list without its first `x`, or the list itself if `x` isn't in it
---| (Haskell's `Data.List.delete`).
+--| (Haskell's `Data.List.delete`). With `x` in front it is a permutation of
+--| the list ([`List.permRemoveFirst`]).
 def List.removeFirst [auto eq: DecEq a]: List a → a → List a
   | Nil, x => Nil
   | Cons y ys, x => if y == x then ys else Cons y (ys.removeFirst x)
 
 test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFirst 3 == [1, 2] ∧ [3, 1, 2].removeFirst 2 == [3, 1]
 
---| Sorting commutes with `map` when the comparison of the mapped elements is
---| that of the elements: sorting pairs by a key, then taking the keys, is
---| sorting the keys.
+--| `f` on every element of the merge sort's runs.
+-- Sorting commutes with `map` when the comparison of the mapped elements is
+-- that of the elements: sorting pairs by a key, then taking the keys, is
+-- sorting the keys.
 -- (SW-198, day 8)
 -- Proved through each step of the merge sort.
 @[noReceiver]
@@ -181,7 +193,8 @@ test "List.sortByMap" := List.map (List.sortBy [MkPair 3 "c", MkPair 1 "a"] (p q
 
 --| Sorts by a key, ascending by the key's `Ord`, stable: elements with equal
 --| keys keep their order. `xs |> .sortOn key`. The key's instance is resolved
---| once, at the call, not on each comparison.
+--| once, at the call, not on each comparison. A permutation of the list
+--| ([`List.sortOnPerm`]).
 def List.sortOn [auto ord: Ord k] (xs: List a) (key: a → k): List a := List.sortBy xs (x y => Ord.compare (key x) (key y))
 
 test "List.sortOn" := List.sortOn [MkPair 3 "c", MkPair 1 "a", MkPair 3 "b", MkPair 2 "d"] (p => p.fst) == [MkPair 1 "a", MkPair 2 "d", MkPair 3 "c", MkPair 3 "b"]
@@ -192,7 +205,8 @@ test "List.sortOnMap" := List.map (List.sortOn [MkPair 3 "c", MkPair 1 "a"] (p =
 --| Drops each element equal to the one just before it (Rust's `Vec::dedup`),
 --| so on a sorted list it drops every repeat: `[1, 1, 2, 3, 3].dedup` is
 --| `[1, 2, 3]`. `List.sort` then `List.dedup` lists the different values in
---| order.
+--| order. It keeps the list's elements ([`List.memDedupIntro`],
+--| [`List.memDedupElim`]) and keeps a sorted list sorted ([`List.sortedDedup`]).
 def List.dedup [auto eq: DecEq a]: List a → List a
   | Nil => Nil
   | Cons x xs => Cons x (List.dedupAfter x xs)

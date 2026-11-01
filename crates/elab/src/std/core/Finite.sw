@@ -1,4 +1,4 @@
---| core/Finite.sw. The `Finite` interface, the membership lemmas a derived
+--| The `Finite` interface, the membership lemmas a derived
 --| instance's proof is made of, and the instances for the core's finite types.
 -- Loaded with the core: a data type declared in a program gets `Finite`
 -- derived, and its proof writes `List.memAppendLeft`, `List.memAppendRight`
@@ -12,7 +12,7 @@ theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs �
   | Cons z zs, ys, Inl e => Inl e
   | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
 
---| And an element of the second.
+--| An element of the second list is in the two joined.
 theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
   | Nil, ys, m => m
   | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)

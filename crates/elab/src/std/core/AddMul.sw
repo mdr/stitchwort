@@ -1,4 +1,4 @@
---| core/AddMul.sw. The `Add` and `Mul` interfaces and their instances for
+--| The `Add` and `Mul` interfaces and their instances for
 --| `Nat` and `Int`.
 -- Loaded with the core: `+` and `*` go through `Add` and `Mul` dictionaries, so
 -- they are checked before any program that adds two numbers

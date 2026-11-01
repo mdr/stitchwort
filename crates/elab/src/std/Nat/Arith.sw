@@ -249,8 +249,10 @@ theorem Nat.divLe (n: Nat) (k: Nat) [auto ok: k ≠ 0]: n / k ≤ n :=
 theorem Nat.halfDouble (n: Nat): (n + n) / 2 = n :=
   Nat.divUnique (n + n) 2 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 2)) (Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n)))))
 
---| Remainders and shifts. A multiple of `d` can be added or dropped without
---| changing the remainder, and a sum can be reduced early.
+-- Remainders and shifts. A multiple of `d` can be added or dropped without
+-- changing the remainder, and a sum can be reduced early.
+
+--| Adding a multiple of `d` adds to the quotient and leaves the remainder.
 theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: a + b * d = (a / d + b) * d + a % d :=
   Eq.trans (Eq.cong (t => t + b * d) (Nat.divModEq a d ok))
     (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) (b * d))
@@ -360,7 +362,7 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
     (f => rfl)
 
 --| Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `divisor != 0` it is the
---| smallest `b` with `n <= b * divisor` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
+--| smallest `b` with `n <= b * divisor` ([`Nat.ceilDivLe`], [`Nat.leMulOfCeilDivLe`]),
 --| just as `n / divisor` is the largest `q` with `q * divisor <= n`.
 def Nat.ceilDiv (n: Nat) (divisor: Nat) [auto ok: divisor ≠ 0]: Nat := (n + divisor - 1) / divisor
 
@@ -369,7 +371,7 @@ theorem Nat.ceilDivLe (n: Nat) (b: Nat): (d: Nat) → [auto ok: d ≠ 0] → n �
   | Zero, h => Void.exfalso (ok rfl)
   | Succ m, h => Nat.roundUpLe n m b h
 
---| And any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
+--| Any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
 theorem Nat.leMulOfCeilDivLe (n: Nat) (b: Nat): (d: Nat) → [auto ok: d ≠ 0] → Nat.ceilDiv n d ≤ b → n ≤ b * d
   | Zero, h => Void.exfalso (ok rfl)
   | Succ m, h => Nat.roundUpGe n m b h
@@ -421,7 +423,7 @@ theorem Nat.mulRightCancel (a: Nat) (b: Nat): (c: Nat) → c ≠ 0 → a * c = b
   | Zero, nz, e => Void.exfalso (nz rfl)
   | Succ m, nz, e => Nat.mulSuccCancel a b m e
 
---| ... and as a `Bool`: a nonzero factor on the right doesn't change `==`.
+--| A nonzero factor on the right doesn't change `==`: cancelling, as a `Bool`.
 theorem Nat.mulRightCancelBool (a: Nat) (b: Nat) (c: Nat) (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
   match Nat.decEq a b with
     | Yes same => rewrite same, DecEq.refl (b * c) in rfl
@@ -466,23 +468,26 @@ theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s ≤ d) (h2: d < s + (n 
       Void.exfalso (Nat.lessIrrefl d (Nat.leTrans (Succ d) s d
         (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (t => s + t) (Nat.subEqZero n s (Nat.lessLe n s (Nat.leqFalse s n e)))) (Nat.addZero s)) h2) h1))
 
+--| Whether the ordering is `Less`.
 def Ordering.isLess: Ordering → Bool
   | Less => True
   | Equal => False
   | Greater => False
 
---| Number helpers.
+--| The smaller of two numbers: `Nat.min 3 5` is 3.
 def Nat.min (m: Nat) (n: Nat): Nat := if Nat.leq m n then m else n
 
+--| The larger of two numbers: `Nat.max 3 5` is 5.
 def Nat.max (m: Nat) (n: Nat): Nat := if Nat.leq m n then n else m
 
+--| The minimum is the left number when it is at most the right.
 theorem Nat.minLeft (m: Nat) (n: Nat) (h: m ≤ n): Nat.min m n = m :=
   J (b q => Bool.ifThenElse b (u => m) (u => n) = m) rfl (Eq.sym h)
 
 theorem Nat.minRight (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.min m n = n :=
   J (b q => Bool.ifThenElse b (u => m) (u => n) = n) rfl (Eq.sym h)
 
---| `max` and `min` when the order is known, and their bounds.
+--| The maximum is the left number when the right is at most it.
 theorem Nat.maxLeft (m: Nat) (n: Nat) (h: n ≤ m): Nat.max m n = m :=
   Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => n) (u => m) = m) (t => Nat.leAntisym n m h t) (f => rfl)
 
@@ -492,7 +497,7 @@ theorem Nat.maxRight (m: Nat) (n: Nat) (h: m ≤ n): Nat.max m n = n :=
 theorem Nat.leMaxLeft (m: Nat) (n: Nat): m ≤ Nat.max m n :=
   Bool.inspect (Nat.leq m n) (c => m ≤ Bool.ifThenElse c (u => n) (u => m)) (t => t) (f => Nat.leRefl m)
 
---| `max` from the right, and `x <= max a b` when `x` is above `a`.
+--| The right number is at most the maximum.
 theorem Nat.leMaxRight (m: Nat) (n: Nat): n ≤ Nat.max m n :=
   Bool.inspect (Nat.leq m n) (c => n ≤ Bool.ifThenElse c (u => n) (u => m)) (t => Nat.leRefl n) (f => Nat.lessLe n m (Nat.leqFalse m n f))
 
@@ -529,7 +534,7 @@ theorem Nat.absDiffComm (m: Nat) (n: Nat): Nat.absDiff m n = Nat.absDiff n m :=
 theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m ≤ n): Nat.absDiff m n = n - m :=
   Eq.trans (Eq.cong (t => t + (n - m)) (Nat.subEqZero m n h)) rfl
 
---| `Nat.pow b e` is b to the power e.
+--| `b` to the power `e`: `Nat.pow 2 10` is 1024.
 def Nat.pow (b: Nat): Nat → Nat
   | Zero => 1
   | Succ e => Nat.pow b e * b
@@ -537,8 +542,7 @@ def Nat.pow (b: Nat): Nat → Nat
 --| The power with the base on the left, as `b * b^e`.
 theorem Nat.powSucc (b: Nat) (e: Nat): Nat.pow b (Succ e) = b * Nat.pow b e := Nat.mulComm (Nat.pow b e) b
 
---| Powers: adding exponents, positive for a positive base, growing with the
---| exponent.
+--| Adding exponents multiplies powers: `b^(e1 + e2) = b^e1 * b^e2`.
 theorem Nat.powAdd (b: Nat): (e1: Nat) → (e2: Nat) → Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
   | Zero, e2 => Eq.sym (Nat.addZero (Nat.pow b e2))
   | Succ e1, e2 =>
@@ -549,7 +553,7 @@ theorem Nat.powSuccPos (b: Nat): (e: Nat) → 0 < Nat.pow (Succ b) e
   | Zero => rfl
   | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Succ b) (Nat.powSuccPos b e) (Nat.leMulPos (Nat.pow (Succ b) e) (Succ b) rfl)
 
---| A power of a positive base is never 0: this decides it, so `auto` proves
+--| Decides that a power of a positive base is never 0. So `auto` proves
 --| `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
 --| unfolds to such a power.
 instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Not (Nat.pow (Succ b) e = 0)) :=

@@ -11,7 +11,7 @@ def Nat.iterate: Nat → (a → a) → a → a
 --| One more step is a step first.
 theorem Nat.iterateSucc (n: Nat) (f: a → a) (x: a): Nat.iterate (Succ n) f x = Nat.iterate n f (f x) := rfl
 
---| Or a step last.
+--| One more step is a step last.
 theorem Nat.iterateSuccLast (f: a → a): (n: Nat) → (x: a) → Nat.iterate (Succ n) f x = f (Nat.iterate n f x)
   | Zero, x => rfl
   | Succ n, x => Nat.iterateSuccLast f n (f x)

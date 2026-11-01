@@ -19,7 +19,8 @@ type Empty: Type
 def Empty.absurd: Empty → a
   | ()
 
---| The one operation. It returns `Empty`, so no handler can resume the
+--| Giving up without a reason: a computation that may stop, through its one
+--| operation, `stop`. It returns `Empty`, so no handler can resume the
 --| computation: there's no value to resume it with. Code calls
 --| `Abort.abort()`, which has any result type; handlers match on `stop`.
 ability Abort where
@@ -34,7 +35,7 @@ def Abort.need (option: Option a): {Abort} a :=
     | Some x => x
     | None => Abort.abort()
 
---| The same, for dot notation: `t.uncons.orAbort`.
+--| The value in an `Option`, or give up: `Abort.need` for dot notation, `t.uncons.orAbort`.
 def Option.orAbort (option: Option a): {Abort} a := Abort.need option
 
 --| Give up unless `ok`.

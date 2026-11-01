@@ -52,19 +52,19 @@ theorem List.dropAt (d: a): (xs: List a) → (k: Nat) → k < List.length xs →
   | Cons x xs, Succ k, h => List.dropAt d xs k h
 
 --| `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
---| are in Lemmas.sw) ...
+--| are in Lemmas.sw).
 theorem List.getOrGet: (xs: List a) → (k: Nat) → (d: a) → List.getOr xs k d = Option.getOrElse (List.get xs k) d
   | Nil, k, d => rfl
   | Cons x xs, Zero, d => rfl
   | Cons x xs, Succ k, d => List.getOrGet xs k d
 
---| ... so what `get` finds, `getOr` gives, whatever the fallback ...
+--| What `get` finds, `getOr` gives, whatever the fallback.
 theorem List.getOrOfGet: (xs: List a) → (k: Nat) → (d: a) → (v: a) → List.get xs k = Some v → List.getOr xs k d = v
   | Nil, k, d, v, h => Void.exfalso (Option.noneNotSome v h)
   | Cons x xs, Zero, d, v, h => Option.someInjective x v h
   | Cons x xs, Succ k, d, v, h => List.getOrOfGet xs k d v h
 
---| ... and within the list, `get` finds what `getOr` gives.
+--| Within the list, `get` finds what `getOr` gives.
 theorem List.getOfGetOr: (xs: List a) → (k: Nat) → (d: a) → k < List.length xs → List.get xs k = Some (List.getOr xs k d)
   | Nil, k, d, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, Zero, d, h => rfl
@@ -171,7 +171,7 @@ theorem List.sumByGetOr (xs: List a) (d: a) (f: a → Nat): List.sumBy xs f = Li
     _ = List.sumBy (List.map (List.range (List.length xs)) (i => List.getOr xs i d)) f := rewrite List.mapGetOr xs d
     _ = List.sumBy (List.range (List.length xs)) (i => f (List.getOr xs i d)) := List.sumByMap (List.range (List.length xs)) f (i => List.getOr xs i d)
 
---| Each element with its index is each index with its element.
+--| `withIndexFrom s xs` is each index of `xs`, plus `s`, with its element.
 theorem List.withIndexFromRange: (xs: List a) → (d: a) → (s: Nat) →
     List.withIndexFrom s xs = List.map (List.range (List.length xs)) (i => MkPair (s + i) (List.getOr xs i d))
   | Nil, d, s => rfl
@@ -238,7 +238,7 @@ theorem List.getOrScanLeft (f: b → a → b) (d: b): (xs: List a) → (z: b) �
   | Cons x xs, z, Succ k, h => List.getOrScanLeft f d xs (f z x) k h
 
 --| Element k of `zipWith xs (scanLeft xs z f) g` is `g` of element k and the
---| fold of the elements before it: laying items end to end from `z`, item k
+--| fold of the elements before it. Laying items end to end from `z`, item k
 --| is placed after the first k.
 theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) (dc: c): (xs: List a) → (z: b) → (k: Nat) → k < List.length xs →
     List.getOr (List.zipWith xs (List.scanLeft xs z f) g) k dc = g (List.getOr xs k dx) (List.foldLeft (List.take xs k) z f)

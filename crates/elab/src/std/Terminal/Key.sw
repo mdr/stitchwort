@@ -1,7 +1,7 @@
 --| `Key`: the keys a terminal program reads, and `Key.next`, which decodes
 --| them from the bytes a terminal sends. Decoding is ordinary code: total,
 --| structural, with no `IO`, so it's tested here and proved about
---| (`Key.nextBytes`). `Terminal.readKey` gives these keys; `Terminal.toIO`
+--| ([`Key.nextBytes`]). `Terminal.readKey` gives these keys; `Terminal.toIO`
 --| reads the bytes and calls `Key.next`.
 --|
 --|   Key.next [27, 91, 65, 113] = Got Up [113]   -- ESC [ A is the up arrow
@@ -11,7 +11,7 @@
 
 import Key.Decoded (Got, Incomplete, NoBytes)
 
---| A key. Arrows and the other named keys are what a terminal sends for
+--| A key pressed at the terminal, in keys mode. Arrows and the other named keys are what a terminal sends for
 --| them; anything it sends that isn't one of these is `Unknown`, so a
 --| program's catch-all case skips it. Not here: function keys, Alt, and
 --| modified arrows (Ctrl-Up arrives as `Unknown`).
@@ -37,6 +37,7 @@ type Key: Type =
 -- `==` on keys, written by hand (the library's types get no derived one):
 -- a key is its constructor's position and its character, if it has one.
 
+--| The position of a key's constructor, for `==` on keys.
 def Key.position: Key → Nat
   | Printable char => 0
   | Enter => 1
@@ -62,7 +63,7 @@ def Key.charOrSpace: Key → Char
   | _ => ' '
 
 --| The key at a position, with a character if it takes one: undoes
---| `position` and `charOrSpace` together (`Key.fromParts`).
+--| `position` and `charOrSpace` together ([`Key.fromParts`]).
 def Key.ofParts (position: Nat) (char: Char): Key :=
   match position with
     | 0 => Printable char
@@ -223,7 +224,7 @@ def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
     else Got Unknown (Cons byte rest)
 
 --| The bytes a terminal sends for a key: what `Key.next` reads back
---| (`Key.nextBytes`). A `Ctrl` with something other than a lower-case
+--| ([`Key.nextBytes`]). A `Ctrl` with something other than a lower-case
 --| letter, which no terminal sends, gives the bytes of `Unknown`: 255, which
 --| is never part of UTF-8.
 def Key.bytes: Key → List Nat
@@ -262,7 +263,7 @@ def Key.allWithin: Nat → List Nat → List Key
 
 --| The round trip a terminal makes: the bytes it sends for a named key, then
 --| anything at all, decode to that key and the rest. Not for `Escape`, whose
---| byte also starts the other sequences (`Key.nextEscape` says when it holds),
+--| byte also starts the other sequences ([`Key.nextEscape`] says when it holds),
 --| or for the keys with a character, `Printable` and `Ctrl`.
 def Key.isNamed: Key → Bool
   | Printable char => False

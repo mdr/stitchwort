@@ -22,7 +22,7 @@ def Vec.shiftLeft: Vec a n → (fill: a) → Vec a n
 --| `f left x right` for every element x and its neighbours, with `pad` for a
 --| neighbour past either end: `[1, 2, 3].around 0 (l x r => l + x + r)` is
 --| `[3, 6, 5]`. It is `zipWith3 f (v.shiftRight pad) v (v.shiftLeft pad)`
---| (`Vec.aroundShifts`), in one pass.
+--| ([`Vec.aroundShifts`]), in one pass.
 def Vec.around (v: Vec a n) (pad: a) (f: a → a → a → b): Vec b n := Vec.aroundFrom pad f pad v
 
 --| `around`, with `left` as the first element's left neighbour.
@@ -50,7 +50,7 @@ theorem Vec.getOrShiftLeft: (v: Vec a n) → (fill: a) → (i: Nat) →
   | VCons x xs, fill, Zero => Vec.headOrGetOr xs fill
   | VCons x xs, fill, Succ i => Vec.getOrShiftLeft xs fill i
 
---| The same with any default, inside the row.
+--| Index i after `shiftLeft` is index i + 1 before, with any default, inside the row.
 theorem Vec.getOrShiftLeftLt: (v: Vec a n) → (i: Nat) → (d: a) → (fill: a) → i < n →
     Vec.getOr (Vec.shiftLeft v fill) i d = Vec.getOr v (Succ i) fill
   | VNil, i, d, fill, h => Void.exfalso (Bool.falseNotTrue h)
@@ -79,6 +79,7 @@ theorem Vec.getOrAround (v: Vec a n) (i: Nat) (d: b) (pad: a) (h: i < n) (f: a �
     Vec.getOr (Vec.around v pad f) i d = f (Vec.getOr (VCons pad v) i pad) (Vec.getOr v i pad) (Vec.getOr v (Succ i) pad) :=
   Vec.getOrAroundFrom v i d pad pad h f
 
+--| A small vector for the examples below: 1, 2, 3, 4.
 def Vec.gridExample: Vec Nat 4 := VCons 1 (VCons 2 (VCons 3 (VCons 4 VNil)))
 
 theorem Vec.shiftRightExample: Vec.toList (Vec.shiftRight Vec.gridExample 0) = [0, 1, 2, 3] := rfl

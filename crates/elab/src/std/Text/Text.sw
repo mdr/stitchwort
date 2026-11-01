@@ -8,8 +8,8 @@ theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := 
 theorem Text.lengthAppend (a: Text) (b: Text):
     Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
---| `Text.padRight text n char` is `text` followed by enough copies of `char` to make it
---| n characters long (it is `text` itself when that is already n long or longer).
+--| The text made n characters long with copies of `char` after it: `Text.padRight "ab" 5 '.'` is `"ab..."`.
+--| It is `text` itself when that is already n long or longer.
 def Text.padRight (text: Text) (n: Nat) (char: Char): Text :=
   text.toList.padRight n char |> Text.fromList
 
@@ -17,8 +17,8 @@ theorem Text.padRightExample: Text.padRight "ab" 5 '.' = "ab..." := rfl
 
 theorem Text.padRightLongEnough: Text.padRight "ab" 1 '.' = "ab" := rfl
 
---| `Text.padLeft text n char` is enough copies of `char` followed by `text` to make it
---| n characters long (it is `text` itself when that is already n long or longer).
+--| The text made n characters long with copies of `char` before it: `Text.padLeft "7" 2 '0'` is `"07"`.
+--| It is `text` itself when that is already n long or longer.
 def Text.padLeft (text: Text) (n: Nat) (char: Char): Text :=
   text.toList.padLeft n char |> Text.fromList
 
@@ -26,8 +26,10 @@ theorem Text.padLeftExample: Text.padLeft "7" 2 '0' = "07" := rfl
 
 theorem Text.padLeftLongEnough: Text.padLeft "123" 2 '0' = "123" := rfl
 
+--| Whether `a` comes before `b`, lexicographically by scalar value.
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 
+--| A first field and the fields after it, joined with `separator` between each two.
 def Text.joinPair (separator: Char): Pair (List Char) (List (List Char)) → List Char
   | MkPair field fields => Text.joinChars separator field fields
 
@@ -63,10 +65,12 @@ theorem Text.joinSplit: (t: Text) → (s: Char) → Text.join (Text.split t s) s
 
 -- Lines
 
+--| Whether a code is the line feed, 10.
 def Char.isLineFeedCode: Nat → Bool
   | 10 => True
   | _ => False
 
+--| Whether a code is the carriage return, 13.
 def Char.isCarriageReturnCode: Nat → Bool
   | 13 => True
   | _ => False
@@ -82,8 +86,8 @@ def Text.lastLine: List Char → List Text → List Text
   | Nil, acc => acc
   | Cons c cs, acc => Cons (MkText (List.reverseOnto (Cons c cs) Nil)) acc
 
---| `line` is the current line's characters, newest first, and `acc` the
---| finished lines, newest first.
+--| The lines of the characters, after the current line's characters
+--| (`line`, newest first) and the finished lines (`acc`, newest first).
 def Text.linesFrom (line: List Char) (acc: List Text): List Char → List Text
   | Nil => List.reverseOnto (Text.lastLine line acc) Nil
   | Cons char chars =>
@@ -106,7 +110,7 @@ def IO.readAllLines(): {IO} (List Text) := IO.readAll().lines
 -- needle or separator, so `line.stripPrefix "L"`, `line |> Text.stripPrefix
 -- "L"` and `Text.stripPrefix line "L"` all mean the same.
 
---| The first `n` characters of the text (all of it if it is shorter).
+--| The first `n` characters of the text (all of it if it is shorter); with `Text.drop`, the whole text ([`Text.takeAppendDrop`]).
 def Text.take (text: Text) (n: Nat): Text := text.toList.take n |> Text.fromList
 
 --| The text without its first `n` characters (empty if it is shorter).
@@ -121,26 +125,30 @@ def Text.stripPrefixChars: List Char → List Char → Option (List Char)
   | Cons p ps, Nil => None
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
 
+--| Whether the second list of characters starts with the first.
 def Text.startsWithChars: List Char → List Char → Bool
   | Nil, ys => True
   | Cons p ps, Nil => False
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.startsWithChars ps ys else False
 
---| `Text.stripPrefix text p` is the rest of `text` after `p`, or `None` if `text`
---| doesn't start with `p`. The empty prefix gives `Some text`.
+--| The rest of `text` after `prefix`, or `None` if `text` doesn't start with it
+--| ([`Text.stripPrefixAppend`]). The empty prefix gives `Some text`.
 def Text.stripPrefix (text: Text) (prefix: Text): Option Text :=
   Text.stripPrefixChars prefix.toList text.toList |> .map Text.fromList
 
---| `Text.stripSuffix text s` is `text` without its ending `s`, or `None`.
+--| The text without its ending `suffix`, or `None` if it doesn't end with it.
 def Text.stripSuffix (text: Text) (suffix: Text): Option Text :=
   Text.stripPrefixChars suffix.toList.reverse text.toList.reverse |> .map (chars => chars.reverse |> Text.fromList)
 
+--| Whether `text` starts with `prefix` ([`Text.startsWithAppend`]).
 def Text.startsWith (text: Text) (prefix: Text): Bool :=
   Text.startsWithChars prefix.toList text.toList
 
+--| Whether `text` ends with `suffix`.
 def Text.endsWith (text: Text) (suffix: Text): Bool :=
   Text.startsWithChars suffix.toList.reverse text.toList.reverse
 
+--| Whether `needle` occurs in the list of characters.
 def Text.containsChars (needle: List Char): List Char → Bool
   | Nil => Text.startsWithChars needle Nil
   | Cons char chars => if Text.startsWithChars needle (Cons char chars) then True else Text.containsChars needle chars
@@ -148,10 +156,10 @@ def Text.containsChars (needle: List Char): List Char → Bool
 --| Whether `needle` occurs in the text. The empty text occurs in every text.
 def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars needle.toList text.toList
 
---| `cur` is the current piece's characters, newest first, `acc` the finished
---| pieces, newest first, and `skip` how many more characters of a separator
---| just found are still to be passed over. `n` is the separator's length
---| less one.
+--| The loop of `Text.splitOn`, reading the characters. `cur` is the current
+--| piece's characters, newest first, `acc` the finished pieces, newest first,
+--| and `skip` how many more characters of a separator just found are still to
+--| be passed over. `n` is the separator's length less one.
 def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char → Nat → List Text
   | Nil, skip => List.reverseOnto (Cons (MkText (List.reverseOnto cur Nil)) acc) Nil
   | Cons char chars, Succ skip => Text.splitOnLoop sep n cur acc chars skip
@@ -163,12 +171,13 @@ def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text)
       chars
       (if hit then n else Zero)
 
+--| The characters split at each occurrence of the separator, as `Text.splitOn` does it.
 def Text.splitOnChars: List Char → List Char → List Text
   | Nil, chars => Cons (MkText chars) Nil
   | Cons first rest, chars => Text.splitOnLoop (Cons first rest) (List.length rest) Nil Nil chars Zero
 
---| Splits at each occurrence of the whole separator, scanning left to right
---| without overlaps: `"a--b".splitOn "-"` gives ["a", "", "b"], and
+--| The pieces between occurrences of the whole separator: `"a--b".splitOn "-"` gives ["a", "", "b"].
+--| It scans left to right without overlaps, so
 --| `Text.splitOn "aaa" "aa"` gives ["", "a"]. Always at least one piece, and
 --| `Text.splitOn text s` of a text without `s` is `[text]`. An empty separator
 --| doesn't split: the result is `[text]`, as in Lean's `String.splitOn`.
@@ -217,14 +226,12 @@ test "splitOn" := Text.splitOn "a, b" ", " == ["a", "b"] ∧ Text.splitOn "" "x"
 test "splitOn empty separator" := Text.splitOn "abc" "" == ["abc"]
 test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 
---| `text` is the main value: `text.repeat 3` is `text` three times over; `text.repeat 0`
---| is the empty text.
+--| The text n times over: `"ab".repeat 3` is `"ababab"`, and `text.repeat 0` is the empty text.
 def Text.repeat (text: Text) (n: Nat): Text := List.replicate n text.toList |> .concat |> Text.fromList
 
---| `text` is the main value: `text.chunksOf 2` cuts it into pieces of `n`
---| characters (the last one shorter if need be), as `List.chunksOf` does for
---| lists: `"abcde".chunksOf 2` is `["ab", "cd", "e"]`, and `n = 0` gives the
---| whole text as one chunk (none for an empty text).
+--| The text cut into pieces of `n` characters, the last one shorter if need be:
+--| `"abcde".chunksOf 2` is `["ab", "cd", "e"]`. As `List.chunksOf` does for
+--| lists, `n = 0` gives the whole text as one chunk (none for an empty text).
 def Text.chunksOf (text: Text) (n: Nat): List Text := text.toList.chunksOf n |> .map Text.fromList
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""
@@ -236,11 +243,12 @@ test "trim keeps the byte order mark" := Text.length (Text.trim "\u{FEFF}x\u{FEF
 test "words splits on Unicode White_Space" := "a\u{A0}b\u{3000}c".words == ["a", "b", "c"]
 test "isAsciiSpace is ASCII only" := Char.isAsciiSpace ' ' ∧ ¬(Char.isAsciiSpace '\u{A0}') ∧ Char.isWhitespace '\u{A0}' ∧ ¬(Char.isWhitespace '\u{FEFF}')
 
---| ASCII letters, `a` to `z` and `A` to `Z`, and those or a digit.
+--| Whether a character is an ASCII letter, `a` to `z` or `A` to `Z`.
 def Char.isAsciiLetter (char: Char): Bool :=
   let code := char.toNat
   (97 <= code && code <= 122) || (65 <= code && code <= 90)
 
+--| Whether a character is an ASCII letter or digit.
 def Char.isAsciiAlphanumeric (char: Char): Bool := char.isAsciiLetter || char.digitValue.isSome
 
 test "Char.isAsciiLetter" := Char.isAsciiLetter 'a' ∧ Char.isAsciiLetter 'Z' ∧ ¬(Char.isAsciiLetter '0') ∧ ¬(Char.isAsciiLetter '.') ∧ ¬(Char.isAsciiLetter 'é')

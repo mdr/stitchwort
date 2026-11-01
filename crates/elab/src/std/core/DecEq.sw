@@ -1,4 +1,4 @@
---| core/DecEq.sw. The `DecEq` interface, its instances for the core types, and
+--| The `DecEq` interface, its instances for the core types, and
 --| the uniqueness of equality proofs it gives.
 -- Loaded with the core: `==`, `!=`, `if h: x = y` and `auto` deciding an
 -- equation all use `DecEq` instances, found by full key
@@ -9,6 +9,8 @@
 -- `DecEq` instance for the type. A data type or record declared in a
 -- program gets one derived, when it can (`T.%instDecEq`).
 
+--| Types whose values can be compared for equality, with a proof: what `==`,
+--| `!=` and `if h: a = b` use.
 interface DecEq (a: Type) =
   { decide: (x: a) → (y: a) → Decidable (x = y) }
 

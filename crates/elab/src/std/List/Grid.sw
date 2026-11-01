@@ -65,7 +65,7 @@ test "gridCells" :=
     ∧ (Nil: List (List Nat)).gridCells == [] ∧ [[], [7]].gridCells == [((1, 0), 7)]
 
 --| The length of the longest row (0 for no rows). A right fold, so it runs
---| as a loop (stack-safe on many rows); `List.maxLengthCons` is its step.
+--| as a loop (stack-safe on many rows); [`List.maxLengthCons`] is its step.
 def List.maxLength (rows: List (List a)): Nat := rows.foldRight 0 (row m => Nat.max row.length m)
 
 theorem List.maxLengthCons (rows: List (List a)) (row: List a): List.maxLength (Cons row rows) = Nat.max (List.length row) (List.maxLength rows) :=
@@ -119,13 +119,13 @@ theorem List.transposeFillColumns: (rows: List (List a)) → (fill: a) →
       _ = List.map (List.range (List.maxLength (Cons r rs))) (c => List.map (Cons r rs) (row => List.getOr row c fill))
         := List.transposeGrid rs r (List.range (List.maxLength (Cons r rs))) (row c => List.getOr row c fill)
 
---| As many columns as the longest row is long...
+--| `transposeFill` gives as many columns as the longest row is long.
 theorem List.lengthTransposeFill (rows: List (List a)) (fill: a): List.length (List.transposeFill rows fill) = List.maxLength rows :=
   Eq.trans (Eq.cong List.length (List.transposeFillColumns rows fill))
     (Eq.trans (List.lengthMap (List.range (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill)))
       (List.lengthRangeFrom (List.maxLength rows) 0))
 
---| ...and column c (c < maxLength) is `getOr c fill` of every row.
+--| Column c (c < maxLength) of `transposeFill` is `getOr c fill` of every row.
 theorem List.getOrTransposeFill (rows: List (List a)) (fill: a) (c: Nat) (h: c < List.maxLength rows):
     List.getOr (List.transposeFill rows fill) c Nil = List.map rows (row => List.getOr row c fill) :=
   calc List.getOr (List.transposeFill rows fill) c Nil

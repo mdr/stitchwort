@@ -1,8 +1,9 @@
---| core/Helpers.sw. Small definitions the later sections use:
+--| Small definitions the later sections use:
 --| `List.concatMap`, `Bool.inspect`, `Bool.toNat`.
 -- Loaded with the core: The `Ord` laws and the `Show` machinery below need
 -- them, so they stay with the core (docs/proposals/prelude-slim.md §2.1).
 
+--| `f` on each element, the results joined: what `List.flatMap` does, for the core.
 def List.concatMap: List a → (f: a → List b) → List b
   | Nil, f => Nil
   | Cons x xs, f => List.append (f x) (List.concatMap xs f)

@@ -7,9 +7,10 @@
 --| those below `Mod.size n`, which is `n` except that `Mod.size 0` is 1.
 --|
 --| The range proof is built by deciding the comparison, not by citing
---| `Nat.modLt`: for a closed number the decision is `rfl`, so checking an `rfl`
+--| [`Nat.modLt`]: for a closed number the decision is `rfl`, so checking an `rfl`
 --| about a `Mod 1000000` doesn't unfold that lemma's induction.
 
+--| A number modulo n: its `value` is below `Mod.size n`, and `+` and `*` wrap around.
 type Mod (n: Nat) = { value: Nat, isLt: value < Mod.size n }
 
 --| How many numbers a `Mod n` has.
@@ -70,11 +71,13 @@ theorem Mod.valueOfNatValue [n: Nat] (i: Mod n): (Mod.ofNat i.value: Mod n).valu
 
 theorem Mod.ofNatValue [n: Nat] (i: Mod n): Mod.ofNat i.value = i := Mod.ext (Mod.ofNat i.value) i (Mod.valueOfNatValue i)
 
---| Addition, multiplication and negation, wrapping.
+--| `i + j`, wrapping around: in `Mod 100`, 60 + 50 is 10.
 def Mod.add (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value + j.value)
 
+--| `i * j`, wrapping around: in `Mod 100`, 20 * 7 is 40.
 def Mod.mul (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value * j.value)
 
+--| `-i`, wrapping around: the number that adds to `i` to give 0 (in `Mod 100`, `-1` is 99).
 def Mod.neg (i: Mod n): Mod n := Mod.ofNat (Mod.size n - i.value)
 
 --| `i` minus `j`, wrapping: `Mod.sub 5 7` is 98 in `Mod 100`, where `Nat`'s `5 - 7` is 0.
@@ -104,7 +107,7 @@ theorem Mod.addNeg [n: Nat] (i: Mod n): Mod.add i (Mod.neg i) = Mod.zero :=
 
 theorem Mod.subSelf [n: Nat] (i: Mod n): Mod.sub i i = Mod.zero := Mod.addNeg i
 
---| 0.
+--| The number 0 modulo n.
 def Mod.zero [n: Nat]: Mod n := { value = 0, isLt = rfl }
 
 theorem Mod.zeroAdd [n: Nat] (i: Mod n): Mod.add Mod.zero i = i :=
@@ -156,10 +159,11 @@ theorem Mod.mulAssoc [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.mul (Mod.mul
               (Eq.trans (Eq.cong (t => (i.value * t) % Mod.size n) (Eq.sym (Mod.valueMul j k)))
                 (Eq.sym (Mod.valueMul i (Mod.mul j k)))))))))
 
---| `+` and `*`.
+--| `+` on numbers modulo n, wrapping around (`Mod.add`).
 instance Mod.instAdd [n: Nat]: Add (Mod n) :=
   { zero = Mod.zero, add = Mod.add, zeroAdd = Mod.zeroAdd, assoc = Mod.addAssoc, comm = Mod.addComm }
 
+--| `*` on numbers modulo n, wrapping around (`Mod.mul`).
 instance Mod.instMul [n: Nat]: Mul (Mod n) :=
   { one = Mod.one, mul = Mod.mul, oneMul = Mod.oneMul, mulOne = Mod.mulOne, assoc = Mod.mulAssoc }
 
@@ -178,7 +182,9 @@ instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
 --| after 0 even though `99 + 1` is 0).
 instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) Mod.ext
 
---| Conversions with `Fin`, the type of positions in a `Vec`.
+-- Conversions with `Fin`, the type of positions in a `Vec`.
+
+--| A number below n is below `Mod.size n`.
 theorem Mod.ltSize: (n: Nat) → (x: Nat) → x < n → x < Mod.size n
   | Zero, x, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, x, h => h
@@ -243,7 +249,9 @@ theorem Mod.negOfInt [n: Nat] (i: Mod n): Mod.neg i = Mod.ofInt (Int.neg i.toInt
     (Eq.trans (Mod.valueNeg i)
       (Eq.trans (Mod.subModEq (n - 1) (Mod.sizeNeZero n) i.value i.isLt) (Eq.sym (Mod.valueOfInt (Int.neg i.toInt)))))
 
---| The laws.
+-- The laws of moving up and down.
+
+--| Moving up by 0 changes nothing.
 theorem Mod.addNatZero [n: Nat] (i: Mod n): i.addNat 0 = i :=
   Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addZero i.toInt)) (Mod.ofIntToInt i)
 

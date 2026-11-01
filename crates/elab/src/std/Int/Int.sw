@@ -12,14 +12,16 @@ theorem Int.negNeg: (x: Int) → Int.neg (Int.neg x) = x
   | OfNat (Succ n) => rfl
   | NegSucc n => rfl
 
---| These hold by computation; stating them keeps it that way.
+-- These hold by computation; stating them keeps it that way.
+
+--| `Nat.toInt` of a sum is the sum of the `Nat.toInt`s, by computation.
 theorem Int.toIntAdd (m: Nat) (n: Nat): Nat.toInt (m + n) = Int.add (Nat.toInt m) (Nat.toInt n) := rfl
 
 theorem Int.toIntMul (m: Nat) (n: Nat): Nat.toInt (m * n) = Int.mul (Nat.toInt m) (Nat.toInt n) := rfl
 
 theorem Int.toNatToInt (n: Nat): Int.toNat (Nat.toInt n) = n := rfl
 
---| And back: an `Int` that isn't negative is its `toNat`.
+--| An `Int` that isn't negative is the `Nat.toInt` of its `toNat`.
 theorem Int.toIntToNat: (z: Int) → 0 ≤ z → Nat.toInt (Int.toNat z) = z
   | OfNat k, nonneg => rfl
   | NegSucc k, nonneg => Void.exfalso (Bool.falseNotTrue nonneg)
@@ -106,7 +108,7 @@ theorem Int.divAddModPosNeg (m: Nat) (n: Nat): (q: Nat) → (r: Nat) → m = q *
   | Succ q, r, h =>
     Eq.cong OfNat (Eq.trans (Eq.cong (t => t + r) (Nat.mulComm (Succ n) (Succ q))) (Eq.sym h))
 
---| The division law.
+--| The division law: `d * (a / d) + a % d = a`.
 theorem Int.divAddMod: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → d * (a / d) + a % d = a
   | a, OfNat Zero => Void.exfalso (ok rfl)
   | OfNat m, OfNat (Succ n) =>

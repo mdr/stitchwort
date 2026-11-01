@@ -1,4 +1,4 @@
---| core/Int.sw. `Int`: the type, its arithmetic, decidable equality,
+--| `Int`: the type, its arithmetic, decidable equality,
 --| comparison, `toText`, and Euclidean `div`/`mod`.
 -- Loaded with the core: `Int` is pinned by content hash, and `+ * < <=` on
 -- `Int` go through instances that need these definitions
@@ -13,7 +13,7 @@ type Int: Type =
   | OfNat (n: Nat)
   | NegSucc (n: Nat)
 
---| `-x`
+--| `-x`: the integer with the other sign.
 def Int.neg: Int → Int
   | OfNat Zero => OfNat Zero
   | OfNat (Succ n) => NegSucc n
@@ -26,19 +26,20 @@ def Int.subNatNatFrom (m: Nat) (n: Nat): Nat → Int
   | Zero => OfNat (m - n)
   | Succ k => NegSucc k
 
+--| `m - n` for naturals, as an integer: negative when `n` is bigger.
 def Int.subNatNat (m: Nat) (n: Nat): Int := Int.subNatNatFrom m n (n - m)
 
---| `a + b`
+--| `a + b`: addition of integers.
 def Int.add: Int → Int → Int
   | OfNat m, OfNat n => OfNat (m + n)
   | OfNat m, NegSucc n => Int.subNatNat m (Succ n)
   | NegSucc m, OfNat n => Int.subNatNat n (Succ m)
   | NegSucc m, NegSucc n => NegSucc (Succ (m + n))
 
---| `a - b`
+--| `a - b`: subtraction of integers, which can go below zero.
 def Int.sub (a: Int) (b: Int): Int := Int.add a (Int.neg b)
 
---| `a * b`. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
+--| `a * b`: multiplication of integers. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
 def Int.mul: Int → Int → Int
   | OfNat m, OfNat n => OfNat (m * n)
   | OfNat m, NegSucc n => Int.neg (OfNat (m * Succ n))
@@ -57,6 +58,7 @@ def Int.toNat: Int → Nat
 
 -- The two constructors are different, and each is injective.
 
+--| `Unit` (true) for an `OfNat` and `Void` (false) for a `NegSucc`: how `OfNat m ≠ NegSucc n` is proved.
 def Int.IsOfNat: Int → Prop
   | OfNat n => Unit
   | NegSucc n => Void
@@ -71,10 +73,12 @@ theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq
 
 theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n := Nat.succInjective m n (Eq.cong Int.natAbs p)
 
+--| Decides whether two `OfNat`s are equal, from a decision about their numbers.
 def Int.decOfNat (m: Nat) (n: Nat): Decidable (m = n) → Decidable (OfNat m = OfNat n)
   | Yes p => Yes (Eq.cong OfNat p)
   | No r => No (p => r (Int.ofNatInjective m n p))
 
+--| Decides whether two `NegSucc`s are equal, from a decision about their numbers.
 def Int.decNegSucc (m: Nat) (n: Nat): Decidable (m = n) → Decidable (NegSucc m = NegSucc n)
   | Yes p => Yes (Eq.cong NegSucc p)
   | No r => No (p => r (Int.negSuccInjective m n p))
@@ -87,7 +91,7 @@ def Int.decEq: (a: Int) → (b: Int) → Decidable (a = b)
   | NegSucc m, OfNat n => No (Int.negSuccNotOfNat m n)
   | NegSucc m, NegSucc n => Int.decNegSucc m n (Nat.decEq m n)
 
---| `a <= b`. Every negative is below every non-negative; among negatives the
+--| Whether `a <= b`, as a `Bool`. Every negative is below every non-negative; among negatives the
 --| order flips, since `NegSucc n` is `-(n+1)`.
 def Int.leq: Int → Int → Bool
   | OfNat m, OfNat n => Nat.leq m n
@@ -95,21 +99,24 @@ def Int.leq: Int → Int → Bool
   | NegSucc m, OfNat n => True
   | NegSucc m, NegSucc n => Nat.leq n m
 
---| `a < b`
+--| Whether `a < b`, as a `Bool`.
 def Int.less: Int → Int → Bool
   | OfNat m, OfNat n => Nat.leq (Succ m) n
   | OfNat m, NegSucc n => False
   | NegSucc m, OfNat n => True
   | NegSucc m, NegSucc n => Nat.leq (Succ n) m
 
+--| `a <= b` as a proposition, defined by computation.
 def Int.LessEq (a: Int) (b: Int): Prop := Int.leq a b = True
 
+--| `a < b` as a proposition, defined by computation.
 def Int.LessThan (a: Int) (b: Int): Prop := Int.less a b = True
 
 instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)
 
 instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
 
+--| How `a` compares with `b`: `Int.compare (-3) 2` is `Less`.
 def Int.compare: Int → Int → Ordering
   | OfNat m, OfNat n => Nat.compare m n
   | OfNat m, NegSucc n => Greater
@@ -121,7 +128,9 @@ def Int.toText: Int → Text
   | OfNat n => Nat.toText n
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
---| Division. `dividend / divisor` and `dividend % divisor` are Euclidean: `dividend = divisor * (dividend / divisor) + dividend % divisor`
+--| `dividend / divisor`, Euclidean: the remainder it leaves is at least 0 and below `|divisor|`, so `-18 / 100` is `-1`.
+--| (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`.)
+--| With `Int.mod`, `dividend = divisor * (dividend / divisor) + dividend % divisor`
 --| with `0 <= dividend % divisor < |divisor|`, whatever the signs, so `-18 % 100` is `82`.
 -- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
 -- The divisor can't be zero, but the case still has to be covered: `ok`
@@ -133,7 +142,7 @@ def Int.div: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 
   | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
   | NegSucc m, NegSucc n => OfNat (Succ (m / Succ n))
 
---| Never negative.
+--| `dividend % divisor`, Euclidean: never negative, and below `|divisor|`, so `-18 % 100` is `82`.
 -- For `NegSucc m`, `m % Succ n <= n`, so the subtraction doesn't stop at
 -- zero.
 def Int.mod: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int

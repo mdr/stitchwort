@@ -21,6 +21,7 @@ theorem Option.mapCong: (x: Option a) → (f1: a → b) → (f2: a → b) → ((
 --| `Some` is injective: equal `Some`s hold equal values.
 theorem Option.someInjective (x: a) (y: a) (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
 
+--| `map2` with `None` second is `None`.
 theorem Option.map2None (f: a → b → c): (x: Option a) → Option.map2 f x None = None
   | None => rfl
   | Some x => rfl
@@ -89,7 +90,8 @@ theorem Option.getOrElseMap2 (f: a → b → r) (da: a) (db: b) (d: r)
   | Some x, None => Eq.sym (missing2 _)
   | Some x, Some y => rfl
 
---| The same for three.
+--| With defaults for missing values, `map3` is `f` of the values or defaults,
+--| when a default in any place makes `f` give the default result.
 theorem Option.getOrElseMap3 (f: a → b → c → r) (da: a) (db: b) (dc: c) (d: r)
     (missing1: (y: b) → (z: c) → f da y z = d)
     (missing2: (x: a) → (z: c) → f x db z = d)
@@ -101,7 +103,8 @@ theorem Option.getOrElseMap3 (f: a → b → c → r) (da: a) (db: b) (dc: c) (d
   | Some x, Some y, None => Eq.sym (missing3 _ _)
   | Some x, Some y, Some z => rfl
 
---| The same for four.
+--| With defaults for missing values, `map4` is `f` of the values or defaults,
+--| when a default in any place makes `f` give the default result.
 theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc: c) (de: e) (d: r)
     (missing1: (y: b) → (z: c) → (w: e) → f da y z w = d)
     (missing2: (x: a) → (z: c) → (w: e) → f x db z w = d)
@@ -182,7 +185,7 @@ theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (bo
   | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective (right w) v h)
   | None, None, h, onLeft, onRight, onBoth => Void.exfalso (Option.noneNotSome v h)
 
---| So a property each arm's result has, the result has.
+--| A property each arm of `alignWith` gives, its result has.
 theorem Option.alignWithHolds (q: c → Prop) (left: a → c) (right: b → c) (both: a → b → c)
     (onLeft: (u: a) → q (left u)) (onRight: (w: b) → q (right w)) (onBoth: (u: a) → (w: b) → q (both u w))
     (x: Option a) (y: Option b) (v: c) (h: Option.alignWith x y left right both = Some v): q v :=

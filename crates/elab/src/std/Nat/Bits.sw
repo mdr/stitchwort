@@ -16,7 +16,7 @@ theorem Nat.halfDivPow (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (S
         (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power positive))
           (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2)))))
 
---| `n` shifted right by `count` bits: `n / 2 ^ count` (`Nat.shiftRightDiv`),
+--| `n` shifted right by `count` bits: `n / 2 ^ count` ([`Nat.shiftRightDiv`]),
 --| in at most one step per bit of `n`.
 def Nat.shiftRight: (n: Nat) → (count: Nat) → Nat
   | Zero, count => 0
@@ -51,7 +51,7 @@ theorem Nat.halvesLess (m: Nat) (n: Nat) (some: Nat.leq (m + n) 0 = False): m / 
   omega [Nat.divMulLe m 2 (Nat.succNotZero 1), Nat.divMulLe n 2 (Nat.succNotZero 1), Nat.leqFalse (m + n) 0 some]
 
 --| The bitwise exclusive or: each bit of `Nat.xor m n` is set when exactly
---| one of `m` and `n` has it set (`Nat.testBitXor`).
+--| one of `m` and `n` has it set ([`Nat.testBitXor`]).
 def Nat.xor (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -157,7 +157,7 @@ theorem Nat.oddEither (m: Nat) (n: Nat): ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2 
   Nat.oddEitherBits (m % 2) (n % 2) (Nat.modLess m 2 (Nat.succNotZero 1)) (Nat.modLess n 2 (Nat.succNotZero 1))
 
 --| The bitwise and: each bit of `Nat.and m n` is set when both `m` and `n`
---| have it set (`Nat.testBitAnd`).
+--| have it set ([`Nat.testBitAnd`]).
 def Nat.and (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -198,7 +198,7 @@ theorem Nat.testBitAnd: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.
       Nat.testBitAnd i (m / 2) (n / 2)
 
 --| The bitwise or: each bit of `Nat.or m n` is set when `m` or `n` has it
---| set (`Nat.testBitOr`).
+--| set ([`Nat.testBitOr`]).
 def Nat.or (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -241,7 +241,7 @@ theorem Nat.testBitOr: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.o
 --| Regrouping `n * 2 * p`, for shifting left one bit and then `count` more.
 theorem Nat.regroupDouble (n: Nat) (p: Nat): n * 2 * p = n * (p * 2) := ring
 
---| `n` shifted left by `count` bits: `n * 2 ^ count` (`Nat.shiftLeftMul`).
+--| `n` shifted left by `count` bits: `n * 2 ^ count` ([`Nat.shiftLeftMul`]).
 def Nat.shiftLeft: (n: Nat) → (count: Nat) → Nat
   | n, Zero => n
   | n, Succ count => Nat.shiftLeft (n * 2) count

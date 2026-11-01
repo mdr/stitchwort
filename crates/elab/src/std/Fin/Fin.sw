@@ -3,6 +3,7 @@
 --| no bound proof: the type of the index is the proof. `Fin.ofNatLt` and
 --| `Fin.toNat` convert to and from a `Nat` with its bound.
 
+--| A number below n, as a position in a `Vec a n`: `FZero` is 0 and `FSucc i` is one more than `i`.
 type Fin: Nat → Type =
   | FZero: Fin (Succ n)
   | FSucc (i: Fin n): Fin (Succ n)
@@ -65,7 +66,7 @@ theorem Fin.allComplete: (n: Nat) → (i: Fin n) → List.Mem i (Fin.all n)
   | Succ m, FZero => Inl rfl
   | Succ m, FSucc i => Inr (List.memConcatMap (j => [FSucc j]) i (FSucc i) (Fin.all m) (Fin.allComplete m i) (Inl rfl))
 
---| So `Fin n` is finite, and `Finite.check` takes statements about positions.
+--| `Fin n` is finite, its values listed by `Fin.all`, so [`Finite.check`] takes statements about positions.
 -- (written by hand: `Finite` isn't derived for an indexed family)
 instance Fin.instFinite: Finite (Fin n) := { all = Fin.all n, complete = Fin.allComplete n }
 
@@ -108,8 +109,8 @@ test "char to digit" := List.map (Text.toList "0a9") (c => Option.map (Char.toDi
 
 --| Some position below n passes `p`: `Fin.any 5 (i => Fin.toNat i == 3)` is
 --| True. It tries 0, 1, 2 and so on and stops at the first that passes, as
---| `List.any` does along `List.range n` (`Fin.anyRange`). A witness is a
---| `Fin n`, so it comes with its bound (`Fin.toNatLt`).
+--| `List.any` does along `List.range n` ([`Fin.anyRange`]). A witness is a
+--| `Fin n`, so it comes with its bound ([`Fin.toNatLt`]).
 def Fin.any: (n: Nat) → (Fin n → Bool) → Bool
   | Zero, p => False
   | Succ n, p => if p FZero then True else Fin.any n (i => p (FSucc i))
@@ -122,7 +123,7 @@ theorem Fin.anyIntro (p: Fin n → Bool): (i: Fin n) → p i = True → Fin.any 
       (t => rfl)
       (f => Fin.anyIntro (j => p (FSucc j)) i h)
 
---| And back: when `Fin.any` is true, some position passes.
+--| When `Fin.any` is true, some position passes.
 theorem Fin.anyElim (goal: Prop): (n: Nat) → (p: Fin n → Bool) → Fin.any n p = True → ((i: Fin n) → p i = True → goal) → goal
   | Zero, p, h, use => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, p, h, use =>
@@ -132,7 +133,7 @@ theorem Fin.anyElim (goal: Prop): (n: Nat) → (p: Fin n → Bool) → Fin.any n
         (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => True) (u => Fin.any n (i => p (FSucc i)))) (Eq.sym f)) h)
         (i hi => use (FSucc i) hi))
 
---| The same, with the witness as an `Exists`.
+--| When `Fin.any` is true, some position passes, as an `Exists`.
 theorem Fin.anyWitness (n: Nat) (p: Fin n → Bool) (h: Fin.any n p = True): Exists (Fin n) (i => p i = True) :=
   Fin.anyElim (Exists (Fin n) (i => p i = True)) n p h (i hi => Witness i hi)
 
@@ -151,7 +152,7 @@ theorem Fin.anyRangeFrom (q: Nat → Bool): (n: Nat) → (s: Nat) → Fin.any n 
     rewrite Fin.anyCong (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
       Fin.anyRangeFrom q n (Succ s) in rfl
 
---| ... so from 0: `Fin.any n` is `List.any` along `List.range n`.
+--| `Fin.any n` on the numbers of the positions is `List.any` along `List.range n`.
 theorem Fin.anyRange (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range n) q :=
   Eq.trans (Fin.anyCong (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
     (Fin.anyRangeFrom q n 0)

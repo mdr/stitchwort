@@ -13,7 +13,7 @@ theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len ≠ 
 
 --| Divisibility, as a test: `Nat.divides divisor n` when `n` is `t * divisor`
 --| for some `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes
---| the factor to a continuation (`Nat.dividesElim`), as `List.anyRangeElim`
+--| the factor to a continuation ([`Nat.dividesElim`]), as [`List.anyRangeElim`]
 --| does; `Exists Nat (t => n = t * divisor)` states it as a proposition.
 def Nat.divides: Nat → Nat → Bool
   | Zero, n => n == 0

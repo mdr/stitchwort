@@ -2,8 +2,8 @@
 --| the list. For a recursive call inside a function passed to `sumBy`, `map`
 --| and the like, whose `decreasing` proof needs to know where its argument
 --| came from: `xs.attach.sumBy (e => f e.value [decreasing := … e.isIn …])`.
---| Membership itself, `List.Mem`, and its facts (`List.memRangeFrom`,
---| `List.memBetween`, `List.memFilter`, `List.memMap`) are in Toolkit.sw and
+--| Membership itself, `List.Mem`, and its facts ([`List.memRangeFrom`],
+--| [`List.memBetween`], [`List.memFilter`], [`List.memMap`]) are in Toolkit.sw and
 --| Lemmas.sw.
 -- (docs/proposals/well-founded-recursion.md, stage 3b)
 
@@ -42,9 +42,10 @@ theorem List.sumByAttachFrom [auto add: Add b] (whole: List a) (rest: List a) (f
   Eq.trans (Eq.sym (List.sumByMap (List.attachFrom whole rest sub) f (e => e.value)))
     (Eq.cong (.sumBy f) (List.attachFromValues whole rest sub))
 
+--| Summing over `List.attach xs` sums over `xs`: the proofs change nothing.
 theorem List.sumByAttach [auto add: Add b] (xs: List a) (f: a → b): List.sumBy (List.attach xs) (e => f e.value) = List.sumBy xs f :=
   List.sumByAttachFrom xs xs f (x h => h)
 
---| The same for `map`.
+--| Mapping over `List.attach xs` maps over `xs`: the proofs change nothing.
 theorem List.mapAttach (xs: List a) (f: a → b): List.map (List.attach xs) (e => f e.value) = List.map xs f :=
   Eq.trans (Eq.sym (List.mapMap (List.attach xs) f (e => e.value))) (Eq.cong (.map f) (List.attachValues xs))

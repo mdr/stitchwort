@@ -1,4 +1,4 @@
---| core/IO.sw. The `IO` ability and `IO.simulate`, which interprets it as
+--| The `IO` ability and `IO.simulate`, which interprets it as
 --| data.
 -- Loaded with the core: The runner calls `Std.Pair.fst (Std.IO.simulate ...)`,
 -- and `IO` is a registry built-in (docs/proposals/prelude-slim.md §2.1).
@@ -16,7 +16,7 @@ type Console = {
   rows: Nat
 }
 
---| The console. Only a host interpreter performs these for real; in Stitchwort
+--| Input and output on the console: printing, reading lines and bytes, and the terminal. Only a host interpreter performs these for real; in Stitchwort
 --| code, `IO.simulate` interprets them as data. `console`, `keysMode`,
 --| `readBytes` and `write` are what a terminal handler is built on. The host's
 --| `print`, `readLine` and `readAll` leave keys mode first, if it's on.
@@ -59,7 +59,7 @@ def IO.bytesOf: List Text → Option (List Nat)
 --| `IO.console` under `IO.simulate`: no terminals, and the size isn't known.
 def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False, columns = 0, rows = 0 }
 
---| Runs a program against scripted input lines: each `IO.readLine` takes the
+--| Runs a program against scripted input lines, recording what it prints. Each `IO.readLine` takes the
 --| next one, and gives `None` once they're used up; `IO.readAll` takes all
 --| that are left (see `IO.restOf`), after which `IO.readLine` gives `None` and
 --| `IO.readAll` gives "". `IO.readBytes` also takes all that are left, as

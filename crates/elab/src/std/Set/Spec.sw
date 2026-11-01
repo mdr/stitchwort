@@ -1,5 +1,5 @@
 --| What each set operation does to the keys, from `Map`'s (std/Map/Map.sw),
---| and `Set.ext`: sets with the same keys are equal, whatever order the keys
+--| and [`Set.ext`]: sets with the same keys are equal, whatever order the keys
 --| were inserted in (a set's map is a quotient).
 -- (docs/proposals/map-equality.md §8)
 
@@ -18,8 +18,9 @@ theorem Set.toListRemove [auto ord: Ord k] (s: Set k) (key: k):
 theorem Set.sizeToList (s: Set k [ord := o]): Set.size s = List.length (Set.toList s) :=
   Eq.trans (Map.sizeToList s.items) (Eq.sym (List.lengthMap (Map.toList s.items) Pair.fst))
 
---| `contains` is `get` finding `()`, so the same `contains` everywhere means
---| the same keys.
+--| Whether an option has a value: how `Set.contains` reads what `Map.get` finds.
+-- `contains` is `get` finding `()`, so the same `contains` everywhere means
+-- the same keys.
 def Set.present: Option () → Bool
   | Some u => True
   | None => False
@@ -241,18 +242,22 @@ theorem Set.containsInsertOther [auto ord: Ord k] (s: Set k) (key: k) (other: k)
     Set.contains (Set.insert s key) other = Set.contains s other :=
   rewrite Map.getInsertOther key () other ne s.items in rfl
 
---| What a set has, it still has after an insert, and a union has what
---| either side has.
+-- What a set has, it still has after an insert, and a union has what
+-- either side has.
+
+--| What a set has, it still has after an insert.
 theorem Set.containsInsertMono [auto ord: Ord k] (s: Set k) (key: k) (other: k) (h: Set.contains s other = True):
     Set.contains (Set.insert s key) other = True :=
   match e: other == key with
     | True => rewrite DecEq.sound other key e in Set.containsInsert key s
     | False => rewrite Set.containsInsertOther s key other (DecEq.soundFalse other key e) in h
 
+--| A union has what its first set has.
 theorem Set.containsUnionLeft [auto ord: Ord k] (a: Set k) (b: Set k) (key: k) (h: Set.contains a key = True):
     Set.contains (Set.union a b) key = True :=
   rewrite Set.containsUnion a key b, h in rfl
 
+--| A union has what its second set has.
 theorem Set.containsUnionRight [auto ord: Ord k] (a: Set k) (b: Set k) (key: k) (h: Set.contains b key = True):
     Set.contains (Set.union a b) key = True :=
   rewrite Set.containsUnion a key b, h in Bool.orTrue (Set.contains a key)
@@ -377,9 +382,11 @@ theorem Set.containsInsertElim [auto ord: Ord k] (s: Set k) (key: k) (other: k) 
     | Yes same => Inl same
     | No different => Inr (rewrite Set.containsInsertOther s key other different at held)
 
---| The same facts as `Iff`s, for a proof that goes from membership in one
---| direction or the other: each says what holding the key means for the sets
---| the operation was made from.
+-- The facts above as `Iff`s, for a proof that goes from membership in one
+-- direction or the other: each says what holding the key means for the sets
+-- the operation was made from.
+
+--| After an insert, a set holds exactly the key inserted and what it held before.
 theorem Set.containsInsertIff [auto ord: Ord k] (s: Set k) (key: k) (other: k):
     Iff (Set.contains (Set.insert s key) other = True) (Or (other = key) (Set.contains s other = True)) := {
   forward = Set.containsInsertElim s key other,
@@ -389,6 +396,7 @@ theorem Set.containsInsertIff [auto ord: Ord k] (s: Set k) (key: k) (other: k):
       | Inr held => Set.containsInsertMono s key other held
 }
 
+--| A union holds exactly what either set holds.
 theorem Set.containsUnionIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Iff (Set.contains (Set.union a b) key = True) (Or (Set.contains a key = True) (Set.contains b key = True)) := {
   forward = h =>
@@ -400,6 +408,7 @@ theorem Set.containsUnionIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
       | Inr inB => rewrite Set.containsUnion a key b in Bool.orRight _ _ inB
 }
 
+--| An intersection holds exactly what both sets hold.
 theorem Set.containsIntersectIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Iff (Set.contains (Set.intersect a b) key = True) (And (Set.contains a key = True) (Set.contains b key = True)) := {
   forward = h =>
@@ -408,6 +417,7 @@ theorem Set.containsIntersectIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k
   backward = (Both inA inB) => rewrite Set.containsIntersect a key b in Bool.andIntro _ _ inA inB
 }
 
+--| A difference `a` minus `b` holds exactly what `a` holds and `b` doesn't.
 theorem Set.containsDifferenceIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Iff (Set.contains (Set.difference a b) key = True) (And (Set.contains a key = True) (Set.contains b key = False)) := {
   forward = h =>
@@ -416,6 +426,7 @@ theorem Set.containsDifferenceIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set 
   backward = (Both inA outB) => rewrite Set.containsDifference a key b in Bool.andIntro _ _ inA (Bool.notOfFalse _ outB)
 }
 
+--| A filtered set holds exactly the keys of the set that pass the test.
 theorem Set.containsFilterIff [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bool):
     Iff (Set.contains (Set.filter s p) key = True) (And (Set.contains s key = True) (p key = True)) := {
   forward = h =>

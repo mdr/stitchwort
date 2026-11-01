@@ -1,6 +1,6 @@
 --| Lemmas about quotient types: function extensionality, for functions whose
---| results are data (`Quot.funext`) and for functions whose results are proofs
---| (`Quot.funextProp`), and `Quot.exactDec`, which gets the relation back from
+--| results are data ([`Quot.funext`]) and for functions whose results are proofs
+--| ([`Quot.funextProp`]), and [`Quot.exactDec`], which gets the relation back from
 --| an equation between two `Quot.mk`s when the relation can be decided. Each
 --| is proved from the kernel's quotient rules; the only axiom any of them uses
 --| is `Quot.sound` (`stitchwort axioms Std.Quot.funext` lists it).

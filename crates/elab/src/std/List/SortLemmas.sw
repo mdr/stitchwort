@@ -167,7 +167,7 @@ theorem List.lengthOfMemWindowsCount (size: Nat): (count: Nat) → (xs: List a) 
   | Succ count, Cons x rest, h, w, Inl e => Eq.trans (Eq.cong List.length (Eq.sym e)) (List.lengthTake (Cons x rest) size (omega [h]))
   | Succ count, Cons x rest, h, w, Inr m => List.lengthOfMemWindowsCount size count rest (omega [h]) w m
 
---| Each window has `size` elements.
+--| Every window of `List.windows xs size` has `size` elements.
 theorem List.lengthOfMemWindows (xs: List a) (size: Nat) (w: List a) (m: w ∈ List.windows xs size): List.length w = size :=
   List.lengthOfMemWindowsCount size (List.length xs + 1 - size) xs (Nat.leRefl (List.length xs + 1 - size)) w m
 
@@ -218,7 +218,7 @@ theorem List.takeAppend: (xs: List a) → (ys: List a) → List.take (List.appen
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong (Cons x) (List.takeAppend xs ys)
 
---| `List.takeAppend` and `List.dropAppend` at a count known to be the
+--| [`List.takeAppend`] and [`List.dropAppend`] at a count known to be the
 --| first list's length.
 theorem List.takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length xs = k): List.take (List.append xs ys) k = xs :=
   rewrite <- h in List.takeAppend xs ys
@@ -647,9 +647,10 @@ theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: (x: a) → (y: a) �
   | Cons x rest, Both hx s =>
     Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
 
---| Sorting a list whose elements all pass `p` needs `le` total only on the
---| values that pass `p`, not on every value: doubles other than the NaN under
---| `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`).
+--| Merging keeps a property every element of both lists has.
+-- Sorting a list whose elements all pass `p` needs `le` total only on the
+-- values that pass `p`, not on every value: doubles other than the NaN under
+-- `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`).
 -- Merging and the sort's runs keep every element passing, so every
 -- comparison the sort makes is between two of them.
 theorem List.mergeAll (le: a → a → Bool) (p: a → Prop): (xs: List a) → (ys: List a) →
@@ -725,13 +726,13 @@ theorem List.mergeRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: 
   | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>
     List.mergeRunsSortedOn le p tot (List.merge le r acc) rest (List.mergeAll le p r acc ar a) ha (List.mergeSortedOn le p tot r acc ar a sr s) h
 
---| `List.sortWithSorted` for a `le` total only on the values passing `p`.
+--| [`List.sortWithSorted`] for a `le` total only on the values passing `p`.
 theorem List.sortWithSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
     (xs: List a) (a: List.All p xs): List.Sorted le (List.sortWith xs le) :=
   List.mergeRunsSortedOn le p tot Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsAll le p Nil xs a Trivial) Trivial
     (List.buildRunsSortedOn le p tot Nil xs a Trivial Trivial)
 
---| `List.sortedHeadLe` and `List.pairwiseOfSorted` for a `le` transitive only
+--| [`List.sortedHeadLe`] and [`List.pairwiseOfSorted`] for a `le` transitive only
 --| on the values passing `p`.
 theorem List.sortedHeadLeOn (le: a → a → Bool) (p: a → Prop)
     (trans: (x: a) → (y: a) → (z: a) → p x → p y → p z → le x y = True → le y z = True → le x z = True)
@@ -757,7 +758,7 @@ theorem List.pairwiseAppendLeft (rel: a → a → Prop): (xs: List a) → (ys: L
   | Nil, ys, h => Trivial
   | Cons x xs, ys, Both a h => Both (List.allAppendLeft (y => rel x y) xs ys a) (List.pairwiseAppendLeft rel xs ys h)
 
---| Each element of the front is related to each of the back.
+--| In a `Pairwise` join, each element of the front is related to each of the back.
 theorem List.pairwiseAppendAcross (rel: a → a → Prop): (xs: List a) → (ys: List a) → List.Pairwise rel (List.append xs ys) →
     (x: a) → List.Mem x xs → (y: a) → List.Mem y ys → rel x y
   | Nil, ys, h, x, mx, y, my => Void.exfalso mx
@@ -885,7 +886,7 @@ theorem List.occurrencesKeyDistinct [auto eq: DecEq k]: (xs: List a) → (key: a
                   in List.memMap xs y inXs key))))
       (f => List.occurrencesKeyDistinct xs key kk d)
 
---| And back: when at most one element has any key, the keys are distinct.
+--| When at most one element has any key, the keys are distinct.
 theorem List.distinctOfOccurrences [auto eq: DecEq k]: (xs: List a) → (key: a → k) → ((kk: k) → List.occurrences xs (x => key x == kk) ≤ 1) →
     List.Distinct (List.map xs key)
   | Nil, key, h => Trivial
@@ -923,7 +924,7 @@ theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) → (v: a) → (p
         (Nat.addSwap (Bool.toNat (p x ∧ ¬(x == v))) (Bool.toNat (p x ∧ (x == v)))
           (List.occurrences xs (y => p y ∧ ¬(y == v))) (List.occurrences xs (y => p y ∧ (y == v)))))
 
---| Counting at `x` in a list without `x` finds nothing ...
+--| Counting at `x` in a list without `x` finds nothing.
 theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → Not (List.Mem x xs) →
     List.occurrences xs (y => p y ∧ (y == x)) = 0
   | Nil, x, p, n => rfl
@@ -932,7 +933,7 @@ theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (
       | True => Void.exfalso (n (Inl (DecEq.sound y x e)))
       | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
 
---| ... and in a list with `x` once, finds `x` if it passes `p`.
+--| Counting at `x` in a list with `x` once finds `x` if it passes `p`.
 theorem List.occurrencesOnce [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → List.Distinct xs → List.Mem x xs →
     List.occurrences xs (y => p y ∧ (y == x)) = Bool.toNat (p x)
   | Nil, x, p, d, m => Void.exfalso m
@@ -971,7 +972,7 @@ theorem List.permOfSameMembers [auto eq: DecEq a]: (xs: List a) → (ys: List a)
 --| `n` is the number of values `x` with `p x`: some list without repeats has
 --| exactly those values, and `n` elements. For a `p` true of finitely many
 --| values, where a `Set` isn't at hand: the points where two lines cross,
---| say. Any two such lists have the same length (`List.numberWithUnique`),
+--| say. Any two such lists have the same length ([`List.numberWithUnique`]),
 --| so it says what the number is.
 def List.NumberWith (n: Nat) (p: a → Bool): Prop :=
   Exists (List a) (xs => List.Distinct xs ∧ ((x: a) → (x ∈ xs ↔ p x = True)) ∧ List.length xs = n)
@@ -986,7 +987,7 @@ theorem List.numberWithUnique [auto eq: DecEq a] (p: a → Bool) (n: Nat) (m: Na
         (y inY => (memX y).backward ((memY y).forward inY))
       rewrite <- lengthX, <- lengthY in List.permLength xs ys same
 
---| The same number of values, for a test that agrees everywhere.
+--| Two tests that agree everywhere are true of the same number of values.
 theorem List.numberWithCong (n: Nat) (p: a → Bool) (q: a → Bool) (same: (x: a) → p x = q x) (counted: List.NumberWith n p):
     List.NumberWith n q :=
   match counted with
@@ -1276,9 +1277,9 @@ theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (h
     List.closeRunSum g (Pair.snd (List.splitGroups (List.map (List.rangeFrom n 0) f) p)) n 0 f sep,
     List.splitGroupsDone p f sep hsep g n 0 end
 
---| `lo .. hi - 1` is a maximal run of positions that aren't separators: the
---| one before it is a separator (or lo is 0), it isn't empty, none in it is a
---| separator, and hi is one.
+--| Whether the positions `lo` to `hi - 1` are a maximal run of positions that aren't separators.
+--| That is, the one before it is a separator (or lo is 0), it isn't empty,
+--| none in it is a separator, and hi is one.
 @[noReceiver]
 def Nat.isRun (sep: Nat → Bool) (lo: Nat) (hi: Nat): Bool :=
   (lo == 0 ∨ sep (lo - 1)) ∧ (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (i => ¬(sep i)) ∧ sep hi))
@@ -1455,7 +1456,7 @@ theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) �
       | True => rewrite weaker x (Inl rfl) passes in below
       | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
---| And strictly fewer when some element passes `q` but not `p`.
+--| Counting with a test that passes wherever another does counts strictly more when some element passes it but not the other.
 theorem List.countLtMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) → ((x: a) → (m: List.Mem x xs) → p x = True → q x = True) →
     (y: a) → List.Mem y xs → q y = True → p y = False → List.count xs p < List.count xs q
   | Nil, p, q, weaker, y, none, passes, fails => Void.exfalso none
@@ -1518,7 +1519,7 @@ theorem List.memDedupAfter [auto eq: DecEq a] (x: a): (previous: a) → (xs: Lis
           | Inl q => Inl q
           | Inr rest => Inr (List.memDedupAfter x y ys rest)
 
---| And it drops only elements equal to the one before.
+--| `List.dedupAfter` drops only elements equal to the one before.
 theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a): (previous: a) → (xs: List a) → List.Mem x xs →
     Or (previous = x) (List.Mem x (List.dedupAfter previous xs))
   | previous, Nil, m => Void.exfalso m

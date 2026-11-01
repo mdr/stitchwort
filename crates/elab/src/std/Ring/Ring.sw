@@ -1,7 +1,7 @@
 --| `Std.Ring`: equations between polynomials, by normalising both sides. A
 --| side of a `Nat` or `Int` equation is written as syntax over numbered atoms
 --| (`Ring.NExpr`, `Ring.ZExpr`); `poly` turns it into a polynomial in a normal
---| form; and `Ring.proveNat` / `Ring.proveInt` (std/Ring/Sound.sw) say that
+--| form; and [`Ring.proveNat`] / [`Ring.proveInt`] (std/Ring/Sound.sw) say that
 --| two sides with the same normal form are equal, in every environment. The
 --| compiler's `ring` writes the syntax and applies the theorem to `rfl`, so
 --| the kernel checks the equation by running `poly` on both sides. Nothing
@@ -36,12 +36,13 @@ def Ring.natAt: List Nat → Nat → Nat
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => Ring.natAt xs i
 
+--| The `i`th entry of a list of integers, or 0 past the end.
 def Ring.intAt: List Int → Nat → Int
   | Nil, i => OfNat 0
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => Ring.intAt xs i
 
---| `Nat`-valued syntax. Each node means what the surface syntax computes to,
+--| A quoted `Nat` side of an equation, as `ring` reads it. Each node means what the surface syntax computes to,
 --| so a quoted side converts with the side it quotes: `NSucc` is `Succ`,
 --| which `x + 1` and `1 + x` compute to, and `NMul` is `Nat.mul`.
 type Ring.NExpr: Type =
@@ -51,6 +52,7 @@ type Ring.NExpr: Type =
   | NMul (a: Ring.NExpr) (b: Ring.NExpr)
   | NSucc (a: Ring.NExpr)
 
+--| The `Nat` a quoted side stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr → Nat
   | NAtom i => Ring.natAt (Ring.Env.nats env) i
@@ -59,7 +61,7 @@ def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr → Nat
   | NMul a b => Ring.NExpr.eval env a * Ring.NExpr.eval env b
   | NSucc a => Succ (Ring.NExpr.eval env a)
 
---| `Int`-valued syntax. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
+--| A quoted `Int` side of an equation, as `ring` reads it. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
 --| is what `x.toInt` and `Int` arithmetic on `OfNat`s compute to, and
 --| `ZNegSucc e` is `-(e + 1)`.
 type Ring.ZExpr: Type =
@@ -72,6 +74,7 @@ type Ring.ZExpr: Type =
   | ZOfNat (e: Ring.NExpr)
   | ZNegSucc (e: Ring.NExpr)
 
+--| The `Int` a quoted side stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr → Int
   | ZAtom i => Ring.intAt (Ring.Env.ints env) i
@@ -89,63 +92,74 @@ def Ring.NExpr.allHold (env: Ring.Env): List (Pair Ring.NExpr Ring.NExpr) → Pr
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.NExpr.eval env l = Ring.NExpr.eval env r) (Ring.NExpr.allHold env hs)
 
+--| `Int` hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with `l = r`.
 def Ring.ZExpr.allHold (env: Ring.Env): List (Pair Ring.ZExpr Ring.ZExpr) → Prop
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) (Ring.ZExpr.allHold env hs)
 
---| The hypotheses' left sides added up (`lefts`), and their right sides.
+--| The hypotheses' left sides added up.
 def Ring.NExpr.lefts: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr
   | Nil => NNum 0
   | Cons (MkPair l r) hs => NAdd l (Ring.NExpr.lefts hs)
 
+--| The hypotheses' right sides added up.
 def Ring.NExpr.rights: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr
   | Nil => NNum 0
   | Cons (MkPair l r) hs => NAdd r (Ring.NExpr.rights hs)
 
+--| The `Int` hypotheses' left sides added up.
 def Ring.ZExpr.lefts: List (Pair Ring.ZExpr Ring.ZExpr) → Ring.ZExpr
   | Nil => ZNum (OfNat 0)
   | Cons (MkPair l r) hs => ZAdd l (Ring.ZExpr.lefts hs)
 
+--| The `Int` hypotheses' right sides added up.
 def Ring.ZExpr.rights: List (Pair Ring.ZExpr Ring.ZExpr) → Ring.ZExpr
   | Nil => ZNum (OfNat 0)
   | Cons (MkPair l r) hs => ZAdd r (Ring.ZExpr.rights hs)
 
 -- Variables
 
---| `Nat` atom `i` is variable `2 * i`, `Int` atom `j` is variable `2 * j + 1`.
+--| Twice the number. `Nat` atom `i` is variable `2 * i`, `Int` atom `j` is variable `2 * j + 1`.
 def Ring.twice: Nat → Nat
   | Zero => Zero
   | Succ i => Succ (Succ (Ring.twice i))
 
+--| The list without its first entry (empty for an empty list).
 def Ring.natTail: List Nat → List Nat
   | Nil => Nil
   | Cons x xs => xs
 
+--| The list without its first entry (empty for an empty list).
 def Ring.intTail: List Int → List Int
   | Nil => Nil
   | Cons x xs => xs
 
+--| The value of variable `v`: `Nat` atom `v / 2` for an even `v`, `Int` atom `v / 2` for an odd one.
 def Ring.lookup: List Nat → List Int → Nat → Int
   | ns, is, Zero => OfNat (Ring.natAt ns 0)
   | ns, is, Succ Zero => Ring.intAt is 0
   | ns, is, Succ (Succ v) => Ring.lookup (Ring.natTail ns) (Ring.intTail is) v
 
+--| The value of variable `v` in `env`.
 def Ring.var (env: Ring.Env) (v: Nat): Int := Ring.lookup (Ring.Env.nats env) (Ring.Env.ints env) v
 
 -- Polynomials
 
---| `c` times the product of the variables `vs`.
+--| A monomial: `c` times the product of the variables `vs`.
 type Ring.Mono: Type =
   | MkMono (c: Int) (vs: List Nat)
 
+--| The product of the variables' values.
 def Ring.prod (env: Ring.Env): List Nat → Int
   | Nil => OfNat 1
   | Cons v vs => Int.mul (Ring.var env v) (Ring.prod env vs)
 
+--| A monomial's value in `env`.
 @[noReceiver]
 def Ring.Mono.eval (env: Ring.Env): Ring.Mono → Int
   | MkMono c vs => Int.mul c (Ring.prod env vs)
 
+--| A polynomial's value in `env`: the sum of its monomials'.
 def Ring.Poly.eval (env: Ring.Env): List Ring.Mono → Int
   | Nil => OfNat 0
   | Cons m p => Int.add (Ring.Mono.eval env m) (Ring.Poly.eval env p)
@@ -183,26 +197,31 @@ def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
       | Equal => Ring.cons (Int.add c d) ws p
       | Greater => Cons (MkMono d ws) (Ring.insert c vs p)
 
+--| The sum of two polynomials in normal form, in normal form.
 def Ring.add: List Ring.Mono → List Ring.Mono → List Ring.Mono
   | Nil, q => q
   | Cons (MkMono c vs) p, q => Ring.insert c vs (Ring.add p q)
 
---| `(c * vs) * q`
+--| A polynomial times one monomial: `(c * vs) * q`.
 def Ring.scale (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Nil
   | Cons (MkMono d ws) q => Ring.insert (Int.mul c d) (Ring.mulVars vs ws) (Ring.scale c vs q)
 
+--| The product of two polynomials in normal form, in normal form.
 def Ring.mul: List Ring.Mono → List Ring.Mono → List Ring.Mono
   | Nil, q => Nil
   | Cons (MkMono c vs) p, q => Ring.add (Ring.scale c vs q) (Ring.mul p q)
 
+--| A polynomial negated: `-p`.
 def Ring.neg (p: List Ring.Mono): List Ring.Mono := Ring.scale (NegSucc 0) Nil p
 
+--| The constant polynomial `c`.
 def Ring.const (c: Int): List Ring.Mono := Ring.cons c Nil Nil
 
+--| The polynomial of one variable, `v`.
 def Ring.single (v: Nat): List Ring.Mono := Cons (MkMono (OfNat 1) (Cons v Nil)) Nil
 
---| The normal forms of the two kinds of side.
+--| The normal form of a `Nat` side.
 def Ring.NExpr.poly: Ring.NExpr → List Ring.Mono
   | NAtom i => Ring.single (Ring.twice i)
   | NNum n => Ring.const (OfNat n)
@@ -210,6 +229,7 @@ def Ring.NExpr.poly: Ring.NExpr → List Ring.Mono
   | NMul a b => Ring.mul (Ring.NExpr.poly a) (Ring.NExpr.poly b)
   | NSucc a => Ring.add (Ring.NExpr.poly a) (Ring.const (OfNat 1))
 
+--| The normal form of an `Int` side.
 def Ring.ZExpr.poly: Ring.ZExpr → List Ring.Mono
   | ZAtom i => Ring.single (Succ (Ring.twice i))
   | ZNum c => Ring.const c

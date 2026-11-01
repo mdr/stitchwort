@@ -1,9 +1,9 @@
 --| The soundness of `Std.Ring` (std/Ring/Ring.sw): a polynomial's normal form
---| means the same as the polynomial, in every environment (`Ring.NExpr.sound`,
---| `Ring.ZExpr.sound`), so two sides with the same normal form are equal
---| (`Ring.proveNat`, `Ring.proveInt`), and with hypotheses added to the other
---| side, equal once they are cancelled (`Ring.proveNatWith`,
---| `Ring.proveIntWith`).
+--| means the same as the polynomial, in every environment ([`Ring.NExpr.sound`],
+--| [`Ring.ZExpr.sound`]), so two sides with the same normal form are equal
+--| ([`Ring.proveNat`], [`Ring.proveInt`]), and with hypotheses added to the other
+--| side, equal once they are cancelled ([`Ring.proveNatWith`],
+--| [`Ring.proveIntWith`]).
 -- (docs/proposals/proof-automation.md §6.2)
 -- It uses `Int`'s ring laws and nothing about lists from the library:
 -- soundness doesn't need the normal form to be sorted, only that monomials
@@ -73,6 +73,7 @@ theorem Ring.prodMulVars (env: Ring.Env): (vs: List Nat) → (ws: List Nat) →
 
 -- Monomials `Ring.cmp` calls alike have the same variables.
 
+--| Whether an ordering is `Equal`.
 def Ring.isEqual: Ordering → Bool
   | Less => False
   | Equal => True
@@ -257,7 +258,7 @@ theorem Ring.proveIntExample (a: Int) (b: Int): (a + b) * (a - b) = a * a - b * 
     (ZSub (ZMul (ZAtom 0) (ZAtom 0)) (ZMul (ZAtom 1) (ZAtom 1))) rfl
 
 --| `h: p + p + n = n * n` gives `(n + p) + (n + p) + Succ n = Succ n * Succ n`
---| (`List.pairsStep`).
+--| ([`List.pairsStep`]).
 theorem Ring.proveNatWithExample (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
   Ring.proveNatWith (MkEnv [n, p] [])
     (NAdd (NAdd (NAdd (NAtom 0) (NAtom 1)) (NAdd (NAtom 0) (NAtom 1))) (NSucc (NAtom 0))) (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0)))

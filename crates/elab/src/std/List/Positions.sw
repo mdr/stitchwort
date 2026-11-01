@@ -36,8 +36,7 @@ theorem List.containsIndexOf [auto eq: DecEq a] (x: a): (xs: List a) → List.co
       | True => rfl
       | False => List.containsIndexOf x rest
 
---| ... and, for a list with more after it, exactly when its first place in
---| the whole is inside the first part.
+--| `x` is in `xs` exactly when its first place in `xs` followed by more is inside `xs`.
 theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a): (xs: List a) →
     List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs)
   | Nil => rfl
@@ -87,9 +86,9 @@ theorem List.sortedGetOrLe: (xs: List Nat) → (d: Nat) → List.Sorted Nat.leq 
   | Cons x rest, d, s, Succ i, Zero, h, lt => Void.exfalso (Bool.falseNotTrue h)
   | Cons x rest, d, Both first s, Succ i, Succ j, h, lt => List.sortedGetOrLe rest d s i j h lt
 
---| A value of a sorted list that lies between the elements at positions i and
---| j (i <= j) is the element at a position from i to j: so anything true of
---| those elements is true of it.
+--| A value of a sorted list between the elements at positions i and j is one
+--| of the elements from i to j. So anything true of those elements is true
+--| of it.
 theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.Sorted Nat.leq xs) (i: Nat) (j: Nat) (ij: i ≤ j) (jIn: j < List.length xs)
     (each: (k: Nat) → i ≤ k → k ≤ j → p (List.getOr xs k d))
     (v: Nat) (m: List.Mem v xs) (above: List.getOr xs i d ≤ v) (below: v ≤ List.getOr xs j d): p v :=

@@ -1,5 +1,5 @@
 --| The summed-area table is right: `PrefixSums.block` of `PrefixSums.of rows`
---| is the sum of the cells in the block (`PrefixSums.blockSum`), whenever the
+--| is the sum of the cells in the block ([`PrefixSums.blockSum`]), whenever the
 --| block is inside the grid.
 -- Kept out of PrefixSums.sw because the proofs need `omega`.
 

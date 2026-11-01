@@ -1,4 +1,4 @@
---| core/ListOptionPair.sw. List, `Pair` and `Option`: facts about their
+--| List, `Pair` and `Option`: facts about their
 --| constructors, small accessors, and decidable equality for each.
 -- Loaded with the core: `List.instDecEq`, `Pair.instDecEq` and
 -- `Option.instDecEq` need these, and `==` on those types needs the instances
@@ -6,6 +6,7 @@
 
 -- Lists, continued
 
+--| `Unit` (true) for the empty list and `Void` (false) for any other: how `Nil ≠ Cons x xs` is proved.
 def List.IsNil: List a → Prop
   | Nil => Unit
   | Cons x xs => Void
@@ -16,14 +17,17 @@ theorem List.nilNotCons (x: a) (xs: List a): Not (Nil = Cons x xs)
 theorem List.consNotNil (x: a) (xs: List a): Not (Cons x xs = Nil)
   | p => List.nilNotCons x xs (Eq.sym p)
 
+--| The first element, or `fallback` for an empty list.
 def List.headOr: List a → (fallback: a) → a
   | Nil, fallback => fallback
   | Cons x xs, fallback => x
 
+--| The list without its first element (empty for an empty list).
 def List.tailOf: List a → List a
   | Nil => Nil
   | Cons x xs => xs
 
+--| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
 def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
     Decidable (x = y) → Decidable (xs = ys) → Decidable (Cons x xs = Cons y ys)
@@ -39,6 +43,7 @@ def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (y
   | Cons x xs, Nil => No (List.consNotNil x xs)
   | Cons x xs, Cons y ys => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
+--| Decides whether two pairs are equal, from decisions about their parts.
 def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b):
     Decidable (x1 = x2) → Decidable (y1 = y2) → Decidable (MkPair x1 y1 = MkPair x2 y2)
   | Yes p, Yes q => Yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
@@ -51,6 +56,7 @@ def Pair.decEq (da: (x: a) → (y: a) → Decidable (x = y)) (db: (x: b) → (y:
     (p: Pair a b) → (q: Pair a b) → Decidable (p = q)
   | MkPair x1 y1, MkPair x2 y2 => Pair.decMk x1 x2 y1 y2 (da x1 x2) (db y1 y2)
 
+--| `Unit` (true) for `None` and `Void` (false) for a `Some`: how `None ≠ Some x` is proved.
 def Option.IsNone: Option a → Prop
   | None => Unit
   | Some x => Void
@@ -66,6 +72,7 @@ def Option.getOrElse: Option a → (fallback: a) → a
   | None, fallback => fallback
   | Some x, fallback => x
 
+--| Decides whether two `Some`s are equal, from a decision about their values.
 def Option.decSome (x: a) (y: a): Decidable (x = y) → Decidable (Some x = Some y)
   | Yes p => Yes (Eq.cong Some p)
   | No r => No (e => r (Eq.cong (.getOrElse x) e))

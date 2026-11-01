@@ -55,6 +55,7 @@ type Ansi.Scan: Type =
   | AfterEscape
   | InSequence
 
+--| The characters with ANSI escape sequences removed, starting in state `scan` (`Ansi.strip`'s loop).
 def Ansi.stripChars (scan: Ansi.Scan): List Char → List Char
   | [] =>
     match scan with

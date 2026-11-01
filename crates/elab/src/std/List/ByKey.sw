@@ -5,7 +5,7 @@
 --| Neither removes repeats within a list. `differenceBy` is lodash's
 --| `differenceBy`. `appendNewBy` is not lodash's `unionBy` (nor Haskell's
 --| `unionBy`), which also drops the repeats within each list: the two agree
---| when each list's keys are distinct, the case `List.distinctKeysAppendNewBy`
+--| when each list's keys are distinct, the case [`List.distinctKeysAppendNewBy`]
 --| is about. For a list of records updated from another, `appendNewBy` keeps
 --| every record of the first and adds those of the second it doesn't have.
 -- (SW-584)
@@ -99,23 +99,23 @@ theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List 
       (List.memAppendRight y xs (List.differenceBy ys xs key) ((List.memDifferenceBy y ys xs key).backward (Both m h)))
       key
 
---| `differenceBy` keeps nothing when every key of `xs` is a key of `ys` ...
+--| `differenceBy` keeps nothing when every key of `xs` is a key of `ys`.
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = Nil :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
     rewrite Decidable.toBoolOf (List.decMem (key x) (List.map ys key)) (covered x m) in rfl)
 
---| ... and everything when no key of `xs` is.
+--| `differenceBy` keeps everything when no key of `xs` is a key of `ys`.
 theorem List.differenceByDisjoint [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (apart: (x: a) → x ∈ xs → key x ∉ List.map ys key): List.differenceBy xs ys key = xs :=
   List.filterAll (x => key x ∉ List.map ys key) xs (x m => List.notInOfNotMem (key x) (List.map ys key) (apart x m))
 
---| So `appendNewBy` adds nothing when `ys` has no new key ...
+--| `appendNewBy` adds nothing when `ys` has no new key.
 theorem List.appendNewByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: (y: a) → y ∈ ys → key y ∈ List.map xs key): List.appendNewBy xs ys key = xs :=
   rewrite List.differenceByCovered ys xs key covered in List.appendNil xs
 
---| ... so it is idempotent: a list merged with itself is itself, whatever
+--| `appendNewBy` is idempotent: a list merged with itself is itself, whatever
 --| its keys.
 theorem List.appendNewBySelf [auto eq: DecEq k] (xs: List a) (key: a → k): List.appendNewBy xs xs key = xs :=
   List.appendNewByCovered xs xs key (x m => List.memMap xs x m key)

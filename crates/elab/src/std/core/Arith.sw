@@ -1,4 +1,4 @@
---| core/Arith.sw. Arithmetic laws for `Nat` and `Int` (associativity,
+--| Arithmetic laws for `Nat` and `Int` (associativity,
 --| commutativity, distributivity), with `Bool.xor` and the sign lemmas
 --| `Int.mulAssoc` uses.
 -- Loaded with the core: `Nat.instAdd`, `Nat.instMul`, `Int.instAdd` and
@@ -132,8 +132,7 @@ theorem Int.addAssoc: (a: Int) → (b: Int) → (c: Int) →
 
 theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 
---| `Int` multiplication by signs and sizes: `a * b` has `a`'s size times
---| `b`'s, negated when exactly one of them is negative.
+--| Exclusive or: `True` when exactly one of `a` and `b` is.
 def Bool.xor: Bool → Bool → Bool
   | False, b => b
   | True, b => ¬b
@@ -144,6 +143,7 @@ theorem Bool.xorAssoc: (a: Bool) → (b: Bool) → (c: Bool) → Bool.xor (Bool.
   | True, True, False => rfl
   | True, True, True => rfl
 
+--| Whether the integer is below zero.
 def Int.isNeg: Int → Bool
   | OfNat n => False
   | NegSucc n => True
@@ -153,6 +153,8 @@ def Int.signed: Bool → Nat → Int
   | False, k => OfNat k
   | True, k => Int.neg (OfNat k)
 
+--| `Int` multiplication by signs and sizes: `a * b` has `a`'s size times
+--| `b`'s, negated when exactly one of them is negative.
 theorem Int.mulSigned: (a: Int) → (b: Int) →
     Int.mul a b = Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)
   | OfNat m, OfNat n => rfl

@@ -3,7 +3,7 @@
 --| `numpy.cumsum` along both axes, then four lookups). `PrefixSums.of rows`
 --| reads the grid, rows of any lengths, a missing cell counting as 0, and
 --| `PrefixSums.block` sums a block of it. The theorem at the bottom says the
---| block is the sum of its cells (`PrefixSums.blockSum`).
+--| block is the sum of its cells ([`PrefixSums.blockSum`]).
 
 --| The table: entry (r, c) is the sum of the cells above row r and left of
 --| column c, for r up to the number of rows and c up to the longest row's
@@ -19,7 +19,7 @@ def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr
 def PrefixSums.blockSpec (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
   List.sumBy (List.rangeFrom (bottom - top) top) (r => List.sumBy (List.rangeFrom (right - left) left) (c => PrefixSums.cell rows r c))
 
---| Reads the grid.
+--| The prefix sums of a grid of numbers, rows of any lengths, a missing cell counting as 0: O(n log n).
 def PrefixSums.of (rows: List (List Nat)): PrefixSums :=
   let width := List.maxLength rows
   let table := PrefixSums.table (List.replicate (Succ width) 0) (rows.map (row => PrefixSums.runningSums (row.padRight width 0)))
@@ -44,6 +44,7 @@ def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.get
 def PrefixSums.block (prefix: PrefixSums) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
   (prefix.at bottom right + prefix.at top left) - (prefix.at top right + prefix.at bottom left)
 
+--| A small grid of rows of different lengths for the tests below.
 def PrefixSums.example: List (List Nat) := [[1, 2, 3], [4, 5], [7, 8, 9]]
 
 test "PrefixSums.block" :=
