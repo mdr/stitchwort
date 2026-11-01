@@ -11,9 +11,10 @@ repository (github.com/mdr/aoc, `src/main/resources/aoc2021/`), committed in
 From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
-theorems about the parsed input with no hypothesis left. Days 5, 6, 8
-and 12 do (day 12's promise, that no passage joins two big caves, is one
-the puzzle leaves unsaid); day 9's answers need no promise at all, and
+theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
+12 and 13 do (day 12's promise, that no passage joins two big caves, is
+one the puzzle leaves unsaid; day 13's parser folds the paper to check
+each fold's promise); day 9's answers need no promise at all, and
 its parser's guarantees (digits, a rectangle) are proved anyway. The
 pattern:
 
@@ -2821,3 +2822,261 @@ Release build:
 4. No generated constructor injectivity or disjointness lemmas (item 2).
 5. `Bool.toNat b ≤ 1` is now in three days; `List.lookup` of a mapped
    table, filter lengths, counts of members belong in std (item 2).
+
+## Day 13: Transparent Origami
+
+Dots on a sheet of transparent paper, one `x,y` per line (x across, y
+down), a blank line, then folds, `fold along y=7` or `fold along x=5`.
+Folding along a line reflects each dot beyond it onto the near half, and
+dots that land together are one dot. Part 1 counts the dots after the
+first fold; part 2 makes every fold, and the dots spell eight capital
+letters: the answer is the picture. Answers on Matt's input (796 dots, 12
+folds): 666, and a picture reading CJHAZHKU, row for row the same as his
+Scala solution's (39 columns, 6 rows). The puzzle's example gives 17 and
+a 5 by 5 square outline. Compiler: the installed release build of
+`main`, 1 November 2026.
+
+### The program
+
+A `Dot` is a record `{ x, y }`, ordered through `Ord.byKey` on `(x, y)`
+so a list of dots can drop repeats with `List.distinct`. A `Fold` is
+`AlongX line` or `AlongY line`. `foldDot` reflects a dot beyond the line
+(`2 * line - dot.x`) and leaves the others; `foldOnce dots fold` is
+`dots.map (foldDot fold) |> .distinct`, and `foldAll` folds from
+`dots.distinct`, one fold after another. Part 1 is the length of
+`foldAll (folds.take 1) dots`; part 2 renders `foldAll folds dots` as
+rows of `#` and `.` (`render`), from the top left corner to the
+rightmost column and lowest row that hold a dot, so nothing is trimmed
+or padded: the real picture is 39 wide, the last letter's right-hand
+column of space being outside it. `main` prints `Part 2:` and the
+picture on the lines after it, and `crates/cli/tests/aoc_answers.rs` now
+takes an answer of several lines (one branch in `check_with`). Both
+answers were right on the first run, in 0.35 s.
+
+The parser is `Parse.all input readPaper`: `section readDot` (one dot a
+line, then a blank line), then `lines readFold`, the axis read with
+`pick [("x=", AlongX), ("y=", AlongY)]`. It then checks the puzzle's
+promise (`checkPaper`, with a pure `firstBlocked`, the D2108 pattern): it
+makes the folds itself, and before each one fails if some dot is on the
+line or further beyond it than the line is from the near edge: "fold 2:
+the dot at 2,0 is on its line, or further beyond it than the sheet
+reaches on the near side". Parsing errors read well unaided ("line 3,
+column 12: expected 'x=' or 'y=', got 'z='"; "line 2, column 1: expected
+a number or a blank line, got 'f'").
+
+**The spec** (Spec/Spec.sw) treats the sheet's dots as a set, a
+proposition `Dot → Prop`. `Lands fold dot spot` says where a dot goes:
+along `y = line`, a dot above the line stays put, and one below lands at
+the same `x` with `spot.y + dot.y = 2 * line` (the line halfway between,
+with no subtraction). A dot on the line, or one so far below it that its
+mirror image would be above the top edge, lands nowhere. `AfterFold fold
+marked spot` is `∃ dot, marked dot ∧ Lands fold dot spot`, the image of
+the set; `AfterFolds` applies the folds in order, starting from `Listed
+dots` (`spot ∈ dots`). Part 1's answer is `DotCount set n`: a list of
+`n` dots without repeats whose members are exactly the set's. Part 2's is
+`Shows picture set`, with `cellAt picture spot` the character at row
+`spot.y`, column `spot.x`: every dot of the set is a `#`; every `#` is a
+dot of the set; every character is `#` or `.`; and all the rows are as
+wide as each other.
+
+**The assumption.** In full, `Promise folds marked` says: for the first
+fold, every dot of `marked` is clear of it, that is, for `AlongY line`,
+`dot.y ≠ line ∧ dot.y ≤ 2 * line` (for `AlongX`, the same of `dot.x`);
+and `Promise` holds for the remaining folds of the dots after the first
+fold. The puzzle says the first half (no dot on a fold line); the second
+it leaves unsaid, but its folds are at the middle of the sheet, and a
+dot further out would land off the top or left edge, where `Nat`
+subtraction would put it at 0. Without the promise the program and the
+spec disagree (the program keeps a dot on the line; the spec drops it),
+so the theorems take it as a hypothesis, and the parser checks it.
+
+### Proved
+
+In `Aoc.Year2021.Day13.Proofs` (Proofs/Fold.sw, Parts.sw, Picture.sw,
+Parse.sw, 241 lines):
+
+- `part1Correct (paper) (promise: Promise (paper.folds.take 1) (Listed
+  paper.dots))`: `DotCount (AfterFolds (paper.folds.take 1) (Listed
+  paper.dots)) (solvePart1 paper)`.
+- `part2Correct (paper) (promise: Promise paper.folds (Listed
+  paper.dots))`: `Shows (solvePart2 paper) (AfterFolds paper.folds
+  (Listed paper.dots))`.
+- `parsePromise (input) (paper) (parsed: Fail.toResult (() => parsePaper
+  input) = Ok paper)`: `Promise paper.folds (Listed paper.dots)`.
+- `part1FromInput`, `part2FromInput (input) (paper) (parsed: …)`: the two
+  answers' statements with no other hypothesis.
+- Underneath: `landsFoldDot` (a clear dot lands where `foldDot` puts it)
+  and `landsOnly` (and nowhere else, with no hypothesis), both by `cases`
+  after splitting the fold and `Lands`'s `∨`; `foldOnceHolds` (if a list's
+  members are exactly a set's, and every dot is clear of the fold,
+  `foldOnce`'s members are exactly the image); `foldsHold` and
+  `foldsDistinct` by induction on the folds; `renderShows` (`render`
+  shows exactly the list's dots) from `cellInside`, `cellOutside`,
+  `widthCovers`, `heightCovers` and `rowWidth`.
+- Tests: the example (parse, 17, the picture after one fold and after
+  both), three promise failures (on the line; too far beyond; on the
+  second fold's line only once the first is made), a bad axis, a missing
+  blank line, a dot listed twice, no folds, and both answers on the
+  input; part 2 is compared as the whole picture, and a test helper
+  (`readLetters`, a table of 14 letters of the puzzle's font) reads it as
+  CJHAZHKU.
+
+Not proved: nothing left open. One hypothesis, `Promise`, on
+`part1Correct` and `part2Correct`, needed as said above; the parser
+checks it and the `FromInput` theorems drop it. Reading the letters is
+not proved. Not stated: that the picture is no larger than it needs to
+be (its last row and column hold a `#`); it is true of `render`. No
+opaque definitions.
+
+`stitchwort audit Aoc.Year2021.Day13` (with the counterexample search):
+`audited 37 theorems: 0 failed, 2 with warnings, 35 passed`. The
+warnings are `cellSomeInside` (`cellAt (render dots) spot = Some c`) and
+`rowWidth` (`row ∈ render dots`): random inputs never hit a rendered
+cell or row. Neither hypothesis is contradictory: the test theorems
+`oneDotShown` and `oneDotRow` satisfy them.
+
+Breaking the program breaks the proofs: reflecting to `2 * line + 1 -
+dot.y` fails `landsFoldDot` and `landsOnly` (`E-CASES`); dropping the
+`.distinct` from `foldOnce` fails `foldsDistinct` (and `foldOnceHolds`);
+a width of `dot.x` instead of `dot.x + 1` fails `widthCons` with a
+counterexample.
+
+The proofs went quickly: most lemmas checked first time, and `cases`
+did the arithmetic of the reflection on its own (splitting `line <
+dot.y` inside a record update and closing each case by `omega`).
+
+### 1. `search --at`
+
+- **It refuses goals after a `match` on a constructor with fields.** In
+  `landsFoldDot`, after `match fold with | AlongY line => ?`, `search
+  --at` said `E-SEARCH-AT … can't be written as a statement of its own
+  here … note: E-UNKNOWN-NAME: unknown name 'line'` (after 40 s, with
+  `?`s open in the namespace). The goal's context lists `clear: dot.y ≠
+  line ∧ …` before `line: Nat`: the hypothesis refined by the match comes
+  before the pattern variable it now mentions, and the statement search
+  writes from it has `line` used before it is bound. The same with an
+  equation-style theorem (`| Cons dot rest, spot, member => ?`, with
+  `member: spot ∈ Cons dot rest` before `dot`). A 13-line repro, file
+  mode, 4 s:
+
+  ```stitchwort
+  type Fold =
+    | AlongX (line: Nat)
+    | AlongY (line: Nat)
+
+  def lineOf (fold: Fold): Nat :=
+    match fold with
+      | AlongX line => line
+      | AlongY line => line
+
+  theorem small (fold: Fold) (h: lineOf fold < 3): lineOf fold < 4 :=
+    match fold with
+      | AlongX line => ?
+      | AlongY line => omega
+  ```
+
+  The `[GOAL]` shows `h: line < 3` above `line: Nat`. Fix: order the
+  context by dependency (pattern variables first) in the goal display and
+  in `search --at`'s statement. Small to medium. Both goals I tried
+  in such a place failed so; on this day `search --at` was only useful on
+  goals with no pattern variables.
+- Where it could run (2 s a goal), it was good: on `width (Cons dot rest)
+  = Nat.max (dot.x + 1) (width rest)` it gave `List.foldRightCons _ _ _ _`
+  (exact), and "`cases` alone closes it" on `clearsClear`. On `List.get
+  (List.map (List.range n) f) i = Some (f i)` its first rewrite,
+  `List.getMap`, was the right step, though std has no `List.get` of a
+  range to finish with.
+- Pattern search: `List.find _ _ = None → _` didn't list
+  `List.findNoneNotMem`, whose `find` premise is its second (`x ∈ xs →
+  List.find xs p = None → Void`); `List.find (?xs: List _) ?p = None`
+  alone listed it second. A premise pattern seems to match only the
+  first premise. Small.
+
+### 2. Inference
+
+- **`cases` as an argument solved the holes before the expected type
+  did.** `Dot.ext _ _ cases cases`, expected `spot = foldDot fold dot`,
+  was a mismatch: "expected `spot = (if line < dot.y then …)`, but this
+  has type `spot = spot`". The first `cases` proved `?a.x = ?b.x` by
+  making `?b` be `?a`. Writing the two dots out (`Dot.ext spot (foldDot
+  (AlongY line) dot) cases cases`) checked. Repro (file mode):
+
+  ```stitchwort
+  type P = { x: Nat, y: Nat }
+
+  def shift (b: Bool) (p: P): P := if b then { p | x = p.x + 1 } else p
+
+  theorem holesExt (b: Bool) (p: P) (q: P) (sameX: q.x = (shift b p).x) (sameY: q.y = p.y): q = shift b p :=
+    P.ext _ _ cases cases
+  ```
+
+  says "expected `q = shift b p`, but this has type `q = q`". Fix: unify
+  the result type with the expected one before checking proof arguments,
+  or don't let `cases`/`rfl` solve the goal's own holes. Medium.
+- No eta for records: `{ x = spot.x, y = spot.y }` and `spot` aren't
+  equal by `rfl`; `Dot.ext … rfl rfl` rewrote one into the other (SW-960
+  item 4 is the same for pairs).
+
+### 3. Std
+
+- `List.foldRight` is a `foldLeft` over the reversed list, so `width
+  (Cons dot rest)` doesn't compute to `Nat.max (dot.x + 1) (width rest)`,
+  and `omega` saw `List.foldLeft (List.reverseOnto rest [dot]) …`. Two
+  one-line lemmas (`widthCons`, `heightCons`) from `List.foldRightCons`
+  fixed it. A note at `foldRight` would have saved the try. Small.
+- Std candidates, small each: `List.get (List.map (List.range n) f) i =
+  Some (f i)` for `i < n` and `= None` past it (`getMapRange`,
+  `getMapRangePast`; std has `getOr` forms only); `List.get (List.range
+  n) i`; a `List.maximumBy`-style "every member is below the fold's
+  maximum" (`widthCovers`).
+- Std has no image of a set: `Set.map` exists, but no lemma relates its
+  members to `f`'s; the proofs used lists with `List.memDistinct`,
+  `List.memMapElim` and `List.memMap`, which were all there and found by
+  `search`.
+
+### 4. Smaller things
+
+- A recursive definition or theorem whose result is a defined function
+  type takes a pattern per argument of it: `AfterFolds: List Fold → (Dot
+  → Prop) → Dot → Prop` needed `| Nil, marked, spot => …`, and
+  `foldsHold`, whose conclusion `Holds …` is defined as a `(spot: Dot) →
+  …`, needed a `spot` pattern too. The `E-ARITY` note said exactly that
+  ("the result … unfolds to a function type, since `Holds` is defined as
+  one"). Fine once known; surprising for `Holds`.
+- Printed cases name two variables alike: `cases` on `landsOnly`
+  reported "the case spot = { x = x✝, y = y✝ }, …, dot = { x = x✝, y =
+  y✝ }", with `spot`'s and `dot`'s fields printed the same; and its note
+  `lands: x✝ = x✝ ∧ …` looked like an equation of one variable with
+  itself. Fix: number the daggered names. Small.
+- `stitchwort audit` warns on `rowWidth` and `cellSomeInside`, whose
+  hypotheses are membership in a function's output, as it does on
+  parse hypotheses (SW-967 item 8): the same fix (try the namespace's
+  test values) would cover both.
+- Good: `cases` closed all four reflection goals (`landsFoldDot` on its
+  own, `landsOnly` per component); `rewrite getMapRange _ (height dots)
+  spot.y inY in …` found the function for its `_`; the `E-UNIVERSE`
+  message for `if lt:` between proofs gave the `match
+  Nat.decLessThan …` to write; `pick` with functions as values
+  (`AlongX`, `AlongY`) read the axis in one line.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day13.main` on the input | 0.35 s user (0.38 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day13.Proofs Aoc.Year2021.Day13.Tests` | 2.6 s user (2.7 s) |
+| `stitchwort audit Aoc.Year2021.Day13` (with the search) | 2.6 s |
+
+123 lines of program, 63 of spec, 241 of proofs, 92 of tests.
+
+### Ranked
+
+1. `search --at` can't state a goal whose hypotheses mention a pattern
+   variable listed after them, which is every goal after a `match` on a
+   constructor with fields or in an equation-style induction (item 1).
+2. A proof argument (`cases`) solved its call's holes before the
+   expected type did, giving `spot = spot` (item 2).
+3. `List.foldRight` doesn't compute on `Cons` (item 3).
+4. Std has no `List.get` of a mapped range (item 3).
