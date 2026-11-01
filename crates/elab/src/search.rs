@@ -313,6 +313,125 @@ pub enum Item {
     Def(DefId),
     /// A data type's constructor.
     Ctor(DataId, usize),
+    /// A conjunct of a theorem whose conclusion is a conjunction, written
+    /// (`A ∧ B`) or a definition that unfolds to one (`Graph.Shortest`,
+    /// SW-993): `And.left (T …)`, with `T`'s parameters.
+    Part(DefId, Part),
+}
+
+/// Which conjunct (SW-993): the sides taken, outermost first.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Part {
+    /// Bit `i` set: the `i`-th side taken is the right one.
+    bits: u8,
+    len: u8,
+}
+
+/// How deep conjunctions are taken apart: `A ∧ (B ∧ (C ∧ D))` gives every
+/// conjunct.
+const MAX_PART_DEPTH: u8 = 3;
+
+impl Part {
+    fn then(self, right: bool) -> Part {
+        Part {
+            bits: self.bits | (u8::from(right) << self.len),
+            len: self.len + 1,
+        }
+    }
+
+    /// The sides, outermost first: `true` for the right one.
+    pub fn sides(self) -> impl Iterator<Item = bool> {
+        (0..self.len).map(move |i| self.bits & (1 << i) != 0)
+    }
+
+    /// `left`, `right.left`, …: the fields taken, outermost first.
+    pub fn name(self) -> String {
+        let sides: Vec<&str> = self
+            .sides()
+            .map(|r| if r { "right" } else { "left" })
+            .collect();
+        sides.join(".")
+    }
+}
+
+/// The conjuncts of the conclusion of `ty` (a theorem's type), each as a
+/// type of its own: `ty`'s parameters, then the conjunct. The conclusion
+/// is a conjunction as written, or a call (of a definition) that unfolds
+/// to one; each side is taken apart in turn, to [`MAX_PART_DEPTH`], where
+/// it is a conjunction as written (in the theorem, or in the definition's
+/// body), not where it is a call that unfolds to one: AoC 2021 day 11's
+/// `Part2Answer levels answer` is `AllFlashIn levels answer ∧ …`, and
+/// `AllFlashIn`'s own first conjunct, `1 ≤ answer`, fits any `1 ≤ x` (and
+/// its theorem's premise, closed by `rfl`, then computed for minutes).
+pub fn conjuncts(g: &Globals, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
+    let mut binders: Vec<(&stitchwort_core::Name, Icit, &Term)> = Vec::new();
+    let mut t = ty.strip_loc();
+    while let Term::Pi(name, icit, dom, cod) = t {
+        binders.push((name, *icit, dom));
+        t = cod.strip_loc();
+    }
+    // Only a conjunction, or a call, can be one.
+    let head = {
+        let mut h = t;
+        while let Term::App(f, _, _) = h {
+            h = f.strip_loc();
+        }
+        h
+    };
+    match head {
+        Term::Data(d, _) if *d == and => {}
+        Term::Def(_) => {}
+        _ => return Vec::new(),
+    }
+    let level = binders.len();
+    let was = g.glue.replace(true);
+    let mut out = Vec::new();
+    let found = (|| -> Res<()> {
+        let _op = g.budget.attempt(ATTEMPT);
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let concl = eval(g, &env, t)?;
+        split_conjunction(g, concl, level, and, Part { bits: 0, len: 0 }, &mut out)
+    })();
+    g.glue.set(was);
+    if found.is_err() {
+        return Vec::new();
+    }
+    (out.into_iter())
+        .map(|(part, conjunct)| {
+            let mut ty = conjunct;
+            for (name, icit, dom) in binders.iter().rev() {
+                ty = Term::Pi((*name).clone(), *icit, Rc::new((*dom).clone()), Rc::new(ty));
+            }
+            (part, ty)
+        })
+        .collect()
+}
+
+fn split_conjunction(
+    g: &Globals,
+    v: Value,
+    level: usize,
+    and: DataId,
+    part: Part,
+    out: &mut Vec<(Part, Term)>,
+) -> Res<()> {
+    if part.len >= MAX_PART_DEPTH {
+        return Ok(());
+    }
+    // The conclusion itself is unfolded; a side only as written.
+    let v = if part.len == 0 { force(g, v)? } else { v };
+    let Value::Data(d, args) = v else {
+        return Ok(());
+    };
+    if d != and || args.len() != 2 {
+        return Ok(());
+    }
+    for (right, side) in [(false, &args[0]), (true, &args[1])] {
+        let here = part.then(right);
+        out.push((here, stitchwort_core::value::quote_folded(g, level, side)?));
+        split_conjunction(g, side.clone(), level, and, here, out)?;
+    }
+    Ok(())
 }
 
 /// What kind of declaration an [`Item`] is (D2089).
@@ -343,13 +462,23 @@ impl Item {
             }
             Item::Def(_) => Kind::Definition,
             Item::Ctor(..) => Kind::Constructor,
+            Item::Part(..) => Kind::Theorem,
+        }
+    }
+
+    /// The conjunct it is, for a part of a theorem.
+    pub fn part(self) -> Option<Part> {
+        match self {
+            Item::Part(_, part) => Some(part),
+            _ => None,
         }
     }
 
     /// Its full name: `Std.List.lengthAppend`, `Std.List.Cons`.
+    /// A conjunct's is its theorem's.
     pub fn path(self, g: &Globals) -> String {
         match self {
-            Item::Def(id) => g.def(id).path.to_string(),
+            Item::Def(id) | Item::Part(id, _) => g.def(id).path.to_string(),
             Item::Ctor(d, c) => format!("{}.{}", g.data(d).path, g.data(d).ctors[c].name),
         }
     }
@@ -358,7 +487,7 @@ impl Item {
     /// the module's namespace).
     pub fn name(self, g: &Globals) -> String {
         match self {
-            Item::Def(id) => g.def(id).name.to_string(),
+            Item::Def(id) | Item::Part(id, _) => g.def(id).name.to_string(),
             Item::Ctor(d, c) => format!("{}.{}", g.data(d).name, g.data(d).ctors[c].name),
         }
     }
@@ -366,7 +495,7 @@ impl Item {
     /// Where it is declared (a constructor: its type's declaration).
     pub fn span(self, g: &Globals) -> Span {
         match self {
-            Item::Def(id) => g.def(id).span,
+            Item::Def(id) | Item::Part(id, _) => g.def(id).span,
             Item::Ctor(d, _) => g.data(d).span,
         }
     }
@@ -376,6 +505,16 @@ impl Item {
     pub fn ty(self, g: &Globals) -> Term {
         match self {
             Item::Def(id) => g.def(id).ty.clone(),
+            Item::Part(id, part) => {
+                let ty = &g.def(id).ty;
+                let and = (0..g.datas.len())
+                    .map(DataId)
+                    .find(|d| &*g.data(*d).path == "Std.And");
+                (and.map(|and| conjuncts(g, ty, and)).unwrap_or_default())
+                    .into_iter()
+                    .find(|(p, _)| *p == part)
+                    .map_or_else(|| ty.clone(), |(_, t)| t)
+            }
             Item::Ctor(d, c) => {
                 let data = g.data(d);
                 let ctor = &data.ctors[c];
@@ -470,12 +609,23 @@ pub struct Hit {
 }
 
 /// A hit's sort key: see [`Hit::key`].
-pub type Key = (Relation, bool, Place, usize, usize, usize, usize, String);
+pub type Key = (
+    Relation,
+    bool,
+    Place,
+    bool,
+    usize,
+    usize,
+    usize,
+    usize,
+    String,
+);
 
 impl Hit {
     /// The ranking (draft 3 §5.1, S1a): the relation, then whether the
     /// candidate absorbed the pattern whole, where it matched (a left and a
-    /// right side alike), specificity, premises, size, then the name.
+    /// right side alike), a declaration before a conjunct of one (SW-993),
+    /// specificity, premises, size, then the name.
     pub fn key(&self, g: &Globals) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
@@ -485,11 +635,15 @@ impl Hit {
             self.relation,
             self.absorbs,
             place,
+            self.item.part().is_some(),
             self.absorbed,
             self.instantiated,
             self.premises,
             self.size,
-            self.item.path(g),
+            match self.item.part() {
+                Some(part) => format!("{} {}", self.item.path(g), part.name()),
+                None => self.item.path(g),
+            },
         )
     }
 }
@@ -1033,20 +1187,41 @@ impl Elaborator {
         let ctors = (0..g.datas.len()).flat_map(|d| {
             (0..g.data(DataId(d)).ctors.len()).map(move |c| Item::Ctor(DataId(d), c))
         });
-        defs.chain(ctors)
-            .filter(|item| keep(*item, &item.path(g)))
-            .map(|item| {
-                let ty = item.ty(g);
-                let (size, premises) = shape(&ty);
-                Candidate {
-                    item,
-                    index: self.type_index(&ty),
-                    ty,
-                    size,
-                    premises,
+        let and = (0..g.datas.len())
+            .map(DataId)
+            .find(|d| &*g.data(*d).path == "Std.And");
+        let candidate = |item: Item, ty: Term| {
+            let (size, premises) = shape(&ty);
+            Candidate {
+                item,
+                index: self.type_index(&ty),
+                ty,
+                size,
+                premises,
+            }
+        };
+        let mut out = Vec::new();
+        for item in defs.chain(ctors) {
+            if !keep(item, &item.path(g)) {
+                continue;
+            }
+            let ty = item.ty(g);
+            // A theorem's conjuncts (SW-993), after it.
+            let parts = match (item, and) {
+                (Item::Def(id), Some(and)) if item.kind(g) == Kind::Theorem => {
+                    conjuncts(g, &ty, and)
+                        .into_iter()
+                        .map(|(part, t)| (Item::Part(id, part), t))
+                        .collect()
                 }
-            })
-            .collect()
+                _ => Vec::new(),
+            };
+            out.push(candidate(item, ty));
+            for (part, t) in parts {
+                out.push(candidate(part, t));
+            }
+        }
+        out
     }
 
     /// What type `ty` names, read back folded as a pattern is (so a field

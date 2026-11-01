@@ -446,6 +446,11 @@ pub struct QueryJson {
 pub struct Result1 {
     /// The full name.
     pub name: String,
+    /// For a conjunct of the theorem `name` (SW-993): which (`left`,
+    /// `right.left`); `type` is the conjunct's, taken with `And.left (name
+    /// …)` and the like.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conjunct: Option<String>,
     /// `theorem`, `definition` or `constructor`.
     pub kind: &'static str,
     #[serde(rename = "type")]
@@ -775,6 +780,7 @@ impl Session {
             premises: hit.premises,
             size: hit.size,
             name: path,
+            conjunct: item.part().map(|p| p.name()),
         }
     }
 }
@@ -948,7 +954,11 @@ pub fn render_text(report: &Report) -> String {
             }
             _ => String::new(),
         };
-        out.push_str(&format!("{:>2}. {}  {}{how}\n", i + 1, r.name, r.kind));
+        let name = match &r.conjunct {
+            Some(part) => format!("{} (its {part} conjunct)", r.name),
+            None => r.name.clone(),
+        };
+        out.push_str(&format!("{:>2}. {name}  {}{how}\n", i + 1, r.kind));
         out.push_str(&format!("    {}\n", r.ty));
         let import = r
             .import

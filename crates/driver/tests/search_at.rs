@@ -477,3 +477,30 @@ theorem takeLength (xs: List Nat) (ys: List Nat) (k: Nat) (h: xs.length = k): (x
     );
     pastes_at(text, 3, want);
 }
+
+/// A conjunct of a theorem whose conclusion is a definition that unfolds
+/// to a conjunction (SW-993; std's `Graph.distancesShortest`), nested.
+#[test]
+fn a_conjunct_of_a_theorem_closes() {
+    let text = "\
+import Std (Nat, List)
+
+def total: List Nat → Nat
+  | Nil => 0
+  | Cons x rest => x + total rest
+
+def Bounded (xs: List Nat) (n: Nat): Prop := And (total xs ≤ n) (And (List.length xs ≤ n) (0 < n + 1))
+
+theorem boundedSelf (xs: List Nat): Bounded xs (total xs + List.length xs) := Both (omega) (Both (omega) (omega))
+
+theorem useTotal (ys: List Nat): List.length ys ≤ total ys + List.length ys := ?
+";
+    let report = &at_each(text, &[11])[0];
+    let want = "And.left (And.right (boundedSelf ys))";
+    let found = (report.results.iter()).find(|s| s.proof == want);
+    assert!(
+        found.is_some_and(|s| s.conjunct.as_deref() == Some("right.left")),
+        "`{want}` not suggested as the right.left conjunct: {report:#?}"
+    );
+    pastes_at(text, 11, want);
+}

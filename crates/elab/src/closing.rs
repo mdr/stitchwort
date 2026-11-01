@@ -100,6 +100,10 @@ pub struct Plan {
     /// (List.flatMap xs f)`, not `a ≤ c`): worth offering with a `?` for
     /// what nothing solved (a witness), as one that leaves goals.
     pub specific: bool,
+    /// For a conjunct of a theorem (SW-993): the projections that take it,
+    /// innermost first, as the file writes them (`And.left`), and how many
+    /// of `args` are the theorem's; the rest are the conjunct's own.
+    pub part: Option<(Vec<String>, usize)>,
 }
 
 /// A rewrite planned: `rewrite [<-] PLAN in ?` at the call `subterm`.
@@ -326,7 +330,7 @@ impl Elaborator {
     /// Declaration `item`'s name as this file can write it.
     pub fn write_item(&self, item: Item) -> String {
         let term = match item {
-            Item::Def(id) => Term::Def(id),
+            Item::Def(id) | Item::Part(id, _) => Term::Def(id),
             Item::Ctor(d, c) => Term::Ctor(d, c, Vec::new()),
         };
         pretty::term_in(&self.globals, self, &[], &term)
@@ -548,6 +552,25 @@ impl Elaborator {
                 None => self.arg(goal, *m, premises.contains(&i))?,
             });
         }
+        let part = item.part().map(|part| {
+            let Item::Part(id, _) = item else {
+                unreachable!("a part")
+            };
+            let mut own = 0;
+            let mut t = self.globals.def(id).ty.strip_loc();
+            while let Term::Pi(_, icit, _, cod) = t {
+                own += usize::from(*icit == Icit::Explicit);
+                t = cod.strip_loc();
+            }
+            let fields: Vec<String> = (part.sides())
+                .map(|right| {
+                    let field = if right { "right" } else { "left" };
+                    (self.write_name(&format!("Std.And.{field}")))
+                        .unwrap_or_else(|| format!("And.{field}"))
+                })
+                .collect();
+            (fields, own)
+        });
         Ok(Plan {
             item,
             head: self.write_item(item),
@@ -556,6 +579,7 @@ impl Elaborator {
             general: false,
             sym: None,
             specific: false,
+            part,
         })
     }
 

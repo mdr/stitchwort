@@ -274,6 +274,13 @@ pub struct Suggestion {
     /// every closing suggestion is).
     #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
     pub recursive: bool,
+    /// For a conjunct of the theorem `name` (SW-993): which (`left`,
+    /// `right.left`); the proof takes it with `And.left` and the like.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conjunct: Option<String>,
+    /// The declaration applied, when known.
+    #[serde(skip)]
+    pub item: Option<stitchwort_elab::search::Item>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -402,7 +409,16 @@ fn atom(text: &str) -> String {
 fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
     let mut out = plan.head.clone();
     let mut fills = fills.iter();
-    for arg in &plan.args {
+    for (i, arg) in plan.args.iter().enumerate() {
+        // A conjunct (SW-993): the theorem's arguments, then the projections
+        // that take it (`And.left (T …)`), then its own.
+        if let Some((fields, own)) = &plan.part
+            && i == *own
+        {
+            for field in fields {
+                out = format!("{field} ({out})");
+            }
+        }
         out.push(' ');
         match arg {
             Arg::Given(_) if infer => out.push('_'),
@@ -410,6 +426,13 @@ fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
             Arg::Infer | Arg::Unsolved => out.push('_'),
             Arg::Hyp(name) => out.push_str(name),
             Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
+        }
+    }
+    if let Some((fields, own)) = &plan.part
+        && plan.args.len() <= *own
+    {
+        for field in fields {
+            out = format!("{field} ({out})");
         }
     }
     match &plan.sym {
@@ -695,6 +718,8 @@ impl Session {
                     search_rank: None,
                     witnesses: false,
                     recursive: false,
+                    conjunct: None,
+                    item: None,
                 };
                 results.push((s, 0));
             }
@@ -816,6 +841,8 @@ impl Session {
                                 search_rank: None,
                                 witnesses: false,
                                 recursive: true,
+                                conjunct: None,
+                                item: None,
                             };
                             results.push((s, usize::MAX - 1));
                             break;
@@ -879,6 +906,8 @@ impl Session {
                     search_rank: None,
                     witnesses: false,
                     recursive: r.recursive,
+                    conjunct: None,
+                    item: None,
                 };
                 results.push((suggestion, usize::MAX));
             }
@@ -982,7 +1011,7 @@ impl Session {
         if s.kind == "hypothesis" || s.recursive {
             return;
         }
-        let Some(item) = find_item(self, &s.name) else {
+        let Some(item) = s.item.or_else(|| find_item(self, &s.name)) else {
             return;
         };
         let (file, line) = crate::render::location(&self.sources, item.span(g));
@@ -1084,6 +1113,8 @@ fn after_rewrite(
             search_rank: None,
             witnesses: false,
             recursive: false,
+            conjunct: None,
+            item: None,
         });
     }
     out
@@ -1201,6 +1232,8 @@ fn try_plan_with(
         search_rank: Some(rank),
         witnesses: !witness.is_empty(),
         recursive: false,
+        conjunct: None,
+        item: None,
     };
     let mut suggestion = match first {
         Outcome::Failed => return None,
@@ -1337,6 +1370,8 @@ fn try_plan_with(
         }
     };
     suggestion.name = plan.item_path.clone();
+    suggestion.item = Some(plan.item);
+    suggestion.conjunct = plan.item.part().map(|p| p.name());
     Some(suggestion)
 }
 
@@ -1780,6 +1815,9 @@ pub fn render_text(report: &AtReport) -> String {
         out.push_str("\ncloses it (checked by the kernel):\n");
         for (i, s) in closing.iter().enumerate() {
             out.push_str(&format!("{:>2}. {}  [{}]\n", i + 1, s.proof, s.class));
+            if let Some(part) = &s.conjunct {
+                out.push_str(&format!("    the {part} conjunct of:\n"));
+            }
             out.push_str(&format!("    {}\n", place(s)));
             if s.recursive {
                 out.push_str("    uses the induction hypothesis: a call of the declaration being proved, on a structurally smaller argument; termination is checked once the proof is pasted\n");
