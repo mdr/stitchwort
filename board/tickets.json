@@ -1,5 +1,5 @@
 {
-  "next": 979,
+  "next": 981,
   "tickets": [
     {
       "id": 47,
@@ -2849,6 +2849,35 @@
         "friction"
       ],
       "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint. Fix: note suggesting brackets (small).\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 979,
+      "title": "AoC 2021 day 18: Snailfish, solved and proved against a leaf-list spec",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 18 (Snailfish): tree program, spec on the leaf list (values with depths in reading order), proofs that explode/split agree with the spec's, reduced results, answers; parser guarantee (D2108). Lane in worktree agent-a4af22a9247326307. Friction list in aoc/NOTES-2021.md.\nProgress 1 Nov: program right first run (4391/4626); spec + all proofs check (explode/split/reduce sound, reduce complete up to budget, sums unique, part1/part2 from input, parser guarantee); audit 0 failed. Writing NOTES.\nDone 1 Nov: branch worktree-agent-a4af22a9247326307, 7 commits (60aa036c..edd13941). audit: 67 theorems, 0 failed, 6 warnings (narrow f x = Some y hypotheses, example theorems in Tests). Open: termination of reduction (budget 1000; reduceComplete shows budget is the only gap). test:one year2021_day18 passes.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 980,
+      "title": "Day 18: printed goals not valid source (record after constructor, %match names); no per-arm equations; stale variable names in goals; two if forms",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 18 (aoc/NOTES-2021.md, 1 Nov 2026). Termination of snailfish reduction left open (fuel 1000 per sum; completeness up to budget proved).\n(1) Printed goals aren't valid source: a record passed to a constructor prints `Cons { value = … } rest` / `Some { found | … }`, which search --at can't read back (E-PARSE: braces after Cons name its fields). Fix: print in brackets (small).\n(2) search --at fails on a hidden name: a goal mentioning `split.%match1` gives E-PARSE \"expected a field name after '.'\" (new effect of SW-971 (3)).\n(3) The program had to be reshaped to prove one arm: with a specific `Pair (Regular a) (Regular b)` arm before the general Pair arm, the general arm's equation can't be stated (a written-out match is a different hidden function, E-REFL). Workaround: named helper explodeIn. Fix: generate an equation per arm, like Lean's f.eq_3 (medium).\n(4) A goal showed the previous arm's variable names: last arm binds `left1 right1` but goal printed `Pair left right = Pair left2 right2` (printer bug, small-medium).\n(5) `if 4 ≤ depth` stays a Bool if (only Nat.leq matching refines it) while `if 10 ≤ value` becomes Decidable.elim (Nat.decLessThan 9 value). Cause guessed. Fix: one form or a proving-guide line (small).\n(6) audit can't satisfy `f x = Some y` with y free; fix: compute y from f x rather than random (small-medium; different from SW-967 (8)).\n(7) Small: `import Std (Pair)` hides a local Pair constructor (clear message); braces after a constructor bit three times (LSP quick fix); no multi-line string literals (example is Text.join of a list); a recursive {Parse} function needs an explicit bound.\nSeen again: no record eta (SW-960 (4)); holes before expected type (SW-969 (2)); context order breaks search --at (SW-969 (1)); search misses DecEq.soundFalse / Nat.equalFalse for == facts (SW-960 (3)); day 14's maximumSome imported again (SW-971 (7)).\nStd candidates: xs ≠ Nil → xs ++ ys ≠ Nil (both sides); findIndexFrom = None → p false on every element; List.maximum lemmas.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
