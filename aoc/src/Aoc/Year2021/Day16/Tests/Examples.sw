@@ -63,6 +63,13 @@ test "hexadecimal digits" := "0123456789ABCDEF".toList.all (char => (hexValue ch
 -- The parser's errors.
 test "not hexadecimal" := parsed "D2FG28\n" == Err "column 4: expected a hexadecimal digit or the end of the line, got 'G'"
 
+-- Only zero bits may follow the packet: the literal 2021 ends after 21
+-- bits, so `D2FE28` has 3 padding bits and `D2FE2800` 11, while the last
+-- bit of `D2FE29` is a 1.
+test "zero padding" := parsed "D2FE2800" == Ok (Literal 6 [7, 14, 5])
+
+test "a bad trailer" := parsed "D2FE29" == Err "the bits after the packet aren't all zero padding"
+
 test "too short" := parsed "D2FE" == Err "the transmission isn't a packet"
 
 -- Sub-packets exactly filling a total length of 22 bits, and the same

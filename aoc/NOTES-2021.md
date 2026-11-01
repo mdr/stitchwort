@@ -3902,8 +3902,10 @@ theorems):
   Fail.toResult (() => parsePacket input) = Ok packet)`: there are
   `bits` and `rest` with `transmissionBits input.trim.toList = Some
   bits` (every character is a hexadecimal digit, and the bits are
-  theirs), `bits = encode packet ++ rest`, `wellFormed packet = True` and
-  `promised packet = True`.
+  theirs), `bits = encode packet ++ rest`, `rest.all (bit => not bit) = True` (only
+  zero padding follows the packet; `decodeTransmission` rejects anything
+  else with "the bits after the packet aren't all zero padding", SW-1022),
+  `wellFormed packet = True` and `promised packet = True`.
 - **Part 1**, `part1Correct (packet)`: `solvePart1 packet = versionTotal
   packet`, for every packet, with no hypothesis.
 - **Part 2**, `part2Correct (packet) (formed: wellFormed packet = True)
