@@ -1,5 +1,5 @@
 {
-  "next": 968,
+  "next": 970,
   "tickets": [
     {
       "id": 47,
@@ -2675,6 +2675,37 @@
         "friction"
       ],
       "body": "From AoC 2021 day 12 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match e:` inside a `decreasing` definition is lifted to an unnamed function taking `rfl`; matching on the same call in a proof gives E-MATCH-MOTIVE (\"`rfl` can't prove this\") and the suggested fix (helper with a written signature) can't be followed since the lifted match has no name. Workaround: depth cap instead of decreasing. Fix: generalise the rfl along with the scrutinee, as Lean does (medium-large).\n(2) BUG: a lambda in a recursive call's argument, inside sumBy's callback, becomes an unknown `x` in the termination goal (`⊢ List.length x < List.length xs`); a let is as opaque. Lane has a 3-line repro (in NOTES-2021 day 12). Workaround: top-level helper. Fix: keep the argument in the goal (medium).\n(3) Couldn't prove counting search = length of listing search: `List.sumByCong (next cave) _ _ (…)` left both function args as holes; writing the lambda out makes a different lifted match. Workaround: list then count (2.0 s vs 1.3 s). Fix: infer a congruence lemma's function args from the expected type first (near SW-963 item 2) (medium).\n(4) `decreasing` takes at most two parts; needed three (small).\n(5) After `match e:`, [GOAL] showed the goal unrefined while rewrite at the same spot reported it refined. Printed goals capture variables: `List.Any (y => y = y) …`; search --at printed `(c => c == c)` (small each; capture is a printer correctness bug).\n(6) No generated constructor injectivity/disjointness lemmas (also SW-963) (medium).\n(7) `search '(?b: Bool) ≠ True → ?b = False'` doesn't find Bool.falseOfNotTrue; conclusion-only pattern lists it third. Cause unknown (small-medium).\n(8) audit warns on every theorem about a successful parse (random texts never parse). Fix: counterexample search tries the namespace's test inputs (small-medium).\n(9) Minor inference: List.distinctNil after rewrite needed [a := Text]; let-bound lambda has no expected type so rewrite inside fails; depth argument hole not inferred (small).\nCross-day/cross-year imports now carry shared lemmas: day 12 imports 2024 day 24's filterNoLonger and 2021 day 10's toNatAtMostOne.\nStd candidates: List.lookup on a table built by map; filter length ≤ and strict when a member is filtered out; Bool.toNat b ≤ 1 (3 copies); count ≥ 1 for a member, count along ++; withoutMem; List.flatMapCong; a generic graph-walk listing module.\nsearch --at closed 4 of 5 goals (2-7 s) when used; noisy \"applies\" list (Bool.canonicalTrue again).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 968,
+      "title": "AoC 2021 day 13: Transparent Origami (program, spec, proofs, friction)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 13 (Transparent Origami): program, spec in the puzzle terms (dots after a fold = image under the reflection), proofs that part 1 counts it and part 2 picture shows exactly the folded dots; parser guarantees the no-dot-on-a-fold-line promise (D2108). Lane worktree agent-a03a0bcc9adab14f9.\n\nProgress:\n- Program right first run (666; picture reads CJHAZHKU, matches Matt's rows exactly), 0.35 s.\n- Spec, proofs (part1Correct, part2Correct, parsePromise, part1/2FromInput) all checked; nothing open; audit 37 theorems, 0 failed, 2 warnings (narrow hypotheses, satisfied by test theorems).\n- Friction found: search --at E-SEARCH-AT \"unknown name\" on goals after match on a constructor with fields (context order; 13-line repro); `P.ext _ _ cases cases` gives `q = q` (holes solved by cases before expected type; repro); List.foldRight doesn't compute on Cons; no List.get of mapped range.\n- Committed df4d534b on worktree-agent-a03a0bcc9adab14f9 (program, spec, proofs, tests, NOTES-2021 day 13; aoc_answers takes a multi-line part 2). test:one year2021_day1 passed (days 10-13). Ready for review.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": [
+        "df4d534b"
+      ]
+    },
+    {
+      "id": 969,
+      "title": "Day 13: search --at fails after constructor match (context order); cases arg solves holes before expected type; foldRight not structural; x✝ name clashes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 13 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) search --at refuses goals after a match on a constructor with fields: `E-SEARCH-AT … unknown name 'line'`. The goal context lists a refined hypothesis before the pattern variable it mentions (`h: line < 3` above `line: Nat`); equation-style inductions do the same. 13-line repro in NOTES-2021 day 13. No workaround. Fix: order the context by dependency in the goal display and in search (small-medium). High value: it blocks search --at on most proofs after a match.\n(2) A `cases` argument solved its call's holes before the expected type: `P.ext _ _ cases cases` said \"expected `q = shift b p`, but this has type `q = q`\". 6-line repro in notes. Workaround: write the values. Fix: unify result with expected type before checking proof arguments (medium; same family as SW-963 (2), SW-967 (3)).\n(3) List.foldRight doesn't compute on Cons (it's foldLeft over the reverse), so omega can't use it. Workaround: lemmas from List.foldRightCons. Fix: note at foldRight or a structural definition (small).\n(4) Search pattern `P → _` seems to match P only as the first premise: `List.find _ _ = None → _` missed List.findNoneNotMem (small).\n(5) cases prints two different variables both as x✝/y✝ (`spot = { x = x✝, … }, dot = { x = x✝, … }`). Fix: number them (small).\n(6) Definitions/theorems whose result is a defined function type need a pattern for the hidden argument; the message explains it well; worth a doc line (small).\n(7) New evidence for SW-967 (8): audit also warns when a hypothesis is membership in a function's output.\nSeen again: no eta for records (SW-960 (4)).\nStd candidates: List.get of map over List.range (Some below n, None past it); List.get (List.range n) i; members below the list maximum.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
