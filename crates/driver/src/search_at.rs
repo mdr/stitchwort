@@ -342,6 +342,9 @@ pub struct Totals {
     pub rewrites: usize,
 }
 
+/// The share of the search's time one check may take (SW-1017).
+const PER_CHECK_SHARE: f32 = 0.5;
+
 #[derive(Serialize, Debug, Default)]
 pub struct AtBudget {
     /// The declarations searched.
@@ -360,6 +363,11 @@ pub struct AtBudget {
     pub exhausted: bool,
     #[serde(rename = "outOfBudget")]
     pub out_of_budget: usize,
+    /// Checks stopped at the per-check time limit (SW-1017: half the
+    /// search's time): abandoned, not failed, so what they would have shown
+    /// is unknown.
+    #[serde(rename = "gaveUp", skip_serializing_if = "is_zero")]
+    pub gave_up: usize,
     #[serde(rename = "internalErrors")]
     pub internal_errors: usize,
     /// In a project's file: the suggestions checked in the file (pasted in,
@@ -507,6 +515,10 @@ struct Checker<'s> {
     target_now: String,
     checks: usize,
     deadline: Instant,
+    /// The longest one check may take (SW-1017): a share of the search's time.
+    per_check: Duration,
+    /// The checks stopped at that limit (the proofs, as written).
+    gave_up: Vec<String>,
     /// While trying the induction hypothesis: the name the proofs call
     /// the declaration being proved by, bound as a hypothesis (SW-993).
     recursive: Option<String>,
@@ -526,6 +538,8 @@ impl Checker<'_> {
         };
         let began = Instant::now();
         self.checks += 1;
+        // A check may take its share of the time, and no more than is left.
+        let limit = (began + self.per_check).min(self.deadline.max(began));
         let checked = match &self.snapshot {
             Some(snapshot) => {
                 let Ok(expr) = self.session.parse_expression("<search --at>", &body) else {
@@ -539,6 +553,7 @@ impl Checker<'_> {
                     hyps.push((name.clone(), ty));
                 }
                 let recursive = self.recursive.as_deref();
+                (self.session.elab.globals.budget).set_deadline(Some(limit));
                 (self.session.elab).check_proof_at(snapshot, &hyps, recursive, &expr)
             }
             None if self.recursive.is_some() => return Outcome::Failed,
@@ -547,9 +562,14 @@ impl Checker<'_> {
                 let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
                     return Outcome::Failed;
                 };
+                (self.session.elab.globals.budget).set_deadline(Some(limit));
                 self.session.elab.check_proof(&expr)
             }
         };
+        (self.session.elab.globals.budget).set_deadline(None);
+        if self.session.elab.globals.budget.take_timed_out() {
+            self.gave_up.push(proof.to_string());
+        }
         debug_time(&format!("checked `{body}`"), began);
         match checked {
             Ok(Checked::Closed) => Outcome::Closed,
@@ -662,6 +682,7 @@ impl Session {
             truncated: matched > closing.plans.len(),
             exhausted: !closing.found.stats.stopped,
             out_of_budget: closing.found.stats.out_of_budget,
+            gave_up: 0,
             internal_errors: closing.found.stats.internal_errors,
             checks: 0,
             in_file: None,
@@ -686,6 +707,8 @@ impl Session {
             target_now: target_now.clone(),
             checks: 0,
             deadline: started + options.time,
+            per_check: options.time.mul_f32(PER_CHECK_SHARE),
+            gave_up: Vec::new(),
             recursive: None,
         };
         // The closers on their own first: a goal `omega` closes needs no
@@ -919,6 +942,8 @@ impl Session {
         }
         debug_time("checks done", started);
         budget.checks = checker.checks;
+        budget.gave_up = checker.gave_up.len();
+        let gave_up = std::mem::take(&mut checker.gave_up);
         drop(checker);
         let session = &*self;
         results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
@@ -960,6 +985,16 @@ impl Session {
             warnings.push(format!(
                 "the time ran out ({} s) before every candidate was checked: --time for more",
                 options.time.as_secs_f32()
+            ));
+        }
+        if !gave_up.is_empty() {
+            let shown: Vec<_> = (gave_up.iter().take(3)).map(|p| format!("`{p}`")).collect();
+            warnings.push(format!(
+                "{} checks gave up after {} ms each (half of --time), so whether they close the goal is unknown: {}{}",
+                gave_up.len(),
+                options.time.mul_f32(PER_CHECK_SHARE).as_millis(),
+                shown.join(", "),
+                if gave_up.len() > 3 { " and more" } else { "" }
             ));
         }
         if budget.truncated {
