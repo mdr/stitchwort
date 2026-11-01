@@ -33,8 +33,9 @@ Folders whose names start with `.` are skipped, so `.stitchwort/` and `.git/`
 are ignored. Files that aren't `.sw` are ignored. A folder that doesn't
 exist, or a source path that is absolute or contains `..`, is an error. So is
 a `stitchwort.yaml` inside another project. `sources` must be a list:
-`sources: src` (a bare string) is `E-PROJECT-CONFIG`. `sources` is the only
-key for now; an unknown key is an error.
+`sources: src` (a bare string) is `E-PROJECT-CONFIG`. The only other key is
+`audit:`, whose `allowed-axioms:` lists the axioms `stitchwort audit` allows
+(default `Quot.sound`); an unknown key is an error.
 
 A flat layout uses `sources: [.]`.
 
@@ -292,13 +293,15 @@ stitchwort run Day05.main
 ```
 
 `Day05.main` is a fully qualified function name. Any function may be run if
-it has a main-like type: `() -> {IO, Partial} ()` or less, meaning one of
+it has a main-like type: `() -> {IO, Fail, Partial} ()` or less, meaning a
+function from `()` to `()` whose abilities are among `IO`, `Fail` and `Partial`:
 
 ```
 () -> ()
 () -> {IO} ()
-() -> {Partial} ()
+() -> {IO, Fail} ()
 () -> {IO, Partial} ()
+() -> {IO, Fail, Partial} ()
 ```
 
 Only the function's namespace and what it depends on are type-checked. A
