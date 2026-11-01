@@ -355,7 +355,7 @@ docs/proposals/indexed-families.md §7; `examples/accept/indexed-families.sw`.
 - **Implicit fields.** `[n: Nat]` among a constructor's fields is an implicit field. In a constructor of a type with indices, an undeclared lowercase name (`n` above) becomes an automatic implicit field, as in a signature; a use in an index counts (`FZero: Fin (Succ n)` binds `n: Nat`). Automatic fields go first, ordered by their dependencies; one whose type would mention a written field must be written out, after it (`E-IMPLICIT-FIELD`). Implicit fields are filled in by unification when building a value, or named: `VCons [n := k] x xs`.
 - **`n + 1` and `Succ n` are the same index**: `+` computes on either side that is a number or a `Succ` (docs/core.md, "Numbers"), so `Vec a (n + 1)` is `Vec a (Succ n)`. A sum of two unknowns, `Vec a (n + m)`, doesn't compute: matching on it is stuck until `n` or `m` is matched (`E-INDEX-STUCK`).
 - **In a signature**, a name used in an index is bound automatically even where it's also used as a value: `def head: Vec a (Succ n) -> a`, `theorem leToLeq: Le m n -> m <= n`.
-- **Matching** needs no new syntax. Implicit fields are skipped in patterns, or matched by name, `VCons [n := k] _ _` (positional `[k]` isn't allowed). An arm may be left out only when its constructor can't be there (`head` has no `VNil` arm), or when another argument then has no possible constructor (`get: Vec a n -> Fin n -> a` has no `VNil` arm: there, `i: Fin 0`). A left-out arm that can be there is `E-NONEXHAUSTIVE`. When the compiler can't tell (an index like `n + m` with `n` unknown, or a type to take apart), it's `E-INDEX-STUCK`: match on `n` first, or use a variable index. `()` works for a family with no possible constructor (`Even 1`). An arm that can never match is the warning `W-UNREACHABLE`, and isn't checked.
+- **Matching** needs no new syntax. Implicit fields are skipped in patterns, or matched by name, `VCons [n := k] _ _` (positional `[k]` isn't allowed). An arm may be left out only when its constructor can't be there (`head` has no `VNil` arm), or when another argument then has no possible constructor (`get: Vec a n -> Fin n -> a` has no `VNil` arm: there, `i: Fin 0`). A left-out arm that can be there is `E-NONEXHAUSTIVE`. It lists every such constructor, as arms to paste (see "Missing cases" under `match`). When the compiler can't tell (an index like `n + m` with `n` unknown, or a type to take apart), it's `E-INDEX-STUCK`: match on `n` first, or use a variable index. `()` works for a family with no possible constructor (`Even 1`). An arm that can never match is the warning `W-UNREACHABLE`, and isn't checked.
 - **Running and exporting.** A family's values run like any data type's; its forced fields are stored, and its proof fields are erased. An `export` can't have a family anywhere in its inputs or result, directly, through a synonym, in a container or in a record field (`E-EXPORT`); a function may use one inside (`examples/extract/vec-inside.sw`).
 
 ## Records
@@ -1635,7 +1635,7 @@ def zipLen (xs: List Nat) (ys: List Nat): Nat := 1 + match xs, ys with
   | _, _ => 0
 ```
 
-The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero => 0 | Succ k => k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`).
+The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero => 0 | Succ k => k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`). A `match` that doesn't say what happens for some constructors is told every one it leaves out; see "Missing cases" below.
 
 Patterns are those of arms: variables, `_`, numbers, constructors, tuples, record patterns and `()`. A `match` can also be used in a signature (`def Pick (b: Bool): Type := match b with | True => Nat | False => Text`), and may be nested in a branch.
 
@@ -1689,6 +1689,18 @@ The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says
 The way round all of them is a top-level helper with a written signature. `E-MATCH-EQUATION` is for an equality `h` that can't be formed because the scrutinee and the expression have different types. This version doesn't report it.
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
+
+#### Missing cases
+
+When the alternatives of a `match`, or the arms of a definition, leave out some constructors, `E-NONEXHAUSTIVE` lists every case that is missing, as arms to paste, one per line, each ending in `?` so that it checks as an open goal (SW-1027):
+
+```
+[E-NONEXHAUSTIVE] Error: missing cases: no arm matches 2 patterns
+| Square _ => ?
+| Tri _ _ => ?
+```
+
+A missing case is the whole row of patterns, one for each scrutinee or argument, separated by commas, so a `match` on `(Option a, Bool)` with two arms can be told `| (None, False) => ?` and `| (Some _, True) => ?`. A field the arm doesn't need is `_`, and implicit fields aren't written. A list is `[]`, `[_, .._]` (`Cons _ _`) and so on, as a list pattern is written, and a pair `(a, b)`. On an indexed family a constructor that can't be there (`VCons` in a `Vec a 0`) isn't listed, as it isn't an error. At most 20 cases are listed, then `and N more`; add those and check again to see the rest. Where what's missing is numbers or characters (`Nat`, `Int`, `Char`, `Fin`), the message says which (`numbers other than 0 and 1`), and the fix is an arm with a variable or `_`. In `check --index`, the diagnostic has a `missing` member with the same cases (docs/proposals/code-navigation.md).
 
 ### `calc`
 

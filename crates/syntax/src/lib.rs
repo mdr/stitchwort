@@ -11,7 +11,9 @@ mod parser;
 mod source;
 pub mod stack;
 
-pub use diagnostic::{Counterexample, Diagnostic, GoalData, Hypothesis, Label, Severity};
+pub use diagnostic::{
+    Counterexample, Diagnostic, GoalData, Hypothesis, Label, MissingCases, Severity,
+};
 /// The token stream, for tools that edit source text at token spans.
 pub use lexer::{Comment, Lexed, Tok, Token, Trivia, UNICODE_ALIASES, lex, lex_with_trivia};
 pub use negation::{

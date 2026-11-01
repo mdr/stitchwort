@@ -869,7 +869,7 @@ impl Elaborator {
                 if main.as_ref().is_some_and(|m| m.text.contains('.')) == qualified
                     && let Err(d) = self.register(index, item.decl)
                 {
-                    let (d, fatal) = d;
+                    let (d, fatal) = *d;
                     diagnostics.push((item.position, d));
                     if fatal {
                         left_out.insert(index);
@@ -1038,13 +1038,16 @@ impl Elaborator {
     /// Enters the names declaration `index` declares as unchecked. The error
     /// is fatal (the declaration is left out) when its own name can't be
     /// registered.
-    fn register(&mut self, index: usize, decl: &Decl) -> Result<(), (Diagnostic, bool)> {
+    fn register(&mut self, index: usize, decl: &Decl) -> Result<(), Box<(Diagnostic, bool)>> {
         let (main, members) = declared_names(decl);
         let Some(main) = main else {
             return Ok(());
         };
-        let key = self.declaration_key(&main).map_err(|d| (d, true))?;
-        self.new_module_name(&key, &main).map_err(|d| (d, true))?;
+        let key = self
+            .declaration_key(&main)
+            .map_err(|d| Box::new((d, true)))?;
+        self.new_module_name(&key, &main)
+            .map_err(|d| Box::new((d, true)))?;
         self.scope
             .insert(&key, Global::Unchecked(index), main.span, false);
         self.module.names.insert(key.clone());
@@ -1073,7 +1076,7 @@ impl Elaborator {
                 }
                 Err(d) => {
                     if result.is_ok() {
-                        result = Err((d, false));
+                        result = Err(Box::new((d, false)));
                     }
                 }
             }

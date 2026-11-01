@@ -35,6 +35,37 @@ pub struct Diagnostic {
     /// A counterexample to the statement, when one of the notes says the
     /// statement is false: its bindings, for the index.
     pub counterexample: Option<Box<Counterexample>>,
+    /// For `E-NONEXHAUSTIVE` on a constructor case: every case no arm
+    /// matches, as patterns, for the index.
+    pub missing: Option<Box<MissingCases>>,
+}
+
+/// The cases a `match` leaves out (SW-1027): each a row of patterns, one
+/// per scrutinee, separated by commas, that pastes as an arm's patterns
+/// (`Tri _ _`, `Some _, True`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MissingCases {
+    /// Every one of them, in the order of the constructors.
+    pub patterns: Vec<String>,
+    /// Where each of `patterns` is in the case tree: the constructor taken
+    /// at each split, so that the cases from several branches sort in the
+    /// order of the constructors. Not shown.
+    pub order: Vec<Vec<usize>>,
+}
+
+impl MissingCases {
+    /// The most cases a diagnostic lists.
+    pub const CAP: usize = 20;
+
+    /// The ones listed: the first [`MissingCases::CAP`].
+    pub fn shown(&self) -> &[String] {
+        &self.patterns[..self.patterns.len().min(Self::CAP)]
+    }
+
+    /// How many are left out of the list.
+    pub fn more(&self) -> usize {
+        self.patterns.len().saturating_sub(Self::CAP)
+    }
 }
 
 /// A goal as data: what its label shows, each part printed alone.
@@ -92,6 +123,7 @@ impl Diagnostic {
             notes: Vec::new(),
             goal: None,
             counterexample: None,
+            missing: None,
         }
     }
 

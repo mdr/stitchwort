@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-LET-REFUTABLE] Error: this pattern doesn't match every `List Nat`: it doesn't match `[]`
+[E-LET-REFUTABLE] Error: this pattern doesn't match every `List Nat`: it doesn't match `[]`, `[_]`, `[_, _, _, .._]`
    ╭─[ reject/list-pattern-let-refutable.sw:4:7 ]
    │
  4 │   let [a, b] := xs
    │       ───┬──  
-   │          ╰──── doesn't match `[]`
+   │          ╰──── doesn't match `[]`, `[_]`, `[_, _, _, .._]`
    │ 
    │ Note: use `match` to say what happens otherwise
 ───╯

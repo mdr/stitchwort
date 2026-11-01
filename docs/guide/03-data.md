@@ -63,6 +63,7 @@ def Shape.area: Shape → Nat
 <!-- output: check errors/missing-case.sw -->
 ```text
 [E-NONEXHAUSTIVE] Error: missing case: no arm matches `Dot`
+| Dot => ?
    ╭─[ errors/missing-case.sw:7:3 ]
    │
  7 │ ╭─▶   | Circle radius => 3 * radius * radius

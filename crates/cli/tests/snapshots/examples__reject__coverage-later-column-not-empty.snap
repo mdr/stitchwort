@@ -2,10 +2,11 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Succ _`
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Succ _, _`
+| Succ _, _ => ?
    ╭─[ reject/coverage-later-column-not-empty.sw:7:3 ]
    │
  7 │   | Zero, i => 0
    │   ───────┬──────  
-   │          ╰──────── missing case: no arm matches `Succ _`
+   │          ╰──────── missing case: no arm matches `Succ _, _`
 ───╯

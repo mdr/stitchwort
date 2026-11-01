@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing cases: no arm matches 2 patterns
+| Square _ => ?
+| Tri _ _ => ?
+    ╭─[ reject/missing-cases-several.sw:10:3 ]
+    │
+ 10 │   | Circle r => r
+    │   ───────┬───────  
+    │          ╰───────── missing cases: no arm matches 2 patterns
+────╯

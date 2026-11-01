@@ -40,6 +40,7 @@ mod local;
 mod logic;
 mod matching;
 mod membership;
+mod missing;
 mod module;
 mod named;
 mod nav;
@@ -816,11 +817,19 @@ enum Tree<'a> {
     /// No arm matches this constructor of an indexed family: right if it
     /// can't be here, or if one of the variables at `columns` has a type
     /// with no possible constructor (docs/proposals/indexed-families.md §7.3).
-    Missing { columns: Vec<usize>, span: Span },
+    Missing {
+        columns: Vec<usize>,
+        span: Span,
+        /// The case, as an arm's patterns (`missing.rs`).
+        arm: missing::Arm,
+    },
     Case {
         /// The level of the variable being matched.
         level: usize,
         data: DataId,
+        /// The number of variables in scope: the constructor's fields are
+        /// bound at the levels from here.
+        depth: usize,
         branches: Vec<(Vec<Name>, Tree<'a>)>,
         span: Span,
     },
@@ -3444,7 +3453,14 @@ impl Elaborator {
                     alternatives: Vec::new(),
                 })
                 .collect();
-            let tree = self.compile(&rows, cx.level(), &columns, &column_types, span)?;
+            let tree = self.compile_top(
+                &rows,
+                cx.level(),
+                &columns,
+                &column_types,
+                header.unwrap_or(0),
+                span,
+            )?;
             self.warn_redundant(&rows, &tree);
             tree
         };
@@ -3456,6 +3472,26 @@ impl Elaborator {
             term = Term::Lam(x, icit, Rc::new(term));
         }
         Ok(term)
+    }
+
+    /// [`Self::compile`] for a whole match: the cases certainly missing are
+    /// reported together, each as the arm that would cover it. The first
+    /// `skip` columns are a header's parameters, which arms don't match.
+    fn compile_top<'a>(
+        &self,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        types: &[Option<Value>],
+        skip: usize,
+        span: Span,
+    ) -> Result<Tree<'a>> {
+        let mut tree = self.compile(rows, depth, columns, types, span)?;
+        self.annotate(&mut tree, &columns[skip..]);
+        match missing::definite(&tree, span) {
+            Some(d) => Err(d),
+            None => Ok(tree),
+        }
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -3658,17 +3694,24 @@ impl Elaborator {
                     Tree::Missing {
                         columns: branch_columns,
                         span,
+                        arm: missing::Arm::default(),
                     },
                 ));
                 continue;
             }
             if branch_rows.is_empty() {
-                let example = families::missing_example(&self.globals, d, c, k);
-                return Err(error(
-                    "E-NONEXHAUSTIVE",
-                    span,
-                    format!("missing case: no arm matches `{example}`"),
+                // Certainly missing; the others are found before it is
+                // reported (`compile_top`).
+                let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                branches.push((
+                    names,
+                    Tree::Missing {
+                        columns: branch_columns,
+                        span,
+                        arm: missing::Arm::definite(),
+                    },
                 ));
+                continue;
             }
             let body = self.compile(
                 &branch_rows,
@@ -3687,6 +3730,7 @@ impl Elaborator {
         Ok(Tree::Case {
             level,
             data: d,
+            depth,
             branches,
             span,
         })
@@ -4474,7 +4518,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             cx.order = saved_order;
             result
         }
-        Tree::Missing { columns, span } => Err(error(
+        Tree::Missing { columns, span, .. } => Err(error(
             "E-NONEXHAUSTIVE",
             *span,
             format!("missing case ({} columns left)", columns.len()),
@@ -4511,6 +4555,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             data: d,
             branches,
             span,
+            ..
         } => {
             let g = cx.g();
             let data = g.data(*d);
@@ -4591,17 +4636,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let result = match subtree {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
-                    Tree::Missing { columns, span } => (|| {
+                    Tree::Missing { columns, span, arm } => (|| {
                         for &level in columns {
                             if let Some(term) = families::empty_case(cx, level, None)? {
                                 return Ok(term);
                             }
                         }
-                        let example = families::missing_example(g, *d, c, ctor.fields.len());
-                        Err(error(
-                            "E-NONEXHAUSTIVE",
+                        Err(missing::diagnostic(
                             *span,
-                            format!("missing case: no arm matches `{example}`"),
+                            vec![(arm.order.clone(), arm.pattern.clone())],
                         ))
                     })(),
                     _ => check_tree(cx, subtree, &branch_goal),

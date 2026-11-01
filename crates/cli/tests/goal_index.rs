@@ -409,3 +409,56 @@ fn goals_print_imported_names_as_the_file_writes_them() {
         assert_eq!(found[0]["goal"]["target"], goal["target"], "{items}");
     }
 }
+
+/// SW-1027: the cases `E-NONEXHAUSTIVE` lists are data in the index: the
+/// `missing` member has `patterns` (as listed in the message, at most 20)
+/// and `more` (how many are left out), in the order of the constructors.
+#[test]
+fn missing_cases_are_data_in_the_index() {
+    let reject = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/reject");
+    let dir = scratch("missing");
+    let missing_of = |name: &str| {
+        let file = format!("{name}.sw");
+        std::fs::copy(reject.join(&file), dir.join(&file)).unwrap();
+        let index = index_of(&dir, &file);
+        let found: Vec<Value> = diagnostics(&index)
+            .into_iter()
+            .filter(|d| d["code"] == "E-NONEXHAUSTIVE")
+            .collect();
+        assert_eq!(found.len(), 1, "{name}: {found:?}");
+        found[0].clone()
+    };
+    let strings = |v: &Value| -> Vec<String> {
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p.as_str().unwrap().to_string())
+            .collect()
+    };
+
+    let d = missing_of("missing-cases-several");
+    assert_eq!(strings(&d["missing"]["patterns"]), ["Square _", "Tri _ _"]);
+    assert_eq!(d["missing"]["more"], 0);
+    let message = d["message"].as_str().unwrap();
+    assert!(
+        message.ends_with("\n| Square _ => ?\n| Tri _ _ => ?"),
+        "{message}"
+    );
+
+    let d = missing_of("missing-cases-nested");
+    assert_eq!(
+        strings(&d["missing"]["patterns"]),
+        ["(None, False)", "(Some _, True)"]
+    );
+
+    // An impossible constructor (`BoolE` in an `Expr TInt`) isn't listed.
+    let d = missing_of("missing-cases-indexed");
+    assert_eq!(strings(&d["missing"]["patterns"]), ["Add _ _", "If _ _ _"]);
+
+    let d = missing_of("missing-cases-cap");
+    let patterns = strings(&d["missing"]["patterns"]);
+    assert_eq!(patterns.len(), 20);
+    assert_eq!((patterns[0].as_str(), patterns[19].as_str()), ("LB", "LU"));
+    assert_eq!(d["missing"]["more"], 3);
+    assert!(d["message"].as_str().unwrap().ends_with("\nand 3 more"));
+}

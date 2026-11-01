@@ -1,0 +1,32 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing cases: no arm matches 23 patterns
+| LB => ?
+| LC => ?
+| LD => ?
+| LE => ?
+| LF => ?
+| LG => ?
+| LH => ?
+| LI => ?
+| LJ => ?
+| LK => ?
+| LL => ?
+| LM => ?
+| LN => ?
+| LO => ?
+| LP => ?
+| LQ => ?
+| LR => ?
+| LS => ?
+| LT => ?
+| LU => ?
+and 3 more
+    ╭─[ reject/missing-cases-cap.sw:31:3 ]
+    │
+ 31 │   | LA => 0
+    │   ────┬────  
+    │       ╰────── missing cases: no arm matches 23 patterns
+────╯

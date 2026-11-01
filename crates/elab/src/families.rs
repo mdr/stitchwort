@@ -399,7 +399,9 @@ pub(crate) fn warn_unreachable<T>(
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
     let saved = cx.e.arm_reach.take();
+    let errors = cx.e.branch_errors.borrow().len();
     let result = f(cx);
+    let result = crate::missing::merge(cx, errors, result);
     let here = cx.e.arm_reach.replace(saved);
     if result.is_ok() {
         let mut warnings = cx.e.lambda_warnings.borrow_mut();
@@ -451,6 +453,7 @@ pub(crate) fn check_case(
     span: Span,
 ) -> Result<Term> {
     let mut out = Vec::new();
+    let mut missing: Vec<Diagnostic> = Vec::new();
     let scrutinee = cx.show(&Value::Data(d, args.to_vec()));
     for (c, (names, subtree)) in branches.iter().enumerate() {
         let mark = cx.mark();
@@ -462,10 +465,18 @@ pub(crate) fn check_case(
         cx.reset(mark);
         cx.env = saved_env;
         cx.types = saved_types;
-        out.push(Branch {
-            names: names.clone(),
-            body: result?.map(Rc::new),
-        });
+        match result {
+            Ok(body) => out.push(Branch {
+                names: names.clone(),
+                body: body.map(Rc::new),
+            }),
+            // Every constructor no arm matches is listed together.
+            Err(e) if crate::missing::listed(&e) => missing.push(e),
+            Err(e) => return Err(missing.into_iter().next().unwrap_or(e)),
+        }
+    }
+    if !missing.is_empty() {
+        return Err(crate::missing::fold(missing).swap_remove(0));
     }
     Ok(Term::Case(cx.level() - 1 - x, d, out.into()))
 }
@@ -514,7 +525,7 @@ fn case_branch(
             Err(index_stuck(cx, x, &ctor_name, &k, &reason, span, scrutinee))
         }
         Entered::Solved(goal) => match subtree {
-            Tree::Missing { columns, span } => {
+            Tree::Missing { columns, span, arm } => {
                 for &level in columns {
                     if let Some(term) = empty_case(cx, level, None)? {
                         return Ok(Some(term));
@@ -524,14 +535,9 @@ fn case_branch(
                     return Err(missing.diagnostic(*span));
                 }
                 let ctor = &g.data(d).ctors[c];
-                let shown = (0..ctor.fields.len())
-                    .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
-                    .count();
-                let example = missing_example(g, d, c, shown);
-                Err(error(
-                    "E-NONEXHAUSTIVE",
+                Err(crate::missing::diagnostic(
                     *span,
-                    format!("missing case: no arm matches `{example}`"),
+                    vec![(arm.order.clone(), arm.pattern.clone())],
                 )
                 .with_note(format!(
                     "here {} has type `{scrutinee}`, and `{}` can be one",
@@ -839,26 +845,4 @@ fn plus(cx: &Ctx, value: &Value) -> Option<(String, String)> {
         return None;
     }
     Some((cx.show(a), cx.show(b)))
-}
-
-/// How a missing constructor case is shown: `Ctor _ _`, except for the
-/// list's own constructors, which are shown in list syntax (`[]`,
-/// `[_, _, ..]`). `shown` is the number of fields written as `_`.
-pub(crate) fn missing_example(
-    g: &stitchwort_core::Globals,
-    d: DataId,
-    c: usize,
-    shown: usize,
-) -> String {
-    let reg = &g.registry;
-    if reg.ctor(Builtin::Nil) == Some((d, c)) {
-        return "[]".to_string();
-    }
-    if shown == 2 && reg.ctor(Builtin::Cons) == Some((d, c)) {
-        return "[_, _, ..]".to_string();
-    }
-    std::iter::once(g.data(d).ctors[c].name.to_string())
-        .chain(std::iter::repeat_n("_".to_string(), shown))
-        .collect::<Vec<_>>()
-        .join(" ")
 }

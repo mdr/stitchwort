@@ -482,6 +482,98 @@ fn unknowns_are_found_in_messages() {
     assert!(!shows_unknown("`?` is an open goal; `?x` too"));
 }
 
+/// SW-1027: `E-NONEXHAUSTIVE` lists the cases a `match` leaves out as arms,
+/// and they paste in as they are. For each `reject/missing-cases-*.sw` (the
+/// match is the end of the file): its message and `missing` list the same
+/// cases, in the order of the constructors; the listed arms appended to the
+/// match leave no error, only an open goal for each (and when the list is
+/// cut at its cap, the arms of the next round are those it left out).
+#[test]
+fn listed_missing_arms_paste_in_and_check_as_holes() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/reject");
+    let mut paths: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|p| {
+            let name = p.file_name().unwrap().to_string_lossy();
+            name.starts_with("missing-cases-") && name.ends_with(".sw")
+        })
+        .collect();
+    paths.sort();
+    assert!(paths.len() >= 5, "the missing-cases examples: {paths:?}");
+    let all: Vec<Example> = paths
+        .into_iter()
+        .map(|path| Example {
+            name: format!("reject/{}", path.file_name().unwrap().to_string_lossy()),
+            text: std::fs::read_to_string(&path).unwrap(),
+        })
+        .collect();
+    let rounds = par_map(STACK, &all, paste_listed_arms);
+    // The cap: 23 cases are missing, 20 listed, then the other 3.
+    for (example, rounds) in all.iter().zip(rounds) {
+        let expected: &[usize] = if example.name.ends_with("-cap.sw") {
+            &[20, 3]
+        } else {
+            &[rounds[0]]
+        };
+        assert_eq!(rounds, expected, "{}: arms pasted per round", example.name);
+    }
+}
+
+/// Pastes the arms the checker lists into `example`, round after round,
+/// until it checks: how many arms each round listed.
+fn paste_listed_arms(example: &Example) -> Vec<usize> {
+    let mut text = example.text.trim_end().to_string();
+    let indent: String = (text.lines().last().unwrap().chars())
+        .take_while(|c| c.is_whitespace())
+        .collect();
+    let mut rounds = Vec::new();
+    for _ in 0..4 {
+        let mut session = untimed(Session::for_stack(STACK));
+        let diagnostics = match session.load(&example.name, &text) {
+            Ok(_) => {
+                let goals = (session.warnings.iter())
+                    .filter(|d| d.severity == Severity::Goal)
+                    .count();
+                let pasted: usize = rounds.iter().sum();
+                assert_eq!(goals, pasted, "{}: one open goal per arm", example.name);
+                assert_eq!(
+                    session.warnings.len(),
+                    goals,
+                    "{}: only goals remain:\n{}",
+                    example.name,
+                    rendered(&session.sources, &session.warnings)
+                );
+                return rounds;
+            }
+            Err(diagnostics) => diagnostics,
+        };
+        let output = rendered(&session.sources, &diagnostics);
+        let [d] = diagnostics.as_slice() else {
+            panic!("{}: one error expected:\n{output}", example.name);
+        };
+        assert_eq!(d.code, "E-NONEXHAUSTIVE", "{}:\n{output}", example.name);
+        let missing = d.missing.as_ref().expect("lists the cases");
+        // The message has an arm line for each pattern listed, in order.
+        let lines: Vec<&str> = d.message.lines().filter(|l| l.starts_with("| ")).collect();
+        let arms: Vec<String> = (missing.shown().iter())
+            .map(|p| format!("| {p} => ?"))
+            .collect();
+        assert_eq!(lines, arms, "{}: the message lists the arms", example.name);
+        assert_eq!(
+            d.message.lines().last().unwrap().starts_with("and "),
+            missing.more() > 0,
+            "{}: `and N more` only when cut",
+            example.name
+        );
+        rounds.push(arms.len());
+        for arm in arms {
+            text.push_str(&format!("\n{indent}{arm}"));
+        }
+    }
+    panic!("{}: still not exhaustive after pasting", example.name);
+}
+
 fn assert_rejected(example: &Example) {
     let Some(expected) = example.expected_error() else {
         panic!(
