@@ -12,7 +12,8 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6 and 8
-do; the pattern:
+do; day 9's answers need no promise at all, and its parser's guarantees
+(digits, a rectangle) are proved anyway. The pattern:
 
 - **"A successful parse"** is `Fail.toResult (() => parse input) = Ok xs`:
   the parser is `{Fail}` code, and `Fail.toResult` is std's handler that
@@ -1768,3 +1769,240 @@ Release build:
    permutation, no `find` over `withIndex` (item 2). Fix: add them to std.
 5. `rewrite` with an equation whose sides compute to large terms runs out
    of budget (item 5); `Eq.trans` works. The note could suggest it.
+
+## Day 9: Smoke Basin
+
+The input is a height map of a cave floor, one digit per location. Part 1
+finds the low points, the locations lower than every location up, down,
+left and right of them, and adds up their heights plus 1. Part 2 finds
+the basins, the areas that drain to each low point, walled in by 9s, and
+multiplies the sizes of the three largest. Answers on Matt's input (100 by
+100): 494 and 1048128 (his Scala solution's); the puzzle's 5 by 10
+example gives 15 and 1134. Compiler: the installed release build, on
+`main` at e2f43e35, 1 November 2026.
+
+### The program
+
+The map is `{ rows: List (List (Fin 10)) }`: `Parse.digit` gives a `Fin
+10`, so "digits 0 to 9" is the type. `heightAt` reads a position with
+`getOr`/`get`, `None` off the map, and `cells` is std's
+`List.gridCells` with each position as a `Position` record. A low point
+is a cell whose four `neighbours` (none above row 0 or left of column 0;
+the ones past the far edges have no height) are all higher where they
+have a height.
+
+Part 2 uses std's breadth-first search, `Graph.breadthFirst`, as the
+flood fill, on a graph whose edges step to the neighbours that aren't 9s
+(`HeightMap.graph`). A basin's size is the size of the map the search
+returns. The `Graph` record needs a `states` list that every edge leads
+into, which is what makes the search end; here it is every cell's
+position, and `edgesListed` (in the program's own `Steps.sw`) proves the
+edges stay in it. A low point that is a 9 (only possible on a map of one
+location) gets 0. The three largest sizes are `sort [ord := Ord.reverse]
+|> .take 3 |> .product`.
+
+The parser reads each line with `many1 digit` (`Parse.eachLine`) and then
+checks (`checkRows`, a pure test `firstRagged`, as in the D2108 pattern)
+that every row is as long as the first.
+
+Both answers were right on the first run. The run took 3.0 s at first:
+`HeightMap.graph` was built once per low point, and building it computes
+its `states` list, all 10,000 positions, each time (about 2.3 s for 240
+low points). Built once (`basinSizes`), the run takes 0.8 s.
+
+**What the spec decides.** `Spec/Spec.sw` works over the program's map
+(its `cells` and `heightAt`, as 2024's day 10 does) and says the rest in
+the puzzle's words. Two locations are `adjacent` when they are one column
+apart in a row or one row apart in a column. A low point is a cell lower
+than every cell adjacent to it (`lowPoints`: every cell of the map is
+compared, not four neighbours). Part 1 is the sum of `1 + height`. A
+location is in the basin of a low point (`InBasin`) when it isn't a 9 and
+some path of steps between adjacent locations that aren't 9s leads to it
+from the low point (`isPath`): the low point's connected area of non-9
+locations under orthogonal adjacency. `BasinSize map low n` says a list
+of `n` positions, without repeats, holds exactly the basin's locations.
+`Part2Answer` asks for a size for each low point's basin and the product
+of the three largest.
+
+The puzzle also promises that every location that isn't a 9 is in
+exactly one basin. The spec states this as `EachInOneBasin` but the
+theorems don't assume it: they are about each low point's basin, and the
+promise is what makes the list of those the same as the list of the
+connected areas. A test checks it on the example and on the input
+(`eachInOneBasin`: the basins' locations cover every non-9 location, and
+their sizes add up to the number of them), and another that a map with
+two low points in one area breaks it.
+
+### Proved, for every height map
+
+In `Aoc.Year2021.Day09.Proofs` (`Proofs/Facts.sw`, `Part1.sw`,
+`Part2.sw`, `Parse.sw`, 338 lines) and `Steps.sw`:
+
+- `part1Correct`: for every `map`, `solvePart1 map = part1 map`. The
+  program's test on four neighbours is the spec's test on every adjacent
+  cell (`lowAgrees`): every neighbour is adjacent (`neighboursAdjacent`,
+  four cases on whether the row and column are 0), every adjacent position
+  is a neighbour (`adjacentNeighbour`), and a neighbour with no height
+  doesn't count. So the program's low points are the spec's
+  (`lowPointsAgree`).
+- `part2Correct`: for every `map`, `Part2Answer map (solvePart2 map)`, with
+  each low point's size the program's `basinSize`. No hypothesis.
+- `basinSizeOpen`: for a low point that isn't a 9, the keys of the
+  search's result are exactly its basin (`foundInBasin` and
+  `inBasinFound`, from std's `Graph.breadthFirstShortest`: whatever the
+  search settles is reached by a walk from the source, and whatever a walk
+  reaches is settled). A walk in the graph is a spec path and back
+  (`walkPath`, `pathWalk`), and a map's keys have no repeats
+  (`Map.keysDistinct`). The termination of the flood fill is std's: each
+  round settles a new state of the `states` list, or stops.
+- `basinSizeClosed`: a low point that is a 9 has an empty basin, because
+  any neighbour on the map would be a digit above 9.
+- `parseRectangular`: if `parseHeightMap` reads `input` as `map`, every
+  row of `map` is as long as the first. Heights are digits by their type
+  (`heightBelow10`, used by `basinSizeClosed`). Neither is needed by the
+  answers' theorems; they say what the parser promises.
+- Tests: the example's low points, basins (3, 9, 14, 9) and answers, both
+  ways for part 1; neighbours in a corner and inside; a map of one 9, a
+  flat map, fewer than three basins; the parser's errors; the promise.
+
+Nothing is left unproved, and no hypothesis was added. The puzzle's
+promise (`EachInOneBasin`) is stated and tested, not proved: the theorems
+don't need it, and proving it of the input would be a proof about the
+input, not the program. No opaque definitions.
+`stitchwort audit Aoc.Year2021.Day09` (with the counterexample search):
+`audited 44 theorems: 0 failed, 0 with warnings, 44 passed`.
+
+Breaking the program breaks the proofs: `height <= other` for `height <
+other` in `isLowPoint` makes `lowerThanAdjacent` fail with a
+counterexample (`map = { rows = [[0]] }`); `height != 8` for `height != 9`
+in `isOpen` makes `edgeStep`, `stepEdge` and three more in `Part2.sw`
+fail.
+
+### 1. Std.Parse: none
+
+`Parse.eachLine` with `many1 digit` read the input as written. A letter
+in a row says "expected a digit or the end of the line, got 'x'", which
+is right.
+
+### 2. Missing std
+
+- **A map's keys are as many as its size.** `List.length (Map.keys m) =
+  Map.size m` took `List.lengthMap` and `Map.sizeToList`; `search --at`
+  found neither (item 6). Std candidate, small.
+- **`find` over `withIndex` found nothing** (`findIndexedNone`), now on
+  days 5, 6, 8 and 9. Std candidate, small.
+- **Grid neighbours.** Days 9 here and 10, 12, 16, 18 and 20 of 2024 each
+  write their own up/left/right/down with their own adjacency lemmas
+  (`neighboursAdjacent`, `adjacentNeighbour`: 60 lines here). A std
+  `Grid` of `(row, column)` positions with `neighbours4` and the
+  membership lemma would save each day that. Medium.
+- **`not (a != b)` is `a = b`** (`sameOfNotDiffer`, and `nineOfClosed`
+  for `(h != 9) = False`): `!=` is `Decidable.toBool (Decidable.not
+  …)`, and no lemma turns it back into an equation. Std candidates
+  (`DecEq.ofNotDiffer`, `DecEq.notOfDiffer`), small.
+
+### 3. Confusing errors
+
+- **`cases` on a `Bool` with `==` on variables** (`adjacent { row = Succ
+  row, column } { row, column } = True := cases`) was `E-MATCH-MOTIVE`,
+  "this `match` can't be given a type", with the kernel's reason "`rfl`
+  can't prove this" and a note to write a top-level helper. There is no
+  `match` in the source; the `cases` built it. The message could say
+  `cases` couldn't split the goal, and what it tried. Small to medium.
+- **`Decidable.toBoolSound` on a `Bool` `<`.** With `lower: (height <
+  other) = True`, `Decidable.toBoolSound _ lower` was `E-TYPE-MISMATCH`:
+  "expected `Decidable.toBool (?29 …) = True`, but this has type `height <
+  other`". A `Bool` `<` on `Nat` is `Nat.leq (Succ a) b`, not
+  `Decidable.toBool`, and `lower` already is the proposition (syntax.md
+  says so, under "Anywhere a `Bool` is expected"). The message shows the
+  `Bool` as `height < other`, the same text as the proposition, so it
+  reads as a contradiction. A note saying "`a < b` as a `Bool` on `Nat` is
+  `Nat.leq`; it is the proposition already" would fix it. Small.
+- **`==` versus `Nat.equal`.** `Nat.equalRefl column` for `column ==
+  column` was a mismatch: `==` is `Decidable.toBool (Nat.decEq …)`, and
+  the lemmas are `DecEq.refl`, `DecEq.sound`. The mismatch showed both
+  sides half-unified with holes, which didn't help. Small (a note when
+  the expected side has `Nat.decEq` and the term `Nat.equal`).
+- **Membership goals print unfolded.** A goal `next ∈ map.cells.map
+  Pair.fst` printed as `List.Any (y => y = next) (List.map …)`; other
+  goals kept `∈`. Small.
+- **A pair is not its projections.** `lowAgrees map entry.fst entry.snd
+  member` with `member: entry ∈ map.cells` was a mismatch against
+  `(entry.fst, entry.snd) ∈ …` (no eta for pairs); a `match entry with
+  | (position, height)` fixed it. The message could suggest it. Small.
+
+### 4. Inference
+
+- `List.memMap _ _ inGrid _`, with the function a hole, didn't infer
+  against `(position, height) ∈ map.cells`: unification met the `map`'s
+  lambda computed into projections. Writing the lambda out fixed it.
+
+### 5. Performance
+
+`stitchwort run Aoc.Year2021.Day09.main` on the input takes 0.8 s (0.77 s
+user). `check --no-cache` of the proofs and tests takes 3.1 s. One trap:
+
+- **A `Graph` record computes its `states` at run time.** The `states`
+  list only serves termination, but building the record builds it: a
+  helper that made the graph per low point spent 2.3 s of a 3.0 s run
+  making the list of all 10,000 positions 240 times. Fix: build it once
+  (done), or have std say so at `Graph`; better, erase fields used only
+  in proofs. Small (doc) to large (erasure).
+
+### 6. Proofs, and the lemma search
+
+Every lemma checked within two or three tries; most fixes were the `==`
+and `Bool` `<` forms (item 3) and `&&` grouping to the right (my
+`Bool.andIntro` nesting assumed the left). `search --at` closed nothing
+this day:
+
+- At `memCellsOfHeight` (membership in `cells` from a height) and
+  `heightOfMemCells` it took 41 s and 42 s, and offered only unrelated
+  project lemmas (day 24's `lookupLastMem`, `List.lastMem`), with the
+  namespace not checking or with other `?`s open. Both proofs needed
+  `List.memGridCells`, which a `search` pattern would find but the goal
+  doesn't mention.
+- At `List.length (Map.keys r) = Map.size r` it took 2.3 s and found
+  nothing, though `stitchwort search --rewrite 'Map.size _'` lists
+  `Map.sizeToList` first. Fix: offer rewrites by equations about a
+  function in the goal even when the result isn't closed. Medium.
+- `stitchwort search '(a: Position) = b'` and `search 'Position.ext'
+  --definitions` in the project were `E-AMBIGUOUS`: eleven days have a
+  `Position`. With the full name, `--definitions` found 0 results for
+  the generated `Position.ext` (it exists; syntax.md describes it). Fix:
+  resolve names in a given namespace (`--in NS`), and index generated
+  `T.ext`. Small each.
+
+Std's `Graph.breadthFirstShortest` carried part 2: the flood fill's
+termination and its "finds exactly what is reachable" came for free, and
+the day's own part was relating the graph's walks to the spec's paths.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day09.Proofs Aoc.Year2021.Day09.Tests` | 3.1 s user (3.2 s) |
+| `stitchwort run Aoc.Year2021.Day09.main` on the input (100 by 100) | 0.77 s user (0.83 s) |
+| `stitchwort audit Aoc.Year2021.Day09` (with the search) | 4.5 s user (4.6 s) |
+
+110 lines of program and 32 of its graph lemma, 71 of spec, 338 of proofs,
+63 of tests.
+
+### Ranked
+
+1. A `Graph`'s `states`, needed only for termination, is computed every
+   time the record is built (item 5): an innocent helper made the run 4
+   times slower. Fix: document it at `Graph`, or erase proof-only data.
+2. `cases` failed with `E-MATCH-MOTIVE` about a `match` the source doesn't
+   have (item 3). Fix: report it as `cases`' failure.
+3. `Bool` forms of `<`, `==` and `!=` each need different lemmas
+   (`Nat.leq` is the proposition, `DecEq.sound`, `Decidable.toBoolSound`),
+   and mismatches print the `Bool` and the proposition alike (item 3).
+   Fix: a note naming the form and its lemma; `DecEq` lemmas for `!=`.
+4. `search --at` took 41 s on goals in an unfinished namespace and found
+   nothing in three goals, missing a rewrite `search --rewrite` lists
+   first (item 6).
+5. Every grid day writes its neighbours and their adjacency lemmas (item
+   2). Fix: a std grid module.
