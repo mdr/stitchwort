@@ -1,0 +1,31 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+   ╭─[ reject/cases-later-field.sw:9:3 ]
+   │
+ 9 │   cases
+   │   ──┬──  
+   │     ╰──── this `cases`
+   │ 
+   │ Note 1: h: Cons x xs = Cons y ys
+   │ 
+   │ Note 2: %fact1: x = y
+   │ 
+   │ Note 3: %fact2: xs = ys
+   │ 
+   │ Note 4: goal: List.length xs = 5
+   │ 
+   │ Note 5: it stopped here because the goal is stuck on `xs`, a `List`, which `cases` doesn't take apart; give this case's proof as `cases in t`
+   │ 
+   │ Note 6: this statement is false; a counterexample:
+   │           x = 0
+   │           xs = []
+   │           y = 0
+   │           ys = []
+   │         `Cons x xs = Cons y ys` holds
+   │         `List.length xs = 5` is false:
+   │           left:  0
+   │           right: 5
+───╯
