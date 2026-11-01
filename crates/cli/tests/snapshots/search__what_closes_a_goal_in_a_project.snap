@@ -12,10 +12,10 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "rejected": 0
     },
     "internalErrors": 0,
-    "matched": 35,
+    "matched": 37,
     "maxCandidates": 50,
     "outOfBudget": 3,
-    "tried": 35,
+    "tried": 37,
     "truncated": false
   },
   "goal": {

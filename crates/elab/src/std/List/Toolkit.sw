@@ -482,7 +482,7 @@ instance List.decDistinct [auto eq: DecEq a]: (xs: List a) → Decidable (List.D
   | Nil => Yes Trivial
   | Cons x xs => Decidable.and (Decidable.not (List.decMem x xs)) (List.decDistinct xs)
 
-test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ not (List.Distinct [1, 2, 1]) ∧ List.Distinct ([]: List Nat)
+test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1]) ∧ List.Distinct ([]: List Nat)
 
 -- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 -- including, `s + c`.
