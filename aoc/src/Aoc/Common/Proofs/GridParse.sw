@@ -1,25 +1,25 @@
--- The grid parser keeps the puzzles' promise (D2108): a grid that
--- `parseGrid` reads is a rectangle with at least one cell. A day's own
--- parser built on it gets the same from `checkedGrid`.
+--| The grid parser keeps the puzzles' promise (D2108): a grid that
+--| `parseGrid` reads is a rectangle with at least one cell. A day's own
+--| parser built on it gets the same from `checkedGrid`.
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
 import Std (Bool, DecEq, Decidable, Eq, Fail, List, Nat, Option, Parse, Result, Void)
 
--- A grid `parseGrid` reads is a rectangle, with a row and a column.
+--| A grid `parseGrid` reads is a rectangle, with a row and a column.
 theorem parseGridRectangle (input: Text) (cell: () → {Parse} a) (grid: Grid a) (parsed: Fail.toResult (() => parseGrid input cell) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   checkedGrid _ grid parsed
 
--- Whatever reads the rows, `checkGrid` passes on only a rectangle with a
--- cell.
+--| Whatever reads the rows, `checkGrid` passes on only a rectangle with a
+--| cell.
 theorem checkedGrid (read: () → {Fail} (List (List a))) (grid: Grid a) (parsed: Fail.toResult (() => checkGrid (read ())) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   let split := rewrite Fail.toResultThen read checkGrid at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkGrid x)) grid split (rows _ checked => checkGridOk rows grid checked)
 
--- `checkGrid` keeps its rows, and only if the first has a cell and each is
--- as long as the first.
+--| `checkGrid` keeps its rows, and only if the first has a cell and each is
+--| as long as the first.
 theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   match empty: firstWidth rows == 0 with
@@ -36,7 +36,7 @@ theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() =
             Both (row member => DecEq.neFalse row.length (firstWidth rows) (Bool.notTrue _ (List.allMem _ row rows (List.allToAll _ rows notRagged) member)))
               (Both (omega [wide]) (tallOfWide rows (omega [wide])))
 
--- Rows whose first has a cell are at least one.
+--| Rows whose first has a cell are at least one.
 theorem tallOfWide: (rows: List (List a)) → 0 < firstWidth rows → 0 < rows.length
   | Nil, wide => wide
   | Cons first rest, wide => omega

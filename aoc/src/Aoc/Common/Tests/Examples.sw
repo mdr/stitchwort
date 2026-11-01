@@ -1,11 +1,11 @@
--- Tests for the generic range code. Kept apart from the code, so that running a
--- day doesn't check them.
+--| Tests for the generic range code.
+-- Kept apart from the code, so that running a day doesn't check them.
 
 namespace Aoc.Common.Tests
 import Aoc.Common (..)
 import Std (Fail, List, Parse)
 
--- One range read from `text`.
+--| One range read from `text`.
 def parsed (text: Text): Result Range Text := Fail.toResult (() => Parse.line text range)
 
 test "range" := parsed "3-5" == Ok ({ from = 3, to = 5 })

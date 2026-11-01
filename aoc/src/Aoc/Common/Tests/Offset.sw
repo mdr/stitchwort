@@ -1,5 +1,5 @@
--- Tests for offsets. Kept apart from the code, so that running a day
--- doesn't check them.
+--| Tests for offsets.
+-- Kept apart from the code, so that running a day doesn't check them.
 
 namespace Aoc.Common.Tests
 import Aoc.Common (..)

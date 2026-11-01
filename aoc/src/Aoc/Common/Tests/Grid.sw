@@ -1,5 +1,5 @@
--- Tests for the shared grid code. Kept apart from the code, so that running
--- a day doesn't check them.
+--| Tests for the shared grid code.
+-- Kept apart from the code, so that running a day doesn't check them.
 
 namespace Aoc.Common.Tests
 import Aoc.Common (..)
@@ -29,7 +29,7 @@ test "lookup is at" := (List.range 4 |> .all (r => List.range 5 |> .all (c => sm
 test "map" := (small.map (p x => p.row * 10 + x)).rows == [[1, 2, 3], [14, 15, 16]]
 test "a grid's step" := small.step (at 1 2) Right == None ∧ small.step (at 1 2) Down == None ∧ small.step (at 1 1) Right == Some (at 1 2)
 
--- A grid of digits read from `text`.
+--| A grid of digits read from `text`.
 def parsedGrid (text: Text): Result (Grid Nat) Text := Fail.toResult (() => parseGrid text digit) |> .map (grid => grid.map (_ digit => digit.toNat))
 
 test "parse a grid" := parsedGrid "123\n456\n" == Ok small
@@ -37,8 +37,8 @@ test "parse a short row" := parsedGrid "123\n45\n" == Err "line 2: expected 3 ce
 test "parse a letter" := parsedGrid "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 test "parse nothing" := parsedGrid "" == Err "expected a grid, got no cells"
 
--- The cells a breadth-first search reaches from the top left, through
--- the cells that aren't 9.
+--| The cells a breadth-first search reaches from the top left, through
+--| the cells that aren't 9.
 def reached (grid: Grid Nat): List Position :=
   (grid.graph (p cell => if cell == 9 then None else Some 1)).breadthFirst [at 0 0] |> .keys
 

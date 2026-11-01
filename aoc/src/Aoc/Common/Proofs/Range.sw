@@ -1,12 +1,12 @@
--- Facts about `Range`, kept out of the program so that running a day does
--- not check them: day 2 uses the two about runs of ids, day 5 the counting
--- lemmas.
+--| Facts about `Range`, kept out of the program so that running a day does
+--| not check them: day 2 uses the two about runs of ids, day 5 the counting
+--| lemmas.
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
 import Std (Bool, Eq, List, Nat, Ordering, Void)
 
--- Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
+--| Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
 theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from ≤ x) (h2: x < from + (to + 1 - from)): x ≤ to :=
   omega
 
@@ -20,7 +20,7 @@ theorem containsLo (r: Range) (id: Nat) (h: r.contains id = True): r.from ≤ id
 
 theorem containsHi (r: Range) (id: Nat) (h: r.contains id = True): id ≤ r.to := Nat.betweenHi r.from r.to id h
 
--- How many of the `c` ids from `s` the range holds.
+--| How many of the `c` ids from `s` the range holds.
 theorem countFrom (r: Range): (c: Nat) → (s: Nat) → r.to < s + c →
     List.occurrences (List.rangeFrom c s) (id => r.contains id) = Succ r.to - Nat.max r.from s
   | Zero, s, h =>
@@ -46,13 +46,13 @@ theorem countFrom (r: Range): (c: Nat) → (s: Nat) → r.to < s + c →
             := countFrom r c (Succ s) omega
           _ = Succ r.to - r.from := omega
 
--- A range ending below `n` holds `size` of the ids below `n`.
+--| A range ending below `n` holds `size` of the ids below `n`.
 theorem countBelow (r: Range) (n: Nat) (h: r.to < n): List.occurrences (List.range n) (id => r.contains id) = r.size :=
   calc List.occurrences (List.range n) (id => r.contains id)
     _ = Succ r.to - Nat.max r.from 0 := countFrom r n 0 h
     _ = r.size := omega
 
--- An empty range (it ends before it starts) holds no ids, and has size 0.
+--| An empty range (it ends before it starts) holds no ids, and has size 0.
 theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): List.occurrences ids (id => r.contains id) = r.size :=
   calc List.occurrences ids (id => r.contains id)
     _ = 0 := List.occurrencesNone ids
@@ -63,7 +63,7 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
           | False => rfl)
     _ = r.size := omega
 
--- The derived order on ranges (by start, then end) puts the smaller start first.
+--| The derived order on ranges (by start, then end) puts the smaller start first.
 theorem compareFrom: (a: Range) → (b: Range) → Ordering.isLessEq (Ord.compare a b) = True → a.from ≤ b.from
   | { from = f1, to = t1 }, { from = f2, to = t2 }, h =>
     match e: Nat.compare f1 f2 with
