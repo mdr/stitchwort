@@ -191,11 +191,7 @@ pub(crate) fn waiting_literal(e: &Elaborator, term: &Term) -> bool {
     let Term::Meta(m) = term.strip_loc().spine().0 else {
         return false;
     };
-    let q = &e.queue;
-    (0..q.len()).rev().any(|i| {
-        let item = q.item(i);
-        item.meta == *m && !matches!(q.state(i), State::Done) && q.check(i).literal().is_some()
-    })
+    e.globals.waiting_literals.borrow().contains_key(m)
 }
 
 /// What a resumed check gives.
@@ -328,6 +324,7 @@ impl Queue {
     /// is the length the metavariables are restored to.
     pub(crate) fn restore(&self, mark: Mark, g: &Globals, metas: usize) {
         let changed = self.len() > mark.items || self.log.borrow().len() > mark.log;
+        let mut resumed = Vec::new();
         {
             let items = self.items.borrow();
             let mut states = self.states.borrow_mut();
@@ -338,17 +335,30 @@ impl Queue {
                     g.lifted_calls.borrow_mut().remove(&items[i].meta);
                 }
                 states[i] = old;
+                resumed.push(i);
             }
         }
+        // The items dropped leave the tables the unifier reads; those whose
+        // state went back are put in step with it.
+        let dropped: Vec<usize> = self.items.borrow()[mark.items.min(self.len())..]
+            .iter()
+            .map(|item| item.meta)
+            .collect();
         self.items.borrow_mut().truncate(mark.items);
         self.states.borrow_mut().truncate(mark.items);
+        for m in dropped {
+            Self::forget(g, m);
+        }
+        for i in resumed {
+            if i < mark.items {
+                self.sync_item(g, i);
+            }
+        }
         debug_assert!(
             self.items.borrow().iter().all(|item| item.meta < metas),
             "an item outlived its placeholder (invariant 1)"
         );
-        if changed {
-            self.sync_unfilled(g);
-        }
+        let _ = changed;
     }
 
     /// Empties the queue; `Globals::clear_metas` empties the placeholders
@@ -363,27 +373,38 @@ impl Queue {
     /// (`Globals::unfilled_placeholders`): they are frozen until filled
     /// (D2016), and a comparison that fails at one is counted
     /// (`unify::met_unfilled`).
-    fn sync_unfilled(&self, g: &Globals) {
-        let items = self.items.borrow();
-        let states = self.states.borrow();
-        let mut unfilled = g.unfilled_placeholders.borrow_mut();
-        let mut shown = g.placeholder_syntax.borrow_mut();
-        let mut literals = g.waiting_literals.borrow_mut();
-        unfilled.clear();
-        shown.clear();
-        literals.clear();
-        for (i, item) in items.iter().enumerate() {
-            if matches!(states[i], State::Done) || item.constraint {
-                continue;
+    fn sync_item(&self, g: &Globals, i: usize) {
+        let item = self.item(i);
+        if matches!(self.states.borrow()[i], State::Done) || item.constraint {
+            Self::forget(g, item.meta);
+            return;
+        }
+        g.unfilled_placeholders.borrow_mut().insert(item.meta);
+        match &item.display {
+            Some(display) => {
+                g.placeholder_syntax
+                    .borrow_mut()
+                    .insert(item.meta, display.clone());
             }
-            unfilled.insert(item.meta);
-            if let Some(display) = &item.display {
-                shown.insert(item.meta, display.clone());
-            }
-            if let Some(k) = item.check.literal() {
-                literals.insert(item.meta, (k, item.ty.clone()));
+            None => {
+                g.placeholder_syntax.borrow_mut().remove(&item.meta);
             }
         }
+        match item.check.literal() {
+            Some(k) => {
+                (g.waiting_literals.borrow_mut()).insert(item.meta, (k, item.ty.clone()));
+            }
+            None => {
+                g.waiting_literals.borrow_mut().remove(&item.meta);
+            }
+        }
+    }
+
+    /// Takes placeholder `m` out of the tables [`Queue::sync_item`] keeps.
+    fn forget(g: &Globals, m: usize) {
+        g.unfilled_placeholders.borrow_mut().remove(&m);
+        g.placeholder_syntax.borrow_mut().remove(&m);
+        g.waiting_literals.borrow_mut().remove(&m);
     }
 
     fn item(&self, i: usize) -> Rc<Item> {
@@ -397,7 +418,7 @@ impl Queue {
     fn set(&self, i: usize, state: State, g: &Globals) {
         let old = std::mem::replace(&mut self.states.borrow_mut()[i], state);
         self.log.borrow_mut().push((i, old));
-        self.sync_unfilled(g);
+        self.sync_item(g, i);
     }
 
     fn waiting(&self, i: usize) -> Option<Value> {
@@ -487,7 +508,7 @@ pub(crate) fn queue(
         outer: q.frames.resuming.borrow().clone(),
     }));
     q.states.borrow_mut().push(State::Waiting(needs, None));
-    q.sync_unfilled(cx.g());
+    q.sync_item(cx.g(), q.len() - 1);
     count(&QUEUED);
     Ok(placeholder)
 }
@@ -1124,7 +1145,7 @@ pub(crate) fn queue_constraint(
     q.states
         .borrow_mut()
         .push(State::Waiting(on(blocker), None));
-    q.sync_unfilled(cx.g());
+    q.sync_item(cx.g(), q.len() - 1);
     Ok(())
 }
 
