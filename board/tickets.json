@@ -1,5 +1,5 @@
 {
-  "next": 1042,
+  "next": 1043,
   "tickets": [
     {
       "id": 47,
@@ -3768,7 +3768,7 @@
     {
       "id": 1038,
       "title": "Documentation stage 2c part 2: sort aoc Year2024",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3777,12 +3777,14 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "4532bcc1"
+      ]
     },
     {
       "id": 1039,
       "title": "Documentation stage 2c part 3: sort aoc Year2021",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3817,6 +3819,21 @@
         "search"
       ],
       "body": "From SW-1017 (1 Nov 2026). (1) In-file confirmation of closing suggestions is unbounded: each pasted suggestion rechecks the whole namespace (about 72 s for three on Day16 Sound.sw:83; 218 s in a 600 s run). A deadline would drop slow real closers; option: keep it, mark \"not confirmed in the file\". (2) No per-check memory bound: Limits::size bounds quoting only, frames bounds recursion depth; a real cap needs allocation accounting or a term-size cap in the elaborator. (3) PER_CHECK_SHARE is half of --time; on a loaded machine an ordinary rfl (2.7-4.4 s) can approach 5 s at the default 10 s and be reported as gave-up.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1042,
+      "title": "Documentation stage 3: checked doc links ([`Name`]), W-DOC-LINK, links in JSON",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "docs/proposals/documentation.md §7, D2149, D2153. Lexer keeps --|; links resolved after each namespace; W-DOC-LINK warning; std test that std has no broken links; links in doc/index JSON. Prose-to-link rewriting (editorial) later.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
