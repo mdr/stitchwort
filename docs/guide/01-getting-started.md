@@ -62,12 +62,15 @@ Greeted 2 people
 | `stitchwort fmt FILE…` | Formats files in place, in the house style. `--check` only lists the files that would change. |
 | `stitchwort axioms FILE NAME...` | Lists the axioms a theorem or definition depends on ([chapter 10](10-proofs.md)). |
 | `stitchwort audit FILE` | Checks that the file's theorems can be trusted: no axiom beyond those allowed, nothing unfinished, and hypotheses some input satisfies ([syntax.md](../syntax.md#auditing-theorems-stitchwort-audit)). |
+| `stitchwort search QUERY` | Searches the library's and the project's theorems and definitions by the shape of their type; `--at FILE:LINE` lists what closes a `?` there ([syntax.md](../syntax.md#lemma-search-stitchwort-search)). |
+| `stitchwort doc NAME` | What a declaration does: its header, doc comment, examples and theorems about it ([syntax.md](../syntax.md#doc-comments)). |
 | `stitchwort eval FILE EXPR` | Evaluates an expression in the context of a file. |
 | `stitchwort repl [FILE]` | An interactive session. |
+| `stitchwort build FILE` | Builds a standalone executable that runs the file's `main` ([chapter 11](11-running-and-shipping.md)). |
 | `stitchwort build --js FILE -o DIR` | Writes an ES module and its TypeScript declarations for the file's `export`s. |
 | `stitchwort lsp` | The language server, for editors. |
 
-`check`, `test`, `run`, `axioms`, `audit` and `build` keep a cache in `.stitchwort/` (it writes its own `.gitignore`); `--no-cache` ignores it. `stitchwort run` exits with 0 on success, 1 if the program didn't check, and 2 if it failed while running.
+`check`, `test`, `run`, `axioms`, `audit`, `search`, `doc`, `eval` and `build` keep a cache in `.stitchwort/` (it writes its own `.gitignore`); `--no-cache` ignores it. `stitchwort run` exits with 0 on success, 1 if the program didn't check, and 2 if it failed while running.
 
 Here are the tests of the program above:
 
@@ -142,7 +145,7 @@ Its tabs check the code, run its tests, evaluate an expression, show the generat
 `editors/vscode/` is a VS Code extension: syntax colouring, and a client for `stitchwort lsp`. Install it with `./editors/vscode/install.sh`, and make sure `stitchwort` is on your `PATH` (or set `stitchwort.path`). The language server gives:
 
 - errors and warnings as you type, for single files and whole projects;
-- hover: a name's type and full name;
+- hover: a name's type, full name and doc comment, or the type of the selected expression;
 - go to definition and find references, including into the standard library, whose files open read-only;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);

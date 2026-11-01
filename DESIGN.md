@@ -94,7 +94,7 @@ Draft 1 stated several guarantees more strongly than its rules justified. This d
 - Production readiness, stability or backwards compatibility.
 - Unison's codebase-in-a-database model. Code lives in ordinary text files. We only borrow the hashing.
 - A tactic language like Lean's. Proofs are written as ordinary terms.
-- Package management, an LSP or editor integration.
+- Package management, and editor integrations as a goal in themselves. There is a language server (`stitchwort lsp`: diagnostics, hover, go to definition, references, the outline, formatting and goals) and a local VS Code client for it (`editors/vscode/`); other editors and a published extension aren't goals.
 
 ---
 
@@ -357,8 +357,8 @@ def innocent (n: Nat): {Partial} Nat := spin n + 1
 Checking is deliberately conservative. It may reject total functions, but it must never accept a non-terminating one.
 
 - **POC:** structural recursion, checked by size change ([docs/core.md](docs/core.md#definitions)). Each recursive call must pass, in each position, a sub-part of a pattern-matched argument, the argument itself, or something unknown, and some argument must get smaller however the calls are repeated: so lexicographic recursion (Ackermann's function) and swapped arguments are accepted. Definitions can be written in any order, and definitions that call each other are checked as a group, with every call between any two of them in the analysis ([proposal](docs/proposals/mutual-recursion.md)). Data types that refer to each other (a tree and a forest) are checked as a group too, with positivity across the group, and a field of a sibling type matched out of an argument is smaller than it.
-- **Next:** `decreasing <measure>` clauses for well-founded recursion. The compiler tries to prove the measure decreases with simple arithmetic and asks for a proof if it can't.
-- **Later:** handling recursion through higher-order functions (e.g. `map size children` on a rose tree), probably by automatically attaching "this element is in the list" facts, as recent Lean versions do.
+- **Built:** `decreasing <measure>` clauses for well-founded recursion ([docs/syntax.md](docs/syntax.md#decreasing)). `auto` looks for the proof that the measure decreases, and a call can give it as `[decreasing := proof]`.
+- **Built, for lists:** recursion through higher-order functions (e.g. `map size children` on a rose tree), by attaching "this element is in the list" facts with `attach`, as recent Lean versions do ([nested data types](docs/proposals/nested-data-types.md#as-built-stage-3)). Other containers still need the fact proved by hand.
 
 When termination checking fails, the error should say *which call* failed and *what it couldn't show*, and suggest `decreasing` or `{Partial}`.
 
@@ -389,7 +389,7 @@ A generic `withFuel: Nat -> (() -> {Partial | e} a) -> {e} Option a`, which boun
 - **`theorem`** is a definition whose type is a proposition (in `Prop`). It's always erased at runtime and must be total and pure.
 - **Equality** is a built-in proposition `a = b` with `rfl: a = a`, plus library functions `Eq.cong`, `Eq.sym` and `Eq.trans`. Equational proofs use `calc` chains and `rewrite p in t`, both built (docs/syntax.md); `rewrite` is elaborator syntax, not a library function, and elaborates to `J` ([calc-rewrite.md](docs/proposals/calc-rewrite.md)).
 - **Proof by computation.** Types are compared by evaluating them, so `rfl` proves anything that holds by just computing both sides (`2 + 2 = 4`, `List.length [1, 2] = 2`).
-- **No tactics.** Proofs are ordinary terms, written by pattern matching and recursion. `calc` writes a chain of `=`, `<=` and `<` steps one per line (docs/syntax.md); it elaborates to `Eq.trans`, `J` and `Nat.leTrans` terms. `rewrite` finds the motive of `J` by looking for the equation's left side in the goal.
+- **No tactic language.** Proofs are ordinary terms, written by pattern matching and recursion. The automation is a few terms the compiler fills in, each writing an ordinary proof that the kernel re-checks: `auto` (a decision procedure), `omega` (linear arithmetic), `ring` (polynomial equations) and `cases` (splitting on what the goal is stuck on) (docs/syntax.md). `calc` writes a chain of `=`, `<=` and `<` steps one per line (docs/syntax.md); it elaborates to `Eq.trans`, `J` and `Nat.leTrans` terms. `rewrite` finds the motive of `J` by looking for the equation's left side in the goal.
 
 Conventions that make proofs go through by computation should be documented. For example, `+` on `Nat` recurses on its *first* argument, so `Succ m + n` reduces to `Succ (m + n)`.
 
@@ -509,7 +509,7 @@ Possible outcomes, each with its own error message:
 
 ### Dependent pattern matching
 
-Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. Indexed families add one thing, unification of the constructor's indices with the scrutinee's (the kernel's `case` rule, `docs/core.md`): a branch where that finds a conflict is impossible and needs no arm, a stuck one is `E-INDEX-STUCK`, and an arm that can never match is the warning `W-UNREACHABLE`. There's no other overlap or redundancy warning yet.
+Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. Indexed families add one thing, unification of the constructor's indices with the scrutinee's (the kernel's `case` rule, `docs/core.md`): a branch where that finds a conflict is impossible and needs no arm, a stuck one is `E-INDEX-STUCK`, and an arm that can never match is the warning `W-UNREACHABLE`. An arm that earlier arms already cover is the warning `W-REDUNDANT` ([docs/core.md](docs/core.md#error-codes)).
 
 ### Effects and dependent types
 
@@ -668,8 +668,13 @@ Resuming more than once doesn't by itself cause divergence. Exploring both branc
 |---|---|
 | `Partial` | Might not terminate ([§5](#5-totality-and-partiality)). Not an ability with operations but a mode: a partial computation is an `Effect.Delay`, which only the runtime runs (`stitchwort run`, the playground), one recursive call (tick) at a time ([docs/proposals/partial.md](docs/proposals/partial.md)) |
 | `IO` | The console (`IO.print`, `IO.readLine`, `IO.readAll`). Performed for real only by the runtime, at `main`; Stitchwort handlers may interpret it as data, as the prelude's `IO.simulate` does ([docs/proposals/text-and-io.md](docs/proposals/text-and-io.md)). A trusted contract that may block |
-| `Abort` | Stop early. Handled into `Option` or `Either` |
-| `State s` | State, handled purely. `s` must be data-only |
+| `Abort` | Stop early. Handled into `Option` (`Abort.toOption`) or a default (`Abort.orElse`) |
+| `Fail` | Stop early with a message. Handled into `Result` (`Fail.toResult`) or a default (`Fail.orElse`) |
+| `Each` | Run once for each choice, collecting every result (`Each.collect`), as a list monad does |
+| `Parse` | Read text into a program's own types (`Parse.all`, `Parse.eachLine`) |
+| `Terminal` | Single keys and whole screens; run on the console (`Terminal.toIO`) or from scripted keys (`Terminal.simulate`) |
+
+`State s`, used as the example in this section, isn't in the library: a program declares it as an ordinary `ability`.
 
 ---
 
@@ -719,14 +724,14 @@ Records come in two kinds, kept separate at first. The plan, in stages, is [docs
 - `Nat` and `Int` are arbitrary-precision integers.
 - **Division and remainder need a non-zero divisor.** `/` and `%` take an implicit proof `[auto ok: d != 0]`. For literal divisors (`n / 2`) or divisors matched as `Succ _`, the compiler finds it automatically. For unknown divisors there are two routes:
   - establish the fact with a branch (`if h: d != 0 then n / d else …`), or
-  - use `divideChecked: Nat -> Nat -> Option Nat` (and `remainderChecked`).
+  - use `divideChecked: Nat -> Nat -> Option Nat` (and `remainderChecked`). These were planned and aren't in the library: a program writes the `if` itself.
 
   The laws of `/` and `%` (e.g. `a % b < b` when `b != 0`) are part of the standard library, since proofs like `gcd`'s termination depend on them.
-- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked: Nat -> Nat -> Option Nat` as the alternative. Code that needs negative results should use `Int`.
+- **`Nat` subtraction stops at zero** (`3 - 5 = 0`), documented prominently, with `subtractChecked: Nat -> Nat -> Option Nat` as the alternative (planned; not in the library). Code that needs negative results should use `Int`.
 - **`Int` division is Euclidean.** `/` and `%` on `Int` are `Int.div` and `Int.mod`: `a = d * (a / d) + a % d` with `0 <= a % d < |d|` for every non-zero divisor, so `(-18) % 100 = 82` and `(-7) / 3 = -3`. The truncating and flooring variants are separately named, with the same `[auto ok: d != 0]` argument: `Int.tdiv` and `Int.tmod` round toward zero, and `Int.fdiv` and `Int.fmod` round toward negative infinity. The laws are in the standard library (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). Extracted JS uses `BigInt`'s truncating operators with a one-step correction, so it gives the same results.
-- **Literals are typed by context.** A numeral is a `Nat` unless an expected type, another operand or a minus sign makes it an `Int`; a negative literal such as `-5` is always an `Int`. So `let x: Int := 5` is an `Int`, while `let n := 5` is a `Nat`.
-- **The `3 - 5` trap.** `Nat` subtraction stops at zero, so `let d := 3 - 5` with no type anywhere is a `Nat` and `d` is `0`; write `let d: Int := 3 - 5` to get `-2`. A later `d + i` with `i: Int` is a type error, because the binding keeps its `Nat` type.
-- **`Float` is unspecified for now**, and stays out of the first extraction milestone. Defining its semantics (IEEE 754 doubles, and what that means for equality and proofs) is a separate piece of work.
+- **Literals are typed by context.** A numeral is a `Nat` unless an expected type, another operand or a minus sign makes it an `Int`; a negative literal such as `-5` is always an `Int`. So `let x: Int := 5` is an `Int`, while `let n := 5`, with nothing later saying otherwise, is a `Nat`.
+- **The `3 - 5` trap.** `Nat` subtraction stops at zero, so `let d := 3 - 5` with no type anywhere is a `Nat` and `d` is `0`; write `let d: Int := 3 - 5` to get `-2`. A literal whose type nothing says yet waits for the rest of the declaration, so a later `d + i` with `i: Int` makes `d` an `Int` (`-2`), as in Lean and Haskell ([docs/syntax.md](docs/syntax.md#numbers)).
+- **`Float`** is IEEE 754 doubles, with every NaN as one NaN ([docs/core.md](docs/core.md#float), [float.md](docs/proposals/float.md)). It crosses the JS boundary as a `number`.
 - **Fixed-size numbers** (`U32` etc.) come later. Their mathematical meaning comes first, e.g. `U32` as a `Nat` below 2³² with explicitly wrapping operations, so their laws can be proved. Efficient machine representations come after that.
 
 ---
@@ -759,16 +764,17 @@ Stable identifiers written in the source can come later if needed.
 
 | Layer | Key | Result | When |
 |---|---|---|---|
-| Source → elaborated declaration | Hash of the declaration's source text, the **whole-declaration hashes** of its dependencies, and the set of registered decision procedures | Elaborated core declaration | Later |
-| Kernel check | Definition hash | Accepted / rejected | POC |
-| Test result | Test hash | Pass / fail | POC |
-| Generated JS | Definition hash + export names + representation options | JS and `.d.ts` | POC |
+| Source → elaborated declaration | Hash of the declaration's source text, the **whole-declaration hashes** of its dependencies, and the set of registered decision procedures | Elaborated core declaration | Built per unit instead (next row) |
+| Check cache: a library file or project namespace → its elaborated, kernel-checked declarations | The compiler build, modes and limits, the unit's text, and the keys of the units it depends on | Declarations, admitted without checking again | Built ([check-cache.md](docs/proposals/check-cache.md)) |
+| Kernel check | Definition hash | Accepted / rejected | Covered by the check cache |
+| Test result | Test hash | Pass / fail | Built |
+| Generated JS | Definition hash + export names + representation options | JS and `.d.ts` | Not built |
 
 Every key also includes the compiler version. The test-result key also includes a fingerprint of the compiler's source and the evaluation modes (natives, compact text), so a result is never reused by another build, or with natives switched off ([docs/core.md](docs/core.md#tests-and-content-hashes)).
 
 The elaboration key must use dependencies' full hashes, bodies included, not just their signatures. If `bound: Nat` changes from `3` to `4`, its signature is the same, but elaborating something of type `Vec Nat bound`, or deciding an `auto` proof involving `bound`, can give a different result. Tracking exactly which definitions elaboration looked inside would allow finer-grained keys, but whole-declaration hashes are simpler and always correct. Adding or changing a decision procedure can also change what `auto` finds, so that's part of the key too.
 
-In the POC only the core-hash layers exist, so **elaboration always re-runs**. What's skipped is kernel re-checking, test runs and code generation. That's still the expensive part for proofs and tests.
+The check cache keys a whole unit by its text and its dependencies' keys, so any change to a file re-elaborates that unit and every unit that depends on it; what's skipped is elaborating and checking unchanged units, and running unchanged tests ([docs/core.md](docs/core.md#tests-and-content-hashes)).
 
 **Inconclusive results are never cached** as rejections or failures. A larger budget always retries.
 
@@ -798,7 +804,7 @@ $ stitchwort build --js src/pricing.sw -o dist/
 The first extraction milestone supports a deliberately narrow subset. An **exportability check** refuses an `export` unless all of these hold:
 
 1. **Pure.** The exported function performs no abilities.
-2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity: [a: Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Int`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Option` and `Pair`). Records will join them once they're built. No functions, no `Float`. Polymorphic helpers are fine *inside* the library, just not at the boundary.
+2. **Concrete boundary types with codecs.** Every input and output type is fully concrete (no type parameters such as `identity: [a: Type] -> a -> a`), and has a supported encoder and decoder: `Nat`, `Int`, `Bool`, `Text`, `Char`, `List`, and data types built from these (such as the prelude's `Option` and `Pair`). Since then: records, `Float` (as a `number`), `Option` as `T | undefined`, `Map Text V` as a plain object, and the library's `SafeNat` and `SafeInt` as a `number` ([docs/syntax.md](docs/syntax.md#numbers-in-an-export)). No functions. Polymorphic helpers are fine *inside* the library, just not at the boundary.
 3. **Decidable preconditions.** Every erased proof argument of the exported function has a registered decision procedure ([§6](#6-proofs-universes-and-erasure)), which becomes a runtime check.
 4. **Assumption-free.** The exported function, everything it depends on, *and the decision procedures used by its validators* are assumption-free ([§3](#3-precise-guarantees)). Otherwise an assumed proof hidden inside a decision procedure could let invalid input through as validated, and an assumed falsehood can make extracted code wrong or non-terminating even though the assumption itself is erased. (Rocq's extraction documentation warns about exactly this.) For example, this is refused:
 
@@ -958,7 +964,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Exhaustiveness checking** of pattern matches | A missing case is a hidden crash. |
 | **Conservative termination checking** | Rejecting too much is safe. It can be relaxed later without breaking anything. |
 | **Checking never runs effects** | Principle 2. |
-| **Tracked assumptions** | Planned (principle 3): a command listing every `assume`, foreign function, proof hole and conjecture a definition depends on. There are none to list yet: no `assume` exists ([docs/core.md](docs/core.md#how-this-differs-from-designmd-today)), and handler termination is checked, not assumed ([§8](#8-abilities-and-handlers)). The CLI has no such command; `stitchwort axioms` lists axioms. |
+| **Tracked assumptions** | Planned (principle 3): a command listing every `assume`, foreign function, proof hole and conjecture a definition depends on. There are none to list yet: no `assume` exists ([docs/core.md](docs/core.md#how-this-differs-from-designmd-today)), and handler termination is checked, not assumed ([§8](#8-abilities-and-handlers)). The CLI has no such command; `stitchwort axioms` lists axioms, and `stitchwort audit` fails a theorem that depends on an axiom beyond the allowed ones or on an open goal (`?`). |
 | **Axiom report** | `stitchwort axioms <name>` lists the axioms a definition depends on, transitively (today only `Quot.sound`, found even when it sits inline in a body). It reports foundational dependencies only; it doesn't promise the term computes to data in the kernel. |
 | **A "must reject" test suite** | Readable example programs that must fail to type-check. |
 | **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. `Int` has no kernel natives (decision K1): its operations are ordinary definitions over `Nat` constructors, so only `Nat`'s natives run in the kernel. Each native is trusted, so each is compared with its own definition by tests, as the whole result: a native returning a proof must give the definition's own proof term, so natives never change which `rfl` proofs check ([`docs/core.md`](docs/core.md#numbers)). Natives are bound by name and type while the prelude loads, not by content hash: the standard library itself is trusted, and an edited library (`--std-dir`) is outside the guarantees (SW-898, decided 30 Oct 2026). |
@@ -1045,7 +1051,7 @@ Written in **Rust**. The compiler itself compiles to **WASM** for the browser pl
 
 ### Techniques
 
-- **Bidirectional type checking** with **normalisation by evaluation (NbE)**. The same evaluator compares types during checking and runs programs, with different reduction policies for each ([§6](#6-proofs-universes-and-erasure)). It's a simple tree-walking interpreter, and performance isn't a goal. The evaluator has a step budget, so it reports "inconclusive" rather than hanging the tool.
+- **Bidirectional type checking** with **normalisation by evaluation (NbE)**. The same evaluator compares types during checking and runs tests and `run --reference`, with different reduction policies for each ([§6](#6-proofs-universes-and-erasure)); `stitchwort run` uses a separate, untrusted runtime (`crates/rt`), differential-tested against it. It's a simple tree-walking interpreter, and performance isn't a goal. The evaluator has a step budget, so it reports "inconclusive" rather than hanging the tool.
 - **Metavariables and pattern unification** for implicit arguments, following András Kovács' [elaboration-zoo](https://github.com/AndrasKovacs/elaboration-zoo).
 - **The kernel** checks core declarations with no metavariables, implicit arguments or sugar. It checks universe levels, `Prop` elimination, positivity, exhaustiveness and termination on core `case` trees.
 - **Effect rows** checked alongside types, following Koka.
@@ -1058,10 +1064,18 @@ Written in **Rust**. The compiler itself compiles to **WASM** for the browser pl
 | `syntax` | Source files, spans, diagnostics. Lexer, parser, surface AST |
 | `core` | Core terms, values, evaluator, **kernel** |
 | `elab` | Elaboration: implicits, unification, `auto`, pattern matching, abilities |
-| `cli` | The `stitchwort` command, the compiler driver, diagnostic rendering |
-| `cache` (later) | Hashing and the result cache |
-| `js` (later) | Erasure, JS code generation, `.d.ts`, encoders/decoders |
-| `web` (later) | `wasm-bindgen` bindings and the playground page |
+| `driver` | The compiler pipeline (sessions, tests, the caches) and error rendering, shared by the CLI and the playground |
+| `cli` | The `stitchwort` command and the language server |
+| `fmt` | The source formatter (`stitchwort fmt`) |
+| `js` | Erasure, JS code generation, `.d.ts`, encoders/decoders |
+| `rt` | The fast runtime `stitchwort run` uses: an erased IR and a machine, untrusted |
+| `native` | Native code through Cranelift (`run --native`, `build --native`; experimental) |
+| `standalone`, `host` | The runtime a standalone executable (`stitchwort build`) links, and the host side of a run (the terminal) |
+| `web` | `wasm-bindgen` bindings and the playground page |
+| `bench` | Recorded benchmarks, compared with `bench/baseline.toml` |
+| `partial-model` | A standalone model of the `Partial` runtime rules ([partial.md](docs/proposals/partial.md), stage 0) |
+
+Hashing is in `core` (`hash.rs`), and the check cache in `elab` (`cache/`) and `driver` (`check_cache.rs`).
 
 ### Testing
 
@@ -1094,7 +1108,7 @@ Each milestone ends with something demonstrable.
 | 7 | **Abilities.** First, written operational semantics for handlers ([§8](#8-abilities-and-handlers)). Then deep handlers with the admissibility rules, `IsData`, `State`, `Abort`, `IO`, `Partial` (runtime only) | Effectful code tested through pure handlers, with its assumptions shown. `Ping`, `Cell` and function-valued state are rejected |
 | 8 | **Records.** Row-polymorphic records, closed dependent records with checked updates | The record examples from [§4](#4-language-tour) |
 
-**Later:** universe polymorphism, generic `withFuel`, host-provided abilities and handlers in JS, property tests, fixed-size numbers, the source-level elaboration cache, `number` representations for other bounded types (`SafeNat` and `SafeInt` are the first).
+**Later:** universe polymorphism, generic `withFuel`, host-provided abilities and handlers in JS, property tests, fixed-size numbers, `number` representations for other bounded types (`SafeNat` and `SafeInt` are the first).
 
 Until milestone 7 there is no `Partial` at all. The termination checker rejects non-terminating definitions, and universes are checked from milestone 1, so principle 1 holds from the start, apart from bugs in the kernel.
 
@@ -1112,14 +1126,14 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 
 ### Before later milestones
 
-4. **Finding decision procedures** (milestone 3). How does the compiler find the `Decidable p` for a given `p`? Type-class-style instances, or something simpler?
+4. **Finding decision procedures** (milestone 3). How does the compiler find the `Decidable p` for a given `p`? Settled: interface-style instances, definitions marked `instance` returning `Decidable …` ([docs/syntax.md](docs/syntax.md#interfaces)).
 5. **`Text`** (milestone 4). Settled in [docs/proposals/text-and-io.md](docs/proposals/text-and-io.md): Unicode scalar values, with `Text` meaning a list of them, and strict JS decoding.
 6. **Handler admissibility** (milestone 7). Settled by the translation into `Effect.Comp` ([§8](#8-abilities-and-handlers), [abilities.md](docs/proposals/abilities.md)): the draft 2 conjecture and its "data-only operations" rule are replaced by the kernel's positivity and termination checks. Still open: a soundness argument for the termination rule on recursive function fields in this kernel.
 7. **Handler operational semantics** (milestone 7). The points listed in [§8](#8-abilities-and-handlers).
 8. **Effects and dependency.** The precise typing rules for sequencing effectful code when its results are used as type indices.
 9. **Runtime "at most once" for continuations.** How to check it, including through closures, for when handlers are extracted to JS.
 10. **Generic `withFuel`.** What representation of partial computation makes it sound ([§5](#5-totality-and-partiality))? Stage 1 of `Partial` gives it one, `Effect.Delay`, with exact tick counts, but observing an `Effect.Delay` from total code (stage 2) needs its own argument: [docs/proposals/partial.md](docs/proposals/partial.md) §10.1 lists what.
-11. **`Float`.** Its semantics, and whether it can ever be exported.
+11. **`Float`.** Settled in [docs/proposals/float.md](docs/proposals/float.md): IEEE 754 doubles with one NaN, exported as a JS `number`.
 
 ### Syntax
 

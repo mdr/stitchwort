@@ -251,7 +251,7 @@ Recursive grammars use `recursive (self => …)`, and a choice keeps the first a
 
 ## `IO` and `main`
 
-`IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.
+`IO`'s main operations are `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines. `IO.args()` gives the program's arguments (those after `--` in `stitchwort run Main.main -- a b`), `IO.randomSeed()` a fresh number each run, and a few lower-level operations (`write`, `console`, `keysMode`, `readBytes`) are for programs that drive a terminal ([syntax.md, IO](../syntax.md#io)).
 
 `main` has the type `{IO} ()`, and may also be `{IO, Fail} ()`: a failure that reaches the top is printed to standard error as `error: …`, after whatever was printed before it, and the exit status is 1. The shop from [chapter 6](06-namespaces-and-library.md), on an order it can't parse:
 

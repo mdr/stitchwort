@@ -8,7 +8,8 @@ Before writing interfaces of your own, know what you get for free. Every data ty
 
 - `==` and `!=` (the `DecEq` interface);
 - an order, `<`, `<=`, `Ord.compare`, and so `List.sort` and use as a `Map` key (the `Ord` interface): constructors in the order they're declared, then fields left to right;
-- text for `${…}` (the `Show` interface), in the form you'd write the value in source.
+- text for `${…}` (the `Show` interface), in the form you'd write the value in source;
+- if it isn't recursive, a list of all its values, `Finite.all` (the `Finite` interface), which lets a statement about every value be checked by computing it.
 
 There's no `deriving` clause to write:
 
@@ -175,4 +176,4 @@ test "sum uses Add" := moves.sum == { dx = -2, dy = 3 }
 
 Laws are erased: they cost nothing at run time. In exchange, a theorem about `List.sum` holds for every type with an `Add` instance.
 
-The library's interfaces are `DecEq` (`==`), `Ord` (order), `Show` (text), `Add` (`+`) and `Mul` (`*`). More: [syntax.md, Interfaces](../syntax.md#interfaces), and the design note [interfaces.md](../proposals/interfaces.md).
+The library's interfaces are `DecEq` (`==`), `Ord` (order), `Show` (text), `Add` (`+`), `Mul` (`*`) and `Finite` (every value). More: [syntax.md, Interfaces](../syntax.md#interfaces), and the design note [interfaces.md](../proposals/interfaces.md).

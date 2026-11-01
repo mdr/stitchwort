@@ -118,8 +118,10 @@ library, Mathlib ([mathlib4](https://github.com/leanprover-community/mathlib4)).
 describes a statically-typed functional language with an effect system and mentions no
 proof facility.
 
-**Stitchwort** states and proves theorems in the same language as programs, as terms,
-with no tactics:
+**Stitchwort** states and proves theorems in the same language as programs, as terms.
+There is no tactic language: the automation is a few proof terms the compiler fills
+in, `auto`, `omega`, `ring`, `cases`, `rewrite` and `calc`, each writing an ordinary
+proof that the kernel checks ([docs/syntax.md](syntax.md#calc)):
 
 ```
 theorem appendLength: (xs ys: List a) -> length (xs ++ ys) = length xs + length ys
@@ -138,7 +140,8 @@ theorem in Stitchwort, Lean 4, Agda and Idris 2. Its findings:
   proof splits into the same cases and uses the same library lemmas.
 - Lean and Agda check closed `Nat` arithmetic fast; Stitchwort's checker was slow on `% 100`.
 - Stitchwort's biggest gaps: a `calc` for equality chains, more `/` and `%` lemmas, and
-  native arithmetic in the checker.
+  native arithmetic in the checker. (`calc` and `Nat` natives in the checker have since
+  been built: [docs/syntax.md](syntax.md#calc), [docs/core.md](core.md#numbers).)
 
 ## 4. Content hashing
 
@@ -162,8 +165,8 @@ $ stitchwort test
 
 Consequences: renaming is free for the cache, but there is no code database and no
 sharing by hash. Nominal types include their module and name in the hash, because there
-is no stored unique ID. Only the POC cache layers are built, and elaboration always
-re-runs.
+is no stored unique ID. Checked library files and project namespaces are cached too, so
+an unchanged one isn't elaborated again ([check-cache.md](proposals/check-cache.md)).
 
 ## 5. Abilities and effects
 
@@ -204,9 +207,12 @@ can remove. The checker never runs effectful code
   ([HN thread](https://news.ycombinator.com/item?id=46049722)). Stitchwort has a small
   prelude and the Advent of Code files in [aoc/](../aoc/).
 - **Tactics and automation.** Lean's `simp`, `omega` and `grind` halved the AoC proof
-  ([aoc-day01.md](comparisons/aoc-day01.md)). Stitchwort has `auto` for decidable facts only.
+  ([aoc-day01.md](comparisons/aoc-day01.md)). Stitchwort has `auto` for decidable facts,
+  `omega` for linear arithmetic, `ring` for polynomial equations and `cases` for case
+  splits, but nothing like `simp` or `grind`.
 - **Tooling.** Unison has `ucm` and a local web UI ([README](https://github.com/unisonweb/unison)).
-  Stitchwort has a CLI, the playground, and a VS Code syntax-highlighting extension in [editors/](../editors/).
+  Stitchwort has a CLI (with lemma search and `doc`), the playground, a language server
+  (`stitchwort lsp`) and a VS Code extension for it in [editors/](../editors/).
 - **Distributed computing.** Unison can be used "in conjunction with" Unison Cloud "for
   building distributed systems" ([README](https://github.com/unisonweb/unison)).
   Stitchwort has nothing like it.
@@ -216,7 +222,7 @@ can remove. The checker never runs effectful code
 | | Lean 4 | Unison | Stitchwort |
 |---|---|---|---|
 | Non-termination in types | No: `partial def` is invisible | Not mentioned in the abilities docs | `{Partial}`, propagates, no escape hatch |
-| Proofs | Tactics and Mathlib | None | Terms in the same language, no tactics |
+| Proofs | Tactics and Mathlib | None | Terms in the same language; automation as proof terms, no tactic language |
 | Code identity | Names and files | Hash, in a codebase database | Names in text files; hash only for caching |
 | Effects | Not covered here | Abilities and handlers | Abilities and handlers, effects as data |
 | In a browser | Official editor is server-side; WASM only via community forks | Community experiments only | Whole compiler in WASM (playground) |

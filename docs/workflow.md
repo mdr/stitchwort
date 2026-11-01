@@ -77,7 +77,8 @@ Pushing to GitHub happens only when Matt asks.
 ## Lanes and the task list
 
 Work runs in lanes (up to three at once), each in its own git worktree and
-branch, merged into `main` one at a time (with `nix flake check` after each).
+branch, merged into `main` one at a time (with `task test:merge` and
+`task audit` after each).
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and keeps the board up to date. Agents move their
 own tickets as described in [board/README.md](../board/README.md).

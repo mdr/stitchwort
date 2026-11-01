@@ -18,6 +18,7 @@ cargo run -- run --reference examples/accept/adder.sw  # the same on the type ch
 cargo run -- run --js examples/accept/adder.sw  # the same, compiled to JS and run under Node (much faster)
 cargo run -- repl examples/extract/append.sw
 cargo run -- build --js examples/extract/append.sw -o out/
+task build && target/release/stitchwort build examples/accept/adder.sw  # a standalone executable
 
 # a project: a folder with a stitchwort.yaml, its files in namespaces
 # (docs/proposals/multi-file.md); run these inside it
@@ -28,6 +29,9 @@ stitchwort check Day05          # one namespace, and the ones it uses (prints "c
 stitchwort axioms Day05.total   # the axioms (today only Quot.sound) a definition depends on
 stitchwort axioms file.sw name  # the same for a definition in a single file
 stitchwort fmt                  # format the project's sources in place (--check lists what would change)
+stitchwort search "List.length" # theorems and definitions by the shape of their type (--at FILE:LINE for a goal)
+stitchwort doc List.filterMap   # a declaration's header, doc, examples and theorems about it
+stitchwort audit Day05          # its theorems: no axiom beyond the allowed ones, no `?`, no vacuous hypotheses
 
 nix build .#playground          # the browser playground: open result/index.html via a web server
                                 #   (it needs result/playground-worker.js and result/pkg/ beside it)
@@ -48,8 +52,10 @@ task bench                      # benchmarks, compared with bench/baseline.toml
 
 ## Editor support
 
-A local VS Code syntax-colouring extension for `.sw` files is in
-[`editors/vscode/`](editors/vscode/README.md).
+A local VS Code extension for `.sw` files is in
+[`editors/vscode/`](editors/vscode/README.md): syntax colouring, and through the
+language server (`stitchwort lsp`) diagnostics as you type, hover, go to
+definition, references, the outline, formatting and a goals panel.
 
 ## Advent of Code
 

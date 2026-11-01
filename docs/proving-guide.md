@@ -24,8 +24,8 @@ These aren't style. A lane that breaks one has to say so in its report.
    proves part 2 only for antennas on the map, and says why that's needed:
    antennas at rows 100 and 101 below a 1 by 1 map would break it (aoc/NOTES-2024.md:2090–2096).
    Day 19 states that every theorem takes `Striped patterns`
-   (aoc/NOTES-2024.md:6019); day 21 that `part1Correct` and `part2Correct`
-   assume `Optimal` (aoc/NOTES-2024.md:6988).
+   (aoc/NOTES-2024.md:6042); day 21 that `part1Correct` and `part2Correct`
+   assume `Optimal` (aoc/NOTES-2024.md:7016).
 2. **Prove against a spec written in the problem's own words**, kept apart
    from the program. The AoC days have `Spec/Spec.sw`, which reads like the
    puzzle (`aoc/src/Aoc/Year2024/Day06/Spec/Spec.sw` quotes it: "If there is
@@ -123,7 +123,7 @@ These aren't style. A lane that breaks one has to say so in its report.
    checks where the same fact about the real, large function blows up
    (aoc/NOTES-2024.md:1497–1500). A lemma stated for any list that has a
    property, instantiated once at the end, avoided a 130,321-element list
-   being computed (aoc/NOTES-2024.md:7265–7272). One fact per lemma also
+   being computed (aoc/NOTES-2024.md:7290–7298). One fact per lemma also
    makes `omega [lemma …]` and `cases in t` easy to feed.
 4. **`stitchwort test` for programs.** Tests are run-time checks of closed
    `Bool` expressions, not proofs. Use them for parsers, examples and the
@@ -175,10 +175,11 @@ Import what you use: std's theorems live in namespaces that need an import
 - **`omega`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
   from every arithmetic fact in scope: parameters, pattern variables, `if
   h:` and `match e:` equations, `let`s. Pass other facts as `omega [lemma a
-  b]`. It knows `-`, `max`, `min`, multiplication by a literal; `x * y`,
-  `x / 2`, `x % k`, `List.length xs` and calls are atoms it knows nothing
-  about. It doesn't know what `% 2` is: pass `Nat.divModEq` and
-  `Nat.modLess` for each (aoc/NOTES-2024.md:7276–7284). Its failure
+  b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
+  by a literal only by its two bounds (`(x / k) * k ≤ x ≤ (x / k) * k + k -
+  1`); `x * y`, `x % k`, `List.length xs` and calls are atoms it knows
+  nothing about. It doesn't know what `% 2` is: pass `Nat.divModEq` and
+  `Nat.modLess` for each (aoc/NOTES-2024.md:7304–7311). Its failure
   message's model "may not be a real counterexample".
 - **`auto`** isn't a proof term: it is the compiler filling an `[auto h: P]`
   argument, from evidence given by name, a hypothesis in scope of exactly
@@ -342,10 +343,10 @@ report: messages get fixed from those reports.
 
 ## 5. Finding lemmas
 
-Std has about 2,300 theorems (`grep -rhoE "^theorem [A-Za-z.]+"
-crates/elab/src/std | wc -l` counts 2282). Our lanes twice rewrote lemmas
+Std has about 2,500 theorems (`grep -rhoE "^theorem [A-Za-z.]+"
+crates/elab/src/std | wc -l` counts 2496). Our lanes twice rewrote lemmas
 std already had, and found others only by grepping (aoc/NOTES-2024.md:373,
-7906–7907). Search by type before writing a lemma: `stitchwort search`
+7934–7937). Search by type before writing a lemma: `stitchwort search`
 finds std's and the project's theorems (and functions) by the shape of their
 statement, and says what to import
 ([syntax.md](syntax.md#lemma-search-stitchwort-search)):
@@ -394,7 +395,10 @@ the import that would shorten it. A warm check cache makes it about 2 s a goal (
 takes long to check); in the AoC benchmark (search.md, "As built (stage 2b)")
 it found the lemma the proof used for 11 of 28 one-lemma proofs (most misses
 needed the goal's own definition unfolded first: try `rewrite` with its
-equation, or a `stitchwort search` pattern on the unfolded form).
+equation, or a `stitchwort search` pattern on the unfolded form). Since stage
+3, on 29 goals the AoC 2021 lanes met, it closes the goal with what the proof
+used, or offers that as a step, for 27 (search.md, "As built (SW-993, stage 3
+follow-ups)").
 
 Paste a goal as it is printed (its lowercase variables become named holes).
 Read `relation` first: an `instance` result's statement fits the pattern as
@@ -441,7 +445,7 @@ program can be an enormous term.
   (`reachable`, day 18), a 130,321-element closed list (day 22), or a
   generator run under a handler (roguelike) is computed in full when a
   comparison isn't written identically: 10 s, more than 100 s, and
-  `E-RESOURCE` respectively (aoc/NOTES-2024.md:5821–5826, 7254–7272;
+  `E-RESOURCE` respectively (aoc/NOTES-2024.md:5922–5924, 7272–7284;
   games/rogue/NOTES.md:283–305). Split the statement so the big term is a
   variable (§2, item 3), compare by name, or make it opaque.
 - **Leave rules no open arguments you could give.** On a scratch file with
@@ -463,7 +467,7 @@ program can be an enormous term.
 - **Time it.** `time stitchwort check --no-cache NAMESPACE`. A proof
   namespace taking several seconds cold has something unfolding; halving
   the file (or replacing proofs with `?`) finds it. On day 23 one 100-line
-  theorem took 16 s; split into lemmas, 2 s (aoc/NOTES-2024.md:7661–7662).
+  theorem took 16 s; split into lemmas, 2 s (aoc/NOTES-2024.md:7689).
 
 ## 7. The report
 
