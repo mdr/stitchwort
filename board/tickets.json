@@ -3445,7 +3445,7 @@
     {
       "id": 1018,
       "title": "Documentation stage 1a: syntax::docs attachment, search summary, index doc/summary, hover",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3455,7 +3455,9 @@
       "body": "Matt, 1 Nov 2026: build the documentation proposal (docs/proposals/documentation.md), taking the recommendation on every open question (D2142-D2149, D2151-D2154 as recommended; D2145 no). Stage 1a per §8's table: syntax::docs (§5.1) with attachment unit tests; summary in search text+JSON (§5.2); doc/summary/docMarker on check --index symbols (§5.6); LSP and playground hover (§5.7); syntax.md and code-navigation.md. Next: 1b stitchwort doc (Opus or Sonnet), 2a/2b, 3.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "72d6481d"
+      ]
     },
     {
       "id": 1019,
