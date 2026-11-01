@@ -388,7 +388,7 @@ def report_text(text):
             plain = [not t.startswith("- ") and not t.startswith("  ") for t in texts]
             for k in range(len(par) - 1):
                 if plain[k] and plain[k + 1] and not END.search(texts[k].rstrip()):
-                    nxt = texts[k + 1].split()
+                    nxt = words_of(texts[k + 1].strip())
                     if nxt and len(par[k]) + 1 + len(nxt[0]) <= width:
                         out.append((s + i + k + 1, "ragged line", par[k].strip()))
             if kinds[i] == "|":
