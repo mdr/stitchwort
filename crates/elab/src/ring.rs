@@ -57,7 +57,7 @@ use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
-use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check, infer, insert};
+use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check};
 
 /// The library names the emitted proofs use: the pre-pass loads their files
 /// wherever `ring` is written (`module.rs`, `free_names`).
@@ -136,8 +136,7 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         let mut minus = false;
         split_fact(fact, false, Vec::new(), &mut minus, &mut terms);
         for term in terms {
-            let (proof, ty) = infer(cx, term.proof)?;
-            let (proof, ty) = insert(cx, proof, ty)?;
+            let (proof, ty) = crate::Elaborator::settled_fact(cx, term.proof)?;
             let forced = force(cx.g(), ty.clone())?;
             let (hl, hr) = match equation(cx, &lib, &forced)? {
                 Some((s, hl, hr)) if s == sort => (hl, hr),

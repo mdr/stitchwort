@@ -25,7 +25,7 @@
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
-use stitchwort_core::{Icit, Value};
+use stitchwort_core::{Icit, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::Expr;
 
@@ -50,16 +50,22 @@ pub(crate) fn call_like(expr: &Expr) -> bool {
     }
 }
 
-/// Records the warning for the statement line `expr`, a plain value of type
-/// `ty`, unless its type is unknown or a computation.
-pub(crate) fn check_value(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
+/// Records the warning for the statement line `expr`, a plain value `term`
+/// of type `ty`, unless its type is unknown or a computation. A number
+/// literal waiting for its type (K4, D2126) is pure whatever that type
+/// turns out to be: a numeral is never a computation.
+pub(crate) fn check_value(cx: &Ctx, expr: &Expr, term: &Term, ty: &Value) -> Result<()> {
     if !applies(expr) {
         return Ok(());
     }
     let forced = force(cx.g(), ty.clone())?;
-    if matches!(forced, Value::Neutral(Head::Meta(_), _))
-        || crate::effects::comp_parts(cx, &forced)?.is_some()
-    {
+    if matches!(forced, Value::Neutral(Head::Meta(_), _)) {
+        if crate::queue::waiting_literal(cx.e, term) {
+            return warn(cx, expr, &forced);
+        }
+        return Ok(());
+    }
+    if crate::effects::comp_parts(cx, &forced)?.is_some() {
         return Ok(());
     }
     warn(cx, expr, &forced)

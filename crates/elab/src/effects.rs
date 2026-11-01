@@ -2701,14 +2701,14 @@ fn comp_check_in(
                     && done_value(cx, &c)?.is_some()
                 {
                     missing = crate::no_effect::missing_arguments(cx, first, &ty)?;
-                    crate::no_effect::check_value(cx, first, &ty)?;
+                    crate::no_effect::check_value(cx, first, &c, &ty)?;
                 }
                 (c, ty, true)
             } else {
                 let (term, ty) = infer(cx, first)?;
                 let (term, ty) = insert(cx, term, ty)?;
                 missing = crate::no_effect::missing_arguments(cx, first, &ty)?;
-                crate::no_effect::check_value(cx, first, &ty)?;
+                crate::no_effect::check_value(cx, first, &term, &ty)?;
                 (term, ty, false)
             };
             sequence(cx, row, t, "_", term, ty, effectful, |cx| {

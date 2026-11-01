@@ -97,7 +97,7 @@ use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
-use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, infer, insert};
+use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 use crate::omega_search::{self as search, Case, Cert, Failure, Problem, Rat, Row, Source, Step};
 
 /// The largest `k` in `k * x` that is quoted: `k * x` unfolds `k` times
@@ -188,8 +188,7 @@ fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     };
     let mut extra = Vec::new();
     for (i, fact) in facts.iter().enumerate() {
-        let (term, ty) = infer(cx, fact)?;
-        let (term, ty) = insert(cx, term, ty)?;
+        let (term, ty) = crate::Elaborator::settled_fact(cx, fact)?;
         extra.push(Extra {
             term,
             ty,

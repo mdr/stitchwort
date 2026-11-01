@@ -13,6 +13,8 @@
 //! - W4, the end of a declaration part ([`Elaborator::finish`]), which also
 //!   applies defaults, one at a time by priority, and reports what is still
 //!   stuck;
+//! - a `calc`'s own checks after each step (`calc.rs`; stage 7, D2126),
+//!   once the step has said the chain's type, without defaults;
 //! - and a `rewrite` rule's own checks, settled before the rule is looked
 //!   for in the goal, defaults included, scoped to the rule
 //!   ([`Elaborator::settle_rule`]; D2087).
@@ -86,8 +88,10 @@
 //!    making progress, at one of three points: the end of a declaration
 //!    part (W4, [`Elaborator::settle_queue`]); a part about to be lifted
 //!    (W2, [`Elaborator::resume_before_lifting`]); and a closed pattern, a
-//!    `rewrite` rule, whose own checks and only those are settled before
-//!    its search ([`Elaborator::settle_rule`]). Nothing else applies one: a
+//!    `rewrite` rule or a fact given to `omega` or `ring`, whose own
+//!    checks and only those are settled before its search
+//!    ([`Elaborator::settle_rule`], [`Elaborator::settled_fact`]; the
+//!    second since stage 7, D2126). Nothing else applies one: a
 //!    `match`, `cases` and the searches wait instead. [`Queue::settling`]
 //!    is set at those three points only, and a default asserts it; the
 //!    rule's settle asserts it is closed (nothing outside the rule waits on
@@ -438,7 +442,20 @@ pub(crate) fn queue(
     error: Diagnostic,
 ) -> Result<Term> {
     debug_assert!(!ready(cx.g(), &needs)?, "an item waits on an unknown head");
-    let placeholder = cx.fresh_meta();
+    // A number literal's value mentions no variable, so where its type
+    // mentions none either, neither does its placeholder (D2126): applied to
+    // the variables, after a substitution (a `match`, a β-step) it would
+    // meet its value applied to terms that aren't variables, which only the
+    // fill could solve.
+    let closed = check.literal().is_some() && {
+        let t = cx.quote(&ty)?;
+        (0..cx.level()).all(|i| !t.mentions(i))
+    };
+    let placeholder = if closed {
+        Term::Meta(cx.g().new_meta(cx.span))
+    } else {
+        cx.fresh_meta()
+    };
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
     };
@@ -1392,6 +1409,24 @@ impl Elaborator {
     /// defaulted.
     pub(crate) fn settle_rule(cx: &Ctx, from: usize, metas: usize) -> Result<bool> {
         Self::settle_closed(cx, from, Some(metas))
+    }
+
+    /// A fact given to `omega` or `ring` (`omega [h]`, `ring [2 * h]`),
+    /// inferred, with its own checks settled as a `rewrite` rule's are
+    /// ([`Elaborator::settle_rule`]): the search reads the fact's type at
+    /// once and can't wait for it, so a literal in it that nothing else
+    /// types is `Nat` before the search reads it, as it was before
+    /// inferred literals waited (stage 7, D2126). Its type is computed
+    /// again if anything was settled.
+    pub(crate) fn settled_fact(cx: &mut Ctx, fact: &Expr) -> Result<(Term, Value)> {
+        let metas = cx.g().metas.borrow().len();
+        let queued = cx.e.queue.len();
+        let (term, ty) = crate::check::infer(cx, fact)?;
+        let (term, ty) = crate::check::insert(cx, term, ty)?;
+        if Self::settle_rule(cx, queued, metas)? {
+            return Ok((term, cx.eval(&cx.quote_folded(&ty)?)?));
+        }
+        Ok((term, ty))
     }
 
     /// A search pattern, the whole of what its elaboration made (`search.rs`):

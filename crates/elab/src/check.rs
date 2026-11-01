@@ -1360,10 +1360,19 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         )),
         // `-k` with nothing expected is an `Int`.
         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
-        Expr::Num(n, _) => Ok((
-            Term::Nat(Rc::new(n.clone())),
-            Value::Data(nat(cx)?, Vec::new()),
-        )),
+        // A number with nothing expected waits for its type as a checked
+        // one does (K4, D2126): its type is a new unknown, which a later use
+        // may say, and which is `Nat` by default. The unknown mentions no
+        // variable: a numeral's type is `Nat`, `Int`, `Float`, `SafeNat`,
+        // `SafeInt` or `Fin n`, and only `Fin n` could, which an inferred
+        // literal never was (it was `Nat` at once). Applied to the variables
+        // in scope, a `match` on one of them would substitute into it, and
+        // `?0 (Node x kids) = Nat` can't be solved.
+        Expr::Num(n, _) => {
+            let ty = Value::Neutral(Head::Meta(cx.g().new_meta(cx.span)), Default::default());
+            let term = crate::numbers::check_literal(cx, n, false, &ty)?;
+            Ok((term, ty))
+        }
         Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
         Expr::Char(c, _) => {
             let char_data = builtin_data(cx, Builtin::Char)?;
@@ -1615,7 +1624,14 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         return crate::dot::infer_call(cx, recv, field, args);
     }
     let Expr::Var(name) = head else {
-        let head = infer(cx, head)?;
+        let head = match head {
+            // A numeral given arguments is never a function, whatever its
+            // type turns out to be: decided by its syntax, as a `Nat`, not
+            // by the literal waiting for its type while the arguments ask
+            // for a function (stage 7, D2126).
+            Expr::Num(n, _) => (Term::Nat(Rc::new(n.clone())), Value::Data(nat(cx)?, Vec::new())),
+            _ => infer(cx, head)?,
+        };
         return apply_args(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
@@ -3894,33 +3910,71 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
 /// `a`. What in `a` can't say its type yet (a record literal, a `.field`, a
 /// number) waits in the queue, so `a` is always inferred first and `b`
-/// checked against it.
+/// checked against it. While that type is an unknown, the choice waits for
+/// it as a number group's operator does (stage 7, D2126): `1 ++ 2` is
+/// reported once the `1` has taken its default, `Nat`.
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (a, ty) = infer(cx, a)?;
     let (a, ty) = insert(cx, a, ty)?;
     let b = check(cx, b, &ty)?;
-    let text = builtin_data(cx, Builtin::Text)?;
-    let list = builtin_data(cx, Builtin::List)?;
-    let head = match force(cx.g(), ty.clone())? {
-        Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
-        Value::Data(d, params) if d == list => {
-            let elem = cx.quote_folded(&params[0])?;
-            Term::app_icit(
-                Term::Def(builtin_def(cx, Builtin::Append)?),
-                elem,
-                Icit::Implicit,
-            )
-        }
-        other => {
-            let other = cx.show(&other);
-            return Err(cx.error(
-                "E-TYPE-MISMATCH",
-                "`++` joins two texts or two lists",
-                format!("this is {} `{}`", crate::article(&other), other),
-            ));
-        }
-    };
-    Ok((Term::app(Term::app(head, a), b), ty))
+    let joined = Append { a, b, ty: ty.clone() };
+    if let Value::Neutral(Head::Meta(_), _) = force(cx.g(), ty.clone())? {
+        let error = joined.error(cx);
+        let term = crate::queue::queue(cx, Rc::new(joined), ty.clone(), ty.clone(), error)?;
+        return Ok((term, ty));
+    }
+    Ok((joined.joined(cx)?, ty))
+}
+
+/// `a ++ b`, elaborated, of type `ty`: the call, once `ty` is known, or a
+/// check queued until it is ([`append`]).
+struct Append {
+    a: Term,
+    b: Term,
+    ty: Value,
+}
+
+impl Append {
+    /// The call that joins them, chosen by their type.
+    fn joined(&self, cx: &Ctx) -> Result<Term> {
+        let text = builtin_data(cx, Builtin::Text)?;
+        let list = builtin_data(cx, Builtin::List)?;
+        let head = match force(cx.g(), self.ty.clone())? {
+            Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
+            Value::Data(d, params) if d == list => {
+                let elem = cx.quote_folded(&params[0])?;
+                Term::app_icit(
+                    Term::Def(builtin_def(cx, Builtin::Append)?),
+                    elem,
+                    Icit::Implicit,
+                )
+            }
+            _ => return Err(self.error(cx)),
+        };
+        Ok(Term::app(Term::app(head, self.a.clone()), self.b.clone()))
+    }
+
+    /// What they are isn't a text or a list.
+    fn error(&self, cx: &Ctx) -> Diagnostic {
+        let other = cx.show(&self.ty);
+        cx.error(
+            "E-TYPE-MISMATCH",
+            "`++` joins two texts or two lists",
+            format!("this is {} `{}`", crate::article(&other), other),
+        )
+    }
+}
+
+impl crate::queue::Check for Append {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        Ok(crate::queue::Resumed::Done(self.joined(cx)?))
+    }
+
+    fn display(&self, cx: &Ctx) -> Option<String> {
+        let a = cx.show(&cx.eval(&self.a).ok()?);
+        let b = cx.show(&cx.eval(&self.b).ok()?);
+        Some(format!("({a} ++ {b})"))
+    }
 }
 
 /// `if c then a else b` is `ifThenElse c (_ => a) (_ => b)`, and
@@ -5580,6 +5634,17 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     if let Expr::Tuple(a, b, _) = expr {
         let (term, _) = type_tuple(cx, a, b)?;
         return Ok((term, Sort::Type(0)));
+    }
+    // A numeral is never a type, whatever its own type turns out to be:
+    // decided by its syntax, not by the literal waiting for its type and
+    // then meeting `Type` (stage 7, D2126).
+    let mut written = expr;
+    while let Expr::Bracketed(inner, _) = written {
+        written = inner;
+    }
+    if let Expr::Num(..) = written {
+        let nat = Value::Data(nat(cx)?, Vec::new());
+        return Err(not_a_type(cx, span, &nat));
     }
     // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
     if let Some(logic) = crate::logic::classify(cx, expr) {
