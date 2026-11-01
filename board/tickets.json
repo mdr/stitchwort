@@ -3129,17 +3129,20 @@
     {
       "id": 998,
       "title": "Std.Parse reading lemmas: what eachLine, many1, pick (and friends) read, so parser guarantees (D2108) don't need hand-written parsers",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
-        "std",
-        "blocked"
+        "std"
       ],
       "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 10 (SW-963 item 1): a Parse.eachLine/many1/pick parser gave right answers but nothing proves what Std.Parse reads, so the day rewrote its parser by hand to prove parseReadsLines. Every AoC day now proves a parser guarantee (D2108).\n\nProgress (Opus lane, 1 Nov): commit 9c3c6f62 on worktree-agent-a2acb6f5200531500, not merged. std/Parse/Reads.sw: Parse.Reads parser spec (soundness: a successful run read a start of the input; spec of read text and value), proved through the handler by induction on the computation tree. Lemmas for every piece/combinator AoC uses except section/sections/blankLine/findAll/repeat/natDigits/recursive; runners eachLineReads/lineReads/allReads. Day 10 parseLines back to eachLine/many/label/pick, parseReadsLines unchanged (Proofs/Parse.sw 63 -> 26 lines); day 16 readDigits = Parse.line + many hexDigit, readDigitsBits unchanged. Audit: Std.Parse + new std lemmas 119 passed; Day10+Day16 126 theorems, 0 failed, 6 warnings (the pre-existing day 16 ones). machine library_tests_agree passes.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "2f2be76c",
+        "9fa5cb17",
+        "1b1bc83e"
+      ]
     },
     {
       "id": 999,
@@ -3172,7 +3175,7 @@
     {
       "id": 1001,
       "title": "search_bench: sample theorems by a stable hash of their name, not every 8th in order",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Sonnet lane (worktree)",
       "labels": [
@@ -3182,7 +3185,10 @@
       "body": "D2124 (Matt, 1 Nov 2026). The merge/lane tiers of search_bench sample every 8th std theorem in declaration order, so adding theorems mid-file reshuffles the sample: SW-998 dropped the merge sample from 85.7% to 83.3% strict top-1 (bar 84) while the whole library stayed at 87.6% (lane's figures). Sample by a stable hash of the theorem name instead; bar unchanged. Blocks the SW-998 merge.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "7a2f55d5",
+        "280391b8"
+      ]
     }
   ]
 }
