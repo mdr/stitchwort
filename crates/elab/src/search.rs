@@ -466,6 +466,17 @@ impl Item {
         }
     }
 
+    /// Whether it is a generated equation (`f.eqK`, `f.eqK.orN`), or a
+    /// conjunct of one.
+    pub fn generated_equation(self, g: &Globals) -> bool {
+        match self {
+            Item::Def(id) | Item::Part(id, _) => {
+                g.def(id).theorem && crate::equations::is_equation_name(&g.def(id).name)
+            }
+            Item::Ctor(..) => false,
+        }
+    }
+
     /// The conjunct it is, for a part of a theorem.
     pub fn part(self) -> Option<Part> {
         match self {
@@ -614,6 +625,7 @@ pub type Key = (
     bool,
     Place,
     bool,
+    bool,
     usize,
     usize,
     usize,
@@ -625,7 +637,10 @@ impl Hit {
     /// The ranking (draft 3 §5.1, S1a): the relation, then whether the
     /// candidate absorbed the pattern whole, where it matched (a left and a
     /// right side alike), a declaration before a conjunct of one (SW-993),
-    /// specificity, premises, size, then the name.
+    /// a written theorem before a generated equation (`f.eqK`,
+    /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
+    /// the one meant, and the equations stay found after it), specificity,
+    /// premises, size, then the name.
     pub fn key(&self, g: &Globals) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
@@ -636,6 +651,7 @@ impl Hit {
             self.absorbs,
             place,
             self.item.part().is_some(),
+            self.item.generated_equation(g),
             self.absorbed,
             self.instantiated,
             self.premises,

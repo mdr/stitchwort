@@ -2849,6 +2849,23 @@ fn same_pv(a: &PV, b: &PV) -> bool {
     }
 }
 
+/// Whether `name` is a generated equation's: `f.eqK` or `f.eqK.orN` (the
+/// names are reserved for them, D2176).
+pub fn is_equation_name(name: &str) -> bool {
+    let number = |s: &str, prefix: &str| {
+        s.strip_prefix(prefix)
+            .is_some_and(|d| !d.is_empty() && d.chars().all(|c| c.is_ascii_digit()))
+    };
+    let parts: Vec<&str> = name.split('.').collect();
+    match parts.as_slice() {
+        [.., owner, last] if !owner.is_empty() && number(last, "eq") => parts.len() >= 2,
+        [.., owner, eq, or] if !owner.is_empty() && number(eq, "eq") && number(or, "or") => {
+            parts.len() >= 3
+        }
+        _ => false,
+    }
+}
+
 // ------------------------------------------------------------ E-NO-EQUATION
 
 /// `E-NO-EQUATION` if `name` is an equation the source implies that wasn't

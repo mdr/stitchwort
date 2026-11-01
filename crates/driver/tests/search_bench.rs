@@ -153,8 +153,12 @@ fn self_retrieval(left: bool) -> Score {
         let candidates = theorems(session);
         let g = &session.elab.globals;
         let iff = iff(g);
+        // The written theorems: a generated equation (`f.eqK`,
+        // docs/proposals/function-equations.md §7.2) is a candidate, not a
+        // query.
         let queries: Vec<(DefId, Option<DefId>)> = sample(
             (candidates.iter())
+                .filter(|c| !c.item.generated_equation(g))
                 .filter_map(|c| match c.item {
                     Item::Def(id) => Some((g.def(id).path.to_string(), (id, None))),
                     Item::Ctor(..) | Item::Part(..) => None,

@@ -114,7 +114,15 @@ fn a_project_search_finds_its_own_lemmas_and_the_librarys() {
         &["Shape.scale _ _ = _", "--project", dir.to_str().unwrap()],
     );
     assert_eq!(code, 0, "{report}");
-    assert_eq!(names(&report), ["Shapes.Shape.scaleOne"]);
+    // The written lemma first, then `Shape.scale`'s generated equations.
+    assert_eq!(
+        names(&report),
+        [
+            "Shapes.Shape.scaleOne",
+            "Shapes.Shape.scale.eq1",
+            "Shapes.Shape.scale.eq2"
+        ]
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
