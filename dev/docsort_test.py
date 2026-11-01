@@ -56,6 +56,19 @@ class Sort(unittest.TestCase):
     def test_counts(self):
         self.assertEqual((self.blocks, self.moved), (2, 5))
 
+    def test_lead_in_joins_next_unit(self):
+        # "Cases:" follows the unit after it to the notes; "Done." stays.
+        src = (
+            "-- Computes x.\n-- Cases:\n-- - a, see SW-9.\n-- - b.\n"
+            "-- Done.\ndef g: Nat = 1\n"
+        )
+        new, _, _ = docsort.sort_text(src)
+        self.assertEqual(
+            new,
+            "--| Computes x.\n--| - b.\n--| Done.\n"
+            "-- Cases:\n-- - a, see SW-9.\ndef g: Nat = 1\n",
+        )
+
     def test_untouched(self):
         for kept in [
             "-- A heading without a stop\n",
