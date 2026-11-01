@@ -1,15 +1,16 @@
--- Laws of computations whose proofs need function extensionality: the rest of
--- a `Call` is a function, and two of them are equal when they agree at every
--- result (`Quot.funext`, so `Quot.sound` is the one axiom these use). The laws
--- that don't need it, `Effect.foldCompDone` and `Effect.runPureBind`, are in
--- core/Effect.sw (docs/proposals/effect-polymorphism.md, "Proof tooling").
+--| Laws of computations whose proofs need function extensionality: the rest of
+--| a `Call` is a function, and two of them are equal when they agree at every
+--| result (`Quot.funext`, so `Quot.sound` is the one axiom these use). The laws
+--| that don't need it, `Effect.foldCompDone` and `Effect.runPureBind`, are in
+--| core/Effect.sw.
+-- (docs/proposals/effect-polymorphism.md, "Proof tooling").
 
 import Effect (Comp, foldComp, bind, NoOp, NoRes, translate, noInject, noReply, runPure, SigMap)
 import Effect.Comp (Done, Call)
 import Effect.SigMap (MkSigMap)
 
--- Sequencing with `Done` changes nothing. (`bind (Done x) next = next x` holds
--- by definition.)
+--| Sequencing with `Done` changes nothing. (`bind (Done x) next = next x` holds
+--| by definition.)
 theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]:
     (computation: Comp op res a) → bind computation Done = computation
   | Done x => rfl
@@ -18,7 +19,7 @@ theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]:
     let same := Quot.funext (res o) (y => Comp op res a) (y => bind (rest y) Done) rest pointwise
     Eq.cong (Call o) same
 
--- Sequencing is associative.
+--| Sequencing is associative.
 theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
     (first: a → Comp op res b) (second: b → Comp op res r):
     (computation: Comp op res a) →
@@ -36,8 +37,8 @@ theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
         pointwise
     Eq.cong (Call o) same
 
--- Handler fusion: folding a sequence folds its first part, with folding the
--- rest as what to do with each result.
+--| Handler fusion: folding a sequence folds its first part, with folding the
+--| rest as what to do with each result.
 theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
     (done: b → r) (call: (o: op) → (res o → r) → r) (next: a → Comp op res b):
     (computation: Comp op res a) →
@@ -55,8 +56,9 @@ theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
         pointwise
     Eq.cong (call o) same
 
--- A computation that performs nothing, moved into a row with abilities, is
--- its result. A handler whose result is a function, run inside another
+--| A computation that performs nothing, moved into a row with abilities, is
+--| its result.
+-- A handler whose result is a function, run inside another
 -- ability, calls its continuation this way, where the handler's own
 -- definition has `runPure` (SW-1002, `Parse.labelWholeFrom`). Needs no
 -- extensionality: there are no operations to map.
