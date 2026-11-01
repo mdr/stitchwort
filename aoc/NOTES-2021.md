@@ -13,8 +13,9 @@ puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8
 and 12 do (day 12's promise, that no passage joins two big caves, is one
-the puzzle leaves unsaid); day 9's answers need no promise at all, and its parser's guarantees
-(digits, a rectangle) are proved anyway. The pattern:
+the puzzle leaves unsaid); day 9's answers need no promise at all, and
+its parser's guarantees (digits, a rectangle) are proved anyway. The
+pattern:
 
 - **"A successful parse"** is `Fail.toResult (() => parse input) = Ok xs`:
   the parser is `{Fail}` code, and `Fail.toResult` is std's handler that
