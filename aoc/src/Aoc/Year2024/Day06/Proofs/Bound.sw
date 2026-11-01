@@ -1,10 +1,9 @@
 --| The step budget is enough: a guard who starts on the map and is still on
 --| it after `stateCount` steps loops forever (`budgetEnough`).
 --
--- There are only
--- `stateCount` states on the map, so two of the first `stateCount + 1` are the
--- same (`Nat.pigeonhole`), and from then on the walk repeats
--- (`Nat.iterateRepeatNeverNone`).
+-- There are only `stateCount` states on the map, so two of the first
+-- `stateCount + 1` are the same (`Nat.pigeonhole`), and from then on the walk
+-- repeats (`Nat.iterateRepeatNeverNone`).
 
 namespace Aoc.Year2024.Day06.Proofs
 import Aoc.Year2024.Day06 (..)

@@ -61,8 +61,8 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 
 --| Runs a program against scripted input lines: each `IO.readLine` takes the
 --| next one, and gives `None` once they're used up; `IO.readAll` takes all
---| that are left (see `IO.restOf`), after which `IO.readLine` gives `None`
---| and `IO.readAll` gives "". `IO.readBytes` also takes all that are left, as
+--| that are left (see `IO.restOf`), after which `IO.readLine` gives `None` and
+--| `IO.readAll` gives "". `IO.readBytes` also takes all that are left, as
 --| UTF-8 in one read (`IO.bytesOf`), and gives `None` once nothing is. Records
 --| each `IO.print` and `IO.write` payload, in order, with the result. A
 --| payload is one entry even if it contains a line feed: a real interpreter

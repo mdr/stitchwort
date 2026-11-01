@@ -1,10 +1,11 @@
 --| Day 7, part 2, proved for every manifold (`part2Correct`, at the bottom):
---| the program's count is the number of timelines in Spec/Spec.sw. The
---| program works up from the bottom row, and each column's count is the
---| number of timelines of a particle falling into it (`countsAre`), by
---| induction on the rows: a column without a splitter has the timelines of
---| the column below, and a splitter's are those going left followed by those
---| going right, each tagged with the splitter (`countStep`).
+--| the program's count is the number of timelines in Spec/Spec.sw.
+--
+-- The program works up from the bottom row, and each column's count is the
+-- number of timelines of a particle falling into it (`countsAre`), by
+-- induction on the rows: a column without a splitter has the timelines of
+-- the column below, and a splitter's are those going left followed by those
+-- going right, each tagged with the splitter (`countStep`).
 
 namespace Aoc.Year2025.Day07.Proofs
 import Aoc.Year2025.Day07 (..)

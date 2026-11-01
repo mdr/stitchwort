@@ -1,5 +1,5 @@
---| Day 6 as the puzzle states it, over the program's `Lab.step`, which is
---| the patrol protocol: "If there is something directly in front of you, turn
+--| Day 6 as the puzzle states it, over the program's `Lab.step`, which is the
+--| patrol protocol: "If there is something directly in front of you, turn
 --| right 90 degrees. Otherwise, take a step forward." The proofs (Proofs/)
 --| show the program computes these, for every lab whose guard starts on the
 --| map.
@@ -41,8 +41,8 @@ def onMap (lab: Lab) (position: Position): Bool := position.row < lab.height && 
 def positions (lab: Lab): List Position :=
   List.range lab.height |> .flatMap (row => List.range lab.width |> .map (column => ({ row, column }: Position)))
 
---| "All of the possible positions for such an obstruction": a new one, on
---| the map, not "at the guard's starting position", where "the guard will get
+--| "All of the possible positions for such an obstruction": a new one, on the
+--| map, not "at the guard's starting position", where "the guard will get
 --| stuck in a loop". `trapped` decides `Loops` for the lab with an
 --| obstruction there, so any such decision gives the same set.
 def trapPositions (lab: Lab) (trapped: Position → Bool): Set Position :=

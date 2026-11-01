@@ -1,9 +1,9 @@
---| `Float.Model`: IEEE 754 double arithmetic, exact then rounded. Every
---| finite double is a whole number of units of 2^-1074, the smallest
---| subnormal; an operation computes its exact result from those numbers,
---| then rounds it once to the nearest double, ties to even. `Float`'s rounding operations are these
---| definitions; while a program runs, the machine's double arithmetic
---| computes them instead.
+--| `Float.Model`: IEEE 754 double arithmetic, exact then rounded. Every finite
+--| double is a whole number of units of 2^-1074, the smallest subnormal; an
+--| operation computes its exact result from those numbers, then rounds it once
+--| to the nearest double, ties to even. `Float`'s rounding operations are these
+--| definitions; while a program runs, the machine's double arithmetic computes
+--| them instead.
 --|
 --| Everything here is over a double's 64 bits as a `Nat` (the NaN
 --| canonical), so that `Float` can use it.
@@ -66,8 +66,8 @@ def Float.Model.magnitude (bits: Nat): Nat :=
   if Float.Model.signBit bits then bits - 9223372036854775808 else bits
 
 --| A finite double's value in units of 2^-1074: a subnormal's fraction, or a
---| normal double's significand (the fraction with its leading 1) times
---| 2^(e - 1) for exponent field `e`. Both zeros are `0`.
+--| normal double's significand (the fraction with its leading 1) times 2^(e
+--| - 1) for exponent field `e`. Both zeros are `0`.
 def Float.Model.units (bits: Nat): Int :=
   let m: Nat := Float.Model.magnitude bits
   let e: Nat := Nat.divFuel m m 4503599627370496
@@ -102,9 +102,9 @@ def Float.Model.roundsUp (q: Nat): Float.Model.Location → Bool
 def Float.Model.zeroBits (negative: Bool): Nat := if negative then 9223372036854775808 else 0
 
 --| The rounding core: the double nearest `(q + loc) × 2^exponent` units, with
---| sign `negative`, where `q < 2^53`, and `q >= 2^52` unless `exponent` is
---| 0. The bits are `exponent × 2^52 + q` after rounding, as the exponent
---| field counts from 1 for normal doubles: a subnormal has `exponent` 0 and
+--| sign `negative`, where `q < 2^53`, and `q >= 2^52` unless `exponent` is 0.
+--| The bits are `exponent × 2^52 + q` after rounding, as the exponent field
+--| counts from 1 for normal doubles: a subnormal has `exponent` 0 and
 --| `q < 2^52`, and rounding up to 2^53 carries into the exponent. At
 --| +infinity's bits or beyond it overflows to infinity.
 def Float.Model.roundCore (negative: Bool) (exponent: Nat) (q: Nat) (loc: Float.Model.Location): Nat :=

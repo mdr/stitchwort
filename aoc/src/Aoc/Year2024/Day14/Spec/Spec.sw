@@ -13,10 +13,10 @@ import Aoc.Common (Offset, Position)
 import Aoc.Year2024.Day14 (..)
 import Std (List, Nat)
 
---| "When a robot would run into an edge of the space they're in, they
---| instead teleport to the other side, effectively wrapping around the
---| edges": one tile to the right (or down) on a line of `size` tiles, and one
---| to the left (or up).
+--| "When a robot would run into an edge of the space they're in, they instead
+--| teleport to the other side, effectively wrapping around the edges": one
+--| tile to the right (or down) on a line of `size` tiles, and one to the left
+--| (or up).
 def forward (size: Nat) (coordinate: Nat): Nat := if coordinate + 1 == size then 0 else coordinate + 1
 
 def backward (size: Nat) (coordinate: Nat): Nat := if coordinate == 0 then size - 1 else coordinate - 1

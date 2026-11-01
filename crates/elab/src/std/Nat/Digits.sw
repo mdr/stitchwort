@@ -119,9 +119,9 @@ theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.leng
       (Nat.leAddCong (c * Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r) h))
 
 --| `Nat.digits` and `Nat.fromDigits` undo each other; the digits are digits,
---| the first is not 0 (for n >= 1), and there are k of them for
---| 10^(k-1) <= n < 10^k; digits shifted left by more digits are the digit
---| lists appended (`Nat.digitsShift`).
+--| the first is not 0 (for n >= 1), and there are k of them for 10^(k-1) <=
+--| n < 10^k; digits shifted left by more digits are the digit lists appended
+--| (`Nat.digitsShift`).
 -- Each is a proof by the same measure as `Nat.digitsAcc`, and the accumulator
 -- is just appended.
 theorem Nat.digitsAccAppend (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = List.append (Nat.digitsAcc n Nil) acc

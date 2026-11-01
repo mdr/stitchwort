@@ -1,9 +1,8 @@
 --| Day 14's tests: the example from the puzzle, unit tests, and small
 --| generated inputs whose answers were computed separately in Python.
 --
--- Kept
--- apart from the program, so `stitchwort run Aoc.Year2024.Day14.main`
--- doesn't check them.
+-- Kept apart from the program, so
+-- `stitchwort run Aoc.Year2024.Day14.main` doesn't check them.
 
 namespace Aoc.Year2024.Day14.Tests
 import Aoc.Common (Position)

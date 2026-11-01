@@ -19,11 +19,11 @@
 --| left neighbour in it, shifted left (`shiftLeft`) its right one, and
 --| `around` sees both.
 --|
---| Both answers are proved right for every manifold in `Aoc.Year2025.Day07.Proofs`
---| (Spec/Spec.sw states the puzzle over the manifold, with the timelines
---| as explicit lists of the splitters they pass; Proofs/Part1.sw and
---| Proofs/Part2.sw), and the
---| tests are in `Aoc.Year2025.Day07.Tests` (Tests/); `run` checks neither.
+--| Both answers are proved right for every manifold in
+--| `Aoc.Year2025.Day07.Proofs` (Spec/Spec.sw states the puzzle over the
+--| manifold, with the timelines as explicit lists of the splitters they pass;
+--| Proofs/Part1.sw and Proofs/Part2.sw), and the tests are in
+--| `Aoc.Year2025.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day07
 import Std (Abort, Fail, Fin, IO, List, Nat, Option, Parse, Result, Text, Vec)
@@ -44,9 +44,9 @@ type Manifold = { width: Nat, start: Fin width, rows: List (Vec Bool width) }
 def parseManifoldOption (lines: List Text): Option Manifold := toOption (() => parseManifold lines)
 
 --| The strict parser `main` uses. `parseManifoldOption` is forgiving (any character
---| but ^ is empty space); `checkManifold` refuses a manifold with a character
---| other than . ^ S (naming its line and column, counting from 1), or with no
---| S, and otherwise gives exactly `parseManifoldOption lines`
+--| but ^ is empty space); `checkManifold` refuses a manifold with a character other
+--| than . ^ S (naming its line and column, counting from 1), or with no S, and
+--| otherwise gives exactly `parseManifoldOption lines`
 --| (`Aoc.Year2025.Day07.Proofs.checkManifoldParses`), so the proofs about the parser
 --| describe what is printed. An S may be anywhere; the first is the start.
 def checkManifold (lines: List Text): Result Manifold Text :=

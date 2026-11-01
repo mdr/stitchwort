@@ -1,5 +1,5 @@
---| The program's steps are the spec's: `step` reaches exactly the positions
---| one orthogonal step away (`stepOrthogonal`, `orthogonalStep`), and
+--| The program's steps are the spec's: `step` reaches exactly the positions one
+--| orthogonal step away (`stepOrthogonal`, `orthogonalStep`), and
 --| `neighboursGrowing` gives exactly the touching plots (`memNeighboursGrowing`).
 --| Touching goes both ways (`touchesSymmetric`).
 

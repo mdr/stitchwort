@@ -1,12 +1,12 @@
---| Every cell anyone can stand on is on the screen. A level is `Framed`
---| when its terrain is 20 rows of 66 cells and every floor cell is among
---| them. Every room the generator makes fits inside its section, whatever
---| the rolls (`roomFits`), and every level `layOut` makes from rooms that fit
---| is framed, as its corridors run between the rooms' middles
---| (`layOutFramed`); and a turn keeps the level framed (`stepFramed`), as
---| every generated level is (`generatedFramed`, Generated.sw). So in a sound
---| state the player and every monster are drawn where they stand, with no
---| assumption about where that is (`drawnPlayer`, `drawnMonster`).
+--| Every cell anyone can stand on is on the screen. A level is `Framed` when
+--| its terrain is 20 rows of 66 cells and every floor cell is among them.
+--| Every room the generator makes fits inside its section, whatever the rolls
+--| (`roomFits`), and every level `layOut` makes from rooms that fit is
+--| framed, as its corridors run between the rooms' middles (`layOutFramed`);
+--| and a turn keeps the level framed (`stepFramed`), as every generated level
+--| is (`generatedFramed`, Generated.sw). So in a sound state the player and
+--| every monster are drawn where they stand, with no assumption about where
+--| that is (`drawnPlayer`, `drawnMonster`).
 
 namespace Rogue.Proofs
 import Rogue (..)

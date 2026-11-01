@@ -3,10 +3,10 @@
 --| them (`CheapestWalks`), then no presses typing a code are shorter than the
 --| program's length (`optimalIfCheapestWalks`).
 --
--- Any presses on a keypad are
--- walks, each ended by an A, so they cost at least the cheapest routes
--- between the keys they press (`walksCost`); down the chain, that bounds
--- each keypad's cost by the one before it, out to your presses.
+-- Any presses on a keypad are walks, each ended by an A, so they cost at
+-- least the cheapest routes between the keys they press (`walksCost`);
+-- down the chain, that bounds each keypad's cost by the one before it,
+-- out to your presses.
 
 namespace Aoc.Year2024.Day21.Proofs
 import Aoc.Year2024.Day21 (..)

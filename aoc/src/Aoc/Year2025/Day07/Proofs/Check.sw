@@ -2,8 +2,8 @@
 --| the total parser the other proofs are about, whenever it accepts. So
 --| `part1Correct` and `part2Correct` describe what `main` prints.
 --
--- Kept apart
--- from the program, so `stitchwort run Aoc.Year2025.Day07.main` doesn't check it.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2025.Day07.main`
+-- doesn't check it.
 
 namespace Aoc.Year2025.Day07.Proofs
 import Aoc.Year2025.Day07 (..)

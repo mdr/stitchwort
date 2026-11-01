@@ -1,7 +1,7 @@
 --| Day 2's tests: the example from the puzzle and unit tests.
 --
--- Kept apart from
--- the program, so `stitchwort run Aoc.Year2024.Day02.main` doesn't check them.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2024.Day02.main`
+-- doesn't check them.
 
 namespace Aoc.Year2024.Day02.Tests
 import Aoc.Year2024.Day02 (..)
@@ -48,7 +48,7 @@ test "removing a level in the middle" := safeWithDampener [1, 2, 9, 3]
 test "two bad levels are too many" := !(safeWithDampener [1, 9, 2, 9, 3])
 test "removing a level can fix the direction" := safeWithDampener [5, 6, 4, 3]
 
--- Reports that common one-pass shortcuts get wrong
+--| Reports that common one-pass shortcuts get wrong.
 -- (docs/comparisons/aoc-2024-day02-community.md §3).
 test "removing the first level can change the direction" := safeWithDampener [1, 3, 2, 1]
 test "removing the first level of a bad first step" := safeWithDampener [1, 5, 6]

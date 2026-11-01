@@ -1,8 +1,8 @@
 --| Grids as lists of rows of any lengths (lines of text, say): the longest
---| row's length, and a transpose that pads every row to it first, so no
---| column loses a cell (Python's `zip_longest(*rows, fillvalue=...)`). The
---| lemmas read the result cell by cell: row r, column c of the input is row c,
---| column r of the output, `(.getOr c fill)` of row r, past the ends too.
+--| row's length, and a transpose that pads every row to it first, so no column
+--| loses a cell (Python's `zip_longest(*rows, fillvalue=...)`). The lemmas
+--| read the result cell by cell: row r, column c of the input is row c, column
+--| r of the output, `(.getOr c fill)` of row r, past the ends too.
 --| And every cell with its row and column (`gridCells`).
 -- A file of its own, so that programs using only the toolkit don't check
 -- these.

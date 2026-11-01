@@ -1,5 +1,5 @@
---| Part 2: with fewer bytes fallen every path still works
---| (`hasPathFewer`), so the exit can't become reachable again once it isn't.
+--| Part 2: with fewer bytes fallen every path still works (`hasPathFewer`),
+--| so the exit can't become reachable again once it isn't.
 --
 -- std's binary search, `Nat.partitionPoint`, ends at a count that blocks
 -- right after one that doesn't (`Nat.partitionPointBounds`), so its byte is

@@ -54,11 +54,11 @@ def operate (rows: List (List (Option k))) (aim: Position): List DirectionKey â†
   | Cons (Arrow direction) rest =>
     moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => operate rows next rest))
 
---| The keys typed on the door when you press `presses`, with `robots`
---| robots on directional keypads between: "your directional keypad
---| controls a robot which is typing on a directional keypad which controls a
---| robot which is typing on a directional keypad... and so on, ending with
---| the robot which is typing on the numeric keypad".
+--| The keys typed on the door when you press `presses`, with `robots` robots
+--| on directional keypads between: "your directional keypad controls a robot
+--| which is typing on a directional keypad which controls a robot which is
+--| typing on a directional keypad... and so on, ending with the robot which
+--| is typing on the numeric keypad".
 def typed (robots: Nat) (presses: List DirectionKey): Option Code :=
   match robots with
     | Zero => operate numericRows numericStart presses

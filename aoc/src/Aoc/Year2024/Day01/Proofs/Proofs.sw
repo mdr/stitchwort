@@ -1,6 +1,6 @@
---| Day 1 proved, for every pair of lists: part 1 pairs the lists lined up
---| from smallest to largest, whatever order they came in, and part 2's lookups
---| in a count map are the puzzle's "times that number appears".
+--| Day 1 proved, for every pair of lists: part 1 pairs the lists lined up from
+--| smallest to largest, whatever order they came in, and part 2's lookups in a
+--| count map are the puzzle's "times that number appears".
 
 namespace Aoc.Year2024.Day01.Proofs
 import Aoc.Year2024.Day01 (..)

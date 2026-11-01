@@ -8,8 +8,8 @@
 -- `Show.toText e`. `toText` is for people (`"tea"` is `tea`); `toSource` is
 -- a source-like representation, used for the elements of lists, tuples,
 -- records and constructors (`"tea"` with its quotes). It isn't promised to
--- parse back. A data type or record declared in a program gets both
--- derived (`T.%instShow`); a module's own `instance` replaces that.
+-- parse back. A data type or record declared in a program gets both derived
+-- (`T.%instShow`); a module's own `instance` replaces that.
 
 --| Itself: so `"${text}"` works when `text` is already text.
 def Text.toText (text: Text): Text := text
@@ -32,8 +32,8 @@ interface Show (a: Type) = {
   toSource: a → Text
 }
 
---| An instance whose two fields are the same: for numbers, and for a user's
---| own type with a `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
+--| An instance whose two fields are the same: for numbers, and for a user's own type with a
+--| `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
 def Show.fromText (f: a → Text): Show a := { toText = f, toSource = f }
 
 --| A character as it's written in a literal quoted with `quote`, then `rest`.

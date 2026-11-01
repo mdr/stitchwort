@@ -61,9 +61,8 @@ theorem listedKey (char: Char) (yes: Decidable.IsYes (List.decMem char commandKe
 --| No other printable key is a command: a printable key that is a command
 --| is one of h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q`.
 --
--- By the same match as
--- `commandOfChar`'s: in the `_` arm the key is none of those, so
--- `commandOfChar` takes its `_` arm too.
+-- By the same match as `commandOfChar`'s: in the `_` arm the key
+-- is none of those, so `commandOfChar` takes its `_` arm too.
 theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
   match char with
     | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char Trivial

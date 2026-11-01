@@ -9,8 +9,8 @@
 --| The dial is a record around a `Mod n`, a number below `n` that wraps around
 --| (`Mod 100` in the puzzle), so the program reads `dial.move turn` and
 --| `dial.isZero`. Part 2 is proved correct, for a dial of any size, in
---| `Aoc.Year2025.Day01.Proofs` (Proofs/Part2.sw), and the tests are in `Aoc.Year2025.Day01.Tests`
---| (Tests/); `run` checks neither.
+--| `Aoc.Year2025.Day01.Proofs` (Proofs/Part2.sw), and the tests are in
+--| `Aoc.Year2025.Day01.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day01
 import Std (Fail, IO, Int, List, Mod, Parse)
@@ -61,9 +61,9 @@ def turn(): {Parse} Turn :=
   spaces()
   direction distance
 
---| A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
---| specification of part 2 and its proofs (`Aoc.Year2025.Day01.Proofs`) use it; it stays
---| here so that they can write `turn.clicks`, a dot name must live with its type.
+--| A turn, one click at a time: `Left 3` is three `Left 1`s. Only the specification of
+--| part 2 and its proofs (`Aoc.Year2025.Day01.Proofs`) use it; it stays here so that
+--| they can write `turn.clicks`, a dot name must live with its type.
 def Turn.clicks: Turn → List Turn
   | Left distance => List.replicate distance (Left 1)
   | Right distance => List.replicate distance (Right 1)

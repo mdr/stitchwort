@@ -1,7 +1,7 @@
---| Advent of Code 2024, day 10: a topographic map of heights 0 to 9. A
---| hiking trail starts at height 0, ends at height 9 and climbs by exactly 1
---| at each step, up, down, left or right. Part 1 adds up, over the trailheads
---| (the 0s), how many 9s each reaches by some trail; part 2 adds up how many
+--| Advent of Code 2024, day 10: a topographic map of heights 0 to 9. A hiking
+--| trail starts at height 0, ends at height 9 and climbs by exactly 1 at each
+--| step, up, down, left or right. Part 1 adds up, over the trailheads (the
+--| 0s), how many 9s each reaches by some trail; part 2 adds up how many
 --| trails start at each.
 --|
 --|   $ cd aoc && stitchwort run Aoc.Year2024.Day10.main < inputs/2024/day10.txt

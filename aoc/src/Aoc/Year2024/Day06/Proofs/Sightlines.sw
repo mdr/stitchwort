@@ -2,8 +2,8 @@
 --| row's and column's set has exactly the obstructions on that line
 --| (`Represents`), so `Set.below`/`Set.above` find the nearest one ahead
 --| (`Set.belowSome` and the rest), and walking there step by step ends in the
---| state `nextTurn` jumps to. `programSimulates` puts these together for
---| the sightlines `solvePart2` builds.
+--| state `nextTurn` jumps to. `programSimulates` puts these together for the
+--| sightlines `solvePart2` builds.
 
 namespace Aoc.Year2024.Day06.Proofs
 import Aoc.Year2024.Day06 (..)

@@ -1,7 +1,7 @@
 --| Whole numbers a JavaScript `number` holds exactly. At the JS boundary a
 --| `SafeNat` or `SafeInt` is a `number`, where a `Nat` or `Int` is a `bigint`:
---| decoding checks that the input is a whole number within the bounds, and
---| the type says the same bounds hold of every value the function returns, so
+--| decoding checks that the input is a whole number within the bounds, and the
+--| type says the same bounds hold of every value the function returns, so
 --| encoding is exact. Inside Stitchwort they are ordinary records, so
 --| `n.value` is the `Nat` or `Int`.
 --|

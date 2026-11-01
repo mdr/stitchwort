@@ -48,8 +48,8 @@ def Random.chance (state: Nat) (chances: Nat): Pair Bool Nat :=
   let (roll, following) := Random.below state chances
   MkPair (roll == 0) following
 
---| The first outputs, as published for the reference implementation: the
---| tests of `rand_xoshiro` seed with 1477776061723855037
+--| The first outputs, as published for the reference implementation: the tests of
+--| `rand_xoshiro` seed with 1477776061723855037
 --| (https://github.com/rust-random/rngs/blob/master/rand_xoshiro/src/splitmix64.rs).
 test "Random.next: reference outputs" :=
   let (a, s1) := Random.next 1477776061723855037

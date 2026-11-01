@@ -88,8 +88,8 @@ theorem Nat.leqFalse: (d: Nat) → (n: Nat) → Nat.leq d n = False → n < d
   | Succ d, Zero, h => rfl
   | Succ d, Succ n, h => Nat.leqFalse d n h
 
--- Comparisons from their negations and from equations (the bridge lemmas of
--- docs/proposals/omega.md §6.4).
+--| Comparisons from their negations and from equations.
+-- (the bridge lemmas of docs/proposals/omega.md §6.4)
 theorem Nat.ltOfNotLe (a: Nat) (b: Nat) (h: Not (a ≤ b)): b < a := Nat.leqFalse a b (Bool.falseOfNotTrue (Nat.leq a b) h)
 
 theorem Nat.leOfNotLt (a: Nat) (b: Nat) (h: Not (a < b)): b ≤ a := Nat.leqFalse (Succ a) b (Bool.falseOfNotTrue (Nat.leq (Succ a) b) h)

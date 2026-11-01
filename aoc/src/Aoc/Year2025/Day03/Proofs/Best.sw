@@ -1,15 +1,15 @@
 --| Day 3, proved: the greedy `Bank.best` is the largest k-digit number that can
 --| be picked from a bank, in order, for any k and any bank.
 --
--- Kept apart from
--- the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check it.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2025.Day03.main`
+-- doesn't check it.
 
 namespace Aoc.Year2025.Day03.Proofs
 import Aoc.Year2025.Day03 (..)
 import Aoc.Year2025.Day03.Spec (..)
 import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 
---| Four facts about `best k bank` (plain-words summary in docs/aoc-2025.md):
+--| Four facts about `best k bank`:
 --|   1. `bestSub`: it is a subsequence of `bank` (batteries taken in order).
 --|   2. `bestLength`: it has `min k (length bank)` digits.
 --|   3. `bestOptimal`: no k batteries of `bank`, taken in order, make a
@@ -18,6 +18,7 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 --|      `bank.maxJoltage k`.
 --|   5. `maxJoltageIsMaximum`, the headline: `bank.maxJoltage k` is the
 --|      largest joltage from turning on exactly k batteries of the bank.
+-- (plain-words summary in docs/aoc-2025.md)
 --
 -- The optimality argument: every choice starts with some digit y inside the
 -- window that `pick` scans (it must leave k - 1 digits after it). If y is
@@ -208,10 +209,10 @@ theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
     joltageOf on ≤ bank.maxJoltage k := bestOptimal k bank on turnsOn.left turnsOn.right
 
 --| 5. The headline, in the puzzle's words. When the bank has at least k
---| batteries, `bank.maxJoltage k` is the largest joltage you can get by
---| turning on exactly k of them: some k batteries of the bank, turned on in
---| order, do produce it (the ones `Bank.best bank k` picks), and no k batteries
---| of the bank produce more.
+--| batteries, `bank.maxJoltage k` is the largest joltage you can get by turning
+--| on exactly k of them: some k batteries of the bank, turned on in order, do
+--| produce it (the ones `Bank.best bank k` picks), and no k batteries of the
+--| bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k ≤ bank.length):
     (TurnsOn k bank (bank.best k) ∧ joltageOf (bank.best k) = bank.maxJoltage k)
       ∧ ((on: List Battery) → TurnsOn k bank on → joltageOf on ≤ bank.maxJoltage k) :=

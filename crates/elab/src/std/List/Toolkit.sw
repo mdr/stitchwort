@@ -1,7 +1,7 @@
 --| The list toolkit: `map`, `filter`, folds, sums, `zip`, `take`/`drop`, `get`,
 --| `splitBy`, padding, transpose and the like, with the congruence lemmas that
---| `decreasing` and `rewrite` look up beside each function. The other lemmas
---| are in List/Lemmas.sw, so a program that only calls these checks none of them.
+--| `decreasing` and `rewrite` look up beside each function. The other lemmas are
+--| in List/Lemmas.sw, so a program that only calls these checks none of them.
 
 --| List toolkit. Every function is structurally recursive.
 --|
@@ -81,9 +81,9 @@ def List.foldRight (xs: List a) (initial: b) (f: a → b → {e} b): {e} b := Li
 -- (docs/proposals/interfaces.md §7.7)
 def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft xs Add.zero Add.add
 
---| The sum of `f` over the elements: `List.sumBy xs f` is `List.sum (List.map xs f)`
---| without building the intermediate list. `f` may perform abilities, which
---| run in list order.
+--| The sum of `f` over the elements: `List.sumBy xs f` is
+--| `List.sum (List.map xs f)` without building the intermediate list. `f` may
+--| perform abilities, which run in list order.
 def List.sumBy [auto add: Add b] (xs: List a) (f: a → {e} b): {e} b := List.foldLeft xs Add.zero (acc x => acc + f x)
 
 --| The product of the elements, of any type with `Mul`.
@@ -421,8 +421,8 @@ def List.Subsequence: List a → List a → Prop
 --| Congruence lemmas: given callbacks that agree on every argument, a function
 --| gives the same result. Their shape is fixed, since `decreasing` looks them up
 --| by name (`F` + `Cong`) to follow a recursive call inside a callback:
---| `F`'s parameters in order, each callback twice, then
---| `(x…) -> f1 x… = f2 x…` for each.
+--| `F`'s parameters in order, each callback twice, then `(x…) -> f1 x… = f2 x…`
+--| for each.
 -- (docs/proposals/well-founded-recursion.md, stage 3a)
 theorem List.mapCong: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | Nil, f1, f2, ef => rfl
@@ -500,8 +500,8 @@ theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFr
 
 --| Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 --| `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
---| The function takes the state and an element and gives the next state and
---| the mapped element; the result is the final state and the mapped list.
+--| The function takes the state and an element and gives the next state and the
+--| mapped element; the result is the final state and the mapped list.
 --| A loop: `done` holds the mapped elements so far, newest first.
 @[noReceiver]
 def List.mapAccumLeftGo (f: s → a → Pair s b) (state: s) (done: List b): List a → Pair s (List b)
@@ -579,9 +579,10 @@ def List.maxByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match O
   | _ => best
 
 --| The element with the largest key, or `None` for an empty list. When several
---| keys are largest, the FIRST of those elements wins: `[(1, "a"), (3, "b"),
---| (3, "c")].maxBy Pair.fst` is `Some (3, "b")`. (Haskell's `maximumBy` and
---| Clojure's `max-key` return the last one, so a port must not assume they agree.)
+--| keys are largest, the FIRST of those elements wins:
+--| `[(1, "a"), (3, "b"), (3, "c")].maxBy Pair.fst` is `Some (3, "b")`.
+--| (Haskell's `maximumBy` and Clojure's `max-key` return the last one, so a
+--| port must not assume they agree.)
 def List.maxBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
   match xs with
     | Nil => None
@@ -693,8 +694,8 @@ def List.findMapStep: Option b → (rest: () → {e} Option b) → {e} Option b
   | None, rest => rest ()
 
 --| The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
---| `f` may perform abilities: it runs in list order and isn't called after
---| the first `Some`.
+--| `f` may perform abilities: it runs in list order and isn't called after the
+--| first `Some`.
 def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=
   match xs with
     | Nil => None
@@ -707,8 +708,8 @@ def List.flatMap (xs: List a) (f: a → {e} List b): {e} List b := List.concat (
 theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: (x: a) → f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
   Eq.cong List.concat (List.mapCong xs f1 f2 ef)
 
---| Every pair, the first elements in order and the second elements within
---| each: `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
+--| Every pair, the first elements in order and the second elements within each:
+--| `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
 def List.cross (xs: List a) (ys: List b): List (Pair a b) := List.flatMap xs (x => List.map ys (y => MkPair x y))
 
 --| Every element with each later one, in order: `[1, 2, 3].pairs` is

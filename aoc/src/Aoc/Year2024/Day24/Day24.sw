@@ -174,9 +174,9 @@ def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wi
     |> .find (gate => gate.operation == operation ∧ (gate.left == input ∨ gate.right == input))
     |> .map (gate => if gate.left == input then gate.right else gate.left)
 
---| What checking a bit found: it passes and carries on this wire, or it
---| is faulty, with the swaps that might fix it, most likely first (none if
---| no swap explains the fault).
+--| What checking a bit found: it passes and carries on this wire, or it is
+--| faulty, with the swaps that might fix it, most likely first (none if no
+--| swap explains the fault).
 type BitCheck =
   | Passes (carry: Wire)
   | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)

@@ -1,9 +1,9 @@
---| Day 2, why `RepetitionTemplate.sumIn` is right: the arithmetic sum of the ids that are a
---| k-digit block written n times equals the brute-force sum over blocks
---| (`repeatedCorrect`), and for any n >= 2 the sum over the ids themselves
---| (`repeatedIds`); over the block lengths, an id counts once (`collapse`).
---| The repetition facts are proved once here, for n copies; Part1.sw uses
---| them at n = 2 and Part2.sw for every n.
+--| Day 2, why `RepetitionTemplate.sumIn` is right: the arithmetic sum of the
+--| ids that are a k-digit block written n times equals the brute-force sum over
+--| blocks (`repeatedCorrect`), and for any n >= 2 the sum over the ids
+--| themselves (`repeatedIds`); over the block lengths, an id counts once
+--| (`collapse`). The repetition facts are proved once here, for n copies;
+--| Part1.sw uses them at n = 2 and Part2.sw for every n.
 --
 -- Kept apart from the program, so
 -- `stitchwort run Aoc.Year2025.Day02.main` doesn't check it.
@@ -15,15 +15,15 @@ import Aoc.Year2025.Day02 (..)
 import Aoc.Year2025.Day02.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
--- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn template r` equals
--- `repeatedSpec r k n`, the brute-force sum below, for every range, block
--- length and repeat count.
+-- Why `RepetitionTemplate.sumIn` is right (a):
+-- `RepetitionTemplate.sumIn template r` equals `repeatedSpec r k n`, the
+-- brute-force sum below, for every range, block length and repeat count.
 --
--- The outline: writing a block `b` n times gives `b * m`
--- (`writeTimesMul`); `from <= b * m <= to` exactly when `b` is between
--- `from / m` rounded up and `to / m` rounded down (`Nat.roundUpLe` and friends);
--- so the ids in the range are `m` times an interval of blocks (`window`),
--- whose sum is Gauss's formula (`List.gaussSum`).
+-- The outline: writing a block `b` n times gives `b * m` (`writeTimesMul`);
+-- `from <= b * m <= to` exactly when `b` is between `from / m` rounded up and
+-- `to / m` rounded down (`Nat.roundUpLe` and friends); so the ids in the range
+-- are `m` times an interval of blocks (`window`), whose sum is Gauss's formula
+-- (`List.gaussSum`).
 
 --| The specification. `writeTimes k b n` is the block `b` written `n` times:
 --| each copy shifts the ones before it left by `k` digits (`b` has `k` digits).

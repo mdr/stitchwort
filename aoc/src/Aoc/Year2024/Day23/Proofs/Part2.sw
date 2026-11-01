@@ -7,10 +7,10 @@
 --| is a clique, no smaller than `best`, and no smaller than any clique made of
 --| the clique and some of the candidates.
 --
--- A clique holding the smallest
--- candidate is made of the clique, that candidate and some of its
--- neighbours among the other candidates (the first search); one without it
--- is made of the clique and the other candidates (the second).
+-- A clique holding the smallest candidate is made of the clique, that
+-- candidate and some of its neighbours among the other candidates (the
+-- first search); one without it is made of the clique and the other
+-- candidates (the second).
 
 namespace Aoc.Year2024.Day23.Proofs
 import Aoc.Year2024.Day23 (..)

@@ -2,8 +2,8 @@
 --| (`renderPlayer`), and each monster's letter at its cell (`renderMonster`,
 --| and `renderEveryMonster` for a valid state). Each cell of the level is
 --| `glyphAt` of the marks on its row over the terrain (`renderCell`); the
---| player's mark comes first, so it's the one drawn, and the monsters'
---| come next.
+--| player's mark comes first, so it's the one drawn, and the monsters' come
+--| next.
 --|
 --| The cell must be one the terrain covers. That the player and every
 --| monster always are, in every state a real game reaches, is Bounds.sw

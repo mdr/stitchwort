@@ -25,8 +25,8 @@ def Nat.keepIf (x: Nat): Bool → Nat
   | False => 0
 
 --| The first number of the run `start .. start + count - 1` that passes `passes` (`start + count` if
---| none does): a least witness, found by computation. Nothing before it passes,
---| and if some `k` of the run passes, so does it, and it is at most `k`.
+--| none does): a least witness, found by computation. Nothing before it passes, and if some `k` of
+--| the run passes, so does it, and it is at most `k`.
 @[noReceiver]
 def Nat.firstFrom (passes: Nat → Bool): Nat → Nat → Nat
   | Zero, start => start

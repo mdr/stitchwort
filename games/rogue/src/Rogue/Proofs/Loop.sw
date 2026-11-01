@@ -1,14 +1,14 @@
 --| One turn of the real loop, `playTurn`, under the test handlers
---| `Terminal.simulate` and `Random.withSeed`: a key that is a command runs `resolve`
---| with the seed's dice and draws its frame (`turnKey`); any other key does
---| nothing (`turnOther`); the end of the keys gives up (`turnEnd`). So every
---| turn the loop takes keeps the state valid (`turnValid`), and pressing an
---| arrow walks that way (`arrowWalks`).
+--| `Terminal.simulate` and `Random.withSeed`: a key that is a command runs
+--| `resolve` with the seed's dice and draws its frame (`turnKey`); any other
+--| key does nothing (`turnOther`); the end of the keys gives up (`turnEnd`). So
+--| every turn the loop takes keeps the state valid (`turnValid`), and pressing
+--| an arrow walks that way (`arrowWalks`).
 --| `play` repeats `playTurn` until the game is over.
--- It is partial, and a
--- partial program under a handler has nothing to prove about it
--- (docs/proposals/partial-handlers.md §3.5), so the loop as a whole is
--- covered by `replayValid` (Game.sw) over the turns it takes.
+-- It is partial, and a partial program under a handler has nothing to
+-- prove about it (docs/proposals/partial-handlers.md §3.5), so the
+-- loop as a whole is covered by `replayValid` (Game.sw) over the turns
+-- it takes.
 
 namespace Rogue.Proofs
 import Rogue (..)

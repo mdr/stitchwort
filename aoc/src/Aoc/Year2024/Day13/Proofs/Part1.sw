@@ -2,9 +2,9 @@
 --| least cost over every press count from 0 to 100, for every machine
 --| (`withinCorrect`).
 --
--- With a nonzero determinant the spec's costs are all of
--- the one win Cramer's rule finds, if it is within 100 presses; with a zero
--- determinant the program searches as the spec does.
+-- With a nonzero determinant the spec's costs are all of the one win
+-- Cramer's rule finds, if it is within 100 presses; with a zero determinant
+-- the program searches as the spec does.
 
 namespace Aoc.Year2024.Day13.Proofs
 import Aoc.Year2024.Day13 (..)
@@ -53,8 +53,8 @@ theorem sameWin (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresse
 --| Cramer's rule within 100 presses gives the least of any list that holds
 --| the cost of each win within 100 presses and nothing else.
 --
--- (The list is a
--- variable so that the spec's isn't computed while checking.)
+-- (The list is a variable so that the spec's isn't computed
+-- while checking.)
 theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0) (costs: List Nat)
     (costsWin: (tokensSpent: Nat) → tokensSpent ∈ costs → WinWithin machine tokensSpent)
     (winsListed: (aPresses: Nat) → (bPresses: Nat) → aPresses ≤ 100 → bPresses ≤ 100 → machine.wins aPresses bPresses = True →

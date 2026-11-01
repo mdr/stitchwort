@@ -1,6 +1,6 @@
 --| Rows as vectors: shifting a whole row one place, and a function of each
---| element and its two neighbours (a stencil), for grid puzzles whose rows
---| are `Vec a width`. The fill or pad value stands for a neighbour past either
+--| element and its two neighbours (a stencil), for grid puzzles whose rows are
+--| `Vec a width`. The fill or pad value stands for a neighbour past either
 --| end, so no index is ever out of range. The lemmas give `getOr` of each, the
 --| form a proof about one column rewrites with.
 -- A file of its own, so that programs using only `Vec.sw` don't check these.

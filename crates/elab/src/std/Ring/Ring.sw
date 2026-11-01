@@ -173,8 +173,8 @@ def Ring.cons: Int → List Nat → List Ring.Mono → List Ring.Mono
   | OfNat (Succ n), vs, p => Cons (MkMono (OfNat (Succ n)) vs) p
   | NegSucc n, vs, p => Cons (MkMono (NegSucc n) vs) p
 
---| `c * vs + p`, in normal form when `p` is: before the first monomial
---| that comes after it, or added to the one alike (dropped if that makes 0).
+--| `c * vs + p`, in normal form when `p` is: before the first monomial that
+--| comes after it, or added to the one alike (dropped if that makes 0).
 def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Ring.cons c vs Nil
   | Cons (MkMono d ws) p =>

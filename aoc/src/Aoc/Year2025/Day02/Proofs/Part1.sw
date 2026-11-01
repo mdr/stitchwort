@@ -2,8 +2,8 @@
 --| brute-force sum over blocks (`part1BlocksCorrect`), which is the puzzle's own
 --| sum over ids (`part1Correct`). Part 2 is in Part2.sw.
 --
--- Kept apart from the
--- program, so `stitchwort run Aoc.Year2025.Day02.main` doesn't check any of it.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2025.Day02.main`
+-- doesn't check any of it.
 
 namespace Aoc.Year2025.Day02.Proofs
 import Aoc.Common (..)
@@ -16,9 +16,9 @@ import Std (Eq, List, Nat)
 -- blocks written twice; (c) below says that is the puzzle's own sum. Part 2
 -- is proved in Proofs/Part2.sw (`Aoc.Year2025.Day02.Proofs.part2Correct`).
 
---| Brute force for part 1: in each range, every block length up to the
---| number of digits of `to` (a longer block makes a longer id), every block of
---| that length written twice.
+--| Brute force for part 1: in each range, every block length up to the number
+--| of digits of `to` (a longer block makes a longer id), every block of that
+--| length written twice.
 def part1Blocks (ranges: List Range): Nat :=
   ranges |> .sumBy (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2))
 

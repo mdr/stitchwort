@@ -1,7 +1,9 @@
 --| The adder theorem: gates of the ripple-carry shape, as `checkAdder`
---| checks it, add. Each bit's gates carry its sum bit and the carry out,
---| given the carry in (`fullAdderCarries`); by induction up the bits, every
---| z wire carries its bit of x + y (`checkFromCarries`).
+--| checks it, add.
+--
+-- Each bit's gates carry its sum bit and the carry out, given the carry in
+-- (`fullAdderCarries`); by induction up the bits, every z wire carries its bit
+-- of x + y (`checkFromCarries`).
 
 namespace Aoc.Year2024.Day24.Proofs
 import Aoc.Year2024.Day24 (..)

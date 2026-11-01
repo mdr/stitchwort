@@ -7,16 +7,16 @@
 --|
 --| The puzzle input is committed in aoc/inputs/2025/.
 --|
---| Rather than test every id, add up the invalid ones arithmetically. The
---| ids made of a k-digit block written n times (a template of k by n) are
---| base * m for the k-digit bases, where m = 1 + 10^k + 10^2k + ... (12
---| written 3 times is 12 * 10101). Those bases form an interval, so their sum
---| is an arithmetic series (`RepetitionTemplate.sumIn`). Part 2 must not count
---| 111111 three times (1 six times, 11 three times, 111 twice): by
---| inclusion-exclusion over n, the ids with some proper period are the sum
---| over n of -mu(n) times the ids with n copies, where mu is the Moebius
---| function. The weights -mu(n) are computed (`copiesWeight`, a signed sum
---| over the divisors), so ids of any length work.
+--| Rather than test every id, add up the invalid ones arithmetically. The ids
+--| made of a k-digit block written n times (a template of k by n) are base * m
+--| for the k-digit bases, where m = 1 + 10^k + 10^2k + ... (12 written 3 times
+--| is 12 * 10101). Those bases form an interval, so their sum is an arithmetic
+--| series (`RepetitionTemplate.sumIn`). Part 2 must not count 111111 three
+--| times (1 six times, 11 three times, 111 twice): by inclusion-exclusion over
+--| n, the ids with some proper period are the sum over n of -mu(n) times the
+--| ids with n copies, where mu is the Moebius function. The weights -mu(n) are
+--| computed (`copiesWeight`, a signed sum over the divisors), so ids of any
+--| length work.
 --|
 --| That `RepetitionTemplate.sumIn` adds up the right ids is proved in
 --| `Aoc.Year2025.Day02.Proofs` (Proofs/Repeated.sw); the tests are in
@@ -83,8 +83,8 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 --| `copies` from 2 to copies - 1. For copies >= 2 this is minus the Moebius
 --| function (the weights of 0 and 1 copies are 1, and are never used). It is
 --| chosen so that for every K >= 2 the weights of K's divisors from 2 on (K
---| itself included) add up to 1: an id whose smallest repeating block is written K
---| times is then counted once.
+--| itself included) add up to 1: an id whose smallest repeating block is
+--| written K times is then counted once.
 --
 -- The guard `d < copies` always holds; it is
 -- there to show that the recursion ends.

@@ -10,8 +10,8 @@
 --   3. the two boxes of every connection so far have the same label;
 --   4. every box is joined to its label (a label is one of the boxes of
 --      its circuit).
--- From 3, joined boxes have the same label: each link of the chain keeps
--- it (`sameLabelOfJoined`). From 4, boxes with the same label are joined:
+-- From 3, joined boxes have the same label: each link of the chain keeps it
+-- (`sameLabelOfJoined`). From 4, boxes with the same label are joined:
 -- both are joined to the label. A join keeps 3 and 4 because the boxes
 -- labelled like the first box are exactly its circuit, and they all move to
 -- the second box's circuit, which the new connection joins it to.

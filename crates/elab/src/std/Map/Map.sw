@@ -9,9 +9,8 @@
 --| respects `Map.Raw.Equiv` (std/Map/Spec.sw). At run time a map is its tree,
 --| in one record.
 --| Insertion, lookup and removal take O(log n) comparisons; `size` is O(1).
---| `union`, `unionWith`, `intersectWith`, `difference` and `filter` are
---| O(n + m), by merging sorted entry lists (std/Map/Spec.sw, "Bulk
---| operations").
+--| `union`, `unionWith`, `intersectWith`, `difference` and `filter` are O(n +
+--| m), by merging sorted entry lists (std/Map/Spec.sw, "Bulk operations").
 -- (docs/proposals/interfaces.md §7.5, D169)
 -- (docs/proposals/map-equality.md §8)
 -- docs/proposals/map-set.md.

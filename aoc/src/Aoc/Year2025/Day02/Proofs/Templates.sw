@@ -1,5 +1,5 @@
---| Day 2, which templates `allTemplatesForRange` lists: exactly those that fit
---| in the digits of the range's end (`templateFits` and `fittingTemplateListed`);
+--| Day 2, which templates `allTemplatesForRange` lists: exactly those that fit in
+--| the digits of the range's end (`templateFits` and `fittingTemplateListed`);
 --| every id of the range that is a block written two or more times has its
 --| template listed (`writtenIdTemplateListed`), so the sum over the templates
 --| misses no id; and no template is listed twice (`templatesDistinct`).
@@ -29,8 +29,8 @@ def keptIfFits (size: Nat) (blockLength: Nat) (copies: Nat): List RepetitionTemp
 
 --| The program is a loop over block lengths with a loop over copies inside,
 --| keeping the templates that fit: as lists, a `flatMap` of a `flatMap` of
---| "this template if it fits, else nothing". `templatesSum` below sums
---| over it.
+--| "this template if it fits, else nothing". `templatesSum` below sums over
+--| it.
 theorem templatesAsGrid (range: Range):
     allTemplatesForRange range
       = List.flatMap (List.between 1 (List.length (Nat.digits range.to))) (blockLength =>
@@ -56,8 +56,8 @@ theorem templatesAsGrid (range: Range):
       := rewrite Each.collectEach (fitting _) (List.between 2 size), kept
 
 --| The same for sums: summing over the templates is summing over every block
---| length up to the digits and every number of copies from 2, the templates
---| that don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
+--| length up to the digits and every number of copies from 2, the templates that
+--| don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
 theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
 theorem betweenTwo: (n: Nat) → List.between 2 n = List.rangeFrom (n - 1) 2

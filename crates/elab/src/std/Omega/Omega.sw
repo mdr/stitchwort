@@ -539,10 +539,10 @@ test "check: Divide floors a negative constant" := Omega.check [FLe (NLit 1) (Mu
 test "check: Divide floors a positive constant" := Omega.check [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)] GVoid
   (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
 
---| `Cases`: `t = a - b` and `b <= a` give `t + b <= a`. The left case
---| (`b <= a`, `t + b = a`) has rows 0 to 2, and its row 1, `a - (t + b) >= 0`,
---| meets the goal's negation; the right case (`a < b`, `t = 0`) has `b - a - 1 >= 0`,
---| which meets the fact `b <= a` (input row 2: `FSub` gives two rows first).
+--| `Cases`: `t = a - b` and `b <= a` give `t + b <= a`. The left case (`b <= a`,
+--| `t + b = a`) has rows 0 to 2, and its row 1, `a - (t + b) >= 0`, meets the goal's
+--| negation; the right case (`a < b`, `t = 0`) has `b - a - 1 >= 0`, which meets the
+--| fact `b <= a` (input row 2: `FSub` gives two rows first).
 -- (stage 2)
 test "check: Cases on a subtraction" := Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
   (Cases 0
