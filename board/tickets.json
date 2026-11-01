@@ -3655,7 +3655,7 @@
     {
       "id": 1031,
       "title": "Documentation stage 2a part 2: sort std List (--| docs vs -- notes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3664,7 +3664,9 @@
       "body": "Continues SW-1024 (dev/docsort; core and 20 small folders done). List: 915 comment lines. Then: Map+Parse; Float, Nat, Terminal, Omega, Int, Graph; then an Opus review per namespace (D2151); then aoc and rogue (2c); then remove the D2142 fallback.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "c5f9bdc8"
+      ]
     },
     {
       "id": 1032,
