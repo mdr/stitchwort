@@ -12,8 +12,7 @@ theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = T
 theorem Nat.addSwap (a: Nat) (b: Nat) (c: Nat) (d: Nat): (a + b) + (c + d) = (a + c) + (b + d) := ring
 
 --| Sums from a starting total, one element at a time and of two lists, for
---| any `Add`. At `Nat` they state the
---| facts about `Nat` sums, by computation.
+--| any `Add`. At `Nat` they state the facts about `Nat` sums, by computation.
 -- (docs/proposals/interfaces.md §7.7)
 theorem List.sumFrom [auto add: Add a]: (xs: List a) → (z: a) → List.foldLeft xs z Add.add = z + List.sum xs
   | Nil, z => Eq.sym (Add.addZero z)
@@ -651,9 +650,8 @@ theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: (x: a) → (y: a) �
 --| Sorting a list whose elements all pass `p` needs `le` total only on the
 --| values that pass `p`, not on every value: doubles other than the NaN under
 --| `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`).
--- Merging and
--- the sort's runs keep every element passing, so every comparison the sort
--- makes is between two of them.
+-- Merging and the sort's runs keep every element passing, so every
+-- comparison the sort makes is between two of them.
 theorem List.mergeAll (le: a → a → Bool) (p: a → Prop): (xs: List a) → (ys: List a) →
     List.All p xs → List.All p ys → List.All p (List.merge le xs ys)
   | Nil, ys, ax, ay => ay

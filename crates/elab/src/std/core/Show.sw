@@ -1,8 +1,8 @@
 --| core/Show.sw. The `Show` interface, its quoting and bracketing helpers, and
 --| the `Show` instances for the core types.
--- Loaded with the core:
--- Interpolation (`"${e}"`) and `deriving (Show)` use `Show`, and the elements
--- of lists and tuples print through it (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: Interpolation (`"${e}"`) and `deriving (Show)` use
+-- `Show`, and the elements of lists and tuples print through it
+-- (docs/proposals/prelude-slim.md §2.1).
 
 -- `Show` (docs/proposals/interfaces.md §5.14, §6.4): `"${e}"` inserts
 -- `Show.toText e`. `toText` is for people (`"tea"` is `tea`); `toSource` is

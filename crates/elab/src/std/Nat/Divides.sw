@@ -1,7 +1,7 @@
 --| Divisibility: `Nat.divides` and its lemmas, and the remainder by a divisor
 --| of the modulus.
--- A file of its own, so that programs using only `Nat`
--- arithmetic don't check these.
+-- A file of its own, so that programs using only `Nat` arithmetic don't check
+-- these.
 
 --| `x % len % k = x % k` when `len` is a multiple of `k`.
 theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len ≠ 0] [auto hk: k ≠ 0] (e: len = t * k): x % len % k = x % k :=

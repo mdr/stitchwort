@@ -1,13 +1,13 @@
---| The soundness of `Std.Ring` (std/Ring/Ring.sw):
---| a polynomial's normal form means the same as the polynomial, in
---| every environment (`Ring.NExpr.sound`, `Ring.ZExpr.sound`), so two sides
---| with the same normal form are equal (`Ring.proveNat`, `Ring.proveInt`), and
---| with hypotheses added to the other side, equal once they are cancelled
---| (`Ring.proveNatWith`, `Ring.proveIntWith`).
+--| The soundness of `Std.Ring` (std/Ring/Ring.sw): a polynomial's normal form
+--| means the same as the polynomial, in every environment (`Ring.NExpr.sound`,
+--| `Ring.ZExpr.sound`), so two sides with the same normal form are equal
+--| (`Ring.proveNat`, `Ring.proveInt`), and with hypotheses added to the other
+--| side, equal once they are cancelled (`Ring.proveNatWith`,
+--| `Ring.proveIntWith`).
 -- (docs/proposals/proof-automation.md §6.2)
--- It uses `Int`'s ring laws and
--- nothing about lists from the library: soundness doesn't need the normal
--- form to be sorted, only that monomials `Ring.cmp` calls alike are.
+-- It uses `Int`'s ring laws and nothing about lists from the library:
+-- soundness doesn't need the normal form to be sorted, only that monomials
+-- `Ring.cmp` calls alike are.
 
 import Ring.Env (MkEnv)
 import Ring.NExpr (NAtom, NNum, NAdd, NMul, NSucc)

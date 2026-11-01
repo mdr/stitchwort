@@ -1,8 +1,7 @@
 --| The summed-area table is right: `PrefixSums.block` of `PrefixSums.of rows`
 --| is the sum of the cells in the block (`PrefixSums.blockSum`), whenever the
 --| block is inside the grid.
--- Kept out of PrefixSums.sw because the proofs
--- need `omega`.
+-- Kept out of PrefixSums.sw because the proofs need `omega`.
 
 --| Row r of the table, entry c: the entry of `above`, plus entry c of each of
 --| the first r rows of sums.

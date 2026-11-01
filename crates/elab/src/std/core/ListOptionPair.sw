@@ -1,8 +1,7 @@
 --| core/ListOptionPair.sw. List, `Pair` and `Option`: facts about their
 --| constructors, small accessors, and decidable equality for each.
--- Loaded with
--- the core: `List.instDecEq`, `Pair.instDecEq` and `Option.instDecEq` need
--- these, and `==` on those types needs the instances
+-- Loaded with the core: `List.instDecEq`, `Pair.instDecEq` and
+-- `Option.instDecEq` need these, and `==` on those types needs the instances
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Lists, continued

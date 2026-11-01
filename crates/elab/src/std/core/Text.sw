@@ -1,8 +1,7 @@
 --| core/Text.sw. `Text`: the type, conversion to and from lists of characters,
 --| decidable equality, comparison, and `Nat.toText`.
--- Loaded with the core:
--- `Text` is pinned by content hash in the JS backend, and the `Show`
--- instances need `Nat.toText` and `Text.compare`
+-- Loaded with the core: `Text` is pinned by content hash in the JS backend, and
+-- the `Show` instances need `Nat.toText` and `Text.compare`
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Text (docs/proposals/text-and-io.md)

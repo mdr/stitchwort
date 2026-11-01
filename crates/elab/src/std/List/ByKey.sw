@@ -1,6 +1,7 @@
---| Combining lists by a key: `List.differenceBy` keeps the items of
---| one list whose key no item of another has, and `List.appendNewBy` is the
---| first list, then the second's items whose key is new.
+--| Combining lists by a key: `List.differenceBy` keeps the items of one list
+--| whose key no item of another has, and `List.appendNewBy` is the first
+--| list, then the second's items whose key is new.
+--|
 --| Neither removes repeats within a list. `differenceBy` is lodash's
 --| `differenceBy`. `appendNewBy` is not lodash's `unionBy` (nor Haskell's
 --| `unionBy`), which also drops the repeats within each list: the two agree
@@ -8,8 +9,8 @@
 --| is about. For a list of records updated from another, `appendNewBy` keeps
 --| every record of the first and adds those of the second it doesn't have.
 -- (SW-584)
--- A file of its own,
--- so that programs using only the toolkit don't check these.
+-- A file of its own, so that programs using only the toolkit don't check
+-- these.
 
 --| The items of `xs` whose key isn't the key of any item of `ys`, in order,
 --| repeats kept: `[1, 12, 5].differenceBy [22] (n => n % 10)` is `[1, 5]`.

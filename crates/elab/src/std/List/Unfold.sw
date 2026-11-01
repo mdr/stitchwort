@@ -1,7 +1,7 @@
 --| `List.unfold`: build a list from a seed.
--- A file of its own: the loop needs
--- a measure to end (`decreasing`, docs/proposals/well-founded-recursion.md),
--- so a program that doesn't unfold doesn't check it.
+-- A file of its own: the loop needs a measure to end (`decreasing`,
+-- docs/proposals/well-founded-recursion.md), so a program that doesn't unfold
+-- doesn't check it.
 
 --| `List.unfold seed step measure shrinks` asks `step` about the seed: `None`
 --| ends the list, and `Some (MkPair v next)` puts `v` first and goes on from

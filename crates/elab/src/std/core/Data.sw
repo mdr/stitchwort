@@ -1,9 +1,8 @@
 --| core/Data.sw. The core data types: `Nat` and its arithmetic, `Bool`,
 --| `List`, `Option`, `Pair`, and the first list functions.
--- Loaded with the
--- core: The registry's built-ins are these types and their operations,
--- `Bool.True`/`False` are written by name, and the runner uses `Pair.fst`
--- (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: The registry's built-ins are these types and their
+-- operations, `Bool.True`/`False` are written by name, and the runner uses
+-- `Pair.fst` (docs/proposals/prelude-slim.md §2.1).
 
 -- Numbers
 

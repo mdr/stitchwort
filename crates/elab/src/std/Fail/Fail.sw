@@ -2,6 +2,7 @@
 --| message does in Unison or Koka. Code that may fail says `{Fail}` in its
 --| row and fails with `fail msg`, or reads an `Option` with `need o msg`; a
 --| handler (`Fail.toResult`, `Fail.orElse`, ...) decides what failing means.
+--| `Abort` is the same without the message.
 --|
 --|   def turn (t: Text): {Fail} Int :=
 --|     let (c, rest) := need t.uncons "expected a turn like L68, got '${t}'"
@@ -10,7 +11,7 @@
 --|     if c == 'L' then -n else n
 --|
 --|   def parse (t: Text): Result Int Text := Fail.toResult (() => turn t)
--- `Abort` is the same without the message (docs/proposals/errors.md).
+-- (docs/proposals/errors.md)
 
 --| The one operation. It returns `Empty`, so no handler can resume the
 --| computation: there's no value to resume it with. Code calls
@@ -191,10 +192,10 @@ theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: 
 
 --| A map over a list fails with the first element's failure, or gives every
 --| result.
--- By induction on the list; in the step, `Result.traverseCons` says
--- what `traverse` (a loop) does with the first element, then a split on
--- `f x`: if it finishes, `toResultThen` and the induction hypothesis say
--- what the rest gives.
+-- By induction on the list; in the step, `Result.traverseCons` says what
+-- `traverse` (a loop) does with the first element, then a split on `f x`: if
+-- it finishes, `toResultThen` and the induction hypothesis say what the rest
+-- gives.
 theorem Fail.toResultMap (f: a → {Fail} b): (xs: List a) →
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl

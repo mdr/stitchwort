@@ -1,14 +1,14 @@
 --| `Map.Raw k v`: the representation of a `Map` (std/Map/Map.sw), a
 --| weight-balanced binary search tree (Adams's trees, as in Haskell's
---| `Data.Map`) with the ordering of the keys in the type (docs/proposals/
---| interfaces.md §7.5, D169). The tree carries proofs that its keys are in
---| order (`Map.Tree.Ordered`) and that its stored sizes are right
---| (`Map.Tree.Sized`), erased at run time. Two raw maps with the same entries
---| can be different trees; `Map` is the quotient that identifies them
---| (docs/proposals/map-equality.md §8). What each operation does to the
---| entries, `Map.Raw.Equiv`, and the lemmas that each operation respects it
---| are in std/Map/Spec.sw.
+--| `Data.Map`) with the ordering of the keys in the type. The tree carries
+--| proofs that its keys are in order (`Map.Tree.Ordered`) and that its stored
+--| sizes are right (`Map.Tree.Sized`), erased at run time. Two raw maps with
+--| the same entries can be different trees; `Map` is the quotient that
+--| identifies them. What each operation does to the entries, `Map.Raw.Equiv`,
+--| and the lemmas that each operation respects it are in std/Map/Spec.sw.
 --| Insertion, lookup and removal take O(log n) comparisons; `size` is O(1).
+-- (docs/proposals/interfaces.md §7.5, D169)
+-- (docs/proposals/map-equality.md §8)
 -- docs/proposals/map-set.md.
 
 import Std (Eq)

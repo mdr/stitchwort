@@ -1,8 +1,7 @@
 --| core/Decidable.sw. `Decidable`, its combinators, the decisions for `Nat`
 --| and `Bool`, and the uniqueness of equality proofs on `Bool`.
--- Loaded with
--- the core: `==`, `if h: x = y` and `auto` run on `Decidable`, and `deriving
--- (DecEq)` writes `Decidable.Yes` and `Nat.equal` in full
+-- Loaded with the core: `==`, `if h: x = y` and `auto` run on `Decidable`, and
+-- `deriving (DecEq)` writes `Decidable.Yes` and `Nat.equal` in full
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Decisions
@@ -41,17 +40,17 @@ theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
---| `Decidable.elim` for a proof: `if` with proofs as branches is this
---| (SW-1015), and a theorem with `decreasing (m1, m2)` makes its recursive
---| calls through it (docs/proposals/well-founded-recursion.md, stage 3d).
+--| `Decidable.elim` for a proof: `if` with proofs as branches is this, and a
+--| theorem with `decreasing (m1, m2)` makes its recursive calls through it.
+-- (SW-1015)
+-- (docs/proposals/well-founded-recursion.md, stage 3d)
 theorem Decidable.elimProof: [p: Prop] → [a: Prop] → Decidable p → (p → a) → (Not p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
 --| An `if` equals `z` when both its branches do.
--- What `decreasing (m1, m2)`
--- generates proves `f.unfold` with it (docs/proposals/well-founded-recursion.md,
--- stage 3d).
+-- What `decreasing (m1, m2)` generates proves `f.unfold` with it
+-- (docs/proposals/well-founded-recursion.md, stage 3d).
 theorem Decidable.elimEq: [p: Prop] → [a: Type] → (d: Decidable p) → (y: p → a) → (n: Not p → a) → (z: a) → ((h: p) → y h = z) → ((r: Not p) → n r = z) → Decidable.elim d y n = z
   | Yes h, y, n, z, ey, en => ey h
   | No r, y, n, z, ey, en => en r
@@ -75,12 +74,12 @@ def Nat.decEqFrom (m: Nat) (n: Nat): (b: Bool) → Nat.equal m n = b → Decidab
   | True, h => Yes (Nat.equalSound m n h)
   | False, h => No (Nat.equalFalse m n h)
 
---| For two numbers this computes `Yes rfl` or `No (Nat.equalFalse m n rfl)`, and the
---| native gives exactly that, however big they are.
--- (Recursing on both numbers
--- one step at a time would build a refutation as deep as the smaller number.)
--- It matches on both numbers so it waits until they're known, rather than
--- unfolding around an unknown one.
+--| For two numbers this computes `Yes rfl` or `No (Nat.equalFalse m n rfl)`,
+--| and the native gives exactly that, however big they are. It matches on both
+--| numbers so it waits until they're known, rather than unfolding around an
+--| unknown one.
+-- (Recursing on both numbers one step at a time would build a refutation as
+-- deep as the smaller number.)
 def Nat.decEq: (m: Nat) → (n: Nat) → Decidable (m = n)
   | Zero, Zero => Yes rfl
   | Zero, Succ n => No (Nat.equalFalse 0 (Succ n) rfl)

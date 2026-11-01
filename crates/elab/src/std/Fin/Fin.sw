@@ -47,8 +47,7 @@ theorem Fin.toNatInjective: (i: Fin n) → (j: Fin n) → Fin.toNat i = Fin.toNa
   | FSucc i, FZero, h => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
 
 --| `==` on positions: they're equal exactly when their numbers are.
--- Written
--- by hand: deriving `==` for an indexed family is not supported yet.
+-- Written by hand: deriving `==` for an indexed family is not supported yet.
 instance Fin.instDecEq: DecEq (Fin n) :=
   { decide = i j =>
     if h: Fin.toNat i = Fin.toNat j then Yes (Fin.toNatInjective i j h)
@@ -67,8 +66,7 @@ theorem Fin.allComplete: (n: Nat) → (i: Fin n) → List.Mem i (Fin.all n)
   | Succ m, FSucc i => Inr (List.memConcatMap (j => [FSucc j]) i (FSucc i) (Fin.all m) (Fin.allComplete m i) (Inl rfl))
 
 --| So `Fin n` is finite, and `Finite.check` takes statements about positions.
--- (written by hand: `Finite` isn't derived for an
--- indexed family)
+-- (written by hand: `Finite` isn't derived for an indexed family)
 instance Fin.instFinite: Finite (Fin n) := { all = Fin.all n, complete = Fin.allComplete n }
 
 theorem Fin.allExample: List.map (Fin.all 3) Fin.toNat = [0, 1, 2] := rfl

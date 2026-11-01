@@ -1,8 +1,8 @@
---| Integer functions that were in the core (docs/proposals/prelude-slim.md stage
---| 3): the division variants and others no compiler path names.
--- This file depends
--- on the core alone, so a program that divides doesn't also load the lemmas in
--- `Int.sw`.
+--| Integer functions that were in the core: the division variants and others
+--| no compiler path names.
+-- (docs/proposals/prelude-slim.md stage 3)
+-- This file depends on the core alone, so a program that divides doesn't also
+-- load the lemmas in `Int.sw`.
 
 def Nat.toInt (n: Nat): Int := OfNat n
 

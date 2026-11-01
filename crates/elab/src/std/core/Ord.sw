@@ -1,8 +1,7 @@
 --| core/Ord.sw. The `Ord` interface, `Ord.fromCompare`, and the `Ord`
 --| instances for the core types.
--- Loaded with the core: `< <=` and `deriving
--- (Ord)` go through `Ord` dictionaries, found by full key
--- (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `< <=` and `deriving (Ord)` go through `Ord`
+-- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
 
 theorem Bool.toNatInjective: (a: Bool) → (b: Bool) → Bool.toNat a = Bool.toNat b → a = b
   | False, False, h => rfl
@@ -17,12 +16,11 @@ def Bool.compare (a: Bool) (b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bo
 def Ordering.compare (first: Ordering) (second: Ordering): Ordering := Nat.compare (Ordering.index first) (Ordering.index second)
 
 --| A total order: a comparison with its laws, and the relations `<` and `<=`
---| with their decisions, agreeing with it (docs/proposals/interfaces.md
---| §6.2, D180; the fields are `lessThan` and `lessEq`, D200). Build one with
---| `Ord.fromCompare` or `Ord.byKey`.
--- The relations
--- are fields so that `Nat`'s can be `Nat.LessThan` and `Nat.LessEq`
--- themselves.
+--| with their decisions, agreeing with it (the fields are `lessThan` and
+--| `lessEq`). Build one with `Ord.fromCompare` or `Ord.byKey`.
+-- (docs/proposals/interfaces.md §6.2, D180; D200)
+-- The relations are fields so that `Nat`'s can be `Nat.LessThan` and
+-- `Nat.LessEq` themselves.
 interface Ord (a: Type) = {
   eq: DecEq a,
   compare: a → a → Ordering,

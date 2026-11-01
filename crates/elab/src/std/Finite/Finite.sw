@@ -1,8 +1,7 @@
 --| `Finite.check`: a statement about every value of a finite type, checked
---| by computing it for each one. The
---| interface and its instances are in the core (core/Finite.sw), since
---| derived instances need them; this isn't.
--- (docs/proposals/decide.md §6.2).
+--| by computing it for each one. The interface and its instances are in the
+--| core (core/Finite.sw), since derived instances need them; this isn't.
+-- (docs/proposals/decide.md §6.2)
 
 --| What `p` says of every value on the list `Finite.all`, it says of every
 --| value. `checked` is usually `rfl`: the kernel computes `p` for each value.

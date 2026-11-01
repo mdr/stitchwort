@@ -1,14 +1,14 @@
 import Parse.Problem (Expected, Literal, Message)
 import Effect.AlwaysTreeOf (AlwaysCall)
 
---| `Parse.Reads parser spec` says:
---| whenever `parser` succeeds, it read a start of the input, and `spec`
---| holds of the characters it read and the value it gave. Each piece and
---| combinator below has such a lemma (`Parse.readsNat`, `Parse.readsMany`,
---| `Parse.readsPick`, …), and the runners turn one into a statement about
---| the input (`Parse.eachLineReads`: a successful `eachLine` gives one value
---| per line, each `spec` of that line). So a parser guarantee (D2108) is
---| the runner's lemma applied to the combinators' lemmas:
+--| What a successful parse read. `Parse.Reads parser spec` says: whenever
+--| `parser` succeeds, it read a start of the input, and `spec` holds of the
+--| characters it read and the value it gave. Each piece and combinator below
+--| has such a lemma (`Parse.readsNat`, `Parse.readsMany`, `Parse.readsPick`,
+--| …), and the runners turn one into a statement about the input
+--| (`Parse.eachLineReads`: a successful `eachLine` gives one value per line,
+--| each `spec` of that line). So a parser guarantee is the runner's lemma
+--| applied to the combinators' lemmas:
 --|
 --|   theorem parseReads (input: Text) (lines: List (List Token))
 --|       (parsed: Fail.toResult (() => Parse.eachLine input (() => Parse.many token)) = Ok lines):
@@ -26,7 +26,8 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 --| so "a number, and then no more digits" isn't said. And `reset` can go
 --| to any mark, so a parser that resets to a mark it made up has no such
 --| lemma; every parser in `Std.Parse` resets only to marks it took itself.
--- What a successful parse read (SW-998).
+-- (SW-998)
+-- (D2108)
 --
 -- The proofs go through the handler by induction on the parser's
 -- computation tree (`Effect.AlwaysTree`, as `Rogue.Proofs.withSeedAlways`

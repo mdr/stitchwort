@@ -1,8 +1,7 @@
 --| What each set operation does to the keys, from `Map`'s (std/Map/Map.sw),
 --| and `Set.ext`: sets with the same keys are equal, whatever order the keys
---| were inserted in.
--- (a set's map is a quotient, docs/proposals/
--- map-equality.md §8).
+--| were inserted in (a set's map is a quotient).
+-- (docs/proposals/map-equality.md §8)
 
 import Std (Eq)
 

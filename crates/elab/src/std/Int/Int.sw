@@ -1,8 +1,7 @@
 --| `Int` arithmetic for programs: the arithmetic and division laws, proved from
---| the core's definitions and `Int/Basics.sw`'s. (The sum of a list
---| of `Int`s is the generic `List.sum`.)
--- This file was the
--- prelude's blocks of `Int` lemmas after the core's `Int`.
+--| the core's definitions and `Int/Basics.sw`'s. (The sum of a list of `Int`s
+--| is the generic `List.sum`.)
+-- This file was the prelude's blocks of `Int` lemmas after the core's `Int`.
 
 -- Lemmas (checkpoint 1)
 
@@ -80,10 +79,9 @@ theorem Int.modLtAbs: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → a % d < N
   | NegSucc m, NegSucc n => Nat.subLe n (m % Succ n)
 
 --| The division law's negative-dividend cases.
--- With `q = m / Succ n` and
--- `r = m % Succ n`, `d * (a / d)` computes to `NegSucc (q + n * Succ q)`,
--- and adding `n - r` gives `-(m + 1)`: `Succ (q + n * Succ q) - (n - r)`
--- is `Succ m`, because `q + n * Succ q = m + (n - r)`.
+-- With `q = m / Succ n` and `r = m % Succ n`, `d * (a / d)` computes to
+-- `NegSucc (q + n * Succ q)`, and adding `n - r` gives `-(m + 1)`: `Succ (q +
+-- n * Succ q) - (n - r)` is `Succ m`, because `q + n * Succ q = m + (n - r)`.
 theorem Int.divAddModNeg (m: Nat) (n: Nat) (q: Nat) (r: Nat) (h: m = q * Succ n + r) (hr: r ≤ n):
     Int.add (NegSucc (q + n * Succ q)) (OfNat (n - r)) = NegSucc m :=
   Eq.cong (Int.subNatNatFrom (n - r) (Succ (q + n * Succ q)))

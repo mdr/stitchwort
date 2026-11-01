@@ -1,7 +1,7 @@
 --| Functions on `Result` (the type and `Result.getOrElse` are in the core,
 --| `core/Result.sw`). `Std.Fail` turns a failing computation into a `Result`
 --| and back.
--- (docs/proposals/errors.md §3.2).
+-- (docs/proposals/errors.md §3.2)
 
 --| `f` of the value; an error stays as it is.
 def Result.map: Result a e → (f: a → b) → Result b e

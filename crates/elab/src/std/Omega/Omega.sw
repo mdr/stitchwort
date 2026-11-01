@@ -1,10 +1,10 @@
---| `Std.Omega`: linear arithmetic by a checked certificate (docs/proposals/omega.md,
---| milestone 1a). Facts and a goal about `Nat` are written as syntax over
---| numbered atoms; `Omega.check` replays a certificate saying how to combine
---| them into something false; `Omega.prove` (std/Omega/Sound.sw) says that when
---| the check passes, the facts imply the goal, in every environment. The
---| compiler's `omega` (milestone 1b) finds the certificate and writes the
---| `Omega.prove` application; nothing here is trusted beyond the kernel.
+--| `Std.Omega`: linear arithmetic by a checked certificate. Facts and a goal
+--| about `Nat` are written as syntax over numbered atoms; `Omega.check`
+--| replays a certificate saying how to combine them into something false;
+--| `Omega.prove` (std/Omega/Sound.sw) says that when the check passes, the
+--| facts imply the goal, in every environment. The compiler's `omega` finds
+--| the certificate and writes the `Omega.prove` application; nothing here is
+--| trusted beyond the kernel.
 --|
 --| `Int` facts and goals are written over `Int` syntax (`ITerm`), whose
 --| `Nat` parts (`OfNat t`) are `Nat` syntax: a `Nat` atom inside an `Int`
@@ -16,6 +16,8 @@
 --| lists keeps the longer one, `NV i` has a list of length `i + 1`), so no
 --| coefficient is ever dropped and there is no separate dimension: an atom
 --| past the end of the environment means 0.
+-- (docs/proposals/omega.md, milestone 1a)
+-- (milestone 1b)
 
 import Omega.Env (MkEnv)
 import Omega.NTerm (NV, NLit, NAdd, NSucc, MulLeft, MulRight)
@@ -245,10 +247,10 @@ def Omega.ITerm.lin: Omega.ITerm → Omega.Row
   | IMulRight t k => Omega.Row.scale k (Omega.ITerm.lin t)
   | ISubNat a b => Omega.Row.sub (Omega.NTerm.lin a) (Omega.NTerm.lin b)
 
---| The convention (docs/proposals/omega.md §6.3), all through this one row:
---| `a <= b` is `b - a >= 0`; `a < b` is `Succ a <= b`; `Not (a <= b)` is
---| `Succ b <= a`; `Not (a < b)` is `b <= a`; `a = b` is both `a <= b` and
---| `b <= a`.
+--| The convention, all through this one row: `a <= b` is `b - a >= 0`;
+--| `a < b` is `Succ a <= b`; `Not (a <= b)` is `Succ b <= a`; `Not (a < b)`
+--| is `b <= a`; `a = b` is both `a <= b` and `b <= a`.
+-- (docs/proposals/omega.md §6.3)
 def Omega.leRow (a: Omega.NTerm) (b: Omega.NTerm): Omega.Row := Omega.Row.sub (Omega.NTerm.lin b) (Omega.NTerm.lin a)
 
 --| The same on `Int`, where `a < b` gives the row of `a + 1 <= b`.
@@ -537,10 +539,11 @@ test "check: Divide floors a negative constant" := Omega.check [FLe (NLit 1) (Mu
 test "check: Divide floors a positive constant" := Omega.check [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)] GVoid
   (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
 
---| `Cases` (stage 2): `t = a - b` and `b <= a` give `t + b <= a`. The left case
+--| `Cases`: `t = a - b` and `b <= a` give `t + b <= a`. The left case
 --| (`b <= a`, `t + b = a`) has rows 0 to 2, and its row 1, `a - (t + b) >= 0`,
 --| meets the goal's negation; the right case (`a < b`, `t = 0`) has `b - a - 1 >= 0`,
 --| which meets the fact `b <= a` (input row 2: `FSub` gives two rows first).
+-- (stage 2)
 test "check: Cases on a subtraction" := Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
   (Cases 0
     (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))

@@ -1,10 +1,8 @@
 --| core/Result.sw. `Result`, a value or the reason there isn't one, and its
---| decidable equality. Its other functions are in
---| `std/Result/Result.sw`.
--- Loaded with the core: `Result` is in the prelude, next
--- to `Option`, so `Ok` and `Err` need no import, and its `DecEq` instance
--- (in `DecEq.sw`) lets tests compare results with `==`
--- (docs/proposals/errors.md §3.2).
+--| decidable equality. Its other functions are in `std/Result/Result.sw`.
+-- Loaded with the core: `Result` is in the prelude, next to `Option`, so `Ok`
+-- and `Err` need no import, and its `DecEq` instance (in `DecEq.sw`) lets tests
+-- compare results with `==` (docs/proposals/errors.md §3.2).
 
 --| A computation's value, or why it failed: `Std.Fail.toResult` gives one.
 type Result (a: Type) (e: Type): Type =

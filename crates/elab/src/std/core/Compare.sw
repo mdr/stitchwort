@@ -1,9 +1,8 @@
 --| core/Compare.sw. The laws of comparison for `Ordering`, `Nat` and `Int`:
 --| `compareEqual`, `compareFlip`, `compareTrans`, and `less`/`le` from
 --| `compare`.
--- Loaded with the core: Each `Ord` instance needs its `compare`
--- laws, and `Ord` instances are in the core (docs/proposals/prelude-slim.md
--- §2.1).
+-- Loaded with the core: Each `Ord` instance needs its `compare` laws, and `Ord`
+-- instances are in the core (docs/proposals/prelude-slim.md §2.1).
 
 -- Orderings (docs/proposals/interfaces.md §6.2)
 

@@ -1,7 +1,7 @@
 --| Text beyond the core: the split/join and length lemmas, and `Text.lines`
 --| with `IO.readAllLines`.
--- This file was the prelude's "Lines" section and
--- the few text theorems beside it.
+-- This file was the prelude's "Lines" section and the few text theorems
+-- beside it.
 
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 

@@ -1,6 +1,6 @@
 --| `Int` lemmas proved with `omega` and `ring`: sizes of products, and
---| division and remainders by a divisor that isn't a constant. They live here,
---| not in `Int/Int.sw`, which `omega` itself needs.
+--| division and remainders by a divisor that isn't a constant.
+-- They live here, not in `Int/Int.sw`, which `omega` itself needs.
 
 --| `|x * y| = |x| * |y|`.
 theorem Int.natAbsMul: (x: Int) → (y: Int) → Int.natAbs (x * y) = Int.natAbs x * Int.natAbs y

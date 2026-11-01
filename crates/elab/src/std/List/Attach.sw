@@ -2,9 +2,9 @@
 --| the list. For a recursive call inside a function passed to `sumBy`, `map`
 --| and the like, whose `decreasing` proof needs to know where its argument
 --| came from: `xs.attach.sumBy (e => f e.value [decreasing := … e.isIn …])`.
---| Membership itself,
---| `List.Mem`, and its facts (`List.memRangeFrom`, `List.memBetween`,
---| `List.memFilter`, `List.memMap`) are in Toolkit.sw and Lemmas.sw.
+--| Membership itself, `List.Mem`, and its facts (`List.memRangeFrom`,
+--| `List.memBetween`, `List.memFilter`, `List.memMap`) are in Toolkit.sw and
+--| Lemmas.sw.
 -- (docs/proposals/well-founded-recursion.md, stage 3b)
 
 --| An element of `xs`, with the proof that it is one.

@@ -5,9 +5,10 @@
 --|
 --| `Mod 0` has one value, 0, so that every `Mod n` has a zero: the numbers are
 --| those below `Mod.size n`, which is `n` except that `Mod.size 0` is 1.
--- The range proof is built by deciding the comparison, not by citing
--- `Nat.modLt`: for a closed number the decision is `rfl`, so checking an `rfl`
--- about a `Mod 1000000` doesn't unfold that lemma's induction.
+--|
+--| The range proof is built by deciding the comparison, not by citing
+--| `Nat.modLt`: for a closed number the decision is `rfl`, so checking an `rfl`
+--| about a `Mod 1000000` doesn't unfold that lemma's induction.
 
 type Mod (n: Nat) = { value: Nat, isLt: value < Mod.size n }
 
@@ -166,8 +167,8 @@ instance Mod.instMul [n: Nat]: Mul (Mod n) :=
 instance Mod.instShow: Show (Mod n) := Show.fromText (i => Nat.toText i.value)
 
 --| `==` on numbers: equal exactly when their values are.
--- Written by hand: a
--- derived `DecEq` is only for proofs of `<=` (as in `Dial`), not `<`.
+-- Written by hand: a derived `DecEq` is only for proofs of `<=` (as in `Dial`),
+-- not `<`.
 instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
   { decide = i j =>
     if h: i.value = j.value then Yes (Mod.ext i j h)

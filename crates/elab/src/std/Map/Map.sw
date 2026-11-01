@@ -1,18 +1,19 @@
 --| `Map k v`: finite maps from keys to values, with the ordering of the keys
---| in the map's type (docs/proposals/interfaces.md §7.5, D169): `Map Text Nat`
---| is `Map Text Nat [ord := Text.instOrd]`, and a map built with another
---| ordering has another type. A map is a quotient (docs/proposals/
---| map-equality.md §8): its representative is a `Map.Raw`, a weight-balanced
---| search tree (std/Map/Raw.sw), and two representatives with the same
---| entries in key order are the same map. So `m = n` exactly when `m` and `n`
---| have the same entries (`Map.eqIffToListEq`), for any type of values, and
---| `==` compares the entries. Each operation is the raw one, lifted with the
---| lemma that it respects `Map.Raw.Equiv` (std/Map/Spec.sw). At run time a
---| map is its tree, in one record.
+--| in the map's type: `Map Text Nat` is `Map Text Nat [ord := Text.instOrd]`,
+--| and a map built with another ordering has another type. A map is a
+--| quotient: its representative is a `Map.Raw`, a weight-balanced search tree
+--| (std/Map/Raw.sw), and two representatives with the same entries in key
+--| order are the same map. So `m = n` exactly when `m` and `n` have the same
+--| entries (`Map.eqIffToListEq`), for any type of values, and `==` compares
+--| the entries. Each operation is the raw one, lifted with the lemma that it
+--| respects `Map.Raw.Equiv` (std/Map/Spec.sw). At run time a map is its tree,
+--| in one record.
 --| Insertion, lookup and removal take O(log n) comparisons; `size` is O(1).
 --| `union`, `unionWith`, `intersectWith`, `difference` and `filter` are
 --| O(n + m), by merging sorted entry lists (std/Map/Spec.sw, "Bulk
 --| operations").
+-- (docs/proposals/interfaces.md §7.5, D169)
+-- (docs/proposals/map-equality.md §8)
 -- docs/proposals/map-set.md.
 
 import Std (Eq)

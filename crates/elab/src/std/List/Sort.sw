@@ -2,8 +2,7 @@
 --| `List.sortOn`), `List.dedup`, `List.removeFirst` and the small `Nat` helpers
 --| that go with them, with their unit tests and the congruence lemmas that
 --| `decreasing` and `rewrite` look up by name. The other lemmas are in
---| List/SortLemmas.sw.
--- so a program that only sorts checks none of them.
+--| List/SortLemmas.sw, so a program that only sorts checks none of them.
 --
 -- A library file is written like the prelude: names are as they are in the
 -- namespaces they go in (`List.sort` is `Std.List.sort`), so one file can add
@@ -79,8 +78,8 @@ def List.sortWith (xs: List a) (le: a → a → Bool): List a := List.mergeRuns 
 --| Sorts by a comparison, such as `Nat.compare` or `Text.compare`.
 def List.sortBy (xs: List a) (cmp: a → a → Ordering): List a := List.sortWith xs (x y => Ordering.isLessEq (cmp x y))
 
---| Sorts into ascending order, by the type's `Ord`: numbers, texts, lists, pairs, … Another order is passed by name,
---| `List.sort [ord := …] xs`.
+--| Sorts into ascending order, by the type's `Ord`: numbers, texts, lists,
+--| pairs, … Another order is passed by name, `List.sort [ord := …] xs`.
 -- (docs/proposals/interfaces.md §7.4)
 def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy xs Ord.compare
 
@@ -114,8 +113,8 @@ def List.removeFirst [auto eq: DecEq a]: List a → a → List a
 test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFirst 3 == [1, 2] ∧ [3, 1, 2].removeFirst 2 == [3, 1]
 
 --| Sorting commutes with `map` when the comparison of the mapped elements is
---| that of the elements: sorting pairs by a key, then taking
---| the keys, is sorting the keys.
+--| that of the elements: sorting pairs by a key, then taking the keys, is
+--| sorting the keys.
 -- (SW-198, day 8)
 -- Proved through each step of the merge sort.
 @[noReceiver]

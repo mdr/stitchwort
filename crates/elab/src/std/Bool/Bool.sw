@@ -1,9 +1,8 @@
 --| `Bool` lemmas: `||` and `&&` from their sides and back, implication as
 --| `not a || b`, and `Not (x = True)` as `x = False`.
--- They were the opening
--- section of std/List/Sort.sw; they are a file of their own so that a proof
--- that takes a `&&` apart (`omega`'s bridge lemmas, docs/proposals/omega.md
--- §6.4) needn't load the sorting proofs.
+-- They were the opening section of std/List/Sort.sw; they are a file of their
+-- own so that a proof that takes a `&&` apart (`omega`'s bridge lemmas,
+-- docs/proposals/omega.md §6.4) needn't load the sorting proofs.
 
 --| `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
 --| commutes.

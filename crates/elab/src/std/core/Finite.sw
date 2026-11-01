@@ -25,16 +25,16 @@ theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x �
 
 -- Finite types
 
---| A type with a list of every value (docs/proposals/decide.md §6.2): `all`,
---| and `complete`, the proof that every value is on it. The list may repeat
---| a value; nothing here needs it not to (with `DecEq`, `List.distinctEq
---| Finite.all` is the list without repeats). A data type or record declared in
---| a program gets one derived when its constructors' fields all have one and
---| it isn't recursive (`T.%instFinite`): the constructors in the order they're
---| declared, each with every value of its fields, the first field varying
---| slowest, which is the order the derived `<` puts them in. A module's own
---| `instance` replaces it. `Finite.check` (std/Finite/Finite.sw) checks a
---| statement for every value by computing it.
+--| A type with a list of every value: `all`, and `complete`, the proof that
+--| every value is on it. The list may repeat a value; nothing here needs it not
+--| to (with `DecEq`, `List.distinctEq Finite.all` is the list without repeats).
+--| A data type or record declared in a program gets one derived when its
+--| constructors' fields all have one and it isn't recursive (`T.%instFinite`):
+--| the constructors in the order they're declared, each with every value of its
+--| fields, the first field varying slowest, which is the order the derived `<`
+--| puts them in. A module's own `instance` replaces it. `Finite.check`
+--| (std/Finite/Finite.sw) checks a statement for every value by computing it.
+-- (docs/proposals/decide.md §6.2)
 interface Finite (a: Type) = {
   all: List a,
   complete: (x: a) → x ∈ all
