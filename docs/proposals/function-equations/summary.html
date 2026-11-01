@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Function Equations Design</title>
+<meta name="description" content="SW-1028: generated per-arm equations and functional induction for Stitchwort; a summary of docs/proposals/function-equations.md for review.">
+<style>
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #5f5d57;
+  --border: #e3e0d8;
+  --accent: #2f6f5e;
+  --accent-soft: #e6f1ed;
+  --warn: #8a4b12;
+  --warn-soft: #f8ecdf;
+  --code-bg: #f3f1ec;
+  --bad: #9b2c2c;
+  --good: #2f6f5e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716;
+    --surface: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #a9a69e;
+    --border: #34332f;
+    --accent: #7cc4ad;
+    --accent-soft: #1f322c;
+    --warn: #e6b07a;
+    --warn-soft: #33281d;
+    --code-bg: #262624;
+    --bad: #f08c8c;
+    --good: #7cc4ad;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716;
+  --surface: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #a9a69e;
+  --border: #34332f;
+  --accent: #7cc4ad;
+  --accent-soft: #1f322c;
+  --warn: #e6b07a;
+  --warn-soft: #33281d;
+  --code-bg: #262624;
+  --bad: #f08c8c;
+  --good: #7cc4ad;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+header p.kicker { margin: 0; color: var(--muted); font-size: 14px; letter-spacing: .02em; }
+h1 { font-size: 28px; line-height: 1.2; margin: 6px 0 10px; }
+h2 { font-size: 21px; margin: 40px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 22px 0 8px; }
+p, li { max-width: 72ch; }
+a { color: var(--accent); }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; }
+code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; overflow-wrap: anywhere; }
+pre {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; line-height: 1.45; margin: 10px 0;
+}
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+.lede { font-size: 17px; }
+.callout { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 12px 14px; border-radius: 6px; margin: 16px 0; }
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 720px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.card h3 { margin-top: 0; }
+.label { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-bottom: 6px; }
+.label.before { color: var(--bad); border: 1px solid var(--bad); }
+.label.after { color: var(--good); border: 1px solid var(--good); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+th { background: var(--code-bg); font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; }
+.stat span { color: var(--muted); font-size: 13px; }
+ol.decisions { padding-left: 0; list-style: none; }
+ol.decisions li { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 10px 0; max-width: none; }
+ol.decisions .rec { display: inline-block; margin-top: 4px; font-weight: 600; color: var(--accent); }
+ol.decisions .assume { color: var(--muted); font-size: 14px; display: block; margin-top: 4px; }
+.muted { color: var(--muted); }
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="kicker">SW-1028 · D2163 · design note, draft 2 (reviewed) · 1 November 2026</p>
+  <h1>Equations for each arm, and functional induction</h1>
+  <p class="lede">A summary of <code>docs/proposals/function-equations.md</code>: generated, kernel-checked theorems that say "this arm (or this branch of an <code>if</code>/<code>match</code> in it) gives this result when these conditions hold", and an induction principle that follows a function's own recursion.</p>
+</header>
+
+<h2>The problem</h2>
+<p>A proof about a Stitchwort function has <code>rfl</code> (when the arguments are known enough to compute) and <code>f.unfold</code> (the whole body, for <code>decreasing</code> and <code>opaque</code> definitions). Nothing states one arm on its own. Agents reshaped four programs to get such statements (2021 day 18; 2024 days 12, 16 and 23) and wrote hand step lemmas for three of them. This design makes all four reshapes unnecessary.</p>
+<p>When a definition has a named <code>match</code> on a <code>Bool</code> (or on <code>popMin</code>), every way of stepping through it fails. Reproduced on a cut-down day 23:</p>
+<pre><code>def firstBig: List Nat → Option Big
+  | Nil =&gt; None
+  | Cons x rest =&gt;
+    match big: Nat.leq 10 x with
+      | True =&gt; Some ({ value = x, isBig = big })
+      | False =&gt; firstBig rest
+
+-- rewrite h in rfl          → E-REWRITE-MOTIVE
+-- match e: Nat.leq 10 x …   → E-MATCH-MOTIVE
+-- cases                     → E-CASES (E-MATCH-MOTIVE on a decreasing version)</code></pre>
+<p>The step needs the scrutinee <em>and</em> its equation replaced together, one <code>J</code> whose motive names the hidden helper <code>firstBig.%match1</code>. Source can't write that name; a generator can. The one-<code>J</code> proof checks.</p>
+
+<h3>Before and after: 2024 day 12's flood fill</h3>
+<div class="grid two">
+  <div class="card">
+    <span class="label before">Before</span>
+    <p>Three hand-written step lemmas (21 lines), each <code>rewrite Garden.fill.unfold …</code> and a nested <code>Decidable.elimEq</code>:</p>
+<pre><code>theorem fillSkip … (taken: visited.contains position = True):
+    Garden.fill garden plant (Cons position rest) visited members
+      = Garden.fill garden plant rest visited members :=
+  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
+    Decidable.elimEq _ _ _ _ (fresh =&gt; Void.exfalso …) (other =&gt; rfl)</code></pre>
+    <p><code>fillCorrect</code> (67 lines) recurses on the same measure, proves the three decreases again, and converts <code>==</code> back to a <code>Prop</code>.</p>
+  </div>
+  <div class="card">
+    <span class="label after">After</span>
+    <p>Generated, nothing to write:</p>
+<pre><code>Garden.fill.eq2.ifFalse
+  (notFresh: visited.contains position = True):
+  Garden.fill garden plant (Cons position rest) visited members
+    = Garden.fill garden plant rest visited members</code></pre>
+    <p><code>fillCorrect</code> by <code>Garden.fill.induct</code>: 51 lines with the plain form (prototype checks), about 45 with the unfolding form and <code>match induct</code>. No decrease proofs, no splitting on <code>Bool</code>s to convert back to <code>Prop</code>s.</p>
+<pre><code>match induct (Garden.fill garden plant stack visited members) with
+  | eq1 visited members =&gt; …
+  | eq2IfTrueIfTrue position rest visited members fresh grows ih =&gt; …
+  | eq2IfTrueIfFalse … ih =&gt; …
+  | eq2IfFalse position rest visited members notFresh ih =&gt; …</code></pre>
+  </div>
+</div>
+
+<h2>How other systems do it</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>System</th><th>Equations</th><th>Overlap / catch-all</th><th><code>if</code>/<code>match</code> inside</th><th>Functional induction</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td><b>Lean 4</b></td><td><code>f.eq_N</code> per alternative; <code>f.eq_def</code></td><td><code>(x = p → False)</code> hypothesis per earlier overlapping alternative</td><td>left on the right side</td><td><code>f.induct</code>, <code>f.induct_unfolding</code>; per branch, IH per call; <code>fun_induction</code></td><td>on demand, reserved names</td></tr>
+    <tr><td><b>Rocq Equations</b></td><td>one per leaf of the splitting tree</td><td>a wildcard becomes several equations</td><td><code>with</code> nodes get their own</td><td><code>f_elim</code> from the graph; <code>funelim</code></td><td>with the definition</td></tr>
+    <tr><td><b>Rocq <code>Function</code></b></td><td><code>f_equation</code></td><td>pure match trees only</td><td></td><td><code>f_ind</code>, <code>functional induction</code></td><td>with the definition</td></tr>
+    <tr><td><b>Isabelle <code>fun</code></b></td><td><code>f.simps</code>, one per disjoint pattern</td><td>later patterns instantiated to be disjoint ("less general")</td><td><code>if</code> stays; IH becomes conditional</td><td><code>f.induct</code>, <code>pinduct</code>, <code>f.cases</code>, <code>elims</code></td><td>with the definition</td></tr>
+    <tr><td><b>Agda</b></td><td>none: clauses reduce</td><td><code>--exact-split</code> warns, <code>CATCHALL</code></td><td><code>with</code>, <code>rewrite</code>, <code>with … in eq</code></td><td>none</td><td></td></tr>
+    <tr><td><b>Idris 2</b></td><td>none (case trees)</td><td></td><td><code>with</code></td><td>none</td><td></td></tr>
+    <tr><td><b>F*, Dafny</b></td><td>none: fuel-bounded axioms</td><td></td><td></td><td>Dafny's automatic induction</td><td></td></tr>
+  </tbody>
+</table>
+</div>
+<p class="muted">Lean outputs were run locally (Lean 4.34.1): <code>f.eq_2 : ∀ x, (x = 0 → False) → f x 0 = 1</code>; <code>cmd.eq_3 : ∀ x : Char, (x = 'k' → False) → (x = 'j' → False) → cmd x = none</code>.</p>
+<div class="callout"><b>Taken from them:</b> per arm with hypotheses (Lean), Lean's hypothesis form, branches at functional-induction granularity (because the evidence is about tail <code>match</code>es and <code>if</code>s), the unfolding form of <code>f.induct</code> with a fixed prefix. Eager rather than on demand: std is small and the check cache absorbs it.</div>
+
+<h2>What is generated</h2>
+<p>A <b>case</b> is an arm plus which way each <code>if</code> / <code>match</code> in tail position went. Every arm gets an equation; every path through a split gets one more. Proofs are kernel terms checked by the kernel, so nothing new is trusted.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Construct</th><th>Generated statement (example)</th><th>Proof</th></tr></thead>
+  <tbody>
+    <tr><td>constructor arm</td><td><code>addLeftmost.eq2 … : addLeftmost amount (Pair left right) = Pair (addLeftmost amount left) right</code></td><td><code>rfl</code></td></tr>
+    <tr><td>overlapping arm</td><td><code>explode.eq3 … (notArm2: (a b: Nat) → left = Regular a → right = Regular b → Void): explode depth (Pair left right) = …</code></td><td>the case tree; earlier arm's leaves by <code>notArm2</code></td></tr>
+    <tr><td>number literal catch-all</td><td><code>kind.eq3 (n) (notArm1: n ≠ 3) (notArm2: n ≠ 7): kind n = 0</code></td><td>same literals, apart rule</td></tr>
+    <tr><td>character literal catch-all</td><td><code>commandOf.eq3 (char) (notListed: char ∉ ['k', 'j']): commandOf char = None</code></td><td>same</td></tr>
+    <tr><td><code>if</code> / <code>if h:</code></td><td><code>gcd.eq.ifFalse (a b) (notH: Not (b = 0)): gcd a b = gcd b (a % b)</code></td><td><code>f.unfold</code>, then the decision</td></tr>
+    <tr><td><code>if</code> on a <code>Bool</code> equation</td><td><code>Garden.fill.eq2.ifFalse … (notFresh: visited.contains position = True): …</code>, the other equation, not <code>Not (… = False)</code></td><td>the decision, one conversion step</td></tr>
+    <tr><td><code>match</code> on an expression</td><td><code>explode.eq3.some … (isSome: explode (depth + 1) left = Some inLeft): … = Some (…)</code></td><td>arm equation, then <code>Eq.cong</code></td></tr>
+    <tr><td>named <code>match</code> on a <code>Bool</code></td><td><code>firstBig.eq2.true (x rest) (big: Nat.leq 10 x = True): firstBig (Cons x rest) = Some ({ value = x, isBig = big })</code></td><td>one <code>J</code> over scrutinee and equation</td></tr>
+    <tr><td>or-pattern</td><td><code>f.eqK.or1</code>, <code>f.eqK.or2</code>, one per alternative</td><td>as above</td></tr>
+    <tr><td><code>let</code></td><td>substituted, as goals show it</td><td></td></tr>
+    <tr><td>lifted <code>match</code> not in tail position</td><td>stays in the right side as <code>(match …)</code></td><td></td></tr>
+    <tr><td>local <code>def</code></td><td><code>reach.left.eq1</code>, … (not inside a <code>decreasing</code> definition)</td><td>as above</td></tr>
+    <tr><td><code>opaque</code> definition</td><td>as for a transparent one</td><td>checked with <code>unfolding f</code>, not through <code>f.unfold</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p><b>Not generated:</b> theorems, instances, <code>Partial</code> and ability-performing definitions (effect-polymorphic ones get equations at the empty row), <code>opaque</code> with an <code>unfolding</code> clause, a <code>decreasing</code> definition's local helpers, an arm on an indexed family whose overlap would compare different indices, and a branch of <code>if h: p</code> whose result still uses <code>h</code> unless <code>p</code> is an equation in a type with <code>DecEq</code> (comparisons on <code>Nat</code> and <code>Int</code> included). Naming a skipped one gives <code>E-NO-EQUATION</code> with the reason.</p>
+
+<h3>Names, and how agents find them</h3>
+<ul>
+  <li><code>f.eqK</code> for arm K (a whole-body <code>match</code> on parameters counts as arms); a suffix per split: <code>.ifTrue</code>, <code>.ifFalse</code>, the constructor in lower case (<code>.some</code>, <code>.cons</code>), <code>.altN</code> or <code>.orN</code>; <code>f.eq.…</code> for any other <code>:=</code> body. Worked out from source alone, so the library index knows them; reserved.</li>
+  <li>Hypotheses keep the source's names (<code>fresh</code>, <code>notFresh</code> for the <code>else</code>), or <code>isSome</code>/<code>isNone</code>, <code>notArmJ</code>, <code>notListed</code>.</li>
+  <li><code>stitchwort doc f</code> gets an <b>Equations</b> section; <code>search</code> flags them <code>generated</code> and ranks a written theorem first on a tie.</li>
+  <li><code>E-MATCH-MOTIVE</code>, <code>E-REWRITE-MOTIVE</code> and <code>E-REFL</code> on a definition's hidden <code>match</code> name the equation instead of "define a helper".</li>
+</ul>
+
+<h3><code>f.induct</code></h3>
+<pre><code>f.induct (fixed parameters)
+  (motive: (other parameters) → (result) → Prop)
+  (one case per equation: eq1, eq2IfTrue, …:
+     (variables) → (hypotheses) → (IH per recursive call: motive args (f args)) →
+     motive patterns rightSide)
+  : (other parameters) → motive params (f params)</code></pre>
+<p>Proved by <code>f</code>'s own recursion: structural, or the same <code>decreasing</code> measure with the decrease proofs <code>f</code>'s calls already carry. Applied explicitly, or as <code>match induct (f args) with | eqK … =&gt; …</code> with the motive worked out from the goal.</p>
+
+<h2>Cost</h2>
+<div class="stat-row">
+  <div class="stat"><b>~0.08 ms</b><span>per small equation, from source</span></div>
+  <div class="stat"><b>~1 ms</b><span>per equation of <code>Garden.fill</code>'s size, noisy</span></div>
+  <div class="stat"><b>1,253</b><span>arms in std (497 of 1,108 definitions)</span></div>
+  <div class="stat"><b>0.2–2.5 s</b><span>cold std check added, estimated; 0 warm</span></div>
+</div>
+<p>Generated eagerly with the definition, like <code>f.unfold</code> and update lemmas. No existing hash changes. Gate: if std's cold check grows more than 10%, the library switches to on-demand generation behind the same names; stage 1a measures this before it merges.</p>
+
+<h2>Stages</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Stage</th><th>What</th><th>Size</th><th>Model</th></tr></thead>
+  <tbody>
+    <tr><td>1a</td><td>Arm equations (transparent, <code>decreasing</code>, <code>opaque</code>), or-patterns, overlap and literal hypotheses, proofs from the case tree, reserved names, <code>E-NO-EQUATION</code>, library index; cost measured against the gate</td><td>medium-large</td><td>Opus</td></tr>
+    <tr><td>1b</td><td>Branch equations: tail <code>if</code> (with the <code>Bool</code> normalisation), <code>if h:</code> (with the <code>uniqueEq</code> <code>J</code>), <code>match</code> on variables and expressions, named <code>match</code> by <code>J</code></td><td>medium</td><td>Opus</td></tr>
+    <tr><td>1c</td><td><code>doc</code> section, <code>search</code> flag and tie-break, hover, three messages, docs and proving guide</td><td>small-medium</td><td>Sonnet</td></tr>
+    <tr><td>1d</td><td>Acceptance: examples, day 18 back to its first shape, day 12 step lemmas gone, std's <code>Graph.search*</code> deleted and uses renamed, bench and cold-check bounds</td><td>small-medium</td><td>Sonnet (Opus review)</td></tr>
+    <tr><td>2a</td><td><code>f.induct</code>, through <code>decreasing.rs</code> for measures</td><td>medium</td><td>Opus</td></tr>
+    <tr><td>2b</td><td><code>match induct</code></td><td>small-medium</td><td>Sonnet (Opus review)</td></tr>
+    <tr><td>later</td><td>IH under binders, mutual <code>f.induct</code>, indexed-family overlaps, the <code>if h:</code> limit after proof irrelevance, instance methods</td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Review</h2>
+<p>An independent Opus reviewer read draft 1 against the repository: <b>approve with changes</b>. It re-ran every prototype (all behave as stated) and found ten things to fix, all addressed in draft 2: overlap hypotheses are ill-typed on indexed families (now skipped, D2185); <code>Bool</code> guards should take the hand-written form (D2186); the <code>if h:</code> limit is narrower than claimed, and std's many such branches are provable with <code>Bool.uniqueEq</code> (D2180 rewritten); or-patterns, <code>decreasing</code> helpers, implicit parameters, <code>_</code> names and <code>opaque</code> definitions with number patterns past 64 were missing; a whole-body <code>match</code> should be named like arms (D2187); the cost needed a realistic data point (now about 1 ms each); the prototypes are now committed.</p>
+
+<h2>Open questions</h2>
+<ol class="decisions">
+  <li><b>D2173.</b> Build stage 1, generated equations for arms and branches? <span class="rec">[Yes]</span><span class="assume">Assumes the evidence (four reshaped programs, three sets of hand step lemmas) is typical, and that generated terms cost what the measurements suggest or less.</span></li>
+  <li><b>D2174.</b> One equation per source arm with earlier overlapping arms as hypotheses (Lean), plus one per branch of each tail <code>if</code>/<code>match</code>; not per leaf (Isabelle, Rocq Equations)? <span class="rec">[Yes]</span><span class="assume">Assumes agents think in arms and branches as written; per leaf is impossible for a character catch-all.</span></li>
+  <li><b>D2175.</b> Hypothesis forms: one per earlier overlapping arm, <code>(vars) → x = C vars → … → Void</code>; <code>n ≠ k</code> per number literal; character literals constraining one column merged into <code>c ∉ […]</code>; the tested condition for a split. <span class="rec">[Yes]</span><span class="assume">Assumes <code>omega</code> keeps not reading <code>n ∉ [3, 7]</code>, that programs' key lists are literal lists or compute to them, and that no index is fixed by an earlier arm (D2185).</span></li>
+  <li><b>D2176.</b> Names: <code>f.eqK</code> plus a suffix per split; <code>f.eq.…</code> for other <code>:=</code> bodies; reserved; <code>E-NO-EQUATION</code> for a skipped one. Not Lean's flat numbering. <span class="rec">[Yes]</span><span class="assume">Assumes names a few segments long are acceptable in proofs.</span></li>
+  <li><b>D2177.</b> Which definitions: every <code>def</code> (local ones too, except a <code>decreasing</code> definition's) with arms or a tail split, transparent, <code>decreasing</code> or <code>opaque</code> without an <code>unfolding</code> clause; effect-polymorphic at the empty row; not theorems, instances, ability-performing or <code>Partial</code>. Including the ones that hold by <code>rfl</code>. <span class="rec">[Yes]</span><span class="assume">Assumes the <code>rfl</code> ones are cheap and the separate <code>doc</code> section keeps them from crowding search; they can't be used by <code>rewrite</code>, but they name every arm.</span></li>
+  <li><b>D2178.</b> Eager with the definition, with a 10% cold-check gate; on demand only if it trips. <span class="rec">[Yes]</span><span class="assume">Assumes std's cold check is dominated by its theorems rather than its definitions; stage 1a measures it.</span></li>
+  <li><b>D2179.</b> Discovery: <code>doc</code> Equations section, <code>search</code> flag and tie-break, notes on three errors, proving-guide section. <span class="rec">[Yes]</span></li>
+  <li><b>D2180.</b> A branch of <code>if h: p</code> whose result uses <code>h</code> gets an equation when <code>h</code> is gone after unfolding or <code>p</code> is an equation in a <code>DecEq</code> type (comparisons on <code>Nat</code>/<code>Int</code> included), by one <code>J</code> along <code>uniqueEq</code>; others wait for proof irrelevance. <span class="rec">[Yes]</span><span class="assume">Such branches are common in std and all found are covered; assumes the rest are rare (stage 1b counts them).</span></li>
+  <li><b>D2181.</b> Stage 2, <code>f.induct</code> in the unfolding form only, fixed prefix, cases named after the equations, no IH under binders, no mutual groups. <span class="rec">[Yes, after stage 1]</span><span class="assume">Assumes most theorems that need it are about <code>f</code>'s result.</span></li>
+  <li><b>D2182.</b> Stage 2b, <code>match induct (f args) with | eqK … =&gt; …</code>, motive from the goal, hypotheses generalised as <code>match</code> does. <span class="rec">[Yes]</span><span class="assume">Assumes <code>match</code>'s generalisation is what the motive needs; explicit <code>f.induct</code> stays the fallback.</span></li>
+  <li><b>D2183.</b> Equations for lifted <code>match</code> helpers not in tail position? <span class="rec">[No]</span><span class="assume">A local <code>def</code> names one and gets its own equations.</span></li>
+  <li><b>D2184.</b> Delete std's <code>Graph.searchEmpty/Skip/Settle</code> and rename their uses to the generated equations (same statements); leave <code>Graph.searchFrom</code>'s signature and AoC programs as they are (days 12 and 18 as acceptance tests only)? <span class="rec">[Yes]</span><span class="assume">No outside users, so compatibility names would only double what search lists.</span></li>
+  <li><b>D2185.</b> On an indexed family, skip an arm whose overlap hypothesis would compare different indices (counted, reason in <code>doc</code>), rather than a heterogeneous equation, a transport or a generated <code>Bool</code> predicate. <span class="rec">[Yes, for now]</span><span class="assume">Assumes such definitions are rare among those proofs need; stage 1a counts them.</span></li>
+  <li><b>D2186.</b> A split on <code>b = True</code>/<code>b = False</code> states its <code>else</code> as the other equation (<code>notFresh: b = True</code>), as the hand-written lemmas did. <span class="rec">[Yes]</span><span class="assume">Assumes agents' facts come as <code>b = True</code>/<code>b = False</code>, as <code>match e:</code> and <code>cases</code> give them.</span></li>
+  <li><b>D2187.</b> A whole-body <code>match</code> on parameters counts as arms (<code>Garden.fill.eq1</code>, <code>.eq2.ifFalse</code>), so both spellings of a definition get the same names. <span class="rec">[Yes]</span><span class="assume">Assumes rewriting between the two spellings matters more than having the constructor in the name.</span></li>
+</ol>
+
+<footer>
+  <p>Source: <code>docs/proposals/function-equations.md</code> (SW-1028). Prototypes checked with the main-branch compiler on 1 November 2026; literature from Lean 4 source and a local Lean 4.34.1, the Rocq Equations manual, Isabelle's function tutorial, and the Agda, Idris 2, F* and Dafny documentation.</p>
+</footer>
+
+</main>
+</body>
+</html>

@@ -1,8 +1,11 @@
 # Proposal: equations for each arm, and functional induction (`f.eq…`, `f.induct`)
 
-**Status:** draft 1, 1 November 2026. Ticket SW-1028, decision D2163 (Matt, 1 November: one
+**Status:** draft 2, 1 November 2026. Ticket SW-1028, decision D2163 (Matt, 1 November: one
 design for SW-802, SW-199's `f.induct`, SW-809 and SW-980). A design note only: nothing in the
-compiler changes. The questions are D2173 to D2184 in [§8](#8-decisions-for-matt).
+compiler changes. The questions are D2173 to D2187 in [§8](#8-decisions-for-matt). Draft 1 was
+reviewed independently ("approve with changes"); every point is worked in, one row each, in
+[Review 1 and how it was addressed](#review-1-and-how-it-was-addressed); the review is
+[function-equations/review-1.md](function-equations/review-1.md).
 
 It revisits D231 ("generated per-leaf equation lemmas: not now",
 [equation-lemmas.md §9](equation-lemmas.md#9-decisions)), whose trigger has fired (§1.3), and
@@ -12,8 +15,10 @@ case theorems, then `f.induct`").
 Labels:
 
 - **[checked: file:line]**: read in this repo at `470ef5ee` (main, 1 November);
-- **[run]**: a scratch program checked with `target/release/stitchwort` built from main on
-  1 November. The programs are quoted where they are used; they are not committed;
+- **[run]**: a program checked with `target/release/stitchwort` built from main on 1 November.
+  The programs are in [function-equations/prototypes/](function-equations/prototypes/) (`p1.sw`
+  … `p10.sw`, `day12-induct.sw`, and the reviewer's `review-r1.sw`, `review-r2.sw`); those
+  expected to fail say so in a comment;
 - **[measured]**: counted or timed by a script, named where used;
 - **[cited]**: read in the source linked in [Sources](#sources) on 1 November; Lean outputs
   marked **[run: Lean]** come from Lean 4.34.1 on this machine;
@@ -25,17 +30,19 @@ Labels:
 - **What's missing.** A proof about a function can use `rfl` (when the arguments are known
   enough to compute) or `f.unfold` (the whole body, for `decreasing` and `opaque` definitions).
   Nothing states "this arm, or this branch of an `if` or `match` in it, gives this result when
-  these conditions hold". Agents have reshaped five programs to get such statements (§1.1), and
-  in three cases (a named `match` on a `Bool` or `popMin`) every way of stepping through the
-  definition by hand fails; I reproduced it (§1.2, **[run]**).
+  these conditions hold". Agents reshaped four programs to get such statements (2021 day 18,
+  2024 days 12, 16 and 23; §1.1), all of which this design makes unnecessary, and in three of
+  them (a named `match` on a `Bool` or `popMin`) every way of stepping through the definition by
+  hand fails; I reproduced it (§1.2, **[run]**).
 - **Stage 1: equations.** For each definition with arms or with an `if`/`match` in tail
   position, generate one theorem per **arm** (`explode.eq3`) and one per **branch** below it
-  (`Garden.fill.eq.cons.ifFalse`, `explode.eq3.some`). The arm's left side is the arm's patterns;
+  (`Garden.fill.eq2.ifFalse`, `explode.eq3.some`). The arm's left side is the arm's patterns;
   earlier arms that overlap it become hypotheses, in Lean's form (`(a: Nat) → (b: Nat) → left =
   Regular a → right = Regular b → Void`, `n ≠ 3`, `char ∉ ['k', 'j']`); a branch adds the
-  condition it was taken under (`fresh: visited.contains position = False`, `found: split left =
-  Some left2`). Every one is an ordinary theorem, built as a kernel term and checked by the
-  kernel; nothing new is trusted (§4).
+  condition it was taken under (`fresh: visited.contains position = False`, `isSome: split left
+  = Some left2`), in the form a hand-written lemma would take (`notFresh: visited.contains
+  position = True` for the `else`, not `Not (… = False)`). Every one is an ordinary theorem,
+  built as a kernel term and checked by the kernel; nothing new is trusted (§4).
 - **Stage 2: `f.induct`.** For each recursive definition, one induction principle with one case
   per branch, the branch's conditions as hypotheses and one induction hypothesis per recursive
   call, in Lean's "unfolding" form (the motive also gets `f`'s result, so no case needs to
@@ -44,13 +51,15 @@ Labels:
   eq1 … => … | eq2IfTrue … ih => …`, with the motive worked out from the goal as `match`
   already does (§5).
 - **Evidence it pays.** On 2024 day 12 the hand-written step lemmas (21 lines) go, and
-  `fillCorrect` (67 lines) becomes 51 lines with no decrease proofs or `Bool`-to-`Prop`
-  conversions: the prototype checks **[run]** (§6.1). On 2021 day 18, `explode` keeps the shape
+  `fillCorrect` (67 lines) becomes 51 lines with no decrease proofs and no splitting on `Bool`s
+  to convert back to `Prop`s: the prototype checks **[run]** (§6.1). On 2021 day 18, `explode` keeps the shape
   it was first written in, with no `explodeIn` helper and no 0.98 s → 1.1 s run-time cost
   (§6.2, **[run]**).
-- **Cost.** A small generated equation checks in about 0.08 ms [measured]; std has about 1,250
-  arms in 497 definitions [measured], so on the order of 2,000 equations and well under a second
-  of cold check time, nothing warm (the check cache). Generated eagerly, with the definition, as
+- **Cost.** A small equation checks in about 0.08 ms and one of `Garden.fill`'s size in about
+  1 ms, both elaborated from source [measured]; std has about 1,250 arms in 497 definitions
+  [measured], so on the order of 2,000 equations and a fraction of a second to a couple of
+  seconds of cold check time, nothing warm (the check cache); a gate switches the library to
+  on-demand generation if it costs more than 10%. Generated eagerly, with the definition, as
   the update lemmas already are; listed by `stitchwort doc` in a section of their own, so they
   don't crowd out written theorems (§7).
 - **Recommended:** build stage 1 now (D2173), stage 2 after it (D2181, D2182).
@@ -68,6 +77,7 @@ Labels:
 - [9. Stages](#9-stages)
 - [10. Risks and what this doesn't do](#10-risks-and-what-this-doesnt-do)
 - [Sources](#sources)
+- [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed)
 
 ## 1. The problem
 
@@ -80,11 +90,13 @@ Labels:
 | 2024 day 16 (`aoc/NOTES-2024.md:5017-5034`, ranked 3rd at `:5185`) | `match popped: queue.min with`, the same wall | `Graph.searchFrom` takes the popped pair and its equation as extra arguments (`crates/elab/src/std/Graph/Search.sw:243-260`); three step lemmas `Graph.searchEmpty/Skip/Settle` (`:267-290`) |
 | 2024 day 23 (`aoc/NOTES-2024.md:7573-7592`, SW-809) | `match found: candidates.popMin with`: `rewrite` gives `E-REWRITE-MOTIVE`, `match` gives `E-MATCH-MOTIVE` | Rewritten with a guard `if fewer: …` and a dead `else`; a step lemma `largestStep` by hand (`aoc/src/Aoc/Year2024/Day23/Proofs/Search.sw:23-34`) |
 | D1439 / SW-802 | "A recursive function matching on a `Bool` or `queue.min` and keeping the equation can't be unfolded in proofs; days 12 and 16 got E-MATCH-MOTIVE" | the ticket |
-| roguelike (`games/rogue/PROOFS.md:192`) | A literal match's catch-all couldn't be reached at all, so the game looked keys up in a table | Fixed in the kernel by SW-533 ([literal-match-facts.md](literal-match-facts.md)); a proof still needs "an arm per character" (`PROOFS.md:228`) |
+| roguelike (`games/rogue/PROOFS.md:192`) | A literal match's catch-all couldn't be reached at all, so the game looked keys up in a table | Already fixed in the kernel by SW-533 ([literal-match-facts.md](literal-match-facts.md)); what is left is that a proof still needs "an arm per character" (`PROOFS.md:228`), which a catch-all equation states once |
 
-[research/agentic-proving.md](../research/agentic-proving.md) counts this as category F,
-"stepping through `match`/unfolding equations; hand-written case tables", 9 cases, and category
-K, "program reshaped for the proof", 5 (`:835`, `:840`) **[checked]**.
+So four programs were reshaped (days 12, 16, 18 and 23), all of which this design makes
+unnecessary. [research/agentic-proving.md](../research/agentic-proving.md) counts the wider
+problem as category F, "stepping through `match`/unfolding equations; hand-written case
+tables", 9 cases (`:835`) **[checked]**; its category K, "program reshaped for the proof"
+(`:840`), is mostly the roguelike's other reshapes, not these.
 
 ### 1.2 The wall, reproduced
 
@@ -115,7 +127,9 @@ All three ways an agent would try fail:
   value = x, isBig = h })`.
 
 The same three on a `decreasing` definition (`p6.sw`, `match small: Nat.leq n 0 with … down (n -
-1) [decreasing := omega]`, after `rewrite down.unfold n`) fail the same way **[run]**. So
+1) [decreasing := omega]`, after `rewrite down.unfold n`) fail too, with `E-REWRITE-MOTIVE`,
+`E-MATCH-MOTIVE` and, from `cases`, `E-MATCH-MOTIVE` ("this `match` can't be given a type")
+**[run]**. So
 proof-automation.md's open assumption F2, "today's `cases` doesn't already prove the failing day
 16 and day 23 statements" (`docs/research/proof-automation.md:897-899`), holds.
 
@@ -145,11 +159,12 @@ name source can spell. A generator can.
 - **`T.induct` and `T.inductMem`** for nested data types (`crates/elab/src/derive_induct.rs:1-50`),
   made as kernel terms, skipped ("`Stop::Unsupported`") for shapes they don't cover
   (`derive_induct.rs:63-69`) **[checked]**. The model for how this proposal's lemmas are made.
-- **Update lemmas** `T.f.update.g`, generated with the type, checked like hand-written theorems,
-  shown by hover, names that can't be declared by hand (`docs/syntax.md:394`,
-  `crates/elab/src/update_lemmas.rs:1-30`), and indexed so the library loads their file when one
-  is named (`crates/elab/src/library.rs:664-686`) **[checked]**. The model for when and how these
-  are generated and found.
+- **Update lemmas** `T.f.update.g`, generated with the type as source and elaborated like
+  hand-written theorems (`crates/elab/src/update_lemmas.rs:23`), shown by hover, with names
+  that can't be declared by hand (`E-PARSE`, `docs/syntax.md:394`), and indexed so the library
+  loads their file when one is named (`crates/elab/src/library.rs:664-686`, as `candidate`s)
+  **[checked]**. The model for when they are generated and how they are found; not for how they
+  are built, since these statements name hidden helpers that source can't.
 - **`match e:`** splits a goal on an expression and refines hypotheses (`docs/syntax.md:1605-1675`);
   **`cases`** splits what the goal is stuck on (`docs/syntax.md:1851-1883`). Neither gets past a
   named `match` in a definition (§1.2).
@@ -240,21 +255,32 @@ which way it went. Tail position goes through `let`s and through the branches of
 `match` here is either part of the case tree (a `match` on variables, `matching.rs:3-6`) or a
 lifted one, with or without an equation name; both count.
 
+A `:=` body that is, as a whole, a `match` on the header's parameters (compiled into the case
+tree) counts as arms: its alternatives are arms 1, 2, …, so `Garden.fill`'s `:= match stack
+with | Nil => … | Cons position rest => …` (`aoc/src/Aoc/Year2024/Day12/Day12.sw:74-85`) and the
+same definition written with arms get the same equations and names (D2187).
+
 Each arm gets an **arm equation**. Each path below it through at least one split gets a
 **branch equation**. A definition with neither arms nor a split gets nothing (it unfolds at
-once, or has `f.unfold`).
+once, or has `f.unfold`). An arm with an **or-pattern** (`| A | B => e`, `Tree::Leaf`'s
+`alternatives`, `crates/elab/src/lib.rs:797-812`) has no single left side: it gets one
+equation per alternative, `f.eqK.or1`, `f.eqK.or2`, and its branches hang below each.
 
-Every equation is: the header's parameters, the arm's pattern variables in written order (the
-order local definitions already use, `docs/syntax.md:289`), then the hypotheses, each split's
-after the variables its pattern binds;
+Every equation takes, in order: the definition's own implicit and `auto` parameters as it has
+them (`[a: Type]`, `[auto ord: Ord s]`), the header's parameters, the arm's pattern variables in
+written order (the order local definitions already use, `docs/syntax.md:289`), then the
+hypotheses, each split's after the variables its pattern binds. A `_` in a pattern becomes a
+variable named after the constructor's field it stands for (`Regular _` binds `value`), or `x1`,
+`x2`, … where there is no field name, with a digit added on a clash;
 
 ```
-f.eqK… (params) (pattern variables) (hypotheses): f params patterns = right side
+f.eqK… [implicit] (params) (pattern variables) (hypotheses): f params patterns = right side
 ```
 
 where the right side is the arm's body (for an arm equation) or the branch's (for a branch
 equation), as elaborated, with `let`s substituted (as goals show them, and as the `Abort` step
-lemmas already do, `docs/syntax.md:795`).
+lemmas already do, `docs/syntax.md:795`). A record pattern is a one-constructor pattern; its
+fields are pattern variables like any other.
 
 ### 3.2 Shapes, by construct
 
@@ -289,36 +315,53 @@ Where the arguments are known constructors, `cases` proves the hypothesis: `expl
 (`isReg left = False`) it is one line, `a b el er => Bool.trueNotFalse (rewrite el at notReg in
 notReg)` **[run: p1.sw]**.
 
+**On an indexed family** this form is ill-typed when the earlier arm fixes an index: for `def
+short: Vec Nat n → Nat | VNil => 0 | VCons x VNil => 1 | v => 2`, `notArm1: v = VNil → Void`
+compares a `Vec Nat n` with a `Vec Nat 0` (`E-TYPE-MISMATCH`, `review-r1.sw` **[run]**). Lean
+states it with a heterogeneous equation (`mkEqHEq` in [L1]); std has no `HEq` (`git grep`)
+**[checked]**. Stage 1 skips such an arm, counts it, and `doc` gives the reason; its branches
+below are skipped with it (D2185). The equations of arms that fix no index, and of every arm
+with no earlier overlap, are made as usual.
+
 **Literal patterns.** A literal is a pattern like any other, so an earlier arm `3` against a
 later `n` gives `n = 3 → Void`, written **`n ≠ 3`** (the same proposition), which `omega` proves:
 `kindEq3 n omega omega` from `10 ≤ n` checks **[run: p1.sw]**. For **characters**, the earlier
 arms' literals on one variable are merged into one hypothesis **`char ∉ ['k', 'j']`**, so a
 program's own key list (`char ∉ commandKeys`, which computes to the same) is passed as it is,
-and a known character is decided by `byDecision` **[run: p3.sw]**:
+and a known character is decided by `byDecision` **[run: p3.sw]**. Only earlier arms that
+differ from this one in that column alone are merged; one that also constrains another column
+(`| 'k', Nil => …` before `| c, xs => …`) keeps Lean's form, `notArm1: char = 'k' → xs = Nil →
+Void`:
 
 ```
 kind.eq3 (n: Nat) (notArm1: n ≠ 3) (notArm2: n ≠ 7): kind n = 0
-commandOf.eq.alt3 (char: Char) (notListed: char ∉ ['k', 'j']): commandOf char = None
+commandOf.eq3 (char: Char) (notListed: char ∉ ['k', 'j']): commandOf char = None
 ```
 
-(Numbers stay one `≠` each: `omega` can't use `n ∉ [3, 7]`, `E-OMEGA` with the model `n = 10`
-**[run: p3.sw]**.) `Int` literals are split by sign first and `Fin` literals are `FZero`/`FSucc`
-patterns (`crates/elab/src/lib.rs:3512-3524`); they give `x ≠ k` for `Int` and the constructor form
-for `Fin`, as the pattern compiler sees them [inferred]. Stitchwort has no `Text` literal patterns (`crates/syntax/src/ast.rs:704-745`),
-so there is nothing to generate for them.
+(Numbers stay one `≠` each: neither `omega` (`E-OMEGA`, with the model `n = 10`) nor `cases`
+(`E-CASES`) proves `n ∉ [3, 7]` from `10 ≤ n` **[run: p3.sw]**.) `Int` literals are split by
+sign first and `Fin` literals are `FZero`/`FSucc` patterns (`crates/elab/src/lib.rs:3512-3524`);
+they give `x ≠ k` for `Int` and the constructor form for `Fin`, as the pattern compiler sees them
+[inferred]. Stitchwort has no `Text` literal patterns (`crates/syntax/src/ast.rs:704-745`), so
+there is nothing to generate for them.
 
 **Nested patterns** need nothing new: `explode.eq2`'s left side is `explode depth (Pair (Regular
 a) (Regular b))`, and `notArm2` above quantifies arm 2's nested variables.
 
 **`if` in tail position.** A `Bool` `if c` gives `c = True` / `c = False`; a decided `if p`
-gives `p` / `Not p`; `if h: p` gives `h: p` / `h: Not p`, named as written. Suffixes `.ifTrue`
-and `.ifFalse`. Which of these an `if` on a comparison is depends on how it was elaborated (`if 4
-≤ depth` is a `Bool` `if` in one place and `Decidable.elim` in another, SW-980 item 5); the
-hypothesis follows the elaborated form, which `doc` shows. `gcd` (`examples/accept/decreasing.sw:45-48`):
+gives `p` / `Not p`; `if h: p` gives `h: p` / `notH: Not p`. Suffixes `.ifTrue` and `.ifFalse`.
+**One normalisation** (D2186): when `p` is an equation between a `Bool` and `True` or `False`,
+the `else` hypothesis is the other equation, not its negation: `if fresh: b = False` gives
+`notFresh: b = True`, the form both hand-written versions chose (`fillSkip`, `Fill.sw:100`;
+`Graph.searchSkip`, `Search.sw:276`) **[checked]**. The proof converts with one step
+(`Bool.trueNotFalse`), `p10.sw` **[run]**. Which form an `if` on a comparison has depends on how
+it was elaborated (`if 4 ≤ depth` is a `Bool` `if` in one place and `Decidable.elim` in another,
+SW-980 item 5); the hypothesis follows the elaborated form, which `doc` shows. `gcd`
+(`examples/accept/decreasing.sw:45-48`):
 
 ```
 gcd.eq.ifTrue (a: Nat) (b: Nat) (h: b = 0): gcd a b = a
-gcd.eq.ifFalse (a: Nat) (b: Nat) (h: Not (b = 0)): gcd a b = gcd b (a % b)
+gcd.eq.ifFalse (a: Nat) (b: Nat) (notH: Not (b = 0)): gcd a b = gcd b (a % b)
 ```
 
 Both check, by `rewrite gcd.unfold a b in cases` **[run: p4.sw]**.
@@ -329,11 +372,12 @@ in lower case (`.some`, `.none`, `.cons`, `.true`), as `T.induct`'s cases are na
 otherwise `.alt1`, `.alt2`, … in written order (literals, nested patterns, several scrutinees, a
 catch-all). On a **variable** of the arm (compiled into the case tree), the alternative's pattern
 goes into the left side, like an arm's. On an **expression**, the hypothesis is `e = pattern`,
-named after the `match`'s equation name if it has one (`match found: …`), else `found` (`found2`,
-… for those below it); earlier overlapping alternatives add `notAlt…` hypotheses as arms do:
+named after the `match`'s equation name if it has one (`match found: …`), else `is` and the
+constructor (`isSome`, `isNone`, `isAlt2`), with a digit on a clash; earlier overlapping
+alternatives add `notAlt…` hypotheses as arms do:
 
 ```
-explode.eq3.some (depth) (left) (right) (inLeft: Explosion) (notArm2: …) (found: explode (depth + 1) left = Some inLeft):
+explode.eq3.some (depth) (left) (right) (inLeft: Explosion) (notArm2: …) (isSome: explode (depth + 1) left = Some inLeft):
     explode depth (Pair left right) = Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 })
 ```
 
@@ -355,6 +399,9 @@ of its own (below).
 member is just a call.
 
 **Local definitions** are definitions: `reach.left` gets `reach.left.eq1`, `reach.left.eq2`.
+Except in a `decreasing` definition: its local definitions and lifted `match`es that call it
+take `%rec` (`crates/elab/src/decreasing.rs:19-21`), which a statement can't use, so they get
+none in stage 1. The owner's own branch equations already cover those in tail position.
 
 **Not generated** (each listed by `stitchwort doc` with the reason, D2177):
 
@@ -372,34 +419,45 @@ member is just a call.
 - `Partial` definitions: `Effect.pfix` has no computation rule (`docs/core.md:349-362`: "no computation rules");
 - an `opaque` definition with an `unfolding` clause: it has no `f.unfold` either
   (`docs/syntax.md:1100-1104`);
-- an arm the case tree never reaches; an indexed family's impossible branches.
+- an arm the case tree never reaches; an indexed family's impossible branches; an arm whose
+  overlap hypothesis would compare different indices (above, D2185);
+- the cases §3.5 and §4 skip, and a statement over the size bound of §10.
+
+Naming one of these (the index lists every name the source implies, §3.3) is `E-NO-EQUATION`
+with the reason, as naming the missing `f.unfold` of an `opaque` definition with an `unfolding`
+clause is `E-NO-UNFOLD-EQUATION` (`crates/elab/src/opaque.rs:544-546`).
 
 ### 3.3 Names
 
 | Case | Name |
 |---|---|
-| arm K (1-based, written order) | `f.eqK` |
+| arm K (1-based, written order; also the alternatives of a whole-body `match` on parameters) | `f.eqK` |
+| an or-pattern's alternatives | `f.eqK.or1`, `f.eqK.or2`, … |
 | a branch below it | `f.eqK` + one suffix per split: `.ifTrue`, `.ifFalse`, `.some`, `.none`, `.true`, `.alt3`, … |
-| a branch of a `:=` body | `f.eq` + the suffixes: `gcd.eq.ifFalse`, `Garden.fill.eq.cons.ifTrue.ifFalse` |
-| hypotheses | the source's names (`fresh`, `found`); `notArmJ` for an earlier arm J, `notAltJ` for an earlier alternative, `notListed` for merged characters; `h1`, `h2`, … for an unnamed `if` |
+| a branch of any other `:=` body | `f.eq` + the suffixes: `gcd.eq.ifFalse` |
+| hypotheses | the source's names (`fresh`, `found`), `notFresh` for an `else`; `isSome`, `isNone`, … for an unnamed `match`; `notArmJ` for an earlier arm J, `notAltJ` for an earlier alternative, `notListed` for merged characters; `h1`, `h2`, … for an unnamed `if` |
 
 - Names are worked out from the **source alone** (arm count, tail `if`s and `match`es,
   constructor names), so the library index can list them before the file is elaborated, as it
-  does `T.f.update.g` (`library.rs:664-686`), and naming one loads its file.
-- They are **reserved**: declaring `theorem f.eq2` is `E-DUPLICATE` with a note, as written
-  update lemmas are refused (`docs/syntax.md:394`). Nothing in std or AoC has such a name today
-  (`git grep` for `\.eq[0-9]` and `.induct` declarations: none) **[checked]**.
-- **Why paths and not Lean's flat numbers** (D2176): `rewrite Garden.fill.eq.cons.ifFalse` says
+  does `T.f.update.g` (`library.rs:664-686`, marked `candidate`), and naming one loads its file.
+  A name the source implies but that elaboration skips (§3.2, "Not generated") is
+  `E-NO-EQUATION` with the reason.
+- They are **reserved**: declaring `theorem f.eq2` is `E-DUPLICATE` with a note, and a local
+  definition can't be named `eq`, `eqK` or `induct` (it would be `f.eq…`). Nothing in std, AoC,
+  the roguelike or the examples has such a name today (`git grep` for `\.eq[0-9]` and `.induct`
+  declarations, and local `def eq`/`def induct`: none) **[checked]**.
+- **Why paths and not Lean's flat numbers** (D2176): `rewrite Garden.fill.eq2.ifFalse` says
   which branch it is, a reviewer can check it against the source, and adding an `if` to one arm
   renames only that arm's branches. Arms keep numbers because overlapping arms have no other
-  unique name.
+  unique name. Counting a whole-body `match` on parameters as arms (D2187) keeps the names when
+  a definition is rewritten from one spelling to the other.
 
 ### 3.4 How agents find them
 
 - **`stitchwort doc f`** gets an **Equations** section, before Theorems: every generated
   equation with its statement and the line of the arm or branch it came from (at most 16, then a
   count and the `search` command). Generated equations are left out of the Theorems groups, whose
-  `rewrite` group they would otherwise fill (`docs/syntax.md:58`). JSON: `equations`, each with
+  `rewrite` group they would otherwise fill (`docs/syntax.md:61`). JSON: `equations`, each with
   `name`, `statement`, `line`.
 - **`stitchwort search`** lists them like any theorem, with `"generated": true` in JSON, and
   ranks a generated equation after a written theorem with the same score, so std's 20 or so
@@ -418,18 +476,28 @@ member is just a call.
 ### 3.5 One limit: `if h: p` whose branch uses `h`
 
 For `if h: p then A h else B`, the branch equation is `(h: p) → f … = A h`. The definition's own
-`A` gets the proof the decision found, `h'`; so the proof needs `A h' = A h`, which holds by
-computation when `h` doesn't occur in the right side after unfolding (it is only in a
-`[decreasing := …]`, which `f.unfold` drops: every AoC example, and `gcd` **[run: p4.sw]**), and
-by `DecEq.uniqueEq` when `p` is an equation in a type with `DecEq`. Otherwise it isn't provable
-without proof irrelevance (`docs/core.md:143`), and that branch gets no equation, with the reason
-in `doc` (D2180). [proof-irrelevance.md](proof-irrelevance.md) stage 1 would lift this. A
-`match` on a `Bool` with an equation name has no such limit: `J` transports the given `h` itself
-(§1.2).
+`A` gets the proof the decision found, `h'`; so the proof needs `A h' = A h`. That holds:
+
+- by computation when `h` doesn't occur in the right side after unfolding (it is only in a
+  `[decreasing := …]`, which `f.unfold` drops: every AoC example, and `gcd` **[run: p4.sw]**);
+- by one `J` along `h' = h` when `p` computes to an equation in a type with `DecEq`, which
+  includes `<` and `≤` on `Nat` and `Int` (they are `Bool` equations underneath): the proof
+  of `h' = h` is `Bool.uniqueEq` (`crates/elab/src/std/core/Decidable.sw:137`) or
+  `DecEq.uniqueEq`. The reviewer's `review-r2.sw` proves `Fin.ofNatCheck`'s shape, `if h: i < n
+  then Some (Fin.ofNatLt n i h) else None`, this way **[run]**; doing the step with `rewrite`
+  instead gave `E-UNIVERSE` (review 1, finding 3), so the generator builds the `J` itself.
+
+Such branches are common in std, not rare: `Fin.ofNatCheck` (`std/Fin/Fin.sw:81`),
+`SafeNat`/`SafeInt` construction (`std/Int/Safe.sw:20`, `:24`), `Mod` (`std/Mod/Mod.sw:36`), the
+`DecEq` instances (`Fin.sw:53`, `Safe.sw:58`, `Mod.sw:173`), all equations or comparisons
+covered by the second rule **[checked]**. Any other `p` isn't provable without proof irrelevance
+(`docs/core.md:143`); that branch gets no equation, with the reason in `doc` (D2180).
+[proof-irrelevance.md](proof-irrelevance.md) stage 1 would lift this. A `match` on a `Bool` with
+an equation name has no such limit: `J` transports the given `h` itself (§1.2).
 
 ## 4. How each is proved
 
-Every equation is a theorem built as a kernel term, as `T.induct` is (`derive_induct.rs:37-39`,
+Every equation is a theorem built as a kernel term, as `T.induct` is (`derive_induct.rs:40-41`,
 "made as kernel terms … their types need the fields' types, which source can't always name"),
 because its statement may name `f.%matchN` and its proof `f.%step` or `f.%body`. The kernel
 checks it like any declaration; a generator bug gives a refused declaration, never a false
@@ -440,15 +508,20 @@ theorem. Proofs, by kind:
    patterns: at a leaf of this arm, `rfl`; at a leaf of an earlier arm J, `Void.exfalso (notArmJ
    fields… rfl rfl)`; at a number case, the same literals with the hypotheses ruling them out and
    the default computing by the apart rule ([literal-match-facts.md](literal-match-facts.md)), not
-   a `Zero`/`Succ` expansion (which `f.unfold` for `opaque` needs, and limits to literals below
-   about 100, `opaque.rs:299`). `exEq3`, `kindEq3` and `commandOfEq3` are this proof written by
-   hand; they check **[run: p1.sw, p3.sw]**.
-3. **`decreasing` or `opaque` `f`:** `Eq.trans (f.unfold …)` and then the above on `f.%step` or
-   `f.%body` (with `%rec` applied to `y … => f y …`, so recursive calls show as `f`).
+   a `Zero`/`Succ` expansion (which `f.unfold` for `opaque` uses, and which stops at 64 levels,
+   `MAX_NUMBER_SPLIT`, `opaque.rs:298-300`). `exEq3`, `kindEq3` and `commandOfEq3` are this proof
+   written by hand; they check **[run: p1.sw, p3.sw]**.
+3. **`decreasing` `f`:** `Eq.trans (f.unfold …)` and then the above on `f.%step` (with `%rec`
+   applied to `y … => f y …`, so recursive calls show as `f`). **`opaque` `f`:** the generated
+   theorem is checked with `unfolding f`, as `f.unfold` itself is (`opaque.rs:20-21`), so `f`'s
+   case tree computes in it and the proofs are those of 1 and 2. It doesn't go through
+   `f.unfold`, so an `opaque` definition with a number pattern past 64, which has no `f.unfold`,
+   still gets equations.
 4. **Branch:** the arm equation, then one step per split: for an `if`, `Bool.ifThenElse`'s case
    on the hypothesis; for `if h:`, `Decidable.elimEq` (`crates/elab/src/std/core/Decidable.sw:53`,
-   the lemma the hand proofs use) and §3.5; for a `match` on an expression, `Eq.cong` of the helper
-   along `found` (`p7.sw`'s equations do this by `rewrite found` and check **[run]**); for a
+   the lemma the hand proofs use), §3.5, and the one step of D2186 for a normalised `else`; for a
+   `match` on an expression, `Eq.cong` of the helper along the hypothesis (`p7.sw`'s equations do
+   this by `rewrite` and check **[run]**); for a
    **named** `match`, one `J` with the motive over the scrutinee and its equation (§1.2,
    **[run: p2b.sw, p6b.sw]**). A helper with copies of variables whose types mention the
    scrutinee (`matching.rs:13-17`) needs them transported too; stage 1 skips those branches
@@ -467,7 +540,7 @@ For each recursive definition (structural or `decreasing`), one theorem:
 ```
 f.induct (fixed parameters)
     (motive: (other parameters) → (result: R) → Prop)
-    (one case per branch, named after its equation: eq1, eq2IfTrue, eqConsIfFalse, …:
+    (one case per branch, named after its equation: eq1, eq2IfTrue, eq2IfFalse, …:
        (variables) → (hypotheses) → (one IH per recursive call: motive args (f args)) →
        motive patterns rightSide)
     : (other parameters) → motive params (f params)
@@ -491,17 +564,17 @@ f.induct (fixed parameters)
 - **Not recursive**: no `f.induct`; the equations and a `match` do the same.
 
 `Garden.fill` (`aoc/src/Aoc/Year2024/Day12/Day12.sw:74-85`) gets, written in the plain form as
-the prototype has it (`Induct.sw`, §6.1, **[run]**):
+the prototype has it (`day12-induct.sw`, §6.1, **[run]**):
 
 ```
 Garden.fill.induct (garden: Garden) (plant: Char) (motive: List Position → Set Position → List Position → Prop)
-    (eqNil: (visited) → (members) → motive Nil visited members)
-    (eqConsIfTrueIfTrue: (position) → (rest) → (visited) → (members) →
+    (eq1: (visited) → (members) → motive Nil visited members)
+    (eq2IfTrueIfTrue: (position) → (rest) → (visited) → (members) →
       (fresh: visited.contains position = False) → (grows: garden.plantAt position = Some plant) →
       motive (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members) →
       motive (Cons position rest) visited members)
-    (eqConsIfTrueIfFalse: … (fresh: … = False) → (grows: Not (…)) → motive rest visited members → motive (Cons position rest) visited members)
-    (eqConsIfFalse: … (fresh: Not (visited.contains position = False)) → motive rest visited members → motive (Cons position rest) visited members):
+    (eq2IfTrueIfFalse: … (fresh: … = False) → (grows: Not (…)) → motive rest visited members → motive (Cons position rest) visited members)
+    (eq2IfFalse: … (notFresh: visited.contains position = True) → motive rest visited members → motive (Cons position rest) visited members):
     (stack: List Position) → (visited: Set Position) → (members: List Position) → motive stack visited members
 ```
 
@@ -533,10 +606,10 @@ So stage 2b adds **`match induct (f args) with`**, by analogy with `match reify 
 theorem fillCorrect … (state: FillState garden plant start stack visited members):
     FillResult garden plant start stack members (Garden.fill garden plant stack visited members) :=
   match induct (Garden.fill garden plant stack visited members) with
-    | eqNil visited members => …                                   -- state: FillState … Nil visited members
-    | eqConsIfTrueIfTrue position rest visited members fresh grows ih => …
-    | eqConsIfTrueIfFalse position rest visited members fresh grows ih => …
-    | eqConsIfFalse position rest visited members fresh ih => …
+    | eq1 visited members => …                                   -- state: FillState … Nil visited members
+    | eq2IfTrueIfTrue position rest visited members fresh grows ih => …
+    | eq2IfTrueIfFalse position rest visited members fresh grows ih => …
+    | eq2IfFalse position rest visited members notFresh ih => …
 ```
 
 The motive is the goal with the call replaced by `result` and the targets by the motive's
@@ -544,7 +617,8 @@ parameters; variables in scope whose types mention a target (`state`) are genera
 `match` on an expression already does (`matching.rs:10-19`), so each arm sees them refined and
 each `ih` takes them as premises. The arguments in the motive's places must be distinct
 variables (the fixed prefix may be any terms); otherwise it is an error that says to generalise
-them first. Arms are named by case, in any order, all required (`E-NONEXHAUSTIVE`). The proof it writes is `Garden.fill.induct` applied, and the kernel checks it.
+them first. Arms are named by case, in any order, all required (`E-NONEXHAUSTIVE`). The proof
+it writes is `Garden.fill.induct` applied, and the kernel checks it.
 
 ## 6. Worked examples
 
@@ -558,32 +632,39 @@ lines), which recurses on the same measure, re-proves the three decreases
 converts `garden.plantAt position == Some plant` back to a `Prop` (`DecEq.sound`, and a two-line
 `other`) because it splits with `match taken:`/`match growing:` on `Bool`s.
 
-**After stage 1.** The three step lemmas are `Garden.fill.eq.cons.ifFalse`,
-`.eq.cons.ifTrue.ifTrue` and `.eq.cons.ifTrue.ifFalse`: delete `Fill.sw:98-118` and use those at
-the three call sites (`:145`, `:164`, `:179`). The hypotheses come in the program's form: the
-skip step takes `Not (visited.contains position = False)` where `fillSkip` took `taken: … = True`,
-and the third takes `fresh` as well as `other`, both in scope at `:179`.
+**After stage 1.** The three step lemmas are `Garden.fill.eq2.ifFalse`,
+`.eq2.ifTrue.ifTrue` and `.eq2.ifTrue.ifFalse`: delete `Fill.sw:98-118` and use those at
+the three call sites (`:145`, `:164`, `:179`). With D2186 the skip step takes `notFresh:
+visited.contains position = True`, the `taken` the proof has. One is less general than the
+lemma it replaces: `fillOther` (`Fill.sw:114-116`) needs only `other`, because both `else`s give
+the same result, while the generated `.eq2.ifTrue.ifFalse` follows the program and needs `fresh`
+too; it is in scope at `:179`. A generator states what each branch does, not facts that merge
+branches.
 
 **After stage 2.** `fillCorrect` by `Garden.fill.induct`: the prototype
-(`scratchpad/aoc/…/Day12/Proofs/Induct.sw`, a copy of the AoC project with `fillInduct` and the
-four equations written by hand as the generator would make them) checks with `stitchwort check
---no-cache Aoc.Year2024.Day12.Proofs` in 3.8 s user **[run]**. `fillCorrectByInduct` is 51 lines
-against 67, with no decrease proof and no `Bool`-to-`Prop` conversion; one case:
+(`function-equations/prototypes/day12-induct.sw`, dropped into a copy of the AoC project, with
+`fillInduct` and the four equations written by hand as the generator would make them, in the
+normalised form) checks with `stitchwort check --no-cache Aoc.Year2024.Day12.Proofs` in 3.9 to
+4.8 s user **[run]**. `fillCorrectByInduct` is 51 lines against 67, with no decrease proof, no
+`match taken:`/`match growing:` on `Bool`s and none of the conversions they needed (`DecEq.sound`,
+the two-line `other`); one case:
 
 ```
     (position rest visited members fresh grows ih state =>
       let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := ih (takeKeeps garden plant start position rest visited members state fresh grows)
-      rewrite fillEqConsIfTrueIfTrue garden plant position rest visited members fresh grows in
+      rewrite fillEq2IfTrueIfTrue garden plant position rest visited members fresh grows in
         Both distinct (…as before…))
 ```
 
-With the unfolding form the `rewrite` line goes too (4 lines), and with `match induct` the
-explicit motive (2 lines). In all, 88 lines become about 45.
+The `Bool` conversion the `else` needs (`Not (b = False)` to `b = True`) is inside
+`fillInduct`'s proof, which the generator writes, not in the user's (`trueOfNotFalse`, used once
+in the prototype's `fillInduct`). With the unfolding form the `rewrite` lines go too (4 lines),
+and with `match induct` the explicit motive (2 lines). In all, 88 lines become about 45.
 
-Two small findings on the way: the `else` of `if fresh: b = False` gives `Not (b = False)`, and
-std has `Bool.falseOfNotTrue` but not `Bool.trueOfNotFalse` (`crates/elab/src/std/Bool/Bool.sw:57`)
-**[checked]**; and `cases`, given that hypothesis, derived `%fact1: Void` and still reported
-`E-CASES` **[run]**. Both are backlog tickets, not part of this design.
+Two small findings on the way: std has `Bool.falseOfNotTrue` but not `Bool.trueOfNotFalse`
+(`crates/elab/src/std/Bool/Bool.sw:57`) **[checked]**; and `cases`, given `Not (b = False)` with
+`b` split to `False`, derived `%fact1: Void` and still reported `E-CASES` **[run]**. Both are
+backlog tickets, not part of this design.
 
 ### 6.2 2021 day 18: `explode` without the reshape
 
@@ -596,13 +677,17 @@ std has `Bool.falseOfNotTrue` but not `Bool.trueOfNotFalse` (`crates/elab/src/st
 (`p7.sw`, §3.2). Its generated equations:
 
 ```
-explode.eq3.some      (…) (notArm2) (found: explode (depth + 1) left = Some inLeft): explode depth (Pair left right) = Some ({ toLeft = inLeft.toLeft, … })
-explode.eq3.none.some (…) (notArm2) (found: explode (depth + 1) left = None) (found2: explode (depth + 1) right = Some inRight): … = Some ({ toLeft = 0, … })
-explode.eq3.none.none (…) (notArm2) (found: … = None) (found2: … = None): explode depth (Pair left right) = None
+explode.eq3.some      (…) (notArm2) (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left right) = Some ({ toLeft = inLeft.toLeft, … })
+explode.eq3.none.some (…) (notArm2) (isNone: explode (depth + 1) left = None) (isSome: explode (depth + 1) right = Some inRight): … = Some ({ toLeft = 0, … })
+explode.eq3.none.none (…) (notArm2) (isNone: … = None) (isNone2: … = None): explode depth (Pair left right) = None
 ```
 
 all three proved as the generator would and checked, and used where the left part is a pair
-with `cases` for `notArm2` **[run: p7.sw]**. `explodeInFound` (`Explode.sw:74`) then splits on
+with `cases` for `notArm2` **[run: p7.sw]**. `notArm2` is a stronger premise than
+`explodeUnfold`'s (`Explode.sw:21`, `depth < 4 ∨ height left + height right ≠ 0`, which also
+covers two regular numbers above depth 4, where arm 2's `else` happens to agree), so
+`explode.eq3` is less general; all six uses are at `Regular a, Pair x y` or `Pair x y, _`
+(`Explode.sw:43, 46, 125, 128`, `Height.sw:32, 35`), where `cases` proves `notArm2`. `explodeInFound` (`Explode.sw:74`) then splits on
 `explode (depth + 1) left` as it does now and rewrites with `explode.eq3.some` or
 `.eq3.none.some` instead of `explodeUnfold` and `explodeIn`'s arms. The run time is back to
 0.98 s (`aoc/NOTES-2021.md:4558-4560`, the author's measurement). I didn't rewrite the whole proof
@@ -611,10 +696,13 @@ file; that is stage 1's acceptance test (§9).
 ### 6.3 std's `Graph.searchFrom`
 
 `Graph.searchEmpty`, `searchSkip` and `searchSettle` (`crates/elab/src/std/Graph/Search.sw:267-290`,
-21 lines) become `Graph.searchFrom.eq1`, `.eq2.ifFalse` and `.eq2.ifTrue`. Its signature, which
-takes `queue.popMin` and its equation as arguments because `match popped: queue.popMin with`
-couldn't be stepped through (`aoc/NOTES-2024.md:5017-5030`), could go back to the `match`; that
-changes a std signature and its callers, so it is D2184's question.
+21 lines) state what `Graph.searchFrom.eq1`, `.eq2.ifFalse` and `.eq2.ifTrue` would: the same
+variables, and with D2186 the same hypotheses (`searchSkip`'s `taken: settled.contains state =
+True` is `.eq2.ifFalse`'s `notFresh`). They are public std lemmas, so removing them renames their
+uses; D2184 asks whether to. Its signature, which takes `queue.popMin` and its equation as
+arguments because `match popped: queue.popMin with` couldn't be stepped through
+(`aoc/NOTES-2024.md:5017-5030`), could go back to the `match`; that changes a std signature and
+its callers for nothing more proved, so D2184 recommends leaving it.
 
 ## 7. When, and what it costs
 
@@ -628,24 +716,33 @@ demand, which would need the kernel to hold unchecked theorems: refused.
 
 - **Discovery needs them to exist.** `doc` and `search` read the elaborated library; on-demand
   lemmas wouldn't be listed unless those commands generated them, which is (a) again.
-- **The cost is small.** A scratch file of 1,000 definitions of 5 arms each checks in 0.22 to 0.24 s user;
-  with one equation per arm written as source (5,000 theorems: per definition, four by `rfl` and
-  one with two overlap hypotheses proved by a case split) 0.61 to 0.66 s: about **0.08 ms an equation**, elaboration from
-  source included, which generated kernel terms skip [measured: `scratchpad/gen_cost.py`, three  runs, `check --no-cache`]. Equations about bigger bodies cost more, about as much as checking
-  the arm again, so a bound: generating everything costs at most one more check of every
-  definition body, and definitions are a minority of std's declarations (1,108 `def`s to 2,496
-  theorems [measured: `scratchpad/count.py`]).
+- **The cost is small for small bodies.** A file of 1,000 definitions of 5 arms each checks in
+  0.22 to 0.24 s user; with one equation per arm written as source (5,000 theorems: per
+  definition, four by `rfl` and one with two overlap hypotheses proved by a case split) 0.61 to
+  0.66 s: about **0.08 ms an equation**, elaboration from source included, which generated kernel
+  terms skip [measured: `prototypes/gen_cost.py`, three runs each, `check --no-cache`].
+- **And about 1 ms for a realistic one.** 100 copies of `Garden.fill`'s four equations (400
+  theorems, each `rewrite Garden.fill.unfold` and nested `Decidable.elimEq`s on a lexicographic
+  `decreasing` definition) added about 0.5 s to `check --no-cache Aoc.Year2024.Day12.Proofs`:
+  4.4 to 5.3 s user over four runs with them, 3.9 to 4.7 s over three without, on a loaded
+  machine, so noisy [measured: a scratch script copying `day12-induct.sw`'s equations]. So std's
+  2,000 or so would cost between about 0.2 s (if all were small) and 2.5 s (if all were like
+  these); most std arms are short (346 of the 497 definitions with arms have two), so nearer the
+  first. The claim that an equation costs about as much as checking its arm again is inferred,
+  not measured; the gate below is what bounds it.
 - **std's size.** 1,108 definitions, 497 with arms, 1,253 arms; 117 with an `if` and 69 with a
-  `match` somewhere in their body; 11 `decreasing` [measured: `count.py`, which reads source with
-  regular expressions, so the counts are close, not exact]. So about 1,250 arm equations and a few
-  hundred branch equations.
+  `match` somewhere in their body; 11 `decreasing`; 2,496 theorems [measured:
+  `prototypes/count.py`, which reads source with regular expressions, so the counts are close,
+  not exact]. So about 1,250 arm equations and a few hundred branch equations.
 - **The check cache** stores them in the file's entry and replays them (stage 3 admits them
   without checking again, `docs/proposals/check-cache.md` "As built (stage 3)"), so a warm run
   pays nothing.
 - **The gate.** If stage 1 adds more than 10% to std's cold check, or to the playground's start,
   generation for the library switches to (b), behind the same names (the index already knows
-  them, §3.3). Assumption, in full: that std's cold check is dominated by its theorems, not its
-  definitions, as the counts above suggest; stage 1 measures it.
+  them, §3.3). Assumption, in full: that std's cold check is dominated by its 2,496 theorems
+  rather than its 1,108 definitions, so that equations of the definitions' size stay under 10%;
+  stage 1a measures it, with one data point at `Garden.fill`'s or `Graph.searchFrom`'s size, before
+  it merges.
 
 ### 7.2 Hashes, cache, search
 
@@ -681,8 +778,9 @@ demand, which would need the kernel to hold unchecked theorems: refused.
 Each with my recommendation in [brackets] and its assumptions in full.
 
 - **D2173. Build stage 1, generated equations for arms and branches?** [Yes.] Assumes the
-  evidence of §1.1 (five reshaped programs, three hand step-lemma sets) is typical of what
-  agents will meet, and that the per-equation cost measured in §7.1 holds for generated terms.
+  evidence of §1.1 (four reshaped programs, three hand step-lemma sets) is typical of what
+  agents will meet, and that the per-equation cost measured in §7.1 (0.08 ms small, about 1 ms
+  realistic, from source) holds or improves for generated terms.
 - **D2174. Granularity: an equation per source arm, with earlier overlapping arms as
   hypotheses (Lean), plus one per branch of each tail `if`/`match` (Lean's functional-induction
   granularity)?** [Yes.] The alternative is per leaf of the case tree (Isabelle, Rocq
@@ -691,31 +789,42 @@ Each with my recommendation in [brackets] and its assumptions in full.
   §1.1 describes the problem.
 - **D2175. Hypothesis forms: one per earlier overlapping arm, `(vars) → x = C vars → … → Void`;
   `n ≠ k` for a number literal; earlier character literals on one variable merged into
-  `c ∉ ['k', 'j', …]`; the condition as tested for a split.** [Yes.] Assumes `omega` keeps not
-  reading `n ∉ [3, 7]` (if it learns to, numbers could merge too) and that a program's key lists
-  are written as literal lists or definitions that compute to them.
+  `c ∉ ['k', 'j', …]` when they constrain that column alone; the condition as tested for a
+  split.** [Yes.] Assumes `omega` keeps not reading `n ∉ [3, 7]` (if it learns to, numbers could
+  merge too), that a program's key lists are written as literal lists or definitions that
+  compute to them, and that the definition isn't on an indexed family whose earlier arm fixes
+  an index (D2185).
 - **D2176. Names: `f.eqK` for arm K, a suffix per split (`.ifTrue`, `.ifFalse`, the constructor
-  in lower case, `.altN`), `f.eq` + suffixes for a `:=` body; reserved.** [Yes.] The alternative
-  is Lean's flat `f.eq1 … f.eqN` over all cases: shorter, but a name doesn't say which branch,
-  and adding an `if` renumbers later arms. Assumes names a few segments long are acceptable in
-  proofs (`Garden.fill.eq.cons.ifTrue.ifFalse` is the longest in §6).
+  in lower case, `.altN`, `.orN`), `f.eq` + suffixes for any other `:=` body; reserved, local
+  definitions named `eq`/`eqK`/`induct` refused; a name the source implies but elaboration skips
+  is `E-NO-EQUATION` with the reason.** [Yes.] The alternative is Lean's flat `f.eq1 … f.eqN`
+  over all cases: shorter, but a name doesn't say which branch, and adding an `if` renumbers
+  later arms. Assumes names a few segments long are acceptable in proofs
+  (`Garden.fill.eq2.ifTrue.ifFalse` is the longest in §6).
 - **D2177. Which definitions: every `def` (top-level or local) with arms or a tail split,
-  transparent, `decreasing` or `opaque` without `unfolding`; effect-polymorphic ones at the empty
-  row; not theorems, instances, ability-performing or `Partial` definitions.** [Yes, including
+  transparent, `decreasing` or `opaque` (without an `unfolding` clause, but whatever its number
+  patterns); effect-polymorphic ones at the empty row; not theorems, instances,
+  ability-performing or `Partial` definitions, nor a `decreasing` definition's local definitions
+  and lifted `match`es.** [Yes, including
   the equations that hold by `rfl`.] Generating only the "useful" ones (stuck left sides) would
   save over a thousand std lemmas, and the `rfl` ones can't be used by `rewrite` (§7.3); but
   they are what `doc` shows for each arm and what `f.induct`'s cases are named after, and
   without them agents must guess which functions have equations. Assumes the
   `rfl` ones are cheap (§7.1) and that `doc`'s separate section keeps them from crowding search.
 - **D2178. Generate eagerly with the definition, with the 10% gate of §7.1; on demand (Lean)
-  only if the gate trips.** [Yes.] Assumes std's cold check is dominated by theorems (§7.1).
+  only if the gate trips.** [Yes.] Assumes std's cold check is dominated by its theorems rather
+  than its definitions, so that equations of the definitions' size stay under the gate; stage 1a
+  measures it before merging.
 - **D2179. Discovery: an Equations section in `doc`, a `generated` flag and a tie-break in
   `search`, notes on `E-MATCH-MOTIVE`/`E-REWRITE-MOTIVE`/`E-REFL` naming the equation, a section in
   the proving guide.** [Yes.]
-- **D2180. A branch of `if h: p` whose right side still uses `h` gets an equation only when `h`
-  is gone after unfolding or `p` has unique proofs (`DecEq`), until proof irrelevance lands.**
-  [Yes.] Assumes such branches are rare in programs (none in the evidence: the proofs there go
-  into `[decreasing := …]` only).
+- **D2180. A branch of `if h: p` whose right side still uses `h` gets an equation when `h` is
+  gone after unfolding, or when `p` computes to an equation in a type with `DecEq` (`<`, `≤` on
+  `Nat` and `Int` included), proved by one `J` along `Bool.uniqueEq`/`DecEq.uniqueEq`; any other
+  such branch gets none until proof irrelevance lands.** [Yes.] Such branches are common in std
+  (`Fin.ofNatCheck`, `SafeNat`/`SafeInt`, `Mod`, the `DecEq` instances, §3.5), and every one
+  found is an equation or a comparison, so covered. Assumes the rest (a `p` that is neither) is
+  rare; stage 1b counts them.
 - **D2181. Stage 2, `f.induct` for recursive definitions: unfolding form only, a fixed prefix,
   cases named after the equations, no IH for calls under a binder, no mutual groups.** [Yes,
   after stage 1.] The alternatives: also the plain form (`f.inductPlain`; a statement not about
@@ -729,19 +838,41 @@ Each with my recommendation in [brackets] and its assumptions in full.
 - **D2183. Equations for lifted `match` helpers not in tail position (`reach.match1.eq2`)?**
   [No.] Their numbering is identity metadata, not a name (`syntax-conveniences.md` §2.4); a local
   `def` names one and then gets its own equations.
-- **D2184. After stage 1, replace std's `Graph.searchEmpty/Skip/Settle` by the generated
-  equations, and leave `Graph.searchFrom`'s signature and AoC's programs as they are (day 12 and
-  day 18 as acceptance tests only)?** [Yes.] Changing `searchFrom` back to a `match` changes a
-  std signature and every caller for no gain in what is proved.
+- **D2184. After stage 1, delete std's `Graph.searchEmpty/Skip/Settle` and rename their uses to
+  the generated equations (the same statements, with D2186), rather than keep them as one-line
+  corollaries; leave `Graph.searchFrom`'s signature and AoC's programs as they are (day 12 and
+  day 18 as acceptance tests only)?** [Yes.] There are no outside users, so a name kept for
+  compatibility only doubles what search lists ("best end state over churn"); changing
+  `searchFrom` back to a `match` changes a std signature and every caller for no gain in what is
+  proved.
+- **D2185. On an indexed family, an arm whose overlap hypothesis would compare values of
+  different indices (`v = VNil` with `v: Vec a n`) gets no equation in stage 1 (counted; `doc`
+  says why), rather than a heterogeneous equation (Lean's `HEq`, which std lacks), an index
+  equation with a transport, or a generated `Bool` predicate (`isVNil v = False`).** [Yes, skip
+  for now.] Assumes such definitions are rare among those proofs need equations for: std has few
+  functions on indexed families with overlapping arms (`Vec`'s are mostly one arm per
+  constructor) [inferred; stage 1a counts them]. If they aren't, the predicate form is the
+  likeliest next step.
+- **D2186. A split on `b = True` or `b = False` (`b` a `Bool`) states its `else` as the other
+  equation (`notFresh: b = True`), not as `Not (b = False)`.** [Yes.] Both hand-written
+  versions chose that form (`Fill.sw:100`, `Search.sw:276`), and the proof converts in one step
+  (`p10.sw`). Assumes agents' facts come as `b = True`/`b = False` (what `match e: b` and `cases`
+  give), which every proof in §1.1 shows.
+- **D2187. A `:=` body that is, as a whole, a `match` on the header's parameters counts as arms
+  (`Garden.fill.eq1`, `.eq2.ifFalse`), so the two spellings of a definition have the same
+  equation names.** [Yes.] The alternative keeps it a split of a `:=` body (`Garden.fill.eq.nil`,
+  `.eq.cons.ifFalse`): names that say the constructor, but that change when the definition is
+  rewritten with arms. Assumes that rewriting between the two spellings is more common than
+  wanting the constructor in the name.
 
 ## 9. Stages
 
 | Stage | What | Size | Model |
 |---|---|---|---|
-| **1a** | `crates/elab/src/equations.rs`: arm equations for transparent, `decreasing` and `opaque` definitions; overlap and literal hypotheses (pattern unification against earlier arms); proofs by the case tree (§4, 1–3); the arm↔leaf map recorded by `check_tree` (`Tree::Leaf` has the arm's span, `crates/elab/src/lib.rs:802-813`, the core term doesn't); reserved names; library index | medium-large (in the order of `derive_induct.rs`, 2,560 lines, but simpler: no containers) | **Opus** (kernel terms, the overlap computation) |
-| **1b** | Branch equations: tail `if`, `if h:` (§3.5), `match` on variables and expressions, named `match` (`J`), skipping helpers with copies | medium | **Opus** (dependent motives) |
+| **1a** | `crates/elab/src/equations.rs`: arm equations for transparent, `decreasing` and `opaque` definitions, or-patterns, implicit and `auto` parameters, `_` names; overlap and literal hypotheses (pattern unification against earlier arms), skipping indexed overlaps (D2185); proofs by the case tree (§4, 1–3); the arm↔leaf map recorded by `check_tree` (`Tree::Leaf` has the arm's span, `crates/elab/src/lib.rs:802-813`, the core term doesn't); reserved names, `E-NO-EQUATION`; library index. Before merging: std's cold check and one data point at `Garden.fill`'s size against the 10% gate (§7.1) | medium-large (in the order of `derive_induct.rs`, 2,560 lines, but simpler: no containers) | **Opus** (kernel terms, the overlap computation) |
+| **1b** | Branch equations: tail `if` with D2186's normalisation, `if h:` (§3.5, with the `uniqueEq` `J`), `match` on variables and expressions, named `match` (`J`), skipping helpers with copies | medium | **Opus** (dependent motives) |
 | **1c** | `doc` Equations section, `search` flag and tie-break, hover, the three messages, `docs/syntax.md` and proving-guide sections | small-medium | **Sonnet** |
-| **1d** | Acceptance: `examples/accept/function-equations*.sw` (every construct of §3.2, the prototypes `p1`–`p7`); 2021 day 18 back to `explode` as first written with its proofs on the equations; 2024 day 12's step lemmas deleted; std's `Graph.search*` replaced (D2184); `search_bench` and std cold check against §7's bounds | small-medium | **Sonnet** (proofs: Opus review) |
+| **1d** | Acceptance: `examples/accept/function-equations*.sw` (every construct of §3.2, from the prototypes); 2021 day 18 back to `explode` as first written with its proofs on the equations; 2024 day 12's step lemmas deleted; std's `Graph.search*` deleted and their uses renamed (D2184); `search_bench` and std cold check against §7's bounds | small-medium | **Sonnet** (proofs: Opus review) |
 | **2a** | `f.induct` (§5.1, 5.2), through `decreasing.rs` for measures | medium | **Opus** |
 | **2b** | `match induct` (§5.3) | small-medium | **Sonnet**, Opus review |
 | later | IH under binders, mutual `f.induct`, the `if h:` limit once proof irrelevance lands, equations for instance methods | | |
@@ -802,8 +933,36 @@ std change does.
   <https://fstar-lang.org/tutorial/book/under_the_hood/uth_smt.html>
 - [D1] Dafny reference manual, attributes `{:fuel}`, `{:induction}`:
   <https://github.com/dafny-lang/dafny/blob/master/docs/DafnyRef/Attributes.md>
-- Scratch programs (not committed), in the session scratchpad: `proto/p1.sw` (overlap, literals),
-  `p2.sw` (the wall, §1.2), `p2b.sw` (the `J` proof), `p3.sw` (`∉` hypotheses), `p4.sw` (`gcd`
-  branch equations and `gcdInduct`), `p6.sw`/`p6b.sw` (the wall on a `decreasing` definition, and
-  the `J` after `f.unfold`), `p7.sw` (day 18's `explode`), `aoc/…/Day12/Proofs/Induct.sw` (day 12),
-  `gen_cost.py` and `count.py` (§7).
+- Prototypes, in [function-equations/prototypes/](function-equations/prototypes/), each checked
+  with `stitchwort check FILE` from that folder: `p1.sw` (overlap, literals), `p2.sw` (the wall,
+  §1.2; fails as intended), `p2b.sw` (the `J` proof), `p3.sw` (`∉` hypotheses; its last two
+  theorems fail as intended), `p4.sw` (`gcd`'s branch equations and `gcdInduct`), `p6.sw` (the
+  wall on a `decreasing` definition; fails as intended), `p6b.sw` (the `J` after `f.unfold`),
+  `p7.sw` (day 18's `explode`), `p8.sw` (an effect-polymorphic arm at the empty row), `p9.sw`
+  (`rewrite` with an overlap equation, and with a transparent arm, which fails as intended),
+  `p10.sw` (D2186's normalised `else`), `day12-induct.sw` (day 12, run inside a copy of the AoC
+  project), the reviewer's `review-r1.sw` (an indexed overlap, ill-typed as intended) and
+  `review-r2.sw` (the `uniqueEq` `J` of §3.5); `gen_cost.py` and `count.py` (§7).
+
+## Review 1 and how it was addressed
+
+Review 1 ([function-equations/review-1.md](function-equations/review-1.md)) was by an
+independent Claude Opus subagent given the note and the repository, of draft 1 (`c4e0f228`).
+Verdict: "approve with changes". Each finding, and what changed:
+
+| # | Finding | Severity | How it was addressed |
+|---|---|---|---|
+| 1 | Overlap hypotheses are ill-typed on indexed families when an earlier arm fixes an index (`review-r1.sw`) | major | Re-ran `review-r1.sw`: `E-TYPE-MISMATCH`, as stated. §3.2 now says so; such arms are skipped in stage 1 and counted; new **D2185** (skip now; a generated `Bool` predicate as the likely next step) |
+| 2 | `Bool`-guard hypotheses don't match the hand-written form (`Not (b = False)` vs `b = True`); §6.1 overclaimed "no conversion"; `fillOther` is more general than the generated equation; D2184 treats deleting std lemmas as a rename | major | Adopted the reviewer's fix as **D2186** (the `else` of `b = True`/`False` states the other equation; `p10.sw` checks it); the day 12 prototype now uses it, with the conversion inside `fillInduct`'s generated proof (re-checked, `day12-induct.sw`). §6.1 says what the user's proof no longer does and that `fillOther` is more general. **D2184** now asks to delete the three std lemmas (not keep corollaries) and says why |
+| 3 | §3.5/D2180's "rare, none in the evidence" is wrong: std has several `if h:` branches that use `h`; all are `Bool` equations underneath, provable by `J` along `Bool.uniqueEq` (`review-r2.sw`) | minor | Re-ran `review-r2.sw` (checks) and listed the std cases (`Fin.sw:53, 81`, `Safe.sw:20, 24, 58`, `Mod.sw:36, 173`). §3.5 now has the wider rule (an equation in a `DecEq` type, `<`/`≤` on `Nat`/`Int` included) and that the generator builds the `J` (`rewrite` gave `E-UNIVERSE`); **D2180** rewritten, with corrected assumptions |
+| 4 | Missed constructs: or-patterns; helpers inside `decreasing` definitions take `%rec`; implicit and `auto` parameters; names for `_`; character merging across columns; `opaque` definitions past `MAX_NUMBER_SPLIT` = 64 (not "about 100"); records | major | §3.1: or-patterns get `f.eqK.orN`; equations take the definition's implicit and `auto` parameters; `_` is named after its field (or `x1`, …); record patterns. §3.2: characters merge only when the earlier arms constrain that column alone, else Lean's form; a `decreasing` definition's helpers get no equations (the owner's branches cover their tail cases). §4: `opaque` equations are checked with `unfolding f`, not via `f.unfold`, so the 64 limit doesn't apply; "about 100" corrected to 64 (`opaque.rs:298-300`) |
+| 5 | Names "from source alone" conflict with skips decided after elaboration | minor | §3.2 and §3.3: the index lists every name the source implies (as `candidate`s, `library.rs:684`); naming a skipped one is `E-NO-EQUATION` with the reason, after `E-NO-UNFOLD-EQUATION` (`opaque.rs:544-546`); in D2176 |
+| 6 | Naming asymmetry between arms and a whole-body `match`; local `def eq`/`def induct` | minor | New **D2187**: a whole-body `match` on parameters counts as arms, so `Garden.fill` is `Garden.fill.eq1`, `.eq2.ifFalse`, … throughout; local definitions named `eq`, `eqK`, `induct` are refused (none exist, checked) |
+| 7 | The cost argument rests on tiny bodies; "one more check of every body" is inferred | minor | Measured one data point at `Garden.fill`'s size: about 1 ms an equation, noisy (§7.1); the range for std (0.2 to 2.5 s) and the 10% gate stated, the inference labelled as such; stage 1a measures before merging (§9) |
+| 8 | "Five reshaped programs" stretched; category K is mostly the roguelike's | minor | Now "four programs (days 12, 16, 18, 23), all of which this design makes unnecessary"; the roguelike row says it was already fixed by SW-533; the K count is described as what it is (§1.1) |
+| 9 | Prototype claims didn't reproduce from the files (`p6.sw` lacked the failing attempts; `p3.sw` gave `E-CASES` where the note said `E-OMEGA`) | minor | All prototypes are committed in `function-equations/prototypes/`, formatted. `p6.sw` has the three attempts again; §1.2 says `cases` gives `E-MATCH-MOTIVE` there (not `E-CASES`). `p3.sw` has both: `omega` gives `E-OMEGA` with the model `n = 10`, `cases` gives `E-CASES`; §3.2 says both |
+| 10 | Citation drift and nits: `syntax.md:58` → `:61`; `derive_induct.rs:37-39` → `:40-41`; update lemmas are generated as source (`update_lemmas.rs:23`); `explodeUnfold`'s hypothesis is weaker than `notArm2`; `found` reads badly on `= None` | nit | Citations fixed. §1.3 says update lemmas are elaborated source, so a model for when and how they're found, not for how they're built. §6.2 says `explode.eq3` is less general than `explodeUnfold` and why nothing breaks (all six uses are at shapes where `cases` proves `notArm2`). Unnamed `match` hypotheses are now `isSome`, `isNone`, … |
+
+The reviewer's "checked and correct" list (citations, the prototypes, the soundness argument, the
+Lean quotes) needed no change. The day 12 prototype took 3.8 s here and 4.8 s for the reviewer;
+§6.1 now gives the range.
