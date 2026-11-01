@@ -52,6 +52,9 @@ pub(crate) struct Pending {
     /// The context's own variables not shown (a compiler-made `%x`, a `_`):
     /// each one's level and type, for [`GoalSnapshot`].
     hidden: Vec<(usize, Value)>,
+    /// How many hypotheses a later one of the same name replaced, and
+    /// nothing shown mentions, aren't listed ([`drop_superseded`]).
+    superseded: usize,
     /// What the hole is in: "`addZero`".
     owner: String,
     /// What a lemma of the goal is named after: the declaration's name less
@@ -113,6 +116,13 @@ impl NameScope for GoalScope<'_> {
 
     fn aliases(&self, full: &str) -> Vec<String> {
         self.e.aliases(full)
+    }
+
+    fn method(
+        &self,
+        projection: stitchwort_core::DefId,
+    ) -> Option<(stitchwort_core::DefId, String)> {
+        self.e.method_of(projection)
     }
 
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
@@ -207,6 +217,9 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let mut term = Term::Meta(m);
     let mut context = Vec::new();
     let mut hidden = Vec::new();
+    // Each variable as its hypothesis is named, `n✝` for one that can't be
+    // referred to here, numbered where two would be alike (SW-1000).
+    let shown_names = cx.shown_names(true);
     for (level, value) in cx.env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
@@ -224,11 +237,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             }
             continue;
         }
-        let name = match cx.name_of_level(level) {
-            Some(n) => n.to_string(),
-            None if name.ends_with('✝') => name.to_string(),
-            None => format!("{name}✝"),
-        };
+        let name = shown_names[level].to_string();
         let ty = cx.types[level].clone();
         // A proof's value is its proof term: only its statement is shown.
         let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
@@ -239,6 +248,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             level,
         });
     }
+    let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
     let prop = match force(g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
@@ -250,14 +260,64 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         meta: m,
         expected: shown.unwrap_or_else(|| expected.clone()),
         target: expected.clone(),
-        names: cx.names.clone(),
+        names: shown_names,
         context,
         hidden,
+        superseded,
         owner,
         lemma_base,
         prop,
     });
     term
+}
+
+/// Takes out of `context` the hypotheses a later one of the same name
+/// replaced (a `match` on them, or `rewrite … at`, binds a new one:
+/// `cases::stale`) that neither the target nor a hypothesis listed
+/// mentions, so that a goal after several `match`es lists each hypothesis
+/// once, not every earlier version as `read✝` (SW-1000). How many were
+/// taken out. Those bound by a `λ` stay in `hidden`, for [`GoalSnapshot`].
+fn drop_superseded(
+    cx: &Ctx,
+    expected: &Value,
+    context: &mut Vec<Entry>,
+    hidden: &mut Vec<(usize, Value)>,
+) -> usize {
+    let g = cx.g();
+    let level = cx.level();
+    let stale: Vec<usize> = (context.iter())
+        .filter(|e| crate::cases::stale(cx, e.level))
+        .map(|e| e.level)
+        .collect();
+    if stale.is_empty() {
+        return 0;
+    }
+    // The levels the target and the other hypotheses mention; all of them
+    // if one can't be read back.
+    let mut mentioned: Vec<usize> = Vec::new();
+    let mut values = vec![expected];
+    for e in context.iter().filter(|e| !stale.contains(&e.level)) {
+        values.push(&e.ty);
+        values.extend(e.value.as_ref());
+    }
+    for v in values {
+        match quote_shown(g, level, v)
+            .ok()
+            .and_then(|t| levels_in(&t, level))
+        {
+            Some(levels) => mentioned.extend(levels),
+            None => return 0,
+        }
+    }
+    let before = context.len();
+    context.retain(|e| {
+        let keep = !stale.contains(&e.level) || mentioned.contains(&e.level);
+        if !keep && e.value.is_none() && cx.lets[e.level].is_none() {
+            hidden.push((e.level, e.ty.clone()));
+        }
+        keep
+    });
+    before - context.len()
 }
 
 /// The error a term with an open goal in it gives when it's finished
@@ -448,6 +508,16 @@ impl Elaborator {
         };
         let mut diagnostic =
             Diagnostic::goal(format!("in {}", p.owner)).with_label(p.span, lines.join("\n"));
+        if p.superseded > 0 {
+            let (n, are, them) = match p.superseded {
+                1 => ("1 earlier hypothesis".to_string(), "isn't", "it"),
+                n => (format!("{n} earlier hypotheses"), "aren't", "them"),
+            };
+            diagnostic = diagnostic.with_note(format!(
+                "{n} hidden by a later one of the same name (as a `match` or `rewrite … \
+                 at` binds) {are} listed, as nothing shown mentions {them}"
+            ));
+        }
         diagnostic.goal = Some(Box::new(GoalData {
             hypotheses,
             target,

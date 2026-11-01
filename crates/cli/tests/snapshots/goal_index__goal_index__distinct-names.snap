@@ -1,0 +1,145 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "xs",
+          "type": "List Nat"
+        }
+      ],
+      "lemma": "theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?",
+      "target": "∃ (x1: Nat) => x1 < x"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\nxs: List Nat\n⊢ ∃ (x1: Nat) => x1 < x",
+        "range": [
+          10,
+          53,
+          10,
+          54
+        ]
+      }
+    ],
+    "message": "in `below`",
+    "notes": [],
+    "range": [
+      10,
+      53,
+      10,
+      54
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "h",
+          "type": "x✝¹ = x✝"
+        },
+        {
+          "name": "x✝¹",
+          "type": "Nat"
+        },
+        {
+          "name": "y✝¹",
+          "type": "Nat"
+        },
+        {
+          "name": "x✝",
+          "type": "Nat"
+        },
+        {
+          "name": "y✝",
+          "type": "Nat"
+        }
+      ],
+      "target": "{ x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "h: x✝¹ = x✝\nx✝¹: Nat\ny✝¹: Nat\nx✝: Nat\ny✝: Nat\n⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }",
+        "range": [
+          14,
+          42,
+          14,
+          43
+        ]
+      }
+    ],
+    "message": "in `samePoint`",
+    "notes": [],
+    "range": [
+      14,
+      42,
+      14,
+      43
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "same",
+          "type": "Pair left1 right1 = Pair left2 right2"
+        },
+        {
+          "name": "left1",
+          "type": "Tree"
+        },
+        {
+          "name": "right1",
+          "type": "Tree"
+        },
+        {
+          "name": "left2",
+          "type": "Tree"
+        },
+        {
+          "name": "right2",
+          "type": "Tree"
+        }
+      ],
+      "target": "Pair left2 right2 = Pair left1 right1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "same: Pair left1 right1 = Pair left2 right2\nleft1: Tree\nright1: Tree\nleft2: Tree\nright2: Tree\n⊢ Pair left2 right2 = Pair left1 right1",
+        "range": [
+          25,
+          50,
+          25,
+          51
+        ]
+      }
+    ],
+    "message": "in `symmetric`",
+    "notes": [],
+    "range": [
+      25,
+      50,
+      25,
+      51
+    ],
+    "severity": "goal"
+  }
+]

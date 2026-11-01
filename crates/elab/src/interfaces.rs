@@ -153,6 +153,19 @@ pub(crate) fn dictionary_name(interface: &str) -> String {
 }
 
 impl Elaborator {
+    /// If `projection` is an interface's own projection of a field
+    /// (`Ord.%compare`), the field's method (`Ord.compare`) and the name its
+    /// dictionary is passed by (`ord`), for the printer (SW-1000).
+    pub(crate) fn method_of(&self, projection: DefId) -> Option<(DefId, String)> {
+        if !self.globals.def(projection).name.contains('%') {
+            return None;
+        }
+        self.interfaces.values().find_map(|info| {
+            let k = info.projections.iter().position(|p| *p == projection)?;
+            Some((*info.methods.get(k)?, info.dict.clone()))
+        })
+    }
+
     /// The module a declaration made now belongs to (§5.6 rule 1): `Std`
     /// for the core and the library, the namespace in a project or a file
     /// with a namespace line, and `Main` for a file without one.

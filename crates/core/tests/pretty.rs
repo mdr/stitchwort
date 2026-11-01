@@ -333,6 +333,30 @@ fn prints_implicit_and_auto_lambda_parameters() {
     assert_eq!(show(&p, &[], &k), "x y => x");
 }
 
+/// SW-1000: a binder whose name is a variable its body mentions is
+/// renamed, so that the variable isn't captured: `List.Mem y ys` unfolds to
+/// `List.Any (y => y = y) ys`, which read as if every item equalled itself.
+#[test]
+fn a_binder_never_captures_a_variable_its_body_mentions() {
+    let p = Prelude::new();
+    // `y => y = <outer y>`, with the outer variable also called `y`.
+    let pred = lam("y", eq(None, v(0), v(1)));
+    assert_eq!(show(&p, &["y"], &pred), "y1 => y1 = y");
+    // Not renamed when the body doesn't mention the outer one.
+    let own = lam("y", eq(None, v(0), v(0)));
+    assert_eq!(show(&p, &["y"], &own), "y => y = y");
+    // Fresh against every name in scope, not only the one captured.
+    assert_eq!(show(&p, &["y1", "y"], &pred), "y2 => y2 = y");
+    // A run of lambdas: the inner one would capture the outer one.
+    let run = lam("x", lam("x", eq(None, v(0), v(1))));
+    assert_eq!(show(&p, &[], &run), "x x1 => x1 = x");
+    // A dependent function type and a `let` alike.
+    let dependent = pi("n", ty(), eq(None, v(0), v(1)));
+    assert_eq!(show(&p, &["n"], &dependent), "(n1: Type) → n1 = n");
+    let let_ = Term::let_("c".into(), p.nat_ty(), p.num(1), eq(None, v(0), v(1)));
+    assert_eq!(show(&p, &["c"], &let_), "let c1 := 1; c1 = c");
+}
+
 fn difference(p: &Prelude, names: &[&str], a: &Term, b: &Term) -> Option<pretty::Difference> {
     let names: Vec<_> = names.iter().map(|n| (*n).into()).collect();
     pretty::first_difference(&p.g, &names, a, b)

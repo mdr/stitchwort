@@ -51,6 +51,14 @@ pub trait NameScope {
     fn eq_decision(&self, _ty: &Term) -> Option<Term> {
         None
     }
+
+    /// If `projection` is an interface's own projection of a field
+    /// (`Ord.%compare`, taking the dictionary first), the field's method
+    /// (`Ord.compare`, taking it as an `auto` argument) and the name that
+    /// argument is passed by (`ord`).
+    fn method(&self, _projection: DefId) -> Option<(DefId, String)> {
+        None
+    }
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -636,7 +644,7 @@ impl<'g> Printer<'g> {
                     unreachable!("just matched")
                 };
                 let ty = self.print(names, &args[0], Prec::Arrow);
-                let x = readable(x, names);
+                let x = binder(x, names, body);
                 names.push(x.clone());
                 let body = self.print(names, body, Prec::Arrow);
                 names.pop();
@@ -680,12 +688,14 @@ impl<'g> Printer<'g> {
                 self.applied(names, name, args.iter().map(|a| &**a))
             }
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
-            // A double with known bits and the standard witness, as its
-            // literal: `1.5`, `-0.0`, `Float.nan`.
+            // A double with known valid bits, as its literal: `1.5`, `-0.0`,
+            // `Float.nan`. Whatever its witness: every way of building a
+            // `Float` with known bits gives `rfl` (`Float.make`), and a
+            // value read back from a runtime has none (SW-1000: a list of
+            // them printed as `{ bits = …, valid = ?1 }`).
             Term::Ctor(d, 0, args)
                 if Some(*d) == self.g.builtins.float.data
-                    && let [bits, witness] = args.as_slice()
-                    && matches!(witness.strip_loc(), Term::Refl)
+                    && let [bits, _witness] = args.as_slice()
                     && let Term::Nat(n) = bits.strip_loc()
                     && let Some(bits) = num_traits::ToPrimitive::to_u64(&**n)
                         .filter(|b| crate::float::is_valid(*b)) =>
@@ -768,8 +778,25 @@ impl<'g> Printer<'g> {
                 if let Some(chars) = char_list(self.g, term) {
                     return (show_chars(&chars), Prec::Atom);
                 }
-                let name = self.g.data(*d).ctors[*c].name.to_string();
-                self.applied(names, name, args.iter().map(|a| &**a))
+                // Braces right after a constructor name its fields, so a
+                // record given to one is in brackets: `Cons ({ x = 1 })
+                // rest`, not `Cons { x = 1 } rest` (SW-1000).
+                let mut text = self.g.data(*d).ctors[*c].name.to_string();
+                for arg in args {
+                    let shown = self.print(names, arg, Prec::Atom);
+                    if shown.starts_with('{') {
+                        text.push_str(&format!(" ({shown})"));
+                    } else {
+                        text.push(' ');
+                        text.push_str(&shown);
+                    }
+                }
+                let prec = if args.is_empty() {
+                    Prec::Atom
+                } else {
+                    Prec::App
+                };
+                (text, prec)
             }
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b)
@@ -785,7 +812,7 @@ impl<'g> Printer<'g> {
                 } else {
                     self.print(names, a, Prec::Or)
                 };
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -811,7 +838,7 @@ impl<'g> Printer<'g> {
             // where the lambda isn't shown as the section, gets a readable
             // name; a section inside the run ends it.
             Term::Lam(x, icit, b) => {
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 let mut params = vec![lambda_param(&x, *icit)];
                 names.push(x);
                 let mut body = &**b;
@@ -819,7 +846,7 @@ impl<'g> Printer<'g> {
                     if self.section(names, body).is_some() {
                         break;
                     }
-                    let y = readable(y, names);
+                    let y = binder(y, names, inner);
                     params.push(lambda_param(&y, *icit));
                     names.push(y);
                     body = inner;
@@ -839,7 +866,7 @@ impl<'g> Printer<'g> {
             // The annotation isn't shown, as for `Ann`.
             Term::Let(x, _, v, b, _) => {
                 let value = self.print(names, v, Prec::Arrow);
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 names.push(x.clone());
                 let body = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -1025,10 +1052,37 @@ impl<'g> Printer<'g> {
                         return self.not(names, prop);
                     }
                     // `List.Mem x xs` as `x ∈ xs`.
-                    if let Some((x, xs)) = self.membership(term) {
-                        let x = self.print(names, x, Prec::Add);
+                    if let Some((x, under, xs)) = self.membership(term) {
+                        let x = self.print_under(names, under, x, Prec::Add);
                         let xs = self.print(names, xs, Prec::Add);
                         return (format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq);
+                    }
+                    // An interface's own projection of a field, `Ord.%compare
+                    // d x y`, as the method that computes to it (SW-1000):
+                    // `Ord.compare x y`, the dictionary given by name unless
+                    // it's a variable, a dictionary in scope, which the
+                    // method finds itself (`Ord.compare [ord := Nat.instOrd]
+                    // x y`).
+                    // `toBool (DecEq.%decide d a b)`, `d` a dictionary in
+                    // scope, is `a == b` as it elaborates there.
+                    if self.g.registry.loaded_def(Builtin::ToBool) == Some(*id)
+                        && let [decision] = &args[..]
+                        && let Some((lhs, rhs)) = self.decide_in_scope(decision)
+                    {
+                        let lhs = self.print(names, lhs, Prec::Add);
+                        let rhs = self.print(names, rhs, Prec::Add);
+                        return (format!("{lhs} == {rhs}"), Prec::Eq);
+                    }
+                    if let Some(scope) = self.scope
+                        && let Some((method, dict)) = scope.method(*id)
+                        && let Some((d, rest)) = args.split_first()
+                    {
+                        let mut head = self.def_name(names, method);
+                        if !matches!(d.strip_loc(), Term::Var(_)) {
+                            let d = self.print(names, d, Prec::Arrow);
+                            head = format!("{head} [{dict} := {d}]");
+                        }
+                        return self.applied(names, head, rest.iter().copied());
                     }
                 }
                 if self.show_hidden.get() {
@@ -1117,9 +1171,9 @@ impl<'g> Printer<'g> {
             return (format!("{a} {} {b}", self.sym("≠", "!=")), Prec::Eq);
         }
         if !self.show_hidden.get()
-            && let Some((x, xs)) = self.membership(prop)
+            && let Some((x, under, xs)) = self.membership(prop)
         {
-            let x = self.print(names, x, Prec::Add);
+            let x = self.print_under(names, under, x, Prec::Add);
             let xs = self.print(names, xs, Prec::Add);
             return (format!("{x} {} {xs}", self.sym("∉", "!in")), Prec::Eq);
         }
@@ -1400,7 +1454,48 @@ impl<'g> Printer<'g> {
             Builtin::IntLess | Builtin::FloatLess => "<",
             _ => return None,
         };
+        // `Float.leq x y` and `Float.less x y` unfolded, comparing the two
+        // floats' order keys as `Int`s, are `x <= y` and `x < y` (SW-1000).
+        if let (Some(x), Some(y)) = (self.float_key(lhs), self.float_key(rhs)) {
+            return Some((op, x, y));
+        }
         Some((op, lhs, rhs))
+    }
+
+    /// `x`, if `term` is `Float.orderKey x`, or that unfolded one step:
+    /// `Float.keyOf x.bits (Nat.leq 9223372036854775808 x.bits)`.
+    fn float_key<'t>(&self, term: &'t Term) -> Option<&'t Term> {
+        let path = |id: &DefId| &*self.g.def(*id).path;
+        match explicit_spine(term) {
+            (Term::Def(id), args) if path(id) == "Std.Float.orderKey" => match args[..] {
+                [x] => Some(x),
+                _ => None,
+            },
+            (Term::Def(id), args) if path(id) == "Std.Float.keyOf" => {
+                let [bits, negative] = args[..] else {
+                    return None;
+                };
+                let of_bits = |t: &'t Term| match explicit_spine(t) {
+                    (Term::Def(p), xs) if self.projection_field(*p).as_deref() == Some("bits") => {
+                        match xs[..] {
+                            [x] => Some(x),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                let x = of_bits(bits)?;
+                let (Term::Def(leq), compared) = explicit_spine(negative) else {
+                    return None;
+                };
+                let sign = BigUint::from(1u64 << 63);
+                let is_sign = |t: &Term| matches!(t.strip_loc(), Term::Nat(n) if **n == sign);
+                (self.g.registry.is_def(Builtin::Leq, *leq)
+                    && matches!(compared[..], [k, b] if is_sign(k) && of_bits(b).is_some_and(|y| same_term(x, y))))
+                .then_some(x)
+            }
+            _ => None,
+        }
     }
 
     /// The sides of `Decidable.toBool {a = b} d`, to be written `a == b`:
@@ -1590,14 +1685,53 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// The element and the list of `List.Mem x xs`.
-    fn membership<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+    /// The sides of `DecEq.%decide d a b` with `d` a variable, a dictionary
+    /// in scope: what `a == b` elaborates to there (SW-1000).
+    fn decide_in_scope<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+        let (Term::Def(id), args) = explicit_spine(term) else {
+            return None;
+        };
+        let (method, _) = self.scope?.method(*id)?;
+        match args[..] {
+            [d, lhs, rhs]
+                if &*self.g.def(method).path == "Std.DecEq.decide"
+                    && matches!(d.strip_loc(), Term::Var(_)) =>
+            {
+                Some((lhs, rhs))
+            }
+            _ => None,
+        }
+    }
+
+    /// The element and the list of `List.Mem x xs`, or of what it unfolds
+    /// to, `List.Any (y => y = x) xs` (SW-1000), with how many binders the
+    /// element is under (none, or the lambda's one, which it doesn't
+    /// mention).
+    fn membership<'t>(&self, term: &'t Term) -> Option<(&'t Term, usize, &'t Term)> {
         let id = self.g.registry.loaded_def(Builtin::ListMem)?;
         let (head, args) = explicit_spine(term.strip_loc());
         match (head, &args[..]) {
-            (Term::Def(d), [x, xs]) if *d == id => Some((x, xs)),
+            (Term::Def(d), [x, xs]) if *d == id => Some((x, 0, xs)),
+            (Term::Def(d), [pred, xs]) if &*self.g.def(*d).path == "Std.List.Any" => {
+                let Term::Lam(_, Icit::Explicit, body) = pred.strip_loc() else {
+                    return None;
+                };
+                let Term::Eq(_, y, x) = body.strip_loc() else {
+                    return None;
+                };
+                (matches!(y.strip_loc(), Term::Var(0)) && !x.mentions(0)).then_some((&**x, 1, *xs))
+            }
             _ => None,
         }
+    }
+
+    /// [`Printer::print`] for a term under `under` binders it doesn't
+    /// mention.
+    fn print_under(&self, names: &mut Vec<Name>, under: usize, term: &Term, prec: Prec) -> String {
+        names.extend((0..under).map(|_| Name::from("%unused")));
+        let text = self.print(names, term, prec);
+        names.truncate(names.len() - under);
+        text
     }
 
     /// An unfilled placeholder of a queued check, as the source it stands
@@ -2068,6 +2202,31 @@ fn readable(x: &Name, names: &[Name]) -> Name {
                 format!("{base}{k}")
             }
         })
+        .find(|candidate| !names.iter().any(|n| **n == **candidate))
+        .expect("some name is free")
+        .into()
+}
+
+/// A binder `x` over `body` as shown, where `names` are the variables in
+/// scope: [`readable`], numbered (`y1`) if that name is one of `names` that
+/// `body` mentions, which the binder would otherwise capture: `y => y = x`
+/// with `x` called `y` is shown `y1 => y1 = y`, not `y => y = y`.
+fn binder(x: &Name, names: &[Name], body: &Term) -> Name {
+    let x = readable(x, names);
+    // Whether `body`, under the binder, mentions a variable of `names`
+    // called `candidate`.
+    let captures = |candidate: &str| {
+        names.iter().any(|n| **n == *candidate)
+            && (names.iter().rev().enumerate())
+                .any(|(j, n)| **n == *candidate && body.mentions(j + 1))
+    };
+    if !captures(&x) {
+        return x;
+    }
+    let base = x.trim_end_matches(|c: char| c.is_ascii_digit());
+    let base = if base.is_empty() { "x" } else { base };
+    (1..)
+        .map(|k| format!("{base}{k}"))
         .find(|candidate| !names.iter().any(|n| **n == **candidate))
         .expect("some name is free")
         .into()

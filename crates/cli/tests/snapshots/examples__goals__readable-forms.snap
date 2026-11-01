@@ -1,0 +1,52 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `memberOfTail`
+    ╭─[ goals/readable-forms.sw:10:76 ]
+    │
+ 10 │ theorem memberOfTail (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?
+    │                                                                            ┬  
+    │                                                                            ╰── y: Nat
+    │                                                                                ys: List Nat
+    │                                                                                h: y ∈ Cons y ys
+    │                                                                                ⊢ y ∈ ys
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         y = 0
+    │         ys = []
+    │       `y ∈ Cons y ys` holds
+    │       `y ∈ ys` is false
+────╯
+[GOAL] Goal: in `keysLess`
+    ╭─[ goals/readable-forms.sw:15:3 ]
+    │
+ 15 │   ?
+    │   ┬  
+    │   ╰── x: Float
+    │       y: Float
+    │       h: x < y
+    │       keys: x < y
+    │       ⊢ x = x
+────╯
+[GOAL] Goal: in `deeper`
+    ╭─[ goals/readable-forms.sw:20:80 ]
+    │
+ 20 │     f (Cons ({ value = leaf.value, depth = leaf.depth + 1 }) rest) = f rest := ?
+    │                                                                                ┬  
+    │                                                                                ╰── f: List Leaf → Nat
+    │                                                                                    leaf: Leaf
+    │                                                                                    rest: List Leaf
+    │                                                                                    ⊢ f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest
+────╯
+[GOAL] Goal: in `rewritten`
+    ╭─[ goals/readable-forms.sw:23:87 ]
+    │
+ 23 │ theorem rewritten (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?
+    │                                                                                       ┬  
+    │                                                                                       ╰── n: Nat
+    │                                                                                           h: n = 3
+    │                                                                                           ⊢ n = 3
+    │ 
+    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+────╯

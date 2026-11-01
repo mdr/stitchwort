@@ -1,0 +1,9 @@
+-- An interface's members print as their methods (SW-1000): `Ord.compare x
+-- y`, not the dictionary's own field `Ord.%compare ord x y`, and `x == y`
+-- through a `DecEq` in scope as written, not `Decidable.toBool
+-- (DecEq.%decide eq x y)`.
+import Std (Ord, DecEq)
+
+theorem compareSame [auto ord: Ord a] (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
+
+theorem equalSound [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y := ?
