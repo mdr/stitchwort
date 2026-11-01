@@ -3330,7 +3330,7 @@
     {
       "id": 1011,
       "title": "std lemmas asked for by AoC 2024 days 8, 11, 13 (SW-741, SW-758, SW-762)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3339,7 +3339,9 @@
       "body": "D2132 (Matt, 1 Nov 2026). The std-lemma items only: gcd / Int / subset-size lemmas, List.each/contains (SW-741); occurrencesFlatMap, permFlatMap, sumBy (_ => 1) = length (SW-758); Int (d*a)/d = a, List.minimum lemmas, natAbsMul/natAbsZero moved to std (SW-762). Check what already exists first (SW-1006 found its helpers already in std).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "2c6456d1"
+      ]
     }
   ]
 }
