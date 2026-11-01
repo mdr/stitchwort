@@ -586,6 +586,8 @@ fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
         .filter(|s| s.class == "applicable")
         .map(|s| s.proof.as_str())
         .chain(report.rewrites.iter().map(|r| r.proof.as_str()))
+        // The induction hypothesis offered for a closer to use (SW-993).
+        .chain(report.induction.iter().map(String::as_str))
         .collect();
     let wanted =
         |proofs: &[&str]| (proofs.iter()).any(|p| real.want.iter().any(|w| has_word(p, w)));

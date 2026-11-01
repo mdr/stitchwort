@@ -202,6 +202,12 @@ pub struct AtReport {
     /// then those that apply leaving goals; best first.
     pub results: Vec<Suggestion>,
     pub rewrites: Vec<Rewrite>,
+    /// The induction hypothesis (SW-993), when nothing above uses it: calls
+    /// of the declaration being proved on structurally smaller arguments,
+    /// the others as at the goal. Termination is checked only once a proof
+    /// using one is pasted.
+    #[serde(rename = "inductionHypotheses", skip_serializing_if = "Vec::is_empty")]
+    pub induction: Vec<String>,
     pub total: Totals,
     pub budget: AtBudget,
     pub warnings: Vec<String>,
@@ -262,6 +268,12 @@ pub struct Suggestion {
     /// It has a `?` for a witness, nothing solved (shown after the rest).
     #[serde(skip)]
     pub witnesses: bool,
+    /// It uses the induction hypothesis, a call of the declaration being
+    /// proved on a structurally smaller argument (SW-993): checked given
+    /// that call; termination only once pasted (in a project's file, as
+    /// every closing suggestion is).
+    #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
+    pub recursive: bool,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -303,6 +315,9 @@ pub struct Rewrite {
     pub closes: Option<&'static str>,
     /// `kernel` (with the rewritten goal as a hypothesis) or `elaborated`.
     pub checked: &'static str,
+    /// The rule is the induction hypothesis (SW-993), as for a suggestion.
+    #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
+    pub recursive: bool,
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -350,6 +365,10 @@ pub struct InFile {
 
 fn is_zero(n: &usize) -> bool {
     *n == 0
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// The order of the classes.
@@ -457,6 +476,9 @@ struct Checker<'s> {
     target_now: String,
     checks: usize,
     deadline: Instant,
+    /// While trying the induction hypothesis: the name the proofs call
+    /// the declaration being proved by, bound as a hypothesis (SW-993).
+    recursive: Option<String>,
 }
 
 impl Checker<'_> {
@@ -485,8 +507,10 @@ impl Checker<'_> {
                     };
                     hyps.push((name.clone(), ty));
                 }
-                self.session.elab.check_proof_at(snapshot, &hyps, &expr)
+                let recursive = self.recursive.as_deref();
+                (self.session.elab).check_proof_at(snapshot, &hyps, recursive, &expr)
             }
+            None if self.recursive.is_some() => return Outcome::Failed,
             None => {
                 let text = wrap(&self.goal, extra, &body);
                 let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
@@ -574,6 +598,22 @@ impl Session {
         } else {
             Vec::new()
         };
+        // Calls of the declaration being proved (SW-993), for a goal in one.
+        let recursive_plans = match snapshot.as_ref().and_then(|s| s.owner()) {
+            Some(owner) if prop => self.elab.recursive_plans(&goal, owner, iff, 8),
+            _ => Vec::new(),
+        };
+        // Its type and place, for what uses it (it isn't a declaration
+        // the search found, and a file's own may not be found by name).
+        let owner_place = (snapshot.as_ref().and_then(|s| s.owner())).map(|id| {
+            let item = stitchwort_elab::search::Item::Def(id);
+            let (file, line) = crate::render::location(&self.sources, item.span(g));
+            (
+                stitchwort_core::pretty::term(g, &[], &item.ty(g)),
+                file,
+                line,
+            )
+        });
         let closers: Vec<(&'static str, String)> = [
             ("rfl", Some("rfl".to_string())),
             ("omega", Some("omega".to_string())),
@@ -602,6 +642,8 @@ impl Session {
         };
         // Each declaration's place in the search's ranking.
         let ranks: Vec<_> = closing.found.hits.iter().map(|h| h.item).collect();
+        // A file on its own: its proofs aren't checked again pasted in.
+        let on_its_own = checker.is_some();
         let checking: &mut Session = match checker {
             Some(other) => other,
             None => self,
@@ -618,6 +660,7 @@ impl Session {
             target_now: target_now.clone(),
             checks: 0,
             deadline: started + options.time,
+            recursive: None,
         };
         // The closers on their own first: a goal `omega` closes needs no
         // lemma.
@@ -653,6 +696,7 @@ impl Session {
                     goals: Vec::new(),
                     search_rank: None,
                     witnesses: false,
+                    recursive: false,
                 };
                 results.push((s, 0));
             }
@@ -724,6 +768,76 @@ impl Session {
                 }
             }
         }
+        // The induction hypothesis (SW-993): calls of the declaration being
+        // proved, on smaller arguments, checked with it bound as a
+        // hypothesis. Alone, in `omega [IH]`, or as a rewrite.
+        let mut induction: Vec<String> = Vec::new();
+        if let Some(place) = owner_place.as_ref().filter(|_| checker.snapshot.is_some()) {
+            let mut used = false;
+            for rp in &recursive_plans {
+                if checker.out_of_time() {
+                    budget.exhausted = false;
+                    break;
+                }
+                let call = render(&rp.plan, &[], false);
+                checker.recursive = Some(rp.plan.head.clone());
+                // Alone or in `omega` (a rewrite's call too: what matching a
+                // side solved may be what `omega` needs, `dyAfter n (step
+                // probe)`).
+                let alone = rp.rewrite.is_none().then(|| call.clone());
+                if !call.contains('?') {
+                    for proof in alone.into_iter().chain([format!("omega [{call}]")]) {
+                        if results.iter().any(|(s, _)| s.proof == proof) {
+                            continue;
+                        }
+                        if matches!(checker.check(&proof, &[]), Outcome::Closed) {
+                            used = true;
+                            let s = Suggestion {
+                                class: "withHypotheses",
+                                proof,
+                                name: rp.plan.item_path.clone(),
+                                kind: "theorem",
+                                ty: place.0.clone(),
+                                file: place.1.clone(),
+                                line: place.2,
+                                import: None,
+                                checked: "kernel",
+                                obligations: Vec::new(),
+                                goals: Vec::new(),
+                                search_rank: None,
+                                witnesses: false,
+                                recursive: true,
+                            };
+                            results.push((s, usize::MAX - 1));
+                            break;
+                        }
+                    }
+                }
+                if let Some(backwards) = rp.rewrite {
+                    let rule = Rule {
+                        text: &call,
+                        backwards,
+                        iff: false,
+                        name: &rp.plan.item_path,
+                        at: "",
+                    };
+                    if let Some(mut r) = try_rule(&mut checker, &rule, &target_now)
+                        && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+                    {
+                        used = true;
+                        (r.ty, r.file, r.line) = place.clone();
+                        rewrites.push(r);
+                    }
+                }
+                checker.recursive = None;
+                if rp.rewrite.is_none() && !induction.contains(&call) {
+                    induction.push(call);
+                }
+            }
+            if used {
+                induction.clear();
+            }
+        }
         // A rewrite after which `rfl` or `omega` closes the goal closes it:
         // a suggestion of its own, after the lemmas that close it directly.
         for r in &rewrites {
@@ -741,9 +855,11 @@ impl Session {
                     proof,
                     name: r.name.clone(),
                     kind: "theorem",
-                    ty: String::new(),
-                    file: String::new(),
-                    line: 0,
+                    // Empty but for the induction hypothesis's: filled in
+                    // below, as the rewrite's are.
+                    ty: r.ty.clone(),
+                    file: r.file.clone(),
+                    line: r.line,
                     import: None,
                     checked: "kernel",
                     obligations: vec![Obligation {
@@ -753,6 +869,7 @@ impl Session {
                     goals: Vec::new(),
                     search_rank: None,
                     witnesses: false,
+                    recursive: r.recursive,
                 };
                 results.push((suggestion, usize::MAX));
             }
@@ -763,6 +880,12 @@ impl Session {
         let session = &*self;
         results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
         let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
+        // A proof using the induction hypothesis is checked given it; in a
+        // file on its own, nothing checks that its call terminates
+        // (SW-993). In a project's file each is checked pasted in.
+        for s in results.iter_mut().filter(|s| s.recursive && on_its_own) {
+            s.checked = "elaborated";
+        }
         for s in results.iter_mut() {
             session.describe(s, scope);
         }
@@ -836,6 +959,7 @@ impl Session {
             tactics,
             results,
             rewrites,
+            induction,
             total: totals,
             budget,
             warnings,
@@ -845,7 +969,8 @@ impl Session {
     /// Fills in a suggestion's declaration: name, kind, type, place, import.
     fn describe(&self, s: &mut Suggestion, scope: &Scope) {
         let g = &self.elab.globals;
-        if s.kind == "hypothesis" {
+        // A hypothesis, or the declaration being proved (filled in already).
+        if s.kind == "hypothesis" || s.recursive {
             return;
         }
         let Some(item) = find_item(self, &s.name) else {
@@ -861,6 +986,9 @@ impl Session {
 
     fn describe_rewrite(&self, r: &mut Rewrite, scope: &Scope) {
         let g = &self.elab.globals;
+        if r.recursive {
+            return;
+        }
         let Some(item) = find_item(self, &r.name) else {
             return;
         };
@@ -975,6 +1103,7 @@ fn try_plan_with(
         goals: Vec::new(),
         search_rank: Some(rank),
         witnesses: !witness.is_empty(),
+        recursive: false,
     };
     let mut suggestion = match first {
         Outcome::Failed => return None,
@@ -1203,6 +1332,7 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         goal: left.target,
         closes,
         checked,
+        recursive: checker.recursive.is_some(),
     })
 }
 
@@ -1552,6 +1682,9 @@ pub fn render_text(report: &AtReport) -> String {
         for (i, s) in closing.iter().enumerate() {
             out.push_str(&format!("{:>2}. {}  [{}]\n", i + 1, s.proof, s.class));
             out.push_str(&format!("    {}\n", place(s)));
+            if s.recursive {
+                out.push_str("    uses the induction hypothesis: a call of the declaration being proved, on a structurally smaller argument; termination is checked once the proof is pasted\n");
+            }
             for o in &s.obligations {
                 out.push_str(&format!("    {} closes ⊢ {}\n", o.closer, o.target));
             }
@@ -1575,7 +1708,16 @@ pub fn render_text(report: &AtReport) -> String {
                 .map(|c| format!("  (then {c} closes it)"))
                 .unwrap_or_default();
             out.push_str(&format!("{:>2}. {}{closes}\n", i + 1, r.proof));
+            if r.recursive {
+                out.push_str("    uses the induction hypothesis: a call of the declaration being proved, on a structurally smaller argument; termination is checked once the proof is pasted\n");
+            }
             out.push_str(&format!("    leaves ⊢ {}\n", r.goal));
+        }
+    }
+    if !report.induction.is_empty() {
+        out.push_str("\ninduction hypothesis (calls of the declaration being proved, on structurally smaller arguments; termination is checked once the proof is pasted), for a closer such as omega [h], or to rewrite with:\n");
+        for (i, call) in report.induction.iter().enumerate() {
+            out.push_str(&format!("{:>2}. {call}\n", i + 1));
         }
     }
     let t = &report.total;

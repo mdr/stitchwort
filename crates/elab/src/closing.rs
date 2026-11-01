@@ -56,6 +56,10 @@ pub struct Goal {
     pub target: String,
     /// Past this, the search stops comparing candidates (set by the caller).
     pub deadline: Option<std::time::Instant>,
+    /// What the parameters of the definition the goal is in stand for at
+    /// the goal ([`GoalSnapshot`]'s `owner_args`), for the induction
+    /// hypothesis (SW-993).
+    owner_args: Vec<Value>,
 }
 
 /// One argument of a planned application.
@@ -224,8 +228,13 @@ impl Elaborator {
                 vars.push((var.name.clone(), m));
             }
             let v = eval(g, &env, &snapshot.target)?;
+            let owner_args = (snapshot.owner_args.iter())
+                .map(|t| eval(g, &env, t))
+                .collect::<Res<Vec<Value>>>()?;
             let hyps = vars.len();
-            self.open_from(&cx, vars, hyps, v, span)
+            let mut goal = self.open_from(&cx, vars, hyps, v, span)?;
+            goal.owner_args = owner_args;
+            Ok(goal)
         })();
         self.globals.budget.restore(saved);
         self.globals.glue.set(was);
@@ -296,6 +305,7 @@ impl Elaborator {
                 prop,
                 target: shown,
                 deadline: None,
+                owner_args: Vec::new(),
             })
         }
     }
@@ -724,6 +734,297 @@ impl Elaborator {
         })();
         made.ok().flatten()
     }
+
+    /// The induction hypothesis at `goal` (SW-993): calls of `owner`, the
+    /// definition the goal is in, on arguments structurally smaller than
+    /// the goal's. The goal's target is matched against `owner`'s
+    /// conclusion, which gives the arguments the goal is about (`Succ n`,
+    /// `Cons x rest`); a variable of the goal inside a constructor of one,
+    /// of its type (`n`, `rest`), is smaller. Each choice of smaller
+    /// variables (at most `max` plans in all) is planned two ways:
+    ///
+    /// - the other arguments as at the goal (`visitsMember cave rest
+    ///   later`, its premises filled from hypotheses), for a closer to use
+    ///   (`omega [IH]`), or the call alone;
+    /// - for an equation or `Iff`, its left (or right) side matched against
+    ///   a call of the target, which solves the other arguments
+    ///   (`dyAfter n (step probe)`, matching `Nat.iterate n step ?p`
+    ///   against `Nat.iterate (Succ n) step probe`): a rewrite.
+    ///
+    /// Only structural descent is offered; whether the call terminates is
+    /// still for the declaration's check to say, once the proof is pasted.
+    pub fn recursive_plans(
+        &self,
+        goal: &Goal,
+        owner: stitchwort_core::DefId,
+        iff: Option<DataId>,
+        max: usize,
+    ) -> Vec<RecursivePlan> {
+        let g = &self.globals;
+        let item = Item::Def(owner);
+        let ty = g.def(owner).ty.clone();
+        let span = item.span(g);
+        let _restore = Restore {
+            g,
+            metas: g.metas.borrow().len(),
+            trail: g.meta_trail.borrow().len(),
+            frozen: g.frozen_metas.borrow().len(),
+            glue: g.glue.replace(self.glue),
+        };
+        let made = (|| -> Res<Vec<RecursivePlan>> {
+            let _op = g.budget.attempt(ATTEMPT);
+            let opened = open_binders(g, &ty, span)?;
+            let conclusion = eval(g, &opened.env, &opened.conclusion)?;
+            // The arguments at the goal: what its parameters stand for in
+            // the context, then the variables the goal's target introduces;
+            // the conclusion so instantiated must be the target. Without
+            // them (a goal read from text), the target matched against the
+            // conclusion, which fails where the target has computed past
+            // the call (`x + total rest` for `total (Cons x rest)`).
+            let args = &goal.owner_args;
+            let intros = &goal.vars[goal.vars.len() - goal.intros.len()..];
+            let matched = if !args.is_empty() && args.len() + intros.len() >= opened.binders.len() {
+                // Each argument of its binder's type, as far as cheaply
+                // seen: a variable's type, a constructor's data type.
+                let mut fits = true;
+                for (i, (_, _, m)) in opened.binders.iter().enumerate() {
+                    let v = match args.get(i) {
+                        Some(v) => v.clone(),
+                        None => eval(g, &[], &Term::Meta(intros[i - args.len()].1))?,
+                    };
+                    if let Some((want, _)) = g.meta_type(*m) {
+                        fits &= match (force(g, v.clone())?, force(g, want.clone())?) {
+                            (Value::Neutral(stitchwort_core::value::Head::Meta(gm), s), _)
+                                if s.is_empty() =>
+                            {
+                                g.meta_type(gm).is_none_or(|(have, _)| {
+                                    crate::unify::unify(g, 0, &want, &have).unwrap_or(false)
+                                })
+                            }
+                            (Value::Ctor(d, ..), Value::Data(e, _)) => d == e,
+                            (Value::Ctor(..), _) => false,
+                            _ => true,
+                        };
+                    }
+                    g.solve_meta(*m, v);
+                }
+                // The target is the conclusion so instantiated, or, where the
+                // two compute to forms the unifier doesn't equate (`x + 2 *
+                // Succ n` and `2 + (x + (n + n))`), every argument fits.
+                crate::unify::unify(g, 0, &goal.pattern.value, &conclusion)? || fits
+            } else {
+                crate::unify::unify_solving_arguments(g, 0, &goal.pattern.value, &conclusion)?
+            };
+            if !matched {
+                return Ok(Vec::new());
+            }
+            let cx = Ctx::new(self, span);
+            let is_prop = |m: usize| -> bool {
+                g.meta_type(m)
+                    .is_some_and(|(ty, _)| crate::rewrite::is_proof_type(&cx, &ty).unwrap_or(false))
+            };
+            // Each explicit argument of data as the goal has it, and the
+            // goal's variables structurally inside it, of its type.
+            let mut at_goal: Vec<Option<Value>> = Vec::new();
+            let mut smaller: Vec<Vec<usize>> = Vec::new();
+            for (_, icit, m) in &opened.binders {
+                let data = *icit == Icit::Explicit && !is_prop(*m);
+                let solution = g.meta_solution(*m).filter(|_| data);
+                let mut inside = Vec::new();
+                if let Some(v) = &solution {
+                    smaller_vars(g, v, goal, false, &mut inside)?;
+                    let Some((want, _)) = g.meta_type(*m) else {
+                        return Ok(Vec::new());
+                    };
+                    inside.retain(|vi| {
+                        let mark = g.meta_trail.borrow().len();
+                        let fits = g.meta_type(goal.vars[*vi].1).is_some_and(|(have, _)| {
+                            crate::unify::unify(g, 0, &want, &have).unwrap_or(false)
+                        });
+                        crate::unify::undo_since(g, mark);
+                        fits
+                    });
+                    inside.dedup();
+                }
+                at_goal.push(solution);
+                smaller.push(inside);
+            }
+            // The choices: each argument with smaller variables takes one of
+            // them (every argument that can be smaller is).
+            let mut choices: Vec<Vec<Option<usize>>> = vec![vec![None; smaller.len()]];
+            for (i, options) in smaller.iter().enumerate() {
+                if options.is_empty() {
+                    continue;
+                }
+                choices = (choices.into_iter())
+                    .flat_map(|c| {
+                        options.iter().map(move |vi| {
+                            let mut c = c.clone();
+                            c[i] = Some(*vi);
+                            c
+                        })
+                    })
+                    .take(4)
+                    .collect();
+            }
+            if smaller.iter().all(Vec::is_empty) {
+                return Ok(Vec::new());
+            }
+            let equation = match opened.conclusion.strip_loc() {
+                Term::Eq(..) => true,
+                Term::Data(d, args) => Some(*d) == iff && args.len() == 2,
+                _ => false,
+            };
+            let calls = if equation {
+                let target = quote_folded(g, 0, &goal.pattern.value)?;
+                (target.subterms())
+                    .filter(|(sub, binders)| {
+                        *binders == 0
+                            && !matches!(sub, Term::Loc(..))
+                            && size(sub) >= 2
+                            && matches!(head_key(sub), HeadKey::Def(_))
+                    })
+                    .map(|(sub, _)| sub.clone())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let mut out: Vec<RecursivePlan> = Vec::new();
+            for choice in &choices {
+                // The other arguments as at the goal.
+                let mark = g.meta_trail.borrow().len();
+                let fresh = open_binders(g, &ty, span)?;
+                for (i, (_, _, m)) in fresh.binders.iter().enumerate() {
+                    match (choice[i], &at_goal[i]) {
+                        (Some(vi), _) => {
+                            g.solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?)
+                        }
+                        (None, Some(v)) => g.solve_meta(*m, v.clone()),
+                        (None, None) => {}
+                    }
+                }
+                for plan in self.recursive_fill(goal, item, &fresh, &is_prop)? {
+                    out.push(RecursivePlan {
+                        plan,
+                        rewrite: None,
+                    });
+                }
+                crate::unify::undo_since(g, mark);
+                // A side matched against a call of the target.
+                for call in &calls {
+                    for backwards in [false, true] {
+                        let mark = g.meta_trail.borrow().len();
+                        let fresh = open_binders(g, &ty, span)?;
+                        for (i, (_, _, m)) in fresh.binders.iter().enumerate() {
+                            if let Some(vi) = choice[i] {
+                                g.solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?);
+                            }
+                        }
+                        let side = match fresh.conclusion.strip_loc() {
+                            Term::Eq(_, l, r) => if backwards { r } else { l }.clone(),
+                            Term::Data(_, args) => args[usize::from(backwards)].clone(),
+                            _ => unreachable!("an equation"),
+                        };
+                        let side = eval(g, &fresh.env, &side)?;
+                        let call = eval(g, &[], call)?;
+                        if crate::unify::unify_solving_arguments(g, 0, &call, &side)? {
+                            for plan in self.recursive_fill(goal, item, &fresh, &is_prop)? {
+                                out.push(RecursivePlan {
+                                    plan,
+                                    rewrite: Some(backwards),
+                                });
+                            }
+                        }
+                        crate::unify::undo_since(g, mark);
+                    }
+                }
+            }
+            let mut seen: Vec<(Vec<Arg>, Option<bool>)> = Vec::new();
+            out.retain(|p| {
+                let key = (p.plan.args.clone(), p.rewrite);
+                let new = !seen.contains(&key);
+                seen.push(key);
+                new
+            });
+            out.truncate(max);
+            Ok(out)
+        })();
+        made.unwrap_or_default()
+    }
+
+    /// The plans of a call of `item` opened as `opened`, its explicit
+    /// arguments as solved so far: its premises filled from the goal's
+    /// hypotheses where they fit.
+    fn recursive_fill(
+        &self,
+        goal: &Goal,
+        item: Item,
+        opened: &Opened,
+        is_prop: &dyn Fn(usize) -> bool,
+    ) -> Res<Vec<Plan>> {
+        let g = &self.globals;
+        let premises: Vec<usize> = (opened.binders.iter().enumerate())
+            .filter(|(_, (_, icit, m))| {
+                *icit == Icit::Explicit && g.meta_solution(*m).is_none() && is_prop(*m)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        let hyps: Vec<(usize, Value)> = (goal.vars.iter().enumerate())
+            .filter(|(_, (n, m))| is_prop(*m) && nameable(n))
+            .filter_map(|(i, (_, m))| Some((i, g.meta_type(*m)?.0)))
+            .collect();
+        let mut search = Fill {
+            goal,
+            item,
+            binders: &opened.binders,
+            premises: &premises,
+            hyps: &hyps,
+            chosen: vec![None; opened.binders.len()],
+            plans: Vec::new(),
+            nodes: 0,
+        };
+        self.fill_premises(&mut search, 0)?;
+        let mut plans = search.plans;
+        plans.sort_by_key(|p| p.args.iter().filter(|a| **a == Arg::Open).count());
+        Ok(plans)
+    }
+}
+
+/// A call of the goal's own definition (SW-993), planned.
+#[derive(Clone, Debug)]
+pub struct RecursivePlan {
+    pub plan: Plan,
+    /// `None`: its other arguments are the goal's, for a closer; `Some`:
+    /// planned as a rewrite (right to left if `true`).
+    pub rewrite: Option<bool>,
+}
+
+/// The goal's variables inside `v` under at least one constructor (with
+/// `under`, `v` is already under one): structurally smaller than `v`.
+fn smaller_vars(
+    g: &stitchwort_core::Globals,
+    v: &Value,
+    goal: &Goal,
+    under: bool,
+    out: &mut Vec<usize>,
+) -> Res<()> {
+    match force(g, v.clone())? {
+        Value::Ctor(_, _, fields) => {
+            for f in fields.iter() {
+                smaller_vars(g, f, goal, true, out)?;
+            }
+        }
+        Value::NatAdd(_, x) => smaller_vars(g, &x, goal, true, out)?,
+        Value::Neutral(stitchwort_core::value::Head::Meta(m), spine)
+            if under && spine.is_empty() =>
+        {
+            if let Some(vi) = goal.vars.iter().position(|(_, gm)| *gm == m) {
+                out.push(vi);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 /// How many definitions a conclusion names inside its relation: in the

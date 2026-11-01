@@ -1154,14 +1154,21 @@ impl Elaborator {
     /// `snapshot` with its variables bound, and `extra` hypotheses (each a
     /// name and a type, written) after them. With no `?` left, the closed
     /// term (the context's variables abstracted) goes to the kernel.
+    ///
+    /// With `recursive`, the goal's own definition (`snapshot`'s owner) is
+    /// bound too, under the name the proof calls it by, as a hypothesis of
+    /// its type: the induction hypothesis (SW-993). What is checked is then
+    /// the proof given it; that the call is on a smaller argument is
+    /// checked only with the proof in its declaration.
     pub fn check_proof_at(
         &mut self,
         snapshot: &GoalSnapshot,
         extra: &[(String, Expr)],
+        recursive: Option<&str>,
         body: &Expr,
     ) -> Result<Checked> {
         let saved = self.globals.budget.start(self.limits);
-        let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, body));
+        let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, recursive, body));
         self.globals.budget.restore(saved);
         self.clear_metas();
         self.clear_goals();
@@ -1172,6 +1179,7 @@ impl Elaborator {
         &mut self,
         snapshot: &GoalSnapshot,
         extra: &[(String, Expr)],
+        recursive: Option<&str>,
         body: &Expr,
     ) -> Result<Checked> {
         self.clear_metas();
@@ -1187,6 +1195,12 @@ impl Elaborator {
                 let ty = cx.eval(&ty_term)?;
                 cx.bind(name, ty);
                 binders.push(goals::SnapBinder::Lam(name.as_str().into(), ty_term));
+            }
+            if let (Some(name), Some(owner)) = (recursive, snapshot.owner()) {
+                let ty_term = self.globals.def(owner).ty.clone();
+                let ty = cx.eval(&ty_term)?;
+                cx.bind(name, ty);
+                binders.push(goals::SnapBinder::Lam(name.into(), ty_term));
             }
             let target_term = cx.quote(&target)?;
             let term = check::check(&mut cx, body, &target)?;

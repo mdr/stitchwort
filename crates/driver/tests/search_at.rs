@@ -388,3 +388,74 @@ fn goals_that_dont_print_back_are_searched() {
         }
     }
 }
+
+/// Recursive theorems whose step needs the induction hypothesis (SW-993):
+/// in `omega`, as a rewrite whose argument matching solved (`x + 2`), and
+/// as a rewrite after which `rfl` closes.
+const RECURSIVE: &str = "\
+import Std (Bool, Nat, List, Void)
+
+def total: List Nat → Nat
+  | Nil => 0
+  | Cons x rest => x + total rest
+
+theorem totalAtLeast: (xs: List Nat) → (y: Nat) → y ∈ xs → y ≤ total xs
+  | Nil, y, member => Void.exfalso member
+  | Cons x rest, y, Inl same => rewrite same in omega
+  | Cons x rest, y, Inr later => ?
+
+def steps: Nat → Nat → Nat
+  | 0, x => x
+  | Succ n, x => steps n (x + 2)
+
+theorem stepsAdd: (n: Nat) → (x: Nat) → steps n x = x + 2 * n
+  | 0, x => omega
+  | Succ n, x => ?
+
+def size: List Nat → Nat
+  | Nil => 0
+  | Cons _ rest => size rest + 1
+
+theorem sizeMap: (xs: List Nat) → size (List.map xs (x => x + 1)) = size xs
+  | Nil => rfl
+  | Cons _ rest => ?
+";
+
+/// Each step is closed by a suggestion using the induction hypothesis on
+/// the smaller argument, marked so and, in a file on its own, `elaborated`
+/// (not `kernel`: nothing there checks that the call terminates); the
+/// one wanted pastes, and the file then checks, termination included.
+#[test]
+fn the_induction_hypothesis_closes_a_step() {
+    let cases: [(&str, &str); 3] = [
+        ("theorem totalAtLeast", "omega [totalAtLeast rest y later]"),
+        ("theorem stepsAdd", "stepsAdd n (x + 2)"),
+        ("theorem sizeMap", "sizeMap rest"),
+    ];
+    // Each theorem's last `?`: its step's.
+    let lines: Vec<usize> = (cases.iter())
+        .map(|(marker, _)| {
+            let start = RECURSIVE.find(marker).expect("the theorem");
+            let end = (RECURSIVE[start..].find("\n\n")).map_or(RECURSIVE.len(), |e| start + e);
+            let at = start + RECURSIVE[start..end].rfind('?').expect("a `?`");
+            RECURSIVE[..at].matches('\n').count() + 1
+        })
+        .collect();
+    let reports = at_each(RECURSIVE, &lines);
+    for (((marker, want), line), report) in cases.iter().zip(&lines).zip(&reports) {
+        let recursive: Vec<&str> = (report.results.iter())
+            .filter(|s| s.recursive)
+            .map(|s| s.proof.as_str())
+            .collect();
+        assert!(
+            recursive.iter().any(|p| p.contains(want)),
+            "{marker}: `{want}` not among {recursive:?}\n{report:#?}"
+        );
+        for s in report.results.iter().filter(|s| s.recursive) {
+            assert_eq!(s.checked, "elaborated", "{marker}: {}", s.proof);
+        }
+        // One each: a check of the file takes a second.
+        let first = recursive.iter().find(|p| p.contains(want)).expect("found");
+        pastes_at(RECURSIVE, *line, first);
+    }
+}
