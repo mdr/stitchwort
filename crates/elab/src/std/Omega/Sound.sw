@@ -1,4 +1,4 @@
---| The soundness of `Omega.check` (std/Omega/Omega.sw): `Omega.prove` says
+--| The soundness of `Omega.check` (std/Omega/Omega.sw): [`Omega.prove`] says
 --| that a certificate the checker accepts proves the goal from the facts, for
 --| every environment, whatever the lengths of its lists. Every lemma is about
 --| values at a given environment: no function or propositional
@@ -230,10 +230,12 @@ theorem Omega.ileRowHolds (env: Omega.Env) (a: Omega.ITerm) (b: Omega.ITerm) (h:
       (Int.addCong (Omega.ilinEval env b) (Eq.cong Int.neg (Omega.ilinEval env a))))
     (Omega.intSubNonneg (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) h)
 
+--| Every row holds in `env`.
 def Omega.RowsHold (env: Omega.Env): List Omega.Row → Prop
   | Nil => Unit
   | Cons r rs => And (Omega.Row.Holds env r) (Omega.RowsHold env rs)
 
+--| The row, if there is one, holds in `env`.
 def Omega.OptHolds (env: Omega.Env): Option Omega.Row → Prop
   | None => Unit
   | Some r => Omega.Row.Holds env r

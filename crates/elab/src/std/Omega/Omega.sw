@@ -1,9 +1,9 @@
 --| `Std.Omega`: linear arithmetic by a checked certificate. Facts and a goal
 --| about `Nat` are written as syntax over numbered atoms; `Omega.check`
 --| replays a certificate saying how to combine them into something false;
---| `Omega.prove` (std/Omega/Sound.sw) says that when the check passes, the
+--| [`Omega.prove`] (std/Omega/Sound.sw) says that when the check passes, the
 --| facts imply the goal, in every environment. The compiler's `omega` finds
---| the certificate and writes the `Omega.prove` application; nothing here is
+--| the certificate and writes the [`Omega.prove`] application; nothing here is
 --| trusted beyond the kernel.
 --|
 --| `Int` facts and goals are written over `Int` syntax (`ITerm`), whose
@@ -41,12 +41,13 @@ def Omega.natAt: Nat → List Nat → Nat
   | Zero, Cons x xs => x
   | Succ i, Cons x xs => Omega.natAt i xs
 
+--| The `i`th entry of a list of integers, or 0 past the end.
 def Omega.intAt: Nat → List Int → Int
   | i, Nil => OfNat 0
   | Zero, Cons x xs => x
   | Succ i, Cons x xs => Omega.intAt i xs
 
---| `Nat`-valued syntax. Each node means what the surface syntax computes to,
+--| A quoted `Nat` term, as the checker reads it. Each node means what the surface syntax computes to,
 --| so a quoted term converts with the term it quotes: `MulLeft 3 (NV 0)` is
 --| `3 * x` (left folded for a variable `x`, and otherwise unfolding),
 --| `MulRight (NV 0) 3` is `x * 3` (which doesn't unfold), and `NSucc` is
@@ -59,6 +60,7 @@ type Omega.NTerm: Type =
   | MulLeft (k: Nat) (t: Omega.NTerm)
   | MulRight (t: Omega.NTerm) (k: Nat)
 
+--| The `Nat` a quoted term stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm → Nat
   | NV i => Omega.natAt i (Omega.Env.nats env)
@@ -83,6 +85,7 @@ type Omega.ITerm: Type =
   | IMulRight (t: Omega.ITerm) (k: Int)
   | ISubNat (a: Omega.NTerm) (b: Omega.NTerm)
 
+--| The `Int` a quoted term stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Omega.ITerm.eval (env: Omega.Env): Omega.ITerm → Int
   | IV i => Omega.intAt i (Omega.Env.ints env)
@@ -94,9 +97,9 @@ def Omega.ITerm.eval (env: Omega.Env): Omega.ITerm → Int
   | IMulRight t k => Int.mul (Omega.ITerm.eval env t) k
   | ISubNat a b => Int.subNatNat (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
 
---| A hypothesis. `FNotLe` and `FNotLt` quote `Not (a <= b)` and `Not (a < b)`
+--| A quoted hypothesis, as the checker reads it. `FNotLe` and `FNotLt` quote `Not (a <= b)` and `Not (a < b)`
 --| directly; other forms (`Nat.leq a b = False`, `(p && q) = True`) reach
---| these through bridge lemmas (`Nat.leqFalse`, `Bool.andLeft`, ...).
+--| these through bridge lemmas ([`Nat.leqFalse`], [`Bool.andLeft`], ...).
 --|
 --| Stage 2's operation facts say what an atom is: `FSub t a b` says `t` is
 --| `a - b` (the compiler puts the real `a - b` in the environment as `t` and
@@ -126,6 +129,7 @@ type Omega.Fact: Type =
   | FIEq (a: Omega.ITerm) (b: Omega.ITerm)
   | FINe (a: Omega.ITerm) (b: Omega.ITerm)
 
+--| The proposition a quoted fact stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Omega.Fact.holds (env: Omega.Env): Omega.Fact → Prop
   | FLe a b => Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b
@@ -149,8 +153,8 @@ def Omega.Facts.holds (env: Omega.Env): List Omega.Fact → Prop
   | Nil => Unit
   | Cons f fs => And (Omega.Fact.holds env f) (Omega.Facts.holds env fs)
 
---| The goal. An equation is two `GLe` goals (`Omega.proveEq`), or two `GILe`
---| goals on `Int` (`Omega.proveIntEq`); `GVoid` says the facts contradict
+--| A quoted goal, as the checker reads it. An equation is two `GLe` goals ([`Omega.proveEq`]), or two `GILe`
+--| goals on `Int` ([`Omega.proveIntEq`]); `GVoid` says the facts contradict
 --| each other. The `Int` goals are what `Int`'s comparisons compute, as for
 --| the facts.
 type Omega.Goal: Type =
@@ -162,6 +166,7 @@ type Omega.Goal: Type =
   | GINotLe (a: Omega.ITerm) (b: Omega.ITerm)
   | GINotLt (a: Omega.ITerm) (b: Omega.ITerm)
 
+--| The proposition a quoted goal stands for, with its atoms' values from `env`.
 @[noReceiver]
 def Omega.Goal.holds (env: Omega.Env): Omega.Goal → Prop
   | GLe a b => Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b
@@ -184,18 +189,22 @@ def Omega.dot: List Int → List Int → Int
   | Cons a as, Nil => OfNat 0
   | Cons a as, Cons v vs => a * v + Omega.dot as vs
 
+--| Each number as an `Int`.
 def Omega.toInts: List Nat → List Int
   | Nil => Nil
   | Cons x xs => Cons (OfNat x) (Omega.toInts xs)
 
+--| A row's value `c + Σ nats_i * x_i + Σ ints_j * y_j`, given the atoms' values.
 @[noReceiver]
 def Omega.Row.value (nv: List Int) (iv: List Int): Omega.Row → Int
   | MkRow c ns is => c + (Omega.dot ns nv + Omega.dot is iv)
 
+--| A row's value with its atoms' values from `env`.
 @[noReceiver]
 def Omega.Row.eval (env: Omega.Env) (r: Omega.Row): Int :=
   Omega.Row.value (Omega.toInts (Omega.Env.nats env)) (Omega.Env.ints env) r
 
+--| A row holds in `env`: its value there is at least 0.
 @[noReceiver]
 def Omega.Row.Holds (env: Omega.Env) (r: Omega.Row): Prop := 0 ≤ Omega.Row.eval env r
 
@@ -205,6 +214,7 @@ def Omega.addC: List Int → List Int → List Int
   | Cons a as, Nil => Cons a as
   | Cons a as, Cons b bs => Cons (a + b) (Omega.addC as bs)
 
+--| Every coefficient times `k`.
 def Omega.scaleC (k: Int): List Int → List Int
   | Nil => Nil
   | Cons a as => Cons (k * a) (Omega.scaleC k as)
@@ -214,18 +224,22 @@ def Omega.unit: Nat → List Int
   | Zero => [OfNat 1]
   | Succ i => Cons (OfNat 0) (Omega.unit i)
 
+--| The sum of two rows, coefficient by coefficient.
 def Omega.Row.add: Omega.Row → Omega.Row → Omega.Row
   | MkRow c ns is, MkRow d ms js => MkRow (c + d) (Omega.addC ns ms) (Omega.addC is js)
 
+--| A row times `k`: its constant and every coefficient.
 @[noReceiver]
 def Omega.Row.scale (k: Int): Omega.Row → Omega.Row
   | MkRow c ns is => MkRow (k * c) (Omega.scaleC k ns) (Omega.scaleC k is)
 
---| `r - s`
+--| One row minus another, `r - s`, coefficient by coefficient.
 def Omega.Row.sub (r: Omega.Row) (s: Omega.Row): Omega.Row := Omega.Row.add r (Omega.Row.scale (NegSucc 0) s)
 
+--| The row `0 <= 0`, which always holds.
 def Omega.Row.zero: Omega.Row := MkRow (OfNat 0) Nil Nil
 
+--| The row `0 <= 1`, which always holds.
 def Omega.Row.one: Omega.Row := MkRow (OfNat 1) Nil Nil
 
 --| A term's linear form.
@@ -237,6 +251,7 @@ def Omega.NTerm.lin: Omega.NTerm → Omega.Row
   | MulLeft k t => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
   | MulRight t k => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
 
+--| An `Int` term's linear form.
 def Omega.ITerm.lin: Omega.ITerm → Omega.Row
   | IV i => MkRow (OfNat 0) Nil (Omega.unit i)
   | IOfNat t => Omega.NTerm.lin t
@@ -247,18 +262,19 @@ def Omega.ITerm.lin: Omega.ITerm → Omega.Row
   | IMulRight t k => Omega.Row.scale k (Omega.ITerm.lin t)
   | ISubNat a b => Omega.Row.sub (Omega.NTerm.lin a) (Omega.NTerm.lin b)
 
---| The convention, all through this one row: `a <= b` is `b - a >= 0`;
+--| The row of `a <= b`, which is `b - a >= 0`. The convention, all through this one row: `a <= b` is `b - a >= 0`;
 --| `a < b` is `Succ a <= b`; `Not (a <= b)` is `Succ b <= a`; `Not (a < b)`
 --| is `b <= a`; `a = b` is both `a <= b` and `b <= a`.
 -- (docs/proposals/omega.md §6.3)
 def Omega.leRow (a: Omega.NTerm) (b: Omega.NTerm): Omega.Row := Omega.Row.sub (Omega.NTerm.lin b) (Omega.NTerm.lin a)
 
---| The same on `Int`, where `a < b` gives the row of `a + 1 <= b`.
+--| The row of `a <= b` on `Int`, `b - a >= 0`; `a < b` gives the row of `a + 1 <= b`.
 def Omega.ileRow (a: Omega.ITerm) (b: Omega.ITerm): Omega.Row := Omega.Row.sub (Omega.ITerm.lin b) (Omega.ITerm.lin a)
 
---| `a + 1`
+--| The quoted `Int` term `a + 1`.
 def Omega.ITerm.succ (a: Omega.ITerm): Omega.ITerm := IAdd a (IOfNat (NLit 1))
 
+--| The rows a fact gives, which always hold when it does (an equation gives two).
 def Omega.Fact.rows: Omega.Fact → List Omega.Row
   | FLe a b => [Omega.leRow a b]
   | FLt a b => [Omega.leRow (NSucc a) b]
@@ -287,6 +303,7 @@ def Omega.Fact.splits: Omega.Fact → Bool
   | FINe a b => True
   | f => False
 
+--| The facts a split fact's first case adds: `b <= a` and `t + b = a` for `t = a - b`, say.
 def Omega.Fact.left: Omega.Fact → List Omega.Fact
   | FSub t a b => [FLe b a, FEq (NAdd t b) a]
   | FMax t a b => [FLe a b, FEq t b]
@@ -295,6 +312,7 @@ def Omega.Fact.left: Omega.Fact → List Omega.Fact
   | FINe a b => [FILt a b]
   | f => []
 
+--| The facts a split fact's second case adds: `a < b` and `t = 0` for `t = a - b`, say.
 def Omega.Fact.right: Omega.Fact → List Omega.Fact
   | FSub t a b => [FLt a b, FEq t (NLit 0)]
   | FMax t a b => [FLt b a, FEq t a]
@@ -335,6 +353,7 @@ type Omega.Step: Type =
   --| constant is rounded down
   | Divide (r: Nat) (d: Nat)
 
+--| A certificate: steps that add rows, ending at a row that is false, or splitting into cases.
 type Omega.Cert: Type =
   --| row `r` has every coefficient 0 and a negative constant
   | Close (r: Nat)
@@ -358,25 +377,31 @@ def Omega.getRow: List Omega.Row → Nat → Omega.Row
   | Cons r rs, Zero => r
   | Cons r rs, Succ i => Omega.getRow rs i
 
+--| Whether there is a row `i`.
 def Omega.hasRow (rows: List Omega.Row) (i: Nat): Bool := Nat.leq (Succ i) (List.length rows)
 
+--| The row, or the zero row if there is none.
 def Omega.optRow: Option Omega.Row → Omega.Row
   | None => Omega.Row.zero
   | Some r => r
 
+--| `Σ k * row r` for each `MkPair k r`.
 def Omega.combine (ctx: List Omega.Row): List (Pair Nat Nat) → Omega.Row
   | Nil => Omega.Row.zero
   | Cons (MkPair k r) ts => Omega.Row.add (Omega.Row.scale (OfNat k) (Omega.getRow ctx r)) (Omega.combine ctx ts)
 
+--| Whether every row named in the `MkPair k r`s exists.
 def Omega.allRefs (ctx: List Omega.Row): List (Pair Nat Nat) → Bool
   | Nil => True
   | Cons (MkPair k r) ts => Omega.hasRow ctx r ∧ Omega.allRefs ctx ts
 
+--| Whether an integer is 0.
 def Omega.isZero: Int → Bool
   | OfNat Zero => True
   | OfNat (Succ n) => False
   | NegSucc n => False
 
+--| Whether every coefficient is 0.
 def Omega.allZero: List Int → Bool
   | Nil => True
   | Cons a as => Omega.isZero a ∧ Omega.allZero as
@@ -386,10 +411,12 @@ def Omega.allDiv (d: Nat): List Int → Bool
   | Nil => True
   | Cons a as => Omega.isZero (a % OfNat (Succ d)) ∧ Omega.allDiv d as
 
+--| Every coefficient divided by `d + 1`, rounding down.
 def Omega.divC (d: Nat): List Int → List Int
   | Nil => Nil
   | Cons a as => Cons (a / OfNat (Succ d)) (Omega.divC d as)
 
+--| Whether the number is positive and divides every coefficient of the row (not the constant).
 @[noReceiver]
 def Omega.Row.divisible: Nat → Omega.Row → Bool
   | Zero, r => False
@@ -419,6 +446,7 @@ def Omega.Step.valid (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List 
   | Combine ts => Omega.allRefs ctx ts
   | Divide r d => Omega.hasRow ctx r ∧ Omega.Row.divisible d (Omega.getRow ctx r)
 
+--| The row a step adds.
 @[noReceiver]
 def Omega.Step.row (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Step → Omega.Row
   | Input i => Omega.getRow facts i
@@ -427,6 +455,7 @@ def Omega.Step.row (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Om
   | Combine ts => Omega.combine ctx ts
   | Divide r d => Omega.Row.divide d (Omega.getRow ctx r)
 
+--| Whether a certificate is valid from the rows so far (`ctx`): each step's references are good, and each branch ends at a false row.
 def Omega.checkCert (fs: List Omega.Fact) (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Cert → Bool
   | Close r => Omega.Row.isContra (Omega.getRow ctx r)
   | Then s rest =>
@@ -438,8 +467,9 @@ def Omega.checkCert (fs: List Omega.Fact) (facts: List Omega.Row) (neg: Option O
       ∧ (Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.left (Omega.getFact fs f)))) left
         ∧ Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f)))) right)
 
---| The checker. It doesn't look at the environment: the kernel runs it on the
---| quoted facts, goal and certificate alone.
+--| Whether the certificate combines the facts and the negated goal into
+--| something false. It doesn't look at the environment: the kernel runs it on
+--| the quoted facts, goal and certificate alone.
 def Omega.check (facts: List Omega.Fact) (goal: Omega.Goal) (cert: Omega.Cert): Bool :=
   Omega.checkCert facts (Omega.Facts.rows facts) (Omega.Goal.negRow goal) Nil cert
 
