@@ -7,9 +7,9 @@
 -- Numbers
 
 --| A natural number: 0, 1, 2 and so on, as `Zero` and `Succ` of the number
---| before. Numbers are stored compactly, but mean exactly this. `Nat.add`, `Nat.sub`,
---| `Nat.mul`, `Nat.leq`, `Nat.equal`, `Nat.divFuel`, `Nat.decEq`,
---| `Nat.equalRefl` and `Nat.equalSound` also have native implementations, used
+--| before. Numbers are stored compactly, but mean exactly this. [`Nat.add`], [`Nat.sub`],
+--| [`Nat.mul`], [`Nat.leq`], [`Nat.equal`], [`Nat.divFuel`], [`Nat.decEq`],
+--| [`Nat.equalRefl`] and [`Nat.equalSound`] also have native implementations, used
 --| when all their arguments are numbers. Each computes exactly what the
 --| definition here computes, proofs included; they're tested against these
 --| definitions.
@@ -77,8 +77,8 @@ type List (a: Type): Type =
   | Cons (head: a) (tail: List a)
 
 --| `n` plus the length of `xs`, counted in a loop. The runtimes run it for
---| `List.length`, so a long list doesn't run out of stack
---| (`List.lengthOntoEq` proves them equal).
+--| [`List.length`], so a long list doesn't run out of stack
+--| ([`List.lengthOntoEq`] proves them equal).
 def List.lengthOnto: List a → Nat → Nat
   | Nil, n => n
   | Cons x xs, n => List.lengthOnto xs (Succ n)
@@ -99,7 +99,7 @@ type Option (a: Type): Type =
   | None
   | Some (value: a)
 
---| Two values together, of any two types: `(1, "a")`. Its fields' accessors, `Pair.fst` and `Pair.snd`, are
+--| Two values together, of any two types: `(1, "a")`. Its fields' accessors, [`Pair.fst`] and [`Pair.snd`], are
 --| generated.
 type Pair (a: Type) (b: Type): Type =
   | MkPair (fst: a) (snd: b)

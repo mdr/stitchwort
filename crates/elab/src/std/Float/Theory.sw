@@ -292,9 +292,10 @@ theorem Float.Theory.isEvenOf (n: Nat) (h: Nat) (e: n = h * 2): Float.Theory.IsE
 --| here on, a value rounds to infinity.
 def Float.Theory.overflowUnits: Nat := Float.Model.pow2 2044 * 18014398509481983
 
---| What rounding `t / d` units to a magnitude pattern gives: at most
---| infinity's pattern, infinity exactly from the overflow threshold on, and
---| otherwise the nearest finite pattern, the even one of two equally near.
+--| What rounding `t / d` units to a magnitude pattern gives.
+--| The result is at most infinity's pattern, infinity exactly from the
+--| overflow threshold on, and otherwise the nearest finite pattern, the even
+--| one of two equally near.
 type Float.Theory.RoundsTo (t: Nat) (d: Nat) (r: Nat): Prop = {
   bounded: r ≤ 9218868437227405312,
   overflow: r = 9218868437227405312 → d * Float.Theory.overflowUnits ≤ t,

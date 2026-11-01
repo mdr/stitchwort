@@ -20,9 +20,10 @@ theorem Effect.alwaysUnit [op: Type] [res: op → Type] [a: Type]: (computation:
   | Done x => Trivial
   | Call o rest => y => Effect.alwaysUnit (rest y)
 
---| Sequencing: if every result of `computation` satisfies `first`, and `next`
+--| Sequencing: running `computation` and then `next` always gives results satisfying `property`.
+--| This holds if every result of `computation` satisfies `first`, and `next`
 --| of any value satisfying `first` always gives results satisfying
---| `property`, so does running one and then the other.
+--| `property`.
 theorem Effect.alwaysBind [op: Type] [res: op → Type] [a b: Type] (first: a → Prop) (property: b → Prop) (next: a → Comp op res b):
     (computation: Comp op res a) → Effect.Always first computation → ((x: a) → first x → Effect.Always property (next x)) →
     Effect.Always property (bind computation next)

@@ -1,10 +1,10 @@
 --| The laws `deriving (Ord)` puts together:
---| `Ordering.thenEqual`, `thenFlip`, `thenTrans`, `byTagTrans`.
+--| [`Ordering.thenEqual`], `thenFlip`, `thenTrans`, `byTagTrans`.
 -- Loaded with the core: A derived `Ord` instance writes `Ordering.byTagTrans`
 -- and its siblings in full (docs/proposals/prelude-slim.md §2.1).
 
 --| Derived orderings compare constructors by position (their tags), then
---| fields left to right with `Ordering.andThen`. Their laws are put together
+--| fields left to right with [`Ordering.andThen`]. Their laws are put together
 --| from these, proved once. The comparisons are implicit, found from the
 --| proofs' types.
 -- (docs/proposals/interfaces.md §5.11, stage 7)
@@ -49,7 +49,7 @@ theorem Ordering.notBothEqual: (c: Ordering) → (d: Ordering) → Ordering.both
   | Less, d, t, e1, e2 => Ordering.lessNotEqual e1
   | Greater, d, t, e1, e2 => Ordering.greaterNotEqual e1
 
---| As `Ordering.andThenTrans`, where the rest need only be transitive when
+--| As [`Ordering.andThenTrans`], where the rest need only be transitive when
 --| both first comparisons are `Equal`.
 theorem Ordering.andThenTransWhen: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
     (r1: Ordering) → (r2: Ordering) → (r3: Ordering) →

@@ -70,8 +70,8 @@ def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm → Nat
   | MulLeft k t => k * Omega.NTerm.eval env t
   | MulRight t k => Omega.NTerm.eval env t * k
 
---| `Int`-valued syntax, mirroring what `Int` arithmetic computes to: `x - y`
---| is `x + Int.neg y`, a literal or `n.toInt` is `OfNat n`, `-1` is
+--| `Int`-valued syntax, mirroring what `Int` arithmetic computes to.
+--| `x - y` is `x + Int.neg y`, a literal or `n.toInt` is `OfNat n`, `-1` is
 --| `NegSucc 0`, and `n.toInt - 1` is `Int.subNatNat n 1` (which `OfNat n +
 --| NegSucc 0` steps to). `IMulLeft k t` is `k * t` and `IMulRight t k` is
 --| `t * k`, for a number `k`.
@@ -292,9 +292,9 @@ def Omega.Fact.rows: Omega.Fact → List Omega.Row
   | FIEq a b => [Omega.ileRow a b, Omega.ileRow b a]
   | FINe a b => []
 
---| Whether a fact has cases, and what each case adds, as facts: `a - b` is
---| `t` with `t + b = a` when `b <= a`, and 0 when `a < b`; `max` and `min`
---| are one side or the other; `a != b` is `a < b` or `b < a`.
+--| Whether a fact has cases, and what each case adds, as facts.
+--| `a - b` is `t` with `t + b = a` when `b <= a`, and 0 when `a < b`; `max`
+--| and `min` are one side or the other; `a != b` is `a < b` or `b < a`.
 def Omega.Fact.splits: Omega.Fact → Bool
   | FSub t a b => True
   | FMax t a b => True

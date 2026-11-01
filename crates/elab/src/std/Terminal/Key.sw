@@ -170,9 +170,9 @@ def Key.csi (parameters: List Nat): List Nat → Key.Decoded
     else if 64 ≤ byte && byte ≤ 126 then Got (Key.ofCsi (List.reverse parameters) byte) rest
     else Got Unknown (Cons byte rest)
 
---| The key a CSI sequence stands for, from its parameter bytes and final
---| byte: `ESC [A` to `ESC [D` the arrows, `ESC [H` and `ESC [F` `Home` and
---| `End`, and `ESC [n~` for the keys above the arrows.
+--| The key a CSI sequence stands for, from its parameter bytes and final byte.
+--| `ESC [A` to `ESC [D` are the arrows, `ESC [H` and `ESC [F` are `Home` and
+--| `End`, and `ESC [n~` is for the keys above the arrows.
 def Key.ofCsi (parameters: List Nat) (final: Nat): Key :=
   match parameters with
     | [] => Key.ofFinal final

@@ -67,9 +67,10 @@ def Float.Model.signBit (bits: Nat): Bool := Nat.leq 9223372036854775808 bits
 def Float.Model.magnitude (bits: Nat): Nat :=
   if Float.Model.signBit bits then bits - 9223372036854775808 else bits
 
---| A finite double's value in units of 2^-1074: a subnormal's fraction, or a
---| normal double's significand (the fraction with its leading 1) times 2^(e
---| - 1) for exponent field `e`. Both zeros are `0`.
+--| A finite double's value in units of 2^-1074.
+--| For a subnormal that is its fraction; for a normal double it is the
+--| significand (the fraction with its leading 1) times 2^(e - 1) for
+--| exponent field `e`. Both zeros are `0`.
 def Float.Model.units (bits: Nat): Int :=
   let m: Nat := Float.Model.magnitude bits
   let e: Nat := Nat.divFuel m m 4503599627370496

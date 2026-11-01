@@ -45,7 +45,7 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
   { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
 --| Proofs of an equation in a type with decidable equality are unique:
---| Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
+--| Hedberg's argument, as for `Bool` above. [`DecEq.canon`] turns any proof of
 --| `x = y` into the one the decision gives, ignoring which proof it was
 --| given, and every proof can be recovered from its canonical one.
 def DecEq.canon: [x y: a] → Decidable (x = y) → x = y → x = y

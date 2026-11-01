@@ -84,7 +84,7 @@ def Int.decNegSucc (m: Nat) (n: Nat): Decidable (m = n) → Decidable (NegSucc m
   | No r => No (p => r (Int.negSuccInjective m n p))
 
 --| For two integers this computes `Yes rfl` or a `No` of constant size,
---| however big they are, since `Nat.decEq` does.
+--| however big they are, since [`Nat.decEq`] does.
 def Int.decEq: (a: Int) → (b: Int) → Decidable (a = b)
   | OfNat m, OfNat n => Int.decOfNat m n (Nat.decEq m n)
   | OfNat m, NegSucc n => No (Int.ofNatNotNegSucc m n)
@@ -129,8 +129,8 @@ def Int.toText: Int → Text
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
 --| `dividend / divisor`, Euclidean: the remainder it leaves is at least 0 and below `|divisor|`, so `-18 / 100` is `-1`.
---| (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`.)
---| With `Int.mod`, `dividend = divisor * (dividend / divisor) + dividend % divisor`
+--| ([`Int.divAddMod`], [`Int.modNonneg`], [`Int.modLtAbs`].)
+--| With [`Int.mod`], `dividend = divisor * (dividend / divisor) + dividend % divisor`
 --| with `0 <= dividend % divisor < |divisor|`, whatever the signs, so `-18 % 100` is `82`.
 -- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
 -- The divisor can't be zero, but the case still has to be covered: `ok`

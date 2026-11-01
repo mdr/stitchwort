@@ -399,6 +399,10 @@ pub struct Elaborator {
     /// Whether the `test`s of the core and the library files are checked
     /// (the library test target), instead of skipped.
     pub library_tests: bool,
+    /// While the core is checked, the library's names, so a doc link in the
+    /// core may name a library declaration, which isn't loaded yet
+    /// (`set_core_link_names`, SW-1046).
+    core_link_names: Option<std::sync::Arc<library::LibraryIndex>>,
     abilities: Vec<effects::AbilityInfo>,
     /// Resource limits for checking each declaration.
     pub limits: Limits,

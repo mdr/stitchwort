@@ -384,7 +384,21 @@ impl Session {
                 .map_err(|ds| report(&session.sources, "the prelude doesn't parse", &ds))?;
             &parsed
         };
-        let diagnostics = session.elab.elaborate_module(module);
+        session.elab.set_core_link_names(Some(index.clone()));
+        let mut diagnostics = session.elab.elaborate_module(module);
+        session.elab.set_core_link_names(None);
+        // A broken doc link in the core fails the load, as in a library
+        // file (SW-1046). A test's own library files don't have the names
+        // the core's docs link to, so its links aren't checked.
+        if matches!(library, Library::Files(_)) {
+            diagnostics.retain(|d| d.code != "W-DOC-LINK");
+        } else if diagnostics.iter().any(|d| d.code == "W-DOC-LINK") {
+            return Err(report(
+                &session.sources,
+                "the prelude has a broken doc link",
+                &diagnostics,
+            ));
+        }
         if let Err(diagnostics) = session.finish_load(0, diagnostics) {
             return Err(report(
                 &session.sources,

@@ -157,6 +157,7 @@ impl Elaborator {
             rewrite_budget: _,
             library,
             library_tests: _,
+            core_link_names: _,
             abilities,
             limits: _,
             numbers_as_succ: _,

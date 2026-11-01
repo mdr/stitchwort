@@ -1,4 +1,4 @@
---| The `Ord` interface, `Ord.fromCompare`, and the `Ord`
+--| The `Ord` interface, [`Ord.fromCompare`], and the `Ord`
 --| instances for the core types.
 -- Loaded with the core: `< <=` and `deriving (Ord)` go through `Ord`
 -- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
@@ -17,7 +17,7 @@ def Ordering.compare (first: Ordering) (second: Ordering): Ordering := Nat.compa
 
 --| A total order: a comparison with its laws, and the relations `<` and `<=`
 --| with their decisions, agreeing with it (the fields are `lessThan` and
---| `lessEq`). Build one with `Ord.fromCompare` or `Ord.byKey`.
+--| `lessEq`). Build one with [`Ord.fromCompare`] or [`Ord.byKey`].
 -- (docs/proposals/interfaces.md §6.2, D180; D200)
 -- The relations are fields so that `Nat`'s can be `Nat.LessThan` and
 -- `Nat.LessEq` themselves.
