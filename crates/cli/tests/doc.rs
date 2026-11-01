@@ -97,7 +97,7 @@ fn a_library_name_shows_header_doc_location_and_theorems() {
         lines[1],
         "  def List.filterMap: List a → (f: a → {e} Option b) → {e} List b"
     );
-    assert_eq!(lines[2], "  std/List/Toolkit.sw:204  (import Std (List))");
+    assert_eq!(lines[2], "  std/List/Toolkit.sw:208  (import Std (List))");
     assert!(
         out.contains("\n  Keeps the `Some` results, in order."),
         "{out}"
@@ -141,10 +141,10 @@ fn the_json_contract() {
     assert_eq!(report["name"], "Std.List.filterMap");
     assert_eq!(report["kind"], "definition");
     assert_eq!(report["file"], "std/List/Toolkit.sw");
-    assert_eq!(report["line"], 204);
+    assert_eq!(report["line"], 208);
     assert_eq!(report["import"], "import Std (List)");
     assert_eq!(report["summary"], "Keeps the `Some` results, in order.");
-    assert_eq!(report["docMarker"], "--");
+    assert_eq!(report["docMarker"], "--|");
     assert!(report["type"].as_str().unwrap().starts_with("[a: Type] → "));
     assert_eq!(report["examples"].as_array().unwrap().len(), 0);
     let theorems = &report["theorems"];

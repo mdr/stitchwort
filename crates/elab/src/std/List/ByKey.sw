@@ -1,34 +1,35 @@
--- Combining lists by a key (SW-584): `List.differenceBy` keeps the items of
--- one list whose key no item of another has, and `List.appendNewBy` is the
--- first list, then the second's items whose key is new. A file of its own,
+--| Combining lists by a key: `List.differenceBy` keeps the items of
+--| one list whose key no item of another has, and `List.appendNewBy` is the
+--| first list, then the second's items whose key is new.
+--| Neither removes repeats within a list. `differenceBy` is lodash's
+--| `differenceBy`. `appendNewBy` is not lodash's `unionBy` (nor Haskell's
+--| `unionBy`), which also drops the repeats within each list: the two agree
+--| when each list's keys are distinct, the case `List.distinctKeysAppendNewBy`
+--| is about. For a list of records updated from another, `appendNewBy` keeps
+--| every record of the first and adds those of the second it doesn't have.
+-- (SW-584)
+-- A file of its own,
 -- so that programs using only the toolkit don't check these.
---
--- Neither removes repeats within a list. `differenceBy` is lodash's
--- `differenceBy`. `appendNewBy` is not lodash's `unionBy` (nor Haskell's
--- `unionBy`), which also drops the repeats within each list: the two agree
--- when each list's keys are distinct, the case `List.distinctKeysAppendNewBy`
--- is about. For a list of records updated from another, `appendNewBy` keeps
--- every record of the first and adds those of the second it doesn't have.
 
--- The items of `xs` whose key isn't the key of any item of `ys`, in order,
--- repeats kept: `[1, 12, 5].differenceBy [22] (n => n % 10)` is `[1, 5]`.
--- O(length xs × length ys). `ys`'s keys are listed once, not once per item.
+--| The items of `xs` whose key isn't the key of any item of `ys`, in order,
+--| repeats kept: `[1, 12, 5].differenceBy [22] (n => n % 10)` is `[1, 5]`.
+--| O(length xs × length ys). `ys`'s keys are listed once, not once per item.
 def List.differenceBy [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k): List a :=
   let keys := ys.map key
   xs.filter (x => key x ∉ keys)
 
--- `xs`, then the items of `ys` whose key isn't the key of any item of `xs`:
--- `[1, 12].appendNewBy [21, 3, 32] (n => n % 10)` is `[1, 12, 3]`.
--- O(length xs × length ys).
+--| `xs`, then the items of `ys` whose key isn't the key of any item of `xs`:
+--| `[1, 12].appendNewBy [21, 3, 32] (n => n % 10)` is `[1, 12, 3]`.
+--| O(length xs × length ys).
 def List.appendNewBy [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k): List a :=
   List.append xs (List.differenceBy ys xs key)
 
--- `differenceBy` is a `filter` with `∉`, as written.
+--| `differenceBy` is a `filter` with `∉`, as written.
 theorem List.differenceByIsFilter [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k):
     List.differenceBy xs ys key = List.filter xs (x => key x ∉ List.map ys key) :=
   rfl
 
--- What the filter keeps says its key is new.
+--| What the filter keeps says its key is new.
 theorem List.notMemOfNotIn [auto eq: DecEq k] (z: k) (zs: List k) (h: Bool.not (z ∈ zs) = True): z ∉ zs :=
   Decidable.toBoolFalse (List.decMem z zs)
     (match d: Decidable.toBool (List.decMem z zs) with
@@ -38,7 +39,7 @@ theorem List.notMemOfNotIn [auto eq: DecEq k] (z: k) (zs: List k) (h: Bool.not (
 theorem List.notInOfNotMem [auto eq: DecEq k] (z: k) (zs: List k) (out: z ∉ zs): Bool.not (z ∈ zs) = True :=
   rewrite Decidable.toBoolOfNot (List.decMem z zs) out in rfl
 
--- What `differenceBy` keeps: the items of `xs` whose key no item of `ys` has.
+--| What `differenceBy` keeps: the items of `xs` whose key no item of `ys` has.
 theorem List.memDifferenceBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a) (key: a → k):
     x ∈ List.differenceBy xs ys key ↔ x ∈ xs ∧ key x ∉ List.map ys key := {
   forward = m =>
@@ -49,8 +50,8 @@ theorem List.memDifferenceBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a)
       | Both inXs out => List.memFilterIntro xs (y => key y ∉ List.map ys key) x inXs (List.notInOfNotMem (key x) (List.map ys key) out)
 }
 
--- What `appendNewBy` has: the items of `xs`, and those of `ys` whose key no
--- item of `xs` has.
+--| What `appendNewBy` has: the items of `xs`, and those of `ys` whose key no
+--| item of `xs` has.
 theorem List.memAppendNewBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a) (key: a → k):
     x ∈ List.appendNewBy xs ys key ↔ x ∈ xs ∨ (x ∈ ys ∧ key x ∉ List.map xs key) := {
   forward = m =>
@@ -63,7 +64,7 @@ theorem List.memAppendNewBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a) 
       | Inr found => List.memAppendRight x xs (List.differenceBy ys xs key) ((List.memDifferenceBy x ys xs key).backward found)
 }
 
--- No key of `differenceBy xs ys key` is a key of `ys`.
+--| No key of `differenceBy xs ys key` is a key of `ys`.
 theorem List.disjointKeysDifferenceBy [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k):
     List.Disjoint (List.map ys key) (List.map (List.differenceBy xs ys key) key) :=
   List.allOfMem (z => z ∉ List.map (List.differenceBy xs ys key) key) (List.map ys key) (z inYs m =>
@@ -72,8 +73,8 @@ theorem List.disjointKeysDifferenceBy [auto eq: DecEq k] (xs: List a) (ys: List 
         match (List.memDifferenceBy y xs ys key).forward inNew with
           | Both inXs out => out (rewrite e in inYs)))
 
--- With the keys of each list distinct, the keys of `appendNewBy` are
--- distinct: what it's for, merging two keyed collections.
+--| With the keys of each list distinct, the keys of `appendNewBy` are
+--| distinct: what it's for, merging two keyed collections.
 theorem List.distinctKeysAppendNewBy [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (dx: List.Distinct (List.map xs key)) (dy: List.Distinct (List.map ys key)):
     List.Distinct (List.map (List.appendNewBy xs ys key) key) :=
@@ -81,7 +82,7 @@ theorem List.distinctKeysAppendNewBy [auto eq: DecEq k] (xs: List a) (ys: List a
     (List.distinctMapFilter ys key (y => key y ∉ List.map xs key) dy)
     (List.disjointKeysDifferenceBy ys xs key)
 
--- A key of either list is a key of `appendNewBy`.
+--| A key of either list is a key of `appendNewBy`.
 theorem List.keyMemAppendNewByLeft [auto eq: DecEq k] (key: a → k) (xs: List a) (ys: List a) (x: a) (m: x ∈ xs):
     key x ∈ List.map (List.appendNewBy xs ys key) key :=
   List.memMap (List.appendNewBy xs ys key) x (List.memAppendLeft x xs (List.differenceBy ys xs key) m) key
@@ -97,24 +98,24 @@ theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List 
       (List.memAppendRight y xs (List.differenceBy ys xs key) ((List.memDifferenceBy y ys xs key).backward (Both m h)))
       key
 
--- `differenceBy` keeps nothing when every key of `xs` is a key of `ys` ...
+--| `differenceBy` keeps nothing when every key of `xs` is a key of `ys` ...
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = Nil :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
     rewrite Decidable.toBoolOf (List.decMem (key x) (List.map ys key)) (covered x m) in rfl)
 
--- ... and everything when no key of `xs` is.
+--| ... and everything when no key of `xs` is.
 theorem List.differenceByDisjoint [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (apart: (x: a) → x ∈ xs → key x ∉ List.map ys key): List.differenceBy xs ys key = xs :=
   List.filterAll (x => key x ∉ List.map ys key) xs (x m => List.notInOfNotMem (key x) (List.map ys key) (apart x m))
 
--- So `appendNewBy` adds nothing when `ys` has no new key ...
+--| So `appendNewBy` adds nothing when `ys` has no new key ...
 theorem List.appendNewByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: (y: a) → y ∈ ys → key y ∈ List.map xs key): List.appendNewBy xs ys key = xs :=
   rewrite List.differenceByCovered ys xs key covered in List.appendNil xs
 
--- ... so it is idempotent: a list merged with itself is itself, whatever
--- its keys.
+--| ... so it is idempotent: a list merged with itself is itself, whatever
+--| its keys.
 theorem List.appendNewBySelf [auto eq: DecEq k] (xs: List a) (key: a → k): List.appendNewBy xs xs key = xs :=
   List.appendNewByCovered xs xs key (x m => List.memMap xs x m key)
 
@@ -122,8 +123,8 @@ theorem List.differenceByExample: List.differenceBy [1, 12, 5] [22] (n => n % 10
 
 theorem List.appendNewByExample: List.appendNewBy [1, 12] [21, 3, 32] (n => n % 10) = [1, 12, 3] := rfl
 
--- Merging `[1, 2]` and `[2, 3]` (the successors of `[1, 2]`) by the
--- numbers themselves, no number is there twice.
+--| Merging `[1, 2]` and `[2, 3]` (the successors of `[1, 2]`) by the
+--| numbers themselves, no number is there twice.
 theorem List.distinctKeysAppendNewByExample: List.Distinct (List.map (List.appendNewBy [1, 2] (List.map [1, 2] Succ) (n => n)) (n => n)) :=
   List.distinctKeysAppendNewBy [1, 2] (List.map [1, 2] Succ) (n => n) List.distinctExample List.distinctMapExample
 
