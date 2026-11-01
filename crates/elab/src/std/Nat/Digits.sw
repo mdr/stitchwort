@@ -1,7 +1,6 @@
 --| Decimal digits of a `Nat`: `Nat.digits` and `Nat.fromDigits`, the lemmas
 --| about them, and the digit values of characters.
--- This file was the prelude's
--- digit block.
+-- This file was the prelude's digit block.
 
 --| `n / 10 < n` once `n` has two digits.
 theorem Nat.divTenLess: (n: Nat) → Nat.leq n 9 = False → Succ (n / 10) ≤ n
@@ -123,8 +122,8 @@ theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.leng
 --| the first is not 0 (for n >= 1), and there are k of them for
 --| 10^(k-1) <= n < 10^k; digits shifted left by more digits are the digit
 --| lists appended (`Nat.digitsShift`).
--- Each is a proof by the same measure as
--- `Nat.digitsAcc`, and the accumulator is just appended.
+-- Each is a proof by the same measure as `Nat.digitsAcc`, and the accumulator
+-- is just appended.
 theorem Nat.digitsAccAppend (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = List.append (Nat.digitsAcc n Nil) acc
     decreasing n
 :=

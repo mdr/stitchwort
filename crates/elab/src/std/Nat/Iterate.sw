@@ -1,6 +1,6 @@
 --| `Nat.iterate`: apply a function n times.
--- A file of its own, so a program
--- that only iterates doesn't check the arithmetic lemmas.
+-- A file of its own, so a program that only iterates doesn't check the
+-- arithmetic lemmas.
 
 --| `Nat.iterate n f x` is `f` applied `n` times to `x`: `Nat.iterate 3 f x` is
 --| `f (f (f x))`. Written with `n.iterate f x` too.

@@ -1041,8 +1041,8 @@ theorem Map.Spec.mergeAscending [auto ord: Ord k] (both: k → v → w → Optio
     Map.Spec.mergeAscendingCons both onlyLeft onlyRight kx vx xs
       (lo2 ys2 ax2 ay2 => Map.Spec.mergeAscending both onlyLeft onlyRight lo2 xs ys2 ax2 ay2) lo ys ax ay
 
---| `mergeAscending` for a nonempty first list, given it for the list's tail:
--- each proof recurses on one list.
+--| `mergeAscending` for a nonempty first list, given it for the list's tail.
+-- Each proof recurses on one list.
 theorem Map.Spec.mergeAscendingCons [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x) (onlyRight: k → w → Option x)
     (kx: k) (vx: v) (xs: List (k, v))
     (tail: (lo: Option k) → (ys: List (k, w)) → Map.Spec.Ascending ord lo xs → Map.Spec.Ascending ord lo ys →
