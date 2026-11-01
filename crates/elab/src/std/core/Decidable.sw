@@ -1,4 +1,4 @@
---| core/Decidable.sw. `Decidable`, its combinators, the decisions for `Nat`
+--| `Decidable`, its combinators, the decisions for `Nat`
 --| and `Bool`, and the uniqueness of equality proofs on `Bool`.
 -- Loaded with the core: `==`, `if h: x = y` and `auto` run on `Decidable`, and
 -- `deriving (DecEq)` writes `Decidable.Yes` and `Nat.equal` in full
@@ -28,7 +28,7 @@ def Decidable.toBool: [p: Prop] → Decidable p → Bool
   | Yes h => True
   | No r => False
 
---| `if h: p then a else b`
+--| `yes` of the proof if the decision is `Yes`, `no` of the refutation if it is `No`: what `if h: p then a else b` means.
 def Decidable.elim: [p: Prop] → [a: Type] → Decidable p → (p → a) → (Not p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
@@ -65,6 +65,7 @@ theorem Bool.ifThenElseCong: [a: Type] → (c: Bool) → (t1: Unit → a) → (t
 -- are made of.
 -- `Decidable …`.
 
+--| Decides whether a boolean is `True`.
 def Bool.decTrue: (b: Bool) → Decidable (b = True)
   | True => Yes rfl
   | False => No Bool.falseNotTrue
@@ -89,31 +90,36 @@ def Nat.decEq: (m: Nat) → (n: Nat) → Decidable (m = n)
 theorem Bool.trueNotFalse: Not (True = False)
   | p => Bool.falseNotTrue (Eq.sym p)
 
+--| Decides whether two booleans are equal.
 def Bool.decEq: (a: Bool) → (b: Bool) → Decidable (a = b)
   | False, False => Yes rfl
   | False, True => No Bool.falseNotTrue
   | True, False => No Bool.trueNotFalse
   | True, True => Yes rfl
 
+--| `!p` is decided from a decision of `p`.
 instance Decidable.not: [p: Prop] → Decidable p → Decidable (Not p)
   | Yes h => No (n => n h)
   | No r => Yes r
 
---| `p && q` and `p || q` are decided from decisions of each side. Both are
---| worked out before these are called, so `if h: p && q` decides `q` even when
---| `p` is false (`if p && q`, without a name, doesn't).
+--| `p && q` is decided from decisions of each side. Both are worked out before
+--| this is called, so `if h: p && q` decides `q` even when `p` is false
+--| (`if p && q`, without a name, doesn't).
 instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidable (And p q)
   | Yes a, Yes b => Yes (Both a b)
   | Yes a, No r => No (h => r (And.right h))
   | No r, d => No (h => r (And.left h))
 
+--| `p || q` is decided from decisions of each side, both worked out first, as for `Decidable.and`.
 instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (Or p q)
   | Yes a, d => Yes (Inl a)
   | No r, Yes b => Yes (Inr b)
   | No r, No s => No (Or.neither r s)
 
+--| `m <= n` is decided by computing `Nat.leq m n`.
 instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m ≤ n) := Bool.decTrue (Nat.leq m n)
 
+--| `m < n` is decided by computing `Nat.leq (m + 1) n`.
 instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (Nat.leq (Succ m) n)
 
 --| Proofs that two booleans are equal are unique. This is Hedberg's argument,

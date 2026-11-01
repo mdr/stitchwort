@@ -1,4 +1,4 @@
---| core/Logic.sw. `Void`, `Unit`, `Not`, `And`, `Or`, and `absurd`/`exfalso`.
+--| `Void`, `Unit`, `Not`, `And`, `Or`, and `absurd`/`exfalso`.
 -- Loaded with the core: every proof the core states is built from these, and
 -- `Decidable`, `deriving` and `auto` write them in full
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -12,9 +12,10 @@ type Void: Prop
 type Unit: Prop =
   | Trivial
 
+--| `p` is false: a proof of `p` would give a proof of `Void`. `!p` and `¬p` mean `Not p`.
 def Not (p: Prop): Prop := p → Void
 
---| Both propositions hold. `And.left` and `And.right` are its fields.
+--| Both propositions hold: `p && q`. `And.left` and `And.right` are its fields.
 type And (p: Prop) (q: Prop): Prop =
   | Both (left: p) (right: q)
 
@@ -23,6 +24,7 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
 
+--| When neither proposition holds, `p || q` doesn't.
 theorem Or.neither: [p q: Prop] → Not p → Not q → Not (Or p q)
   | r, s, Inl a => r a
   | r, s, Inr b => s b
@@ -32,7 +34,7 @@ theorem Or.neither: [p q: Prop] → Not p → Not q → Not (Or p q)
 def Void.absurd: Void → a
   | ()
 
---| The same for proofs. (Without universe polymorphism, `Void.absurd`'s `a` can
---| only be a type of data.)
+--| From a proof of `Void`, any proposition follows. (Without universe
+--| polymorphism, `Void.absurd`'s `a` can only be a type of data.)
 def Void.exfalso: [p: Prop] → Void → p
   | ()

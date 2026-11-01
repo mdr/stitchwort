@@ -1,4 +1,4 @@
---| core/CompareData.sw. The same laws for `List` (lexicographic), `Pair`,
+--| The laws of comparison for `List` (lexicographic), `Pair`,
 --| `Option`, `Char` and `Text`.
 -- Loaded with the core: `List.instOrd`, `Pair.instOrd`, `Option.instOrd`,
 -- `Char.instOrd` and `Text.instOrd` need them (docs/proposals/prelude-slim.md
@@ -79,7 +79,7 @@ theorem Pair.compareWithTrans (ca: a → a → Ordering) (cb: b → b → Orderi
       (e => Eq.sym (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
       (tb y1 y2 y3) h1 h2
 
---| Optional values: `None` first.
+--| Compares optional values, `None` first, then by `cmp` on the values.
 @[noReceiver]
 def Option.compareWith (cmp: a → a → Ordering): Option a → Option a → Ordering
   | None, None => Equal

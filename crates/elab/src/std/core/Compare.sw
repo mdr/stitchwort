@@ -1,4 +1,4 @@
---| core/Compare.sw. The laws of comparison for `Ordering`, `Nat` and `Int`:
+--| The laws of comparison for `Ordering`, `Nat` and `Int`:
 --| `compareEqual`, `compareFlip`, `compareTrans`, and `less`/`le` from
 --| `compare`.
 -- Loaded with the core: Each `Ord` instance needs its `compare` laws, and `Ord`

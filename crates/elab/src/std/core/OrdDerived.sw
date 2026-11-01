@@ -1,4 +1,4 @@
---| core/OrdDerived.sw. The laws `deriving (Ord)` puts together:
+--| The laws `deriving (Ord)` puts together:
 --| `Ordering.thenEqual`, `thenFlip`, `thenTrans`, `byTagTrans`.
 -- Loaded with the core: A derived `Ord` instance writes `Ordering.byTagTrans`
 -- and its siblings in full (docs/proposals/prelude-slim.md §2.1).
@@ -9,7 +9,7 @@
 --| proofs' types.
 -- (docs/proposals/interfaces.md §5.11, stage 7)
 
---| Both are `Equal` when `c` then `d` is.
+--| When `c` then `d` is `Equal`, both are.
 theorem Ordering.thenEqual [c d: Ordering] (h: Ordering.andThen c d = Equal): And (c = Equal) (d = Equal) :=
   Ordering.andThenEqual c d h
 
@@ -30,7 +30,7 @@ theorem Ordering.thenTransBy (cmp: a → a → Ordering) (x: a) (y: a) (z: a) [r
     (e => Eq.sym (Eq.cong (w => cmp x w) (eyz e)))
     tr h1 h2
 
---| The same for a field compared by its `Ord` instance.
+--| `Less` is transitive for a field compared by its `Ord` instance, then the rest.
 theorem Ord.thenTrans [auto ord: Ord a] (x: a) (y: a) (z: a) [r1 r2 r3: Ordering]
     (h1: Ordering.andThen (Ord.compare x y) r1 = Less) (h2: Ordering.andThen (Ord.compare y z) r2 = Less)
     (tr: r1 = Less → r2 = Less → r3 = Less):

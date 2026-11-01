@@ -1,4 +1,4 @@
---| core/Division.sw. `Nat.div` and `Nat.mod`, and the order lemmas (`leTrans`,
+--| `Nat.div` and `Nat.mod`, and the order lemmas (`leTrans`,
 --| `lessTrans`) that `calc` and the `Ord` laws use.
 -- Loaded with the core: `Nat.div`/`mod` are operators' meanings, and
 -- `Nat.leTrans` and `Nat.lessTrans` are registry built-ins for `calc`
@@ -27,12 +27,13 @@ def Nat.divStep: Bool → Nat → Nat → Nat → Nat
   | False, fuel, n, divisor => 0
   | True, fuel, n, divisor => Succ (Nat.divFuel fuel (n - divisor) divisor)
 
---| `n / divisor` and `n % divisor` need a proof that `divisor` isn't zero, which `auto` finds.
+--| `n / divisor`, rounded down: `17 / 5` is 3. It needs a proof that `divisor` isn't zero, which `auto` finds.
 def Nat.div (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := Nat.divFuel n n divisor
 
---| The quotient goes on the left: `*` recurses on its left argument, so
---| `(n / divisor) * 100` stays put while checking, where `100 * (n / divisor)` would
---| unfold into a hundred additions.
+--| `n % divisor`, the remainder of `n / divisor`: `17 % 5` is 2.
+-- The quotient goes on the left: `*` recurses on its left argument, so
+-- `(n / divisor) * 100` stays put while checking, where `100 * (n / divisor)` would
+-- unfold into a hundred additions.
 def Nat.mod (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := n - (n / divisor) * divisor
 
 theorem Nat.leSucc: (n: Nat) → n ≤ Succ n
@@ -53,9 +54,9 @@ theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ 
 
 theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
 
---| A bound on either side of a sum bounds the sum: the steps of the proofs
---| generated for a nested type's `T.size` (an element of a list in a node is
---| smaller than the node).
+--| A bound on either side of a sum bounds the sum. These are the steps of the
+--| proofs generated for a nested type's `T.size` (an element of a list in a
+--| node is smaller than the node).
 theorem Nat.leAddOfLeLeft: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → a ≤ b + c
   | Zero, b, c, h => rfl
   | Succ a, Zero, c, h => Void.exfalso (Bool.falseNotTrue h)

@@ -1,4 +1,4 @@
---| core/Ordering.sw. `Ordering`, `Nat.compare`, and the combinators `andThen`
+--| `Ordering`, `Nat.compare`, and the combinators `andThen`
 --| and `index` with decidable equality.
 -- Loaded with the core: Every `Ord` instance compares to an `Ordering`, and
 -- `deriving (Ord)` writes `Ordering.andThen` in full
@@ -6,11 +6,13 @@
 
 -- Comparisons
 
+--| The result of comparing two values: `Less`, `Equal` or `Greater`.
 type Ordering: Type =
   | Less
   | Equal
   | Greater
 
+--| How `m` compares with `n`: `Nat.compare 2 5` is `Less`.
 def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
 
 --| The first comparison, unless it's `Equal`.
@@ -19,11 +21,13 @@ def Ordering.andThen: Ordering → Ordering → Ordering
   | Equal, second => second
   | Greater, second => Greater
 
+--| The position of an ordering: 0 for `Less`, 1 for `Equal`, 2 for `Greater`.
 def Ordering.index: Ordering → Nat
   | Less => 0
   | Equal => 1
   | Greater => 2
 
+--| Decides whether two orderings are equal.
 def Ordering.decEq: (a: Ordering) → (b: Ordering) → Decidable (a = b)
   | Less, Less => Yes rfl
   | Less, Equal => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))

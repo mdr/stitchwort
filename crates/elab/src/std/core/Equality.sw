@@ -1,4 +1,4 @@
---| core/Equality.sw. Equality lemmas (`Eq.cong`, `Eq.sym`, `Eq.trans`) and the
+--| Equality lemmas (`Eq.cong`, `Eq.sym`, `Eq.trans`) and the
 --| facts that different constructors are different.
 -- Loaded with the core: `calc` and `deriving` write `Eq.sym` and `Eq.trans` in
 -- full, and every decision procedure after this uses them
@@ -15,6 +15,7 @@ theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (z' q' => x = z') 
 -- Different constructors are different. Each proof transports along the
 -- equation into a family that's `Unit` at one constructor and `Void` at the other.
 
+--| `Unit` (true) for 0 and `Void` (false) for any other number: how `0 ≠ n + 1` is proved.
 def Nat.IsZero: Nat → Prop
   | Zero => Unit
   | Succ n => Void
@@ -27,6 +28,7 @@ theorem Nat.succNotZero (n: Nat): Not (Succ n = 0)
 
 theorem Nat.succInjective (m: Nat) (n: Nat) (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
 
+--| `Unit` (true) for `False` and `Void` (false) for `True`: how `False ≠ True` is proved.
 def Bool.IsFalse: Bool → Prop
   | False => Unit
   | True => Void

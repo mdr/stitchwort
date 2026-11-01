@@ -1,4 +1,4 @@
---| core/Show.sw. The `Show` interface, its quoting and bracketing helpers, and
+--| The `Show` interface, its quoting and bracketing helpers, and
 --| the `Show` instances for the core types.
 -- Loaded with the core: Interpolation (`"${e}"`) and `deriving (Show)` use
 -- `Show`, and the elements of lists and tuples print through it
@@ -22,17 +22,21 @@ def Bool.toText: Bool → Text
   | True => "True"
   | False => "False"
 
+--| `"Less"`, `"Equal"` or `"Greater"`, as the constructors are written.
 def Ordering.toText: Ordering → Text
   | Less => "Less"
   | Equal => "Equal"
   | Greater => "Greater"
 
+--| Types whose values can be shown as text: `"${e}"` inserts `Show.toText e`.
+--| `toSource` is the form used inside lists, tuples and records (`"tea"` with its quotes).
 interface Show (a: Type) = {
   toText: a → Text,
   toSource: a → Text
 }
 
---| An instance whose two fields are the same: for numbers, and for a user's own type with a
+--| A `Show` instance that shows values with `f`, the same way inside lists and records as on their own.
+--| For numbers, and for a user's own type with a
 --| `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
 def Show.fromText (f: a → Text): Show a := { toText = f, toSource = f }
 
@@ -45,8 +49,8 @@ def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
   else if Nat.equal (Char.toNat char) 13 then Cons '\\' (Cons 'r' rest)
   else Cons char rest
 
---| As above, for a character that's followed by `next`: a `$` before a `{`
---| would start an interpolation.
+--| A character as it's written in a literal quoted with `quote`, when it's
+--| followed by `next`: a `$` before a `{` would start an interpolation, so it is escaped.
 def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char → List Char
   | Nil => Show.escapeChar quote char rest
   | Cons next _ =>
@@ -54,6 +58,7 @@ def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char �
       (if Nat.equal (Char.toNat next) 123 then Cons '\\' (Cons char rest) else Cons char rest)
     else Show.escapeChar quote char rest
 
+--| Characters as they're written in a literal quoted with `quote`.
 def Show.escapeChars (quote: Char): List Char → List Char
   | Nil => Nil
   | Cons char chars => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
@@ -62,9 +67,10 @@ def Show.escapeChars (quote: Char): List Char → List Char
 def Show.quoteText (text: Text): Text :=
   MkText (Cons '"' (List.append (Show.escapeChars '"' (Text.toList text)) (Cons '"' Nil)))
 
---| `'a'`.
+--| A character in quotes, escaped as in a literal: `'a'`.
 def Show.quoteChar (char: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' char (Cons '\'' Nil)))
 
+--| Whether the characters include a space.
 def Show.hasSpace: List Char → Bool
   | Nil => False
   | Cons char chars => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
@@ -90,12 +96,15 @@ def Show.argOf (text: Text): List Char → Text
     else if Show.hasSpace chars then Text.append "(" (Text.append text ")")
     else text
 
+--| A constructor's argument as it is shown after the constructor: bracketed when it has spaces and isn't one piece.
 def Show.arg (text: Text): Text := Show.argOf text (Text.toList text)
 
+--| The elements through `f`, each after `, `.
 def Show.itemsAfter (f: a → Text): List a → Text
   | Nil => ""
   | Cons x xs => Text.append ", " (Text.append (f x) (Show.itemsAfter f xs))
 
+--| The elements through `f`, separated by `, `.
 def Show.items (f: a → Text): List a → Text
   | Nil => ""
   | Cons x xs => Text.append (f x) (Show.itemsAfter f xs)
@@ -104,6 +113,7 @@ def Show.items (f: a → Text): List a → Text
 def Show.list (f: a → Text) (xs: List a): Text :=
   Text.append "[" (Text.append (Show.items f xs) "]")
 
+--| An option as source text, the value shown by `f`: `None`, or `Some 3`.
 @[noReceiver]
 def Option.showWith (f: a → Text): Option a → Text
   | None => "None"
@@ -127,6 +137,7 @@ instance List.instShow [auto show: Show a]: Show (List a) :=
 instance Option.instShow [auto show: Show a]: Show (Option a) :=
   Show.fromText (Option.showWith (x => Show.toSource x))
 
+--| A result as source text, the value shown by `f` and the error by `g`: `Ok 3`, or `Err "bad"`.
 @[noReceiver]
 def Result.showWith (f: a → Text) (g: e → Text): Result a e → Text
   | Ok x => Text.append "Ok " (Show.arg (f x))
@@ -135,6 +146,7 @@ def Result.showWith (f: a → Text) (g: e → Text): Result a e → Text
 instance Result.instShow [auto showA: Show a] [auto showE: Show e]: Show (Result a e) :=
   Show.fromText (Result.showWith (x => Show.toSource x) (m => Show.toSource m))
 
+--| A pair as source text, its parts shown by `f` and `g`: `(1, "a")`.
 @[noReceiver]
 def Pair.showWith (f: a → Text) (g: b → Text): Pair a b → Text
   | MkPair x y => Text.append "(" (Text.append (f x) (Text.append ", " (Text.append (g y) ")")))

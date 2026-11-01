@@ -1,4 +1,4 @@
---| core/Effect.sw. The effect machinery: computations (`Effect.Comp`, `bind`),
+--| The effect machinery: computations (`Effect.Comp`, `bind`),
 --| signatures and mappings between them, `Rec` and `Delay`.
 -- Loaded with the core: The registry's `sigCase` and the `Partial` and `Rec`
 -- built-ins use these, so they are checked before any program
@@ -34,6 +34,7 @@ type Effect.Plus (l: Type) (r: Type): Type =
   | L (o: l)
   | R (o: r)
 
+--| What each operation of the row `{l, r}` gives back: its side's response type.
 def Effect.PlusRes [l r: Type] (lres: l → Type) (rres: r → Type): Plus l r → Type
   | L o => lres o
   | R o => rres o
@@ -44,10 +45,12 @@ def Effect.PlusRes [l r: Type] (lres: l → Type) (rres: r → Type): Plus l r �
 type Effect.SigMap (op1: Type) (res1: op1 → Type) (op2: Type) (res2: op2 → Type): Type =
   | MkSigMap (inject: op1 → op2) (reply: (o: op1) → res2 (inject o) → res1 o)
 
+--| Where a mapping sends an operation.
 def Effect.sigInject: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] →
     SigMap op1 res1 op2 res2 → op1 → op2
   | MkSigMap inj rep, o => inj o
 
+--| How a mapping brings an operation's response back.
 def Effect.sigReply: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] →
     (m: SigMap op1 res1 op2 res2) → (o: op1) → res2 (sigInject m o) → res1 o
   | MkSigMap inj rep, o, r => rep o r
@@ -59,31 +62,36 @@ def Effect.translate [op1: Type] [res1: op1 → Type] [op2: Type] [res2: op2 →
   | Done x => Done x
   | Call o rest => Call (sigInject m o) (r => translate m (rest (sigReply m o r)))
 
+--| The mapping from a signature to itself that changes nothing.
 def Effect.sigId: [op: Type] → [res: op → Type] → SigMap op res op res := MkSigMap (o => o) (o r => r)
 
+--| One mapping after another, as one mapping.
 def Effect.sigCompose: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] →
     [op3: Type] → [res3: op3 → Type] →
     SigMap op1 res1 op2 res2 → SigMap op2 res2 op3 res3 → SigMap op1 res1 op3 res3
   | MkSigMap i1 r1, MkSigMap i2 r2 =>
     MkSigMap (o => i2 (i1 o)) (o r => r1 o (r2 (i1 o) r))
 
---| Weakening: a signature into a row with something else on the right or left.
+--| Weakening: a signature into a row with something else on its right.
 def Effect.sigLeft: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (o => L o) (o x => x)
 
+--| Weakening: a signature into a row with something else on its left.
 def Effect.sigRight: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (o => R o) (o x => x)
 
---| Reordering: `{l, r}` to `{r, l}`.
+--| An operation of `{l, r}` as the same operation of `{r, l}`.
 def Effect.swapOp: [l r: Type] → Plus l r → Plus r l
   | L o => R o
   | R o => L o
 
+--| A response in `{r, l}` brought back to `{l, r}`.
 def Effect.swapReply: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     (o: Plus l r) → PlusRes rres lres (swapOp o) → PlusRes lres rres o
   | L o, x => x
   | R o, x => x
 
+--| Reordering: the mapping from `{l, r}` to `{r, l}`.
 def Effect.sigSwap: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     SigMap (Plus l r) (PlusRes lres rres) (Plus r l) (PlusRes rres lres) := MkSigMap swapOp swapReply
 
@@ -97,31 +105,36 @@ type Builtin.UnitType: Type =
 --| The signature with no operations: the end of a closed row.
 type Effect.NoOp: Type
 
+--| The responses of the signature with no operations: there are none to give.
 def Effect.NoRes: NoOp → Type
   | ()
 
---| Combining two mappings into one from `{l, r}`.
+--| Where the combined mapping from `{l, r}` sends an operation: by its side's mapping.
 def Effect.caseInject [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: t → Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): Plus l r → t
   | L o => sigInject ml o
   | R o => sigInject mr o
 
+--| How the combined mapping from `{l, r}` brings a response back: by its side's mapping.
 def Effect.caseReply [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: t → Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres):
     (o: Plus l r) → tres (caseInject ml mr o) → PlusRes lres rres o
   | L o, x => sigReply ml o x
   | R o, x => sigReply mr o x
 
+--| Combining two mappings into one from `{l, r}`.
 def Effect.sigCase [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: t → Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): SigMap (Plus l r) (PlusRes lres rres) t tres := MkSigMap (caseInject ml mr) (caseReply ml mr)
 
---| The empty signature maps into anything.
+--| Where the empty signature's operations go: there are none.
 def Effect.noInject: [t: Type] → NoOp → t
   | ()
 
+--| How the empty signature's responses come back: there are none.
 def Effect.noReply: [t: Type] → [tres: t → Type] → (o: NoOp) → tres (noInject o) → NoRes o
   | (), _
 
+--| The empty signature maps into anything.
 def Effect.sigFromNo: [t: Type] → [tres: t → Type] → SigMap NoOp NoRes t tres := MkSigMap noInject noReply
 
 --| A handler's step for the row `{l, r}`, from steps for each side.
@@ -136,7 +149,7 @@ def Effect.runPure: [a: Type] → Comp NoOp NoRes a → a
   | Done x => x
   | Call () rest
 
---| Effect-row parameters. A row parameter `e` in `{e}` or `{A | e}` is an
+--| The rows of abilities a computation may perform, as type parameters. A row parameter `e` in `{e}` or `{A | e}` is an
 --| `Effects`, used only as an index: either the empty row, or the operations
 --| and results of a row with at least one ability. Only the library may name
 --| the constructors of `Effects` and the definitions below that take a row
@@ -157,6 +170,7 @@ def Effect.rowOp: Effects → Type
   | Empty => NoOp
   | Ops op res => op
 
+--| The response types of a row's operations.
 def Effect.rowRes: (row: Effects) → rowOp row → Type
   | Empty, o => NoRes o
   | Ops op res, o => res o
@@ -241,7 +255,7 @@ def Effect.now: [op: Type] → [res: op → Type] → [a: Type] → a → Delay 
 --| A computation that finishes, as one that might not.
 def Effect.lift: [op: Type] → [res: op → Type] → [a: Type] → Comp op res a → Delay op res a
 
---| Sequencing.
+--| Sequencing for a computation that may not finish: run `c`, then `next` with its result, if it finishes.
 def Effect.bindD: [op: Type] → [res: op → Type] → [a b: Type] →
   Delay op res a → (a → Delay op res b) → Delay op res b
 

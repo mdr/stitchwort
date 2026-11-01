@@ -1,4 +1,4 @@
---| core/Ord.sw. The `Ord` interface, `Ord.fromCompare`, and the `Ord`
+--| The `Ord` interface, `Ord.fromCompare`, and the `Ord`
 --| instances for the core types.
 -- Loaded with the core: `< <=` and `deriving (Ord)` go through `Ord`
 -- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
@@ -9,10 +9,10 @@ theorem Bool.toNatInjective: (a: Bool) → (b: Bool) → Bool.toNat a = Bool.toN
   | True, False, h => Void.exfalso (Nat.succNotZero 0 h)
   | True, True, h => rfl
 
---| `False` first.
+--| Compares booleans, `False` first.
 def Bool.compare (a: Bool) (b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bool.toNat b)
 
---| `Less`, `Equal`, `Greater`.
+--| Compares orderings in the order `Less`, `Equal`, `Greater`.
 def Ordering.compare (first: Ordering) (second: Ordering): Ordering := Nat.compare (Ordering.index first) (Ordering.index second)
 
 --| A total order: a comparison with its laws, and the relations `<` and `<=`

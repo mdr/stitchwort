@@ -1,4 +1,4 @@
---| core/Result.sw. `Result`, a value or the reason there isn't one, and its
+--| `Result`, a value or the reason there isn't one, and its
 --| decidable equality. Its other functions are in `std/Result/Result.sw`.
 -- Loaded with the core: `Result` is in the prelude, next to `Option`, so `Ok`
 -- and `Err` need no import, and its `DecEq` instance (in `DecEq.sw`) lets tests
@@ -19,6 +19,7 @@ def Result.errorOrElse: Result a e → (fallback: e) → e
   | Ok x, fallback => fallback
   | Err m, fallback => m
 
+--| `Unit` (true) for an `Ok` and `Void` (false) for an `Err`: how `Ok x ≠ Err m` is proved.
 def Result.IsOk: Result a e → Prop
   | Ok x => Unit
   | Err m => Void
@@ -29,10 +30,12 @@ theorem Result.okNotErr (x: a) (m: e): Not (Ok x = Err m)
 theorem Result.errNotOk (m: e) (x: a): Not (Err m = Ok x)
   | p => Result.okNotErr x m (Eq.sym p)
 
+--| Decides whether two `Ok`s are equal, from a decision about their values.
 def Result.decOk (x: a) (y: a): Decidable (x = y) → Decidable ((Ok x: Result a e) = Ok y)
   | Yes p => Yes (Eq.cong Ok p)
   | No r => No (p => r (Eq.cong (.getOrElse x) p))
 
+--| Decides whether two `Err`s are equal, from a decision about their errors.
 def Result.decErr (m: e) (n: e): Decidable (m = n) → Decidable ((Err m: Result a e) = Err n)
   | Yes p => Yes (Eq.cong Err p)
   | No r => No (p => r (Eq.cong (.errorOrElse m) p))
