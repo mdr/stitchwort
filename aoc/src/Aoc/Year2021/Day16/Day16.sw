@@ -78,9 +78,13 @@ def hexValue: Char → Option Nat
 def digitBits (value: Nat): List Bool := [Nat.testBit value 3, Nat.testBit value 2, Nat.testBit value 1, Nat.testBit value 0]
 
 -- The transmission's bits.
-def readBits (input: Text): {Fail} (List Bool) :=
-  let digits := input.trim.toList.withIndex.map (((column, char)) => Fail.need (hexValue char) "column ${column + 1}: expected a hexadecimal digit, got '${char}'")
-  digits.flatMap digitBits
+def readBits (input: Text): {Fail} (List Bool) := bitsOfDigits (readDigits input)
+
+-- The value of each hexadecimal digit of the (trimmed) input.
+def readDigits (input: Text): {Fail} (List Nat) :=
+  input.trim.toList.withIndex.map (((column, char)) => Fail.need (hexValue char) "column ${column + 1}: expected a hexadecimal digit, got '${char}'")
+
+def bitsOfDigits (digits: List Nat): List Bool := digits.flatMap digitBits
 
 -- The first `count` bits, and the bits after them; none if there are
 -- fewer.
@@ -182,8 +186,9 @@ def readPacket (bits: List Bool): Option (Packet, List Bool) :=
 -- The outermost packet of the transmission (the bits after it are
 -- padding). It checks the puzzle's promise about the operators it
 -- evaluates.
-def parsePacket (input: Text): {Fail} Packet :=
-  let bits := readBits input
+def parsePacket (input: Text): {Fail} Packet := decodeTransmission (readBits input)
+
+def decodeTransmission (bits: List Bool): {Fail} Packet :=
   match readPacket bits with
     | Some ((packet, _)) => checkOperators packet
     | None => Fail.fail "the transmission isn't a packet"

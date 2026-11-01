@@ -35,6 +35,15 @@ def hexDigitBits: Char → Option (List Bool)
   | 'F' => Some [True, True, True, True]
   | _ => None
 
+-- A transmission's bits: each character a hexadecimal digit, written as
+-- its four bits; none if a character isn't one.
+def transmissionBits: List Char → Option (List Bool)
+  | Nil => Some Nil
+  | Cons char rest =>
+    match hexDigitBits char, transmissionBits rest with
+      | Some bits, Some more => Some (bits ++ more)
+      | _, _ => None
+
 -- The type id of each operator.
 def typeId: Operation → Nat
   | Sum => 0
