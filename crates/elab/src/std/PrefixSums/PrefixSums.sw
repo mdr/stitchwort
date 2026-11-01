@@ -5,17 +5,17 @@
 --| `PrefixSums.block` sums a block of it. The theorem at the bottom says the
 --| block is the sum of its cells ([`PrefixSums.blockSum`]).
 
---| The table: entry (r, c) is the sum of the cells above row r and left of
---| column c, for r up to the number of rows and c up to the longest row's
---| length, kept for lookup by position.
+--| The table of prefix sums, kept for lookup by position.
+--| Entry (r, c) is the sum of the cells above row r and left of column c, for
+--| r up to the number of rows and c up to the longest row's length.
 type PrefixSums = { sums: Map Nat (Map Nat Nat) }
 
 --| The cells of rows of numbers, row r and column c; 0 outside them.
 def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr r Nil |> .getOr c 0
 
---| The sum of the block of rows `top` up to, not including, `bottom`, and
---| columns `left` up to, not including, `right`, cell by cell: what
---| `PrefixSums.block` computes in four lookups.
+--| The sum of a block of cells, added cell by cell: what `PrefixSums.block` computes in four lookups.
+--| The block is rows `top` up to, not including, `bottom`, and columns `left`
+--| up to, not including, `right`.
 def PrefixSums.blockSpec (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
   List.sumBy (List.rangeFrom (bottom - top) top) (r => List.sumBy (List.rangeFrom (right - left) left) (c => PrefixSums.cell rows r c))
 

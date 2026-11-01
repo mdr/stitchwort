@@ -1,6 +1,6 @@
 --| Arithmetic laws for `Nat` and `Int` (associativity,
---| commutativity, distributivity), with `Bool.xor` and the sign lemmas
---| `Int.mulAssoc` uses.
+--| commutativity, distributivity), with [`Bool.xor`] and the sign lemmas
+--| [`Int.mulAssoc`] uses.
 -- Loaded with the core: `Nat.instAdd`, `Nat.instMul`, `Int.instAdd` and
 -- `Int.instMul` need their laws, and `+` and `*` go through those instances
 -- (docs/proposals/prelude-slim.md §2.1).

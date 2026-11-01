@@ -1,5 +1,5 @@
 --| `Text`: the type, conversion to and from lists of characters,
---| decidable equality, comparison, and `Nat.toText`.
+--| decidable equality, comparison, and [`Nat.toText`].
 -- Loaded with the core: `Text` is pinned by content hash in the JS backend, and
 -- the `Show` instances need `Nat.toText` and `Text.compare`
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -9,7 +9,7 @@
 --| A sequence of Unicode scalar values. `"héllo"` is a `Text`. Equality and
 --| ordering compare the sequence exactly, by scalar value, and length counts
 --| scalar values; nothing is normalised, so `"\u{E9}"` and `"e\u{301}"` are
---| different texts. Code that goes through `Text.toList` and `Text.fromList`
+--| different texts. Code that goes through [`Text.toList`] and [`Text.fromList`]
 --| and their lemmas, rather than `MkText`, won't depend on the representation.
 type Text: Type =
   | MkText (chars: List Char)
@@ -18,13 +18,13 @@ type Text: Type =
 def Text.toList: Text → List Char
   | MkText cs => cs
 
---| The text of the characters, in order; `Text.toList` undoes it (`Text.toFromList`).
+--| The text of the characters, in order; [`Text.toList`] undoes it ([`Text.toFromList`]).
 def Text.fromList (cs: List Char): Text := MkText cs
 
 theorem Text.fromToList: (t: Text) → Text.fromList (Text.toList t) = t
   | MkText cs => rfl
 
---| `a ++ b`: the characters of `a`, then those of `b` (`Text.lengthAppend`).
+--| `a ++ b`: the characters of `a`, then those of `b` ([`Text.lengthAppend`]).
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 --| A decision whether two texts are equal, from one on their characters.

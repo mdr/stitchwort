@@ -15,7 +15,7 @@ type Unit: Prop =
 --| `p` is false: a proof of `p` would give a proof of `Void`. `!p` and `¬p` mean `Not p`.
 def Not (p: Prop): Prop := p → Void
 
---| Both propositions hold: `p && q`. `And.left` and `And.right` are its fields.
+--| Both propositions hold: `p && q`. [`And.left`] and [`And.right`] are its fields.
 type And (p: Prop) (q: Prop): Prop =
   | Both (left: p) (right: q)
 
@@ -35,6 +35,6 @@ def Void.absurd: Void → a
   | ()
 
 --| From a proof of `Void`, any proposition follows. (Without universe
---| polymorphism, `Void.absurd`'s `a` can only be a type of data.)
+--| polymorphism, [`Void.absurd`]'s `a` can only be a type of data.)
 def Void.exfalso: [p: Prop] → Void → p
   | ()

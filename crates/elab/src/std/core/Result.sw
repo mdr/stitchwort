@@ -4,7 +4,7 @@
 -- and `Err` need no import, and its `DecEq` instance (in `DecEq.sw`) lets tests
 -- compare results with `==` (docs/proposals/errors.md §3.2).
 
---| A computation's value, or why it failed: `Std.Fail.toResult` gives one.
+--| A computation's value, or why it failed: [`Std.Fail.toResult`] gives one.
 type Result (a: Type) (e: Type): Type =
   | Ok (value: a)
   | Err (error: e)

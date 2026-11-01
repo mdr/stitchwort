@@ -1,4 +1,4 @@
---| Equality lemmas (`Eq.cong`, `Eq.sym`, `Eq.trans`) and the
+--| Equality lemmas ([`Eq.cong`], [`Eq.sym`], [`Eq.trans`]) and the
 --| facts that different constructors are different.
 -- Loaded with the core: `calc` and `deriving` write `Eq.sym` and `Eq.trans` in
 -- full, and every decision procedure after this uses them
@@ -47,13 +47,13 @@ theorem Nat.equalRefl: (n: Nat) → Nat.equal n n = True
   | Zero => rfl
   | Succ n => Nat.equalRefl n
 
---| Numbers that `Nat.equal` says are equal are equal.
+--| Numbers that [`Nat.equal`] says are equal are equal.
 theorem Nat.equalSound: (m: Nat) → (n: Nat) → Nat.equal m n = True → m = n
   | Zero, Zero, h => rfl
   | Zero, Succ n, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, Succ n, h => Eq.cong Succ (Nat.equalSound m n h)
 
---| Numbers that `Nat.equal` says differ are different.
+--| Numbers that [`Nat.equal`] says differ are different.
 theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): Not (m = n)
   | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))

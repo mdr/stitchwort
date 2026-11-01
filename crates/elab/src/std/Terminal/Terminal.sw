@@ -139,9 +139,10 @@ def Terminal.readFromList: List (List Nat) → Pair (Option (List Nat)) (List (L
 def Terminal.sizeOf (console: Console): Terminal.Size :=
   { columns = if console.columns == 0 then 80 else console.columns, rows = if console.rows == 0 then 24 else console.rows }
 
---| Draws a frame: on a terminal as one text, `Frame.ansi` of the lines that
---| fit on the screen (lines wider than it are cut off by the terminal, since
---| keys mode turns wrapping off); otherwise as plain lines, `Frame.plain`.
+--| Draws a frame: as one text on a terminal, as plain lines otherwise.
+--| On a terminal it is `Frame.ansi` of the lines that fit on the screen
+--| (lines wider than it are cut off by the terminal, since keys mode turns
+--| wrapping off); otherwise `Frame.plain`.
 def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
   if console.outputIsTerminal then lines.take (Terminal.sizeOf console).rows |> Frame.ansi |> IO.write
   else Terminal.printLines (Frame.plain lines)

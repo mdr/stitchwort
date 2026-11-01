@@ -1,4 +1,4 @@
---| The effect machinery: computations (`Effect.Comp`, `bind`),
+--| The effect machinery: computations ([`Effect.Comp`], `bind`),
 --| signatures and mappings between them, `Rec` and `Delay`.
 -- Loaded with the core: The registry's `sigCase` and the `Partial` and `Rec`
 -- built-ins use these, so they are checked before any program
@@ -283,7 +283,7 @@ def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2
 
 --| Whether a computation in a bare row `{e}` may not finish. A signature whose
 --| row variable `e` appears only bare takes one of these beside `e`, so a
---| function like `List.map` takes partial callbacks: at `MayDiverge` its
+--| function like [`List.map`] takes partial callbacks: at `MayDiverge` its
 --| computations are `Delay`s. Like `Effects`, only the library may name it,
 --| its constructors and the definitions below.
 -- (D1214)
@@ -323,9 +323,9 @@ def Effect.delayD [a: Type]: (d: Divergence) → (row: Effects) →
 -- Partiality through a row with abilities, `{A | e}` (docs/proposals/partial-handlers.md
 -- §4.2, D1255): `e`'s divergence index is the whole row's.
 
---| The handler fold, where the handled code may be partial: today's
---| `foldComp` when total, so proofs about handlers compute as before, and
---| `foldD` when not, whose result is partial too.
+--| The handler fold, where the handled code may be partial.
+--| It is today's `foldComp` when total, so proofs about handlers compute as
+--| before, and `foldD` when not, whose result is partial too.
 def Effect.foldCompD [op1: Type] [res1: op1 → Type] [a b: Type]: (d: Divergence) → (out: Effects) →
     (a → CompD d out b) → ((o: op1) → (res1 o → CompD d out b) → CompD d out b) →
     CompD d (Ops op1 res1) a → CompD d out b

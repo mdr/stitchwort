@@ -1,4 +1,4 @@
---| `Nat.div` and `Nat.mod`, and the order lemmas (`leTrans`,
+--| [`Nat.div`] and [`Nat.mod`], and the order lemmas (`leTrans`,
 --| `lessTrans`) that `calc` and the `Ord` laws use.
 -- Loaded with the core: `Nat.div`/`mod` are operators' meanings, and
 -- `Nat.leTrans` and `Nat.lessTrans` are registry built-ins for `calc`
@@ -12,7 +12,7 @@ def Nat.divFuel: Nat → Nat → Nat → Nat
   | Zero, n, divisor => 0
   | Succ fuel, n, divisor => Nat.divStep (Nat.leq divisor n) fuel n divisor
 
---| One step of `Nat.divFuel`, given whether `divisor` fits into `n`: if it
+--| One step of [`Nat.divFuel`], given whether `divisor` fits into `n`: if it
 --| does, one more than the count for `n - divisor`. Goals show a step as the
 --| `/` it comes from.
 -- The comparison is an argument, rather than `divFuel` writing

@@ -40,7 +40,7 @@ theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
---| `Decidable.elim` for a proof: `if` with proofs as branches is this, and a
+--| [`Decidable.elim`] for a proof: `if` with proofs as branches is this, and a
 --| theorem with `decreasing (m1, m2)` makes its recursive calls through it.
 -- (SW-1015)
 -- (docs/proposals/well-founded-recursion.md, stage 3d)
@@ -70,7 +70,7 @@ def Bool.decTrue: (b: Bool) → Decidable (b = True)
   | True => Yes rfl
   | False => No Bool.falseNotTrue
 
---| A decision from what `Nat.equal` says.
+--| A decision from what [`Nat.equal`] says.
 def Nat.decEqFrom (m: Nat) (n: Nat): (b: Bool) → Nat.equal m n = b → Decidable (m = n)
   | True, h => Yes (Nat.equalSound m n h)
   | False, h => No (Nat.equalFalse m n h)
@@ -110,7 +110,7 @@ instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidabl
   | Yes a, No r => No (h => r (And.right h))
   | No r, d => No (h => r (And.left h))
 
---| `p || q` is decided from decisions of each side, both worked out first, as for `Decidable.and`.
+--| `p || q` is decided from decisions of each side, both worked out first, as for [`Decidable.and`].
 instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (Or p q)
   | Yes a, d => Yes (Inl a)
   | No r, Yes b => Yes (Inr b)
@@ -123,8 +123,8 @@ instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m ≤ n) := Bool.decTrue (N
 instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (Nat.leq (Succ m) n)
 
 --| Proofs that two booleans are equal are unique. This is Hedberg's argument,
---| which works for any type with decidable equality: `Bool.canon` turns any proof
---| of `x = y` into one chosen by `Bool.decEq`, so it ignores which proof it was
+--| which works for any type with decidable equality: [`Bool.canon`] turns any proof
+--| of `x = y` into one chosen by [`Bool.decEq`], so it ignores which proof it was
 --| given, and every proof can be recovered from its canonical one.
 def Bool.canon: [x y: Bool] → Decidable (x = y) → x = y → x = y
   | Yes e, p => e
@@ -154,6 +154,6 @@ theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q :=
 -- In the core, so `auto` never depends on what is loaded (D58).
 instance Void.dec: Decidable Void := No (none => none)
 
---| `Unit` is decided: it is true. `List.Distinct` of a list written out
+--| `Unit` is decided: it is true. [`List.Distinct`] of a list written out
 --| computes to `… ∧ Unit`, and this is the last.
 instance Unit.dec: Decidable Unit := Yes Trivial

@@ -64,10 +64,10 @@ ability Parse where
   --| in a parser, such as a loop that would never end.
   fatal: Text → {Parse} Empty
 
---| What the handler keeps: where the parse is, and the furthest point a
---| problem was noted at, with the problems noted there and the length of
---| the longest text expected there (how much of the input to show as what
---| was found).
+--| What the handler keeps: where the parse is, and the furthest problem noted.
+--| That is the furthest point a problem was noted at, with the problems noted
+--| there and the length of the longest text expected there (how much of the
+--| input to show as what was found).
 type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Text, messages: List Text, width: Nat }
 
 --| The state with `what` among what was expected, if it isn't already.
@@ -230,10 +230,10 @@ def Parse.nat(): {Parse} Nat :=
     | Nil => Parse.expected "a number"
     | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
---| A whole number of `atLeast` to `atMost` decimal digits (at least one),
---| else "expected a number of 1 to 3 digits", or "expected a 2-digit number",
---| where the number starts. All the digits there are read first, so "1234" is
---| too long, not 123 and a 4.
+--| A whole number of `atLeast` to `atMost` decimal digits (at least one).
+--| Otherwise it fails with "expected a number of 1 to 3 digits", or "expected
+--| a 2-digit number", where the number starts. All the digits there are read
+--| first, so "1234" is too long, not 123 and a 4.
 def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   let start := Parse.mark()
   let digits := Parse.span Parse.isDigit
@@ -521,11 +521,11 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
       if attempt.map (matched => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise parser foundNow
       else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
 
---| The values of `parser` everywhere it matches in the rest of the input,
---| left to right, without overlapping, as Python's `re.findall`: where it
---| doesn't match, one character is skipped, and the next try starts there.
---| A match that reads nothing is kept, and a character is skipped after it.
---| Reads all of the input and never fails.
+--| Every match of `parser` in the rest of the input, left to right, as Python's `re.findall`.
+--| Matches don't overlap: where `parser` doesn't match, one character is
+--| skipped, and the next try starts there. A match that reads nothing is
+--| kept, and a character is skipped after it. Reads all of the input and
+--| never fails.
 def Parse.findAll (parser: () → {Parse} a): {Parse} (List a) := Parse.findAllFuel (Parse.mark().left + 1) (() => ()) parser []
 
 --| The values of `parser` everywhere it matches, as `Parse.findAll`, for a
@@ -561,11 +561,11 @@ def Parse.labelFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a):
       Parse.expected what
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
---| `parser`, but if it fails anywhere, it fails with "expected `what`" at
---| the furthest point it read to, dropping what it expected inside, and
---| backs up: for a short token, such as a blank line, that reads best as one
---| thing. Reported there, it outranks what is expected nearer the start, as
---| Megaparsec keeps the error that got furthest.
+--| `parser`, but any failure inside it becomes "expected `what`", for a short token that reads best as one thing.
+--| It fails at the furthest point `parser` read to, dropping what it
+--| expected inside, and backs up. Reported there, it outranks what is
+--| expected nearer the start, as Megaparsec keeps the error that got
+--| furthest. A blank line is such a token.
 def Parse.labelWhole (what: Text) (parser: () → {Parse} a): {Parse} a :=
   let start := Parse.mark()
   Parse.labelWholeFrom what start parser start
@@ -632,9 +632,9 @@ def Parse.lineAndColumn (chars: List Char) (offset: Nat): (Nat, Nat) :=
   let column := before.reverse.takeWhile (≠ '\n') |> .length
   (before.count (== '\n') + 1, column + 1)
 
---| What `failure` expected, in words for a runner whose input ends with
---| `endOfInput`: "a line break" and "the end" together are "the end of the
---| line", since either ends it.
+--| What `failure` expected, in words for a runner whose input ends with `endOfInput`.
+--| "a line break" and "the end" together are "the end of the line", since
+--| either ends it.
 def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List Text :=
   let endsLine := failure.expected.any (== "a line break") ∧ failure.expected.any (== "the end")
   failure.expected
@@ -642,8 +642,8 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
     |> .map (what => if endsLine ∧ what == "a line break" then "the end of the line" else if what == "the end" then endOfInput else what)
     |> .distinctEq
 
---| What was found `failure.offset` characters into `chars`, for "got 'x'":
---| as many characters as the longest text expected there, up to a line
+--| What was found `failure.offset` characters into `chars`, for "got 'x'".
+--| It is as many characters as the longest text expected there, up to a line
 --| break, as Megaparsec shows, then on to the end of a word they stop in;
 --| a line break is `lineBreak`, and past the last character is
 --| `endOfInput`.

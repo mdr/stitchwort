@@ -1,4 +1,4 @@
---| `Ordering`, `Nat.compare`, and the combinators `andThen`
+--| `Ordering`, [`Nat.compare`], and the combinators `andThen`
 --| and `index` with decidable equality.
 -- Loaded with the core: Every `Ord` instance compares to an `Ordering`, and
 -- `deriving (Ord)` writes `Ordering.andThen` in full

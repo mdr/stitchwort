@@ -46,8 +46,8 @@ def Each.collect (prog: () → {Each} a): List a :=
 -- lemmas compute.
 def Each.both (k: Bool → List a): List a := List.append (k True) (k False)
 
---| Every result, in order, inside other abilities, which pass through: each continuation
---| performs them separately (put `Each` innermost for one state per choice,
+--| Every result, in order, inside other abilities, which pass through.
+--| Each continuation performs them separately (put `Each` innermost for one state per choice,
 --| as with `allResults` in `examples/accept/abilities.sw`).
 def Each.collectIn (prog: () → {Each | e} a): {e} List a :=
   handle prog() with

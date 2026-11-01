@@ -125,8 +125,8 @@ theorem Char.compareTrans (x: Char) (y: Char) (z: Char) (h1: Char.compare x y = 
     Char.compare x z = Less :=
   Nat.compareTrans (Char.toNat x) (Char.toNat y) (Char.toNat z) h1 h2
 
---| `Text.compare` is lexicographic by characters: `List.compareLex` with
---| `Char.compare`, step for step. So its laws are the list's.
+--| [`Text.compare`] is lexicographic by characters: [`List.compareLex`] with
+--| [`Char.compare`], step for step. So its laws are the list's.
 theorem Text.compareCharsLex: (xs: List Char) → (ys: List Char) → Text.compareChars xs ys = List.compareLex Char.compare xs ys
   | Nil, Nil => rfl
   | Nil, Cons y ys => rfl

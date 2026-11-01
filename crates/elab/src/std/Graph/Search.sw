@@ -89,10 +89,10 @@ theorem Graph.boundWeaken [auto ord: Ord s] (settled: Map s Nat) (cost: Nat) (mo
     (le: cost ≤ more): Graph.Bound settled more state :=
   Exists.elim bound (found both => Witness found (Both (And.left both) (omega [And.right both, le])))
 
---| What a search returns, for a `reach` that holds at the sources and along
---| every edge: each settled state reached for its cost, each source settled
---| for no more than its starting cost, and each edge out of a settled state
---| leading to one settled for no more than the two together.
+--| What a search returns, for a `reach` that holds at the sources and along every edge.
+--| Each settled state is reached for its cost, each source is settled for no
+--| more than its starting cost, and each edge out of a settled state leads to
+--| one settled for no more than the two together.
 def Graph.SearchResult [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (result: Map s Nat): Prop :=
   And ((state: s) → (cost: Nat) → result.get state = Some cost → reach state cost)
     (And ((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Bound result start source)
@@ -295,10 +295,10 @@ theorem Graph.searchSettle [auto ord: Ord s] (graph: Graph s) (sources: List (s,
 def Graph.Pending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s): Prop :=
   Or (queue.contains (cost, state) = True) (Graph.Bound settled cost state)
 
---| What holds at each step of the search: every queued pair and settled
---| state is reached for its cost; each source, and each edge out of a
---| settled state, is pending; and nothing settled costs more than anything
---| queued.
+--| What holds at each step of the search.
+--| Every queued pair and settled state is reached for its cost; each source,
+--| and each edge out of a settled state, is pending; and nothing settled
+--| costs more than anything queued.
 def Graph.SearchState [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (queue: Set (Nat, s))
     (settled: Map s Nat): Prop :=
   And ((cost: Nat) → (state: s) → queue.contains (cost, state) = True → reach state cost)
@@ -621,12 +621,11 @@ theorem Graph.breadthStep [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settl
       = graph.breadthFrom (depth + 1) more (Cons first rest) (graph.visitFrontier (depth + 1 + 1) (Cons first rest) more) rfl :=
   rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, Cons first rest) found in rfl
 
---| What holds at each level of the search, for a `reach` that holds at the
---| sources for 0 and along every edge for one more: every settled state is
---| reached for its cost, at most `depth`; the frontier is exactly the
---| states settled at `depth`; each edge out of a state settled below it
---| leads to one settled for one more at most; and each source is settled
---| at 0.
+--| What holds at each level of the search, for a `reach` that holds at the sources for 0 and along every edge for one more.
+--| Every settled state is reached for its cost, at most `depth`; the frontier
+--| is exactly the states settled at `depth`; each edge out of a state settled
+--| below it leads to one settled for one more at most; and each source is
+--| settled at 0.
 def Graph.BreadthState [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop) (depth: Nat) (settled: Map s Nat)
     (frontier: List s): Prop :=
   And ((state: s) → (cost: Nat) → settled.get state = Some cost → And (reach state cost) (cost ≤ depth))

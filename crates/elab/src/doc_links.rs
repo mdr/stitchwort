@@ -148,9 +148,25 @@ impl Elaborator {
         self.scope.get(key).is_some()
             || self.scope.is_namespace(key)
             || self.project_prefixes.contains(key)
+            || self.core_link_names.as_ref().is_some_and(|index| {
+                index.owner(key).is_some()
+                    || index
+                        .names()
+                        .any(|(k, _)| k.strip_prefix(key).is_some_and(|r| r.starts_with('.')))
+            })
             || key
                 .rsplit_once('.')
                 .is_some_and(|(ns, name)| self.project_names(ns).is_some_and(|n| n.contains(name)))
+    }
+}
+
+impl Elaborator {
+    /// Makes the library's names known to doc links while the core is
+    /// checked (`None` afterwards): the core's docs may link to library
+    /// declarations, which aren't loaded yet (documentation.md §7: a name
+    /// defined anywhere in std counts).
+    pub fn set_core_link_names(&mut self, index: Option<std::sync::Arc<crate::LibraryIndex>>) {
+        self.core_link_names = index;
     }
 }
 

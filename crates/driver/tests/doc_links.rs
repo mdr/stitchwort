@@ -137,3 +137,21 @@ fn links_in_a_file_with_an_error_are_not_reported() {
         .expect_err("fails");
     assert!(errors.iter().all(|d| d.code != "W-DOC-LINK"), "{errors:#?}");
 }
+
+/// A core file with a broken link doesn't load either (SW-1046): the core is
+/// a separate load path from the library files.
+#[test]
+fn a_core_doc_with_a_broken_link_fails_the_load() {
+    let core = |link: &str| {
+        format!(
+            "{}\n--| See [`{link}`].\ndef coreLinkProbe (n: Nat): Nat := n\n",
+            stitchwort_elab::prelude()
+        )
+    };
+    let Err(report) = Session::try_with_prelude(&core("Nope.nothing")) else {
+        panic!("a core doc with a broken link loaded");
+    };
+    assert!(report.contains("W-DOC-LINK"), "{report}");
+    let fine = Session::try_with_prelude(&core("coreLinkProbe"));
+    assert!(fine.is_ok(), "{:?}", fine.err());
+}

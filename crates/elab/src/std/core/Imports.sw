@@ -8,7 +8,7 @@
 
 --| The library's root is `Std`. What's declared here without a namespace is
 --| visible in every program; the rest is written with its namespace
---| (`List.length`), or imported.
+--| ([`List.length`]), or imported.
 -- (docs/proposals/namespaces.md)
 -- The effect machinery is used throughout what follows, so it's imported
 -- here.
