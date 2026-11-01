@@ -12,7 +12,7 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
-12, 13, 14, 15, 16 and 17 do (day 15's is a rectangle with a digit; day 17's is a target right of the start and below it; day 12's promise, that no passage joins two big caves, is
+12, 13, 14, 15, 16, 17 and 18 do (day 15's is a rectangle with a digit; day 17's is a target right of the start and below it; day 18's is that every number is already reduced; day 12's promise, that no passage joins two big caves, is
 one the puzzle leaves unsaid; day 13's parser folds the paper to check
 each fold's promise; day 14's is one rule per pair; day 16's is that a
 minimum or maximum has a sub-packet and a comparison exactly two); day 9's answers need no promise at all, and
@@ -4131,3 +4131,289 @@ Release build:
    (item 4).
 5. Std lacks `Nat.iterate` congruence and invariant lemmas, `Int.toNat`
    lemmas and a `sumBetween` closed form (item 3).
+
+## Day 18: Snailfish
+
+Each line is a snailfish number: a pair whose two elements are regular
+numbers or snailfish numbers. Adding two makes the pair of them, then
+reduces it: while some pair is nested inside four pairs, the leftmost such
+explodes (its left value goes to the nearest regular number on its left,
+its right value to the nearest on its right, and it becomes 0); when none
+can, the leftmost regular number of 10 or more splits into a pair of its
+halves, rounded down and up; reducing stops when neither applies. A
+number's magnitude is 3 times its left's plus 2 times its right's. Part 1
+adds the lines in order and gives the total's magnitude; part 2 the
+largest magnitude of `x + y` over two different lines, in either order.
+Answers on Matt's input (100 lines): 4391 and 4626 (his Scala
+solution's); the homework example gives 4140 and 3993. Compiler: the
+installed release build of `main`, 1 November 2026.
+
+### The program
+
+`type Number = | Regular (value: Nat) | Pair (left: Number) (right:
+Number)`, worked on as a tree. `explode depth number` walks down to the
+leftmost pair of two regular numbers inside at least four pairs and hands
+an `Explosion` back up: the number with that pair replaced by 0, and the
+pair's two values while no regular number has taken them yet. A pair's
+explosion comes from its parts' (`explodeIn left right inLeft inRight`):
+the left part's if it has one, its right value then going to the leftmost
+regular number of the right part (`addLeftmost`), else the right part's,
+its left value going to the rightmost of the left part. `split` is the
+same walk for the leftmost regular number of 10 or more. `reduce budget`
+explodes while it can, else splits, and gives `None` if that takes more
+than `budget` steps (`steps`, 1000 per sum); so `add`, `solvePart1` and
+`solvePart2` are `Option`s, and `main` says "no answer" for `None`.
+`orderedPairs` lists every ordered pair of lines at different indices
+(`withIndex`, `flatMap`, `filterMap`); `sumMagnitudes` adds each. The
+parser reads each line with a recursive `Parse` function bounded by the
+line's length (`number room`: a `{Parse}` function needs a structural
+argument to recurse), and `checkNumbers` fails unless every number is
+reduced (`reduced`, `firstUnreduced`, the D2108 pattern). Both answers and
+every example were right on the first run.
+
+**The spec** (Spec/Spec.sw). The puzzle's rules say "the first regular
+number to the left" and "the leftmost such pair": they are about reading
+order. So the spec reads a number as its regular numbers from left to
+right, each with how many pairs it is inside (`leaves`, a `List Leaf`),
+and states each step on that list, where "to the left" is "earlier in the
+list". `firstDeep` finds the first leaf inside more than four pairs and
+the leaf after it (`Exploding`: the leaves before, the two, the leaves
+after); `explodeLeaves` adds the left value to the last leaf before
+(`addToLast`), the right value to the first leaf after (`addToFirst`), and
+puts a 0 one pair shallower in their place; `splitLeaves` splits the first
+leaf of 10 or more into two leaves one pair deeper. In a number with
+nothing inside more than five pairs, the first leaf inside more than four
+is the left value of the leftmost pair nested inside four, whose elements
+can't be pairs, so the next leaf is its right value; the spec's comment
+says so, and the theorems carry that hypothesis (the puzzle only explodes
+such numbers). `reduceStep` explodes if it can, else splits;
+`ReducesTo start final` steps until no step applies; `IsSum x y sum` is
+`ReducesTo (leaves 0 (Pair x y)) (leaves 0 sum)`; `AddsUpTo` adds a list
+in order; `IsReduced` is "every leaf inside at most four pairs and below
+10". Part 1 is `Part1 numbers answer` (the first line plus the rest in
+order adds up to a number of magnitude `answer`); part 2 is `Part2 numbers
+answer` (some `x + y` of lines `i ≠ j` has magnitude `answer`, and every
+such sum has magnitude at most `answer`). The tree type is the program's;
+nothing else is shared.
+
+Why the leaf list: on a tree, "the first regular number to the left" of a
+pair is a zipper walk up and down, which is what the program does;
+writing it again as the spec would prove the program equals a copy of
+itself. On the list it is the leaf before. The price is the tree ↔ list
+correspondence, which is most of the proofs.
+
+### Proved
+
+In `Aoc.Year2021.Day18.Proofs` (Proofs/, 9 files, 694 lines, 60
+theorems). `height` is how many pairs deep a number's deepest regular
+number is (`height n ≤ 5` is "nothing inside more than five pairs").
+
+- **Explode is the spec's**: `explodeSome (number) (exploded) (some:
+  explode 0 number = Some exploded) (fits: height number ≤ 5)`:
+  `explodeLeaves (leaves 0 number) = Some (leaves 0 exploded.number)`;
+  `explodeNone (number) (none: explode 0 number = None) (fits: height
+  number ≤ 5)`: `height number ≤ 4 ∧ explodeLeaves (leaves 0 number) =
+  None`. Under them, `explodeFound`: for a subtree at any depth, `firstDeep`
+  finds the pair `explode` found whatever leaves follow, and the leaves of
+  the result, with the values handed on added to whatever leaves lie on
+  each side, are the spec's explosion (`Found`, quantified over the leaves
+  before and after, which makes the induction go through), and
+  `explodeNoneShallow` (nothing explodes: the subtree's leaves are all
+  shallow, and `firstDeep` passes over them).
+- **Split is the spec's**, with no depth hypothesis: `splitSome (number)
+  (split2) (some: split number = Some split2)`: `splitLeaves (leaves 0
+  number) = Some (leaves 0 split2)`; `splitNone (number) (none: split
+  number = None)`: `splitLeaves (leaves 0 number) = None`.
+- **Reduce**: `reduceSound (budget) (number) (final) (done: reduce budget
+  number = Some final) (fits: height number ≤ 5)`: `ReducesTo (leaves 0
+  number) (leaves 0 final) ∧ height final ≤ 4 ∧ split final = None`
+  (explosions make nothing deeper, `explodeHeight`; a split from a number
+  at most four deep makes it at most five, `splitHeight`). And
+  `reduceComplete (final) (start) (reduces: ReducesTo start final)
+  (number) (is: leaves 0 number = start) (fits: height number ≤ 5)`:
+  there are a `budget` and a `result` with `reduce budget number = Some
+  result ∧ leaves 0 result = final`. So the budget is the only gap between
+  the program and the spec: whenever the spec's reduction ends, a big
+  enough budget finishes there.
+- **A finished sum is reduced**: `addSound (x) (y) (sum) (reducedX:
+  IsReduced x) (reducedY: IsReduced y) (added: add x y = Some sum)`:
+  `IsSum x y sum ∧ IsReduced sum` (`leavesSmall`: no pair nested inside
+  four, no regular number of 10 or more).
+- **Sums are well defined**: `reducesToUnique` (reducing ends in one
+  place), `leavesInjective` (a number is fixed by its leaves, via
+  `leavesPrefix`: a number's leaves start a list in one way only), so
+  `sumUnique`: `IsSum x y sum1 → IsSum x y sum2 → sum1 = sum2`;
+  `addsUpToUnique`, and `part1Unique` (two answers to `Part1` are equal).
+- **Answers**: `part1Correct (numbers) (reduced: List.All IsReduced
+  numbers) (answer) (solved: solvePart1 numbers = Some answer)`: `Part1
+  numbers answer`; `part2Correct`, the same for `solvePart2` and `Part2`
+  (through `memberPairs`/`pairsMember`: `orderedPairs` lists exactly the
+  pairs of lines at different indices; `sumMagnitudesSound`; day 14's
+  `maximumSome`; and `sumUnique`, since `Part2`'s bound is over every
+  `sum` with `IsSum x y sum`). `magnitudeSame`: the program's magnitude is
+  the spec's.
+- **The parser's guarantee**, `parseNumbersReduced (input) (numbers)
+  (parsed: Fail.toResult (() => parseNumbers input) = Ok numbers)`:
+  `List.All IsReduced numbers`. `part1FromInput` and `part2FromInput`
+  state both answers for every input the parser accepts, with no
+  hypothesis but the answer being `Some`.
+- Tests: every worked example of the puzzle (four explosions, two splits,
+  one sum, a magnitude of 3488, the homework's 4140 and 3993), the spec's
+  explode and split on example leaves, the parser's refusals (a deep pair,
+  a number above 9, junk), the real input, and six example theorems
+  instantiating the lemmas the audit warns about.
+
+**Not proved**: that reduction always ends (termination). The spec's
+`ReducesTo` is a relation, and the program has a step budget;
+`reduceComplete` says the budget is the only gap, and on the real input
+and every example each sum finishes well within 1000 steps (the tests).
+So the answers' theorems say "if the program gives an answer, it is the
+puzzle's", not "the program gives an answer". I didn't attempt a
+termination proof: no simple weight works, since a split moves value one
+pair deeper and an explosion moves it shallower or sideways, and an
+explosion's right neighbour can itself be part of a pair inside four, so
+values can grow and split again. No opaque definitions. Day 14's
+`maximumSome` is imported again (SW-971 item 7).
+
+`stitchwort audit Aoc.Year2021.Day18`: `audited 67 theorems: 0 failed, 6
+with warnings, 61 passed`. All six are narrow hypotheses of the form
+`f x = Some y` with `y` free (`splitSome`, `splitSomeLeaves`,
+`splitHeight`, `explodeSome`, `reduceExplodes`, `reduceSplits`): a random
+`y` is never what `f x` gives. The example theorems in Tests
+(`exampleSplits`, `exampleExplodes`, …) show each can hold (item 6).
+
+Breaking the program breaks the proofs: splitting into `value / 2` twice
+(not rounding up) fails `splitSomeLeaves` (`E-REFL`, the two leaves
+differ); handing the left part's right value to `addRightmost` of the right
+part fails `explodeInFound` and `explodeInHeight` (`E-REWRITE-NOTHING`:
+no `addLeftmost` to rewrite).
+
+### 1. `search --at` refused four of the five goals I tried
+
+- **Record literals print as named construction**: goals containing
+  `Cons ({ value = …, depth = … }) rest` print without the brackets, as
+  `Cons { value = leaf.value, depth = leaf.depth } rest`, and `search
+  --at` re-reads the printed goal: `E-SEARCH-AT … E-PARSE: braces after
+  \`Cons\` name its fields, and take no further arguments`
+  (Proofs/Leaves.sw, `addToFirstZero`, 55 s with the index build). Same
+  for a record update inside `Some`: `Some { found | before = … }` gives
+  `E-PARSE: braces after \`Some\` name its fields; an update isn't one of
+  them` (Proofs/Explode.sw, `shiftAppend`). The printed goals aren't valid
+  source. Fix: print a record literal or update that is a constructor's
+  argument in brackets (small).
+- **A lifted match's name** in the goal (`Aoc.Year2021.Day18.split.%match1
+  left right (split left) = None` in a hypothesis) gives `E-PARSE:
+  expected a field name after \`.\`` (Proofs/Reduced.sw, `leavesSmall`).
+  New consequence of SW-971 item 3.
+- **Context order** (SW-969 item 1, seen again): `small: (depth ≤ 4 ∧
+  value ≤ 9) ∧ Unit` listed before `value`, "unknown name \`value\`"
+  (`leavesShallow`).
+- The one it read, `(if i == j then None else Some (x, y)) = Some (x, y)`
+  in `memberPairs`, it closed: "cases alone closes it", 2.2 s.
+
+### 2. A definition with an overlapping arm had to be reshaped to prove it
+
+`explode` had `| Pair (Regular a) (Regular b) => if 4 ≤ depth then … else
+None` before `| Pair left right => match explode (depth + 1) left with …`.
+To use the last arm for every pair but two regular numbers, I wrote its
+body as a proof-side function and tried `rfl` per shape. `| Regular a,
+Pair x y => rfl` checked; `| Pair x y, _ => rfl` failed `E-REFL`, with
+notes explaining that the two written `match`es are different hidden
+functions, equal only if neither calls its own definition (the program's
+does), and suggesting a named `def` used in both places. That worked:
+the arm became `explodeIn left right (explode (depth + 1) left) (explode
+(depth + 1) right)`, and `explodeUnfold` states it for every pair but two
+regular numbers nested four deep. The price: `explodeIn` takes both parts'
+explosions, so the right part is now walked even when the left exploded
+(run time 0.98 s → 1.1 s). Fix: generate an equation per arm, with the
+earlier arms' failure as a hypothesis, as Lean's `f.eq_3` (medium). The
+notes on the `E-REFL` were good: they said exactly what to do.
+
+### 3. Messages and printing
+
+- **Stale names in a goal**: in `leavesPrefix`'s last arm (`| depth, Pair
+  left1 right1, Pair left2 right2, rest1, rest2, same`), the goal printed
+  `same: List.append (List.append (leaves (Succ depth) left) (leaves (Succ
+  depth) right)) rest1 = …` and `⊢ Pair left right = Pair left2 right2`,
+  while the context listed `left1` and `right1`: the names of the previous
+  arm's pattern. A printer bug; near SW-967 item 5's capture (small-medium).
+- **One `if`, two forms**: in `explode`'s hypotheses `if 4 ≤ depth` stays
+  `(if 4 <= depth then … else None)`, a `Bool` `if`; `match
+  Nat.decLessEq 4 depth with` didn't refine it (E-TYPE-MISMATCH, the
+  hypothesis unchanged) and `match deep: Nat.leq 4 depth with | True |
+  False` did. In `split`, `if 10 ≤ value` shows as
+  `Std.Decidable.elim (Nat.decLessThan 9 value) …` and `match
+  Nat.decLessThan 9 value` refines it. You have to read each goal to know
+  which to split on. Cause not established (speculative: the `if` inside
+  a nested-pattern arm is compiled differently). Fix: one form, or a line
+  in the proving guide (small).
+- `Leaf.ext _ _ (Nat.addZero leaf.value) rfl` solved its holes as `leaf
+  leaf` from the proof arguments, then "expected `{ value = leaf.value,
+  depth = leaf.depth } = leaf`, but this has type `leaf = leaf`"; writing
+  the two records out checks. The holes-before-expected-type family
+  (SW-969 item 2), seen again. Record eta isn't definitional (`Cons {
+  value = leaf.value, depth = leaf.depth } rest = Cons leaf rest` is
+  `E-REFL`; SW-960 item 4), so `addToFirst 0` needed `Leaf.ext`.
+- `import Std (Pair)` shadows a constructor of my own named `Pair`:
+  `E-NOT-A-CONSTRUCTOR "\`Pair\` isn't a constructor"`, with a note
+  naming `Aoc.Year2021.Day18.Number.Pair`. Clear; workaround
+  `Std.Pair.fst` in full (small: maybe prefer a constructor in pattern
+  position).
+- Braces after a constructor (`Some { toLeft = … }`, `Cons { value = … }
+  rest`, `Witness { value, depth } …`) bit three times, in program, spec
+  and proofs; each message said exactly what to write (`Some ({ … })`).
+  An LSP quick fix would save the round trip (small).
+- No multi-line string literal: the 10-line homework example is a
+  `Text.join` of a list (`E-PARSE: this string isn't closed with \`"\``)
+  (small-medium, a design question).
+- Good: after `match el: explode (depth + 1) left`, an induction hypothesis
+  passed in as a function had its type refined, and the `E-TYPE-MISMATCH`
+  said so and that `rfl` proves the refined premise. `omega` read
+  `Nat.max` (printed as `if a <= b then b else a`) in every height bound;
+  `cases` closed every goal stuck on an `if` with a contradictory or
+  arithmetic hypothesis. Most proof files checked on the first try.
+
+### 4. Lemma search, the audit and std
+
+- `stitchwort search '((?a: Nat) == ?b) = False → ?a ≠ ?b'` and `'(?a:
+  Nat) ≠ ?b → (?a == ?b) = False'` list `Exists.notNone` and `ByKey`
+  lemmas, not `DecEq.soundFalse` or `Nat.equalFalse` (grep found them).
+  New evidence for SW-960 item 3.
+- **The audit warns on every `f x = Some y` hypothesis** with `y` free
+  (six theorems): random inputs never make `y` what `f x` is. Workaround:
+  example theorems in Tests. Fix: when a hypothesis is `f args = Some y`
+  (or `= y`) and `y` is free, compute `y` from it instead of drawing it
+  (small-medium; a different fix from SW-967 item 8's test inputs).
+- `List.consInjective` needs the same head on both sides; for `Cons a r =
+  Cons b s → a = b` I used `Eq.cong (xs => List.get xs 0)` and helper
+  `headValue`/`headDepth` functions (generated injectivity, SW-963).
+- Std candidates: `xs ≠ Nil → xs ++ ys ≠ Nil` and `ys ≠ Nil → xs ++ ys ≠
+  Nil` (small); `List.findIndexFrom i p xs = None → List.All (x => p x =
+  False) xs` (the `findIndexedNone` family, SW-960; small); List.maximum
+  lemmas (day 14's again, SW-971 item 7).
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day18.main` on the input | 1.1 s user |
+| `stitchwort check --no-cache Aoc.Year2021.Day18.Proofs Aoc.Year2021.Day18.Tests` | 2.9 s user |
+| `stitchwort audit Aoc.Year2021.Day18` (with the search) | 4.3 s |
+
+170 lines of program, 112 of spec, 694 of proofs, 106 of tests.
+
+### Ranked
+
+1. `search --at` couldn't read four of five goals: printed goals with a
+   record literal or update as a constructor's argument, or a lifted
+   match's name, aren't valid source (item 1).
+2. Proving about a definition with an overlapping arm meant reshaping the
+   program around a named helper; per-arm equation lemmas would avoid it
+   (item 2).
+3. The audit can't satisfy `f x = Some y` hypotheses with `y` free (item
+   4).
+4. A goal printed the previous arm's variable names (item 3).
+5. The same surface `if c ≤ x` computes to a `Bool` `if` in one place and
+   `Decidable.elim` in another (item 3).
