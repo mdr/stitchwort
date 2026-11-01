@@ -1,9 +1,9 @@
 --| Proofs about `generateLevel` itself, as written, rolling as it goes.
 --|
---| `generatedLaidOut` is about the generator alone, for every value each
---| roll could give (std's `Effect.Always`): the level it makes is `layOut` of
---| six rooms that fit, with the entrance and exit numbered below 6. So
---| whatever is true of every such level is true of every generated one.
+--| `generatedLaidOut` is about the generator alone, for every value each roll
+--| could give (std's `Effect.Always`): the level it makes is `layOut` of six
+--| rooms that fit, with the entrance and exit numbered below 6. So whatever
+--| is true of every such level is true of every generated one.
 --| `withSeedAlways` carries that to the seeded handler, for every seed: the
 --| handler answers each roll with some number, and `Always` holds for all.
 
@@ -12,9 +12,9 @@ import Rogue (..)
 import Std (Effect, List, Nat)
 import Std.Effect.AlwaysTreeOf (AlwaysCall)
 
---| A roll is below its bound: `roll most` under the seeded handler is at
---| most `most`. (Under any handler, `roll most` is a remainder by
---| `Succ most`; `Random.withSeed` is the handler the game and its tests use.)
+--| A roll is below its bound: `roll most` under the seeded handler is at most
+--| `most`. (Under any handler, `roll most` is a remainder by `Succ most`;
+--| `Random.withSeed` is the handler the game and its tests use.)
 theorem rollBelow (seed: Nat) (most: Nat): Random.withSeed seed (() => roll most) < Succ most := Nat.modLt (lcg seed / 65536) (Succ most)
 
 --| What every result of a computation satisfies, its result under the seeded
@@ -31,8 +31,8 @@ theorem rollBound (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat
 
 --| Every room fits on the map.
 --
--- Opaque, so that a list of rooms stays a list
--- while the proof below works out which rooms the generator made.
+-- Opaque, so that a list of rooms stays a list while the proof
+-- below works out which rooms the generator made.
 opaque def RoomsFit (rooms: List Area): Prop := List.All (area => OnMap area) rooms
 
 theorem sixFit (room0: Area) (room1: Area) (room2: Area) (room3: Area) (room4: Area) (room5: Area)

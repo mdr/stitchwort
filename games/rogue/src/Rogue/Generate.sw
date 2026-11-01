@@ -44,8 +44,8 @@ def potionCount: Nat := 2
 --| the stairs can be reached from the start of every level it makes
 --| (Proofs/Reach.sw).
 --
--- Opaque: with unknown rooms, its terrain would be
--- drawn out cell by cell wherever a proof compared two levels.
+-- Opaque: with unknown rooms, its terrain would be drawn out
+-- cell by cell wherever a proof compared two levels.
 opaque def layOut (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat): Level :=
   Level.build depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)
 

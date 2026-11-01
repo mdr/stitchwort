@@ -5,8 +5,8 @@
 --|
 --|   $ cd games/rogue && stitchwort run Rogue.main
 --|
---| The game is a pure core (Model.sw, Level.sw, Turn.sw, Render.sw), a
---| level generator (Generate.sw), and a thin shell (this file and Input.sw):
+--| The game is a pure core (Model.sw, Level.sw, Turn.sw, Render.sw), a level
+--| generator (Generate.sw), and a thin shell (this file and Input.sw):
 --| `play` reads a key, runs a turn, and draws the frame, until the game is
 --| over. Keys and frames go through std's `Terminal`, run on the console by
 --| `Terminal.toIO`; randomness is an ability of the game's own (Random.sw),
