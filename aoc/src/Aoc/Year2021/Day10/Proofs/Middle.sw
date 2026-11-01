@@ -1,0 +1,103 @@
+-- The program's middle (the sorted scores at index length / 2) is a
+-- middle score in the spec's sense, for any nonempty list; with an odd
+-- number of scores there is only one.
+
+namespace Aoc.Year2021.Day10.Proofs
+import Aoc.Year2021.Day10 (..)
+import Aoc.Year2021.Day10.Spec (..)
+import Std (Bool, Eq, List, Nat, Void)
+
+-- An element of a list, by index.
+theorem getOrMem: (xs: List a) → (i: Nat) → (fallback: a) → i < xs.length → xs.getOr i fallback ∈ xs
+  | Nil, i, fallback, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x rest, Zero, fallback, h => Inl rfl
+  | Cons x rest, Succ i, fallback, h => Inr (getOrMem rest i fallback h)
+
+-- `y < x` is false when `x ≤ y`.
+theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
+
+theorem toNatAtMostOne: (b: Bool) → Bool.toNat b ≤ 1 := cases
+
+theorem countAtMostLength (p: a → Bool): (xs: List a) → xs.count p ≤ xs.length
+  | Nil => Nat.leRefl 0
+  | Cons x rest =>
+    let below := countAtMostLength p rest
+    let one := toNatAtMostOne (p x)
+    rewrite List.countCons rest x p in omega
+
+-- In a sorted list, at most k elements are below the one at index k.
+theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
+    sorted.count (score => score < sorted.getOr k 0) ≤ k
+  | Nil, s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x rest, s, Zero, h =>
+    let none := List.countNone rest (score => score < x) (y member => notBelow x y (List.sortedHeadLe Nat.leq Nat.leTrans x y rest s member))
+    rewrite List.countCons rest x (score => score < x), notBelow x x (Nat.leRefl x), none in Nat.leRefl 0
+  | Cons x rest, Both _ s, Succ k, h =>
+    let below := countBelowSorted rest s k h
+    let one := toNatAtMostOne (x < rest.getOr k 0)
+    rewrite List.countCons rest x (score => score < rest.getOr k 0) in omega
+
+-- And at most length - 1 - k above it.
+theorem countAboveSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
+    sorted.count (score => sorted.getOr k 0 < score) + k + 1 ≤ sorted.length
+  | Nil, s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x rest, s, Zero, h =>
+    let most := countAtMostLength (score => x < score) rest
+    rewrite List.countCons rest x (score => x < score), notBelow x x (Nat.leRefl x) in omega
+  | Cons x rest, Both first s, Succ k, h =>
+    let above := countAboveSorted rest s k h
+    let atMost: x ≤ rest.getOr k 0 := List.sortedGetOrLe (Cons x rest) 0 (Both first s) 0 (Succ k) (omega) h
+    rewrite List.countCons rest x (score => rest.getOr k 0 < score), notBelow x (rest.getOr k 0) atMost in omega
+
+-- The program's middle is a middle score of any nonempty list.
+theorem middleIsMiddle (scores: List Nat) (some: Not (scores = Nil)): Middle scores (middle scores) :=
+  let sorted := scores.sort
+  let n := scores.length
+  let k := n / 2
+  let sameLength: sorted.length = n := List.sortLength scores
+  let positive: 0 < n :=
+    match scores with
+      | Nil => Void.exfalso (some rfl)
+      | Cons _ _ => rfl
+  let split := Nat.divModEq n 2 (omega)
+  let rest := Nat.modLess n 2 (omega)
+  let inRange: k < sorted.length := omega
+  let isSorted := List.sortSortedNat scores
+  let m := sorted.getOr k 0
+  let member: m ∈ scores := List.memPerm sorted scores (List.sortPerm scores) m (getOrMem sorted k 0 inRange)
+  let below := countBelowSorted sorted isSorted k inRange
+  let above := countAboveSorted sorted isSorted k inRange
+  let belowSame := List.countPerm sorted scores (List.sortPerm scores) (score => score < m)
+  let aboveSame := List.countPerm sorted scores (List.sortPerm scores) (score => m < score)
+  Both member (Both (omega) (omega))
+
+-- The scores that aren't above `a` and those that are make up the list.
+theorem countSplit (a: Nat): (xs: List Nat) → xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length
+  | Nil => rfl
+  | Cons x rest =>
+    let split := countSplit a rest
+    rewrite List.countCons rest x (score => not (a < score)), List.countCons rest x (score => a < score) in
+      match above: a < x with
+        | True => omega
+        | False => omega
+
+-- With an odd number of scores, a middle score can't be below another.
+theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b) (less: a < b): Void :=
+  let split := countSplit a scores
+  let moreBelowB := List.countLeMem scores (score => not (a < score)) (score => score < b)
+    (score member atMost => match above: a < score with
+      | True => cases
+      | False => omega)
+  let halves := Nat.divModEq scores.length 2 (omega)
+  let aAbove := And.right (And.right first)
+  let bBelow := And.left (And.right second)
+  omega
+
+-- With an odd number of scores, the middle score is unique.
+theorem middleUnique (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b): a = b :=
+  match less: a < b with
+    | True => Void.exfalso (middleNotBelow scores a b odd first second less)
+    | False =>
+      match more: b < a with
+        | True => Void.exfalso (middleNotBelow scores b a odd second first more)
+        | False => omega
