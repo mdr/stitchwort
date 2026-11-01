@@ -7,6 +7,8 @@
 namespace Aoc.Year2021.Day09.Proofs
 import Aoc.Year2021.Day09 (..)
 import Aoc.Year2021.Day09.Spec (..)
+import Aoc.Common (Position, adjacent)
+import Aoc.Common.Proofs (adjacentNeighbour, neighbourAdjacent)
 import Std (Bool, Eq, List, Nat, Option, Void)
 
 -- Part 1 is the sum of the risk levels of the low points, for every map.
@@ -50,5 +52,5 @@ theorem lowerThanNeighbours (map: HeightMap) (position: Position) (height: Nat)
       match h: map.heightAt next with
         | None => rfl
         | Some otherHeight =>
-          let atCell := List.allMem _ (next, otherHeight) map.cells byCell (map.memCellsOfHeight next otherHeight h)
+          let atCell := List.allMem _ (next, otherHeight) map.cells byCell (memCellsOfHeight map next otherHeight h)
           rewrite neighbourAdjacent position next isNeighbour at atCell in atCell))

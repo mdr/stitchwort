@@ -4,6 +4,7 @@
 
 namespace Aoc.Year2024.Day12.Tests
 import Aoc.Year2024.Day12 (..)
+import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (isChain, perimeter, sides, totalPrice)
 import Std (Char, Fail, List, Map, Nat, Option, Result, Text)
 

@@ -10,6 +10,7 @@
 -- `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day20
+import Aoc.Common (Direction, Position, directions)
 import Std (And, Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (grid, pick)
 
@@ -27,8 +28,6 @@ def thresholdFrom (args: List Text): {Fail} Nat :=
     | Nil => 100
     | Cons saving Nil => Fail.need saving.toNat usage
     | _ => Fail.fail usage
-
-type Position = { row: Nat, column: Nat }
 
 -- The track positions (S and E among them), the start and the end.
 type Racetrack = { track: Set Position, start: Position, end: Position }
@@ -60,27 +59,8 @@ def parseRacetrack (input: Text): {Fail} Racetrack :=
     end = onlyTile tiles End "E"
   }
 
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
-
-def directions: List Direction := [Up, Down, Left, Right]
-
--- The position one step in `direction`; none above the top row or left of
--- the left column.
-def Position.step (position: Position): Direction → Option Position
-  | Down => Some ({ position | row = Succ position.row })
-  | Right => Some ({ position | column = Succ position.column })
-  | Up =>
-    match position.row with
-      | Zero => None
-      | Succ above => Some ({ position | row = above })
-  | Left =>
-    match position.column with
-      | Zero => None
-      | Succ before => Some ({ position | column = before })
+-- Positions, directions and a step (none above the top row or left of
+-- the left column) are the shared grid code's (`Aoc.Common`).
 
 def Racetrack.isTrack (racetrack: Racetrack) (position: Position): Bool := racetrack.track.contains position
 
@@ -128,7 +108,7 @@ def Position.distance (position: Position) (other: Position): Nat :=
 
 -- Every position at most `length` picoseconds from `position` through
 -- walls: a diamond, row by row.
-def Position.around (position: Position) (length: Nat): List Position :=
+def Position.diamond (position: Position) (length: Nat): List Position :=
   List.between (position.row - length) (position.row + length)
     |> .flatMap (row =>
       let spare := length - Nat.absDiff row position.row
@@ -146,7 +126,7 @@ def savesFrom (toEnd: Map Position Nat) (honest: Nat) (threshold: Nat) (start: P
 -- `threshold`; none if the start can't be reached.
 def cheatsFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position): Nat :=
   match fromStart.get start with
-    | Some before => start.around length |> .count (savesFrom toEnd honest threshold start before)
+    | Some before => start.diamond length |> .count (savesFrom toEnd honest threshold start before)
     | None => 0
 
 -- How many cheats of up to `length` picoseconds save at least `threshold`.

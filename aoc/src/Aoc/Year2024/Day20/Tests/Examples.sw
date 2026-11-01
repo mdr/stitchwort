@@ -4,6 +4,7 @@
 
 namespace Aoc.Year2024.Day20.Tests
 import Aoc.Year2024.Day20 (..)
+import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day20.Spec (race)
 import Std (Bool, Fail, List, Map, Nat, Option, Result, Set, Text)
 
@@ -75,8 +76,8 @@ test "the spec's race" :=
     && race uTurn (at 1 1) [Up] == None
 test "distance" := (at 3 4).distance (at 1 7) == 5 && (at 1 7).distance (at 3 4) == 5 && (at 2 2).distance (at 2 2) == 0
 test "around" :=
-  (at 2 2).around 1 == [at 1 2, at 2 1, at 2 2, at 2 3, at 3 2] && (at 0 0).around 2 |> .length == 6 && (at 30 30).around 20 |> .length == 841 && (at 5 5).around 20 |> .length == 436
-    && (at 4 4).around 0 == [at 4 4]
+  (at 2 2).diamond 1 == [at 1 2, at 2 1, at 2 2, at 2 3, at 3 2] && (at 0 0).diamond 2 |> .length == 6 && (at 30 30).diamond 20 |> .length == 841 && (at 5 5).diamond 20 |> .length == 436
+    && (at 4 4).diamond 0 == [at 4 4]
 
 test "thresholds" :=
   Fail.toResult (() => thresholdFrom []) == Ok 100 && Fail.toResult (() => thresholdFrom ["50"]) == Ok 50

@@ -7,6 +7,7 @@
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
+import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
@@ -14,7 +15,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.contains { row, column }
 
 theorem countDirections (f: Direction → Bool): directions.count f = Bool.toNat (f Up) + Bool.toNat (f Down) + Bool.toNat (f Left) + Bool.toNat (f Right) :=
-  rewrite List.countCons [Down, Left, Right] Up f, List.countCons [Left, Right] Down f, List.countCons [Right] Left f, List.countCons Nil Right f in omega
+  rewrite List.countCons [Right, Down, Left] Up f, List.countCons [Down, Left] Right f, List.countCons [Left] Down f, List.countCons Nil Left f in omega
 
 theorem countQuadrants (f: (Direction, Direction) → Bool):
     quadrants.count f = Bool.toNat (f (Up, Left)) + Bool.toNat (f (Up, Right)) + Bool.toNat (f (Down, Left)) + Bool.toNat (f (Down, Right)) :=

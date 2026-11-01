@@ -9,6 +9,7 @@
 
 namespace Aoc.Year2024.Day20.Spec
 import Aoc.Year2024.Day20 (..)
+import Aoc.Common (Direction, Position, directions)
 import Std (And, Exists, Iff, List, Nat, Option, Set)
 
 -- "The map consists of track (.) - including the start (S) and end (E)

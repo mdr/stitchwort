@@ -5,6 +5,7 @@
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
+import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
@@ -77,9 +78,9 @@ theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogo
 -- Every direction is one of `directions`.
 theorem memDirections: (side: Direction) → side ∈ directions
   | Up => Inl rfl
-  | Down => Inr (Inl rfl)
-  | Left => Inr (Inr (Inl rfl))
-  | Right => Inr (Inr (Inr (Inl rfl)))
+  | Right => Inr (Inl rfl)
+  | Down => Inr (Inr (Inl rfl))
+  | Left => Inr (Inr (Inr (Inl rfl)))
 
 -- `growSame` as an equation.
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):

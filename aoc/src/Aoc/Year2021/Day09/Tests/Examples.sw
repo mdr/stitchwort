@@ -4,6 +4,7 @@
 namespace Aoc.Year2021.Day09.Tests
 import Aoc.Year2021.Day09 (..)
 import Aoc.Year2021.Day09.Spec (..)
+import Aoc.Common (Position, adjacent)
 import Std (Fail, Graph, List, Map, Text)
 
 def exampleText: Text := "2199943210\n3987894921\n9856789892\n8767896789\n9899965678\n"
@@ -16,7 +17,7 @@ def at (row: Nat) (column: Nat): Position := { row, column }
 
 test "parse the example" := example.rows.length == 5 ∧ example.rows.all (row => row.length == 10)
 test "heights" := example.heightAt (at 0 0) == Some 2 ∧ example.heightAt (at 4 9) == Some 8 ∧ example.heightAt (at 5 0) == None
-test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 digits, as on the first line, got 2"
+test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
 test "the example's low points" :=
@@ -26,7 +27,7 @@ test "the example's basins" := example.basinSizes == [3, 9, 14, 9]
 test "example, part 2" := solvePart2 example == 1134
 
 test "neighbours in a corner" := (at 0 0).neighbours == [at 0 1, at 1 0]
-test "neighbours inside" := (at 2 3).neighbours == [at 1 3, at 2 2, at 2 4, at 3 3]
+test "neighbours inside" := (at 2 3).neighbours == [at 1 3, at 2 4, at 3 3, at 2 2]
 test "adjacent" := adjacent (at 2 3) (at 1 3) ∧ adjacent (at 2 3) (at 2 4) ∧ not (adjacent (at 2 3) (at 3 4)) ∧ not (adjacent (at 2 3) (at 2 3))
 test "a path in the example's top left basin" := isPath example (at 0 1) [at 0 0, at 1 0] (at 1 0) ∧ not (isPath example (at 0 1) [at 1 1] (at 1 1))
 

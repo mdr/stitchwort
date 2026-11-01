@@ -63,6 +63,120 @@ pattern:
   What a parser can't check stays a hypothesis, and the day's notes say
   so.
 
+## Shared grid code (SW-984)
+
+Grid code is AoC's, not std's (Matt, 1 November 2026), so it lives in
+`Aoc.Common` beside `Range`: `Common/Grid.sw` and `GridGraph.sw`, proofs
+in `Common/Proofs/Grid*.sw`, tests in `Common/Tests/Grid.sw`. Days 9, 11
+and 15 here, and 2024's days 6, 12 and 20, use it; their own copies are
+gone (days 9, 11 and 15 lost 142, 215 and 187 lines net).
+
+- **Positions and steps.** `Position = { row, column }` (`Nat`s),
+  `Direction` (`Up`, `Right`, `Down`, `Left`; `directions`, `turnRight`,
+  `turnLeft`, `opposite`), `Position.step` (`None` above row 0 or left of
+  column 0), `Grid.step` (also `None` off the grid). `neighbours` (the
+  four, `directions.filterMap step`) and `around` (the eight). The spec
+  words: `adjacent` (up, down, left or right), `touching` (diagonals too),
+  `isPath allowed from steps to`. Proved: a neighbour is exactly an
+  adjacent position (`neighbourAdjacent`, `adjacentNeighbour`) and exactly
+  a step away (`memNeighbours`), around is exactly the touching positions
+  (`aroundTouching`, `touchingAround`), each without repeats and at most 4
+  and 8 (`neighboursDistinct`, `neighboursAtMost4`, `aroundDistinct`,
+  `aroundAtMost8`), and the turning laws.
+- **Grids.** On rows of any lengths: `cells` (each cell with its
+  `Position`), `cellAt`, `mapCells`, with `memCells` (a cell is the cell at
+  its position), `cellAtMapCells`, `cellsMapCells`, `mapCellsCong`,
+  `cellPositionsDistinct`. `Grid a = { rows }` adds `height`, `width` (the
+  first row's), `Rectangle` (every row as long as the first), `at`,
+  `positions`, `contains`, `map`, and `lookup`/`lookupOr`, built once and
+  O(log n) per lookup (`lookupAt`, `lookupOrAt`). On a rectangle a
+  position has a cell exactly when it is within it (`atOfWithin`,
+  `withinOfAt`).
+- **The parser.** `parseGrid input cell`: a line per row, one or more
+  cells each, every row as long as the first, at least one cell. In the
+  D2108 style, `Fail.toResult (() => parseGrid input cell) = Ok grid`
+  gives `grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height`
+  (`parseGridRectangle`); a day's parser that wraps it
+  (`HeightMap.ofGrid (parseGrid input digit)`) gets it through
+  `Fail.toResultThen`. Its errors say "cells", not the day's word.
+- **The graph.** `stepGraph enter states complete` is std's `Graph` of
+  steps to neighbours, entering a position costing `enter position`
+  (`None`: it can't be entered); `cellsGraph rows enter`, `Grid.graph` and
+  `boxGraph height width cost` fill in the `states`. Proved once: a walk
+  is an `isPath` through the positions that can be entered and costs the
+  sum of their costs (`walkPath`), and back (`pathWalk`, `pathWalkCost`),
+  plus `isPathCong`, `isPathAppend`, `isPathEnd` and a `route` along the
+  top row and down the last column (`routePath`). With
+  `Graph.breadthFirstShortest` or `Graph.distancesShortest` that is all a
+  day needs to say its search finds the cheapest paths.
+
+**`Nat`, not `Int`.** A grid's cells are rows of a list, so a position is
+two list indices, and a step off the top or left is `None` rather than a
+negative index that every lookup would have to refuse. 2024's day 8 does
+vector arithmetic on positions (antinodes past the map); it keeps its own
+`Int` positions, as do 2024's days 14 and 15. No offset type was added:
+no migrated day needed one.
+
+**Lists of rows, with a table for lookups.** The grid is its rows, so
+`cells`, `mapCells` and the proofs are list induction, and nothing has to
+keep a map in step with a list. `lookup`/`lookupOr` build day 15's old
+`Map.byPosition` table once, behind a function, with a lemma that it is
+`at`. Day 15's run is unchanged: on a busy machine, three alternating
+runs each took 22.5, 23.5 and 24.4 s before and 22.5, 23.1 and 25.6 s
+after (user time).
+
+**What changed in the days' statements.**
+- Day 9: the spec's `adjacent` is `Aoc.Common.adjacent` (the same
+  definition, moved), and its `isPath map` is `Aoc.Common.isPath
+  (inSomeBasin map)`. `parseRectangular` says `row.length = firstWidth
+  map.rows` (the day's `width` was the same function). The program's
+  `neighbours` list is in clockwise order (up, right, down, left), so the
+  neighbour tests changed. Every theorem still holds for every height map,
+  ragged or not.
+- Day 11: positions are `Position`s, not `(Nat, Nat)` pairs, in the spec
+  as in the program: `Flashers levels (flashed: Position → Bool)`, cells
+  are `cells levels` instead of `levels.gridCells`, and the spec's
+  `adjacent` is `touching`. The theorems are otherwise as they were, for
+  every grid. The counterexample search no longer met the hypotheses of
+  `grows` and `stableOfCount` (it now meets `onGridAfter`'s); a test
+  theorem (`stableAfterOneRound`) shows they can hold.
+- Day 15: the spec's `isPath` is `Aoc.Common.isPath`, and `Rectangle`
+  reads as before. `part1Correct`, `part2Correct` and the `FromInput`
+  theorems are unchanged.
+- The parsers' message for a short row says "cells" instead of "digits",
+  and an empty input fails ("expected a grid, got no cells") on days 9
+  and 11 too.
+
+**2024.** Days 6, 12 and 20 import `Position`, `Direction` (and day 6
+`turnRight`, days 12 and 20 `directions` and `step`) instead of defining
+their own: their proofs needed only `directions` in its new order (day
+12's `countDirections`, day 20's `directionsComplete`), and day 20's
+diamond `Position.around length` is now `Position.diamond`. Not migrated:
+day 8 (`Int` vector arithmetic), days 14 and 15 (`Int` positions; day
+14's are `{ x, y }` on a torus), day 18 (`{ x, y }` positions, which its
+spec uses throughout), day 16 (compass directions, `East` to `North`,
+which its spec quotes), day 10 (its own `neighbours`, split into
+`above`, `leftOf` and `rightAndBelow`, with proofs about each; it could
+move onto the shared `neighbours` and its lemmas, a rewrite of its
+proofs).
+
+**Friction.**
+- `Up.turnRight` is `E-UNKNOWN-NAME`; dot calls don't reach a
+  constructor's type. `Direction.turnRight Up` works.
+- `if h: b then` needs a proposition; for a `Bool` it says to drop the
+  `h:`, but the proof was wanted. `if h: b = True` would do.
+- `rewrite DecEq.refl at.row, …` failed to parse: `at` is a keyword
+  after a rewrite rule, so a variable named `at` can't be used there.
+- A record has no eta: `at ∈ aroundBlock at.row at.column` needed a
+  pattern `{ row, column }`, as pairs did on day 9.
+- Std candidates proved locally (in `Aoc.Common.Proofs`):
+  `distinctOfMap` (a list whose keys are distinct is), `lengthFilterMapLe`,
+  `mapConcat` (std has no `filterMap` length lemma, nor `filterMap` as
+  `map` of `filter`, to derive `lengthFilterMapLe` from), and a
+  `Map.byPosition` `get` lemma (`lookupAt` avoids it by storing
+  `Some`s). The parser uses std's `List.findWithIndexFromNone`,
+  `List.findNoneAll` and `DecEq.neFalse`.
+
 ## Day 1: Sonar Sweep
 
 A list of sea-floor depths, one per line. Part 1 counts the measurements

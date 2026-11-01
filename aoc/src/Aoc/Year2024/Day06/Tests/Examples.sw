@@ -3,6 +3,7 @@
 
 namespace Aoc.Year2024.Day06.Tests
 import Aoc.Year2024.Day06 (..)
+import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (after, positions)
 import Std (Fail, List, Option, Set, Text)
 

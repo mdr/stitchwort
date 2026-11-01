@@ -6,6 +6,7 @@
 
 namespace Aoc.Year2024.Day06.Proofs
 import Aoc.Year2024.Day06 (..)
+import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 

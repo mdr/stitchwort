@@ -1,33 +1,22 @@
 -- The parser keeps the puzzle's promises (D2108): every height is a digit,
 -- 0 to 9, by its type (`Fin 10`; `heightBelow10` in Facts.sw), and every
 -- row of a successful parse is as long as the first, so the map is a
--- rectangle. Neither theorem of the answers needs either: they hold for
--- every map, rectangular or not.
+-- rectangle (the shared grid parser's `parseGridRectangle`). Neither theorem of
+-- the answers needs either: they hold for every map, rectangular or not.
 
 namespace Aoc.Year2021.Day09.Proofs
 import Aoc.Year2021.Day09 (..)
-import Std (Bool, DecEq, Decidable, Eq, Fail, Fin, List, Nat, Option, Result, Void)
+import Aoc.Common (firstWidth, parseGrid)
+import Aoc.Common.Proofs (parseGridRectangle)
+import Std (Eq, Fail, Fin, List, Result)
+import Std.Parse (digit)
 
 -- Every row `parseHeightMap` reads is as long as the first.
 theorem parseRectangular (input: Text) (map: HeightMap) (parsed: Fail.toResult (() => parseHeightMap input) = Ok map) (row: List (Fin 10))
-    (member: row ∈ map.rows): row.length = width map.rows :=
-  checkedRectangular _ map parsed row member
-
--- Whatever reads the rows, `checkRows` passes on only rows as long as the
--- first.
-theorem checkedRectangular (read: () → {Fail} (List (List (Fin 10)))) (map: HeightMap) (parsed: Fail.toResult (() => checkRows (read ())) = Ok map)
-    (row: List (Fin 10)) (member: row ∈ map.rows): row.length = width map.rows :=
-  let split := rewrite Fail.toResultThen read checkRows at parsed
-  Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkRows x)) map split
-    (rows _ checked => checkRowsOk rows map checked row member)
-
--- `checkRows` keeps its rows, and only if each is as long as the first.
-theorem checkRowsOk (rows: List (List (Fin 10))) (map: HeightMap) (h: Fail.toResult (() => checkRows rows) = Ok map) (row: List (Fin 10))
-    (member: row ∈ map.rows): row.length = width map.rows :=
-  match e: firstRagged rows with
-    | Some (index, _) => Void.exfalso (Result.errNotOk _ map h)
-    | None =>
-      let same: rows = map.rows := Eq.cong HeightMap.rows (Result.okInjective _ map h)
-      let notRagged := List.findNoneAll rows (row => row.length != width rows) (List.findWithIndexFromNone (row => row.length != width rows) 0 rows e)
-      let atRow := List.allMem _ row rows (List.allToAll _ rows notRagged) (rewrite same in member)
-      rewrite <- same in DecEq.neFalse row.length (width rows) (Bool.notTrue _ atRow)
+    (member: row ∈ map.rows): row.length = firstWidth map.rows :=
+  let split := rewrite Fail.toResultThen (() => parseGrid input digit) HeightMap.ofGrid at parsed
+  Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => HeightMap.ofGrid grid)) map split
+    (grid read made =>
+      let same: HeightMap.ofGrid grid = map := Result.okInjective _ map made
+      let rectangle := And.left (parseGridRectangle input digit grid read)
+      rewrite <- same in rectangle row (rewrite <- same at member in member))

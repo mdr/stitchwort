@@ -5,14 +5,12 @@
 
 namespace Aoc.Year2021.Day09.Spec
 import Aoc.Year2021.Day09 (..)
+import Aoc.Common (Position, adjacent)
 import Std (List, Nat, Option, Ord)
 
 -- "Adjacent locations": up, down, left or right; diagonal locations don't
--- count. One column apart in the same row, or one row apart in the same
--- column.
-def adjacent (from: Position) (to: Position): Bool :=
-  (from.row == to.row && (from.column + 1 == to.column || to.column + 1 == from.column))
-    || (from.column == to.column && (from.row + 1 == to.row || to.row + 1 == from.row))
+-- count. That is the shared grid code's `adjacent` (`Aoc.Common`): one
+-- column apart in the same row, or one row apart in the same column.
 
 -- "Low points: the locations that are lower than any of its adjacent
 -- locations", each with its height. Locations on the edge or in a corner
@@ -30,10 +28,8 @@ def part1 (map: HeightMap): Nat := (lowPoints map).sumBy (((_, height)) => riskL
 def inSomeBasin (map: HeightMap) (position: Position): Bool := map.heightAt position |> .any (height => height != 9)
 
 -- Steps from `from` to `to`: each step to an adjacent location that isn't
--- a 9.
-def isPath (map: HeightMap) (from: Position): (steps: List Position) → (to: Position) → Bool
-  | Nil, to => from == to
-  | Cons next rest, to => adjacent from next && inSomeBasin map next && isPath map next rest to
+-- a 9 (`Aoc.Common.isPath`).
+def isPath (map: HeightMap) (from: Position) (steps: List Position) (to: Position): Bool := Aoc.Common.isPath (inSomeBasin map) from steps to
 
 -- "A basin is all locations that eventually flow downward to a single low
 -- point." Read as: the locations that aren't 9s and that can be reached

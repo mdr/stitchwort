@@ -5,6 +5,8 @@
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
+import Aoc.Common (Direction, Position, directions)
+import Aoc.Common.Proofs (memDirections)
 import Aoc.Year2024.Day20.Spec (..)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Void)
 
@@ -54,11 +56,7 @@ theorem moveBack (racetrack: Racetrack) (position: Position) (onIt: onTrack race
   moveIntro racetrack next (opposite direction) position (stepBack position direction next (And.left (moveCases racetrack position direction next moved)))
     onIt
 
-theorem directionsComplete: (direction: Direction) → direction ∈ directions
-  | Up => Inl rfl
-  | Down => Inr (Inl rfl)
-  | Left => Inr (Inr (Inl rfl))
-  | Right => Inr (Inr (Inr (Inl rfl)))
+theorem directionsComplete (direction: Direction): direction ∈ directions := memDirections direction
 
 -- Each edge is a move, taking one picosecond.
 theorem edgesSound (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ racetrack.edges position):

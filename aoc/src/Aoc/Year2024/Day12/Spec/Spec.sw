@@ -5,6 +5,7 @@
 
 namespace Aoc.Year2024.Day12.Spec
 import Aoc.Year2024.Day12 (..)
+import Aoc.Common (Direction, Position, directions)
 import Std (Bool, Exists, Iff, List, Nat, Option)
 
 -- "Touching (horizontally or vertically)": one column apart in the same
