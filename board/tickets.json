@@ -1,5 +1,5 @@
 {
-  "next": 1028,
+  "next": 1029,
   "tickets": [
     {
       "id": 47,
@@ -3596,6 +3596,21 @@
         "diagnostics"
       ],
       "body": "D2165 (Matt, 1 Nov 2026), from the language-productivity review: today the error names only the first missing case (a 3-constructor match with one arm reports Square _ but not Tri _ _). List all missing rows as patterns an agent can paste as arms, in the text message and the JSON diagnostics, leaving out impossible indexed cases.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1028,
+      "title": "Design: per-arm equation lemmas and f.induct (functional induction), with a literature review",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "D2163 (Matt, 1 Nov 2026). One design covering SW-802 (D1439 per-branch equations), SW-199's f.induct, SW-809, SW-980. Output: docs/proposals/function-equations.md plus an artifact for Matt's review. Mini literature review: Lean 4, Agda, Idris 2, Coq/Rocq (Equations plugin, Function), Isabelle (function package), F*/Dafny where relevant.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
