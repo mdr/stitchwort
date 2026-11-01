@@ -1,5 +1,5 @@
 {
-  "next": 1020,
+  "next": 1022,
   "tickets": [
     {
       "id": 47,
@@ -3468,6 +3468,36 @@
         "tooling"
       ],
       "body": "After 1a. docs/proposals/documentation.md §5.3-5.5, D2144, D2146, D2152, D2154.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1020,
+      "title": "AoC 2024 and 2025: parser guarantees (D2108) wherever practical",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2156 (Matt, 1 Nov 2026): where reasonable and practical, every AoC day should see whether it can prove a parser guarantee (the parser accepts only what the solver's theorems assume, with partNFromInput theorems). 2021 has 16 proof files with one; 2024 and 2025 have none (from the aoc-corpus-review lane). Known gaps: 2024 day 5 (rules not checked to be a strict total order; reproduced wrong answer, D2157), day 14 (even sizes; reproduced wrong answer, D2158), day 16 (unreachable end), day 13 (zero determinant unproved, D2159), day 17 (LoopShape), day 21 (Optimal 2/25 unproved). Use Parse.Reads (SW-998, SW-1002). Pattern lane first (Opus), then Sonnet.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1021,
+      "title": "AoC small fixes from the corpus review: day 16 unreachable end fails, day 24 wording, tests without Fail.orElse fallbacks, local lemma copies to std",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc",
+        "std"
+      ],
+      "body": "D2161 (Matt, 1 Nov 2026), from the review of docs/research/aoc-corpus-review.md.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
