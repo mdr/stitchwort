@@ -1,5 +1,5 @@
 {
-  "next": 1027,
+  "next": 1028,
   "tickets": [
     {
       "id": 47,
@@ -3434,14 +3434,14 @@
     {
       "id": 1017,
       "title": "search --at: a single closing check can run for minutes (Day16 Sound.sw:83 totalThen, List.consInjective _ (Cons …) 289 s); add a step and memory limit per check",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "search",
         "bug"
       ],
-      "body": "From SW-993 (1 Nov 2026). The time limit is only read between checks, so one check is never stopped once started. In the daily sample of search_at_aoc, goal Day16/Proofs/Sound.sw:83 totalThen takes 45-392 s; nearly all in one closing check (289 s with timings). One earlier run hit the 16 GB memory guard (goal not identified). Probably predates SW-993 (not run on main). Remaining benchmark misses: Eq.cong wrapping (day 18 Some a = Some b); lemma rewrite then induction hypothesis (days 10, 14, 16 lengthBitsOf); day 16 groupsValue.",
+      "body": "From SW-993 (1 Nov 2026). The time limit is only read between checks, so one check is never stopped once started. In the daily sample of search_at_aoc, goal Day16/Proofs/Sound.sw:83 totalThen takes 45-392 s; nearly all in one closing check (289 s with timings). One earlier run hit the 16 GB memory guard (goal not identified). Probably predates SW-993 (not run on main). Remaining benchmark misses: Eq.cong wrapping (day 18 Some a = Some b); lemma rewrite then induction hypothesis (days 10, 14, 16 lengthBitsOf); day 16 groupsValue.\n\nD2167 (Matt, 1 Nov 2026): yes, Sonnet; queued behind the lane cap.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3582,6 +3582,20 @@
         "docs"
       ],
       "body": "Matt, 1 Nov 2026: 'JFDI fix this and any other inaccuracies in our docs'. Known: DESIGN.md:97 lists an LSP as a non-goal; docs/compared.md:121 'no tactics' (omega/cases/ring exist), :165 'elaboration always re-runs' (check cache built). Scope: living docs (top-level .md, docs/*.md, docs/guide). Not proposals/research notes (historical records).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1027,
+      "title": "E-NONEXHAUSTIVE lists every missing case as pasteable patterns (text and JSON)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2165 (Matt, 1 Nov 2026), from the language-productivity review: today the error names only the first missing case (a 3-constructor match with one arm reports Square _ but not Tri _ _). List all missing rows as patterns an agent can paste as arms, in the text message and the JSON diagnostics, leaving out impossible indexed cases.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
