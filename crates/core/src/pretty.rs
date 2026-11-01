@@ -636,7 +636,7 @@ impl<'g> Printer<'g> {
                     unreachable!("just matched")
                 };
                 let ty = self.print(names, &args[0], Prec::Arrow);
-                let x = readable(x, names);
+                let x = binder(x, names, body);
                 names.push(x.clone());
                 let body = self.print(names, body, Prec::Arrow);
                 names.pop();
@@ -785,7 +785,7 @@ impl<'g> Printer<'g> {
                 } else {
                     self.print(names, a, Prec::Or)
                 };
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -811,7 +811,7 @@ impl<'g> Printer<'g> {
             // where the lambda isn't shown as the section, gets a readable
             // name; a section inside the run ends it.
             Term::Lam(x, icit, b) => {
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 let mut params = vec![lambda_param(&x, *icit)];
                 names.push(x);
                 let mut body = &**b;
@@ -819,7 +819,7 @@ impl<'g> Printer<'g> {
                     if self.section(names, body).is_some() {
                         break;
                     }
-                    let y = readable(y, names);
+                    let y = binder(y, names, inner);
                     params.push(lambda_param(&y, *icit));
                     names.push(y);
                     body = inner;
@@ -839,7 +839,7 @@ impl<'g> Printer<'g> {
             // The annotation isn't shown, as for `Ann`.
             Term::Let(x, _, v, b, _) => {
                 let value = self.print(names, v, Prec::Arrow);
-                let x = readable(x, names);
+                let x = binder(x, names, b);
                 names.push(x.clone());
                 let body = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -2068,6 +2068,31 @@ fn readable(x: &Name, names: &[Name]) -> Name {
                 format!("{base}{k}")
             }
         })
+        .find(|candidate| !names.iter().any(|n| **n == **candidate))
+        .expect("some name is free")
+        .into()
+}
+
+/// A binder `x` over `body` as shown, where `names` are the variables in
+/// scope: [`readable`], numbered (`y1`) if that name is one of `names` that
+/// `body` mentions, which the binder would otherwise capture: `y => y = x`
+/// with `x` called `y` is shown `y1 => y1 = y`, not `y => y = y`.
+fn binder(x: &Name, names: &[Name], body: &Term) -> Name {
+    let x = readable(x, names);
+    // Whether `body`, under the binder, mentions a variable of `names`
+    // called `candidate`.
+    let captures = |candidate: &str| {
+        names.iter().any(|n| **n == *candidate)
+            && (names.iter().rev().enumerate())
+                .any(|(j, n)| **n == *candidate && body.mentions(j + 1))
+    };
+    if !captures(&x) {
+        return x;
+    }
+    let base = x.trim_end_matches(|c: char| c.is_ascii_digit());
+    let base = if base.is_empty() { "x" } else { base };
+    (1..)
+        .map(|k| format!("{base}{k}"))
         .find(|candidate| !names.iter().any(|n| **n == **candidate))
         .expect("some name is free")
         .into()
