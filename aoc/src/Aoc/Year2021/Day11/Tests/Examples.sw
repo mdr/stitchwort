@@ -4,7 +4,8 @@
 namespace Aoc.Year2021.Day11.Tests
 import Aoc.Year2021.Day11 (..)
 import Aoc.Year2021.Day11.Spec (..)
-import Std (Fail, List, Text)
+import Aoc.Year2021.Day11.Proofs (flashedAfter, flashersCorrect)
+import Std (Bool, Fail, List, Text)
 
 def parsed (input: Text): Result (List (List Nat)) Text := Fail.toResult (() => parseLevels input)
 
@@ -36,3 +37,14 @@ test "a pair of 8s doesn't start itself" := step [[8, 8]] == [[9, 9]]
 test "a 9 sets off its neighbour" := step [[9, 8]] == [[0, 0]] ∧ zeros (step [[9, 8]]) == 2
 test "an empty grid" := step [] == ([]: List (List Nat)) ∧ solvePart2 [] == Some 1
 test "a ragged grid" := step [[9], [8, 8]] == [[0], [0, 0]]
+
+-- Why the spec's flashers are the least closed set: with two 8s, "both
+-- flash" is closed (each would be at 10), but it isn't the flashers.
+theorem eightsClosed: Closed [[8, 8]] (at => True) := at level member above => rfl
+
+theorem eightsNotFlashers: Not (Flashers [[8, 8]] (at => True)) :=
+  both => Bool.falseNotTrue (And.right both (flashedAt (flashers [[8, 8]])) (And.left (flashersCorrect [[8, 8]])) (0, 0) rfl)
+
+-- The hypothesis of `onGridAfter` (an octopus has flashed after some
+-- rounds), which the counterexample search didn't meet, can hold.
+theorem flashedAfterOneRound: flashedAt (flashedAfter [[9]] 1) (0, 0) = True := rfl

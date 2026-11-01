@@ -34,7 +34,12 @@ def parseLevels (input: Text): {Fail} (List (List Nat)) := checkRows (Parse.each
 def checkRows (rows: List (List (Fin 10))): {Fail} (List (List Nat)) :=
   match firstRagged rows with
     | Some (index, row) => Fail.fail "line ${index + 1}: expected ${width rows} digits, as on the first line, got ${row.length}"
-    | None => rows.map (row => row.map Fin.toNat)
+    | None => numbers rows
+
+-- The digits as numbers. (A function of its own: written in `checkRows`,
+-- the `map` would run in `Fail`, and proofs would see the handler's
+-- steps instead of a list.)
+def numbers (rows: List (List (Fin 10))): List (List Nat) := rows.map (row => row.map Fin.toNat)
 
 -- The first row's length.
 def width (rows: List (List (Fin 10))): Nat := rows.headOr [] |> .length
@@ -73,18 +78,18 @@ def energy (flashed: List (List Bool)) (at: (Nat, Nat)) (level: Nat): Nat := lev
 def flashRound (levels: List (List Nat)) (flashed: List (List Bool)): List (List Bool) :=
   mapCells levels (at level => 9 < energy flashed at level)
 
--- Rounds until one adds nobody. `rounds` is a bound: each round but the
--- last adds an octopus, so one more round than there are octopuses is
--- enough.
+-- Rounds until one adds nobody, at most `rounds` of them.
 def cascade (levels: List (List Nat)) (flashed: List (List Bool)): (rounds: Nat) → List (List Bool)
   | Zero => flashed
   | Succ more =>
     let next := flashRound levels flashed
     if next == flashed then flashed else cascade levels next more
 
--- The octopuses that flash in a step from `levels`.
+-- The octopuses that flash in a step from `levels`. Each round that adds
+-- somebody adds an octopus, so after as many rounds as there are
+-- octopuses the next adds nobody: that many is enough.
 def flashers (levels: List (List Nat)): List (List Bool) :=
-  cascade levels (mapCells levels (_ _ => False)) (levels.gridCells.length + 1)
+  cascade levels (mapCells levels (_ _ => False)) levels.gridCells.length
 
 -- One step: every octopus that flashed is at 0, the others at their
 -- energy.

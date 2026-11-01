@@ -147,7 +147,7 @@ theorem cascadeAfter (levels: List (List Nat)): (m: Nat) → (k: Nat) →
 
 -- The program's flashers are the flashers of a round that adds nobody.
 theorem flashersStable (levels: List (List Nat)): ∃ (j: Nat) => flashers levels = flashedAfter levels j ∧ Stable levels j :=
-  Exists.elim (cascadeAfter levels (levels.gridCells.length + 1) 0) (j both =>
+  Exists.elim (cascadeAfter levels levels.gridCells.length 0) (j both =>
     let (Both found stops) := both
     Witness j (Both found (match stops with
       | Inl stable => stable
