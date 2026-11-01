@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 594
+expression: output
+---
+[E-LOCAL-DEFINITION] Error: a local definition can't be called `eq2`: `total.eq2` is a name the compiler generates for `total`'s equations
+   ╭─[ reject/function-equations-local-name.sw:9:9 ]
+   │
+ 9 │     def eq2: Nat → Nat
+   │         ─┬─  
+   │          ╰─── here
+   │ 
+   │ Note: give it another name
+───╯

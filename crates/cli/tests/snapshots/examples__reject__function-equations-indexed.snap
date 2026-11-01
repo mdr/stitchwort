@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 594
+expression: output
+---
+[E-NO-EQUATION] Error: `short.eq3` isn't generated
+    ╭─[ reject/function-equations-indexed.sw:18:60 ]
+    │
+ 18 │ theorem shortOther [n: Nat] (v: Vec Nat n): short v = 2 := short.eq3 v
+    │                                                            ────┬────  
+    │                                                                ╰────── it overlaps arm 1 on an indexed family, where the hypothesis would compare values of different types (D2185; a heterogeneous equation isn't in std)
+    │ 
+    │ Note: an equation for each arm is generated where it can be stated and proved (docs/proposals/function-equations.md); prove this one by hand, or use `f.unfold` and a `match`
+────╯

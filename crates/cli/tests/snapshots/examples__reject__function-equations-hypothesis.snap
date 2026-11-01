@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 594
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+    ╭─[ reject/function-equations-hypothesis.sw:10:57 ]
+    │
+ 10 │ theorem kindAnything (n: Nat): kind n = 0 := kind.eq2 n cases
+    │                                                         ──┬──  
+    │                                                           ╰──── this `cases`
+    │ 
+    │ Note 1: hypothesis 1 (unnamed): n = 3
+    │ 
+    │ Note 2: goal: Void
+    │ 
+    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+    │ 
+    │ Note 4: the goal's decision procedure says it is false
+    │ 
+    │ Note 5: this statement is false; a counterexample:
+    │           n = 3
+    │         `kind n = 0` is false:
+    │           left:  1
+    │           right: 0
+────╯
