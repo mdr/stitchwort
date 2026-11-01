@@ -20,6 +20,7 @@ mod data_auto;
 mod decreasing;
 mod defaults;
 mod derive;
+mod derive_decide;
 mod derive_ext;
 mod derive_finite;
 mod derive_induct;
@@ -482,6 +483,9 @@ pub struct Elaborator {
     no_show: HashMap<DataId, String>,
     /// The same for `Finite` (`derive_finite.rs`).
     no_finite: HashMap<DataId, String>,
+    /// Why a `Prop` record has no derived decision (`derive_decide.rs`), for
+    /// the note when one is wanted.
+    no_decide: HashMap<DataId, String>,
     /// The same for `Ord` (`derive_ord.rs`).
     no_ord: HashMap<DataId, String>,
     /// The `D.All` generated for each container of the program a nested

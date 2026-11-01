@@ -193,20 +193,7 @@ test "a moved leg can round the offset" :=
 
 -- The base trip is well-formed, so `WellFormed` holds of something, and
 -- `mergeSelf` applies to it.
-theorem baseWellFormed: WellFormed base := {
-  contiguous = Both rfl (Both rfl Trivial),
-  legIds = byDecision,
-  legsOk = byDecision,
-  pinIds = byDecision,
-  pinsFit = byDecision,
-  pinsSorted = byDecision,
-  stopIds = byDecision,
-  albumIds = byDecision,
-  photoIdsDistinct = byDecision,
-  stopsWithin = byDecision,
-  albumsWithin = byDecision,
-  placeIds = byDecision
-}
+theorem baseWellFormed: WellFormed base := byDecision
 
 theorem baseMergedWithItself: merge base base = base := mergeSelf base baseWellFormed
 

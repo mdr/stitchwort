@@ -724,6 +724,15 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
             "the compiler needs a proof of this",
         )
         .with_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
+    // A record of propositions whose decision couldn't be derived: why.
+    let error = match force(cx.g(), prop.clone())? {
+        Value::Data(d, _) if cx.e.no_decide.contains_key(&d) => error.with_note(format!(
+            "`{}` has no derived decision: {}",
+            cx.e.relative_to_root(&cx.g().data(d).name),
+            cx.e.no_decide[&d]
+        )),
+        _ => error,
+    };
     let error =
         cx.e.auto_hints()
             .into_iter()

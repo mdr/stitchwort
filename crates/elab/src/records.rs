@@ -63,6 +63,7 @@ impl Elaborator {
             e.derive_nested(d)?;
             if !interface {
                 e.derive_record_ext(d)?;
+                e.derive_record_decidable(d)?;
             }
             Ok(())
         })
