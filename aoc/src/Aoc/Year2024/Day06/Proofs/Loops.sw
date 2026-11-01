@@ -2,8 +2,8 @@
 --| turns of the walk (`Simulates`; proved for the program's sightlines in
 --| Proofs/Sightlines.sw): `loopsWithCorrect`.
 --
--- A repeated turn is a repeated
--- state, and running out of budget means `stateCount` steps on the map.
+-- A repeated turn is a repeated state, and running out of budget means
+-- `stateCount` steps on the map.
 
 namespace Aoc.Year2024.Day06.Proofs
 import Aoc.Year2024.Day06 (..)

@@ -1,11 +1,10 @@
 --| The presses from `pressesFor` type the code (`pressesForTypes`).
 --
--- On one
--- keypad, a route's arrows walk the arm from one key to the next without
--- aiming at a gap, and A presses it (`routeTypes`); that is checked by
--- computing, for every pair of keys on both keypads (`numericFits`,
--- `directionalFits`). Down the chain, each keypad's keys are typed by the
--- keys of the keypad before (`yourPressesThrough`).
+-- On one keypad, a route's arrows walk the arm from one key to the next
+-- without aiming at a gap, and A presses it (`routeTypes`); that is
+-- checked by computing, for every pair of keys on both keypads
+-- (`numericFits`, `directionalFits`). Down the chain, each keypad's keys
+-- are typed by the keys of the keypad before (`yourPressesThrough`).
 
 namespace Aoc.Year2024.Day21.Proofs
 import Aoc.Year2024.Day21 (..)

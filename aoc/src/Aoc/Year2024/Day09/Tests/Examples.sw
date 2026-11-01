@@ -1,7 +1,7 @@
 --| Day 9's tests: the examples from the puzzle and unit tests.
 --
--- Kept apart from
--- the program, so `stitchwort run Aoc.Year2024.Day09.main` doesn't check them.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2024.Day09.main`
+-- doesn't check them.
 
 namespace Aoc.Year2024.Day09.Tests
 import Aoc.Year2024.Day09 (..)

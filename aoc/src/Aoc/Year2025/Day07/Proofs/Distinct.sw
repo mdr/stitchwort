@@ -2,12 +2,12 @@
 --| the count is of different timelines: the spec's list has no repeats
 --| (`timelinesDistinct`).
 --
--- By construction: the two sides of a split start
--- with the same splitter but a different turn, and each side is distinct
--- by induction. The library's `List.Distinct`, `List.distinctMap` with
--- `List.consInjective` (the timelines of one side all begin with the same
--- hit), and `List.distinctAppend` with `List.disjointMapCons` (the two
--- sides begin with different hits, so have nothing in common) do the work.
+-- By construction: the two sides of a split start with the same splitter
+-- but a different turn, and each side is distinct by induction. The
+-- library's `List.Distinct`, `List.distinctMap` with `List.consInjective`
+-- (the timelines of one side all begin with the same hit), and
+-- `List.distinctAppend` with `List.disjointMapCons` (the two sides begin
+-- with different hits, so have nothing in common) do the work.
 
 namespace Aoc.Year2025.Day07.Proofs
 import Aoc.Year2025.Day07 (..)

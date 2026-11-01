@@ -11,8 +11,8 @@ import Aoc.Common (Position, isPath)
 import Std (And, Bool, Exists, List, Nat, Option)
 
 --| "Your memory space is a two-dimensional grid with coordinates that range
---| from 0 to 70 both horizontally and vertically" (0 to `size - 1` here,
---| in each of the first `size` rows and columns). "Corrupted memory
+--| from 0 to 70 both horizontally and vertically" (0 to `size - 1` here, in
+--| each of the first `size` rows and columns). "Corrupted memory
 --| coordinates cannot be entered by you or The Historians".
 def isSafe (size: Nat) (fallen: List Position) (position: Position): Bool := position.within size size && !fallen.contains position
 

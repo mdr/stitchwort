@@ -8,8 +8,8 @@
 --| The proofs are in `Aoc.Year2024.Day16.Proofs` (Proofs/) and the tests in
 --| `Aoc.Year2024.Day16.Tests` (Tests/); `run` checks neither. Positions,
 --| steps and the parser are the shared grid code's (`Aoc.Common`,
---| Common/Grid.sw); the reindeer's compass headings map onto its
---| directions (`Heading.toDirection`).
+--| Common/Grid.sw); the reindeer's compass headings map onto its directions
+--| (`Heading.toDirection`).
 
 namespace Aoc.Year2024.Day16
 import Aoc.Common (Direction, Position, cells, parseGrid)

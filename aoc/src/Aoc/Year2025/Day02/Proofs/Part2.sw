@@ -3,8 +3,8 @@
 --| digits are some block written two or more times, add them up), for every
 --| input.
 --
--- The outline, for one id x with L digits (a Lean 4 prototype of the same
--- proof is in comparisons/aoc-day02-general/):
+-- The outline, for one id x with L digits (a Lean 4 prototype of the same proof is in
+-- comparisons/aoc-day02-general/):
 -- - A rotation of the digits by p places that leaves them unchanged is a
 --   *period* (`Period`). Periods add and subtract, so the remainder of a
 --   period divided by the smallest positive period p0 is again a period, and
@@ -38,8 +38,8 @@ import Std.Nat (digitCount)
 -- `idsBelow`) are in Repeated.sw, shared with part 1.
 
 -- (2) The weights ------------------------------------------------------------
--- Over the divisors of m from 2 on, `copiesWeight` adds up to 1 when m >= 2, and to
--- 0 when m = 1 (`weightsOne`).
+-- Over the divisors of m from 2 on, `copiesWeight` adds up to 1 when m >= 2,
+-- and to 0 when m = 1 (`weightsOne`).
 
 --| The weights w of the divisors of m among 2, 3, ..., c + 1, added up.
 def divisorWeights (w: Nat → Int) (m: Nat) (c: Nat): Int :=

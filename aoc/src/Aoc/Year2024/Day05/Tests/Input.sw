@@ -11,8 +11,8 @@ def orderedOneWay (precedes: Nat → Nat → Bool) (update: Update): Bool :=
   update.pages.all (page => update.pages.all (other => page == other || precedes page other != precedes other page))
 
 --| The assumption part 2's proofs make (`Spec.StrictTotalOrderOn`), checked on
---| each update: its pages are different, any two are ordered one way, and
---| once sorted every page is ordered before every later one, so the order is
+--| each update: its pages are different, any two are ordered one way, and once
+--| sorted every page is ordered before every later one, so the order is
 --| transitive.
 def rulesOrderPages (precedes: Nat → Nat → Bool) (update: Update): Bool :=
   update.pages.distinct.length == update.pages.length && orderedOneWay precedes update && inOrder precedes (update.reorder precedes).pages

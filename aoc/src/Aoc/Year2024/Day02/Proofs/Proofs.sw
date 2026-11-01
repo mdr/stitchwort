@@ -58,9 +58,9 @@ theorem safeWithoutFirst (level: Nat) (rest: List Nat) (wasSafe: safe { levels =
 theorem safeWithoutLast (report: Report) (wasSafe: safe report = True): safe { levels = report.levels.init } = True :=
   safeKept List.init List.chainInit report.levels wasSafe
 
---| So the dampener alone finds every report that was safe already: for a
---| report with any levels, "safe, or safe with one level removed" is just "safe
---| with one level removed".
+--| So the dampener alone finds every report that was safe already: for a report
+--| with any levels, "safe, or safe with one level removed" is just "safe with
+--| one level removed".
 theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
     safeWithDampener { levels = Cons level rest } =
       (removals (Cons level rest) |> .any (levels => safe { levels })) :=

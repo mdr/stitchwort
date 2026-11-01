@@ -1,9 +1,8 @@
 --| Day 4's tests: the examples from the puzzle and unit tests.
 --| A `.` is a letter like any other, as in the puzzle's diagrams.
 --
--- Kept apart
--- from the program, so `stitchwort run Aoc.Year2024.Day04.main` doesn't check
--- them.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2024.Day04.main`
+-- doesn't check them.
 
 namespace Aoc.Year2024.Day04.Tests
 import Aoc.Year2024.Day04 (..)

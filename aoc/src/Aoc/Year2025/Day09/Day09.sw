@@ -94,8 +94,8 @@ def keyLines (values: List Nat): List Nat := values.append (values.map Succ) |> 
 
 --| The floor through the key columns and rows: where each key column and
 --| row is (`columns`, `rows`), and how many tiles of each block of them are
---| outside the loop (`outside`: a cell is 1 for a tile outside, 0 for a
---| red or green one).
+--| outside the loop (`outside`: a cell is 1 for a tile outside, 0 for a red
+--| or green one).
 type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 
 def Floor.of (tiles: List Tile): Floor :=

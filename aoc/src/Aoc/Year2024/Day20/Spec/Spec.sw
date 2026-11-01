@@ -51,9 +51,8 @@ def cheatTime (cheat: Cheat): Nat :=
   Nat.absDiff cheat.start.row cheat.end.row + Nat.absDiff cheat.start.column cheat.end.column
 
 --| "a program may disable collision for up to 2 picoseconds ... At the end of
---| the cheat, the program must be back on normal track again" (up to
---| `length` picoseconds): it starts where the program is, on track, and ends
---| on track.
+--| the cheat, the program must be back on normal track again" (up to `length`
+--| picoseconds): it starts where the program is, on track, and ends on track.
 def IsCheat (racetrack: Racetrack) (length: Nat) (cheat: Cheat): Prop :=
   onTrack racetrack cheat.start = True ∧ onTrack racetrack cheat.end = True ∧ cheatTime cheat ≤ length
 

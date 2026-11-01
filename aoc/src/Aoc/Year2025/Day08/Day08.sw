@@ -11,9 +11,9 @@
 --| Every pair of boxes is a candidate, about half a million for 1,000 boxes.
 --| They are sorted once, closest first (`closestFirst`), and both parts walk
 --| that list, joining the pairs in order. A box's circuit is a label, kept in
---| a `Map` from the box's number to its label; joining two circuits gives
---| all of one label the other's (`Circuits.join`). A pair that is already in
---| one circuit changes nothing, but it still counts as one of part 1's 1,000.
+--| a `Map` from the box's number to its label; joining two circuits gives all
+--| of one label the other's (`Circuits.join`). A pair that is already in one
+--| circuit changes nothing, but it still counts as one of part 1's 1,000.
 --|
 --| The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
 

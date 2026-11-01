@@ -1,6 +1,7 @@
---| The grid parser keeps the puzzles' promise (D2108): a grid that
---| `parseGrid` reads is a rectangle with at least one cell. A day's own
---| parser built on it gets the same from `checkedGrid`.
+--| The grid parser keeps the puzzles' promise: a grid that `parseGrid`
+--| reads is a rectangle with at least one cell. A day's own parser
+--| built on it gets the same from `checkedGrid`.
+-- (D2108)
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)

@@ -29,8 +29,8 @@ def InterConnectedThree (network: Network) (set: Set Computer): Prop := set.size
 def hasT (set: Set Computer): Bool := set.any (computer => computer.startsWith "t")
 
 --| "Find all the sets of three inter-connected computers. How many contain at
---| least one computer with a name that starts with t?": `count` is the
---| number of such sets, the size of the set holding exactly them.
+--| least one computer with a name that starts with t?": `count` is the number
+--| of such sets, the size of the set holding exactly them.
 def IsPart1 (network: Network) (count: Nat): Prop :=
   ∃ (sets: Set (Set Computer)) =>
     ((set: Set Computer) → Iff (sets.contains set = True) (InterConnectedThree network set ∧ hasT set = True)) ∧ sets.size = count

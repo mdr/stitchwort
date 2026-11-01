@@ -1,6 +1,6 @@
 --| The walks of a grid's graph (`stepGraph`, GridGraph.sw) are the paths of
---| `isPath` through the positions that can be entered, and a walk costs
---| the sum of what entering each of its positions costs. With std's
+--| `isPath` through the positions that can be entered, and a walk costs the
+--| sum of what entering each of its positions costs. With std's
 --| `Graph.distancesShortest` or `Graph.breadthFirstShortest`, that makes
 --| what the searches find the cheapest paths.
 

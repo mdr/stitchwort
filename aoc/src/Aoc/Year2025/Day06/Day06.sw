@@ -18,8 +18,8 @@
 --| Both answers are proved right for every input, against the puzzle's own
 --| wording read cell by cell, in `Aoc.Year2025.Day06.Spec` (Spec/Spec.sw,
 --| Proofs/Correct.sw; the columns' shape in Proofs/Grid.sw; trailing spaces
---| changing nothing in Proofs/Padding.sw), and the tests are
---| in `Aoc.Year2025.Day06.Tests` (Tests/); `run` checks neither.
+--| changing nothing in Proofs/Padding.sw), and the tests are in
+--| `Aoc.Year2025.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day06
 import Std (Char, Fail, IO, Nat, Text)
@@ -81,8 +81,8 @@ def solvePart2 (problems: List Problem): Nat := problems.sumBy (problem => evalu
 --| skips a stray character in a number, takes the first operator of a block,
 --| counts a block without one as 0); `checkWorksheet` refuses a worksheet that
 --| isn't well formed and otherwise gives exactly `parseWorksheet lines`
---| (`Aoc.Year2025.Day06.Proofs.checkWorksheetParses`), so the proofs about the parser
---| describe what is printed. Well formed means:
+--| (`Aoc.Year2025.Day06.Proofs.checkWorksheetParses`), so the proofs about the
+--| parser describe what is printed. Well formed means:
 --|   - at least two lines: number rows, then the operator row;
 --|   - the number rows hold only digits and spaces, the operator row only + *
 --|     and spaces (lines and columns count from 1 in the messages);

@@ -13,9 +13,8 @@ import Std (And, Bool, DecEq, Eq, Int, Iff, List, Nat, Option, Or, Set, Void)
 --| With `u` the direction from the point to `far` and `v` to `near`: in line
 --| (`u × v = 0`) with `|u|² = 4|v|²` means `u = 2v` or `u = -2v`.
 --
--- By
--- Lagrange's identity `(u·v)² + (u×v)² = |u|²|v|²`, `u·v` is `±2|v|²`, and
--- then `|u ∓ 2v|²` is 0.
+-- By Lagrange's identity `(u·v)² + (u×v)² = |u|²|v|²`, `u·v` is `±2|v|²`,
+-- and then `|u ∓ 2v|²` is 0.
 theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc - uc * vr = 0)
     (distance: ur * ur + uc * uc = 4 * (vr * vr + vc * vc)):
     Or (And (ur = 2 * vr) (uc = 2 * vc)) (And (ur = 0 - 2 * vr) (uc = 0 - 2 * vc)) :=

@@ -1,9 +1,8 @@
 --| Day 6, proved: the columns are rectangular and lose nothing, and the blocks
 --| are exactly the runs of columns that aren't blank, for any input.
 --
--- Kept
--- apart from the program, so `stitchwort run Aoc.Year2025.Day06.main` doesn't check
--- it.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2025.Day06.main`
+-- doesn't check it.
 
 namespace Aoc.Year2025.Day06.Proofs
 import Aoc.Year2025.Day06 (..)

@@ -1,5 +1,5 @@
---| Facts the proofs need about cells: steps along a line never revisit
---| a cell. (The laws of single steps are `Aoc.Common.Proofs.offsetStep*`.)
+--| Facts the proofs need about cells: steps along a line never revisit a
+--| cell. (The laws of single steps are `Aoc.Common.Proofs.offsetStep*`.)
 
 namespace Aoc.Year2024.Day15.Proofs
 import Aoc.Common (Direction)

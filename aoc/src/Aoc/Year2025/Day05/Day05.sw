@@ -7,13 +7,13 @@
 --|
 --| The puzzle input is committed in aoc/inputs/2025/.
 --|
---| Part 1 checks every id against every range. Part 2 can't list the numbers
---| (there are about 4 * 10^14), so it merges the ranges instead: sorted by
---| start, a range either overlaps or touches the previous merged range (and
---| extends it) or starts a new one. The merged ranges are disjoint, so their
---| sizes add up. `Aoc.Year2025.Day05.Proofs.solvePart2Correct` (Proofs/Part2.sw) proves
---| that, for every database: part 2 is the brute-force count of the ids some
---| range holds. The tests are in `Aoc.Year2025.Day05.Tests` (Tests/). `run` checks neither.
+--| Part 1 checks every id against every range. Part 2 can't list the numbers (there are
+--| about 4 * 10^14), so it merges the ranges instead: sorted by start, a range either
+--| overlaps or touches the previous merged range (and extends it) or starts a new one. The
+--| merged ranges are disjoint, so their sizes add up.
+--| `Aoc.Year2025.Day05.Proofs.solvePart2Correct` (Proofs/Part2.sw) proves that, for every
+--| database: part 2 is the brute-force count of the ids some range holds. The tests are in
+--| `Aoc.Year2025.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2025.Day05
 import Aoc.Common (Range, range)

@@ -1,7 +1,7 @@
 --| Facts about positions and directions: turning, what a step reaches, and
---| the four and eight neighbours (`neighbours` lists exactly the
---| `adjacent` positions, `around` exactly the `touching` ones, each without
---| repeats, at most four and eight of them).
+--| the four and eight neighbours (`neighbours` lists exactly the `adjacent`
+--| positions, `around` exactly the `touching` ones, each without repeats,
+--| at most four and eight of them).
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
