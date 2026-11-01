@@ -6258,9 +6258,9 @@ def parseRacetrack (input: Text): {Fail} Racetrack :=
     end = onlyTile tiles End "E"
   }
 
-def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.start, 0)]
+def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.start]
 
-def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.end, 0)]
+def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.end]
 
 def Position.around (position: Position) (length: Nat): List Position :=
   List.between (position.row - length) (position.row + length)
@@ -6390,6 +6390,11 @@ longer imports day 16. Its graph needs no `within`: `listed` is that each
 edge leads onto track (`Racetrack.edgeOnTrack`, in the program), and
 `Graph.distancesCorrect` no longer asks for the sources or the edges to
 stay within. `memMapElim` and `anyMember` are std's `List` lemmas.
+
+SW-1022: the two searches are now std.s `Graph.breadthFirst` (every move costs
+1), proved by `Graph.breadthFirstCorrect`, which asks for that unit cost
+(`edgesSound` already gives it). The statements are unchanged; `onlySource`
+lost its cost half.
 `boundFrom` and `boundTo` are still the day's own inductions over moves,
 not std's `Graph.boundAlong` over walks.
 
