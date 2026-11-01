@@ -1,5 +1,5 @@
 {
-  "next": 995,
+  "next": 996,
   "tickets": [
     {
       "id": 47,
@@ -2992,9 +2992,10 @@
       "where": "",
       "labels": [
         "postponement",
-        "design"
+        "design",
+        "decision"
       ],
-      "body": "Design lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.",
+      "body": "\nDesign lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.\nD2118 (Matt, 1 Nov 2026): yes. Stage 7 design also covers literals with no expected type (Day 17's [(7,2), …, (17,-4)] list): first find why accept/calc.sw and accept/let-patterns.sw break and four messages change (one printing ?0 a b h) when inferred literals wait (the step 4.3 lane's experiment), and compare with how Lean 4 (numerals, default instances), Haskell (defaulting), Agda and Idris handle unannotated numerals in tuples/lists.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3044,13 +3045,13 @@
     {
       "id": 992,
       "title": "Aoc.Common Offset (Int displacement) + move 2024 days 8, 14, 15 onto the shared grid",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 1 Nov 2026. Position stays Nat (on the board); Offset = { rows: Int, columns: Int } for how far to move (Vec is taken by std's sized lists). Position.minus a b: Offset; Position.offset p o: Option Position (None off the board/negative); Offset plus and scaling; wrap for a wrapping board (day 14). Day 8: antinode = b.offset (b minus a). Day 14: velocity is an Offset, position after t = wrap. Day 15: check whether Int is needed at all (walled board, Nat steps may do).\n\nProgress (lane, 1 Nov): Aoc.Common Offset.sw + Proofs/Offset.sw + Tests/Offset.sw done (98d3327d). Day 14 moved (25ce608f), audit 28/28. Day 15: Int is needed (proofs are for every warehouse, step must be total); using Offset as its cell type. Next: days 8, 15.\n",
+      "body": "Matt, 1 Nov 2026. Position stays Nat (on the board); Offset = { rows: Int, columns: Int } for how far to move (Vec is taken by std's sized lists). Position.minus a b: Offset; Position.offset p o: Option Position (None off the board/negative); Offset plus and scaling; wrap for a wrapping board (day 14). Day 8: antinode = b.offset (b minus a). Day 14: velocity is an Offset, position after t = wrap. Day 15: check whether Int is needed at all (walled board, Nat steps may do).\n\nProgress (lane, 1 Nov): Aoc.Common Offset.sw + Proofs/Offset.sw + Tests/Offset.sw done. Day 14 moved, audit 28/28. Day 15: Int is needed (proofs are for every warehouse, step must be total); cells are Offsets from the corner (Cell nickname), shared Direction + Offset.step; audit 56/56. Day 8 moved (Nat positions, antinodes via offset), audit 48 (1 warning, pairsIntro, pre-existing and narrow). Rebased on main after SW-991 (clean). Branch worktree-agent-a6542f85626d81427: cb48b7a8, 42c12c94, 623f4f95, e19e6a43, 7f76b928. Ready for review; not pushed.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3079,6 +3080,20 @@
         "tactics"
       ],
       "body": "Found by SW-989: checking cases on that premise uses about 1.2 GB and a few seconds; a smaller step budget per check didn't stop it. search --at's lane tests skip the lemma to stay under the 3 GB tier cap. Related: SW-985 (cases splitting library arithmetic).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 995,
+      "title": "Friction from Offset lane (SW-992): omega and (n+1).toInt - 1; type nickname lost through record fields; rewrite misses an inner call after the outer computed; dot notation on a bare constructor",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "friction"
+      ],
+      "body": "From SW-992, 1 Nov 2026. (1) omega can't prove (n + 1).toInt - 1 = n.toInt: reduces to Int.subNatNatFrom (n + 1) 1 (0 - n), an atom (same as SW-978 item 1; second sighting). (2) A type nickname is lost through record fields: warehouse.robot declared Cell (def Cell: Type := Offset) has type Offset, so .widen/.step aren't found. (3) rewrite couldn't find moved.step direction inside (moved.step direction).step Right because the inner step had computed to a record literal (E-REWRITE-NOTHING); Eq.cong worked. Fix: also look for the left side in the goal as written. (4) Up.offset unknown: dot notation on a bare constructor (also SW-990's Up.turnRight). Design note: 2024 day 15 keeps Int cells as def Cell: Type := Offset, because its theorems hold for every warehouse and Nat steps up from row 0 would need an off-map rule or a walled-in hypothesis.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
