@@ -1,7 +1,8 @@
--- `Int` arithmetic for programs: the arithmetic and division laws, proved from
--- the core's definitions and `Int/Basics.sw`'s. This file was the
--- prelude's blocks of `Int` lemmas after the core's `Int`. (The sum of a list
--- of `Int`s is the generic `List.sum`.)
+--| `Int` arithmetic for programs: the arithmetic and division laws, proved from
+--| the core's definitions and `Int/Basics.sw`'s. (The sum of a list
+--| of `Int`s is the generic `List.sum`.)
+-- This file was the
+-- prelude's blocks of `Int` lemmas after the core's `Int`.
 
 -- Lemmas (checkpoint 1)
 
@@ -12,14 +13,14 @@ theorem Int.negNeg: (x: Int) → Int.neg (Int.neg x) = x
   | OfNat (Succ n) => rfl
   | NegSucc n => rfl
 
--- These hold by computation; stating them keeps it that way.
+--| These hold by computation; stating them keeps it that way.
 theorem Int.toIntAdd (m: Nat) (n: Nat): Nat.toInt (m + n) = Int.add (Nat.toInt m) (Nat.toInt n) := rfl
 
 theorem Int.toIntMul (m: Nat) (n: Nat): Nat.toInt (m * n) = Int.mul (Nat.toInt m) (Nat.toInt n) := rfl
 
 theorem Int.toNatToInt (n: Nat): Int.toNat (Nat.toInt n) = n := rfl
 
--- And back: an `Int` that isn't negative is its `toNat`.
+--| And back: an `Int` that isn't negative is its `toNat`.
 theorem Int.toIntToNat: (z: Int) → 0 ≤ z → Nat.toInt (Int.toNat z) = z
   | OfNat k, nonneg => rfl
   | NegSucc k, nonneg => Void.exfalso (Bool.falseNotTrue nonneg)
@@ -40,13 +41,13 @@ theorem Int.natAbsNeg: (x: Int) → Int.natAbs (Int.neg x) = Int.natAbs x
 theorem Nat.toIntNeZero (d: Nat) (ok: d ≠ 0): Nat.toInt d ≠ 0
   | p => ok (Int.ofNatInjective d 0 p)
 
--- `x.modNat d < d`; `Int.modNatLt x 100` is the dial's `x.modNat 100 < 100`.
+--| `x.modNat d < d`; `Int.modNatLt x 100` is the dial's `x.modNat 100 < 100`.
 theorem Int.modNatLt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] → Int.modNat x d < d
   | x, Zero => Void.exfalso (ok rfl)
   | OfNat m, Succ n => Nat.modLess m (Succ n) (Nat.succNotZero n)
   | NegSucc m, Succ n => Nat.subLe n (m % Succ n)
 
--- For a variable `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
+--| For a variable `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
 theorem Int.modNatToInt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] → [auto ok2: Nat.toInt d ≠ 0] →
     Nat.toInt (Int.modNat x d) = x % Nat.toInt d
   | x, Zero => Void.exfalso (ok rfl)
@@ -63,7 +64,7 @@ theorem Int.toIntMod (n: Nat): (d: Nat) → [auto ok: d ≠ 0] → [auto ok2: Na
   | Zero => Void.exfalso (ok rfl)
   | Succ d => rfl
 
--- Remainder bounds: `0 <= a % d < |d|`.
+--| Remainder bounds: `0 <= a % d < |d|`.
 theorem Int.modNonneg: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → 0 ≤ a % d
   | a, OfNat Zero => Void.exfalso (ok rfl)
   | OfNat m, OfNat (Succ n) => rfl
@@ -78,7 +79,8 @@ theorem Int.modLtAbs: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → a % d < N
   | OfNat m, NegSucc n => Nat.modLess m (Succ n) (Nat.succNotZero n)
   | NegSucc m, NegSucc n => Nat.subLe n (m % Succ n)
 
--- The division law's negative-dividend cases. With `q = m / Succ n` and
+--| The division law's negative-dividend cases.
+-- With `q = m / Succ n` and
 -- `r = m % Succ n`, `d * (a / d)` computes to `NegSucc (q + n * Succ q)`,
 -- and adding `n - r` gives `-(m + 1)`: `Succ (q + n * Succ q) - (n - r)`
 -- is `Succ m`, because `q + n * Succ q = m + (n - r)`.
@@ -97,8 +99,8 @@ theorem Int.divAddModNeg (m: Nat) (n: Nat) (q: Nat) (r: Nat) (h: m = q * Succ n 
             (Eq.cong (t => q + t) (Eq.sym (Nat.mulSucc n q)))))))))))
       (Nat.addSub (Succ m) (n - r)))
 
--- The non-negative dividend, negative divisor case: `Int.neg (OfNat q)`
--- only computes once `q` is split.
+--| The non-negative dividend, negative divisor case: `Int.neg (OfNat q)`
+--| only computes once `q` is split.
 theorem Int.divAddModPosNeg (m: Nat) (n: Nat): (q: Nat) → (r: Nat) → m = q * Succ n + r →
     Int.add (Int.mul (NegSucc n) (Int.neg (OfNat q))) (OfNat r) = OfNat m
   | Zero, r, h =>
@@ -106,7 +108,7 @@ theorem Int.divAddModPosNeg (m: Nat) (n: Nat): (q: Nat) → (r: Nat) → m = q *
   | Succ q, r, h =>
     Eq.cong OfNat (Eq.trans (Eq.cong (t => t + r) (Nat.mulComm (Succ n) (Succ q))) (Eq.sym h))
 
--- The division law.
+--| The division law.
 theorem Int.divAddMod: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → d * (a / d) + a % d = a
   | a, OfNat Zero => Void.exfalso (ok rfl)
   | OfNat m, OfNat (Succ n) =>
@@ -154,8 +156,8 @@ theorem Int.negAdd: (a: Int) → (b: Int) → Int.neg (Int.add a b) = Int.add (I
   | NegSucc m, OfNat (Succ n) => Int.negSubNatNat (Succ n) (Succ m)
   | NegSucc m, NegSucc n => Eq.cong (t => OfNat (Succ t)) (Eq.sym (Nat.addSucc m n))
 
--- A running total `p - q` of naturals: subtracting `r` adds it to `q`; and
--- `(s + q) - q` is `s`.
+--| A running total `p - q` of naturals: subtracting `r` adds it to `q`; and
+--| `(s + q) - q` is `s`.
 theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) → Int.add (Int.subNatNat p q) (Int.neg (OfNat r)) = Int.subNatNat p (q + r)
   | Zero => Eq.trans (Int.addZero (Int.subNatNat p q)) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addZero q)))
   | Succ r => Eq.trans (Int.subNatNatAddNegSucc r p q) (Eq.cong (Int.subNatNat p) (Eq.sym (Nat.addSucc q r)))
@@ -163,10 +165,10 @@ theorem Int.subNatNatAddNeg (p: Nat) (q: Nat): (r: Nat) → Int.add (Int.subNatN
 theorem Int.toNatSubNatNat (s: Nat) (q: Nat): Int.toNat (Int.subNatNat (s + q) q) = s :=
   Eq.trans (Eq.cong (t => Int.toNat (Int.subNatNatFrom (s + q) q t)) (Nat.subEqZero q (s + q) (Nat.leAddLeft s q))) (Nat.addSub s q)
 
--- Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
--- `d` is added to `x`, hence not for any multiple of `d`.
--- A negative remainder: `m - n` for `m <= n` is as far below 0 as `n - m` is
--- above, so `-(m+1)` is `n - m` on the dial of size `n + 1`.
+--| Integers modulo a size. The remainder `Int.modNat x d` doesn't change when
+--| `d` is added to `x`, hence not for any multiple of `d`.
+--| A negative remainder: `m - n` for `m <= n` is as far below 0 as `n - m` is
+--| above, so `-(m+1)` is `n - m` on the dial of size `n + 1`.
 theorem Int.modNatSubNatNatLe (m: Nat) (n: Nat) (ok: Succ n ≠ 0) (h: Nat.leq m n = True):
     Int.modNat (Int.subNatNat n m) (Succ n) [ok := ok] = n - m % Succ n :=
   Eq.trans (Eq.cong (k => Int.modNat (Int.subNatNatFrom n m k) (Succ n) [ok := ok]) (Nat.subEqZero m n h))
@@ -191,14 +193,14 @@ theorem Int.modNatAddSize: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] → Int.
           (Int.modNatSubNatNatGt n (m - Succ n) ok))
         (Nat.addSubCancel (Succ n) m (Nat.leqFalse m n f)))
 
--- `Int.modNat (x + k * d) d = Int.modNat x d`
+--| `Int.modNat (x + k * d) d = Int.modNat x d`
 theorem Int.modNatAddMul (x: Int) (d: Nat) [auto ok: d ≠ 0]: (k: Nat) → Int.modNat (x + Nat.toInt (k * d)) d = Int.modNat x d
   | Zero => Eq.cong (t => Int.modNat t d [ok := ok]) (Int.addZero x)
   | Succ k =>
     Eq.trans (Eq.cong (t => Int.modNat t d [ok := ok]) (Eq.sym (Int.addAssoc x (Nat.toInt d) (Nat.toInt (k * d)))))
       (Eq.trans (Int.modNatAddMul (x + Nat.toInt d) d k) (Int.modNatAddSize x d))
 
--- One click left of 0 is the top of the dial: `Int.modNat (0 - 1) (Succ h) = h`.
+--| One click left of 0 is the top of the dial: `Int.modNat (0 - 1) (Succ h) = h`.
 theorem Int.modNatNegOne (h: Nat): Int.modNat (Int.subNatNat 0 1) (Succ h) = h :=
   Eq.trans (Eq.sym (Int.modNatAddSize (Int.subNatNat 0 1) (Succ h)))
     (Eq.trans (Eq.cong (x => Int.modNat x (Succ h) [ok := Nat.succNotZero h]) (Eq.trans (Int.subNatNatSucc h 0) (Int.subNatNatZeroRight h)))
@@ -207,7 +209,7 @@ theorem Int.modNatNegOne (h: Nat): Int.modNat (Int.subNatNat 0 1) (Succ h) = h :
 -- Adding a multiple of the size, positive or negative, keeps the remainder,
 -- so wrapping before adding or negating changes nothing.
 
--- `x - y + y` and `x + y - y` are `x`.
+--| `x - y + y` and `x + y - y` are `x`.
 theorem Int.addNegAdd (x: Int) (y: Int): Int.add (Int.add x (Int.neg y)) y = x :=
   Eq.trans (Int.addAssoc x (Int.neg y) y)
     (Eq.trans (Eq.cong (Int.add x) (Int.addComm (Int.neg y) y))
@@ -217,7 +219,7 @@ theorem Int.addAddNeg (x: Int) (y: Int): Int.add (Int.add x y) (Int.neg y) = x :
   Eq.trans (Int.addAssoc x y (Int.neg y))
     (Eq.trans (Eq.cong (Int.add x) (Int.addNeg y)) (Int.addZero x))
 
--- Adding a multiple of `d`, a negative one too, keeps the remainder.
+--| Adding a multiple of `d`, a negative one too, keeps the remainder.
 theorem Int.modNatAddMulInt (x: Int) (d: Nat) [auto ok: d ≠ 0]: (q: Int) →
     Int.modNat (Int.add x (Int.mul (Nat.toInt d) q)) d [ok := ok] = Int.modNat x d [ok := ok]
   | OfNat k =>
@@ -234,7 +236,7 @@ theorem Int.modNatSubMulInt (x: Int) (d: Nat) [auto ok: d ≠ 0] (q: Int):
   Eq.trans (Eq.sym (Int.modNatAddMulInt (Int.add x (Int.neg (Int.mul (Nat.toInt d) q))) d [ok := ok] q))
     (Eq.cong (t => Int.modNat t d [ok := ok]) (Int.addNegAdd x (Int.mul (Nat.toInt d) q)))
 
--- The division law with the remainder as `Int.modNat`.
+--| The division law with the remainder as `Int.modNat`.
 theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d ≠ 0]:
     Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) (Nat.toInt (Int.modNat x d [ok := ok])) = x :=
   Eq.trans
@@ -242,7 +244,7 @@ theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d ≠ 0]:
       (Int.modNatToInt x d [ok := ok] [ok2 := Nat.toIntNeZero d ok]))
     (Int.divAddMod x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])
 
--- Only the remainder of `x` matters to the remainders of `x + y` and `-x`.
+--| Only the remainder of `x` matters to the remainders of `x + y` and `-x`.
 theorem Int.addSwapOf (m: Int) (r: Int) (x: Int) (y: Int) (h: Int.add m r = x): Int.add (Int.add r y) m = Int.add x y :=
   Eq.trans (Int.addComm (Int.add r y) m)
     (Eq.trans (Eq.sym (Int.addAssoc m r y)) (Eq.cong (t => Int.add t y) h))
@@ -268,9 +270,9 @@ theorem Int.modNatModNeg (x: Int) (d: Nat) [auto ok: d ≠ 0]:
       (Int.negAddOf (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok]))
         (Nat.toInt (Int.modNat x d [ok := ok])) x (Int.divAddModNat x d [ok := ok])))
 
--- Quotient and remainder together, Euclidean as `/` and `%` are: the
--- remainder is never negative, so `Int.divMod (-7) 2` is `MkPair (-4) 1`.
--- `dividend` is the main value; `divisor` isn't zero, found by `auto`.
+--| Quotient and remainder together, Euclidean as `/` and `%` are: the
+--| remainder is never negative, so `Int.divMod (-7) 2` is `MkPair (-4) 1`.
+--| `dividend` is the main value; `divisor` isn't zero, found by `auto`.
 def Int.divMod (dividend: Int) (divisor: Int) [auto ok: divisor ≠ 0]: Pair Int Int := MkPair (dividend / divisor) (dividend % divisor)
 
 test "Int.divMod" := Int.divMod (-7) 2 == MkPair (-4) 1 ∧ Int.divMod 7 (-2) == MkPair (-3) 1 ∧ Int.divMod (-7) (-2) == MkPair 4 1
@@ -402,16 +404,16 @@ theorem Int.subNonnegOfLe (m: Nat) (n: Nat) (h: m ≤ n): 0 ≤ Nat.toInt n - Na
     (J (k e => Int.leq (OfNat 0) (Int.subNatNatFrom n m k) = True) rfl (Eq.sym (Nat.subEqZero m n h)))
     (Eq.sym (Int.subOfNats n m))
 
--- If `0 <= v` is false, then `0 <= -1 - v`: the two sides of a case split
--- on a whole number.
+--| If `0 <= v` is false, then `0 <= -1 - v`: the two sides of a case split
+--| on a whole number.
 theorem Int.negOneSubNonneg: (v: Int) → Int.leq (OfNat 0) v = False → 0 ≤ Int.add (NegSucc 0) (Int.neg v)
   | OfNat n, h => Void.exfalso (Bool.trueNotFalse h)
   | NegSucc n, h =>
     J (y e => Int.leq (OfNat 0) y = True) rfl
       (Eq.sym (Eq.trans (Int.subNatNatSucc n 0) (Int.subNatNatZeroRight n)))
 
--- `0 <= (d + 1) * y + r` with `r <= d` means `0 <= y`: a negative `y` makes
--- the product at most `-(d + 1)`, which `r` can't make up.
+--| `0 <= (d + 1) * y + r` with `r <= d` means `0 <= y`: a negative `y` makes
+--| the product at most `-(d + 1)`, which `r` can't make up.
 theorem Int.nonnegOfMulAddSmall (d: Nat) (r: Nat) (hr: r ≤ d): (y: Int) → 0 ≤ OfNat (Succ d) * y + OfNat r → 0 ≤ y
   | OfNat n, h => rfl
   | NegSucc n, h =>
@@ -434,17 +436,17 @@ theorem Int.mulAddAddMul (d: Int) (q: Int) (m: Int) (s: Int): (d * q + m) + d * 
     _ = (d * q + d * s) + m := Eq.sym (Int.addAssoc (d * q) (d * s) m)
     _ = d * (q + s) + m := Eq.cong (t => Int.add t m) (Eq.sym (Int.mulDistribLeft d q s))
 
--- Dividing by a positive `d` and rounding down: from `0 <= c + d * s`,
--- `0 <= c / d + s` (`/` by a positive number is floor division). The floor is
--- what turns `2 * x - 1 >= 0` into `x - 1 >= 0`; rounding toward zero would
--- give the weaker `x >= 0`, and rounding up would be wrong.
+--| Dividing by a positive `d` and rounding down: from `0 <= c + d * s`,
+--| `0 <= c / d + s` (`/` by a positive number is floor division). The floor is
+--| what turns `2 * x - 1 >= 0` into `x - 1 >= 0`; rounding toward zero would
+--| give the weaker `x >= 0`, and rounding up would be wrong.
 theorem Int.divFloorNonneg (d: Nat) (c: Int) (s: Int) (h: 0 ≤ c + OfNat (Succ d) * s): 0 ≤ c / OfNat (Succ d) + s :=
   Int.nonnegOfMulAddMod d (c % OfNat (Succ d)) (Int.modNonneg c (OfNat (Succ d))) (Int.modLtAbs c (OfNat (Succ d))) (c / OfNat (Succ d) + s)
     (J (z p => Int.leq (OfNat 0) z = True) h
       (Eq.trans (Eq.cong (t => Int.add t (OfNat (Succ d) * s)) (Eq.sym (Int.divAddMod c (OfNat (Succ d)))))
         (Int.mulAddAddMul (OfNat (Succ d)) (c / OfNat (Succ d)) (c % OfNat (Succ d)) s)))
 
--- `2 * x - 1 >= 0` gives `x - 1 >= 0`, at `x = 1`.
+--| `2 * x - 1 >= 0` gives `x - 1 >= 0`, at `x = 1`.
 theorem Int.divFloorNonnegExample: 0 ≤ (-1) / 2 + 1 := Int.divFloorNonneg 1 (-1) 1 rfl
 
 test "Int.divFloorNonneg rounds down" := (-1) / 2 == (-1: Int) ∧ (-3) / 2 == (-2: Int) ∧ 3 / 2 == (1: Int)

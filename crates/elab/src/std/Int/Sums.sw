@@ -1,8 +1,9 @@
--- Sums of lists over `Int`: the lemmas that need both `Int/Int.sw` and the
--- `List.sumBy` lemmas of `List/Lemmas.sw`. They live here so that a program
+--| Sums of lists over `Int`: the lemmas that need both `Int/Int.sw` and the
+--| `List.sumBy` lemmas of `List/Lemmas.sw`.
+-- They live here so that a program
 -- using only `Int` does not load the list files.
 
--- The cast of a sum is the sum of the casts.
+--| The cast of a sum is the sum of the casts.
 theorem Int.toIntSumBy (f: a → Nat): (xs: List a) → (List.sumBy xs f).toInt = List.sumBy xs (x => (f x).toInt)
   | Nil => rfl
   | Cons x xs =>
@@ -10,7 +11,7 @@ theorem Int.toIntSumBy (f: a → Nat): (xs: List a) → (List.sumBy xs f).toInt 
       (Eq.trans (Eq.cong (t => Int.add (Nat.toInt (f x)) t) (Int.toIntSumBy f xs))
         (Eq.sym (List.sumByCons xs x (y => (f y).toInt))))
 
--- A common factor comes out of a sum.
+--| A common factor comes out of a sum.
 theorem Int.sumByMulLeft (c: Int) (f: a → Int): (xs: List a) → List.sumBy xs (x => c * f x) = c * List.sumBy xs f
   | Nil => Eq.sym (Int.mulZero c)
   | Cons x xs =>
