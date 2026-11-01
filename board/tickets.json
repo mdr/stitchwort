@@ -1,5 +1,5 @@
 {
-  "next": 1002,
+  "next": 1003,
   "tickets": [
     {
       "id": 47,
@@ -3189,6 +3189,20 @@
         "7a2f55d5",
         "280391b8"
       ]
+    },
+    {
+      "id": 1002,
+      "title": "Std.Parse reading lemmas, part 2: section/sections/blankLine/findAll/repeat/natDigits/recursive; specs about what follows",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Left open by SW-998. (1) No Reads lemmas for section, sections, blankLine (labelWhole carries a mark, needs its own tree lemma), findAll, repeat, natDigits, recursive. (2) A Reads spec relates the text read to the value, not to what follows, so 'a number with no digit after it' and 'nothing is left' can't be stated; the runners handle end themselves. (3) readsBind needs the parser's next step spelled out because unification won't unfold a parser's definition; naming pieces as defs keeps it short.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
     }
   ]
 }
