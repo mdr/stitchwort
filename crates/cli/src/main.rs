@@ -1884,7 +1884,11 @@ fn finish_search_at(
     if let Some(log) = log {
         let entry = match &result {
             Ok(report) => stitchwort_cli::search_log::at_entry(at, report, started),
-            Err(d) => stitchwort_cli::search_log::error_entry(at, d, started),
+            Err(d) => stitchwort_cli::search_log::error_entry(
+                &stitchwort_cli::search_log::private_at(at),
+                d,
+                started,
+            ),
         };
         stitchwort_cli::search_log::append(log, &entry);
     }
@@ -2077,7 +2081,9 @@ fn search(
     let found = session.search(query, options, &scope);
     if let Some(log) = log {
         let scope_json = match (file, &scope) {
-            (Some(path), _) => serde_json::json!({"file": path.display().to_string()}),
+            (Some(path), _) => serde_json::json!({
+                "file": stitchwort_cli::search_log::private_path(&path.display().to_string())
+            }),
             (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
             (None, Scope::File | Scope::ProjectFile { .. }) => serde_json::Value::Null,
         };
