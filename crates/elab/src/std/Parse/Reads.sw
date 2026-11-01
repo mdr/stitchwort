@@ -4,9 +4,9 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 --| What a successful parse read. `Parse.Reads parser spec` says: whenever
 --| `parser` succeeds, it read a start of the input, and `spec` holds of the
 --| characters it read and the value it gave. Each piece and combinator below
---| has such a lemma (`Parse.readsNat`, `Parse.readsMany`, `Parse.readsPick`,
+--| has such a lemma ([`Parse.readsNat`], [`Parse.readsMany`], [`Parse.readsPick`],
 --| …), and the runners turn one into a statement about the input
---| (`Parse.eachLineReads`: a successful `eachLine` gives one value per line,
+--| ([`Parse.eachLineReads`]: a successful `eachLine` gives one value per line,
 --| each `spec` of that line). So a parser guarantee is the runner's lemma
 --| applied to the combinators' lemmas:
 --|
@@ -33,12 +33,12 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 -- computation tree (`Effect.AlwaysTree`, as `Rogue.Proofs.withSeedAlways`
 -- does), splitting on its next operation with `match reify`.
 
+--| What `parser` reads and gives, as `spec read value`. Run from any honest
+--| state, if it succeeds giving `value`, it has read a start `read` of the
+--| input, left an honest state, and `spec read value` holds.
+--|
 --| A mark is honest when `left` counts the characters in `rest`, as every
 --| mark of a run from the start is; `end` and `lineEnd` look at `left`.
---|
---| `parser`, run from any honest state, if it succeeds giving `value`,
---| has read a start `read` of the input, left an honest state, and `spec
---| read value` holds.
 def Parse.Reads (parser: () → {Parse} a) (spec: List Char → a → Prop): Prop :=
   (state: Parse.State) → (value: a) → (after: Parse.Mark) → state.at.left = state.at.rest.length →
     Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after) →
@@ -98,9 +98,10 @@ theorem Parse.runFromThenOk (p: () → {Parse} a) (s: Parse.State) (k: a → {Pa
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
   Parse.runFromThenOkTree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s k w h
 
---| The same with two continuations, `k (j (p()))`, which isn't `(x => k (j
---| x)) (p())` until the computation is known: a combinator's own rest, then
---| the caller's.
+--| A run of `p` then two continuations, `k (j (p()))`, that succeeded: `p`
+--| succeeded on its own, and the rest went on from where it stopped. This
+--| isn't `(x => k (j x)) (p())` until the computation is known: a
+--| combinator's own rest, then the caller's.
 theorem Parse.runFromThenOk2Tree (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (s: Parse.State) (j: a → {Parse} c)
     (k: c → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (j (p()))) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k (j v)) = Ok w :=
@@ -1018,7 +1019,7 @@ theorem Parse.runFromAt (c: () → {Parse} b) (s: Parse.State) (t: Parse.State) 
 
 --| `labelFrom what start q` that let the rest succeed: `q` succeeded on its
 --| own. The label passes `q`'s reading on and drops some of its notes, which
---| only change what an error says (`Parse.runFromAt`).
+--| only change what an error says ([`Parse.runFromAt`]).
 theorem Parse.runFromLabelFromOkTree (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (s: Parse.State) (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.labelFrom what start q)) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
@@ -1195,7 +1196,7 @@ theorem Parse.readsSectionLine (p: () → {Parse} a) (spec: List Char → a → 
 --| `labelWholeFrom what start q furthest` that let the rest succeed: `q`
 --| succeeded on its own. The handler passes `q`'s reading on, carries the
 --| furthest point along, which only a failure uses, and drops `q`'s notes,
---| which only change what an error says (`Parse.runFromAt`).
+--| which only change what an error says ([`Parse.runFromAt`]).
 theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (furthest: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=

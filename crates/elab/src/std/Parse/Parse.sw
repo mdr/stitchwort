@@ -42,8 +42,9 @@ type Parse.Problem =
 --| `Parse.Failure.describe`.
 type Parse.Failure = { offset: Nat, messages: List Text, expected: List Text, width: Nat }
 
---| The operations. Each is a token's worth of work in the handler, so a
---| parser makes a handful of them per line, not one per character.
+--| Parsing text: the operations a parser performs on its input, run by a
+--| handler such as `Parse.run`. Each is a token's worth of work in the
+--| handler, so a parser makes a handful of them per line, not one per character.
 ability Parse where
   --| The longest prefix whose characters all pass the test, read.
   span: (Char → Bool) → {Parse} (List Char)
@@ -69,9 +70,11 @@ ability Parse where
 --| was found).
 type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Text, messages: List Text, width: Nat }
 
+--| The state with `what` among what was expected, if it isn't already.
 def Parse.State.expect (state: Parse.State) (what: Text): Parse.State :=
   if state.expected.any (== what) then state else { state | expected = state.expected ++ [what] }
 
+--| The state with a problem noted at the current point.
 def Parse.State.add (state: Parse.State): Parse.Problem → Parse.State
   | Expected what => state.expect what
   | Literal text => { state.expect "'${text}'" | width = Nat.max state.width text.length }
@@ -91,6 +94,7 @@ def Parse.State.note (state: Parse.State) (problem: Parse.Problem): Parse.State 
       | _ => state.add problem
   else state
 
+--| The state moved on past `count` characters, with `rest` left to read.
 def Parse.State.advance (state: Parse.State) (rest: List Char) (count: Nat): Parse.State :=
   { state | at = { rest, offset = state.at.offset + count, left = state.at.left - count } }
 
@@ -101,11 +105,13 @@ def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, P
   let split := state.at.rest.span passes
   (split.fst, state.advance split.snd split.fst.length)
 
+--| The next character, if it passes the test, and the state after reading it.
 def Parse.State.next (state: Parse.State) (passes: Char → Bool): (Option Char, Parse.State) :=
   match state.at.rest with
     | Cons char after => if passes char then (Some char, state.advance after 1) else (None, state)
     | Nil => (None, state)
 
+--| Whether the characters come next, and the state after reading them if they do.
 def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.State) :=
   match Text.stripPrefixChars chars state.at.rest with
     | Some after => (True, state.advance after chars.length)
@@ -212,8 +218,10 @@ def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text :=
     | Nil => Parse.expected what
     | chars => Text.fromList chars
 
+--| Whether a character is an ASCII digit, `0` to `9`.
 def Parse.isDigit (char: Char): Bool := char.digitValue.isSome
 
+--| Whether a character is a space or a tab.
 def Parse.isSpace (char: Char): Bool := char == ' ' ∨ char == '\t'
 
 --| A whole number written in decimal digits, else "expected a number".
@@ -337,6 +345,7 @@ def Parse.valueOr (found: Option a) (fallback: () → {Parse} a): {Parse} a :=
     | Some value => value
     | None => fallback()
 
+--| The value of `first` if it succeeds, else of the first of the rest that does: `Parse.oneOf`'s loop.
 def Parse.oneOfFrom (first: () → {Parse} a): List (() → {Parse} a) → {Parse} a
   | [] => first()
   | [next, ..rest] => Parse.valueOr (Parse.optional first) (() => Parse.oneOfFrom next rest)
@@ -413,7 +422,7 @@ def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Par
     separator()
     parser()))
 
---| The same, possibly none. Never fails.
+--| `parser`, then `separator` and `parser` again as long as both match: any number of values, possibly none. Never fails.
 def Parse.sepBy (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} (List a) :=
   Parse.optional (() => Parse.sepBy1 parser separator) |> .getOrElse []
 
@@ -519,9 +528,10 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
 --| Reads all of the input and never fails.
 def Parse.findAll (parser: () → {Parse} a): {Parse} (List a) := Parse.findAllFuel (Parse.mark().left + 1) (() => ()) parser []
 
---| The same, for a `parser` that can match only where `starts` holds for the
---| next character: the characters between are skipped with one `span`, not
---| tried one at a time. A match starting anywhere else is missed.
+--| The values of `parser` everywhere it matches, as `Parse.findAll`, for a
+--| `parser` that can match only where `starts` holds for the next character.
+--| The characters between are skipped with one `span`, not tried one at a
+--| time. A match starting anywhere else is missed.
 def Parse.findAllStarting (starts: Char → Bool) (parser: () → {Parse} a): {Parse} (List a) :=
   let skipNoise := () =>
     let skipped := Parse.span (char => ¬(starts char))
@@ -835,7 +845,7 @@ theorem Parse.runFromOptionalFromStop (state: Parse.State) (start: Parse.Mark) (
     Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest Parse.stop()))) = Parse.runFrom { state | at = start } (() => k None) :=
   rfl
 
---| Both cases for a piece, `text`.
+--| `optional (text expected)` from a state where `expected` comes next reads it and goes on with `Some ()`.
 theorem Parse.runFromOptionalTextThere (state: Parse.State) (expected: Text) (rest: List Char) (k: Option () → {Parse} a)
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected))) =
@@ -889,8 +899,10 @@ theorem Parse.runFail (message: Text): Parse.run [] (() => (Parse.fail message: 
 -- Tests. Each runs a parser with `Parse.line` (errors give the column) or
 -- `Parse.all` (the line and column).
 
+--| The value of `parser` on `line`, or the error, with its column.
 def Parse.Tests.lineResult (line: Text) (parser: () → {Parse} a): Result a Text := Fail.toResult (() => Parse.line line parser)
 
+--| The value of `parser` on the whole input, or the error, with its line and column.
 def Parse.Tests.allResult (input: Text) (parser: () → {Parse} a): Result a Text := Fail.toResult (() => Parse.all input parser)
 
 --| The error if `parser` fails on `line`, else "": for parsers whose value is `()`.
