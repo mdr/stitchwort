@@ -387,7 +387,10 @@ fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
             Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
         }
     }
-    out
+    match &plan.sym {
+        Some(sym) => format!("{sym} ({out})"),
+        None => out,
+    }
 }
 
 /// A type after `:` in a binder: a record update would read as a block.
@@ -623,7 +626,34 @@ impl Session {
             }
         }
         let mut results: Vec<(Suggestion, usize)> = Vec::new();
-        'hits: for (hit, plans) in &closing.plans {
+        // A hypothesis that is the goal (SW-989): it closes it alone.
+        for h in &data.hypotheses {
+            let named = h
+                .name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
+            if named
+                && !checker.out_of_time()
+                && matches!(checker.check(&h.name, &[]), Outcome::Closed)
+            {
+                let s = Suggestion {
+                    class: "withHypotheses",
+                    proof: h.name.clone(),
+                    name: h.name.clone(),
+                    kind: "hypothesis",
+                    ty: h.ty.clone(),
+                    file: String::new(),
+                    line: 0,
+                    import: None,
+                    checked: "kernel",
+                    obligations: Vec::new(),
+                    goals: Vec::new(),
+                    search_rank: None,
+                };
+                results.push((s, 0));
+            }
+        }
+        'hits: for (order, (hit, plans)) in closing.plans.iter().enumerate() {
             let rank = ranks.iter().position(|i| *i == hit.item).unwrap_or(0) + 1;
             let mut best: Option<Suggestion> = None;
             for plan in plans {
@@ -648,7 +678,8 @@ impl Session {
             if let Some(s) = best
                 && !results.iter().any(|(r, _)| r.proof == s.proof)
             {
-                results.push((s, rank));
+                // In the order tried (`closing_plans`), not the search's.
+                results.push((s, order + 1));
             }
         }
         debug_time("closing checked", started);
@@ -662,6 +693,31 @@ impl Session {
                 && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
             {
                 rewrites.push(r);
+            }
+        }
+        // The goal's equations, each way (SW-976: `rewrite <- h in …`).
+        for h in &data.hypotheses {
+            let named = h
+                .name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
+            let equation = h.ty.contains(" = ") || h.ty.contains(" ↔ ");
+            if !named || !equation || checker.out_of_time() {
+                continue;
+            }
+            for backwards in [false, true] {
+                let rule = Rule {
+                    text: &h.name,
+                    backwards,
+                    iff: h.ty.contains(" ↔ "),
+                    name: &h.name,
+                    at: "",
+                };
+                if let Some(r) = try_rule(&mut checker, &rule, &target_now)
+                    && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+                {
+                    rewrites.push(r);
+                }
             }
         }
         // A rewrite after which `rfl` or `omega` closes the goal closes it:
@@ -784,6 +840,9 @@ impl Session {
     /// Fills in a suggestion's declaration: name, kind, type, place, import.
     fn describe(&self, s: &mut Suggestion, scope: &Scope) {
         let g = &self.elab.globals;
+        if s.kind == "hypothesis" {
+            return;
+        }
         let Some(item) = find_item(self, &s.name) else {
             return;
         };
@@ -850,6 +909,21 @@ fn try_plan(
     if matches!(first, Outcome::Failed) && has_given {
         text = render(plan, &[], true);
         first = checker.check(&text, &[]);
+    } else if (plan.args.iter()).any(|a| matches!(a, Arg::Given(t) if t.chars().count() > 40)) {
+        // A long argument, often the goal's term computed (`List.concat
+        // (List.map …)` for a `flatMap`): `_` reads better, where it does
+        // as well (SW-989).
+        let short = render(plan, &[], true);
+        let second = checker.check(&short, &[]);
+        let same = match (&first, &second) {
+            (Outcome::Closed, Outcome::Closed) => true,
+            (Outcome::Goals(a), Outcome::Goals(b)) => a.len() == b.len(),
+            _ => false,
+        };
+        if same {
+            text = short;
+            first = second;
+        }
     }
     let infer = text != render(plan, &[], false);
     let uses_hyp = plan.args.iter().any(|a| matches!(a, Arg::Hyp(_)));
@@ -936,6 +1010,13 @@ fn try_plan(
                 if left.iter().any(|g| g.target.contains('?')) {
                     return None;
                 }
+                // Nor does one that leaves the goal as it was
+                // (`Bool.canonicalTrue … ?`, SW-963).
+                if (left.iter())
+                    .any(|g| g.target == checker.target_now || g.target == checker.goal.target)
+                {
+                    return None;
+                }
                 let mut s = base("applicable", proof.clone());
                 s.obligations = obligations;
                 let writable = checker.intros.is_empty()
@@ -1000,6 +1081,30 @@ fn try_rewrite(
     target_now: &str,
 ) -> Option<Rewrite> {
     let rule = render(&rp.plan, &[], false);
+    let rule = Rule {
+        text: &rule,
+        backwards: rp.backwards,
+        iff: rp.iff,
+        name: &rp.plan.item_path,
+        at: &rp.subterm,
+    };
+    try_rule(checker, &rule, target_now)
+}
+
+/// A rewrite to try: `rewrite [<-] text in ?`.
+struct Rule<'a> {
+    text: &'a str,
+    backwards: bool,
+    iff: bool,
+    /// The lemma's full name, or the hypothesis's.
+    name: &'a str,
+    /// The call it rewrites, printed (empty for a hypothesis).
+    at: &'a str,
+}
+
+/// [`try_rewrite`] for any rule.
+fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrite> {
+    let rule = rp.text;
     let arrow = if rp.backwards { "<- " } else { "" };
     let proof = format!("rewrite {arrow}{rule} in ?");
     let left = match checker.check(&proof, &[]) {
@@ -1042,12 +1147,12 @@ fn try_rewrite(
     }
     Some(Rewrite {
         proof,
-        name: rp.plan.item_path.clone(),
+        name: rp.name.to_string(),
         ty: String::new(),
         file: String::new(),
         line: 0,
         import: None,
-        at: rp.subterm.clone(),
+        at: rp.at.to_string(),
         direction: if rp.backwards {
             "rightToLeft"
         } else {
