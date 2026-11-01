@@ -3275,7 +3275,7 @@
     {
       "id": 1007,
       "title": "rfl in a call is checked against its goal as computed before a later hole was solved",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -3285,7 +3285,9 @@
       "body": "Found by the stage 7 design (SW-988, case 5, SW-963): the retry checks rfl against the goal computed before the hole was solved; recomputing the goal makes it check. Repro in docs/proposals/postponement/stage7/. Fixed by stage 7 rule 1 if D2127 goes ahead; otherwise fix on its own.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "259a54f9"
+      ]
     },
     {
       "id": 1008,
@@ -3318,7 +3320,7 @@
     {
       "id": 1010,
       "title": "Postponement stage 7 build: inferred literals wait (D2126), proof-search arguments last (D2127), failed searches wait (D2128)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3327,7 +3329,9 @@
       "body": "Matt, 1 Nov 2026: D2126 yes (inferred literals wait, with calc resume point, scope-independent type unknown and placeholder, and the four message rules); D2127 yes (rule 1: omega/cases/ring/rewrite after the rest of the call; rfl in its own step once the float-playlist break is understood; find the scan-layout break first); D2128 yes (omega and ring join rewrite/cases in waiting on a failed search, any unsolved unknown); D2129 keep today's expected-type propagation (no Lean per-argument comparison); D2130 two backlog tickets. Design: docs/proposals/postponement.md 'Stage 7: design'. Fixes SW-1007 (rfl stale goal) via rule 1.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "259a54f9"
+      ]
     },
     {
       "id": 1011,
@@ -3392,7 +3396,7 @@
     {
       "id": 1015,
       "title": "Trip-journal friction, language: record literals/updates in theorem statements; if h: P producing proofs; Decidable for records of decidable Props",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
