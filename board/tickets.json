@@ -1,5 +1,5 @@
 {
-  "next": 1035,
+  "next": 1038,
   "tickets": [
     {
       "id": 47,
@@ -3611,7 +3611,7 @@
     {
       "id": 1028,
       "title": "Design: per-arm equation lemmas and f.induct (functional induction), with a literature review",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3621,7 +3621,9 @@
       "body": "D2163 (Matt, 1 Nov 2026). One design covering SW-802 (D1439 per-branch equations), SW-199's f.induct, SW-809, SW-980. Output: docs/proposals/function-equations.md plus an artifact for Matt's review. Mini literature review: Lean 4, Agda, Idris 2, Coq/Rocq (Equations plugin, Function), Isabelle (function package), F*/Dafny where relevant.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "03daa2ab"
+      ]
     },
     {
       "id": 1029,
@@ -3687,7 +3689,7 @@
     {
       "id": 1033,
       "title": "Documentation stage 2a part 4: sort std Float, Nat, Terminal, Omega, Int, Graph",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3696,7 +3698,9 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "d6918025"
+      ]
     },
     {
       "id": 1034,
@@ -3708,6 +3712,49 @@
         "diagnostics"
       ],
       "body": "From SW-1027 (1 Nov 2026). (1) Literal misses (number, character, Int, exact Fin) keep the old 'other than …, add _' message with no missing member, and are reported before constructor splits, so they can hide constructor cases in other columns. (2) Possibly-missing indexed cases appear only after the certain ones are added. (3) A match with a missing arm and an unrelated error in a later branch may report the later error instead (still rejected).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1035,
+      "title": "Function equations stage 1a: generated arm equations (f.eqK) with overlap and literal hypotheses, E-NO-EQUATION, library index, cost gate",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "docs/proposals/function-equations.md (SW-1028). Matt, 1 Nov 2026: build stage 1 on the design's recommendations: D2173-D2180 and D2183-D2187 as recommended. Stage 2 (D2181 f.induct, D2182 match induct) waits for Matt. Summary: https://claude.ai/artifact/4KMnCJoY8rn53HA4Z6UVn5. Next: 1b branch equations (Opus), 1c doc/search/hover/messages (Sonnet), 1d acceptance (Sonnet, Opus review).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1036,
+      "title": "Documentation stage 2a review: Opus review of the std --| / -- sort, namespace by namespace",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "D2151. Checks nothing a caller needs was hidden as a -- note, nothing maintainer-only shows as --|, and summaries read well. Also: 6 docs still plain -- (Bool.canonicalTrue Float.sw:39, Nat.ltOfNotLe Arith.sw:91, 4 more); docsort splits units by line not sentence (mixed runs sorted as one lump).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1037,
+      "title": "Documentation stage 2c: sort aoc and the roguelike into --| docs and -- notes",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
