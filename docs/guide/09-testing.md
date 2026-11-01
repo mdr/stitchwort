@@ -107,9 +107,9 @@ A test with a puzzle input can read the file at check time with `include "path"`
 
 <!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Tests/Input.sw -->
 ```stitchwort
--- The real puzzle input (aoc/inputs/2025/day01.txt, committed), through
--- `include`: the answers are checked on it when the tests run, and editing
--- the input reruns exactly these tests.
+--| The real puzzle input (aoc/inputs/2025/day01.txt, committed), through
+--| `include`: the answers are checked on it when the tests run, and editing
+--| the input reruns exactly these tests.
 namespace Aoc.Year2025.Day01.Tests
 import Aoc.Year2025.Day01 (..)
 import Std (Fail, List, Result, Text)
