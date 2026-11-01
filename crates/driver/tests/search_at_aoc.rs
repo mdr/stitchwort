@@ -673,9 +673,10 @@ fn search_at_on_real_2021_goals() {
             o.refused.as_deref().unwrap_or(&o.first)
         );
     }
-    // 1 November 2026: none refused, 23 of 29 (SW-989).
+    // 1 November 2026: none refused, 23 of 29 (SW-989); 27 of 29 (SW-993),
+    // the bar raised to 80% (a goal near the time limit can miss under load).
     if only.is_none() {
         assert_eq!(count(&|o| o.refused.is_some()), 0, "a goal was refused");
-        assert!(hits * 100 >= n * 70, "the hit rate fell below 70%");
+        assert!(hits * 100 >= n * 80, "the hit rate fell below 80%");
     }
 }

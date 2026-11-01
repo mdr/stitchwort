@@ -1167,3 +1167,89 @@ SW-971 item 3, SW-980 item 1, SW-967 item 5): goals still show `split.%match1`, 
   check runs under the declaration's resource limits, and a smaller step budget doesn't stop
   `cases` (tried: no change). The lane tests leave that lemma out (`search_at.rs` `options`),
   which keeps the lane tier under its 3 GB.
+
+## As built (SW-993, stage 3 follow-ups)
+
+SW-993 (1 November 2026) built four of stage 3's "Not built" items, `--in`, and made the query log
+safe to switch on. Each was measured on the AoC 2021 benchmark, run once per item on a shared
+machine.
+
+**The benchmark first.** It panicked on main: six of its goals no longer matched their files
+(SW-983 replaced AoC proofs by new std lemmas, SW-984 moved day 15's into `Aoc.Common`). Each was
+put back as the lane met it: the theorem written again with `?` (day 10's `toNatAtMostOne` and
+`countAtMostLength`, day 16's `takeAppendLength`), or the `?` where the std lemma now stands, that
+lemma left out (`exclude`: day 9's `Map.lengthKeys`), or the same proof's new text (days 11 and
+15). Main's search scored 23 of 29 on it, as SW-989 reported.
+
+| | closed by what the proof used | offered as a step | hit rate |
+|---|---|---|---|
+| main (benchmark repaired) | 10 of 23 | 7 | 23/29 (79%) |
+| + the induction hypothesis | 13 | 7 | 26/29 (90%) |
+| + a hypothesis's rewrite, then a lemma | 14 | 7 | 27/29 (93%) |
+| + one-premise arrows, conjuncts, `--in` | 14 | 7 | 27/29 (93%) |
+
+Self-retrieval over std is unchanged after every item (conclusions 87.6% strict top-1, MRR
+0.917; left sides 80.8%, 0.880; no internal error). The benchmark's bar is now 80% (it was 70%).
+
+- **The induction hypothesis** (days 12, 16's `lengthEvaluateAll`, 17 closed). The goal keeps,
+  beside its terms, what the declaration's parameters stand for there
+  (`GoalSnapshot::owner_args`: the context's first variables, `Cons x rest` for a list a case
+  split took apart). A goal variable inside a constructor of one, of its type, is structurally
+  smaller (`n` of `Succ n`, `rest`), and only such calls are offered: each choice of smaller
+  variables (four at most) is planned with the other arguments as at the goal, premises from
+  hypotheses (`visitsMember cave rest later`), and, for an equation, with a side matched against a
+  call of the target, which solves the rest (`dyAfter n (step probe)`: matching `Nat.iterate n
+  step ?p` against `Nat.iterate (Succ n) step probe` unfolds the latter). Each call is checked with
+  the declaration bound at the goal as a hypothesis of its type (`check_proof_at`'s `recursive`):
+  alone, as `omega [call]`, and as a rewrite. The target and the instantiated conclusion often
+  compute to forms the unifier doesn't equate (`x + 2 * Succ n` and `2 + (x + (n + n))`), so the
+  arguments are checked against their parameters' types instead when that fails. Termination is
+  checked only with the proof pasted: in a project every closing suggestion is (stage 2b), so
+  there it is; in a file on its own nothing checks it, and the suggestion says `checked:
+  elaborated`. When nothing using it closes, the calls are listed (`inductionHypotheses`), and the
+  benchmark counts them as steps. A computed argument is printed as computed (`dyAfter n ({ x =
+  probe.x + probe.dx, … })` for `step probe`); it checks, but reads worse than the original.
+- **A rewrite by a hypothesis, then a lemma** (day 16's `takeAppendLength` closed): when a
+  hypothesis's rewrite leaves a goal no closer closes, that goal, opened from its statement in the
+  checking session, is searched for lemmas that close it with nothing left open, each checked at
+  the first goal after the rewrite (`rewrite <- h in List.takeAppend xs ys`). Only after a
+  hypothesis's rewrite, not a lemma's (lengthBitsOf's `lengthSnoc` then the induction hypothesis,
+  and pairsStep's two rewrites, remain steps).
+- **Class laws and `T.ext`**: both were already candidates (a law is a theorem; `Point.ext`
+  matches `(?a: Point) = ?b` and closes `a = b` from `hx` and `hy` at a goal). The miss was the
+  pattern's shape: a function-type pattern with one premise (`Ord.compare ?x ?y = Equal → ?x =
+  ?y`) is matched whole from the candidate's first explicit parameter (`x`), and the reordered
+  match, which skips the candidate's extra parameters, required two of the pattern's. It takes one
+  now; `(?a: Nat) < ?b → ?a ≤ ?b` finds `Nat.lessLe` first too (both are hand queries). Not built:
+  `Eq.cong` around a lemma (`Some a = Some b` from `Point.ext`, day 18's `shiftAppend`).
+- **Conjuncts** (`Item::Part`): a theorem whose conclusion is a conjunction, written or the body
+  of the definition it calls (`Graph.Shortest`), is a candidate per conjunct too, nested to three
+  deep, but only where written as a conjunction: a conjunct that is itself a call isn't unfolded.
+  Unfolding every conjunct was tried first: AoC 2021 day 11's `Part2Answer` gave `AllFlashIn`'s
+  `1 ≤ answer`, which fit day 12's `1 ≤ visits …`, and checking its theorem's `rfl` premise took
+  145 s. A conjunct ranks after declarations that match as well. Results say `conjunct` (`left`,
+  `right.left`); proofs take it with `And.left (…)`. No benchmark goal uses one.
+- **`--in NAMESPACE`**, repeatable, for `search` and `--at`.
+
+**The query log.** It is opt-in (`--log FILE` or `STITCHWORT_SEARCH_LOG`), and nothing set it, so
+nothing was logged. Version 1 wrote `cwd`, the absolute folder (naming the user's home), and file
+paths as given; version 2 writes no folder, and paths relative to the folder the command ran in
+(or a file's name alone outside it). It appends to a local file; nothing is sent. The event for
+"the lemma the next `check` used" is still not built. Proposed, not done (lane setup unchanged):
+lanes that prove theorems set `STITCHWORT_SEARCH_LOG` to a file per lane in an ignored folder of
+the main checkout that outlives worktrees (`search-logs/<ticket>.jsonl`, the folder in
+`.gitignore`), and a merge leaves the file there; reading the logs is a separate step that never
+leaves the machine.
+
+**Not built, or still missing**: day 9's `Map.sizeToList` under `Eq.trans` (skipped);
+`byDecision` on undecidable goals and premise patterns in any position (skipped); day 16's
+`groupsValue` (closed by `cases`, but not by what the proof used); a lemma's rewrite followed by
+the induction hypothesis (lengthBitsOf, pairsStep, countAtMostLength stay steps).
+
+**Found**: one closing check can take minutes and gigabytes, and nothing stops a check once
+started (the deadline is read between checks). AoC 2021 day 16 `Sound.sw`'s `totalThen` took
+45 s to 345 s in the five runs of the daily sample, almost all of it one check of `List.consInjective
+_ (Cons …)` (289 s in a run with timings): a std lemma's plan, a path this work didn't change, so
+probably as before it (stage 2b reported 290 s at most for such a namespace) [inferred]; one run of the sample (after the conjuncts, before they stopped
+unfolding) was stopped by the 16 GB memory guard, the goal not identified. A step and memory limit
+per check, smaller than the declaration's, would bound both.
