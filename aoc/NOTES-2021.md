@@ -2006,3 +2006,257 @@ Release build:
    first (item 6).
 5. Every grid day writes its neighbours and their adjacency lemmas (item
    2). Fix: a std grid module.
+
+## Day 10: Syntax Scoring
+
+Each line is a string of brackets from four pairs. A line is corrupted
+when a closer doesn't match the innermost bracket still open, and
+incomplete when it isn't corrupted but leaves brackets open. Part 1 adds
+up a score for each corrupted line's first wrong closer. Part 2 scores
+the closers that would complete each incomplete line (times 5, plus the
+closer's points, closer by closer) and takes the middle score. Answers on
+Matt's input (94 lines): 364389 and 2870201088 (his Scala solution's);
+the puzzle's 10-line example gives 26397 and 288957. Compiler: the
+installed release build (main checkout, built 31 October 23:38), on
+`main` at a937906d, 1 November 2026.
+
+### The program
+
+`Token` is `Opener Bracket` or `Closer Bracket`. One function, `scan`,
+does both parts: it reads the tokens with a stack of the brackets still
+open, innermost first, and ends as `Corrupted illegal` at the first
+closer that doesn't match the top (or has nothing open), or as
+`Unclosed open` with the stack. Read top first, the stack is the
+completion. The middle score is `sort` at index `length / 2`. Both
+answers were right on the first run.
+
+The parser is written by hand: `tokenOf` maps the eight characters to
+tokens (`None` for any other), and each line is `withIndex.map` of
+`Fail.need (tokenOf char) "line 2, column 2: expected a bracket, got
+'x'"`. The first version was `Parse.eachLine input (() => many1 (() =>
+pick table))`, which worked, but no lemma says what `many1`/`pick` read
+(item 1 below).
+
+**The spec** (Spec/Spec.sw) has no stack. `Balanced` is a grammar
+(inductive): empty, two balanced lines one after the other, or a
+balanced line between an opener and its closer. A start of a line is
+`Legal` if some ending makes it balanced. `FirstIllegal line token`:
+`line = before ++ token :: after`, `before` is legal and `before ++
+[token]` isn't. Part 1 (`Part1Answer`, inductive over the lines) adds
+each line's `ErrorScore`: the points of its first illegal closer, or 0
+for a legal line. A line is `Incomplete` if it is legal and not
+balanced; `Completes line closers` if `line ++ closers` is balanced.
+`CompletionScores lines scores` lists the incomplete lines' completion
+scores in order (the formula is the puzzle's, `completionTotal`). The
+middle (`Middle scores m`): `m` is a score, and at most half the scores
+are below it and at most half above (`2 * count ≤ length`). That is
+defined for any list; with an odd count it is the one middle element,
+with an even count either of the two middle ones. `Part2Answer lines m`:
+some `CompletionScores lines scores` with `Middle scores m`.
+
+### Proved
+
+In `Aoc.Year2021.Day10.Proofs` (Proofs/Scan.sw, Part1.sw, Part2.sw,
+Middle.sw, Parse.sw, 494 lines):
+
+- `part1Correct (lines)`: `Part1Answer lines (solvePart1 lines)`. No
+  hypothesis.
+- `part1Unique`: two `Part1Answer`s of the same lines are equal, so the
+  spec's answer is a function of the lines, and the program's is it. It
+  rests on `firstIllegalUnique` (a line has one first illegal character)
+  and on corrupted and legal lines being disjoint.
+- `part2Correct (lines) (line) (member: line ∈ lines) (incomplete:
+  Incomplete line)`: `Part2Answer lines (solvePart2 lines)`. Hypothesis:
+  at least one line is incomplete (with none, no number is a middle of
+  the empty list).
+- `part2Unique (lines) (a) (b) (odd: (scores: List Nat) →
+  CompletionScores lines scores → scores.length % 2 = 1)`: two
+  `Part2Answer`s are equal, when every list of the lines' completion
+  scores has odd length (that list is unique, `completionScoresUnique`, so
+  this says: an odd number of incomplete lines, the puzzle's promise). A
+  test checks the promise on the input.
+- The bridge between the stack and the grammar: `balancedScan` (a
+  balanced piece leaves any stack as it was) and `scanBalanced` (a line
+  whose scan from nothing open ends with nothing open is balanced; by
+  induction over the line with the read tokens kept as balanced pieces
+  between the open brackets, `framesBalanced`). From them: a start is
+  legal exactly when the scan doesn't stop in it (`legalOfUnclosed`,
+  `notCorruptedOfLegal`); the scan stops exactly at the first illegal
+  character (`firstIllegalOfScan`, `scanOfFirstIllegal`); an opener is
+  never illegal (`legalOpener`); every start of a legal start is legal
+  (`legalOfLonger`); a line has at most one completion, the closed stack
+  (`completionUnique`, `closersExact`).
+- `middleIsMiddle`: the program's `middle` is a `Middle` of any nonempty
+  list (sorted, at most k elements are below index k and at most n − 1 − k
+  above); `middleUnique`: with an odd count, two middles are equal.
+- `parseReadsLines`: if `parseLines` reads `input` as `lines`, then
+  `lines.map (tokens => tokens.map Token.char) = input.lines.map
+  Text.toList`: every character of every line was one of the eight
+  brackets, read as its token, nothing dropped or added (D2108). The
+  answers' theorems hold for every list of token lines, so they need
+  nothing from it.
+- Tests: the example's answers, first illegal closers, completion scores
+  and one completion; a stray character, an empty line, a balanced line,
+  a closer with nothing open; and four example theorems through the spec
+  (`exampleIllegalCurly`, `exampleIllegalRound`, `exampleBalanced`,
+  `exampleCompletion`).
+
+Not proved: nothing left open. Hypotheses: `part2Correct` needs one
+incomplete line, `part2Unique` an odd count, both stated above. No
+opaque definitions. `stitchwort audit Aoc.Year2021.Day10` (with the
+counterexample search): `audited 59 theorems: 0 failed, 0 with
+warnings, 59 passed`. The search is "not applicable" to most of them
+(`Legal` is an `exists`).
+
+Breaking the program breaks the proofs: a closer with nothing open
+skipped instead of corrupted makes `scanAppend`, `firstIllegalFrom` and
+others fail (with a counterexample); `length / 3` for `length / 2` in
+`middle` fails `middleIsMiddle` (counterexample); a wrong point
+(`Round => 2`) fails `completionPointsAgree`; `']'` read as `Closer
+Round` fails `tokenOfChar`.
+
+Most proofs checked first time or second; the scan/grammar bridge took
+about ten tries in all, mostly over list shapes (item 6).
+
+### 1. Std.Parse can't be reasoned about
+
+The natural parser, `Parse.eachLine input (() => many1 (() => pick
+tokenTable))`, gave the right answers, but proving it reads exactly the
+line's characters needs lemmas about `many1` (`manyFuel`, marks),
+`pick` and `eachLine`, and std has only the handler steps
+(`runFromPure`, …). Workaround: the parser by hand with `Fail.need` over
+`withIndex`, proved with `Fail.toResultMap` and a lemma about
+`Result.traverse` (`traverseMap`, 10 lines). Fix: std lemmas saying
+`eachLine` is a traverse of `whole` per line, and that `many1 (pick
+words)` reads a line exactly when it is a string of the words. Medium
+to large. Also, `pick` of eight one-character words says "expected '('
+or '[' or '{' or '<' or ')' or ']' or '}' or '>' or the end of the
+line": a comma list ("one of '(', '[', …") would read better. Small.
+
+### 2. Missing std
+
+- `List.getOrMem` (index below the length → `getOr` is a member),
+  `List.countLeLength` (`count p ≤ length`), `List.countNotAdd`
+  (`count (not p) + count p = length`). `stitchwort search` with the
+  shapes found none in std. Small each.
+- **The middle of a sorted list**: at most k elements below index k,
+  at most n − 1 − k above (`countBelowSorted`, `countAboveSorted`, 25
+  lines), and a median that is unique for odd counts (`middleUnique`).
+  Day 7 of 2021 had a median too. Std candidate `List.median` with these.
+  Medium.
+- **`Result.traverse` gave `Ok`**: each output is its input's
+  (`traverseMap`), and `withIndexFrom` mapped back by `snd`
+  (`mapSndWithIndex`). Small each.
+- **Constructor injectivity.** `Corrupted a = Corrupted b → a = b` took a
+  helper function with a fallback and `Eq.cong`, twice
+  (`corruptedInjective`, `unclosedInjective`). `cases` closes a
+  constructor clash, but nothing gives injectivity. Fix: generated
+  `T.C.injective` lemmas, or `cases` doing injection on a hypothesis.
+  Medium.
+
+### 3. Confusing errors
+
+- **`foldl`**: `List has no field or function foldl`, with no "did you
+  mean `foldLeft`". Small (a list of common other-language names).
+- **`()` (absurd) in a multi-column arm** (`| Cons (b, piece) frames, ok,
+  Nil, ()`) was `E-NOT-EMPTY`, showing `h`'s type with `line`, not the
+  `Nil` the third column matched, so the clash wasn't seen. And two
+  later, unrelated arms got `W-REDUNDANT` ("the earlier arms together
+  cover it"), as if the failing arm matched everything. In a nested
+  `match h with | ()`, the parser wanted `=>` and blamed the next outer
+  arm. Workaround: `h => cases`. Fix: refine a column's type by the
+  earlier columns' patterns before checking `()`, don't count an arm
+  that failed toward coverage, and say "an absurd arm needs a top-level
+  function arm" if that is the rule. Medium.
+- **`rfl` under a hole** (`firstIllegalOfScan _ Curly rfl`, with `_` the
+  line, fixed only by the expected type) was `E-REFL`: "computing the
+  left side gives `scan [] […, …, …]`". With the line written out it
+  checks, and `scan [] (tokens "[<>]") = Unclosed [] := rfl` checks too.
+  My reading (not verified in the elaborator): `rfl` was checked before
+  `_` was solved, and the message then printed the solved hole. The
+  `…`s also hid every element, so nothing showed what was stuck. Fix:
+  postpone `rfl` while its sides have unsolved holes, or say they do;
+  print a stuck term's head at least. Medium.
+- **An implicit not found through a definition.** `Scored (…)
+  (completesOfUnclosed line (Cons top below) e) rest` was a mismatch:
+  expected `Balanced (line ++ List.map (?14 …) Closer)`, has `Completes
+  line (Cons top below)`, which the note unfolds to `Balanced (line ++
+  Cons (Closer top) (List.map below …))`: the map was computed one step,
+  so `?closers` wasn't solved. Workaround: `Scored [closers := Cons top
+  below]`. Fix: unify the folded forms (`Completes line ?c` against
+  `Completes line (Cons …)`) before computing. Medium.
+- **A lambda argument checked before the arguments that fix its type.**
+  In `traverseMap _ g h (each) xs ys hyp`, `each`'s hypothesis came in as
+  `?8 row line tokens read (column, char) = Ok token`, so a `rewrite` in
+  it found nothing (`E-REWRITE-NOTHING`, which did show the `?8`).
+  Workaround: put the lambda parameter last. Fix: postpone lambda
+  arguments until the others are checked (Lean's postponement; relevant
+  to the postponement work in progress). Medium.
+- Goals print definitions unfolded: `Legal before` as `∃ (ending: …) =>
+  Balanced (…)`. And `search` printed `countBelowSorted`'s type with an
+  unreduced redex, `(score => (x => score < x) (List.getOr sorted k 0))`.
+  Small.
+
+Good: `match e:` on `top == closer` refines hypotheses, and when I
+rewrote `h` anyway the note said "`h` is already refined: use it as it
+is". The import error for a constructor said to import its type.
+Indexed `Prop` families (`Balanced`, `FirstIllegal`, `ErrorScore`) and
+matching on them with named implicits (`Concat [xs := a] [ys := b] …`)
+worked first time.
+
+### 4. Search
+
+- `search --at` at `tokenOfChar` (a `Char` match, while the namespace
+  had an unrelated error) took 41 s and found nothing; with the
+  namespace checking, the other goals took 3.3 s.
+- At `notBelow` (`(y < x) = False` from `x ≤ y`) it said omega alone
+  closes it and listed std's `Nat.leqFalseOfLess`; I had written a
+  `match` and omega, and now use `omega`.
+- At `count p ≤ length` nothing closes it (std lacks it), and the six
+  "applicable" results were noise: `Finite.check`, day 8's `eachDigit`
+  (leaves `length ≤ 9`), and `Bool.canonicalTrue`, which leaves the goal
+  itself. Fix: drop an applicable result whose leftover goal is the goal.
+  Small.
+- `search '⊢ List.getOr ?xs _ _ ∈ ?xs'` and `'⊢ List.count ?xs _ ≤
+  List.length ?xs'` found only my own lemmas: the right answer, quickly.
+- `search --rewrite 'List.map ?xs (x => x)'` found `List.mapId` first.
+
+### 5. Proof engineering
+
+- **Append shapes.** The grammar's pieces are joined with `++`, and every
+  step of the bridge restates a list: `closeShape` needed three
+  `appendAssoc` rewrites to say `(s ++ o :: p) ++ c :: r = (s ++ o :: (p
+  ++ [c])) ++ r`. A normaliser for `++` (as `ring` is for `+` and `*`)
+  would remove these. Medium.
+- **The converse needed a ghost.** "Scan ends empty → balanced" isn't a
+  direct induction: inserting a matched pair inside a balanced line is
+  awkward with this grammar. Keeping the read tokens as balanced pieces
+  between the open brackets (`flatten`, `AllBalanced`) made each step
+  local: close the innermost piece, wrap it, and append it to the one
+  outside. Worth a line in the proving guide's "small lemmas" advice.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day10.main` on the input | 0.30 s user (0.36 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day10.Proofs Aoc.Year2021.Day10.Tests` | 0.90 s user |
+| `stitchwort audit Aoc.Year2021.Day10` (with the search) | 1.9 s user |
+
+114 lines of program, 84 of spec, 494 of proofs, 61 of tests.
+
+### Ranked
+
+1. Std.Parse has no lemmas for what a parser reads, so the parser
+   guarantee meant dropping `Parse.eachLine`/`pick` for a hand-written
+   one (item 1).
+2. Elaboration order: a lambda argument, and an `rfl`, checked before the
+   holes that fix their types were solved; the messages showed solved
+   holes or `?8` (item 3). Fix: postponement.
+3. The absurd pattern `()` in a multi-column arm doesn't see the other
+   columns, and a failed arm causes false `W-REDUNDANT` warnings (item 3).
+4. Missing std: `getOrMem`, `countLeLength`, a sorted-list median,
+   `traverse` lemmas, constructor injectivity (item 2).
+5. No normaliser for `++`: list-shape lemmas by hand (item 5).
