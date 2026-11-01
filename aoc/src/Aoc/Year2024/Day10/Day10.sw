@@ -7,9 +7,12 @@
 --   $ cd aoc && stitchwort run Aoc.Year2024.Day10.main < inputs/2024/day10.txt
 --
 -- The proofs are in `Aoc.Year2024.Day10.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day10.Tests` (Tests/); `run` checks neither.
+-- `Aoc.Year2024.Day10.Tests` (Tests/); `run` checks neither. Positions,
+-- their neighbours (up, right, down and left), the cells of the rows and
+-- the parser are the shared grid code's (`Aoc.Common`, Common/Grid.sw).
 
 namespace Aoc.Year2024.Day10
+import Aoc.Common (Grid, Position, cellAt, cells, parseGrid)
 import Std (Fail, IO, List, Nat, Option, Parse, Text)
 import Std.Parse (char, digit)
 
@@ -17,8 +20,6 @@ def main(): {IO, Fail} () :=
   let map := parseMap IO.readAll()
   IO.print "Part 1: ${solvePart1 map}"
   IO.print "Part 2: ${solvePart2 map}"
-
-type Position = { row: Nat, column: Nat }
 
 -- The heights, row by row; `None` is an impassable tile, `.`, which only
 -- the puzzle's small examples have.
@@ -33,41 +34,17 @@ def tile(): {Parse} (Option Nat) :=
       None
   ]
 
--- One row per line, all as long as the first.
-def parseMap (input: Text): {Fail} TopographicMap :=
-  let rows := Parse.all input (() => Parse.grid tile)
-  let width := rows.headOr [] |> .length
-  rows.withIndex |> .forEach (((row, tiles)) =>
-    Fail.ensure (tiles.length == width) "line ${row + 1}: expected ${width} tiles, as on the first line, got ${tiles.length}")
-  { rows }
+-- One row of tiles per line, every row as long as the first (the puzzle's
+-- map is a rectangle; `parseGrid` checks it).
+def parseMap (input: Text): {Fail} TopographicMap := TopographicMap.ofGrid (parseGrid input tile)
+
+def TopographicMap.ofGrid (grid: Grid (Option Nat)): TopographicMap := { rows = grid.rows }
 
 -- The height at `position`; `None` off the map or on an impassable tile.
-def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat :=
-  map.rows.getOr position.row Nil |> .getOr position.column None
+def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat := cellAt map.rows position |> .flatMap (tile => tile)
 
 -- Every position of the map, row by row.
-def TopographicMap.positions (map: TopographicMap): List Position :=
-  List.range map.rows.length
-    |> .flatMap (row => List.range (map.rows.getOr row Nil).length |> .map (column => ({ row, column }: Position)))
-
--- The grid point one step up, if there is one: none above the top row.
-def Position.above (position: Position): List Position :=
-  match position.row with
-    | Zero => Nil
-    | Succ up => [{ position | row = up }]
-
--- The grid point one step left, if there is one.
-def Position.leftOf (position: Position): List Position :=
-  match position.column with
-    | Zero => Nil
-    | Succ previous => [{ position | column = previous }]
-
--- The grid points one step right and one step down.
-def Position.rightAndBelow (position: Position): List Position :=
-  [{ position | column = position.column + 1 }, { position | row = position.row + 1 }]
-
--- The grid points one step up, left, right and down.
-def Position.neighbours (position: Position): List Position := position.above ++ position.leftOf ++ position.rightAndBelow
+def TopographicMap.positions (map: TopographicMap): List Position := cells map.rows |> .map Pair.fst
 
 -- `to` is exactly one higher than `from`.
 def TopographicMap.isOneHigher (map: TopographicMap) (from: Position) (to: Position): Bool :=

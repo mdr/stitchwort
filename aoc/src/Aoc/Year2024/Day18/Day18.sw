@@ -8,10 +8,13 @@
 --   $ cd aoc && stitchwort run Aoc.Year2024.Day18.main -- 7 12 < examples/2024/day18.txt
 --
 -- The proofs are in `Aoc.Year2024.Day18.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day18.Tests` (Tests/); `run` checks neither.
+-- `Aoc.Year2024.Day18.Tests` (Tests/); `run` checks neither. Positions and
+-- the graph of steps between neighbours are the shared grid code's
+-- (`Aoc.Common`, Common/Grid.sw and GridGraph.sw).
 
 namespace Aoc.Year2024.Day18
-import Std (Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
+import Aoc.Common (Position, memPositionsOfWithin, positions, stepGraph)
+import Std (Bool, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (nat, text)
 
 -- The memory space is the puzzle's, 71 positions each way, after 1024
@@ -21,7 +24,7 @@ def main(): {IO, Fail} () :=
   let (size, fallen) := sizesFrom IO.args()
   let bytes := parseBytes IO.readAll()
   IO.print "Part 1: ${solvePart1 size fallen bytes |> .fold "none" Nat.toText}"
-  IO.print "Part 2: ${solvePart2 size bytes |> .fold "none" (byte => "${byte.x},${byte.y}")}"
+  IO.print "Part 2: ${solvePart2 size bytes |> .fold "none" (byte => "${byte.column},${byte.row}")}"
 
 def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
   let usage := "expected no arguments, or a size and a number of bytes, such as `7 12`"
@@ -30,15 +33,13 @@ def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
     | Cons sizeText (Cons fallenText Nil) => (Fail.need sizeText.toNat usage, Fail.need fallenText.toNat usage)
     | _ => Fail.fail usage
 
--- `x` positions from the left edge, `y` from the top.
-type Position = { x: Nat, y: Nat }
-
--- One byte's position: "5,4".
+-- One byte's position: "5,4" is X = 5 from the left edge, its column, and
+-- Y = 4 from the top, its row.
 def byte(): {Parse} Position :=
   let x := nat()
   text ","
   let y := nat()
-  { x, y }
+  { row = y, column = x }
 
 -- One byte per line, in the order they fall.
 def parseBytes (input: Text): {Fail} (List Position) := Parse.eachLine input byte
@@ -51,94 +52,32 @@ def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySp
 
 -- Inside the memory space and not corrupted.
 def MemorySpace.isSafe (memory: MemorySpace) (position: Position): Bool :=
-  position.x < memory.size && position.y < memory.size && !memory.corrupted.contains position
+  position.within memory.size memory.size && !memory.corrupted.contains position
 
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
+-- Entering a safe position takes one step; nothing else can be entered.
+def MemorySpace.enter (memory: MemorySpace) (position: Position): Option Nat := if memory.isSafe position then Some 1 else None
 
-def directions: List Direction := [Up, Down, Left, Right]
+-- A position that can be entered is inside the memory space.
+theorem MemorySpace.enterListed (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost):
+    position ∈ positions memory.size memory.size :=
+  match safe: memory.isSafe position with
+    | False => Void.exfalso (Option.noneNotSome cost found)
+    | True => memPositionsOfWithin memory.size memory.size position (Bool.andLeft _ _ safe)
 
--- The position one step in `direction`; none above the top or left of the
--- left edge.
-def Position.step (position: Position): Direction → Option Position
-  | Down => Some ({ position | y = Succ position.y })
-  | Right => Some ({ position | x = Succ position.x })
-  | Up =>
-    match position.y with
-      | Zero => None
-      | Succ above => Some ({ position | y = above })
-  | Left =>
-    match position.x with
-      | Zero => None
-      | Succ before => Some ({ position | x = before })
+-- The memory space as a graph for std's search: a step from each position
+-- to each safe neighbour (up, right, down or left).
+def MemorySpace.graph (memory: MemorySpace): Graph Position :=
+  stepGraph memory.enter (positions memory.size memory.size) (position cost found => memory.enterListed position cost found)
 
--- The position one step in `direction`, if it's safe.
-def MemorySpace.move (memory: MemorySpace) (position: Position) (direction: Direction): Option Position :=
-  match position.step direction with
-    | Some next => if memory.isSafe next then Some next else None
-    | None => None
-
--- The safe positions one step away, each one step.
-def MemorySpace.edges (memory: MemorySpace) (position: Position): List (Position, Nat) :=
-  directions.filterMap (direction => memory.move position direction |> .map (next => (next, 1)))
-
--- Every position inside the memory space.
-def MemorySpace.positions (memory: MemorySpace): List Position :=
-  List.range memory.size |> .flatMap (x => List.range memory.size |> .map (y => ({ x, y }: Position)))
-
--- A safe position is on the list of all of them.
-theorem MemorySpace.safeListed (memory: MemorySpace): (position: Position) → memory.isSafe position = True → position ∈ memory.positions
-  | { x, y }, safe =>
-    let xInside := Bool.andLeft _ _ safe
-    let yInside := Bool.andLeft _ _ (Bool.andRight _ _ safe)
-    List.memFlatMapIntro (column => List.range memory.size |> .map (row => ({ x = column, y = row }: Position))) x ({ x, y }: Position)
-      (List.range memory.size) (List.memRangeFromIntro x memory.size 0 rfl (omega [xInside]))
-      (List.memMap (List.range memory.size) y (List.memRangeFromIntro y memory.size 0 rfl (omega [yInside])) (row => ({ x, y = row }: Position)))
-
--- Moves lead to safe positions.
-theorem MemorySpace.moveSafe (memory: MemorySpace) (position: Position) (direction: Direction) (next: Position)
-    (moved: memory.move position direction = Some next): memory.isSafe next = True :=
-  match stepped: position.step direction with
-    | None => Void.exfalso (Option.noneNotSome next moved)
-    | Some found =>
-      match safe: memory.isSafe found with
-        | False => Void.exfalso (Option.noneNotSome next moved)
-        | True => rewrite <- Option.someInjective _ _ moved in safe
-
--- Each edge is a move, costing one.
-theorem MemorySpace.edgesSound (memory: MemorySpace) (position: Position) (next: Position) (weight: Nat)
-    (edge: (next, weight) ∈ memory.edges position): And (Exists Direction (direction => memory.move position direction = Some next)) (weight = 1) :=
-  let found := List.memFilterMapElim (direction => memory.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
-  Exists.elim (List.anyMember (direction => (memory.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
-    (direction both =>
-      match moved: memory.move position direction with
-        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
-        | Some other =>
-          let same := Option.someInjective _ _ (And.right both)
-          Both (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same)))) (Eq.sym (Eq.cong Pair.snd same)))
-
--- The memory space as a graph for std's search: safe positions, each a step
--- from its safe neighbours.
-def MemorySpace.graph (memory: MemorySpace): Graph Position := {
-  edges = memory.edges,
-  states = memory.positions,
-  listed = position next weight edge =>
-    Exists.elim (And.left (memory.edgesSound position next weight edge)) (direction moved =>
-      memory.safeListed next (memory.moveSafe position direction next moved))
-}
-
-def Position.start: Position := { x = 0, y = 0 }
+-- The top left corner, where the search starts.
+def topLeft: Position := { row = 0, column = 0 }
 
 -- The bottom right corner.
-def MemorySpace.exit (memory: MemorySpace): Position := { x = memory.size - 1, y = memory.size - 1 }
+def MemorySpace.exit (memory: MemorySpace): Position := { row = memory.size - 1, column = memory.size - 1 }
 
 -- The fewest steps from the start to each position reachable from it, by
 -- breadth-first search; none if the start is corrupted.
-def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat :=
-  if memory.isSafe Position.start then memory.graph.breadthFirst [Position.start] else Map.empty
+def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat := if memory.isSafe topLeft then memory.graph.breadthFirst [topLeft] else Map.empty
 
 def MemorySpace.fewestSteps (memory: MemorySpace): Option Nat := memory.fromStart.get memory.exit
 

@@ -52,6 +52,16 @@ theorem stepAdjacent: (position: Position) → (direction: Direction) → (next:
   | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
   | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in leftAdjacent row column
 
+-- A step back the opposite way returns to where it started.
+theorem stepOpposite: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+    next.step direction.opposite = Some position
+  | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+
 -- ...and each adjacent position is a step away.
 theorem adjacentStep: (position: Position) → (next: Position) → adjacent position next = True →
     ∃ (direction: Direction) => position.step direction = Some next

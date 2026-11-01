@@ -10,6 +10,8 @@
 namespace Aoc.Year2024.Day18.Proofs
 import Aoc.Year2024.Day18 (..)
 import Aoc.Year2024.Day18.Spec (..)
+import Aoc.Common (Position)
+import Aoc.Common.Proofs (isPathWeaken)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Void)
 
 -- More bytes fallen, fewer paths: a path with `more` fallen is one with
@@ -18,8 +20,9 @@ theorem hasPathFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat)
     HasPath size bytes fewer :=
   Exists.elim has (steps path =>
     Witness steps
-      (Both (safeFewer size bytes fewer more le Position.start (And.left path))
-        (walkFewer size bytes fewer more le Position.start steps ({ x = size - 1, y = size - 1 }: Position) (And.right path))))
+      (Both (safeFewer size bytes fewer more le topLeft (And.left path))
+        (isPathWeaken (isSafe size (bytes.take more)) (isSafe size (bytes.take fewer)) (safeFewer size bytes fewer more le) topLeft steps
+          { row = size - 1, column = size - 1 } (And.right path))))
 
 -- The exit reachable with more bytes fallen is reachable with fewer.
 theorem reachableFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (open: reachable size bytes more = True):

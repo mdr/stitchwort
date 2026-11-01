@@ -6,55 +6,25 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
+import Aoc.Common (Direction, Position)
+import Aoc.Common.Proofs (oppositeOpposite, stepOpposite)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Or, Void)
 
-theorem clockwiseThenCounter: (facing: Direction) → facing.clockwise.counterclockwise = facing
-  | East => rfl
-  | South => rfl
-  | West => rfl
-  | North => rfl
-
-theorem counterThenClockwise: (facing: Direction) → facing.counterclockwise.clockwise = facing
-  | East => rfl
-  | South => rfl
-  | West => rfl
-  | North => rfl
-
-theorem oppositeOpposite: (facing: Direction) → facing.opposite.opposite = facing
-  | East => rfl
-  | South => rfl
-  | West => rfl
-  | North => rfl
-
--- A step back the opposite way returns to where it started.
-theorem stepBack: (position: Position) → (facing: Direction) → (next: Position) → position.step facing = Some next →
-    next.step facing.opposite = Some position
-  | { row, column }, East, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, South, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, West, next, stepped =>
-    match column with
-      | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ before => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, North, next, stepped =>
-    match row with
-      | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ above => rewrite <- Option.someInjective _ _ stepped in rfl
-
 -- A step the opposite way is undone by a step forward.
-theorem stepForwardOfBack (position: Position) (facing: Direction) (previous: Position) (stepped: position.step facing.opposite = Some previous):
-    previous.step facing = Some position :=
-  rewrite <- oppositeOpposite facing in stepBack position facing.opposite previous stepped
+theorem stepForwardOfBack (position: Position) (direction: Direction) (previous: Position) (stepped: position.step direction.opposite = Some previous):
+    previous.step direction = Some position :=
+  rewrite <- oppositeOpposite direction in stepOpposite position direction.opposite previous stepped
 
 -- Moving forward onto an open tile, or not.
-theorem moveForwardOpen (maze: Maze) (position: Position) (facing: Direction) (ahead: Position) (stepped: position.step facing = Some ahead)
+theorem moveForwardOpen (maze: Maze) (position: Position) (facing: Heading) (ahead: Position) (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True): move maze { position, facing } Forward = Some ({ position = ahead, facing }: Reindeer) :=
   rewrite stepped, open in rfl
 
-theorem forwardOpen (maze: Maze) (position: Position) (facing: Direction) (ahead: Position) (stepped: position.step facing = Some ahead)
+theorem forwardOpen (maze: Maze) (position: Position) (facing: Heading) (ahead: Position) (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True): maze.forward { position, facing } = [{ position = ahead, facing }] :=
   rewrite stepped, open in rfl
 
-theorem backwardOpen (maze: Maze) (position: Position) (facing: Direction) (behind: Position) (stepped: position.step facing.opposite = Some behind)
+theorem backwardOpen (maze: Maze) (position: Position) (facing: Heading) (behind: Position) (stepped: position.step facing.toDirection.opposite = Some behind)
     (open: maze.isOpen behind = True): maze.backward { position, facing } = [{ position = behind, facing }] :=
   rewrite stepped, open in rfl
 
@@ -67,7 +37,7 @@ theorem afterSound (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → (
       | Inr (Inr (Inl turn)) => Witness Counterclockwise (Both (Eq.cong Some (Eq.cong Pair.fst turn)) (Eq.cong Pair.snd turn))
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl forward =>
-        match stepped: position.step facing with
+        match stepped: position.step facing.toDirection with
           | None => Void.exfalso forward
           | Some ahead =>
             match open: maze.isOpen ahead with
@@ -88,7 +58,7 @@ theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (ne
   | { position, facing }, Counterclockwise, next, moved =>
     rewrite <- Option.someInjective _ _ moved in List.memAppendRight _ _ _ (Inr (Inl rfl))
   | { position, facing }, Forward, next, moved =>
-    match stepped: position.step facing with
+    match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with
@@ -109,7 +79,7 @@ theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
           Witness Clockwise (Both (rewrite counterThenClockwise facing in rfl) rfl)
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl backward =>
-        match stepped: position.step facing.opposite with
+        match stepped: position.step facing.toDirection.opposite with
           | None => Void.exfalso backward
           | Some behind =>
             match open: maze.isOpen behind with
@@ -119,7 +89,7 @@ theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
                   | Inr none => Void.exfalso none
                   | Inl here =>
                     rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in
-                      Witness Forward (Both (rewrite stepForwardOfBack position facing behind stepped, holds in rfl) rfl)
+                      Witness Forward (Both (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds in rfl) rfl)
 
 -- Each move from an open tile is an edge into where it ends.
 theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (way: Move) → (next: Reindeer) →
@@ -130,14 +100,14 @@ theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindee
   | { position, facing }, holds, Counterclockwise, next, moved =>
     rewrite <- Option.someInjective _ _ moved in List.memAppendRight _ _ _ (Inl (rewrite counterThenClockwise facing in rfl))
   | { position, facing }, holds, Forward, next, moved =>
-    match stepped: position.step facing with
+    match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with
           | False => Void.exfalso (Option.noneNotSome next moved)
           | True =>
             rewrite <- Option.someInjective _ _ moved in
-              let back := stepBack position facing ahead stepped
+              let back := stepOpposite position facing.toDirection ahead stepped
               List.memAppendLeft _ _ _ (rewrite back, holds in Inl rfl)
 
 -- A move from an open tile ends on one.
@@ -146,7 +116,7 @@ theorem moveHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = T
   | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective _ _ moved in holds
   | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective _ _ moved in holds
   | { position, facing }, holds, Forward, next, moved =>
-    match stepped: position.step facing with
+    match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with

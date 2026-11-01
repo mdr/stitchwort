@@ -2650,6 +2650,11 @@ Release build, on a machine with a load average around 30:
 
 ## Day 10: Hoof It
 
+Since SW-991 (1 November 2026) positions, neighbours and the parser are
+`Aoc.Common`'s, and the spec's step is `Aoc.Common.adjacent`; the
+`above`/`leftOf`/`rightAndBelow` split and its proofs below are history
+(aoc/NOTES-2021.md, "Shared grid code").
+
 A 40 by 40 topographic map of heights 0 to 9. "A hiking trail is any path
 that starts at height 0, ends at height 9, and always increases by a height
 of exactly 1 at each step", with no diagonal steps. A trailhead is "any
@@ -4764,6 +4769,12 @@ takes 0.19 s of CPU on the generated warehouse.
 
 ## Day 16: Reindeer Maze
 
+Since SW-991 (1 November 2026) the compass `Direction` below is a
+`Heading`, mapped onto `Aoc.Common.Direction` (`Heading.toDirection`,
+proved a bijection that turns as the heading does), and positions, steps
+and the parser are `Aoc.Common`'s (aoc/NOTES-2021.md, "Shared grid
+code").
+
 A maze of walls (`#`) and open tiles. "The Reindeer start on the Start
 Tile (marked S) facing East and need to reach the End Tile (marked E).
 They can move forward one tile at a time (increasing their score by 1
@@ -5545,6 +5556,12 @@ of std (`Nat/Bits.sw`).
    `List.joinWith` taking the list first.
 
 ## Day 18: RAM Run
+
+Since SW-991 (1 November 2026) positions are `Aoc.Common`'s, a byte at
+`X,Y` being `{ row = Y, column = X }`; the graph is `stepGraph`, and the
+spec's path is `Aoc.Common.isPath` (positions entered) rather than the
+directions walked below (`walk`, `stepTo`, `walkFewer` are gone;
+aoc/NOTES-2021.md, "Shared grid code").
 
 Bytes fall one at a time onto a square memory space; "Your memory space
 is a two-dimensional grid with coordinates that range from 0 to 70 both

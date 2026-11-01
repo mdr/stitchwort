@@ -78,11 +78,11 @@ theorem boundAlong (maze: Maze) (result: Map Reindeer Nat)
 -- How a way of standing on the end tile is listed.
 theorem endListed (maze: Maze): (reindeer: Reindeer) → reindeer.position = maze.end → reindeer ∈ maze.endReindeer
   | { position, facing }, atEnd =>
-    rewrite atEnd in List.memMap directions facing (directionsComplete facing) (way => ({ position = maze.end, facing = way }: Reindeer))
+    rewrite atEnd in List.memMap headings facing (headingsComplete facing) (way => ({ position = maze.end, facing = way }: Reindeer))
 
 -- Each listed way of standing on the end tile is on it.
 theorem listedAtEnd (maze: Maze) (reindeer: Reindeer) (member: reindeer ∈ maze.endReindeer): reindeer.position = maze.end :=
-  Exists.elim (List.memMapElim (way => ({ position = maze.end, facing = way }: Reindeer)) reindeer directions member) (facing both =>
+  Exists.elim (List.memMapElim (way => ({ position = maze.end, facing = way }: Reindeer)) reindeer headings member) (facing both =>
     rewrite <- And.right both in rfl)
 
 -- A path's moves end on the end tile.

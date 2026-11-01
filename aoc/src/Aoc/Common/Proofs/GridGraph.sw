@@ -73,7 +73,35 @@ theorem pathWalkCost (enter: Position → Option Nat):
       List.sumByCons rest next (enterCost enter)
     ]
 
+-- Where entering any position costs 1, a path through the positions that
+-- can be entered costs its number of steps (for `Graph.breadthFirst`).
+theorem unitPathCost (enter: Position → Option Nat) (unit: (position: Position) → (cost: Nat) → enter position = Some cost → cost = 1):
+    (from: Position) → (steps: List Position) → (to: Position) → isPath (canEnter enter) from steps to = True →
+      steps.sumBy (enterCost enter) = steps.length
+  | from, Nil, to, path => rfl
+  | from, Cons next rest, to, path =>
+    let one := unitEnterCost enter unit next (Bool.andLeft _ _ (Bool.andRight _ _ path))
+    let restCost := unitPathCost enter unit next rest to (Bool.andRight _ _ (Bool.andRight _ _ path))
+    omega [List.sumByCons rest next (enterCost enter), restCost, one]
+
+-- Entering a position that can be entered costs 1, there.
+theorem unitEnterCost (enter: Position → Option Nat) (unit: (position: Position) → (cost: Nat) → enter position = Some cost → cost = 1)
+    (position: Position) (entered: canEnter enter position = True): enterCost enter position = 1 :=
+  match found: enter position with
+    | None => Void.exfalso (Bool.falseNotTrue entered)
+    | Some cost => unit position cost found
+
 -- Paths
+
+-- A path through positions allowed by one test is a path by any test that
+-- allows them too.
+theorem isPathWeaken (f: Position → Bool) (g: Position → Bool) (weaker: (position: Position) → f position = True → g position = True):
+    (from: Position) → (steps: List Position) → (to: Position) → isPath f from steps to = True → isPath g from steps to = True
+  | from, Nil, to, path => path
+  | from, Cons next rest, to, path =>
+    Bool.andIntro _ _ (Bool.andLeft _ _ path)
+      (Bool.andIntro _ _ (weaker next (Bool.andLeft _ _ (Bool.andRight _ _ path)))
+        (isPathWeaken f g weaker next rest to (Bool.andRight _ _ (Bool.andRight _ _ path))))
 
 -- A path through positions allowed by one test is a path by another that
 -- agrees with it.

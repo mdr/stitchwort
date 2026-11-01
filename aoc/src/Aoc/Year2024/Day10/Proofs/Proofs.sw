@@ -8,6 +8,7 @@
 namespace Aoc.Year2024.Day10.Proofs
 import Aoc.Year2024.Day10 (..)
 import Aoc.Year2024.Day10.Spec (..)
+import Aoc.Common (Position)
 import Std (And, Bool, DecEq, Eq, Iff, List, Nat, Option, Void)
 
 -- The rest of a trail after `from`: each step one of the spec's, ending at a
