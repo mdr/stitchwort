@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Tally f218a7340466c82479f2d0e0c60613f205b4f9a4c170711fadd59ab7f37b43d5
@@ -18,6 +19,8 @@ Main.Tally.%trans dee2f377540989479fed3a9c05691ff7642fb50b8048917736541dbe24c1c0
 Main.Tally.%instOrd 93b4edea973b8609e32d363ed3a426a3bfd1182fd598497ca23ba5702997f9d0
 Main.Tally.ext 4cc3c928aadb53a79809d48659a04986412ea82eb73137c7c61d6b0dbab62d04
 Main.count 2b59b4d772f41a6d4060e154036119ed1a494bc48fca0e5f8670428f8377c9ab
+Main.count.eq1 3e745eccea855c7e0ae4536c833bc7b15fe13969767a597962942f27c948ba6a
+Main.count.eq2 8eaad5cde793fded5cd5d8d1d2f7df9fb4a62f73b272390a925dbcb3ca4a58ec
 Main.Positive 49b56d272ad492e7a5ca05fec70e3fe18475c71fd5ba945f05486c8dc497a993
 Main.countPositive f4f2ec3b46c570c94e4ce6030869dd99bca68497c3cc2b1d0fc4b461234f9ac4
 Main.test "count" 9d3aca58559e7cabe5652f021a6ef6ff4d4a124f97e7e1812efc52648878108b

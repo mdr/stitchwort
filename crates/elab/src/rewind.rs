@@ -73,6 +73,7 @@ pub struct Mark {
     namespace_sources: HashMap<String, cache::Key>,
     namespace_keys: HashMap<String, cache::Key>,
     replayed_names: HashSet<String>,
+    equations_done: usize,
 }
 
 impl Mark {
@@ -121,6 +122,7 @@ impl Elaborator {
             namespace_sources: self.namespace_sources.clone(),
             namespace_keys: self.namespace_keys.clone(),
             replayed_names: self.replayed_names.clone(),
+            equations_done: self.equations_done.len(),
         }
     }
 
@@ -241,7 +243,17 @@ impl Elaborator {
             counterexample_log: _,
             tuple_matches: _,
             source_epoch: _,
+            leaf_log,
+            arm_probe,
+            equation_skips,
+            local_asts,
+            equations_done,
         } = self;
+        local_asts.get_mut().clear();
+        equations_done.truncate(mark.equations_done);
+        *leaf_log.get_mut() = Default::default();
+        *arm_probe.get_mut() = Default::default();
+        equation_skips.retain(|(id, _, _)| id.0 < mark.globals.defs());
         let defs = mark.globals.defs();
         let datas = mark.globals.datas();
         globals.rewind(&mark.globals);

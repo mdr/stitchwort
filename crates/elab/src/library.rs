@@ -173,6 +173,9 @@ pub struct IndexedFile {
     /// file (dot notation: every file with a function of that name). Never
     /// itself or the core.
     pub edges: Vec<usize>,
+    /// The definitions (by key) whose generated equations it names: the
+    /// library's and the core's are made on demand (`equations.rs`).
+    pub equation_needs: BTreeSet<String>,
 }
 
 /// Every name the core and the library files declare, with the file that
@@ -211,6 +214,9 @@ pub struct DotTarget {
 pub(crate) struct Needs {
     pub files: BTreeSet<usize>,
     pub dots: BTreeSet<String>,
+    /// The definitions (by key) whose generated equations are named
+    /// (`f.eq2`): the core's are put off until then (`equations.rs`).
+    pub equations: BTreeSet<String>,
 }
 
 /// The namespace of the built-in equality's dot calls (`dot.rs`).
@@ -252,6 +258,7 @@ impl LibraryIndex {
                 module,
                 names: Vec::new(),
                 edges: Vec::new(),
+                equation_needs: BTreeSet::new(),
             });
         }
 
@@ -275,7 +282,12 @@ impl LibraryIndex {
         }
         let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
         for (f, file) in parsed.iter().enumerate().skip(1) {
-            for name in file.names.iter().filter(|n| n.kind == PendingKind::Def) {
+            // Not a definition's generated equations (`f.eq2`), which are named in
+            // full, never reached by a dot call.
+            for name in (file.names.iter())
+                .filter(|n| n.kind == PendingKind::Def)
+                .filter(|n| !(n.candidate && crate::equations::is_equation_name(&n.key)))
+            {
                 let ns = name.key.rsplit_once('.').map(|(ns, _)| ns);
                 let namespace = ns.and_then(|ns| owner.get(ns).copied());
                 // A dot call looks in the namespace of a declared type or of
@@ -325,6 +337,7 @@ impl LibraryIndex {
         }
         for (file, n) in index.files.iter_mut().zip(&needs) {
             file.edges = n.files.iter().copied().collect();
+            file.equation_needs = n.equations.clone();
         }
         // A file's dot calls need what they can reach given what the file
         // itself needs: the values it makes have types from those files
@@ -541,12 +554,33 @@ pub(crate) fn file_names(
     file: &IndexedFile,
 ) -> Result<Vec<IndexedName>, String> {
     let mut out = Vec::new();
-    for (decl, _) in grouped(&file.module.decls) {
+    for (decl, equations) in grouped(&file.module.decls) {
         let (main, members) = declared_names(decl);
         let Some(main) = main else { continue };
         let key = scratch
             .declaration_key(&main)
             .map_err(|d| format!("`{}`: {}", file.path, d.message))?;
+        // A definition's equations, one for each arm (`equations.rs`): the
+        // names the source implies, each a candidate, since elaboration may
+        // skip one (naming it is then `E-NO-EQUATION`).
+        if let Decl::Signature {
+            theorem: false,
+            instance: false,
+            span,
+            ..
+        } = decl
+        {
+            for suffix in crate::equations::source_suffixes(equations) {
+                out.push(IndexedName {
+                    key: Elaborator::member_key(&key, &suffix),
+                    kind: PendingKind::Def,
+                    follower: false,
+                    function: false,
+                    span: *span,
+                    candidate: true,
+                });
+            }
+        }
         let (own, member) = match decl {
             Decl::Data { .. } => (PendingKind::Data, PendingKind::Ctor),
             Decl::Signature { .. } => (PendingKind::Def, PendingKind::Other),
@@ -860,6 +894,21 @@ impl Elaborator {
     /// namespace in another run, where other files may be loaded (SW-255).
     /// Loading skips the files that are loaded.
     pub(crate) fn note_library_use(&self, index: &LibraryIndex, r: &Ref<'_>, needs: &mut Needs) {
+        // `f.eq2` names `f`'s equations, which the library and the core
+        // make on demand (`equations.rs`); read as a field of `f` too.
+        let owner = match r {
+            Ref::Name(n) => crate::equations::reserved_suffix(&n.text).map(|(o, _)| o),
+            Ref::Dot(n, field, _) if crate::equations::is_equation_name(&format!("f.{field}")) => {
+                Some(n.text.as_str())
+            }
+            _ => None,
+        };
+        if let Some(owner) = owner
+            && let Resolved::Found { key, rest, .. } = self.resolve(owner)
+            && rest.is_empty()
+        {
+            needs.equations.insert(key.to_string());
+        }
         let (n, mut fields) = match r {
             Ref::Name(n) => (n, Vec::new()),
             Ref::Dot(n, field, receiver) => {
@@ -927,10 +976,11 @@ impl Elaborator {
         let roots = lib
             .index
             .resolve_needs(needs, &|f| lib.state[f] == LoadState::Loaded);
-        if roots.is_empty() {
-            return Ok(());
+        if !roots.is_empty() {
+            self.load_libraries(&roots)?;
         }
-        self.load_libraries(&roots)
+        // The equations it names, made on demand once their files load.
+        self.ensure_equations(&needs.equations).map_err(|d| vec![d])
     }
 
     /// Whether the files `needs` names, with the files those need, declare
@@ -1033,6 +1083,9 @@ impl Elaborator {
             }
             LoadState::NotLoaded => {}
         }
+        // The equations of other files it names, before its entry is
+        // looked up or written, so they are never part of it.
+        let _ = self.ensure_equations(&file.equation_needs);
         // From the check cache, if it has the file (`cache`).
         let cached = self.cache_lookup(f);
         let timed = cached.is_some() && crate::timings::enabled();

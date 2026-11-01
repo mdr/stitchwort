@@ -1,0 +1,185 @@
+//! Generated equations (docs/proposals/function-equations.md, stage 1a):
+//! the statements generated for the note's worked examples (§3.2) are the
+//! ones it shows, binder names included, and what isn't generated is
+//! recorded with its reason.
+
+use stitchwort_core::{Name, Term};
+use stitchwort_driver::driver::Session;
+
+/// The note's worked examples. `explode` is 2021 day 18's as first
+/// written; `ex` is its cut-down form from the prototypes (`p1.sw`), whose
+/// third arm has no lifted `match`.
+const SOURCE: &str = r#"
+import Std (Bool, Char, List, Nat, Option, Void)
+
+type Number =
+  | Regular (value: Nat)
+  | Pair (left: Number) (right: Number)
+
+def addLeftmost (amount: Nat): Number → Number
+  | Regular value => Regular (value + amount)
+  | Pair left right => Pair (addLeftmost amount left) right
+
+def explode (depth: Nat): Number → Option Nat
+  | Regular _ => None
+  | Pair (Regular a) (Regular b) => if 4 ≤ depth then Some (a + b) else None
+  | Pair left right =>
+    match explode (depth + 1) left with
+      | Some n => Some n
+      | None => explode (depth + 1) right
+
+def ex (depth: Nat): Number → Nat
+  | Regular _ => 0
+  | Pair (Regular a) (Regular b) => if 4 ≤ depth then a + b else 0
+  | Pair left right => ex (depth + 1) left + ex (depth + 1) right
+
+def kind: Nat → Nat
+  | 3 => 1
+  | 7 => 2
+  | n => 0
+
+def kindUnnamed: Nat → Nat
+  | 3 => 1
+  | 7 => 2
+  | _ => 0
+
+type Command = | Up | Down
+
+def commandOf (char: Char): Option Command :=
+  match char with
+    | 'k' => Some Up
+    | 'j' => Some Down
+    | _ => None
+
+def keyed: Char → List Char → Nat
+  | 'k', [] => 1
+  | c, xs => 2
+
+def orp: Number → Nat
+  | Regular 0 | Regular 1 => 5
+  | _ => 6
+"#;
+
+/// `ty`, a closed `Π` type, with every binder's name shown:
+/// `(x: A) → (h: P) → body`.
+fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
+    let mut names: Vec<Name> = Vec::new();
+    let mut out = String::new();
+    let mut t = ty.strip_loc();
+    while let Term::Pi(x, icit, dom, cod) = t {
+        let shown = stitchwort_core::pretty::term(g, &names, dom);
+        let (open, close) = if icit.is_implicit() {
+            ("[", "]")
+        } else {
+            ("(", ")")
+        };
+        out += &format!("{open}{x}: {shown}{close} → ");
+        names.push(x.clone());
+        t = cod.strip_loc();
+    }
+    out + &stitchwort_core::pretty::term(g, &names, t)
+}
+
+fn with_session(f: impl FnOnce(&Session) + Send + 'static) {
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(move || {
+            let mut session = Session::new();
+            if let Err(errors) = session.load("equations.sw", SOURCE) {
+                panic!("doesn't load: {errors:#?}");
+            }
+            f(&session);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn generated(session: &Session, name: &str) -> String {
+    let g = &session.elab.globals;
+    let def = g
+        .defs
+        .iter()
+        .rev()
+        .find(|d| &*d.name == name)
+        .unwrap_or_else(|| panic!("`{name}` isn't generated"));
+    assert!(def.theorem, "`{name}` is a theorem");
+    statement(g, &def.ty)
+}
+
+fn skipped(session: &Session, name: &str) -> String {
+    let g = &session.elab.globals;
+    session
+        .elab
+        .equation_skips()
+        .iter()
+        .find(|(id, s, _)| format!("{}.{s}", g.defs[id.0].name) == name)
+        .map(|(_, _, why)| why.clone())
+        .unwrap_or_else(|| panic!("`{name}` isn't recorded as skipped"))
+}
+
+#[test]
+fn the_notes_worked_examples() {
+    with_session(|s| {
+        // §3.2, "Plain constructor arms".
+        assert_eq!(
+            generated(s, "addLeftmost.eq1"),
+            "(amount: Nat) → (value: Nat) → addLeftmost amount (Regular value) = Regular (value + amount)"
+        );
+        assert_eq!(
+            generated(s, "addLeftmost.eq2"),
+            "(amount: Nat) → (left: Number) → (right: Number) → \
+             addLeftmost amount (Pair left right) = Pair (addLeftmost amount left) right"
+        );
+        // §3.2, "Overlapping and wildcard arms": `explode.eq3`'s hypothesis,
+        // on the prototype `ex`, whose third arm is an expression (the
+        // printer shows `right = Regular b → Void` as `≠`).
+        assert_eq!(
+            generated(s, "ex.eq3"),
+            "(depth: Nat) → (left: Number) → (right: Number) → \
+             (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b) → \
+             ex depth (Pair left right) = ex (depth + 1) left + ex (depth + 1) right"
+        );
+        // §3.2, "Literal patterns".
+        assert_eq!(
+            generated(s, "kind.eq3"),
+            "(n: Nat) → (notArm1: n ≠ 3) → (notArm2: n ≠ 7) → kind n = 0"
+        );
+        // A `_` with no field to name it after is `x1` (§3.1).
+        assert_eq!(
+            generated(s, "kindUnnamed.eq3"),
+            "(x1: Nat) → (notArm1: x1 ≠ 3) → (notArm2: x1 ≠ 7) → kindUnnamed x1 = 0"
+        );
+        assert_eq!(
+            generated(s, "commandOf.eq3"),
+            "(char: Char) → (notListed: char ∉ ['k', 'j']) → commandOf char = None"
+        );
+        assert_eq!(generated(s, "commandOf.eq1"), "commandOf 'k' = Some Up");
+        // An earlier arm that also constrains another column keeps Lean's
+        // form.
+        assert_eq!(
+            generated(s, "keyed.eq2"),
+            "(c: Char) → (xs: List Char) → (notArm1: c = 'k' → xs ≠ []) → keyed c xs = 2"
+        );
+        // §3.1, or-patterns: one equation for each alternative.
+        assert_eq!(generated(s, "orp.eq1.or1"), "orp (Regular 0) = 5");
+        assert_eq!(generated(s, "orp.eq1.or2"), "orp (Regular 1) = 5");
+        assert_eq!(
+            generated(s, "orp.eq2"),
+            "(x1: Number) → (notArm1or1: x1 ≠ Regular 0) → (notArm1or2: x1 ≠ Regular 1) → orp x1 = 6"
+        );
+    });
+}
+
+/// `explode.eq3`, as first written (its third arm a lifted `match`), has no
+/// one right side: the arm is elaborated once for each case of arm 2's
+/// patterns, and each copy of the `match` captures the refined variables.
+#[test]
+fn an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason() {
+    with_session(|s| {
+        generated(s, "explode.eq1");
+        generated(s, "explode.eq2");
+        let why = skipped(s, "explode.eq3");
+        assert!(why.contains("refined"), "{why}");
+    });
+}

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.takeFirst b788d730cb74e8d97b978d84ebbc8e978f321b77813f0b74c000caabda2a0a27
@@ -8,6 +9,7 @@ Main.takeFirst.%go 035c5d06e245e854642dded96283321407a2baa77389dde4b008b76dbe158
 Main.takeFirst.%step.%respects 1ab41d3fd5be4b24a345526c7c3e598e3ce1132d4238b2374d4f581a27846a9a
 Main.takeFirst.%irrel 74538225c7de80c9f66ab50ff9b90fef1ef39cf5f22b86e54d396be4de6c2c66
 Main.takeFirst.unfold bb80256c6b7af54d849cc1897f92d861f859b61b212718a333457ffc8624c61d
+Main.takeFirst.eq1 763ba8107d887cffab70c3c71f78d52e586e320acaeba61d8650154cf4586834
 Main.test "takeFirst" e761da96739204a02ec1d848ea96c050b1f69e82b266fc7fa7cc655b01069bbb
 Main.digitsOnto c8f199a48dc6aedb685faf0aab412536e843286ee476ec1486c69d975e62e63b
 Main.digitsOnto.%step ee6c5c5bae65cfdcf227335e25d51f341855d50a0e3a74a95f5ec71b744bf0a2

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Log 81059c4c5dcce55d38b91d239bd3d30e0cf21e8686fe7ecd2e6d51d19ebdfe22
@@ -28,7 +29,11 @@ Main.twoStages 75ca4d6bb1a15d54c35429e3c2e77243813e07c13d0b5fa3ce0dcae125993cb0
 Main.lateAndTwice 786658e6277f7d279e87530c53a53e5aeb1dacf2481b456ed7266420c20b0b76
 Main.test "stages inside, in parameter order" 3c96b516cadebccf24c0e19e11781a5e12d2b17bc4ed140966dc73adb21be7a2
 Main.Adder f861bb921ee2e34b3e861ceb92b75e26ee720f6113155416d3485ac36f7770be
+Main.Adder.eq1 d8f9dfbdf5b84d17266006a2faf02d4544b880c32e71be04787242b6769bf6d6
+Main.Adder.eq2 93f6f976602fe0cd8c8d02e5db50ce4710a6e140e966faea5c4fb8a271194cd9
 Main.adder 26cbb79d1b6c1f080b51fb85fda622bf7ab7bc88b51e14f34d759ca36fb33dc4
+Main.adder.eq1 eaf3f0a881c506f4406eff5fdc255e69c55e11025a06a4e839d6715cb5d7535e
+Main.adder.eq2 a920d09707e3157699980f655c69d2bcfbbeaa82c3f9999347e672d1d8e9eb40
 Main.computedNames 31646ef404e364a24a7163ed54af1f0144c47657efb9b97aff90c7e755587d95
 Main.test "names after a computed result type, in a computation" 61d5cabd9cadbd7741e1200cdac5e8c8359453a7d52403010e8b9b8df5d181f1
 Main.skippingPure b3fdc575a8b37684fa0c158280fb00d3cf776ee8216fa832069dc4aedd734b23

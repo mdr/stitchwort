@@ -311,6 +311,17 @@ impl Budget {
         }
     }
 
+    /// Like [`Budget::attempt`], for callers that can't hold a borrow of the
+    /// budget: the attempt ends with [`Budget::restore`].
+    pub fn start_attempt(&self, limits: Limits) -> Saved {
+        let floor = self.stack_floor.get();
+        let saved = self.start(limits);
+        if floor != 0 {
+            self.stack_floor.set(floor);
+        }
+        saved
+    }
+
     /// Like [`Budget::operation`], for callers that can't hold a borrow of
     /// the budget: the operation ends with [`Budget::restore`].
     pub fn start(&self, limits: Limits) -> Saved {

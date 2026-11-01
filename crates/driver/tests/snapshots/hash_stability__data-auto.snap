@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Ordered 03a76281d7aeec3ccf8d58b2c66d2f777d75232db564bfb1cb3cacf1f6cdd230
@@ -31,6 +32,8 @@ Main.descending 08e019471086b05d558aea7d19228d0dffdcc7a1b1931584513f6fabfe7bdd73
 Main.Map.empty 4824e59e17e66998a7ad719230f16e1a7f8133f7117827bc4eba2d59d32355be
 Main.Map.insertList 9a62e8556e77980ecf703af509f418e53f7f1b4128685b6657d2ec60b8d12315
 Main.Map.insertList.%match1 e2b77d18dc89df04f78f8a490d22d35cfb7585da55194ff1a918dae4bddc1ca4
+Main.Map.insertList.eq1 5ef7d19560a508c9a29b7f3a7ce3586fbcefc7efe6f84feb24068a56cf8f3791
+Main.Map.insertList.eq2 e7a7cc62ff2d2cac7fac6fdf64e67bcf6b7696612ba532a4868e1d90a1d1b07b
 Main.Map.insert a8461908f1c3f15d8308cb9835830e5003edcef5b00a75a2b6474df0cb1f06c6
 Main.Map.keys e4f90ade626a70540d1247f13f3909c14a54b1e68850ce44b92dd14f7b888260
 Main.Map.keys.%match1 ec03cb6ba5394eec3f5066111bccd9601afb26cda5ff7853eda521b6c05693cd

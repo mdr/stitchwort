@@ -328,7 +328,12 @@ impl Elaborator {
         self.capture_before_needs(&needs);
         // Library files this module uses load first, so what it names is
         // checked before it is (docs/proposals/std-library.md §4.3).
-        if !needs.files.is_empty() || !needs.dots.is_empty() {
+        // The core's equations a library file names (`equations.rs`).
+        // (Failing here, a name is unknown where it's used.)
+        if !self.library_stack_is_empty() {
+            let _ = self.ensure_equations(&needs.equations);
+        }
+        if !needs.files.is_empty() || !needs.dots.is_empty() || !needs.equations.is_empty() {
             let loaded = if self.library_stack_is_empty() {
                 self.load_needs(&needs)
             } else {
@@ -2823,6 +2828,13 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     _ => None,
                 };
                 out.push(Ref::Dot(field, field.text.clone(), receiver));
+                // `f.eq2`, read as a field of `f`: the equations of `f`, which
+                // the library and the core make on demand (`equations.rs`).
+                if let Expr::Var(owner) = &**e
+                    && crate::equations::is_equation_name(&format!("f.{}", field.text))
+                {
+                    out.push(Ref::Dot(owner, field.text.clone(), None));
+                }
                 stack.push(Work::Expr(e));
             }
             // What the proof `omega` writes refers to (crates/elab/src/omega.rs).

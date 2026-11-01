@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 594
+expression: output
+---
+[E-DUPLICATE] Error: `Kind.eq2` is the name of one of `Kind`'s generated equations
+    ╭─[ reject/function-equations-reserved.sw:10:9 ]
+    │
+ 10 │ theorem Kind.eq2: Kind 4 = 0 := rfl
+    │         ────┬───  
+    │             ╰───── `Kind.eq2` is the name of one of `Kind`'s generated equations
+    │ 
+    │ Note: each arm of a definition gets an equation `Kind.eqK` (and `.eqK.orN` for an or-pattern's alternatives); `eq2` is reserved for it. Give this declaration another name
+────╯

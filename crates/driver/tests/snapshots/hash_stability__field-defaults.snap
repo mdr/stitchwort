@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.RangeOptions 23bdc0715b765ebf1bac46cd83512803cb098370a18b4370d259b64aa2214575
@@ -80,6 +81,7 @@ Main.tripled 7480e11cdeb9a0210e31ebd6bd46b1ddaa44c5598bf2295d20cfb5d53fc7e99c
 Main.test "the default sees the given field" 389458f99793c757a0aa778a3fa71a0aa5dfa22f56def0426582f3dcc7fc6971
 Main.test "an update keeps fields" 4f8ea7b2a1532844ca1dcd872c3743daa1a10eea0b1a596454bb4acf8cf23b0c
 Main.total 8c3ae7bf8190a06e7f88baa1daa9439a6b3adf40507d6f167dad5d893c6f86f9
+Main.total.eq1 db42d93821c1e9fab1a13ca2ba62833815746ca22de4001a4b1cac2cad0abc5d
 Main.test "patterns name every field" 3a43a207cbb8e9d8dcb89ac884254361037f0471de928bfe519a3b3ade9c3ced
 Main.Box.item b294528adec88960c636fad341583ef0217911bc8ebf9f88fc59f6472353b626
 Main.Box.label f2f5060a90b6263b382a4d76b68b301ee646e8b0738ed50deeea803e97f165f4

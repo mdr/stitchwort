@@ -1,8 +1,11 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.countdown 292b5f3aa90d6cfba6ce2d4b593404673a901f8aa5e50e5d7d8e7d35c60e00ed
+Main.countdown.eq1 b175289ecfad016e315722b09776b2f0078712489ab7dbd46d150cc690cce593
+Main.countdown.eq2 4bca8912aa34b996159c1ab6c5409b990de30f386ce03b35f60608756835d915
 Main.countdownShrinks a6172b58c8a3ac89a036957e8dbd5f4b8a8c431bea046c74f799f825e7d0436b
 Main.countdownFrom d1464c8f62e0095275f40027d0f18da1d640be1d4d39b7b3a6635612d3114d6e
 Main.test "unfold" feb8ad02e602b41a60b9e68249b8ed44cebdc34b540e739aec6121a63b05f36e

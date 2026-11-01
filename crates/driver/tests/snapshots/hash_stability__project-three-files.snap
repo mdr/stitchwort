@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 246
 expression: "lines(session, d, f)"
 ---
 data Shapes.Shape a9db476471c70748bf6b71a6e4997b4cbd2f21bc168c4f8bd041b21bb267d04e
@@ -20,6 +21,12 @@ Shapes.Shape.%trans fa343df00aaab9b20da7d5e3b37220e9d46325ecf4f4361c2aebbc90af98
 Shapes.Shape.%instOrd a5d7ae09beb3262d7cb878804bee12f2a887010d9a89945e8d3778308422fb69
 Shapes.isEven 7bffc0904cd6cfc7ab28e4e15161f419506611d9a18147ae67391a554dea0b41
 Shapes.isOdd a0f0bb70240f857f68e792ff96e6261a21e4f5733981db31261ec9a9ab30f7c1
+Shapes.isEven.eq1 272e874841c880e2242bfc7bfe6cf8380c4dd46633d7cc2209015d6f5a114d57
+Shapes.isEven.eq2 f05617e045284c1bd91eebf9fbfbcfdc4ac70a91e1c6f0378b8dfa0cd7171c59
+Shapes.isOdd.eq1 a4289f8d730ffe0b43b6d968d25123e5a2e3292ff5865ac9fb5fa6d9cd59f60f
+Shapes.isOdd.eq2 d642e4718ae01f6e7b2362a55548cdfedad593f54e7d66f8034bf2145c45d64b
 Shapes.test "odd" e3c5395b61e24892322b560b801385098e2d103cff7974b72773e2f9e83f94e3
 Shapes.Shape.area a86e2dae894d7b6b4df29b4af46ee83b985fb950c60c796696cc4d0c90b75c8a
+Shapes.Shape.area.eq1 bffcfb7db3c622b885f2a1d41bd1f6c53de545c4994e0946191dbdcc9678154a
+Shapes.Shape.area.eq2 2fcd2845b1eac74a369ed92a4a55ed221e90eaa4797ec17b80cc527195b24ff8
 Shapes.test "area" 1676b9946f73e6aab739ede427e955269e313945ea95a4b8f651aa4970eef810

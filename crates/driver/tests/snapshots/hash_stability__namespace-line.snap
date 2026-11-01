@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Demo.Point 58b3b1281c7cf03dbcf3424a2cd09df87e1ee6df44ccaa70494eea17d8835f90
@@ -35,6 +36,8 @@ Demo.Shape.%unfold fdd2d0c39de14f39bd552a433c9200a4cb5962c084bacefe5bb0180f7191e
 Demo.Shape.%trans e0b20de7af5bdb0a1d1f9e49a45f141d1fad09b017bb3da536f7c989b6246d91
 Demo.Shape.%instOrd 3f68113161fb1279aad6145f82f3f4a81a7c56564a864785b373d82e288d91d5
 Demo.Shape.area 656983b045ecc7837500e1d9d57f65270a45123185a6f6815efa827cc8683c37
+Demo.Shape.area.eq1 0f1f7cfa6d875414983e41f704887078fe249538c9bec04365f72e37bc94de50
+Demo.Shape.area.eq2 ffd0b7fb0c70603073a1c778c672af92a5537c7381db3a4714cf2452f2be223d
 Demo.Geometry.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
 Demo.double2 c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
 Demo.quadruple 33b52e6f962fee15b870fbba181b2e58d87c5f7b7d04406ef9eedcb003aa8cae

@@ -1,10 +1,16 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+assertion_line: 121
+expression: "lines(session, d, f)"
 ---
 Main.count 6983a488583df446f493b16da13d7424a56fea69a2a024fece0c9eced7b5ce13
 Main.count.%match1 bff92eef9cfcde8dc62feceea2ba3488ae7e8b4d4d49c31a62b55e0ca18776c9
 Main.countTail e0699c97273bdbb334c8a1193ce2191762381ab8b49258a46d8adb74c60b04cb
+Main.countTail.eq1 996b9b679eba04da38f1f1d9f721e0c9e38f70cd4c4574d945aa35a83655d14c
+Main.countTail.eq2 322b05b12dea0693f2d4a11658ac4a9c1f6b47b2e47b591aeacff0ae81a0dd1d
 Main.countNamed aca7c17b17308ec307d604dc309639f6380f2da17d3ce3ef31d2b1e4cbeb7242
 Main.countNamed.%match1 6dbb858705c58f85d62123e492bbe3222a863c308cedcf083238962c6877052e
 Main.describe 15eaeea96a994be6155f1fdc611f84a1a8ec85256acc25e1b23ff4e101933ca9
+Main.describe.eq1 101251ce1a703ea0ab1dbae988fd92458072627805570af7db8157663b9738ac
+Main.describe.eq2 f1e92189e95fc053acce0784e81610ec48d11a2fb98d1f1296fa0e0497546601
+Main.describe.eq3 90a8bf30c91ce58898c5c42f42bbf4ffcb28d4a3329032e1fa30fa77a7f26844

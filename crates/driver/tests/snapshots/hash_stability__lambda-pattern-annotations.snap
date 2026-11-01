@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
@@ -33,6 +34,8 @@ Main.Shape.%unfold 450acb961c0840e8336d6bef0d5153f07095142cec4abac570091d5b8e720
 Main.Shape.%trans 7e5eaefd5903f7a950402400875445e2bd3c58365fe7489691fee74619d3a5f3
 Main.Shape.%instOrd e63a3a26c24eb1b3a76a3feefaa3487f287d6748d745ed6478ddba287823c419
 Main.Shape.size eaec537fb4739f0d4cb9d49668aac9ab9faca9fe5ed41b2e97c00c6023444ec3
+Main.Shape.size.eq1 54222dbd8dc369eddc77afb445a1f7c8373399302f6994be5c8372b47f984326
+Main.Shape.size.eq2 32cce8734a64f3e527a7fd221a833d7afa1b217d32817ba9aeb81979062762d2
 Main.test "tuple" 4641b6de60b86fa9526d3d0d0f2c6f89862196508c88077b245873feb9cac755
 Main.test "record" 81105263a047e7b9b44ea3bdc370ec5adda6c28d158a9e3654bf3c4011b3a921
 Main.test "nested" 47cca7134d199dafa0ce4ee77013ba4c8ddd615799cb0f7d9e7214930e279d0e

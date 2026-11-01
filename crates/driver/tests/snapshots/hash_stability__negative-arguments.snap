@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.shift b44950fa9f3efaa60080f7c754eb3002eed3da58c0e101049fe45e553044eefa
@@ -23,6 +24,8 @@ Main.test "-2.5.floor is (-2.5).floor" 236dcba5c4a7a5866d7e009d72accde91b0cefa90
 Main.test "-2.5.abs is (-2.5).abs" 565270ee3bc6e43235589d97b54590785293159f9a9dc5967b53ec300f815038
 Main.test "an argument's method" d20583bae45eddcce107610cbfa01616d0c80e92fb109ecc51a38b8e9ab4474a
 Main.isMinusOne 3d622b614a298fe1f51f6df7f5caeaf4e9b21d1d8641b8ddd3ee3f9bf4bd112b
+Main.isMinusOne.eq1 6ca3dd663d7a544b0569a638277b841e44b1bc732a533cb949febca238f75db1
+Main.isMinusOne.eq2 918f4108d4162c7b9fcf14b9a4038fadd251444232a8a5a2cb3b70ca5820a310
 Main.test "Some -1" 1e3c2a43fab6d2e1a3728640d617211060bcd5027992bcb79e179db5c82eebbd
 Main.test "not Some -1" 5855339beb97e9e27bca9775dce32d3bd30441b9d378ff813dd15727084df206
 Main.test "None" b3f64dbab50e61e18a8a0b23423e2eb911c6f2d26c16ef19d04a53fa23ed5383

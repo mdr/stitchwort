@@ -70,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 18;
+pub const FORMAT: u32 = 19;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -152,6 +152,7 @@ pub(crate) struct Before {
     scope: HashMap<String, (Global, Span)>,
     instances: HashMap<(DataId, DataId), (DefId, bool)>,
     helper_keys: HashSet<String>,
+    equation_skips: usize,
     /// The sizes of the tables keyed by data type (`by_data`).
     by_data: Vec<usize>,
     nav: Option<(usize, usize, usize)>,
@@ -317,6 +318,7 @@ impl Elaborator {
                 .map(|(k, v)| (*k, (v.def, v.valid)))
                 .collect(),
             helper_keys: self.helper_keys.clone(),
+            equation_skips: self.equation_skips.len(),
             by_data: self.by_data().iter().map(|t| t.len()).collect(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -641,6 +643,7 @@ impl Elaborator {
                 .map(|&f| index.files[f].path.clone())
                 .collect(),
             dots: needs.dots.iter().cloned().collect(),
+            equations: needs.equations.iter().cloned().collect(),
             includes: self.include_trace.borrow().clone(),
         };
         let unit = UnitOut {
@@ -717,7 +720,10 @@ impl Elaborator {
         // If replay fails from here on, elaborating the namespace declares
         // these again where they are (`taken`).
         self.replayed_names = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
-        if !pre.needs.files.is_empty() || !pre.needs.dots.is_empty() {
+        if !pre.needs.files.is_empty()
+            || !pre.needs.dots.is_empty()
+            || !pre.needs.equations.is_empty()
+        {
             self.load_needs(&pre.needs).map_err(|ds| {
                 Miss::Late(format!(
                     "its library files don't load: {}",
@@ -1042,6 +1048,7 @@ struct NamesOut {
 struct PreOut {
     needs_files: Vec<String>,
     dots: Vec<String>,
+    equations: Vec<String>,
     includes: Vec<(String, Key)>,
 }
 
@@ -1255,6 +1262,10 @@ impl Elaborator {
         e.w.usize(pre.dots.len());
         for field in &pre.dots {
             e.str(field);
+        }
+        e.w.usize(pre.equations.len());
+        for key in &pre.equations {
+            e.str(key);
         }
         e.w.usize(pre.includes.len());
         for (path, hash) in &pre.includes {
@@ -1611,6 +1622,13 @@ impl Elaborator {
         for k in helpers {
             e.str(k);
         }
+        // The equations the source implies that weren't generated.
+        e.w.usize(self.equation_skips.len() - before.equation_skips);
+        for (id, suffix, why) in &self.equation_skips[before.equation_skips..] {
+            e.def(*id);
+            e.str(suffix);
+            e.str(why);
+        }
         // The extensions the namespace declares (a library file has none).
         let own = self.current_namespace().filter(|_| !unit.library);
         let mut extensions: Vec<(&String, &String)> = self
@@ -1960,6 +1978,7 @@ struct Tables {
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
     helper_keys: Vec<String>,
+    equation_skips: Vec<(DefId, String, String)>,
     /// Extensions, and the keys they stand for.
     extensions: Vec<(String, String)>,
     tests: Vec<TestEntry>,
@@ -2128,6 +2147,7 @@ impl Pre {
     fn is_empty(&self) -> bool {
         self.needs.files.is_empty()
             && self.needs.dots.is_empty()
+            && self.needs.equations.is_empty()
             && self.includes.is_empty()
             && self.early.is_empty()
     }
@@ -2205,6 +2225,10 @@ impl Elaborator {
         let n = body.count()?;
         for _ in 0..n {
             pre.needs.dots.insert(body.string()?);
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.needs.equations.insert(body.string()?);
         }
         let n = body.count()?;
         for _ in 0..n {
@@ -2855,6 +2879,7 @@ impl Elaborator {
         self.no_ord.extend(no_ord);
         self.lifted.extend(t.lifted);
         self.helper_keys.extend(t.helper_keys);
+        self.equation_skips.extend(t.equation_skips);
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
         }
@@ -2945,6 +2970,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         abilities: Vec::new(),
         lifted: Vec::new(),
         helper_keys: Vec::new(),
+        equation_skips: Vec::new(),
         extensions: Vec::new(),
         tests: Vec::new(),
         warnings: Vec::new(),
@@ -3152,6 +3178,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let n = b.count()?;
     for _ in 0..n {
         t.helper_keys.push(b.string()?);
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.equation_skips.push((b.def()?, b.string()?, b.string()?));
     }
     let n = b.count()?;
     for _ in 0..n {

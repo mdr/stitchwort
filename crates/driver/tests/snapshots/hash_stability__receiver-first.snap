@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Meter b9574de01fb0e56efd39e8c5f077a0900990d2fb78198ffdb82fa7b1e5aa82e3
@@ -24,5 +25,7 @@ Main.test "direct" 00c4300ca883de310a986527192ecf60e52af64acfd4bb951e07466f6f431
 Main.test "chain" 1a4a8a0ac7e59481dee7efdd8943330ecb7f6bde22c1a4f24c032fdf9ea68048
 Main.test "function last" dda7ad79733028e0ac0f62bb6fc97b5f8854548ee4f3c92c855d2c8955b7b795
 Main.Meter.sumOnto 82c21d8240d1e12a04b17a7ed08a44d188511dd2bed757dca5e3c5a3aef5b2a1
+Main.Meter.sumOnto.eq1 6d27ba1f227348dbd0f7865a8a98de0646960119905cfe006475e362553cfd01
+Main.Meter.sumOnto.eq2 d23950c72a9d29ff986a60b01ef52d8a5b423b83a965031e4f01a64067c6f2b3
 Main.Meter.fromNat 5f32389de6fa2b409c49e7b0f2fb330a080116ddfbb162e2d87af4b1eadd15f8
 Main.test "helper" f6e6f856cadffcb74152935270fa482c12c4dd25f6d10427c1cac74b4fe4fce6

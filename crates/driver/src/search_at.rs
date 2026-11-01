@@ -603,6 +603,12 @@ impl Session {
         checker: Option<&mut Session>,
     ) -> Result<AtReport, Diagnostic> {
         let started = Instant::now();
+        // The core's equations, put off until now (`equations.rs`).
+        self.elab.generate_deferred_equations()?;
+        let mut checker = checker;
+        if let Some(c) = checker.as_deref_mut() {
+            c.elab.generate_deferred_equations()?;
+        }
         let data = found.data.clone();
         // The goal as the elaborator had it, if it kept it; else its
         // statement, printed and read back.

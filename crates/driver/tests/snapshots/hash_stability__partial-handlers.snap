@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.countdown.Request 4ae4abdb8d29a16e71be8ba68ad638ad0ceb1e3a87dc4cf6690bc4743d74e867
@@ -34,4 +35,6 @@ Main.test "stopping drops the loop" d5dbd8c23e7e045c5839055582c7b6f0445cedd2a0df
 Main.test "a seeded loop" 19bb30dccf1d9ce63e906b3810c687f9ad49c5fa4581ed610e3964db760cd4f2
 Main.test "the same seed, the same rolls" fbc2f6d54e116c21d4bfa79266312e071f09fb8508c0c092be429e3ecff4cb76
 Main.showResult 4b0def2e009e853b4937de523d113baec8e9d4659248c9a7af1a3dc6fa6d27cb
+Main.showResult.eq1 a600bf8590080166b896317ec37ba116fdbe8cf5202cc134d675ce3886c62c72
+Main.showResult.eq2 285e7ac7918e73c8f361d41048d502d8f04866b8dad380648ed60da2263a601b
 Main.main 2bf86a2e39635f08fed4fcd7fa534c13569fab1455320aa6d709f0a4be866361

@@ -1649,6 +1649,9 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
         return Err(d);
     }
+    if let Some(d) = crate::equations::no_equation(cx.e, name) {
+        return Err(d);
+    }
     if let Some(fields) = as_fields(cx, name) {
         return infer_app_with(cx, &fields, args, fill);
     }
@@ -3416,6 +3419,11 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 }
 
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if let Expr::Var(name) = expr
+        && name.text == crate::equations::PROBE
+    {
+        return Ok(crate::equations::probe(cx, expected, name.span));
+    }
     if let Expr::Interpolated(text, _) = expr {
         let term = check_inner(cx, text, expected)?;
         cx.e.note_expr(cx, text.span(), expected);

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Shape b24311b33f5346fbbac338ff72f9fbca0cb5db735cb9653840c32a0d1b2a80b3
@@ -34,7 +35,11 @@ Main.test "a partial application keeps the rest of the names" 42a4e61a107d975147
 Main.annotatedValue 78ccc8234c2a05f701ac760097c531c62670e210a5abb546492518c2c7691df3
 Main.test "an annotated expression" 6b839ee911755c8ed07ee9a673af2e83b4d1510f37609fda6631c2b7b4d34f5e
 Main.Scaler 1cec57ff93b42b10278446ba38763ecb25024f3bef7f8cc54da6994f64d015eb
+Main.Scaler.eq1 aefb8c68beebf1d4dba10824384ab046dff94c309738a6ecda2636dd5545e2a2
+Main.Scaler.eq2 8c64a6875f25212abf531765c47760bad83f2cd70c48ead80c8d8b302c1c8d40
 Main.scaler 37513db1bb988a02a85619651895e4e462a4fabec70ebeb132a7867ceb4ba517
+Main.scaler.eq1 46c9f4c48597d1136a67180336bc62ec9a374e7d98066c4bea960ba229b15036
+Main.scaler.eq2 2d64cdbe83726a0d62f9d5884d2303383d55672209d7c9cfa4c4ec81f232c003
 Main.test "names after a computed result type" 10e0e7298c928a42fc88f3a31d1e03cd9fa34ccbf8103c929276058ca13a5a00
 Main.test "named before the argument the type needs" 10e0e7298c928a42fc88f3a31d1e03cd9fa34ccbf8103c929276058ca13a5a00
 Main.test "named after a computed result type, by position" c37c824717a0f7e4736645d1e9eddc5d66d57dc30f3fc9910dc825d981d21ab9
