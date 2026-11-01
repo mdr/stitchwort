@@ -3894,7 +3894,7 @@
     {
       "id": 1046,
       "title": "Doc links aren't checked in std core/ files; restore the 16 reverted links; remaining summary fixes",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -3904,7 +3904,9 @@
       "body": "Found by SW-1040 (1 Nov 2026): a nonexistent [`Name`] link in a std core/ file (core/Logic.sw) passes `stitchwort audit Std --no-search`, while the same link in Vec/Grid.sw fails std's load. core files go through a different load path, so W-DOC-LINK never runs on them; 16 core links were reverted to plain backticks. Fix: check links in core files too, then restore those links. Also left by SW-1040: ~30 summaries still cut by the splitter (Parse findAll/labelWhole/Failure.found, Graph SearchResult/SearchState/BreadthState, Float Model/Theory, Omega ITerm/Fact.splits, Terminal Key.ofCsi/drawFrame, Effect.alwaysBind/foldCompD, byDecision, PrefixSums, IO.simulateWith); some theorem docs sum up several lemmas; 1426 std theorems and most instances have no doc.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "c6ddddb5"
+      ]
     }
   ]
 }
