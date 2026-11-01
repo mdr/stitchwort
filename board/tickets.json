@@ -3845,7 +3845,7 @@
     {
       "id": 1043,
       "title": "Documentation: docsort --report sweep over std, aoc Common/2024/2025 and the roguelike (sorted before the script fixes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3854,12 +3854,14 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "6e0de114"
+      ]
     },
     {
       "id": 1044,
       "title": "Documentation: remove the plain -- fallback (D2142); a doc is --| only",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
