@@ -2641,11 +2641,21 @@ fn comp_check_in(
                         cx.env.clone(),
                     ));
                     let ty = cx.eval(&ty)?;
-                    if may_perform(cx, value)? {
-                        (comp_check(cx, value, row, &ty)?, ty, true)
-                    } else {
+                    if !may_perform(cx, value)? {
                         (check(cx, value, &ty)?, ty, false)
+                    } else if let Some((term, _)) = plain_value(cx, value, row, Some(&ty))? {
+                        (term, ty, false)
+                    } else {
+                        (comp_check(cx, value, row, &ty)?, ty, true)
                     }
+                }
+                // A value that performs nothing once its callbacks are
+                // known to be pure: a pure `let` (SW-981).
+                None if may_perform(cx, value)?
+                    && let Some((term, ty)) = plain_value(cx, value, row, None)? =>
+                {
+                    written = crate::dot::written_of(cx, &term)?;
+                    (term, ty, false)
                 }
                 // A call whose effectful arguments run first: the final
                 // call is pure, and its written result type is recorded.
@@ -2718,7 +2728,11 @@ fn comp_check_in(
             otherwise,
             ..
         } => {
-            if !may_perform(cx, cond)? {
+            // A condition that performs nothing once its callbacks are known
+            // to be pure is a pure one, so `if h: (xs.filter p).length <
+            // xs.length` can give `h` for a recursive call's `decreasing`
+            // (SW-981).
+            if !may_perform(cx, cond)? || performs_nothing(cx, cond)? {
                 return branches(cx, row, t, as_written, |cx, expected| {
                     check_if(cx, binder.as_ref(), cond, then, otherwise, expected)
                 });
@@ -3148,31 +3162,102 @@ struct Bound {
 /// Puts the result of `c`, a computation in `row` returning a `ty`, in
 /// scope as `name`, for [`wrap`] to run first.
 fn hold(cx: &mut Ctx, row: &Row, name: &str, c: Term, ty: Value) -> Result<Bound> {
-    let mark = cx.mark();
-    let (comp, in_place) = match in_place(cx, row, &c, &ty)? {
-        Some(value) => {
-            let ty_term = cx.quote_folded(&ty)?;
-            cx.define(
-                Some(name),
-                name.into(),
-                ty.clone(),
-                ty_term.clone(),
-                value.clone(),
-            )?;
-            (value, Some(ty_term))
-        }
+    match in_place(cx, row, &c, &ty)? {
+        Some(value) => hold_value(cx, name, value, ty),
         None => {
+            let mark = cx.mark();
             cx.bind(name, ty.clone());
-            (c, None)
+            Ok(Bound {
+                name: name.to_string(),
+                comp: c,
+                ty,
+                mark,
+                in_place: None,
+            })
         }
-    };
+    }
+}
+
+/// Puts `value`, a plain value of type `ty`, in scope as `name`: a
+/// transparent `let`, so what is checked after it (a recursive call's
+/// `decreasing` obligation) sees what `name` is.
+fn hold_value(cx: &mut Ctx, name: &str, value: Term, ty: Value) -> Result<Bound> {
+    let mark = cx.mark();
+    let ty_term = cx.quote_folded(&ty)?;
+    cx.define(
+        Some(name),
+        name.into(),
+        ty.clone(),
+        ty_term.clone(),
+        value.clone(),
+    )?;
     Ok(Bound {
         name: name.to_string(),
-        comp,
+        comp: value,
         ty,
         mark,
-        in_place,
+        in_place: Some(ty_term),
     })
+}
+
+/// `expr`, which [`may_perform`] in `row`, elaborated as plain calls when it
+/// performs only through calls in bare rows whose callbacks turn out pure
+/// (`xs.filter (c => c == other)` in a callback of `List.sumBy`, whose row
+/// isn't known yet): a value, with its type, as in a pure context
+/// ([`crate::check::pure_first`]). It performs nothing, so it's bound as a
+/// pure `let` is, transparently, rather than run with `bind`, whose
+/// variable would hide what it is (SW-981). `None`, with nothing changed,
+/// if it does perform, or in the empty row, where what runs first is a
+/// transparent `let` already ([`in_place`]). With `expected`, a type that
+/// isn't a computation, it's checked against it.
+fn plain_value(
+    cx: &mut Ctx,
+    expr: &Expr,
+    row: &Row,
+    expected: Option<&Value>,
+) -> Result<Option<(Term, Value)>> {
+    if row.is_empty() {
+        return Ok(None);
+    }
+    plain_value_in_any_row(cx, expr, expected)
+}
+
+/// [`plain_value`], whatever the row.
+fn plain_value_in_any_row(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+) -> Result<Option<(Term, Value)>> {
+    let expected = match expected {
+        Some(t) if is_comp_type(cx, t)? => return Ok(None),
+        Some(t) => Some(force(cx.g(), t.clone())?),
+        None => None,
+    };
+    let plain = |cx: &mut Ctx| match &expected {
+        Some(t) => Ok((crate::check::check_value(cx, expr, t, t)?, t.clone())),
+        None => {
+            let (term, ty) = crate::check::infer_value(cx, expr)?;
+            insert(cx, term, ty)
+        }
+    };
+    // A part that performs an ability (`E-ABILITY`, undone) is run here,
+    // where the row may allow it.
+    match crate::check::pure_first(cx, expr, expected.as_ref(), plain) {
+        Ok(crate::check::PureFirst::Done(found)) => Ok(Some(found)),
+        Ok(crate::check::PureFirst::Run(_)) => Ok(None),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => Ok(None),
+    }
+}
+
+/// Whether `expr`, which [`may_perform`], performs nothing once elaborated
+/// as plain calls ([`plain_value_in_any_row`]), with everything undone: then
+/// it's elaborated where it stands as a pure expression is.
+fn performs_nothing(cx: &mut Ctx, expr: &Expr) -> Result<bool> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let found = plain_value_in_any_row(cx, expr, None);
+    snapshot.restore(cx);
+    Ok(found?.is_some())
 }
 
 /// `runPure c`, for a computation `c` in the empty row, which is run where
@@ -3829,9 +3914,14 @@ fn run_first(cx: &mut Ctx, e: &Expr, row: &Row, bound: &mut Vec<Bound>) -> Resul
     if !may_perform(cx, e)? {
         return Ok(e.clone());
     }
-    let (c, ty) = comp_infer(cx, e, row)?;
     let name = format!("%{}", cx.level());
-    bound.push(hold(cx, row, &name, c, ty)?);
+    match plain_value(cx, e, row, None)? {
+        Some((value, ty)) => bound.push(hold_value(cx, &name, value, ty)?),
+        None => {
+            let (c, ty) = comp_infer(cx, e, row)?;
+            bound.push(hold(cx, row, &name, c, ty)?);
+        }
+    }
     Ok(Expr::Var(AstName {
         text: name,
         span: e.span(),

@@ -1152,7 +1152,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 /// the one reported: it's the error the plain function would give. A plain
 /// way that fails because a part of the expression performs an ability
 /// (`E-ABILITY`) is that error at once, without running.
-fn pure_first(
+pub(crate) fn pure_first(
     cx: &mut Ctx,
     expr: &Expr,
     expected: Option<&Value>,
@@ -1215,7 +1215,7 @@ fn pure_first(
 }
 
 /// What [`pure_first`] found.
-enum PureFirst {
+pub(crate) enum PureFirst {
     /// Elaborated as plain calls, with its type.
     Done((Term, Value)),
     /// To be run in the empty row; the plain way's error, if it failed.
@@ -3498,7 +3498,12 @@ fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
 
 /// [`check_inner`] once it's known that `expr` isn't run as a whole, against
 /// a forced `expected` that isn't a computation.
-fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
+pub(crate) fn check_value(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
     let g = cx.g();
     let expected = expected.clone();
     if let Some(logic) = crate::logic::classify(cx, expr) {
