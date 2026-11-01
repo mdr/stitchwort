@@ -3,6 +3,7 @@
 namespace Aoc.Year2021.Day18.Tests
 import Aoc.Year2021.Day18 (..)
 import Aoc.Year2021.Day18.Spec (explodeLeaves, leaves, splitLeaves)
+import Aoc.Year2021.Day18.Proofs (explodeSome, height, reduceExplodes, reduceSplits, splitHeight, splitSome, splitSomeLeaves)
 import Std (Fail, List, Option, Parse, Result, Text)
 
 -- One number from its text, or `Regular 0` if it doesn't parse.
@@ -67,3 +68,29 @@ test "the parser refuses a deep pair" := refuses "[[[[[9,8],1],2],3],4]"
 test "the parser refuses a number above 9" := refuses "[10,1]"
 test "the parser refuses junk" := refuses "[1,2" ∧ refuses "[1;2]" ∧ refuses "[1,2]x"
 test "the parser takes reduced numbers" := not (refuses "[1,2]\n[[[[1,2],3],4],5]")
+
+-- The hypotheses of `splitSome`, `splitSomeLeaves`, `splitHeight`,
+-- `reduceSplits`, `explodeSome` and `reduceExplodes` can hold (the
+-- audit's random numbers never split or explode to the random number it
+-- picks): two of the puzzle's first examples.
+def tenAndOne: Number := Pair (Regular 10) (Regular 1)
+
+def tenSplit: Number := Pair (Pair (Regular 5) (Regular 5)) (Regular 1)
+
+theorem exampleSplits: splitLeaves (leaves 0 tenAndOne) = Some (leaves 0 tenSplit) := splitSome tenAndOne tenSplit rfl
+
+theorem exampleSplitsAfter: splitLeaves (leaves 0 tenAndOne ++ Nil) = Some (leaves 0 tenSplit ++ Nil) := splitSomeLeaves 0 tenAndOne tenSplit rfl Nil
+
+theorem exampleSplitHeight: height tenSplit ≤ height tenAndOne + 1 := splitHeight tenAndOne tenSplit rfl
+
+def deepLeft: Number := Pair (Pair (Pair (Pair (Pair (Regular 9) (Regular 8)) (Regular 1)) (Regular 2)) (Regular 3)) (Regular 4)
+
+def deepLeftExploded: Explosion :=
+  { toLeft = 9, number = Pair (Pair (Pair (Pair (Regular 0) (Regular 9)) (Regular 2)) (Regular 3)) (Regular 4), toRight = 0 }
+
+theorem exampleExplodes: explodeLeaves (leaves 0 deepLeft) = Some (leaves 0 deepLeftExploded.number) :=
+  explodeSome deepLeft deepLeftExploded rfl omega
+
+theorem exampleReduceSplits: reduce 1 tenAndOne = reduce 0 tenSplit := reduceSplits 0 tenAndOne tenSplit rfl rfl
+
+theorem exampleReduceExplodes: reduce 1 deepLeft = reduce 0 deepLeftExploded.number := reduceExplodes 0 deepLeft deepLeftExploded rfl
