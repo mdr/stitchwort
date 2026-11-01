@@ -297,7 +297,7 @@ impl Elaborator {
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Vec<Plan>> {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &candidate.ty, span)?;
             let conclusion = eval(g, &opened.env, &opened.conclusion)?;
             if !crate::unify::unify_solving_arguments(g, 0, &goal.pattern.value, &conclusion)? {
@@ -472,7 +472,7 @@ impl Elaborator {
             // compute it (a closed list of 130,000 sequences in AoC 2024 day
             // 22 took minutes and gigabytes): under a comparison's budget.
             let opened = {
-                let _op = g.budget.operation(ATTEMPT);
+                let _op = g.budget.attempt(ATTEMPT);
                 self.call_pattern(&call).map(|p| {
                     let shown = eval(g, &[], &call).map(|v| self.show_with_vars(&goal.vars, &v));
                     (p, shown)
@@ -561,7 +561,7 @@ impl Elaborator {
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Option<Plan>> {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &candidate.ty, span)?;
             let side = match opened.conclusion.strip_loc() {
                 Term::Eq(_, l, r) => if backwards { r } else { l }.clone(),

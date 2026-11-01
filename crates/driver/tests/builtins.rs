@@ -57,6 +57,59 @@ fn prelude_binds_every_builtin() {
     assert_eq!(Some(text.char), r.data(Builtin::Char));
 }
 
+/// Every library declaration hashes as `hash_stability`'s prelude snapshot
+/// (checked in the release build) says. In the gate's debug build this
+/// catches elaboration that depends on the build profile: before SW-962, a
+/// cheap attempt inside the elaborator had a budget in bytes of stack, gave
+/// up in a debug build only, and `Std.Nat.partitionPointBounds`
+/// elaborated to a different term, with 40 other library declarations.
+#[test]
+fn the_library_hashes_as_in_the_release_build() {
+    with_stack(STACK, library_hashes_as_in_the_release_build);
+}
+
+fn library_hashes_as_in_the_release_build() {
+    use stitchwort_core::hash::{data_hash, def_hash};
+    use stitchwort_core::{DataId, DefId};
+    let snapshot = include_str!("snapshots/hash_stability__prelude.snap");
+    let pinned: stitchwort_core::collections::HashMap<&str, &str> = snapshot
+        .lines()
+        .filter_map(|line| line.rsplit_once(' '))
+        .filter(|(_, hash)| hash.len() == 64)
+        .collect();
+    let session = Session::eager_for_stack(STACK);
+    let g = &session.elab.globals;
+    let show = |h: stitchwort_core::budget::Result<Option<stitchwort_core::hash::ContentHash>>| {
+        h.ok().flatten().map(|h| h.hex())
+    };
+    let mut lines: Vec<(String, Option<String>)> = Vec::new();
+    for i in 0..g.datas.len() {
+        lines.push((
+            format!("data {}", g.datas[i].path),
+            show(data_hash(g, DataId(i))),
+        ));
+    }
+    for i in 0..g.defs.len() {
+        lines.push((g.defs[i].path.to_string(), show(def_hash(g, DefId(i)))));
+    }
+    assert_eq!(
+        lines.len(),
+        pinned.len(),
+        "the snapshot is of another library"
+    );
+    let differ: Vec<&str> = lines
+        .iter()
+        .filter(|(name, hash)| pinned.get(name.as_str()).copied() != hash.as_deref())
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert!(
+        differ.is_empty(),
+        "{} declarations hash differently from the release build, first {:?}",
+        differ.len(),
+        &differ[..differ.len().min(10)]
+    );
+}
+
 #[test]
 fn a_prelude_without_a_builtin_is_refused_before_user_code() {
     // The prelude loads, but doesn't declare `IO.simulate`.

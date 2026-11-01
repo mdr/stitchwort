@@ -164,6 +164,10 @@ pub struct Budget {
     frame_limit: Cell<usize>,
     limits: Cell<Option<Limits>>,
     exhausted: Cell<Option<ResourceError>>,
+    /// Whether the operation ran out because it reached its stack floor
+    /// (rather than its steps, size or frames): what [`Budget::attempt`]
+    /// passes on to the operation it is part of.
+    out_of_stack: Cell<bool>,
     /// When the frame limit was hit: the definitions with the most frames
     /// pending, as (definition index, frames) pairs, most first.
     deepest: RefCell<Vec<(usize, usize)>>,
@@ -200,6 +204,7 @@ impl Default for Budget {
             frame_limit: Cell::new(usize::MAX),
             limits: Cell::new(None),
             exhausted: Cell::new(None),
+            out_of_stack: Cell::new(false),
             deepest: RefCell::new(Vec::new()),
             too_large: Cell::new(None),
             entered: Cell::new(usize::MAX),
@@ -218,12 +223,26 @@ impl Default for Budget {
 pub struct Operation<'b> {
     budget: &'b Budget,
     previous: Option<Saved>,
+    /// Started by [`Budget::attempt`]: running out of stack is passed on.
+    attempt: bool,
 }
 
 impl Drop for Operation<'_> {
     fn drop(&mut self) {
-        if let Some(saved) = self.previous.take() {
-            self.budget.restore(saved);
+        let Some(saved) = self.previous.take() else {
+            return;
+        };
+        let out_of_stack = self.attempt && self.budget.out_of_stack.get();
+        let error = self.budget.exhausted.get();
+        self.budget.restore(saved);
+        if out_of_stack && let Some(error) = error {
+            // The operation this attempt is part of is out of stack too: it
+            // has no answer, rather than the one the attempt's "no" gives.
+            self.budget.out_of_stack.set(true);
+            if self.budget.exhausted.get().is_none() {
+                self.budget.exhausted.set(Some(error));
+            }
+            self.budget.arm();
         }
     }
 }
@@ -237,6 +256,7 @@ pub struct Saved {
     frame_limit: usize,
     limits: Option<Limits>,
     exhausted: Option<ResourceError>,
+    out_of_stack: bool,
 }
 
 impl Budget {
@@ -246,6 +266,32 @@ impl Budget {
         Operation {
             budget: self,
             previous: Some(self.start(limits)),
+            attempt: false,
+        }
+    }
+
+    /// Starts an attempt inside the operation running: something tried
+    /// whose failure to finish within `limits` the caller takes as "no"
+    /// (a comparison, a cheap normal form). It has fresh counters for
+    /// steps, size and frames, which are the same in every build, but no
+    /// stack budget of its own: it may go as deep as the operation it is
+    /// part of may. A budget in bytes of stack isn't the same in every
+    /// build (a debug build's frames are several times larger, SW-962), so
+    /// an attempt cut short by one would give a different "no", and a
+    /// different elaborated term, in a debug build. If the attempt reaches
+    /// the operation's stack floor, the operation has run out too, with
+    /// the attempt's error: no answer, rather than a different one. Outside
+    /// an operation, it may use `limits.stack` bytes from here.
+    pub fn attempt(&self, limits: Limits) -> Operation<'_> {
+        let floor = self.stack_floor.get();
+        let saved = self.start(limits);
+        if floor != 0 {
+            self.stack_floor.set(floor);
+        }
+        Operation {
+            budget: self,
+            previous: Some(saved),
+            attempt: true,
         }
     }
 
@@ -265,6 +311,7 @@ impl Budget {
             frame_limit: self.frame_limit.replace(limits.frames),
             limits: self.limits.replace(Some(limits)),
             exhausted: self.exhausted.replace(None),
+            out_of_stack: self.out_of_stack.replace(false),
         };
         self.entered.set(usize::MAX);
         if self.cancel_requested() {
@@ -282,6 +329,7 @@ impl Budget {
         self.stack_floor.set(saved.stack_floor);
         self.frame_limit.set(saved.frame_limit);
         self.limits.set(saved.limits);
+        self.out_of_stack.set(saved.out_of_stack);
         let exhausted = if self.cancelled.get() {
             Some(ResourceError::Cancelled)
         } else {
@@ -356,6 +404,7 @@ impl Budget {
         self.frame_limit.set(usize::MAX);
         self.limits.set(None);
         self.exhausted.set(None);
+        self.out_of_stack.set(false);
         self.cancelled.set(false);
         self.arm();
     }
@@ -490,7 +539,13 @@ impl Budget {
     #[inline]
     pub fn nesting(&self, pass: &'static str) -> Result<()> {
         self.visits.set(self.visits.get() + 1);
-        if stack_position() < self.stack_floor.get() || self.work_limit.get() == 0 {
+        if stack_position() < self.stack_floor.get() {
+            if self.exhausted.get().is_none() {
+                self.out_of_stack.set(true);
+            }
+            return Err(self.too_deep(pass));
+        }
+        if self.work_limit.get() == 0 {
             return Err(self.too_deep(pass));
         }
         Ok(())
@@ -579,10 +634,13 @@ impl Budget {
     #[cold]
     fn run_out(&self, work: u64) -> ResourceError {
         self.note_ran_out();
-        let e = self.exhausted.get().unwrap_or(if work > self.limit.get() {
-            ResourceError::Work
-        } else {
-            ResourceError::Depth
+        let e = self.exhausted.get().unwrap_or_else(|| {
+            if work > self.limit.get() {
+                ResourceError::Work
+            } else {
+                self.out_of_stack.set(true);
+                ResourceError::Depth
+            }
         });
         self.exhausted.set(Some(e));
         self.work_limit.set(0);
@@ -596,6 +654,68 @@ mod tests {
 
     fn steps(b: &Budget, n: u32) -> Result<()> {
         (0..n).try_for_each(|_| b.step())
+    }
+
+    /// Recurses `depth` levels, each a [`Budget::nesting`] check with a
+    /// kilobyte of its own stack.
+    #[inline(never)]
+    fn nest(b: &Budget, depth: usize) -> Result<()> {
+        let pad = std::hint::black_box([0u8; 1024]);
+        b.nesting("test")?;
+        if depth > 0 {
+            nest(b, depth - 1)?;
+        }
+        std::hint::black_box(pad);
+        Ok(())
+    }
+
+    /// SW-962: an attempt's own stack budget (here none at all) doesn't
+    /// stop it; how deep it may go is the operation's, so the same attempt
+    /// gives the same answer in a debug build, whose frames are larger.
+    #[test]
+    fn an_attempt_may_go_as_deep_as_its_operation() {
+        let b = Budget::default();
+        let _op = b.operation(Limits::for_stack(1024 * 1024));
+        {
+            let _attempt = b.attempt(Limits {
+                stack: 0,
+                ..Limits::default()
+            });
+            assert_eq!(nest(&b, 64), Ok(()));
+        }
+        // An operation with its own stack budget is stopped by it.
+        {
+            let _inner = b.operation(Limits {
+                stack: 0,
+                ..Limits::default()
+            });
+            assert_eq!(nest(&b, 64), Err(ResourceError::Nesting("test")));
+        }
+        assert_eq!(b.exhausted(), None);
+    }
+
+    /// An attempt that reaches the operation's stack floor ends the
+    /// operation too: it has no answer, not the one "no" would give. One
+    /// that runs out of its own steps is just "no".
+    #[test]
+    fn an_attempt_out_of_stack_ends_its_operation() {
+        let b = Budget::default();
+        let _op = b.operation(Limits::for_stack(1024 * 1024));
+        {
+            let _attempt = b.attempt(Limits {
+                work: 5,
+                ..Limits::default()
+            });
+            assert_eq!(steps(&b, 10), Err(ResourceError::Work));
+        }
+        assert_eq!(b.exhausted(), None);
+        assert_eq!(steps(&b, 10), Ok(()));
+        {
+            let _attempt = b.attempt(Limits::default());
+            assert_eq!(nest(&b, 1024), Err(ResourceError::Nesting("test")));
+        }
+        assert_eq!(b.exhausted(), Some(ResourceError::Nesting("test")));
+        assert!(b.step().is_err());
     }
 
     #[test]

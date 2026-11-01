@@ -1985,9 +1985,14 @@ pub(crate) fn fold_back(
 /// `f`'s result, if it's cheap to compute: a `let`'s value's normal form,
 /// for [`refold`], which is only an optimisation. A value too large to
 /// compute and compare quickly (a long list, say) isn't folded back; that's
-/// also where folding would cost more than it saves.
+/// also where folding would cost more than it saves. Whether it folds shows
+/// in the elaborated term, so it is an attempt ([`Budget::attempt`]): its
+/// limits are ones that are the same in every build, and its `stack` only
+/// applies outside an operation (SW-962).
+///
+/// [`Budget::attempt`]: stitchwort_core::budget::Budget::attempt
 pub(crate) fn cheaply<T>(g: &Globals, f: impl FnOnce() -> Result<T>) -> Option<T> {
-    let _op = g.budget.operation(stitchwort_core::Limits {
+    let _op = g.budget.attempt(stitchwort_core::Limits {
         work: 100_000,
         stack: 128 * 1024,
         size: 10_000,
