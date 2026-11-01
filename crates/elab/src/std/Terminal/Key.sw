@@ -1,19 +1,19 @@
--- `Key`: the keys a terminal program reads, and `Key.next`, which decodes
--- them from the bytes a terminal sends (docs/proposals/terminal-io.md §3.2).
--- Decoding is ordinary code: total, structural, with no `IO`, so it's
--- tested here and proved about (`Key.nextBytes`). `Terminal.readKey` gives
--- these keys; `Terminal.toIO` reads the bytes and calls `Key.next`.
---
---   Key.next [27, 91, 65, 113] = Got Up [113]   -- ESC [ A is the up arrow
---   Key.next [27] = Incomplete                  -- a lone ESC, or the start of a sequence?
---   Key.next [] = NoBytes
+--| `Key`: the keys a terminal program reads, and `Key.next`, which decodes
+--| them from the bytes a terminal sends (docs/proposals/terminal-io.md §3.2).
+--| Decoding is ordinary code: total, structural, with no `IO`, so it's
+--| tested here and proved about (`Key.nextBytes`). `Terminal.readKey` gives
+--| these keys; `Terminal.toIO` reads the bytes and calls `Key.next`.
+--|
+--|   Key.next [27, 91, 65, 113] = Got Up [113]   -- ESC [ A is the up arrow
+--|   Key.next [27] = Incomplete                  -- a lone ESC, or the start of a sequence?
+--|   Key.next [] = NoBytes
 
 import Key.Decoded (Got, Incomplete, NoBytes)
 
--- A key. Arrows and the other named keys are what a terminal sends for
--- them; anything it sends that isn't one of these is `Unknown` (D1259), so
--- a program's catch-all case skips it. Not here: function keys, Alt, and
--- modified arrows (Ctrl-Up arrives as `Unknown`).
+--| A key. Arrows and the other named keys are what a terminal sends for
+--| them; anything it sends that isn't one of these is `Unknown` (D1259), so
+--| a program's catch-all case skips it. Not here: function keys, Alt, and
+--| modified arrows (Ctrl-Up arrives as `Unknown`).
 type Key: Type =
   | Printable (char: Char) -- a printable character, space included
   | Enter
@@ -53,14 +53,14 @@ def Key.position: Key → Nat
   | Ctrl letter => 14
   | Unknown => 15
 
--- The key's character, or a space for a key without one.
+--| The key's character, or a space for a key without one.
 def Key.charOrSpace: Key → Char
   | Printable char => char
   | Ctrl letter => letter
   | _ => ' '
 
--- The key at a position, with a character if it takes one: undoes
--- `position` and `charOrSpace` together (`Key.fromParts`).
+--| The key at a position, with a character if it takes one: undoes
+--| `position` and `charOrSpace` together (`Key.fromParts`).
 def Key.ofParts (position: Nat) (char: Char): Key :=
   match position with
     | 0 => Printable char
@@ -112,27 +112,27 @@ instance Key.instDecEq: DecEq Key :=
       else No (e => sameChar (Eq.cong Key.charOrSpace e))
     else No (e => samePosition (Eq.cong Key.position e)) }
 
--- What decoding the front of some bytes gives.
+--| What decoding the front of some bytes gives.
 type Key.Decoded: Type =
   | Got (key: Key) (rest: List Nat) -- a key, and the bytes after it
   | Incomplete -- the bytes end inside a key's sequence: more may complete it
   | NoBytes -- no bytes at all
 
--- The first key in `bytes`. Bytes are below 256 (larger numbers are
--- `Unknown`).
---
--- - CR or LF is `Enter`; 9 is `Tab`; 127 or 8 is `Backspace`; other bytes
---   from 1 to 26 are `Ctrl` with a letter (1 is `Ctrl 'a'`); 0 and 28 to 31
---   are `Unknown`.
--- - A character of one to four bytes of UTF-8 is `Printable`. A bad lead or
---   continuation byte, an overlong form, or a code that isn't a scalar value
---   is `Unknown`.
--- - `ESC [`, parameter bytes and a final byte is a CSI sequence: the arrows,
---   `Home`, `End`, `Delete`, `PageUp` and `PageDown` as terminals send them,
---   any other complete one `Unknown`. `ESC O` and one byte is the SS3 form
---   of the arrows, `Home` and `End`.
--- - `ESC` followed by anything else is `Escape`; the byte after it is the
---   start of the next key.
+--| The first key in `bytes`. Bytes are below 256 (larger numbers are
+--| `Unknown`).
+--|
+--| - CR or LF is `Enter`; 9 is `Tab`; 127 or 8 is `Backspace`; other bytes
+--|   from 1 to 26 are `Ctrl` with a letter (1 is `Ctrl 'a'`); 0 and 28 to 31
+--|   are `Unknown`.
+--| - A character of one to four bytes of UTF-8 is `Printable`. A bad lead or
+--|   continuation byte, an overlong form, or a code that isn't a scalar value
+--|   is `Unknown`.
+--| - `ESC [`, parameter bytes and a final byte is a CSI sequence: the arrows,
+--|   `Home`, `End`, `Delete`, `PageUp` and `PageDown` as terminals send them,
+--|   any other complete one `Unknown`. `ESC O` and one byte is the SS3 form
+--|   of the arrows, `Home` and `End`.
+--| - `ESC` followed by anything else is `Escape`; the byte after it is the
+--|   start of the next key.
 def Key.next: List Nat → Key.Decoded
   | [] => NoBytes
   | [byte, ..rest] =>
@@ -140,7 +140,7 @@ def Key.next: List Nat → Key.Decoded
     else if byte < 128 then Got (Key.ofAscii byte) rest
     else Key.utf8Lead byte rest
 
--- A byte below 128 other than ESC: a control key or a printable character.
+--| A byte below 128 other than ESC: a control key or a printable character.
 def Key.ofAscii (byte: Nat): Key :=
   if 32 ≤ byte && byte ≤ 126 then Option.fold (Char.fromNat byte) Unknown Printable
   else if byte == 13 || byte == 10 then Enter
@@ -149,7 +149,7 @@ def Key.ofAscii (byte: Nat): Key :=
   else if 1 ≤ byte && byte ≤ 26 then Option.fold (Char.fromNat (byte + 96)) Unknown Ctrl
   else Unknown
 
--- The bytes after an `ESC`.
+--| The bytes after an `ESC`.
 def Key.afterEscape: List Nat → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
@@ -157,9 +157,9 @@ def Key.afterEscape: List Nat → Key.Decoded
     else if byte == 79 then Key.ss3 rest
     else Got Escape (Cons byte rest)
 
--- After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
--- reverse, then a final byte (64 to 126). Any other byte ends the sequence
--- as `Unknown`, and starts the next key.
+--| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
+--| reverse, then a final byte (64 to 126). Any other byte ends the sequence
+--| as `Unknown`, and starts the next key.
 def Key.csi (parameters: List Nat): List Nat → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
@@ -167,16 +167,16 @@ def Key.csi (parameters: List Nat): List Nat → Key.Decoded
     else if 64 ≤ byte && byte ≤ 126 then Got (Key.ofCsi (List.reverse parameters) byte) rest
     else Got Unknown (Cons byte rest)
 
--- The key a CSI sequence stands for, from its parameter bytes and final
--- byte: `ESC [A` to `ESC [D` the arrows, `ESC [H` and `ESC [F` `Home` and
--- `End`, and `ESC [n~` for the keys above the arrows.
+--| The key a CSI sequence stands for, from its parameter bytes and final
+--| byte: `ESC [A` to `ESC [D` the arrows, `ESC [H` and `ESC [F` `Home` and
+--| `End`, and `ESC [n~` for the keys above the arrows.
 def Key.ofCsi (parameters: List Nat) (final: Nat): Key :=
   match parameters with
     | [] => Key.ofFinal final
     | [parameter] => if final == 126 then Key.ofTilde parameter else Unknown
     | _ => Unknown
 
--- The final byte of `ESC [x` or `ESC Ox`.
+--| The final byte of `ESC [x` or `ESC Ox`.
 def Key.ofFinal (final: Nat): Key :=
   if final == 65 then Up
   else if final == 66 then Down
@@ -186,8 +186,8 @@ def Key.ofFinal (final: Nat): Key :=
   else if final == 70 then End
   else Unknown
 
--- The digit of `ESC [n~`: 3 `Delete`, 5 and 6 `PageUp` and `PageDown`, 1
--- and 7 `Home`, 4 and 8 `End`.
+--| The digit of `ESC [n~`: 3 `Delete`, 5 and 6 `PageUp` and `PageDown`, 1
+--| and 7 `Home`, 4 and 8 `End`.
 def Key.ofTilde (digit: Nat): Key :=
   if digit == 51 then Delete
   else if digit == 53 then PageUp
@@ -196,22 +196,22 @@ def Key.ofTilde (digit: Nat): Key :=
   else if digit == 52 || digit == 56 then End
   else Unknown
 
--- After `ESC O`: one more byte.
+--| After `ESC O`: one more byte.
 def Key.ss3: List Nat → Key.Decoded
   | [] => Incomplete
   | [final, ..rest] => Got (Key.ofFinal final) rest
 
--- A byte of 128 or more, leading a UTF-8 character of two to four bytes.
+--| A byte of 128 or more, leading a UTF-8 character of two to four bytes.
 def Key.utf8Lead (lead: Nat) (rest: List Nat): Key.Decoded :=
   if 194 ≤ lead && lead ≤ 223 then Key.utf8More 128 (lead - 192) 1 rest
   else if 224 ≤ lead && lead ≤ 239 then Key.utf8More 2048 (lead - 224) 2 rest
   else if 240 ≤ lead && lead ≤ 244 then Key.utf8More 65536 (lead - 240) 3 rest
   else Got Unknown rest
 
--- `count` more continuation bytes (128 to 191), each adding six bits to
--- `code`. A code below `minimum` is an overlong form, so `Unknown`. A byte
--- that isn't a continuation ends the character as `Unknown`, and starts the
--- next key.
+--| `count` more continuation bytes (128 to 191), each adding six bits to
+--| `code`. A code below `minimum` is an overlong form, so `Unknown`. A byte
+--| that isn't a continuation ends the character as `Unknown`, and starts the
+--| next key.
 def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
   | 0, rest =>
     if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest
@@ -220,10 +220,10 @@ def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
     if 128 ≤ byte && byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest
     else Got Unknown (Cons byte rest)
 
--- The bytes a terminal sends for a key: what `Key.next` reads back
--- (`Key.nextBytes`). A `Ctrl` with something other than a lower-case
--- letter, which no terminal sends, gives the bytes of `Unknown`: 255, which
--- is never part of UTF-8.
+--| The bytes a terminal sends for a key: what `Key.next` reads back
+--| (`Key.nextBytes`). A `Ctrl` with something other than a lower-case
+--| letter, which no terminal sends, gives the bytes of `Unknown`: 255, which
+--| is never part of UTF-8.
 def Key.bytes: Key → List Nat
   | Printable char => Char.utf8 char
   | Enter => [13]
@@ -244,12 +244,12 @@ def Key.bytes: Key → List Nat
     if 97 ≤ code && code ≤ 122 then [code - 96] else [255]
   | Unknown => [255]
 
--- Every key in `bytes`, in order, as many as are complete. For tests and
--- for reading a whole input at once.
+--| Every key in `bytes`, in order, as many as are complete. For tests and
+--| for reading a whole input at once.
 def Key.all (bytes: List Nat): List Key := Key.allWithin bytes.length bytes
 
--- At most `limit` keys (each key takes at least one byte, so the length is
--- enough).
+--| At most `limit` keys (each key takes at least one byte, so the length is
+--| enough).
 def Key.allWithin: Nat → List Nat → List Key
   | 0, bytes => []
   | Succ limit, bytes =>
@@ -258,10 +258,10 @@ def Key.allWithin: Nat → List Nat → List Key
       | Incomplete => []
       | NoBytes => []
 
--- The round trip a terminal makes: the bytes it sends for a named key, then
--- anything at all, decode to that key and the rest. Not for `Escape`, whose
--- byte also starts the other sequences (`Key.nextEscape` says when it holds),
--- or for the keys with a character, `Printable` and `Ctrl`.
+--| The round trip a terminal makes: the bytes it sends for a named key, then
+--| anything at all, decode to that key and the rest. Not for `Escape`, whose
+--| byte also starts the other sequences (`Key.nextEscape` says when it holds),
+--| or for the keys with a character, `Printable` and `Ctrl`.
 def Key.isNamed: Key → Bool
   | Printable char => False
   | Escape => False
@@ -286,15 +286,15 @@ theorem Key.nextBytes (rest: List Nat): (key: Key) → Key.isNamed key = True �
   | Ctrl letter, h => Void.exfalso (Bool.falseNotTrue h)
   | Unknown, h => rfl
 
--- `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
--- the end of the bytes is `Incomplete` (the handler decides, §3.2).
+--| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
+--| the end of the bytes is `Incomplete` (the handler decides, §3.2).
 theorem Key.nextEscape (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) (Cons byte rest)) = Got Escape (Cons byte rest) :=
   rewrite notCsi, notSs3 in rfl
 
 theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := rfl
 
--- Tests: every key, as a terminal sends it.
+--| Tests: every key, as a terminal sends it.
 test "Key: letters, arrows, Ctrl, Enter" :=
   Key.all [97, 27, 91, 65, 1, 13, 113] == [Printable 'a', Up, Ctrl 'a', Enter, Printable 'q']
 test "Key: space and the printable ends" := Key.all [32, 33, 126] == [Printable ' ', Printable '!', Printable '~']

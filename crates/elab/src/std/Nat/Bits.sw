@@ -1,11 +1,11 @@
--- Bitwise operations on `Nat`: shifting right and left, testing a bit, and
--- XOR, AND and OR, with the lemmas that relate them to division by powers
--- of 2 and to each bit.
+--| Bitwise operations on `Nat`: shifting right and left, testing a bit, and
+--| XOR, AND and OR, with the lemmas that relate them to division by powers
+--| of 2 and to each bit.
 
--- Regrouping `(q * d + s) * 2 + t`, for dividing by 2 and then by `d`.
+--| Regrouping `(q * d + s) * 2 + t`, for dividing by 2 and then by `d`.
 theorem Nat.regroupHalf (q: Nat) (d: Nat) (s: Nat) (t: Nat): (q * d + s) * 2 + t = q * (d * 2) + (s * 2 + t) := ring
 
--- Halving and then dividing by `2 ^ k` is dividing by `2 ^ (k + 1)`.
+--| Halving and then dividing by `2 ^ k` is dividing by `2 ^ (k + 1)`.
 theorem Nat.halfDivPow (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ k) :=
   let power := Nat.pow 2 k
   let positive := Nat.nonzeroOfPos power (Nat.powSuccPos 1 k)
@@ -16,8 +16,8 @@ theorem Nat.halfDivPow (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (S
         (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power positive))
           (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2)))))
 
--- `n` shifted right by `count` bits: `n / 2 ^ count` (`Nat.shiftRightDiv`),
--- in at most one step per bit of `n`.
+--| `n` shifted right by `count` bits: `n / 2 ^ count` (`Nat.shiftRightDiv`),
+--| in at most one step per bit of `n`.
 def Nat.shiftRight: (n: Nat) → (count: Nat) → Nat
   | Zero, count => 0
   | Succ n, Zero => Succ n
@@ -37,7 +37,7 @@ theorem Nat.shiftRightDiv: (n: Nat) → (count: Nat) → Nat.shiftRight n count 
     rewrite Nat.shiftRightSucc n count, Nat.shiftRightDiv (n / 2) count in
       Nat.halfDivPow n count
 
--- Bit `i` of `n`, counting from 0 for the lowest: whether `n / 2 ^ i` is odd.
+--| Bit `i` of `n`, counting from 0 for the lowest: whether `n / 2 ^ i` is odd.
 def Nat.testBit (n: Nat) (i: Nat): Bool := Nat.shiftRight n i % 2 == 1
 
 theorem Nat.testBitDiv (n: Nat) (i: Nat): Nat.testBit n i = (n / Nat.pow 2 i % 2 == 1) :=
@@ -46,12 +46,12 @@ theorem Nat.testBitDiv (n: Nat) (i: Nat): Nat.testBit n i = (n / Nat.pow 2 i % 2
 theorem Nat.testBitSucc (n: Nat) (i: Nat): Nat.testBit n (Succ i) = Nat.testBit (n / 2) i :=
   Eq.cong (shifted => shifted % 2 == 1) (Nat.shiftRightSucc n i)
 
--- Halving both numbers makes their sum smaller, unless both are 0.
+--| Halving both numbers makes their sum smaller, unless both are 0.
 theorem Nat.halvesLess (m: Nat) (n: Nat) (some: Nat.leq (m + n) 0 = False): m / 2 + n / 2 < m + n :=
   omega [Nat.divMulLe m 2 (Nat.succNotZero 1), Nat.divMulLe n 2 (Nat.succNotZero 1), Nat.leqFalse (m + n) 0 some]
 
--- The bitwise exclusive or: each bit of `Nat.xor m n` is set when exactly
--- one of `m` and `n` has it set (`Nat.testBitXor`).
+--| The bitwise exclusive or: each bit of `Nat.xor m n` is set when exactly
+--| one of `m` and `n` has it set (`Nat.testBitXor`).
 def Nat.xor (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -69,7 +69,7 @@ theorem Nat.xorSome (m: Nat) (n: Nat) (some: Nat.leq (m + n) 0 = False): Nat.xor
   rewrite some in
   rfl
 
--- The lowest bit, and the rest.
+--| The lowest bit, and the rest.
 theorem Nat.xorMod (m: Nat) (n: Nat): Nat.xor m n % 2 = (m + n) % 2 :=
   match some: Nat.leq (m + n) 0 with
     | False =>
@@ -84,7 +84,7 @@ theorem Nat.xorDiv (m: Nat) (n: Nat): Nat.xor m n / 2 = Nat.xor (m / 2) (n / 2) 
         Nat.divSmall ((m + n) % 2) 2 (Nat.modLess (m + n) 2 (Nat.succNotZero 1)) in rfl
     | True => rewrite Nat.xorZero m n some, (omega: m = 0), (omega: n = 0) in rfl
 
--- Whether the sum of two bits is odd is their exclusive or.
+--| Whether the sum of two bits is odd is their exclusive or.
 theorem Nat.oddSumBits: (m: Nat) → (n: Nat) → m < 2 → n < 2 → ((m + n) % 2 == 1) = Bool.xor (m == 1) (n == 1)
   | Zero, Zero, small, alsoSmall => rfl
   | Zero, Succ Zero, small, alsoSmall => rfl
@@ -97,7 +97,7 @@ theorem Nat.oddSum (m: Nat) (n: Nat): ((m + n) % 2 == 1) = Bool.xor (m % 2 == 1)
   rewrite Eq.sym (Nat.addModMod m n 2), Eq.sym (Nat.modAddMod m (n % 2) 2) in
     Nat.oddSumBits (m % 2) (n % 2) (Nat.modLess m 2 (Nat.succNotZero 1)) (Nat.modLess n 2 (Nat.succNotZero 1))
 
--- Each bit of `Nat.xor m n` is the exclusive or of the bits of `m` and `n`.
+--| Each bit of `Nat.xor m n` is the exclusive or of the bits of `m` and `n`.
 theorem Nat.testBitXor: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.xor m n) i = Bool.xor (Nat.testBit m i) (Nat.testBit n i)
   | Zero, m, n =>
     rewrite Nat.shiftRightNone (Nat.xor m n), Nat.shiftRightNone m, Nat.shiftRightNone n, Nat.xorMod m n in
@@ -106,7 +106,7 @@ theorem Nat.testBitXor: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.
     rewrite Nat.testBitSucc (Nat.xor m n) i, Nat.xorDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i in
       Nat.testBitXor i (m / 2) (n / 2)
 
--- Two remainders by 2 that are odd together are equal.
+--| Two remainders by 2 that are odd together are equal.
 theorem Nat.bitsEqual: (m: Nat) → (n: Nat) → m < 2 → n < 2 → (m == 1) = (n == 1) → m = n
   | Zero, Zero, small, alsoSmall, same => rfl
   | Succ Zero, Succ Zero, small, alsoSmall, same => rfl
@@ -115,7 +115,7 @@ theorem Nat.bitsEqual: (m: Nat) → (n: Nat) → m < 2 → n < 2 → (m == 1) = 
   | Succ (Succ m), n, small, alsoSmall, same => Void.exfalso (omega)
   | m, Succ (Succ n), small, alsoSmall, same => Void.exfalso (omega)
 
--- Numbers with the same bits are equal.
+--| Numbers with the same bits are equal.
 theorem Nat.eqOfTestBit (m: Nat) (n: Nat) (same: (i: Nat) → Nat.testBit m i = Nat.testBit n i): m = n
     decreasing m + n
 :=
@@ -131,8 +131,8 @@ theorem Nat.eqOfTestBit (m: Nat) (n: Nat) (same: (i: Nat) → Nat.testBit m i = 
 
 theorem Nat.xorExample: Nat.xor 2024 43690 = 44354 := rfl
 
--- Whether the product, and the sum plus the product, of two bits is odd:
--- their `and` and their `or`.
+--| Whether the product, and the sum plus the product, of two bits is odd:
+--| their `and` and their `or`.
 theorem Nat.oddProductBits: (m: Nat) → (n: Nat) → m < 2 → n < 2 → (m * n % 2 == 1) = (m == 1 ∧ n == 1)
   | Zero, Zero, small, alsoSmall => rfl
   | Zero, Succ Zero, small, alsoSmall => rfl
@@ -156,8 +156,8 @@ theorem Nat.oddProduct (m: Nat) (n: Nat): (m * n % 2 == 1) = (m % 2 == 1 ∧ n %
 theorem Nat.oddEither (m: Nat) (n: Nat): ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2 == 1) = (m % 2 == 1 ∨ n % 2 == 1) :=
   Nat.oddEitherBits (m % 2) (n % 2) (Nat.modLess m 2 (Nat.succNotZero 1)) (Nat.modLess n 2 (Nat.succNotZero 1))
 
--- The bitwise and: each bit of `Nat.and m n` is set when both `m` and `n`
--- have it set (`Nat.testBitAnd`).
+--| The bitwise and: each bit of `Nat.and m n` is set when both `m` and `n`
+--| have it set (`Nat.testBitAnd`).
 def Nat.and (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -197,8 +197,8 @@ theorem Nat.testBitAnd: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.
     rewrite Nat.testBitSucc (Nat.and m n) i, Nat.andDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i in
       Nat.testBitAnd i (m / 2) (n / 2)
 
--- The bitwise or: each bit of `Nat.or m n` is set when `m` or `n` has it
--- set (`Nat.testBitOr`).
+--| The bitwise or: each bit of `Nat.or m n` is set when `m` or `n` has it
+--| set (`Nat.testBitOr`).
 def Nat.or (m: Nat) (n: Nat): Nat
     decreasing m + n
 :=
@@ -238,10 +238,10 @@ theorem Nat.testBitOr: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.o
     rewrite Nat.testBitSucc (Nat.or m n) i, Nat.orDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i in
       Nat.testBitOr i (m / 2) (n / 2)
 
--- Regrouping `n * 2 * p`, for shifting left one bit and then `count` more.
+--| Regrouping `n * 2 * p`, for shifting left one bit and then `count` more.
 theorem Nat.regroupDouble (n: Nat) (p: Nat): n * 2 * p = n * (p * 2) := ring
 
--- `n` shifted left by `count` bits: `n * 2 ^ count` (`Nat.shiftLeftMul`).
+--| `n` shifted left by `count` bits: `n * 2 ^ count` (`Nat.shiftLeftMul`).
 def Nat.shiftLeft: (n: Nat) → (count: Nat) → Nat
   | n, Zero => n
   | n, Succ count => Nat.shiftLeft (n * 2) count
@@ -252,7 +252,7 @@ theorem Nat.shiftLeftMul: (n: Nat) → (count: Nat) → Nat.shiftLeft n count = 
     rewrite Nat.shiftLeftMul (n * 2) count in
       Nat.regroupDouble n (Nat.pow 2 count)
 
--- Shifting left and then right by as many bits gives the number back.
+--| Shifting left and then right by as many bits gives the number back.
 theorem Nat.shiftRightShiftLeft (n: Nat) (count: Nat): Nat.shiftRight (Nat.shiftLeft n count) count = n :=
   rewrite Nat.shiftRightDiv (Nat.shiftLeft n count) count, Nat.shiftLeftMul n count in
     Nat.divUnique (n * Nat.pow 2 count) (Nat.pow 2 count) n 0 (Nat.powSuccPos 1 count) (Eq.sym (Nat.addZero (n * Nat.pow 2 count)))
@@ -263,8 +263,8 @@ theorem Nat.orExample: Nat.or 12 10 = 14 := rfl
 
 theorem Nat.shiftLeftExample: Nat.shiftLeft 3 4 = 48 := rfl
 
--- The remainder by `2 ^ (k + 1)`: the remainder of half by `2 ^ k`, doubled,
--- and the lowest bit.
+--| The remainder by `2 ^ (k + 1)`: the remainder of half by `2 ^ k`, doubled,
+--| and the lowest bit.
 theorem Nat.modPowSucc (n: Nat) (k: Nat): n % Nat.pow 2 (Succ k) = n / 2 % Nat.pow 2 k * 2 + n % 2 :=
   let power := Nat.pow 2 k
   let positive := Nat.nonzeroOfPos power (Nat.powSuccPos 1 k)
@@ -274,13 +274,13 @@ theorem Nat.modPowSucc (n: Nat) (k: Nat): n % Nat.pow 2 (Succ k) = n / 2 % Nat.p
       (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power positive))
         (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2))))
 
--- Two numbers with the same bits above the lowest, and the same lowest bit.
+--| Two numbers with the same bits above the lowest, and the same lowest bit.
 theorem Nat.xorSameHalves (whole: Nat) (other: Nat) (high: Nat) (wholeBit: Nat) (otherBit: Nat) (wholeSplit: whole = high * 2 + wholeBit)
     (otherSplit: other = high * 2 + otherBit) (same: wholeBit = otherBit): whole = other :=
   omega
 
--- Adding two numbers' low bits as a whole number keeps the parity of their
--- sum.
+--| Adding two numbers' low bits as a whole number keeps the parity of their
+--| sum.
 theorem Nat.xorSumParity (lowX: Nat) (lowY: Nat) (highX: Nat) (highY: Nat) (x: Nat) (y: Nat) (splitX: lowX = highX * 2 + x % 2)
     (splitY: lowY = highY * 2 + y % 2): (lowX + lowY) % 2 = (x + y) % 2 :=
   omega [
@@ -294,7 +294,7 @@ theorem Nat.xorSumParity (lowX: Nat) (lowY: Nat) (highX: Nat) (highY: Nat) (x: N
     Nat.modLess (x + y) 2 (Nat.succNotZero 1)
   ]
 
--- The low `k` bits of an XOR are the XOR of the low `k` bits.
+--| The low `k` bits of an XOR are the XOR of the low `k` bits.
 theorem Nat.xorModPow: (k: Nat) → (x: Nat) → (y: Nat) → Nat.xor x y % Nat.pow 2 k = Nat.xor (x % Nat.pow 2 k) (y % Nat.pow 2 k)
   | Zero, x, y =>
     rewrite (omega: x % 1 = 0), (omega: y % 1 = 0), Nat.xorZero 0 0 rfl in
@@ -321,33 +321,33 @@ theorem Nat.xorModPow: (k: Nat) → (x: Nat) → (y: Nat) → Nat.xor x y % Nat.
     Nat.xorSameHalves (Nat.xor x y % Nat.pow 2 (Succ k)) (Nat.xor lowX lowY) (Nat.xor (x / 2 % Nat.pow 2 k) (y / 2 % Nat.pow 2 k))
       (Nat.xor x y % 2) (Nat.xor lowX lowY % 2) whole low parity
 
--- The XOR of two numbers below `2 ^ k` is below it.
+--| The XOR of two numbers below `2 ^ k` is below it.
 theorem Nat.xorBelow (k: Nat) (x: Nat) (y: Nat) (smallX: x < Nat.pow 2 k) (smallY: y < Nat.pow 2 k): Nat.xor x y < Nat.pow 2 k :=
   let positive := Nat.nonzeroOfPos (Nat.pow 2 k) (Nat.powSuccPos 1 k)
   let kept := Nat.xorModPow k x y
   rewrite Nat.modSmall x (Nat.pow 2 k) smallX, Nat.modSmall y (Nat.pow 2 k) smallY at kept in
     rewrite Eq.sym kept in Nat.modLess (Nat.xor x y) (Nat.pow 2 k) positive
 
--- Binary numbers written as their bits, the most significant first, `True`
--- for a 1: `Nat.fromBits [True, False, True]` is 5. As `Nat.fromDigits` reads
--- decimal digits.
+--| Binary numbers written as their bits, the most significant first, `True`
+--| for a 1: `Nat.fromBits [True, False, True]` is 5. As `Nat.fromDigits` reads
+--| decimal digits.
 def Nat.fromBits (bits: List Bool): Nat := List.foldLeft bits 0 (acc bit => acc * 2 + Bool.toNat bit)
 
 theorem Nat.fromBitsExample: Nat.fromBits [True, False, True, True] = 11 := rfl
 
--- `Nat.fromBits` starting from `a` instead of 0: `a` is shifted left past
--- every bit.
+--| `Nat.fromBits` starting from `a` instead of 0: `a` is shifted left past
+--| every bit.
 theorem Nat.fromBitsFrom: (a: Nat) → (bits: List Bool) →
     List.foldLeft bits a (acc bit => acc * 2 + Bool.toNat bit) = a * Nat.pow 2 (List.length bits) + Nat.fromBits bits
   | a, Nil => ring
   | a, Cons bit rest => ring [Nat.fromBitsFrom (a * 2 + Bool.toNat bit) rest, Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest]
 
--- The first bit counts 2^n, for the n bits after it.
+--| The first bit counts 2^n, for the n bits after it.
 theorem Nat.fromBitsCons (bit: Bool) (rest: List Bool):
     Nat.fromBits (Cons bit rest) = Bool.toNat bit * Nat.pow 2 (List.length rest) + Nat.fromBits rest :=
   rewrite Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest in ring
 
--- A number and its bits flipped add up to all 1s, `2^n - 1` for n bits.
+--| A number and its bits flipped add up to all 1s, `2^n - 1` for n bits.
 theorem Nat.fromBitsFlipped: (bits: List Bool) → Nat.fromBits bits + Nat.fromBits (List.map bits Bool.not) + 1 = Nat.pow 2 (List.length bits)
   | Nil => rfl
   | Cons bit rest =>

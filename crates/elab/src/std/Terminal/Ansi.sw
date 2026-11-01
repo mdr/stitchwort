@@ -1,17 +1,17 @@
--- `Ansi`: colour, bold and reverse video for a frame's lines, as ANSI
--- escape codes (docs/proposals/terminal-io.md §1). They're plain text, so
--- a frame can hold them and a test can `Ansi.strip` them off:
---
---   Terminal.draw ["You see a ${Ansi.colour Red "dragon"}."]
---   Ansi.strip (Ansi.bold "hi") = "hi"
---
--- Each one ends by switching off only what it switched on, so they nest:
--- `Ansi.bold (Ansi.colour Red "!")` is bold and red.
+--| `Ansi`: colour, bold and reverse video for a frame's lines, as ANSI
+--| escape codes (docs/proposals/terminal-io.md §1). They're plain text, so
+--| a frame can hold them and a test can `Ansi.strip` them off:
+--|
+--|   Terminal.draw ["You see a ${Ansi.colour Red "dragon"}."]
+--|   Ansi.strip (Ansi.bold "hi") = "hi"
+--|
+--| Each one ends by switching off only what it switched on, so they nest:
+--| `Ansi.bold (Ansi.colour Red "!")` is bold and red.
 
 import Ansi.Colour (Black, Red, Green, Yellow, Blue, Magenta, Cyan, White)
 import Ansi.Scan (Plain, AfterEscape, InSequence)
 
--- The eight standard colours. A terminal's theme decides the exact shades.
+--| The eight standard colours. A terminal's theme decides the exact shades.
 type Ansi.Colour: Type =
   | Black
   | Red
@@ -22,7 +22,7 @@ type Ansi.Colour: Type =
   | Cyan
   | White
 
--- The colour's number in `ESC [3nm`.
+--| The colour's number in `ESC [3nm`.
 def Ansi.colourNumber: Ansi.Colour → Nat
   | Black => 0
   | Red => 1
@@ -33,22 +33,22 @@ def Ansi.colourNumber: Ansi.Colour → Nat
   | Cyan => 6
   | White => 7
 
--- `text` in a colour, then the terminal's own colour again.
+--| `text` in a colour, then the terminal's own colour again.
 def Ansi.colour (colour: Ansi.Colour) (text: Text): Text := "\u{1b}[3${Ansi.colourNumber colour}m${text}\u{1b}[39m"
 
--- `text` in bold, then normal weight again.
+--| `text` in bold, then normal weight again.
 def Ansi.bold (text: Text): Text := "\u{1b}[1m${text}\u{1b}[22m"
 
--- `text` in reverse video (the colours swapped), then normal again.
+--| `text` in reverse video (the colours swapped), then normal again.
 def Ansi.reverse (text: Text): Text := "\u{1b}[7m${text}\u{1b}[27m"
 
--- `text` without its escape codes: every `ESC [`, the parameter bytes after
--- it and its final character (`@` to `~`) are removed. Other text, and an
--- `ESC` not followed by `[`, are kept.
+--| `text` without its escape codes: every `ESC [`, the parameter bytes after
+--| it and its final character (`@` to `~`) are removed. Other text, and an
+--| `ESC` not followed by `[`, are kept.
 def Ansi.strip (text: Text): Text := Text.fromList (Ansi.stripChars Plain (Text.toList text))
 
--- Where `stripChars` is: in plain text, just after an `ESC`, or inside an
--- `ESC [` sequence.
+--| Where `stripChars` is: in plain text, just after an `ESC`, or inside an
+--| `ESC [` sequence.
 type Ansi.Scan: Type =
   | Plain
   | AfterEscape
