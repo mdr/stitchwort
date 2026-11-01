@@ -1,5 +1,5 @@
 {
-  "next": 1040,
+  "next": 1041,
   "tickets": [
     {
       "id": 47,
@@ -3734,7 +3734,7 @@
     {
       "id": 1036,
       "title": "Documentation stage 2a review: Opus review of the std --| / -- sort, namespace by namespace",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3743,7 +3743,9 @@
       "body": "D2151. Checks nothing a caller needs was hidden as a -- note, nothing maintainer-only shows as --|, and summaries read well. Also: 6 docs still plain -- (Bool.canonicalTrue Float.sw:39, Nat.ltOfNotLe Arith.sw:91, 4 more); docsort splits units by line not sentence (mixed runs sorted as one lump).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "d72eeeb7"
+      ]
     },
     {
       "id": 1037,
@@ -3785,6 +3787,20 @@
         "docs"
       ],
       "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1040,
+      "title": "Documentation: editorial pass on std summaries that read badly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "From SW-1036 review (1 Nov 2026). Summaries to fix (rewording allowed here): 22 core file headers start \"core/X.sw.\"; group headings attached to the first declaration (Nat.min, Map.Tree.Shape \"Rebalancing.\", Parse \"The operations.\", Mod.addNatZero \"The laws.\", List.length, Nat.leq, Bool.xor, Float.mul); about 30 List lemmas and the Graph chains start with So/And/The same; too short (Mod.zero \"0.\", Map.Tree, foldRight, Int.div, Omega.check, operator-only docs); describes something else (Text.splitCons, Text.wordsClose, Text.joinTextChars, Set.present, type Map, Parse.Reads); cut short by the summary splitter (Nat.sumBetween, Nat.isRun); no doc attached for types Float, Set, Vec, Fin, Mod, SafeNat, SafeInt (file header doesn't attach). Decided (Claude): references to the user guide (docs/syntax.md) stay --| since they help a caller.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
