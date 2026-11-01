@@ -118,6 +118,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::globals::PlaceholderText;
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{Globals, Term, Value};
 use stitchwort_syntax::Diagnostic;
@@ -156,7 +157,8 @@ pub(crate) trait Check {
     /// unknown at the head of what it waits on, if one is): `None` for the
     /// error its site raised before it could wait. A `match` waiting on an
     /// ordinary unknown reports that unknown as finishing would
-    /// (`matching.rs`, `WaitingMatch`).
+    /// (`matching.rs`, `WaitingMatch`). A check queued without its site's
+    /// error ([`queue_without_error`]) always gives one here.
     fn stuck_error(&self, _e: &Elaborator, _blocker: Option<usize>) -> Option<Diagnostic> {
         None
     }
@@ -171,7 +173,8 @@ pub(crate) trait Check {
 
     /// The source its placeholder stands for, shown in messages while the
     /// check waits (D2091): `r.items` for a waiting `.field`, the literal
-    /// for a record literal. Asked once, when it is queued.
+    /// for a record literal. Asked once, when it is queued. A check with a
+    /// [`Check::literal`] is shown as that number instead.
     fn display(&self, _cx: &Ctx) -> Option<String> {
         None
     }
@@ -224,17 +227,32 @@ pub(crate) enum Priority {
 /// resumption, or the declaration fails.
 #[derive(Clone)]
 pub(crate) enum State {
-    /// On the head of this type, a value in the item's context; to be
-    /// resumed by this check rather than the item's own, if there is one
-    /// ([`Resumed::WaitingAs`]).
-    Waiting(Value, Option<Rc<dyn Check>>),
+    /// On the head of the type the item was queued waiting on, to be
+    /// resumed by its own check (`None`); or as a resumption left it
+    /// ([`Again`]). Small, as the queue keeps one per item and the
+    /// resumption log one per change (SW-1048).
+    Waiting(Option<Rc<Again>>),
     Running,
     Done,
     Failed,
 }
 
+/// How an item waits after a resumption that met another unknown
+/// ([`Resumed::Waiting`], [`Resumed::WaitingAs`]).
+pub(crate) struct Again {
+    /// On the head of this type, a value in the item's context.
+    needs: Value,
+    /// To be resumed by this check rather than the item's own, if there is
+    /// one ([`Resumed::WaitingAs`]).
+    check: Option<Rc<dyn Check>>,
+}
+
 pub(crate) struct Item {
     check: Rc<dyn Check>,
+    /// What it was queued waiting on: it waits on the head of this type, a
+    /// value in its context, until a resumption says otherwise
+    /// ([`State::Waiting`]).
+    needs: Value,
     saved: Saved,
     /// The placeholder: its unknown applied to the context's variables
     /// (`Ctx::fresh_meta`), and that unknown.
@@ -243,8 +261,9 @@ pub(crate) struct Item {
     /// The placeholder's type.
     ty: Value,
     /// The error its site raised before it could wait, reported if it is
-    /// still waiting at the end.
-    error: Diagnostic,
+    /// still waiting at the end; `None` for a check that makes its own
+    /// ([`queue_without_error`]). Boxed, as few are ever reported.
+    error: Option<Box<Diagnostic>>,
     /// Whether it has been counted as reaching the end of an application
     /// still waiting.
     crossed: Cell<bool>,
@@ -287,6 +306,9 @@ pub(crate) struct Queue {
     /// rule's own checks.
     settling: Cell<bool>,
     frames: Frames,
+    /// No names: what a placeholder applied to no variable is shown with
+    /// (`Item::display`), made once rather than per item.
+    no_names: Rc<[stitchwort_core::Name]>,
 }
 
 /// The queue's lengths at a snapshot.
@@ -421,9 +443,11 @@ impl Queue {
         self.sync_item(g, i);
     }
 
+    /// What item `i` waits on the head of, if it is waiting.
     fn waiting(&self, i: usize) -> Option<Value> {
         match &self.states.borrow()[i] {
-            State::Waiting(needs, _) => Some(needs.clone()),
+            State::Waiting(None) => Some(self.items.borrow()[i].needs.clone()),
+            State::Waiting(Some(again)) => Some(again.needs.clone()),
             _ => None,
         }
     }
@@ -432,7 +456,7 @@ impl Queue {
     /// one it waits as.
     fn check(&self, i: usize) -> Rc<dyn Check> {
         match &self.states.borrow()[i] {
-            State::Waiting(_, Some(check)) => check.clone(),
+            State::Waiting(Some(again)) if let Some(check) = &again.check => check.clone(),
             _ => self.items.borrow()[i].check.clone(),
         }
     }
@@ -462,16 +486,41 @@ pub(crate) fn queue(
     ty: Value,
     error: Diagnostic,
 ) -> Result<Term> {
+    queue_item(cx, check, needs, ty, Some(Box::new(error)))
+}
+
+/// [`queue`] for a check whose [`Check::stuck_error`] always gives its
+/// error, so that none is made unless it is reported: a number literal
+/// waiting for its type, of which a list may queue thousands (SW-1048).
+pub(crate) fn queue_without_error(
+    cx: &Ctx,
+    check: Rc<dyn Check>,
+    needs: Value,
+    ty: Value,
+) -> Result<Term> {
+    queue_item(cx, check, needs, ty, None)
+}
+
+fn queue_item(
+    cx: &Ctx,
+    check: Rc<dyn Check>,
+    needs: Value,
+    ty: Value,
+    error: Option<Box<Diagnostic>>,
+) -> Result<Term> {
     debug_assert!(!ready(cx.g(), &needs)?, "an item waits on an unknown head");
     // A number literal's value mentions no variable, so where its type
     // mentions none either, neither does its placeholder (D2126): applied to
     // the variables, after a substitution (a `match`, a β-step) it would
     // meet its value applied to terms that aren't variables, which only the
-    // fill could solve.
-    let closed = check.literal().is_some() && {
-        let t = cx.quote(&ty)?;
-        (0..cx.level()).all(|i| !t.mentions(i))
-    };
+    // fill could solve. A type that is an unknown applied to nothing (most
+    // often) mentions none, and isn't read back to see so.
+    let literal = check.literal();
+    let closed = literal.is_some()
+        && (matches!(&ty, Value::Neutral(Head::Meta(_), spine) if spine.is_empty()) || {
+            let t = cx.quote(&ty)?;
+            (0..cx.level()).all(|i| !t.mentions(i))
+        });
     let placeholder = if closed {
         Term::Meta(cx.g().new_meta(cx.span))
     } else {
@@ -484,19 +533,30 @@ pub(crate) fn queue(
     // Shown as its source only applied to the variables it was made with,
     // by name: applied to others (a lambda's parameter given an argument),
     // the source would name the wrong variables.
-    let display = check.display(cx).map(|text| {
+    // A number is shown as the number (D2091).
+    let text = match literal {
+        Some(k) => Some(PlaceholderText::Number(k)),
+        None => (check.display(cx)).map(|text| PlaceholderText::Source(Rc::from(text))),
+    };
+    let display = text.map(|text| {
+        let args = placeholder.spine().1;
+        if args.is_empty() {
+            return (q.no_names.clone(), text);
+        }
         let depth = cx.level();
-        let names: Rc<[stitchwort_core::Name]> = (placeholder.spine().1.iter())
+        let names: Rc<[stitchwort_core::Name]> = (args.iter())
             .map(|a| match a.strip_loc() {
                 Term::Var(ix) => cx.names[depth - 1 - ix].clone(),
                 _ => unreachable!("a placeholder is applied to variables"),
             })
             .collect();
-        (names, Rc::from(text))
+        (names, text)
     });
+    let saved = cx.save_sharing(q.items.borrow().last().map(|item| &item.saved));
     q.items.borrow_mut().push(Rc::new(Item {
         check,
-        saved: cx.save(),
+        needs,
+        saved,
         placeholder: placeholder.clone(),
         meta,
         ty,
@@ -507,7 +567,7 @@ pub(crate) fn queue(
         frames: RefCell::default(),
         outer: q.frames.resuming.borrow().clone(),
     }));
-    q.states.borrow_mut().push(State::Waiting(needs, None));
+    q.states.borrow_mut().push(State::Waiting(None));
     q.sync_item(cx.g(), q.len() - 1);
     count(&QUEUED);
     Ok(placeholder)
@@ -760,7 +820,7 @@ pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
         if !item.constraint && g.meta_solution(item.meta).is_none() {
             pending.insert(item.meta);
         }
-        if let State::Waiting(needs, _) = state {
+        if let Some(needs) = q.waiting(i) {
             if let Some(m) = head_meta(g, &needs)? {
                 pending.insert(m);
             }
@@ -1129,22 +1189,22 @@ pub(crate) fn queue_constraint(
         unreachable!("a fresh metavariable")
     };
     let q = &cx.e.queue;
+    let saved = cx.save_sharing(q.items.borrow().last().map(|item| &item.saved));
     q.items.borrow_mut().push(Rc::new(Item {
         check,
-        saved: cx.save(),
+        needs: on(blocker),
+        saved,
         placeholder,
         meta,
         ty: Value::Sort(stitchwort_core::Sort::Prop),
-        error,
+        error: Some(Box::new(error)),
         crossed: Cell::new(false),
         constraint: true,
         display: None,
         frames: RefCell::default(),
         outer: q.frames.resuming.borrow().clone(),
     }));
-    q.states
-        .borrow_mut()
-        .push(State::Waiting(on(blocker), None));
+    q.states.borrow_mut().push(State::Waiting(None));
     q.sync_item(cx.g(), q.len() - 1);
     Ok(())
 }
@@ -1156,6 +1216,18 @@ fn ready(g: &Globals, needs: &Value) -> Result<bool> {
 
 /// The unknown at the head of `v`, if it is one.
 fn head_meta(g: &Globals, v: &Value) -> Result<Option<usize>> {
+    // A resume point asks this of every waiting item, so the two common
+    // answers are read off without computing: an unknown not solved, or
+    // one applied to nothing solved with a type (a list's element type).
+    if let Value::Neutral(Head::Meta(m), spine) = v {
+        match &g.metas.borrow()[*m].solution {
+            None => return Ok(Some(*m)),
+            Some(Value::Data(..) | Value::Pi(..) | Value::Sort(_)) if spine.is_empty() => {
+                return Ok(None);
+            }
+            Some(_) => {}
+        }
+    }
     Ok(match force(g, v.clone())? {
         Value::Neutral(Head::Meta(m), _) => Some(m),
         _ => None,
@@ -1285,7 +1357,7 @@ impl Elaborator {
         let item = self.queue.item(i);
         let check = self.queue.check(i);
         let replaced = match self.queue.state(i) {
-            State::Waiting(_, replaced) => replaced,
+            State::Waiting(Some(again)) => again.check.clone(),
             _ => None,
         };
         self.queue.set(i, State::Running, &self.globals);
@@ -1305,11 +1377,17 @@ impl Elaborator {
             Resumed::Holds => Ok(State::Done),
             Resumed::Waiting(needs) => {
                 waits(&needs);
-                Ok(State::Waiting(needs, replaced))
+                Ok(State::Waiting(Some(Rc::new(Again {
+                    needs,
+                    check: replaced,
+                }))))
             }
             Resumed::WaitingAs(needs, check) => {
                 waits(&needs);
-                Ok(State::Waiting(needs, Some(check)))
+                Ok(State::Waiting(Some(Rc::new(Again {
+                    needs,
+                    check: Some(check),
+                }))))
             }
         });
         self.queue.frames.resuming.replace(outer);
@@ -1341,6 +1419,18 @@ impl Elaborator {
             !g.lifted_calls.borrow().contains_key(&item.meta),
             "a placeholder is filled once (invariant 1)"
         );
+        // A number at `Nat` filling a placeholder applied to nothing, not
+        // solved (most waiting literals): unifying them solves it with the
+        // number, and its call is the number. Done so here, without
+        // computing either side or reading the number back (SW-1048).
+        if let (Term::Meta(_), Term::Nat(k)) = (&item.placeholder, term)
+            && g.metas.borrow()[item.meta].solution.is_none()
+        {
+            g.unfilled_placeholders.borrow_mut().remove(&item.meta);
+            g.solve_meta(item.meta, Value::Nat(k.clone()));
+            (g.lifted_calls.borrow_mut()).insert(item.meta, (0, Rc::new(term.clone())));
+            return Ok(());
+        }
         if g.meta_solution(item.meta).is_some() {
             count(&SOLVED_FIRST);
             if crate::unify::solved_lossily(g, item.meta) {
@@ -1478,12 +1568,22 @@ impl Elaborator {
                 && which(&item)
             {
                 let blocker = head_meta(&self.globals, &needs)?;
-                let error = (self.queue.check(i).stuck_error(self, blocker))
-                    .unwrap_or_else(|| item.error.clone());
+                let error = self.stuck_error(i, &item, blocker);
                 return Ok(Some(self.through_frames(&item, error)));
             }
         }
         Ok(None)
+    }
+
+    /// The error of item `i` still waiting on `blocker`: what the check
+    /// resuming it says ([`Check::stuck_error`]), else its site's error,
+    /// else (queued without one, [`queue_without_error`]) what its own
+    /// check says.
+    fn stuck_error(&self, i: usize, item: &Item, blocker: Option<usize>) -> Diagnostic {
+        (self.queue.check(i).stuck_error(self, blocker))
+            .or_else(|| item.error.as_deref().cloned())
+            .or_else(|| item.check.stuck_error(self, blocker))
+            .expect("a check queued without its site's error makes its own")
     }
 
     /// A search pattern, the whole of what its elaboration made (`search.rs`):
@@ -1671,8 +1771,7 @@ impl Elaborator {
         let mut errors = (reports.iter()).map(|&(_, w)| {
             let (i, blocker) = waiting[w];
             let item = self.queue.item(i);
-            let error = (self.queue.check(i).stuck_error(self, blocker))
-                .unwrap_or_else(|| item.error.clone());
+            let error = self.stuck_error(i, &item, blocker);
             self.through_frames(&item, error)
         });
         let first = errors.next();

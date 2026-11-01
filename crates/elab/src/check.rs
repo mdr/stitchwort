@@ -142,9 +142,17 @@ pub(crate) struct LocalName {
 
 /// A [`Ctx`] without its elaborator, kept by a queued check to be resumed
 /// in later (`queue.rs`). Everything but `written_goal`, which only the
-/// next `rewrite` reads.
+/// next `rewrite` reads. What it keeps besides the span is shared between
+/// checks queued in the same context ([`Ctx::save_sharing`]): a list's
+/// thousands of waiting literals keep one copy (SW-1048).
 #[derive(Clone)]
 pub(crate) struct Saved {
+    context: Rc<SavedContext>,
+    pub span: Span,
+}
+
+/// What [`Saved`] keeps of the context, but for its span.
+struct SavedContext {
     env: Vec<Value>,
     types: Vec<Value>,
     names: Vec<Name>,
@@ -159,31 +167,112 @@ pub(crate) struct Saved {
     scrutinees: Vec<(usize, Term, Span, usize)>,
     reify_display: Option<ReifyDisplay>,
     cases: Option<Rc<crate::cases::Run>>,
-    pub span: Span,
 }
 
 impl Saved {
     /// The context saved, again.
     pub(crate) fn ctx<'e>(&self, e: &'e Elaborator) -> Ctx<'e> {
+        let c = &*self.context;
         Ctx {
             e,
-            env: self.env.clone(),
-            types: self.types.clone(),
-            names: self.names.clone(),
-            written: self.written.clone(),
-            scope: self.scope.clone(),
-            kinds: self.kinds.clone(),
-            locals: self.locals.clone(),
-            lets: self.lets.clone(),
-            goal: self.goal.clone(),
+            env: c.env.clone(),
+            types: c.types.clone(),
+            names: c.names.clone(),
+            written: c.written.clone(),
+            scope: c.scope.clone(),
+            kinds: c.kinds.clone(),
+            locals: c.locals.clone(),
+            lets: c.lets.clone(),
+            goal: c.goal.clone(),
             written_goal: None,
-            order: self.order.clone(),
-            tree_start: self.tree_start,
-            scrutinees: self.scrutinees.clone(),
-            reify_display: self.reify_display.clone(),
-            cases: self.cases.clone(),
+            order: c.order.clone(),
+            tree_start: c.tree_start,
+            scrutinees: c.scrutinees.clone(),
+            reify_display: c.reify_display.clone(),
+            cases: c.cases.clone(),
             span: self.span,
         }
+    }
+}
+
+impl SavedContext {
+    /// Whether `cx` is the context this keeps, but for its span: told
+    /// cheaply, and only where it is certain (the same values, shared or
+    /// built alike from variables, sorts and data types; no local
+    /// definition, `match` scrutinee or `reify` display in scope). Where it
+    /// can't tell, `false`, and the context is kept again.
+    fn is(&self, cx: &Ctx) -> bool {
+        let same_options = |a: &Option<Rc<LetDef>>, b: &Option<Rc<LetDef>>| match (a, b) {
+            (None, None) => true,
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            _ => false,
+        };
+        let same_written = |a: &Option<crate::dot::Written>, b: &Option<crate::dot::Written>| {
+            use crate::dot::Written;
+            match (a, b) {
+                (None, None) => true,
+                (Some(Written::Here(a)), Some(Written::Here(b))) => Rc::ptr_eq(a, b),
+                (Some(Written::With(a, xs)), Some(Written::With(b, ys))) => {
+                    Rc::ptr_eq(a, b) && same_values(xs, ys)
+                }
+                _ => false,
+            }
+        };
+        self.env.len() == cx.env.len()
+            && self.tree_start == cx.tree_start
+            && self.locals.is_empty()
+            && cx.locals.is_empty()
+            && self.scrutinees.is_empty()
+            && cx.scrutinees.is_empty()
+            && self.reify_display.is_none()
+            && cx.reify_display.is_none()
+            && self.kinds == cx.kinds
+            && self.names == cx.names
+            && self.scope == cx.scope
+            && self.order == cx.order
+            && match (&self.goal, &cx.goal) {
+                (None, None) => true,
+                (Some((a, x)), Some((b, y))) => a == b && Rc::ptr_eq(x, y),
+                _ => false,
+            }
+            && match (&self.cases, &cx.cases) {
+                (None, None) => true,
+                (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+                _ => false,
+            }
+            && self.lets.len() == cx.lets.len()
+            && (self.lets.iter().zip(&cx.lets)).all(|(a, b)| same_options(a, b))
+            && self.written.len() == cx.written.len()
+            && (self.written.iter().zip(&cx.written)).all(|(a, b)| same_written(a, b))
+            && same_values(&self.env, &cx.env)
+            && same_values(&self.types, &cx.types)
+    }
+}
+
+/// Whether `xs` and `ys` are certainly the same values ([`same_value`]).
+fn same_values(xs: &[Value], ys: &[Value]) -> bool {
+    xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| same_value(x, y))
+}
+
+/// Whether `a` and `b` are certainly the same value, told without
+/// computing: built alike from variables, sorts, data types and function
+/// types, with what they share shared. `false` where it can't tell.
+fn same_value(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Sort(s), Value::Sort(t)) => s == t,
+        (Value::Neutral(Head::Var(l, x), s), Value::Neutral(Head::Var(m, y), t)) => {
+            l == m && x == y && s.is_empty() && t.is_empty()
+        }
+        (Value::Data(d, xs), Value::Data(e, ys)) => d == e && same_values(xs, ys),
+        (Value::Pi(x, i, a, f), Value::Pi(y, j, b, g)) => {
+            x == y
+                && i == j
+                && (Rc::ptr_eq(a, b) || same_value(a, b))
+                && Rc::ptr_eq(&f.body, &g.body)
+                && std::ptr::eq(f.env.as_ptr(), g.env.as_ptr())
+                && f.env.len() == g.env.len()
+        }
+        _ => false,
     }
 }
 
@@ -252,21 +341,34 @@ impl<'e> Ctx<'e> {
 
     /// Everything but the elaborator, for a queued check ([`Saved`]).
     pub(crate) fn save(&self) -> Saved {
+        self.save_sharing(None)
+    }
+
+    /// [`Ctx::save`], sharing what `last` keeps if this is the same context
+    /// but for its span (`SavedContext::is`): checks queued one after
+    /// another in one context (a list's literals) keep it once.
+    pub(crate) fn save_sharing(&self, last: Option<&Saved>) -> Saved {
+        let context = match last {
+            Some(last) if last.context.is(self) => last.context.clone(),
+            _ => Rc::new(SavedContext {
+                env: self.env.clone(),
+                types: self.types.clone(),
+                names: self.names.clone(),
+                written: self.written.clone(),
+                scope: self.scope.clone(),
+                kinds: self.kinds.clone(),
+                locals: self.locals.clone(),
+                lets: self.lets.clone(),
+                goal: self.goal.clone(),
+                order: self.order.clone(),
+                tree_start: self.tree_start,
+                scrutinees: self.scrutinees.clone(),
+                reify_display: self.reify_display.clone(),
+                cases: self.cases.clone(),
+            }),
+        };
         Saved {
-            env: self.env.clone(),
-            types: self.types.clone(),
-            names: self.names.clone(),
-            written: self.written.clone(),
-            scope: self.scope.clone(),
-            kinds: self.kinds.clone(),
-            locals: self.locals.clone(),
-            lets: self.lets.clone(),
-            goal: self.goal.clone(),
-            order: self.order.clone(),
-            tree_start: self.tree_start,
-            scrutinees: self.scrutinees.clone(),
-            reify_display: self.reify_display.clone(),
-            cases: self.cases.clone(),
+            context,
             span: self.span,
         }
     }

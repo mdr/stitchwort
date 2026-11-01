@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 
 use crate::budget::Result;
 use crate::collections::HashMap;
-use crate::globals::{CallDefaults, DefaultCall, Globals};
+use crate::globals::{CallDefaults, DefaultCall, Globals, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote_shown, quote_unfolded_shown, same_term};
@@ -1760,10 +1760,12 @@ impl<'g> Printer<'g> {
             return None;
         }
         let context = context.len();
-        let text = if text.contains(' ') && !bracketed(&text) {
-            format!("({text})")
-        } else {
-            text.to_string()
+        let text = match text {
+            PlaceholderText::Number(k) => k.to_string(),
+            PlaceholderText::Source(text) if text.contains(' ') && !bracketed(&text) => {
+                format!("({text})")
+            }
+            PlaceholderText::Source(text) => text.to_string(),
         };
         Some(self.applied(names, text, args.into_iter().skip(context)))
     }
