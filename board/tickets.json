@@ -3800,8 +3800,8 @@
     {
       "id": 1040,
       "title": "Documentation: editorial pass on std summaries that read badly",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "docs"
@@ -3861,7 +3861,7 @@
     {
       "id": 1044,
       "title": "Documentation: remove the plain -- fallback (D2142); a doc is --| only",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3871,7 +3871,9 @@
       "body": "docs/proposals/documentation.md §6.1 end. After SW-1042 (links) merges, since both touch doc reading.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "2a1ea82c"
+      ]
     },
     {
       "id": 1045,
