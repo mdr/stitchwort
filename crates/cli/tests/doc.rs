@@ -589,3 +589,190 @@ test \"doubleIt\" := doubleIt 2 == 4
     assert_eq!(shown(&report), [("Main.doubleItZero", "rewrite")]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- `doc --coverage` (SW-1025, §6.2, D2138, D2148) -------------------------
+
+/// A project of two namespaces with every case the report tells apart.
+fn coverage_project(name: &str) -> PathBuf {
+    let dir = folder(name);
+    std::fs::write(dir.join("stitchwort.yaml"), "# for the coverage tests\n").unwrap();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("src/lib.sw"),
+        "\
+namespace Lib
+
+--| Adds one to a number, never fails.
+def good (n: Nat): Nat := n + 1
+
+-- Adds two to a number, never fails.
+def plainDoc (n: Nat): Nat := n + 2
+
+def noDoc (n: Nat): Nat := n
+
+--| Adds two.
+def short (n: Nat): Nat := n
+
+--| fill the whole bag
+def fillTheWholeBag (n: Nat): Nat := n
+
+--| A box holding one number.
+type Box = | Box (n: Nat)
+
+--| Shows that one is not zero, by `rfl`.
+theorem goodIsOne: good 0 = 1 := rfl
+
+theorem noDocLemma: good 1 = 2 := rfl
+
+theorem goodExample: good 2 = 3 := rfl
+
+theorem ghostExample: good 3 = 4 := rfl
+
+test \"noDoc\" := noDoc 1 == 1
+",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/other.sw"),
+        "\
+namespace Other
+
+--| Doubles a number by adding it to itself.
+def double (n: Nat): Nat := n + n
+",
+    )
+    .unwrap();
+    dir
+}
+
+#[test]
+fn coverage_counts_a_project_namespace() {
+    let dir = coverage_project("coverage-text");
+    let (code, out, err) = doc_in(&dir, &shared_cache(), &["--coverage", "Lib"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    // 6 declarations; `good`, `plainDoc` and `Box` count; `noDoc`, `short`
+    // and `fillTheWholeBag` (it repeats its name) don't.
+    assert!(
+        out.contains("documented: 3 / 6 (50%), 1 marked `--` (not yet `--|`)"),
+        "{out}"
+    );
+    // Examples by name: the test for `noDoc`, the theorem for `good`.
+    assert!(out.contains("with an example: 2 / 6 (33%)"), "{out}");
+    // Theorems apart: one of four has a doc.
+    assert!(
+        out.contains("theorems documented (counted apart): 1 / 4 (25%)"),
+        "{out}"
+    );
+    assert!(out.contains("undocumented (3):"), "{out}");
+    assert!(out.contains("Lib.noDoc  definition  "), "{out}");
+    assert!(out.contains("(no doc)"), "{out}");
+    assert!(out.contains("(too short --|)"), "{out}");
+    assert!(out.contains("(repeats the name --|)"), "{out}");
+    assert!(!out.contains("Lib.good  "), "{out}");
+    // The unattached `…Example` theorem, and not the attached one.
+    assert!(out.contains("Lib.ghostExample  "), "{out}");
+    assert!(!out.contains("Lib.goodExample  "), "{out}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn coverage_json_and_the_default_scope() {
+    let dir = coverage_project("coverage-json");
+    // Inside a project and with no namespace: the project's namespaces.
+    let (code, out, err) = doc_in(&dir, &shared_cache(), &["--coverage", "--json"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    let report: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(report["version"], 1);
+    let names: Vec<&str> = (report["namespaces"].as_array().unwrap().iter())
+        .map(|n| n["namespace"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["Lib", "Other"]);
+    let lib = &report["namespaces"][0];
+    assert_eq!(lib["declarations"]["total"], 6);
+    assert_eq!(lib["declarations"]["documented"], 3);
+    assert_eq!(lib["declarations"]["plain"], 1);
+    assert_eq!(lib["declarations"]["withExample"], 2);
+    assert_eq!(lib["theorems"]["total"], 4);
+    assert_eq!(lib["theorems"]["documented"], 1);
+    assert!(lib["theorems"].get("withExample").is_none(), "{lib}");
+    assert_eq!(lib["plainDocs"], serde_json::json!(["Lib.plainDoc"]));
+    let reasons: Vec<(&str, &str)> = (lib["undocumented"].as_array().unwrap().iter())
+        .map(|m| (m["name"].as_str().unwrap(), m["reason"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        reasons,
+        [
+            ("Lib.noDoc", "no doc"),
+            ("Lib.short", "too short"),
+            ("Lib.fillTheWholeBag", "repeats the name"),
+        ]
+    );
+    assert_eq!(lib["undocumentedTheorems"][0]["name"], "Lib.noDocLemma");
+    assert_eq!(lib["unattachedExamples"][0]["name"], "Lib.ghostExample");
+    assert_eq!(report["namespaces"][1]["declarations"]["documented"], 1);
+    // The total counts each declaration once.
+    assert_eq!(report["total"]["declarations"]["total"], 7);
+    assert_eq!(report["total"]["declarations"]["documented"], 4);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn coverage_reports_and_never_fails_but_a_bad_name_is_an_error() {
+    let dir = coverage_project("coverage-errors");
+    let (code, _, err) = doc_in(&dir, &shared_cache(), &["--coverage", "Lib.Nowhere"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("is not a namespace"), "{err}");
+    // A name that is a declaration, not a namespace, is the same error.
+    let (code, ..) = doc_in(&dir, &shared_cache(), &["--coverage", "Lib.good"]);
+    assert_eq!(code, 2);
+    // Poor coverage is exit 0.
+    let (code, ..) = doc_in(&dir, &shared_cache(), &["--coverage", "Lib", "Other"]);
+    assert_eq!(code, 0);
+    // Without `--coverage` a name is still required.
+    let (code, ..) = doc_in(&dir, &shared_cache(), &[]);
+    assert_eq!(code, 2);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The library, by shape: std will change, so no figure is pinned.
+#[test]
+fn coverage_of_a_library_namespace_has_the_shape() {
+    let (code, report) = json(&["--coverage", "List"]);
+    assert_eq!(code, 0);
+    let ns = &report["namespaces"][0];
+    assert_eq!(ns["namespace"], "Std.List");
+    let n = |v: &Value| v.as_u64().unwrap();
+    let d = &ns["declarations"];
+    assert!(n(&d["total"]) > 50, "{d}");
+    assert!(n(&d["documented"]) > 0 && n(&d["documented"]) <= n(&d["total"]));
+    assert!(n(&d["plain"]) <= n(&d["documented"]));
+    assert!(n(&d["withExample"]) > 0 && n(&d["withExample"]) <= n(&d["total"]));
+    let t = &ns["theorems"];
+    assert!(
+        n(&t["total"]) > n(&d["total"]),
+        "theorems are counted apart"
+    );
+    assert!(n(&t["documented"]) <= n(&t["total"]));
+    assert_eq!(
+        ns["undocumented"].as_array().unwrap().len() as u64,
+        n(&d["total"]) - n(&d["documented"])
+    );
+    assert_eq!(
+        ns["undocumentedTheorems"].as_array().unwrap().len() as u64,
+        n(&t["total"]) - n(&t["documented"])
+    );
+    // No namespace: the library, in pieces, with a total.
+    let (code, all) = json(&["--coverage"]);
+    assert_eq!(code, 0);
+    let names: Vec<&str> = (all["namespaces"].as_array().unwrap().iter())
+        .map(|n| n["namespace"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"Std.List") && names.contains(&"Std.Vec"),
+        "{names:?}"
+    );
+    assert!(n(&all["total"]["declarations"]["total"]) > n(&d["total"]));
+    let (code, text, _) = doc(&["--coverage", "Std.Vec"]);
+    assert_eq!(code, 0);
+    assert!(text.starts_with("Std.Vec\n  documented: "), "{text}");
+}

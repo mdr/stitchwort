@@ -298,14 +298,28 @@ enum Command {
     /// `…Example` theorems named after it) and theorems about it, or a
     /// namespace's docs and what it declares (docs/syntax.md, "Doc
     /// comments"). Exits with status 0 when the name is found, 1 when it
-    /// isn't, 2 when it is more than one
+    /// isn't, 2 when it is more than one. With `--coverage`, how much of
+    /// each namespace is documented instead (exit 0; 2 for an error)
+    #[command(group(clap::ArgGroup::new("what").required(true).multiple(true).args(["name", "coverage"])))]
     Doc {
         /// A full name (`Std.List.filterMap`), a library name without `Std.`
         /// (`List.filterMap`), or a name of the project (as `import N (..)`
-        /// sees it), or a namespace
-        name: String,
-        /// A file to read with the library, instead of the project
+        /// sees it), or a namespace. With `--coverage`, the namespaces
+        name: Option<String>,
+        /// A file to read with the library, instead of the project. With
+        /// `--coverage`, a namespace
         file: Option<PathBuf>,
+        /// With `--coverage`, more namespaces
+        #[arg(hide = true)]
+        more: Vec<String>,
+        /// Report how much is documented, from parsing alone: per namespace
+        /// (none: the library, or the project's), the definitions, types,
+        /// interfaces and abilities with a doc and with an example, the
+        /// theorems with a doc (apart), the undocumented names and the
+        /// `…Example` theorems that attach to nothing. Plain `--` docs count
+        /// and are counted
+        #[arg(long)]
+        coverage: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it (with neither a file nor a project, the library
         /// alone). For a library name it adds the project's theorems
@@ -656,18 +670,27 @@ fn run(cli: Cli) -> ExitCode {
         Command::Doc {
             name,
             file,
+            more,
+            coverage,
             project,
             json,
             theorems,
             cache,
-        } => doc_cmd::doc(&doc_cmd::Args {
-            name: &name,
-            file: file.as_deref(),
-            project: project.as_deref(),
-            json,
-            theorems,
-            cache: &cache,
-        }),
+        } => {
+            let names: Vec<String> = (name.iter().cloned())
+                .chain(file.iter().map(|f| f.display().to_string()))
+                .chain(more)
+                .collect();
+            doc_cmd::doc(&doc_cmd::Args {
+                name: name.as_deref().unwrap_or_default(),
+                file: if coverage { None } else { file.as_deref() },
+                coverage: coverage.then_some(&names[..]),
+                project: project.as_deref(),
+                json,
+                theorems,
+                cache: &cache,
+            })
+        }
         Command::Audit {
             targets,
             json,
