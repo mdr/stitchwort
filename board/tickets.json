@@ -1,5 +1,5 @@
 {
-  "next": 1045,
+  "next": 1046,
   "tickets": [
     {
       "id": 47,
@@ -3828,7 +3828,7 @@
     {
       "id": 1042,
       "title": "Documentation stage 3: checked doc links ([`Name`]), W-DOC-LINK, links in JSON",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3838,7 +3838,9 @@
       "body": "docs/proposals/documentation.md §7, D2149, D2153. Lexer keeps --|; links resolved after each namespace; W-DOC-LINK warning; std test that std has no broken links; links in doc/index JSON. Prose-to-link rewriting (editorial) later.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "604d7a1f"
+      ]
     },
     {
       "id": 1043,
@@ -3865,6 +3867,20 @@
         "tooling"
       ],
       "body": "docs/proposals/documentation.md §6.1 end. After SW-1042 (links) merges, since both touch doc reading.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1045,
+      "title": "Doc links: resolve in doc/index with the file's imports; cached W-DOC-LINK can go stale across namespaces",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Known limits from SW-1042 (accepted for now, 1 Nov 2026): (1) doc and check --index resolve links without the file's imports (they don't elaborate), so a link that only an import makes resolve gets no W-DOC-LINK from check but shows unresolved in doc and null in the index; (2) W-DOC-LINK is cached with the namespace check and links add no dependency, so a cached warning about a link into another namespace can go stale until that namespace changes or --no-cache; (3) the nearest-name suggestion scans every name in scope (~2 ms per unresolved link).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
