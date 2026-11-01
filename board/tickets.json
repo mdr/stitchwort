@@ -3671,7 +3671,7 @@
     {
       "id": 1032,
       "title": "Documentation stage 2a part 3: sort std Map and Parse",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3680,12 +3680,14 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "66c3efc8"
+      ]
     },
     {
       "id": 1033,
       "title": "Documentation stage 2a part 4: sort std Float, Nat, Terminal, Omega, Int, Graph",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
