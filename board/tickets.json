@@ -1,5 +1,5 @@
 {
-  "next": 1004,
+  "next": 1005,
   "tickets": [
     {
       "id": 47,
@@ -2991,13 +2991,13 @@
       "title": "Postponement stage 7 design: expected type first, tactic arguments last (from AoC 2021 friction)",
       "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree-agent-a7c94c0a2c618b29f",
       "labels": [
         "postponement",
         "design",
         "decision"
       ],
-      "body": "\nDesign lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.\nD2118 (Matt, 1 Nov 2026): yes. Stage 7 design also covers literals with no expected type (Day 17's [(7,2), …, (17,-4)] list): first find why accept/calc.sw and accept/let-patterns.sw break and four messages change (one printing ?0 a b h) when inferred literals wait (the step 4.3 lane's experiment), and compare with how Lean 4 (numerals, default instances), Haskell (defaulting), Agda and Idris handle unannotated numerals in tuples/lists.\n",
+      "body": "\nDesign lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.\nD2118 (Matt, 1 Nov 2026): yes. Stage 7 design also covers literals with no expected type (Day 17's [(7,2), …, (17,-4)] list): first find why accept/calc.sw and accept/let-patterns.sw break and four messages change (one printing ?0 a b h) when inferred literals wait (the step 4.3 lane's experiment), and compare with how Lean 4 (numerals, default instances), Haskell (defaulting), Agda and Idris handle unannotated numerals in tuples/lists.\n\nProgress (Opus, 1 Nov): repros in docs/proposals/postponement/stage7/ (6 files, all fail on main as reported); D2118 reproduced and explained (calc: no resume point inside calc; let-patterns: literal's type unknown applied to the matched variable); scratch fix checks all 207 aoc namespaces and every accept example; tactics-last prototype fixes SW-969 and both SW-971 shapes. Writing the design.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3163,7 +3163,7 @@
     {
       "id": 1000,
       "title": "Goal printing: captured variables, x✝ clashes, stale arm names, %match1 names, unfolded definitions",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree-agent-a7598cbd70ccf9e46",
       "labels": [
@@ -3172,7 +3172,9 @@
       "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.\n\nProgress, 1 Nov (lane worktree-agent-a7598cbd70ccf9e46): (1) capture fixed in the printer (binders numbered when their body mentions a same-named variable), 1f291b43.\n\nProgress, 1 Nov: (2, 3) variables shown by their name in scope and never alike (x✝, x✝¹), arm names fixed, b84f43a5; (4) interface fields print as methods (Ord.compare, x == y), 1e51f74f, lifted %match names not done; (5) membership, Float order, Float literals in data, records after constructors, superseded hypotheses hidden with a note, 5fc8db81. Reviewing snapshot changes.\n\nProgress, 1 Nov: done on worktree-agent-a7598cbd70ccf9e46 (6 commits, last 683b696e; not merged). Full examples sweep: no snapshot changes besides 3 new goal examples; one test_failures snapshot (record after Some bracketed). Not done: lifted %match helpers still print by name (no faithful source form found; fold-to-owner needs higher-order matching). Ready for review.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "89cb18d1"
+      ]
     },
     {
       "id": 1001,
@@ -3216,6 +3218,20 @@
         "elaborator"
       ],
       "body": "Left by stage 5 (SW-987). (1) A tuple checked against an unknown type infers its parts, so its number literals become Nat at once (2021 Day17 test: [(7, 2), …].map (((dx, dy)) => …)); needs the retrying/late_literals second run. (2) A lambda checked against ?2 n rec (unknown applied to variables) fails instead of waiting (reject/decreasing-lambda-in-data.sw would give E-TYPE-MISMATCH not E-DECREASING). (3) rfl as a comparison operand: rfl = Eq.trans (Eq.sym q) q in two prelude theorems needs numbers::speculate's leaf catch. Fixing these lets retrying, late_literals and the leaf catch go. Also noted, unchanged: settle_empty sets a still-unknown bare row empty at once (predates SW-981, no known bad case); performs_nothing elaborates an if condition twice (from reading, not measured); explain_default's literal note.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1004,
+      "title": "Goal printing: lifted match helpers (f.%match1) still print by internal name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Left by SW-1000. No faithful source form found: writing the match out makes a different helper (the E-REFL in SW-980); folding back to the owner's call needs higher-order matching because not all the owner's parameters reach the helper (rules in 2021 day 14's expand). Not reproduced outside the AoC proofs. Also noted: Float display now prints Int comparisons of two Float.orderKeys as Float x < y, including hypotheses written in Int form for omega (trip-journal Proofs/Order.sw keys) - faithful, but hides the Int form.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
