@@ -790,6 +790,25 @@ pub fn closure(analysis: &Analysis, roots: &[String]) -> Vec<String> {
     seen.into_iter().collect()
 }
 
+/// `root` and every namespace that uses it, directly or not (by importing
+/// from it or writing a name that resolves into it: the same edges
+/// [`closure`] follows, the other way), by name.
+pub fn dependents(analysis: &Analysis, root: &str) -> Vec<String> {
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut queue: VecDeque<String> = VecDeque::from([root.to_string()]);
+    while let Some(name) = queue.pop_front() {
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        queue.extend(
+            (analysis.namespaces.iter())
+                .filter(|ns| ns.edges.iter().any(|e| e.target == name))
+                .map(|ns| ns.name.clone()),
+        );
+    }
+    seen.into_iter().collect()
+}
+
 /// The order to check the namespaces `among` in (which must be closed under
 /// what they use): each after everything it uses, and of those ready, the
 /// first by name. If there's a cycle, the cycles instead: each a chain of

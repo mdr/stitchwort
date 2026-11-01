@@ -16,6 +16,7 @@ use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 mod build;
+mod doc_cmd;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -290,6 +291,33 @@ enum Command {
         /// With --at: how long checking may take, as `10s` or `500ms`
         #[arg(long, value_name = "TIME", default_value = "10s")]
         time: String,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// What a declaration does: its header, doc, examples (tests and
+    /// `…Example` theorems named after it) and theorems about it, or a
+    /// namespace's docs and what it declares (docs/syntax.md, "Doc
+    /// comments"). Exits with status 0 when the name is found, 1 when it
+    /// isn't, 2 when it is more than one
+    Doc {
+        /// A full name (`Std.List.filterMap`), a library name without `Std.`
+        /// (`List.filterMap`), or a name of the project (as `import N (..)`
+        /// sees it), or a namespace
+        name: String,
+        /// A file to read with the library, instead of the project
+        file: Option<PathBuf>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it (with neither a file nor a project, the library
+        /// alone). For a library name it adds the project's theorems
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Print JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// How many theorems about it to show; `0` for none, which also
+        /// skips checking (no elaborated type)
+        #[arg(long, default_value_t = 8, value_name = "N")]
+        theorems: usize,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -625,6 +653,21 @@ fn run(cli: Cli) -> ExitCode {
                 &cache,
             )
         }
+        Command::Doc {
+            name,
+            file,
+            project,
+            json,
+            theorems,
+            cache,
+        } => doc_cmd::doc(&doc_cmd::Args {
+            name: &name,
+            file: file.as_deref(),
+            project: project.as_deref(),
+            json,
+            theorems,
+            cache: &cache,
+        }),
         Command::Audit {
             targets,
             json,

@@ -5,6 +5,7 @@ pub mod audit;
 pub mod axioms;
 pub mod check_cache;
 pub mod counterexample;
+pub mod doc;
 pub mod driver;
 pub mod fingerprint;
 pub mod float_gate;
