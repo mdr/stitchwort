@@ -1,4 +1,6 @@
--- Day 15's tests: the puzzle's examples and unit tests. Kept apart from the
+--| Day 15's tests: the puzzle's examples and unit tests.
+--
+-- Kept apart from the
 -- program, so `stitchwort run Aoc.Year2024.Day15.main` doesn't check them.
 
 namespace Aoc.Year2024.Day15.Tests
@@ -6,7 +8,7 @@ import Aoc.Common (Direction)
 import Aoc.Year2024.Day15 (..)
 import Std (Fail, Int, List, Nat, Option, Result, Set, Text)
 
--- The smaller example of part 1.
+--| The smaller example of part 1.
 def smallExample: Text := """
   ########
   #..O.O.#
@@ -20,7 +22,7 @@ def smallExample: Text := """
   <^^>>>vv<v>>v<<
   """
 
--- The larger example, as in examples/2024/day15.txt.
+--| The larger example, as in examples/2024/day15.txt.
 def largeExample: Text := """
   ##########
   #..O..O.O#
@@ -45,7 +47,7 @@ def largeExample: Text := """
   v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^
   """
 
--- The small example of part 2.
+--| The small example of part 2.
 def wideExample: Text := """
   #######
   #...#.#
@@ -62,16 +64,16 @@ def parsed (input: Text): Result Document Text := Fail.toResult (() => parseDocu
 
 def documentOf (input: Text): Result Document Text := parsed input
 
--- A warehouse drawn as the puzzle draws it, in a map whose rows are `rows`,
--- with no moves: for edge cases.
+--| A warehouse drawn as the puzzle draws it, in a map whose rows are `rows`,
+--| with no moves: for edge cases.
 def warehouseOf (rows: Text): Result Warehouse Text := documentOf "${rows}\n\n<\n" |> .map (document => document.warehouse)
 
 def at (row: Int) (column: Int): Cell := { rows = row, columns = column }
 
--- The boxes, row by row.
+--| The boxes, row by row.
 def boxesOf (warehouse: Warehouse): List Cell := warehouse.boxes.toList
 
--- The puzzle's map of a warehouse, `wide` for part 2's boxes.
+--| The puzzle's map of a warehouse, `wide` for part 2's boxes.
 def draw (wide: Bool) (warehouse: Warehouse) (height: Nat) (width: Nat): List Text :=
   List.range height
     |> .map (row =>
@@ -132,7 +134,7 @@ test "large example, part 2's final map" :=
     "####################"
   ]
 
--- The small example's moves, one at a time: the maps after each.
+--| The small example's moves, one at a time: the maps after each.
 test "small example, each move" :=
   documentOf smallExample |> .map (document =>
     let maps := document.moves.scanLeft document.warehouse Warehouse.move |> .map (warehouse => draw False warehouse 8 8)
@@ -143,7 +145,7 @@ test "small example, each move" :=
       Some ["########", "#....OO#", "##.....#", "#.....O#", "#.#O@..#", "#...O..#", "#...O..#", "########"]
     )
 
--- The wide example's moves, one at a time.
+--| The wide example's moves, one at a time.
 test "wide example, each move" :=
   documentOf wideExample |> .map (document =>
     let maps :=
@@ -189,7 +191,7 @@ test "wide example, each move" :=
       ]
     )
 
--- Edge cases, part 1.
+--| Edge cases, part 1.
 test "walking into a wall" := warehouseOf "#@." |> .map (warehouse => warehouse.move Left == warehouse) == Ok True
 test "walking onto the floor" := warehouseOf "#@." |> .map (warehouse => (warehouse.move Right).robot) == Ok (at 0 2)
 test "pushing one box" := warehouseOf "@O." |> .map (warehouse => boxesOf (warehouse.move Right)) == Ok [at 0 2]
@@ -200,14 +202,14 @@ test "pushing up" := warehouseOf ".\nO\n@" |> .map (warehouse => boxesOf (wareho
 test "pushing up into a wall" := warehouseOf "#\nO\n@" |> .map (warehouse => warehouse.move Up == warehouse) == Ok True
 test "the GPS of a box" := (at 1 4).gps == 104
 
--- Edge cases, part 2.
+--| Edge cases, part 2.
 def wideOf (rows: Text): Result Warehouse Text := warehouseOf rows |> .map (warehouse => warehouse.widen)
 
 test "widening" := wideOf "#O@." |> .map (warehouse => draw True warehouse 1 8) == Ok ["##[]@..."]
 test "pushing a wide box left" := wideOf ".O@" |> .map (warehouse => draw True (warehouse.moveWide Left |> .moveWide Left) 1 6) == Ok ["[]@..."]
 test "pushing a wide box right" := wideOf "@O.." |> .map (warehouse => draw True (warehouse.moveWide Right) 1 8) == Ok [".@[]...."]
--- A box under two others, the robot under its right half, and `walls`: the
--- push up meets both boxes above.
+--| A box under two others, the robot under its right half, and `walls`: the
+--| push up meets both boxes above.
 def stacked (walls: List Cell): Warehouse :=
   { walls = Set.fromList walls, boxes = Set.fromList [at 1 2, at 1 4, at 2 3], robot = at 3 4 }
 
@@ -222,7 +224,7 @@ test "the right half of a box is pushed too" :=
   wideOf "..\nO.\n.@" |> .map (wide => boxesOf ({ wide | robot = at 2 1 }.moveWide Up)) == Ok [at 0 0]
 test "the GPS of a wide box is its left half's" := (at 1 5).gps == 105
 
--- Parsing.
+--| Parsing.
 test "parse" :=
   parsed "#@O.\n\n<>\n^v\n" |> .map (document => document.moves) == Ok [Left, Right, Up, Down]
 test "parse the positions" :=

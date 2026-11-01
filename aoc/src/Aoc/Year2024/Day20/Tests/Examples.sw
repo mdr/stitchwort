@@ -1,4 +1,6 @@
--- Day 20's tests: the example from the puzzle and unit tests. Kept apart
+--| Day 20's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart
 -- from the program, so `stitchwort run Aoc.Year2024.Day20.main` doesn't
 -- check them.
 
@@ -28,22 +30,22 @@ def example: Text := """
 
 def parsed (input: Text): Result Racetrack Text := Fail.toResult (() => parseRacetrack input)
 
--- A function of the parsed racetrack, or why it didn't parse: a parse failure fails the test.
+--| A function of the parsed racetrack, or why it didn't parse: a parse failure fails the test.
 def onTrack (input: Text) (f: Racetrack -> a): Result a Text := parsed input |> .map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
--- The cheats of up to `length` picoseconds saving exactly `saving`.
+--| The cheats of up to `length` picoseconds saving exactly `saving`.
 def savingExactly (length: Nat) (input: Text) (saving: Nat): Result Nat Text :=
   onTrack input (track => track.countCheats length saving - track.countCheats length (saving + 1))
 
--- "There are 14 cheats that save 2 picoseconds", and so on.
+--| "There are 14 cheats that save 2 picoseconds", and so on.
 test "example, part 1, by saving" :=
   [(2, 14), (4, 14), (6, 2), (8, 4), (10, 2), (12, 3), (20, 1), (36, 1), (38, 1), (40, 1), (64, 1)]
     |> .all (((saving, cheats)) => savingExactly 2 example saving == Ok cheats)
 test "example, part 1, no other savings" := onTrack example (solvePart1 1) == Ok 44 && onTrack example (solvePart1 65) == Ok 0
 
--- "There are 32 cheats that save 50 picoseconds", and so on.
+--| "There are 32 cheats that save 50 picoseconds", and so on.
 test "example, part 2, by saving" :=
   [(50, 32), (52, 31), (54, 29), (56, 39), (58, 25), (60, 23), (62, 20), (64, 19), (66, 12), (68, 14), (70, 12), (72, 22), (74, 4), (76, 3)]
     |> .all (((saving, cheats)) => savingExactly 20 example saving == Ok cheats)

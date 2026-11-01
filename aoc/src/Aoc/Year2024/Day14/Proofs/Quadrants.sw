@@ -1,8 +1,8 @@
--- Quadrants: the program sorts each tile into a quadrant by comparing it
--- with `width / 2` and `height / 2`; the spec counts the tiles with more (or
--- fewer) tiles on one side than the other. For odd sizes they agree, the
--- middle row and column counting in no quadrant (`quadrantAgrees`), so the
--- safety factors are equal (`safetyFactorCorrect`).
+--| Quadrants: the program sorts each tile into a quadrant by comparing it
+--| with `width / 2` and `height / 2`; the spec counts the tiles with more (or
+--| fewer) tiles on one side than the other. For odd sizes they agree, the
+--| middle row and column counting in no quadrant (`quadrantAgrees`), so the
+--| safety factors are equal (`safetyFactorCorrect`).
 
 namespace Aoc.Year2024.Day14.Proofs
 import Aoc.Common (Position)
@@ -26,8 +26,8 @@ theorem bottomRightAgrees (space: Space) (oddWidth: space.width % 2 = 1) (oddHei
     (space.quadrantOf position == Some BottomRight) = (isBottom space position && isRight space position) :=
   cases
 
--- How many tiles the program puts in `quadrant` is how many the spec's two
--- tests pass.
+--| How many tiles the program puts in `quadrant` is how many the spec's two
+--| tests pass.
 theorem countQuadrant (space: Space) (quadrant: Quadrant) (first: Position → Bool) (second: Position → Bool)
     (agrees: (position: Position) → (space.quadrantOf position == Some quadrant) = (first position && second position))
     (positions: List Position): (positions.filterMap space.quadrantOf).count (== quadrant) = countWhere positions first second :=

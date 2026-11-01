@@ -1,7 +1,7 @@
--- Part 2: for a machine whose buttons don't move the claw along the same
--- line, `Machine.fewestTokens` is the fewest tokens of any presses that
--- win, or `None` when none do (`fewestTokensCorrect`). The spec's part 2
--- has only one answer (`part2AnswerUnique`).
+--| Part 2: for a machine whose buttons don't move the claw along the same
+--| line, `Machine.fewestTokens` is the fewest tokens of any presses that
+--| win, or `None` when none do (`fewestTokensCorrect`). The spec's part 2
+--| has only one answer (`part2AnswerUnique`).
 
 namespace Aoc.Year2024.Day13.Proofs
 import Aoc.Year2024.Day13 (..)
@@ -10,8 +10,8 @@ import Std (And, Bool, Eq, Exists, Int, List, Nat, Option, Void)
 
 theorem costIsTokens (aPresses: Nat) (bPresses: Nat): cost aPresses bPresses = tokens aPresses bPresses := omega
 
--- Cramer's rule's presses cost the fewest tokens, as they are the only
--- presses that win; when it finds none, none win.
+--| Cramer's rule's presses cost the fewest tokens, as they are the only
+--| presses that win; when it finds none, none win.
 theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
     IsFewest machine ((machine.onlyPresses nonzero).map (((aPresses, bPresses)) => tokens aPresses bPresses)) :=
   match found: machine.onlyPresses nonzero with
@@ -35,17 +35,17 @@ theorem fewestTokensCorrect (machine: Machine) (nonzero: machine.determinant ≠
 
 theorem correctedIsSpec (machine: Machine): machine.corrected = correctedMachine machine := rfl
 
--- A machine that can be won isn't unwinnable.
+--| A machine that can be won isn't unwinnable.
 theorem winsAgainst (machine: Machine) (tokens: Nat) (fewest: Fewest machine tokens) (unwinnable: Unwinnable machine): Void :=
   match And.left fewest with
     | Witness aPresses (Witness bPresses (Both won costs)) => Bool.falseNotTrue (Eq.trans (Eq.sym (unwinnable aPresses bPresses)) won)
 
--- The fewest tokens are at most any other fewest.
+--| The fewest tokens are at most any other fewest.
 theorem atMostOther (machine: Machine) (tokens: Nat) (others: Nat) (fewest: Fewest machine tokens) (other: Fewest machine others): tokens ≤ others :=
   match And.left other with
     | Witness aPresses (Witness bPresses (Both won costs)) => rewrite <- costs in And.right fewest aPresses bPresses won
 
--- A machine has one fewest number of tokens, or none.
+--| A machine has one fewest number of tokens, or none.
 theorem fewestUnique (machine: Machine): (first: Option Nat) → (second: Option Nat) → IsFewest machine first → IsFewest machine second → first = second
   | None, None, firstFewest, secondFewest => rfl
   | Some tokens, None, firstFewest, secondFewest => Void.exfalso (winsAgainst machine tokens firstFewest secondFewest)
@@ -53,7 +53,7 @@ theorem fewestUnique (machine: Machine): (first: Option Nat) → (second: Option
   | Some tokens, Some others, firstFewest, secondFewest =>
     Eq.cong Some (omega [atMostOther machine tokens others firstFewest secondFewest, atMostOther machine others tokens secondFewest firstFewest])
 
--- The spec's part 2 has one answer.
+--| The spec's part 2 has one answer.
 theorem part2AnswerUnique (machines: List Machine) (first: Nat) (second: Nat) (firstAnswer: Part2Answer machines first)
     (secondAnswer: Part2Answer machines second): first = second :=
   match firstAnswer with

@@ -1,25 +1,25 @@
--- Part 1 is sound for every device: each value the gates settle to is one
--- the wire carries by the puzzle's rules (`settleSound`), so the number
--- read from the z wires is the one the device outputs (`part1Sound`).
+--| Part 1 is sound for every device: each value the gates settle to is one
+--| the wire carries by the puzzle's rules (`settleSound`), so the number
+--| read from the z wires is the one the device outputs (`part1Sound`).
 
 namespace Aoc.Year2024.Day24.Proofs
 import Aoc.Year2024.Day24 (..)
 import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Void)
 
--- Every value in `values` is one its wire carries.
+--| Every value in `values` is one its wire carries.
 def Sound (device: Device) (values: Values): Prop := (wire: Wire) → (value: Bool) → values.get wire = Some value → Carries device wire value
 
 theorem initialSound (device: Device): Sound device (Map.fromList device.initial) :=
   (wire value found => Starts (lookupLastMem wire value device.initial (Eq.trans (Eq.sym (Map.getFromList wire device.initial)) found)))
 
--- The program's gates are the puzzle's.
+--| The program's gates are the puzzle's.
 theorem applyIsGateOutput: (operation: Operation) → (left: Bool) → (right: Bool) → operation.apply left right = gateOutput operation left right
   | And, left, right => cases
   | Or, left, right => cases
   | Xor, left, right => cases
 
--- A gate that fires outputs what its wire carries.
+--| A gate that fires outputs what its wire carries.
 theorem fireSound (device: Device) (values: Values) (sound: Sound device values) (gate: Gate) (wired: gate ∈ device.gates) (value: Bool)
     (fired: gate.fire values = Some value): Carries device gate.output value :=
   Option.flatMapEqSome (values.get gate.left) (left => values.get gate.right |> .map (right => gate.operation.apply left right)) value fired
@@ -28,7 +28,7 @@ theorem fireSound (device: Device) (values: Values) (sound: Sound device values)
         Fires gate wired rfl left right (sound gate.left left leftIs) (sound gate.right right rightIs)
           (Eq.trans (Eq.sym applied) (applyIsGateOutput gate.operation left right))))
 
--- `fireAll`, inserting into any map.
+--| `fireAll`, inserting into any map.
 def fireOnto (values: Values) (settled: Values) (ready: List Gate): Values :=
   ready.foldLeft settled (settled gate => settled.insert gate.output ((gate.fire values).getOrElse False))
 
@@ -49,7 +49,7 @@ theorem fireOntoSound (device: Device) (values: Values) (sound: Sound device val
               | Inr before => settledSound other otherValue before)
           wire value found
 
--- One round of `settle`: another when some gate is ready, else done.
+--| One round of `settle`: another when some gate is ready, else done.
 theorem settleMore (values: Values) (waiting: List Gate)
     (fewer: Nat.leq (Succ (waiting.filter (gate => ¬(gate.ready values))).length) waiting.length = True):
     settle values waiting = settle (fireAll values (waiting.filter (gate => gate.ready values))) (waiting.filter (gate => ¬(gate.ready values))) :=
@@ -63,7 +63,7 @@ theorem settleDone (values: Values) (waiting: List Gate)
   rewrite done in
   rfl
 
--- The gates settle to values their wires carry, from values they carry.
+--| The gates settle to values their wires carry, from values they carry.
 theorem settleSound (device: Device) (values: Values) (waiting: List Gate) (sound: Sound device values)
     (wired: (gate: Gate) → gate ∈ waiting → gate ∈ device.gates): Sound device (settle values waiting)
     decreasing waiting.length
@@ -84,9 +84,9 @@ theorem settleSound (device: Device) (values: Values) (waiting: List Gate) (soun
 theorem settledSound (device: Device): Sound device device.settled :=
   settleSound device (Map.fromList device.initial) device.gates (initialSound device) (gate member => member)
 
--- Part 1, sound for every device: the number read is one the device
--- outputs. (A device whose z wires don't all get values, as in a loop,
--- gives none.)
+--| Part 1, sound for every device: the number read is one the device
+--| outputs. (A device whose z wires don't all get values, as in a loop,
+--| gives none.)
 theorem part1Sound (device: Device) (number: Nat) (solved: solvePart1 device = Some number): Outputs device number :=
   let count := bitCount Wire.zBit device.wires
   let zValue := (bit: Nat) => if device.wires.contains (Z bit) then device.settled.get (Z bit) else Some False

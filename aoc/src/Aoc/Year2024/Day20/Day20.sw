@@ -1,21 +1,21 @@
--- Advent of Code 2024, day 20: a racetrack of track and walls from S to E.
--- Once in a race a program may cheat, passing through walls for a few
--- picoseconds and ending back on track. Part 1 counts the cheats of up to 2
--- picoseconds that save at least 100 picoseconds; part 2 those of up to 20.
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day20.main < inputs/2024/day20.txt
---   $ cd aoc && stitchwort run Aoc.Year2024.Day20.main -- 50 < examples/2024/day20.txt
---
--- The proofs are in `Aoc.Year2024.Day20.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 20: a racetrack of track and walls from S to E.
+--| Once in a race a program may cheat, passing through walls for a few
+--| picoseconds and ending back on track. Part 1 counts the cheats of up to 2
+--| picoseconds that save at least 100 picoseconds; part 2 those of up to 20.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day20.main < inputs/2024/day20.txt
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day20.main -- 50 < examples/2024/day20.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day20.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day20
 import Aoc.Common (Direction, Position, directions)
 import Std (And, Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (grid, pick)
 
--- The least saving counted is 100 picoseconds, unless the arguments give
--- another: `-- 50` for the example.
+--| The least saving counted is 100 picoseconds, unless the arguments give
+--| another: `-- 50` for the example.
 def main(): {IO, Fail} () :=
   let threshold := thresholdFrom IO.args()
   let racetrack := parseRacetrack IO.readAll()
@@ -29,7 +29,7 @@ def thresholdFrom (args: List Text): {Fail} Nat :=
     | Cons saving Nil => Fail.need saving.toNat usage
     | _ => Fail.fail usage
 
--- The track positions (S and E among them), the start and the end.
+--| The track positions (S and E among them), the start and the end.
 type Racetrack = { track: Set Position, start: Position, end: Position }
 
 type Tile =
@@ -40,14 +40,14 @@ type Tile =
 
 def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
 
--- The one position holding `wanted`.
+--| The one position holding `wanted`.
 def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
   match tiles.filter (entry => entry.snd == wanted) |> .map (entry => entry.fst) with
     | Cons position Nil => position
     | Nil => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
 
--- One row of tiles per line, with one S and one E.
+--| One row of tiles per line, with one S and one E.
 def parseRacetrack (input: Text): {Fail} Racetrack :=
   let tiles :=
     Parse.all input (() => grid tile)
@@ -64,17 +64,17 @@ def parseRacetrack (input: Text): {Fail} Racetrack :=
 
 def Racetrack.isTrack (racetrack: Racetrack) (position: Position): Bool := racetrack.track.contains position
 
--- The position one step in `direction`, if it's track.
+--| The position one step in `direction`, if it's track.
 def Racetrack.move (racetrack: Racetrack) (position: Position) (direction: Direction): Option Position :=
   match position.step direction with
     | Some next => if racetrack.isTrack next then Some next else None
     | None => None
 
--- The track positions one step away, each taking one picosecond.
+--| The track positions one step away, each taking one picosecond.
 def Racetrack.edges (racetrack: Racetrack) (position: Position): List (Position, Nat) :=
   directions.filterMap (direction => racetrack.move position direction |> .map (next => (next, 1)))
 
--- Edges lead onto track.
+--| Edges lead onto track.
 theorem Racetrack.edgeOnTrack (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat)
     (edge: (next, weight) ∈ racetrack.edges position): racetrack.isTrack next = True :=
   let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
@@ -87,49 +87,49 @@ theorem Racetrack.edgeOnTrack (racetrack: Racetrack) (position: Position) (next:
             | False => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
             | True => rewrite <- Eq.cong Pair.fst (Option.someInjective _ _ (And.right both)) in onIt)
 
--- The track as a graph for std's search. Every step can be taken back, so
--- the same graph gives the times to the end.
+--| The track as a graph for std's search. Every step can be taken back, so
+--| the same graph gives the times to the end.
 def Racetrack.graph (racetrack: Racetrack): Graph Position := {
   edges = racetrack.edges,
   states = racetrack.track.toList,
   listed = position next weight edge => Map.memKeysOfContains racetrack.track.items next (racetrack.edgeOnTrack position next weight edge)
 }
 
--- The fewest picoseconds from the start to each track position.
+--| The fewest picoseconds from the start to each track position.
 def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.start]
 
--- The fewest picoseconds from each track position to the end.
+--| The fewest picoseconds from each track position to the end.
 def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.end]
 
--- The picoseconds from one position to another through walls: the
--- Manhattan distance.
+--| The picoseconds from one position to another through walls: the
+--| Manhattan distance.
 def Position.distance (position: Position) (other: Position): Nat :=
   Nat.absDiff position.row other.row + Nat.absDiff position.column other.column
 
--- Every position at most `length` picoseconds from `position` through
--- walls: a diamond, row by row.
+--| Every position at most `length` picoseconds from `position` through
+--| walls: a diamond, row by row.
 def Position.diamond (position: Position) (length: Nat): List Position :=
   List.between (position.row - length) (position.row + length)
     |> .flatMap (row =>
       let spare := length - Nat.absDiff row position.row
       List.between (position.column - spare) (position.column + spare) |> .map (column => ({ row, column }: Position)))
 
--- Whether a cheat from `start`, `before` picoseconds into the race, to `end`
--- makes the race at least `threshold` picoseconds shorter than `honest`:
--- the time to the start, the cheat, then the time from the end.
+--| Whether a cheat from `start`, `before` picoseconds into the race, to `end`
+--| makes the race at least `threshold` picoseconds shorter than `honest`:
+--| the time to the start, the cheat, then the time from the end.
 def savesFrom (toEnd: Map Position Nat) (honest: Nat) (threshold: Nat) (start: Position) (before: Nat) (end: Position): Bool :=
   match toEnd.get end with
     | Some after => before + start.distance end + after + threshold ≤ honest
     | None => False
 
--- How many cheats of up to `length` picoseconds from `start` save at least
--- `threshold`; none if the start can't be reached.
+--| How many cheats of up to `length` picoseconds from `start` save at least
+--| `threshold`; none if the start can't be reached.
 def cheatsFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position): Nat :=
   match fromStart.get start with
     | Some before => start.diamond length |> .count (savesFrom toEnd honest threshold start before)
     | None => 0
 
--- How many cheats of up to `length` picoseconds save at least `threshold`.
+--| How many cheats of up to `length` picoseconds save at least `threshold`.
 def Racetrack.countCheats (racetrack: Racetrack) (length: Nat) (threshold: Nat): Nat :=
   let fromStart := racetrack.fromStart
   match fromStart.get racetrack.end with

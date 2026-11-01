@@ -1,6 +1,6 @@
--- One buyer: the program's prices are the puzzle's (`pricesMatch`), and
--- `firstSales` holds, for each sequence of changes, the price the monkey
--- sells at (`firstSalesSells`).
+--| One buyer: the program's prices are the puzzle's (`pricesMatch`), and
+--| `firstSales` holds, for each sequence of changes, the price the monkey
+--| sells at (`firstSalesSells`).
 
 namespace Aoc.Year2024.Day22.Proofs
 import Aoc.Year2024.Day22 (..)
@@ -14,8 +14,8 @@ theorem secretsMatch: (count: Nat) → (secret: Nat) → secrets count secret = 
 theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrices count buyer :=
   rewrite secretsMatch count buyer in rfl
 
--- Folding sales into a map, keeping the first price for each sequence,
--- adds the first price in the list for a sequence the map lacks.
+--| Folding sales into a map, keeping the first price for each sequence,
+--| adds the first price in the list for a sequence the map lacks.
 theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Map Changes Nat) →
     (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
       Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd))
@@ -35,8 +35,8 @@ theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Ma
           rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => DecEq.soundFalse entry.fst key same (Eq.sym equal)) (new old => old) in
             rfl
 
--- Looking for the first place the monkey sells is looking for the first
--- sale with that sequence.
+--| Looking for the first place the monkey sells is looking for the first
+--| sale with that sequence.
 theorem findMapSells (sequence: Changes): (places: List (List Nat)) →
     places.findMap (sellsAt sequence) = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd)
   | Nil => rfl

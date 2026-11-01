@@ -1,19 +1,19 @@
--- The puzzle's computer is deterministic: a machine has one step
--- (`stepUnique`) and a halting run one output (`haltsUnique`).
+--| The puzzle's computer is deterministic: a machine has one step
+--| (`stepUnique`) and a halting run one output (`haltsUnique`).
 
 namespace Aoc.Year2024.Day17.Proofs
 import Aoc.Year2024.Day17 (..)
 import Aoc.Year2024.Day17.Spec (..)
 import Std (Bool, Eq, Exists, List, Nat, Option, Void)
 
--- Two numbers that are both the bitwise XOR of `x` and `y` are equal.
+--| Two numbers that are both the bitwise XOR of `x` and `y` are equal.
 theorem xorUnique (x: Nat) (y: Nat) (first: Nat) (second: Nat) (isFirst: BitwiseXor x y first) (isSecond: BitwiseXor x y second): first = second :=
   Nat.eqOfTestBit first second
     (i =>
       rewrite Nat.testBitDiv first i, Nat.testBitDiv second i in
         Eq.trans (isFirst i) (Eq.sym (isSecond i)))
 
--- An instruction with a combo operand takes one step.
+--| An instruction with a combo operand takes one step.
 theorem comboUnique (registers: Registers) (operand: Nat) (first: Step) (second: Step) (target: Nat → Step)
     (isFirst: WithCombo registers operand first (value => first = target value))
     (isSecond: WithCombo registers operand second (value => second = target value)): first = second :=
@@ -38,7 +38,7 @@ theorem executesUnique (operand: Nat) (machine: Machine) (first: Step) (second: 
   | 7, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
   | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))), isFirst, isSecond => Eq.trans isFirst (Eq.sym isSecond)
 
--- A machine takes one step.
+--| A machine takes one step.
 theorem stepUnique (program: List Nat) (machine: Machine) (first: Step) (second: Step)
     (isFirst: StepMatches program machine first) (isSecond: StepMatches program machine second): first = second :=
   match fetched: program.get machine.pointer with
@@ -48,7 +48,7 @@ theorem stepUnique (program: List Nat) (machine: Machine) (first: Step) (second:
         | None => Eq.trans isFirst (Eq.sym isSecond)
         | Some operand => executesUnique operand machine first second opcode isFirst isSecond
 
--- Telling steps apart.
+--| Telling steps apart.
 def isHalt: Step → Bool
   | Halt => True
   | _ => False
@@ -66,7 +66,7 @@ theorem haltNotNext (after: Machine) (printed: Option Nat) (same: Halt = Next af
 theorem quietNotPrints (after: Machine) (other: Machine) (value: Nat) (same: Next after None = Next other (Some value)): Void :=
   Option.noneNotSome value (Eq.cong printedOf same)
 
--- A halting run has one output.
+--| A halting run has one output.
 theorem haltsUnique (program: List Nat): (machine: Machine) → (first: List Nat) → (second: List Nat) →
     Halts program machine first → Halts program machine second → first = second
   | machine, Nil, Nil, Stops _ stop, Stops _ alsoStop => rfl

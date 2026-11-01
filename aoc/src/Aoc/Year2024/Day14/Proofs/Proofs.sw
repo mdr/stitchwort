@@ -1,9 +1,9 @@
--- Day 14 proved, for every list of robots that start inside the space:
--- part 1 is the spec's safety factor after 100 seconds of one-tile moves
--- (`part1Correct`); part 2's answer is the first second at which the spec's
--- robots are all on different tiles (`part2First`), and when it finds none,
--- no second ever has them so (`part2Never`), because every robot is back
--- where it started after `width * height` seconds (`periodic`, Moves.sw).
+--| Day 14 proved, for every list of robots that start inside the space:
+--| part 1 is the spec's safety factor after 100 seconds of one-tile moves
+--| (`part1Correct`); part 2's answer is the first second at which the spec's
+--| robots are all on different tiles (`part2First`), and when it finds none,
+--| no second ever has them so (`part2Never`), because every robot is back
+--| where it started after `width * height` seconds (`periodic`, Moves.sw).
 
 namespace Aoc.Year2024.Day14.Proofs
 import Aoc.Common (Position)
@@ -11,22 +11,22 @@ import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (..)
 import Std (And, Bool, Eq, Iff, List, Nat, Option, Void)
 
--- Every robot starts inside the space.
+--| Every robot starts inside the space.
 def StartInside (space: Space) (robots: List Robot): Prop := (robot: Robot) → robot ∈ robots → space.contains robot.position = True
 
--- The spec's positions are the program's.
+--| The spec's positions are the program's.
 theorem positionsCorrect (space: Space) (robots: List Robot) (inside: StartInside space robots) (seconds: Nat):
     robots.map (after space seconds) = space.positionsAfter seconds robots :=
   List.mapCongMem robots (after space seconds) (space.positionAfter seconds) (robot member => afterCorrect space seconds robot (inside robot member))
 
--- Part 1: the program's safety factor is the spec's, for spaces of odd
--- width and height as the puzzle's are.
+--| Part 1: the program's safety factor is the spec's, for spaces of odd
+--| width and height as the puzzle's are.
 theorem part1Correct (space: Space) (robots: List Robot) (inside: StartInside space robots)
     (oddWidth: space.width % 2 = 1) (oddHeight: space.height % 2 = 1): solvePart1 space robots = part1 space robots :=
   rewrite positionsCorrect space robots inside 100 in Eq.sym (safetyFactorCorrect space oddWidth oddHeight (space.positionsAfter 100 robots))
 
--- After any number of laps of `width * height` seconds, every robot is
--- where it was.
+--| After any number of laps of `width * height` seconds, every robot is
+--| where it was.
 theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot):
     (laps: Nat) → space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot
   | Zero => rewrite Nat.addZero seconds in rfl
@@ -37,7 +37,7 @@ theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot):
 
 theorem periodPositive (space: Space): space.period ≠ 0 := mulNeZero space.width space.height space.widthPositive space.heightPositive
 
--- Only the seconds modulo the period matter.
+--| Only the seconds modulo the period matter.
 theorem positionsModPeriod (space: Space) (robots: List Robot) (seconds: Nat) (ok: space.period ≠ 0):
     space.positionsAfter seconds robots = space.positionsAfter (seconds % space.period) robots :=
   Eq.trans
@@ -50,7 +50,7 @@ theorem pictureAllDistinct (space: Space) (robots: List Robot) (inside: StartIns
     (picture: isPicture space robots seconds): List.allDistinct (space.positionsAfter seconds robots) = True :=
   (List.allDistinctCorrect (space.positionsAfter seconds robots)).backward (rewrite <- positionsCorrect space robots inside seconds in picture)
 
--- Part 2's answer is a picture, and no earlier second is.
+--| Part 2's answer is a picture, and no earlier second is.
 theorem part2First (space: Space) (robots: List Robot) (inside: StartInside space robots) (found: Nat)
     (h: solvePart2 space robots = Some found):
     And (isPicture space robots found) ((earlier: Nat) → earlier < found → Not (isPicture space robots earlier)) :=
@@ -59,7 +59,7 @@ theorem part2First (space: Space) (robots: List Robot) (inside: StartInside spac
       Both (rewrite positionsCorrect space robots inside found in (List.allDistinctCorrect (space.positionsAfter found robots)).forward passes)
         (earlier before picture => Bool.trueNotFalse (Eq.trans (Eq.sym (pictureAllDistinct space robots inside earlier picture)) (first earlier before)))
 
--- When part 2 finds nothing, no second is a picture.
+--| When part 2 finds nothing, no second is a picture.
 theorem part2Never (space: Space) (robots: List Robot) (inside: StartInside space robots) (h: solvePart2 space robots = None)
     (seconds: Nat): Not (isPicture space robots seconds) :=
   picture =>

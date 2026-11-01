@@ -1,13 +1,13 @@
--- Runs: a run that finishes is a halting run of the puzzle's computer with
--- the same output (`runHalts`, `outcomeHalts`), and more fuel never changes
--- a finished run (`runMoreFuel`).
+--| Runs: a run that finishes is a halting run of the puzzle's computer with
+--| the same output (`runHalts`, `outcomeHalts`), and more fuel never changes
+--| a finished run (`runMoreFuel`).
 
 namespace Aoc.Year2024.Day17.Proofs
 import Aoc.Year2024.Day17 (..)
 import Aoc.Year2024.Day17.Spec (..)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Void)
 
--- What a finished run output, and nothing for the others.
+--| What a finished run output, and nothing for the others.
 def finishedOutput: Outcome → List Nat
   | Finished output => output
   | _ => Nil
@@ -22,8 +22,8 @@ theorem outOfFuelNotFinished (output: List Nat) (same: OutOfFuel = Finished outp
 
 theorem finishedInjective (first: List Nat) (second: List Nat) (same: Finished first = Finished second): first = second := Eq.cong finishedOutput same
 
--- A run that finishes outputs what was printed before it, then what a
--- halting run of the puzzle's computer outputs.
+--| A run that finishes outputs what was printed before it, then what a
+--| halting run of the puzzle's computer outputs.
 theorem runHalts (program: List Nat): (fuel: Nat) → (machine: Machine) → (printed: List Nat) → (output: List Nat) →
     machine.run program printed fuel = Finished output → ∃ (rest: List Nat) => output = List.append printed.reverse rest ∧ Halts program machine rest
   | Zero, machine, printed, output, finished => Void.exfalso (outOfFuelNotFinished output finished)
@@ -42,13 +42,13 @@ theorem runHalts (program: List Nat): (fuel: Nat) → (machine: Machine) → (pr
             Witness (Cons value rest)
               (Both (rewrite List.reverseCons value printed, List.appendAssoc printed.reverse [value] rest at same) (Prints machine after value rest matches halts))
 
--- From the start, a finished run's output is a halting run's.
+--| From the start, a finished run's output is a halting run's.
 theorem outcomeHalts (registers: Registers) (program: List Nat) (output: List Nat) (finished: outcome registers program = Finished output):
     Halts program (start registers) output :=
   match runHalts program (fuelFor registers program) (start registers) Nil output finished with
     | Witness rest (Both same halts) => rewrite same in halts
 
--- More fuel finishes the same way.
+--| More fuel finishes the same way.
 theorem runMoreFuel (program: List Nat) (extra: Nat): (fuel: Nat) → (machine: Machine) → (printed: List Nat) → (output: List Nat) →
     machine.run program printed fuel = Finished output → machine.run program printed (fuel + extra) = Finished output
   | Zero, machine, printed, output, finished => Void.exfalso (outOfFuelNotFinished output finished)

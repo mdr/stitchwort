@@ -1,12 +1,12 @@
--- Advent of Code 2024, day 17: a 3-bit computer with registers A, B and C
--- and eight instructions, each an opcode and an operand. Part 1 runs the
--- program and joins what it outputs with commas; part 2 finds the lowest
--- positive initial A for which the program outputs a copy of itself.
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day17.main < examples/2024/day17.txt
---
--- The proofs are in `Aoc.Year2024.Day17.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day17.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 17: a 3-bit computer with registers A, B and C
+--| and eight instructions, each an opcode and an operand. Part 1 runs the
+--| program and joins what it outputs with commas; part 2 finds the lowest
+--| positive initial A for which the program outputs a copy of itself.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day17.main < examples/2024/day17.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day17.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day17.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day17
 import Std (Fail, IO, List, Nat, Option, Parse, Text)
@@ -23,10 +23,10 @@ def main(): {IO, Fail} () :=
 
 type Registers = { a: Nat, b: Nat, c: Nat }
 
--- The registers' initial values and the program, a list of 3-bit numbers.
+--| The registers' initial values and the program, a list of 3-bit numbers.
 type Debugger = { registers: Registers, program: List Nat }
 
--- What a combo operand stands for: 0 to 3 themselves, 4 to 6 a register.
+--| What a combo operand stands for: 0 to 3 themselves, 4 to 6 a register.
 type Combo =
   | Value (value: Nat)
   | RegisterA
@@ -43,31 +43,31 @@ type Instruction =
   | Bdv (operand: Combo)
   | Cdv (operand: Combo)
 
--- Where the program is: the registers and the instruction pointer.
+--| Where the program is: the registers and the instruction pointer.
 type Machine = { registers: Registers, pointer: Nat }
 
--- What one instruction does: halt, fail on an invalid instruction, or go on
--- from another machine, having output a value or not.
+--| What one instruction does: halt, fail on an invalid instruction, or go on
+--| from another machine, having output a value or not.
 type Step =
   | Halt
   | Fault
   | Next (machine: Machine) (printed: Option Nat)
 
--- How a run ends: halted with what it output, on an invalid instruction,
--- or not halted within its steps.
+--| How a run ends: halted with what it output, on an invalid instruction,
+--| or not halted within its steps.
 type Outcome =
   | Finished (output: List Nat)
   | Faulted
   | OutOfFuel
 
--- A digit from 0 to 7.
+--| A digit from 0 to 7.
 def threeBit(): {Parse} Nat :=
   let start := Parse.mark()
   let value := natDigits 1 1
   Parse.ensureAt start (value < 8) "expected a 3-bit number (0 to 7)"
   value
 
--- "Register A: 729", without the line break.
+--| "Register A: 729", without the line break.
 def register (name: Text): {Parse} Nat :=
   text "Register ${name}: "
   nat()
@@ -85,7 +85,7 @@ def debugger(): {Parse} Debugger :=
 
 def parseDebugger (input: Text): {Fail} Debugger := Parse.all input debugger
 
--- The combo operand `operand` stands for; operand 7 is reserved.
+--| The combo operand `operand` stands for; operand 7 is reserved.
 def Combo.decode (operand: Nat): Option Combo :=
   match operand with
     | 4 => Some RegisterA
@@ -93,7 +93,7 @@ def Combo.decode (operand: Nat): Option Combo :=
     | 6 => Some RegisterC
     | _ => if operand < 4 then Some (Value operand) else None
 
--- The instruction an opcode and its operand make, if they make one.
+--| The instruction an opcode and its operand make, if they make one.
 def Instruction.decode (opcode: Nat) (operand: Nat): Option Instruction :=
   match opcode with
     | 0 => Combo.decode operand |> .map Adv
@@ -113,10 +113,10 @@ def Registers.value (registers: Registers) (operand: Combo): Nat :=
     | RegisterB => registers.b
     | RegisterC => registers.c
 
--- A divided by 2 to the power of the operand, truncated.
+--| A divided by 2 to the power of the operand, truncated.
 def Registers.divide (registers: Registers) (operand: Combo): Nat := registers.a.shiftRight (registers.value operand)
 
--- The next instruction, with `registers`.
+--| The next instruction, with `registers`.
 def Machine.advance (machine: Machine) (registers: Registers): Machine := { registers, pointer = machine.pointer + 2 }
 
 def Machine.execute (machine: Machine) (instruction: Instruction): Step :=
@@ -131,8 +131,8 @@ def Machine.execute (machine: Machine) (instruction: Instruction): Step :=
     | Bdv operand => Next (machine.advance { registers | b = registers.divide operand }) None
     | Cdv operand => Next (machine.advance { registers | c = registers.divide operand }) None
 
--- The instruction at the pointer: halt past the end of the program, and
--- fail on an opcode without an operand or an invalid instruction.
+--| The instruction at the pointer: halt past the end of the program, and
+--| fail on an opcode without an operand or an invalid instruction.
 def Machine.step (machine: Machine) (program: List Nat): Step :=
   match program.get machine.pointer with
     | None => Halt
@@ -141,7 +141,7 @@ def Machine.step (machine: Machine) (program: List Nat): Step :=
         | Some instruction => machine.execute instruction
         | None => Fault
 
--- At most `fuel` steps; `printed` is what was output so far, newest first.
+--| At most `fuel` steps; `printed` is what was output so far, newest first.
 def Machine.run (machine: Machine) (program: List Nat) (printed: List Nat): (fuel: Nat) → Outcome
   | Zero => OutOfFuel
   | Succ fuel =>
@@ -151,10 +151,10 @@ def Machine.run (machine: Machine) (program: List Nat) (printed: List Nat): (fue
       | Next after None => after.run program printed fuel
       | Next after (Some value) => after.run program (Cons value printed) fuel
 
--- Steps enough for a loop that shifts A right on each pass to finish.
+--| Steps enough for a loop that shifts A right on each pass to finish.
 def fuelFor (registers: Registers) (program: List Nat): Nat := (registers.a + 1) * (program.length + 1)
 
--- The program run from `registers` at its first instruction.
+--| The program run from `registers` at its first instruction.
 def outcome (registers: Registers) (program: List Nat): Outcome :=
   ({ registers, pointer = 0 }: Machine).run program [] (fuelFor registers program)
 
@@ -166,15 +166,15 @@ def solvePart1 (debugger: Debugger): {Fail} Text :=
 
 -- Part 2.
 
--- What the program outputs when A starts at `a`; nothing if it doesn't halt.
+--| What the program outputs when A starts at `a`; nothing if it doesn't halt.
 def Debugger.outputFor (debugger: Debugger) (a: Nat): List Nat :=
   match outcome { debugger.registers | a } debugger.program with
     | Finished output => output
     | _ => []
 
--- Initial values for A that output `target`, built three bits at a time
--- from the end: a value that outputs `value` then `rest` is one that
--- outputs `rest`, times 8, plus a number below 8.
+--| Initial values for A that output `target`, built three bits at a time
+--| from the end: a value that outputs `value` then `rest` is one that
+--| outputs `rest`, times 8, plus a number below 8.
 def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
   | Nil => [0]
   | Cons value rest =>
@@ -182,8 +182,8 @@ def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
       |> .flatMap (high => List.range 8 |> .map (low => high * 8 + low))
       |> .filter (a => output a == Cons value rest)
 
--- The lowest positive initial A for which `output` is `target`, among the
--- candidates.
+--| The lowest positive initial A for which `output` is `target`, among the
+--| candidates.
 def lowestOutputting (output: Nat → List Nat) (target: List Nat): Option Nat :=
   candidates output target
     |> .filter (a => 0 < a ∧ output a == target)

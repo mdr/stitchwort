@@ -1,4 +1,6 @@
--- Day 18's tests: the example from the puzzle and unit tests. Kept apart
+--| Day 18's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart
 -- from the program, so `stitchwort run Aoc.Year2024.Day18.main` doesn't
 -- check them.
 
@@ -40,7 +42,7 @@ def parsed (input: Text): Result (List Position) Text := Fail.toResult (() => pa
 
 def bytes (input: Text): List Position := Fail.orElse Nil (() => parseBytes input)
 
--- The puzzle's X,Y: column X, row Y.
+--| The puzzle's X,Y: column X, row Y.
 def at (x: Nat) (y: Nat): Position := { row = y, column = x }
 
 test "example, part 1" := solvePart1 7 12 (bytes example) == Some 22

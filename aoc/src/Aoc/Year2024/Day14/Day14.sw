@@ -1,22 +1,22 @@
--- Advent of Code 2024, day 14: robots moving in straight lines across a
--- space that wraps round at its edges. Part 1 multiplies the numbers of
--- robots in the four quadrants after 100 seconds, leaving out the middle
--- row and column; part 2 finds the first second at which no two robots
--- share a tile (taken as the sign of the Christmas tree picture).
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main < inputs/2024/day14.txt
---   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main -- 11 7 < examples/2024/day14.txt
---
--- The proofs are in `Aoc.Year2024.Day14.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day14.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 14: robots moving in straight lines across a
+--| space that wraps round at its edges. Part 1 multiplies the numbers of
+--| robots in the four quadrants after 100 seconds, leaving out the middle
+--| row and column; part 2 finds the first second at which no two robots
+--| share a tile (taken as the sign of the Christmas tree picture).
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main < inputs/2024/day14.txt
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main -- 11 7 < examples/2024/day14.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day14.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day14.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day14
 import Aoc.Common (Offset, Position)
 import Std (Fail, IO, Int, List, Nat, Option, Parse, Text)
 import Std.Parse (int, nat, text)
 
--- The space is the puzzle's, 101 tiles wide and 103 tall, unless the
--- arguments give a width and a height: `-- 11 7` for the example's.
+--| The space is the puzzle's, 101 tiles wide and 103 tall, unless the
+--| arguments give a width and a height: `-- 11 7` for the example's.
 def main(): {IO, Fail} () := solveIn (Space.fromArgs IO.args())
 
 def Space.fromArgs (args: List Text): {Fail} Space :=
@@ -38,16 +38,16 @@ def solveIn (space: Space): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 space robots}"
   IO.print "Part 2: ${solvePart2 space robots |> .fold "none" Nat.toText}"
 
--- Where a robot is, and its velocity: tiles moved per second.
+--| Where a robot is, and its velocity: tiles moved per second.
 type Robot = { position: Position, velocity: Offset }
 
--- The space the robots are in, `width` tiles wide and `height` tall.
+--| The space the robots are in, `width` tiles wide and `height` tall.
 type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
 
 def Space.of (width: Nat) (height: Nat) [auto widthPositive: width ≠ 0] [auto heightPositive: height ≠ 0]: Space :=
   { width, height, widthPositive, heightPositive }
 
--- One robot: "p=0,4 v=3,-3", `x` then `y` (a column, then a row).
+--| One robot: "p=0,4 v=3,-3", `x` then `y` (a column, then a row).
 def robotLine(): {Parse} Robot :=
   text "p="
   let column := nat()
@@ -59,18 +59,18 @@ def robotLine(): {Parse} Robot :=
   let rows := int()
   { position = { row, column }, velocity = { rows, columns } }
 
--- One robot per line.
+--| One robot per line.
 def parseRobots (input: Text): {Fail} (List Robot) := Parse.eachLine input robotLine
 
--- Whether a tile is inside the space.
+--| Whether a tile is inside the space.
 def Space.contains (space: Space) (position: Position): Bool := position.within space.height space.width
 
--- The tile `offset` from `position`, wrapping round the space's edges.
+--| The tile `offset` from `position`, wrapping round the space's edges.
 def Space.wrap (space: Space) (position: Position) (offset: Offset): Position :=
   position.wrap offset space.height space.width [tall := space.heightPositive] [wide := space.widthPositive]
 
--- Where `robot` is after `seconds` seconds: the velocity times the
--- seconds away, wrapping round the space.
+--| Where `robot` is after `seconds` seconds: the velocity times the
+--| seconds away, wrapping round the space.
 def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position := space.wrap robot.position (robot.velocity.times seconds.toInt)
 
 def Space.positionsAfter (space: Space) (seconds: Nat) (robots: List Robot): List Position := robots.map (space.positionAfter seconds)
@@ -83,7 +83,7 @@ type Quadrant =
 
 def quadrants: List Quadrant := [TopLeft, TopRight, BottomLeft, BottomRight]
 
--- The quadrant a tile is in; none on the middle row or column.
+--| The quadrant a tile is in; none on the middle row or column.
 def Space.quadrantOf (space: Space) (position: Position): Option Quadrant :=
   let middleColumn := space.width / 2
   let middleRow := space.height / 2
@@ -91,17 +91,17 @@ def Space.quadrantOf (space: Space) (position: Position): Option Quadrant :=
   else if position.row < middleRow then Some (if position.column < middleColumn then TopLeft else TopRight)
   else Some (if position.column < middleColumn then BottomLeft else BottomRight)
 
--- The numbers of robots in the four quadrants, multiplied.
+--| The numbers of robots in the four quadrants, multiplied.
 def Space.safetyFactor (space: Space) (positions: List Position): Nat :=
   let inQuadrants := positions.filterMap space.quadrantOf
   quadrants.map (quadrant => inQuadrants.count (== quadrant)) |> .product
 
 def solvePart1 (space: Space) (robots: List Robot): Nat := space.positionsAfter 100 robots |> space.safetyFactor
 
--- How long the search runs: after `width * height` seconds every robot is
--- back where it started.
+--| How long the search runs: after `width * height` seconds every robot is
+--| back where it started.
 def Space.period (space: Space): Nat := space.width * space.height
 
--- The first second at which no two robots share a tile, if there is one.
+--| The first second at which no two robots share a tile, if there is one.
 def solvePart2 (space: Space) (robots: List Robot): Option Nat :=
   List.range space.period |> .find (seconds => space.positionsAfter seconds robots |> .allDistinct)

@@ -1,5 +1,6 @@
--- Day 21's tests: the example from the puzzle, the spec's simulation, and
--- the program against a brute-force search for small numbers of robots.
+--| Day 21's tests: the example from the puzzle, the spec's simulation, and
+--| the program against a brute-force search for small numbers of robots.
+--
 -- Kept apart from the program, so `stitchwort run Aoc.Year2024.Day21.main`
 -- doesn't check them.
 
@@ -11,7 +12,7 @@ import Std (Fail, List, Nat, Option, Result, Set, Text)
 
 def parsed (input: Text): Result (List Code) Text := Fail.toResult (() => parseCodes input)
 
--- A code from its characters, for writing tests.
+--| A code from its characters, for writing tests.
 def codeOf (characters: Text): Code :=
   characters.toList.map (character =>
     match character with
@@ -27,7 +28,7 @@ def codeOf (characters: Text): Code :=
       | '9' => Digit9
       | _ => Enter)
 
--- Directional key presses from the puzzle's characters.
+--| Directional key presses from the puzzle's characters.
 def pressesOf (characters: Text): List DirectionKey :=
   characters.toList.map (character =>
     match character with
@@ -44,12 +45,12 @@ def lengthFor (robots: Nat) (code: Text): Nat := (robotCosts robots).shortestLen
 test "example, part 1" := solvePart1 exampleCodes == 126384
 test "example, part 2" := solvePart2 exampleCodes == 154115708116294
 
--- "68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379".
+--| "68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379".
 test "example, the shortest lengths" := ["029A", "980A", "179A", "456A", "379A"].map (lengthFor 2) == [68, 60, 68, 64, 64]
 test "example, the numeric parts" := exampleCodes.map .numericPart == [29, 980, 179, 456, 379]
 
--- "three shortest possible sequences ... <A^A>^^AvvvA, <A^A^>^AvvvA, and
--- <A^A^^>AvvvA", and the puzzle's sequences one and two keypads further out.
+--| "three shortest possible sequences ... <A^A>^^AvvvA, <A^A^>^AvvvA, and
+--| <A^A^^>AvvvA", and the puzzle's sequences one and two keypads further out.
 test "example, the puzzle's sequences type 029A" :=
   ["<A^A>^^AvvvA", "<A^A^>^AvvvA", "<A^A^^>AvvvA"].all (presses => typed 0 (pressesOf presses) == Some (codeOf "029A"))
     && typed 1 (pressesOf "v<<A>>^A<A>AvA<^AA>A<vAAA>^A") == Some (codeOf "029A")
@@ -61,7 +62,7 @@ test "example, the puzzle's sequence for 379A" :=
 test "the spec panics at a gap" := typed 0 (pressesOf "<<A") == None && typed 1 (pressesOf "<<A") == None
 test "the spec panics off the keypad" := typed 0 (pressesOf ">A") == None && typed 0 (pressesOf "vA") == None
 
--- The program's own press sequence types each code and is as long as it says.
+--| The program's own press sequence types each code and is as long as it says.
 test "example, the program's sequences type the codes" :=
   exampleCodes.all (code => typed 2 (pressesFor 2 code) == Some code && (pressesFor 2 code).length == (robotCosts 2).shortestLength code)
 
@@ -72,16 +73,16 @@ test "repeated digits" := lengthFor 2 "00A" == 29
 test "the far corner" := lengthFor 2 "7A" == 52 && lengthFor 3 "70A" == 149
 test "leading zeroes are ignored" := (codeOf "007A").numericPart == 7
 
--- 100 robots: far past 64 bits.
+--| 100 robots: far past 64 bits.
 test "lengths beyond 64 bits" := lengthFor 100 "029A" == 39623698645360671878530501931953158941494
 
--- A brute-force search, independent of the program: every robot's arm and
--- how many of the code's keys the door has, after each of your presses.
+--| A brute-force search, independent of the program: every robot's arm and
+--| how many of the code's keys the door has, after each of your presses.
 type State = { aims: List Position, done: Nat }
 
--- The state after you press `key`, passed down the robots' arms (the last
--- arm on the numeric keypad); none if a robot panics or the door gets a
--- key that isn't the code's next.
+--| The state after you press `key`, passed down the robots' arms (the last
+--| arm on the numeric keypad); none if a robot panics or the door gets a
+--| key that isn't the code's next.
 def pushed (code: Code) (done: Nat): (aims: List Position) → (key: DirectionKey) → Option State
   | Nil, key => None
   | Cons aim Nil, Arrow direction =>
@@ -96,8 +97,8 @@ def pushed (code: Code) (done: Nat): (aims: List Position) → (key: DirectionKe
 
 def stateKey (state: State): List Nat := Cons state.done (state.aims.flatMap (aim => [aim.row, aim.column]))
 
--- Breadth first: the number of presses after which some state has the
--- whole code, giving up after `fuel` presses.
+--| Breadth first: the number of presses after which some state has the
+--| whole code, giving up after `fuel` presses.
 def searchFrom (code: Code) (fuel: Nat) (presses: Nat) (frontier: List State) (seen: Set (List Nat)): Option Nat :=
   match fuel with
     | Zero => None
@@ -123,14 +124,14 @@ test "brute force agrees on short codes, up to three robots" :=
     ["A", "0A", "1A", "5A", "7A", "00A", "70A", "A7A"].all (code =>
       bruteForce robots (codeOf code) == Some (lengthFor robots code)))
 
--- Every list of at most `count` moves.
+--| Every list of at most `count` moves.
 def moveLists: (count: Nat) → List (List Direction)
   | Zero => [Nil]
   | Succ count => Cons Nil ([Up, Down, Left, Right].flatMap (direction => moveLists count |> .map (Cons direction)))
 
--- The walk fact the optimality proof needs (`CheapestWalks`), for walks of
--- at most `count` moves: each costs at least the program's cheapest route
--- between the keys at its ends.
+--| The walk fact the optimality proof needs (`CheapestWalks`), for walks of
+--| at most `count` moves: each costs at least the program's cheapest route
+--| between the keys at its ends.
 def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (count: Nat): Bool :=
   keys.all (from =>
     moveLists count |> .all (route =>

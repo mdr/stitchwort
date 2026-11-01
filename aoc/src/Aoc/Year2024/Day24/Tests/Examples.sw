@@ -1,5 +1,7 @@
--- Day 24's tests: the puzzle's examples, and ripple-carry adders built
--- here, whole and with outputs swapped. Kept apart from the program, so
+--| Day 24's tests: the puzzle's examples, and ripple-carry adders built
+--| here, whole and with outputs swapped.
+--
+-- Kept apart from the program, so
 -- `stitchwort run Aoc.Year2024.Day24.main` doesn't check them.
 
 namespace Aoc.Year2024.Day24.Tests
@@ -8,7 +10,7 @@ import Std (Bool, Fail, List, Map, Nat, Option, Result, Text)
 
 def parsed (input: Text): Result Device Text := Fail.toResult (() => parseDevice input)
 
--- A function of the parsed device, or why it didn't parse: a parse failure fails the test.
+--| A function of the parsed device, or why it didn't parse: a parse failure fails the test.
 def onDevice (input: Text) (f: Device -> a): Result a Text := parsed input |> .map f
 
 def smallText: Text := "x00: 1\nx01: 1\nx02: 1\ny00: 0\ny01: 1\ny02: 0\n\nx00 AND y00 -> z00\nx01 XOR y01 -> z01\nx02 OR y02 -> z02\n"
@@ -21,7 +23,7 @@ test "small example, part 1" := onDevice smallText solvePart1 == Ok (Some 4)
 test "small example, the z wires" := onDevice smallText (device => ["z00", "z01", "z02"].map (valueOf device)) == Ok [Some False, Some False, Some True]
 test "larger example, part 1" := larger |> .map solvePart1 == Ok (Some 2024)
 
--- "bfw: 1 bqk: 1 djm: 1 ffh: 0 ...": every wire's value as the puzzle lists it.
+--| "bfw: 1 bqk: 1 djm: 1 ffh: 0 ...": every wire's value as the puzzle lists it.
 test "larger example, every wire" :=
   let listed := [
     ("bfw", True),
@@ -81,10 +83,10 @@ test "a bad operation" := parsed "x00: 1\n\nx00 NOR x00 -> z00\n" == Err "line 3
 
 test "no blank line" := parsed "x00: 1\nx00 OR x00 -> z00\n" == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
 
--- A wire with no value: the gate waits for ever.
+--| A wire with no value: the gate waits for ever.
 test "a gate missing an input never fires" := onDevice "x00: 1\n\nx00 AND y00 -> z00\n" solvePart1 == Ok (None)
 
--- Two gates feeding each other wait for ever, and the rest still settle.
+--| Two gates feeding each other wait for ever, and the rest still settle.
 test "a loop settles nothing in it" :=
   onDevice "x00: 1\n\naaa AND x00 -> bbb\nbbb OR x00 -> aaa\nx00 XOR x00 -> z00\n" (looped => (solvePart1 looped, valueOf looped "aaa", valueOf looped "bbb")) == Ok (Some 0, None, None)
 
@@ -96,8 +98,8 @@ test "gates fire in any order" := onDevice "x00: 1\ny00: 1\n\nbbb XOR aaa -> z01
 
 test "bits" := fromBits [True, False, True, True] == 13 && fromBits [] == 0
 
--- A ripple-carry adder of `bits` bits, as the program expects it, with
--- the other wires named after their part and bit: p03 for x03 XOR y03.
+--| A ripple-carry adder of `bits` bits, as the program expects it, with
+--| the other wires named after their part and bit: p03 for x03 XOR y03.
 def wireAt (part: Text) (bit: Nat): Wire := Other "${part}${twoDigits bit}"
 
 def gateOf (left: Wire) (operation: Operation) (right: Wire) (output: Wire): Gate := { left, operation, right, output }
@@ -134,7 +136,7 @@ test "a one-bit adder" := sumOf 1 (adder 1) 1 1 == Some 2
 test "no swaps needed" := solvePart2 (withSwaps 8 []) == Some ""
 test "an adder of no bits isn't one" := !(isAdder [] 0)
 
--- One swap of each kind within a bit, four bits.
+--| One swap of each kind within a bit, four bits.
 test "four swaps within bits" :=
   solvePart2 (withSwaps 45 [("z05", "c05"), ("p10", "g10"), ("z20", "t20"), ("p30", "c30")]) == Some "c05,c30,g10,p10,p30,t20,z05,z20"
 
@@ -144,7 +146,7 @@ test "z swapped with the carry, and the generated with the passed" :=
 test "swaps across bits" :=
   solvePart2 (withSwaps 16 [("p04", "c09"), ("z12", "t02"), ("g06", "p06"), ("z00", "z15")]) == Some "c09,g06,p04,p06,t02,z00,z12,z15"
 
--- Swapped outputs that leave the adder adding can't be found.
+--| Swapped outputs that leave the adder adding can't be found.
 test "swaps that change nothing" :=
   let swapped := withSwaps 8 [("g03", "t03"), ("p05", "c04")]
   solvePart2 swapped == Some "" && sumOf 8 swapped.gates 200 100 == Some 300
@@ -160,8 +162,8 @@ test "the repaired adder adds" :=
   let fixed := applySwaps broken.gates (repair 4 16 broken.gates [] |> .getOrElse [])
   sumOf 16 broken.gates 4660 22136 != Some 26796 && sumOf 16 fixed 4660 22136 == Some 26796
 
--- Three-bit adders where none of the swaps suggested for the first fault
--- leads anywhere, so the swap comes from the wires of the faulty bit.
+--| Three-bit adders where none of the swaps suggested for the first fault
+--| leads anywhere, so the swap comes from the wires of the faulty bit.
 test "four swaps crowded into three bits" :=
   solvePart2 (withSwaps 3 [("p01", "g01"), ("z00", "c01"), ("z03", "z01"), ("z02", "c00")]) == Some "c00,c01,g01,p01,z00,z01,z02,z03"
 

@@ -1,9 +1,9 @@
--- Part 2's move: `gather` collects a group of boxes that move only into
--- free cells (`gatherOk`), so a blocked move moves nothing
--- (`blockedMovesNothing`), with nothing overlapping before a move nothing
--- overlaps after it (`moveWideSeparate`), which makes every box whole
--- (`wholeOfSeparate`), and no box moves onto one that stays, so the number
--- of boxes is kept (`moveWideCount`).
+--| Part 2's move: `gather` collects a group of boxes that move only into
+--| free cells (`gatherOk`), so a blocked move moves nothing
+--| (`blockedMovesNothing`), with nothing overlapping before a move nothing
+--| overlaps after it (`moveWideSeparate`), which makes every box whole
+--| (`wholeOfSeparate`), and no box moves onto one that stays, so the number
+--| of boxes is kept (`moveWideCount`).
 
 namespace Aoc.Year2024.Day15.Proofs
 import Aoc.Common (Direction, Offset)
@@ -12,7 +12,7 @@ import Aoc.Year2024.Day15 (..)
 import Aoc.Year2024.Day15.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, Not, Option, Or, Set, Void)
 
--- A cell a box covers after a step is one it moves into, or one of its own.
+--| A cell a box covers after a step is one it moves into, or one of its own.
 theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cell ∈ cellsOf (box.step direction)):
     Or (cell ∈ frontOf box direction) (cell ∈ cellsOf box) :=
   match DecEq.decide cell box with
@@ -30,18 +30,18 @@ theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cel
             (List.memFilterIntro (cellsOf (box.step direction)) (other => other ∉ cellsOf box) cell covered
               (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn in rfl))
 
--- A cell some boxes move into is free for them: not a wall, and every box
--- covering it is in `group`, so moves too.
+--| A cell some boxes move into is free for them: not a wall, and every box
+--| covering it is in `group`, so moves too.
 def Clear (warehouse: Warehouse) (group: Set Cell) (cell: Cell): Prop :=
   And (warehouse.walls.contains cell = False) ((box: Cell) → warehouse.boxes.contains box = True → Covers box cell → group.contains box = True)
 
--- `group` is a set of boxes, and every cell one of them moves into is free.
+--| `group` is a set of boxes, and every cell one of them moves into is free.
 def GroupOk (warehouse: Warehouse) (direction: Direction) (group: Set Cell): Prop :=
   (box: Cell) → group.contains box = True →
     And (warehouse.boxes.contains box = True) ((cell: Cell) → cell ∈ frontOf box direction → Clear warehouse group cell)
 
--- `gather`'s invariant: every cell a box of `group` moves into is free, or
--- still to be looked at in `pending`.
+--| `gather`'s invariant: every cell a box of `group` moves into is free, or
+--| still to be looked at in `pending`.
 def GatherInvariant (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (pending: List Cell): Prop :=
   (box: Cell) → group.contains box = True →
     And (warehouse.boxes.contains box = True)
@@ -51,7 +51,7 @@ theorem clearMono (warehouse: Warehouse) (group: Set Cell) (larger: Set Cell) (c
     (grows: (box: Cell) → group.contains box = True → larger.contains box = True): Clear warehouse larger cell :=
   Both (And.left clear) (box boxed covers => grows box (And.right clear box boxed covers))
 
--- `boxesAt` finds every box covering a cell, and nothing else.
+--| `boxesAt` finds every box covering a cell, and nothing else.
 theorem coversInBoxesAt (warehouse: Warehouse) (box: Cell) (cell: Cell) (boxed: warehouse.boxes.contains box = True) (covers: Covers box cell):
     box ∈ warehouse.boxesAt cell :=
   let near: box ∈ [cell, cell.step Left] :=
@@ -71,8 +71,8 @@ theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: 
           | Inr (Inl atLeft) => Inr (Inl (rewrite <- atLeft in offsetStepOpposite cell Left))
           | Inr (Inr none) => Void.exfalso none)
 
--- What `gather` returns holds the group it started with, its boxes move
--- only into free cells, and the cells it was asked to look at are free.
+--| What `gather` returns holds the group it started with, its boxes move
+--| only into free cells, and the cells it was asked to look at are free.
 theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → (group: Set Cell) → (pending: List Cell) →
     (result: Set Cell) → warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
     And ((box: Cell) → group.contains box = True → result.contains box = True)
@@ -140,8 +140,8 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
                 | Inl isCell => rewrite <- isCell in clearMono warehouse larger result cell cellClear (And.left after)
                 | Inr inRest => And.right (And.right after) front (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)))
 
--- The group a move gathers: its boxes move only into free cells, and the
--- robot's next cell is free.
+--| The group a move gathers: its boxes move only into free cells, and the
+--| robot's next cell is free.
 theorem gatherStart (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (group: Set Cell)
     (gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] fuel = Some group):
     And (GroupOk warehouse direction group) (Clear warehouse group (warehouse.robot.step direction)) :=
@@ -149,8 +149,8 @@ theorem gatherStart (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (g
     gatherOk warehouse direction fuel Set.empty [warehouse.robot.step direction] group gathered (box held => Void.exfalso (Bool.falseNotTrue held))
   Both (And.left (And.right after)) (And.right (And.right after) (warehouse.robot.step direction) (Inl rfl))
 
--- With nothing overlapping, a box covering a cell of another box is that
--- box.
+--| With nothing overlapping, a box covering a cell of another box is that
+--| box.
 theorem sameBox (warehouse: Warehouse) (separate: WideSeparate warehouse) (box: Cell) (other: Cell) (cell: Cell)
     (boxed: warehouse.boxes.contains box = True) (otherBoxed: warehouse.boxes.contains other = True) (covers: Covers other cell)
     (own: cell ∈ cellsOf box): other = box :=
@@ -172,7 +172,7 @@ theorem sameBox (warehouse: Warehouse) (separate: WideSeparate warehouse) (box: 
         | Inr (Inr none) => Void.exfalso none
     | Inr (Inr none) => Void.exfalso none
 
--- A box covering a cell a gathered box moves into is gathered too.
+--| A box covering a cell a gathered box moves into is gathered too.
 theorem gatheredCovers (warehouse: Warehouse) (direction: Direction) (separate: WideSeparate warehouse) (group: Set Cell)
     (ok: GroupOk warehouse direction group) (box: Cell) (held: group.contains box = True) (other: Cell)
     (otherBoxed: warehouse.boxes.contains other = True) (cell: Cell) (moved: cell ∈ cellsOf (box.step direction)) (covers: Covers other cell):
@@ -181,9 +181,9 @@ theorem gatheredCovers (warehouse: Warehouse) (direction: Direction) (separate: 
     | Inl front => And.right (And.right (ok box held) cell front) other otherBoxed covers
     | Inr own => rewrite sameBox warehouse separate box other cell (And.left (ok box held)) otherBoxed covers own in held
 
--- "If this action would cause the robot or a box to move into a wall,
--- nothing moves instead": with nothing overlapping, a blocked move moves
--- nothing.
+--| "If this action would cause the robot or a box to move into a wall,
+--| nothing moves instead": with nothing overlapping, a blocked move moves
+--| nothing.
 theorem blockedMovesNothing (warehouse: Warehouse) (direction: Direction) (separate: WideSeparate warehouse) (blocked: Blocked warehouse direction):
     warehouse.moveWide direction = warehouse :=
   match gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
@@ -202,7 +202,7 @@ theorem blockedMovesNothing (warehouse: Warehouse) (direction: Direction) (separ
               | Inl front => Bool.trueNotFalse (Eq.trans (Eq.sym wallCell) (And.left (And.right (ok box held) cell front)))
               | Inr own => Bool.trueNotFalse (Eq.trans (Eq.sym wallCell) (And.left separate box (And.left (ok box held)) cell own)))
 
--- The boxes after a move of `group`: each moved box, or a box that stayed.
+--| The boxes after a move of `group`: each moved box, or a box that stayed.
 theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (position: Cell)
     (held: ((warehouse.boxes.difference group).union (group.map (box => box.step direction))).contains position = True):
     Or (∃ (box: Cell) => group.contains box = True ∧ box.step direction = position)
@@ -212,7 +212,7 @@ theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set 
     (stayed => Inr (stayedElim warehouse group position stayed))
     (moved => Inl (Iff.forward (Set.containsMap group (box => box.step direction) position) moved))
 
--- A box that stayed was a box and wasn't gathered.
+--| A box that stayed was a box and wasn't gathered.
 theorem stayedElim (warehouse: Warehouse) (group: Set Cell) (position: Cell) (stayed: (warehouse.boxes.difference group).contains position = True):
     And (warehouse.boxes.contains position = True) (group.contains position = False) :=
   let both: (warehouse.boxes.contains position ∧ ¬(group.contains position)) = True :=
@@ -220,9 +220,9 @@ theorem stayedElim (warehouse: Warehouse) (group: Set Cell) (position: Cell) (st
   Both (Bool.andLeft _ _ both)
     (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at Bool.andRight _ _ both)))
 
--- "Boxes can be aligned such that they directly push two other boxes at
--- once", but never onto a box that stays: with nothing overlapping, a move
--- keeps the number of boxes.
+--| "Boxes can be aligned such that they directly push two other boxes at
+--| once", but never onto a box that stays: with nothing overlapping, a move
+--| keeps the number of boxes.
 theorem moveWideCount (warehouse: Warehouse) (direction: Direction) (separate: WideSeparate warehouse):
     boxCount (warehouse.moveWide direction) = boxCount warehouse :=
   match gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
@@ -248,13 +248,13 @@ theorem moveWideCount (warehouse: Warehouse) (direction: Direction) (separate: W
         Set.sizeDifferenceSubset warehouse.boxes group (box held => And.left (ok box held))
       ]
 
--- A box covers its own cell, and the one to its right.
+--| A box covers its own cell, and the one to its right.
 theorem coversSelf (box: Cell): Covers box box := Inl rfl
 
 theorem coversRight (box: Cell): Covers box (box.step Right) := Inr (Inl rfl)
 
--- With nothing overlapping before a move, nothing overlaps after it: no box
--- on a wall or on another box, and the robot never on either.
+--| With nothing overlapping before a move, nothing overlaps after it: no box
+--| on a wall or on another box, and the robot never on either.
 theorem moveWideSeparate (warehouse: Warehouse) (direction: Direction) (separate: WideSeparate warehouse): WideSeparate (warehouse.moveWide direction) :=
   match gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
     | None => separate
@@ -323,8 +323,8 @@ theorem moveWideSeparate (warehouse: Warehouse) (direction: Direction) (separate
                     Bool.trueNotFalse
                       (Eq.trans (Eq.sym (And.right clearNext (next.step Left) boxed (Inr (Inl (offsetStepOpposite next Left))))) stays))))))
 
--- "Boxes are now twice as wide": with nothing overlapping, every `[` has
--- its `]`.
+--| "Boxes are now twice as wide": with nothing overlapping, every `[` has
+--| its `]`.
 theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse): Whole warehouse :=
   position =>
     let offWalls := And.left separate
@@ -374,15 +374,15 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
                         rewrite notRobot, offWalls position boxed position (Inl rfl), boxed in rfl
     }
 
--- A move in the wide warehouse never moves a wall.
+--| A move in the wide warehouse never moves a wall.
 theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.moveWide direction).walls = warehouse.walls :=
   match warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
     | Some group => rfl
     | None => rfl
 
--- After every move: the walls are where they were, nothing overlaps if
--- nothing did at the start (so the robot is never on a wall or a box), and
--- every box is whole.
+--| After every move: the walls are where they were, nothing overlaps if
+--| nothing did at the start (so the robot is never on a wall or a box), and
+--| every box is whole.
 theorem moveAllWideWalls: (warehouse: Warehouse) → (moves: List Direction) → (warehouse.moveAllWide moves).walls = warehouse.walls
   | warehouse, Nil => rfl
   | warehouse, Cons move rest => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)

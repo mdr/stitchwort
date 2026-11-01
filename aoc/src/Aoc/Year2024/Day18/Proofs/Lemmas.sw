@@ -1,11 +1,11 @@
--- Facts about lists that std doesn't have.
+--| Facts about lists that std doesn't have.
 
 namespace Aoc.Year2024.Day18.Proofs
 import Std (Bool, DecEq, List, Nat, Void)
 
 theorem containsCons [auto eq: DecEq a] (x: a) (rest: List a) (wanted: a): (Cons x rest).contains wanted = (x == wanted ∨ rest.contains wanted) := rfl
 
--- What the first `fewer` hold, the first `more` hold too.
+--| What the first `fewer` hold, the first `more` hold too.
 theorem containsTakeMono [auto eq: DecEq a] (wanted: a): (xs: List a) → (fewer: Nat) → (more: Nat) → fewer ≤ more →
     (xs.take fewer).contains wanted = True → (xs.take more).contains wanted = True
   | xs, Zero, more, le, there => Void.exfalso (Bool.falseNotTrue there)
