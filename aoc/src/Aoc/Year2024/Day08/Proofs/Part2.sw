@@ -51,7 +51,7 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
     let columnSign := Int.sign difference.columns
     let scaled: scale * (s * rowSign * step.rows + t * columnSign * step.columns) = scale * 1 :=
       ring [bezout, s * natAbsSign difference.rows, t * natAbsSign difference.columns, s * rowSign * rowLaw, t * columnSign * columnLaw]
-    use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (mulCancel scale _ 1 (omega) scaled)
+    use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (Int.mulCancelLeft scale _ 1 (omega) scaled)
 
 -- The step to grid points from `start` towards `end`: the offset between
 -- them is a nonzero multiple of it, and its parts are coprime (some whole
@@ -66,9 +66,9 @@ theorem stepFacts (start: Position) (end: Position) (distinct: Not (start = end)
   let columnSize := Int.natAbs difference.columns
   let nonzero := (both: And (difference.rows = 0) (difference.columns = 0)) =>
     distinct (positionExtInt start end (omega [And.left both]) (omega [And.right both]))
-  match gcdDivides rowSize columnSize with
+  match Nat.gcdDivides rowSize columnSize with
     | Both (Witness rowTimes rows) (Witness columnTimes columns) =>
-      match gcdBezout rowSize columnSize with
+      match Nat.gcdBezout rowSize columnSize with
         | Witness s (Witness t bezout) => divideByFacts difference goal rowTimes columnTimes s t nonzero (Nat.gcd rowSize columnSize) rows columns bezout use
 
 -- Points `k` steps from `first` are in line with it and `second`.
@@ -86,7 +86,7 @@ theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: I
     (cross: (fr - pr) * (sc - pc) - (fc - pc) * (sr - pr) = 0):
     And (pr = fr + er * (s * (pr - fr) + t * (pc - fc))) (pc = fc + ec * (s * (pr - fr) + t * (pc - fc))) :=
   let crossScaled: scale * ((pc - fc) * er - (pr - fr) * ec) = scale * 0 := rewrite secondRow, secondColumn at cross in ring [cross]
-  let parallel := mulCancel scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
+  let parallel := Int.mulCancelLeft scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
   Both (ring [(pr - fr) * bezout, t * parallel]) (ring [(pc - fc) * bezout, s * parallel])
 
 -- Two numbers below `n` are less than `n` apart.

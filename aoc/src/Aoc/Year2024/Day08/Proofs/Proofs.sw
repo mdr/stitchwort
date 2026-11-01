@@ -3,7 +3,8 @@
 -- 1's and every antenna with a partner. Here: what both parts share, the
 -- antinode locations from a list of points per pair of antennas
 -- (`locationsCorrect`). Part 1's points are in Part1.sw, part 2's in
--- Part2.sw, and the integer arithmetic they need in Ints.sw.
+-- Part2.sw; the integer arithmetic they need is in std (`Int/Lemmas.sw`,
+-- `Nat/Divides.sw`).
 
 namespace Aoc.Year2024.Day08.Proofs
 import Aoc.Common (Position, positions)
