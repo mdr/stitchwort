@@ -285,7 +285,7 @@ JSON: a `summary` field, a string or `null`. A new field doesn't change the vers
 §4.1's rule). Ranking and matching don't change: D2063 ruled out natural-language search, and a
 summary is never matched against the query.
 
-One search change belongs here, D2150: with only `"text"` name parts, a result whose last name
+One search change belongs here, D2154: with only `"text"` name parts, a result whose last name
 component equals the text (`List.filterMap` for `"filterMap"`) ranks first. Today it ranks last
 (§1.1).
 
@@ -578,7 +578,7 @@ features (search's stage 1, the index's `signature` field).
 | Stage | Work | Cost | Depends on |
 |---|---|---|---|
 | 1a | `syntax::docs` (§5.1) with unit tests on attachment (attributes, members, blank lines, mixed `--`/`--|` runs, trailing comments); `summary` in search text and JSON; `doc`/`summary` in the index; LSP and playground hover; syntax.md and code-navigation.md | 1 lane | nothing new |
-| 1b | `stitchwort doc`: name resolution, header as written, every kind (§5.3), examples by name, theorems through the search API with the groups and cap, namespace listing, JSON; the dependency-graph scope (D2146); parse-only mode (D2152); search's exact-name rank (D2150); ranking tests on `List.filterMap`, `List.map`, `Nat.add`; proving-guide and guide updates; CLI tests | 1–2 lanes | 1a |
+| 1b | `stitchwort doc`: name resolution, header as written, every kind (§5.3), examples by name, theorems through the search API with the groups and cap, namespace listing, JSON; the dependency-graph scope (D2146); parse-only mode (D2152); search's exact-name rank (D2154); ranking tests on `List.filterMap`, `List.map`, `Nat.add`; proving-guide and guide updates; CLI tests | 1–2 lanes | 1a |
 | 2a | the sorting script, then review of std (1,945 blocks) | 1 lane for the script and std's first namespaces; then about a lane per 500 blocks reviewed [inferred] | 1a (to see the result through `doc`) |
 | 2b | `doc --coverage`, with the unattached `…Example` theorems | under a lane | 1a |
 | 2c | the sorting pass on aoc and the roguelike (3,055 blocks) | as 2a, can wait | 2a |
@@ -665,7 +665,7 @@ Assumptions, in full:
 2. rustdoc accepts the backticked form [cited]; Go uses bare `[Name]` [cited: go.dev/doc/comment],
    but Go has no list literal of that shape.
 
-**D2150. In `stitchwort search` with only `"text"` parts, should a result whose last name
+**D2154. In `stitchwort search` with only `"text"` parts, should a result whose last name
 component equals the text rank first?** [Recommended: **yes**, in stage 1b.]
 Assumptions, in full:
 1. Today `'"filterMap"'` ranks `List.filterMap` 9th of 9, after its theorems [run].
