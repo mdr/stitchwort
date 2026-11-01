@@ -950,6 +950,11 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
   effect library's plumbing (`bindDv Total Empty c next`, `CompIn Empty a`, …) is computed away,
   so the statement reads as pure code (§3.2). Those whose types are still computations at the
   empty row (`Parse.*`, `Terminal.*`, the effect library's own) are skipped.
+- **A budget per equation** (5,000,000 steps, terms of 1,000,000 nodes, 100,000 frames):
+  running out skips the equation with the reason instead of failing the definition. An arm
+  whose `rfl` the kernel can only check by computing far took, without it, over 18 GB to check
+  `def go | Succ n => digits 40 1234567 0 + digits 40 (k + n) 0 + go n` (the native test
+  `s6::division_stops_where_the_machine_does`); with it, 0.4 s **[measured]**.
 - **`let`s** in the right side are substituted (§3.1); a right side more than ten times the
   arm's elaborated body (and over 256 nodes) isn't generated (§10).
 - **What isn't generated** is recorded with the reason (kept in the check cache), and naming it

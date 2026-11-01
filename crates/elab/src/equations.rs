@@ -66,6 +66,15 @@ use crate::{Elaborator, Global, Result, kernel};
 /// checked in.
 pub(crate) const PROBE: &str = "%equation-probe";
 
+/// What making one equation may take: steps, the size of a term, frames.
+/// The equations of std take far less (the largest a few thousand steps).
+const ATTEMPT: stitchwort_core::budget::Limits = stitchwort_core::budget::Limits {
+    work: 5_000_000,
+    stack: 0,
+    size: 1_000_000,
+    frames: 100_000,
+};
+
 /// A right side larger than this many times its arm's elaborated body
 /// (`let`s substituted can make it so) isn't generated (§10; the factor is
 /// the note's guess).
@@ -821,7 +830,7 @@ impl Elaborator {
             let shape = if !row.has_rhs {
                 Err("an arm with `()` has no right side".to_string())
             } else {
-                match self.probe_row(d, row, span) {
+                match self.attempt(|e| e.probe_row(d, row, span)) {
                     Ok(s) => Ok(s),
                     Err(Stop::Skip(why)) => Err(why),
                     Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
@@ -856,7 +865,7 @@ impl Elaborator {
                 }
             };
             let mark = self.globals.mark();
-            match self.equation(d, k, shape, &shapes) {
+            match self.attempt(|e| e.equation(d, k, shape, &shapes)) {
                 Ok(()) => {}
                 Err(Stop::Skip(why)) => {
                     self.globals.rewind(&mark);
@@ -877,6 +886,36 @@ impl Elaborator {
             }
         }
         Ok(())
+    }
+
+    /// `f`, with a step, size and frame budget of its own ([`ATTEMPT`]):
+    /// running out of it skips the equation, with the reason, instead of
+    /// failing the definition. An equation whose `rfl` the kernel can only
+    /// check by computing far (a body that calls a definition on a known
+    /// number, `digits 40 (k + n) 0`, compared without sharing) would
+    /// otherwise take the time and memory of that computation.
+    fn attempt<T>(&mut self, f: impl FnOnce(&mut Self) -> R<T>) -> R<T> {
+        let limits = stitchwort_core::budget::Limits {
+            work: ATTEMPT.work,
+            size: ATTEMPT.size,
+            frames: ATTEMPT.frames,
+            ..self.limits
+        };
+        let saved = self.globals.budget.start_attempt(limits);
+        let result = f(self);
+        self.globals.budget.restore(saved);
+        match result {
+            Err(Stop::Error(e))
+                if e.code == "E-RESOURCE" && self.globals.budget.exhausted().is_none() =>
+            {
+                Err(Stop::Skip(
+                    "checking it takes more than the generator allows for one equation (its \
+                     proof computes too far)"
+                        .to_string(),
+                ))
+            }
+            other => other,
+        }
     }
 
     /// The shape of `row`: compiles its patterns alone, as a `match` on the
