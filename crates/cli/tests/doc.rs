@@ -650,12 +650,11 @@ fn coverage_counts_a_project_namespace() {
     let dir = coverage_project("coverage-text");
     let (code, out, err) = doc_in(&dir, &shared_cache(), &["--coverage", "Lib"]);
     assert_eq!(code, 0, "{out}\n{err}");
-    // 6 declarations; `good`, `plainDoc` and `Box` count; `noDoc`, `short`
-    // and `fillTheWholeBag` (it repeats its name) don't.
-    assert!(
-        out.contains("documented: 3 / 6 (50%), 1 marked `--` (not yet `--|`)"),
-        "{out}"
-    );
+    // 6 declarations; `good` and `Box` count; `plainDoc` (a plain `--` note
+    // is no doc), `noDoc`, `short` and `fillTheWholeBag` (it repeats its
+    // name) don't.
+    assert!(out.contains("documented: 2 / 6 (33%)\n"), "{out}");
+    assert!(!out.contains("marked `--`"), "{out}");
     // Examples by name: the test for `noDoc`, the theorem for `good`.
     assert!(out.contains("with an example: 2 / 6 (33%)"), "{out}");
     // Theorems apart: one of four has a doc.
@@ -663,11 +662,12 @@ fn coverage_counts_a_project_namespace() {
         out.contains("theorems documented (counted apart): 1 / 4 (25%)"),
         "{out}"
     );
-    assert!(out.contains("undocumented (3):"), "{out}");
+    assert!(out.contains("undocumented (4):"), "{out}");
+    assert!(out.contains("Lib.plainDoc  definition  "), "{out}");
     assert!(out.contains("Lib.noDoc  definition  "), "{out}");
     assert!(out.contains("(no doc)"), "{out}");
-    assert!(out.contains("(too short --|)"), "{out}");
-    assert!(out.contains("(repeats the name --|)"), "{out}");
+    assert!(out.contains("(too short)"), "{out}");
+    assert!(out.contains("(repeats the name)"), "{out}");
     assert!(!out.contains("Lib.good  "), "{out}");
     // The unattached `…Example` theorem, and not the attached one.
     assert!(out.contains("Lib.ghostExample  "), "{out}");
@@ -689,19 +689,20 @@ fn coverage_json_and_the_default_scope() {
     assert_eq!(names, ["Lib", "Other"]);
     let lib = &report["namespaces"][0];
     assert_eq!(lib["declarations"]["total"], 6);
-    assert_eq!(lib["declarations"]["documented"], 3);
-    assert_eq!(lib["declarations"]["plain"], 1);
+    assert_eq!(lib["declarations"]["documented"], 2);
+    assert!(lib["declarations"].get("plain").is_none(), "{lib}");
+    assert!(lib.get("plainDocs").is_none(), "{lib}");
     assert_eq!(lib["declarations"]["withExample"], 2);
     assert_eq!(lib["theorems"]["total"], 4);
     assert_eq!(lib["theorems"]["documented"], 1);
     assert!(lib["theorems"].get("withExample").is_none(), "{lib}");
-    assert_eq!(lib["plainDocs"], serde_json::json!(["Lib.plainDoc"]));
     let reasons: Vec<(&str, &str)> = (lib["undocumented"].as_array().unwrap().iter())
         .map(|m| (m["name"].as_str().unwrap(), m["reason"].as_str().unwrap()))
         .collect();
     assert_eq!(
         reasons,
         [
+            ("Lib.plainDoc", "no doc"),
             ("Lib.noDoc", "no doc"),
             ("Lib.short", "too short"),
             ("Lib.fillTheWholeBag", "repeats the name"),
@@ -712,7 +713,7 @@ fn coverage_json_and_the_default_scope() {
     assert_eq!(report["namespaces"][1]["declarations"]["documented"], 1);
     // The total counts each declaration once.
     assert_eq!(report["total"]["declarations"]["total"], 7);
-    assert_eq!(report["total"]["declarations"]["documented"], 4);
+    assert_eq!(report["total"]["declarations"]["documented"], 3);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -745,7 +746,6 @@ fn coverage_of_a_library_namespace_has_the_shape() {
     let d = &ns["declarations"];
     assert!(n(&d["total"]) > 50, "{d}");
     assert!(n(&d["documented"]) > 0 && n(&d["documented"]) <= n(&d["total"]));
-    assert!(n(&d["plain"]) <= n(&d["documented"]));
     assert!(n(&d["withExample"]) > 0 && n(&d["withExample"]) <= n(&d["total"]));
     let t = &ns["theorems"];
     assert!(
@@ -920,11 +920,14 @@ fn the_index_has_links_per_doc() {
     assert_eq!(links[3]["target"], "Std.List.map");
     assert_eq!(links[7]["text"], "Lib.lateer");
     assert!(links[7]["target"].is_null());
-    // Its doc is a `--` note: no links.
+    // Its comment is a `--` note: no doc, so no links.
     let later = symbols
         .iter()
         .find(|s| s["name"] == "Lib.later")
         .expect("Lib.later");
-    assert_eq!(later["links"].as_array().unwrap().len(), 0);
+    assert!(
+        later.get("doc").is_none() && later.get("links").is_none(),
+        "{later}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

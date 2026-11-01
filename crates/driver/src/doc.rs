@@ -567,7 +567,7 @@ impl Decls {
                 out.push(FileDoc {
                     file: file.display.clone(),
                     doc: doc.text,
-                    marker: doc.marker.as_str(),
+                    marker: stitchwort_syntax::docs::DOC_MARKER,
                 });
             }
         }
@@ -723,7 +723,7 @@ impl Decls {
             import: import_line(&e.path, self.files[e.file].namespace.as_deref()),
             container: e.container.map(|c| self.entries[c].path.clone()),
             summary: doc.as_ref().map(|d| d.summary.clone()),
-            doc_marker: doc.as_ref().map(|d| d.marker.as_str()),
+            doc_marker: doc.as_ref().map(|_| stitchwort_syntax::docs::DOC_MARKER),
             links: doc
                 .as_ref()
                 .map(|d| self.links(e.file, d))

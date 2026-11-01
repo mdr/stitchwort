@@ -554,6 +554,8 @@ formatter keeps comments as written [checked: formatter.md:9, 47], so `--|` surv
 Then D2142's fallback is removed: a `--` block above a declaration, or at the top of a file, is
 no longer a doc.
 
+**As built (SW-1044).** The fallback is gone. `syntax::docs` reads only `--|` lines: `DocMarker`, `Doc::marker` and the per-file and per-run `bar` switch are removed, and `docs::DOC_MARKER` (`"--|"`) is the one marker. JSON `docMarker` stays, as the proposal planned (§5.3), and is always `"--|"` (so no version change); `doc --coverage` loses `declarations.plain`, `theorems.plain`, `plainDocs` and `undocumented[].marker`, and the text no longer says "marked `--` (not yet `--|`)". A plain `--` comment above a declaration is no doc: it counts as `no doc`. Over std, aoc and the roguelike the totals did not change for declarations, and three std theorems lost a plain doc (`Int.subNatNatZeroRight`, `Mod.sizeNeZero`, `Nat.compareSucc`), each under a rationale note for the proof (not user-facing prose), so none is a forgotten marker.
+
 ### 6.2 The coverage report (D2138)
 
 ```
