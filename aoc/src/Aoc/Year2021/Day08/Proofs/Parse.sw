@@ -23,7 +23,7 @@ theorem part2FromInput (input: Text) (entries: List Entry) (parsed: Fail.toResul
 -- Every display `parseEntries` reads is decoded by its own wiring.
 theorem parsedDecode (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries)
     (entry: Entry) (m: entry ∈ entries): Decodes entry.wiring.at entry :=
-  wiredDecodes entry (allElim Entry.wired entries (checkedWired _ entries parsed) entry m)
+  wiredDecodes entry (List.allMember Entry.wired entries (checkedWired _ entries parsed) entry m)
 
 -- Whatever reads the entries, `checkWired` passes on only wired ones.
 theorem checkedWired (read: () → {Fail} (List Entry)) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
@@ -60,7 +60,7 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   let digitsOnce: List.Perm (patterns.map decode) digits :=
     List.permSym digits (patterns.map decode) (rewrite DecEq.sound _ _ second at digitsSorted in digitsSorted)
   let showsDecoded := (pattern: Pattern) (m: pattern ∈ patterns ++ entry.outputs) =>
-    readShown entry pattern wired (allElim (showsRead entry.wiring patterns) (patterns ++ entry.outputs) third pattern m)
+    readShown entry pattern wired (List.allMember (showsRead entry.wiring patterns) (patterns ++ entry.outputs) third pattern m)
   let patternsShown: patterns.map (shown wiring) = (patterns.map decode).map Some :=
     Eq.trans
       (List.mapCongMem patterns (shown wiring) (pattern => Some (decode pattern))

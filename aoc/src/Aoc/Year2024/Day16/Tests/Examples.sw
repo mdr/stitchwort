@@ -56,39 +56,38 @@ def oneTurn: Text := """
 
 def parsed (input: Text): Result Maze Text := Fail.toResult (() => parseMaze input)
 
-def maze (input: Text): Maze := Fail.orElse { openTiles = Set.empty, start = at 0 0, end = at 0 0 } (() => parseMaze input)
+-- A function of the parsed maze, or why it didn't parse: a parse failure fails the test.
+def onMaze (input: Text) (f: Maze -> a): Result a Text := parsed input |> .map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
-test "first example, part 1" := solvePart1 (maze first) == 7036
-test "second example, part 1" := solvePart1 (maze second) == 11048
-test "first example, part 2" := solvePart2 (maze first) == 45
-test "second example, part 2" := solvePart2 (maze second) == 64
+test "first example, part 1" := onMaze first solvePart1 == Ok 7036
+test "second example, part 1" := onMaze second solvePart1 == Ok 11048
+test "first example, part 2" := onMaze first solvePart2 == Ok 45
+test "second example, part 2" := onMaze second solvePart2 == Ok 64
 
 test "start next to the end, facing it" :=
-  let nextTo := maze "####\n#SE#\n####\n"
-  solvePart1 nextTo == 1 && solvePart2 nextTo == 2
+  onMaze "####\n#SE#\n####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (1, 2)
 test "start next to the end, facing away" :=
-  let behind := maze "####\n#ES#\n####\n"
-  solvePart1 behind == 2001 && solvePart2 behind == 2
-test "one turn" := solvePart1 (maze oneTurn) == 1002 && solvePart2 (maze oneTurn) == 3
-test "a turn first" := solvePart1 (maze "###\n#E#\n#S#\n###\n") == 1001
+  onMaze "####\n#ES#\n####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (2001, 2)
+test "one turn" := onMaze oneTurn (found => (solvePart1 found, solvePart2 found)) == Ok (1002, 3)
+test "a turn first" := onMaze "###\n#E#\n#S#\n###\n" solvePart1 == Ok 1001
 test "two equal paths round a pillar" :=
-  let loop := maze "#####\n#...#\n#S#E#\n#...#\n#####\n"
-  solvePart1 loop == 3004 && solvePart2 loop == 8
+  onMaze "#####\n#...#\n#S#E#\n#...#\n#####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (3004, 8)
 test "no way to the end" :=
-  let walled := maze "#####\n#S#E#\n#####\n"
-  solvePart1 walled == 0 && solvePart2 walled == 0
+  onMaze "#####\n#S#E#\n#####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (0, 0)
+test "no way to the end fails in main's score" :=
+  parsed "#####\n#S#E#\n#####\n" |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Err "no path from the start to the end"
+test "a reachable end scores" :=
+  parsed "####\n#SE#\n####\n" |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Ok 1
 
 test "the spec's moves on the one-turn maze" :=
-  let turned := maze oneTurn
   let moves: List Move := [Forward, Counterclockwise, Forward]
-  (follow turned (startingReindeer turned) moves |> .map (standings => standings.map (standing => standing.position)))
-    == Some [at 2 1, at 2 2, at 2 2, at 1 2]
+  onMaze oneTurn (turned => follow turned (startingReindeer turned) moves |> .map (standings => standings.map (standing => standing.position)))
+    == Ok (Some [at 2 1, at 2 2, at 2 2, at 1 2])
     && score moves == 1002
 test "the spec's moves stop at a wall" :=
-  let turned := maze oneTurn
-  follow turned (startingReindeer turned) [Clockwise, Forward] == None
+  onMaze oneTurn (turned => follow turned (startingReindeer turned) [Clockwise, Forward]) == Ok None
 
 -- North is up, east a column on.
 test "steps" :=
@@ -100,19 +99,15 @@ test "turns" :=
     && headings.map (facing => facing.counterclockwise) == [North, East, South, West]
 test "headings and directions" := headings.map Heading.toDirection == [Right, Down, Left, Up]
 test "moves out of the start of the one-turn maze" :=
-  let turned := maze oneTurn
-  let start := turned.startReindeer
-  (turned.after start |> .map (edge => (edge.fst.position, edge.fst.facing, edge.snd)))
-    == [(at 2 2, East, 1), (at 2 1, South, 1000), (at 2 1, North, 1000)]
+  onMaze oneTurn (turned => turned.after turned.startReindeer |> .map (edge => (edge.fst.position, edge.fst.facing, edge.snd)))
+    == Ok [(at 2 2, East, 1), (at 2 1, South, 1000), (at 2 1, North, 1000)]
 test "moves into the end of the one-turn maze" :=
-  let turned := maze oneTurn
   let end: Reindeer := { position = at 1 2, facing = North }
-  (turned.before end |> .map (edge => (edge.fst.position, edge.fst.facing, edge.snd)))
-    == [(at 2 2, North, 1), (at 1 2, East, 1000), (at 1 2, West, 1000)]
+  onMaze oneTurn (turned => turned.before end |> .map (edge => (edge.fst.position, edge.fst.facing, edge.snd)))
+    == Ok [(at 2 2, North, 1), (at 1 2, East, 1000), (at 1 2, West, 1000)]
 test "scores from the start of the one-turn maze" :=
-  let turned := maze oneTurn
-  (turned.fromStart.toList |> .map (entry => (entry.fst.position, entry.fst.facing, entry.snd)))
-    == [
+  onMaze oneTurn (turned => turned.fromStart.toList |> .map (entry => (entry.fst.position, entry.fst.facing, entry.snd)))
+    == Ok [
       (at 1 2, East, 2002),
       (at 1 2, South, 3002),
       (at 1 2, West, 2002),
@@ -126,7 +121,8 @@ test "scores from the start of the one-turn maze" :=
       (at 2 2, West, 2001),
       (at 2 2, North, 1001)
     ]
-test "the best tiles of the first example" := (maze first).bestTiles.contains (at 13 1) && !(maze first).bestTiles.contains (at 1 1)
+test "the best tiles of the first example" :=
+  onMaze first (found => (found.bestTiles.contains (at 13 1), found.bestTiles.contains (at 1 1))) == Ok (True, False)
 
 test "parse" :=
   (parsed "####\n#SE#\n####\n" |> .map (found => (found.start, found.end, found.openTiles.toList))) == Ok (at 1 1, at 1 2, [at 1 1, at 1 2])

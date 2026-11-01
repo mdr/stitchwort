@@ -3,8 +3,9 @@
 namespace Aoc.Year2024.Day06.Tests
 import Aoc.Year2024.Day06 (..)
 import Aoc.Common (Direction, Position)
+import Std (Result, Text)
 
-def inputLab: Lab := labOf (include "../../../../../inputs/2024/day06.txt").lines
+def inputLab: Result Lab Text := labOf (include "../../../../../inputs/2024/day06.txt").lines
 
-test "real input, part 1" := solvePart1 inputLab == Some 4967
-test "real input, part 2" := solvePart2 inputLab == Some 1789
+test "real input, part 1" := inputLab.map solvePart1 == Ok (Some 4967)
+test "real input, part 2" := inputLab.map solvePart2 == Ok (Some 1789)

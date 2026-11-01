@@ -10,8 +10,6 @@ import Std (And, Bool, Eq, Exists, Int, List, Nat, Option, Void)
 
 theorem costIsTokens (aPresses: Nat) (bPresses: Nat): cost aPresses bPresses = tokens aPresses bPresses := omega
 
-theorem noneNotSome (value: a) (h: None = Some value): Void := Bool.falseNotTrue (Eq.cong (option => Option.isSome option) h)
-
 -- Cramer's rule's presses cost the fewest tokens, as they are the only
 -- presses that win; when it finds none, none win.
 theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
@@ -27,7 +25,7 @@ theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
     | None =>
       (aPresses bPresses =>
         match winning: winsPrize machine aPresses bPresses with
-          | True => Void.exfalso (noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero aPresses bPresses winning)))
+          | True => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero aPresses bPresses winning)))
           | False => rfl)
 
 theorem fewestTokensCorrect (machine: Machine) (nonzero: machine.determinant ≠ 0): IsFewest machine machine.fewestTokens :=
@@ -55,12 +53,6 @@ theorem fewestUnique (machine: Machine): (first: Option Nat) → (second: Option
   | Some tokens, Some others, firstFewest, secondFewest =>
     Eq.cong Some (omega [atMostOther machine tokens others firstFewest secondFewest, atMostOther machine others tokens secondFewest firstFewest])
 
--- Sums that agree on every element.
-theorem sumByAgree (f: a → Nat) (g: a → Nat): (xs: List a) → ((x: a) → x ∈ xs → f x = g x) → xs.sumBy f = xs.sumBy g
-  | Nil, agree => rfl
-  | Cons x rest, agree =>
-    rewrite List.sumByCons rest x f, List.sumByCons rest x g, agree x (Inl rfl), sumByAgree f g rest (y member => agree y (Inr member)) in rfl
-
 -- The spec's part 2 has one answer.
 theorem part2AnswerUnique (machines: List Machine) (first: Nat) (second: Nat) (firstAnswer: Part2Answer machines first)
     (secondAnswer: Part2Answer machines second): first = second :=
@@ -69,7 +61,7 @@ theorem part2AnswerUnique (machines: List Machine) (first: Nat) (second: Nat) (f
       match secondAnswer with
         | Witness secondFewest (Both secondRight secondSum) =>
           rewrite firstSum, secondSum in
-            sumByAgree _ _ machines (machine member =>
+            List.sumByCongMem machines _ _ (machine member =>
               rewrite fewestUnique (correctedMachine machine) (firstFewest machine) (secondFewest machine) (firstRight machine member)
                   (secondRight machine member) in
                 rfl)

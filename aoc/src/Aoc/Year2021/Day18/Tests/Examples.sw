@@ -12,6 +12,8 @@ def numberOf (text: Text): Number :=
     | Ok read => read
     | Err _ => Regular 0
 
+def numberResult (text: Text): Result Number Text := Fail.toResult (() => Parse.line text (() => number text.length))
+
 def exploded (text: Text): Option Number := explode 0 (numberOf text) |> .map (.number)
 
 test "explode, nothing to the left" := exploded "[[[[[9,8],1],2],3],4]" == Some (numberOf "[[[[0,9],2],3],4]")
@@ -20,7 +22,7 @@ test "explode, both sides" := exploded "[[6,[5,[4,[3,2]]]],1]" == Some (numberOf
 test "explode, the leftmost pair first" :=
   exploded "[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]" == Some (numberOf "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]")
 test "explode, then the next" := exploded "[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]" == Some (numberOf "[[3,[2,[8,0]]],[9,[5,[7,0]]]]")
-test "nothing to explode" := exploded "[[3,[2,[8,0]]],[9,[5,[7,0]]]]" == None
+test "nothing to explode" := numberResult "[[3,[2,[8,0]]],[9,[5,[7,0]]]]" |> .map (number => explode 0 number |> .map (.number)) == Ok None
 
 test "split 15" := split (numberOf "[[[[0,7],4],[15,[0,13]]],[1,1]]") == Some (numberOf "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]")
 test "split 13" := split (numberOf "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]") == Some (numberOf "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]")

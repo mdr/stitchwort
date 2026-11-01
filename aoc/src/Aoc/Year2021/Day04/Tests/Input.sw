@@ -2,9 +2,9 @@
 -- `include`: the answers are checked on it when the tests run.
 namespace Aoc.Year2021.Day04.Tests
 import Aoc.Year2021.Day04 (..)
-import Std (Fail)
+import Std (Fail, Text)
 
-def inputGame: Game := Fail.orElse { draws = [], boards = [] } (() => parseGame (include "../../../../../inputs/2021/day04.txt"))
+def inputGame: Result Game Text := Fail.toResult (() => parseGame (include "../../../../../inputs/2021/day04.txt"))
 
-test "real input, part 1" := solvePart1 inputGame == Some 49860
-test "real input, part 2" := solvePart2 inputGame == Some 24628
+test "real input, part 1" := inputGame.map solvePart1 == Ok (Some 49860)
+test "real input, part 2" := inputGame.map solvePart2 == Ok (Some 24628)

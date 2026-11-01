@@ -28,52 +28,50 @@ def example: Text := """
 
 def parsed (input: Text): Result Racetrack Text := Fail.toResult (() => parseRacetrack input)
 
-def racetrack (input: Text): Racetrack := Fail.orElse ({ track = Set.empty, start = at 0 0, end = at 0 0 }) (() => parseRacetrack input)
+-- A function of the parsed racetrack, or why it didn't parse: a parse failure fails the test.
+def onTrack (input: Text) (f: Racetrack -> a): Result a Text := parsed input |> .map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
 -- The cheats of up to `length` picoseconds saving exactly `saving`.
-def savingExactly (length: Nat) (input: Text) (saving: Nat): Nat :=
-  (racetrack input).countCheats length saving - (racetrack input).countCheats length (saving + 1)
+def savingExactly (length: Nat) (input: Text) (saving: Nat): Result Nat Text :=
+  onTrack input (track => track.countCheats length saving - track.countCheats length (saving + 1))
 
 -- "There are 14 cheats that save 2 picoseconds", and so on.
 test "example, part 1, by saving" :=
   [(2, 14), (4, 14), (6, 2), (8, 4), (10, 2), (12, 3), (20, 1), (36, 1), (38, 1), (40, 1), (64, 1)]
-    |> .all (((saving, cheats)) => savingExactly 2 example saving == cheats)
-test "example, part 1, no other savings" := solvePart1 1 (racetrack example) == 44 && solvePart1 65 (racetrack example) == 0
+    |> .all (((saving, cheats)) => savingExactly 2 example saving == Ok cheats)
+test "example, part 1, no other savings" := onTrack example (solvePart1 1) == Ok 44 && onTrack example (solvePart1 65) == Ok 0
 
 -- "There are 32 cheats that save 50 picoseconds", and so on.
 test "example, part 2, by saving" :=
   [(50, 32), (52, 31), (54, 29), (56, 39), (58, 25), (60, 23), (62, 20), (64, 19), (66, 12), (68, 14), (70, 12), (72, 22), (74, 4), (76, 3)]
-    |> .all (((saving, cheats)) => savingExactly 20 example saving == cheats)
-test "example, part 2, at least 50" := solvePart2 50 (racetrack example) == 285 && solvePart2 77 (racetrack example) == 0
-test "example, at least 100" := solvePart1 100 (racetrack example) == 0 && solvePart2 100 (racetrack example) == 0
-test "example, every cheat that saves time" := solvePart2 1 (racetrack example) == 3081
+    |> .all (((saving, cheats)) => savingExactly 20 example saving == Ok cheats)
+test "example, part 2, at least 50" := onTrack example (solvePart2 50) == Ok 285 && onTrack example (solvePart2 77) == Ok 0
+test "example, at least 100" := onTrack example (solvePart1 100) == Ok 0 && onTrack example (solvePart2 100) == Ok 0
+test "example, every cheat that saves time" := onTrack example (solvePart2 1) == Ok 3081
 
 test "a straight track has nothing to cut" :=
-  let straight := racetrack "#####\n#S.E#\n#####\n"
-  solvePart1 1 straight == 0 && solvePart2 1 straight == 0
-test "S next to E" := solvePart2 1 (racetrack "####\n#SE#\n####\n") == 0
-test "no way from S to E" := solvePart2 0 (racetrack "#####\n#S#E#\n#####\n") == 0
+  onTrack "#####\n#S.E#\n#####\n" (track => (solvePart1 1 track, solvePart2 1 track)) == Ok (0, 0)
+test "S next to E" := onTrack "####\n#SE#\n####\n" (solvePart2 1) == Ok 0
+test "no way from S to E" := onTrack "#####\n#S#E#\n#####\n" (solvePart2 0) == Ok 0
 test "a U-turn round one wall" :=
   let uTurn := "#####\n#S#E#\n#.#.#\n#...#\n#####\n"
-  solvePart1 1 (racetrack uTurn) == 2 && savingExactly 2 uTurn 4 == 1 && savingExactly 2 uTurn 2 == 1 && solvePart2 1 (racetrack uTurn) == 4
+  onTrack uTurn (solvePart1 1) == Ok 2 && savingExactly 2 uTurn 4 == Ok 1 && savingExactly 2 uTurn 2 == Ok 1 && onTrack uTurn (solvePart2 1) == Ok 4
 test "a wall two thick needs three picoseconds" :=
   let thick := "######\n#S##E#\n#.##.#\n#....#\n######\n"
-  (racetrack thick).countCheats 2 1 == 0 && (racetrack thick).countCheats 3 1 == 2 && savingExactly 3 thick 4 == 1
-test "a short row is walled beyond its end" := solvePart1 1 (racetrack "#####\n#S#E#\n#.#.\n#...#\n#####\n") == 2
+  onTrack thick (track => (track.countCheats 2 1, track.countCheats 3 1)) == Ok (0, 2) && savingExactly 3 thick 4 == Ok 1
+test "a short row is walled beyond its end" := onTrack "#####\n#S#E#\n#.#.\n#...#\n#####\n" (solvePart1 1) == Ok 2
 
 test "the search's times" :=
-  let track := racetrack example
-  track.fromStart.get track.end == Some 84 && track.toEnd.get track.start == Some 84 && track.fromStart.get (at 0 0) == None
-    && track.fromStart.size == 85
+  onTrack example (track => (track.fromStart.get track.end, track.toEnd.get track.start, track.fromStart.get (at 0 0), track.fromStart.size))
+    == Ok (Some 84, Some 84, None, 85)
 test "steps" :=
   (at 0 0).step Up == None && (at 0 0).step Left == None && (at 0 0).step Down == Some (at 1 0) && (at 3 4).step Up == Some (at 2 4)
     && (at 3 4).step Left == Some (at 3 3) && (at 3 4).step Right == Some (at 3 5)
 test "the spec's race" :=
-  let uTurn := racetrack "#####\n#S#E#\n#.#.#\n#...#\n#####\n"
-  race uTurn (at 1 1) [Down, Down, Right, Right, Up, Up] == Some (at 1 3) && race uTurn (at 1 1) [Right] == None
-    && race uTurn (at 1 1) [Up] == None
+  onTrack "#####\n#S#E#\n#.#.#\n#...#\n#####\n" (uTurn => (race uTurn (at 1 1) [Down, Down, Right, Right, Up, Up], race uTurn (at 1 1) [Right], race uTurn (at 1 1) [Up]))
+    == Ok (Some (at 1 3), None, None)
 test "distance" := (at 3 4).distance (at 1 7) == 5 && (at 1 7).distance (at 3 4) == 5 && (at 2 2).distance (at 2 2) == 0
 test "around" :=
   (at 2 2).diamond 1 == [at 1 2, at 2 1, at 2 2, at 2 3, at 3 2] && (at 0 0).diamond 2 |> .length == 6 && (at 30 30).diamond 20 |> .length == 841 && (at 5 5).diamond 20 |> .length == 436

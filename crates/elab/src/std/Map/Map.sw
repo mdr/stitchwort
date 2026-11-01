@@ -418,6 +418,11 @@ theorem Map.toListFilterList [auto ord: Ord k] (m: Map k v) (p: k → v → Bool
   Map.indRaw [p := m' => Map.toList (Map.filter m' p) = List.filter (Map.toList m') (e => p e.fst e.snd)]
     (r => Map.Raw.toListFilterList r p) m
 
+-- Filtering a map just to count it: the size of the filter is `count`.
+theorem Map.sizeFilter [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): Map.size (Map.filter m p) = Map.count m p :=
+  Eq.trans (Map.sizeToList (Map.filter m p))
+    (Eq.trans (Eq.cong List.length (Map.toListFilterList m p)) (List.lengthFilter (Map.toList m) (e => p e.fst e.snd)))
+
 theorem Map.toListUnion [auto ord: Ord k] (a: Map k v) (b: Map k v):
     Map.toList (Map.union a b) = Map.Spec.union (Map.toList a) (Map.toList b) :=
   Map.indRaw [p := a' => Map.toList (Map.union a' b) = Map.Spec.union (Map.toList a') (Map.toList b)]
@@ -793,6 +798,48 @@ theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat
 -- `counts` records no count of 0: each key it has is in the list.
 theorem Map.countsPositive [auto ord: Ord k] (xs: List k) (key: k) (n: Nat) (found: Map.get (Map.counts xs) key = Some n): 0 < n :=
   Map.countsFoldPositive xs Map.empty key (n g => Void.exfalso (Option.noneNotSome n g)) n found
+
+-- Weighing a map of counts: each count times `f` of its key, added up. Adding
+-- `n` at `key` with `Nat.add` adds `n * f key`, whether the key is new or
+-- already there.
+theorem Map.specInsertWithWeight [auto ord: Ord k] (f: k → Nat) (key: k) (n: Nat):
+    (entries: List (k, Nat)) →
+    List.sumBy (Map.Spec.insertWith Nat.add key n entries) (entry => entry.snd * f entry.fst) = n * f key + List.sumBy entries (entry => entry.snd * f entry.fst)
+  | Nil => omega [List.sumByCons Nil (key, n) (entry => entry.snd * f entry.fst)]
+  | Cons (kk, vv) rest =>
+    match e: Ord.compare key kk with
+      | Less => omega [List.sumByCons (Cons (kk, vv) rest) (key, n) (entry => entry.snd * f entry.fst)]
+      | Equal =>
+        let same := ord.equal key kk e
+        let spread: (n + vv) * f kk = n * f kk + vv * f kk := ring
+        rewrite same in
+          omega [List.sumByCons rest (kk, n + vv) (entry => entry.snd * f entry.fst), List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst), spread]
+      | Greater =>
+        omega [
+          List.sumByCons (Map.Spec.insertWith Nat.add key n rest) (kk, vv) (entry => entry.snd * f entry.fst),
+          List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst),
+          Map.specInsertWithWeight f key n rest
+        ]
+
+-- The `insertWith` step: the weight of a map of counts, after adding `n` at
+-- `key`, is `n * f key` more.
+theorem Map.weightInsertWith [auto ord: Ord k] (m: Map k Nat) (key: k) (n: Nat) (f: k → Nat):
+    List.sumBy (Map.toList (Map.insertWith m key n Nat.add)) (entry => entry.snd * f entry.fst)
+      = n * f key + List.sumBy (Map.toList m) (entry => entry.snd * f entry.fst) :=
+  rewrite Map.toListInsertWith m key n Nat.add in Map.specInsertWithWeight f key n (Map.toList m)
+
+theorem Map.countsFoldWeight [auto ord: Ord k] (f: k → Nat): (xs: List k) → (m: Map k Nat) →
+    List.sumBy (Map.toList (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add))) (entry => entry.snd * f entry.fst)
+      = List.sumBy xs f + List.sumBy (Map.toList m) (entry => entry.snd * f entry.fst)
+  | Nil, m => omega
+  | Cons x rest, m =>
+    rewrite Map.countsFoldWeight f rest (Map.insertWith m x 1 Nat.add), Map.weightInsertWith m x 1 f, List.sumByCons rest x f in ring
+
+-- Weighing `Map.counts xs` by `f` is summing `f` over `xs`: each count times
+-- `f` of its key, added up, equals `xs.sumBy f`.
+theorem Map.sumByCounts [auto ord: Ord k] (xs: List k) (f: k → Nat):
+    List.sumBy (Map.toList (Map.counts xs)) (entry => entry.snd * f entry.fst) = List.sumBy xs f :=
+  Eq.trans (Map.countsFoldWeight f xs Map.empty) (omega)
 
 -- `groupBy`: the elements whose key is `kk`, in list order, if there are any.
 theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k): (xs: List a) →

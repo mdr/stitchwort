@@ -2051,6 +2051,10 @@ theorem List.allOfAll (p: a → Bool): (xs: List a) → List.All (x => p x = Tru
 theorem List.allIff (xs: List a) (p: a → Bool): List.all xs p = True ↔ List.All (x => p x = True) xs :=
   { forward = List.allToAll p xs, backward = List.allOfAll p xs }
 
+-- `List.all` holds of each member.
+theorem List.allMember (p: a → Bool) (xs: List a) (all: List.all xs p = True) (x: a) (member: x ∈ xs): p x = True :=
+  List.allMem (y => p y = True) x xs (List.allToAll p xs all) member
+
 theorem List.anyToAny (p: a → Bool): (xs: List a) → List.any xs p = True → List.Any (x => p x = True) xs
   | Nil, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, h =>

@@ -6,7 +6,7 @@
 
 namespace Aoc.Year2025.Day03.Tests
 import Aoc.Year2025.Day03 (..)
-import Std (List, Nat)
+import Std (List, Nat, Result)
 
 -- Every way to pick k batteries of the bank, in order.
 def choices: Nat → Bank → List Bank
@@ -18,6 +18,6 @@ def bruteForce (k: Nat) (bank: Bank): Nat :=
   choices k bank |> .map joltageOf |> .foldLeft 0 Nat.max
 
 test "choices" := choices 2 [1, 2, 3] == [[1, 2], [1, 3], [2, 3]]
-test "brute force, 2 batteries" := exampleBanks.all (b => b.maxJoltage 2 == bruteForce 2 b)
-test "brute force, 3 batteries" := exampleBanks.all (b => b.maxJoltage 3 == bruteForce 3 b)
-test "brute force, 12 batteries" := exampleBanks.all (b => b.maxJoltage 12 == bruteForce 12 b)
+test "brute force, 2 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 2 == bruteForce 2 b)) == Ok True
+test "brute force, 3 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 3 == bruteForce 3 b)) == Ok True
+test "brute force, 12 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 12 == bruteForce 12 b)) == Ok True

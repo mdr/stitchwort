@@ -14,13 +14,13 @@ def example: Text := """
   3   3
   """
 
-def exampleLists: LocationLists := Fail.orElse { left = [], right = [] } (() => parseLocationLists example)
-
 def parsed (input: Text): Result LocationLists Text := Fail.toResult (() => parseLocationLists input)
 
-test "example, part 1" := solvePart1 exampleLists == 11
-test "example, part 2" := solvePart2 exampleLists == 31
-test "parse the example" := exampleLists == { left = [3, 4, 2, 1, 3, 3], right = [4, 3, 5, 3, 9, 3] }
+def exampleLists: Result LocationLists Text := parsed example
+
+test "example, part 1" := exampleLists.map solvePart1 == Ok 11
+test "example, part 2" := exampleLists.map solvePart2 == Ok 31
+test "parse the example" := exampleLists == Ok ({ left = [3, 4, 2, 1, 3, 3], right = [4, 3, 5, 3, 9, 3] })
 test "a line with one id" := parsed "3   4\n5" == Err "line 2, column 2: expected a number, got the end of the line"
 test "a line with three ids" := parsed "3 4 5" == Err "line 1, column 5: expected the end of the line, got '5'"
 test "a line that isn't numbers" := parsed "3   x" == Err "line 1, column 5: expected a number, got 'x'"

@@ -5,4 +5,4 @@ import Aoc.Year2025.Day01 (..)
 import Aoc.Year2025.Day01.Spec (..)
 import Std (Fail)
 
-test "example, click by click" := zerosPassedSpec (Fail.orElse [] (() => parseTurns example)) Dial.start == 6
+test "example, click by click" := exampleTurns.map (turns => zerosPassedSpec turns Dial.start) == Ok 6

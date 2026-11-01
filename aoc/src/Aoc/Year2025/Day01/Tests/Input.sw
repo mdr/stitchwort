@@ -3,7 +3,9 @@
 -- the input reruns exactly these tests.
 namespace Aoc.Year2025.Day01.Tests
 import Aoc.Year2025.Day01 (..)
-import Std (Fail)
+import Std (Fail, List, Result, Text)
 
-test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseTurns (include "../../../../../inputs/2025/day01.txt"))) == 1076
-test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseTurns (include "../../../../../inputs/2025/day01.txt"))) == 6379
+def inputTurns: Result (List Turn) Text := Fail.toResult (() => parseTurns (include "../../../../../inputs/2025/day01.txt"))
+
+test "real input, part 1" := inputTurns.map solvePart1 == Ok 1076
+test "real input, part 2" := inputTurns.map solvePart2 == Ok 6379

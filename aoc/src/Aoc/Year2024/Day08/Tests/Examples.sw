@@ -78,54 +78,50 @@ def threeT: Text := """
   ..........
   """
 
-def city (input: Text): City := Fail.orElse { height = 0, width = 0, antennas = [] } (() => parseCity input)
-
-def parsed (input: Text): Result City Text := Fail.toResult (() => parseCity input)
+def city (input: Text): Result City Text := Fail.toResult (() => parseCity input)
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
 -- The program's part 1 antinodes on the map, as a sorted list.
-def antinodes (input: Text): List Position :=
-  let map := city input
-  map.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> map.locations |> .toList
+def antinodes (input: Text): Result (List Position) Text :=
+  city input |> .map (map => map.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> map.locations |> .toList)
 
-test "example, part 1" := solvePart1 (city example) == 14
-test "example, part 2" := solvePart2 (city example) == 34
-test "two antennas, part 1" := antinodes twoAntennas == [at 1 3, at 7 6]
-test "three antennas, part 1" := solvePart1 (city threeAntennas) == 4
-test "a lone A, part 1" := solvePart1 (city loneA) == 4
-test "the A's location is an antinode" := antinodes loneA |> .any (== at 7 6)
-test "three T antennas, part 2" := solvePart2 (city threeT) == 9
-test "three T antennas, part 1" := solvePart1 (city threeT) == 3
+test "example, part 1" := (city example).map solvePart1 == Ok 14
+test "example, part 2" := (city example).map solvePart2 == Ok 34
+test "two antennas, part 1" := antinodes twoAntennas == Ok [at 1 3, at 7 6]
+test "three antennas, part 1" := (city threeAntennas).map solvePart1 == Ok 4
+test "a lone A, part 1" := (city loneA).map solvePart1 == Ok 4
+test "the A's location is an antinode" := antinodes loneA |> .map (found => found.any (== at 7 6)) == Ok True
+test "three T antennas, part 2" := (city threeT).map solvePart2 == Ok 9
+test "three T antennas, part 1" := (city threeT).map solvePart1 == Ok 3
 
 test "parsing the example" :=
-  let map := city example
-  map.height == 12 && map.width == 12 && map.antennas.length == 7
-    && map.antennas.headOr { frequency = '?', position = at 0 0 } == { frequency = '0', position = at 1 8 }
+  (city example).map (map => (map.height, map.width, map.antennas.length, map.antennas.headOr { frequency = '?', position = at 0 0 }))
+    == Ok (12, 12, 7, { frequency = '0', position = at 1 8 })
 
 -- Antennas a third of the way apart have antinodes between them too.
-test "antinodes between two antennas" := antinodes "a...\n....\n....\n...a" == [at 1 1, at 2 2]
+test "antinodes between two antennas" := antinodes "a...\n....\n....\n...a" == Ok [at 1 1, at 2 2]
 test "antinodes between and past two antennas" :=
-  antinodes "a......\n.......\n.......\n...a...\n.......\n.......\n......." == [at 1 1, at 2 2, at 6 6]
+  antinodes "a......\n.......\n.......\n...a...\n.......\n.......\n......." == Ok [at 1 1, at 2 2, at 6 6]
 
 -- Every grid point on the line, also between the antennas.
-test "part 2, a row" := solvePart2 (city "..b.b.") == 6
-test "part 2, a reduced step" := solvePart2 (city "c.....\n......\n..c...\n......\n......\n......") == 6
-test "part 2, a step of two rows and three columns" := solvePart2 (city "d........\n.........\n...d.....\n.........\n.........") == 3
-test "one antenna has no antinodes" := solvePart1 (city "...\n.x.\n...") == 0 && solvePart2 (city "...\n.x.\n...") == 0
-test "different frequencies have no antinodes" := solvePart1 (city "a.A\n...\n...") == 0 && solvePart2 (city "a.A\n...\n...") == 0
-test "frequencies are case sensitive and include digits" := (city "aA0\n...").antennas.map (antenna => antenna.frequency) == ['a', 'A', '0']
-test "a final line break is allowed" := solvePart2 (city "a.a\n") == 3
+test "part 2, a row" := (city "..b.b.").map solvePart2 == Ok 6
+test "part 2, a reduced step" := (city "c.....\n......\n..c...\n......\n......\n......").map solvePart2 == Ok 6
+test "part 2, a step of two rows and three columns" := (city "d........\n.........\n...d.....\n.........\n.........").map solvePart2 == Ok 3
+test "one antenna has no antinodes" := ((city "...\n.x.\n...").map solvePart1, (city "...\n.x.\n...").map solvePart2) == (Ok 0, Ok 0)
+test "different frequencies have no antinodes" := ((city "a.A\n...\n...").map solvePart1, (city "a.A\n...\n...").map solvePart2) == (Ok 0, Ok 0)
+test "frequencies are case sensitive and include digits" := (city "aA0\n...").map (map => map.antennas.map (antenna => antenna.frequency)) == Ok ['a', 'A', '0']
+test "a final line break is allowed" := (city "a.a\n").map solvePart2 == Ok 3
 
-test "parse error, a ragged row" := parsed "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
-test "parse error, a bad character" := parsed "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
+test "parse error, a ragged row" := city "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
+test "parse error, a bad character" := city "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
 
 -- The spec, worded like the puzzle, counts the same on the examples.
-test "example, the spec agrees" := part1 (city example) == 14 && part2 (city example) == 34
+test "example, the spec agrees" := (city example).map (map => (part1 map, part2 map)) == Ok (14, 34)
 test "small examples, the spec agrees" :=
   [twoAntennas, threeAntennas, loneA, threeT, "a...\n....\n....\n...a", "c.....\n......\n..c...\n......\n......\n......"].all (input =>
-    part1 (city input) == solvePart1 (city input) && part2 (city input) == solvePart2 (city input))
-test "every location on the map" := (let map := city "ab\n..\n.."; positions map.height map.width |> .length == 6)
+    (city input).map (map => part1 map == solvePart1 map && part2 map == solvePart2 map) == Ok True)
+test "every location on the map" := (city "ab\n..\n..").map (map => positions map.height map.width |> .length) == Ok 6
 
 -- Why part 2 is proved only for antennas on the map: two antennas far
 -- below a map one cell big are in line with its cell, 100 steps away, more

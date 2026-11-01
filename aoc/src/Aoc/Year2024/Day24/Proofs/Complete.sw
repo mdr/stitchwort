@@ -111,7 +111,7 @@ theorem settledComplete (device: Device) (wellFormed: WellFormed device) (wire: 
     | Witness found isFound => rewrite isFound, carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries in rfl
 
 -- `allSome` of options that each have a value.
-theorem allSomeMap (f: a → Option b) (g: a → b): (xs: List a) → ((x: a) → x ∈ xs → f x = Some (g x)) → allSome (xs.map f) = Some (xs.map g)
+theorem allSomeMap (f: a → Option b) (g: a → b): (xs: List a) → ((x: a) → x ∈ xs → f x = Some (g x)) → List.allSome (xs.map f) = Some (xs.map g)
   | Nil, each => rfl
   | Cons x rest, each => rewrite each x (Inl rfl), allSomeMap f g rest (other member => each other (Inr member)) in rfl
 

@@ -1,5 +1,4 @@
--- General facts the proofs use: bits of small numbers, and `List.all` on
--- a member.
+-- General facts the proofs use: bits of small numbers.
 
 namespace Aoc.Year2024.Day24.Proofs
 import Aoc.Year2024.Day24 (..)
@@ -13,10 +12,6 @@ theorem testBitSmall (n: Nat) (bit: Nat) (small: n < Nat.pow 2 bit): Nat.testBit
 -- A number below `2 ^ bits` has every bit from `bits` up clear.
 theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits) (above: bits ≤ bit): Nat.testBit n bit = False :=
   testBitSmall n bit (omega [Nat.powMono 1 bits bit above])
-
--- `List.all` holds of each member.
-theorem allMember (p: a → Bool) (xs: List a) (x: a) (all: List.all xs p = True) (member: x ∈ xs): p x = True :=
-  List.allMem (y => p y = True) x xs (List.allToAll p xs all) member
 
 -- What `Map.lookupLast` finds is one of the pairs.
 theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
@@ -47,12 +42,12 @@ theorem fromBitsHigh (bit: Bool) (rest: List Bool) (index: Nat): Nat.testBit (fr
 
 -- The bits `allSome` gives for a range: below the range's length, bit `k`
 -- of `fromBits` is what `f` gives for the range's `k`th number.
-theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → allSome ((List.rangeFrom count start).map f) = Some bits →
+theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → List.allSome ((List.rangeFrom count start).map f) = Some bits →
     (k: Nat) → k < count → ∃ (value: Bool) => f (k + start) = Some value ∧ Nat.testBit (fromBits bits) k = value
   | Zero, start, bits, all, k, below => Void.exfalso (omega)
   | Succ count, start, bits, all, k, below =>
-    Option.flatMapEqSome (f start) (value => allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
-      Option.mapEqSome (allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>
+    Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
+      Option.mapEqSome (List.allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>
         match k with
           | Zero => Witness value (Both isValue (rewrite <- isBits in fromBitsLow value restBits))
           | Succ index =>
@@ -61,12 +56,12 @@ theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (b
                 Witness found (Both (rewrite (omega: Succ index + start = index + Succ start) in foundIs) (rewrite <- isBits, fromBitsHigh value restBits index in bitIs))))
 
 -- From the range's length up, every bit is clear.
-theorem rangeBitsBeyond (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → allSome ((List.rangeFrom count start).map f) = Some bits →
+theorem rangeBitsBeyond (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → List.allSome ((List.rangeFrom count start).map f) = Some bits →
     (k: Nat) → count ≤ k → Nat.testBit (fromBits bits) k = False
   | Zero, start, bits, all, k, above => rewrite <- Option.someInjective Nil bits all in rfl
   | Succ count, start, bits, all, k, above =>
-    Option.flatMapEqSome (f start) (value => allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
-      Option.mapEqSome (allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>
+    Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
+      Option.mapEqSome (List.allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>
         match k with
           | Zero => Void.exfalso (omega)
           | Succ index => rewrite <- isBits, fromBitsHigh value restBits index in rangeBitsBeyond f count (Succ start) restBits restIs index (omega)))

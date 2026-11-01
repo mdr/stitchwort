@@ -190,7 +190,7 @@ theorem zWithinBound (bits: Nat) (bit: Nat): (gates: List Gate) → zWithin gate
   | Nil, within, member => Void.exfalso member
   | Cons gate rest, within, member =>
     match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
-      | Inl here => allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Z bit) (Bool.andLeft _ _ within) here
+      | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft _ _ within) (Z bit) here
       | Inr there => zWithinBound bits bit rest (Bool.andRight _ _ within) there
 
 -- The wires that start with values for an adder are x and y wires.

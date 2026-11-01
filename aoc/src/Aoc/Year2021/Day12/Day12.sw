@@ -48,7 +48,7 @@ def passage(): {Parse} (Text, Text) :=
 -- first that does.
 def checkPassages (passages: List (Text, Text)): {Fail} (List (Text, Text)) :=
   match firstBigPair passages with
-    | Some (index, (from, to)) => Fail.fail "line ${index + 1}: ${from}-${to} joins two big caves, so there would be no end to the paths"
+    | Some (index, (from, to)) => Fail.fail "line ${index + 1}: ${from}-${to} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
     | None => passages
 
 -- The first passage between two big caves, with its index.

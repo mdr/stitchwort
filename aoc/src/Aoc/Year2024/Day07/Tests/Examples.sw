@@ -20,7 +20,7 @@ def example: Text := """
 
 def parsed (input: Text): Result (List Equation) Text := Fail.toResult (() => parseEquations input)
 
-def exampleEquations: List Equation := Fail.orElse [] (() => parseEquations example)
+def exampleEquations: Result (List Equation) Text := parsed example
 
 def addMultiply: List Operator := [Add, Multiply]
 
@@ -28,16 +28,16 @@ def allOperators: List Operator := [Add, Multiply, Concatenate]
 
 def holds (operators: List Operator) (testValue: Nat) (numbers: List Nat): Bool := Equation.couldBeTrue { testValue, numbers } operators
 
-test "example, part 1" := solvePart1 exampleEquations == 3749
-test "example, part 2" := solvePart2 exampleEquations == 11387
+test "example, part 1" := exampleEquations.map solvePart1 == Ok 3749
+test "example, part 2" := exampleEquations.map solvePart2 == Ok 11387
 test "example, which could be true with + and *" :=
-  exampleEquations.map (.couldBeTrue addMultiply) == [True, True, False, False, False, False, False, False, True]
+  exampleEquations.map (equations => equations.map (.couldBeTrue addMultiply)) == Ok [True, True, False, False, False, False, False, False, True]
 test "example, which could be true with ||" :=
-  exampleEquations.map (.couldBeTrue allOperators) == [True, True, False, True, True, False, True, False, True]
+  exampleEquations.map (equations => equations.map (.couldBeTrue allOperators)) == Ok [True, True, False, True, True, False, True, False, True]
 test "example, the spec agrees" :=
-  exampleEquations.all (equation =>
+  exampleEquations.map (equations => equations.all (equation =>
     equation.couldBeTrue addMultiply == couldPossiblyBeTrue addMultiply equation
-      && equation.couldBeTrue allOperators == couldPossiblyBeTrue allOperators equation)
+      && equation.couldBeTrue allOperators == couldPossiblyBeTrue allOperators equation)) == Ok True
 
 test "parse" := parsed "190: 10 19\n3: 3\n" ==
   Ok ([{ testValue = 190, numbers = [10, 19] }, { testValue = 3, numbers = [3] }]: List Equation)

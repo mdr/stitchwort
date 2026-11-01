@@ -20,17 +20,13 @@ theorem eachDigit (q: Nat → Bool) (all: digits.all q = True) (digit: Nat) (bel
 -- Every segment is one of the seven.
 theorem segmentsComplete: (segment: Segment) → segment ∈ segments := cases
 
--- What `all` says of a member.
-theorem allElim (p: a → Bool) (xs: List a) (h: xs.all p = True) (x: a) (m: x ∈ xs): p x = True :=
-  List.allMem (y => p y = True) x xs (List.allToAll p xs h) m
-
 -- The program's display is the spec's.
 theorem displayDrawn (digit: Nat) (below: digit < 10) (segment: Segment):
     (digitPattern digit).has segment = (digitSegments digit).contains segment :=
   let q := (d: Nat) => segments.all (s => (digitPattern d).has s == (digitSegments d).contains s)
   let all: digits.all q = True := rfl
   let atDigit := eachDigit q all digit below
-  DecEq.sound _ _ (allElim (s => (digitPattern digit).has s == (digitSegments digit).contains s) segments atDigit segment (segmentsComplete segment))
+  DecEq.sound _ _ (List.allMember (s => (digitPattern digit).has s == (digitSegments digit).contains s) segments atDigit segment (segmentsComplete segment))
 
 -- Each digit's drawn score reads as that digit.
 theorem decodeDrawn (digit: Nat) (below: digit < 10): digitScores.indexOf (drawnScore digit) = digit :=

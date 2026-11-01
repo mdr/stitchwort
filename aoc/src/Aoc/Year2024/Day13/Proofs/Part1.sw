@@ -84,7 +84,7 @@ theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0
       Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
         match costsWin tokensSpent listed with
           | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both won costs)))) =>
-            noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
+            Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
 
 -- The program's search is the spec's.
 theorem searchIsSpec (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl

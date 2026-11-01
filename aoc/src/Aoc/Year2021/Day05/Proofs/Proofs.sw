@@ -55,12 +55,12 @@ theorem containsTwice (listed: List Point) (p: Point):
 -- The points listed at least twice in `listed`: the keys of the counts
 -- that are at least 2.
 theorem countedTwice (listed: List Point):
-    List.NumberWith (Map.counts listed |> .filter (_ times => 2 ≤ times) |> .size) (p => 2 ≤ listed.count (== p)) :=
+    List.NumberWith (Map.counts listed |> .count (_ times => 2 ≤ times)) (p => 2 ≤ listed.count (== p)) :=
   let twice := Map.counts listed |> .filter (_ times => 2 ≤ times)
   Witness twice.keys
     (Both (Map.keysDistinct twice)
       (Both (p => rewrite <- containsTwice listed p in Map.memKeys twice p)
-        (Eq.sym (Eq.trans (Map.sizeToList twice) (Eq.sym (List.lengthMap (Map.toList twice) Pair.fst))))))
+        (rewrite <- Map.sizeFilter (Map.counts listed) (_ times => 2 ≤ times) in Eq.sym (Eq.trans (Map.sizeToList twice) (Eq.sym (List.lengthMap (Map.toList twice) Pair.fst))))))
 
 -- Each line's points.
 

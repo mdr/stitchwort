@@ -49,5 +49,5 @@ def eachInOneBasin (map: HeightMap): Bool :=
   let found := basinLocations map |> .concat
   open.all (location => found.contains location) ∧ found.length == open.length
 
-test "the example keeps the promise" := eachInOneBasin example
+test "the example keeps the promise" := parsed exampleText |> .map eachInOneBasin == Ok True
 test "two low points in one area break it" := not (eachInOneBasin { rows = [[0, 1, 0]] })

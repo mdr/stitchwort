@@ -98,7 +98,7 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
   Both ((List.allDistinctCorrect (gates.map (.output))).forward (Bool.andLeft _ _ wired))
     (Both (List.distinctMapAppend (.fst) xPairs yPairs xDistinct yDistinct disjoint)
       (gate member named =>
-        let notInput := allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates gate (Bool.andRight _ _ wired) member
+        let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight _ _ wired) gate member
         let input: (gate.output.xBit.isSome ∨ gate.output.yBit.isSome) = True :=
           match List.memAppend gate.output (xPairs.map (.fst)) (yPairs.map (.fst)) (rewrite <- List.mapAppend xPairs yPairs (.fst) in named) with
             | Inl inX => rewrite xNamed bits x gate.output inX in rfl

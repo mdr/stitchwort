@@ -164,7 +164,7 @@ untracked. Changed the pattern to `.stitchwort/`.
 The puzzle's wording ("the smallest …, then the second-smallest …") could be a
 recursion that takes the minimum out of each list. `LinedUp` (sorted, same
 ids) says the same thing without fixing an algorithm, and needs no lemmas
-about `List.minimum`, which std doesn't have.
+about `List.minimum` (which std has since: `List.minimumSome`).
 
 ### Size and time
 
@@ -5008,8 +5008,9 @@ std's `Map` (`Map.getInsertCases`, `Map.getInsertKeeps`,
 `Map.getOfContains`, `Map.containsInsertSame`, `Map.containsInsertKeeps`),
 the `Set` ones in `Set` (`Set.missingOfMinNone`, `Set.containsOfRemove`),
 and `memMapElim` and `anyMember` in `List`; `countLe` and `countFewer`
-were std's `List.countLeMem` and `List.countLtMem`. Only the
-`List.minimum` lemmas stay in the day's `Proofs/Lemmas.sw`. The run time
+were std's `List.countLeMem` and `List.countLtMem`. The
+`List.minimum` lemmas later moved to std too (`List.minimumSome`,
+`List.minimumExists`), and day 16's `Proofs/Lemmas.sw` is gone (SW-1021). The run time
 is unchanged (6.4 s user on the generated maze, both).
 
 ### 3. Confusing errors
@@ -7725,7 +7726,7 @@ in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day24.txt` is the
 puzzle's larger example: part 1 is 2024, as the puzzle says (the small
 example's 4 is a test). Part 2 has no example of its own that this program
 can run: the puzzle's part 2 example is a device that ANDs, not adds, and
-the program answers "no four swaps make an adder" for the larger example.
+the program answers "the repair search found no four swaps that make an adder" for the larger example.
 Part 2 is tested instead on ripple-carry adders the tests generate, with
 swaps planted, and was cross-checked against an independent Python
 generator (`/usr/bin/python3 -I`, not committed) that builds adders of 1
