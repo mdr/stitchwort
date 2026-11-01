@@ -4216,6 +4216,8 @@ is gone. std has `List.allDistinct` with `List.allDistinctCorrect`
 
   The same statement about a variable `y` with `0 < y` is one `omega`
   (`toIntPred`), applied to `Succ x`.
+  Fixed since SW-997: `omega` reads `(Succ x).toInt - 1` as written, so
+  `toIntPred` is gone and `backwardWrap` rewrites with an `omega` proof.
 - `rewrite <- negSuccIs steps` (`NegSucc steps = (Succ steps).toInt * -1`)
   found nothing, because the goal's `x.toInt + NegSucc steps` had been
   computed to `Int.subNatNatFrom x (Succ steps) (Succ steps - x)`:

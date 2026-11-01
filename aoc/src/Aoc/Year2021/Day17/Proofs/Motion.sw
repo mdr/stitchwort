@@ -36,29 +36,9 @@ theorem signCases: (dx: Int) → (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx =
   | OfNat (Succ k) => Inl (Both rfl (omega))
   | NegSucc k => Inr (Inr (Both rfl (omega)))
 
--- Drag never turns the probe round.
-theorem dragKeepsSign (dx: Int): (0 ≤ dx → 0 ≤ dx - Int.sign dx) ∧ (dx ≤ 0 → dx - Int.sign dx ≤ 0) :=
-  match signCases dx with
-    | Inl (Both s pos) => Both (_ => omega) (_ => omega)
-    | Inr (Inl (Both s zero)) => Both (_ => omega) (_ => omega)
-    | Inr (Inr (Both s neg)) => Both (_ => omega) (_ => omega)
-
--- Each way of being past the target lasts.
-theorem overshotStays (target: Target) (probe: Probe) (h: overshot target probe = True): overshot target (step probe) = True :=
-  omega [(dragKeepsSign probe.dx).left (omega)]
-
-theorem shortStays (target: Target) (probe: Probe) (h: short target probe = True): short target (step probe) = True :=
-  omega [(dragKeepsSign probe.dx).right (omega)]
-
-theorem fallenStays (target: Target) (probe: Probe) (h: fallen target probe = True): fallen target (step probe) = True := omega
-
 -- Once past the target, the probe stays past it.
 theorem pastStays (target: Target) (probe: Probe) (h: past target probe = True): past target (step probe) = True :=
-  Bool.orElim (overshot target probe) (short target probe ∨ fallen target probe) _ h
-    (o => Bool.orLeft _ _ (overshotStays target probe o))
-    (rest => Bool.orRight _ _ (Bool.orElim (short target probe) (fallen target probe) _ rest
-      (s => Bool.orLeft _ _ (shortStays target probe s))
-      (f => Bool.orRight _ _ (fallenStays target probe f))))
+  omega [signCases probe.dx]
 
 -- A probe past the target isn't in it.
 theorem pastOutside (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False := cases

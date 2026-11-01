@@ -38,11 +38,7 @@ theorem backwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
   | Succ n, ok, Zero, inside => rfl
   | Succ n, ok, Succ x, inside =>
-    rewrite toIntPred (Succ x) omega in Eq.sym (Nat.modSmall x (Succ n) omega)
-
--- Stated over a variable so that `omega` sees `y.toInt - 1`, not what
--- `Succ x` computes to.
-theorem toIntPred (y: Nat) (positive: 0 < y): y.toInt - 1 = (y - 1).toInt := omega
+    rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)
 
 -- A step that adds `distance` and wraps, taken `times` times, adds
 -- `times * distance` and wraps.
