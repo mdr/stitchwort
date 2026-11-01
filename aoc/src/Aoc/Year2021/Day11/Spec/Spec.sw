@@ -20,14 +20,14 @@ def flashingNeighbours (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool) 
 
 -- An octopus's energy in a step in which `flashed` flash: its level goes
 -- up by 1, and by 1 more for each adjacent octopus that flashes.
-def energy (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool) (at: (Nat, Nat)) (level: Nat): Nat :=
+def energyIn (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool) (at: (Nat, Nat)) (level: Nat): Nat :=
   level + 1 + flashingNeighbours levels flashed at
 
 -- "Any octopus with an energy level greater than 9 flashes": every
 -- octopus whose energy, counting the flashes of `flashed`, is above 9 is
 -- in `flashed`.
 def Closed (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool): Prop :=
-  (at: (Nat, Nat)) → (level: Nat) → (at, level) ∈ levels.gridCells → 9 < energy levels flashed at level → flashed at = True
+  (at: (Nat, Nat)) → (level: Nat) → (at, level) ∈ levels.gridCells → 9 < energyIn levels flashed at level → flashed at = True
 
 -- The octopuses that flash in a step: the least closed set. Least, since
 -- an octopus flashes only when the flashes before it push it above 9
@@ -39,7 +39,7 @@ def Flashers (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool): Prop :=
 -- The levels after the step: "any octopus that flashed during this step
 -- has its energy level set to 0", the others are at their energy.
 def after (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool): List (List Nat) :=
-  levels.mapWithIndex (r row => row.mapWithIndex (c level => if flashed (r, c) then 0 else energy levels flashed (r, c) level))
+  levels.mapWithIndex (r row => row.mapWithIndex (c level => if flashed (r, c) then 0 else energyIn levels flashed (r, c) level))
 
 -- The number of octopuses that flash.
 def flashCount (levels: List (List Nat)) (flashed: (Nat, Nat) → Bool): Nat := levels.gridCells.count (((at, _)) => flashed at)
