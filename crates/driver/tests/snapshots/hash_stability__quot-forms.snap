@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.At a8546fc1dc9a8322d85b5186bdbdfb558ded0ffcf63bdfea557e7c4aaee801b2
@@ -16,7 +17,10 @@ Main.unwrapEq 9c8f4c0a0219bc8acaa2e97682095908603357ee50a5a1ffcaa3e40e5bdf9c8c
 Main.QProp 003e607cc06b04ba7e3ccb7a9c083bc9b9a500f74cc956bb3827e4bb4fe6ff7e
 Main.QType beb89df7ca65899c9049e7b3099213aa52aea4c35313853d31be4d0e6c4bfc6a
 Main.which ac658181a69aec4bc65a8f9e32b14c625ad210b00ce01d1e4556fba6607c59ac
+Main.which.eq1 b887b41d0c3e5c810c13b8d5224b05dba6a379ad24e87884d3f1b35c8980117a
+Main.which.eq2 c9c35b68f9847c44d68c1f2c66b610468b84af6db3f0d2b1d06cbabdbb6594ff
 Main.whichPair 5b7a58ab195cf03f826ef88cc4468f89257ec22016123e05519478a04c4dfea9
+Main.whichPair.eq1 ad5b1aea262bc3365cbd567d42a632d99d36ab1af366c13514e4f43471347ca0
 Main.T.kids 43e6fbe35e018e0c1b9e7239f11355fd9793c43f2e4ce292c5fd6aefeb227c50
 Main.T.kids.update.kids.%match1 69efdbea5cb16f08ab87d0a310e4eae3464cc735f9be177f834f4d4bac9f9eb6
 Main.T.kids.update.kids 37ebf996351474a4bb8b7cf3c0290445c6eff3bd1e177783637180f2848999cd

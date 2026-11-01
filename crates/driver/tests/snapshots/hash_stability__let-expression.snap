@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.square fb06ad2a2a3d454e27287e89407d058fbd432286f6785fd4dc06f6b483f621de
@@ -11,6 +12,8 @@ Main.test "nested" 9c376d842b2446568816c7e4231d87fecec68fbee21432ae4e1263b384171
 Main.afterAssign ca43db5c7fcc14590251a6711e4521dea860396c6063eb50cea9559504a213a5
 Main.inBranches 75860c589c43a8033264554f54c70652e732ffb48db2739e5f742a53066453c2
 Main.inArm c372b410eec15de6642d742e994097426fa1aba526e3d2d752cf9bae9b72ed09
+Main.inArm.eq1 ac78404fae3091b596ebf955e2a9548c46704a01ba41dd8c6668049e6e44f3d1
+Main.inArm.eq2 c12cf7c6a5c81c066b932a48538e6b925d5fe44f058e37daea5c1ba3d6028e36
 Main.inLambda abd1e09d1210550bde1f505f66d866637eaf6add28a304c5f7c482650cf5146c
 Main.test "positions" 6fefa416d1f6b2de706a50a031a9679e70b24febec701264862d6e002c790fb3
 Main.hasIt da1e287a71ae4e67b67039994c9ae20952a1a7d7e6e7eaf37df913e0e905e608

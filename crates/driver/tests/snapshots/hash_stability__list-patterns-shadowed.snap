@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Chain b7beb47f5d5a342553a5d07b434ea82047d24959ffc1091042a61e6528faa450
@@ -18,6 +19,10 @@ Main.Chain.%unfold 1d9cc84db784ef56cc634f64b9a5dd5ea5ba643a34285c81dcc91586cf1e6
 Main.Chain.%trans be651591699c290a3d3e9e1a24faf51c6a8e62571228d3c52487e680e47fed16
 Main.Chain.%instOrd 12515dd1d79709acc3cb98197d22c0038504692e601b6db37162bcd92ec3ea8a
 Main.chainLength 9c8e814caccc11dcabb7485745178bd90318cd6fde9e039d59e74713ae53a845
+Main.chainLength.eq1 d21ccb44f4baaef5fe00ef7bc9f416eca8566f8722794bff09e9f5359ef3d73d
+Main.chainLength.eq2 d3cbff8770f6142799144a5ed4b88c4ff35058730be20b113400be74c53683c0
 Main.firstOfList 477899f2bf2dc9aaf2b54f12c532fcf83e73f264be0b9a2b1ea8c393ff4ec839
+Main.firstOfList.eq1 4b914973792afd954314f93612c72731014bfad6699b69e570440d004f58f10c
+Main.firstOfList.eq2 5f27c2debb68fa96ee479d007b2470d625f8b41c4bbc12e091dbdc9f9a1d4e1a
 Main.test "own constructors" fe8d9342aab9ff8d2116dc8a7ee52bd7527d4d108ea6518031038b492e220bf7
 Main.test "list patterns are the library's" 11d4109e28cd95aef181cc574c4d3207ae76348e2c5062da8ed288b9b0b0d652

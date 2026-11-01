@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 246
 expression: "lines(session, d, f)"
 ---
 data Lib.Option 4346ea20f6778319a4561dc49314d35a60d3ae0a0496c7e4230948df0083abca
@@ -25,6 +26,8 @@ Other.count f2acc95a76aab851ff16d79b36c92de478a0916c720d2a0a3db0bb661ef4bdf8
 Twin.shared 37cb1ad9556781c85173646fbb0d32ecde403f0b0f0df637f41d243804f271ad
 Day.size 923abc5a7900e48b4d4f14bfa2a221a45c592e6b561599d76500a6a520d36ee7
 Day.pick f672d18358db6e6b676920895475ea8dcd0b1b86b4194a3515e42e95e057ebac
+Day.pick.eq1 00fcd10971057818f20c8142ef8a210bee814e1a9c3046a21586feaee6941892
+Day.pick.eq2 2524a2fcd872fa39fa4df435b201c6460a5588c4b57debcd9191db86dd75fc80
 Day.test "own" 9599c83c448c2f928939d0684fe8127afce4ca7815b027071fba0bbf563097fb
 Day.test "named" f2e3c2564587c7bf9079689bbd78e284284af270a39791bd5e7ca14b993bd401
 Day.test "other file" d2e11d3fa3a579eaba912d6eed7c18e4b7ec4419868e2b686189b255f63c63e7

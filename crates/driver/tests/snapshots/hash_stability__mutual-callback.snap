@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Callback 55c3661484b6f84a0e28833cf7dc01c594eefc5ed0e646d6b7e4444dc875a460
@@ -7,6 +8,8 @@ Main.Callback.call b942df374619f5d30dd0d7c549e5e0ada6b8264738b51e1a501e5b10909ca
 Main.Callback.ext 08ac7ec25c09a06bc209f316704d078a376391997f128178812c35e7d46b0d29
 Main.make ee0a2239181bbb79c3120791d85de75eba7d6c150b9b44760b92d157b6b9069f
 Main.weigh f116eb2c16bc5ef017d8188b502625655a763c314d40938a0fb58aa035b8f2c1
+Main.make.eq1 cecdcb630154047ccd2cbf99ef419256208cd6d734368c822669de8f91935012
+Main.make.eq2 2ab6c889a284b0a7c5228024473e6ff5fe8abb6681a7dd059ef5429b199222ff
 Main.twice d9fdbe1ab7692daf518f7d98d70e4461e1889cfd501a61aad10f7c4752d9f5fb
 Main.main 9f5e4739e88e12ac2d16bca5e0c6fa653f593f5eec29c48e19a1394d3876ec18
 Main.test "weigh adds the list" 67171b0a2ea958d5b3c1ee73303bb21c8e0b40c0067cc2f0290f90fd37d437b6

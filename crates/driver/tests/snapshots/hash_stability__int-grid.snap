@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Move df6b53c0207ba8c08c956b6351021a241a6e99dd0b6a491f63a365164fa8103d
@@ -40,6 +41,10 @@ Main.Point.%instOrd cf825d8065f4edc8a4d237e1de639371f2ea41c615634c5ae4a5354da0e4
 Main.Point.ext b46328cd32ea5ebacda87db7ed9b051e3ea8bd649067ef81a8dd1a2cdea218af
 Main.origin 5a3bee3d8255a38e7a04fcebf0996b7acca10f051c1cd7f81af171335f3b9c9c
 Main.move 1449d8af4b501c36fe5de2078b9c65046e38f6e0ef5b4437cb4c275d42cbc0ed
+Main.move.eq1 58d3799d567c0eb68b1a7da631e7ef423327480f8dfc2b50c7ccb6cde1d60caf
+Main.move.eq2 6efdb3d9d251a496eacf7ad5790d8d70c567c9a0887e0903227e5dd7513a79ef
+Main.move.eq3 02ef842bf28737ac548f18108fe44b512e848b1d688865a6c11a0372b66c0360
+Main.move.eq4 2832f8ea8498ff7871870cf626bd79b049722bac054eb11e2f6f2f7901efaf2b
 Main.walk c416e3f3f41a6f03325231511f8f7b5f7dc601c97ab5f78788864547fe9bbca9
 Main.distance 5849de7725bffd738dc8018d79e1da05ae121d268489b8b322b50d43f8383bd4
 Main.sample 8f46df3b1bd2e39c6f8e3da5c888318ea893634e5bada582b797299d0ee1e89c

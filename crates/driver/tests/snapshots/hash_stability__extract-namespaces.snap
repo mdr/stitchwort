@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Geometry.Shape 546591db4b7bbad478ee730f4bd375843835a8945de3d9cbef322a27190730b1
@@ -19,4 +20,8 @@ Main.Geometry.Shape.%unfold c96fdef1bd4bfaa130975330e5c733b77f02d96491d9d6a4f86e
 Main.Geometry.Shape.%trans b23ab1afcccd070a45ecc435e5115842bd5ac5ae8104fa5eede922eef580d354
 Main.Geometry.Shape.%instOrd 7975accfed8a08ecbb58ff21423734434a5a1c8d62c968ceb83c109832921b78
 Main.Geometry.Shape.area 4f3aae3c5eabcbfce5c54234931b335ac95b41f6fa83078aac4db68c67aac9ef
+Main.Geometry.Shape.area.eq1 afc22766aee16e98af9eb94b90d4c37ee61f715ffe3de87c4c4ab3e534068756
+Main.Geometry.Shape.area.eq2 d5f0e6e9374d401597975ad804f67dea898d0d4a5b047f732081b19985408d0c
 Main.grow b35b6bfb7897b7d62c0faddce8fd8ef28f35bb9117c4e01bf14148cc412b9bda
+Main.grow.eq1 0f8eb037fa794e6d89309c3a02223d3c0f8721fb934c3eaa3afcbed1024180bf
+Main.grow.eq2 2f9a36b568521625de4cf43d530b37461026c32c324edcb0bad1612e6b6890b9

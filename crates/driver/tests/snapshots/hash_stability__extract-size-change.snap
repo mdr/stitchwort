@@ -1,7 +1,15 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+assertion_line: 121
+expression: "lines(session, d, f)"
 ---
 Main.interleave 767e868df11242d1966328567328f07307b0570ba1b4a8a19e6f1cba1638cdbd
+Main.interleave.eq1 561c103b777bdfcd2cb7b1e527f83a2d136cc71f8157dbdbd6557c052b1c6cfd
+Main.interleave.eq2 cb251925385876dcdc8a6a6d2e5a8b23206f2d997f6cf1fbce70c8bc7c2ed149
 Main.merge bc1aa32bc5d51d13bbd8e38a641f2c7a781f08f29bc72cb6093fcb5f4587bdbc
+Main.merge.eq1 e9038feaa158deeb4dbc8ead1cd7894feaafd897a48038b0df4a59839b3b7933
+Main.merge.eq2 c7e586a62c61a441d259dc851fe802b305dcf5f13e1b9894d02cb07b87e8accb
+Main.merge.eq3 7ea6913ac73e77b785000a448df262697bc31e36a76ccf0bcaef1f399c530e40
 Main.gcdSteps b199dcdf10670772f5e4bf34603d5c3c8b779e921690b3eefa3e448615ffe47d
+Main.gcdSteps.eq1 b9227257c6fec806d0849a2cd9d5277190fbeecad088512bcf9b1bece43c6af9
+Main.gcdSteps.eq2 92768af8f283c20de2b7880a11e85338317ef4e286aa89c2f030df3cf39c381f

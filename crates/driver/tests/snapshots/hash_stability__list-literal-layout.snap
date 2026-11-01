@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
@@ -41,7 +42,10 @@ Main.Pet.%instOrd ee039f56932cbe6e03d2eb5f4c06615cd2144d33c36ffd838edbdb38c84781
 Main.Pet.ext fa8c53ce4cc4f447c72ff9171e828f67c8d712f7c0ec4dc157c3d68ab2a85f1c
 Main.bob 05329aae55ac596b9e296cc0c5d0fd6ed642ad0ee3927d85b5c7fbdbb6dd0adf
 Main.first 505c6f9b06e11ec388dc189714a6f582badf1623e3dd0e15575ef76a1e75c6a4
+Main.first.eq1 e48c6a2f385055fbde05e8e1b7816bb212de8f04cb544c581f9323b623d4f395
+Main.first.eq2 a042ce77be21838303c2807082dab424caa433fba0fc4f256717dfdde0dfbdd5
 Main.firstName a64174103f3dc4f0d91843cc20f54190477e40d4d33f40768b423832fa2b4c08
+Main.firstName.eq1 7df0d04d0031fe94131f65b98ac6936e9cc77b38a5a9f30bfdbb4fa0b4e7a7ed
 Main.closer d90694621e61ed9d36938095c2b46860289167a6282a13212233a24d1d45ae0d
 Main.test "layout" 79544bd6d8bd4aab2395a23ba057878e3c7b7e10c8bc08ba498961350db89040
 Main.test "leading" 79544bd6d8bd4aab2395a23ba057878e3c7b7e10c8bc08ba498961350db89040

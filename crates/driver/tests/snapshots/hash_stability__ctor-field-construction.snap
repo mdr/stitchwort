@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Shape a1a28ebb9f223812daaede417a547fa5270b147b0d6e79b360b5a4a4b4d761d4
@@ -88,6 +89,8 @@ Main.Box.label.update.label.%match1 37287cc3c53f434bc26c8732ee2802828f4485faaf40
 Main.Box.label.update.label 1345e2019a1264afb1d20624ea5b2e24955576b2871f3e0d4d2fb4dcacb631fc
 Main.circle 39a7c903937d1c99f4bde980c86d155a08e6d6f82b1ae1a3a93d515bf098e5e6
 Main.idOf ea21e8331e1ae2988f9b4a86474f4c079158debfcc708beb6c5758b280c4f471
+Main.idOf.eq1 69a03b4c7ea46c3cbe65ed72b7923df3ae4ecf212119b6e632ce79c81f0e0655
+Main.idOf.eq2 acfdc9300b0a7b7115aeac729cdaf23faf006d6c8346dd30969e5cfe21e06600
 Main.test "any order is the positional form" 14775030fc80d99b3d4676f773868d847d45a6f2c3262a496b312637d3d83bd6
 Main.sameTerm 6dffc9645d14701be356696ff2a8646af85eaa5e408170b4f920ad76d232251d
 Main.test "punning" 0c63468a08582e691ada7fd07ae951303dad18c1afd76ebeb38814b3b7497b9a
@@ -101,6 +104,8 @@ Main.coffee 1f9273b18286cfa509569222551b2176832ccf03d3ea0508bea83c8239451636
 Main.test "a record argument both ways" ee38ef520c50e60fd2ce59510d36748af337782a97b50ad1980f82b4c3eeb884
 Main.test "field access" ac111857e109af4caf2658925ac41373ca1e4069b22202978f3511aa52414b3b
 Main.orNone fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
+Main.orNone.eq1 49a4ee2c33943dc5475c32b565edb4fa96050ce5486cf71dd1bbf526db0c58df
+Main.orNone.eq2 a0658c7e458d38142235d3809c16c01c94240090cb2d8a0f2d1ca341e0de50b7
 Main.next ab554a4ad96361f0031f51424c5f9925755812422fbb4fb5cdcf5a0854f43f71
 Main.read ff01829ef44af4a3fd73d15e791f656eda6513f32083490bf507513b771732b0
 Main.test "effects run in the order written" 2cdd56d4c1f27e87016c72599d8dfd664876e06f62d1d1107547c42c4f9d0b57

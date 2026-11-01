@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.State 85de017bfba669387e7abba0d3cf8705427dca441fe960de4dbe25ac908798f9
@@ -7,6 +8,10 @@ Main.wordCounts 24aeca5c544ecae444b5d148522e60d295d026fa35db2af3ecbe000d7b0cf501
 Main.test "counting" 4a79315c078a888d35db5be00e07d253e388a53e87d4192528406528d8f53dc1
 Main.test "equal maps" 6bc94ee96c742a252ca7e44c463226e9b5760ecb65c953ab42fe8243b92a44d2
 Main.step fb48e838a9d9f0b60a105d60d27715c4735bf43bc0f9a33dfd1d7ca4361755dd
+Main.step.eq1 0cc70ff3aeae489c278b78088e964cf418b43ccdb7757ee8f90ffafa97db7b9d
+Main.step.eq2 71255ac13d64d9ba7da1d5f00a8614fed89fcd8d71a176fa0e69fe9e336b213d
+Main.step.eq3 833ba262439d6377ed016b74c1803e26bbf6b74da5478997b66d2bff9a6f7adc
+Main.step.eq4 291aa680b90ce8e8f43e8c6f262919f9f2b129ea4b171056a1c0db4965cd9fbc
 Main.visited 78b1fca8c0b5f8d281f23523320565856c8f8433dcc5de827425b77eb9aff622
 Main.visited.move 1e5768c6219d1a0930568e61297bc5e59624d02b0365351cc42987345c67648a
 Main.test "a walk" d187be0d7e4b2b67d1d7ead14774e97428d653734ec7b5f429200fa870d6c2f4

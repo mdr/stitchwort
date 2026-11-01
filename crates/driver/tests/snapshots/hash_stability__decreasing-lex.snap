@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.ack 6def801552eb03d225a280dc784a8380efdb5023f9ef6fc6b8e451ce918f7c22
@@ -8,6 +9,9 @@ Main.ack.%go 42b2a5855c07bda93a3e535c472236b8aa697faa7a262fc5c0e63d3037512a9d
 Main.ack.%step.%respects 8d152b392e1892fa7474e4e1beeed2e4c0d4cfc40f550bd83fbdcd7a32ea74ae
 Main.ack.%irrel de821f01b3b755253822299525946710c7b3230c68953a0ad4176f636bcf2eb1
 Main.ack.unfold 1d4f04dd06a7190c7bd185e54fff3a1127e805a0a60451bdb0d6c0ff59930465
+Main.ack.eq1 3b36d15a565c5723df82a703970ab01a6fb4c5bbbb0d613582632bc3de1e6a2c
+Main.ack.eq2 9f372f0989be90efb91829e37676d2b35d39604844c71b5e7744b1db2ef72a22
+Main.ack.eq3 95ce27fcdb32c4c93156afa15788358f8e6b204aa5cfa60f358ed4a274be2b3b
 Main.test "ack" ce2a55189811f320cc460c82a934248c2bea77862f58b3b0ebf4807b1876d6d0
 Main.ackByRfl 8c066ba9274a4e87dd14d5e40c8880496283c8dae2995e330519db79858539de
 Main.gcd bf2590d30650c8e1ec390b150de85b51d3366590eaedef58ee7c4e43409fc6a0
