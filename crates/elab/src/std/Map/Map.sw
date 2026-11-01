@@ -815,8 +815,11 @@ theorem Map.specInsertWithWeight [auto ord: Ord k] (f: k → Nat) (key: k) (n: N
         rewrite same in
           omega [List.sumByCons rest (kk, n + vv) (entry => entry.snd * f entry.fst), List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst), spread]
       | Greater =>
-        omega [List.sumByCons (Map.Spec.insertWith Nat.add key n rest) (kk, vv) (entry => entry.snd * f entry.fst),
-          List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst), Map.specInsertWithWeight f key n rest]
+        omega [
+          List.sumByCons (Map.Spec.insertWith Nat.add key n rest) (kk, vv) (entry => entry.snd * f entry.fst),
+          List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst),
+          Map.specInsertWithWeight f key n rest
+        ]
 
 -- The `insertWith` step: the weight of a map of counts, after adding `n` at
 -- `key`, is `n * f key` more.
