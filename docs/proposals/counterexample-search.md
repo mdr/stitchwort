@@ -823,7 +823,8 @@ proofs erased if that doesn't give data, as in stage 1.
 **`stitchwort check --counterexamples` (§7.3, §9.3, D1159).** After checking, it searches every
 theorem of the files given, or of the namespaces given and those under them (all of the
 project's if none), whose proof checked or failed (not the library's, nor the compiler's own
-`%` ones), with `ON_REQUEST` (10,000 inputs and 500 ms each; `--counterexample-budget 2s`
+`%` ones, nor a definition's generated equations `f.eqK`, which restate its arms and are
+proved by construction, SW-1051), with `ON_REQUEST` (10,000 inputs and 500 ms each; `--counterexample-budget 2s`
 gives each more time, `500ms` or `1.5s` style), and prints a line for each theorem found false,
 in declaration order, then a count of each verdict on standard error. With `--verbose` it
 prints a line for every theorem searched (lines from two examples, put together):

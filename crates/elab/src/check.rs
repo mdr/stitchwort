@@ -4140,7 +4140,10 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
     }
     let g = cx.g();
     let ty = force(g, expected.clone())?;
-    if matches!(ty, Value::Sort(_)) {
+    // An unknown (`let v := if …`) can't be inferred: said before the
+    // kernel's context is made, which reads back every variable's value in
+    // full (a `let` of a large computation: effect_differential, SW-1051).
+    if matches!(ty, Value::Sort(_) | Value::Neutral(Head::Meta(_), _)) {
         return Ok(false);
     }
     let term = cx.quote(&ty)?;

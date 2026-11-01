@@ -765,7 +765,12 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     if unfilled.is_empty() {
         return Ok(None);
     }
-    let term = crate::interfaces::scanned(cx, v)?;
+    // Calls read back as calls: a placeholder is among a call's arguments
+    // or in a local's value (which evaluation substitutes), never in what a
+    // global definition's body computes to, so unfolding one only costs
+    // (`List.any [1, 2] (n => n < cost)` computed `cost` while the literals
+    // waited: crates/bench/tests/check_work.rs, SW-1051).
+    let term = cx.quote_folded(v)?;
     unfilled_among(cx, &term, &unfilled)
 }
 

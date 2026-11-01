@@ -81,6 +81,7 @@ pub use kernel::{
 };
 pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
 pub mod std_dir;
+pub use equations::is_equation_name;
 pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;

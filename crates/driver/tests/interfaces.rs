@@ -68,7 +68,11 @@ test \"goal first\" := goalFirst == \"local\"
 }
 
 /// Two dictionaries in scope whose values depend on unknowns found later:
-/// comparing them waits, then they're merged.
+/// comparing them waits, then they're merged. The `0` is annotated and the
+/// equations are proved by `itself`, not `rfl`, so that only the comparison
+/// waits: an inferred literal waits for its type, and `rfl` as an argument
+/// is checked after its call's own instances are found (postponement stage
+/// 7), which would solve the unknowns before the goal is tried.
 #[test]
 fn a_comparison_blocked_on_an_unknown_waits() {
     let source = format!(
@@ -81,10 +85,12 @@ def build [auto z: HasZero Nat]: Pretty Nat :=
 
 def same (p: Pretty Nat) (q: Pretty Nat) (e: p = q): Text := \"\"
 
+theorem itself (p: Pretty Nat): p = p := rfl
+
 def mergedLater: Text :=
   let o1: Pretty Nat := build [z := _]
   let o2: Pretty Nat := build [z := _]
-  Pretty.pretty 0 ++ same o1 build rfl ++ same o2 build rfl
+  Pretty.pretty (0: Nat) ++ same o1 build (itself _) ++ same o2 build (itself _)
 "
     );
     assert_eq!(load(None, &source), (vec![], 1));
@@ -117,7 +123,7 @@ instance Box.instPretty [auto p: Pretty k]: Pretty (Box k o) :=
 
 def box [auto ord: Ordered k] (x: k): Box k ord := MkBox x
 
-def shown: Text := Pretty.pretty (box 3)
+def shown: Text := Pretty.pretty (box (3: Nat))
 ";
     assert_eq!(load(None, source), (vec![], 1));
 }
@@ -151,7 +157,9 @@ fn the_step_budget_stops_resolution() {
 #[test]
 fn the_budget_lasts_across_retries() {
     // `Pretty (Box Nat ?ord)` waits once (two steps for the round) and
-    // then finds its instance and the element's.
+    // then finds its instance and the element's. The `3` is annotated: an
+    // inferred literal waits for its type (postponement stage 7), and the
+    // rounds `Ordered ?k` waits for it spend steps too.
     let source = "\
 import Std (Nat)
 
@@ -175,7 +183,7 @@ instance Box.instPretty [auto p: Pretty k]: Pretty (Box k o) :=
 
 def box [auto ord: Ordered k] (x: k): Box k ord := MkBox x
 
-def shown: Text := Pretty.pretty (box 3)
+def shown: Text := Pretty.pretty (box (3: Nat))
 ";
     assert_eq!(load(Some(3), source).0, Vec::<&str>::new());
     assert_eq!(load(Some(2), source).0, vec!["E-INSTANCE-BUDGET"]);
@@ -225,7 +233,7 @@ instance Map.instPretty: Pretty (Map k v [ord := o]) :=
 
 def single [auto ord: Ordered k] (x: k): Map k Nat := { entries = [(x, 0)] }
 
-def shown: Text := Pretty.pretty (single 3)
+def shown: Text := Pretty.pretty (single (3: Nat))
 ";
     assert_eq!(load(None, source), (vec![], 1));
 }
