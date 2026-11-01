@@ -1,5 +1,5 @@
 {
-  "next": 997,
+  "next": 999,
   "tickets": [
     {
       "id": 47,
@@ -3108,6 +3108,34 @@
         "examples"
       ],
       "body": "Matt, 1 Nov 2026 (D2119-D2121): a non-proprietary example capturing the essence of event conflict resolution, in a different setting: a trip journal synced between two devices. Built fresh from a written description of the structure (not from the proprietary proof of concept). Times as Float (D2120: we have little Float example code). Lives in examples/projects/accept as a test-corpus project (D2121).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 997,
+      "title": "omega: read (n + 1).toInt - 1 and Bool || / && facts and goals",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 17 (SW-978 items 1-2) and the Offset lane (SW-993 item 1): omega fails on (n + 1).toInt - 1 = n.toInt because the goal computes to Int.subNatNatFrom (n + 1) 1 (0 - n) before omega reads it (4-line repro in aoc/NOTES-2021.md day 17); omega doesn't use (p || q) = True as a goal or a fact, so cases hit its 64-case budget.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 998,
+      "title": "Std.Parse reading lemmas: what eachLine, many1, pick (and friends) read, so parser guarantees (D2108) don't need hand-written parsers",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 10 (SW-963 item 1): a Parse.eachLine/many1/pick parser gave right answers but nothing proves what Std.Parse reads, so the day rewrote its parser by hand to prove parseReadsLines. Every AoC day now proves a parser guarantee (D2108).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
