@@ -459,9 +459,11 @@ pub(crate) fn check_case(
         let mark = cx.mark();
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
+        cx.e.leaf_log.borrow_mut().path.push(c as u32);
         let result = case_branch(
             cx, x, d, c, args, names, subtree, goal_term, span, &scrutinee,
         );
+        cx.e.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
         cx.env = saved_env;
         cx.types = saved_types;

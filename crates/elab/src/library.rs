@@ -541,12 +541,33 @@ pub(crate) fn file_names(
     file: &IndexedFile,
 ) -> Result<Vec<IndexedName>, String> {
     let mut out = Vec::new();
-    for (decl, _) in grouped(&file.module.decls) {
+    for (decl, equations) in grouped(&file.module.decls) {
         let (main, members) = declared_names(decl);
         let Some(main) = main else { continue };
         let key = scratch
             .declaration_key(&main)
             .map_err(|d| format!("`{}`: {}", file.path, d.message))?;
+        // A definition's equations, one for each arm (`equations.rs`): the
+        // names the source implies, each a candidate, since elaboration may
+        // skip one (naming it is then `E-NO-EQUATION`).
+        if let Decl::Signature {
+            theorem: false,
+            instance: false,
+            span,
+            ..
+        } = decl
+        {
+            for suffix in crate::equations::source_suffixes(equations) {
+                out.push(IndexedName {
+                    key: Elaborator::member_key(&key, &suffix),
+                    kind: PendingKind::Def,
+                    follower: false,
+                    function: false,
+                    span: *span,
+                    candidate: true,
+                });
+            }
+        }
         let (own, member) = match decl {
             Decl::Data { .. } => (PendingKind::Data, PendingKind::Ctor),
             Decl::Signature { .. } => (PendingKind::Def, PendingKind::Other),

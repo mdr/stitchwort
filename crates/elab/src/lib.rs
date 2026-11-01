@@ -29,6 +29,7 @@ mod derive_show;
 mod doc_links;
 mod dot;
 mod effects;
+mod equations;
 mod families;
 mod goals;
 mod interfaces;
@@ -707,6 +708,19 @@ pub struct Elaborator {
     /// the tuple as written, and the variables, so a termination error inside
     /// it can say why (SW-941, `lift.rs`). A log that only grows.
     tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
+    /// Where each arm's leaves are in the case trees checked for the
+    /// declaration being elaborated, for its generated equations
+    /// (`equations.rs`, docs/proposals/function-equations.md §9 stage 1a).
+    pub(crate) leaf_log: RefCell<equations::LeafLog>,
+    /// What `equations.rs`'s probe saw: the context at an arm's leaf.
+    pub(crate) arm_probe: RefCell<equations::ProbeState>,
+    /// The equations the source implies that weren't generated, by key,
+    /// with the reason: naming one is `E-NO-EQUATION` (D2176). Only grows,
+    /// so a library file's or namespace's are those after its start.
+    pub(crate) equation_skips: Vec<(DefId, String, String)>,
+    /// The local definitions elaborated in the declaration being checked,
+    /// by key, for their equations once their owner is final.
+    pub(crate) local_asts: RefCell<Vec<(String, ast::LocalDef)>>,
 }
 
 /// A pattern that matches a constructor.
@@ -1926,6 +1940,37 @@ impl Elaborator {
                 format!("`{}` is built in and can't be redefined", n.text),
             ));
         }
+        // `f.eq3`, `f.eq3.or1`, … are the names of `f`'s generated
+        // equations (D2176).
+        if let Some((owner, suffix)) = equations::reserved_suffix(key) {
+            let is_def = match self.scope.get(owner) {
+                Some((Global::Def(_), _)) => true,
+                Some((Global::Pending(_, library::PendingKind::Def), _)) => true,
+                Some((Global::Unchecked(item), _)) => {
+                    matches!(
+                        self.module.items.get(item).map(|i| i.kind),
+                        Some(module::Kind::Def)
+                    )
+                }
+                _ => false,
+            };
+            if is_def {
+                let owner = scope::display(owner);
+                return Err(error(
+                    "E-DUPLICATE",
+                    n.span,
+                    format!(
+                        "`{}` is the name of one of `{owner}`'s generated equations",
+                        n.text
+                    ),
+                )
+                .with_note(format!(
+                    "each arm of a definition gets an equation `{owner}.eqK` (and `.eqK.orN` for \
+                     an or-pattern's alternatives); `{suffix}` is reserved for it. Give this \
+                     declaration another name"
+                )));
+            }
+        }
         // Claimed for this declaration when the module's names were
         // collected.
         if let Some((Global::Unchecked(item), _)) = self.scope.get(key)
@@ -2587,6 +2632,8 @@ impl Elaborator {
         members: &[(usize, &Decl, &[Decl])],
         recursive: bool,
     ) -> Vec<(usize, Diagnostic)> {
+        self.leaf_log.borrow_mut().clear();
+        self.local_asts.borrow_mut().clear();
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
             matches!(
@@ -2780,6 +2827,7 @@ impl Elaborator {
             out.push((members[0].0, d));
             return out;
         }
+        let local_helpers = self.local_helpers.clone();
         if let Err(d) = self.bind_local_helpers() {
             out.push((members[0].0, d));
         }
@@ -2794,6 +2842,32 @@ impl Elaborator {
                 out.push((item, d));
             }
         }
+        // Each member's equations (`equations.rs`), once all are final,
+        // and their local definitions'.
+        if let Err(d) = self.local_equations(&local_helpers, false) {
+            out.push((members[0].0, d));
+        }
+        for &(item, signature, equations) in members {
+            self.module.item = Some(item);
+            let Decl::Signature { name, opaque, .. } = signature else {
+                continue;
+            };
+            let Ok(key) = self.declaration_key(name) else {
+                continue;
+            };
+            let Some(id) = self.lookup_def(&key) else {
+                continue;
+            };
+            let kind = if *opaque {
+                equations::Kind::Opaque
+            } else {
+                equations::Kind::Plain
+            };
+            if let Err(d) = self.generate_equations(id, signature, equations, kind) {
+                out.push((item, d));
+            }
+        }
+        self.leaf_log.borrow_mut().clear();
         out
     }
 
@@ -3469,10 +3543,13 @@ impl Elaborator {
             self.warn_redundant(&rows, &tree);
             tree
         };
-        let mut term = families::warn_unreachable(cx, |cx| {
+        let root = self.leaf_log.borrow_mut().enter_root(def_name.span);
+        let term = families::warn_unreachable(cx, |cx| {
             let start = columns.first().copied().unwrap_or(cx.level());
             check_tree_from(cx, start, &tree, &ty)
-        })?;
+        });
+        self.leaf_log.borrow_mut().leave_root(root);
+        let mut term = term?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
         }
@@ -4473,9 +4550,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             canon,
             rhs,
             span,
-            ..
+            alternatives,
         } => {
             families::reached(cx, *span);
+            cx.e.leaf_log.borrow_mut().record(*span, alternatives);
             let Some(rhs) = rhs else {
                 return Err(error(
                     "E-ARITY",
@@ -4638,6 +4716,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     field_env.push(field.clone());
                     cx.bind_hidden(name.clone(), ty);
                 }
+                cx.e.leaf_log.borrow_mut().path.push(c as u32);
                 let result = match subtree {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
@@ -4654,6 +4733,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     })(),
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
+                cx.e.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
                 cx.env = saved_env;
                 cx.types = saved_types;
@@ -4701,7 +4781,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let goal_term = cx.quote_folded(goal)?;
             let mut out = Vec::new();
             let mut failed = Vec::new();
-            for (key, subtree) in arms {
+            for (arm_index, (key, subtree)) in arms.iter().enumerate() {
                 // In this arm, the matched variable *is* the number, so it's
                 // substituted into the goal and the whole context (as the
                 // kernel does).
@@ -4720,7 +4800,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
+                cx.e.leaf_log.borrow_mut().path.push(arm_index as u32);
                 let result = check_tree(cx, subtree, &arm_goal);
+                cx.e.leaf_log.borrow_mut().path.pop();
                 cx.env = saved_env;
                 cx.types = saved_types;
                 match result {
@@ -4747,6 +4829,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             // others takes its default; docs/proposals/literal-match-facts.md).
             // If its type mentions the variable, the programmer may have
             // expected more.
+            cx.e.leaf_log.borrow_mut().path.push(arms.len() as u32);
             let default = match &cx.env[*x] {
                 Value::Neutral(Head::Var(l, known), spine) if l == x && spine.is_empty() => {
                     let mut numbers: Vec<BigUint> = arms.iter().map(|(k, _)| k.clone()).collect();
@@ -4776,6 +4859,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 }
                 _ => check_tree(cx, default, goal),
             };
+            cx.e.leaf_log.borrow_mut().path.pop();
             let default = default.map_err(|d| {
                 let ix = cx.level() - 1 - x;
                 let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));

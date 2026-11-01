@@ -241,7 +241,15 @@ impl Elaborator {
             counterexample_log: _,
             tuple_matches: _,
             source_epoch: _,
+            leaf_log,
+            arm_probe,
+            equation_skips,
+            local_asts,
         } = self;
+        local_asts.get_mut().clear();
+        *leaf_log.get_mut() = Default::default();
+        *arm_probe.get_mut() = Default::default();
+        equation_skips.retain(|(id, _, _)| id.0 < mark.globals.defs());
         let defs = mark.globals.defs();
         let datas = mark.globals.datas();
         globals.rewind(&mark.globals);

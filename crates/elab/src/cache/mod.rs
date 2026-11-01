@@ -70,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 18;
+pub const FORMAT: u32 = 19;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -152,6 +152,7 @@ pub(crate) struct Before {
     scope: HashMap<String, (Global, Span)>,
     instances: HashMap<(DataId, DataId), (DefId, bool)>,
     helper_keys: HashSet<String>,
+    equation_skips: usize,
     /// The sizes of the tables keyed by data type (`by_data`).
     by_data: Vec<usize>,
     nav: Option<(usize, usize, usize)>,
@@ -317,6 +318,7 @@ impl Elaborator {
                 .map(|(k, v)| (*k, (v.def, v.valid)))
                 .collect(),
             helper_keys: self.helper_keys.clone(),
+            equation_skips: self.equation_skips.len(),
             by_data: self.by_data().iter().map(|t| t.len()).collect(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -1611,6 +1613,13 @@ impl Elaborator {
         for k in helpers {
             e.str(k);
         }
+        // The equations the source implies that weren't generated.
+        e.w.usize(self.equation_skips.len() - before.equation_skips);
+        for (id, suffix, why) in &self.equation_skips[before.equation_skips..] {
+            e.def(*id);
+            e.str(suffix);
+            e.str(why);
+        }
         // The extensions the namespace declares (a library file has none).
         let own = self.current_namespace().filter(|_| !unit.library);
         let mut extensions: Vec<(&String, &String)> = self
@@ -1960,6 +1969,7 @@ struct Tables {
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
     helper_keys: Vec<String>,
+    equation_skips: Vec<(DefId, String, String)>,
     /// Extensions, and the keys they stand for.
     extensions: Vec<(String, String)>,
     tests: Vec<TestEntry>,
@@ -2855,6 +2865,7 @@ impl Elaborator {
         self.no_ord.extend(no_ord);
         self.lifted.extend(t.lifted);
         self.helper_keys.extend(t.helper_keys);
+        self.equation_skips.extend(t.equation_skips);
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
         }
@@ -2945,6 +2956,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         abilities: Vec::new(),
         lifted: Vec::new(),
         helper_keys: Vec::new(),
+        equation_skips: Vec::new(),
         extensions: Vec::new(),
         tests: Vec::new(),
         warnings: Vec::new(),
@@ -3152,6 +3164,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let n = b.count()?;
     for _ in 0..n {
         t.helper_keys.push(b.string()?);
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.equation_skips.push((b.def()?, b.string()?, b.string()?));
     }
     let n = b.count()?;
     for _ in 0..n {

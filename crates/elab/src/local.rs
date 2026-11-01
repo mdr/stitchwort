@@ -94,6 +94,21 @@ fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
             .with_label(name.span, "here")
             .with_note("give it a short name"));
         }
+        if crate::equations::reserved_local(&name.text) {
+            return Err(Diagnostic::error(
+                "E-LOCAL-DEFINITION",
+                format!(
+                    "a local definition can't be called `{}`: `{}.{}` is a name the compiler \
+                     generates for `{}`'s equations",
+                    name.text,
+                    crate::scope::display(&prefix),
+                    name.text,
+                    crate::scope::display(&prefix),
+                ),
+            )
+            .with_label(name.span, "here")
+            .with_note("give it another name"));
+        }
         let key = format!("{prefix}.{}", name.text);
         if let Some((_, first)) = e.local_keys.borrow().iter().find(|(k, _)| *k == key) {
             let owner = crate::scope::display(&e.owner.borrow()[0]).to_string();
@@ -267,6 +282,9 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         e.owner.borrow_mut().pop();
         let body = body?;
         let whole = def.equations.last().map_or(span, |eq| span.to(eq.span()));
+        e.local_asts
+            .borrow_mut()
+            .push((keys[i].clone(), (*def).clone()));
         e.drafts.borrow_mut().push(Draft {
             meta,
             span,

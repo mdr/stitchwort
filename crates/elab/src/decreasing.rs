@@ -920,15 +920,23 @@ impl Elaborator {
         out.extend(self.warnings.drain(..).map(|w| (item, w)));
         match result {
             Ok(()) => {
+                let local_helpers = self.local_helpers.clone();
                 if let Err(d) = self.bind_local_helpers() {
+                    out.push((item, d));
+                }
+                if let Err(d) = self.local_equations(&local_helpers, true) {
                     out.push((item, d));
                 }
                 if let Err(d) = self.after_definition(signature, f) {
                     out.push((item, d));
                 }
+                if let Err(d) = self.decreasing_equations(f, signature, equations) {
+                    out.push((item, d));
+                }
             }
             Err(d) => out.push((item, d)),
         }
+        self.leaf_log.borrow_mut().clear();
         out
     }
 
