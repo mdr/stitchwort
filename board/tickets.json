@@ -3989,7 +3989,7 @@
     {
       "id": 1052,
       "title": "Daily/full fallout: memory blowups (differential 14 GB, lsp workspace_symbols 8.8 GB, operators 4.7 GB)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
