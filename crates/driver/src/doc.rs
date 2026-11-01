@@ -762,8 +762,7 @@ fn header(
 ) -> String {
     let mut depth = 0i32;
     let mut end = group.end;
-    for i in first..group.end {
-        let t = &tokens[i];
+    for (i, t) in tokens.iter().enumerate().take(group.end).skip(first) {
         match &t.tok {
             Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
             Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
@@ -1312,9 +1311,11 @@ mod tests {
             assert!(!h.is_empty(), "{}", e.path);
             assert!(!h.starts_with('|'), "{}: {h}", e.path);
             if matches!(e.kind, Kind::Definition | Kind::Theorem | Kind::Instance) {
-                // A body is after `:=` (a default's is in brackets) or in arms.
-                let flat: String = h.lines().collect::<Vec<_>>().join(" ");
-                assert!(!flat.contains(" | "), "{}: {h}", e.path);
+                // The header ends before a body, whose arms start a line at
+                // the declaration's own indent (a `match` in a hypothesis is
+                // inside brackets and stays).
+                let last = h.lines().last().unwrap_or_default();
+                assert!(!last.trim_start().starts_with('|'), "{}: {h}", e.path);
             }
         }
     }
