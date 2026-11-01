@@ -1,7 +1,7 @@
--- The player is never inside a wall after a turn (`stepOutOfWalls`): the
--- player only moves onto a cell that `isWall` has just said isn't one, or
--- down the stairs to the start of a new level, which is floor on every
--- level (Level.sw); and nothing else in a turn moves them.
+--| The player is never inside a wall after a turn (`stepOutOfWalls`): the
+--| player only moves onto a cell that `isWall` has just said isn't one, or
+--| down the stairs to the start of a new level, which is floor on every
+--| level (Level.sw); and nothing else in a turn moves them.
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -50,7 +50,7 @@ theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside
     | Died => inside
     | GaveUp => inside
 
--- The player is never inside a wall after a turn, whatever the seed.
+--| The player is never inside a wall after a turn, whatever the seed.
 theorem stepOutOfWalls (seed: Nat) (state: State) (command: Command) (inside: isWall state.level state.player = False):
     let after := Random.withSeed seed (() => step state command)
     isWall after.level after.player = False :=

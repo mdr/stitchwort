@@ -1,12 +1,14 @@
--- Day 8's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 8's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day08.main` doesn't check them.
 
 namespace Aoc.Year2025.Day08.Tests
 import Aoc.Year2025.Day08 (..)
 import Std (Fail, List, Map, Nat, Option, Result, Text)
 
--- The puzzle's 20 boxes (also in aoc/examples/2025/day08.txt), or why they
--- didn't parse.
+--| The puzzle's 20 boxes (also in aoc/examples/2025/day08.txt), or why they
+--| didn't parse.
 def example: Result Boxes Text := Fail.toResult (() => parseBoxes (include "../../../../../examples/2025/day08.txt"))
 
 def box (x: Nat) (y: Nat) (z: Nat): Point := { x, y, z }

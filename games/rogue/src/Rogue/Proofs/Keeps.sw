@@ -1,6 +1,6 @@
--- What each part of a turn leaves alone: the monsters' turn doesn't move
--- the player or change the level, and walking onto a cell (and picking up
--- what's there) changes neither the level, the monsters nor hit points.
+--| What each part of a turn leaves alone: the monsters' turn doesn't move
+--| the player or change the level, and walking onto a cell (and picking up
+--| what's there) changes neither the level, the monsters nor hit points.
 
 namespace Rogue.Proofs
 import Rogue (..)

@@ -1,38 +1,38 @@
--- Unit tests of one turn: movement, walls, combat, chasing, items, the
--- stairs and the end of the game. Each uses `resolve` with fixed dice, so
--- the rolls are known: with seed 0 the player's blow does 2 and a goblin's
--- 1, with seed 1 the player's does 3, and with seed 2 it does 4.
---
--- The level is made by hand: two rooms joined by a corridor along row 3,
--- with the stairs in the middle of the second.
---
---   ############       ############
---   #..........#       #..........#
---   #..........#       #..........#
---   #.......................>.....#
---   #..........#       #..........#
---   #..........#       #..........#
---   ############       ############
+--| Unit tests of one turn: movement, walls, combat, chasing, items, the
+--| stairs and the end of the game. Each uses `resolve` with fixed dice, so
+--| the rolls are known: with seed 0 the player's blow does 2 and a goblin's
+--| 1, with seed 1 the player's does 3, and with seed 2 it does 4.
+--|
+--| The level is made by hand: two rooms joined by a corridor along row 3,
+--| with the stairs in the middle of the second.
+--|
+--|   ############       ############
+--|   #..........#       #..........#
+--|   #..........#       #..........#
+--|   #.......................>.....#
+--|   #..........#       #..........#
+--|   #..........#       #..........#
+--|   ############       ############
 
 namespace Rogue.Tests
 import Rogue (..)
 import Std (List, Text)
 
--- Rows 1 to 5, columns 1 to 10.
+--| Rows 1 to 5, columns 1 to 10.
 def roomA: Area := { corner = { row = 1, column = 1 }, down = 4, across = 9 }
 
--- Rows 1 to 5, columns 20 to 29.
+--| Rows 1 to 5, columns 20 to 29.
 def roomB: Area := { corner = { row = 1, column = 20 }, down = 4, across = 9 }
 
--- Row 3, from column 10 to 20.
+--| Row 3, from column 10 to 20.
 def corridor: Area := { corner = { row = 3, column = 10 }, down = 0, across = 10 }
 
 def testLevel: Level := Level.build 1 roomA roomB [roomA, roomB] [corridor]
 
--- The top-left corner of the first room.
+--| The top-left corner of the first room.
 def corner: Position := { row = 1, column = 1 }
 
--- The test level with nothing else about.
+--| The test level with nothing else about.
 def quiet: State := {
   level = testLevel,
   player = corner,
@@ -105,7 +105,7 @@ test "damage stops at zero" := (resolve lowRoll { quiet | monsters = [orcNextDoo
 
 def stumbles (dice: Dice): Bool := dice.chance 2 5
 
--- Where a lone monster is after the player waits a turn.
+--| Where a lone monster is after the player waits a turn.
 def chased (dice: Dice) (player: Position) (monster: Monster): List Position :=
   (resolve dice { quiet | player, monsters = [monster] } Wait).monsters.map (.position)
 
@@ -154,7 +154,7 @@ test "with no potions, drinking says so and takes no time" :=
   after.message == "You have no potions." ∧ after.turn == 0 ∧ after.hitPoints == 3
 test "monsters act while you drink" := (resolve lowRoll { facingGoblin | potions = 1, hitPoints = 3 } Drink).hitPoints == 7
 
--- The damage left on an orc after one blow, for each of 40 rolls.
+--| The damage left on an orc after one blow, for each of 40 rolls.
 def orcAfterBlows (state: State): List Nat :=
   let facingOrc := { state | monsters = [{ orcNextDoor | kind = Orc }] }
   List.range 40 |> .map (seed => resolve { seed } facingOrc (Move East) |> .monsters |> .map (.hitPoints) |> .headOr 0)

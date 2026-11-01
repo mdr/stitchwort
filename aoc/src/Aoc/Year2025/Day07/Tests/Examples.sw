@@ -1,4 +1,6 @@
--- Day 7's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 7's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day07.main` doesn't check them.
 
 namespace Aoc.Year2025.Day07.Tests
@@ -39,14 +41,14 @@ test "beams merge" := (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."])
 test "nothing below S" := (parseManifoldOption ["^^", ".S"]).map (m => (solvePart1 m, solvePart2 m)) == Some (0, 1)
 test "no S" := (parseManifoldOption ["..^.."]).map solvePart1 == None
 
--- What `main` prints and how it ends, for some input lines.
+--| What `main` prints and how it ends, for some input lines.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
   IO.simulate lines (() => Result.map (Fail.toResult main) (u => True))
 
 test "main with no S" := ran ["..^.."] == MkPair [] (Err "expected a line with an S, got none")
 test "main with a final blank line" := ran ["..S..", "..^..", ""] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
 
--- The strict parser: what it rejects, and what it still accepts.
+--| The strict parser: what it rejects, and what it still accepts.
 test "an unknown character" := ran ["..S..", "..x.."] == MkPair [] (Err "line 2, column 3: expected '.' or '^' or 'S' or the end of the line, got 'x'")
 test "the first unknown character wins" := ran ["..S?", "a"] == MkPair [] (Err "line 1, column 4: expected '.' or '^' or 'S' or the end of the line, got '?'")
 test "a space is not empty space" := ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected '.' or '^' or 'S' or the end of the line, got ' '")

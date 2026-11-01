@@ -1,6 +1,8 @@
--- Day 5, proved: part 2 (merging the ranges and adding up their sizes) is the
--- brute-force count of the ids that some range holds, for every database
--- (`solvePart2Correct`). Kept apart from the program, so `stitchwort run
+--| Day 5, proved: part 2 (merging the ranges and adding up their sizes) is the
+--| brute-force count of the ids that some range holds, for every database
+--| (`solvePart2Correct`).
+--
+-- Kept apart from the program, so `stitchwort run
 -- Aoc.Year2025.Day05.main` doesn't check it.
 
 namespace Aoc.Year2025.Day05.Proofs
@@ -10,7 +12,7 @@ import Aoc.Year2025.Day05 (..)
 import Aoc.Year2025.Day05.Spec (..)
 import Std (Bool, Eq, Fail, List, Nat, Ordering, Void)
 
--- Whether some range holds the id.
+--| Whether some range holds the id.
 def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
 
 theorem coveredFirst (m: Range) (rest: List Range) (id: Nat) (h: m.contains id = True): covered (Cons m rest) id = True :=
@@ -24,10 +26,10 @@ theorem coveredSkip (m: Range) (rest: List Range) (id: Nat) (f: m.contains id = 
     _ = (m.contains id ∨ covered rest id) := rewrite f
     _ = True := h
 
--- Every id the ranges hold is below `b`.
+--| Every id the ranges hold is below `b`.
 def Below (b: Nat) (rs: List Range): Prop := (id: Nat) → covered rs id = True → id < b
 
--- Every id the ranges hold is at most the largest end.
+--| Every id the ranges hold is at most the largest end.
 theorem topGe: (z: Nat) → (rs: List Range) → z ≤ rs.foldLeft z (m r => Nat.max m r.to)
   | z, Nil => omega
   | z, Cons r rs => omega [topGe (Nat.max z r.to) rs]
@@ -39,20 +41,20 @@ theorem coveredTop: (z: Nat) → (rs: List Range) → (id: Nat) → covered rs i
       | True => omega [topGe (Nat.max z r.to) rs]
       | False => coveredTop (Nat.max z r.to) rs id h
 
--- Ranges, latest first, each starting after every id the ones after it hold.
+--| Ranges, latest first, each starting after every id the ones after it hold.
 def Stacked: List Range → Prop
   | Nil => Unit
   | Cons m rest => Below m.from rest ∧ Stacked rest
 
--- The first range of a list whose ids are below `n` holds `size` of them.
+--| The first range of a list whose ids are below `n` holds `size` of them.
 theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):
     List.occurrences (List.range n) (id => m.contains id) = m.size :=
   match e: Nat.leq m.from m.to with
     | True => countBelow m n (b m.to (coveredFirst m rest m.to (Nat.betweenYes m.from m.to m.to e omega)))
     | False => countEmpty m e (List.range n)
 
--- Stacked ranges hold different ids, so the ids below `n` they hold number
--- the sum of their sizes.
+--| Stacked ranges hold different ids, so the ids below `n` they hold number
+--| the sum of their sizes.
 theorem stackedCount (n: Nat): (ms: List Range) → Stacked ms → Below n ms →
     List.occurrences (List.range n) (id => covered ms id) = ms.sumBy Range.size
   | Nil, s, b => List.occurrencesNone (List.range n) (id => covered Nil id) (id => rfl)
@@ -70,10 +72,10 @@ theorem stackedCount (n: Nat): (ms: List Range) → Stacked ms → Below n ms �
         := rewrite stackedCount n rest srest (id h => b id (coveredRest m rest id h))
       _ = (Cons m rest).sumBy Range.size := Eq.sym (List.sumByCons rest m Range.size)
 
--- Merging keeps the covered ids (`stackCovers`), and the merged ranges,
--- latest first, are stacked (`stackStacked`): each starts after every id
--- the earlier ones hold. So no id is counted twice, and the sizes add up to
--- the count (`stackedCount`).
+--| Merging keeps the covered ids (`stackCovers`), and the merged ranges,
+--| latest first, are stacked (`stackStacked`): each starts after every id
+--| the earlier ones hold. So no id is counted twice, and the sizes add up to
+--| the count (`stackedCount`).
 theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
   let top := db.fresh.foldLeft 0 (m r => Nat.max m r.to)
   calc solvePart2 db
@@ -85,7 +87,7 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
       := rewrite stackCovers db.fresh _
     _ = countFresh db := Eq.sym (List.countOccurrences (List.range (top + 1)) (id => covered db.fresh id))
 
--- The merged ranges, latest first: `merge` before its `reverse`.
+--| The merged ranges, latest first: `merge` before its `reverse`.
 def stack (ranges: List Range): List Range :=
   ranges
     |> .sort
@@ -102,17 +104,17 @@ theorem stackCovers (ranges: List Range) (id: Nat): covered (stack ranges) id = 
 theorem stackStacked (ranges: List Range): Stacked (stack ranges) :=
   foldStacked Nil ranges.sort (stackSorted ranges) (fitsNil ranges.sort) Trivial
 
--- Merging keeps exactly the covered ids.
+--| Merging keeps exactly the covered ids.
 theorem mergeCovers (ranges: List Range) (id: Nat): (merge ranges).any (r => r.contains id) = ranges.any (r => r.contains id) :=
   Eq.trans (List.anyPerm (merge ranges) (stack ranges) (List.reversePerm (stack ranges)) (r => Range.contains r id)) (stackCovers ranges id)
 
--- The latest merged range starts no later than `b`.
+--| The latest merged range starts no later than `b`.
 def LoAtMost (b: Nat): List Range → Prop
   | Nil => Unit
   | Cons last _ => last.from ≤ b
 
--- Two ranges, the second starting inside the first or just after it, hold
--- the ids of their merge.
+--| Two ranges, the second starting inside the first or just after it, hold
+--| the ids of their merge.
 theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from ≤ r.from) (h2: r.from ≤ a.to + 1):
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id ∨ r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
@@ -156,7 +158,7 @@ theorem absorbStacked (r: Range): (merged: List Range) → LoAtMost r.from merge
               | False => omega [b id h])
           (Both b rest)
 
--- Folding: the next range starts no earlier than the latest merged one.
+--| Folding: the next range starts no earlier than the latest merged one.
 def Fits (merged: List Range): List Range → Prop
   | Nil => Unit
   | Cons x _ => LoAtMost x.from merged

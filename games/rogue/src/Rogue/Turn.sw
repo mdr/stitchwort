@@ -1,17 +1,17 @@
--- One turn of the game: the player acts on a command, then each monster
--- acts. `step` is the whole turn; `resolve` is the same turn with its rolls
--- already made, which is what the proofs are about.
+--| One turn of the game: the player acts on a command, then each monster
+--| acts. `step` is the whole turn; `resolve` is the same turn with its rolls
+--| already made, which is what the proofs are about.
 
 namespace Rogue
 import Std (List, Text)
 
--- One turn. It draws one random number and makes all the turn's rolls from it.
+--| One turn. It draws one random number and makes all the turn's rolls from it.
 def step (state: State) (command: Command): {Random} State :=
   let dice: Dice := { seed = next() }
   resolve dice state command
 
--- A turn with its rolls made. Once the game is over, nothing changes.
--- Drinking with no potions, or `>` away from the stairs, takes no time.
+--| A turn with its rolls made. Once the game is over, nothing changes.
+--| Drinking with no potions, or `>` away from the stairs, takes no time.
 def resolve (dice: Dice) (state: State) (command: Command): State :=
   match state.phase with
     | Playing =>
@@ -27,14 +27,14 @@ def resolve (dice: Dice) (state: State) (command: Command): State :=
           else { state | message = "There are no stairs here." }
     | _ => state
 
--- The player steps one cell, or attacks the monster standing there.
+--| The player steps one cell, or attacks the monster standing there.
 def playerMoves (dice: Dice) (state: State) (direction: Direction): State :=
   let target := state.player.toward direction
   match monsterAt target state.monsters with
     | Some monster => attack dice state monster
     | None => if isWall state.level target then { state | message = "A wall blocks your way." } else enter state target
 
--- The player's blow.
+--| The player's blow.
 def attack (dice: Dice) (state: State) (monster: Monster): State :=
   let damage := 2 + dice.upTo 0 (state.strength - 2)
   let survivors := state.monsters
@@ -45,11 +45,11 @@ def attack (dice: Dice) (state: State) (monster: Monster): State :=
     else "You kill the ${monster.kind.name}!"
   { state | monsters = survivors, message }
 
--- The damage done to whichever monster stands on `target`.
+--| The damage done to whichever monster stands on `target`.
 def wound (target: Position) (damage: Nat) (monster: Monster): Monster :=
   if monster.position == target then { monster | hitPoints = monster.hitPoints - damage } else monster
 
--- The player walks onto a free cell, picking up anything lying there.
+--| The player walks onto a free cell, picking up anything lying there.
 def enter (state: State) (target: Position): State :=
   let moved := { state | player = target, message = "" }
   match itemAt target state.items with
@@ -70,14 +70,15 @@ def drink (state: State): State :=
 def healed (hitPoints: Nat): Nat :=
   if hitPoints + potionStrength ≤ maxHitPoints then hitPoints + potionStrength else maxHitPoints
 
--- Down the stairs: the next level is made now, from the turn's dice. The
--- generator is opaque, so no proof about a turn looks inside it.
+--| Down the stairs: the next level is made now, from the turn's dice.
+--
+-- The generator is opaque, so no proof about a turn looks inside it.
 def descend (dice: Dice) (state: State): State :=
   let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   let arrived := arrive state plan
   { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
 
--- After the player, the monsters' turn, unless the game is over.
+--| After the player, the monsters' turn, unless the game is over.
 def monstersTurn (dice: Dice) (state: State): State :=
   match state.phase with
     | Playing =>
@@ -89,17 +90,17 @@ def monstersTurn (dice: Dice) (state: State): State :=
       { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
     | _ => { state | turn = state.turn + 1 }
 
--- The monsters' turn so far: those that have acted, the damage they have
--- done, and what happened.
+--| The monsters' turn so far: those that have acted, the damage they have
+--| done, and what happened.
 type Outcome = { moved: List Monster, damage: Nat, events: List Text }
 
--- One more monster has acted: where it ended up, the damage it did, and
--- what happened.
+--| One more monster has acted: where it ended up, the damage it did, and
+--| what happened.
 def Outcome.add (outcome: Outcome) (monster: Monster) (damage: Nat) (events: List Text): Outcome :=
   { moved = outcome.moved ++ [monster], damage = outcome.damage + damage, events = outcome.events ++ events }
 
--- Each monster in turn attacks the player if it's next to them, and
--- otherwise moves. `index` numbers the monsters, to give each its own rolls.
+--| Each monster in turn attacks the player if it's next to them, and
+--| otherwise moves. `index` numbers the monsters, to give each its own rolls.
 def actAll (dice: Dice) (level: Level) (player: Position) (index: Nat) (outcome: Outcome): List Monster → Outcome
   | [] => outcome
   | Cons monster waiting =>
@@ -111,8 +112,8 @@ def actAll (dice: Dice) (level: Level) (player: Position) (index: Nat) (outcome:
       let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position
       actAll dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting
 
--- Where a monster would like to go, best first. One that can see the player
--- gives chase, now and then stumbling; one that can't wanders, or stays put.
+--| Where a monster would like to go, best first. One that can see the player
+--| gives chase, now and then stumbling; one that can't wanders, or stays put.
 def monsterChoices (dice: Dice) (index: Nat) (player: Position) (monster: Monster): List Position :=
   let wanders := monster.position.distance player > sightRange ∨ dice.chance (3 * index + 2) 5
   if wanders then
@@ -124,8 +125,8 @@ def monsterChoices (dice: Dice) (index: Nat) (player: Position) (monster: Monste
       | _ => []
   else monster.position.closerTo player
 
--- The neighbouring cells that are closer to `target`, the direction with
--- further to go first.
+--| The neighbouring cells that are closer to `target`, the direction with
+--| further to go first.
 def Position.closerTo (position: Position) (target: Position): List Position :=
   let vertical :=
     if target.row < position.row then [position.toward North]
@@ -138,7 +139,7 @@ def Position.closerTo (position: Position) (target: Position): List Position :=
   if distanceBetween position.row target.row ≥ distanceBetween position.column target.column then vertical ++ horizontal
   else horizontal ++ vertical
 
--- The first cell that isn't a wall, the player, or another monster's.
+--| The first cell that isn't a wall, the player, or another monster's.
 def pickFree (level: Level) (choices: List Position) (player: Position) (others: List Monster): Option Position :=
   match choices with
     | [] => None

@@ -1,6 +1,8 @@
--- Day 7, part 1, proved for every manifold (`part1Correct`, at the bottom):
--- the program's count is the number of splitters some timeline of
--- Spec/Spec.sw reaches. The argument:
+--| Day 7, part 1, proved for every manifold (`part1Correct`, at the bottom):
+--| the program's count is the number of splitters some timeline of
+--| Spec/Spec.sw reaches.
+--
+-- The argument:
 --   1. `reach ls c k d`: a particle falling into column c of the first of
 --      the rows `ls` can fall into column d of row k. A timeline reaches the
 --      splitter in row k, column d exactly when there is a splitter there and
@@ -40,17 +42,17 @@ theorem natEqAbove (m: Nat) (n: Nat) (h: n < m): (m == n) = False := Decidable.t
 
 theorem ltSucc (m: Nat) (n: Nat) (h: m < n): m < n + 1 := omega
 
--- Past the right edge there is no splitter.
+--| Past the right edge there is no splitter.
 theorem splitterPast (row: Vec Bool w) (c: Nat) (h: w ≤ c): splitterAt row c = False :=
   Vec.getOrPast row c False h
 
 -- Timelines and where the particle can fall ----------------------------------
 
--- A timeline reaches the splitter in row x, column d.
+--| A timeline reaches the splitter in row x, column d.
 def hitIn (x: Nat) (d: Nat) (t: List Hit): Bool := t.any (hit => hit.row == x ∧ hit.column == d)
 
--- A particle falling into column c of the first of `ls` can fall into
--- column d of row k (the first row is row 0).
+--| A particle falling into column c of the first of `ls` can fall into
+--| column d of row k (the first row is row 0).
 def reach: List (Vec Bool w) → Nat → Nat → Nat → Bool
   | ls, c, Zero, d => c == d
   | Nil, c, Succ k, d => False
@@ -62,20 +64,20 @@ def reach: List (Vec Bool w) → Nat → Nat → Nat → Bool
         ∨ reach rest (c + 1) k d
     else reach rest c k d
 
--- There is a splitter in row k, column d of `ls`.
+--| There is a splitter in row k, column d of `ls`.
 def splitterIn: List (Vec Bool w) → Nat → Nat → Bool
   | Nil, k, d => False
   | Cons row rest, Zero, d => splitterAt row d
   | Cons row rest, Succ k, d => splitterIn rest k d
 
--- Putting a splitter that isn't the one looked for in front of every
--- timeline changes nothing.
+--| Putting a splitter that isn't the one looked for in front of every
+--| timeline changes nothing.
 theorem anyConsMiss (x: Nat) (d: Nat) (h: Hit) (miss: (h.row == x ∧ h.column == d) = False):
     (ts: List (List Hit)) → List.any (List.map ts (Cons h)) (hitIn x d) = List.any ts (hitIn x d)
   | Nil => rfl
   | Cons t ts => rewrite miss, anyConsMiss x d h miss ts
 
--- There is always at least one timeline.
+--| There is always at least one timeline.
 theorem timelinesSome: (r: Nat) → (c: Nat) → (ls: List (Vec Bool w)) → 0 < List.length (timelinesFrom r c ls)
   | r, c, Nil => rfl
   | r, c, Cons row rest =>
@@ -85,13 +87,13 @@ theorem timelinesSome: (r: Nat) → (c: Nat) → (ls: List (Vec Bool w)) → 0 <
           omega [timelinesSome (r + 1) (c + 1) rest]
       | False => timelinesSome (r + 1) c rest
 
--- ... so putting the splitter looked for in front of them finds it.
+--| ... so putting the splitter looked for in front of them finds it.
 theorem anyConsHit (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x ∧ h.column == d) = True):
     (ts: List (List Hit)) → 0 < ts.length → List.any (List.map ts (Cons h)) (hitIn x d) = True
   | Nil, some => Void.exfalso (Bool.falseNotTrue some)
   | Cons t ts, some => rewrite hit
 
--- No timeline from row r reaches a splitter above it.
+--| No timeline from row r reaches a splitter above it.
 theorem noHitsAbove (x: Nat) (d: Nat): (r: Nat) → (c: Nat) → (ls: List (Vec Bool w)) → x < r → List.any (timelinesFrom r c ls) (hitIn x d) = False
   | r, c, Nil, h => rfl
   | r, c, Cons row rest, h =>
@@ -110,8 +112,8 @@ theorem ltSelfSucc (r: Nat): r < r + 1 := omega
 
 theorem shift (k: Nat) (r: Nat): k + (r + 1) = Succ (k + r) := omega
 
--- A timeline reaches the splitter in row k (counted from r), column d,
--- exactly when there is a splitter there and the particle can fall into it.
+--| A timeline reaches the splitter in row k (counted from r), column d,
+--| exactly when there is a splitter there and the particle can fall into it.
 theorem hitsAt: (ls: List (Vec Bool w)) → (r: Nat) → (c: Nat) → (k: Nat) → (d: Nat) →
     List.any (timelinesFrom r c ls) (hitIn (k + r) d) = (splitterIn ls k d ∧ reach ls c k d)
   | Nil, r, c, k, d => rfl
@@ -150,7 +152,7 @@ theorem hitsAt: (ls: List (Vec Bool w)) → (r: Nat) → (c: Nat) → (k: Nat) �
             | Succ b => rewrite anyConsMiss (Succ (k + r)) d ({ row = r, column = Succ b, turn = Left }: Hit) (rewrite above) _, ih b in andOr _ _ _
       | False => ih c
 
--- Past the right edge there are no splitters: a particle there stays there.
+--| Past the right edge there are no splitters: a particle there stays there.
 theorem reachPast (w: Nat): (ls: List (Vec Bool w)) → (c: Nat) → (k: Nat) → (d: Nat) → w ≤ c → d < w → reach ls c k d = False
   | ls, c, Zero, d, hc, hd => natEqAbove c d omega
   | Nil, c, Succ k, d, hc, hd => rfl
@@ -159,19 +161,19 @@ theorem reachPast (w: Nat): (ls: List (Vec Bool w)) → (c: Nat) → (k: Nat) �
 
 -- The program's side ----------------------------------------------------------
 
--- A flag that is set is inside the row.
+--| A flag that is set is inside the row.
 theorem setInside (v: Vec Bool w) (i: Nat) (h: v.getOr i False = True): i < w :=
   match g: Nat.leq (Succ i) w with
     | True => rfl
     | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Vec.getOrPast v i False omega)) h))
 
--- What comes into column c of `fall`'s result from the left.
+--| What comes into column c of `fall`'s result from the left.
 def fromLeft (row: Vec Bool w) (beams: Vec Bool w): Nat → Bool
   | Zero => False
   | Succ b => splitterAt row b ∧ beams.getOr b False
 
--- `fall` column by column: a beam passes a column without a splitter, and
--- the splitters beside it send theirs.
+--| `fall` column by column: a beam passes a column without a splitter, and
+--| the splitters beside it send theirs.
 theorem fallAt (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
     (fall row beams).getOr c False
       = ((beams.getOr c False ∧ ¬(splitterAt row c))
@@ -186,18 +188,18 @@ theorem fallAt (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
       | Zero => rfl
       | Succ b => rewrite Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams b
 
--- The splitters a row's beams reach, column by column.
+--| The splitters a row's beams reach, column by column.
 theorem splitsInSum (row: Vec Bool w) (beams: Vec Bool w):
     splitsIn row beams = List.sumBy (List.range w) (d => Bool.toNat (splitterAt row d ∧ beams.getOr d False)) :=
   let hit := Vec.zipWith row beams (s b => s ∧ b)
   rewrite Vec.countSumBy hit (x => x), Vec.sumByGetOr hit False (x => Bool.toNat x),
     Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams _
 
--- The particle can fall into column d of row k from a column with a beam.
+--| The particle can fall into column d of row k from a column with a beam.
 def beamReach (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat): Bool :=
   List.any (List.range w) (c => beams.getOr c False ∧ reach ls c k d)
 
--- In the first row, that is the beams themselves.
+--| In the first row, that is the beams themselves.
 theorem beamReachZero (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: d < w): beamReach beams ls 0 d = beams.getOr d False :=
   Bool.eqOf (beamReach beams ls 0 d) (beams.getOr d False)
     (h => List.anyRangeElim (c => beams.getOr c False ∧ reach ls c 0 d) (beams.getOr d False = True) w 0 h
@@ -210,7 +212,7 @@ theorem beamReachZero (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: 
 -- straight down, or from a splitter on its left or on its right. Each lemma
 -- shows both sides of `fallKeeps` true in its case.
 
--- Straight down: a beam in column c without a splitter passes it.
+--| Straight down: a beam in column c without a splitter passes it.
 theorem fallStraight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
     (beam: v.getOr c False = True) (empty: splitterAt row c = False) (on: reach rest c k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v (Cons row rest) (Succ k) d = True :=
@@ -221,10 +223,10 @@ theorem fallStraight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w)
     (List.anyRangeIntro (c => v.getOr c False ∧ reach (Cons row rest) c (Succ k) d) w 0 c omega inside
       (Bool.andIntro (v.getOr c False) (reach (Cons row rest) c (Succ k) d) beam (rewrite empty in on)))
 
--- From the left: a splitter in column b with a beam sends one down column
--- b + 1, where the particle goes right. (That column is inside the row, as
--- the particle can still fall into column d: past the right edge it
--- couldn't.)
+--| From the left: a splitter in column b with a beam sends one down column
+--| b + 1, where the particle goes right. (That column is inside the row, as
+--| the particle can still fall into column d: past the right edge it
+--| couldn't.)
 theorem fallFromLeft (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w) (b: Nat)
     (beam: v.getOr b False = True) (splitter: splitterAt row b = True) (on: reach rest (Succ b) k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v (Cons row rest) (Succ k) d = True :=
@@ -238,8 +240,8 @@ theorem fallFromLeft (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w)
     (List.anyRangeIntro (c => v.getOr c False ∧ reach (Cons row rest) c (Succ k) d) w 0 b omega (setInside v b beam)
       (Bool.andIntro (v.getOr b False) (reach (Cons row rest) b (Succ k) d) beam (rewrite splitter, Nat.addOne b, on in Bool.orTrue _)))
 
--- From the right: a splitter in column c + 1 with a beam sends one down
--- column c, where the particle goes left.
+--| From the right: a splitter in column c + 1 with a beam sends one down
+--| column c, where the particle goes left.
 theorem fallFromRight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
     (beam: v.getOr (Succ c) False = True) (splitter: splitterAt row (Succ c) = True) (on: reach rest c k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v (Cons row rest) (Succ k) d = True :=
@@ -251,9 +253,9 @@ theorem fallFromRight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w
     (List.anyRangeIntro (c => v.getOr c False ∧ reach (Cons row rest) c (Succ k) d) w 0 (Succ c) omega inside
       (Bool.andIntro (v.getOr (Succ c) False) (reach (Cons row rest) (Succ c) (Succ k) d) beam (rewrite splitter, on)))
 
--- The particle can fall into column d of row k below the row from a column
--- with a beam after it, when it can fall there from one with a beam before
--- it.
+--| The particle can fall into column d of row k below the row from a column
+--| with a beam after it, when it can fall there from one with a beam before
+--| it.
 theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w):
     beamReach (fall row v) rest k d = beamReach v (Cons row rest) (Succ k) d :=
   let after: Nat → Bool := c => (fall row v).getOr c False ∧ reach rest c k d
@@ -288,7 +290,7 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
                   | Succ b => (fallFromRight row rest v k d b beam e left).left)
               (right => (fallFromLeft row rest v k d hd c beam e (rewrite <- Nat.addOne c in right)).left)))
 
--- The splitters the beams reach in row k, and all of them below.
+--| The splitters the beams reach in row k, and all of them below.
 def splitsAt (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat): Nat :=
   List.sumBy (List.range w) (d => Bool.toNat (splitterIn ls k d ∧ beamReach beams ls k d))
 
@@ -306,14 +308,14 @@ theorem splitsBelowSum (w: Nat): (ls: List (Vec Bool w)) → (beams: Vec Bool w)
       _ = List.sumBy (List.range (Succ rest.length)) (k => splitsAt beams (Cons l rest) k)
         := Eq.sym (List.sumByRangeSucc (k => splitsAt beams (Cons l rest) k) rest.length)
 
--- At the start, the only beam is in S's column.
+--| At the start, the only beam is in S's column.
 theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat):
     beamReach (Vec.tabulate w (c => c == st)) ls k d = reach ls st.toNat k d :=
   let start := Vec.tabulate w (c => c == st)
   rewrite <- Fin.anyRange (c => start.getOr c False ∧ reach ls c k d) w, Vec.getOrGet start _ False, Vec.getTabulate w (c => c == st) _ in
     Fin.anyEqAnd st (c => reach ls c.toNat k d)
 
--- The splitters some timeline reaches in row k: those the beams reach.
+--| The splitters some timeline reaches in row k: those the beams reach.
 theorem splitsAtReached (manifold: Manifold) (k: Nat):
     splitsAt (Vec.tabulate manifold.width (c => c == manifold.start)) manifold.rows k
       = List.count (List.range manifold.width) (d => reached (timelines manifold) k d) :=
@@ -323,8 +325,8 @@ theorem splitsAtReached (manifold: Manifold) (k: Nat):
   rewrite List.countSumBy (List.range w) (d => reached (timelines manifold) k d), beamStart w manifold.start manifold.rows k _,
     <- hitsAt manifold.rows 0 st k _, Nat.addZero k
 
--- Part 1 is right: for every manifold, the printed answer is the number of
--- splitters some timeline of the particle from S reaches.
+--| Part 1 is right: for every manifold, the printed answer is the number of
+--| splitters some timeline of the particle from S reaches.
 theorem part1Correct (manifold: Manifold): solvePart1 manifold = part1Spec manifold :=
   let start := Vec.tabulate manifold.width (c => c == manifold.start)
   calc splitsBelow start manifold.rows

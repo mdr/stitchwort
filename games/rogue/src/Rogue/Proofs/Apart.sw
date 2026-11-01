@@ -1,17 +1,17 @@
--- No two monsters share a cell after a turn (`stepApart`): their positions
--- are a list with no repeats (`List.Distinct`). A blow changes monsters
--- without moving them and only removes some; each monster either stays put
--- or moves to a cell `pickFree` has checked no other monster stands on; and
--- a new level's monsters are placed by `pickFree` too.
+--| No two monsters share a cell after a turn (`stepApart`): their positions
+--| are a list with no repeats (`List.Distinct`). A blow changes monsters
+--| without moving them and only removes some; each monster either stays put
+--| or moves to a cell `pickFree` has checked no other monster stands on; and
+--| a new level's monsters are placed by `pickFree` too.
 
 namespace Rogue.Proofs
 import Rogue (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Option, Void)
 
--- Where the monsters stand.
+--| Where the monsters stand.
 def positions (monsters: List Monster): List Position := monsters.map (monster => monster.position)
 
--- No two monsters stand on one cell.
+--| No two monsters stand on one cell.
 def Apart (monsters: List Monster): Prop := List.Distinct (positions monsters)
 
 theorem memAppendLeft (x: a) (ys: List a): (xs: List a) → List.Mem x xs → List.Mem x (xs ++ ys)
@@ -23,7 +23,7 @@ theorem memAppendRight (x: a) (ys: List a): (xs: List a) → List.Mem x ys → L
   | [], inside => inside
   | Cons first rest, inside => Inr (memAppendRight x ys rest inside)
 
--- One element of a list with no repeats replaced by one not among the others.
+--| One element of a list with no repeats replaced by one not among the others.
 theorem distinctSwap (x: a) (y: a) (after: List a): (before: List a) →
     List.Distinct (before ++ Cons x after) → Not (List.Mem y (before ++ after)) → List.Distinct (before ++ Cons y after)
   | [], Both notMem rest, fresh => Both fresh rest
@@ -45,7 +45,7 @@ theorem distinctSnoc (y: a): (xs: List a) → List.Distinct xs → Not (List.Mem
         | Inr (Inr none) => none
     Both away (distinctSnoc y rest others (inside => fresh (Inr inside)))
 
--- A cell with no monster on it isn't among their positions.
+--| A cell with no monster on it isn't among their positions.
 theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterAt position monsters = None → Not (List.Mem position (positions monsters))
   | [], vacant, inside => inside
   | Cons monster others, vacant, inside =>
@@ -56,7 +56,7 @@ theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterA
           | Inl here => DecEq.soundFalse monster.position position same here
           | Inr later => vacantNotMem position others vacant later
 
--- A monster never chooses another monster's cell.
+--| A monster never chooses another monster's cell.
 theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster):
     (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → monsterAt destination others = None
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
@@ -74,13 +74,13 @@ theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster):
 theorem positionsAppend (xs: List Monster) (ys: List Monster): positions (xs ++ ys) = positions xs ++ positions ys :=
   List.mapAppend xs ys (monster => monster.position)
 
--- A monster that stays where it was keeps them apart...
+--| A monster that stays where it was keeps them apart...
 theorem apartStay (moved: List Monster) (monster: Monster) (stayed: Monster) (same: stayed.position = monster.position) (waiting: List Monster)
     (apart: Apart (moved ++ Cons monster waiting)): Apart ((moved ++ [stayed]) ++ waiting) :=
   rewrite List.appendAssoc moved [stayed] waiting, positionsAppend moved (Cons stayed waiting), same in
     rewrite <- positionsAppend moved (Cons monster waiting) in apart
 
--- ...and so does one that moves to a cell no other monster stands on.
+--| ...and so does one that moves to a cell no other monster stands on.
 theorem apartMove (moved: List Monster) (monster: Monster) (destination: Position) (waiting: List Monster)
     (apart: Apart (moved ++ Cons monster waiting)) (vacant: monsterAt destination (moved ++ waiting) = None):
     Apart ((moved ++ [{ monster | position = destination }]) ++ waiting) :=
@@ -128,7 +128,7 @@ theorem playerMovesApart (dice: Dice) (state: State) (direction: Direction) (apa
         | True => apart
         | False => rewrite enterMonsters state (state.player.toward direction) in apart
 
--- A new level's monsters are placed one to a cell.
+--| A new level's monsters are placed one to a cell.
 theorem placeMonstersApart (level: Level) (start: Position):
     (placed: List Monster) → (planned: List Monster) → Apart placed → Apart (placeMonsters level start placed planned)
   | placed, [], apart => apart
@@ -163,13 +163,13 @@ theorem resolveApart (dice: Dice) (state: State) (command: Command) (apart: Apar
     | Died => apart
     | GaveUp => apart
 
--- No two monsters share a cell after a turn, whatever the seed.
+--| No two monsters share a cell after a turn, whatever the seed.
 theorem stepApart (seed: Nat) (state: State) (command: Command) (apart: Apart state.monsters):
     Apart (Random.withSeed seed (() => step state command)).monsters :=
   resolveApart { seed = lcg seed / 65536 } state command apart
 
--- With the monsters apart, the monster found on each monster's cell is
--- that monster.
+--| With the monsters apart, the monster found on each monster's cell is
+--| that monster.
 theorem monsterAtOwnCell (found: Monster): (monsters: List Monster) → Apart monsters → List.Mem found monsters → monsterAt found.position monsters = Some found
   | [], apart, inside => Void.exfalso inside
   | Cons monster others, Both notMem rest, Inl same => rewrite same, DecEq.refl found.position in rfl

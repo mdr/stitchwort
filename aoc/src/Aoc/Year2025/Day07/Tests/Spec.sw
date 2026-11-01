@@ -1,4 +1,4 @@
--- Day 7's specification (Spec/Spec.sw) on the puzzle's example and small manifolds.
+--| Day 7's specification (Spec/Spec.sw) on the puzzle's example and small manifolds.
 
 namespace Aoc.Year2025.Day07.Tests
 import Aoc.Year2025.Day07 (..)

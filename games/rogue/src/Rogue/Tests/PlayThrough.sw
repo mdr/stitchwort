@@ -1,21 +1,21 @@
--- Whole games through `Terminal.simulate`: scripted keys, a fixed seed,
--- and the frames the game draws. One more runs the whole `main` through
--- `IO.simulate`, with `Terminal.toIO` decoding piped bytes.
+--| Whole games through `Terminal.simulate`: scripted keys, a fixed seed,
+--| and the frames the game draws. One more runs the whole `main` through
+--| `IO.simulate`, with `Terminal.toIO` decoding piped bytes.
 
 namespace Rogue.Tests
 import Rogue (..)
 import Std (Ansi, IO, Key, List, Pair, Terminal, Text)
 import Std.Key (Printable, Up, Down, Left, Right, Unknown, Enter)
 
--- The seed the tests play on (the game's own comes from `IO.randomSeed`).
+--| The seed the tests play on (the game's own comes from `IO.randomSeed`).
 def testSeed: Nat := 2026
 
--- The keys of some text, one per character.
+--| The keys of some text, one per character.
 def keysOf (text: Text): List Key := text.toList.map Printable
 
--- A winning game on the test seed, a line or two per level: collect the
--- sword and potions, take the stairs (`>`), fight what's in the way,
--- drink (`p`) when hurt, and take the amulet on level 3.
+--| A winning game on the test seed, a line or two per level: collect the
+--| sword and potions, take the stairs (`>`), fight what's in the way,
+--| drink (`p`) when hurt, and take the amulet on level 3.
 def winningRoute: Text := Text.join [
   "kjllllllllllllllllllllllllljjjjjjjjjjjhjhhhh",
   "hhhhhhhhhhhhhhkkkjjjllllllllllllllllllll>jjl",
@@ -25,14 +25,14 @@ def winningRoute: Text := Text.join [
   "lpjhhhhh"
 ] ' '
 
--- The game as `main` plays it, on scripted keys and the test seed: the
--- frames drawn, and the final state.
+--| The game as `main` plays it, on scripted keys and the test seed: the
+--| frames drawn, and the final state.
 def simulateGame (keys: List Key): {Partial} Pair (List (List Text)) State :=
   Terminal.simulate keys (() => Random.withSeed testSeed (() => playGame (newGame())))
 
 def winningGame: {Partial} Pair (List (List Text)) State := simulateGame (keysOf winningRoute)
 
--- The status line of each frame drawn.
+--| The status line of each frame drawn.
 def statusLines (frames: List (List Text)): List Text := frames.filterMap (frame => frame.get levelRows)
 
 test "the winning route takes the amulet" := winningGame.snd.phase == Won
@@ -59,10 +59,10 @@ test "the arrows move" :=
 test "the arrows, as commands" := [Up, Down, Left, Right].map commandOf == [Some (Move North), Some (Move South), Some (Move West), Some (Move East)]
 test "other keys aren't commands" := [Unknown, Enter, Key.Escape, Printable 'x'].map commandOf == [None, None, None, None]
 
--- The whole `main` on piped input, through `IO.simulate` and
--- `Terminal.toIO`: the bytes are decoded as keys (an arrow's escape
--- sequence included), each frame is printed as lines with a form feed
--- after it, and the seed is `IO.simulate`'s 0.
+--| The whole `main` on piped input, through `IO.simulate` and
+--| `Terminal.toIO`: the bytes are decoded as keys (an arrow's escape
+--| sequence included), each frame is printed as lines with a form feed
+--| after it, and the seed is `IO.simulate`'s 0.
 test "main on piped input" :=
   let (printed, _) := IO.simulate ["l\u{1b}[Cxq"] main
   (printed.filter (line => line == "\u{c}")).length == 4 ∧ printed.last == Some "You gave up on level 1, on turn 2."
@@ -70,14 +70,14 @@ test "the winning route through the console handler" :=
   let (printed, final) := IO.simulate [winningRoute] (() => playOn testSeed)
   final.phase == Won ∧ (printed.filter (line => line == "\u{c}")).length == 229
 
--- `IO.simulateWith` gives `main` the seed the route was found on, so the real
--- `main` plays it through to the win.
+--| `IO.simulateWith` gives `main` the seed the route was found on, so the real
+--| `main` plays it through to the win.
 test "main plays the winning route on seed 2026" :=
   let (printed, _) := IO.simulateWith testSeed [winningRoute] main
   (printed.filter (line => line == "\u{c}")).length == 229 ∧ (printed.last |> .getOrElse "").startsWith "You won"
 
--- The first level on the test seed. The bars mark the ends of each row,
--- which is 66 cells wide.
+--| The first level on the test seed. The bars mark the ends of each row,
+--| which is 66 cells wide.
 def firstMap: Text := """
   |                                                    #######       |
   |  ########                                          #.g...#       |

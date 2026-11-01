@@ -1,11 +1,13 @@
--- Day 9's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 9's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day09.main` doesn't check them.
 
 namespace Aoc.Year2025.Day09.Tests
 import Aoc.Year2025.Day09 (..)
 import Std (Fail, List, Nat, PrefixSums, Result, Text)
 
--- The puzzle's eight red tiles (also in aoc/examples/2025/day09.txt).
+--| The puzzle's eight red tiles (also in aoc/examples/2025/day09.txt).
 def example: Result (List Tile) Text := Fail.toResult (() => parseTiles (include "../../../../../examples/2025/day09.txt"))
 
 def tile (x: Nat) (y: Nat): Tile := { x, y }
@@ -28,27 +30,27 @@ test "no tiles" := (solvePart1 [], solvePart2 []) == (0, 0)
 test "one tile" := (solvePart1 [tile 3 4], solvePart2 [tile 3 4]) == (0, 0)
 test "two tiles in a row" := (solvePart1 [tile 3 4, tile 8 4], solvePart2 [tile 3 4, tile 8 4]) == (6, 6)
 
--- A square: every rectangle is inside.
+--| A square: every rectangle is inside.
 def square: List Tile := [tile 1 1, tile 6 1, tile 6 4, tile 1 4]
 
 test "square" := (solvePart1 square, solvePart2 square) == (24, 24)
 
--- A U: the gap between its arms, columns 3 to 6 above row 6, is outside, so
--- no rectangle across the top of the arms is red and green. The largest
--- that is runs along the bottom, from (2, 6) to (9, 9).
+--| A U: the gap between its arms, columns 3 to 6 above row 6, is outside, so
+--| no rectangle across the top of the arms is red and green. The largest
+--| that is runs along the bottom, from (2, 6) to (9, 9).
 def letterU: List Tile := [tile 0 0, tile 2 0, tile 2 6, tile 7 6, tile 7 0, tile 9 0, tile 9 9, tile 0 9]
 
 test "U" := (solvePart1 letterU, solvePart2 letterU) == (100, 32)
 
--- A slot one tile wide: the lines at columns 2 and 3 run side by side down
--- to row 3 and back, with no tile between them. Every tile of the whole
--- square is red or green (the slot holds no tile), so the largest rectangle
--- is the whole square, although the loop itself doesn't enclose all of it.
+--| A slot one tile wide: the lines at columns 2 and 3 run side by side down
+--| to row 3 and back, with no tile between them. Every tile of the whole
+--| square is red or green (the slot holds no tile), so the largest rectangle
+--| is the whole square, although the loop itself doesn't enclose all of it.
 def slot: List Tile := [tile 0 0, tile 2 0, tile 2 3, tile 3 3, tile 3 0, tile 5 0, tile 5 5, tile 0 5]
 
 test "slot one tile wide" := (solvePart1 slot, solvePart2 slot) == (36, 36)
 
--- The loop going the other way round gives the same answers.
+--| The loop going the other way round gives the same answers.
 test "example reversed" := example.map (tiles => (solvePart1 tiles.reverse, solvePart2 tiles.reverse)) == Ok (50, 24)
 
 test "loop lines" := loopLines [tile 1 1, tile 6 1, tile 6 4] == [(tile 1 1, tile 6 1), (tile 6 1, tile 6 4), (tile 6 4, tile 1 1)]
@@ -58,7 +60,7 @@ test "crosses right of" :=
   crossesRightOf (tile 2 2) (tile 6 1, tile 6 4) ∧ crossesRightOf (tile 2 1) (tile 6 4, tile 6 1) ∧ ¬(crossesRightOf (tile 2 4) (tile 6 1, tile 6 4))
     ∧ ¬(crossesRightOf (tile 6 2) (tile 6 1, tile 6 4)) ∧ ¬(crossesRightOf (tile 2 1) (tile 1 1, tile 6 1))
 
--- The example's floor, row by row, # for red or green: as the puzzle draws it.
+--| The example's floor, row by row, # for red or green: as the puzzle draws it.
 def drawn (lines: List (Tile, Tile)) (width: Nat) (height: Nat): List Text :=
   List.range height |> .map (y => List.range width |> .map (x => if isRedOrGreen lines (tile x y) then '#' else '.') |> Text.fromList)
 

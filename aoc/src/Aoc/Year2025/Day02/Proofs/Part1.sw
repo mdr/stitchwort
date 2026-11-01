@@ -1,6 +1,8 @@
--- Day 2, why part 1 is right, in three steps: the printed part 1 is the
--- brute-force sum over blocks (`part1BlocksCorrect`), which is the puzzle's own
--- sum over ids (`part1Correct`). Part 2 is in Part2.sw. Kept apart from the
+--| Day 2, why part 1 is right, in three steps: the printed part 1 is the
+--| brute-force sum over blocks (`part1BlocksCorrect`), which is the puzzle's own
+--| sum over ids (`part1Correct`). Part 2 is in Part2.sw.
+--
+-- Kept apart from the
 -- program, so `stitchwort run Aoc.Year2025.Day02.main` doesn't check any of it.
 
 namespace Aoc.Year2025.Day02.Proofs
@@ -14,14 +16,14 @@ import Std (Eq, List, Nat)
 -- blocks written twice; (c) below says that is the puzzle's own sum. Part 2
 -- is proved in Proofs/Part2.sw (`Aoc.Year2025.Day02.Proofs.part2Correct`).
 
--- Brute force for part 1: in each range, every block length up to the
--- number of digits of `to` (a longer block makes a longer id), every block of
--- that length written twice.
+--| Brute force for part 1: in each range, every block length up to the
+--| number of digits of `to` (a longer block makes a longer id), every block of
+--| that length written twice.
 def part1Blocks (ranges: List Range): Nat :=
   ranges |> .sumBy (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2))
 
--- One range: the ids written exactly twice are the sum over block lengths
--- of the blocks written twice.
+--| One range: the ids written exactly twice are the sum over block lengths
+--| of the blocks written twice.
 theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom (Nat.digits r.to).length 1) (k => repeatedSpec r k 2) :=
   let size := List.length (Nat.digits r.to)
   calc sumOfIdsWrittenTwice r
@@ -31,7 +33,7 @@ theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.range
     _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2)
       := rewrite repeatedCorrect r _ 2
 
--- (b) Part 1 is the brute-force sum over blocks.
+--| (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
   rewrite rangeDoubled _
 
@@ -45,7 +47,7 @@ theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks
 -- swapping the sums over ids and block lengths leaves each doubled id added
 -- once (`collapse`; `doubled x` is `copies x 2`).
 
--- One range: the block walk is the id walk.
+--| One range: the block walk is the id walk.
 theorem rangeBlocksIds (r: Range):
     List.sumBy (List.rangeFrom (List.length (Nat.digits r.to)) 1) (k => repeatedSpec r k 2) = List.sum (List.filter r.ids doubled) :=
   calc List.sumBy (List.rangeFrom (List.length (Nat.digits r.to)) 1) (k => repeatedSpec r k 2)
@@ -60,11 +62,11 @@ theorem rangeBlocksIds (r: Range):
       := rewrite collapse _ 2 rfl _ (idsBelow r _ _ _)
     _ = List.sum (List.filter r.ids doubled) := Eq.sym (List.sumFilter r.ids doubled)
 
--- The block walk and the id walk agree on every input.
+--| The block walk and the id walk agree on every input.
 theorem blocksAreIds (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
   rewrite rangeBlocksIds _
 
--- (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
--- block written twice.
+--| (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
+--| block written twice.
 theorem part1Correct (ranges: List Range): solvePart1 ranges = part1Spec ranges :=
   Eq.trans (part1BlocksCorrect ranges) (blocksAreIds ranges)

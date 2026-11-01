@@ -1,10 +1,10 @@
--- Facts about offsets: where `offset` lands, in `Int`s (`offsetSome`,
--- `offsetOf`), a step is an offset (`stepOffset`), and the laws a day
--- uses: by zero stays put, by `a.minus b` from `b` reaches `a`, offsets
--- compose with `plus` while the middle stays on the board, and back to
--- `minus`. On a wrapping board: `wrap` stays on it, wrapping twice is
--- wrapping by the sum, and wrapping by the same offset `n` times is
--- wrapping by `n` times it.
+--| Facts about offsets: where `offset` lands, in `Int`s (`offsetSome`,
+--| `offsetOf`), a step is an offset (`stepOffset`), and the laws a day
+--| uses: by zero stays put, by `a.minus b` from `b` reaches `a`, offsets
+--| compose with `plus` while the middle stays on the board, and back to
+--| `minus`. On a wrapping board: `wrap` stays on it, wrapping twice is
+--| wrapping by the sum, and wrapping by the same offset `n` times is
+--| wrapping by `n` times it.
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
@@ -15,7 +15,7 @@ import Std (And, Bool, Eq, Int, Nat, Option, Or, Void)
 theorem positionExt: (position: Position) → (other: Position) → position.row = other.row → position.column = other.column → position = other
   | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl
 
--- Positions are equal when their rows and columns are, as `Int`s.
+--| Positions are equal when their rows and columns are, as `Int`s.
 theorem positionExtInt (position: Position) (other: Position) (rows: position.row.toInt = other.row.toInt)
     (columns: position.column.toInt = other.column.toInt): position = other :=
   positionExt position other (omega) (omega)
@@ -25,7 +25,7 @@ theorem offsetExt: (offset: Offset) → (other: Offset) → offset.rows = other.
 
 -- Where an offset lands
 
--- A number that `toNatChecked` takes is that number.
+--| A number that `toNatChecked` takes is that number.
 theorem toNatCheckedSome: (x: Int) → (n: Nat) → x.toNatChecked = Some n → x = n.toInt
   | OfNat m, n, checked => Eq.cong OfNat (Option.someInjective _ _ checked)
   | NegSucc m, n, checked => Void.exfalso (Option.noneNotSome n checked)
@@ -34,7 +34,7 @@ theorem toNatCheckedNone: (x: Int) → x.toNatChecked = None → x < 0
   | OfNat m, checked => Void.exfalso (Option.noneNotSome m (Eq.sym checked))
   | NegSucc m, checked => omega
 
--- Where `offset` lands, as rows and columns.
+--| Where `offset` lands, as rows and columns.
 theorem offsetSome (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next):
     And (next.row.toInt = position.row.toInt + offset.rows) (next.column.toInt = position.column.toInt + offset.columns) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
@@ -47,14 +47,14 @@ theorem offsetSome (position: Position) (offset: Offset) (next: Position) (lande
           rewrite <- same in
             Both (Eq.sym (toNatCheckedSome _ row rowAt)) (Eq.sym (toNatCheckedSome _ column columnAt))
 
--- A position whose row and column are `offset` away is where it lands.
+--| A position whose row and column are `offset` away is where it lands.
 theorem offsetOf (position: Position) (offset: Offset) (next: Position) (rows: next.row.toInt = position.row.toInt + offset.rows)
     (columns: next.column.toInt = position.column.toInt + offset.columns): position.offset offset = Some next :=
   rewrite <- rows, <- columns in
     match next with
       | { row, column } => rfl
 
--- `None` exactly when the row or the column would be negative.
+--| `None` exactly when the row or the column would be negative.
 theorem offsetNone (position: Position) (offset: Offset) (off: position.offset offset = None):
     Or (position.row.toInt + offset.rows < 0) (position.column.toInt + offset.columns < 0) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
@@ -74,7 +74,7 @@ theorem offsetNoneOf (position: Position) (offset: Offset)
         | Inl below => Void.exfalso (omega [And.left both])
         | Inr before => Void.exfalso (omega [And.right both])
 
--- A step is an offset by its direction's.
+--| A step is an offset by its direction's.
 theorem stepOffset: (position: Position) → (direction: Direction) → position.step direction = position.offset direction.offset
   | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
   | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
@@ -85,19 +85,19 @@ theorem stepOffset: (position: Position) → (direction: Direction) → position
 
 -- The laws
 
--- By zero stays put.
+--| By zero stays put.
 theorem offsetZero (position: Position): position.offset Offset.zero = Some position := offsetOf position Offset.zero position (omega) (omega)
 
--- From `from`, the offset to `position` reaches it.
+--| From `from`, the offset to `position` reaches it.
 theorem offsetMinus (position: Position) (from: Position): from.offset (position.minus from) = Some position :=
   offsetOf from (position.minus from) position (omega) (omega)
 
--- Where an offset lands is that offset away.
+--| Where an offset lands is that offset away.
 theorem minusOffset (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next): next.minus position = offset :=
   let both := offsetSome position offset next landed
   offsetExt (next.minus position) offset (omega [And.left both]) (omega [And.right both])
 
--- Two offsets in turn are their sum, when the middle is on the board.
+--| Two offsets in turn are their sum, when the middle is on the board.
 theorem offsetPlus (position: Position) (first: Offset) (second: Offset) (middle: Position) (landed: position.offset first = Some middle):
     middle.offset second = position.offset (first.plus second) :=
   let both := offsetSome position first middle landed
@@ -112,14 +112,14 @@ theorem offsetPlus (position: Position) (first: Offset) (second: Offset) (middle
             | Inl below => Inl (omega [And.left both])
             | Inr before => Inr (omega [And.right both])))
 
--- The offset back is the negation.
+--| The offset back is the negation.
 theorem minusNegate (position: Position) (from: Position): (position.minus from).negate = from.minus position :=
   offsetExt (position.minus from).negate (from.minus position) (omega) (omega)
 
 theorem minusSelf (position: Position): position.minus position = Offset.zero := offsetExt (position.minus position) Offset.zero (omega) (omega)
 
--- Steps of offsets: different offsets step to different ones, two steps
--- can be taken in either order, and the opposite step undoes one.
+--| Steps of offsets: different offsets step to different ones, two steps
+--| can be taken in either order, and the opposite step undoes one.
 theorem offsetStepInjective (offset: Offset) (other: Offset) (direction: Direction) (same: offset.step direction = other.step direction): offset = other :=
   offsetExt offset other (omega [Eq.cong Offset.rows same]) (omega [Eq.cong Offset.columns same])
 
@@ -134,7 +134,7 @@ theorem offsetStepOpposite (offset: Offset): (direction: Direction) → (offset.
 
 -- On a grid
 
--- `Grid.offset` is `offset`, kept to the grid.
+--| `Grid.offset` is `offset`, kept to the grid.
 theorem gridOffsetSome (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: grid.offset position offset = Some next):
     And (position.offset offset = Some next) (grid.contains next = True) :=
   match found: position.offset offset with
@@ -152,26 +152,26 @@ theorem gridOffsetOf (grid: Grid a) (position: Position) (offset: Offset) (next:
 
 -- On a board that wraps
 
--- `wrap` stays on the board.
+--| `wrap` stays on the board.
 theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
     (position.wrap offset height width).within height width = True :=
   let rowBelow := Int.modNatLt (position.row.toInt + offset.rows) height [ok := tall]
   let columnBelow := Int.modNatLt (position.column.toInt + offset.columns) width [ok := wide]
   Bool.andIntro _ _ (omega [rowBelow]) (omega [columnBelow])
 
--- A number on a line of `size` wraps to itself.
+--| A number on a line of `size` wraps to itself.
 theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → Int.modNat x.toInt size [ok := ok] = x
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
   | Succ n, ok, x, inside => Nat.modSmall x (Succ n) inside
 
--- By zero, a position on the board stays put.
+--| By zero, a position on the board stays put.
 theorem wrapZero (position: Position) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]
     (inside: position.within height width = True): position.wrap Offset.zero height width = position :=
   positionExt (position.wrap Offset.zero height width) position
     (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height tall position.row (omega [Bool.andLeft _ _ inside]))
     (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width wide position.column (omega [Bool.andRight _ _ inside]))
 
--- Wrapping twice is wrapping by the sum.
+--| Wrapping twice is wrapping by the sum.
 theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
     (position.wrap first height width).wrap second height width = position.wrap (first.plus second) height width :=
   positionExt ((position.wrap first height width).wrap second height width) (position.wrap (first.plus second) height width)
@@ -180,8 +180,8 @@ theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: 
     (Eq.trans (Int.modNatModAdd (position.column.toInt + first.columns) second.columns width [ok := wide])
       (Eq.cong (x => Int.modNat x width [ok := wide]) (omega)))
 
--- Wrapping by `offset` `times` times is wrapping by `times` times it, from
--- a position on the board.
+--| Wrapping by `offset` `times` times is wrapping by `times` times it, from
+--| a position on the board.
 theorem wrapIterate (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
     (times: Nat) → (position: Position) → position.within height width = True →
       times.iterate (here => here.wrap offset height width) position = position.wrap (offset.times times.toInt) height width

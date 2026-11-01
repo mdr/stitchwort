@@ -1,6 +1,6 @@
--- The whole game: a valid state stays valid however many turns follow,
--- whatever the seed and command of each (`replayValid`). `replay` folds
--- one turn per seed and command, as the seeded handler runs `step`.
+--| The whole game: a valid state stays valid however many turns follow,
+--| whatever the seed and command of each (`replayValid`). `replay` folds
+--| one turn per seed and command, as the seeded handler runs `step`.
 
 namespace Rogue.Proofs
 import Rogue (..)

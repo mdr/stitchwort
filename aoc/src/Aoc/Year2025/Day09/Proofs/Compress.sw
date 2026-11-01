@@ -1,6 +1,7 @@
--- Why looking at the key columns and rows is enough (`allKeysIsSpec`): a
--- rectangle with two red tiles as corners is all red and green exactly when
--- its key tiles are.
+--| Why looking at the key columns and rows is enough (`allKeysIsSpec`): a
+--| rectangle with two red tiles as corners is all red and green exactly when
+--| its key tiles are.
+--
 --   1. Whether a tile is red or green depends only on how its column
 --      compares with the red tiles' columns, and its row with their rows
 --      (`redOrGreenSame`): every test in the spec compares the tile with the
@@ -18,7 +19,7 @@ import Aoc.Year2025.Day09 (..)
 import Aoc.Year2025.Day09.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
--- `v` and `w` compare the same way with each of `values`.
+--| `v` and `w` compare the same way with each of `values`.
 def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
   (c: Nat) → List.Mem c values → And (Nat.leq c v = Nat.leq c w) (Nat.leq v c = Nat.leq w c)
 
@@ -36,7 +37,7 @@ theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m
     from one other v = from one other w :=
   rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right in rfl
 
--- The ends of a straight line of the loop are red tiles.
+--| The ends of a straight line of the loop are red tiles.
 theorem connectionEnds (tiles: List Tile) (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
     And (List.Mem ends.fst tiles) (List.Mem ends.snd tiles) :=
   match List.memZip ends tiles (List.append (List.drop tiles 1) (List.take tiles 1)) m with
@@ -73,15 +74,15 @@ theorem crossesRaySame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) 
         (sy ends.snd.y sy2).left
         in rfl
 
--- Tiles whose columns and rows compare alike with the red tiles' are alike.
+--| Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
   rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy in rfl
 
 -- 2. A key value for every value -------------------------------------------
 
--- A value at or after the smallest of `values` compares with them as some
--- key value does: a value or one just after one, from `low` up to it.
+--| A value at or after the smallest of `values` compares with them as some
+--| key value does: a value or one just after one, from `low` up to it.
 theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
     (use: (w: Nat) → Or (List.Mem w values) (List.Mem w (List.map values Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
@@ -116,7 +117,7 @@ theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem l
 theorem keyLinesSorted (values: List Nat): List.Sorted Nat.leq (keyLines values) :=
   List.sortedDedup Nat.leq (List.sort (List.append values (List.map values Succ))) (List.sortSortedNat (List.append values (List.map values Succ)))
 
--- Each value, and each one just after a value, is a key value.
+--| Each value, and each one just after a value, is a key value.
 theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List.Mem v (List.map values Succ))): List.Mem v (keyLines values) :=
   let all := List.append values (List.map values Succ)
   let inAll: List.Mem v all :=
@@ -125,8 +126,8 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List
       | Inr r => List.anyAppendRight (w => w = v) values (List.map values Succ) r
   List.memDedupIntro v (List.sort all) (List.memPerm all (List.sort all) (List.permSym (List.sort all) all (List.sortPerm all)) v inAll)
 
--- On a sorted list holding u and v, the elements at their positions, the
--- lower position first, are the smaller and the larger of them.
+--| On a sorted list holding u and v, the elements at their positions, the
+--| lower position first, are the smaller and the larger of them.
 theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
     And (And (List.getOr xs (Nat.min (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.min u v)
         (List.getOr xs (Nat.max (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.max u v))
@@ -145,7 +146,7 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
       let le := List.sortedGetOrLe xs 0 s j i (omega) iIn
       Both (Both (omega) (omega)) iIn
 
--- The elements from one position to the other lie from the smaller value to the larger.
+--| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k) (hi: k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v)):
     And (Nat.min u v ≤ List.getOr xs k 0) (List.getOr xs k 0 ≤ Nat.max u v) :=
@@ -155,8 +156,8 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
       let down := List.sortedGetOrLe xs 0 s k (Nat.max (List.indexOf xs u) (List.indexOf xs v)) hi maxIn
       Both (omega) (omega)
 
--- And every element of the list from the smaller value to the larger is at
--- such a position: what holds at each holds for it.
+--| And every element of the list from the smaller value to the larger is at
+--| such a position: what holds at each holds for it.
 theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
     (each: (k: Nat) → Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k → k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v) → p (List.getOr xs k 0))
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v ≤ w) (hi: w ≤ Nat.max u v): p w :=
@@ -165,14 +166,14 @@ theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
       List.sortedBetween 0 p xs s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) (Nat.max (List.indexOf xs u) (List.indexOf xs v)) (omega) maxIn
         each w mw (omega) (omega)
 
--- The smaller of two values is one of them.
+--| The smaller of two values is one of them.
 theorem minIn (values: List Nat) (u: Nat) (v: Nat) (mu: List.Mem u values) (mv: List.Mem v values): List.Mem (Nat.min u v) values :=
   match e: Nat.leq u v with
     | True => mu
     | False => mv
 
--- The rectangle between two red tiles is all red and green exactly when its
--- key tiles are.
+--| The rectangle between two red tiles is all red and green exactly when its
+--| key tiles are.
 theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
     allKeys tiles ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) = allRedOrGreen tiles (a, b) :=
   let floor := Floor.of tiles

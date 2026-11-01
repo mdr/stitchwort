@@ -1,8 +1,9 @@
--- The floor through the key columns and rows (`Floor.of`): the program's
--- test of a rectangle, four lookups in the summed-area table, says that
--- every key tile of the rectangle is red or green by the spec
--- (`allRedOrGreenKeys`). Which key tiles those are, and why they are enough,
--- is Compress.sw.
+--| The floor through the key columns and rows (`Floor.of`): the program's
+--| test of a rectangle, four lookups in the summed-area table, says that
+--| every key tile of the rectangle is red or green by the spec
+--| (`allRedOrGreenKeys`). Which key tiles those are, and why they are enough,
+--| is Compress.sw.
+--
 --   1. A tile's test with only the lines that touch its row is the spec's
 --      test with all of them (`isRedOrGreenNear`): a line that puts the tile
 --      on the loop, or crosses its row, touches the row.
@@ -16,10 +17,10 @@ import Aoc.Year2025.Day09 (..)
 import Aoc.Year2025.Day09.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, PrefixSums, Void)
 
--- The key tile at key column c and key row r.
+--| The key tile at key column c and key row r.
 def keyTile (floor: Floor) (c: Nat) (r: Nat): Tile := { x = List.getOr floor.columns c 0, y = List.getOr floor.rows r 0 }
 
--- The floor's cells.
+--| The floor's cells.
 def floorCells (tiles: List Tile): List (List Nat) :=
   Floor.outsideCells (loopLines tiles) (Floor.of tiles).columns (Floor.of tiles).rows
 
@@ -44,7 +45,7 @@ theorem isRedOrGreenNear (tiles: List Tile) (tile: Tile):
 
 -- 2. The cells -------------------------------------------------------------------
 
--- 1 outside the loop, 0 for a red or green tile.
+--| 1 outside the loop, 0 for a red or green tile.
 def outsideFlag (redOrGreen: Bool): Nat := if redOrGreen then 0 else 1
 
 theorem cellAt (tiles: List Tile) (r: Nat) (c: Nat) (hr: r < List.length (Floor.of tiles).rows) (hc: c < List.length (Floor.of tiles).columns):
@@ -57,12 +58,12 @@ theorem cellAt (tiles: List Tile) (r: Nat) (c: Nat) (hr: r < List.length (Floor.
     isRedOrGreenNear tiles (keyTile floor c r)
     in rfl
 
--- A cell is 0 exactly when its tile is red or green.
+--| A cell is 0 exactly when its tile is red or green.
 theorem outsideFlagZero: (b: Bool) → outsideFlag b = 0 → b = True
   | True, h => rfl
   | False, h => Void.exfalso (Nat.succNotZero 0 h)
 
--- Every row of the floor is as long as the key columns.
+--| Every row of the floor is as long as the key columns.
 theorem lengthCellRow (tiles: List Tile) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):
     List.length (List.getOr (floorCells tiles) r Nil) = List.length (Floor.of tiles).columns :=
   let floor := Floor.of tiles
@@ -72,12 +73,12 @@ theorem lengthCellRow (tiles: List Tile) (r: Nat) (hr: r < List.length (Floor.of
 
 -- 3. The program's test of a rectangle -----------------------------------------
 
--- Two corners whose key positions are inside the floor.
+--| Two corners whose key positions are inside the floor.
 def Inside (floor: Floor) (first: Corner) (second: Corner): Prop :=
   And (And (first.column < List.length floor.columns) (second.column < List.length floor.columns))
     (And (first.row < List.length floor.rows) (second.row < List.length floor.rows))
 
--- Every key tile from one corner's key column and row to the other's.
+--| Every key tile from one corner's key column and row to the other's.
 def allKeys (tiles: List Tile) (first: Corner) (second: Corner): Bool :=
   List.all
     (List.between (Nat.min first.row second.row) (Nat.max first.row second.row))

@@ -1,4 +1,6 @@
--- Day 3's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 3's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check them.
 
 namespace Aoc.Year2025.Day03.Tests
@@ -31,12 +33,12 @@ test "a short bank is still a row of digits first" := banksOf "12x" == Err "line
 
 test "zeros" := Bank.best [0, 0, 5, 0] 2 == [5, 0]
 test "leftmost wins" := Bank.best [3, 9, 9, 1] 1 == [9]
--- The tie between the 7s decides it: the first 7 leaves 573 to choose from, so
--- 77; taking the last 7 would give 73.
+--| The tie between the 7s decides it: the first 7 leaves 573 to choose from, so
+--| 77; taking the last 7 would give 73.
 test "leftmost largest wins" := Bank.best [2, 7, 5, 7, 3] 2 == [7, 7]
 test "keep everything" := Bank.best [4, 5, 6] 3 == [4, 5, 6]
 test "too short" := Bank.best [1, 2] 5 == [1, 2]
 test "pick none" := Bank.best [1, 2, 3] 0 == []
 
--- The same tie, checked when the file is checked.
+--| The same tie, checked when the file is checked.
 theorem leftmostLargest: Bank.maxJoltage [2, 7, 5, 7, 3] 2 = 77 := rfl

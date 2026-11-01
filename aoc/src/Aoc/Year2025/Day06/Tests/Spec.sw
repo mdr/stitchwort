@@ -1,4 +1,4 @@
--- Day 6's specification (Spec/Spec.sw) on the puzzle's example.
+--| Day 6's specification (Spec/Spec.sw) on the puzzle's example.
 
 namespace Aoc.Year2025.Day06.Tests
 import Aoc.Year2025.Day06 (..)

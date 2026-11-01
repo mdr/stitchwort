@@ -1,4 +1,6 @@
--- Day 1's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 1's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day01.main` doesn't check them.
 
 namespace Aoc.Year2025.Day01.Tests
@@ -28,7 +30,7 @@ test "a turn without a distance" := parsed "R" == Err "line 1, column 2: expecte
 test "a blank line" := parsed "L1\n\n" == Err "line 2, column 1: expected a turn like L68, got the end of the line"
 test "spaces around a turn" := parsed " L68\nR5 \n" == Ok [Left 68, Right 5]
 
--- Where one turn, read from `line`, leaves the starting dial.
+--| Where one turn, read from `line`, leaves the starting dial.
 def after (line: Text): Option Nat :=
   Fail.toOption (() => Parse.line line turn) |> .map (turn => Dial.start.move turn |> .position |> .value)
 

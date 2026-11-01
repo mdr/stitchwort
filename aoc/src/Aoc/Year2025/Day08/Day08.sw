@@ -1,21 +1,21 @@
--- Advent of Code 2025, day 8: junction boxes floating in 3D space. Joining
--- two boxes with a string of lights puts them in the same circuit. Part 1
--- joins the closest pairs of boxes, 1,000 of them, and multiplies the sizes
--- of the three biggest circuits. Part 2 keeps joining until every box is in
--- one circuit and multiplies the x coordinates of the last two boxes joined.
---
---   $ cd aoc && stitchwort run Aoc.Year2025.Day08.main < inputs/2025/day08.txt
---
--- The puzzle input is committed in aoc/inputs/2025/.
---
--- Every pair of boxes is a candidate, about half a million for 1,000 boxes.
--- They are sorted once, closest first (`closestFirst`), and both parts walk
--- that list, joining the pairs in order. A box's circuit is a label, kept in
--- a `Map` from the box's number to its label; joining two circuits gives
--- all of one label the other's (`Circuits.join`). A pair that is already in
--- one circuit changes nothing, but it still counts as one of part 1's 1,000.
---
--- The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
+--| Advent of Code 2025, day 8: junction boxes floating in 3D space. Joining
+--| two boxes with a string of lights puts them in the same circuit. Part 1
+--| joins the closest pairs of boxes, 1,000 of them, and multiplies the sizes
+--| of the three biggest circuits. Part 2 keeps joining until every box is in
+--| one circuit and multiplies the x coordinates of the last two boxes joined.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2025.Day08.main < inputs/2025/day08.txt
+--|
+--| The puzzle input is committed in aoc/inputs/2025/.
+--|
+--| Every pair of boxes is a candidate, about half a million for 1,000 boxes.
+--| They are sorted once, closest first (`closestFirst`), and both parts walk
+--| that list, joining the pairs in order. A box's circuit is a label, kept in
+--| a `Map` from the box's number to its label; joining two circuits gives
+--| all of one label the other's (`Circuits.join`). A pair that is already in
+--| one circuit changes nothing, but it still counts as one of part 1's 1,000.
+--|
+--| The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day08
 import Std (Fail, IO, List, Map, Nat, Option, Parse, Text)
@@ -30,25 +30,25 @@ def main(): {IO, Fail} () :=
 
 type Point = { x: Nat, y: Nat, z: Nat }
 
--- The boxes, and every pair of them closest first (`closestFirst`), sorted
--- once for both parts.
---
--- Build it with `Boxes.of` (or `parseBoxes`): the solvers, and the theorems
--- about them in Proofs/, assume `pairs` is `closestFirst points`. A `Boxes`
--- written out by hand with other pairs gets answers that mean nothing: with
--- no pairs, part 2 of two boxes is `None`; a pair naming a box past the end
--- reads that box as `Point.origin`.
+--| The boxes, and every pair of them closest first (`closestFirst`), sorted
+--| once for both parts.
+--|
+--| Build it with `Boxes.of` (or `parseBoxes`): the solvers, and the theorems
+--| about them in Proofs/, assume `pairs` is `closestFirst points`. A `Boxes`
+--| written out by hand with other pairs gets answers that mean nothing: with
+--| no pairs, part 2 of two boxes is `None`; a pair naming a box past the end
+--| reads that box as `Point.origin`.
 type Boxes = { points: List Point, pairs: List Connection }
 
 def parseBoxes (input: Text): {Fail} Boxes := Boxes.of (parsePoints input)
 
 def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst points }
 
--- One box per line. Spaces around a number are allowed; anything else fails,
--- naming the line and column.
+--| One box per line. Spaces around a number are allowed; anything else fails,
+--| naming the line and column.
 def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
 
--- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
+--| "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
 def point(): {Parse} Point :=
   let x := token nat
   char ','
@@ -57,48 +57,48 @@ def point(): {Parse} Point :=
   let z := token nat
   { x, y, z }
 
--- The straight-line distance squared: it orders pairs the same way as the
--- distance, and needs no square root.
+--| The straight-line distance squared: it orders pairs the same way as the
+--| distance, and needs no square root.
 def Point.squaredDistance (point: Point) (other: Point): Nat :=
   square (Nat.absDiff point.x other.x) + square (Nat.absDiff point.y other.y) + square (Nat.absDiff point.z other.z)
 
 def square (n: Nat): Nat := n * n
 
--- A pair of boxes, with the boxes numbered by their place in the list and
--- the first before the second. Connections are ordered by those three
--- numbers in turn (the derived `Ord`: fields left to right), so pairs at
--- the same distance come in the order of their box numbers.
+--| A pair of boxes, with the boxes numbered by their place in the list and
+--| the first before the second. Connections are ordered by those three
+--| numbers in turn (the derived `Ord`: fields left to right), so pairs at
+--| the same distance come in the order of their box numbers.
 type Connection = { distance: Nat, first: Nat, second: Nat }
 
--- Every pair of boxes, closest first.
+--| Every pair of boxes, closest first.
 def closestFirst (points: List Point): List Connection :=
   points.withIndex.pairs
     |> .map (((first, second)) => Connection.between first second)
     |> .sort
 
--- The connection of two numbered boxes.
+--| The connection of two numbered boxes.
 def Connection.between (first: (Nat, Point)) (second: (Nat, Point)): Connection :=
   { distance = first.snd.squaredDistance second.snd, first = first.fst, second = second.fst }
 
--- Which circuit each box is in, and how many circuits there are. The label
--- of a circuit is the number of one of its boxes.
---
--- `count` is the number of different labels only for circuits built by
--- `Circuits.separate` and `join`s of boxes below its number of boxes
--- (Proofs/Part2.sw's `Counted`); nothing checks that of `labels` and
--- `count` written out by hand.
+--| Which circuit each box is in, and how many circuits there are. The label
+--| of a circuit is the number of one of its boxes.
+--|
+--| `count` is the number of different labels only for circuits built by
+--| `Circuits.separate` and `join`s of boxes below its number of boxes
+--| (Proofs/Part2.sw's `Counted`); nothing checks that of `labels` and
+--| `count` written out by hand.
 type Circuits = { labels: Map Nat Nat, count: Nat }
 
--- Every box in a circuit of its own.
+--| Every box in a circuit of its own.
 def Circuits.separate (boxes: Nat): Circuits :=
   { labels = List.range boxes |> .map (box => (box, box)) |> Map.fromList, count = boxes }
 
--- A box's label. Every box of `Circuits.separate` and its joins has a label
--- stored, so the fallback (the box's own number) is never used for them.
+--| A box's label. Every box of `Circuits.separate` and its joins has a label
+--| stored, so the fallback (the box's own number) is never used for them.
 def Circuits.labelOf (circuits: Circuits) (box: Nat): Nat := circuits.labels |> .getOr box box
 
--- Joins the circuits of two boxes: every box in the first box's circuit
--- takes the second's label.
+--| Joins the circuits of two boxes: every box in the first box's circuit
+--| takes the second's label.
 def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
   let firstLabel := circuits.labelOf first
   let secondLabel := circuits.labelOf second
@@ -108,37 +108,37 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
     count = circuits.count - 1
   }
 
--- Joins the two boxes of a pair from `closestFirst`.
+--| Joins the two boxes of a pair from `closestFirst`.
 def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
   circuits.join connection.first connection.second
 
--- How many boxes are in each circuit, one number per circuit, in the order
--- of the circuits' labels: how often each label comes up among the boxes'.
+--| How many boxes are in each circuit, one number per circuit, in the order
+--| of the circuits' labels: how often each label comes up among the boxes'.
 def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
   List.range boxes |> .map circuits.labelOf |> Map.counts |> .values
 
--- Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
--- 10 for its example), then multiply the sizes of the three biggest circuits.
--- For `boxes` built by `Boxes.of` (see `Boxes`).
+--| Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
+--| 10 for its example), then multiply the sizes of the three biggest circuits.
+--| For `boxes` built by `Boxes.of` (see `Boxes`).
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
     |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
   joined.sizes boxes.points.length |> .sortBy (first second => Nat.compare second first) |> .take 3 |> .product
 
--- Part 2: the product of the x coordinates of the two boxes whose joining
--- leaves one circuit. `None` if there are no such boxes: the points start in
--- one circuit (one point, or none). For `boxes` built by `Boxes.of` (see
--- `Boxes`).
+--| Part 2: the product of the x coordinates of the two boxes whose joining
+--| leaves one circuit. `None` if there are no such boxes: the points start in
+--| one circuit (one point, or none). For `boxes` built by `Boxes.of` (see
+--| `Boxes`).
 def solvePart2 (boxes: Boxes): Option Nat :=
   Circuits.separate boxes.points.length
     |> .lastJoin boxes.pairs
     |> .map (((first, second)) => (boxes.points.getOr first Point.origin).x * (boxes.points.getOr second Point.origin).x)
 
--- Every box number is in range, so this default is never used.
+--| Every box number is in range, so this default is never used.
 def Point.origin: Point := { x = 0, y = 0, z = 0 }
 
--- The pair that leaves one circuit, joining the pairs in order from the
--- circuits given.
+--| The pair that leaves one circuit, joining the pairs in order from the
+--| circuits given.
 def Circuits.lastJoin (circuits: Circuits): List Connection → Option (Nat, Nat)
   | Nil => None
   | Cons connection rest =>

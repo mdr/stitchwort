@@ -1,4 +1,4 @@
--- Day 4's specification (Spec/Spec.sw) on the puzzle's example and small grids.
+--| Day 4's specification (Spec/Spec.sw) on the puzzle's example and small grids.
 
 namespace Aoc.Year2025.Day04.Tests
 import Aoc.Year2025.Day04 (..)
