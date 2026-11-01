@@ -1,5 +1,5 @@
 {
-  "next": 992,
+  "next": 993,
   "tickets": [
     {
       "id": 47,
@@ -3037,6 +3037,20 @@
         "aoc"
       ],
       "body": "Matt, 1 Nov 2026: groups 1 and 3 of the follow-up to SW-984; migration cost isn't a concern. Day 16: own Heading type (East/South/West/North) kept in the spec, mapped to Aoc.Common Direction with a bijection lemma; steps/neighbours from the shared code. Day 18: { x, y } read into Position { row = y, column = x }; spec says x is the column. Day 10: use shared neighbours and rewrite its proofs. Int/Vec days (8, 14, 15) wait for discussion.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 992,
+      "title": "Aoc.Common Offset (Int displacement) + move 2024 days 8, 14, 15 onto the shared grid",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 1 Nov 2026. Position stays Nat (on the board); Offset = { rows: Int, columns: Int } for how far to move (Vec is taken by std's sized lists). Position.minus a b: Offset; Position.offset p o: Option Position (None off the board/negative); Offset plus and scaling; wrap for a wrapping board (day 14). Day 8: antinode = b.offset (b minus a). Day 14: velocity is an Offset, position after t = wrap. Day 15: check whether Int is needed at all (walled board, Nat steps may do).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
