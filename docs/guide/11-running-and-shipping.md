@@ -12,6 +12,12 @@ All three print the same output and fail the same way, which the repository's te
 
 Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number).
 
+`stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes.
+
+## A standalone executable
+
+`stitchwort build FILE` (or a project folder, or a function's full name) writes an executable that runs `main` and needs neither `stitchwort` nor the source. It links with the system's C compiler (`$CC`, or `cc`). `-o` names the executable; `--native` compiles `main` and everything it reaches to native code, and fails if any of it can't be.
+
 ## Exporting to JavaScript and TypeScript
 
 `export` on a definition makes it part of the ES module that `stitchwort build --js` generates, with TypeScript declarations beside it. The rest of the program is compiled too, but only exports are visible:
