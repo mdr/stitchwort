@@ -742,6 +742,7 @@ pub(crate) fn last_resort<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) ->
         _ => return result,
     }
     snapshot.restore(cx);
+    crate::queue::note_last_resort();
     let names = &cx.e.field_names;
     names.released.set(names.released.get() + 1);
     let again = f(cx);

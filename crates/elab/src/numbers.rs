@@ -880,7 +880,7 @@ fn group_literals(
         && is_comparison(*op)
         && (crate::check::defers_literal(cx, a)? || crate::check::defers_literal(cx, b)?)
     {
-        return crate::check::retrying(cx, |cx| group_in(cx, expr, expected));
+        return crate::check::retrying(cx, true, |cx| group_in(cx, expr, expected));
     }
     if !matches!(expr, Expr::Neg(_, _, NegForm::Argument)) {
         return group_in(cx, expr, expected);
@@ -1580,6 +1580,7 @@ fn speculate(
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             snapshot.restore(cx);
+            crate::queue::note_leaf_uninferred();
             Ok(Err(e))
         }
         Err(e) => Err(e),

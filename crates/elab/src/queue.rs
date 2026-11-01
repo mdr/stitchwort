@@ -1599,6 +1599,11 @@ static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
+static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
+static LAST_RESORT: AtomicUsize = AtomicUsize::new(0);
+static APPEND_OTHER_SIDE: AtomicUsize = AtomicUsize::new(0);
+static CALC_FROM_GOAL: AtomicUsize = AtomicUsize::new(0);
+static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
 static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
 static MOTIVE_LATER: AtomicUsize = AtomicUsize::new(0);
@@ -1634,9 +1639,42 @@ pub(crate) fn note_lambda_postponed() {
 
 /// An application, group, list or `if` elaborated a second time with number
 /// literals checked last (`check::retrying`), because the first time failed:
-/// the path §5.11 removes once number literals wait (K4).
-pub(crate) fn note_retried() {
+/// the path §5.11 removes once number literals wait (K4). Those that only
+/// a constructor with number literals asked for, not a list of numbers, are
+/// also counted apart (`retried for a constructor`).
+pub(crate) fn note_retried(constructor: bool) {
     count(&RETRIED);
+    if constructor {
+        count(&RETRIED_CONSTRUCTOR);
+    }
+}
+
+/// A construct run again with the field-name rule in force
+/// (`records::last_resort`), after holding it back failed: the path §5.11
+/// removes in stage 5.
+pub(crate) fn note_last_resort() {
+    count(&LAST_RESORT);
+}
+
+/// `a ++ b` whose left side couldn't be inferred, so the right side was
+/// inferred first (`check::append`): one of the three "infer the other
+/// side" catches §5.11 removes in stage 5.
+pub(crate) fn note_append_other_side() {
+    count(&APPEND_OTHER_SIDE);
+}
+
+/// A `calc` whose first term couldn't be inferred, so it was checked
+/// against the type the goal gives (`calc::elaborate`): one of the three
+/// "infer the other side" catches.
+pub(crate) fn note_calc_from_goal() {
+    count(&CALC_FROM_GOAL);
+}
+
+/// A leaf of a number group or comparison that couldn't be inferred, so it
+/// was undone and checked later against the type the other leaves gave
+/// (`numbers::speculate`): one of the three "infer the other side" catches.
+pub(crate) fn note_leaf_uninferred() {
+    count(&LEAF_UNINFERRED);
 }
 
 fn count(counter: &AtomicUsize) {
@@ -1690,8 +1728,13 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
 /// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
 /// holding an unknown the declaration will still settle, and of those the
-/// failures (`… on pending`, `… failed on pending`).
-pub fn counts() -> [(&'static str, usize); 27] {
+/// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
+/// catch-and-retry paths it removes: the retries only a constructor with
+/// number literals asked for (`retried for a constructor`), constructs run
+/// again with the field-name rule in force (`last resort`), and the three
+/// "infer the other side" catches (`append other side`, `calc from goal`,
+/// `leaf uninferred`).
+pub fn counts() -> [(&'static str, usize); 32] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1709,6 +1752,11 @@ pub fn counts() -> [(&'static str, usize); 27] {
         ("kept chose", get(&KEPT_CHOSE)),
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
+        ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
+        ("last resort", get(&LAST_RESORT)),
+        ("append other side", get(&APPEND_OTHER_SIDE)),
+        ("calc from goal", get(&CALC_FROM_GOAL)),
+        ("leaf uninferred", get(&LEAF_UNINFERRED)),
         ("waited", get(&WAITED)),
         ("match waited", get(&MATCH_WAITED)),
         ("motive later", get(&MOTIVE_LATER)),

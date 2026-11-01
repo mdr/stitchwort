@@ -117,6 +117,7 @@ fn elaborate_tried(
     let (start, ty) = match inferred {
         Ok(found) => found,
         Err(e) if e.code == "E-CANNOT-INFER" && hint.is_some() => {
+            crate::queue::note_calc_from_goal();
             let hint = hint.expect("just checked");
             (check(cx, first, &hint)?, hint)
         }

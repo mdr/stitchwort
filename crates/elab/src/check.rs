@@ -2051,14 +2051,14 @@ pub(crate) fn apply_args_with(
     } else {
         args
     };
-    let mut relevant = false;
+    let (mut constructor, mut list) = (false, false);
     for arg in args {
-        if let Arg::Explicit(value) = arg
-            && (defers_literal(cx, value)? || numbers_in_list(value))
-        {
-            relevant = true;
+        if let Arg::Explicit(value) = arg {
+            constructor |= defers_literal(cx, value)?;
+            list |= numbers_in_list(value);
         }
     }
+    let relevant = constructor || list;
     let run = |cx: &mut Ctx, head: (Term, Value), supply: &mut Supply| {
         let mut first_error = None;
         match apply_args_postponing(cx, head, args, supply, &mut first_error) {
@@ -2073,7 +2073,7 @@ pub(crate) fn apply_args_with(
     // written first, and only if that fails with it checked last
     // (`defers_literal`, `numbers_in_list`).
     let saved = supply.clone();
-    let (result, left) = retrying(cx, |cx| {
+    let (result, left) = retrying(cx, !list, |cx| {
         let mut left = saved.clone();
         run(cx, head.clone(), &mut left).map(|result| (result, left))
     })?;
@@ -2084,8 +2084,14 @@ pub(crate) fn apply_args_with(
 /// Runs `f`; if it fails, once more with a constructor of a generic type
 /// that has number literals in it checked after its siblings
 /// ([`defers_literal`]), so what already elaborated is elaborated as before.
-/// If that fails too, its error is the one given.
-pub(crate) fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
+/// If that fails too, its error is the one given. `constructor`: only a
+/// constructor with number literals made it worth a second run, not a list
+/// of numbers (counted apart, for stage 5).
+pub(crate) fn retrying<T>(
+    cx: &mut Ctx,
+    constructor: bool,
+    f: impl Fn(&mut Ctx) -> Result<T>,
+) -> Result<T> {
     if cx.e.late_literals.get() > 0 {
         return f(cx);
     }
@@ -2095,7 +2101,7 @@ pub(crate) fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Re
         return result;
     }
     first_try.restore(cx);
-    crate::queue::note_retried();
+    crate::queue::note_retried(constructor);
     let second_try = crate::undo::Snapshot::take(cx);
     cx.e.late_literals.set(1);
     let again = f(cx);
@@ -3739,7 +3745,7 @@ pub(crate) fn check_value(
                 }
             }
             let terms = if relevant {
-                retrying(cx, |cx| check_items(cx, items, &elem))?
+                retrying(cx, true, |cx| check_items(cx, items, &elem))?
             } else {
                 check_items(cx, items, &elem)?
             };
@@ -3856,6 +3862,7 @@ fn append_tried(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (a, b, ty) = match first {
         Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
         Err(e) if e.code == "E-CANNOT-INFER" => {
+            crate::queue::note_append_other_side();
             let (b, ty) = infer(cx, b)?;
             let (b, ty) = insert(cx, b, ty)?;
             (check(cx, a, &ty)?, b, ty)
@@ -3915,7 +3922,7 @@ pub(crate) fn check_if(
         return Err(proof_if_error(cx, binder, cond));
     }
     if unknown && defers_literal(cx, then)? {
-        return retrying(cx, |cx| {
+        return retrying(cx, true, |cx| {
             check_if_in(cx, binder, cond, then, otherwise, expected)
         });
     }
