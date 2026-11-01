@@ -1,5 +1,5 @@
 {
-  "next": 963,
+  "next": 964,
   "tickets": [
     {
       "id": 47,
@@ -2580,7 +2580,7 @@
     {
       "id": 961,
       "title": "AoC 2021 day 10: Syntax Scoring, with proofs",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2602,6 +2602,21 @@
         "hashes"
       ],
       "body": "Found 1 Nov 2026 while merging AoC day 10. examples/accept/float-playlist.sw's proofs hash differently in debug and release builds, every run:\n- `cargo nextest run --release -p stitchwort-driver --test hash_stability examples` passes (Main.nextStartNotEarlier 460aa8c3…).\n- the same without --release fails: nextStartNotEarlier 087ab8f8…, startTimesAscend and playlistAscends also differ. Repeated twice, same values.\nSo the elaborated proof term depends on the build profile. Hashes are meant to depend only on content.\nUntraced suspects: `#[cfg(debug_assertions)]` code in elab: queue.rs:1302 `assert_rule_closed` (runs head_meta on waiting items in a debug build only; if that forces or fills a meta, terms can differ) and rows.rs:742; or a float computation that differs in debug.\nImpact: merge tier runs --release so it's green; a lane running hash_stability in debug sees a false failure. Correctness: debug assertions must not change what is elaborated.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 963,
+      "title": "Day 10: Std.Parse has no reading lemmas; lambda arg elaborated before later arg fixes type; absurd pattern in multi-column match; ++ normaliser; median/injectivity std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 10 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Std.Parse has no lemmas about what it reads: a Parse.eachLine/many1/pick parser gave right answers but couldn't be proved, so the parser was rewritten by hand to prove parseReadsLines (D2108). Fix: std lemmas for eachLine, many1, pick (medium-large). Also `pick` with 8 choices says \"expected '(' or '[' or …\"; a comma list reads better (small).\n(2) Elaboration order: a lambda argument checked before a later argument fixed its type (hypothesis showed `?8 … = Ok token`; rewrite found nothing). Workaround: put the lambda parameter last. `firstIllegalOfScan _ Curly rfl` failed E-REFL with `scan [] […, …]` but checked with the line written (guess, unverified: rfl checked before the hole was solved; the … hid what was stuck). Relevant to postponement (SW-817).\n(3) Absurd pattern `()` in a multi-column match arm: E-NOT-EMPTY shows a type not refined by the other columns' patterns; two unrelated later arms then get false W-REDUNDANT. Nested `match h with | ()` was a parse error blaming the next arm. Workaround `h => cases`. Fix: refine by other columns; failed arm doesn't count toward coverage (medium).\n(4) Implicit argument not found through a definition: fitting `Completes line (Cons …)` into a constructor failed because `map` was computed one step before unifying; workaround explicit `[closers := …]` (medium).\n(5) No normaliser for `++` shapes: chains of appendAssoc (medium).\n(6) Small: no \"did you mean foldLeft\" for `foldl`; goals print `Legal` unfolded as ∃; search printed a type with an unreduced `(x => …) y`; search --at \"applicable\" list includes Bool.canonicalTrue which leaves the goal unchanged (drop no-op results).\nStd candidates: getOrMem, countAtMostLength, countSplit, traverseMap, mapSndWithIndex (small each); median lemmas (≤ k below index k of a sorted list; odd-count median unique) (medium); generated constructor injectivity lemmas (medium).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
