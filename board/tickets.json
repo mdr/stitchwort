@@ -3243,7 +3243,7 @@
     {
       "id": 1005,
       "title": "AoC tidy-up after SW-997: drop omega workarounds (Offset predToInt, day 17 and others noted in NOTES-2021)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3252,7 +3252,9 @@
       "body": "D2125 option C (Matt, 1 Nov 2026). SW-997 taught omega (n + 1).toInt - 1 (computed Int.subNatNatFrom gaps), Nat.divStep division, and disjunctions with a refuted side. Remove workarounds that existed only for those gaps, e.g. Common/Proofs/Offset.sw predToInt (stated over m because omega couldn't read (n + 1).toInt - 1), and any in 2021 day 17 or elsewhere in aoc/ noted in aoc/NOTES-2021.md. Update the notes.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "f979a876"
+      ]
     }
   ]
 }
