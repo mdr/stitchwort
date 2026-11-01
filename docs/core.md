@@ -16,7 +16,7 @@ The core is the small, explicit language that every Stitchwort definition is tra
 | Evaluation budget, "inconclusive" results | Checking and evaluation run within step, stack-depth and printing budgets; running out is `E-RESOURCE`, which gives no answer rather than a wrong one ([error codes](#error-codes)) |
 | Caching (§11) | Test results are cached by content hash. Checked declarations are cached per library file and project namespace (the check cache, trusted on load); generated JS isn't cached yet |
 | Numbers | `Nat`, plus `Int` as a data type over `Nat`. `Nat` numbers are native and can be any size (see [Numbers](#numbers)) |
-| Pattern matching | Nested patterns, but no overlap warnings |
+| Pattern matching | Nested patterns; an arm earlier arms already cover is the warning `W-REDUNDANT` |
 | Declaration order | Free: every name is visible throughout its module, definitions may call each other ([groups](#groups-of-definitions)), and data types may refer to each other ([data groups](#groups-of-data-types)) |
 | Data types | Parameters and indices ([indexed families](proposals/indexed-families.md): declarations, and `case` with unification, below; syntax in docs/syntax.md). Equality is built in |
 | Universes | Numbered, no polymorphism, no cumulativity |
