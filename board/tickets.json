@@ -1,5 +1,5 @@
 {
-  "next": 1022,
+  "next": 1023,
   "tickets": [
     {
       "id": 47,
@@ -778,9 +778,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-01",
       "commits": []
     },
     {
@@ -790,9 +790,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-01",
       "commits": []
     },
     {
@@ -3498,6 +3498,20 @@
         "std"
       ],
       "body": "D2161 (Matt, 1 Nov 2026), from the review of docs/research/aoc-corpus-review.md.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1022,
+      "title": "AoC: hand-written enum membership proofs and day 20 BFS onto std; 2021 day 16 rejects trailing bits",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2162 (Matt, 1 Nov 2026), from the AoC corpus review: (a) enum membership proved by hand in 2021/Day08/Proofs/Facts.sw:21-28 and 2024/Day16/Day16.sw:125; (b) 2024 day 20 could use std Graph.breadthFirst (Graph/Search.sw:610) instead of distances; (c) 2021 day 16 decodeTransmission ignores trailing bits (Day16.sw:197 matches Some ((packet, _))): check the leftover. Not doing: the main speed-ups (C2-C4; standard structure kept) and 2024 inputs past day 10 (none yet).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
