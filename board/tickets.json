@@ -1,5 +1,5 @@
 {
-  "next": 1012,
+  "next": 1013,
   "tickets": [
     {
       "id": 47,
@@ -3201,7 +3201,7 @@
     {
       "id": 1002,
       "title": "Std.Parse reading lemmas, part 2: section/sections/blankLine/findAll/repeat/natDigits/recursive; specs about what follows",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3210,7 +3210,9 @@
       "body": "Left open by SW-998. (1) No Reads lemmas for section, sections, blankLine (labelWhole carries a mark, needs its own tree lemma), findAll, repeat, natDigits, recursive. (2) A Reads spec relates the text read to the value, not to what follows, so 'a number with no digit after it' and 'nothing is left' can't be stated; the runners handle end themselves. (3) readsBind needs the parser's next step spelled out because unification won't unfold a parser's definition; naming pieces as defs keeps it short.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "048fc2fb"
+      ]
     },
     {
       "id": 1003,
@@ -3342,6 +3344,20 @@
       "commits": [
         "2c6456d1"
       ]
+    },
+    {
+      "id": 1012,
+      "title": "Std.Parse: Parse.ReadsLeaving, a reading spec that also sees the rest of the input (D2133)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1002 item 3 (design sketch). Options: A ReadsLeaving p spec (spec read left value), Reads defined from it so existing lemmas keep their shape; rest-aware lemmas for end, lineEnd, span/nat/natDigits stopping, findAll; wholeReads/allReads derived from readsEnd + sequencing. B separate Leaves p cond (cheap, composes badly). C next char only. D keep as is. Lane recommends A. Awaiting Matt (D2133).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
     }
   ]
 }
