@@ -422,8 +422,11 @@ def Parse.sections (parser: () → {Parse} a): {Parse} (List a) := Parse.sepBy1 
 -- `parser` on a line after the first of a `section`. If it fails, a blank
 -- line before this line is also expected there: the section may have ended.
 -- Where the line starts, that is a blank line, as `blankLine` expects there.
-def Parse.sectionLine (parser: () → {Parse} a): {Parse} a :=
-  let start := Parse.mark()
+def Parse.sectionLine (parser: () → {Parse} a): {Parse} a := Parse.sectionLineFrom Parse.mark() parser
+
+-- `sectionLine` once it has marked where the line starts. A function of
+-- its own so that proofs (Parse/Reads.sw) can name it.
+def Parse.sectionLineFrom (start: Parse.Mark) (parser: () → {Parse} a): {Parse} a :=
   handle parser() with
     | return value => value
     | Parse.span passes, k => k (Parse.span passes)
@@ -551,33 +554,39 @@ def Parse.labelFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a):
 -- Megaparsec keeps the error that got furthest.
 def Parse.labelWhole (what: Text) (parser: () → {Parse} a): {Parse} a :=
   let start := Parse.mark()
-  let further := (furthest: Parse.Mark) =>
-    let here := Parse.mark()
-    if here.offset > furthest.offset then here else furthest
-  let go: Parse.Mark → {Parse} a :=
-    handle parser() with
-      | return value => furthest => value
-      | Parse.span passes, k => furthest =>
-        let read := Parse.span passes
-        k read (further furthest)
-      | Parse.next passes, k => furthest =>
-        let read := Parse.next passes
-        k read (further furthest)
-      | Parse.literal chars, k => furthest =>
-        let read := Parse.literal chars
-        k read (further furthest)
-      | Parse.mark u, k => furthest => k Parse.mark() furthest
-      | Parse.reset at, k => furthest =>
-        Parse.reset at
-        k () furthest
-      | Parse.note problem, k => furthest => k () furthest
-      | Parse.stop u, k => furthest =>
-        Parse.reset furthest
-        Parse.note (Expected what)
-        Parse.reset start
-        Empty.absurd Parse.stop()
-      | Parse.fatal message, k => furthest => Empty.absurd (Parse.fatal message)
-  go start
+  Parse.labelWholeFrom what start parser start
+
+-- The further on of `furthest` and where the parse is.
+def Parse.further (furthest: Parse.Mark): {Parse} Parse.Mark :=
+  let here := Parse.mark()
+  if here.offset > furthest.offset then here else furthest
+
+-- `labelWhole` once it has marked where it started, given the furthest
+-- point read to so far. A function of its own so that proofs
+-- (Parse/Reads.sw) can name it.
+def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a): Parse.Mark → {Parse} a :=
+  handle parser() with
+    | return value => furthest => value
+    | Parse.span passes, k => furthest =>
+      let read := Parse.span passes
+      k read (Parse.further furthest)
+    | Parse.next passes, k => furthest =>
+      let read := Parse.next passes
+      k read (Parse.further furthest)
+    | Parse.literal chars, k => furthest =>
+      let read := Parse.literal chars
+      k read (Parse.further furthest)
+    | Parse.mark u, k => furthest => k Parse.mark() furthest
+    | Parse.reset at, k => furthest =>
+      Parse.reset at
+      k () furthest
+    | Parse.note problem, k => furthest => k () furthest
+    | Parse.stop u, k => furthest =>
+      Parse.reset furthest
+      Parse.note (Expected what)
+      Parse.reset start
+      Empty.absurd Parse.stop()
+    | Parse.fatal message, k => furthest => Empty.absurd (Parse.fatal message)
 
 -- `body` with `self` for its nested parser, at most `fuel` levels deep.
 def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {Parse} a :=

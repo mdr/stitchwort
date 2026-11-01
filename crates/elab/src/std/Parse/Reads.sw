@@ -1136,3 +1136,198 @@ theorem Parse.readsOneOf (spec: List Char → a → Prop):
   match alternatives with
     | Nil => Parse.readsFail _ spec
     | Cons first rest => Parse.readsOneOfFrom spec first (And.left all) rest (And.right all)
+
+-- Sections and blank lines (SW-1002).
+
+-- A handler that passed `p` on, as `label` does, left a run of `p` then
+-- `(v, mark())`: what `p` read.
+theorem Parse.readsFromRun (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec) (state: Parse.State) (value: a)
+    (after: Parse.Mark) (honest: state.at.left = state.at.rest.length) (v: a) (middle: Parse.State)
+    (ran: Parse.runFrom state (() => (p(), Parse.mark())) = Ok (v, middle.at)) (rest: Parse.runFrom middle (() => (v, Parse.mark())) = Ok (value, after)):
+    ∃ (read: List Char) => state.at.rest = read ++ after.rest ∧ after.left = after.rest.length ∧ spec read value :=
+  match reads state v middle.at honest ran with
+    | Witness read (Both starts (Both honest1 holds)) =>
+      let same := Result.okInjective _ _ rest
+      let valueSame: v = value := Pair.mkInjectiveFst _ _ _ _ same
+      let atSame: middle.at = after := Pair.mkInjectiveSnd _ _ _ _ same
+      Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
+
+-- `sectionLineFrom start q` that let the rest succeed: `q` succeeded on
+-- its own. It passes each of `q`'s operations on, and adds a note only
+-- when `q` stops.
+theorem Parse.runFromSectionLineFromOkTree (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark) (s: Parse.State)
+    (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.sectionLineFrom start q)) = Ok w):
+    ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
+  match reify q with
+    | return x => Witness x (Witness s (Both rfl h))
+    | Parse.span passes, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd k w h
+    | Parse.next passes, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w h
+    | Parse.literal chars, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          Parse.runFromSectionLineFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w h
+    | Parse.mark u, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r s.at) (later s.at) start s k w h
+    | Parse.reset at, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r ()) (later ()) start { s | at } k w h
+    | Parse.note problem, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r ()) (later ()) start (s.note problem) k w h
+    | Parse.stop u, r => Void.exfalso (Result.errNotOk _ w h)
+    | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
+
+-- `sectionLine p` reads what `p` read.
+theorem Parse.readsSectionLine (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
+    Parse.Reads (() => Parse.sectionLine p) spec :=
+  state value after honest h =>
+    match Parse.runFromSectionLineFromOkTree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) state.at state (x => (x, Parse.mark()))
+      (value, after) h with
+      | Witness v (Witness middle (Both ran rest)) => Parse.readsFromRun p spec reads state value after honest v middle ran rest
+
+-- `labelWholeFrom what start q furthest` that let the rest succeed: `q`
+-- succeeded on its own. The handler passes `q`'s reading on, carries the
+-- furthest point along, which only a failure uses, and drops `q`'s notes,
+-- which only change what an error says (`Parse.runFromAt`).
+theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
+    (furthest: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w):
+    ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
+  match reify q with
+    | return x => Witness x (Witness s (Both rfl h))
+    | Parse.span passes, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          match c: (s.span passes).snd.at.offset > furthest.offset with
+            | True =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd.at (s.span passes).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+            | False =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.span passes).fst) (later (s.span passes).fst) start furthest (s.span passes).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+    | Parse.next passes, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          match c: (s.next passes).snd.at.offset > furthest.offset with
+            | True =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd.at (s.next passes).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+            | False =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start furthest (s.next passes).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+    | Parse.literal chars, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          match c: (s.literal chars).snd.at.offset > furthest.offset with
+            | True =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd.at (s.literal chars).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+            | False =>
+              Parse.runFromLabelWholeFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start furthest (s.literal chars).snd k w
+                (rewrite Effect.translateNoOp _ at h in h)
+    | Parse.mark u, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          Parse.runFromLabelWholeFromOkTree what (() => r s.at) (later s.at) start furthest s k w (rewrite Effect.translateNoOp _ at h in h)
+    | Parse.reset at, r =>
+      match tree with
+        | AlwaysCall _ _ later => Parse.runFromLabelWholeFromOkTree what (() => r ()) (later ()) start furthest { s | at } k w (rewrite Effect.translateNoOp _ at h in h)
+    | Parse.note problem, r =>
+      match tree with
+        | AlwaysCall _ _ later =>
+          match Parse.runFromLabelWholeFromOkTree what (() => r ()) (later ()) start furthest s k w (rewrite Effect.translateNoOp _ at h in h) with
+            | Witness v (Witness after (Both ran rest)) =>
+              let moved := Parse.runFromAt (() => (r (), Parse.mark())) s (s.note problem) _ ran
+              let noted: ({ s.note problem | at = s.at }) = s.note problem :=
+                Eq.trans (Eq.cong (at => ({ s.note problem | at })) (Eq.sym (Parse.noteAt s problem))) (Parse.withAtSelf (s.note problem))
+              Witness v (Witness after (Both (rewrite noted at moved in moved) rest))
+    | Parse.stop u, r => Void.exfalso (Result.errNotOk _ w h)
+    | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
+
+-- `labelWhole what p` reads what `p` read.
+theorem Parse.readsLabelWhole (what: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
+    Parse.Reads (() => Parse.labelWhole what p) spec :=
+  state value after honest h =>
+    match Parse.runFromLabelWholeFromOkTree what p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) state.at state.at state
+      (x => (x, Parse.mark())) (value, after) h with
+      | Witness v (Witness middle (Both ran rest)) => Parse.readsFromRun p spec reads state value after honest v middle ran rest
+
+-- What `blankLine` reads: a line break, spaces and tabs, a line break.
+def Parse.BlankLine (read: List Char): Prop :=
+  ∃ (first: List Char) => ∃ (middle: List Char) => ∃ (last: List Char) =>
+    read = first ++ (middle ++ last) ∧ Parse.LineBreak first ∧ middle.all Parse.isSpace = True ∧ Parse.LineBreak last
+
+theorem Parse.readsBlankLine: Parse.Reads Parse.blankLine (read u => Parse.BlankLine read) :=
+  Parse.readsLabelWhole "a blank line"
+    (() =>
+      Parse.newline()
+      Parse.spaces()
+      Parse.newline())
+    _
+    (Parse.readsWeaken _ _ _
+      (Parse.readsBind Parse.newline
+        (u =>
+          Parse.spaces()
+          Parse.newline())
+        _ (u => Parse.Then (read u => read.all Parse.isSpace = True) (u read v => Parse.LineBreak read)) Parse.readsNewline
+        (u => Parse.readsBind Parse.spaces (u => Parse.newline()) _ (u read v => Parse.LineBreak read) Parse.readsSpaces (u => Parse.readsNewline)))
+      (read u h =>
+        match h with
+          | Witness first (Witness rest (Witness u1 (Both split (Both breaks inner)))) =>
+            match inner with
+              | Witness middle (Witness last (Witness u2 (Both split2 (Both spaced breaks2)))) =>
+                Witness first (Witness middle (Witness last (Both (rewrite split, split2 in rfl) (Both breaks (Both spaced breaks2)))))))
+
+-- `sections p`: `p`'s blocks, a blank line between each two.
+theorem Parse.readsSections (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
+    Parse.Reads (() => Parse.sections p) (Parse.SepBy spec (read u => Parse.BlankLine read)) :=
+  Parse.readsSepBy1 p Parse.blankLine spec _ reads Parse.readsBlankLine
+
+-- What `section p` reads: one value per line, line breaks between, then a
+-- blank line.
+def Parse.Section (spec: List Char → a → Prop) (read: List Char) (values: List a): Prop :=
+  ∃ (linesRead: List Char) => ∃ (blankRead: List Char) =>
+    read = linesRead ++ blankRead ∧ Parse.SepBy spec (read u => Parse.LineBreak read) linesRead values ∧ Parse.BlankLine blankRead
+
+theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): Parse.Reads (() => Parse.section p) (Parse.Section spec) :=
+  Parse.readsWeaken _ _ _
+    (Parse.readsBind p
+      (first =>
+        let rest := Parse.many (() =>
+          Parse.newline()
+          Parse.sectionLine p)
+        Parse.blankLine()
+        Cons first rest)
+      spec
+      (first =>
+        Parse.Then (Parse.Each (Parse.Then (read u => Parse.LineBreak read) (u => spec))) (rest read values => Parse.BlankLine read ∧ values = Cons first rest))
+      reads
+      (first =>
+        Parse.readsBind
+          (() =>
+            Parse.many (() =>
+              Parse.newline()
+              Parse.sectionLine p))
+          (rest =>
+            Parse.blankLine()
+            Cons first rest)
+          _ (rest read values => Parse.BlankLine read ∧ values = Cons first rest)
+          (Parse.readsMany _ _ (Parse.readsBind Parse.newline (u => Parse.sectionLine p) _ (u => spec) Parse.readsNewline (u => Parse.readsSectionLine p spec reads)))
+          (rest =>
+            Parse.readsWeaken _ _ _ (Parse.readsMap Parse.blankLine (u => Cons first rest) _ Parse.readsBlankLine)
+              (read values h =>
+                match h with
+                  | Witness u (Both blank same) => Both blank same))))
+    (read values h =>
+      match h with
+        | Witness firstRead (Witness restRead (Witness first (Both split (Both holds inner)))) =>
+          match inner with
+            | Witness eachRead (Witness blankRead (Witness rest (Both split2 (Both each (Both blank same))))) =>
+              Witness (firstRead ++ eachRead)
+                (Witness blankRead
+                  (Both (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead in rfl)
+                    (Both (Witness first (Witness rest (Both same (Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds each)))))))) blank))))
