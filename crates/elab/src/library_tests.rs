@@ -57,6 +57,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
             },
             names: Vec::new(),
             edges: Vec::new(),
+            equation_needs: Default::default(),
         };
         let keys: Vec<String> = file_names(&scratch, &alone)
             .expect("names")

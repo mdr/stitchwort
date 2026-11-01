@@ -38,6 +38,12 @@
 //! proved by `f.unfold`; an `opaque` one's equations are checked with
 //! `unfolding f`, as `f.unfold` is (§4).
 //!
+//! **When.** A program's definitions get theirs when they're checked. The
+//! core's and the library's are made on demand (D2178's fallback: eager,
+//! they cost every start), when first named (a module's needs) or listed
+//! (`search`), from their source in the library index
+//! ([`Elaborator::ensure_equations`]).
+//!
 //! What isn't generated (§3.2, "Not generated") is recorded with the reason,
 //! and naming it is `E-NO-EQUATION` ([`no_equation`]).
 
@@ -546,14 +552,18 @@ impl Elaborator {
         f: DefId,
         signature: &Decl,
         equations: &[Decl],
+        key: Option<&str>,
     ) -> Result<()> {
         let Decl::Signature { name, theorem, .. } = signature else {
             return Ok(());
         };
         if *theorem {
-            return self.generate_equations(f, signature, equations, Kind::Plain);
+            return self.generate_equations_keyed(f, signature, equations, Kind::Plain, key);
         }
-        let key = self.declaration_key(name)?;
+        let key = match key {
+            Some(k) => k.to_string(),
+            None => self.declaration_key(name)?,
+        };
         let Some(unfold) = self.lookup_def(&format!("{key}.unfold")) else {
             return Ok(());
         };
@@ -570,7 +580,7 @@ impl Elaborator {
         let Some(header) = tel.iter().position(|b| &*b.name == crate::decreasing::REC) else {
             return Ok(());
         };
-        self.generate_equations(
+        self.generate_equations_keyed(
             f,
             signature,
             equations,
@@ -579,6 +589,7 @@ impl Elaborator {
                 unfold,
                 header,
             },
+            Some(&key),
         )
     }
 
@@ -595,7 +606,8 @@ impl Elaborator {
         self.generate_equations_keyed(f, signature, equations, kind, None)
     }
 
-    /// [`Self::generate_equations`], for a local definition by its key.
+    /// [`Self::generate_equations`], for a definition by its key (a local
+    /// one, or one made on demand outside its own module).
     fn generate_equations_keyed(
         &mut self,
         f: DefId,
@@ -772,6 +784,33 @@ impl Elaborator {
             rows,
             columns,
         };
+        let mut d = d;
+        // Made on demand, after the definition: its leaves weren't
+        // recorded, so its arms are compiled again.
+        if d.leaves.is_empty() {
+            let why = match self.recompute_leaves(&d, &arms, def_name.span) {
+                Ok(Some(leaves)) => {
+                    d.leaves = leaves;
+                    None
+                }
+                Ok(None) => Some(
+                    "an arm with `()` keeps a definition's equations from being made on demand"
+                        .to_string(),
+                ),
+                Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
+                Err(Stop::Error(e)) => Some(format!(
+                    "its arms couldn't be compiled again: {}",
+                    e.message
+                )),
+                Err(Stop::Skip(why)) => Some(why),
+            };
+            if let Some(why) = why {
+                for r in &d.rows {
+                    self.equation_skips.push((f, r.suffix(), why.clone()));
+                }
+                return Ok(());
+            }
+        }
         self.equations_of(&d, def_name.span)
     }
 
@@ -1913,6 +1952,237 @@ impl Elaborator {
             self.generate_equations_keyed(*id, &def.signature, &def.equations, kind, Some(key))?;
         }
         Ok(())
+    }
+
+    /// Whether a top-level definition's equations are made on demand, not
+    /// with it: the core's and the library's (D2178's fallback). The core
+    /// loads at every start, the playground's included, and a library
+    /// file without the check cache with whatever uses it, so their
+    /// equations, made eagerly, cost every run (+11% of a small program's
+    /// steps). A program's own stay eager. Local definitions' too.
+    pub(crate) fn defers_equations(&self) -> bool {
+        self.loading_prelude
+    }
+
+    /// Makes the equations of the library's and the core's definitions
+    /// with these keys (a reference to `f.eq2` names `f`), from their
+    /// source in the library index, if they aren't made yet.
+    pub(crate) fn ensure_equations<'a>(
+        &mut self,
+        keys: impl IntoIterator<Item = &'a String>,
+    ) -> Result<()> {
+        let keys: Vec<String> = keys.into_iter().cloned().collect();
+        for key in keys {
+            self.ensure_equations_of(&key)?;
+        }
+        Ok(())
+    }
+
+    fn ensure_equations_of(&mut self, key: &str) -> Result<()> {
+        if self.equations_done.iter().any(|k| k == key) {
+            return Ok(());
+        }
+        let Some(lib) = &self.library else {
+            return Ok(());
+        };
+        let index = lib.index.clone();
+        let Some(f) = index.owner(key) else {
+            return Ok(());
+        };
+        let Some(id) = self.lookup_def(key) else {
+            return Ok(());
+        };
+        if self.globals.def(id).state() != stitchwort_core::globals::State::Final {
+            return Ok(());
+        }
+        let file = &index.files[f];
+        let Some(span) = (file.names.iter()).find(|n| n.key == key).map(|n| n.span) else {
+            return Ok(());
+        };
+        let Some((signature, equations)) = crate::project::grouped(&file.module.decls)
+            .into_iter()
+            .find(|(d, _)| matches!(d, Decl::Signature { name, .. } if name.span == span))
+        else {
+            return Ok(());
+        };
+        self.equations_done.push(key.to_string());
+        // Made with the definition already (a library file replayed from
+        // the check cache, whose own proofs named them).
+        if source_suffixes(equations)
+            .first()
+            .is_some_and(|s| self.scope.get(&format!("{key}.{s}")).is_some())
+        {
+            return Ok(());
+        }
+        let saved_item = self.module.item.take();
+        // Their full names are the library's, wherever they're made.
+        let saved_module = std::mem::replace(&mut self.globals.module, "Std".into());
+        let saved_leaves = std::mem::take(&mut self.leaf_log.borrow_mut().leaves);
+        let decreasing = matches!(
+            signature,
+            Decl::Signature {
+                decreasing: Some(_),
+                ..
+            }
+        );
+        let opaque = matches!(signature, Decl::Signature { opaque: true, .. });
+        let result = if decreasing {
+            self.decreasing_equations(id, signature, equations, Some(key))
+        } else {
+            let kind = if opaque { Kind::Opaque } else { Kind::Plain };
+            self.generate_equations_keyed(id, signature, equations, kind, Some(key))
+        };
+        self.leaf_log.borrow_mut().leaves = saved_leaves;
+        self.module.item = saved_item;
+        self.globals.module = saved_module;
+        result
+    }
+
+    /// The equations of the library file being loaded's own definitions
+    /// that its proofs name: made, as on demand, once the definitions are.
+    pub(crate) fn ensure_loading_file_equations(&mut self) {
+        let (Some(f), Some(lib)) = (self.scope.loading, &self.library) else {
+            return;
+        };
+        let needs = lib.index.files[f].equation_needs.clone();
+        if !needs.is_empty() {
+            let _ = self.ensure_equations(&needs);
+        }
+    }
+
+    /// Makes every put-off equation of the core and the loaded library
+    /// files: for listing them all (`search`, `doc`).
+    pub fn generate_deferred_equations(&mut self) -> Result<()> {
+        let Some(lib) = &self.library else {
+            return Ok(());
+        };
+        let index = lib.index.clone();
+        let mut files = vec![0];
+        files.extend(lib.order.iter().copied());
+        for f in files {
+            let keys: Vec<String> = crate::project::grouped(&index.files[f].module.decls)
+                .into_iter()
+                .filter(|(d, e)| {
+                    matches!(
+                        d,
+                        Decl::Signature {
+                            theorem: false,
+                            instance: false,
+                            ..
+                        }
+                    ) && source_arms(e).is_some()
+                })
+                .filter_map(|(d, _)| {
+                    let Decl::Signature { name, .. } = d else {
+                        return None;
+                    };
+                    (index.files[f].names.iter())
+                        .find(|n| n.span == name.span)
+                        .map(|n| n.key.clone())
+                })
+                .collect();
+            self.ensure_equations(&keys)?;
+        }
+        Ok(())
+    }
+
+    /// The leaves of the definition's case tree, when none were recorded
+    /// (its equations made on demand, after it): its arms compiled again,
+    /// as its body was, with a probe for each body, under a root of their
+    /// own, and read off the log. `None` for an arm with `()`, which
+    /// compiles differently as an alternative of a `match`.
+    fn recompute_leaves(
+        &mut self,
+        d: &Def,
+        arms: &[(Vec<Pattern>, bool, Span)],
+        root: Span,
+    ) -> R<Option<Vec<Leaf>>> {
+        if arms.iter().any(|(_, has_rhs, _)| !has_rhs) {
+            return Ok(None);
+        }
+        let g = &self.globals;
+        let n = d.binders.len();
+        let pred_ty = eval(g, &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
+        let nav = self.nav.take();
+        let lambda_warnings = self.lambda_warnings.borrow().len();
+        let branch_errors = self.branch_errors.borrow().len();
+        let logged = self.leaf_log.borrow().leaves.len();
+        let saved_root = self.leaf_log.borrow_mut().enter_root(root);
+        let result = (|| -> Result<Option<()>> {
+            let mut cx = Ctx::new(self, root);
+            cx.bind_hidden("%P".into(), pred_ty.clone());
+            for (i, b) in d.binders.iter().enumerate() {
+                let ty = eval(g, &cx.env[1..], &b.ty)?;
+                if let Some(value) = &d.special[i] {
+                    let ty_term = cx.quote(&ty)?;
+                    cx.define(
+                        Some(&d.names[i]),
+                        b.name.clone(),
+                        ty,
+                        ty_term,
+                        value.clone(),
+                    )?;
+                } else {
+                    cx.bind(&d.names[i], ty);
+                }
+                cx.set_kind(b.icit);
+            }
+            let goal_term = apps(
+                Term::Var(n),
+                (0..n).map(|i| (Term::Var(n - 1 - i), d.binders[i].icit)),
+            );
+            let goal = cx.eval(&goal_term)?;
+            let var = |text: &str, span: Span| {
+                Expr::Var(ast::Name {
+                    text: text.into(),
+                    span,
+                })
+            };
+            let expr = Expr::Match {
+                scrutinees: d
+                    .columns
+                    .iter()
+                    .map(|&i| Scrutinee {
+                        name: None,
+                        expr: var(&d.names[i], root),
+                    })
+                    .collect(),
+                alts: arms
+                    .iter()
+                    .map(|(patterns, _, span)| Alt {
+                        patterns: patterns.clone(),
+                        body: var(PROBE, *span),
+                        span: *span,
+                    })
+                    .collect(),
+                span: root,
+                kind: MatchKind::Match,
+            };
+            match crate::matching::in_tree(&mut cx, &expr, &goal) {
+                None => Ok(None),
+                Some(r) => r.map(|_| Some(())),
+            }
+        })();
+        self.nav = nav;
+        self.lambda_warnings.borrow_mut().truncate(lambda_warnings);
+        self.branch_errors.borrow_mut().truncate(branch_errors);
+        let leaves = {
+            let mut log = self.leaf_log.borrow_mut();
+            log.leave_root(saved_root);
+            let leaves: Vec<Leaf> = log.leaves[logged..]
+                .iter()
+                .filter(|l| l.root == root)
+                .cloned()
+                .collect();
+            log.leaves.truncate(logged);
+            leaves
+        };
+        self.clear_metas();
+        match result {
+            Ok(Some(())) => Ok(Some(leaves)),
+            Ok(None) => Ok(None),
+            Err(e) => Err(Stop::Error(e)),
+        }
     }
 }
 

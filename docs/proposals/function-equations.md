@@ -908,10 +908,12 @@ std change does.
 SW-1035, 1 November 2026: `crates/elab/src/equations.rs`. Every definition with arms gets
 `f.eqK` for arm K (`f.eqK.orN` for each alternative of an arm with or-patterns), stated and
 proved as designed in §3.1, §3.2 and §4, with the hypotheses of D2175. In std that is **1,221
-equations**, all checked by the kernel; the AoC project's check makes 1,859 (std's files it loads
-included), the roguelike's 1,166 **[measured]**. Each is an ordinary theorem: nothing new is
-trusted, and no existing declaration's hash changed (the hash snapshots of every example, project
-and the prelude gained 2,690 lines, each a generated `f.eqK`, and lost none) **[measured]**.
+equations** when all are made, all checked by the kernel; a program's own are made with it (the
+AoC project's check made 1,859 when std's were eager, the roguelike's 1,166) **[measured]**.
+Each is an ordinary theorem: nothing new is trusted, and no existing declaration's hash changed:
+the hash snapshots of every example and project only gained lines, each a generated `f.eqK`, and
+the prelude's is unchanged **[measured]**. The library's and the core's are made on demand (the
+cost gate, below).
 
 ```
 List.filter.eq2 [a: Type] (p: a → Bool) (x: a) (xs: List a):
@@ -958,8 +960,17 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
   note, and a local definition called `eq`, `eqK` or `induct` is `E-LOCAL-DEFINITION`. The
   library index lists `f.eqK` and `f.eqK.orN` for every definition with arms, as candidates.
 - **Search** lists them like any theorem, after the written theorems of the same relation and
-  place (below). `search_bench`'s self-retrieval queries are the written theorems; the equations
-  are candidates.
+  place (below; **accepted**, Matt, 1 November 2026). `search_bench`'s self-retrieval queries are
+  the written theorems; the equations are candidates.
+- **On demand** (D2178's fallback, below): a top-level definition of the core or a library file
+  gets its equations when they're first named, not when it's checked. A reference to `f.eq2`
+  (as a name, or `f`'s field) is one of the module's needs, as a library file is: the
+  equations are made after the files load and before the module's check-cache entry starts, so
+  never part of it, and the entry lists them so a replay makes them first. They're made from
+  the definition's source in the library index, its leaves found by compiling its arms again (a
+  definition with a `()` arm can't be, and says so). A library file's own proofs that name its
+  equations get them once the definition is final. `search` (and `doc`, which lists through it)
+  makes every put-off equation before it lists. Local definitions' stay eager.
 
 **Where the code differed from this note.**
 
@@ -992,7 +1003,7 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
    `Std.Ring.polySubSelfExample`). A generated equation now ranks after the written theorems of
    the same relation and place, before specificity, and the benchmark is unchanged: conclusions
    87.9% strict top-1 (MRR 0.914) and left sides 83.2% (MRR 0.893) on the lane sample, with or
-   without the equations as candidates **[measured]**.
+   without the equations as candidates **[measured]**. Accepted (Matt, 1 November 2026).
 4. **The 1a/1b split** is practical. An arm whose right side is a `match` on its own variables
    is compiled into the case tree, so has no arm equation; its alternatives are branches (1b).
    In 1a it is skipped with that reason: `List.chunksOf.eq1`, `Ansi.stripChars.eq1`/`.eq2`, AoC
@@ -1008,12 +1019,17 @@ that an earlier arm covers, or that the case tree never reaches, is skipped too 
 roguelike or the examples (AoC: 1,859 made, 5 skipped, all a `match` on the arm's variables;
 the roguelike: 1,166 and 3) **[measured]**.
 
-**The cost gate (D2178).** std's cold check (every library file loaded eagerly, no cache), one
-run each on a loaded machine: **6,746 ms before, 6,670 ms after** (wall, in process), within
-noise and under the 10% gate, so generation stays eager **[measured]**. At `Garden.fill`'s
-size: `check --no-cache Aoc.Year2024.Day12.Proofs` takes 3.73, 3.82 and 3.73 s user with the
-equations and 3.72, 3.67 and 3.66 s without (about +2%), which includes the equations of every
-std file it loads **[measured]**.
+**The cost gate (D2178) tripped, so the library's and the core's are on demand.** Made eagerly,
+std's cold check (every library file loaded, no cache) was within noise (6,746 ms before, 6,670
+ms after, one run each), and `check --no-cache Aoc.Year2024.Day12.Proofs` about +2% (3.73, 3.82,
+3.73 s user against 3.72, 3.67, 3.66). But a small program's start was not: the benchmark
+`check-closed-*` (the core, and the library files `List.range` needs, checked without the cache,
+as the playground does) took 1,236,425 steps (+14.9% over the recorded baseline, against main's
++3.6%), +25% allocations, +29% peak heap and 88 ms. With the library's and the core's equations
+on demand it takes 1,114,756 steps, 1,171,710 allocations and 3.1 MB, main's numbers, and 77 ms
+**[measured: `stitchwort-bench check-closed-rfl`, once before and once after]**. The cost was
+the library files', not the core's: putting off only the core's left it unchanged. A program's
+own equations stay eager (its namespace is cached).
 
 
 ## Sources

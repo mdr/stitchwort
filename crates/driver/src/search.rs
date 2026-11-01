@@ -565,6 +565,9 @@ impl Session {
         scope: &Scope,
     ) -> Result<Report, Diagnostic> {
         let query = parse(text).map_err(|m| Diagnostic::error("E-SEARCH-QUERY", m))?;
+        // The core's equations, put off until now (`equations.rs`): search
+        // lists them like any theorem.
+        self.elab.generate_deferred_equations()?;
         self.import_library_namespaces();
         if let Scope::Project(namespaces) = scope
             && !namespaces.is_empty()

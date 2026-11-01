@@ -5,6 +5,8 @@ expression: "lines(session, d, f)"
 ---
 data Main.Num af2c5f5f96ea4edfbf84fd2d2be6a6384cb74bf3559fa973317c8085526c95fc
 data Main.Command 9a21b77f2c6530edc6b590351f101ec99fbe4a45a2b7d96c43de67a874212ad5
+Std.List.filter.eq1 478f4be6e2bd89fd54424be513fe739711cb056af244d0ef7d894825b9fbce72
+Std.List.filter.eq2 a960266f99cde5a5bf4b40f6934ef11807449060af65c6a8d01adf5071c97e1b
 Main.Num.%tag 29f8dd2e02e17bf4c9515512f6ee69e7ab7b828b6099bea6abb5fd166a7cb586
 Main.Num.%Reg%0 d9b5f6badc7a36c37cd5661229602f209f9c5b555a033f7d77ca964aaf10d4c0
 Main.Num.%Pr%0 e192652496075fea7148ddefde80985f2c5aabfb56045a4e63517186b301b970

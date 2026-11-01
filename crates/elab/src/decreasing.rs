@@ -930,7 +930,9 @@ impl Elaborator {
                 if let Err(d) = self.after_definition(signature, f) {
                     out.push((item, d));
                 }
-                if let Err(d) = self.decreasing_equations(f, signature, equations) {
+                if !self.defers_equations()
+                    && let Err(d) = self.decreasing_equations(f, signature, equations, None)
+                {
                     out.push((item, d));
                 }
             }

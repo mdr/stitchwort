@@ -721,6 +721,9 @@ pub struct Elaborator {
     /// The local definitions elaborated in the declaration being checked,
     /// by key, for their equations once their owner is final.
     pub(crate) local_asts: RefCell<Vec<(String, ast::LocalDef)>>,
+    /// The library's and the core's definitions whose equations were made
+    /// on demand (`Elaborator::ensure_equations`), by key. Only grows.
+    pub(crate) equations_done: Vec<String>,
 }
 
 /// A pattern that matches a constructor.
@@ -2634,6 +2637,8 @@ impl Elaborator {
     ) -> Vec<(usize, Diagnostic)> {
         self.leaf_log.borrow_mut().clear();
         self.local_asts.borrow_mut().clear();
+        // A library file's own definitions' equations its proofs name.
+        self.ensure_loading_file_equations();
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
             matches!(
@@ -2843,9 +2848,14 @@ impl Elaborator {
             }
         }
         // Each member's equations (`equations.rs`), once all are final,
-        // and their local definitions'.
+        // and their local definitions'. The library's and the core's are
+        // made on demand (their local definitions' still here).
         if let Err(d) = self.local_equations(&local_helpers, false) {
             out.push((members[0].0, d));
+        }
+        if self.defers_equations() {
+            self.leaf_log.borrow_mut().clear();
+            return out;
         }
         for &(item, signature, equations) in members {
             self.module.item = Some(item);

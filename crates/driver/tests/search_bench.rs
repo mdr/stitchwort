@@ -32,6 +32,11 @@ fn load_library(session: &mut Session) {
         .elab
         .load_all_libraries()
         .expect("the library checks");
+    // The core's equations, as `search` makes them before it lists.
+    session
+        .elab
+        .generate_deferred_equations()
+        .expect("the core's equations");
 }
 
 /// What a benchmark found.

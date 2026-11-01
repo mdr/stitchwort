@@ -643,6 +643,7 @@ impl Elaborator {
                 .map(|&f| index.files[f].path.clone())
                 .collect(),
             dots: needs.dots.iter().cloned().collect(),
+            equations: needs.equations.iter().cloned().collect(),
             includes: self.include_trace.borrow().clone(),
         };
         let unit = UnitOut {
@@ -719,7 +720,10 @@ impl Elaborator {
         // If replay fails from here on, elaborating the namespace declares
         // these again where they are (`taken`).
         self.replayed_names = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
-        if !pre.needs.files.is_empty() || !pre.needs.dots.is_empty() {
+        if !pre.needs.files.is_empty()
+            || !pre.needs.dots.is_empty()
+            || !pre.needs.equations.is_empty()
+        {
             self.load_needs(&pre.needs).map_err(|ds| {
                 Miss::Late(format!(
                     "its library files don't load: {}",
@@ -1044,6 +1048,7 @@ struct NamesOut {
 struct PreOut {
     needs_files: Vec<String>,
     dots: Vec<String>,
+    equations: Vec<String>,
     includes: Vec<(String, Key)>,
 }
 
@@ -1257,6 +1262,10 @@ impl Elaborator {
         e.w.usize(pre.dots.len());
         for field in &pre.dots {
             e.str(field);
+        }
+        e.w.usize(pre.equations.len());
+        for key in &pre.equations {
+            e.str(key);
         }
         e.w.usize(pre.includes.len());
         for (path, hash) in &pre.includes {
@@ -2138,6 +2147,7 @@ impl Pre {
     fn is_empty(&self) -> bool {
         self.needs.files.is_empty()
             && self.needs.dots.is_empty()
+            && self.needs.equations.is_empty()
             && self.includes.is_empty()
             && self.early.is_empty()
     }
@@ -2215,6 +2225,10 @@ impl Elaborator {
         let n = body.count()?;
         for _ in 0..n {
             pre.needs.dots.insert(body.string()?);
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.needs.equations.insert(body.string()?);
         }
         let n = body.count()?;
         for _ in 0..n {
