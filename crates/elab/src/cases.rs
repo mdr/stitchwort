@@ -889,7 +889,18 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             let Value::Data(_, params) = force(g, eq.ty.clone())? else {
                 continue;
             };
-            let field_ty = eval(g, &params, &ctor.fields[i].1)?;
+            // A field's type is in the context of the parameters and the
+            // earlier fields (SW-975: evaluating it under the parameters
+            // alone misread `List a` in `Cons`'s tail and `b` in a pair's
+            // second field). It doesn't mention those fields (checked
+            // above), so either side's fields will do; the left's are used.
+            let np = g.data(eq.d).params.len();
+            let env: Vec<Value> = params[..np]
+                .iter()
+                .chain(&eq.left.1[..i])
+                .cloned()
+                .collect();
+            let field_ty = eval(g, &env, &ctor.fields[i].1)?;
             let fact = Value::Eq(
                 Rc::new(field_ty.clone()),
                 Rc::new(a.clone()),
