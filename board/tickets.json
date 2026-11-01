@@ -3406,7 +3406,7 @@
     {
       "id": 1016,
       "title": "Trip-journal friction, std lemmas: Float Bool-form order, Distinct over appends, appendNewBy keys, and friends",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3415,7 +3415,9 @@
       "body": "D2150 option 3 (Matt, 1 Nov 2026), from SW-999's std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); List distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Check what exists first; switch trip-journal's local copies to std.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "05c8ffb8"
+      ]
     }
   ]
 }
