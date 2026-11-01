@@ -2202,6 +2202,9 @@ fn apply_args_postponing(
         _ => None,
     };
     let mut after_expected = Vec::new();
+    // Proof searches, checked once the rest of the call has said what
+    // their goals are (rule 1 of stage 7).
+    let mut searches = Vec::new();
     // The argument just passed, when it was a name given as a function.
     let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
@@ -2241,14 +2244,7 @@ fn apply_args_postponing(
                         first_error.get_or_insert(e);
                     }
                 }
-                let meta = cx.fresh_meta();
-                let placeholder = cx.eval(&meta)?;
-                ty = cod.apply(cx.g(), placeholder.clone())?;
-                let id = match meta.spine().0 {
-                    Term::Meta(m) => *m,
-                    _ => unreachable!("a fresh metavariable is headed by one"),
-                };
-                term = Term::app(term, meta);
+                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                 after_expected.push((*value, dom, placeholder, id));
             }
             Arg::NamedExplicit(..) => {
@@ -2284,6 +2280,18 @@ fn apply_args_postponing(
                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
                     not_a_function_hint(cx, &term, previous_function_name, value, e)
                 })?;
+                // A proof search (`omega`, `cases`, `ring`, `rewrite`) is
+                // checked last, once the other arguments, the application's
+                // own waiting checks, the expected type and the instances
+                // now findable have fixed its goal (stage 7, rule 1;
+                // docs/proposals/postponement.md): checked here, it would
+                // fail on the unknowns they fix, or solve them by a guess
+                // (`P.ext _ _ cases cases` making the second `_` the first).
+                if proof_search(value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    searches.push((*value, dom, placeholder, id));
+                    continue;
+                }
                 // When retrying, a list of numbers whose element type isn't
                 // known is checked last: in `List.map [1, 2] (x => x): List
                 // Int` the list comes first (D303), and only the lambda ties
@@ -2297,14 +2305,7 @@ fn apply_args_postponing(
                     && numbers_in_list(value)
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
                 {
-                    let meta = cx.fresh_meta();
-                    let placeholder = cx.eval(&meta)?;
-                    ty = cod.apply(cx.g(), placeholder.clone())?;
-                    let id = match meta.spine().0 {
-                        Term::Meta(m) => *m,
-                        _ => unreachable!("a fresh metavariable is headed by one"),
-                    };
-                    term = Term::app(term, meta);
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                     postponed.push((*value, dom, placeholder, id));
                     continue;
                 }
@@ -2333,14 +2334,7 @@ fn apply_args_postponing(
                             return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
                         }
                         first_error.get_or_insert(e);
-                        let meta = cx.fresh_meta();
-                        let placeholder = cx.eval(&meta)?;
-                        ty = cod.apply(cx.g(), placeholder.clone())?;
-                        let id = match meta.spine().0 {
-                            Term::Meta(m) => *m,
-                            _ => unreachable!("a fresh metavariable is headed by one"),
-                        };
-                        term = Term::app(term, meta);
+                        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
                         after_expected.push((*value, dom, placeholder, id));
                         continue;
                     }
@@ -2393,6 +2387,9 @@ fn apply_args_postponing(
     // expected of it: the checks queued while it was elaborated, and only
     // those, are resumed if they can be (W1, scoped; D2014).
     cx.e.resume_application(queued_from)?;
+    if !searches.is_empty() {
+        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), queued_from)?;
+    }
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
         // parameters left to insert (they'd be made again there).
@@ -2423,6 +2420,90 @@ fn apply_args_postponing(
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// Whether `value`, an argument, is a proof search that rule 1 of stage 7
+/// checks after the rest of its application: `omega`, `cases`, `ring` or
+/// `rewrite`, bracketed or not.
+fn proof_search(value: &Expr) -> bool {
+    match value {
+        Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
+        Expr::Bracketed(inner, _) => proof_search(inner),
+        _ => false,
+    }
+}
+
+/// An explicit argument held back: a placeholder in its place in `term`,
+/// and `ty` the rest of the application's type with the placeholder for
+/// it. The placeholder's value and its unknown.
+fn hold_argument(
+    cx: &mut Ctx,
+    term: &mut Term,
+    ty: &mut Value,
+    cod: &Closure,
+) -> Result<(Value, usize)> {
+    let meta = cx.fresh_meta();
+    let placeholder = cx.eval(&meta)?;
+    *ty = cod.apply(cx.g(), placeholder.clone())?;
+    let id = match meta.spine().0 {
+        Term::Meta(m) => *m,
+        _ => unreachable!("a fresh metavariable is headed by one"),
+    };
+    *term = Term::app(term.clone(), meta);
+    Ok((placeholder, id))
+}
+
+/// Rule 1 of stage 7 (docs/proposals/postponement.md): the proof searches
+/// `searches` of the application `term` of type `ty`, held back by
+/// `apply_args_postponing`, checked now that the other arguments are and
+/// the application's own waiting checks have been resumed (W1). First, if
+/// something is expected of the call and no implicit parameter is left to
+/// insert, its type is compared with it, as the after-expected path does
+/// (a failure is left for the call's own last comparison to report); then
+/// the instances whose types are now known are found and W1 runs again;
+/// then each search, in written order, against its goal read afresh, so a
+/// call stuck on an unknown solved since computes.
+///
+/// If instances were found, `ty` is read afresh too: a value computed while
+/// a dictionary was unknown stays stuck on it (`Add.%add [Nat] ?d x y`), and
+/// whoever reads the type next may not compute it again. A `rewrite` rule
+/// does so only if settling its own checks found something
+/// (`rewrite.rs`), which these instances, found here first, no longer are
+/// (`examples/accept/scan-layout.sw`).
+fn check_searches_last(
+    cx: &mut Ctx,
+    term: &mut Term,
+    ty: &mut Value,
+    searches: Vec<(&Expr, Value, Value, usize)>,
+    expecting: Option<&Value>,
+    queued_from: usize,
+) -> Result<()> {
+    if let Some(expected) = expecting {
+        let implicit_next = matches!(
+            force(cx.g(), ty.clone())?,
+            Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
+        );
+        if !implicit_next {
+            let _ = crate::undo::unify(cx, ty, expected)?
+                || crate::undo::unify_solving_arguments(cx, ty, expected)?;
+        }
+    }
+    if cx.e.solve_ready_instances()? {
+        *ty = cx.eval(&cx.quote_folded(ty)?)?;
+    }
+    cx.e.resume_application(queued_from)?;
+    for (value, dom, placeholder, id) in searches {
+        let dom = cx.eval(&cx.quote_folded(&dom)?)?;
+        let checked = check_arg(cx, term, value, &dom)?;
+        let evaluated = cx.eval(&checked)?;
+        if !cx.unify(&evaluated, &placeholder)? {
+            return Err(cx.mismatch(&placeholder, &evaluated));
+        }
+        if let Some(filled) = fill_placeholder(term, id, &checked) {
+            *term = filled;
+        }
+    }
+    cx.e.resume_application(queued_from)
 }
 
 /// Whether `expr` is a number literal or a list of numbers: what it is
