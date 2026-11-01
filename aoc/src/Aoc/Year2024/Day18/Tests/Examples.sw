@@ -4,7 +4,8 @@
 
 namespace Aoc.Year2024.Day18.Tests
 import Aoc.Year2024.Day18 (..)
-import Aoc.Year2024.Day18.Spec (isSafe, walk)
+import Aoc.Year2024.Day18.Spec (isSafe)
+import Aoc.Common (Direction, Position, isPath)
 import Std (Fail, List, Map, Nat, Option, Result, Set, Text)
 
 def example: Text := """
@@ -39,7 +40,8 @@ def parsed (input: Text): Result (List Position) Text := Fail.toResult (() => pa
 
 def bytes (input: Text): List Position := Fail.orElse Nil (() => parseBytes input)
 
-def at (x: Nat) (y: Nat): Position := { x, y }
+-- The puzzle's X,Y: column X, row Y.
+def at (x: Nat) (y: Nat): Position := { row = y, column = x }
 
 test "example, part 1" := solvePart1 7 12 (bytes example) == Some 22
 test "example, part 2" := solvePart2 7 (bytes example) == Some (at 6 1)
@@ -73,10 +75,10 @@ test "safe positions" :=
     && memory.isSafe (at 1 2)
 test "edges out of the start" :=
   let memory := MemorySpace.after 3 [at 1 0] 1
-  memory.edges (at 0 0) == [(at 0 1, 1)]
-test "the spec's walk" :=
-  walk 3 [at 1 1] (at 0 0) [Down, Down, Right, Right] == Some (at 2 2) && walk 3 [at 1 1] (at 0 0) [Right, Down] == None
-    && walk 3 Nil (at 0 0) [Up] == None
+  memory.graph.edges (at 0 0) == [(at 0 1, 1)]
+test "the spec's paths" :=
+  isPath (isSafe 3 [at 1 1]) (at 0 0) [at 0 1, at 0 2, at 1 2, at 2 2] (at 2 2) && !isPath (isSafe 3 [at 1 1]) (at 0 0) [at 1 0, at 1 1] (at 1 1)
+    && !isPath (isSafe 3 Nil) (at 0 0) [at 1 1] (at 1 1) && !isPath (isSafe 3 Nil) (at 0 0) [at 0 1, at 0 2, at 0 3] (at 0 3)
 test "the spec's safety" := isSafe 3 [at 1 1] (at 0 0) && !isSafe 3 [at 1 1] (at 1 1) && !isSafe 3 Nil (at 3 0)
 test "fewest steps to each position" :=
   let memory := MemorySpace.after 2 [at 1 0] 1
