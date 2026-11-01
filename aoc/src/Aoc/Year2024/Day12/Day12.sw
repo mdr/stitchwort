@@ -9,6 +9,7 @@
 -- `Aoc.Year2024.Day12.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day12
+import Aoc.Common (Direction, Position, directions)
 import Std (Bool, Char, DecEq, Fail, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 
 def main(): {IO, Fail} () :=
@@ -16,18 +17,8 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 garden}"
   IO.print "Part 2: ${solvePart2 garden}"
 
-type Position = { row: Nat, column: Nat }
-
 -- The plant of each plot, by position.
 type Garden = { plots: Map Position Char }
-
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
-
-def directions: List Direction := [Up, Down, Left, Right]
 
 -- One plot: its plant, a letter.
 def plantLetter(): {Parse} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
@@ -47,19 +38,8 @@ def Garden.plantAt (garden: Garden) (position: Position): Option Char := garden.
 -- Every plot of the map, row by row.
 def Garden.positions (garden: Garden): List Position := garden.plots.keys
 
--- The grid point one step in `direction`; none above row 0 or left of column
--- 0.
-def Position.step (position: Position): Direction → Option Position
-  | Up =>
-    match position.row with
-      | Zero => None
-      | Succ above => Some ({ position | row = above })
-  | Down => Some ({ position | row = Succ position.row })
-  | Left =>
-    match position.column with
-      | Zero => None
-      | Succ before => Some ({ position | column = before })
-  | Right => Some ({ position | column = Succ position.column })
+-- Positions, directions and a step (none above row 0 or left of column 0)
+-- are the shared grid code's (`Aoc.Common`).
 
 -- Whether the plot one step in `direction` grows the same plant.
 def Garden.sameAcross (garden: Garden) (position: Position) (direction: Direction): Bool :=

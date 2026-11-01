@@ -7,6 +7,7 @@
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
+import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day20.Spec (..)
 import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 

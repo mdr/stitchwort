@@ -6,7 +6,7 @@
 namespace Aoc.Year2021.Day15.Proofs
 import Aoc.Year2021.Day15 (..)
 import Aoc.Year2021.Day15.Spec (..)
-import Aoc.Year2021.Day09 (Position)
+import Aoc.Common (Position)
 import Std (Decidable, Eq, Nat, Option, Quot, Void)
 
 -- Part 1 is the lowest total risk through the cave.

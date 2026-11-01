@@ -1,14 +1,16 @@
 -- Part 2: a walk in the program's graph is a path of the spec's, and back
--- (`walkPath`, `pathWalk`). Std's breadth-first search finds exactly the
--- locations some walk from the low point reaches (`Graph.breadthFirstShortest`),
--- so the keys of its result are the basin, with no repeats as a map's
--- keys have none, and the map's size is the basin's (`basinSizeOpen`).
--- A low point that is a 9 has no basin, and the program says 0
--- (`basinSizeClosed`).
+-- (`walkPath`, `pathWalk`, from the shared grid code's lemmas about its
+-- graphs). Std's breadth-first search finds exactly the locations some
+-- walk from the low point reaches (`Graph.breadthFirstShortest`), so the
+-- keys of its result are the basin, with no repeats as a map's keys have
+-- none, and the map's size is the basin's (`basinSizeOpen`). A low point
+-- that is a 9 has no basin, and the program says 0 (`basinSizeClosed`).
 
 namespace Aoc.Year2021.Day09.Proofs
 import Aoc.Year2021.Day09 (..)
 import Aoc.Year2021.Day09.Spec (..)
+import Aoc.Common (Position, adjacent, cellAt, cells, cellsEnter, cellsEnterListed)
+import Aoc.Common.Proofs (canEnter, enterCost, isPathCong, isPathEnd, stepEdgeElim)
 import Std (Bool, DecEq, Decidable, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 
 -- Part 2 is the product of the three largest basins' sizes, for every
@@ -24,47 +26,45 @@ theorem basinSizeCorrect (map: HeightMap) (low: Position) (height: Nat) (member:
     | True => basinSizeOpen map low open
     | False => basinSizeClosed map low height member open
 
--- A step of the graph is a step of a path: to an adjacent location that
--- isn't a 9, costing 1.
-theorem edgeStep (map: HeightMap) (from: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ map.edges from):
-    adjacent from next = True ∧ inSomeBasin map next = True ∧ weight = 1 :=
-  Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) (from.neighbours.filter map.isOpen) edge) (other both =>
-    let (Both inFilter same) := both
-    let (Both isNeighbour open) := List.memFilter from.neighbours map.isOpen other inFilter
-    let sameNext: other = next := Eq.cong Pair.fst same
-    rewrite <- sameNext in Both (neighbourAdjacent from other isNeighbour) (Both open (Eq.sym (Eq.cong Pair.snd same))))
-
--- A step of a path is a step of the graph.
-theorem stepEdge (map: HeightMap) (from: Position) (next: Position) (near: adjacent from next = True) (open: inSomeBasin map next = True):
-    (next, 1) ∈ map.edges from :=
-  List.memMap (from.neighbours.filter map.isOpen) next
-    (List.memFilterIntro from.neighbours map.isOpen next (adjacentNeighbour from next near) open) (other => (other, 1))
+-- The graph can enter exactly the locations that aren't 9s.
+theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter map.rows enterOpen) position = inSomeBasin map position :=
+  match cellAt map.rows position with
+    | None => rfl
+    | Some digit =>
+      match digit.toNat != 9 with
+        | True => rfl
+        | False => rfl
 
 -- A walk in the graph is a path, through the walk's locations...
-theorem walkPath (map: HeightMap): (start: Position) → (path: List (Position, Nat)) → (finish: Position) → map.graph.Walk start path finish →
-    isPath map start (path.map Pair.fst) finish = True
-  | start, Nil, finish, walked => rewrite walked in DecEq.refl finish
-  | start, Cons (next, weight) rest, finish, (Both edge later) =>
-    let (Both near (Both open _)) := edgeStep map start next weight edge
-    Bool.andIntro _ _ near (Bool.andIntro _ _ open (walkPath map next rest finish later))
+theorem walkPath (map: HeightMap) (start: Position) (path: List (Position, Nat)) (finish: Position) (walked: map.graph.Walk start path finish):
+    isPath map start (path.map Pair.fst) finish = True :=
+  let entered :=
+    And.left
+      (Aoc.Common.Proofs.walkPath (cellsEnter map.rows enterOpen) ((cells map.rows).map Pair.fst)
+        (position c found => cellsEnterListed map.rows enterOpen position c found) start path finish walked)
+  rewrite <- isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start (path.map Pair.fst) finish in entered
 
--- ...and a path is a walk, each step costing 1.
-theorem pathWalk (map: HeightMap): (start: Position) → (steps: List Position) → (finish: Position) → isPath map start steps finish = True →
-    map.graph.Walk start (steps.map (next => (next, 1))) finish
-  | start, Nil, finish, path => DecEq.sound start finish path
-  | start, Cons next rest, finish, path =>
-    let rest2 := Bool.andRight _ _ path
-    Both (stepEdge map start next (Bool.andLeft _ _ path) (Bool.andLeft _ _ rest2)) (pathWalk map next rest finish (Bool.andRight _ _ rest2))
+-- ...and a path is a walk.
+theorem pathWalk (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (path: isPath map start steps finish = True):
+    map.graph.Walk start (steps.map (next => (next, enterCost (cellsEnter map.rows enterOpen) next))) finish :=
+  Aoc.Common.Proofs.pathWalk (cellsEnter map.rows enterOpen) ((cells map.rows).map Pair.fst)
+    (position c found => cellsEnterListed map.rows enterOpen position c found) start steps finish
+    (rewrite isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start steps finish in path)
 
 -- A path from a location that isn't a 9 ends at one.
-theorem pathOpen (map: HeightMap): (start: Position) → (steps: List Position) → (finish: Position) → inSomeBasin map start = True →
-    isPath map start steps finish = True → inSomeBasin map finish = True
-  | start, Nil, finish, open, path => rewrite <- DecEq.sound start finish path in open
-  | start, Cons next rest, finish, open, path => pathOpen map next rest finish (Bool.andLeft _ _ (Bool.andRight _ _ path)) (Bool.andRight _ _ (Bool.andRight _ _ path))
+theorem pathOpen (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (open: inSomeBasin map start = True)
+    (path: isPath map start steps finish = True): inSomeBasin map finish = True :=
+  isPathEnd (inSomeBasin map) start steps finish open path
 
 -- Every step of the graph costs 1.
 theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ map.graph.edges state): weight = 1 :=
-  And.right (And.right (edgeStep map state next weight edge))
+  let found := And.right (stepEdgeElim (cellsEnter map.rows enterOpen) state next weight edge)
+  match cellAt map.rows next with
+    | None => Void.exfalso (Option.noneNotSome weight found)
+    | Some digit =>
+      match digit.toNat != 9 with
+        | True => Eq.sym (Option.someInjective _ _ found)
+        | False => Void.exfalso (Option.noneNotSome weight found)
 
 -- What the search from a low point finds is in its basin...
 theorem foundInBasin (map: HeightMap) (low: Position) (open: map.isOpen low = True) (location: Position)
@@ -90,7 +90,7 @@ theorem inBasinFound (map: HeightMap) (low: Position) (location: Position) (inBa
   let shortest := Graph.breadthFirstShortest map.graph [low] (unitSteps map)
   Exists.elim (And.right inBasin) (steps path =>
     let walked := pathWalk map low steps location path
-    Exists.elim (And.right shortest low 0 (Inl rfl) (steps.map (next => (next, 1))) location walked) (found both =>
+    Exists.elim (And.right shortest low 0 (Inl rfl) _ location walked) (found both =>
       (Map.memKeys result location).backward (Map.containsOfGet result location found (And.left both))))
 
 -- A low point that isn't a 9: its basin has the search's size.
@@ -119,7 +119,7 @@ theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (l
     match h: map.heightAt next with
       | None => Bool.falseNotTrue nextOpen
       | Some other =>
-        let nextCell := map.memCellsOfHeight next other h
+        let nextCell := memCellsOfHeight map next other h
         let lowInfo := List.memFilter map.cells _ (low, height) member
         let atNext := List.allMem _ (next, other) map.cells (List.allToAll _ map.cells (And.right lowInfo)) nextCell
         let lower: (height < other) = True := rewrite near at atNext in atNext

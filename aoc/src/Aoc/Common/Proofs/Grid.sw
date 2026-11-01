@@ -1,0 +1,236 @@
+-- Facts about positions and directions: turning, what a step reaches, and
+-- the four and eight neighbours (`neighbours` lists exactly the
+-- `adjacent` positions, `around` exactly the `touching` ones, each without
+-- repeats, at most four and eight of them).
+
+namespace Aoc.Common.Proofs
+import Aoc.Common (..)
+import Std (Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Void)
+
+-- Turning
+
+theorem turnRightFour (direction: Direction): direction.turnRight.turnRight.turnRight.turnRight = direction := cases
+
+theorem turnLeftRight (direction: Direction): direction.turnRight.turnLeft = direction := cases
+
+theorem turnRightLeft (direction: Direction): direction.turnLeft.turnRight = direction := cases
+
+theorem oppositeTwoTurns (direction: Direction): direction.turnRight.turnRight = direction.opposite := cases
+
+theorem oppositeOpposite (direction: Direction): direction.opposite.opposite = direction := cases
+
+theorem memDirections (direction: Direction): direction ∈ directions :=
+  match direction with
+    | Up => Inl rfl
+    | Right => Inr (Inl rfl)
+    | Down => Inr (Inr (Inl rfl))
+    | Left => Inr (Inr (Inr (Inl rfl)))
+
+-- Adjacency
+
+theorem equalOf (a: Nat) (b: Nat) (same: a = b): (a == b) = True := rewrite same in DecEq.refl b
+
+theorem upAdjacent (row: Nat) (column: Nat): adjacent { row = Succ row, column } { row, column } = True :=
+  Bool.orRight _ _ (Bool.andIntro _ _ (DecEq.refl column) (Bool.orRight _ _ (equalOf (row + 1) (Succ row) (omega))))
+
+theorem leftAdjacent (row: Nat) (column: Nat): adjacent { row, column = Succ column } { row, column } = True :=
+  Bool.orLeft _ _ (Bool.andIntro _ _ (DecEq.refl row) (Bool.orRight _ _ (equalOf (column + 1) (Succ column) (omega))))
+
+theorem rightAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row, column = column + 1 } = True :=
+  Bool.orLeft _ _ (Bool.andIntro _ _ (DecEq.refl row) (Bool.orLeft _ _ (DecEq.refl (column + 1))))
+
+theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = row + 1, column } = True :=
+  Bool.orRight _ _ (Bool.andIntro _ _ (DecEq.refl column) (Bool.orLeft _ _ (DecEq.refl (row + 1))))
+
+-- A step reaches an adjacent position...
+theorem stepAdjacent: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+    adjacent position next = True
+  | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in upAdjacent row column
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in rightAdjacent row column
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in downAdjacent row column
+  | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in leftAdjacent row column
+
+-- ...and each adjacent position is a step away.
+theorem adjacentStep: (position: Position) → (next: Position) → adjacent position next = True →
+    ∃ (direction: Direction) => position.step direction = Some next
+  | { row, column }, { row = r, column = c }, near =>
+    Bool.orElim _ _ _ near
+      (sameRow =>
+        let rows: row = r := DecEq.sound row r (Bool.andLeft _ _ sameRow)
+        Bool.orElim _ _ _ (Bool.andRight _ _ sameRow)
+          (right => rewrite <- rows, <- DecEq.sound (column + 1) c right in Witness Right rfl)
+          (left => rewrite <- rows, <- DecEq.sound (c + 1) column left in Witness Left rfl))
+      (sameColumn =>
+        let columns: column = c := DecEq.sound column c (Bool.andLeft _ _ sameColumn)
+        Bool.orElim _ _ _ (Bool.andRight _ _ sameColumn)
+          (down => rewrite <- columns, <- DecEq.sound (row + 1) r down in Witness Down rfl)
+          (up => rewrite <- columns, <- DecEq.sound (r + 1) row up in Witness Up rfl))
+
+-- The neighbours are the positions a step away...
+theorem memNeighbours (position: Position) (next: Position): Iff (next ∈ position.neighbours) (∃ (direction: Direction) => position.step direction = Some next) := {
+  forward = member =>
+    Exists.elim (List.anyMember (direction => position.step direction = Some next) directions (List.memFilterMapElim position.step next directions member))
+      (direction both => Witness direction (And.right both)),
+  backward = stepped => Exists.elim stepped (direction found => List.memFilterMapIntro position.step direction next directions (memDirections direction) found)
+}
+
+-- ...so each is adjacent...
+theorem neighbourAdjacent (position: Position) (next: Position) (member: next ∈ position.neighbours): adjacent position next = True :=
+  Exists.elim ((memNeighbours position next).forward member) (direction found => stepAdjacent position direction next found)
+
+-- ...and each adjacent position is a neighbour.
+theorem adjacentNeighbour (position: Position) (next: Position) (near: adjacent position next = True): next ∈ position.neighbours :=
+  (memNeighbours position next).backward (adjacentStep position next near)
+
+-- Which way `next` lies from `position`, for a position a step away.
+def directionTo (position: Position) (next: Position): Direction :=
+  if next.row < position.row then Up else if position.row < next.row then Down else if position.column < next.column then Right else Left
+
+-- Each step goes the way it says.
+theorem directionOfStep: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+    directionTo position next = direction
+  | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+  | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+
+-- No position is a neighbour twice...
+theorem neighboursDistinct (position: Position): List.Distinct position.neighbours :=
+  distinctOfMap (directionTo position) position.neighbours
+    (List.distinctMapFilterMap position.step (direction => direction) (directionTo position)
+      (direction next stepped => directionOfStep position direction next stepped) directions directionsDistinct)
+
+-- The four directions are different.
+theorem directionsDistinct: List.Distinct (directions.map (direction => direction)) :=
+  Both (notMemDirections Up [Right, Down, Left] rfl)
+    (Both (notMemDirections Right [Down, Left] rfl) (Both (notMemDirections Down [Left] rfl) (Both (notMemDirections Left [] rfl) ())))
+
+def directionIndex: Direction → Nat
+  | Up => 0
+  | Right => 1
+  | Down => 2
+  | Left => 3
+
+-- A direction whose index none of `others` has isn't one of them.
+theorem notMemDirections (direction: Direction): (others: List Direction) →
+    others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
+  | Nil, differ, member => member
+  | Cons other rest, differ, Inl same =>
+    Decidable.toBoolSound _ (Bool.andLeft _ _ differ) (rewrite same in rfl)
+  | Cons other rest, differ, Inr later => notMemDirections direction rest (Bool.andRight _ _ differ) later
+
+-- ...and there are at most four.
+theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := lengthFilterMapLe position.step directions
+
+-- A list whose keys are distinct is. (A general list lemma: a std
+-- candidate.)
+theorem distinctOfMap (key: a → k): (xs: List a) → List.Distinct (xs.map key) → List.Distinct xs
+  | Nil, distinct => Trivial
+  | Cons x rest, (Both fresh distinct) => Both (member => fresh (List.memMap rest x member key)) (distinctOfMap key rest distinct)
+
+-- `filterMap` keeps at most every element. (A std candidate.)
+theorem lengthFilterMapLe (f: a → Option b): (xs: List a) → (xs.filterMap f).length ≤ xs.length
+  | Nil => rfl
+  | Cons x rest =>
+    let shorter := lengthFilterMapLe f rest
+    match f x with
+      | None => omega
+      | Some y => omega
+
+-- The eight around
+
+theorem touchingOfBounds (r: Nat) (c: Nat) (a: Nat) (b: Nat) (h1: r - 1 ≤ a) (h2: a ≤ r + 1) (h3: c - 1 ≤ b) (h4: b ≤ c + 1)
+    (other: not (a == r && b == c) = True): touching { row = r, column = c } { row = a, column = b } = True :=
+  cases
+
+theorem rowAboveOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { row = r, column = c } { row = a, column = b } = True): r - 1 ≤ a := cases
+theorem rowBelowOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { row = r, column = c } { row = a, column = b } = True): a ≤ r + 1 := cases
+theorem columnLeftOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { row = r, column = c } { row = a, column = b } = True): c - 1 ≤ b := cases
+theorem columnRightOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { row = r, column = c } { row = a, column = b } = True): b ≤ c + 1 := cases
+theorem otherOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { row = r, column = c } { row = a, column = b } = True):
+    not (a == r && b == c) = True :=
+  cases
+
+-- The rows and columns `around` takes the positions from.
+def aroundBlock (r: Nat) (c: Nat): List Position :=
+  List.between (r - 1) (r + 1) |> .flatMap (row => List.between (c - 1) (c + 1) |> .map (column => ({ row, column }: Position)))
+
+-- The positions around are touching...
+theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.around → touching at other = True
+  | { row = r, column = c }, { row = a, column = b }, member =>
+    let (Both inBlock other) := List.memFilter (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b } member
+    List.anyElim (row => ({ row = a, column = b }: Position) ∈ List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position)))
+      (touching { row = r, column = c } { row = a, column = b } = True) (List.between (r - 1) (r + 1))
+      (List.memFlatMapElim (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) { row = a, column = b }
+        (List.between (r - 1) (r + 1)) inBlock)
+      (row inRows inRow =>
+        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) { row = a, column = b } (List.between (c - 1) (c + 1)) inRow)
+          (column both =>
+            let (Both inColumns same) := both
+            let sameRow: row = a := Eq.cong Position.row same
+            let sameColumn: column = b := Eq.cong Position.column same
+            let (Both rowAbove rowBelow) := List.memBetween inRows
+            let (Both columnLeft columnRight) := List.memBetween inColumns
+            touchingOfBounds r c a b (omega) (omega) (omega) (omega) other))
+
+-- ...and every touching position is around.
+theorem touchingAround: (at: Position) → (other: Position) → touching at other = True → other ∈ at.around
+  | { row = r, column = c }, { row = a, column = b }, near =>
+    List.memFilterIntro (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b }
+      (List.memFlatMapIntro (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) a { row = a, column = b }
+        (List.between (r - 1) (r + 1)) (List.memBetweenIntro a (r - 1) (r + 1) (rowAboveOfTouching r c a b near) (rowBelowOfTouching r c a b near))
+        (List.memMap (List.between (c - 1) (c + 1)) b
+          (List.memBetweenIntro b (c - 1) (c + 1) (columnLeftOfTouching r c a b near) (columnRightOfTouching r c a b near))
+          (column => ({ row = a, column }: Position))))
+      (otherOfTouching r c a b near)
+
+-- No position is around twice...
+theorem aroundDistinct (at: Position): List.Distinct at.around :=
+  List.distinctFilter (aroundBlock at.row at.column) (near => not (near.row == at.row && near.column == at.column))
+    (List.distinctFlatMap (row => List.map (List.between (at.column - 1) (at.column + 1)) (column => ({ row, column }: Position))) Position.row
+      (List.between (at.row - 1) (at.row + 1)) (List.distinctBetween (at.row - 1) (at.row + 1))
+      (row inRows =>
+        List.distinctMap (List.between (at.column - 1) (at.column + 1)) (List.distinctBetween (at.column - 1) (at.column + 1))
+          (column => ({ row, column }: Position)) (x y same => Eq.cong Position.column same))
+      (row inRows position inRow =>
+        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) position (List.between (at.column - 1) (at.column + 1)) inRow)
+          (column both => rewrite <- And.right both in rfl)))
+
+-- ...and there are at most eight: the block is at most three by three,
+-- and holds `at` itself, which isn't around.
+theorem aroundAtMost8 (at: Position): at.around.length ≤ 8 :=
+  let block := aroundBlock at.row at.column
+  let keep := (near: Position) => not (near.row == at.row && near.column == at.column)
+  let fewer := List.countLtMem block keep (near => True) (near member kept => rfl) at (atInBlock at) rfl (centreDropped at)
+  let all: block.count (near => True) = block.length := Eq.trans (List.countOccurrences block (near => True)) (List.occurrencesTrue block)
+  let small := blockAtMost9 at.row at.column
+  rewrite List.lengthFilter block keep in omega
+
+theorem centreDropped (centre: Position): not (centre.row == centre.row && centre.column == centre.column) = False :=
+  rewrite DecEq.refl centre.row, DecEq.refl centre.column in rfl
+
+theorem atInBlock: (centre: Position) → centre ∈ aroundBlock centre.row centre.column
+  | { row = r, column = c } =>
+    List.memFlatMapIntro (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
+      (List.between (r - 1) (r + 1)) (List.memBetweenIntro r (r - 1) (r + 1) (omega) (omega))
+      (List.memMap (List.between (c - 1) (c + 1)) c (List.memBetweenIntro c (c - 1) (c + 1) (omega) (omega)) (column => ({ row = r, column }: Position)))
+
+theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
+  let columns := List.between (c - 1) (c + 1)
+  let each := (row: Nat) => List.map columns (column => ({ row, column }: Position))
+  let rowCount := List.lengthBetween (r - 1) (r + 1)
+  let columnCount := List.lengthBetween (c - 1) (c + 1)
+  calc (aroundBlock r c).length
+    _ = (List.between (r - 1) (r + 1)).sumBy (row => (each row).length) := List.lengthFlatMap each (List.between (r - 1) (r + 1))
+    _ ≤ (List.between (r - 1) (r + 1)).sumBy (row => 3) := List.sumByLe _ _ _ (row => rewrite List.lengthMap columns (column => ({ row, column }: Position)) in omega)
+    _ = 3 * (List.between (r - 1) (r + 1)).length := sumByThree (List.between (r - 1) (r + 1))
+    _ ≤ 9 := omega
+
+-- Threes added up over a list.
+theorem sumByThree: (xs: List a) → xs.sumBy (x => 3) = 3 * xs.length
+  | Nil => omega
+  | Cons x rest => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega

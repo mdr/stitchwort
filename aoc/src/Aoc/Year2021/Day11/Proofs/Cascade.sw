@@ -11,6 +11,7 @@
 namespace Aoc.Year2021.Day11.Proofs
 import Aoc.Year2021.Day11 (..)
 import Aoc.Year2021.Day11.Spec (..)
+import Aoc.Common (Position, cellAt, cells, mapCells)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 -- The flashers after k rounds, from nobody.
@@ -24,54 +25,54 @@ theorem onGridAfter (levels: List (List Nat)): (k: Nat) → OnGrid levels (flash
   | Succ k, q, flashes => onGridMapCells levels (at level => 9 < energy (flashedAfter levels k) at level) q flashes
 
 -- Before the first round nobody has flashed.
-theorem noneAtStart (levels: List (List Nat)): (q: (Nat, Nat)) → flashedAt (flashedAfter levels 0) q = False
-  | (a, b) =>
-    Eq.trans (flashedAtMapCells levels (_ _ => False) a b)
-      (match cellAt levels (a, b) with
+theorem noneAtStart (levels: List (List Nat)): (q: Position) → flashedAt (flashedAfter levels 0) q = False
+  | q =>
+    Eq.trans (flashedAtMapCells levels (_ _ => False) q)
+      (match cellAt levels q with
         | None => rfl
         | Some level => rfl)
 
 -- A spec energy grows with the flashers.
-theorem energyMono (levels: List (List Nat)) (f: (Nat, Nat) → Bool) (g: (Nat, Nat) → Bool) (fg: (q: (Nat, Nat)) → f q = True → g q = True)
-    (at: (Nat, Nat)) (level: Nat): energyIn levels f at level ≤ energyIn levels g at level :=
+theorem energyMono (levels: List (List Nat)) (f: Position → Bool) (g: Position → Bool) (fg: (q: Position) → f q = True → g q = True)
+    (at: Position) (level: Nat): energyIn levels f at level ≤ energyIn levels g at level :=
   let more := neighboursMono levels f g fg at
   omega
 
 -- Each round's flashers include the last round's.
-theorem grows (levels: List (List Nat)): (k: Nat) → (q: (Nat, Nat)) →
+theorem grows (levels: List (List Nat)): (k: Nat) → (q: Position) →
     flashedAt (flashedAfter levels k) q = True → flashedAt (flashedAfter levels (Succ k)) q = True
   | Zero, q, flashes => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart levels q)) flashes))
-  | Succ k, (a, b), flashes =>
-    Exists.elim (roundElim levels (flashedAfter levels k) (onGridAfter levels k) a b flashes) (level both =>
-      let more := energyMono levels (flashedAt (flashedAfter levels k)) (flashedAt (flashedAfter levels (Succ k))) (grows levels k) (a, b) level
+  | Succ k, q, flashes =>
+    Exists.elim (roundElim levels (flashedAfter levels k) (onGridAfter levels k) q flashes) (level both =>
+      let more := energyMono levels (flashedAt (flashedAfter levels k)) (flashedAt (flashedAfter levels (Succ k))) (grows levels k) q level
       let above := And.right both
-      roundIntro levels (flashedAfter levels (Succ k)) (onGridAfter levels (Succ k)) a b level (And.left both) (omega))
+      roundIntro levels (flashedAfter levels (Succ k)) (onGridAfter levels (Succ k)) q level (And.left both) (omega))
 
 -- Every round's flashers are inside every closed set.
-theorem belowClosed (levels: List (List Nat)) (other: (Nat, Nat) → Bool) (closed: Closed levels other): (k: Nat) → (q: (Nat, Nat)) →
+theorem belowClosed (levels: List (List Nat)) (other: Position → Bool) (closed: Closed levels other): (k: Nat) → (q: Position) →
     flashedAt (flashedAfter levels k) q = True → other q = True
   | Zero, q, flashes => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart levels q)) flashes))
-  | Succ k, (a, b), flashes =>
-    Exists.elim (roundElim levels (flashedAfter levels k) (onGridAfter levels k) a b flashes) (level both =>
-      let more := energyMono levels (flashedAt (flashedAfter levels k)) other (belowClosed levels other closed k) (a, b) level
+  | Succ k, q, flashes =>
+    Exists.elim (roundElim levels (flashedAfter levels k) (onGridAfter levels k) q flashes) (level both =>
+      let more := energyMono levels (flashedAt (flashedAfter levels k)) other (belowClosed levels other closed k) q level
       let above := And.right both
-      closed (a, b) level (And.left both) (omega))
+      closed q level (And.left both) (omega))
 
 -- Round k + 1 adds nobody.
 def Stable (levels: List (List Nat)) (k: Nat): Prop :=
-  (q: (Nat, Nat)) → flashedAt (flashedAfter levels (Succ k)) q = True → flashedAt (flashedAfter levels k) q = True
+  (q: Position) → flashedAt (flashedAfter levels (Succ k)) q = True → flashedAt (flashedAfter levels k) q = True
 
 -- A round after one that adds nobody adds nobody.
 theorem staysStable (levels: List (List Nat)) (k: Nat) (stable: Stable levels k): Stable levels (Succ k)
-  | (a, b), flashes =>
-    Exists.elim (roundElim levels (flashedAfter levels (Succ k)) (onGridAfter levels (Succ k)) a b flashes) (level both =>
-      let more := energyMono levels (flashedAt (flashedAfter levels (Succ k))) (flashedAt (flashedAfter levels k)) stable (a, b) level
+  | q, flashes =>
+    Exists.elim (roundElim levels (flashedAfter levels (Succ k)) (onGridAfter levels (Succ k)) q flashes) (level both =>
+      let more := energyMono levels (flashedAt (flashedAfter levels (Succ k))) (flashedAt (flashedAfter levels k)) stable q level
       let above := And.right both
-      roundIntro levels (flashedAfter levels k) (onGridAfter levels k) a b level (And.left both) (omega))
+      roundIntro levels (flashedAfter levels k) (onGridAfter levels k) q level (And.left both) (omega))
 
 -- The flashers of a round that the next adds nobody to are closed.
 theorem closedOfStable (levels: List (List Nat)) (k: Nat) (stable: Stable levels k): Closed levels (flashedAt (flashedAfter levels k))
-  | (a, b), level, member, above => stable (a, b) (roundIntro levels (flashedAfter levels k) (onGridAfter levels k) a b level member above)
+  | q, level, member, above => stable q (roundIntro levels (flashedAfter levels k) (onGridAfter levels k) q level member above)
 
 -- How many octopuses have flashed after k rounds.
 def flashedCount (levels: List (List Nat)) (k: Nat): Nat := (positions levels).count (flashedAt (flashedAfter levels k))
@@ -141,12 +142,12 @@ theorem cascadeAfter (levels: List (List Nat)): (m: Nat) → (k: Nat) →
 
 -- The program's flashers are the flashers of a round that adds nobody.
 theorem flashersStable (levels: List (List Nat)): ∃ (j: Nat) => flashers levels = flashedAfter levels j ∧ Stable levels j :=
-  Exists.elim (cascadeAfter levels levels.gridCells.length 0) (j both =>
+  Exists.elim (cascadeAfter levels (cells levels).length 0) (j both =>
     let (Both found stops) := both
     Witness j (Both found (match stops with
       | Inl stable => stable
       | Inr after =>
-        let sameLength: (positions levels).length = levels.gridCells.length := List.lengthMap levels.gridCells Pair.fst
+        let sameLength: (positions levels).length = (cells levels).length := List.lengthMap (cells levels) Pair.fst
         stableAbove levels (positions levels).length (stableAtSize levels) j (omega))))
 
 -- The program's flashers are the spec's: the least closed set.

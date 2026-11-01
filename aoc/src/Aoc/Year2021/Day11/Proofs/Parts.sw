@@ -7,6 +7,7 @@
 namespace Aoc.Year2021.Day11.Proofs
 import Aoc.Year2021.Day11 (..)
 import Aoc.Year2021.Day11.Spec (..)
+import Aoc.Common (Position, cellAt, cells, mapCells)
 import Std (Bool, Eq, Exists, List, Nat, Option, Void)
 
 -- The program's levels after `steps` steps.
@@ -49,18 +50,18 @@ theorem part1Unique (levels: List (List Nat)) (answer: Nat) (spec: Part1Answer l
 -- Every octopus flashes in step k + 1 exactly when the program's levels
 -- after it are all 0.
 theorem allFlashOfZeros (levels: List (List Nat)) (k: Nat)
-    (zeros: (step (stepsFrom levels k)).gridCells.all (cell => cell.snd == 0) = True): AllFlashIn levels (Succ k) :=
+    (zeros: (cells (step (stepsFrom levels k))).all (cell => cell.snd == 0) = True): AllFlashIn levels (Succ k) :=
   let before := stepsFrom levels k
   let spec := flashersCorrect before
   let all := rewrite allZeroCorrect before (flashedAt (flashers before)) spec at zeros in zeros
-  let each := List.allToAll (cell => flashedAt (flashers before) cell.fst) before.gridCells all
+  let each := List.allToAll (cell => flashedAt (flashers before) cell.fst) (cells before) all
   Both (omega)
     (Witness before (Witness (flashesIn levels k) (Both (programRun k levels)
       (Witness (flashedAt (flashers before)) (Both spec (at level member =>
-        List.allMem (cell => flashedAt (flashers before) cell.fst = True) (at, level) before.gridCells each member))))))
+        List.allMem (cell => flashedAt (flashers before) cell.fst = True) (at, level) (cells before) each member))))))
 
 theorem zerosOfAllFlash (levels: List (List Nat)) (k: Nat) (spec: AllFlashIn levels (Succ k)):
-    (step (stepsFrom levels k)).gridCells.all (cell => cell.snd == 0) = True :=
+    (cells (step (stepsFrom levels k))).all (cell => cell.snd == 0) = True :=
   let (Both _ found) := spec
   Exists.elim found (before rest =>
     Exists.elim rest (total both =>
@@ -69,8 +70,8 @@ theorem zerosOfAllFlash (levels: List (List Nat)) (k: Nat) (spec: AllFlashIn lev
       Exists.elim flashedAll (flashed both =>
         let (Both flashers each) := both
         rewrite <- same, allZeroCorrect before flashed flashers in
-          List.allOfAll (cell => flashed cell.fst) before.gridCells
-            (List.allOfMem (cell => flashed cell.fst = True) before.gridCells (cell member =>
+          List.allOfAll (cell => flashed cell.fst) (cells before)
+            (List.allOfMem (cell => flashed cell.fst = True) (cells before) (cell member =>
               match cell with
                 | (at, level) => each at level member)))))
 
@@ -80,7 +81,7 @@ theorem syncFound (levels: List (List Nat)) (answer: Nat): (m: Nat) → (k: Nat)
     firstSync (stepsFrom levels k) (Succ k) m = Some answer → Part2Answer levels answer
   | Zero, k, noneBefore, found => Void.exfalso (Option.noneNotSome answer found)
   | Succ m, k, noneBefore, found =>
-    match e: (step (stepsFrom levels k)).gridCells.all (cell => cell.snd == 0) with
+    match e: (cells (step (stepsFrom levels k))).all (cell => cell.snd == 0) with
       | True =>
         let same: Succ k = answer := Option.someInjective _ _ found
         rewrite <- same in Both (allFlashOfZeros levels k e) noneBefore
@@ -104,7 +105,7 @@ theorem syncNone (levels: List (List Nat)): (m: Nat) → (k: Nat) → firstSync 
     (number: Nat) → Succ k ≤ number → number ≤ k + m → Not (AllFlashIn levels number)
   | Zero, k, none, number, low, high, flashes => omega
   | Succ m, k, none, number, low, high, flashes =>
-    match e: (step (stepsFrom levels k)).gridCells.all (cell => cell.snd == 0) with
+    match e: (cells (step (stepsFrom levels k))).all (cell => cell.snd == 0) with
       | True => Option.noneNotSome (Succ k) (Eq.sym none)
       | False =>
         match Nat.decLessEq number (Succ k) with

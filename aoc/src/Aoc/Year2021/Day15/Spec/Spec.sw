@@ -4,8 +4,7 @@
 
 namespace Aoc.Year2021.Day15.Spec
 import Aoc.Year2021.Day15 (..)
-import Aoc.Year2021.Day09 (Position)
-import Aoc.Year2021.Day09.Spec (adjacent)
+import Aoc.Common (Position)
 import Std (Fin, List, Nat, Option)
 
 -- The puzzle's map: a rectangle of risk levels, with at least one. (The
@@ -28,11 +27,10 @@ def bottomRight (height: Nat) (width: Nat): Position := { row = height - 1, colu
 
 -- A path through a map whose levels are `levels`: the positions it
 -- enters, in turn, from `from` to `to`. "You can't move diagonally": each
--- is `adjacent` to the one before (up, down, left or right; day 9's
--- adjacency). Each is on the map, with a level.
-def isPath (levels: Position → Option Nat) (from: Position): (steps: List Position) → (to: Position) → Bool
-  | Nil, to => from == to
-  | Cons next rest, to => adjacent from next && (levels next).isSome && isPath levels next rest to
+-- is `adjacent` to the one before (up, down, left or right; the shared
+-- grid code's `Aoc.Common.isPath`). Each is on the map, with a level.
+def isPath (levels: Position → Option Nat) (from: Position) (steps: List Position) (to: Position): Bool :=
+  Aoc.Common.isPath (position => (levels position).isSome) from steps to
 
 -- "The total risk of a path is the sum of the risk levels of each position
 -- you enter (that is, don't count the risk level of your starting

@@ -6,6 +6,7 @@
 
 namespace Aoc.Year2024.Day06.Spec
 import Aoc.Year2024.Day06 (..)
+import Aoc.Common (Direction, Position)
 import Std (Bool, Iff, List, Nat, Option, Set)
 
 -- The guard after `steps` more steps from `guard`: `None` once she has left

@@ -1,0 +1,144 @@
+-- The walks of a grid's graph (`stepGraph`, GridGraph.sw) are the paths of
+-- `isPath` through the positions that can be entered, and a walk costs
+-- the sum of what entering each of its positions costs. With std's
+-- `Graph.distancesShortest` or `Graph.breadthFirstShortest`, that makes
+-- what the searches find the cheapest paths.
+
+namespace Aoc.Common.Proofs
+import Aoc.Common (..)
+import Std (Bool, DecEq, Eq, Exists, Graph, List, Nat, Option, Void)
+
+-- Whether a position can be entered...
+def canEnter (enter: Position → Option Nat) (position: Position): Bool := (enter position).isSome
+
+-- ...and what entering it costs (0 where it can't be).
+def enterCost (enter: Position → Option Nat) (position: Position): Nat := (enter position).getOrElse 0
+
+-- A step of the graph goes to an adjacent position that can be entered,
+-- costing what entering it costs...
+theorem stepEdgeElim (enter: Position → Option Nat) (from: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ stepEdges enter from):
+    adjacent from next = True ∧ enter next = Some weight :=
+  Exists.elim
+    (List.anyMember _ from.neighbours (List.memFilterMapElim (other => enter other |> .map (cost => (other, cost))) (next, weight) from.neighbours edge))
+    (other both =>
+      let (Both isNeighbour made) := both
+      match found: enter other with
+        | None => Void.exfalso (Option.noneNotSome (next, weight) made)
+        | Some cost =>
+          let same: (other, cost) = (next, weight) := Option.someInjective _ _ made
+          rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in Both (neighbourAdjacent from other isNeighbour) found)
+
+-- ...and each such step is one of the graph's.
+theorem stepEdgeIntro (enter: Position → Option Nat) (from: Position) (next: Position) (cost: Nat) (near: adjacent from next = True)
+    (found: enter next = Some cost): (next, cost) ∈ stepEdges enter from :=
+  List.memFilterMapIntro (other => enter other |> .map (cost => (other, cost))) next (next, cost) from.neighbours (adjacentNeighbour from next near)
+    (rewrite found in rfl)
+
+-- A walk is a path through the positions it enters, and costs what
+-- entering them costs...
+theorem walkPath (enter: Position → Option Nat) (states: List Position)
+    (complete: (position: Position) → (cost: Nat) → enter position = Some cost → position ∈ states):
+    (start: Position) → (path: List (Position, Nat)) → (finish: Position) → (stepGraph enter states complete).Walk start path finish →
+      isPath (canEnter enter) start (path.map Pair.fst) finish = True ∧ Graph.cost path = (path.map Pair.fst).sumBy (enterCost enter)
+  | start, Nil, finish, walked => Both (rewrite walked in DecEq.refl finish) rfl
+  | start, Cons (next, weight) rest, finish, (Both edge later) =>
+    let (Both near found) := stepEdgeElim enter start next weight edge
+    let (Both restPath restCost) := walkPath enter states complete next rest finish later
+    let entered: enterCost enter next = weight := rewrite found in rfl
+    Both (Bool.andIntro _ _ near (Bool.andIntro _ _ (rewrite found in rfl) restPath))
+      (omega [Graph.costCons next weight rest, restCost, List.sumByCons (rest.map Pair.fst) next (enterCost enter), entered])
+
+-- ...and a path is a walk, each step costing what entering its position
+-- costs...
+theorem pathWalk (enter: Position → Option Nat) (states: List Position)
+    (complete: (position: Position) → (cost: Nat) → enter position = Some cost → position ∈ states):
+    (start: Position) → (steps: List Position) → (finish: Position) → isPath (canEnter enter) start steps finish = True →
+      (stepGraph enter states complete).Walk start (steps.map (next => (next, enterCost enter next))) finish
+  | start, Nil, finish, path => DecEq.sound start finish path
+  | start, Cons next rest, finish, path =>
+    let near := Bool.andLeft _ _ path
+    let rest2 := Bool.andRight _ _ path
+    match found: enter next with
+      | None => Void.exfalso (Bool.falseNotTrue rest2)
+      | Some cost => Both (stepEdgeIntro enter start next cost near found) (pathWalk enter states complete next rest finish rest2)
+
+-- ...costing the sum of what entering its positions costs.
+theorem pathWalkCost (enter: Position → Option Nat):
+    (steps: List Position) → Graph.cost (steps.map (next => (next, enterCost enter next))) = steps.sumBy (enterCost enter)
+  | Nil => rfl
+  | Cons next rest =>
+    omega [
+      Graph.costCons next (enterCost enter next) (rest.map (next => (next, enterCost enter next))),
+      pathWalkCost enter rest,
+      List.sumByCons rest next (enterCost enter)
+    ]
+
+-- Paths
+
+-- A path through positions allowed by one test is a path by another that
+-- agrees with it.
+theorem isPathCong (f: Position → Bool) (g: Position → Bool) (same: (position: Position) → f position = g position):
+    (from: Position) → (steps: List Position) → (to: Position) → isPath f from steps to = isPath g from steps to
+  | from, Nil, to => rfl
+  | from, Cons next rest, to => rewrite same next, isPathCong f g same next rest to in rfl
+
+-- A path, then another from where it ends.
+theorem isPathAppend (allowed: Position → Bool) (more: List Position) (to: Position):
+    (from: Position) → (steps: List Position) → (middle: Position) → isPath allowed from steps middle = True → isPath allowed middle more to = True →
+      isPath allowed from (steps ++ more) to = True
+  | from, Nil, middle, path, after => rewrite DecEq.sound from middle path in after
+  | from, Cons next rest, middle, path, after =>
+    Bool.andIntro _ _ (Bool.andLeft _ _ path)
+      (Bool.andIntro _ _ (Bool.andLeft _ _ (Bool.andRight _ _ path))
+        (isPathAppend allowed more to next rest middle (Bool.andRight _ _ (Bool.andRight _ _ path)) after))
+
+-- A path from an allowed position ends at one.
+theorem isPathEnd (allowed: Position → Bool): (from: Position) → (steps: List Position) → (to: Position) → allowed from = True →
+    isPath allowed from steps to = True → allowed to = True
+  | from, Nil, to, start, path => rewrite <- DecEq.sound from to path in start
+  | from, Cons next rest, to, start, path =>
+    isPathEnd allowed next rest to (Bool.andLeft _ _ (Bool.andRight _ _ path)) (Bool.andRight _ _ (Bool.andRight _ _ path))
+
+-- `count` steps right along row `row`, from column `column`...
+def rightSteps (row: Nat) (column: Nat): Nat → List Position
+  | Zero => Nil
+  | Succ count => Cons ({ row, column = column + 1 }) (rightSteps row (column + 1) count)
+
+-- ...and `count` steps down column `column`, from row `row`.
+def downSteps (row: Nat) (column: Nat): Nat → List Position
+  | Zero => Nil
+  | Succ count => Cons ({ row = row + 1, column }) (downSteps (row + 1) column count)
+
+-- Steps right through allowed positions are a path...
+theorem rightPath (allowed: Position → Bool) (row: Nat): (column: Nat) → (count: Nat) →
+    ((k: Nat) → column < k → k ≤ column + count → allowed { row, column = k } = True) →
+    isPath allowed { row, column } (rightSteps row column count) { row, column = column + count } = True
+  | column, Zero, open => rewrite Nat.addZero column in DecEq.refl ({ row, column }: Position)
+  | column, Succ count, open =>
+    let later := rightPath allowed row (column + 1) count (k above below => open k (omega) (omega))
+    let same: column + 1 + count = column + Succ count := omega
+    Bool.andIntro _ _ (rightAdjacent row column) (Bool.andIntro _ _ (open (column + 1) (omega) (omega)) (rewrite <- same in later))
+
+-- ...and so are steps down.
+theorem downPath (allowed: Position → Bool) (column: Nat): (row: Nat) → (count: Nat) →
+    ((k: Nat) → row < k → k ≤ row + count → allowed { row = k, column } = True) →
+    isPath allowed { row, column } (downSteps row column count) { row = row + count, column } = True
+  | row, Zero, open => rewrite Nat.addZero row in DecEq.refl ({ row, column }: Position)
+  | row, Succ count, open =>
+    let later := downPath allowed column (row + 1) count (k above below => open k (omega) (omega))
+    let same: row + 1 + count = row + Succ count := omega
+    Bool.andIntro _ _ (downAdjacent row column) (Bool.andIntro _ _ (open (row + 1) (omega) (omega)) (rewrite <- same in later))
+
+-- Along the top row, then down the last column, of `height` rows and
+-- `width` columns.
+def route (height: Nat) (width: Nat): List Position := rightSteps 0 0 (width - 1) ++ downSteps 0 (width - 1) (height - 1)
+
+-- If every position within `height` rows and `width` columns is allowed,
+-- the route is a path from the top left to the bottom right.
+theorem routePath (allowed: Position → Bool) (height: Nat) (width: Nat) (tall: 0 < height) (wide: 0 < width)
+    (open: (position: Position) → position.within height width = True → allowed position = True):
+    isPath allowed { row = 0, column = 0 } (route height width) { row = height - 1, column = width - 1 } = True :=
+  isPathAppend allowed (downSteps 0 (width - 1) (height - 1)) { row = height - 1, column = width - 1 } { row = 0, column = 0 }
+    (rightSteps 0 0 (width - 1)) { row = 0, column = width - 1 }
+    (rightPath allowed 0 0 (width - 1) (k above below => open { row = 0, column = k } (Bool.andIntro _ _ (omega [tall]) (omega [below, wide]))))
+    (downPath allowed (width - 1) 0 (height - 1) (k above below => open { row = k, column = width - 1 } (Bool.andIntro _ _ (omega [below, tall]) (omega [wide]))))

@@ -5,8 +5,8 @@
 namespace Aoc.Year2021.Day15.Tests
 import Aoc.Year2021.Day15 (..)
 import Aoc.Year2021.Day15.Spec (..)
-import Aoc.Year2021.Day15.Proofs (route)
-import Aoc.Year2021.Day09 (Position)
+import Aoc.Common (Position)
+import Aoc.Common.Proofs (route)
 import Std (Fail, List, Nat, Option, Text)
 
 def exampleText: Text :=
@@ -19,8 +19,8 @@ def example: Cave := Fail.orElse { rows = [] } (() => parseCave exampleText)
 def at (row: Nat) (column: Nat): Position := { row, column }
 
 test "parse the example" := example.height == 10 ∧ example.width == 10 ∧ levelAt example (at 0 0) == Some 1 ∧ levelAt example (at 9 9) == Some 1
-test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 digits, as on the first line, got 2"
-test "no digits" := parsed "" == Err "expected a map of risk levels, got no digits"
+test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
+test "no digits" := parsed "" == Err "expected a grid, got no cells"
 test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
 test "example, part 1" := solvePart1 example == 40

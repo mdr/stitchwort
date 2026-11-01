@@ -13,6 +13,7 @@
 -- `Aoc.Year2024.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day06
+import Aoc.Common (Direction, Position)
 import Std (Fail, IO, List, Map, Nat, Option, Set, Text)
 
 def main(): {IO, Fail} () :=
@@ -22,19 +23,8 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${part1}"
   IO.print "Part 2: ${part2}"
 
-type Position = { row: Nat, column: Nat }
-
-type Direction =
-  | Up
-  | Right
-  | Down
-  | Left
-
-def Direction.turnRight: Direction → Direction
-  | Up => Right
-  | Right => Down
-  | Down => Left
-  | Left => Up
+-- Positions and directions, with `turnRight`, are the shared grid code's
+-- (`Aoc.Common`).
 
 -- Where the guard stands and which way she faces.
 type Guard = { position: Position, facing: Direction }
