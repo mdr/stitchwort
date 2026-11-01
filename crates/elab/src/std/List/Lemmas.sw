@@ -135,7 +135,8 @@ theorem List.partitionOntoFilters (p: a → Bool): (xs: List a) → (kept: List 
       | True => List.partitionOntoFilters p xs (Cons x kept) dropped
       | False => List.partitionOntoFilters p xs kept (Cons x dropped)
 
---| `partition` is the two `filter`s (its definition before it became one pass).
+--| `partition` is the two `filter`s.
+-- (its definition before it became one pass)
 theorem List.partitionFilters (xs: List a) (p: a → Bool): List.partition xs p = MkPair (List.filter xs p) (List.filter xs (x => ¬(p x))) :=
   List.partitionOntoFilters p xs Nil Nil
 
@@ -1638,8 +1639,8 @@ theorem List.spanOntoTakeDrop (p: a → Bool): (taken: List a) → (xs: List a) 
       | True => List.spanOntoTakeDrop p (Cons x taken) xs
       | False => rfl
 
---| `span` is `takeWhile` and `dropWhile` (its definition before it became one
---| pass).
+--| `span` is `takeWhile` and `dropWhile`.
+-- (its definition before it became one pass)
 theorem List.spanTakeDrop (xs: List a) (p: a → Bool): List.span xs p = MkPair (List.takeWhile xs p) (List.dropWhile xs p) :=
   List.spanOntoTakeDrop p Nil xs
 

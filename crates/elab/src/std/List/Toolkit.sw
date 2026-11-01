@@ -1,20 +1,19 @@
 --| The list toolkit: `map`, `filter`, folds, sums, `zip`, `take`/`drop`, `get`,
 --| `splitBy`, padding, transpose and the like, with the congruence lemmas that
 --| `decreasing` and `rewrite` look up beside each function. The other lemmas
---| are in List/Lemmas.sw.
--- so a program that only calls these checks none of them.
+--| are in List/Lemmas.sw, so a program that only calls these checks none of them.
 
 --| List toolkit. Every function is structurally recursive.
 --|
 --| The callbacks of `map`, `filter`, `foldLeft`, `foldRight`, `sumBy`,
 --| `count`, `any`, `all`, `find`, `filterMap`, `findMap`, `takeWhile`,
 --| `flatMap`, `partition` and `span` may perform abilities, such as `Fail`,
---| `Log` or `Partial`. Their types say so with `{e}`: in
---| `p: a → {e} Bool`, `e` is the callback's row, and the result `{e} List a`
---| performs the same. With a pure callback the row is empty and `{e} b` is
---| `b`, so each is the plain function: its lemmas are about that, and the
---| backends compile it to the same loop. The other callbacks (`zipWith`,
---| `scanLeft`, the sorts, …) must be pure. With an effectful callback:
+--| `Log` or `Partial`. Their types say so with `{e}`: in `p: a → {e} Bool`,
+--| `e` is the callback's row, and the result `{e} List a` performs the same.
+--| With a pure callback the row is empty and `{e} b` is `b`, so each is the
+--| plain function: its lemmas are about that, and the backends compile it to
+--| the same loop. The other callbacks (`zipWith`, `scanLeft`, the sorts, …)
+--| must be pure. With an effectful callback:
 --| - the effects run in list order, first element first (`foldRight`'s run
 --|   last to first, as its definition reads);
 --| - the callback is called at most once per element;
@@ -23,10 +22,10 @@
 -- (docs/proposals/effect-polymorphism.md and effect-polymorphic-list.md)
 
 --| `f` on each element, in order. `f` may perform abilities, such as `Fail`:
---| `xs.map Range.read` fails at the first element that isn't a range.
---| With a pure `f` the row is empty and
---| `{e} b` is `b`, so this is the plain map: its lemmas are proved by
---| computation as before, and the backends compile it to the same loop.
+--| `xs.map Range.read` fails at the first element that isn't a range. With a
+--| pure `f` the row is empty and `{e} b` is `b`, so this is the plain map: its
+--| lemmas are proved by computation as before, and the backends compile it to
+--| the same loop.
 -- (docs/proposals/errors.md §3.4)
 def List.map: List a → (f: a → {e} b) → {e} List b
   | Nil, f => Nil
@@ -41,10 +40,9 @@ def List.forEach: List a → (f: a → {e} ()) → {e} ()
     List.forEach xs f
 
 --| One step of `List.filter`: `x` in front of the filtered rest, or not.
--- A
--- function of its own so the recursive call is written once: with an `if`
--- around it in both branches, a condition the checker can't decide (one on
--- a variable) keeps both branches, and the value doubles with every element.
+-- A function of its own so the recursive call is written once: with an `if`
+-- around it in both branches, a condition the checker can't decide (one on a
+-- variable) keeps both branches, and the value doubles with every element.
 @[noReceiver]
 def List.filterStep (x: a) (rest: List a): Bool → List a
   | True => Cons x rest
@@ -78,7 +76,8 @@ def List.scanLeft: List a → (initial: b) → (f: b → a → b) → List b
 --| reads: `f y initial` is computed before `f x …`.
 def List.foldRight (xs: List a) (initial: b) (f: a → b → {e} b): {e} b := List.foldLeft (List.reverseOnto xs Nil) initial (acc x => f x acc)
 
---| The sum of the elements, of any type with `Add`: `[1, 2, 3].sum` is `6`, `[3, -5, 1].sum` is `-1`.
+--| The sum of the elements, of any type with `Add`: `[1, 2, 3].sum` is `6`,
+--| `[3, -5, 1].sum` is `-1`.
 -- (docs/proposals/interfaces.md §7.7)
 def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft xs Add.zero Add.add
 
@@ -180,10 +179,9 @@ def List.all: List a → (p: a → {e} Bool) → {e} Bool
   | Cons x xs, p => if p x then List.all xs p else False
 
 --| `n`, plus one if `b`: `List.count`'s step.
--- A function of its own so `n` is
--- written once: `if b then Succ n else n` writes it twice, so when the
--- checker can't decide the conditions, a count doubles in size with every
--- element.
+-- A function of its own so `n` is written once: `if b then Succ n else n`
+-- writes it twice, so when the checker can't decide the conditions, a count
+-- doubles in size with every element.
 def Nat.succIf (n: Nat): Bool → Nat
   | True => Succ n
   | False => n
@@ -284,8 +282,8 @@ test "List.stripPrefix" :=
 
 --| One step of `List.partition`: `x` onto the kept or the dropped side of
 --| `sides` (each reversed).
--- A function of its own so the recursive call is
--- written once, as for `List.filterStep`.
+-- A function of its own so the recursive call is written once, as for
+-- `List.filterStep`.
 @[noReceiver]
 def List.partitionStep (x: a) (sides: Pair (List a) (List a)): Bool → Pair (List a) (List a)
   | True => MkPair (Cons x (Pair.fst sides)) (Pair.snd sides)
@@ -423,8 +421,8 @@ def List.Subsequence: List a → List a → Prop
 --| Congruence lemmas: given callbacks that agree on every argument, a function
 --| gives the same result. Their shape is fixed, since `decreasing` looks them up
 --| by name (`F` + `Cong`) to follow a recursive call inside a callback:
---| `F`'s parameters in
---| order, each callback twice, then `(x…) -> f1 x… = f2 x…` for each.
+--| `F`'s parameters in order, each callback twice, then
+--| `(x…) -> f1 x… = f2 x…` for each.
 -- (docs/proposals/well-founded-recursion.md, stage 3a)
 theorem List.mapCong: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | Nil, f1, f2, ef => rfl
@@ -464,8 +462,8 @@ theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b
 --| Decides `x ∈ xs` one element at a time from the front, so `x ∈ xs` is a
 --| `Bool` where one is expected (`if x ∈ seen`) and `if h: x ∈ xs` names
 --| the proof.
--- Its type spells out `List.Mem`: `∈` there would make the type
--- mention the instance itself.
+-- Its type spells out `List.Mem`: `∈` there would make the type mention the
+-- instance itself.
 instance List.decMem [auto eq: DecEq a] (x: a): (xs: List a) → Decidable (List.Mem x xs)
   | Nil => No (none => none)
   | Cons y ys => Decidable.or (eq.decide y x) (List.decMem x ys)
@@ -576,25 +574,25 @@ test "List.distinctEq empty" := (Nil: List Nat).distinctEq == Nil
 test "List.distinctEq all repeats" := [4, 4, 4].distinctEq == [4]
 test "List.distinctEq already distinct" := [2, 5, 1].distinctEq == [2, 5, 1]
 
---| The element with the largest key, or `None` for an empty list. When several
---| keys are largest, the FIRST of those elements wins: `[(1, "a"), (3, "b"),
---| (3, "c")].maxBy Pair.fst` is `Some (3, "b")`. (Haskell's `maximumBy` and
---| Clojure's `max-key` return the last one, so a port must not assume they agree.)
 def List.maxByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Less => x
   | _ => best
 
+--| The element with the largest key, or `None` for an empty list. When several
+--| keys are largest, the FIRST of those elements wins: `[(1, "a"), (3, "b"),
+--| (3, "c")].maxBy Pair.fst` is `Some (3, "b")`. (Haskell's `maximumBy` and
+--| Clojure's `max-key` return the last one, so a port must not assume they agree.)
 def List.maxBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
   match xs with
     | Nil => None
     | Cons x ys => Some (List.foldLeft ys x (best y => List.maxByStep f best y))
 
---| The element with the smallest key; on a tie the FIRST one wins, as for
---| `List.maxBy`.
 def List.minByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Greater => x
   | _ => best
 
+--| The element with the smallest key; on a tie the FIRST one wins, as for
+--| `List.maxBy`.
 def List.minBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
   match xs with
     | Nil => None
@@ -687,9 +685,8 @@ def List.mapWithIndex (xs: List a) (f: Nat → a → {e} b): {e} List b := xs.wi
 --| One step of `List.findMap`: the `Some` found, or else the search of the
 --| rest, which runs only then. The rest is a function of no arguments so that
 --| an effectful `f` isn't called after the first `Some`.
--- A function of its
--- own (not a `match` in `findMap`) so the backends inline it and
--- `findMap` stays a loop.
+-- A function of its own (not a `match` in `findMap`) so the backends inline
+-- it and `findMap` stays a loop.
 @[noReceiver]
 def List.findMapStep: Option b → (rest: () → {e} Option b) → {e} Option b
   | Some y, rest => Some y

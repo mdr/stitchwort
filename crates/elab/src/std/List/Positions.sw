@@ -3,8 +3,8 @@
 --| `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
 --| number in a range, running sums by position, sorted lists of numbers by
 --| position, and `List.all` over `List.between`.
--- Kept out of Index.sw and Sort.sw, which small programs
--- load, so that those don't load Omega.
+-- Kept out of Index.sw and Sort.sw, which small programs load, so that those
+-- don't load Omega.
 
 --| The element at `x`'s position is `x`.
 theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a) → List.Mem x xs → List.getOr xs (List.indexOf xs x) d = x

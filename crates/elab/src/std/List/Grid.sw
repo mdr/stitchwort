@@ -4,8 +4,8 @@
 --| lemmas read the result cell by cell: row r, column c of the input is row c,
 --| column r of the output, `(.getOr c fill)` of row r, past the ends too.
 --| And every cell with its row and column (`gridCells`).
--- A file of its own,
--- so that programs using only the toolkit don't check these.
+-- A file of its own, so that programs using only the toolkit don't check
+-- these.
 
 --| Every cell with its row and column, counting from 0, row by row:
 --| `[['a', 'b'], ['c']].gridCells` is `[((0, 0), 'a'), ((0, 1), 'b'), ((1, 0), 'c')]`.

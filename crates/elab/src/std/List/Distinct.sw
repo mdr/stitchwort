@@ -1,13 +1,12 @@
 --| `List.distinct`: the elements without repeats, for a type with an
---| ordering, in O(n log n). A `Set` holds what has been seen,
---| so each element costs a lookup, not a scan of the elements kept before it
---| as `List.distinctEq` (the `DecEq`-only version, std/List/Toolkit.sw) does.
+--| ordering, in O(n log n). A `Set` holds what has been seen, so each element
+--| costs a lookup, not a scan of the elements kept before it as
+--| `List.distinctEq` (the `DecEq`-only version, std/List/Toolkit.sw) does.
 --| The result is the same (`List.distinctIsDistinctEq`), so what is proved
 --| here for `distinctEq` holds for `distinct` too.
 -- (SW-454, D1191)
--- The theorems are here, not
--- beside `distinctEq`, so that programs using the list toolkit don't load
--- the files they need.
+-- The theorems are here, not beside `distinctEq`, so that programs using the
+-- list toolkit don't load the files they need.
 
 --| One step of `List.distinct`: `seen` is the set of elements kept so far, and
 --| `acc` those elements, last first. A loop, so it is stack-safe on long lists.
