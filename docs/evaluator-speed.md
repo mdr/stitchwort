@@ -8,7 +8,7 @@ then thrown away.
 
 ## The short version
 
-- `aoc/src/day04/day04.sw` on the real input takes **16.4 s** (Apple M4 Pro, release build). That is
+- `aoc/src/day04/day04.sw` (now `aoc/src/Aoc/Year2025/Day04/Day04.sw`) on the real input takes **16.4 s** (Apple M4 Pro, release build). That is
   **687 million machine steps** at about **42 million steps a second**, and about **410 CPU
   instructions per step** (282 billion instructions retired, from `/usr/bin/time -l`).
 - The cost per step is the main problem, more than the number of steps. Most of a step goes on
