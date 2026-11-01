@@ -3466,7 +3466,7 @@
     {
       "id": 1019,
       "title": "Documentation stage 1b: stitchwort doc NAME (examples by name, theorems about X, parse-only mode), exact-name search rank",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3476,7 +3476,9 @@
       "body": "After 1a. docs/proposals/documentation.md §5.3-5.5, D2144, D2146, D2152, D2154.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "fd2bcd78"
+      ]
     },
     {
       "id": 1020,
