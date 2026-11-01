@@ -1,13 +1,12 @@
--- The way on can be walked to from the start of every level the generator
--- lays out (`goalReachable`). A walk is a list of moves, each onto floor
--- (`Walk`). Within a rectangle of floor any cell can be walked to from any
--- other, along the row and then along the column (`walkWithin`); a
--- corridor is two such rectangles meeting at its bend, so its two ends are
--- joined both ways (`corridorJoins`); and the corridors `roomLinks` names
--- form a snake through all six rooms, 0, 1, 2, 5, 4, 3, so every room's
--- middle is joined to room 0's (`hubJoins`), the entrance's and the exit's
--- included.
---
+--| The way on can be walked to from the start of every level the generator
+--| lays out (`goalReachable`). A walk is a list of moves, each onto floor
+--| (`Walk`). Within a rectangle of floor any cell can be walked to from any
+--| other, along the row and then along the column (`walkWithin`); a
+--| corridor is two such rectangles meeting at its bend, so its two ends are
+--| joined both ways (`corridorJoins`); and the corridors `roomLinks` names
+--| form a snake through all six rooms, 0, 1, 2, 5, 4, 3, so every room's
+--| middle is joined to room 0's (`hubJoins`), the entrance's and the exit's
+--| included.
 -- The proofs are about a `Level` whose corridors are `corridorsOf` (an
 -- equation); only `goalReachable` unfolds the opaque `layOut`, and only to
 -- read off that equation. `generateLevel` builds its level with `layOut`,
@@ -18,7 +17,7 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Bool, Eq, Exists, List, Nat, Void)
 
--- Walking `moves` from `origin` stays on floor and ends at `target`.
+--| Walking `moves` from `origin` stays on floor and ends at `target`.
 def Walk (level: Level): Position → List Direction → Position → Prop
   | origin, [], target => origin = target
   | origin, Cons direction rest, target => isWall level (origin.toward direction) = False ∧ Walk level (origin.toward direction) rest target
@@ -62,14 +61,14 @@ theorem walkNorth (level: Level) (column: Nat):
     let back: row + Succ steps - 1 = row + steps := omega
     rewrite back in Both (floor (row + steps) omega omega) (walkNorth level column steps row (i after before => floor i omega omega))
 
--- Every cell of `area` is floor.
+--| Every cell of `area` is floor.
 def Open (level: Level) (area: Area): Prop := (position: Position) → area.contains position = True → isWall level position = False
 
 theorem containsOf (area: Area) (position: Position) (top: area.corner.row ≤ position.row) (bottom: position.row ≤ area.corner.row + area.down)
     (left: area.corner.column ≤ position.column) (right: position.column ≤ area.corner.column + area.across): area.contains position = True :=
   rewrite top, bottom, left, right in rfl
 
--- What `contains` says, as four facts.
+--| What `contains` says, as four facts.
 type Inside (area: Area) (position: Position): Prop = {
   top: area.corner.row ≤ position.row,
   bottom: position.row ≤ area.corner.row + area.down,
@@ -140,7 +139,7 @@ theorem walkDown (level: Level) (area: Area) (open: Open level area) (origin: Po
         { row = origin.row, column = target.column } { row = target.row, column = target.column } target
         (rewrite (omega: target.row + (origin.row - target.row) = origin.row) in rfl) (Eq.sym (positionEta target)) walk
 
--- Any cell of an open area can be walked to from any other.
+--| Any cell of an open area can be walked to from any other.
 theorem walkWithin (level: Level) (area: Area) (open: Open level area) (origin: Position) (target: Position)
     (from: area.contains origin = True) (to: area.contains target = True): Walk level origin (across origin target ++ down origin target) target :=
   let inOrigin := insideOf area origin from
@@ -163,7 +162,7 @@ theorem minDistanceRight (m: Nat) (n: Nat): n ≤ Nat.min m n + distanceBetween 
     | True => omega
     | False => omega
 
--- A corridor's two legs, and the cell where they meet.
+--| A corridor's two legs, and the cell where they meet.
 def bend (origin: Position) (target: Position): Position := { row = origin.row, column = target.column }
 
 theorem alongContains (origin: Position) (target: Position) (position: Position) (sameRow: position.row = origin.row)
@@ -176,7 +175,7 @@ theorem upContains (origin: Position) (target: Position) (position: Position) (s
     ({ corner = { row = Nat.min origin.row target.row, column = target.column }, down = distanceBetween origin.row target.row, across = 0 }: Area).contains position = True :=
   containsOf { corner = { row = Nat.min origin.row target.row, column = target.column }, down = distanceBetween origin.row target.row, across = 0 } position top bottom omega omega
 
--- `target` can be walked to from `origin`, by some moves.
+--| `target` can be walked to from `origin`, by some moves.
 def Reachable (level: Level) (origin: Position) (target: Position): Prop := exists (moves: List Direction) => Walk level origin moves target
 
 theorem reachTrans (level: Level) (origin: Position) (middle: Position) (target: Position)
@@ -190,10 +189,10 @@ theorem reachWithin (level: Level) (area: Area) (open: Open level area) (origin:
     (from: area.contains origin = True) (to: area.contains target = True): Reachable level origin target :=
   Witness (across origin target ++ down origin target) (walkWithin level area open origin target from to)
 
--- The goal can be walked to from the start.
+--| The goal can be walked to from the start.
 def GoalReachable (level: Level): Prop := Reachable level level.start level.goal
 
--- Both ends of a corridor the level has can be reached from each other.
+--| Both ends of a corridor the level has can be reached from each other.
 type Joined (level: Level) (origin: Position) (target: Position): Prop = { there: Reachable level origin target, back: Reachable level target origin }
 
 theorem corridorJoins (level: Level) (origin: Position) (target: Position)
@@ -218,17 +217,17 @@ theorem joinedTrans (level: Level) (origin: Position) (middle: Position) (target
   back = reachTrans level target middle origin second.back first.back
 }
 
--- The middle of room number `index`.
+--| The middle of room number `index`.
 def middleOf (rooms: List Area) (index: Nat): Position := roomOf rooms index |> .middle
 
--- Each pair of rooms `roomLinks` names is joined, on a level with those corridors.
+--| Each pair of rooms `roomLinks` names is joined, on a level with those corridors.
 theorem linkJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.corridors = corridorsOf rooms extra) (first: Nat) (second: Nat)
     (linked: List.Mem (first, second) (roomLinks extra)): Joined level (middleOf rooms first) (middleOf rooms second) :=
   corridorJoins level (middleOf rooms first) (middleOf rooms second) (area leg =>
     let corridorsFor: (Nat, Nat) → List Area := ((one, other)) => corridorBetween (roomOf rooms one).middle (roomOf rooms other).middle
     rewrite wired in List.memFlatMapIntro corridorsFor (first, second) area (roomLinks extra) linked leg)
 
--- Room 0 is joined to every room, along the snake: 0, 1, 2, 5, 4, 3.
+--| Room 0 is joined to every room, along the snake: 0, 1, 2, 5, 4, 3.
 theorem hubTwo (level: Level) (rooms: List Area) (extra: Nat) (wired: level.corridors = corridorsOf rooms extra):
     Joined level (middleOf rooms 0) (middleOf rooms 2) :=
   joinedTrans level (middleOf rooms 0) (middleOf rooms 1) (middleOf rooms 2) (linkJoins level rooms extra wired 0 1 (Inl rfl)) (linkJoins level rooms extra wired 1 2 (Inr (Inl rfl)))
@@ -252,10 +251,10 @@ theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.co
   | Succ (Succ (Succ (Succ (Succ Zero)))), small => hubFive level rooms extra wired
   | Succ (Succ (Succ (Succ (Succ (Succ more))))), small => Void.exfalso (Bool.falseNotTrue small)
 
--- The way on (the stairs, or the amulet) can be walked to from the start,
--- on every level `layOut` makes from rooms numbered below 6, as
--- `generateLevel` always picks. Monsters may stand in the way, but walking
--- into one attacks it, so they block nothing for good.
+--| The way on (the stairs, or the amulet) can be walked to from the start,
+--| on every level `layOut` makes from rooms numbered below 6, as
+--| `generateLevel` always picks. Monsters may stand in the way, but walking
+--| into one attacks it, so they block nothing for good.
 theorem goalReachable (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
     (entranceSmall: entranceIndex < 6) (exitSmall: exitIndex < 6):
     GoalReachable (layOut depth rooms entranceIndex exitIndex extra)

@@ -1,13 +1,13 @@
--- The rules of a turn, proved for every seed:
---
--- - once the game is won, lost or given up, nothing changes
---   (`resolveFinished`), and quitting gives up (`resolveQuit`);
--- - moving onto a cell with no monster and no wall puts the player there
---   (`resolveMoves`);
--- - only monsters next to the player hurt them, and by at most the sum of
---   those monsters' strengths (`monstersTurnHurt`, `monstersTurnHarmless`);
--- - hit points only go up by drinking a potion, and then by at most
---   `potionStrength` (`resolveNoHeal`, `resolveDrinkHeals`).
+--| The rules of a turn, proved for every seed:
+--|
+--| - once the game is won, lost or given up, nothing changes
+--|   (`resolveFinished`), and quitting gives up (`resolveQuit`);
+--| - moving onto a cell with no monster and no wall puts the player there
+--|   (`resolveMoves`);
+--| - only monsters next to the player hurt them, and by at most the sum of
+--|   those monsters' strengths (`monstersTurnHurt`, `monstersTurnHarmless`);
+--| - hit points only go up by drinking a potion, and then by at most
+--|   `potionStrength` (`resolveNoHeal`, `resolveDrinkHeals`).
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -23,8 +23,8 @@ theorem resolveFinished (dice: Dice) (state: State) (command: Command) (over: st
 theorem resolveQuit (dice: Dice) (state: State) (playing: state.phase = Playing): (resolve dice state Quit).phase = GaveUp :=
   rewrite playing in rfl
 
--- The most the monsters next to `player` could do in one turn: each one's
--- strength.
+--| The most the monsters next to `player` could do in one turn: each one's
+--| strength.
 def threat (player: Position): List Monster → Nat
   | [] => 0
   | Cons monster rest => (if monster.position.isNextTo player then monster.kind.strength else 0) + threat player rest
@@ -73,7 +73,7 @@ theorem monstersTurnNoHeal (dice: Dice) (state: State): (monstersTurn dice state
     | Died => omega
     | GaveUp => omega
 
--- With no monster next to the player, the monsters' turn costs nothing.
+--| With no monster next to the player, the monsters' turn costs nothing.
 theorem monstersTurnHarmless (dice: Dice) (state: State) (none: List.All (monster => monster.position.isNextTo state.player = False) state.monsters):
     (monstersTurn dice state).hitPoints = state.hitPoints :=
   omega [monstersTurnHurt dice state, monstersTurnNoHeal dice state, threatNone state.player state.monsters none]
@@ -89,7 +89,7 @@ theorem playerMovesHitPoints (dice: Dice) (state: State) (direction: Direction):
         | True => rfl
         | False => enterHitPoints state (state.player.toward direction)
 
--- Hit points only go up by drinking a potion.
+--| Hit points only go up by drinking a potion.
 theorem resolveNoHeal (dice: Dice) (state: State) (command: Command) (notDrink: command ≠ Drink):
     (resolve dice state command).hitPoints ≤ state.hitPoints :=
   match phase: state.phase with
@@ -112,7 +112,7 @@ theorem healedAtMostPotion (hitPoints: Nat): healed hitPoints ≤ hitPoints + po
     | True => omega
     | False => omega
 
--- And a potion heals at most `potionStrength`.
+--| And a potion heals at most `potionStrength`.
 theorem resolveDrinkHeals (dice: Dice) (state: State): (resolve dice state Drink).hitPoints ≤ state.hitPoints + potionStrength :=
   match phase: state.phase with
     | Playing =>
@@ -122,7 +122,7 @@ theorem resolveDrinkHeals (dice: Dice) (state: State): (resolve dice state Drink
     | Won => omega
     | Died => omega
     | GaveUp => omega
--- Moving onto a cell with no monster and no wall puts the player there.
+--| Moving onto a cell with no monster and no wall puts the player there.
 theorem resolveMoves (dice: Dice) (state: State) (direction: Direction) (playing: state.phase = Playing)
     (vacant: monsterAt (state.player.toward direction) state.monsters = None) (open: isWall state.level (state.player.toward direction) = False):
     (resolve dice state (Move direction)).player = state.player.toward direction :=

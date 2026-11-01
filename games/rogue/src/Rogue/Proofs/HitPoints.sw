@@ -1,6 +1,6 @@
--- Hit points never exceed the maximum after a turn (`stepAtMost`): a potion
--- heals no further than the maximum, blows only take hit points away, and
--- nothing else changes them.
+--| Hit points never exceed the maximum after a turn (`stepAtMost`): a potion
+--| heals no further than the maximum, blows only take hit points away, and
+--| nothing else changes them.
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -51,7 +51,7 @@ theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: st
     | Died => atMost
     | GaveUp => atMost
 
--- Hit points never exceed the maximum after a turn, whatever the seed.
+--| Hit points never exceed the maximum after a turn, whatever the seed.
 theorem stepAtMost (seed: Nat) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
     (Random.withSeed seed (() => step state command)).hitPoints ≤ maxHitPoints :=
   resolveAtMost { seed = lcg seed / 65536 } state command atMost

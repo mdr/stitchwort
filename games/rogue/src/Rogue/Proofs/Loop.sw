@@ -1,11 +1,11 @@
--- One turn of the real loop, `playTurn`, under the test handlers
--- `Terminal.simulate` and `Random.withSeed`: a key that is a command runs `resolve`
--- with the seed's dice and draws its frame (`turnKey`); any other key does
--- nothing (`turnOther`); the end of the keys gives up (`turnEnd`). So every
--- turn the loop takes keeps the state valid (`turnValid`), and pressing an
--- arrow walks that way (`arrowWalks`).
---
--- `play` repeats `playTurn` until the game is over. It is partial, and a
+--| One turn of the real loop, `playTurn`, under the test handlers
+--| `Terminal.simulate` and `Random.withSeed`: a key that is a command runs `resolve`
+--| with the seed's dice and draws its frame (`turnKey`); any other key does
+--| nothing (`turnOther`); the end of the keys gives up (`turnEnd`). So every
+--| turn the loop takes keeps the state valid (`turnValid`), and pressing an
+--| arrow walks that way (`arrowWalks`).
+--| `play` repeats `playTurn` until the game is over.
+-- It is partial, and a
 -- partial program under a handler has nothing to prove about it
 -- (docs/proposals/partial-handlers.md §3.5), so the loop as a whole is
 -- covered by `replayValid` (Game.sw) over the turns it takes.
@@ -36,7 +36,7 @@ theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
       | Some command => resolveValid { seed = lcg seed / 65536 } state command valid
       | None => valid
 
--- So pressing an arrow, in the real turn under the test handlers, walks that way.
+--| So pressing an arrow, in the real turn under the test handlers, walks that way.
 theorem arrowWalks (seed: Nat) (state: State) (direction: Direction) (rest: List Key) (playing: state.phase = Playing)
     (vacant: monsterAt (state.player.toward direction) state.monsters = None) (open: isWall state.level (state.player.toward direction) = False):
     (Terminal.simulate (Cons (arrow direction) rest) (() => Random.withSeed seed (() => playTurn state))).snd.player = state.player.toward direction :=

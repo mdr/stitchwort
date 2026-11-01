@@ -1,20 +1,20 @@
--- No monster stands on the player's cell after a turn (`stepClear`). The
--- player only steps where no monster is (or attacks it instead); a blow
--- changes monsters without moving them; each monster either stays put (and
--- it wasn't on the player's cell) or moves to a cell `pickFree` has checked
--- isn't the player's; and a new level's monsters are placed by `pickFree`
--- too (Level.sw).
+--| No monster stands on the player's cell after a turn (`stepClear`). The
+--| player only steps where no monster is (or attacks it instead); a blow
+--| changes monsters without moving them; each monster either stays put (and
+--| it wasn't on the player's cell) or moves to a cell `pickFree` has checked
+--| isn't the player's; and a new level's monsters are placed by `pickFree`
+--| too (Level.sw).
 
 namespace Rogue.Proofs
 import Rogue (..)
 import Std (Decidable, Eq, List, Option, Void, Bool)
 
--- No monster stands on `position`.
+--| No monster stands on `position`.
 def Clear (position: Position) (monsters: List Monster): Prop := monsterAt position monsters = None
 
 theorem someNotNone (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster (Eq.sym found)
 
--- The first monster of a clear list isn't on the cell, and the rest are clear.
+--| The first monster of a clear list isn't on the cell, and the rest are clear.
 theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position (Cons monster others)):
     (monster.position == position) = False :=
   match same: monster.position == position with
@@ -35,7 +35,7 @@ theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.positi
       | True => Void.exfalso (someNotNone first clear)
       | False => clearSnoc position monster away rest clear
 
--- A monster never chooses the player's cell.
+--| A monster never chooses the player's cell.
 theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
     (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → (destination == player) = False
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
@@ -50,14 +50,14 @@ theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
               | True => pickFreeAway level player others rest destination picked
               | False => rewrite <- Option.someInjective choice destination picked in same
 
--- Changing monsters without moving them keeps them off the cell.
+--| Changing monsters without moving them keeps them off the cell.
 theorem clearMap (position: Position) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):
     (monsters: List Monster) → Clear position monsters → Clear position (monsters.map change)
   | [], clear => rfl
   | Cons first rest, clear =>
     rewrite stays first, clearHead position first rest clear in clearMap position change stays rest (clearTail position first rest clear)
 
--- Dropping monsters keeps the rest off the cell.
+--| Dropping monsters keeps the rest off the cell.
 theorem clearFilter (position: Position) (keep: Monster → Bool):
     (monsters: List Monster) → Clear position monsters → Clear position (monsters.filter keep)
   | [], clear => rfl
@@ -71,8 +71,8 @@ theorem woundStays (target: Position) (damage: Nat) (monster: Monster): (wound t
     | True => rfl
     | False => rfl
 
--- The monsters' turn keeps them off the player's cell: those that attack
--- stay where they are, and those that move pick a free cell, or stay.
+--| The monsters' turn keeps them off the player's cell: those that attack
+--| stay where they are, and those that move pick a free cell, or stay.
 theorem actAllClear (dice: Dice) (level: Level) (player: Position):
     (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
     Clear player outcome.moved → Clear player waiting → Clear player (actAll dice level player index outcome waiting).moved
@@ -141,7 +141,7 @@ theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clea
     | Died => clear
     | GaveUp => clear
 
--- No monster stands on the player's cell after a turn, whatever the seed.
+--| No monster stands on the player's cell after a turn, whatever the seed.
 theorem stepClear (seed: Nat) (state: State) (command: Command) (clear: Clear state.player state.monsters):
     let after := Random.withSeed seed (() => step state command)
     Clear after.player after.monsters :=

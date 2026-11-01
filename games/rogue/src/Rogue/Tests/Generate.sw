@@ -1,28 +1,28 @@
--- The level generator, over many seeds: every level can be played (its goal
--- can be reached from its start), fits the screen, and gets harder further
--- down; and `arrive` keeps only the monsters and items that may stand where
--- they were planned.
+--| The level generator, over many seeds: every level can be played (its goal
+--| can be reached from its start), fits the screen, and gets harder further
+--| down; and `arrive` keeps only the monsters and items that may stand where
+--| they were planned.
 
 namespace Rogue.Tests
 import Rogue (..)
 import Std (List, Set)
 
--- The seeds the generator is tried on.
+--| The seeds the generator is tried on.
 def seeds: List Nat := List.range 40
 
 def planned (seed: Nat) (depth: Nat): Plan := Random.withSeed seed (() => generateLevel depth)
 
--- Every plan the tests look at: each seed at each depth.
+--| Every plan the tests look at: each seed at each depth.
 def plans: List Plan := seeds.flatMap (seed => List.between 1 deepest |> .map (depth => planned seed depth))
 
 -- Search
 
--- A cell as one number, to keep the cells seen in a `Set`.
+--| A cell as one number, to keep the cells seen in a `Set`.
 def keyOf (position: Position): Nat := position.row * levelColumns + position.column
 
--- The cells that can be walked to from `start`, by a depth-first search
--- over the cells that aren't walls. Each cell is pushed once, when first
--- seen, so the search ends within as many steps as there are cells.
+--| The cells that can be walked to from `start`, by a depth-first search
+--| over the cells that aren't walls. Each cell is pushed once, when first
+--| seen, so the search ends within as many steps as there are cells.
 def reachableFrom (level: Level) (start: Position): Set Nat :=
   explore level (levelRows * levelColumns + 1) [start] (Set.singleton (keyOf start))
 
@@ -35,12 +35,12 @@ def explore (level: Level): Nat → List Position → Set Nat → Set Nat
 
 def canReachGoal (level: Level): Bool := reachableFrom level level.start |> .contains (keyOf level.goal)
 
--- Every floor cell can be reached, not only the goal: no room is cut off.
+--| Every floor cell can be reached, not only the goal: no room is cut off.
 def allFloorReachable (level: Level): Bool :=
   let reached := reachableFrom level level.start
   List.range levelRows |> .all (row => List.range levelColumns |> .all (column => isWall level { row, column } ∨ reached.contains (keyOf { row, column })))
 
--- An area lies inside the screen, with rock all round the edge.
+--| An area lies inside the screen, with rock all round the edge.
 def fitsOnScreen (area: Area): Bool :=
   1 ≤ area.corner.row ∧ area.corner.row + area.down + 2 ≤ levelRows ∧ 1 ≤ area.corner.column ∧ area.corner.column + area.across + 2 ≤ levelColumns
 

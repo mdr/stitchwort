@@ -1,16 +1,16 @@
--- No monster stands in a wall after a turn (`stepOnFloor`): a blow changes
--- monsters without moving them, each monster either stays put or moves to
--- a cell `pickFree` has checked isn't a wall, and a new level's monsters
--- are placed by `pickFree` too (Level.sw).
+--| No monster stands in a wall after a turn (`stepOnFloor`): a blow changes
+--| monsters without moving them, each monster either stays put or moves to
+--| a cell `pickFree` has checked isn't a wall, and a new level's monsters
+--| are placed by `pickFree` too (Level.sw).
 
 namespace Rogue.Proofs
 import Rogue (..)
 import Std (Eq, List, Option, Void)
 
--- No monster stands in a wall of the level.
+--| No monster stands in a wall of the level.
 def OnFloor (level: Level) (monsters: List Monster): Prop := List.All (monster => isWall level monster.position = False) monsters
 
--- A monster never chooses a wall.
+--| A monster never chooses a wall.
 theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster):
     (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → isWall level destination = False
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
@@ -29,13 +29,13 @@ theorem onFloorSnoc (level: Level) (monster: Monster) (inside: isWall level mons
     OnFloor level (monsters ++ [monster]) :=
   List.allAppend ((monster: Monster) => isWall level monster.position = False) monsters [monster] onFloor (Both inside Trivial)
 
--- Changing monsters without moving them keeps them on the floor.
+--| Changing monsters without moving them keeps them on the floor.
 theorem onFloorMap (level: Level) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):
     (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.map change)
   | [], onFloor => Trivial
   | Cons first rest, Both inside others => Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
 
--- Dropping monsters keeps the rest on the floor.
+--| Dropping monsters keeps the rest on the floor.
 theorem onFloorFilter (level: Level) (keep: Monster → Bool):
     (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.filter keep)
   | [], onFloor => Trivial
@@ -44,9 +44,9 @@ theorem onFloorFilter (level: Level) (keep: Monster → Bool):
       | True => Both inside (onFloorFilter level keep rest others)
       | False => onFloorFilter level keep rest others
 
--- The monsters' turn keeps them on the floor: those that attack stay
--- where they are, and those that move pick a cell that isn't a wall, or
--- stay.
+--| The monsters' turn keeps them on the floor: those that attack stay
+--| where they are, and those that move pick a cell that isn't a wall, or
+--| stay.
 theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position):
     (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
     OnFloor level outcome.moved → OnFloor level waiting → OnFloor level (actAll dice level player index outcome waiting).moved
@@ -113,7 +113,7 @@ theorem resolveOnFloor (dice: Dice) (state: State) (command: Command) (onFloor: 
     | Died => onFloor
     | GaveUp => onFloor
 
--- No monster stands in a wall after a turn, whatever the seed.
+--| No monster stands in a wall after a turn, whatever the seed.
 theorem stepOnFloor (seed: Nat) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
     let after := Random.withSeed seed (() => step state command)
     OnFloor after.level after.monsters :=
