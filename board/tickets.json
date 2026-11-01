@@ -1,5 +1,5 @@
 {
-  "next": 989,
+  "next": 990,
   "tickets": [
     {
       "id": 47,
@@ -2959,9 +2959,9 @@
     {
       "id": 986,
       "title": "Postponement step 4.3 (K4) finish: a waiting literal is seen through by the same numeral at a known type, so 2021 Day08 checks; then merge (D2110: yes, 1 Nov)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree-agent-acd1a9e4928ec210f",
       "labels": [
         "postponement"
       ],
@@ -2995,6 +2995,20 @@
         "design"
       ],
       "body": "Design lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 989,
+      "title": "search on real goals (D2116): AoC benchmark, then stop --at refusals, then better candidates",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "From AoC 2021 days 9-18 (1 Nov 2026). (1) Benchmark: the ~40 goals AoC lanes recorded with what closed them (NOTES-2021 day sections, friction tickets SW-960..980) plus the query log; record search --at's hit rate on main first. (2) Refusals: --at fails on goals that don't survive printing and reparsing: context order (SW-969 1), ✝ names (SW-976 8), %match1 names (SW-980 2, SW-971 3), record after constructor (SW-980 1), captured variables (SW-967 5). Root fix: search the goal term directly, or guarantee printed goals are valid source (pasteable names). (3) Candidates: folded and computed goal (SW-965 3, SW-978 3), symmetric lemmas (SW-971 2), local hypotheses and IH (SW-971 5, SW-976 8), index conjunct conclusions (SW-973 7) and class laws (SW-971 4) and generated T.ext (SW-960 7), drop no-op results (Bool.canonicalTrue) and undecidable byDecision, pattern premises anywhere (SW-969 4), --in NAMESPACE (SW-960 7). Cold-start speed later. Related: SW-952, SW-935, SW-942.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
