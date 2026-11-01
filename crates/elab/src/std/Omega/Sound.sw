@@ -1,8 +1,8 @@
--- The soundness of `Omega.check` (std/Omega/Omega.sw; docs/proposals/omega.md
--- §6.6): `Omega.prove` says that a certificate the checker accepts proves the
--- goal from the facts, for every environment, whatever the lengths of its
--- lists. Every lemma is about values at a given environment: no function or
--- propositional extensionality, no assumptions.
+--| The soundness of `Omega.check` (std/Omega/Omega.sw; docs/proposals/omega.md
+--| §6.6): `Omega.prove` says that a certificate the checker accepts proves the
+--| goal from the facts, for every environment, whatever the lengths of its
+--| lists. Every lemma is about values at a given environment: no function or
+--| propositional extensionality, no assumptions.
 
 import Omega.Env (MkEnv)
 import Omega.NTerm (NV, NLit, NAdd, NSucc, MulLeft, MulRight)
@@ -13,7 +13,7 @@ import Omega.Row (MkRow)
 import Omega.Step (Input, NegGoal, NatNonneg, Combine, Divide)
 import Omega.Cert (Close, Then, Split, Cases)
 
--- Carrying `0 <= y` to `0 <= x` along `x = y`.
+--| Carrying `0 <= y` to `0 <= x` along `x = y`.
 theorem Omega.nonnegEq [x y: Int] (e: x = y) (h: 0 ≤ y): 0 ≤ x := J (z p => Int.leq (OfNat 0) z = True) h (Eq.sym e)
 
 theorem Omega.dotAdd: (as: List Int) → (bs: List Int) → (vs: List Int) →
@@ -59,7 +59,7 @@ theorem Omega.dotAllZero: (as: List Int) → (vs: List Int) → Omega.allZero as
       (Eq.trans (Eq.cong (t => Int.mul t v) (Omega.isZeroEq a (Bool.andLeft (Omega.isZero a) (Omega.allZero as) h))) (Int.zeroMul v))
       (Omega.dotAllZero as vs (Bool.andRight (Omega.isZero a) (Omega.allZero as) h))
 
--- A coefficient that `d` divides is `d` times its quotient.
+--| A coefficient that `d` divides is `d` times its quotient.
 theorem Omega.divExact (d: Nat) (a: Int) (h: Omega.isZero (a % OfNat (Succ d)) = True): a = OfNat (Succ d) * (a / OfNat (Succ d)) :=
   Eq.sym (Eq.trans (Eq.sym (Int.addZero (OfNat (Succ d) * (a / OfNat (Succ d)))))
     (Eq.trans (Eq.cong (Int.add (OfNat (Succ d) * (a / OfNat (Succ d)))) (Eq.sym (Omega.isZeroEq (a % OfNat (Succ d)) h)))
@@ -77,7 +77,7 @@ theorem Omega.dotDiv (d: Nat): (as: List Int) → (vs: List Int) → Omega.allDi
         (Omega.dotDiv d as vs (Bool.andRight (Omega.isZero (a % OfNat (Succ d))) (Omega.allDiv d as) h)))
       (Eq.sym (Int.mulDistribLeft (OfNat (Succ d)) ((a / OfNat (Succ d)) * v) (Omega.dot (Omega.divC d as) vs)))
 
--- `(c + d) + ((x1 + x2) + (y1 + y2)) = (c + (x1 + y1)) + (d + (x2 + y2))`
+--| `(c + d) + ((x1 + x2) + (y1 + y2)) = (c + (x1 + y1)) + (d + (x2 + y2))`
 theorem Omega.add3Swap (c: Int) (d: Int) (x1: Int) (x2: Int) (y1: Int) (y2: Int):
     (c + d) + ((x1 + x2) + (y1 + y2)) = (c + (x1 + y1)) + (d + (x2 + y2)) :=
   Eq.trans (Eq.cong (Int.add (c + d)) (Int.addAddSwap x1 x2 y1 y2))
@@ -105,14 +105,14 @@ theorem Omega.evalScale (env: Omega.Env) (k: Int) (r: Omega.Row):
     Omega.Row.eval env (Omega.Row.scale k r) = k * Omega.Row.eval env r :=
   Omega.valueScale (Omega.toInts (Omega.Env.nats env)) (Omega.Env.ints env) k r
 
--- `r - s` means `r` minus `s`.
+--| `r - s` means `r` minus `s`.
 theorem Omega.evalSub (env: Omega.Env) (r: Omega.Row) (s: Omega.Row):
     Omega.Row.eval env (Omega.Row.sub r s) = Omega.Row.eval env r + Int.neg (Omega.Row.eval env s) :=
   Eq.trans (Omega.evalAdd env r (Omega.Row.scale (NegSucc 0) s))
     (Eq.cong (Int.add (Omega.Row.eval env r))
       (Eq.trans (Omega.evalScale env (NegSucc 0) s) (Int.negOneMul (Omega.Row.eval env s))))
 
--- The linear form of a term means the term.
+--| The linear form of a term means the term.
 theorem Omega.linEval (env: Omega.Env): (t: Omega.NTerm) → Omega.Row.eval env (Omega.NTerm.lin t) = OfNat (Omega.NTerm.eval env t)
   | NV i =>
     Eq.trans (Int.zeroAdd (Int.add (Omega.dot (Omega.unit i) (Omega.toInts (Omega.Env.nats env))) (OfNat 0)))
@@ -132,7 +132,7 @@ theorem Omega.linEval (env: Omega.Env): (t: Omega.NTerm) → Omega.Row.eval env 
       (Eq.trans (Eq.cong (Int.mul (OfNat k)) (Omega.linEval env t))
         (Eq.cong OfNat (Nat.mulComm k (Omega.NTerm.eval env t))))
 
--- The convention: `a <= b` gives the row `b - a >= 0`.
+--| The convention: `a <= b` gives the row `b - a >= 0`.
 theorem Omega.leRowHolds (env: Omega.Env) (a: Omega.NTerm) (b: Omega.NTerm) (h: Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b):
     Omega.Row.Holds env (Omega.leRow a b) :=
   Omega.nonnegEq
@@ -140,12 +140,12 @@ theorem Omega.leRowHolds (env: Omega.Env) (a: Omega.NTerm) (b: Omega.NTerm) (h: 
       (Int.addCong (Omega.linEval env b) (Eq.cong Int.neg (Omega.linEval env a))))
     (Int.subNonnegOfLe (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) h)
 
--- `-1 - n` is `NegSucc n`.
+--| `-1 - n` is `NegSucc n`.
 theorem Omega.negSuccOfNat: (n: Nat) → Int.add (NegSucc 0) (Int.neg (OfNat n)) = NegSucc n
   | Zero => rfl
   | Succ n => rfl
 
--- The linear form of an `Int` term means the term.
+--| The linear form of an `Int` term means the term.
 theorem Omega.ilinEval (env: Omega.Env): (t: Omega.ITerm) → Omega.Row.eval env (Omega.ITerm.lin t) = Omega.ITerm.eval env t
   | IV i =>
     Eq.trans (Int.zeroAdd (Int.add (OfNat 0) (Omega.dot (Omega.unit i) (Omega.Env.ints env))))
@@ -185,10 +185,10 @@ theorem Omega.intLeAntisym: (a: Int) → (b: Int) → Int.leq a b = True → Int
   | NegSucc m, OfNat n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | NegSucc m, NegSucc n, h1, h2 => Eq.cong NegSucc (Nat.leAntisym m n h2 h1)
 
--- `m < n` as `m + 1 <= n`.
+--| `m < n` as `m + 1 <= n`.
 theorem Omega.natLeqAddOne (m: Nat) (n: Nat) (h: m < n): m + 1 ≤ n := J (y p => Nat.leq y n = True) h (Eq.sym (Nat.addOne m))
 
--- `a < b` is `a + 1 <= b`.
+--| `a < b` is `a + 1 <= b`.
 theorem Omega.intLeqOfLess: (a: Int) → (b: Int) → Int.less a b = True → Int.leq (Int.add a (OfNat 1)) b = True
   | OfNat m, OfNat n, h => Omega.natLeqAddOne m n h
   | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
@@ -197,7 +197,7 @@ theorem Omega.intLeqOfLess: (a: Int) → (b: Int) → Int.less a b = True → In
   | NegSucc Zero, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
   | NegSucc (Succ m), NegSucc n, h => h
 
--- `Not (a <= b)` is `b + 1 <= a`.
+--| `Not (a <= b)` is `b + 1 <= a`.
 theorem Omega.intLeqOfNotLeq: (a: Int) → (b: Int) → Int.leq a b = False → Int.leq (Int.add b (OfNat 1)) a = True
   | OfNat m, OfNat n, h => Omega.natLeqAddOne n m (Nat.leqFalse m n h)
   | OfNat m, NegSucc Zero, h => rfl
@@ -206,14 +206,14 @@ theorem Omega.intLeqOfNotLeq: (a: Int) → (b: Int) → Int.leq a b = False → 
   | NegSucc m, NegSucc Zero, h => Void.exfalso (Bool.trueNotFalse h)
   | NegSucc m, NegSucc (Succ n), h => Nat.leqFalse (Succ n) m h
 
--- `Not (a < b)` is `b <= a`.
+--| `Not (a < b)` is `b <= a`.
 theorem Omega.intLeqOfNotLess: (a: Int) → (b: Int) → Int.less a b = False → Int.leq b a = True
   | OfNat m, OfNat n, h => Nat.leqFalse (Succ m) n h
   | OfNat m, NegSucc n, h => rfl
   | NegSucc m, OfNat n, h => Void.exfalso (Bool.trueNotFalse h)
   | NegSucc m, NegSucc n, h => Nat.leqFalse (Succ n) m h
 
--- `a <= b` gives `0 <= b - a`.
+--| `a <= b` gives `0 <= b - a`.
 theorem Omega.intSubNonneg: (a: Int) → (b: Int) → Int.leq a b = True → 0 ≤ Int.add b (Int.neg a)
   | OfNat m, OfNat n, h => Int.subNonnegOfLe m n h
   | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
@@ -221,7 +221,7 @@ theorem Omega.intSubNonneg: (a: Int) → (b: Int) → Int.leq a b = True → 0 �
   | NegSucc m, NegSucc n, h =>
     Omega.nonnegEq (Eq.trans (Int.subNatNatSucc m n) (Eq.sym (Int.subOfNats m n))) (Int.subNonnegOfLe n m h)
 
--- The convention on `Int`: `a <= b` gives the row `b - a >= 0`.
+--| The convention on `Int`: `a <= b` gives the row `b - a >= 0`.
 theorem Omega.ileRowHolds (env: Omega.Env) (a: Omega.ITerm) (b: Omega.ITerm) (h: Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True):
     Omega.Row.Holds env (Omega.ileRow a b) :=
   Omega.nonnegEq
@@ -254,7 +254,7 @@ theorem Omega.optRowHolds (env: Omega.Env): (o: Option Omega.Row) → Omega.OptH
 -- The operation facts (stage 2), about plain numbers: what always holds, then
 -- the two cases.
 
--- `a <= (a - b) + b`, whichever of `a` and `b` is larger.
+--| `a <= (a - b) + b`, whichever of `a` and `b` is larger.
 theorem Omega.leSubAdd: (a: Nat) → (b: Nat) → a ≤ (a - b) + b
   | a, Zero => Nat.leAddRight a 0
   | Zero, Succ b => rfl
@@ -332,7 +332,7 @@ theorem Omega.factRowsHold (env: Omega.Env): (f: Omega.Fact) → Omega.Fact.hold
     Both (Omega.ileRowHolds env a b (Omega.intLeqOfEq h)) (Both (Omega.ileRowHolds env b a (Omega.intLeqOfEq (Eq.sym h))) Trivial)
   | FINe a b, h => Trivial
 
--- A fact with cases holds in one of them.
+--| A fact with cases holds in one of them.
 theorem Omega.factCases (env: Omega.Env): (f: Omega.Fact) → Omega.Fact.holds env f → Omega.Fact.splits f = True →
     (Omega.Facts.holds env (Omega.Fact.left f) → Void) → (Omega.Facts.holds env (Omega.Fact.right f) → Void) → Void
   | FLe a b, h, ok, kl, kr => Bool.falseNotTrue ok
@@ -418,7 +418,7 @@ theorem Omega.stepHolds (env: Omega.Env) (facts: List Omega.Row) (neg: Option Om
       (Bool.andRight (Omega.hasRow ctx r) (Omega.Row.divisible d (Omega.getRow ctx r)) ok)
       (Omega.getRowHolds env ctx r hc)
 
--- A `Cases` step: the branch for the case that holds has its rows.
+--| A `Cases` step: the branch for the case that holds has its rows.
 theorem Omega.casesHold (env: Omega.Env) (g: Omega.Fact) (hg: Omega.Fact.holds env g) (sp: Omega.Fact.splits g = True)
     (ctx: List Omega.Row) (hc: Omega.RowsHold env ctx)
     (kl: Omega.RowsHold env (List.append ctx (Omega.Facts.rows (Omega.Fact.left g))) → Void)
@@ -466,7 +466,7 @@ theorem Omega.checkCertSound (env: Omega.Env) (fs: List Omega.Fact) (facts: List
             (Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.left (Omega.getFact fs f)))) left
               ∧ Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f)))) right) ok)))
 
--- Soundness: if `check` accepts, the facts imply the goal, in every environment.
+--| Soundness: if `check` accepts, the facts imply the goal, in every environment.
 theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact): (goal: Omega.Goal) → (cert: Omega.Cert) →
     Omega.check facts goal cert = True → Omega.Facts.holds env facts → Omega.Goal.holds env goal
   | GLe a b, cert, ok, hs =>
@@ -508,14 +508,14 @@ theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact): (goal: Omega.Goal
         cert Nil Trivial ok))
       (e => rfl)
 
--- An equation, from two refutations.
+--| An equation, from two refutations.
 theorem Omega.proveEq (env: Omega.Env) (facts: List Omega.Fact) (a: Omega.NTerm) (b: Omega.NTerm) (c1: Omega.Cert) (c2: Omega.Cert)
     (ok1: Omega.check facts (GLe a b) c1 = True) (ok2: Omega.check facts (GLe b a) c2 = True) (hs: Omega.Facts.holds env facts):
     Omega.NTerm.eval env a = Omega.NTerm.eval env b :=
   Nat.leAntisym (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
     (Omega.prove env facts (GLe a b) c1 ok1 hs) (Omega.prove env facts (GLe b a) c2 ok2 hs)
 
--- An equation on `Int`, from two refutations.
+--| An equation on `Int`, from two refutations.
 theorem Omega.proveIntEq (env: Omega.Env) (facts: List Omega.Fact) (a: Omega.ITerm) (b: Omega.ITerm) (c1: Omega.Cert) (c2: Omega.Cert)
     (ok1: Omega.check facts (GILe a b) c1 = True) (ok2: Omega.check facts (GILe b a) c2 = True) (hs: Omega.Facts.holds env facts):
     Omega.ITerm.eval env a = Omega.ITerm.eval env b :=
