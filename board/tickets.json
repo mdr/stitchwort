@@ -1,5 +1,5 @@
 {
-  "next": 1041,
+  "next": 1042,
   "tickets": [
     {
       "id": 47,
@@ -3434,7 +3434,7 @@
     {
       "id": 1017,
       "title": "search --at: a single closing check can run for minutes (Day16 Sound.sw:83 totalThen, List.consInjective _ (Cons …) 289 s); add a step and memory limit per check",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3444,7 +3444,9 @@
       "body": "From SW-993 (1 Nov 2026). The time limit is only read between checks, so one check is never stopped once started. In the daily sample of search_at_aoc, goal Day16/Proofs/Sound.sw:83 totalThen takes 45-392 s; nearly all in one closing check (289 s with timings). One earlier run hit the 16 GB memory guard (goal not identified). Probably predates SW-993 (not run on main). Remaining benchmark misses: Eq.cong wrapping (day 18 Some a = Some b); lemma rewrite then induction hypothesis (days 10, 14, 16 lengthBitsOf); day 16 groupsValue.\n\nD2167 (Matt, 1 Nov 2026): yes, Sonnet; queued behind the lane cap.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "03592cef"
+      ]
     },
     {
       "id": 1018,
@@ -3801,6 +3803,20 @@
         "docs"
       ],
       "body": "From SW-1036 review (1 Nov 2026). Summaries to fix (rewording allowed here): 22 core file headers start \"core/X.sw.\"; group headings attached to the first declaration (Nat.min, Map.Tree.Shape \"Rebalancing.\", Parse \"The operations.\", Mod.addNatZero \"The laws.\", List.length, Nat.leq, Bool.xor, Float.mul); about 30 List lemmas and the Graph chains start with So/And/The same; too short (Mod.zero \"0.\", Map.Tree, foldRight, Int.div, Omega.check, operator-only docs); describes something else (Text.splitCons, Text.wordsClose, Text.joinTextChars, Set.present, type Map, Parse.Reads); cut short by the summary splitter (Nat.sumBetween, Nat.isRun); no doc attached for types Float, Set, Vec, Fin, Mod, SafeNat, SafeInt (file header doesn't attach). Decided (Claude): references to the user guide (docs/syntax.md) stay --| since they help a caller.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1041,
+      "title": "search --at follow-ups: in-file confirmation unbounded; no per-check memory cap; per-check share on loaded machines",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "From SW-1017 (1 Nov 2026). (1) In-file confirmation of closing suggestions is unbounded: each pasted suggestion rechecks the whole namespace (about 72 s for three on Day16 Sound.sw:83; 218 s in a 600 s run). A deadline would drop slow real closers; option: keep it, mark \"not confirmed in the file\". (2) No per-check memory bound: Limits::size bounds quoting only, frames bounds recursion depth; a real cap needs allocation accounting or a term-size cap in the elaborator. (3) PER_CHECK_SHARE is half of --time; on a loaded machine an ordinary rfl (2.7-4.4 s) can approach 5 s at the default 10 s and be reported as gave-up.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
