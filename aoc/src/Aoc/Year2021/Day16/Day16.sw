@@ -22,7 +22,7 @@
 -- neither.
 
 namespace Aoc.Year2021.Day16
-import Std (Fail, IO, List, Nat, Option, Text)
+import Std (Fail, IO, List, Nat, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let packet := parsePacket IO.readAll()
@@ -81,8 +81,12 @@ def digitBits (value: Nat): List Bool := [Nat.testBit value 3, Nat.testBit value
 def readBits (input: Text): {Fail} (List Bool) := bitsOfDigits (readDigits input)
 
 -- The value of each hexadecimal digit of the (trimmed) input.
-def readDigits (input: Text): {Fail} (List Nat) :=
-  input.trim.toList.withIndex.map (((column, char)) => Fail.need (hexValue char) "column ${column + 1}: expected a hexadecimal digit, got '${char}'")
+def readDigits (input: Text): {Fail} (List Nat) := Parse.line input.trim (() => Parse.many hexDigit)
+
+-- One hexadecimal digit's value.
+def hexDigit(): {Parse} Nat :=
+  let char := Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome)
+  Parse.need (hexValue char) "expected a hexadecimal digit"
 
 def bitsOfDigits (digits: List Nat): List Bool := digits.flatMap digitBits
 

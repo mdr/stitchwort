@@ -353,11 +353,17 @@ def Parse.manyFuel (fuel: Nat) (parser: () → {Parse} a) (found: List a): {Pars
     | Zero => found.reverse
     | Succ more =>
       let before := Parse.mark()
-      match Parse.optional parser with
-        | None => found.reverse
-        | Some value =>
-          if Parse.mark().offset > before.offset then Parse.manyFuel more parser (Cons value found)
-          else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")
+      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser (Cons value found)) found.reverse
+
+-- One round of `many`, once `optional parser` has given `found` from
+-- `before`: `done` if it failed, `next` of its value if it read something.
+-- A function of its own so that proofs (Parse/Reads.sw) can name it.
+def Parse.manyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: b): {Parse} b :=
+  match found with
+    | None => done
+    | Some value =>
+      if Parse.mark().offset > before.offset then next value
+      else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")
 
 -- `parser`'s values while it succeeds, possibly none. Fails only if
 -- `parser` succeeds without reading anything, which would repeat forever:
@@ -518,8 +524,10 @@ def Parse.findAllStarting (starts: Char → Bool) (parser: () → {Parse} a): {P
 -- `parser`, but if it fails without getting past where it started, it
 -- fails with "expected `what`" in place of what it expected there
 -- (Megaparsec's `label`).
-def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a :=
-  let start := Parse.mark()
+def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a := Parse.labelFrom what Parse.mark() parser
+
+-- `label` once it has marked where it started.
+def Parse.labelFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a): {Parse} a :=
   handle parser() with
     | return value =>
       if Parse.mark().offset == start.offset then Parse.note (Expected what) else ()
@@ -648,33 +656,44 @@ def Parse.Failure.describe (failure: Parse.Failure) (chars: List Char) (endOfInp
 -- and smaller. Line breaks at the end of the input are allowed.
 def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
   let chars := input.toList
-  let withFinalLineBreaks := () =>
-    let value := parser()
-    let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
-    if finalLineBreaks == [] then Parse.note (Expected "a line break") else ()
-    value
-  match Parse.whole chars withFinalLineBreaks with
+  match Parse.whole chars (() => Parse.withFinalLineBreaks parser) with
     | Ok value => value
-    | Err failure =>
-      let (line, column) := Parse.lineAndColumn chars failure.offset
-      Fail.fail "line ${line}, column ${column}: ${failure.describe chars "the end of the input" "the end of the line"}"
+    | Err failure => Fail.fail (Parse.allMessage chars failure)
+
+-- `parser`, then any line breaks; if there are none, a line break is
+-- expected there too, for the message.
+def Parse.withFinalLineBreaks (parser: () → {Parse} a): {Parse} a :=
+  let value := parser()
+  let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
+  if finalLineBreaks == [] then Parse.note (Expected "a line break") else ()
+  value
+
+-- `Parse.all`'s message for `failure`.
+def Parse.allMessage (chars: List Char) (failure: Parse.Failure): Text :=
+  let (line, column) := Parse.lineAndColumn chars failure.offset
+  "line ${line}, column ${column}: ${failure.describe chars "the end of the input" "the end of the line"}"
 
 -- `parser` on one line, else fail with "column 5: expected ',', got ';'".
 -- One line break at the end is allowed; a failure after a line break gives
 -- its line too, as `Parse.all` does.
 def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a :=
   let chars := line.toList
-  let withFinalLineBreak := () =>
-    let value := parser()
-    let finalLineBreak := Parse.optional Parse.newline
-    value
-  match Parse.whole chars withFinalLineBreak with
+  match Parse.whole chars (() => Parse.withFinalLineBreak parser) with
     | Ok value => value
-    | Err failure =>
-      match Parse.lineAndColumn chars failure.offset with
-        | (1, column) => Fail.fail "column ${column}: ${failure.describe chars "the end of the line" "a line break"}"
-        | (lineNumber, column) =>
-          Fail.fail "line ${lineNumber}, column ${column}: ${failure.describe chars "the end of the input" "a line break"}"
+    | Err failure => Fail.fail (Parse.lineMessage chars failure)
+
+-- `parser`, then a line break if there is one.
+def Parse.withFinalLineBreak (parser: () → {Parse} a): {Parse} a :=
+  let value := parser()
+  let finalLineBreak := Parse.optional Parse.newline
+  value
+
+-- `Parse.line`'s message for `failure`: the column, and the line too if
+-- it is past a line break.
+def Parse.lineMessage (chars: List Char) (failure: Parse.Failure): Text :=
+  match Parse.lineAndColumn chars failure.offset with
+    | (1, column) => "column ${column}: ${failure.describe chars "the end of the line" "a line break"}"
+    | (lineNumber, column) => "line ${lineNumber}, column ${column}: ${failure.describe chars "the end of the input" "a line break"}"
 
 -- `parser` on each line of `input`, split as `Text.lines` splits, else fail
 -- with "line 3, column 5: expected ',', got ';'" for the first line that

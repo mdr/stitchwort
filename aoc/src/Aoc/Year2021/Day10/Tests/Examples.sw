@@ -16,10 +16,10 @@ def parsed (input: Text): Result (List (List Token)) Text := Fail.toResult (() =
 def example: List (List Token) := Fail.orElse [] (() => parseLines exampleText)
 
 -- One line's tokens, without the parser (for the theorems below).
-def tokens (line: Text): List Token := line.toList.filterMap tokenOf
+def tokens (line: Text): List Token := line.toList.filterMap (char => allTokens.find (token => token.char == char))
 
 test "parse the example" := example.length == 10 ∧ example.headOr [] == tokens "[({(<(())[]>[[{[]{<()<>>"
-test "a stray character" := parsed "()\n(x)\n" == Err "line 2, column 2: expected a bracket, got 'x'"
+test "a stray character" := parsed "()\n(x)\n" == Err "line 2, column 2: expected a bracket or the end of the line, got 'x'"
 test "an empty line is no tokens" := parsed "()\n\n[]\n" == Ok [[Opener Round, Closer Round], [], [Opener Square, Closer Square]]
 
 -- The closer a scan stopped at.
