@@ -176,8 +176,10 @@ fn compile<'a>(
         .chain(absurd_rows)
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
-    let tree = (cx.e.compile(&rows, cx.level(), columns, &types, span))
-        .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
+    let tree = (cx
+        .e
+        .compile_top(&rows, cx.level(), columns, &types, 0, span))
+    .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
     Ok(tree)
 }
@@ -256,10 +258,20 @@ fn refutable(
     patterns: &[Pattern],
     columns: &[usize],
 ) -> Diagnostic {
-    let what = missing
-        .message
-        .split_once("no arm matches ")
-        .map_or("every case", |(_, what)| what);
+    // The message's first line, which for several cases is a count: the
+    // cases themselves, as patterns, when it lists them.
+    let listed = missing.missing.as_ref().map(|m| {
+        let mut shown: Vec<String> = m.shown().iter().map(|p| format!("`{p}`")).collect();
+        if m.more() > 0 {
+            shown.push(format!("{} more", m.more()));
+        }
+        shown.join(", ")
+    });
+    let what = listed.as_deref().unwrap_or_else(|| {
+        (missing.message.lines().next().unwrap_or_default())
+            .split_once("no arm matches ")
+            .map_or("every case", |(_, what)| what)
+    });
     let span = patterns[0].span().to(patterns[patterns.len() - 1].span());
     let message = match columns {
         [column] => match stitchwort_core::value::force(cx.g(), cx.types[*column].clone()) {

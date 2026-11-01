@@ -132,7 +132,7 @@ Local definitions aren't listed (they are binders).
   `range` of the diagnostic are its range, absent if it has no label), and
   `notes` (plain strings). A label's file may be a library file. An open
   goal, `?`, has `severity` `goal` and code `GOAL`, and two more members
-  (below); any diagnostic may have `counterexample`.
+  (below); any diagnostic may have `counterexample`, and an `E-NONEXHAUSTIVE` that lists the cases a `match` leaves out has `missing`.
 
 ### Goals (version 3)
 
@@ -190,6 +190,7 @@ as text. Its label is unchanged: the names in scope a line each, then
   `check --counterexamples` names it), `types` (each type parameter `name`,
   and the `type` it was tried at, `Nat`), and `bindings` (each input's `name`
   and `value`, as the note shows them). The note itself is unchanged.
+- `missing`: on an `E-NONEXHAUSTIVE` for a constructor case (SW-1027), every case no arm matches: `patterns` (each the patterns of an arm that would cover it, one per scrutinee or argument, comma-separated: `"Tri _ _"`, `"(None, False)"`; at most 20, in the order of the constructors) and `more` (how many further cases the message cuts off, `0` if none). The message has the same cases as arms, `| Tri _ _ => ?`, one per line. A case an indexed family makes impossible is not listed. The errors for numbers and characters have no `missing`.
 
 On the command line (not in the index), a line of a goal longer than 400
 characters is cut in the middle, keeping 200 characters at each end and

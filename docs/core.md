@@ -513,7 +513,7 @@ The interpreter (`stitchwort run`) makes the same functions loops in its IR (`cr
 | `E-NOT-A-TYPE` / `E-NOT-A-FUNCTION` / `E-NOT-A-SORT` | Wrong kind of thing |
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |
 | `E-REFL` | `rfl` used for sides that don't compute to the same value |
-| `E-NONEXHAUSTIVE` | Missing pattern-match case |
+| `E-NONEXHAUSTIVE` | Missing pattern-match case. A constructor case lists every missing case, as arms to paste (`| Tri _ _ => ?`, SW-1027; `docs/syntax.md` "Missing cases") |
 | `E-OR-PATTERN-BINDS` | An alternative of an or-pattern `p \| q` binds a variable |
 | `E-MATCH-MOTIVE` | A `match` whose scrutinees can't be generalised in this version (the same variable twice, one scrutinee part of another, one's type mentioning another) or whose generalised type is ill-formed |
 | `E-MATCH-EQUATION` | The equation of `match h: e with` can't be formed (the types differ); not reported in the first version |

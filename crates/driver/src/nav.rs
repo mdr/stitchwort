@@ -8,7 +8,7 @@ use std::fmt::Write;
 use stitchwort_core::collections::HashMap;
 use stitchwort_elab::{NavIndex, NavTarget};
 use stitchwort_syntax::{
-    Counterexample, Diagnostic, FileId, GoalData, Severity, SourceMap, Span, Tok,
+    Counterexample, Diagnostic, FileId, GoalData, MissingCases, Severity, SourceMap, Span, Tok,
 };
 
 use crate::driver::Session;
@@ -124,6 +124,8 @@ pub struct IndexDiagnostic {
     pub goal: Option<GoalData>,
     /// The counterexample a note shows, as data.
     pub counterexample: Option<Counterexample>,
+    /// Every case a `match` leaves out, as patterns.
+    pub missing: Option<MissingCases>,
 }
 
 /// The index of everything `session` has loaded, with `enable_navigation`
@@ -255,6 +257,10 @@ pub fn index_json(
         if let Some(found) = &d.counterexample {
             diags.push_str(r#","counterexample":"#);
             counterexample_json(&mut diags, found);
+        }
+        if let Some(missing) = &d.missing {
+            diags.push_str(r#","missing":"#);
+            missing_json(&mut diags, missing);
         }
         diags.push('}');
     }
@@ -467,6 +473,7 @@ pub fn index_data_of(
             notes: d.notes.clone(),
             goal: d.goal.as_deref().cloned(),
             counterexample: d.counterexample.as_deref().cloned(),
+            missing: d.missing.as_deref().cloned(),
         });
     }
 
@@ -768,6 +775,21 @@ fn goal_json(out: &mut String, goal: &GoalData) {
         let _ = write!(out, r#","lemma":{}"#, string(lemma));
     }
     out.push('}');
+}
+
+/// A diagnostic's `missing` member: `{"patterns":["Square _","Tri _ _"],
+/// "more":0}`: the cases no arm of a `match` matches, each as the patterns of
+/// an arm that would cover it (a row, comma-separated, for several
+/// scrutinees), the first 20 and how many more there are.
+fn missing_json(out: &mut String, missing: &MissingCases) {
+    out.push_str(r#"{"patterns":["#);
+    for (i, pattern) in missing.shown().iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&string(pattern));
+    }
+    let _ = write!(out, r#"],"more":{}}}"#, missing.more());
 }
 
 /// A diagnostic's `counterexample` member: `{"verdict":"false",
