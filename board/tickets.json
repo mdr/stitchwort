@@ -3496,7 +3496,7 @@
     {
       "id": 1021,
       "title": "AoC small fixes from the corpus review: day 16 unreachable end fails, day 24 wording, tests without Fail.orElse fallbacks, local lemma copies to std",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3506,7 +3506,9 @@
       "body": "D2161 (Matt, 1 Nov 2026), from the review of docs/research/aoc-corpus-review.md.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "55b0ba3c"
+      ]
     },
     {
       "id": 1022,
