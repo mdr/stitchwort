@@ -1,4 +1,6 @@
--- Day 5's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 5's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2024.Day05.main` doesn't check them.
 
 namespace Aoc.Year2024.Day05.Tests

@@ -1,4 +1,6 @@
--- Day 11's tests: the examples from the puzzle and unit tests. Kept apart
+--| Day 11's tests: the examples from the puzzle and unit tests.
+--
+-- Kept apart
 -- from the program, so `stitchwort run Aoc.Year2024.Day11.main` doesn't
 -- check them.
 
@@ -14,7 +16,7 @@ def example: List Nat := [125, 17]
 test "example, part 1" := solvePart1 example == 55312
 test "example, part 2" := solvePart2 example == 65601038650482
 
--- The longer example's line after each of its six blinks.
+--| The longer example's line after each of its six blinks.
 test "example, blink by blink" :=
   [1, 2, 3, 4, 5, 6].map (blinks => blinkTimes blinks example) == [
     [253000, 1, 7],
@@ -28,7 +30,7 @@ test "example, blink by blink" :=
 test "example, 22 stones after six blinks" := countAfter 6 example == 22 && (blinkTimes 6 example).length == 22
 test "example, the spec's line after 25 blinks" := (blinkTimes 25 example).length == 55312
 
--- "0 1 10 99 999" after one blink.
+--| "0 1 10 99 999" after one blink.
 test "the five-stone example" := blink [0, 1, 10, 99, 999] == [1, 2024, 1, 0, 9, 9, 2021976]
 
 test "0 becomes 1" := changeStone 0 == [1]

@@ -1,33 +1,33 @@
--- Day 4, part 2 proved for every grid: the printed answer is the number of
--- positions at the centre of an X-MAS, as Spec/Spec.sw states it
--- (`part2Correct`, at the bottom).
+--| Day 4, part 2 proved for every grid: the printed answer is the number of
+--| positions at the centre of an X-MAS, as Spec/Spec.sw states it
+--| (`part2Correct`, at the bottom).
 
 namespace Aoc.Year2024.Day04.Proofs
 import Aoc.Year2024.Day04 (..)
 import Aoc.Year2024.Day04.Spec (..)
 import Std (Bool, Char, Eq, List, Nat, Option)
 
--- Three letters, none missing, are M, A and S one way or the other, as the
--- spec says it.
+--| Three letters, none missing, are M, A and S one way or the other, as the
+--| spec says it.
 def masLetters (first: Option Char) (second: Option Char) (third: Option Char): Bool :=
   [first, second, third] == [Some 'M', Some 'A', Some 'S'] ∨ [first, second, third] == [Some 'S', Some 'A', Some 'M']
 
--- The program's MAS test on three letters, present or not.
+--| The program's MAS test on three letters, present or not.
 theorem masOrNone: (first: Option Char) → (second: Option Char) → (third: Option Char) →
     Option.getOrElse (Option.map3 spellsMas first second third) False = masLetters first second third
   | Some x, Some y, Some z => cases
   | _, _, _ => cases
 
--- Both of two tests, present or not.
+--| Both of two tests, present or not.
 theorem bothOrNone: (one: Option Bool) → (other: Option Bool) →
     Option.getOrElse (Option.map2 (x y => Bool.toNat (x ∧ y)) one other) 0 = Bool.toNat (Option.getOrElse one False ∧ Option.getOrElse other False)
   | Some x, Some y => rfl
   | Some x, None => cases
   | None, other => rfl
 
--- `countCrosses` centre by centre, up to any bound at least as long as the
--- row above: centre j + 1 has MAS from column j to j + 2 down to the right,
--- and from j + 2 to j down to the left.
+--| `countCrosses` centre by centre, up to any bound at least as long as the
+--| row above: centre j + 1 has MAS from column j to j + 2 down to the right,
+--| and from j + 2 to j down to the left.
 theorem crossesSum (above: List Char) (middle: List Char) (below: List Char) (n: Nat) (h: above.length ≤ n):
     countCrosses above middle below
       = List.sumBy (List.range n) (c =>
@@ -44,7 +44,7 @@ theorem crossesSum (above: List Char) (middle: List Char) (below: List Char) (n:
       := rewrite List.getZipWith3 spellsMas above (middle.drop 1) (below.drop 2) _, List.getZipWith3 spellsMas (above.drop 2) (middle.drop 1) below _,
         List.getDrop middle 1 _, List.getDrop below 2 _, List.getDrop above 2 _, bothOrNone _ _, masOrNone _ _ _, masOrNone _ _ _ in rfl
 
--- With an empty row among the three, there are no crosses in them.
+--| With an empty row among the three, there are no crosses in them.
 theorem crossesEmpty1 (middle: List Char) (below: List Char): countCrosses [] middle below = 0 := rfl
 
 theorem crossesEmpty2 (above: List Char) (below: List Char): countCrosses above [] below = 0 :=
@@ -53,15 +53,15 @@ theorem crossesEmpty2 (above: List Char) (below: List Char): countCrosses above 
 theorem crossesEmpty3 (above: List Char) (middle: List Char): countCrosses above middle [] = 0 :=
   rewrite List.zipWith3NilThird spellsMas above (middle.drop 1) in rfl
 
--- An X-MAS read from the top-left corner of its 3 by 3 block at row r,
--- column c.
+--| An X-MAS read from the top-left corner of its 3 by 3 block at row r,
+--| column c.
 def crossRead (grid: Grid) (r: Nat) (c: Nat): Nat :=
   Bool.toNat (
     masLetters (letterAt grid r c) (letterAt grid (1 + r) (1 + c)) (letterAt grid (2 + r) (2 + c))
       ∧ masLetters (letterAt grid r (2 + c)) (letterAt grid (1 + r) (1 + c)) (letterAt grid (2 + r) c)
   )
 
--- The program's answer, block by block, past the last row and column by 3.
+--| The program's answer, block by block, past the last row and column by 3.
 theorem programCrosses (grid: Grid):
     solvePart2 grid = List.sumBy (List.range (height grid + 3)) (r => List.sumBy (List.range (width grid + 3)) (c => crossRead grid r c)) :=
   let rows := grid.rows
@@ -78,25 +78,25 @@ theorem programCrosses (grid: Grid):
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => crossRead grid r c))
       := List.sumByCong (List.range tall) _ _ (r => crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))
 
--- No letter at the centre, no cross.
+--| No letter at the centre, no cross.
 theorem crossAtMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): Bool.toNat (crossAt grid r c) = 0 :=
   rewrite missing in cases
 
--- No letter at the top-left corner, no cross read from it.
+--| No letter at the top-left corner, no cross read from it.
 theorem crossReadMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): crossRead grid r c = 0 :=
   rewrite missing in cases
 
--- A centre one row and one column on is a block read from its top-left
--- corner.
+--| A centre one row and one column on is a block read from its top-left
+--| corner.
 theorem crossAtCorner (grid: Grid) (r: Nat) (c: Nat): Bool.toNat (crossAt grid (1 + r) (1 + c)) = crossRead grid r c :=
   rewrite Nat.addComm r 1, Nat.addComm c 1 in rfl
 
--- There is no centre in the first row or column.
+--| There is no centre in the first row or column.
 theorem crossAtTop (grid: Grid) (c: Nat): Bool.toNat (crossAt grid 0 c) = 0 := cases
 
 theorem crossAtLeft (grid: Grid) (r: Nat): Bool.toNat (crossAt grid r 0) = 0 := cases
 
--- The spec's count, past the last row and column by 3.
+--| The spec's count, past the last row and column by 3.
 theorem specCrosses (grid: Grid):
     part2Spec grid = List.sumBy (List.range (height grid + 3)) (r => List.sumBy (List.range (width grid + 3)) (c => crossRead grid r c)) :=
   let rows := grid.rows
@@ -130,7 +130,7 @@ theorem specCrosses (grid: Grid):
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => crossRead grid r c))
       := Eq.sym (List.sumByRangeExtend _ (height grid + 2) tall omega (r below => List.sumByRangeZero _ wide (c => crossReadMissing grid r c (letterBelow grid r c omega))))
 
--- Part 2 is right for every grid: the printed answer is the number of
--- centres of an X-MAS.
+--| Part 2 is right for every grid: the printed answer is the number of
+--| centres of an X-MAS.
 theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
   Eq.trans (programCrosses grid) (Eq.sym (specCrosses grid))

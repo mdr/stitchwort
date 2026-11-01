@@ -1,6 +1,6 @@
--- Plots joined by a chain of touching plots: every plot is joined to itself,
--- a chain can be extended by one more touching plot, reversed, or followed
--- by another, and every plot joined to one growing a plant grows it too.
+--| Plots joined by a chain of touching plots: every plot is joined to itself,
+--| a chain can be extended by one more touching plot, reversed, or followed
+--| by another, and every plot joined to one growing a plant grows it too.
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
@@ -10,7 +10,7 @@ import Std (And, Bool, DecEq, Eq, Exists, List, Option)
 
 theorem joinedRefl (garden: Garden) (plot: Position): Joined garden plot plot := Witness Nil (DecEq.refl plot)
 
--- A chain extended by one more touching plot.
+--| A chain extended by one more touching plot.
 theorem chainSnoc (garden: Garden): (from: Position) → (chain: List Position) → (to: Position) → (next: Position) →
     isChain garden from chain to = True → touches garden to next = True → isChain garden from (chain ++ [next]) next = True
   | from, Nil, to, next, same, touching => rewrite DecEq.sound from to same in Bool.andIntro _ _ touching (DecEq.refl next)
@@ -41,7 +41,7 @@ theorem joinedTrans (garden: Garden) (plot: Position) (middle: Position) (other:
     (second: Joined garden middle other): Joined garden plot other :=
   Exists.elim second (chain chained => chainTrans garden plot middle chain other first chained)
 
--- Every plot of a chain grows the plant the first one does.
+--| Every plot of a chain grows the plant the first one does.
 theorem chainPlant (garden: Garden) (plant: Char): (from: Position) → (chain: List Position) → (to: Position) →
     garden.plantAt from = Some plant → isChain garden from chain to = True → garden.plantAt to = Some plant
   | from, Nil, to, grows, same => rewrite <- DecEq.sound from to same in grows

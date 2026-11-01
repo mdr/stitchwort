@@ -1,4 +1,4 @@
--- The spec run on the examples: it gives the puzzle's answers too.
+--| The spec run on the examples: it gives the puzzle's answers too.
 
 namespace Aoc.Year2024.Day04.Tests
 import Aoc.Year2024.Day04 (..)

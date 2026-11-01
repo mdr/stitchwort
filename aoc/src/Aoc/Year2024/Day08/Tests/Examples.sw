@@ -1,4 +1,6 @@
--- Day 8's tests: the examples from the puzzle and unit tests. Kept apart from
+--| Day 8's tests: the examples from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2024.Day08.main` doesn't check them.
 
 namespace Aoc.Year2024.Day08.Tests
@@ -22,7 +24,7 @@ def example: Text := """
   ............
   """
 
--- Two antennas with frequency a.
+--| Two antennas with frequency a.
 def twoAntennas: Text := """
   ..........
   ..........
@@ -36,7 +38,7 @@ def twoAntennas: Text := """
   ..........
   """
 
--- A third, two of whose antinodes are off the map.
+--| A third, two of whose antinodes are off the map.
 def threeAntennas: Text := """
   ..........
   ..........
@@ -50,7 +52,7 @@ def threeAntennas: Text := """
   ..........
   """
 
--- A lone A, with an antinode of the a antennas on it.
+--| A lone A, with an antinode of the a antennas on it.
 def loneA: Text := """
   ..........
   ..........
@@ -64,7 +66,7 @@ def loneA: Text := """
   ..........
   """
 
--- Three T antennas, for part 2.
+--| Three T antennas, for part 2.
 def threeT: Text := """
   T.........
   ...T......
@@ -82,7 +84,7 @@ def city (input: Text): Result City Text := Fail.toResult (() => parseCity input
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
--- The program's part 1 antinodes on the map, as a sorted list.
+--| The program's part 1 antinodes on the map, as a sorted list.
 def antinodes (input: Text): Result (List Position) Text :=
   city input |> .map (map => map.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> map.locations |> .toList)
 
@@ -99,12 +101,12 @@ test "parsing the example" :=
   (city example).map (map => (map.height, map.width, map.antennas.length, map.antennas.headOr { frequency = '?', position = at 0 0 }))
     == Ok (12, 12, 7, { frequency = '0', position = at 1 8 })
 
--- Antennas a third of the way apart have antinodes between them too.
+--| Antennas a third of the way apart have antinodes between them too.
 test "antinodes between two antennas" := antinodes "a...\n....\n....\n...a" == Ok [at 1 1, at 2 2]
 test "antinodes between and past two antennas" :=
   antinodes "a......\n.......\n.......\n...a...\n.......\n.......\n......." == Ok [at 1 1, at 2 2, at 6 6]
 
--- Every grid point on the line, also between the antennas.
+--| Every grid point on the line, also between the antennas.
 test "part 2, a row" := (city "..b.b.").map solvePart2 == Ok 6
 test "part 2, a reduced step" := (city "c.....\n......\n..c...\n......\n......\n......").map solvePart2 == Ok 6
 test "part 2, a step of two rows and three columns" := (city "d........\n.........\n...d.....\n.........\n.........").map solvePart2 == Ok 3
@@ -116,16 +118,16 @@ test "a final line break is allowed" := (city "a.a\n").map solvePart2 == Ok 3
 test "parse error, a ragged row" := city "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
 test "parse error, a bad character" := city "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
 
--- The spec, worded like the puzzle, counts the same on the examples.
+--| The spec, worded like the puzzle, counts the same on the examples.
 test "example, the spec agrees" := (city example).map (map => (part1 map, part2 map)) == Ok (14, 34)
 test "small examples, the spec agrees" :=
   [twoAntennas, threeAntennas, loneA, threeT, "a...\n....\n....\n...a", "c.....\n......\n..c...\n......\n......\n......"].all (input =>
     (city input).map (map => part1 map == solvePart1 map && part2 map == solvePart2 map) == Ok True)
 test "every location on the map" := (city "ab\n..\n..").map (map => positions map.height map.width |> .length) == Ok 6
 
--- Why part 2 is proved only for antennas on the map: two antennas far
--- below a map one cell big are in line with its cell, 100 steps away, more
--- than `harmonics` takes. (The parser only makes antennas on the map.)
+--| Why part 2 is proved only for antennas on the map: two antennas far
+--| below a map one cell big are in line with its cell, 100 steps away, more
+--| than `harmonics` takes. (The parser only makes antennas on the map.)
 def pastTheMap: City := { height = 1, width = 1, antennas = [{ frequency = 'a', position = at 100 0 }, { frequency = 'a', position = at 101 0 }] }
 
 test "antennas past the map, part 2" := solvePart2 pastTheMap == 0 && part2 pastTheMap == 1
