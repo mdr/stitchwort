@@ -2260,3 +2260,272 @@ Release build:
 4. Missing std: `getOrMem`, `countLeLength`, a sorted-list median,
    `traverse` lemmas, constructor injectivity (item 2).
 5. No normaliser for `++`: list-shape lemmas by hand (item 5).
+
+## Day 11: Dumbo Octopus
+
+A grid of octopuses, each with an energy level from 0 to 9. In a step
+every level goes up by 1; each octopus above 9 then flashes, giving 1 to
+each of the eight around it (diagonals too), which can set others off;
+none flashes twice in a step, and every one that flashed ends it at 0.
+Part 1 counts the flashes in 100 steps, part 2 finds the first step in
+which every octopus flashes. Answers on Matt's input (10 by 10): 1773
+and 494 (his Scala solution's); the puzzle's 10 by 10 example gives 204
+flashes in 10 steps, 1656 and 195, and its 5 by 5 example is checked
+step by step. Compiler: release build of `main` at 9ae31b2a, 1 November
+2026.
+
+### The program
+
+The grid is `List (List Nat)`, row by row. `mapCells` maps every cell
+with its (row, column), `cellAt` reads one (`None` off the grid), and a
+step's flashers are a grid of `Bool`s of the same shape. `around` is the
+eight positions around a cell: `List.between (r - 1) (r + 1)` by
+`List.between (c - 1) (c + 1)`, less the cell itself (positions are
+`Nat`s, so nothing is above row 0; past the far edges nothing has
+flashed). A cell's `energy` is its level, plus 1, plus the flashers
+around it.
+
+The cascade is worked out in rounds, not with a worklist: a round marks
+every octopus whose energy, counting the flashers so far, is above 9
+(`flashRound`), and the rounds stop when one changes nothing
+(`next == flashed`), or after as many rounds as there are octopuses
+(`cascade`, `flashers`). Each round recounts every cell's neighbours,
+which is simple to reason about (it is the Kleene iteration of "above 9
+flashes") and fast enough. The step sets the flashers to 0 and the rest
+to their energy. Part 1 adds up the 0s after each of 100 steps; part 2
+looks for a step after which every cell is 0, up to `syncLimit` (10,000)
+steps, and returns an `Option`. Both answers were right on the first
+run.
+
+The parser is day 9's: `many1 digit` per line (`Fin 10`), a pure
+`firstRagged` check, then the digits as numbers (`numbers`).
+
+**The spec** (Spec/Spec.sw) has no rounds. Two positions are `adjacent`
+when they are different and at most one row and one column apart. For a
+set of flashers `f` (a `(Nat, Nat) → Bool`), an octopus's `energyIn` is
+its level, plus 1, plus the adjacent octopuses in `f`, counted over the
+whole grid (`gridCells`). `f` is `Closed` if every octopus whose energy
+is above 9 is in it, and the step's `Flashers` are the least closed set:
+closed, and inside every closed set. Least matters: with two adjacent 8s,
+"both flash" is closed (each would be at 10), but neither starts the
+other, and nothing flashes (`eightsClosed`, `eightsNotFlashers` in the
+tests). `after levels f` is the levels after the step, `flashCount` the
+number in `f`. A `Run levels steps final total` is a chain of such
+steps; `Part1Answer levels a` is a run of 100 steps with `a` flashes;
+`AllFlashIn levels n` says step n (from 1) has every octopus in its
+flashers, and `Part2Answer levels n` that step n is the first such.
+
+### Proved, for every grid
+
+In `Aoc.Year2021.Day11.Proofs` (Proofs/Grid.sw, Around.sw, Rounds.sw,
+Cascade.sw, Step.sw, Parts.sw, Parse.sw, 679 lines), with no hypotheses
+on the grid (ragged or empty grids, levels above 9, all included):
+
+- `flashersCorrect`: `Flashers levels (flashedAt (flashers levels))`:
+  the program's cascade reaches exactly the least closed set. The rounds
+  from nobody grow (`grows`), stay inside every closed set
+  (`belowClosed`), and once a round adds nobody the flashers are closed
+  (`closedOfStable`) and stay put (`staysStable`). A round that adds
+  somebody adds an octopus of the grid (`stableOfCount`, by
+  `List.countLtMem` over the grid's positions), so the round after as
+  many rounds as there are octopuses adds nobody (`stableAtSize`); the
+  program stops at the first round that adds nobody or after that many
+  rounds (`cascadeAfter`), so it stops at a stable round either way. This
+  is the termination argument: the cascade's bound is proved enough.
+- `flashersUnique`: two `Flashers` of the same levels are equal, so the
+  spec's step is a function.
+- `stepCorrect (spec: Flashers levels f)`: `step levels = after levels
+  f`. `zerosCorrect`: the step's 0s are `flashCount levels f`.
+  `allZeroCorrect`: the step is all 0s exactly when every octopus is in
+  `f`.
+- Underneath: the program's `around` is the spec's adjacency
+  (`adjacentOfAround`, `aroundOfAdjacent`; the six arithmetic facts are
+  each closed by `cases`), and counting flashers over `around` counts
+  them over the grid (`countAround`: both filtered lists are distinct
+  and have the same members, so `List.permOfSameMembers` makes them the
+  same length). The grid's positions are distinct (`positionsDistinct`),
+  and `gridCells` after `mapCells` is `gridCells` mapped
+  (`gridCellsMapCells`).
+- `part1Correct`: `Part1Answer levels (solvePart1 levels)`, and
+  `part1Unique`: any `Part1Answer` is `solvePart1 levels` (every `Run`
+  is the program's, `runIsProgram`).
+- `part2Correct (found: solvePart2 levels = Some n)`: `Part2Answer
+  levels n`: every octopus flashes in step n and in no step before it.
+  `part2None (none: solvePart2 levels = None) (high: n ≤ syncLimit)`:
+  `Not (AllFlashIn levels n)`. The search is bounded. The puzzle
+  promises a step in which all flash, and on Matt's input the program
+  finds 494 within the bound (a test); nothing proves that every grid
+  has such a step, so part 2 is proved as "if it answers, the answer is
+  the first such step; if not, there is none up to 10,000".
+- `parseDigits`, `parseRectangular` (D2108): every level of a
+  successful parse is at most 9, and every row is as long as the first.
+  The answers' theorems need neither.
+- Tests: both examples (one and two steps of the 5 by 5, 10 and 100
+  steps of the 10 by 10, part 2), the spec's `after` on the program's
+  flashers, `around` in a corner and inside, two 8s, a 9 next to an 8, an
+  empty grid, a ragged one, the parser's errors.
+
+Not proved: nothing left open, no hypothesis added, no opaque
+definitions. `stitchwort audit Aoc.Year2021.Day11` (with the
+counterexample search): `audited 75 theorems: 0 failed, 1 with
+warnings, 74 passed`. The warning is `onGridAfter` (an octopus that has
+flashed after k rounds is on the grid): random grids rarely flash, so
+the search met no case; the hypothesis can hold (`flashedAfterOneRound`,
+a test theorem, has one).
+
+Breaking the program breaks the proofs: one round fewer
+(`levels.gridCells.length - 1`) fails `flashersStable` (omega's model:
+one octopus, no rounds); `9 <= energy` for `9 < energy` fails
+`roundIntro` and `roundElim`; dropping the "not the cell itself" filter
+from `around` fails `adjacentOfAround`, `aroundDistinct` and
+`countAround`; answering `Some (Succ number)` in `firstSync` fails
+`syncFound` and `syncNone`.
+
+Most proofs checked first or second time. The first version of the
+program allowed one more round than there are octopuses; the proof
+showed that as many rounds as octopuses is enough, and the program now
+uses that.
+
+### 1. Std.Parse: none
+
+Day 9's parser, unchanged in shape.
+
+### 2. Missing std
+
+- **Grids.** `mapCells` (map a grid with each cell's position),
+  `cellAt`, `gridCells` after `mapCells` (`gridCellsMapCells`, with
+  `withIndexFromMap` and `mapConcat` under it), `gridCells` membership as
+  `cellAt` (`memGridCellsAt`), distinct positions (`positionsDistinct`,
+  `rowsDistinct`, `columnsDistinct`), a `mapCells` congruence
+  (`mapCellsCong`), and the eight positions around a cell with their
+  membership, distinctness and count lemmas (Around.sw): 210 lines a
+  std grid module would hold. Day 9 here and days 10, 12, 16, 18 and 20
+  of 2024 wrote their own four neighbours; this is the first with eight.
+  Std candidate, extending SW-960's grid module. Medium.
+- **Already in the project, written again.** `countLeLength` (day 10's
+  `countAtMostLength`) and `allMapBool` (`(xs.map f).all p = xs.all (x
+  => p (f x))`, day 8's `allMapped`): `stitchwort search` finds both,
+  but I searched only after writing them (item 4). Std candidates,
+  small.
+- **Least fixed points on a finite set.** Cascade.sw is 160 lines, most
+  of it generic: iterate a monotone operator on `Bool` predicates from
+  nothing; each iterate is inside every closed set; once it stops
+  growing it is closed; it stops within as many rounds as the set has
+  elements. A std toolkit for this would make "least set closed under a
+  rule" specs (flood fills, cascades, reachability) cheap. Medium.
+- **No O(1) array.** Each neighbour lookup is `get` on a list of rows
+  and a row, O(row + column). The run takes 4.1 s interpreted (1.3 s
+  with `--native`); with the neighbour count removed, 10,000 steps take
+  2.8 s, so most of the time is counting. A one-pass stencil for list
+  grids (std's `Vec.around` is one for a single row) or an array would
+  fix it. Medium (stencil) to large (array).
+
+### 3. Confusing errors
+
+- **A `match` on a bounded search ran out of resources.** `match
+  solvePart2 levels with | Some step => … | None => …` in `main` was
+  `E-RESOURCE`, "a value was too large to show", "the value being shown
+  was a call of `solvePart2`, computed far enough to be very large".
+  Nothing is being shown: checking the `match` computes its scrutinee,
+  and `firstSync levels 1 10000` unfolds through 10,000 `if`s stuck on
+  the unknown grid. A 13-line repro (file mode): `search xs number
+  steps` recursing as `if xs.all (x => x == 0) then Some number else
+  search (xs.map (x => x - 1)) (Succ number) more`, called as `search xs
+  1 10000`, and `match answer xs with …` in any function, pure or not:
+  with 100 steps it checks in 0.11 s, with 1000 in 0.68 s, with 10,000
+  it runs out. Workaround: pass the `Option` to a helper (`describe
+  (solvePart2 levels)`). Fix: don't compute a `match` scrutinee past a
+  head stuck on a variable, and say in the message that the `match`
+  caused it. Medium.
+- **A pure `map` at the end of `{Fail}` code runs in `Fail`.** `| None =>
+  rows.map (row => row.map Fin.toNat)` as the last arm of `checkRows`
+  elaborated `map` (effect-polymorphic) in `Fail`, so `Fail.toResult (()
+  => checkRows rows)` computed to `Effect.foldComp … (List.map rows (row
+  => Done (…)))`, not `Ok (List.map …)`, and `Result.okInjective` didn't
+  fit. Workaround: a pure helper, `numbers rows`. Fix: give a call whose
+  arguments are all pure the empty effect, or a std lemma for
+  `Fail.toResult` of a pure `map`. Small to medium. (The D2108 notes
+  cover a `match` on such a call; this is the same effect inference in
+  another place.)
+- **`rewrite` against an unfolded goal**, the known kind: in the goal
+  `flashedAt (flashRound levels flashed) (a, b) = True`, `rewrite
+  cellAtMapCells levels (at level => 9 < energy …) a b` found nothing,
+  though the same rule with a variable function worked in another
+  lemma; and `9 < energy …` had computed to `9 ≤ level + …`, so `rewrite
+  energyAgrees …` found nothing either. The notes showed both computed
+  forms, which made the fix quick: `Eq.trans` with a lemma stated in the
+  folded form (`flashedAtMapCells`), and `Eq.cong (Nat.leq 10)`.
+- Good: `if same: a ≤ b then (proof) else (proof)` was `E-UNIVERSE`
+  ("`if` can't choose between proofs yet") with the exact `match
+  Nat.decLessEq … with | Yes … | No …` to write instead. A theorem whose
+  result is a `def` that unfolds to a function type (`OnGrid`, `Stable`)
+  got `E-ARITY` naming the parameters to add. `rewrite e at found` after
+  `match e:` said "`found` is already refined: use it as it is". `cases`
+  closed all six adjacency facts (`&&` of `==`, `≤` and saturating `-`)
+  on its own, where day 9 met `E-MATCH-MOTIVE`.
+
+### 4. Search
+
+- `search --at` at `neighboursMono` (more flashers, more flashing
+  neighbours; another goal of the file was open) took 44 s and missed
+  `List.countLeMem`, which closes it: the goal was searched with
+  `flashingNeighbours` unfolded to `List.foldLeft … Nat.succIf`, so
+  nothing about `List.count` matched. The ten results were noise
+  (`Bool.canonicalTrue` leaving the goal itself, day 8's `eachDigit`,
+  2025 day 9's `outsideFlagZero`, `Finite.check`). Fix: search the goal
+  with `List.count` folded. Medium.
+- At `allMapBool`'s step (the namespace otherwise checking) it took 2.2 s
+  and offered two `andComm` rewrites and `Bool.ifThenElseCong …
+  Std.byDecision ?` "leaving `Unit → False = False`", with `byDecision`
+  standing for an equation of two `List.all`s on variables, which it
+  can't decide. I didn't check whether the kernel accepts it; if not, it
+  shouldn't be listed. Small.
+- `search --rewrite 'List.all (List.map _ _) _'` (1.9 s) and `search '⊢
+  List.count ?xs _ ≤ List.length ?xs'` find day 8's `allMapped` and day
+  10's `countAtMostLength` first; I ran them only after writing my own
+  (item 2).
+
+### 5. Proof engineering
+
+- The spec counts flashing neighbours over the whole grid, the program
+  over eight positions; the bridge is "two distinct lists with the same
+  members have the same length" (`List.permOfSameMembers`,
+  `List.permLength`), which needs both lists distinct. Std's
+  `distinctFlatMap`, `distinctFilter` and `distinctBetween` did it for
+  `around`; `gridCells`' positions needed their own induction (45
+  lines), as `distinctFlatMap`'s key must give back the whole outer
+  element, `(row, cells)`, not just the row.
+- Pair lambdas like `((at, x)) => (at, f at x)` elaborate to
+  projections (`arg.fst`), which compute on pairs, so no `match` was
+  needed in `mapCong` callbacks. Statements quantified over a position
+  `q` needed a `| (a, b), …` arm to reach lemmas stated on `(a, b)`.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day11.main` on the input | 4.1 s user (4.2 s) |
+| `stitchwort run --native Aoc.Year2021.Day11.main` | 1.3 s user |
+| `stitchwort check --no-cache Aoc.Year2021.Day11.Proofs Aoc.Year2021.Day11.Tests` | 3.2 s user |
+| `stitchwort audit Aoc.Year2021.Day11` (with the search) | 5.4 s user |
+
+128 lines of program, 65 of spec, 679 of proofs, 60 of tests.
+
+### Ranked
+
+1. A `match` on a call of a bounded search (`firstSync … 10000`) makes
+   checking compute the whole search and fail with `E-RESOURCE` about "a
+   value too large to show" (item 3). Fix: don't compute a stuck
+   scrutinee; name the `match` in the message.
+2. Grid simulations are slow on lists (4.1 s), and every grid day writes
+   its own `mapCells`, `cellAt`, neighbours and their lemmas, here 210
+   lines (item 2). Fix: a std grid module with positions, eight and four
+   neighbours, and a stencil.
+3. `search --at` searches the unfolded goal, missing `List.countLeMem`,
+   and took 44 s (item 4).
+4. A pure `map` in tail position of `{Fail}` code is elaborated in
+   `Fail`, hiding `Ok (map …)` from proofs (item 3).
+5. A reusable least-fixed-point toolkit would cover most of Cascade.sw
+   (item 2).
