@@ -290,6 +290,51 @@ fn a_file_on_its_own_as_you_type() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Hover shows a declaration's doc after its type and kind: `--|` lines, or
+/// a plain `--` run until the sorting pass; from the text the check used, so
+/// an edit shows at once; and a library name's (docs/proposals/
+/// documentation.md §5.7).
+#[test]
+fn hover_shows_the_doc() {
+    let dir = temp_dir("doc");
+    let file = dir.join("doc.sw");
+    let text = "import Std (List)\n\n--| Twice `n`.\n--| More.\ndef double (n: Nat): Nat := n + n\n\n-- Plain note.\ndef g: Nat := double 2\n\ndef h: Nat := g + List.length (List.filterMap [1] Some)\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = text.lines().collect();
+    let col = |line: usize, needle: &str| lines[line].find(needle).unwrap() as u32;
+    let hover_text = |client: &mut Client, line: usize, needle: &str| {
+        let hover = client.at("textDocument/hover", &uri, line as u32, col(line, needle));
+        hover["contents"]["value"].as_str().unwrap().to_string()
+    };
+
+    let double = hover_text(&mut client, 7, "double");
+    assert!(
+        double.ends_with("def `Main.double`\n\nTwice `n`.\nMore."),
+        "{double}"
+    );
+    let g = hover_text(&mut client, 9, "g +");
+    assert!(g.ends_with("def `Main.g`\n\nPlain note."), "{g}");
+    // A library name outside the core: the doc above `List.filterMap`.
+    let filter_map = hover_text(&mut client, 9, "List.filterMap");
+    assert!(
+        filter_map.contains("Keeps the `Some` results, in order."),
+        "{filter_map}"
+    );
+
+    // The doc is read from the text as edited.
+    let edited = text.replace("Twice `n`.", "Doubles `n`.");
+    client.change(&uri, 2, &edited);
+    assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
+    let double = hover_text(&mut client, 7, "double");
+    assert!(double.contains("Doubles `n`.\nMore."), "{double}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The server never runs a test, so a test that loops forever (a bug,
 /// D1183) can't hang it: the file checks, and the server still answers.
 #[test]

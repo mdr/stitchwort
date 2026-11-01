@@ -2048,6 +2048,16 @@ const selected = (page) => page.ev(`(() => { const s = document.getElementById("
   return { text: s.value.slice(s.selectionStart, s.selectionEnd), line: s.value.slice(0, s.selectionStart).split("\\n").length,
            readOnly: s.readOnly }; })()`);
 
+test("hovering a documented name adds the summary, not the whole doc", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(`--| Twice \`n\`. Not shown.\n--|\n--| Nor this paragraph.\ndef double (n: Nat) : Nat := n + n\n\ndef quad (n: Nat) : Nat := double (double n)\n`);
+  await page.untilChecked();
+  await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
+  await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a documented declaration");
+  assert.equal(await tooltip(page), "Main.double def\n: Nat → Nat\nTwice `n`.");
+}, { ms: 90000 });
+
 test("hovering a name shows its type: a local, a declaration, a library function", async (page) => {
   await page.open();
   await page.untilChecked();
