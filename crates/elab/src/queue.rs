@@ -175,8 +175,8 @@ pub(crate) trait Check {
     /// (a number literal waiting for its type, K4): a decision's search
     /// then keeps the placeholder as an operand, as it keeps a literal,
     /// rather than binding it (`bind::operand`).
-    fn literal(&self) -> bool {
-        false
+    fn literal(&self) -> Option<Rc<num_bigint::BigUint>> {
+        None
     }
 }
 
@@ -189,7 +189,7 @@ pub(crate) fn waiting_literal(e: &Elaborator, term: &Term) -> bool {
     let q = &e.queue;
     (0..q.len()).rev().any(|i| {
         let item = q.item(i);
-        item.meta == *m && !matches!(q.state(i), State::Done) && q.check(i).literal()
+        item.meta == *m && !matches!(q.state(i), State::Done) && q.check(i).literal().is_some()
     })
 }
 
@@ -363,8 +363,10 @@ impl Queue {
         let states = self.states.borrow();
         let mut unfilled = g.unfilled_placeholders.borrow_mut();
         let mut shown = g.placeholder_syntax.borrow_mut();
+        let mut literals = g.waiting_literals.borrow_mut();
         unfilled.clear();
         shown.clear();
+        literals.clear();
         for (i, item) in items.iter().enumerate() {
             if matches!(states[i], State::Done) || item.constraint {
                 continue;
@@ -372,6 +374,9 @@ impl Queue {
             unfilled.insert(item.meta);
             if let Some(display) = &item.display {
                 shown.insert(item.meta, display.clone());
+            }
+            if let Some(k) = item.check.literal() {
+                literals.insert(item.meta, (k, item.ty.clone()));
             }
         }
     }

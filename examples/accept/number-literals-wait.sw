@@ -36,3 +36,14 @@ theorem ruleSettled (rest: List Nat) (x: Nat): List.sumBy (Cons x rest) (y => 1)
 def positives (xs: List Nat): List Nat := List.filter xs (a => 0 < a ∧ a < 10)
 
 test "decided as on Nat" := positives [0, 3, 12, 9] == [3, 9]
+
+-- A waiting literal met by the same numeral at a known type takes that
+-- type (D2110): the proof's `0` waits (only it says what `b` is), and the
+-- comparison with the statement, made after the lambda failed in place,
+-- meets it against the statement's `0`, a `Nat`, which also fixes the two
+-- `_`s (the shape of 2021 Day08's `valueCorrect`).
+theorem foldSeenThrough (xs: List Nat): List.foldLeft xs 0 (acc x => 10 * acc + x) = List.foldLeft xs 0 (acc x => 10 * acc + (x + 0)) :=
+  List.foldLeftCongMem xs 0 _ _ (acc x m =>
+    match e: x with
+      | Zero => rfl
+      | Succ p => Eq.cong (k => 10 * acc + k) (Eq.sym (Nat.addZero (Succ p))))

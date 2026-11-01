@@ -366,8 +366,8 @@ impl crate::queue::Check for Number {
         Some(self.k.to_string())
     }
 
-    fn literal(&self) -> bool {
-        true
+    fn literal(&self) -> Option<Rc<BigUint>> {
+        Some(Rc::new(self.k.clone()))
     }
 
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {

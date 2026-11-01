@@ -3047,6 +3047,70 @@ a patch. Also from the rebase, on main itself (not this lane) [run, main's binar
 `(Succ low < high) = True`), and `goals/bool-constant-branches.sw` has no snapshot (SW-946), so
 the examples test fails at the full tier on main.
 
+**Resumed (D2110, SW-986): a waiting literal seen through.** Rebased onto `93eab0f8` (AoC 2021
+days 1 to 18, SW-975, SW-982, SW-962, SW-981): no conflict in the code; the one conflict was
+`hash_stability__prelude.snap`, taken from main and regenerated. Option (c), narrowly [read,
+`unify.rs`]:
+- **Where.** `unify_step`, the arm before the one for frozen unknowns: a pair whose one side is
+  an unfilled placeholder of a waiting number literal `k` (`Globals::waiting_literals`, kept in
+  step with the queue as `unfilled_placeholders` is, from `Check::literal`) and whose other side
+  is the numeral `k` at a known type: `Nat`'s `k`, or `Int`'s `OfNat k` (`literal_seen_through`).
+  Nothing else: not another number, not a value that only computes to `k`, not `Fin`, `Float`,
+  `SafeNat` or a negative `Int`, whose terms differ.
+- **What it does.** It solves the placeholder with `other` (a pattern solution; a placeholder
+  applied to more than variables fails as before) and compares the type the literal waits on
+  with that type. Only while the placeholder is frozen: its own fill unfreezes it and solves it
+  as any unknown, and without that guard the fill met the rule and left it unsolved [run: std
+  didn't load].
+- **Why it can't change a meaning.** A literal `k` checked at `Nat` is the numeral `k`, and at
+  `Int` is `OfNat k` (`check_literal`), whether it waited or not; so the solution is the term the
+  literal's check will give, and the type it fixes is the only type at which that term is `k`.
+  When the literal resumes, its fill finds the placeholder solved and compares (invariant 2):
+  the same term, so it agrees (`disagreed` stays 0). It is what main does, where the literal is
+  the number from the start.
+- It is where the comparison meets the literal: in a boolean try-and-undo too (the after-expected
+  path, Day08), not only in stage 6's waiting comparisons, so what such a comparison solves from
+  the numeral (Day08's two `_`s) is solved as on main.
+- First built without solving the placeholder (only the type compared, the pair taken as equal):
+  `quot-transport-ind.sw` failed, since a later comparison still met the frozen placeholder; with
+  it solved, it checks [run].
+- Test: `accept/number-literals-wait.sw`'s `foldSeenThrough`, Day08's shape (a fold's `0` and
+  two `_`s, the lambda failing in place on a `match`): rejected with the rule switched off in a
+  scratch build, as Day08 was; checks with it, and on main [run].
+
+**2021 Day17's negative literal (SW-978 item 4): still needs its annotation.** In
+`[(7, 2), …, (17, -4)].map (…)`, the tuples' numbers are *inferred* (a tuple checked against an
+unknown infers its parts), and an inferred literal is still `Nat` at once: K4 makes a literal
+checked against an unknown wait, not one inferred with nothing expected. Making inferred literals
+wait too (a fresh unknown, then the waiting check) passes that test and every aoc namespace, but
+`accept/calc.sw` (`calc 0`) and `accept/let-patterns.sw` (`let one := 1`) fail, and four
+messages change, one printing `?0 a b h` [run]. So it is not in; a decision of its own (it is K4
+widened to inferred literals, with its own consumers to find).
+
+**Gates after the rebase** [run, against `93eab0f8`'s binary]:
+- **aoc**: `check --no-cache` checks all 207 namespaces (2021 days 1 to 18 included);
+  `stitchwort test` 1,216 passed; `task audit`: std 2,358, aoc 2,119, rogue 190, all passed.
+  Rogue: 100 tests pass.
+- **Examples** (accept, reject, soundness and goals, every file's whole output): the same
+  planned changes as above and nothing else: `int-binding-nat.sw` accepted,
+  `record-literal-inferred.sw` unannotated, the two re-blamed messages. The examples test and
+  `hash_stability` at the full tier pass with the snapshots committed.
+- **Hashes** (`HASH_DUMP`, std + aoc 13,877 lines, std + rogue 5,301; each changed term
+  compared): 21 and 2 change; every statement identical. Own terms: `Std.List.sumByOne`,
+  `Std.List.memDifferenceByExample`, 2025 `Day08.oneAfterTells`, `Day09.allRedOrGreenKeys.%match1`
+  (each a call kept folded, as above), and 2021 `Day08.easyCorrect.%match2`, the other way round:
+  in `Eq.cong (k => [2, 3, 4, 7].contains k) …`, whose list's literals wait, the call
+  `List.contains [2, 3, 4, 7] k` is written as its unfolding (an `if` on `Nat.decEq`), a
+  definitionally equal term. 16 refer to those (2021 Day08's `easyCorrect`, its `%match1`,
+  `part1Correct`, `part1FromInput`, `part1AnswerUnique`; 2024 Day11's four; 2025 Day08's two and
+  Day09's five). `PrefixSums.atOf` no longer changes. 2021 `Day08.valueCorrect`, the proof the
+  rule is for, has main's hash.
+- **Counters** (aoc): `retried` 1 on main and lane alike (a 2021 day, not a literal); `omega on
+  pending` 1 on both, failing 0; `ring` and `auto` 0. `solved first` 37 and `lossy` 3 (0 on main):
+  placeholders solved before their fill, the rule's solutions among them [inferred; not traced
+  one by one], every one agreeing with its fill (`disagreed` 0).
+- **Time**: aoc `check --no-cache`, one pair at load 5 to 17: main 61.7 s, lane 60.1 s.
+
 **What stage 5 can now delete** [inferred from the counters and code]: `retrying` and
 `late_literals` with `defers_literal`, `else_first` and `check_items`' reordering (no retry is
 about a literal any more; the 1 + 3 left are the cases above, which stage 5 must look at

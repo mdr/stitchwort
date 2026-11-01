@@ -168,6 +168,36 @@ fn frozen(g: &Globals, m: usize) -> bool {
     g.meta_frozen(m) || g.unfilled_placeholders.borrow().contains(&m)
 }
 
+/// If `m` is the placeholder of a number literal `k` waiting for its type
+/// (`Globals::waiting_literals`) and `other` is the numeral `k` at a known
+/// type, `Nat`'s `k` or `Int`'s `OfNat k`: the type the literal waits on,
+/// and that type (D2110). Nothing else: not another numeral, not a value
+/// that only computes to `k`, not a type the literal could have that
+/// writes `k` differently (`Fin`, `Float`), so the literal's term at that
+/// type is exactly `other`.
+fn literal_seen_through(g: &Globals, m: usize, other: &Value) -> Option<(Value, Value)> {
+    // Only while it is frozen: its own fill solves it as any unknown.
+    if !g.unfilled_placeholders.borrow().contains(&m) {
+        return None;
+    }
+    let (k, waits_on) = g.waiting_literals.borrow().get(&m).cloned()?;
+    let reg = &g.registry;
+    let ty = match other {
+        Value::Nat(n) if **n == *k => Value::Data(
+            reg.data(stitchwort_core::registry::Builtin::Nat)?,
+            Vec::new(),
+        ),
+        Value::Ctor(d, c, fields)
+            if reg.ctor(stitchwort_core::registry::Builtin::OfNat) == Some((*d, *c))
+                && matches!(&fields[..], [Value::Nat(n)] if **n == *k) =>
+        {
+            Value::Data(*d, Vec::new())
+        }
+        _ => return None,
+    };
+    Some((waits_on, ty))
+}
+
 /// [`unify`] for every pair on the work list.
 ///
 /// A pair that fails while one side is a definition stuck on an unknown is
@@ -1148,6 +1178,25 @@ fn unify_step(
                 (*m1, s1, &b)
             };
             solve(g, level, m, spine, other)? || first_order(g, level, m, spine, other)?
+        }
+        // A number literal waiting for its type (K4) against the same
+        // numeral at a known type (D2110, step 4.3): `k` checked at `Nat` is
+        // the numeral `k`, and at `Int` is `OfNat k`, whether it waited or
+        // not, so its term is forced to be `other`. The placeholder is
+        // solved with it, though frozen (only here: its check's fill then
+        // finds it solved and compares, invariant 2), and the type it waits
+        // on is compared with that type. A placeholder applied to more than
+        // variables isn't a pattern: the pair fails, as for any frozen one.
+        (Value::Neutral(Head::Meta(m), spine), other)
+        | (other, Value::Neutral(Head::Meta(m), spine))
+            if let Some((waits_on, ty)) = literal_seen_through(g, *m, other) =>
+        {
+            if solve(g, level, *m, spine, other)? {
+                work.push(Task::Values(level, waits_on, ty));
+                true
+            } else {
+                false
+            }
         }
         (Value::Neutral(Head::Meta(m), _), _) | (_, Value::Neutral(Head::Meta(m), _))
             if frozen(g, *m) =>
