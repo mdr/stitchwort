@@ -4,6 +4,7 @@
 -- doesn't check them.
 
 namespace Aoc.Year2024.Day14.Tests
+import Aoc.Common (Position)
 import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (after, isBottom, isLeft, isRight, isTop, part1)
 import Std (Fail, IO, List, Nat, Option, Pair, Result, Text)
@@ -31,9 +32,10 @@ def exampleSpace: Space := Space.of 11 7
 
 def puzzleSpace: Space := Space.of 101 103
 
-def tile (x: Nat) (y: Nat): Position := { x, y }
+-- The tile at `x` and `y`, as the puzzle writes them: column, then row.
+def tile (x: Nat) (y: Nat): Position := { row = y, column = x }
 
-def robotAt (x: Nat) (y: Nat) (dx: Int) (dy: Int): Robot := { position = { x, y }, velocity = { x = dx, y = dy } }
+def robotAt (x: Nat) (y: Nat) (dx: Int) (dy: Int): Robot := { position = tile x y, velocity = { rows = dy, columns = dx } }
 
 test "example, part 1" := solvePart1 exampleSpace (robotsOf example) == 12
 test "example, part 2: two robots share 3,0 at the start" := solvePart2 exampleSpace (robotsOf example) == Some 1
@@ -45,7 +47,7 @@ test "example, the quadrant counts" :=
   quadrants.map (quadrant => inQuadrants.count (== quadrant)) == [1, 3, 4, 1]
 
 test "example, the tiles after 100 seconds" :=
-  exampleSpace.positionsAfter 100 (robotsOf example) |> .sortOn (position => (position.y, position.x)) == [
+  exampleSpace.positionsAfter 100 (robotsOf example) |> .sortOn (position => (position.row, position.column)) == [
     tile 6 0,
     tile 6 0,
     tile 9 0,

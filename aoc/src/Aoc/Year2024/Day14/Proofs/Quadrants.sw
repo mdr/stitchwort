@@ -5,6 +5,7 @@
 -- safety factors are equal (`safetyFactorCorrect`).
 
 namespace Aoc.Year2024.Day14.Proofs
+import Aoc.Common (Position)
 import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (..)
 import Std (Bool, Eq, List, Nat, Option)

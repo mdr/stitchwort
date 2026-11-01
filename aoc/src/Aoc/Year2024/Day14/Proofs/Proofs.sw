@@ -6,6 +6,7 @@
 -- where it started after `width * height` seconds (`periodic`, Moves.sw).
 
 namespace Aoc.Year2024.Day14.Proofs
+import Aoc.Common (Position)
 import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (..)
 import Std (And, Bool, Eq, Iff, List, Nat, Option, Void)
