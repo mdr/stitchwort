@@ -265,6 +265,12 @@ enum Command {
         /// Constructors only, or with the others named
         #[arg(long)]
         constructors: bool,
+        /// Only declarations in this namespace, written in full
+        /// (`Std.List`, `Aoc.Year2021.Day16`), or one inside it; repeat for
+        /// more than one. With --at, the induction hypothesis and the
+        /// goal's hypotheses are offered too
+        #[arg(long = "in", value_name = "NAMESPACE")]
+        within: Vec<String>,
         /// Append a line of JSON describing this search (the query, what it
         /// elaborated to, the results with their ranks, the time) to this
         /// file; also from the environment variable STITCHWORT_SEARCH_LOG
@@ -555,6 +561,7 @@ fn run(cli: Cli) -> ExitCode {
             theorems,
             definitions,
             constructors,
+            within,
             log,
             at,
             goal,
@@ -580,6 +587,7 @@ fn run(cli: Cli) -> ExitCode {
                     time,
                     all,
                     exclude: Vec::new(),
+                    within,
                 };
                 return search_at(
                     &at,
@@ -605,6 +613,7 @@ fn run(cli: Cli) -> ExitCode {
                 },
                 all,
                 limit,
+                within,
             };
             search(
                 &query,

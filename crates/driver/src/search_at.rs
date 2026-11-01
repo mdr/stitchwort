@@ -47,6 +47,10 @@ pub struct AtOptions {
     /// Declarations not to suggest, by full name (a benchmark leaves out
     /// the theorem whose statement is the goal).
     pub exclude: Vec<String>,
+    /// Only declarations in these namespaces (`--in`, SW-993); none: all.
+    /// The induction hypothesis and the goal's hypotheses are offered
+    /// regardless.
+    pub within: Vec<String>,
 }
 
 impl Default for AtOptions {
@@ -57,6 +61,7 @@ impl Default for AtOptions {
             time: Duration::from_secs(10),
             all: false,
             exclude: Vec::new(),
+            within: Vec::new(),
         }
     }
 }
@@ -948,7 +953,9 @@ impl Session {
             applicable: results.iter().filter(|s| s.class == "applicable").count(),
             rewrites: rewrites.len(),
         };
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<String> =
+            (crate::search::within_warning(&options.within, candidates.len()).into_iter())
+                .collect();
         if !budget.exhausted {
             warnings.push(format!(
                 "the time ran out ({} s) before every candidate was checked: --time for more",
@@ -1051,6 +1058,7 @@ fn searchable(
         (options.all || !hidden(path))
             && (!prop || item.kind(g) != Kind::Definition)
             && !options.exclude.iter().any(|e| e == path)
+            && crate::search::in_namespaces(path, &options.within)
     })
 }
 
