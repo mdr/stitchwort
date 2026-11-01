@@ -1253,3 +1253,17 @@ _ (Cons …)` (289 s in a run with timings): a std lemma's plan, a path this wor
 probably as before it (stage 2b reported 290 s at most for such a namespace) [inferred]; one run of the sample (after the conjuncts, before they stopped
 unfolding) was stopped by the 16 GB memory guard, the goal not identified. A step and memory limit
 per check, smaller than the declaration's, would bound both.
+
+**A check's time limit (SW-1017, 1 November 2026).** Each closing check of `search --at` may take
+half of `--time` (and no more than is left), and is stopped from inside: `Budget::set_deadline`
+(`crates/core/src/budget.rs`) is read every `POLL` evaluation steps, like the cancellation flag, and
+ends the operation with `ResourceError::Deadline`. Unlike running out of steps it is not "no": an
+attempt inside the check passes it on, as out-of-stack does, so a slow machine never turns a
+comparison into a different elaboration. A check stopped this way is counted (`budget.gaveUp`,
+omitted when zero) and named in a warning; it is never reported as a failed check. Nothing changes
+when no check reaches the limit. Measured on AoC 2021 day 16 `Sound.sw:83` (`totalThen`, `--time 600s`):
+the closing phase took 926 s, nearly all one `List.consInjective _ (Cons …)` check, and with the limit
+it ends at the time given (`--time 40s`: 40 s, the two `consInjective` checks given up at 20 s). Still
+unbounded: the in-file confirmation of each closing suggestion (it checks the namespace again, 70 s
+here for three), and a memory bound (no per-check term-size cap exists; `Limits::size` is 10 million
+nodes and only bounds quoting).

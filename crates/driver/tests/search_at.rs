@@ -504,3 +504,50 @@ theorem useTotal (ys: List Nat): List.length ys ≤ total ys + List.length ys :=
     );
     pastes_at(text, 11, want);
 }
+
+/// SW-1017: a check that would run for minutes is stopped from inside at the
+/// deadline `search --at` gives it (a share of its time): here `rfl` on a
+/// naive `fib 36`, which takes tens of seconds. It fails as having run out
+/// (`E-RESOURCE`), the budget says the deadline stopped it, and the next
+/// check, with no deadline, is unaffected.
+#[test]
+fn a_proof_check_past_its_deadline_is_stopped_from_inside() {
+    let text = "\
+import Std (Nat)
+
+def fib: Nat → Nat
+  | 0 => 0
+  | Succ 0 => 1
+  | Succ (Succ n) => fib n + fib (Succ n)
+";
+    with_session(STACK, Session::for_stack, |session| {
+        let (_, diagnostics) = load(session, text);
+        assert!(
+            !diagnostics.iter().any(|d| d.severity == Severity::Error),
+            "{diagnostics:?}"
+        );
+        let limit = std::time::Duration::from_millis(300);
+        (session.elab.globals.budget).set_deadline(Some(std::time::Instant::now() + limit));
+        let slow = session
+            .parse_expression("<test>", "((rfl): fib 36 = 14930352)")
+            .unwrap();
+        let started = std::time::Instant::now();
+        let stopped = session.elab.check_proof(&slow);
+        let took = started.elapsed();
+        (session.elab.globals.budget).set_deadline(None);
+        let Err(error) = stopped else {
+            panic!("the check can't finish in 300 ms");
+        };
+        assert_eq!(error.code, "E-RESOURCE", "{error:?}");
+        assert!(
+            session.elab.globals.budget.take_timed_out(),
+            "the deadline didn't stop it"
+        );
+        assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
+        let quick = session
+            .parse_expression("<test>", "((rfl): fib 10 = 55)")
+            .unwrap();
+        assert!(session.elab.check_proof(&quick).is_ok());
+        assert!(!session.elab.globals.budget.take_timed_out());
+    });
+}

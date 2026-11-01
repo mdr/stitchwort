@@ -23,6 +23,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::stack::position as stack_position;
@@ -38,6 +39,11 @@ pub enum ResourceError {
     Nesting(&'static str),
     /// A value too large to turn back into a term or print.
     Size,
+    /// The wall-clock deadline the host set ([`Budget::set_deadline`]) passed
+    /// while the operation was running. Like running out of stack, an
+    /// attempt inside the operation passes it on rather than taking it as
+    /// "no": that answer would depend on how fast the machine is.
+    Deadline,
     /// The host asked for the check to stop ([`Budget::set_cancel_flag`]).
     /// Not a result: the session layer discards the check and rewinds, so
     /// this never reaches a user or a cache.
@@ -53,6 +59,7 @@ impl fmt::Display for ResourceError {
                 return write!(f, "the program is nested too deeply for the {pass}");
             }
             ResourceError::Size => "a value was too large to show",
+            ResourceError::Deadline => "it took longer than the time allowed",
             ResourceError::Cancelled => "the check was cancelled",
         })
     }
@@ -190,6 +197,13 @@ pub struct Budget {
     /// Whether an operation on a big number costs a step per machine word
     /// it works through ([`Budget::number_words`]).
     number_words: Cell<bool>,
+    /// A wall-clock deadline for the operations running, if the host set one
+    /// ([`Budget::set_deadline`]), read every [`POLL`] steps like the
+    /// cancellation flag.
+    deadline: Cell<Option<Instant>>,
+    /// Whether an operation was stopped by the deadline since
+    /// [`Budget::take_timed_out`] last cleared it.
+    timed_out: Cell<bool>,
 }
 
 impl Default for Budget {
@@ -213,6 +227,8 @@ impl Default for Budget {
             watching: Cell::new(false),
             cancelled: Cell::new(false),
             number_words: Cell::new(false),
+            deadline: Cell::new(None),
+            timed_out: Cell::new(false),
         }
     }
 }
@@ -344,7 +360,7 @@ impl Budget {
     fn arm(&self) {
         let at = if self.exhausted.get().is_some() {
             0
-        } else if self.watching.get() {
+        } else if self.watching.get() || self.deadline.get().is_some() {
             self.limit.get().min(self.work.get().saturating_add(POLL))
         } else {
             self.limit.get()
@@ -357,6 +373,34 @@ impl Budget {
     pub fn set_cancel_flag(&self, flag: Arc<AtomicBool>) {
         *self.cancel.borrow_mut() = Some(flag);
         self.arm();
+    }
+
+    /// Sets (or clears) a wall-clock deadline: while it is set, an operation
+    /// still running when it passes stops, within [`POLL`] steps, with
+    /// [`ResourceError::Deadline`] (SW-1017). Unlike cancellation it isn't
+    /// sticky: the next operation starts afresh, and its caller decides
+    /// whether to try again. [`Budget::take_timed_out`] says whether it
+    /// stopped one.
+    pub fn set_deadline(&self, deadline: Option<Instant>) {
+        self.deadline.set(deadline);
+        self.arm();
+    }
+
+    /// Whether the deadline stopped an operation since this was last called.
+    pub fn take_timed_out(&self) -> bool {
+        self.timed_out.replace(false)
+    }
+
+    /// Whether the deadline has passed, noting it so if so (and, through
+    /// [`Budget::attempt`], ending the operations the one running is part of).
+    fn deadline_passed(&self) -> bool {
+        if self.deadline.get().is_some_and(|d| Instant::now() >= d) {
+            self.timed_out.set(true);
+            self.out_of_stack.set(true);
+            true
+        } else {
+            false
+        }
     }
 
     /// Starts or stops watching the flag. While it's watched and another
@@ -525,6 +569,11 @@ impl Budget {
                 self.exhausted.set(Some(ResourceError::Cancelled));
                 self.work_limit.set(0);
                 return Err(ResourceError::Cancelled);
+            }
+            if self.deadline_passed() {
+                self.exhausted.set(Some(ResourceError::Deadline));
+                self.work_limit.set(0);
+                return Err(ResourceError::Deadline);
             }
             self.arm();
             return Ok(());
@@ -791,6 +840,39 @@ mod tests {
         );
         assert_eq!(b.exhausted(), None);
         assert_eq!(steps(&b, 1000), Ok(()));
+    }
+
+    /// SW-1017: a deadline that passes stops the operation running, from
+    /// inside, within a few polls; an attempt it stops ends the operation it
+    /// is part of (the answer would depend on the machine's speed), and the
+    /// next operation is unaffected.
+    #[test]
+    fn a_deadline_stops_the_operation_running_and_the_attempts_in_it() {
+        let b = Budget::default();
+        b.set_deadline(Some(Instant::now()));
+        {
+            let _op = b.operation(Limits::default());
+            let _attempt = b.attempt(Limits::default());
+            assert_eq!(steps(&b, 4 * POLL as u32), Err(ResourceError::Deadline));
+        }
+        assert!(b.take_timed_out());
+        assert!(!b.take_timed_out());
+        // The attempt was inside an operation: that ran out too.
+        {
+            let _op = b.operation(Limits::default());
+            {
+                let _attempt = b.attempt(Limits::default());
+                assert_eq!(steps(&b, 4 * POLL as u32), Err(ResourceError::Deadline));
+            }
+            assert_eq!(b.exhausted(), Some(ResourceError::Deadline));
+        }
+        assert_eq!(b.exhausted(), None);
+        b.set_deadline(None);
+        let _op = b.operation(Limits::default());
+        assert_eq!(steps(&b, 4 * POLL as u32), Ok(()));
+        // A deadline far away costs nothing.
+        b.set_deadline(Some(Instant::now() + std::time::Duration::from_secs(3600)));
+        assert_eq!(steps(&b, 4 * POLL as u32), Ok(()));
     }
 
     #[test]
