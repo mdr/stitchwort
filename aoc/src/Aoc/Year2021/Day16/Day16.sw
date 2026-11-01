@@ -195,7 +195,7 @@ def parsePacket (input: Text): {Fail} Packet := decodeTransmission (readBits inp
 -- The bits are all zero.
 def zeroBits (bits: List Bool): Bool := bits.all (bit => not bit)
 
-def decodeTransmission(bits: List Bool): {Fail} Packet :=
+def decodeTransmission (bits: List Bool): {Fail} Packet :=
   match readPacket bits with
     | Some ((packet, rest)) =>
       match zeroBits rest with
