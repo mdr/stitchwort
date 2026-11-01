@@ -22,6 +22,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::DefId;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_syntax::ast::{self, Import};
@@ -2412,6 +2413,10 @@ impl NameScope for Elaborator {
 
     fn aliases(&self, full: &str) -> Vec<String> {
         Elaborator::aliases(self, full)
+    }
+
+    fn method(&self, projection: DefId) -> Option<(DefId, String)> {
+        Elaborator::method_of(self, projection)
     }
 }
 

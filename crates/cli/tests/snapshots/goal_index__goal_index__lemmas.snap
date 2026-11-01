@@ -2,7 +2,7 @@
 source: crates/cli/tests/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-41 lemmas, 15 goals without one
+43 lemmas, 15 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
@@ -24,6 +24,8 @@ distinct-names goal 3: no lemma
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
+interface-members goal 1: theorem compareSameGoal1 (a: Type) (ord: Ord a) (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
+interface-members goal 2: theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: (x == y) = True): x = y := ?
 lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 let-proofs goal 1: no lemma

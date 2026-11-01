@@ -51,6 +51,14 @@ pub trait NameScope {
     fn eq_decision(&self, _ty: &Term) -> Option<Term> {
         None
     }
+
+    /// If `projection` is an interface's own projection of a field
+    /// (`Ord.%compare`, taking the dictionary first), the field's method
+    /// (`Ord.compare`, taking it as an `auto` argument) and the name that
+    /// argument is passed by (`ord`).
+    fn method(&self, _projection: DefId) -> Option<(DefId, String)> {
+        None
+    }
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -1030,6 +1038,33 @@ impl<'g> Printer<'g> {
                         let xs = self.print(names, xs, Prec::Add);
                         return (format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq);
                     }
+                    // An interface's own projection of a field, `Ord.%compare
+                    // d x y`, as the method that computes to it (SW-1000):
+                    // `Ord.compare x y`, the dictionary given by name unless
+                    // it's a variable, a dictionary in scope, which the
+                    // method finds itself (`Ord.compare [ord := Nat.instOrd]
+                    // x y`).
+                    // `toBool (DecEq.%decide d a b)`, `d` a dictionary in
+                    // scope, is `a == b` as it elaborates there.
+                    if self.g.registry.loaded_def(Builtin::ToBool) == Some(*id)
+                        && let [decision] = &args[..]
+                        && let Some((lhs, rhs)) = self.decide_in_scope(decision)
+                    {
+                        let lhs = self.print(names, lhs, Prec::Add);
+                        let rhs = self.print(names, rhs, Prec::Add);
+                        return (format!("{lhs} == {rhs}"), Prec::Eq);
+                    }
+                    if let Some(scope) = self.scope
+                        && let Some((method, dict)) = scope.method(*id)
+                        && let Some((d, rest)) = args.split_first()
+                    {
+                        let mut head = self.def_name(names, method);
+                        if !matches!(d.strip_loc(), Term::Var(_)) {
+                            let d = self.print(names, d, Prec::Arrow);
+                            head = format!("{head} [{dict} := {d}]");
+                        }
+                        return self.applied(names, head, rest.iter().copied());
+                    }
                 }
                 if self.show_hidden.get() {
                     return self.applied_with_hidden(names, term);
@@ -1587,6 +1622,24 @@ impl<'g> Printer<'g> {
                 }
                 _ => None,
             },
+        }
+    }
+
+    /// The sides of `DecEq.%decide d a b` with `d` a variable, a dictionary
+    /// in scope: what `a == b` elaborates to there (SW-1000).
+    fn decide_in_scope<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+        let (Term::Def(id), args) = explicit_spine(term) else {
+            return None;
+        };
+        let (method, _) = self.scope?.method(*id)?;
+        match args[..] {
+            [d, lhs, rhs]
+                if &*self.g.def(method).path == "Std.DecEq.decide"
+                    && matches!(d.strip_loc(), Term::Var(_)) =>
+            {
+                Some((lhs, rhs))
+            }
+            _ => None,
         }
     }
 

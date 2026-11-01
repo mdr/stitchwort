@@ -1,0 +1,104 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "ord",
+          "type": "Ord a"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        },
+        {
+          "name": "y",
+          "type": "a"
+        }
+      ],
+      "lemma": "theorem compareSameGoal1 (a: Type) (ord: Ord a) (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?",
+      "target": "Ord.compare x y = Ord.compare x y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nord: Ord a\nx: a\ny: a\n⊢ Ord.compare x y = Ord.compare x y",
+        "range": [
+          6,
+          90,
+          6,
+          91
+        ]
+      }
+    ],
+    "message": "in `compareSame`",
+    "notes": [],
+    "range": [
+      6,
+      90,
+      6,
+      91
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "eq",
+          "type": "DecEq a"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        },
+        {
+          "name": "y",
+          "type": "a"
+        },
+        {
+          "name": "h",
+          "type": "(x == y) = True"
+        }
+      ],
+      "lemma": "theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: (x == y) = True): x = y := ?",
+      "target": "x = y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\neq: DecEq a\nx: a\ny: a\nh: (x == y) = True\n⊢ x = y",
+        "range": [
+          8,
+          83,
+          8,
+          84
+        ]
+      }
+    ],
+    "message": "in `equalSound`",
+    "notes": [],
+    "range": [
+      8,
+      83,
+      8,
+      84
+    ],
+    "severity": "goal"
+  }
+]

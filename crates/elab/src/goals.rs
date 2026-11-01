@@ -115,6 +115,13 @@ impl NameScope for GoalScope<'_> {
         self.e.aliases(full)
     }
 
+    fn method(
+        &self,
+        projection: stitchwort_core::DefId,
+    ) -> Option<(stitchwort_core::DefId, String)> {
+        self.e.method_of(projection)
+    }
+
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
     /// variable: `decide_eq_of`, as `a == b` finds it
     /// (`numbers::equation`, `bind::decide_written`), on placeholder
