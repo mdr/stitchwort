@@ -6,7 +6,7 @@
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allPromised, encode, fitsOperation, hexDigitBits, promised, transmissionBits, wellFormed)
-import Std (Bool, Eq, Exists, Fail, List, Nat, Option, Result, Text, Void)
+import Std (Bool, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void)
 
 -- The program's digits are the puzzle's.
 theorem hexAgree (char: Char) (value: Nat) (h: hexValue char = Some value): hexDigitBits char = Some (digitBits value) :=
@@ -29,35 +29,33 @@ theorem hexAgree (char: Char) (value: Nat) (h: hexValue char = Some value): hexD
     | 'F' => rewrite <- Option.someInjective _ value h in rfl
     | _ => cases
 
--- Characters read one by one as digits, by any reader that reads only a
--- hexadecimal digit's value: their bits are the transmission's.
-theorem digitsRead (f: (Nat, Char) → Result Nat Text) (agree: (entry: (Nat, Char)) → (value: Nat) → f entry = Ok value → hexValue entry.snd = Some value):
-    (start: Nat) → (chars: List Char) → (values: List Nat) → Result.traverse (List.withIndexFrom start chars) f = Ok values → transmissionBits chars = Some (bitsOfDigits values)
-  | start, Nil, values, done => rewrite <- Result.okInjective Nil values done in rfl
-  | start, Cons char rest, values, done =>
-    Result.flatMapEqOk (f (start, char)) (y => Result.map (Result.traverse (List.withIndexFrom (Succ start) rest) f) (Cons y)) values
-      (rewrite Result.traverseCons f (start, char) (List.withIndexFrom (Succ start) rest) at done in done)
-      (value first later =>
-        match e: Result.traverse (List.withIndexFrom (Succ start) rest) f with
-          | Err m => Void.exfalso (Result.errNotOk m values later)
-          | Ok others =>
-            rewrite <- Result.okInjective (Cons value others) values later, hexAgree char value (agree (start, char) value first), digitsRead f agree (Succ start) rest others e in rfl)
+-- `hexDigit` reads one hexadecimal digit and gives its value.
+theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) :=
+  Parse.readsWeaken _ _ _
+    (Parse.readsBind (() => Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome))
+      (char => Parse.need (hexValue char) "expected a hexadecimal digit") _ _ (Parse.readsSatisfy _ _) (char => Parse.readsNeed _ _))
+    (read value h =>
+      match h with
+        | Witness charRead (Witness needRead (Witness char (Both split (Both (Both one passes) (Both none found))))) =>
+          Witness char (Both (rewrite split, none, List.appendNil charRead in one) found))
 
--- A character `need` reads as a digit is one.
-theorem charRead (msg: Text) (char: Char) (value: Nat) (found: Option.toResult (hexValue char) msg = Ok value): hexValue char = Some value :=
-  match e: hexValue char with
-    | None => Void.exfalso (Result.errNotOk _ value found)
-    | Some read => rewrite Result.okInjective read value found in rfl
+-- Hexadecimal digits read one after another: their bits are the
+-- transmission's.
+theorem digitsBits: (read: List Char) → (values: List Nat) →
+    Parse.Each (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) read values → transmissionBits read = Some (bitsOfDigits values)
+  | read, Nil, none => rewrite none in rfl
+  | read, Cons value values, Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
+    rewrite split, one, hexAgree char value found, digitsBits rest values others in rfl
 
 -- The digits `readDigits` reads are the input's, all hexadecimal.
 theorem readDigitsBits (input: Text) (values: List Nat) (read: Fail.toResult (() => readDigits input) = Ok values):
     transmissionBits input.trim.toList = Some (bitsOfDigits values) :=
-  let traversed := rewrite Fail.toResultMap _ (input.trim.toList.withIndex) at read in read
-  digitsRead _
-    (entry value found =>
-      match entry with
-        | (column, char) => charRead _ char value (rewrite Fail.toResultNeed _ (hexValue char) at found in found))
-    0 input.trim.toList values traversed
+  match Parse.lineReads input.trim (() => Parse.many hexDigit) _ values read (Parse.readsMany hexDigit _ readsHexDigit) with
+    | Witness digits (Witness ending (Both split (Both each (Inl none)))) => rewrite split, none, List.appendNil digits in digitsBits digits values each
+    | Witness digits (Witness ending (Both split (Both each (Inr (Inl newline))))) =>
+      Void.exfalso (Bool.trueNotFalse (Text.trimLast input digits '\n' (rewrite split, newline in rfl)))
+    | Witness digits (Witness ending (Both split (Both each (Inr (Inr crlf))))) =>
+      Void.exfalso (Bool.trueNotFalse (Text.trimLast input (digits ++ ['\r']) '\n' (rewrite split, crlf, List.appendAssoc digits ['\r'] ['\n'] in rfl)))
 
 -- The bits `readBits` reads are the transmission's.
 theorem readBitsHex (input: Text) (bits: List Bool) (read: Fail.toResult (() => readBits input) = Ok bits): transmissionBits input.trim.toList = Some bits :=

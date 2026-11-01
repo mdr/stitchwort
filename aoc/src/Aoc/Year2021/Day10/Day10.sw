@@ -19,7 +19,7 @@
 -- `Aoc.Year2021.Day10.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2021.Day10
-import Std (Fail, IO, List, Nat, Text)
+import Std (Fail, IO, List, Nat, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let lines := parseLines IO.readAll()
@@ -29,19 +29,6 @@ def main(): {IO, Fail} () :=
 type Bracket = | Round | Square | Curly | Angle
 
 type Token = | Opener (bracket: Bracket) | Closer (bracket: Bracket)
-
--- The token each of the eight bracket characters stands for; none for any
--- other character.
-def tokenOf: Char → Option Token
-  | '(' => Some (Opener Round)
-  | '[' => Some (Opener Square)
-  | '{' => Some (Opener Curly)
-  | '<' => Some (Opener Angle)
-  | ')' => Some (Closer Round)
-  | ']' => Some (Closer Square)
-  | '}' => Some (Closer Curly)
-  | '>' => Some (Closer Angle)
-  | _ => None
 
 -- Each token's character.
 def Token.char: Token → Char
@@ -54,13 +41,19 @@ def Token.char: Token → Char
   | Closer Curly => '}'
   | Closer Angle => '>'
 
+-- Every token.
+def allTokens: List Token :=
+  [Opener Round, Opener Square, Opener Curly, Opener Angle, Closer Round, Closer Square, Closer Curly, Closer Angle]
+
 -- One token per character, one line per line; any other character fails.
--- (Written by hand rather than with `Std.Parse`, so that the proofs can
--- say what it reads: `parseReadsLines` in Proofs/Parse.sw.)
-def parseLines (input: Text): {Fail} (List (List Token)) :=
-  input.lines.withIndex.map (((row, line)) =>
-    line.toList.withIndex.map (((column, char)) =>
-      Fail.need (tokenOf char) "line ${row + 1}, column ${column + 1}: expected a bracket, got '${char}'"))
+-- Each token is read as its own character, so the parser reads exactly
+-- the input (`parseReadsLines` in Proofs/Parse.sw).
+def parseLines (input: Text): {Fail} (List (List Token)) := Parse.eachLine input (() => Parse.many token)
+
+def token(): {Parse} Token := Parse.label "a bracket" bracket
+
+-- A token, read as its own character.
+def bracket(): {Parse} Token := Parse.pick (allTokens.map (token => (Text.fromList [token.char], token)))
 
 -- Where a scan ends: at the first closer that doesn't match the bracket
 -- open innermost (or that nothing is open for), or at the end of the line

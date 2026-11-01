@@ -104,6 +104,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Option/Option.sw", include_str!("std/Option/Option.sw")),
     ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
     ("Parse/Parse.sw", include_str!("std/Parse/Parse.sw")),
+    ("Parse/Reads.sw", include_str!("std/Parse/Reads.sw")),
     (
         "PrefixSums/BlockSum.sw",
         include_str!("std/PrefixSums/BlockSum.sw"),

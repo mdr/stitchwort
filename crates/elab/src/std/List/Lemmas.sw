@@ -1656,6 +1656,22 @@ theorem List.dropWhileStops (p: a → Bool): (xs: List a) → List.takeWhile xs 
       | True => Void.exfalso (List.consNotNil x (List.takeWhile xs p) stops)
       | False => rfl
 
+-- What `takeWhile` takes and `dropWhile` leaves make up the list.
+theorem List.takeWhileDropWhile (p: a → Bool): (xs: List a) → List.append (List.takeWhile xs p) (List.dropWhile xs p) = xs
+  | Nil => rfl
+  | Cons x xs =>
+    match p x with
+      | True => Eq.cong (Cons x) (List.takeWhileDropWhile p xs)
+      | False => rfl
+
+-- Everything `takeWhile` takes passes.
+theorem List.allTakeWhile (p: a → Bool): (xs: List a) → List.all (List.takeWhile xs p) p = True
+  | Nil => rfl
+  | Cons x xs =>
+    match e: p x with
+      | True => rewrite e in List.allTakeWhile p xs
+      | False => rfl
+
 -- `span` of a prefix that passes, then a rest that starts with an element
 -- that doesn't (or is empty), splits between the two.
 theorem List.spanAppend (p: a → Bool) (taken: List a) (rest: List a) (all: List.all taken p = True)
@@ -2289,3 +2305,47 @@ theorem List.getExample: List.get (List.append [1, 2] (List.map [3, 4] Succ)) 3 
 -- For any list of successors, what `get` finds is not zero.
 theorem List.getMapExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get (List.map xs Succ) k = Some v): Not (v = 0) :=
   Option.mapEqSome (List.get xs k) Succ v (Eq.trans (Eq.sym (List.getMap xs Succ k)) h) (u found e => rewrite <- e in Nat.succNotZero u)
+
+-- `List.All2 r xs ys`: the lists are as long, and `r` holds of each pair of
+-- elements at the same place (Coq's `Forall2`, Lean's `List.Forall₂`). What
+-- `Parse.eachLineReads` says of the lines and the values read from them.
+@[noReceiver]
+def List.All2 (r: a → b → Prop): List a → List b → Prop
+  | Nil, Nil => Unit
+  | Cons x xs, Cons y ys => r x y ∧ List.All2 r xs ys
+  | Nil, Cons y ys => Void
+  | Cons x xs, Nil => Void
+
+theorem List.all2Weaken (r: a → b → Prop) (s: a → b → Prop) (implies: (x: a) → (y: b) → r x y → s x y):
+    (xs: List a) → (ys: List b) → List.All2 r xs ys → List.All2 s xs ys
+  | Nil, Nil, all => Trivial
+  | Cons x xs, Cons y ys, all => Both (implies x y (And.left all)) (List.all2Weaken r s implies xs ys (And.right all))
+  | Nil, Cons y ys, all => Void.exfalso all
+  | Cons x xs, Nil, all => Void.exfalso all
+
+-- Where each element is `f` of its partner, the list is the partners mapped.
+theorem List.all2Map (f: b → a): (xs: List a) → (ys: List b) → List.All2 (x y => x = f y) xs ys → xs = ys.map f
+  | Nil, Nil, all => rfl
+  | Cons x xs, Cons y ys, all => rewrite And.left all, List.all2Map f xs ys (And.right all) in rfl
+  | Nil, Cons y ys, all => Void.exfalso all
+  | Cons x xs, Nil, all => Void.exfalso all
+
+theorem List.all2MapLeft (f: a → c) (r: c → b → Prop): (xs: List a) → (ys: List b) → List.All2 (x y => r (f x) y) xs ys → List.All2 r (xs.map f) ys
+  | Nil, Nil, all => Trivial
+  | Cons x xs, Cons y ys, all => Both (And.left all) (List.all2MapLeft f r xs ys (And.right all))
+  | Nil, Cons y ys, all => Void.exfalso all
+  | Cons x xs, Nil, all => Void.exfalso all
+
+theorem List.all2Length (r: a → b → Prop): (xs: List a) → (ys: List b) → List.All2 r xs ys → xs.length = ys.length
+  | Nil, Nil, all => rfl
+  | Cons x xs, Cons y ys, all => Eq.cong Succ (List.all2Length r xs ys (And.right all))
+  | Nil, Cons y ys, all => Void.exfalso all
+  | Cons x xs, Nil, all => Void.exfalso all
+
+-- Numbering the left list changes nothing a relation of the elements sees.
+theorem List.all2WithIndex (r: a → b → Prop): (start: Nat) → (xs: List a) → (ys: List b) →
+    List.All2 (entry y => r entry.snd y) (List.withIndexFrom start xs) ys → List.All2 r xs ys
+  | start, Nil, Nil, all => Trivial
+  | start, Cons x xs, Cons y ys, all => Both (And.left all) (List.all2WithIndex r (Succ start) xs ys (And.right all))
+  | start, Nil, Cons y ys, all => Void.exfalso all
+  | start, Cons x xs, Nil, all => Void.exfalso all

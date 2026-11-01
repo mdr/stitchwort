@@ -70,6 +70,18 @@ theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
     | Ok y => rewrite Result.traverseLoopDone f xs (Cons y Nil) in rfl
     | Err m => rfl
 
+-- A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
+-- so whatever `r` each `Ok` of `f` satisfies holds pairwise.
+theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: (x: a) → (y: b) → f x = Ok y → r x y):
+    (xs: List a) → (ys: List b) → Result.traverse xs f = Ok ys → List.All2 r xs ys
+  | Nil, ys, done => rewrite <- Result.okInjective Nil ys done in Trivial
+  | Cons x rest, ys, done =>
+    Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
+      (y first later =>
+        match e: Result.traverse rest f with
+          | Err m => Void.exfalso (Result.errNotOk m ys later)
+          | Ok zs => rewrite <- Result.okInjective (Cons y zs) ys later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+
 -- The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: Option a → (err: e) → Result a e
   | None, err => Err err

@@ -61,7 +61,7 @@ test "encodings, examples" :=
 test "hexadecimal digits" := "0123456789ABCDEF".toList.all (char => (hexValue char).map digitBits == hexDigitBits char)
 
 -- The parser's errors.
-test "not hexadecimal" := parsed "D2FG28\n" == Err "column 4: expected a hexadecimal digit, got 'G'"
+test "not hexadecimal" := parsed "D2FG28\n" == Err "column 4: expected a hexadecimal digit or the end of the line, got 'G'"
 
 test "too short" := parsed "D2FE" == Err "the transmission isn't a packet"
 

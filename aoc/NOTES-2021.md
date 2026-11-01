@@ -52,6 +52,13 @@ pattern:
   takes the read's `Ok` apart, and the parser's own theorem is
   `checkedBounded _ fish parsed` (the `_` is the read, found by
   unification). Nothing about `Std.Parse` is needed.
+- **When the promise is in what is read** (every character a bracket,
+  every digit hexadecimal), std's lemmas on what parsers read give it
+  (SW-998, `crates/elab/src/std/Parse/Reads.sw`): `Parse.Reads parser
+  spec` says what a successful run read and gave, each piece has one
+  (`readsNat`, `readsPick`, `readsMany`, `readsLabel`, …), and
+  `Parse.eachLineReads`, `lineReads` and `allReads` turn it into a fact
+  about the input. Days 10 and 16 prove their guarantees this way.
 - **The check's lemma** matches on the pure test: the offender's case is
   `Result.errNotOk`, and in the other the `Ok` gives the checked values
   back (`Result.okInjective`) and the test's `None` gives the property
@@ -2219,12 +2226,13 @@ closer that doesn't match the top (or has nothing open), or as
 completion. The middle score is `sort` at index `length / 2`. Both
 answers were right on the first run.
 
-The parser is written by hand: `tokenOf` maps the eight characters to
-tokens (`None` for any other), and each line is `withIndex.map` of
-`Fail.need (tokenOf char) "line 2, column 2: expected a bracket, got
-'x'"`. The first version was `Parse.eachLine input (() => many1 (() =>
-pick table))`, which worked, but no lemma says what `many1`/`pick` read
-(item 1 below).
+The parser was first written by hand: `tokenOf` mapped the eight
+characters to tokens, and each line was `withIndex.map` of `Fail.need
+(tokenOf char) …`, because no lemma said what `many1`/`pick` read (item
+1 below). Since SW-998 it is `Parse.eachLine input (() => many token)`,
+with `token` a `label "a bracket"` of a `pick` from a table built from
+`Token.char`, and `parseReadsLines` follows from std's lemmas on what
+parsers read (`Std/Parse/Reads.sw`).
 
 **The spec** (Spec/Spec.sw) has no stack. `Balanced` is a grammar
 (inductive): empty, two balanced lines one after the other, or a
@@ -2321,6 +2329,20 @@ words)` reads a line exactly when it is a string of the words. Medium
 to large. Also, `pick` of eight one-character words says "expected '('
 or '[' or '{' or '<' or ')' or ']' or '}' or '>' or the end of the
 line": a comma list ("one of '(', '[', …") would read better. Small.
+
+**Fixed (SW-998, 1 November 2026).** Std now states what each piece and
+combinator reads when it succeeds (`Parse.Reads`, in
+`crates/elab/src/std/Parse/Reads.sw`): `eachLineReads` gives one value
+per line, each its parser's spec of the whole line; `readsMany` one part
+per value; `readsPickBy` that a `pick` from a printer's table reads the
+value's own word; `readsLabel` that a label reads what its parser read.
+The parser is back to `eachLine`/`many`/`pick` (with `label "a
+bracket"`, so a stray character is "expected a bracket or the end of
+the line"), and `parseReadsLines`, its statement unchanged, is one
+theorem of seven lines: Proofs/Parse.sw went from 63 lines (five lemmas)
+to 26, Day10.sw from 114 to 107. Day 16's `readDigits`, the other
+parser written by hand only to be proved, is now `Parse.line input.trim
+(() => many hexDigit)` (Day 16's notes).
 
 ### 2. Missing std
 
@@ -3925,6 +3947,17 @@ Breaking the program breaks the proofs: `nextWanted` keeping the count
 `countComplete` (`E-REFL`); a literal's value as `value * 10 + group`
 fails `evaluateCorrect` (`E-REWRITE-NOTHING`: the program's fold isn't
 the spec's any more). Two other breaks crashed the compiler (item 1).
+
+**The digit reader (SW-998, 1 November 2026).** `readDigits` was
+written by hand (`withIndex.map` of `Fail.need (hexValue char)`) so that
+`readDigitsBits` could be proved. It is now `Parse.line input.trim (() =>
+many hexDigit)`, `hexDigit` a `satisfy` then `need (hexValue char)`, and
+`readDigitsBits` (statement unchanged) follows from std's
+`Parse.lineReads`, `readsMany`, `readsSatisfy` and `readsNeed`. `line`
+allows a final line break, which a trimmed text can't end with: std's
+`Text.trimLast` says so. Proofs/Parse.sw's parser part went from 29
+lines to 27; Day16.sw from 274 to 278. A bad digit now says "column 4:
+expected a hexadecimal digit or the end of the line, got 'G'".
 
 ### 1. BUG: `cases` panics
 

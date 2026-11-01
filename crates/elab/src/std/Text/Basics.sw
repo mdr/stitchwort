@@ -177,3 +177,21 @@ def Text.wordsFinish: Pair (List Char) (List (List Char)) → List Text
 -- `"".words` and `"  ".words` are `[]`. Splits on any whitespace, not only
 -- spaces.
 def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wordsFinish
+
+-- What `dropSpaces` leaves doesn't start with whitespace.
+theorem Text.dropSpacesHead: (chars: List Char) → (first: Char) → (rest: List Char) → Text.dropSpaces chars = Cons first rest →
+    Char.isWhitespace first = False
+  | Nil, first, rest, h => Void.exfalso (List.consNotNil first rest (Eq.sym h))
+  | Cons char chars, first, rest, h =>
+    match space: Char.isWhitespace char with
+      | True => Text.dropSpacesHead chars first rest h
+      | False => rewrite <- Eq.cong (.headOr first) h in space
+
+-- A trimmed text doesn't end with whitespace.
+theorem Text.trimLast (text: Text) (front: List Char) (last: Char) (h: text.trim.toList = front ++ [last]): Char.isWhitespace last = False :=
+  let kept := Text.dropSpaces (List.reverseOnto (Text.dropSpaces text.toList) Nil)
+  let back: List.reverse (Cons last (List.reverse front)) = front ++ [last] :=
+    rewrite List.reverseCons last (List.reverse front), List.reverseReverse front in rfl
+  let flipped: kept = Cons last (List.reverse front) :=
+    rewrite <- List.reverseReverse kept, <- List.reverseReverse (Cons last (List.reverse front)), back in Eq.cong List.reverse h
+  Text.dropSpacesHead _ last _ flipped
