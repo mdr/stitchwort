@@ -27,6 +27,7 @@ use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
+use crate::GoalSnapshot;
 use crate::check::{Ctx, infer};
 use crate::search::{
     ATTEMPT, Candidate, Found, HeadKey, Hit, Item, Mode, Opts, Pattern, Place, Relation, Restore,
@@ -107,6 +108,15 @@ pub struct Closing {
     pub plans: Vec<(Hit, Vec<Plan>)>,
 }
 
+/// Whether a proof can refer to a variable called `name`: not `n✝`, a
+/// compiler-made `%x` or `_`.
+fn nameable(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
+        && name != "_"
+}
+
 /// `name`, or the first of `name1`, `name2`, … that `taken` doesn't have.
 fn fresh(name: &str, taken: &[Name]) -> String {
     let plain = !name.is_empty()
@@ -165,9 +175,66 @@ impl Elaborator {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
             let (term, _) = infer(&mut cx, expr)?;
+            let v = cx.eval(&term)?;
+            self.open_from(&cx, Vec::new(), hyps, v, span)
+        })();
+        self.globals.budget.restore(saved);
+        self.globals.glue.set(was);
+        result
+    }
+
+    /// Opens a goal for stage 2 as the elaborator had it at its `?`
+    /// ([`GoalSnapshot`], SW-989): each variable a frozen unknown (a `let`
+    /// of data its value), then the target as [`Elaborator::open_goal`]
+    /// opens it. Nothing is read back from printed text.
+    pub fn open_goal_at(
+        &mut self,
+        snapshot: &GoalSnapshot,
+        span: Span,
+    ) -> Result<Goal, Diagnostic> {
+        self.clear_metas();
+        let was = self.globals.glue.replace(self.glue);
+        let saved = self.globals.budget.start(self.limits);
+        let result = (|| -> Result<Goal, Diagnostic> {
             let g = &self.globals;
-            let mut v = cx.eval(&term)?;
+            let cx = Ctx::new(self, span);
+            let mut env = vec![Value::Sort(stitchwort_core::Sort::Prop); snapshot.level];
             let mut vars: Vec<(Name, usize)> = Vec::new();
+            for var in &snapshot.vars {
+                let ty = eval(g, &env, &var.ty)?;
+                if let Some(value) = &var.value {
+                    env[var.level] = eval(g, &env, value)?;
+                    continue;
+                }
+                let m = g.new_meta(span);
+                g.set_meta_type(m, ty, 0);
+                g.freeze_meta(m);
+                env[var.level] = eval(g, &[], &Term::Meta(m))?;
+                vars.push((var.name.clone(), m));
+            }
+            let v = eval(g, &env, &snapshot.target)?;
+            let hyps = vars.len();
+            self.open_from(&cx, vars, hyps, v, span)
+        })();
+        self.globals.budget.restore(saved);
+        self.globals.glue.set(was);
+        result
+    }
+
+    /// The goal `v` with `vars` opened so far: binders of `v` are opened too
+    /// until there are `hyps`, then its leading explicit binders as
+    /// variables the proof introduces.
+    fn open_from(
+        &self,
+        cx: &Ctx,
+        mut vars: Vec<(Name, usize)>,
+        hyps: usize,
+        v: Value,
+        span: Span,
+    ) -> Result<Goal, Diagnostic> {
+        {
+            let g = &self.globals;
+            let mut v = v;
             let mut intros = Vec::new();
             loop {
                 let Value::Pi(name, icit, dom, closure) = force(g, v.clone())? else {
@@ -192,7 +259,7 @@ impl Elaborator {
                 v = closure.apply(g, var)?;
             }
             let target = force(g, v)?;
-            let prop = crate::rewrite::is_proof_type(&cx, &target)?;
+            let prop = crate::rewrite::is_proof_type(cx, &target)?;
             let quoted = quote_folded(g, 0, &target)?;
             let shown = self.show_with_vars(&vars, &target)?;
             let metas = g.metas.borrow().len();
@@ -219,10 +286,7 @@ impl Elaborator {
                 target: shown,
                 deadline: None,
             })
-        })();
-        self.globals.budget.restore(saved);
-        self.globals.glue.set(was);
-        result
+        }
     }
 
     /// `value`, printed as a goal is, the goal's variables by their names.
@@ -315,7 +379,8 @@ impl Elaborator {
                 .map(|(i, _)| i)
                 .collect();
             let hyps: Vec<(usize, Value)> = (goal.vars.iter().enumerate())
-                .filter(|(_, (_, m))| is_prop(*m))
+                // Only those a proof can name (not `h✝`, a compiler-made `%x`).
+                .filter(|(_, (n, m))| is_prop(*m) && nameable(n))
                 .filter_map(|(i, (_, m))| Some((i, g.meta_type(*m)?.0)))
                 .collect();
             let mut search = Fill {

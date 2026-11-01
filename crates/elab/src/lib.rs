@@ -77,6 +77,7 @@ pub use kernel::{
 };
 pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
 pub mod std_dir;
+pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use std_dir::{STD_DIR_VAR, StdText, std_text, use_std_dir};
@@ -576,6 +577,9 @@ pub struct Elaborator {
     pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
     /// The open goals, `?`, of the declaration being checked (`goals.rs`).
     pub(crate) goals: RefCell<goals::Goals>,
+    /// The latest goals printed, as terms, by where their `?` is: what
+    /// `search --at` searches (SW-989).
+    pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
     /// The metavariables standing for a `_` written where a proof goes:
     /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
     /// metavariables.
@@ -1144,6 +1148,74 @@ impl Elaborator {
         }
         kernel::without_glue(&self.globals, || {
             kernel::infer_closed(&self.globals, &term, expr.span())
+        })?;
+        Ok(Checked::Closed)
+    }
+
+    /// [`Elaborator::check_proof`] at a goal as the elaborator had it
+    /// (`search --at`, SW-989): `body` checked against the target of
+    /// `snapshot` with its variables bound, and `extra` hypotheses (each a
+    /// name and a type, written) after them. With no `?` left, the closed
+    /// term (the context's variables abstracted) goes to the kernel.
+    pub fn check_proof_at(
+        &mut self,
+        snapshot: &GoalSnapshot,
+        extra: &[(String, Expr)],
+        body: &Expr,
+    ) -> Result<Checked> {
+        let saved = self.globals.budget.start(self.limits);
+        let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, body));
+        self.globals.budget.restore(saved);
+        self.clear_metas();
+        self.clear_goals();
+        result.map_err(|d| self.locate(d, body.span()))
+    }
+
+    fn check_proof_at_glued(
+        &mut self,
+        snapshot: &GoalSnapshot,
+        extra: &[(String, Expr)],
+        body: &Expr,
+    ) -> Result<Checked> {
+        self.clear_metas();
+        self.clear_goals();
+        self.standalone_inputs += 1;
+        let key = format!("<input {}>", self.standalone_inputs);
+        *self.owner.borrow_mut() = vec![key.clone()];
+        self.local_keys.borrow_mut().clear();
+        let elaborated = (|| -> Result<Term> {
+            let (mut cx, target, mut binders) = self.enter_snapshot(snapshot, body.span())?;
+            for (name, ty) in extra {
+                let (ty_term, _) = check::check_type(&mut cx, ty)?;
+                let ty = cx.eval(&ty_term)?;
+                cx.bind(name, ty);
+                binders.push(goals::SnapBinder::Lam(name.as_str().into(), ty_term));
+            }
+            let target_term = cx.quote(&target)?;
+            let term = check::check(&mut cx, body, &target)?;
+            Ok(goals::close_over(&binders, term, target_term))
+        })();
+        let goals = if elaborated.is_ok() && self.pending_goals() > 0 {
+            Some(self.take_goals())
+        } else {
+            None
+        };
+        self.owner.borrow_mut().clear();
+        let term = elaborated?;
+        if let Some(goals) = goals {
+            return Ok(Checked::Goals(goals));
+        }
+        self.lift(&key, false)?;
+        let term = self.finish(&term, 0)?;
+        let unfinished = term.subterms().any(|(t, _)| match t {
+            Term::Def(id) => self.is_unfinished(*id),
+            _ => false,
+        });
+        if unfinished {
+            return Err(goals::uses_unfinished(Some(body.span())));
+        }
+        kernel::without_glue(&self.globals, || {
+            kernel::infer_closed(&self.globals, &term, body.span())
         })?;
         Ok(Checked::Closed)
     }

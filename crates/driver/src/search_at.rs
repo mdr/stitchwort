@@ -80,7 +80,22 @@ pub struct FoundGoal {
     pub index: usize,
     /// The `?`, as byte offsets in the file's text.
     pub span: (usize, usize),
+    /// The file, in the session that found the goal: with `span`, where to
+    /// find the goal as the elaborator had it (`Elaborator::goal_snapshot`).
+    pub file: Option<FileId>,
     pub data: GoalData,
+}
+
+impl FoundGoal {
+    /// The goal as `session`'s elaborator had it at its `?` (SW-989), if
+    /// it checked this file and kept it.
+    fn snapshot(&self, session: &Session) -> Option<Rc<stitchwort_elab::GoalSnapshot>> {
+        session.elab.goal_snapshot(stitchwort_syntax::Span {
+            file: self.file?,
+            start: self.span.0 as u32,
+            end: self.span.1 as u32,
+        })
+    }
 }
 
 /// The goals among `diagnostics` that are in `file`, in source order.
@@ -107,6 +122,7 @@ pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -
                 column,
                 index: i + 1,
                 span: (at as usize, end as usize),
+                file: Some(file),
                 data,
             }
         })
@@ -425,6 +441,10 @@ enum Outcome {
 /// deadline.
 struct Checker<'s> {
     session: &'s mut Session,
+    /// The goal as the checking session's elaborator had it: proofs are
+    /// checked there, with no text read back. `None`: by text, inside
+    /// [`wrap`].
+    snapshot: Option<Rc<stitchwort_elab::GoalSnapshot>>,
     goal: GoalData,
     intros: Vec<String>,
     /// The target, printed as goals are (the introduced variables named).
@@ -445,12 +465,32 @@ impl Checker<'_> {
         } else {
             format!("{} => {proof}", self.intros.join(" => "))
         };
-        let text = wrap(&self.goal, extra, &body);
+        let began = Instant::now();
         self.checks += 1;
-        let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
-            return Outcome::Failed;
+        let checked = match &self.snapshot {
+            Some(snapshot) => {
+                let Ok(expr) = self.session.parse_expression("<search --at>", &body) else {
+                    return Outcome::Failed;
+                };
+                let mut hyps = Vec::new();
+                for (name, ty) in extra {
+                    let Ok(ty) = self.session.parse_expression("<search --at>", ty) else {
+                        return Outcome::Failed;
+                    };
+                    hyps.push((name.clone(), ty));
+                }
+                self.session.elab.check_proof_at(snapshot, &hyps, &expr)
+            }
+            None => {
+                let text = wrap(&self.goal, extra, &body);
+                let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
+                    return Outcome::Failed;
+                };
+                self.session.elab.check_proof(&expr)
+            }
         };
-        match self.session.elab.check_proof(&expr) {
+        debug_time(&format!("checked `{body}`"), began);
+        match checked {
             Ok(Checked::Closed) => Outcome::Closed,
             Ok(Checked::Goals(goals)) => Outcome::Goals(
                 goals
@@ -483,12 +523,27 @@ impl Session {
     ) -> Result<AtReport, Diagnostic> {
         let started = Instant::now();
         let data = found.data.clone();
-        let stmt = statement(&data);
-        let expr = self
-            .parse_expression("<goal>", &stmt)
-            .map_err(|d| cannot_open(&data, d))?;
-        let mut goal: Goal = (self.elab.open_goal(&expr, data.hypotheses.len()))
-            .map_err(|d| cannot_open(&data, d))?;
+        // The goal as the elaborator had it, if it kept it; else its
+        // statement, printed and read back.
+        let snapshot = found.snapshot(self);
+        let mut goal: Goal = match &snapshot {
+            Some(snapshot) => {
+                let span = stitchwort_syntax::Span {
+                    file: found.file.expect("a snapshot has a file"),
+                    start: found.span.0 as u32,
+                    end: found.span.1 as u32,
+                };
+                (self.elab.open_goal_at(snapshot, span)).map_err(|d| cannot_open(&data, d))?
+            }
+            None => {
+                let stmt = statement(&data);
+                let expr = self
+                    .parse_expression("<goal>", &stmt)
+                    .map_err(|d| cannot_open(&data, d))?;
+                (self.elab.open_goal(&expr, data.hypotheses.len()))
+                    .map_err(|d| cannot_open(&data, d))?
+            }
+        };
         goal.deadline = Some(started + options.time);
         let g = &self.elab.globals;
         let all = options.all;
@@ -545,7 +600,12 @@ impl Session {
             Some(other) => other,
             None => self,
         };
+        // The checking session's own: its declarations are numbered as it
+        // loaded them. Both or neither, so that what is checked is what was
+        // searched.
+        let check_snapshot = snapshot.as_ref().and_then(|_| found.snapshot(checking));
         let mut checker = Checker {
+            snapshot: check_snapshot,
             session: checking,
             goal: data.clone(),
             intros: intros.clone(),
