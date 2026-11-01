@@ -1,5 +1,5 @@
 {
-  "next": 1043,
+  "next": 1045,
   "tickets": [
     {
       "id": 47,
@@ -3784,7 +3784,7 @@
     {
       "id": 1039,
       "title": "Documentation stage 2c part 3: sort aoc Year2021",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3793,7 +3793,9 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "6b1e03cf"
+      ]
     },
     {
       "id": 1040,
@@ -3834,6 +3836,35 @@
         "tooling"
       ],
       "body": "docs/proposals/documentation.md §7, D2149, D2153. Lexer keeps --|; links resolved after each namespace; W-DOC-LINK warning; std test that std has no broken links; links in doc/index JSON. Prose-to-link rewriting (editorial) later.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1043,
+      "title": "Documentation: docsort --report sweep over std, aoc Common/2024/2025 and the roguelike (sorted before the script fixes)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1044,
+      "title": "Documentation: remove the plain -- fallback (D2142); a doc is --| only",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "docs/proposals/documentation.md §6.1 end. After SW-1042 (links) merges, since both touch doc reading.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
