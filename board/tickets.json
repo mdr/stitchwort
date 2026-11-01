@@ -3065,7 +3065,7 @@
     {
       "id": 993,
       "title": "search stage 3 follow-ups: induction hypothesis in --at, second-round rewrites, conjunct/class-law/T.ext indexing, --in NAMESPACE; query log was never on",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3074,7 +3074,9 @@
       "body": "From SW-989 (1 Nov 2026), benchmark search_at_on_real_2021_goals at 23/29. Misses: induction hypothesis (4 goals: days 10, 12, 16, 17; needs binding the theorem being proved in the goal context, termination checked on paste); a hypothesis rewrite then a lemma (day 16); day 9 Map.sizeToList. Not done: conjuncts of a defined conjunction (Graph.distancesShortest), class laws (Ord.equal; search 'Ord.compare ?x ?y = Equal → ?x = ?y' still misses it), generated T.ext, byDecision on undecidable goals, premise patterns in any position, --in NAMESPACE. The search query log was never switched on (no log file anywhere): decide whether to turn it on for lanes. Printer bugs (split.%match1, captured variables) remain in displayed goals; --at no longer depends on them.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "b8faacb7"
+      ]
     },
     {
       "id": 994,
@@ -3366,7 +3368,7 @@
     {
       "id": 1013,
       "title": "Documentation proposal: rewrite docs/research/documentation.md as docs/proposals/documentation.md (agent-first), then independent review",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3376,7 +3378,9 @@
       "body": "Matt, 1 Nov 2026: D2134 --| marker plus a one-off sorting pass (user docs vs maintainer notes); D2135 examples attached by name (tests named after a definition, X.yExample theorems), no in-comment code first; D2136 first release = search one-line summary (text+JSON), check --index doc field, stitchwort doc NAME, hover; site later; D2137 AoC and roguelike included from the start; D2138 coverage report first, enforce on std later; D2139 rewrite as a proposal with evidence, per-stage cost, D numbers, then an independent review; D2141 stitchwort doc lists the theorems about a definition, docs link theorems rather than restate properties. Order: proposal+review; stage 1 (summary, index doc, doc command with examples and theorems, hover); --| sorting pass + coverage (Sonnet); checked doc links; later maybe in-comment examples and a site. Evidence: query log from SW-993.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "95815578"
+      ]
     },
     {
       "id": 1014,
