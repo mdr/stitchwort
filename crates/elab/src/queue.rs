@@ -1597,7 +1597,6 @@ static READ_BACK: AtomicUsize = AtomicUsize::new(0);
 static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
-static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
 static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
@@ -1625,13 +1624,6 @@ pub(crate) fn note_match_waited() {
 /// alternatives may solve (`matching.rs`, `check_motive`).
 pub(crate) fn note_motive_later() {
     count(&MOTIVE_LATER);
-}
-
-/// A lambda argument tried in place, failed, and checked again after the
-/// application's later arguments (`check::apply_args_postponing`): the
-/// path §5.11 removes once its count is 0 in accepted code.
-pub(crate) fn note_lambda_postponed() {
-    count(&LAMBDA_POSTPONED);
 }
 
 /// An application, group, list or `if` elaborated a second time with number
@@ -1691,9 +1683,7 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// solution back (`read back`); resumptions that met another unknown and
 /// waited again (`requeued`); and `.field`s queued with their receiver
 /// kept as a term (`kept`), of which those whose receiver made a choice
-/// from an unknown (`kept chose`, invariant 6; 0 expected); and lambda
-/// arguments tried in place, failed and checked again after the later
-/// arguments (`lambda postponed`, the path §5.11 removes in stage 5); and
+/// from an unknown (`kept chose`, invariant 6; 0 expected); and
 /// elaborations run a second time with number literals last (`retried`,
 /// `check::retrying`, which K4 makes unneeded); and comparisons queued to
 /// wait for unknowns the queue still has to settle (`waited`, stage 6); and
@@ -1708,7 +1698,7 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// catch-and-retry paths it removes: the retries only a constructor with
 /// number literals asked for (`retried for a constructor`), and the "infer
 /// the other side" catch left (`leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 29] {
+pub fn counts() -> [(&'static str, usize); 28] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1724,7 +1714,6 @@ pub fn counts() -> [(&'static str, usize); 29] {
         ("requeued", get(&REQUEUED)),
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
-        ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
         ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
         ("leaf uninferred", get(&LEAF_UNINFERRED)),

@@ -2119,8 +2119,8 @@ pub(crate) fn retrying<T>(
     }
 }
 
-/// [`apply_args_with`], keeping the error of the first lambda postponed
-/// after failing in place.
+/// [`apply_args_with`], keeping the error of the first argument that failed
+/// in place and was kept for after the expected type.
 fn apply_args_postponing(
     cx: &mut Ctx,
     head: (Term, Value),
@@ -2153,60 +2153,37 @@ fn apply_args_postponing(
             Arg::Explicit(value @ Expr::Lam(..)) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (dom, cod) = function_parts(cx, &ty)?;
-                let later = args[i + 1..]
-                    .iter()
-                    .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                let parameters = match value {
-                    Expr::Lam(names, ..) => names.len(),
-                    _ => 1,
-                };
-                let postponable = later && unknown_domain(cx, &dom, parameters)?;
-                // Where the application's expected type is known, a lambda
-                // whose type has unknowns that fails in place is checked
-                // again once the application's type has been compared with
-                // it, if no later parameter's type mentions it.
-                let late_able = !postponable
-                    && expecting.is_some()
+                // A lambda is checked in place: what in it needs a type
+                // the later arguments give (a `.field`, a number, a record
+                // literal, a `match`) waits in the queue and is resumed at
+                // this application's end (W1). Where the application's
+                // expected type is known, a lambda whose type has unknowns
+                // that fails in place is checked again once the
+                // application's type has been compared with it, if no
+                // later parameter's type mentions it: a proof found from
+                // its goal (postponement.md §5.11, kept).
+                let late_able = expecting.is_some()
                     && only_lambdas_depend_on_it(&cod.body, &[])
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
-                let mut late = false;
-                let checked = if late_able {
-                    let snapshot = crate::undo::Snapshot::take(cx);
-                    match check_arg(cx, &term, value, &dom) {
-                        Ok(value) => Some(value),
-                        Err(e) if crate::undo::fatal(&e) => return Err(e),
-                        Err(e) => {
-                            snapshot.restore(cx);
-                            first_error.get_or_insert(e);
-                            late = true;
-                            None
-                        }
-                    }
-                } else if !postponable {
-                    Some(check_arg(cx, &term, value, &dom)?)
-                } else {
-                    let snapshot = crate::undo::Snapshot::take(cx);
-                    match check_arg(cx, &term, value, &dom) {
-                        Ok(value) => Some(value),
-                        Err(e) if crate::undo::fatal(&e) => return Err(e),
-                        Err(e) => {
-                            snapshot.restore(cx);
-                            first_error.get_or_insert(e);
-                            crate::queue::note_lambda_postponed();
-                            None
-                        }
-                    }
-                };
-                if let Some(value) = checked {
+                if !late_able {
+                    let value = check_arg(cx, &term, value, &dom)?;
                     ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                     term = Term::app(term, value);
                     continue;
                 }
-                // A lambda that failed in place, while what it takes was
-                // unknown, is checked last, once the later arguments may
-                // have said it. (A method section such as `List.map
-                // .position ds`'s doesn't fail in place for that: it waits
-                // in the queue, K3.)
+                let snapshot = crate::undo::Snapshot::take(cx);
+                match check_arg(cx, &term, value, &dom) {
+                    Ok(value) => {
+                        ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                        term = Term::app(term, value);
+                        continue;
+                    }
+                    Err(e) if crate::undo::fatal(&e) => return Err(e),
+                    Err(e) => {
+                        snapshot.restore(cx);
+                        first_error.get_or_insert(e);
+                    }
+                }
                 let meta = cx.fresh_meta();
                 let placeholder = cx.eval(&meta)?;
                 ty = cod.apply(cx.g(), placeholder.clone())?;
@@ -2215,11 +2192,7 @@ fn apply_args_postponing(
                     _ => unreachable!("a fresh metavariable is headed by one"),
                 };
                 term = Term::app(term, meta);
-                if late {
-                    after_expected.push((*value, dom, placeholder, id));
-                } else {
-                    postponed.push((*value, dom, placeholder, id));
-                }
+                after_expected.push((*value, dom, placeholder, id));
             }
             Arg::NamedExplicit(..) => {
                 unreachable!("`apply_args_with` puts named arguments in their places")
@@ -2338,9 +2311,11 @@ fn apply_args_postponing(
     for (value, dom, placeholder, id) in postponed {
         let checked = match check(cx, value, &dom) {
             Ok(checked) => checked,
-            // The retry sees the types the later arguments gave, so its
-            // error is the real one. The in-place try's is kept only when
-            // both are can't-infers: then the first names the unknown.
+            // An argument put last by `retrying` sees the types the later
+            // arguments gave, so its error is the real one. An earlier
+            // in-place error (an argument kept for after the expected
+            // type) is kept only when both are can't-infers: then the
+            // first names the unknown.
             Err(e) if !crate::undo::fatal(&e) => {
                 if e.code != "E-CANNOT-INFER"
                     || first_error
@@ -2920,27 +2895,6 @@ fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
         under += 1;
     }
     true
-}
-
-fn unknown_domain(cx: &Ctx, ty: &Value, parameters: usize) -> Result<bool> {
-    let g = cx.g();
-    let mut ty = force(g, ty.clone())?;
-    if matches!(ty, Value::Neutral(Head::Meta(_), _)) {
-        return Ok(true);
-    }
-    // Any of the first `parameters` parameters, not only the first: in
-    // `(n acc => …)` against `Nat -> b -> c` with `b` still unknown, `n`'s
-    // type is known and `acc`'s is not (SW-822).
-    for i in 0..parameters {
-        let Value::Pi(_, _, dom, cod) = ty else {
-            return Ok(false);
-        };
-        if matches!(force(g, (*dom).clone())?, Value::Neutral(Head::Meta(_), _)) {
-            return Ok(true);
-        }
-        ty = force(g, cod.apply(g, Value::var(cx.level() + i))?)?;
-    }
-    Ok(false)
 }
 
 /// The domain and codomain of `ty`, a function type with an explicit
