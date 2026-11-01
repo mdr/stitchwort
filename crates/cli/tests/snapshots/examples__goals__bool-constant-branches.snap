@@ -1,0 +1,60 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `orFalse`
+   ╭─[ goals/bool-constant-branches.sw:9:48 ]
+   │
+ 9 │ theorem orFalse (b: Bool): b = (b || False) := ?
+   │                                                ┬  
+   │                                                ╰── b: Bool
+   │                                                    ⊢ b = (if b then True else False)
+───╯
+[GOAL] Goal: in `allTwo`
+    ╭─[ goals/bool-constant-branches.sw:11:69 ]
+    │
+ 11 │ theorem allTwo (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
+    │                                                                     ┬  
+    │                                                                     ╰── b: Bool
+    │                                                                         c: Bool
+    │                                                                         ⊢ (b && c && True) = b
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         b = True
+    │         c = False
+    │       `List.all [b, c] (x => x) = b` is false:
+    │         left:  False
+    │         right: True
+────╯
+[GOAL] Goal: in `anyTwo`
+    ╭─[ goals/bool-constant-branches.sw:13:69 ]
+    │
+ 13 │ theorem anyTwo (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
+    │                                                                     ┬  
+    │                                                                     ╰── b: Bool
+    │                                                                         c: Bool
+    │                                                                         ⊢ (b || c || False) = b
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         b = False
+    │         c = True
+    │       `List.any [b, c] (x => x) = b` is false:
+    │         left:  True
+    │         right: False
+────╯
+[GOAL] Goal: in `besideBool`
+    ╭─[ goals/bool-constant-branches.sw:15:66 ]
+    │
+ 15 │ theorem besideBool (k: Nat) (b: Bool): (k < 3) = (k < 3 && b) := ?
+    │                                                                  ┬  
+    │                                                                  ╰── k: Nat
+    │                                                                      b: Bool
+    │                                                                      ⊢ (k <= 2) = (k <= 2 && b)
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         k = 0
+    │         b = False
+    │       `(k <= 2) = (k <= 2 && b)` is false:
+    │         left:  True
+    │         right: False
+────╯
