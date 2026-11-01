@@ -2,6 +2,7 @@
 //! for the command line and the playground; and as data ([`Index`]), for
 //! the language server.
 
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use stitchwort_core::collections::HashMap;
@@ -72,6 +73,18 @@ pub struct Symbol {
     /// A function's parameters with their names (the elaborator's
     /// `NavSymbol::signature`).
     pub signature: Option<String>,
+    /// Its doc, read from the comments above it (docs/proposals/documentation.md
+    /// §4), with the first sentence of it and how it was marked: `--|` or
+    /// `--` (until the sorting pass).
+    pub doc: Option<SymbolDoc>,
+}
+
+/// A symbol's doc, as [`stitchwort_syntax::docs::Doc`] without the span.
+#[derive(Clone, Debug)]
+pub struct SymbolDoc {
+    pub text: String,
+    pub summary: String,
+    pub marker: &'static str,
 }
 
 #[derive(Clone, Debug)]
@@ -151,6 +164,15 @@ pub fn index_json(
         }
         if let Some(ty) = &symbol.ty {
             let _ = write!(symbols, r#","type":{}"#, string(ty));
+        }
+        if let Some(doc) = &symbol.doc {
+            let _ = write!(
+                symbols,
+                r#","doc":{},"summary":{},"docMarker":"{}""#,
+                string(&doc.text),
+                string(&doc.summary),
+                doc.marker
+            );
         }
         symbols.push('}');
     }
@@ -311,6 +333,8 @@ pub fn index_data_of(
         })
     };
     let mut parens: HashMap<FileId, Parens> = HashMap::default();
+    // Each file's docs, read once from the text the session checked.
+    let mut docs: HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>> = HashMap::default();
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
@@ -328,6 +352,17 @@ pub fn index_data_of(
             };
             range(&mut lines, sources, full, None)
         });
+        let doc = docs
+            .entry(symbol.span.file)
+            .or_insert_with(|| {
+                stitchwort_syntax::docs::docs(symbol.span.file, &sources.get(symbol.span.file).text)
+            })
+            .get(&symbol.span.start)
+            .map(|doc| SymbolDoc {
+                text: doc.text.clone(),
+                summary: doc.summary.clone(),
+                marker: doc.marker.as_str(),
+            });
         symbols.push(Symbol {
             name: symbol.name.clone(),
             kind: symbol.kind,
@@ -337,6 +372,7 @@ pub fn index_data_of(
             container: symbol.container,
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),
+            doc,
         });
     }
 

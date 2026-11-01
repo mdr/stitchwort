@@ -37,6 +37,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "premises": 0,
       "relation": "instance",
       "size": 25,
+      "summary": null,
       "type": "(xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs"
     }
   ],

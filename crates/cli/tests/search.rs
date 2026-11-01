@@ -310,6 +310,56 @@ fn the_json_contract() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A result's summary (docs/proposals/documentation.md §5.2): the first
+/// sentence of its doc, on a line after the location in the text and as
+/// `summary` in the JSON, `null` without a doc. It is shown, never matched.
+#[test]
+fn a_result_shows_the_summary_of_its_doc() {
+    let dir = folder("summary");
+    let file = "\
+-- Maintainer note.
+--| Twice `n`, the zyxwv way. The rest of
+--| the doc is not shown.
+def doubleIt (n: Nat): Nat := n + n
+
+-- Keeps the `Some` results,
+-- in order. Then more.
+def keepAll (n: Nat): Nat := n
+
+def noDocHere (n: Nat): Nat := n
+";
+    std::fs::write(dir.join("a.sw"), file).unwrap();
+    let (code, out, _) = search(&dir, &["\"doubleIt\"", "a.sw"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(
+        out.contains("    a.sw:4\n    Twice `n`, the zyxwv way.\n1 result"),
+        "{out}"
+    );
+    let (_, report) = json(&dir, &["\"keepAll\"", "a.sw"]);
+    assert_eq!(
+        result(&report, "Main.keepAll")["summary"],
+        "Keeps the `Some` results, in order."
+    );
+    // No doc: no line in the text, and `null`.
+    let (_, out, _) = search(&dir, &["\"noDocHere\"", "a.sw"]);
+    assert!(out.contains("a.sw:10\n1 result"), "{out}");
+    let (_, report) = json(&dir, &["\"noDocHere\"", "a.sw"]);
+    assert!(
+        result(&report, "Main.noDocHere")["summary"].is_null(),
+        "{report}"
+    );
+    // A library definition's summary is the doc above it, and a summary isn't
+    // searched: no result matches words only a doc has.
+    let (_, report) = json(&dir, &["\"filterMap\"", "--definitions"]);
+    assert_eq!(
+        result(&report, "Std.List.filterMap")["summary"],
+        "Keeps the `Some` results, in order."
+    );
+    let (code, _, _) = search(&dir, &["\"zyxwv\"", "a.sw"]);
+    assert_eq!(code, 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 const GOALS: &str = "\
 import Std (Nat)
 

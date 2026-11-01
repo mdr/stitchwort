@@ -894,13 +894,17 @@ fn selection_range(
     *parent.expect("the chain has the position")
 }
 
-/// The hover of a reference: its type, then what it is.
+/// The hover of a reference: its type, then what it is, its doc, and the
+/// defaults a call left out.
 fn hover(r: &LiveRef) -> Hover {
     let mut text = String::new();
     if let Some(ty) = &r.ty {
         text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
     }
     text.push_str(&format!("{} `{}`", r.kind, r.name));
+    if let Some(doc) = &r.doc {
+        text.push_str(&format!("\n\n{doc}"));
+    }
     if let Some(defaults) = &r.defaults {
         text.push_str(&format!("\n\n{defaults}"));
     }

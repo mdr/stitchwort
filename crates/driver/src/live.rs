@@ -63,6 +63,8 @@ pub struct LiveRef {
     /// For a function, its parameters with their names
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
+    /// The declaration's doc (docs/proposals/documentation.md §4), for hover.
+    pub doc: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
@@ -241,10 +243,12 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             continue;
         }
         let mut signature = None;
+        let mut doc = None;
         let (target, name, kind, ty) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
                 signature = s.signature.clone();
+                doc = s.doc.as_ref().map(|d| d.text.clone());
                 let target = Loc {
                     place: place(s.file),
                     range: s.range,
@@ -271,6 +275,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             kind,
             ty,
             signature,
+            doc,
             defaults: r.defaults.clone(),
         });
     }

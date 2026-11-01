@@ -13,15 +13,16 @@
 //!   means nothing in scope a named hole too (so a goal can be pasted), and
 //!   a leading `⊢` (or `|-`) matches conclusions only.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DataId, Globals};
 use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
 };
-use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{BinOp, Expr};
+use stitchwort_syntax::{Diagnostic, FileId, SourceMap, Span};
 
 use crate::driver::Session;
 
@@ -483,6 +484,9 @@ pub struct Result1 {
     pub ty: String,
     pub file: String,
     pub line: usize,
+    /// The first sentence of its doc (docs/proposals/documentation.md §4), or
+    /// `null` without one. Shown, never matched.
+    pub summary: Option<String>,
     /// The import line that brings the name into scope as `name` without
     /// `Std.`, or `null` when none is needed (a declaration of the file
     /// searched).
@@ -705,9 +709,10 @@ impl Session {
                 }
             ));
         }
+        let mut docs = DocCache::default();
         let results = (found.hits.iter())
             .take(options.limit)
-            .map(|hit| self.result(hit, pattern, options.rewrite, scope))
+            .map(|hit| self.result(hit, pattern, options.rewrite, scope, &mut docs))
             .collect();
         Ok(Report {
             version: 1,
@@ -789,16 +794,30 @@ impl Session {
         }
     }
 
-    fn result(&self, hit: &Hit, pattern: bool, rewrite: bool, scope: &Scope) -> Result1 {
+    fn result(
+        &self,
+        hit: &Hit,
+        pattern: bool,
+        rewrite: bool,
+        scope: &Scope,
+        docs: &mut DocCache,
+    ) -> Result1 {
         let g = &self.elab.globals;
         let item = hit.item;
         let (file, line) = crate::render::location(&self.sources, item.span(g));
+        // A constructor's span is its type's, so its doc would be the type's:
+        // none is shown.
+        let summary = match item {
+            Item::Ctor(..) => None,
+            _ => docs.summary(&self.sources, item.span(g), &item.path(g)),
+        };
         let path = item.path(g);
         Result1 {
             kind: item.kind(g).name(),
             ty: stitchwort_core::pretty::term(g, &[], &item.ty(g)),
             file,
             line,
+            summary,
             import: import_line(g, item, scope),
             relation: pattern.then(|| hit.relation.name()),
             place: pattern.then(|| hit.place.name()),
@@ -811,6 +830,31 @@ impl Session {
             name: path,
             conjunct: item.part().map(|p| p.name()),
         }
+    }
+}
+
+/// The docs of the files results are in, each read once from the text the
+/// session checked.
+#[derive(Default)]
+struct DocCache(HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>>);
+
+impl DocCache {
+    /// The summary of the doc of the declaration whose name starts at `span`.
+    fn summary(&mut self, sources: &SourceMap, span: Span, path: &str) -> Option<String> {
+        let text = &sources.get(span.file).text;
+        let docs = self
+            .0
+            .entry(span.file)
+            .or_insert_with(|| stitchwort_syntax::docs::docs(span.file, text));
+        // A definition's span is its header, from its keyword: the doc is
+        // keyed by its name, which is inside. A generated definition's span
+        // is its type's, whose name isn't the definition's: no doc.
+        let (&at, doc) = docs.range(span.start..span.end).next()?;
+        let written = text[at as usize..]
+            .split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '\'' | '.')))
+            .next()?;
+        let last = |name: &str| name.rsplit('.').next().unwrap_or_default().to_string();
+        (last(written) == last(path)).then(|| doc.summary.clone())
     }
 }
 
@@ -995,6 +1039,9 @@ pub fn render_text(report: &Report) -> String {
             .map(|i| format!("  ({i})"))
             .unwrap_or_default();
         out.push_str(&format!("    {}:{}{import}\n", r.file, r.line));
+        if let Some(summary) = &r.summary {
+            out.push_str(&format!("    {summary}\n"));
+        }
     }
     let n = report.total;
     let tier = report
