@@ -1,0 +1,196 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "y",
+          "value": "0"
+        },
+        {
+          "name": "ys",
+          "value": "[]"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "y",
+          "type": "Nat"
+        },
+        {
+          "name": "ys",
+          "type": "List Nat"
+        },
+        {
+          "name": "h",
+          "type": "y ∈ Cons y ys"
+        }
+      ],
+      "lemma": "theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?",
+      "target": "y ∈ ys"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "y: Nat\nys: List Nat\nh: y ∈ Cons y ys\n⊢ y ∈ ys",
+        "range": [
+          9,
+          75,
+          9,
+          76
+        ]
+      }
+    ],
+    "message": "in `memberOfTail`",
+    "notes": [
+      "this statement is false; a counterexample:\n  y = 0\n  ys = []\n`y ∈ Cons y ys` holds\n`y ∈ ys` is false"
+    ],
+    "range": [
+      9,
+      75,
+      9,
+      76
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Float"
+        },
+        {
+          "name": "y",
+          "type": "Float"
+        },
+        {
+          "name": "h",
+          "type": "x < y"
+        },
+        {
+          "name": "keys",
+          "type": "x < y"
+        }
+      ],
+      "lemma": "theorem keysLessGoal1 (x: Float) (y: Float) (h: x < y) (keys: x < y): x = x := ?",
+      "target": "x = x"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Float\ny: Float\nh: x < y\nkeys: x < y\n⊢ x = x",
+        "range": [
+          14,
+          2,
+          14,
+          3
+        ]
+      }
+    ],
+    "message": "in `keysLess`",
+    "notes": [],
+    "range": [
+      14,
+      2,
+      14,
+      3
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "f",
+          "type": "List Leaf → Nat"
+        },
+        {
+          "name": "leaf",
+          "type": "Leaf"
+        },
+        {
+          "name": "rest",
+          "type": "List Leaf"
+        }
+      ],
+      "lemma": "theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest := ?",
+      "target": "f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "f: List Leaf → Nat\nleaf: Leaf\nrest: List Leaf\n⊢ f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest",
+        "range": [
+          19,
+          79,
+          19,
+          80
+        ]
+      }
+    ],
+    "message": "in `deeper`",
+    "notes": [],
+    "range": [
+      19,
+      79,
+      19,
+      80
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n = 3"
+        }
+      ],
+      "lemma": "theorem rewrittenGoal1 (n: Nat) (h: n = 3): n = 3 := ?",
+      "target": "n = 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nh: n = 3\n⊢ n = 3",
+        "range": [
+          22,
+          86,
+          22,
+          87
+        ]
+      }
+    ],
+    "message": "in `rewritten`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      22,
+      86,
+      22,
+      87
+    ],
+    "severity": "goal"
+  }
+]

@@ -140,6 +140,21 @@ fn a_failed_test_names_the_false_part_and_where_values_differ() {
     insta::assert_snapshot!("failed_parts", run(&dir, &["--no-cache"]));
 }
 
+/// SW-1000: `Float`s inside a list or a record print as literals, as a lone
+/// one does, not as `{ bits = …, valid = ?1 }`.
+#[test]
+fn floats_inside_data_print_as_literals() {
+    let source = "import Std (List, Float)\n\n\
+                  type Stop = { name: Text, at: Float }\n\n\
+                  test \"floats\" := [0.5, 1.5] == [0.5, 2.5]\n\
+                  test \"stops\" := [{ name = \"a\", at = 0.5 }] == [{ name = \"a\", at = 0.25 }]\n";
+    let dir = folder_with("floats", source);
+    let out = run(&dir, &["--no-cache"]);
+    assert!(out.contains("left:  [0.5, 1.5]"), "{out}");
+    assert!(out.contains("at = 0.5"), "{out}");
+    assert!(!out.contains("bits"), "{out}");
+}
+
 #[test]
 fn a_cached_failure_still_names_the_false_part() {
     let dir = folder_with("parts-cached", PARTS);
