@@ -59,11 +59,11 @@ def Terminal.moreReads: Nat := 16
 
 --| The next key: decoded from `pending`, the bytes left from earlier reads,
 --| or from a new read when there are none. `read` reads once from `source`.
---| A key cut off at the end of the bytes is finished by reading more
---| (at most `moreReads` times), except an escape sequence cut off on a
---| terminal: a terminal writes a sequence in one go, so the end of its read
---| ends the sequence. A cut-off lone `ESC` is `Escape`, and any other cut-off
---| key `Unknown`.
+--| A key cut off at the end of the bytes is finished by reading more (at most
+--| `moreReads` times), except an escape sequence cut off on a terminal: a
+--| terminal writes a sequence in one go, so the end of its read ends the
+--| sequence. A cut-off lone `ESC` is `Escape`, and any other cut-off key
+--| `Unknown`.
 --|
 --| Generic in how bytes are read, so tests can give the reads as a list
 --| (`Terminal.keysOfReads`), and `Terminal.toIO` reads from the host.
@@ -152,10 +152,10 @@ def Terminal.printLines: List Text → {IO} ()
     Terminal.printLines more
 
 --| `Terminal` on the console: keys from standard input, frames to standard
---| output, through the host's `IO.console`, `IO.keysMode`, `IO.readBytes`
---| and `IO.write`. Keys mode goes on at the first `readKey` or `draw` (a
---| program that only asks the size never changes the terminal), and off when
---| the program returns. Each `readKey` reads at most `1 + Terminal.moreReads`
+--| output, through the host's `IO.console`, `IO.keysMode`, `IO.readBytes` and
+--| `IO.write`. Keys mode goes on at the first `readKey` or `draw` (a program
+--| that only asks the size never changes the terminal), and off when the
+--| program returns. Each `readKey` reads at most `1 + Terminal.moreReads`
 --| times, so this handler is total: around a total program it's total, and
 --| around a partial one partial. The program's own `IO.print` and
 --| `IO.readLine` pass through to the host, which leaves keys mode for them.
@@ -269,9 +269,9 @@ test "toIO: the size, unknown on a pipe" :=
 --| For tests: `IO` as a host whose console is `console` and whose reads are
 --| `reads`, in order (then `None`). Records every `write` and `print`, and
 --| every time keys mode goes on or off (as "keys on" and "keys off"), in
---| order. Like the real host, `keysMode` does nothing when the mode is
---| already as asked, and `print` leaves keys mode first. There are no lines to
---| read: `readLine` gives `None`, `readAll` "", `randomSeed` 0, and `args` no
+--| order. Like the real host, `keysMode` does nothing when the mode is already
+--| as asked, and `print` leaves keys mode first. There are no lines to read:
+--| `readLine` gives `None`, `readAll` "", `randomSeed` 0, and `args` no
 --| arguments.
 -- (D1260)
 def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () → {IO | e} a): {e} Pair (List Text) a :=

@@ -385,7 +385,13 @@ def report_text(text):
             par = run[i:j]
             texts = [body_of(l) for l in par]
             width = max(len(l) for l in par)
-            plain = [not t.startswith("- ") and not t.startswith("  ") for t in texts]
+            # A lifted citation `-- (...)` is a note of its own, not a wrapped line.
+            plain = [
+                not t.startswith("- ")
+                and not t.startswith("  ")
+                and not re.fullmatch(r"\([^()]*\)", t.strip())
+                for t in texts
+            ]
             for k in range(len(par) - 1):
                 if plain[k] and plain[k + 1] and not END.search(texts[k].rstrip()):
                     nxt = words_of(texts[k + 1].strip())

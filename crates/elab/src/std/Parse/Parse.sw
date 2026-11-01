@@ -22,9 +22,9 @@ import Parse.Problem (Expected, Literal, Message)
 --| Choice always backs up: when an alternative of `oneOf`, `optional` or
 --| `many` fails, the input is as it was before it. Errors name the furthest
 --| point any alternative reached, everything expected there, and what was
---| found there instead. A loop or
---| a recursive grammar that would run forever without reading stops the
---| whole parse with a message naming the combinator.
+--| found there instead. A loop or a recursive grammar that would run
+--| forever without reading stops the whole parse with a message naming the
+--| combinator.
 
 --| Where a parse is: the characters left, how many were read before them,
 --| and how many there are.
@@ -224,8 +224,8 @@ def Parse.nat(): {Parse} Nat :=
 
 --| A whole number of `atLeast` to `atMost` decimal digits (at least one),
 --| else "expected a number of 1 to 3 digits", or "expected a 2-digit number",
---| where the number starts. All the digits there are read first, so "1234"
---| is too long, not 123 and a 4.
+--| where the number starts. All the digits there are read first, so "1234" is
+--| too long, not 123 and a 4.
 def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   let start := Parse.mark()
   let digits := Parse.span Parse.isDigit
@@ -462,8 +462,8 @@ def Parse.section (parser: () → {Parse} a): {Parse} (List a) :=
 --| differ in length.
 def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a)) := Parse.lines (() => Parse.many1 cell)
 
---| One row of `looseGrid`: its cells and its line break, if any. Fails
---| without a problem of its own at the end of the input, where there is no row.
+--| One row of `looseGrid`: its cells and its line break, if any. Fails without
+--| a problem of its own at the end of the input, where there is no row.
 def Parse.looseRow (cell: () → {Parse} a): {Parse} (List a) :=
   if Parse.mark().left == 0 then Empty.absurd Parse.stop()
   else
@@ -635,8 +635,8 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
 --| What was found `failure.offset` characters into `chars`, for "got 'x'":
 --| as many characters as the longest text expected there, up to a line
 --| break, as Megaparsec shows, then on to the end of a word they stop in;
---| a line break is `lineBreak`, and past the
---| last character is `endOfInput`.
+--| a line break is `lineBreak`, and past the last character is
+--| `endOfInput`.
 def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
   let rest := chars.drop failure.offset
   match rest with

@@ -221,10 +221,10 @@ test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 --| is the empty text.
 def Text.repeat (text: Text) (n: Nat): Text := List.replicate n text.toList |> .concat |> Text.fromList
 
---| `text` is the main value: `text.chunksOf 2` cuts it into pieces of `n` characters
---| (the last one shorter if need be), as `List.chunksOf` does for lists:
---| `"abcde".chunksOf 2` is `["ab", "cd", "e"]`, and `n = 0` gives the whole
---| text as one chunk (none for an empty text).
+--| `text` is the main value: `text.chunksOf 2` cuts it into pieces of `n`
+--| characters (the last one shorter if need be), as `List.chunksOf` does for
+--| lists: `"abcde".chunksOf 2` is `["ab", "cd", "e"]`, and `n = 0` gives the
+--| whole text as one chunk (none for an empty text).
 def Text.chunksOf (text: Text) (n: Nat): List Text := text.toList.chunksOf n |> .map Text.fromList
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""

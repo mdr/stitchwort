@@ -90,8 +90,8 @@ def Vec.ofListDec (n: Nat) (xs: List a): Decidable (List.length xs = n) → Opti
 --| loops, `List.length` then `Vec.fromListN`, so stack-safe on long lists.
 def Vec.ofList (n: Nat) (xs: List a): Option (Vec a n) := Vec.ofListDec n xs (Nat.decEq (List.length xs) n)
 
---| `f` of every element, or `None` if any is `None`: parsing a vector
---| of lines into a vector of rows of a fixed width. A loop into a list, then
+--| `f` of every element, or `None` if any is `None`: parsing a vector of
+--| lines into a vector of rows of a fixed width. A loop into a list, then
 --| `Vec.ofList`, so stack-safe on long vectors; `Vec.traverseOptionVCons` is
 --| its step.
 def Vec.traverseOption (v: Vec a n) (f: a → Option b): Option (Vec b n) :=

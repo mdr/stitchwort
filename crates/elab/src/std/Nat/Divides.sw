@@ -11,10 +11,10 @@ theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len ≠ 
       := Eq.cong (y => (x % len + y) % k) (Eq.trans (Eq.cong (l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
     _ = x % len % k := Nat.modAddMul (x % len) (x / len * t) k)
 
---| Divisibility, as a test: `Nat.divides divisor n` when `n` is `t * divisor` for some
---| `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes the
---| factor to a continuation (`Nat.dividesElim`), as `List.anyRangeElim` does;
---| `Exists Nat (t => n = t * divisor)` states it as a proposition.
+--| Divisibility, as a test: `Nat.divides divisor n` when `n` is `t * divisor`
+--| for some `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes
+--| the factor to a continuation (`Nat.dividesElim`), as `List.anyRangeElim`
+--| does; `Exists Nat (t => n = t * divisor)` states it as a proposition.
 def Nat.divides: Nat → Nat → Bool
   | Zero, n => n == 0
   | Succ divisor, n => n % Succ divisor == 0

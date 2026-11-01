@@ -1,6 +1,6 @@
---| Lemmas about the list toolkit's functions (List/Toolkit.sw): lengths,
---| sums and counts, membership, permutations, congruence, `get`, and the like,
---| with the examples and tests that use them.
+--| Lemmas about the list toolkit's functions (List/Toolkit.sw): lengths, sums
+--| and counts, membership, permutations, congruence, `get`, and the like, with
+--| the examples and tests that use them.
 
 theorem List.lengthAppend: (xs: List a) → (ys: List a) → List.length (List.append xs ys) = List.length xs + List.length ys
   | Nil, ys => rfl
@@ -1269,9 +1269,9 @@ theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px
       | True => Option.someNotNone z h
       | False => List.findNoneNotMem zs p x px m h
 
---| Finding nothing means every element fails, as an `all`: `find xs bad =
---| None` gives `xs.all (x => ¬(bad x))`, and a search for one that
---| isn't `good` finding nothing gives `xs.all good`.
+--| Finding nothing means every element fails, as an `all`:
+--| `find xs bad = None` gives `xs.all (x => ¬(bad x))`, and a search for
+--| one that isn't `good` finding nothing gives `xs.all good`.
 theorem List.findNoneAll: (xs: List a) → (p: a → Bool) → List.find xs p = None → List.all xs (x => ¬(p x)) = True
   | Nil, p, h => rfl
   | Cons x rest, p, h =>

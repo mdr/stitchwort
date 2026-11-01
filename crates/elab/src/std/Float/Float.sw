@@ -5,14 +5,14 @@
 --| so `0.0` and `-0.0` differ and the NaN equals itself (`Object.is`, not
 --| `===`; `===` is `Float.ieeeEq`).
 --|
---| The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the
---| order, the IEEE comparisons, `toInt`) are ordinary definitions over the
---| bits, and so are `add` and `sub`, through `Float.Model`
---| (std/Float/Model.sw). The checker computes all of these through their
---| definitions; only a running program or test uses the machine's doubles
---| for them. The other rounding operations (`mul`, `div`, `rem`, `floor`,
---| `ceil`, `trunc`, `round`, `ofInt`, `ofNat`) are primitives: the checker
---| computes them on known doubles with Rust's `f64`, under the contract of
+--| The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the order,
+--| the IEEE comparisons, `toInt`) are ordinary definitions over the bits,
+--| and so are `add` and `sub`, through `Float.Model` (std/Float/Model.sw).
+--| The checker computes all of these through their definitions; only a
+--| running program or test uses the machine's doubles for them. The other
+--| rounding operations (`mul`, `div`, `rem`, `floor`, `ceil`, `trunc`,
+--| `round`, `ofInt`, `ofNat`) are primitives: the checker computes them on
+--| known doubles with Rust's `f64`, under the contract of
 --| docs/proposals/float.md §3.3, and otherwise they are unknown functions.
 --| `toText` is a primitive the checker never computes: each runtime supplies
 --| it (JS's `String(x)`).

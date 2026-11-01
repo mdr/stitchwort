@@ -10,8 +10,8 @@ theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal
   | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
 
 --| Orders `a` by a key, given that the key tells values apart. The relations
---| are the key's own, applied to the keys, so `x < y` is `key x < key y`
---| and reduces the way the key's does.
+--| are the key's own, applied to the keys, so `x < y` is `key x < key y` and
+--| reduces the way the key's does.
 -- (D414)
 def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
     (inj: (x: a) → (y: a) → key x = key y → x = y): Ord a := {

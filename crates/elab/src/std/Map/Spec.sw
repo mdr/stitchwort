@@ -1875,8 +1875,8 @@ theorem Map.Raw.filterCongEquiv [auto ord: Ord k] (p: k → v → Bool) (q: k �
 
 --| Deciding `Map.Raw.Equiv` by comparing the entry lists. It needs `DecEq` for
 --| the values (the keys have one in their `Ord`): a test that said "same"
---| exactly when the entries are equal would decide equality of any two
---| values, through one-entry maps.
+--| exactly when the entries are equal would decide equality of any two values,
+--| through one-entry maps.
 def Map.Raw.same [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]): Bool :=
   Map.Raw.toList m == Map.Raw.toList n
 

@@ -70,8 +70,8 @@ theorem Nat.leAddOfLeRight: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ c → a
 --| `(a1, a2)` comes before `(b1, b2)`: the first number is smaller, or it's the
 --| same and the second is smaller. A recursive call of a definition with
 --| `decreasing (m1, m2)` needs this of its arguments' measures and the
---| parameters': written `Nat.LexLess.First h` or `Nat.LexLess.Second rfl h`,
---| or found by `omega` or `auto`.
+--| parameters': written `Nat.LexLess.First h` or `Nat.LexLess.Second rfl h`, or
+--| found by `omega` or `auto`.
 -- (docs/proposals/well-founded-recursion.md, stage 3d)
 -- (Constructors rather than lemmas: a lemma would take the numbers as
 -- arguments, and `stitchwort test` would compute them, an inner recursive
