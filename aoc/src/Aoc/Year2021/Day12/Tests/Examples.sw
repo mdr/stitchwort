@@ -3,6 +3,7 @@
 
 namespace Aoc.Year2021.Day12.Tests
 import Aoc.Year2021.Day12 (..)
+import Aoc.Year2021.Day12.Spec (startToEnd)
 import Std (Fail, List, Text)
 
 def parsed (input: Text): Result (List (Text, Text)) Text := Fail.toResult (() => parsePassages input)
@@ -10,6 +11,12 @@ def parsed (input: Text): Result (List (Text, Text)) Text := Fail.toResult (() =
 def passagesOf (input: Text): List (Text, Text) := Fail.orElse [] (() => parsePassages input)
 
 def example: List (Text, Text) := passagesOf "start-A\nstart-b\nA-c\nA-b\nb-d\nA-end\nb-end\n"
+
+-- The hypotheses of `parseNoBigNeighbours` and `endsVisited` can hold
+-- (the audit's random inputs never parse, nor start at `start`).
+theorem smallParses: Fail.toResult (() => parsePassages "start-A\nA-end\n") = Ok [("start", "A"), ("A", "end")] := rfl
+
+theorem shortPath: startToEnd ["start", "A", "end"] = True := rfl
 
 test "parse the example" :=
   example == [("start", "A"), ("start", "b"), ("A", "c"), ("A", "b"), ("b", "d"), ("A", "end"), ("b", "end")]
