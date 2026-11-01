@@ -12,8 +12,9 @@ what the day 9 proofs needed. For a call's result (SW-858, D2092), an unknown so
 what an alias unfolds to gets only a note of the alias (`name_unknown` in `check.rs`), which
 dot notation and goals read for a variable of that type: the solution, and so every term,
 keeps the unfolded type. The same-name warning is open.
-The experiment in [§3](#3-the-experiment) is commit `5be9ec86` on its own branch, marked
-experimental. Related: [namespaces.md](namespaces.md) §4.8 (the dot rule),
+The experiment in [§3](#3-the-experiment) is commit `5be9ec86`, marked experimental, kept as
+the tag `experiment/alias-functions`; its sample programs are in
+[alias-functions/](alias-functions/). Related: [namespaces.md](namespaces.md) §4.8 (the dot rule),
 [dot-receiver.md](dot-receiver.md), [folded-calls.md](folded-calls.md) (glued calls),
 [microtypes.md](microtypes.md) (one-field records as distinct types),
 [opaque-definitions.md](opaque-definitions.md).
