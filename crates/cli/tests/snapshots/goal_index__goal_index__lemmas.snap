@@ -2,7 +2,7 @@
 source: crates/cli/tests/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-39 lemmas, 12 goals without one
+40 lemmas, 13 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
@@ -16,6 +16,8 @@ counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (coun
 counterexample-big-numbers goal 2: theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
 counterexample-out-of-steps goal 1: theorem slowGoal1 (n: Nat): countDown (Nat.max n 100000000) = 1 := ?
 counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): List.length xs ≤ 5 := ?
+decreasing-callback-argument goal 1: theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): List.length (List.filter xs (c => c == other)) < List.length xs := ?
+decreasing-callback-argument goal 2: no lemma
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma

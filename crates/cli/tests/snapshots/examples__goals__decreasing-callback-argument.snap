@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `g`
+    ╭─[ goals/decreasing-callback-argument.sw:11:101 ]
+    │
+ 11 │   [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?])
+    │                                                                                                     ┬  
+    │                                                                                                     ╰── xs: List Nat
+    │                                                                                                         k: Nat
+    │                                                                                                         other: Nat
+    │                                                                                                         ⊢ List.length (List.filter xs (c => c == other)) < List.length xs
+────╯
+[GOAL] Goal: in `withLet`
+    ╭─[ goals/decreasing-callback-argument.sw:16:57 ]
+    │
+ 16 │     if k == 0 then 0 else withLet left k [decreasing := ?])
+    │                                                         ┬  
+    │                                                         ╰── xs: List Nat
+    │                                                             k: Nat
+    │                                                             other: Nat
+    │                                                             left: List Nat := List.filter xs (c => c == other)
+    │                                                             ⊢ List.length (List.filter xs (c => c == other)) < List.length xs
+────╯

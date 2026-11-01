@@ -35,37 +35,34 @@ dec #4
 free #4
 dec #1
 alloc #5 tag=0 arity=1
-dec #5
-free #5
 alloc #6 tag=0 arity=1
-alloc #7 tag=0 arity=1
 dec #6
 free #6
+alloc #7 tag=0 arity=1
+alloc #8 tag=0 arity=1
+alloc #9 tag=1 arity=2
+inc #9
+dec #5
+free #5
+dec #9
 dec #1
 free #1
 dec #2
 free #2
 dec #3
 free #3
-dec #7
-free #7
-alloc #8 tag=0 arity=1
-alloc #9 tag=0 arity=1
-alloc #10 tag=1 arity=2
-inc #10
-dec #10
-inc #10
-dec #10
 inc #9
-dec #10
-free #10
 dec #9
 inc #8
-dec #8
 dec #9
 free #9
 dec #8
+inc #7
+dec #7
+dec #8
 free #8
-alloc #11 tag=0 arity=1
-dec #11
-free #11
+dec #7
+free #7
+alloc #10 tag=0 arity=1
+dec #10
+free #10
