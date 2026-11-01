@@ -12,7 +12,7 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
-12, 13 and 14 do (day 12's promise, that no passage joins two big caves, is
+12, 13, 14 and 15 do (day 15's is a rectangle with a digit; day 12's promise, that no passage joins two big caves, is
 one the puzzle leaves unsaid; day 13's parser folds the paper to check
 each fold's promise; day 14's is one rule per pair); day 9's answers need no promise at all, and
 its parser's guarantees (digits, a rectangle) are proved anyway. The
@@ -3328,3 +3328,273 @@ Release build:
 3. No `Decidable (List.Distinct xs)`: the counterexample search skips
    every theorem with that hypothesis (item 3).
 4. No `List.maximum` lemmas (item 3).
+
+## Day 15: Chiton
+
+The input is a map of a cave, one digit per position: its risk level. A
+path moves up, down, left or right from the top left to the bottom right,
+and its total risk adds up the levels of the positions it enters (not the
+start). Part 1 asks for the lowest total risk. Part 2 asks the same of the
+full cave: the map repeated as 5 by 5 tiles, each tile's levels the first
+tile's raised by the tile's row plus its column, with levels past 9
+wrapping round to 1. Answers on Matt's input (100 by 100, so 500 by 500
+for part 2): 656 and 2979 (his Scala solution's); the puzzle's 10 by 10
+example gives 40 and 315. Compiler: the installed release build, on
+`main` at 8ee89482, 1 November 2026.
+
+### The program
+
+Both parts are std's Dijkstra search, `Graph.distances`, on one kind of
+map: `RiskMap = { height, width, level: Position → Nat }`. Its graph's
+edges step to each neighbour on the map, costing the neighbour's level;
+its `states` are every position (`edgesListed` in `Steps.sw` proves the
+edges stay in them). The search starts at the top left for 0, and the
+answer is what it finds for the bottom right. Part 1's map reads the
+cave; part 2's computes each level from the first tile's, at the
+position's row and column modulo the cave's height and width, raised by
+the quotients and wrapped once (`wrap`: past 9, take 9 away). The full
+cave is never built. Levels are looked up in a `Map Nat (Map Nat Nat)`
+built with `Map.byPosition`, since `List.getOr` is linear.
+
+`Position` and its four `neighbours` are day 9's
+(`import Aoc.Year2021.Day09 (Position)`), as are the spec's `adjacent`
+and its lemmas (`adjacentNeighbour`, `neighbourAdjacent`,
+`rightAdjacent`, `downAdjacent`).
+
+The parser reads each line with `many1 digit` and then checks (`checkCave`,
+the D2108 pattern) that the first row has a digit and every row is as
+long as the first.
+
+Both answers were right on the first run.
+
+**The spec** (`Spec/Spec.sw`). `levelAt cave position` is the digit there,
+`None` off the map. A path (`isPath levels from steps to`) is the list of
+positions entered, each `adjacent` to the one before and on the map;
+`totalRisk` adds their levels. `LowestRisk levels target answer` says some
+path from the top left to `target` has total risk `answer`, and every such
+path has at least that. Part 1 is `LowestRisk (levelAt cave)
+(bottomRight height width)`. Part 2's levels are `tiledLevelAt`, a
+function of the position: off the 5h by 5w map, none; otherwise the
+level at the remainders, raised `row / height + column / width` times by
+`raise` (9 goes to 1, anything else up 1), as the puzzle says it, one tile
+at a time. `Rectangle cave` is the puzzle's promise: a digit, and every
+row as long as the first.
+
+### Proved
+
+In `Aoc.Year2021.Day15.Proofs` (`Search.sw`, `Levels.sw`, `Answers.sw`,
+`Parse.sw`, 370 lines) and `Steps.sw`:
+
+- `lowestRiskCorrect`: for every `RiskMap` with `0 < height` and `0 <
+  width`, `LowestRisk risks.levelAt (bottomRight height width)
+  risks.lowestRisk`. A walk in the graph is a spec path costing its total
+  risk (`walkPath`), and a path is a walk (`pathWalk`, `pathWalkCost`).
+  `Graph.distancesShortest` gives the rest: what it finds for the target
+  is some walk's cost (`cheapestPath`), and no walk costs less
+  (`noCheaperPath`). The target is found at all because a path reaches it
+  (`routePath`: along the top row, then down the last column).
+- `levelsAgree` and `tiledLevelsAgree`: on a `Rectangle`, the program's
+  maps have the spec's levels at every position. The tiled one rests on
+  `iterateRaise`: raising a level `count` times is `wrap (level +
+  count)` while `level ≤ 9` and `level + count ≤ 17` (a tile is at most
+  4 + 4 away), plus `Nat.modLess` and `Nat.divLeOfLtMul`.
+- `part1Correct (cave) (rectangle: Rectangle cave): Part1Answer cave
+  (solvePart1 cave)` and `part2Correct (cave) (rectangle: Rectangle
+  cave): Part2Answer cave (solvePart2 cave)`. The level functions are
+  moved across with `Quot.funext` and `J`.
+- `parseRectangle`: if `parseCave` reads `input` as `cave`, `Rectangle
+  cave`. So `part1FromInput` and `part2FromInput` hold for every input
+  the parser accepts, with no hypothesis.
+- **Whether 0 must be excluded: no.** The puzzle's levels are 1 to 9, and
+  the parser accepts 0. The theorems don't need it excluded: a 0 is a
+  step that costs nothing, and `iterateRaise` needs only `level ≤ 9`,
+  which `Fin 10` gives (`levelBelow10`); `raise` from 0 never passes 9 in
+  8 steps.
+- Tests: the example's answers; the program's levels against the spec's
+  over the example and its full cave (52 by 52, past the edges); the full
+  example's first row from the puzzle; the puzzle's single-8 tiling;
+  paths and their risk in spec terms; one position, zeros, a cheaper path
+  round a wall; the parser's errors; the real input.
+
+Nothing is left unproved, and no hypothesis was added beyond the
+puzzle's promise, which the parser is proved to keep. No opaque
+definitions. `Quot.sound` is the only axiom (through `Map`, which is a
+quotient, and `Quot.funext`). `stitchwort audit Aoc.Year2021.Day15`:
+`audited 35 theorems: 0 failed, 0 with warnings, 35 passed`; but the
+counterexample search ran on none of the main theorems (item 5).
+
+Breaking the program breaks the proofs: `wrap` taking 8 for 9 fails
+`wrapLarge` with a counterexample (`level = 10`); starting the search at
+1 for 0 fails `lowestRiskCorrect` (`E-REWRITE-NOTHING` at its `rewrite
+got`: the found cost isn't the program's answer any more).
+
+### 1. Performance
+
+`stitchwort run Aoc.Year2021.Day15.main` takes 17.6 s (user), 20.3 s with
+`--no-cache` (as the answer test runs it), 4.5 s with `--native` and
+2.9 s with `--js`. Part 1 searches 10,000 positions, part 2 250,000.
+Where part 2's time goes, measured with throwaway `main`s on the input:
+
+- **Std's `Map` and `Set` in the interpreter.** Inserting 250,000 `Nat`
+  keys, in order, into a `Map Nat Nat` took about 1.7 s (about 7 µs an
+  insert); with `Position` keys (a record of two `Nat`s), about 3.8 s.
+  The search does about a million `Set (Nat, Position)` inserts and
+  `popMin`s and 250,000 `Map` inserts, so most of the 15 s is there.
+  Computing every position's edges, with their levels, takes 1.6 s. Fix:
+  a priority queue in std for Dijkstra (a pairing or binary heap, with
+  the same `SearchResult` proof) (medium); runtime-backed `Map`/`Set`
+  (large). A `Graph.distancesTo target` that stops when the target is
+  settled wouldn't help here (it is the farthest position) but would
+  elsewhere (small-medium).
+- **A field read in a closure is recomputed on each call.** `Cave.tiles`
+  first wrote `position.row % cave.height` inside the `level` lambda:
+  `cave.height` is `cave.rows.length`, so every level computed the
+  length of a 100-element list four times. The run took 31.7 s; with
+  `let height := cave.height` outside the lambda, 17.6 s. The proofs
+  didn't change (the `let` computes away). Nothing warns about this.
+  Fix: a line in the performance notes (small); hoist closed
+  subexpressions out of lambdas when compiling (medium).
+- The answer test (`year2021_day15` in `aoc_answers.rs`) took 23 s in
+  `task test:one`, about a third of the merge tier's 60 s, more than any
+  other day. Proposal (not done): run this day with `--js` or `--native`
+  in the merge tier and interpreted in the daily one, or move it to the
+  daily tier. `Tests/Input.sw`'s part 2 test takes about 17 s under
+  `stitchwort test` (cached after).
+
+### 2. Std's `Graph` fitted well
+
+`Graph.distancesShortest` is exactly the puzzle's "lowest total risk"
+once a walk is related to a path: the day's own proofs are the
+walk/path correspondence (40 lines), the levels (100) and a path to the
+target. Smaller things:
+
+- A record field only for termination (`states`, every position) is
+  built at run time (SW-960 item 1): 250,000 positions here, 0.1 s.
+- Std candidate: "a walk reaches the target, so the search finds it, for
+  no more" is `And.right (Graph.distancesShortest …)` applied to seven
+  arguments then taken apart; a named `Graph.distancesReach` (the
+  target's `get` is `Some d`, `d` a walk's cost and at most any walk's)
+  would say it. Small.
+- Std candidate: a grid graph. Days 9 and 15 each build `positions`
+  (every row and column), prove each edge stays in it (`edgesListed`,
+  30 lines each) and relate neighbours to adjacency, and this day
+  imports day 9's `Position` type to reuse its lemmas. A std grid module
+  (positions, four neighbours, adjacency, a `Graph` of a grid with a cost
+  per cell) would serve both (as SW-960 and SW-965 ask). Medium.
+
+### 3. Division needs a proof, everywhere
+
+`/` and `%` need `d ≠ 0`, so the program's full cave is `if tall:
+cave.height != 0 then if wide: cave.width != 0 then cave.tiles else …`
+with `Cave.tiles` taking `[auto tall] [auto wide]`, and the spec's
+`tiledLevelAt` has the same two `if`s. Each proof about them matches on
+`Nat.decEq cave.height 0` and `Nat.decEq cave.width 0` first, which
+refines both sides well. A cave without a row has no tiles, so this is
+only noise. Fix: total `Nat.div`/`Nat.mod` with `x / 0 = 0` (Lean's),
+or variants (`Nat.divOr`) for code that knows nothing better; a design
+question. Small to medium.
+
+### 4. `rewrite` with an equation between functions
+
+`part1Correct` first was `rewrite same in lowestRiskCorrect …`, with
+`same: levelAt cave = cave.risks.levelAt` (from `Quot.funext`). It
+failed `E-TYPE-MISMATCH`, with both sides printed as `(∃ (steps: List
+Position) => isPath … … steps … = True ∧ Std.List.foldLeft steps 0 … =
+Option.getOrElse … 0) ∧ …`: the difference is somewhere inside a `…`. The
+same with an ascribed `let found: LowestRisk cave.risks.levelAt … :=
+…` then `rewrite same in found`. `J (levels _ => LowestRisk levels …)
+found (Eq.sym same)` checked at once. Rewriting `<- height` (`cave.tiled.height
+= 5 * cave.height`) in part 2 failed the same way, and `J` over the
+target worked. Why `rewrite` failed is a guess (speculative): the goal
+is searched as it computes, so `5 * cave.height` also occurs inside the
+unfolded `solvePart2`, and a function's occurrences inside lambdas may
+be rewritten unevenly. Fix: when a mismatch's two sides print the same,
+print the first differing subterm instead of `…` (small-medium; as
+SW-963 item 2's "the … hid what was stuck").
+
+### 5. The counterexample search ran on none of the main theorems
+
+`stitchwort audit --verbose`: every theorem about a `RiskMap` says "not
+applicable: no inputs for `risks`" (a record with a function field), and
+every one with `Rectangle cave` says "nothing decides `1 ≤
+Std.List.length (Std.List.headOr cave.rows []) ∧ ((row: List (Std.Fin
+10)) → Std.List.Any (y => y = row) cave.rows → …`". So breaking the
+program got no counterexample except in `wrapLarge`. Fix: decide `(x) →
+x ∈ xs → P x` as `xs.all` (small-medium); make inputs for a function
+field from a finite table (medium).
+
+### 6. `search --at`
+
+- Used on four goals. It closed the two that one std lemma closes:
+  `n / d ≤ 4` from `n < 5 * d` (`Nat.divLeOfLtMul n 4 d omega`,
+  `afterObligations`), and `n % d < d` (`Nat.modLt`). A plain search
+  `(?n: Nat) < ?k * ?d → ?n / ?d < ?k` had missed the first: the lemma
+  says `Succ b * d` and `≤ b`.
+- At `position ∈ risks.positions` (a `flatMap` of `range`s) it listed
+  `List.lastMem`, `List.memDedupElim` and two other days' lemmas, not
+  `List.memFlatMapIntro`: the goal shows `flatMap` unfolded into
+  `List.concat (List.map …)` (as SW-965 item 3). At `found ≤ totalRisk
+  …` (the minimality, which `Graph.distancesShortest` gives) it listed
+  `Bool.canonicalTrue`, 2025 day 9's `outsideFlagZero` and day 13's
+  `shownHash`: a theorem whose conclusion is a defined `Prop`
+  (`Graph.Shortest`, an `And` of two `∀`s) isn't a candidate for either
+  half. Fix: index the conjuncts of such conclusions (medium).
+- The first query on a file took 41 to 44 s each time, the next one on
+  the same file 4.5 s (as SW-960 item 8).
+
+### 7. Messages
+
+- Good: the `match`-refinement notes. `rewrite onMap at found` after
+  `match onMap:` said "`found` is already refined: use it as it is";
+  `inRows below` after `match below:` said "both sides of what's expected
+  are `True`, so `rfl` proves it"; a mismatch in `pathWalk` said the goal
+  had been refined and pointed at the inner `match` of day 9's
+  `neighbours`. `Cons { row, … } (…)` said to bracket the record.
+  `E-ARITY` on `heightNotZero` said that `Not` adds an argument.
+- **But not every error says it.** `Bool.andLeft _ _ rest2`, with `rest2`
+  refined by the `match` to `False = True`, was `E-UNSOLVED` "can't work
+  out an implicit argument" at the first `_`, with no word of the
+  refinement. Fix: the same note when an argument's type was refined.
+  Small.
+- After `match h: Nat.decEq cave.height 0`, the goal printed the
+  `Map.byPosition` table computed into `Map.Raw.fromListChecked …
+  Map.Spec.isAscending …` and `Quot.mk { tree = Tip, … }` three times
+  over (several thousand characters), and `levelAt` as
+  `Aoc.Year2021.Day15.Spec.levelAt.%match1 …` (SW-971 item 3). The two
+  `No` patterns' proofs both printed as `refutation✝` (SW-969 item 5).
+- Errors are printed twice when a namespace fails to load
+  (`E-UNKNOWN-NAME` for `Position` in `Steps.sw`, each error twice).
+  Small.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day15.main` on the input | 17.6 s user (20.3 s with `--no-cache`) |
+| the same with `--native` / `--js` | 4.5 s / 2.9 s |
+| `stitchwort check --no-cache Aoc.Year2021.Day15.Proofs Aoc.Year2021.Day15.Tests` | 3.7 s user |
+| `stitchwort audit --no-cache Aoc.Year2021.Day15` (with the search) | 4.2 s |
+
+130 lines of program and 34 of its graph lemmas, 75 of spec, 370 of
+proofs, 68 of tests.
+
+### Ranked
+
+1. Part 2 takes 17.6 s interpreted, mostly in std's `Map` and `Set`
+   (about 7 µs an insert, twice that with record keys); its answer test
+   takes a third of the merge tier (item 1). Fix: a heap for Dijkstra;
+   tier the test.
+2. A field read inside a closure (`cave.height`, a list length) was
+   recomputed per call and doubled the run (item 1). Fix: document it;
+   hoist when compiling.
+3. The counterexample search ran on none of the main theorems: no inputs
+   for records with function fields, nothing decides a `∀` over a list's
+   members (item 5).
+4. `rewrite` with an equation between functions failed with a mismatch
+   whose two sides print alike; `J` worked (item 4).
+5. `/` and `%` need a proof, so the tiling carries two `if`s through the
+   program, the spec and two proofs (item 3).
+6. A std grid module, now evidenced by a type imported across days
+   (item 2).

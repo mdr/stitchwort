@@ -41,6 +41,7 @@ const ANSWERS: &[(&str, &str, &str, &str)] = &[
          .##...##..#..#.#..#.####.#..#.#..#..##.",
     ),
     ("2021", "14", "2712", "8336623059567"),
+    ("2021", "15", "656", "2979"),
     ("2024", "01", "2066446", "24931009"),
     ("2024", "02", "534", "577"),
     ("2024", "03", "174960292", "56275602"),
@@ -186,6 +187,14 @@ fn year2021_day13() {
 #[test]
 fn year2021_day14() {
     check("2021", "14");
+}
+
+/// About 20 s interpreted with `--no-cache` (part 2: Dijkstra over 250,000
+/// positions with std's tree-based `Set` and `Map`), the slowest day here;
+/// 4.5 s with `--native`, 3 s with `--js` (aoc/NOTES-2021.md, day 15).
+#[test]
+fn year2021_day15() {
+    check("2021", "15");
 }
 
 #[test]
