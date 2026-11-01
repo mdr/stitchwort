@@ -1600,7 +1600,6 @@ static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
-static LAST_RESORT: AtomicUsize = AtomicUsize::new(0);
 static APPEND_OTHER_SIDE: AtomicUsize = AtomicUsize::new(0);
 static CALC_FROM_GOAL: AtomicUsize = AtomicUsize::new(0);
 static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
@@ -1647,13 +1646,6 @@ pub(crate) fn note_retried(constructor: bool) {
     if constructor {
         count(&RETRIED_CONSTRUCTOR);
     }
-}
-
-/// A construct run again with the field-name rule in force
-/// (`records::last_resort`), after holding it back failed: the path §5.11
-/// removes in stage 5.
-pub(crate) fn note_last_resort() {
-    count(&LAST_RESORT);
 }
 
 /// `a ++ b` whose left side couldn't be inferred, so the right side was
@@ -1730,11 +1722,10 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// holding an unknown the declaration will still settle, and of those the
 /// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
 /// catch-and-retry paths it removes: the retries only a constructor with
-/// number literals asked for (`retried for a constructor`), constructs run
-/// again with the field-name rule in force (`last resort`), and the three
+/// number literals asked for (`retried for a constructor`), and the three
 /// "infer the other side" catches (`append other side`, `calc from goal`,
 /// `leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 32] {
+pub fn counts() -> [(&'static str, usize); 31] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1753,7 +1744,6 @@ pub fn counts() -> [(&'static str, usize); 32] {
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
         ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
-        ("last resort", get(&LAST_RESORT)),
         ("append other side", get(&APPEND_OTHER_SIDE)),
         ("calc from goal", get(&CALC_FROM_GOAL)),
         ("leaf uninferred", get(&LEAF_UNINFERRED)),

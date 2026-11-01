@@ -87,7 +87,11 @@ the light of:
   name-resolution rule, like GHC proposal 366's rule 4: it looks only at the
   literal's field names and the names in scope at the literal, never at
   types learned later in elaboration (R1, `docs/research/elaboration.md`
-  §5.3); holding it back changes only whether it is used.
+  §5.3); holding it back changes only whether it is used. *Since the
+  postponement queue (docs/proposals/postponement.md, stages 2 and 5):* a
+  literal of unknown type waits in the queue and the rule is its default at
+  the end, so the other part always says the type first; the holding back
+  and `last_resort` are removed.
 - **U7, reading and updating only.** Adding and removing fields are deferred
   with the row work; if ever wanted, build the "lacks" machinery once and
   share it with ability rows.

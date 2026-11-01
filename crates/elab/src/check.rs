@@ -3851,14 +3851,8 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
 /// whichever side can be inferred.
-/// A record literal in `a` takes its type from `b` if `b` can say it
-/// (`records::last_resort`).
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
-    crate::records::last_resort(cx, |cx| append_tried(cx, a, b))
-}
-
-fn append_tried(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
-    let first = crate::records::held(cx, |cx| infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)));
+    let first = infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty));
     let (a, b, ty) = match first {
         Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
         Err(e) if e.code == "E-CANNOT-INFER" => {
