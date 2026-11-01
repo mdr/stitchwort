@@ -75,7 +75,8 @@ impl Elaborator {
         // instance behind (which the check cache couldn't keep).
         self.clear_metas();
         if let Some(why) = self.undecidable_field(d)? {
-            self.no_decide.insert(d, format!("deriving it failed: {why}"));
+            self.no_decide
+                .insert(d, format!("deriving it failed: {why}"));
             return Ok(());
         }
         self.clear_metas();
@@ -100,7 +101,11 @@ impl Elaborator {
         let span = data.span;
         let np = data.params.len();
         let params: Vec<(Name, Term)> = data.params.clone();
-        let fields: Vec<Term> = data.ctors[0].fields.iter().map(|(_, t)| t.clone()).collect();
+        let fields: Vec<Term> = data.ctors[0]
+            .fields
+            .iter()
+            .map(|(_, t)| t.clone())
+            .collect();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
