@@ -82,11 +82,17 @@ def readBits (input: Text): {Fail} (List Bool) :=
   let digits := input.trim.toList.withIndex.map (((column, char)) => Fail.need (hexValue char) "column ${column + 1}: expected a hexadecimal digit, got '${char}'")
   digits.flatMap digitBits
 
--- The first `count` bits as a number, and the bits after them; none if
--- there are fewer.
-def readNumber (count: Nat) (bits: List Bool): Option (Nat, List Bool) :=
+-- The first `count` bits, and the bits after them; none if there are
+-- fewer.
+def splitField (count: Nat) (bits: List Bool): Option (List Bool, List Bool) :=
   let field := bits.take count
-  if field.length == count then Some (Nat.fromBits field, bits.drop count) else None
+  if field.length == count then Some (field, bits.drop count) else None
+
+-- The first `count` bits as a number, and the bits after them.
+def readNumber (count: Nat) (bits: List Bool): Option (Nat, List Bool) :=
+  match splitField count bits with
+    | Some (field, rest) => Some (Nat.fromBits field, rest)
+    | None => None
 
 -- A literal's groups: each is a bit saying whether another follows, then
 -- four bits.
@@ -141,16 +147,17 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
                   match readNumber 15 fields with
                     | None => None
                     | Some (length, after) =>
-                      let inside := after.take length
-                      if shorter: inside.length < bits.length then
-                        match readPackets Filling inside with
-                          | None => None
-                          | Some (subPackets, _) =>
-                            let following := after.drop length
-                            if shorterAfter: following.length < bits.length then
-                              andThen (Operator version operation TotalLength subPackets) (readPackets later following)
-                            else None
-                      else None
+                      match splitField length after with
+                        | None => None
+                        | Some (inside, following) =>
+                          if shorter: inside.length < bits.length then
+                            match readPackets Filling inside with
+                              | None => None
+                              | Some (subPackets, _) =>
+                                if shorterAfter: following.length < bits.length then
+                                  andThen (Operator version operation TotalLength subPackets) (readPackets later following)
+                                else None
+                          else None
                 | Cons True fields =>
                   match readNumber 11 fields with
                     | None => None

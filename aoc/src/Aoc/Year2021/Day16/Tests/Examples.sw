@@ -65,6 +65,12 @@ test "not hexadecimal" := parsed "D2FG28\n" == Err "column 4: expected a hexadec
 
 test "too short" := parsed "D2FE" == Err "the transmission isn't a packet"
 
+-- Sub-packets exactly filling a total length of 22 bits, and the same
+-- with a length of 100 that the transmission ends before.
+test "a total length" := parsed "38005B4528B" == Ok (Operator 1 LessThan TotalLength [Literal 6 [10], Literal 2 [11]])
+
+test "a total length past the end" := parsed "3801934528B" == Err "the transmission isn't a packet"
+
 -- A comparison with three sub-packets breaks the puzzle's promise.
 test "a comparison of three" := parsed "3A00C40881102" == Err "an operator of type 6 has 3 sub-packets"
 
