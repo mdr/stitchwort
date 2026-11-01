@@ -322,9 +322,12 @@ fn a_result_shows_the_summary_of_its_doc() {
 --| the doc is not shown.
 def doubleIt (n: Nat): Nat := n + n
 
--- Keeps the `Some` results,
--- in order. Then more.
+--| Keeps the `Some` results,
+--| in order. Then more.
 def keepAll (n: Nat): Nat := n
+
+-- A plain note is no doc, so no summary.
+def noteOnly (n: Nat): Nat := n
 
 def noDocHere (n: Nat): Nat := n
 ";
@@ -342,10 +345,15 @@ def noDocHere (n: Nat): Nat := n
     );
     // No doc: no line in the text, and `null`.
     let (_, out, _) = search(&dir, &["\"noDocHere\"", "a.sw"]);
-    assert!(out.contains("a.sw:10\n1 result"), "{out}");
+    assert!(out.contains("a.sw:13\n1 result"), "{out}");
     let (_, report) = json(&dir, &["\"noDocHere\"", "a.sw"]);
     assert!(
         result(&report, "Main.noDocHere")["summary"].is_null(),
+        "{report}"
+    );
+    let (_, report) = json(&dir, &["\"noteOnly\"", "a.sw"]);
+    assert!(
+        result(&report, "Main.noteOnly")["summary"].is_null(),
         "{report}"
     );
     // A library definition's summary is the doc above it, and a summary isn't

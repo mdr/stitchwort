@@ -12,24 +12,10 @@ use crate::lexer::{Comment, Tok, Trivia, lex_with_trivia};
 use crate::parser::{DEFAULT_STACK, decl_ranges, parse_module_recovering, parse_namespace_line};
 use crate::{FileId, Span};
 
-/// How a doc was marked in the source.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DocMarker {
-    /// `--|` lines (D2134).
-    Bar,
-    /// Plain `--` lines: D2142's fallback until the sorting pass.
-    Plain,
-}
-
-impl DocMarker {
-    /// As the JSON writes it: `--|` or `--`.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            DocMarker::Bar => "--|",
-            DocMarker::Plain => "--",
-        }
-    }
-}
+/// The marker of a doc line (D2134). Only `--|` lines make a doc; since
+/// SW-1044 a plain `--` comment is a note, never a doc (D2142's fallback is
+/// gone). The JSON's `docMarker` is always this.
+pub const DOC_MARKER: &str = "--|";
 
 /// A declaration's doc.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,9 +24,8 @@ pub struct Doc {
     pub text: String,
     /// The first sentence of the first paragraph ([`summary`]).
     pub summary: String,
-    pub marker: DocMarker,
-    /// The links in a `--|` doc (§7), in the order [`link_ranges`] finds them
-    /// in `text`; none for a doc of `--` lines, which isn't checked.
+    /// The links in the doc (§7), in the order [`link_ranges`] finds them in
+    /// `text`.
     pub links: Vec<DocLink>,
     /// From the first doc line to the end of the last, for diagnostics and
     /// links.
@@ -48,12 +33,11 @@ pub struct Doc {
 }
 
 impl Doc {
-    fn new(lines: &[String], marker: DocMarker, links: Vec<DocLink>, span: Span) -> Doc {
+    fn new(lines: &[String], links: Vec<DocLink>, span: Span) -> Doc {
         let text = lines.join("\n");
         Doc {
             summary: summary(&text),
             text,
-            marker,
             links,
             span,
         }
@@ -209,8 +193,7 @@ pub fn docs(file: FileId, text: &str) -> BTreeMap<u32, Doc> {
 /// The doc of a file as a whole (§4): the comment runs before its first
 /// declaration, other than the run that is that declaration's own, joined as
 /// paragraphs. A `namespace` or `import` line is not a declaration here, so
-/// every run above one is the file's. Until the sorting pass, if no run has a
-/// `--|` line, the `--` runs are the doc.
+/// every run above one is the file's. Only `--|` lines count.
 pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
     let lexed = lex_with_trivia(file, text).ok()?;
     let groups = decl_ranges(&lexed.tokens).ok()?;
@@ -227,7 +210,6 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
         None => (&lexed.eof.leading[..], 0),
     };
     let comments = &comments[..comments.len() - own];
-    let bar = comments.iter().any(|c| c.text.starts_with("--|"));
     let mut lines: Vec<String> = Vec::new();
     let mut links = Vec::new();
     let mut span: Option<Span> = None;
@@ -236,24 +218,17 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
         if n > 0
             && comment.blank_lines_before > 0
             && lines.last().is_some_and(|l| !l.is_empty())
-            && body(comment, bar).is_some()
+            && body(comment).is_some()
         {
             lines.push(String::new());
         }
-        if let Some(line) = body(comment, bar) {
+        if let Some(line) = body(comment) {
             lines.push(line);
             span = Some(span.map_or(comment.span, |s| s.to(comment.span)));
-            if bar {
-                links.extend(comment_links(&comment.text, comment.span));
-            }
+            links.extend(comment_links(&comment.text, comment.span));
         }
     }
-    let marker = if bar {
-        DocMarker::Bar
-    } else {
-        DocMarker::Plain
-    };
-    finish(lines, marker, links, span?)
+    finish(lines, links, span?)
 }
 
 /// The namespace a file's doc belongs to (§4). A library file's doc belongs
@@ -326,54 +301,36 @@ fn attached(trivia: &Trivia) -> &[Comment] {
 /// The doc of the declaration or member whose first token is `tokens[at]`.
 fn attached_doc(trivia: &[Trivia], at: usize) -> Option<Doc> {
     let run = attached(trivia.get(at)?);
-    let bar = run.iter().any(|c| c.text.starts_with("--|"));
     let mut lines = Vec::new();
     let mut links = Vec::new();
     let mut span: Option<Span> = None;
     for comment in run {
-        if let Some(line) = body(comment, bar) {
+        if let Some(line) = body(comment) {
             lines.push(line);
             span = Some(span.map_or(comment.span, |s| s.to(comment.span)));
-            if bar {
-                links.extend(comment_links(&comment.text, comment.span));
-            }
+            links.extend(comment_links(&comment.text, comment.span));
         }
     }
-    let marker = if bar {
-        DocMarker::Bar
-    } else {
-        DocMarker::Plain
-    };
-    finish(lines, marker, links, span?)
+    finish(lines, links, span?)
 }
 
-/// A comment's line of the doc: with `bar`, the text after `--|` (and one
-/// space) of a `--|` comment, and nothing for any other; without, the text
-/// after `--` (and one space).
-fn body(comment: &Comment, bar: bool) -> Option<String> {
-    let rest = if bar {
-        comment.text.strip_prefix("--|")?
-    } else {
-        comment.text.strip_prefix("--")?
-    };
+/// A comment's line of the doc: the text after `--|` (and one space) of a
+/// `--|` comment, and nothing for any other.
+fn body(comment: &Comment) -> Option<String> {
+    let rest = comment.text.strip_prefix("--|")?;
     let rest = rest.strip_prefix(' ').unwrap_or(rest);
     Some(rest.trim_end().to_string())
 }
 
 /// A doc from its lines, with the blank lines at its ends dropped; none if
 /// nothing is left.
-fn finish(
-    mut lines: Vec<String>,
-    marker: DocMarker,
-    links: Vec<DocLink>,
-    span: Span,
-) -> Option<Doc> {
+fn finish(mut lines: Vec<String>, links: Vec<DocLink>, span: Span) -> Option<Doc> {
     while lines.last().is_some_and(|l| l.is_empty()) {
         lines.pop();
     }
     let skip = lines.iter().take_while(|l| l.is_empty()).count();
     lines.drain(..skip);
-    (!lines.is_empty()).then(|| Doc::new(&lines, marker, links, span))
+    (!lines.is_empty()).then(|| Doc::new(&lines, links, span))
 }
 
 /// The longest a summary is, in characters.
@@ -443,21 +400,15 @@ mod tests {
         SourceMap::new().add("input.sw", "")
     }
 
-    /// The docs of `text`, as `(text, marker)` by the offset of `needle`
-    /// plus `skip` (the name's start).
-    fn doc_at(text: &str, needle: &str, skip: usize) -> Option<(String, DocMarker)> {
+    /// The doc text of `text`, by the offset of `needle` plus `skip` (the
+    /// name's start).
+    fn doc_at(text: &str, needle: &str, skip: usize) -> Option<String> {
         let offset = text.find(needle).expect("the needle is in the text") + skip;
-        docs(file(), text)
-            .remove(&(offset as u32))
-            .map(|d| (d.text, d.marker))
+        docs(file(), text).remove(&(offset as u32)).map(|d| d.text)
     }
 
-    fn bar(text: &str) -> Option<(String, DocMarker)> {
-        Some((text.to_string(), DocMarker::Bar))
-    }
-
-    fn plain(text: &str) -> Option<(String, DocMarker)> {
-        Some((text.to_string(), DocMarker::Plain))
+    fn bar(text: &str) -> Option<String> {
+        Some(text.to_string())
     }
 
     #[test]
@@ -467,9 +418,14 @@ mod tests {
     }
 
     #[test]
-    fn a_plain_run_is_the_doc_when_no_line_is_marked() {
+    fn a_plain_run_above_a_declaration_is_not_a_doc() {
         let text = "-- Adds one.\n--   indented\ndef inc (n: Nat): Nat := n + 1\n";
-        assert_eq!(doc_at(text, "inc", 0), plain("Adds one.\n  indented"));
+        assert_eq!(doc_at(text, "inc", 0), None);
+        assert!(docs(file(), text).is_empty());
+        // Nor above an attribute, a type or a member.
+        let more =
+            "-- Note.\n@[noReceiver]\ndef h: Nat := 1\n\n-- Note.\ntype T =\n  -- Note.\n  | A\n";
+        assert!(docs(file(), more).is_empty());
     }
 
     #[test]
@@ -544,7 +500,7 @@ type Shape =
 ";
         assert_eq!(doc_at(text, "Shape", 0), bar("A shape."));
         assert_eq!(doc_at(text, "Dot", 0), bar("A point."));
-        assert_eq!(doc_at(text, "Circle", 0), plain("A circle."));
+        assert_eq!(doc_at(text, "Circle", 0), None);
         assert_eq!(doc_at(text, "Square", 0), None);
     }
 
@@ -619,8 +575,8 @@ type Own = | One
         assert_eq!(&text[doc.span.range()], "--| Doc.");
     }
 
-    fn file_doc_of(text: &str) -> Option<(String, DocMarker)> {
-        file_doc(file(), text).map(|d| (d.text, d.marker))
+    fn file_doc_of(text: &str) -> Option<String> {
+        file_doc(file(), text).map(|d| d.text)
     }
 
     #[test]
@@ -636,19 +592,30 @@ type Own = | One
 
     #[test]
     fn a_file_doc_may_sit_above_the_namespace_line() {
-        let text = "-- Grids.\n--\n-- More.\n\nnamespace Aoc.Common\nimport Std (List)\n\n--| Of `a`.\ndef a: Nat := 1\n";
-        assert_eq!(file_doc_of(text), plain("Grids.\n\nMore."));
+        let text = "--| Grids.\n--|\n--| More.\n\nnamespace Aoc.Common\nimport Std (List)\n\n--| Of `a`.\ndef a: Nat := 1\n";
+        assert_eq!(file_doc_of(text), bar("Grids.\n\nMore."));
         // Even with no blank line: a `namespace` line has no doc of its own.
-        let close = "-- Grids.\nnamespace Aoc.Common\n\ndef a: Nat := 1\n";
-        assert_eq!(file_doc_of(close), plain("Grids."));
+        let close = "--| Grids.\nnamespace Aoc.Common\n\ndef a: Nat := 1\n";
+        assert_eq!(file_doc_of(close), bar("Grids."));
     }
 
     #[test]
-    fn marked_lines_win_over_plain_runs_in_a_file_doc() {
+    fn plain_runs_beside_marked_ones_are_not_in_a_file_doc() {
         let text = "-- Maintainer note.\n\n--| For users.\n\n--| More.\n\ndef a: Nat := 1\n";
-        let doc = file_doc(file(), text).expect("a doc");
-        assert_eq!(doc.text, "For users.\n\nMore.");
-        assert_eq!(doc.marker, DocMarker::Bar);
+        assert_eq!(file_doc_of(text), bar("For users.\n\nMore."));
+    }
+
+    #[test]
+    fn a_file_of_only_plain_comments_has_no_file_doc() {
+        assert_eq!(
+            file_doc_of("-- Notes.\n\n-- More.\n\ndef a: Nat := 1\n"),
+            None
+        );
+        assert_eq!(
+            file_doc_of("-- Notes.\nnamespace N\n\ndef a: Nat := 1\n"),
+            None
+        );
+        assert_eq!(file_doc_of("-- Only notes here.\n"), None);
     }
 
     #[test]
@@ -766,11 +733,10 @@ type Own = | One
     fn plain_notes_and_trailing_comments_have_no_links() {
         let text = "-- [`a`]\ndef a: Nat := 1 --| [`a`]\n--| [`a`]\n-- [`b`]\ndef b: Nat := 2\n";
         let docs = docs(file(), text);
-        // `a`'s own-line `--` note is its doc, with the link unchecked.
-        let first = docs.values().next().unwrap();
-        assert_eq!((first.marker, first.links.len()), (DocMarker::Plain, 0));
-        let second = docs.values().nth(1).unwrap();
-        assert_eq!((second.marker, second.links.len()), (DocMarker::Bar, 1));
+        // `a`'s own-line `--` note is no doc; `b` has one `--|` line.
+        assert_eq!(docs.len(), 1);
+        let only = docs.values().next().unwrap();
+        assert_eq!(only.links.len(), 1);
     }
 
     #[test]

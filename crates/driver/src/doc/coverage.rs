@@ -4,14 +4,14 @@
 //!
 //! Definitions, types, interfaces and abilities are counted together;
 //! theorems are counted apart and never mixed into that figure. A doc that
-//! repeats the name, or is under four words, counts as missing (D2148). Plain
-//! `--` docs still count during the transition (D2142); they are counted so
-//! the sorting pass can be tracked.
+//! repeats the name, or is under four words, counts as missing (D2148). Only
+//! `--|` lines make a doc: a plain `--` comment above a declaration counts as
+//! no doc (SW-1044).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
-use stitchwort_syntax::docs::{Doc, DocMarker};
+use stitchwort_syntax::docs::Doc;
 
 use super::{Decls, Kind, Within};
 
@@ -25,8 +25,6 @@ pub struct Counts {
     pub total: usize,
     /// With a doc that counts (not missing, not too short, not the name).
     pub documented: usize,
-    /// Of those, the ones marked with plain `--` (D2142).
-    pub plain: usize,
     /// With an example attached by name; not for theorems.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub with_example: Option<usize>,
@@ -41,8 +39,6 @@ pub struct Missing {
     pub line: usize,
     /// `no doc`, `too short` or `repeats the name`.
     pub reason: &'static str,
-    /// The marker of the doc that doesn't count, if there is one.
-    pub marker: Option<&'static str>,
 }
 
 /// An `…Example` theorem whose base name is not a definition or theorem.
@@ -66,8 +62,6 @@ pub struct NamespaceCoverage {
     pub undocumented: Vec<Missing>,
     /// The theorems with no doc that counts.
     pub undocumented_theorems: Vec<Missing>,
-    /// The names whose doc counts and is plain `--`.
-    pub plain_docs: Vec<String>,
     pub unattached_examples: Vec<Unattached>,
 }
 
@@ -184,7 +178,6 @@ impl Decls {
             theorems: Counts::default(),
             undocumented: Vec::new(),
             undocumented_theorems: Vec::new(),
-            plain_docs: Vec::new(),
             unattached_examples: Vec::new(),
         };
         for &i in set {
@@ -204,10 +197,6 @@ impl Decls {
             match verdict {
                 None => {
                     counts.documented += 1;
-                    if doc.as_ref().is_some_and(|d| d.marker == DocMarker::Plain) {
-                        counts.plain += 1;
-                        out.plain_docs.push(e.path.clone());
-                    }
                 }
                 Some(reason) => {
                     let (file, line) = self.location(i);
@@ -217,7 +206,6 @@ impl Decls {
                         file,
                         line,
                         reason,
-                        marker: doc.as_ref().map(|d| d.marker.as_str()),
                     };
                     if theorem {
                         out.undocumented_theorems.push(missing);
@@ -283,19 +271,11 @@ pub fn render_coverage(c: &Coverage) -> String {
         out.push_str(&format!("{}\n", ns.namespace));
         let d = &ns.declarations;
         let with_example = d.with_example.unwrap_or(0);
-        let plain = |n: usize| {
-            if n == 0 {
-                String::new()
-            } else {
-                format!(", {n} marked `--` (not yet `--|`)")
-            }
-        };
         out.push_str(&format!(
-            "  documented: {} / {} ({}){}\n",
+            "  documented: {} / {} ({})\n",
             d.documented,
             d.total,
-            percent(d.documented, d.total),
-            plain(d.plain)
+            percent(d.documented, d.total)
         ));
         out.push_str(&format!(
             "  with an example: {with_example} / {} ({})\n",
@@ -304,18 +284,16 @@ pub fn render_coverage(c: &Coverage) -> String {
         ));
         let t = &ns.theorems;
         out.push_str(&format!(
-            "  theorems documented (counted apart): {} / {} ({}){}\n",
+            "  theorems documented (counted apart): {} / {} ({})\n",
             t.documented,
             t.total,
-            percent(t.documented, t.total),
-            plain(t.plain)
+            percent(t.documented, t.total)
         ));
         if !ns.undocumented.is_empty() {
             out.push_str(&format!("  undocumented ({}):\n", ns.undocumented.len()));
             for m in &ns.undocumented {
-                let marker = m.marker.map(|k| format!(" {k}")).unwrap_or_default();
                 out.push_str(&format!(
-                    "    {}  {}  {}:{}  ({}{marker})\n",
+                    "    {}  {}  {}:{}  ({})\n",
                     m.name, m.kind, m.file, m.line, m.reason
                 ));
             }

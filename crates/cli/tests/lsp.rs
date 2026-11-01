@@ -317,7 +317,9 @@ fn hover_shows_the_doc() {
         "{double}"
     );
     let g = hover_text(&mut client, 9, "g +");
-    assert!(g.ends_with("def `Main.g`\n\nPlain note."), "{g}");
+    // A plain `--` note above it is no doc (SW-1044).
+    assert!(g.ends_with("def `Main.g`"), "{g}");
+    assert!(!g.contains("Plain note"), "{g}");
     // A library name outside the core: the doc above `List.filterMap`.
     let filter_map = hover_text(&mut client, 9, "List.filterMap");
     assert!(

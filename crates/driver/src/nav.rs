@@ -74,8 +74,7 @@ pub struct Symbol {
     /// `NavSymbol::signature`).
     pub signature: Option<String>,
     /// Its doc, read from the comments above it (docs/proposals/documentation.md
-    /// §4), with the first sentence of it and how it was marked: `--|` or
-    /// `--` (until the sorting pass).
+    /// §4), with the first sentence of it and its marker (always `--|`).
     pub doc: Option<SymbolDoc>,
 }
 
@@ -187,7 +186,7 @@ pub fn index_json(
                 r#","doc":{},"summary":{},"docMarker":"{}","links":["#,
                 string(&doc.text),
                 string(&doc.summary),
-                doc.marker
+                stitchwort_syntax::docs::DOC_MARKER
             );
             for (i, link) in doc.links.iter().enumerate() {
                 if i > 0 {
@@ -406,7 +405,7 @@ pub fn index_data_of(
             .map(|doc| SymbolDoc {
                 text: doc.text.clone(),
                 summary: doc.summary.clone(),
-                marker: doc.marker.as_str(),
+                marker: stitchwort_syntax::docs::DOC_MARKER,
                 links: doc
                     .links
                     .iter()

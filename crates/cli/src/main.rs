@@ -316,8 +316,8 @@ enum Command {
         /// (none: the library, or the project's), the definitions, types,
         /// interfaces and abilities with a doc and with an example, the
         /// theorems with a doc (apart), the undocumented names and the
-        /// `…Example` theorems that attach to nothing. Plain `--` docs count
-        /// and are counted
+        /// `…Example` theorems that attach to nothing. Only `--|` docs count:
+        /// a plain `--` comment is no doc
         #[arg(long)]
         coverage: bool,
         /// The project folder, if not the folder you're in or the nearest

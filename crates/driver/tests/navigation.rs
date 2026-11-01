@@ -281,7 +281,7 @@ fn declarations_refer_to_themselves() {
 }
 
 /// A symbol has its `doc`, its `summary` and its `docMarker` when it has a
-/// doc: from `--|` lines, or a plain `--` run (until the sorting pass), for
+/// doc: from `--|` lines only (a plain `--` run is a note, SW-1044), for
 /// declarations, constructors, fields and operations, in a program's file
 /// and a library's (docs/proposals/documentation.md §5.6).
 #[test]
@@ -293,9 +293,13 @@ fn symbols_have_docs() {
 type Bag = { n: Nat, m: Nat }
 
 type Shape =
-  -- A circle: `r` is the radius.
+  --| A circle: `r` is the radius.
   | Circle (r: Nat)
+  -- A note, not a doc.
   | Square (side: Nat)
+
+-- Another note, not a doc.
+def noted (n: Nat): Nat := n
 
 -- Keep this note.
 --| Size of a `Bag`.
@@ -312,7 +316,7 @@ def use (b: Bag): Nat := b.size + [1].length
         &json[at..at + end]
     };
     assert!(
-        symbol("Main.Bag").ends_with(
+        symbol("Main.Bag").contains(
             r#""doc":"A bag. Of things,\ncounted.","summary":"A bag.","docMarker":"--|""#
         ),
         "{}",
@@ -320,16 +324,14 @@ def use (b: Bag): Nat := b.size + [1].length
     );
     let circle = symbol("Main.Shape.Circle");
     assert!(
-        circle.ends_with(
-            r#""doc":"A circle: `r` is the radius.","summary":"A circle: `r` is the radius.","docMarker":"--""#
+        circle.contains(
+            r#""doc":"A circle: `r` is the radius.","summary":"A circle: `r` is the radius.","docMarker":"--|""#
         ),
         "{circle}"
     );
     let size = symbol("Main.Bag.size");
     assert!(
-        size.ends_with(
-            r#""doc":"Size of a `Bag`.","summary":"Size of a `Bag`.","docMarker":"--|""#
-        ),
+        size.contains(r#""doc":"Size of a `Bag`.","summary":"Size of a `Bag`.","docMarker":"--|""#),
         "{size}"
     );
     // Fields sharing a line, and an undocumented constructor, have none.
@@ -340,11 +342,13 @@ def use (b: Bag): Nat := b.size + [1].length
     );
     let square = symbol("Main.Shape.Square");
     assert!(!square.contains("doc"), "{square}");
+    let noted = symbol("Main.noted");
+    assert!(!noted.contains("doc"), "{noted}");
     // A library symbol: the comment above `List.length` in the core.
     let length = symbol("Std.List.length");
     assert!(
         length.contains(r#""doc":"`a` is bound automatically"#)
-            && length.contains(r#""docMarker":"--""#),
+            && length.contains(r#""docMarker":"--|""#),
         "{length}"
     );
 }

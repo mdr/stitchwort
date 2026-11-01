@@ -103,8 +103,7 @@ Local definitions aren't listed (they are binders).
   present when the declaration has a doc (docs/proposals/documentation.md §4,
   docs/syntax.md "Doc comments"): the `--|` lines above it with the markers
   removed, lines joined with `\n`; its first sentence; and how it was
-  marked, `"--|"`, or `"--"` for a plain comment run, which counts as a doc
-  until the sorting pass. A constructor, field or operation has one only when
+  marked, always `"--|"` (a plain `--` run is no doc since SW-1044). A constructor, field or operation has one only when
   its name is on a line of its own. They were added to version 3 without a
   version change (a field that changes meaning or goes would change it). The
   text is read from the source the check used, so a library symbol has the
