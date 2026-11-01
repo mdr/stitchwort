@@ -1090,3 +1090,21 @@ fn identical_updates_are_equal_cold_and_warm() {
     assert_cache_changes_nothing(&source, false);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A record of propositions that nothing decides gets no derived decision
+/// (SW-1015), and no half-made instance either: its namespace is cached
+/// like any other.
+#[test]
+fn a_record_that_cannot_be_decided_is_cached() {
+    let dir = temp_project(
+        "undecidable-record",
+        &[(
+            "src/R.sw",
+            "namespace R\n\n\
+             type Both (p: Prop) (n: Nat): Prop = { first: p, second: n = n }\n\n\
+             def one: Nat := 1\n",
+        )],
+    );
+    assert_targets_share(&dir, &[], &["R"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}

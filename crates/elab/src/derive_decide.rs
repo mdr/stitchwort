@@ -30,9 +30,11 @@
 //! wanted (`no_decide`). The core's records (`And`, `Iff`) have theirs
 //! written by hand.
 
-use stitchwort_core::{DataId, Sort};
+use stitchwort_core::value::{eval, force};
+use stitchwort_core::{DataId, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Bracket, Decl, Expr};
 
+use crate::check::Ctx;
 use crate::{Elaborator, Result};
 
 impl Elaborator {
@@ -67,6 +69,15 @@ impl Elaborator {
                 self.derive_proof_type(d, 0, k)?;
             }
         }
+        // Each field's proposition must be decided by something `auto` finds,
+        // given nothing about the parameters: checked before anything is
+        // declared, so a record that can't be decided leaves no half-made
+        // instance behind (which the check cache couldn't keep).
+        self.clear_metas();
+        if let Some(why) = self.undecidable_field(d)? {
+            self.no_decide.insert(d, format!("deriving it failed: {why}"));
+            return Ok(());
+        }
         self.clear_metas();
         let (signature, equation) = self.decidable_source(d);
         let result = self.definition(&signature, &[equation]);
@@ -80,6 +91,38 @@ impl Elaborator {
                 Ok(())
             }
         }
+    }
+
+    /// Why the proposition of some field of record `d` has no decision
+    /// `auto` finds (with the record's parameters as variables), if so.
+    fn undecidable_field(&mut self, d: DataId) -> Result<Option<String>> {
+        let data = self.globals.data(d);
+        let span = data.span;
+        let np = data.params.len();
+        let params: Vec<(Name, Term)> = data.params.clone();
+        let fields: Vec<Term> = data.ctors[0].fields.iter().map(|(_, t)| t.clone()).collect();
+        let mut why = None;
+        {
+            let mut cx = Ctx::new(self, span);
+            for (x, ty) in &params {
+                let ty = cx.eval(ty)?;
+                cx.bind_hidden(x.clone(), ty);
+            }
+            for (k, ty) in fields.iter().enumerate() {
+                let env: Vec<Value> = (0..np + k).map(Value::var).collect();
+                let prop = force(cx.g(), eval(cx.g(), &env, ty)?)?;
+                match crate::auto::decide(&mut cx, &prop, 0) {
+                    Ok(_) => {}
+                    Err(e) if e.code == "E-RESOURCE" => return Err(e),
+                    Err(e) => {
+                        why = Some(e.message);
+                        break;
+                    }
+                }
+            }
+        }
+        self.clear_metas();
+        Ok(why)
     }
 
     /// The signature and the equation of `T.%instDecidable`.
