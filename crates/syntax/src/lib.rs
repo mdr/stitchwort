@@ -3,6 +3,7 @@
 
 pub mod ast;
 mod diagnostic;
+pub mod docs;
 pub mod equivalence;
 mod lexer;
 mod negation;
