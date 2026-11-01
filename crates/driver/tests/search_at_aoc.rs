@@ -402,7 +402,10 @@ fn search_at_on_aoc_goals() {
 /// A real goal of AoC 2021 days 9 to 18 (SW-989): what the proof lanes asked
 /// `search --at` about (aoc/NOTES-2021.md, each day's "search" paragraphs,
 /// and the friction tickets SW-960 to SW-980), made again by replacing the
-/// proof written there with `?` (in memory).
+/// proof written there with `?` (in memory). Where a later lane replaced the
+/// proof by a std lemma (SW-983) or moved it (SW-984), the goal is put back
+/// as the lane met it: its theorem written again with `?`, or the `?` where
+/// the std lemma now stands, that lemma left out of the search (`exclude`).
 struct Real {
     /// The theorem, and what the goal shows (the note's words).
     label: &'static str,
@@ -418,6 +421,10 @@ struct Real {
     /// What closes it: a lemma's name (a word of a closing proof) or a
     /// tactic. Empty: only that the goal is read (it was refused).
     want: &'static [&'static str],
+    /// Declarations not to suggest, by full name: std lemmas added since
+    /// (SW-983) whose statement is the goal's own, so that the goal is
+    /// asked about as the lane met it.
+    exclude: &'static [&'static str],
 }
 
 const D: &str = "src/Aoc/Year2021/";
@@ -425,64 +432,69 @@ const D: &str = "src/Aoc/Year2021/";
 #[rustfmt::skip]
 const REAL: &[Real] = &[
     Real { label: "landsFoldDot after `match fold`: `cases`", kind: "context order", path: "Day13/Proofs/Fold.sw",
-        from: "| AlongX line => cases", until: None, to: "| AlongX line => ?", want: &["cases"] },
+        from: "| AlongX line => cases", until: None, to: "| AlongX line => ?", want: &["cases"], exclude: &[] },
     Real { label: "widthCovers, equation-style `Cons dot rest, spot, Inl same`", kind: "context order", path: "Day13/Proofs/Picture.sw",
         from: "| Cons dot rest, spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]", until: None,
-        to: "| Cons dot rest, spot, Inl same => ?", want: &[] },
+        to: "| Cons dot rest, spot, Inl same => ?", want: &[], exclude: &[] },
     Real { label: "widthCons: `List.foldRightCons`", kind: "works", path: "Day13/Proofs/Picture.sw",
-        from: "List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)", until: None, to: "?", want: &["foldRightCons"] },
+        from: "List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)", until: None, to: "?", want: &["foldRightCons"], exclude: &[] },
     Real { label: "addToFirstZero's `Cons leaf rest` (a record after `Cons`)", kind: "record after a constructor", path: "Day18/Proofs/Leaves.sw",
-        from: "| Cons leaf rest => Eq.cong (l => Cons l rest) (addZeroLeaf leaf)", until: None, to: "| Cons leaf rest => ?", want: &[] },
+        from: "| Cons leaf rest => Eq.cong (l => Cons l rest) (addZeroLeaf leaf)", until: None, to: "| Cons leaf rest => ?", want: &[], exclude: &[] },
     Real { label: "shiftAppend's `Some found` (a record update in `Some`)", kind: "record after a constructor", path: "Day18/Proofs/Explode.sw",
-        from: "| Some found => Eq.cong Some (Exploding.ext", until: Some("\n"), to: "| Some found => ?", want: &[] },
+        from: "| Some found => Eq.cong Some (Exploding.ext", until: Some("\n"), to: "| Some found => ?", want: &[], exclude: &[] },
     Real { label: "leavesShallow's `Regular value, small`", kind: "context order", path: "Day18/Proofs/Reduced.sw",
-        from: "| Regular value, small => And.left (And.left small)", until: None, to: "| Regular value, small => ?", want: &[] },
+        from: "| Regular value, small => And.left (And.left small)", until: None, to: "| Regular value, small => ?", want: &[], exclude: &[] },
     Real { label: "leavesSmall's `Pair left right` (`split.%match1` in a hypothesis)", kind: "hidden %match name", path: "Day18/Proofs/Reduced.sw",
-        from: "match el: split left with", until: Some("\n\ntheorem leavesShallow"), to: "?", want: &[] },
+        from: "match el: split left with", until: Some("\n\ntheorem leavesShallow"), to: "?", want: &[], exclude: &[] },
     Real { label: "memberPairs: `(if i == j then None else Some (x, y)) = Some (x, y)`", kind: "works", path: "Day18/Proofs/Answers.sw",
-        from: "atJ) cases)", until: None, to: "atJ) ?)", want: &["cases"] },
+        from: "atJ) cases)", until: None, to: "atJ) ?)", want: &["cases"], exclude: &[] },
     Real { label: "takeAppendLength: `rewrite <- h in List.takeAppend xs ys`", kind: "hypothesis as a rewrite", path: "Day16/Proofs/Fields.sw",
-        from: "rewrite <- h in List.takeAppend xs ys", until: None, to: "?", want: &["takeAppend"] },
+        from: "-- `Some` of two pairs", until: None,
+        to: "theorem takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := ?\n\n-- `Some` of two pairs",
+        want: &["takeAppend"], exclude: &["Std.List.takeAppendLength"] },
     Real { label: "fromBitsBelow: `Nat.fromBitsFlipped` then `omega`", kind: "works", path: "Day16/Proofs/Bits.sw",
-        from: "omega [Nat.fromBitsFlipped bits]", until: None, to: "?", want: &["fromBitsFlipped"] },
+        from: "omega [Nat.fromBitsFlipped bits]", until: None, to: "?", want: &["fromBitsFlipped"], exclude: &[] },
     Real { label: "lengthBitsOf's step: `List.lengthSnoc` and the induction hypothesis", kind: "induction hypothesis", path: "Day16/Proofs/Bits.sw",
-        from: "rewrite List.lengthSnoc (bitsOf width (n / 2)) (n % 2 == 1), lengthBitsOf width (n / 2) in rfl", until: None, to: "?", want: &["lengthSnoc", "lengthBitsOf"] },
+        from: "rewrite List.lengthSnoc (bitsOf width (n / 2)) (n % 2 == 1), lengthBitsOf width (n / 2) in rfl", until: None, to: "?", want: &["lengthSnoc", "lengthBitsOf"], exclude: &[] },
     Real { label: "lengthEvaluateAll's `Cons _ rest` (a `✝` name)", kind: "✝ name", path: "Day16/Proofs/Answers.sw",
-        from: "| Cons _ rest => rewrite lengthEvaluateAll rest in rfl", until: None, to: "| Cons _ rest => ?", want: &["lengthEvaluateAll"] },
+        from: "| Cons _ rest => rewrite lengthEvaluateAll rest in rfl", until: None, to: "| Cons _ rest => ?", want: &["lengthEvaluateAll"], exclude: &[] },
     Real { label: "groupsValue's `inner` (a lambda's binder named as a variable)", kind: "captured variable", path: "Day16/Proofs/Answers.sw",
-        from: "rewrite Nat.fromBitsFrom acc (bitsOf 4 group), fromBitsOf 4 group fits in rfl", until: None, to: "?", want: &["fromBitsFrom"] },
+        from: "rewrite Nat.fromBitsFrom acc (bitsOf 4 group), fromBitsOf 4 group fits in rfl", until: None, to: "?", want: &["fromBitsFrom"], exclude: &[] },
     Real { label: "neighboursMono: `List.countLeMem` (count unfolded)", kind: "folded goal", path: "Day11/Proofs/Rounds.sw",
-        from: "List.countLeMem levels.gridCells (cell => adjacent at cell.fst", until: Some("\n\n"), to: "?", want: &["countLeMem"] },
+        from: "List.countLeMem (cells levels) (cell => touching at cell.fst", until: Some("\n\n"), to: "?", want: &["countLeMem"], exclude: &[] },
     Real { label: "stepRepresents' calc step: `Eq.sym (List.sumByFlatMap …)`", kind: "symmetric lemma", path: "Day14/Proofs/Counts.sw",
-        from: "Eq.sym (List.sumByFlatMap (List.zipWithNext polymer) f (expand rules))", until: None, to: "?", want: &["sumByFlatMap"] },
+        from: "Eq.sym (List.sumByFlatMap (List.zipWithNext polymer) f (expand rules))", until: None, to: "?", want: &["sumByFlatMap"], exclude: &[] },
     Real { label: "pairsStep's step: `pairsStepCons` and the induction hypothesis", kind: "induction hypothesis", path: "Day14/Proofs/Pairs.sw",
-        from: "rewrite pairsStepCons rules a b rest, pairsStep rules (Cons b rest) in rfl", until: None, to: "?", want: &["pairsStepCons", "pairsStep"] },
-    Real { label: "memPositions: `List.memFlatMapIntro` (flatMap unfolded)", kind: "folded goal", path: "Day15/Steps.sw",
-        from: "List.memFlatMapIntro (row => List.range risks.width", until: Some("\n\n"), to: "?", want: &["memFlatMapIntro"] },
+        from: "rewrite pairsStepCons rules a b rest, pairsStep rules (Cons b rest) in rfl", until: None, to: "?", want: &["pairsStepCons", "pairsStep"], exclude: &[] },
+    Real { label: "memPositions: `List.memFlatMapIntro` (flatMap unfolded)", kind: "folded goal", path: "../Common/GridGraph.sw",
+        from: "List.memFlatMapIntro (row => List.range width", until: Some("\n\n"), to: "?", want: &["memFlatMapIntro"], exclude: &[] },
     Real { label: "candidatesDistinct: `List.distinctFlatMap` (flatMap unfolded)", kind: "folded goal", path: "Day17/Proofs/Answers.sw",
-        from: "List.distinctFlatMap (i => List.range (steps target)", until: Some("\n\ntheorem hittingDistinct"), to: "?", want: &["distinctFlatMap"] },
+        from: "List.distinctFlatMap (i => List.range (steps target)", until: Some("\n\ntheorem hittingDistinct"), to: "?", want: &["distinctFlatMap"], exclude: &[] },
     Real { label: "hittingDistinct: `List.distinctFilter`", kind: "works", path: "Day17/Proofs/Answers.sw",
-        from: "List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)", until: None, to: "?", want: &["distinctFilter"] },
+        from: "List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)", until: None, to: "?", want: &["distinctFilter"], exclude: &[] },
     Real { label: "dyAfter's base case: `omega`", kind: "works", path: "Day17/Proofs/Motion.sw",
-        from: "| 0, probe => omega", until: None, to: "| 0, probe => ?", want: &["omega"] },
+        from: "| 0, probe => omega", until: None, to: "| 0, probe => ?", want: &["omega"], exclude: &[] },
     Real { label: "dyAfter's step: the induction hypothesis", kind: "induction hypothesis", path: "Day17/Proofs/Motion.sw",
-        from: "| Succ n, probe => omega [dyAfter n (step probe)]", until: None, to: "| Succ n, probe => ?", want: &["dyAfter"] },
+        from: "| Succ n, probe => omega [dyAfter n (step probe)]", until: None, to: "| Succ n, probe => ?", want: &["dyAfter"], exclude: &[] },
     Real { label: "differ: `(x == y) = False` from `x ≠ y`", kind: "works", path: "Day12/Proofs/Neighbours.sw",
-        from: "match e: x == y with", until: Some("\n\n"), to: "?", want: &["toBoolOfNot", "equalFalse", "soundFalse"] },
+        from: "match e: x == y with", until: Some("\n\n"), to: "?", want: &["toBoolOfNot", "equalFalse", "soundFalse"], exclude: &[] },
     Real { label: "appendStep: `List.appendAssoc` backwards", kind: "works", path: "Day12/Proofs/Rules.sw",
-        from: "Eq.sym (List.appendAssoc sofar [y] more)", until: None, to: "?", want: &["appendAssoc"] },
+        from: "Eq.sym (List.appendAssoc sofar [y] more)", until: None, to: "?", want: &["appendAssoc"], exclude: &[] },
     Real { label: "visitsMember's `Cons x rest, Inl same`", kind: "context order", path: "Day12/Proofs/Rules.sw",
-        from: "| Cons x rest, Inl same => rewrite same, DecEq.refl cave in omega", until: None, to: "| Cons x rest, Inl same => ?", want: &[] },
+        from: "| Cons x rest, Inl same => rewrite same, DecEq.refl cave in omega", until: None, to: "| Cons x rest, Inl same => ?", want: &[], exclude: &[] },
     Real { label: "visitsMember's `Cons x rest, Inr later`: the induction hypothesis", kind: "induction hypothesis", path: "Day12/Proofs/Rules.sw",
-        from: "| Cons x rest, Inr later => omega [visitsMember cave rest later]", until: None, to: "| Cons x rest, Inr later => ?", want: &["visitsMember"] },
+        from: "| Cons x rest, Inr later => omega [visitsMember cave rest later]", until: None, to: "| Cons x rest, Inr later => ?", want: &["visitsMember"], exclude: &[] },
     Real { label: "toNatAtMostOne: `cases`", kind: "works", path: "Day10/Proofs/Middle.sw",
-        from: "Bool.toNat b ≤ 1 := cases", until: None, to: "Bool.toNat b ≤ 1 := ?", want: &["cases"] },
+        from: "-- `y < x` is false", until: None,
+        to: "theorem toNatAtMostOne: (b: Bool) → Bool.toNat b ≤ 1 := ?\n\n-- `y < x` is false", want: &["cases"], exclude: &["Std.Bool.toNatLeOne"] },
     Real { label: "notBelow: `omega`", kind: "works", path: "Day10/Proofs/Middle.sw",
-        from: "(y < x) = False := omega", until: None, to: "(y < x) = False := ?", want: &["omega"] },
+        from: "(y < x) = False := omega", until: None, to: "(y < x) = False := ?", want: &["omega"], exclude: &[] },
     Real { label: "countAtMostLength's step: `List.countCons` and the induction hypothesis", kind: "induction hypothesis", path: "Day10/Proofs/Middle.sw",
-        from: "let below := countAtMostLength p rest", until: Some("\n\n"), to: "?", want: &["countCons", "countAtMostLength"] },
+        from: "-- In a sorted list, at most k", until: None,
+        to: "theorem countAtMostLength (p: a → Bool): (xs: List a) → xs.count p ≤ xs.length\n  | Nil => Nat.leRefl 0\n  | Cons x rest => ?\n\n-- In a sorted list, at most k",
+        want: &["countCons", "countAtMostLength"], exclude: &["Std.List.countLeLength"] },
     Real { label: "basinSizeOpen: `length (keys r) = size r` (`Map.sizeToList`)", kind: "rewrite step", path: "Day09/Proofs/Part2.sw",
-        from: "(Eq.trans (List.lengthMap result.toList Pair.fst) (Eq.sym (Map.sizeToList result)))", until: None, to: "?", want: &["sizeToList", "lengthMap"] },
+        from: "(Map.lengthKeys result)", until: None, to: "?", want: &["sizeToList", "lengthMap"], exclude: &["Std.Map.lengthKeys"] },
 ];
 
 /// What one real goal found.
@@ -505,7 +517,11 @@ fn has_word(text: &str, word: &str) -> bool {
 }
 
 fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
-    let path = format!("{D}{}", real.path);
+    // `../Common/…`: a file of `Aoc.Common`, where a 2021 proof moved (SW-984).
+    let path = match real.path.strip_prefix("../") {
+        Some(common) => format!("src/Aoc/{common}"),
+        None => format!("{D}{}", real.path),
+    };
     let text = files.read(&path).expect("the file reads");
     assert_eq!(
         text.matches(real.from).count(),
@@ -536,7 +552,11 @@ fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
     };
     let started = Instant::now();
     let mut session = Session::for_stack(STACK);
-    let found = session.search_at_project(&goal, &AtOptions::default());
+    let options = AtOptions {
+        exclude: real.exclude.iter().map(|e| e.to_string()).collect(),
+        ..AtOptions::default()
+    };
+    let found = session.search_at_project(&goal, &options);
     drop(session);
     let time = started.elapsed();
     let report = match found {
