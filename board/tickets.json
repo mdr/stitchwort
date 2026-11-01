@@ -1,5 +1,5 @@
 {
-  "next": 1031,
+  "next": 1034,
   "tickets": [
     {
       "id": 47,
@@ -3546,7 +3546,7 @@
     {
       "id": 1024,
       "title": "Documentation stage 2a: --| sorting script, then std's small namespaces (core and folders under ~110 comment lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3555,7 +3555,9 @@
       "body": "docs/proposals/documentation.md §6.1, D2134, D2151. Script proposes (maintainer markers stay --, below the --| lines); a model splits the rest by hand per file; Opus reviews per namespace afterwards. This lane: the script plus core/ and the small std folders. Next lanes: List; Map+Parse; Float, Nat, Terminal, Omega, Int, Graph. Then aoc and rogue (2c), then remove the D2142 fallback.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "adc6c8a0"
+      ]
     },
     {
       "id": 1025,
@@ -3644,6 +3646,48 @@
         "diagnostics"
       ],
       "body": "Found by the docs accuracy sweep (SW-1026). Also left doubtful there: publishing.md:6 'nothing pushed or enabled' vs the live site link; core.md/DESIGN.md status dates; DESIGN must-reject row for runState/IsData; guide claims about row arguments, property tests, runtimes agreeing on every example, reserved namespaces.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1031,
+      "title": "Documentation stage 2a part 2: sort std List (--| docs vs -- notes)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Continues SW-1024 (dev/docsort; core and 20 small folders done). List: 915 comment lines. Then: Map+Parse; Float, Nat, Terminal, Omega, Int, Graph; then an Opus review per namespace (D2151); then aoc and rogue (2c); then remove the D2142 fallback.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1032,
+      "title": "Documentation stage 2a part 3: sort std Map and Parse",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1033,
+      "title": "Documentation stage 2a part 4: sort std Float, Nat, Terminal, Omega, Int, Graph",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
