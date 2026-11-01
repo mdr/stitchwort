@@ -1,5 +1,5 @@
 {
-  "next": 1003,
+  "next": 1004,
   "tickets": [
     {
       "id": 47,
@@ -2973,16 +2973,18 @@
     {
       "id": 987,
       "title": "Postponement step 4.4 (stage 5): remove the catch-and-retry paths (§5.11) after 4.3 (D2114: beside stage 7 design)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "postponement"
       ],
-      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.\nProgress 1 Nov: counters added (1c863e6c). Before: last resort 0, append/calc catches 0; lambda postponed 0 except reject/lambda-body-error-against-goal.sw (2); retried 1 aoc (2021 Day17 tests, list of tuples) + 4 in examples; leaf uninferred 4 (prelude rfl = Eq.trans …). retrying and the leaf catch are still used: kept, reported.\n\nProgress: removed held/last_resort/FieldNames (fa1a45b3), ++ catch (594ae4c7), calc catch (28e96524), lambda try-then-postpone (7a08a533); each gated (lanes, aoc/rogue check, audit, every example's output identical). Next: the constructor-literal retries (defers_literal, else_first, check_items' reordering); retrying itself kept for lists of numbers.\n",
+      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.\nProgress 1 Nov: counters added (1c863e6c). Before: last resort 0, append/calc catches 0; lambda postponed 0 except reject/lambda-body-error-against-goal.sw (2); retried 1 aoc (2021 Day17 tests, list of tuples) + 4 in examples; leaf uninferred 4 (prelude rfl = Eq.trans …). retrying and the leaf catch are still used: kept, reported.\n\nProgress: removed held/last_resort/FieldNames (fa1a45b3), ++ catch (594ae4c7), calc catch (28e96524), lambda try-then-postpone (7a08a533); each gated (lanes, aoc/rogue check, audit, every example's output identical). Next: the constructor-literal retries (defers_literal, else_first, check_items' reordering); retrying itself kept for lists of numbers.\n\nDone in lane (d29dc963): constructor-literal retries removed (98d768a6); retrying+late_literals kept for lists of numbers (gaps: tuple checked against an unknown infers its parts, 2021 Day17 tests; lambda against ?m vars fails, reject/decreasing-lambda-in-data.sw); leaf catch kept (prelude rfl = Eq.trans …). Hashes identical to main; no example output changed; audit passes; aoc 65.6 s vs main 66.9 s user. SW-981 site reviewed: T1 holds, not a queue item (written up in As built (stage 5)). Ready for review.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "dfed7477"
+      ]
     },
     {
       "id": 988,
@@ -3167,7 +3169,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.\n\nProgress, 1 Nov (lane worktree-agent-a7598cbd70ccf9e46): (1) capture fixed in the printer (binders numbered when their body mentions a same-named variable), 1f291b43.\n",
+      "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.\n\nProgress, 1 Nov (lane worktree-agent-a7598cbd70ccf9e46): (1) capture fixed in the printer (binders numbered when their body mentions a same-named variable), 1f291b43.\n\nProgress, 1 Nov: (2, 3) variables shown by their name in scope and never alike (x✝, x✝¹), arm names fixed, b84f43a5; (4) interface fields print as methods (Ord.compare, x == y), 1e51f74f, lifted %match names not done; (5) membership, Float order, Float literals in data, records after constructors, superseded hypotheses hidden with a note, 5fc8db81. Reviewing snapshot changes.\n\nProgress, 1 Nov: done on worktree-agent-a7598cbd70ccf9e46 (6 commits, last 683b696e; not merged). Full examples sweep: no snapshot changes besides 3 new goal examples; one test_failures snapshot (record after Some bracketed). Not done: lifted %match helpers still print by name (no faithful source form found; fold-to-owner needs higher-order matching). Ready for review.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3200,6 +3202,20 @@
         "std"
       ],
       "body": "Left open by SW-998. (1) No Reads lemmas for section, sections, blankLine (labelWhole carries a mark, needs its own tree lemma), findAll, repeat, natDigits, recursive. (2) A Reads spec relates the text read to the value, not to what follows, so 'a number with no digit after it' and 'nothing is left' can't be stated; the runners handle end themselves. (3) readsBind needs the parser's next step spelled out because unification won't unfold a parser's definition; naming pieces as defs keeps it short.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1003,
+      "title": "Postponement: close the two queue gaps that keep retrying/late_literals and the group-leaf catch",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elaborator"
+      ],
+      "body": "Left by stage 5 (SW-987). (1) A tuple checked against an unknown type infers its parts, so its number literals become Nat at once (2021 Day17 test: [(7, 2), …].map (((dx, dy)) => …)); needs the retrying/late_literals second run. (2) A lambda checked against ?2 n rec (unknown applied to variables) fails instead of waiting (reject/decreasing-lambda-in-data.sw would give E-TYPE-MISMATCH not E-DECREASING). (3) rfl as a comparison operand: rfl = Eq.trans (Eq.sym q) q in two prelude theorems needs numbers::speculate's leaf catch. Fixing these lets retrying, late_literals and the leaf catch go. Also noted, unchanged: settle_empty sets a still-unknown bare row empty at once (predates SW-981, no known bad case); performs_nothing elaborates an if condition twice (from reading, not measured); explain_default's literal note.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
