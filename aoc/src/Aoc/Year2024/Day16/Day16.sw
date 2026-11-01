@@ -6,19 +6,20 @@
 --   $ cd aoc && stitchwort run Aoc.Year2024.Day16.main < examples/2024/day16.txt
 --
 -- The proofs are in `Aoc.Year2024.Day16.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day16.Tests` (Tests/); `run` checks neither.
+-- `Aoc.Year2024.Day16.Tests` (Tests/); `run` checks neither. Positions,
+-- steps and the parser are the shared grid code's (`Aoc.Common`,
+-- Common/Grid.sw); the reindeer's compass headings map onto its
+-- directions (`Heading.toDirection`).
 
 namespace Aoc.Year2024.Day16
+import Aoc.Common (Direction, Position, cells, parseGrid)
 import Std (Bool, DecEq, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
-import Std.Parse (char)
 
 def main(): {IO, Fail} () :=
   let maze := parseMaze IO.readAll()
   let fromStart := maze.fromStart
   IO.print "Part 1: ${part1From maze fromStart}"
   IO.print "Part 2: ${part2From maze fromStart}"
-
-type Position = { row: Nat, column: Nat }
 
 -- The open tiles (S, E and `.`), the start and the end.
 type Maze = { openTiles: Set Position, start: Position, end: Position }
@@ -39,63 +40,48 @@ def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} 
     | Nil => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
 
--- One row per line, all as long as the first, with one S and one E.
+-- One row of tiles per line, every row as long as the first (`parseGrid`
+-- checks it), with one S and one E.
 def parseMaze (input: Text): {Fail} Maze :=
-  let rows := Parse.all input (() => Parse.grid tile)
-  let width := rows.headOr [] |> .length
-  rows.withIndex |> .forEach (((row, tiles)) =>
-    Fail.ensure (tiles.length == width) "line ${row + 1}: expected ${width} tiles, as on the first line, got ${tiles.length}")
-  let tiles :=
-    rows.withIndex
-      |> .flatMap (((row, line)) => line.withIndex |> .map (((column, kind)) => (({ row, column }: Position), kind)))
+  let tiles := cells (parseGrid input tile).rows
   {
     openTiles = tiles.filter (entry => entry.snd != Wall) |> .map (entry => entry.fst) |> Set.fromList,
     start = onlyTile tiles Start "S",
     end = onlyTile tiles End "E"
   }
 
-type Direction =
+-- The way the reindeer faces, by the compass.
+type Heading =
   | East
   | South
   | West
   | North
 
-def directions: List Direction := [East, South, West, North]
+def headings: List Heading := [East, South, West, North]
 
-def Direction.clockwise: Direction → Direction
+def Heading.clockwise: Heading → Heading
   | East => South
   | South => West
   | West => North
   | North => East
 
-def Direction.counterclockwise: Direction → Direction
+def Heading.counterclockwise: Heading → Heading
   | East => North
   | North => West
   | West => South
   | South => East
 
-def Direction.opposite: Direction → Direction
-  | East => West
-  | West => East
-  | North => South
-  | South => North
-
--- The grid point one step in `direction`; none above row 0 or left of
--- column 0.
-def Position.step (position: Position): Direction → Option Position
-  | East => Some ({ position | column = Succ position.column })
-  | South => Some ({ position | row = Succ position.row })
-  | West =>
-    match position.column with
-      | Zero => None
-      | Succ before => Some ({ position | column = before })
-  | North =>
-    match position.row with
-      | Zero => None
-      | Succ above => Some ({ position | row = above })
+-- On the map, north is up: east is a step right (a column on), south a
+-- step down (a row on). (`Aoc.Year2024.Day16.Proofs` shows this is a
+-- bijection, with clockwise a right turn.)
+def Heading.toDirection: Heading → Direction
+  | East => Right
+  | South => Down
+  | West => Left
+  | North => Up
 
 -- Where the reindeer is and which way it faces.
-type Reindeer = { position: Position, facing: Direction }
+type Reindeer = { position: Position, facing: Heading }
 
 def Maze.isOpen (maze: Maze) (position: Position): Bool := maze.openTiles.contains position
 
@@ -103,19 +89,19 @@ def Maze.holds (maze: Maze) (reindeer: Reindeer): Bool := maze.isOpen reindeer.p
 
 -- Every way the reindeer can stand on an open tile.
 def Maze.reindeer (maze: Maze): List Reindeer :=
-  maze.openTiles.toList |> .flatMap (position => directions.map (facing => ({ position, facing }: Reindeer)))
+  maze.openTiles.toList |> .flatMap (position => headings.map (facing => ({ position, facing }: Reindeer)))
 
-def Reindeer.turned (reindeer: Reindeer) (facing: Direction): Reindeer := { reindeer | facing }
+def Reindeer.turned (reindeer: Reindeer) (facing: Heading): Reindeer := { reindeer | facing }
 
 -- The reindeer one tile forward, if that tile is open.
 def Maze.forward (maze: Maze) (reindeer: Reindeer): List Reindeer :=
-  match reindeer.position.step reindeer.facing with
+  match reindeer.position.step reindeer.facing.toDirection with
     | Some next => if maze.isOpen next then [{ reindeer | position = next }] else Nil
     | None => Nil
 
 -- The reindeer one tile back, if that tile is open.
 def Maze.backward (maze: Maze) (reindeer: Reindeer): List Reindeer :=
-  match reindeer.position.step reindeer.facing.opposite with
+  match reindeer.position.step reindeer.facing.toDirection.opposite with
     | Some previous => if maze.isOpen previous then [{ reindeer | position = previous }] else Nil
     | None => Nil
 
@@ -132,11 +118,11 @@ def Maze.before (maze: Maze) (reindeer: Reindeer): List (Reindeer, Nat) :=
   (maze.backward reindeer |> .map (previous => (previous, 1))) ++ reindeer.turns
 
 -- The four ways to stand on the end tile.
-def Maze.endReindeer (maze: Maze): List Reindeer := directions.map (facing => ({ position = maze.end, facing }: Reindeer))
+def Maze.endReindeer (maze: Maze): List Reindeer := headings.map (facing => ({ position = maze.end, facing }: Reindeer))
 
 def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing = East }
 
-theorem directionsComplete: (facing: Direction) → facing ∈ directions
+theorem headingsComplete: (facing: Heading) → facing ∈ headings
   | East => Inl rfl
   | South => Inr (Inl rfl)
   | West => Inr (Inr (Inl rfl))
@@ -145,14 +131,14 @@ theorem directionsComplete: (facing: Direction) → facing ∈ directions
 -- A way of standing on an open tile is on the list.
 theorem Maze.holdsListed (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → reindeer ∈ maze.reindeer
   | { position, facing }, holds =>
-    List.memFlatMapIntro (place => directions.map (way => ({ position = place, facing = way }: Reindeer))) position
+    List.memFlatMapIntro (place => headings.map (way => ({ position = place, facing = way }: Reindeer))) position
       ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
-      (List.memMap directions facing (directionsComplete facing) (way => ({ position, facing = way }: Reindeer)))
+      (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
 -- What `forward` gives stands on an open tile...
 theorem Maze.forwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.forward reindeer → maze.holds next = True
   | { position, facing }, next, member =>
-    match stepped: position.step facing with
+    match stepped: position.step facing.toDirection with
       | None => Void.exfalso member
       | Some ahead =>
         match open: maze.isOpen ahead with
@@ -165,7 +151,7 @@ theorem Maze.forwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer
 -- ...and so does what `backward` gives.
 theorem Maze.backwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.backward reindeer → maze.holds next = True
   | { position, facing }, next, member =>
-    match stepped: position.step facing.opposite with
+    match stepped: position.step facing.toDirection.opposite with
       | None => Void.exfalso member
       | Some behind =>
         match open: maze.isOpen behind with

@@ -7,6 +7,7 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
+import Aoc.Common (Position)
 import Std (And, Bool, DecEq, Eq, Exists, Graph, Iff, List, Map, Nat, Option, Or, Set, Void)
 
 -- From `reindeer`, on an open tile, some moves end on the end tile,
@@ -25,7 +26,7 @@ theorem beforeHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
       | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn in holds
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl backward =>
-        match stepped: position.step facing.opposite with
+        match stepped: position.step facing.toDirection.opposite with
           | None => Void.exfalso backward
           | Some behind =>
             match open: maze.isOpen behind with

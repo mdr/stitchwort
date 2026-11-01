@@ -1,11 +1,14 @@
 -- Day 16 as the puzzle states it, over the program's maze: which tiles are
--- open (`isOpen`), a grid point's neighbour in each direction (`step`) and
--- the quarter turns (`clockwise`, `counterclockwise`). The proofs (Proofs/)
--- show the program's answers are these, for every maze whose S and E are
--- open tiles.
+-- open (`isOpen`), the compass headings and their quarter turns
+-- (`clockwise`, `counterclockwise`), and the tile one step ahead (the
+-- shared grid code's `step`, with north up: east is a column on and south
+-- a row on, `Heading.toDirection`). The proofs (Proofs/) show the
+-- program's answers are these, for every maze whose S and E are open
+-- tiles.
 
 namespace Aoc.Year2024.Day16.Spec
 import Aoc.Year2024.Day16 (..)
+import Aoc.Common (Position)
 import Std (And, Exists, Iff, List, Nat, Option, Set)
 
 -- "They can move forward one tile at a time (increasing their score by 1
@@ -25,7 +28,7 @@ def Move.points: Move → Nat
 -- Where a move leaves the reindeer; `None` for a move into a wall.
 def move (maze: Maze) (reindeer: Reindeer): Move → Option Reindeer
   | Forward =>
-    match reindeer.position.step reindeer.facing with
+    match reindeer.position.step reindeer.facing.toDirection with
       | Some next => if maze.isOpen next then Some ({ reindeer | position = next }) else None
       | None => None
   | Clockwise => Some ({ reindeer | facing = reindeer.facing.clockwise })
