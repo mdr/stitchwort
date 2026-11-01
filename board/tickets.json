@@ -1,5 +1,5 @@
 {
-  "next": 1001,
+  "next": 1002,
   "tickets": [
     {
       "id": 47,
@@ -2979,7 +2979,7 @@
       "labels": [
         "postponement"
       ],
-      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.\nProgress 1 Nov: counters added (1c863e6c). Before: last resort 0, append/calc catches 0; lambda postponed 0 except reject/lambda-body-error-against-goal.sw (2); retried 1 aoc (2021 Day17 tests, list of tuples) + 4 in examples; leaf uninferred 4 (prelude rfl = Eq.trans …). retrying and the leaf catch are still used: kept, reported.\n",
+      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.\nProgress 1 Nov: counters added (1c863e6c). Before: last resort 0, append/calc catches 0; lambda postponed 0 except reject/lambda-body-error-against-goal.sw (2); retried 1 aoc (2021 Day17 tests, list of tuples) + 4 in examples; leaf uninferred 4 (prelude rfl = Eq.trans …). retrying and the leaf catch are still used: kept, reported.\n\nProgress: removed held/last_resort/FieldNames (fa1a45b3), ++ catch (594ae4c7), calc catch (28e96524), lambda try-then-postpone (7a08a533); each gated (lanes, aoc/rogue check, audit, every example's output identical). Next: the constructor-literal retries (defers_literal, else_first, check_items' reordering); retrying itself kept for lists of numbers.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3133,9 +3133,10 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "std"
+        "std",
+        "blocked"
       ],
-      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 10 (SW-963 item 1): a Parse.eachLine/many1/pick parser gave right answers but nothing proves what Std.Parse reads, so the day rewrote its parser by hand to prove parseReadsLines. Every AoC day now proves a parser guarantee (D2108).",
+      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 10 (SW-963 item 1): a Parse.eachLine/many1/pick parser gave right answers but nothing proves what Std.Parse reads, so the day rewrote its parser by hand to prove parseReadsLines. Every AoC day now proves a parser guarantee (D2108).\n\nProgress (Opus lane, 1 Nov): commit 9c3c6f62 on worktree-agent-a2acb6f5200531500, not merged. std/Parse/Reads.sw: Parse.Reads parser spec (soundness: a successful run read a start of the input; spec of read text and value), proved through the handler by induction on the computation tree. Lemmas for every piece/combinator AoC uses except section/sections/blankLine/findAll/repeat/natDigits/recursive; runners eachLineReads/lineReads/allReads. Day 10 parseLines back to eachLine/many/label/pick, parseReadsLines unchanged (Proofs/Parse.sw 63 -> 26 lines); day 16 readDigits = Parse.line + many hexDigit, readDigitsBits unchanged. Audit: Std.Parse + new std lemmas 119 passed; Day10+Day16 126 theorems, 0 failed, 6 warnings (the pre-existing day 16 ones). machine library_tests_agree passes.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3159,11 +3160,26 @@
       "title": "Goal printing: captured variables, x✝ clashes, stale arm names, %match1 names, unfolded definitions",
       "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree-agent-a7598cbd70ccf9e46",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.",
+      "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.\n\nProgress, 1 Nov (lane worktree-agent-a7598cbd70ccf9e46): (1) capture fixed in the printer (binders numbered when their body mentions a same-named variable), 1f291b43.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1001,
+      "title": "search_bench: sample theorems by a stable hash of their name, not every 8th in order",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Sonnet lane (worktree)",
+      "labels": [
+        "search",
+        "testing"
+      ],
+      "body": "D2124 (Matt, 1 Nov 2026). The merge/lane tiers of search_bench sample every 8th std theorem in declaration order, so adding theorems mid-file reshuffles the sample: SW-998 dropped the merge sample from 85.7% to 83.3% strict top-1 (bar 84) while the whole library stayed at 87.6% (lane's figures). Sample by a stable hash of the theorem name instead; bar unchanged. Blocks the SW-998 merge.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
