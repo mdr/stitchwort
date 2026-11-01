@@ -1,5 +1,5 @@
 {
-  "next": 1005,
+  "next": 1006,
   "tickets": [
     {
       "id": 47,
@@ -3232,6 +3232,20 @@
         "diagnostics"
       ],
       "body": "Left by SW-1000. No faithful source form found: writing the match out makes a different helper (the E-REFL in SW-980); folding back to the owner's call needs higher-order matching because not all the owner's parameters reach the helper (rules in 2021 day 14's expand). Not reproduced outside the AoC proofs. Also noted: Float display now prints Int comparisons of two Float.orderKeys as Float x < y, including hypotheses written in Int form for omega (trip-journal Proofs/Order.sw keys) - faithful, but hides the Int form.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1005,
+      "title": "AoC tidy-up after SW-997: drop omega workarounds (Offset predToInt, day 17 and others noted in NOTES-2021)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2125 option C (Matt, 1 Nov 2026). SW-997 taught omega (n + 1).toInt - 1 (computed Int.subNatNatFrom gaps), Nat.divStep division, and disjunctions with a refuted side. Remove workarounds that existed only for those gaps, e.g. Common/Proofs/Offset.sw predToInt (stated over m because omega couldn't read (n + 1).toInt - 1), and any in 2021 day 17 or elsewhere in aoc/ noted in aoc/NOTES-2021.md. Update the notes.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
