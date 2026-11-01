@@ -459,3 +459,21 @@ fn the_induction_hypothesis_closes_a_step() {
         pastes_at(RECURSIVE, *line, first);
     }
 }
+
+/// A rewrite by a hypothesis, then a lemma that closes what it leaves
+/// (SW-993; AoC 2021 day 16's `takeAppendLength`).
+#[test]
+fn a_hypothesis_rewrite_then_a_lemma_closes() {
+    let text = "\
+import Std (Bool, Nat, List)
+
+theorem takeLength (xs: List Nat) (ys: List Nat) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := ?
+";
+    let report = &at_each(text, &[3])[0];
+    let want = "rewrite <- h in List.takeAppend xs ys";
+    assert!(
+        (report.results.iter()).any(|s| s.proof == want && s.class == "withHypotheses"),
+        "`{want}` not suggested: {report:#?}"
+    );
+    pastes_at(text, 3, want);
+}

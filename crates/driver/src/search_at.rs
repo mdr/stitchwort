@@ -318,6 +318,9 @@ pub struct Rewrite {
     /// The rule is the induction hypothesis (SW-993), as for a suggestion.
     #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
     pub recursive: bool,
+    /// The goal left, for a second round.
+    #[serde(skip)]
+    pub left: Option<GoalData>,
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -576,13 +579,8 @@ impl Session {
         };
         goal.deadline = Some(started + options.time);
         let g = &self.elab.globals;
-        let all = options.all;
         let prop = goal.prop;
-        let candidates = self.elab.search_candidates(&|item, path| {
-            (all || !hidden(path))
-                && (!prop || item.kind(g) != Kind::Definition)
-                && !options.exclude.iter().any(|e| e == path)
-        });
+        let candidates = searchable(&self.elab, options, prop);
         let keep = |_: &Candidate| true;
         debug_time("opened", started);
         let closing = self
@@ -764,6 +762,17 @@ impl Session {
                 if let Some(r) = try_rule(&mut checker, &rule, &target_now)
                     && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
                 {
+                    // Then a lemma (SW-993): `rewrite <- h in L …`.
+                    if let (None, Some(left)) = (r.closes, &r.left) {
+                        let arrow = if backwards { "<- " } else { "" };
+                        let prefix = format!("rewrite {arrow}{} in ", h.name);
+                        let mine = (!on_its_own).then_some(candidates.as_slice());
+                        for s in after_rewrite(&mut checker, left, &prefix, mine, options, 3) {
+                            if !results.iter().any(|(r, _)| r.proof == s.proof) {
+                                results.push((s, usize::MAX - 2));
+                            }
+                        }
+                    }
                     rewrites.push(r);
                 }
             }
@@ -998,6 +1007,86 @@ impl Session {
         r.line = line;
         r.import = import_line(g, item, scope);
     }
+}
+
+/// The declarations `elab` searches for a goal (a proposition if `prop`):
+/// all but hidden helpers (unless `--all`), definitions for a proposition,
+/// and those `options` leaves out.
+fn searchable(
+    elab: &stitchwort_elab::Elaborator,
+    options: &AtOptions,
+    prop: bool,
+) -> Vec<Candidate> {
+    let g = &elab.globals;
+    elab.search_candidates(&|item, path| {
+        (options.all || !hidden(path))
+            && (!prop || item.kind(g) != Kind::Definition)
+            && !options.exclude.iter().any(|e| e == path)
+    })
+}
+
+/// A second round after a rewrite by a hypothesis (SW-993): the goal it
+/// leaves, `left`, opened from its statement in the checking session, and
+/// the lemmas that close it there (premises from hypotheses, nothing left
+/// open), each checked at the first goal after `prefix` (`rewrite <- h
+/// in `). At most `max` found.
+fn after_rewrite(
+    checker: &mut Checker,
+    left: &GoalData,
+    prefix: &str,
+    candidates: Option<&[Candidate]>,
+    options: &AtOptions,
+    max: usize,
+) -> Vec<Suggestion> {
+    let mut out = Vec::new();
+    let Ok(expr) = checker.session.parse_expression("<goal>", &statement(left)) else {
+        return out;
+    };
+    let Ok(mut goal) = checker.session.elab.open_goal(&expr, left.hypotheses.len()) else {
+        return out;
+    };
+    goal.deadline = Some(checker.deadline);
+    // The search session's own, when it is the checking session (in a
+    // project); else the checking session's.
+    let own;
+    let candidates = match candidates {
+        Some(c) => c,
+        None => {
+            own = searchable(&checker.session.elab, options, goal.prop);
+            &own
+        }
+    };
+    let keep = |_: &Candidate| true;
+    let closing = (checker.session.elab).closing_plans(&goal, candidates, &keep, 20);
+    for (_, plans) in &closing.plans {
+        let Some(plan) = plans.iter().find(|p| !p.args.contains(&Arg::Open)) else {
+            continue;
+        };
+        if out.len() >= max || checker.out_of_time() {
+            break;
+        }
+        let proof = format!("{prefix}{}", render(plan, &[], false));
+        if proof.contains('?') || !matches!(checker.check(&proof, &[]), Outcome::Closed) {
+            continue;
+        }
+        out.push(Suggestion {
+            class: "withHypotheses",
+            proof,
+            name: plan.item_path.clone(),
+            kind: "theorem",
+            ty: String::new(),
+            file: String::new(),
+            line: 0,
+            import: None,
+            checked: "kernel",
+            obligations: Vec::new(),
+            goals: Vec::new(),
+            search_rank: None,
+            witnesses: false,
+            recursive: false,
+        });
+    }
+    out
 }
 
 /// The declaration with full name `path`.
@@ -1281,6 +1370,7 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         Outcome::Goals(mut g) if g.len() == 1 => g.pop()?,
         _ => return None,
     };
+    let left_goal = left.clone();
     if left.target == target_now || left.target == checker.goal.target {
         return None;
     }
@@ -1333,6 +1423,7 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         closes,
         checked,
         recursive: checker.recursive.is_some(),
+        left: Some(left_goal),
     })
 }
 
