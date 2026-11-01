@@ -321,7 +321,7 @@ fn hand_queries_rank_their_lemma() {
         rewrite: true,
         ..Options::default()
     };
-    let cases: [(&str, &Options, &str, usize); 12] = [
+    let cases: [(&str, &Options, &str, usize); 14] = [
         (
             "List.length ((_: List _) ++ _) = _",
             &theorems,
@@ -371,6 +371,15 @@ fn hand_queries_rank_their_lemma() {
             1,
         ),
         ("List.map (List.map _ _) _", &rewrite, "Std.List.mapMap", 1),
+        // One premise after explicit parameters (SW-993): an interface's
+        // law, and a lemma.
+        (
+            "Ord.compare ?x ?y = Equal → ?x = ?y",
+            &theorems,
+            "Std.Ord.equal",
+            1,
+        ),
+        ("(?a: Nat) < ?b → ?a ≤ ?b", &theorems, "Std.Nat.lessLe", 1),
     ];
     let failures = with_session(STACK, Session::for_stack, |session| {
         load_library(session);

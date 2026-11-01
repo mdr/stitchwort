@@ -1095,6 +1095,14 @@ fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::I
     if let Some(id) = session.elab.lookup_def(path) {
         return Some(stitchwort_elab::search::Item::Def(id));
     }
+    // A file's own (`Main.…`, its scope's keys have no `Main.`), a
+    // generated `T.ext`: by its path.
+    let def = (0..g.defs.len())
+        .map(|id| stitchwort_elab::search::Item::Def(stitchwort_core::DefId(id)))
+        .find(|item| item.path(g) == path);
+    if def.is_some() {
+        return def;
+    }
     (0..g.datas.len()).find_map(|d| {
         let data = g.data(DataId(d));
         (0..data.ctors.len())

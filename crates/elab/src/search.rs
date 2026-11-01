@@ -1487,6 +1487,11 @@ fn is_dictionary(g: &Globals, arg: &Term) -> bool {
 /// candidate's, chosen greedily left to right as Loogle's `matchHyps` does;
 /// the candidate may have more. The pattern's own binders are opened with
 /// rigid variables.
+///
+/// One parameter is enough (SW-993): `Ord.compare ?x ?y = Equal → ?x = ?y`
+/// is `Ord.equal`'s statement after its explicit `x` and `y`, which the
+/// whole-type match, starting at the first explicit parameter, doesn't
+/// skip.
 fn reordered(g: &Globals, pattern: &Value, theirs: &[Value], concl: &Value) -> Res<bool> {
     let mut ours: Vec<Value> = Vec::new();
     let mut v = force(g, pattern.clone())?;
@@ -1501,7 +1506,7 @@ fn reordered(g: &Globals, pattern: &Value, theirs: &[Value], concl: &Value) -> R
         v = force(g, closure.apply(g, Value::var(level))?)?;
         level += 1;
     }
-    if ours.len() < 2
+    if ours.is_empty()
         || ours.len() > theirs.len()
         || !crate::unify::unify_solving_arguments(g, level, &v, concl)?
     {
