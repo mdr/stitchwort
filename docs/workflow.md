@@ -46,6 +46,10 @@ implementation start, usually in stages.
    The brief also gives a time estimate; the run stops and reports at 1.5×
    it, and the orchestrator watches the elapsed time and stops a run at 2×
    that is going in circles (D2216; `CLAUDE.md`, "Choosing the model").
+   Run it with `--print-logs`, so its log shows activity. A run that logs
+   nothing past its server's start within 2 minutes has hung (seen with
+   OpenCode 2.1.4, 2 Nov 2026, at startup in `Project.resolve`): stop it and
+   start it again (D2217).
 3. Opus reviews the diff line by line and reruns the tests it relies on.
    DeepSeek has introduced real bugs before, and once handed over a test it
    had never run, so its own "tests pass" isn't enough.

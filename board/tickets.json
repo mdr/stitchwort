@@ -1,5 +1,5 @@
 {
-  "next": 1097,
+  "next": 1098,
   "tickets": [
     {
       "id": 47,
@@ -3629,6 +3629,21 @@
       "labels": [
         "runtime",
         "perf"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1097,
+      "title": "OpenCode run hangs at startup, before any model request (2 of 4 starts on 2 Nov 2026, OpenCode 2.1.4): the run's server logs 'cli starting' and nothing more; when killed after 32 min it was in Project.resolve / FileSystem.resolve. The API answered a test prompt in 5 s; the same command in the same clone ran fine twice after. Suspects (unconfirmed): two servers starting at once (SW-1092's run was alive at the first hang), the long-lived 'opencode serve --service' sharing opencode.db, 2.1.4 (earlier runs were 2.1.1). Workaround: --print-logs and restart a run that logs nothing within 2 minutes (docs/workflow.md, D2217). Matt (D2217): bring this forward if it keeps happening; record each new hang here",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "bug"
       ],
       "body": "",
       "created": "2026-11-02",
