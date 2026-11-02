@@ -16,11 +16,15 @@
 //!   removed. A type's rows are only ever written while its own module is
 //!   checked.
 //! - **Anything else that can change** (the names, instances, the module
-//!   state, the project's tables, navigation, the dot-call caches): a copy
+//!   state, the project's tables, the dot-call caches): a copy
 //!   taken at the mark is put back. These are the tables in which a later
 //!   load can change an older row (`check-cache.md` stage 1, point 3), so
 //!   lengths aren't enough. Copying them costs a few milliseconds per
 //!   mark (measured in the note's "As built").
+//! - **Navigation**, which grows with every namespace checked: its maps
+//!   log what each change replaced, which rewinding takes back
+//!   ([`nav::Logged`]); a copy at each of a language server's marks made
+//!   them quadratic in the project (SW-1052).
 //!
 //! The per-declaration state is emptied (after a cancelled check it may be
 //! half-full). Settings (limits, test switches, the check cache's store and
@@ -69,7 +73,7 @@ pub struct Mark {
     local_helpers: Vec<(String, DefId, Span)>,
     helper_keys: HashSet<String>,
     instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
-    nav: Option<nav::Recorder>,
+    nav: Option<nav::NavMark>,
     namespace_sources: HashMap<String, cache::Key>,
     namespace_keys: HashMap<String, cache::Key>,
     replayed_names: HashSet<String>,
@@ -118,7 +122,7 @@ impl Elaborator {
             local_helpers: self.local_helpers.clone(),
             helper_keys: self.helper_keys.clone(),
             instances: self.instances.clone(),
-            nav: self.nav.as_ref().map(|n| n.borrow().clone()),
+            nav: self.nav.as_ref().map(|n| n.borrow_mut().mark()),
             namespace_sources: self.namespace_sources.clone(),
             namespace_keys: self.namespace_keys.clone(),
             replayed_names: self.replayed_names.clone(),
@@ -340,7 +344,7 @@ impl Elaborator {
         instance_steps.get_mut().clear();
         in_instance_signature.set(false);
         if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
-            *nav.get_mut() = at_mark.clone();
+            nav.get_mut().rewind(at_mark);
         }
         *namespace_sources = mark.namespace_sources.clone();
         *namespace_keys = mark.namespace_keys.clone();
