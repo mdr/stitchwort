@@ -1,5 +1,5 @@
 {
-  "next": 1057,
+  "next": 1066,
   "tickets": [
     {
       "id": 47,
@@ -3492,9 +3492,9 @@
         "aoc",
         "proof"
       ],
-      "body": "D2156 (Matt, 1 Nov 2026): where reasonable and practical, every AoC day should see whether it can prove a parser guarantee (the parser accepts only what the solver's theorems assume, with partNFromInput theorems). 2021 has 16 proof files with one; 2024 and 2025 have none (from the aoc-corpus-review lane). Known gaps: 2024 day 5 (rules not checked to be a strict total order; reproduced wrong answer, D2157), day 14 (even sizes; reproduced wrong answer, D2158), day 16 (unreachable end), day 13 (zero determinant unproved, D2159), day 17 (LoopShape), day 21 (Optimal 2/25 unproved). Use Parse.Reads (SW-998, SW-1002). Pattern lane first (Opus), then Sonnet.\n\nDeferred by Matt (1 Nov 2026): D2157 (day 5: check the order in the parser [rec] vs topological sort), D2158 (day 14: count tiles as the spec does [rec] vs reject even sizes), D2159 (day 13: prove the zero-determinant branch, Opus [rec]). Days 5 and 14 give wrong answers on inputs outside the puzzle promise (reproduced by the review lane; inputs in the session scratchpad). Start no lane on these until Matt decides.\n",
+      "body": "D2156 (Matt, 1 Nov 2026): where reasonable and practical, every AoC day should see whether it can prove a parser guarantee (the parser accepts only what the solver's theorems assume, with partNFromInput theorems). 2021 has 16 proof files with one; 2024 and 2025 have none (from the aoc-corpus-review lane). Known gaps: 2024 day 5 (rules not checked to be a strict total order; reproduced wrong answer, D2157), day 14 (even sizes; reproduced wrong answer, D2158), day 16 (unreachable end), day 13 (zero determinant unproved, D2159), day 17 (LoopShape), day 21 (Optimal 2/25 unproved). Use Parse.Reads (SW-998, SW-1002). Pattern lane first (Opus), then Sonnet.\n\nDeferred by Matt (1 Nov 2026): D2157 (day 5: check the order in the parser [rec] vs topological sort), D2158 (day 14: count tiles as the spec does [rec] vs reject even sizes), D2159 (day 13: prove the zero-determinant branch, Opus [rec]). Days 5 and 14 give wrong answers on inputs outside the puzzle promise (reproduced by the review lane; inputs in the session scratchpad). Start no lane on these until Matt decides.\n\n\nSplit out 2 Nov 2026: D2157 -> SW-1059 (day 5), D2158 -> SW-1060 (day 14), D2159 -> SW-1061 (day 13).\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -3981,9 +3981,9 @@
       "labels": [
         "tests"
       ],
-      "body": "",
+      "body": "\n\nD2188 (not decided; built as recommended): check --counterexamples skips generated f.eqK equations (the kernel checks each; searching them costs a 2,000-10,000-input search per arm). Alternative: search them too, which also tests the generator.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -4009,9 +4009,9 @@
       "labels": [
         "performance"
       ],
-      "body": "",
+      "body": "\n\nD2189 (not decided; 2 Nov 2026): fix by (a) one merged hypothesis for the earlier arms, as character patterns already do [recommended], or (b) a cap on how many hypotheses an equation carries.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -4052,6 +4052,139 @@
         "tests"
       ],
       "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1057,
+      "title": "Function equations stage 2: f.induct for recursive definitions (D2181, undecided)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "D2181 (not decided; Matt, 2 Nov 2026). Function equations stage 2 (docs/proposals/function-equations.md, D2181): generate `f.induct` for recursive definitions, an induction principle that follows f's own recursion. Proposed scope: unfolding form only (statements about f's result), a fixed prefix of parameters, cases named after f's equations, no induction hypothesis for calls under a binder, no mutual groups. Alternatives: also the plain form (`f.inductPlain`), or both as Lean has. Recommendation: [yes, after stage 1 (SW-1049 and the rest of stage 1)]. Assumes most theorems that need it are about f's result (as fillCorrect is). Lanes asked for this at least four times (SW-199, SW-802, SW-809, SW-980). Opus.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1058,
+      "title": "Function equations stage 2b: match induct (f args) with | eqK … (D2182, undecided)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "proof"
+      ],
+      "body": "D2182 (not decided; Matt, 2 Nov 2026). Function equations stage 2b (docs/proposals/function-equations.md, D2182): `match induct (f args) with | eqK … => …`, the friendly front end to f.induct: the motive is worked out from the goal and hypotheses are generalised as a match on an expression does (matching.rs:10-19). Recommendation: [yes, after D2181's ticket]. Assumes match's generalisation is what the motive needs; a goal mentioning the target inside a proof can hit E-MATCH-MOTIVE like match, and explicit f.induct stays the fallback.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1059,
+      "title": "AoC 2024 day 5: rules not checked to be a strict total order; wrong answer outside the promise (D2157, deferred)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2157 (deferred by Matt, 1 Nov 2026; split out of SW-1020). AoC 2024 day 5: the solver assumes the page-ordering rules are a strict total order on each update's pages, and the parser doesn't check it. The aoc-corpus-review lane reproduced a wrong answer on an input outside the puzzle's promise. Options: (a) check the order in the parser and prove a parser guarantee (partNFromInput) [recommended]; (b) switch to a topological sort that's right for any rules. Start no lane until Matt decides.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1060,
+      "title": "AoC 2024 day 14: even grid sizes give a wrong answer (D2158, deferred)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2158 (deferred by Matt, 1 Nov 2026; split out of SW-1020). AoC 2024 day 14: the solver assumes odd grid sizes (quadrants split by a middle row/column). On even sizes it gives a wrong answer (reproduced by the aoc-corpus-review lane). Options: (a) count tiles as the spec does, so even sizes are right too [recommended]; (b) reject even sizes in the parser. Start no lane until Matt decides.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1061,
+      "title": "AoC 2024 day 13: prove the zero-determinant branch (D2159, deferred)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2159 (deferred by Matt, 1 Nov 2026; split out of SW-1020). AoC 2024 day 13: the branch where the claw machine's determinant is zero is not proved. Recommendation: [prove the zero-determinant branch, Opus]. Start no lane until Matt decides.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1062,
+      "title": "E-TERMINATION suggests a measure that checks (D2166, undecided)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2166 (not decided; from the language-productivity report, docs/research/language-productivity.md). When a definition fails with E-TERMINATION, try likely termination measures under a work limit (`b - a`, sizes, lexicographic pairs) and suggest one only if it checks, in the message and in JSON. Recommendation: [yes; small, Sonnet with a short spec]. Follows D2165 (SW-1027, done).\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1063,
+      "title": "Custom input generators for counterexample search (D2168, undecided)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "correctness"
+      ],
+      "body": "D2168 (not decided; from the language-productivity report). Custom input generators for counterexample search (a program supplies how to make valid inputs of a type), to cut false \"no input met the hypotheses\" warnings from `audit`/`check --counterexamples`. Recommendation: [yes, after SW-1029 (audit stage 2); Opus for the interface]. Note D2188 (2 Nov): generated f.eqK equations are not searched.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1064,
+      "title": "Automated mutation check: some proof or test must fail when the program is broken (D2169, undecided)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "correctness"
+      ],
+      "body": "D2169 (not decided; from the language-productivity report). An automated mutation check: break the program (flip a comparison, drop a case, change a constant) and require some proof or test to fail, so a theorem that says nothing useful is caught. Lanes do this by hand today. Recommendation: [yes, as a design ticket after SW-1029 (audit stage 2); Opus].\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1065,
+      "title": "Construction privacy / abstract types for invariants (D2171, undecided; D2170 note)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2171 (not decided; from the language-productivity report). Construction privacy / abstract types: stop code outside a namespace from building a value that breaks its invariant (e.g. a 2025 day 8 `Boxes` that isn't valid), so invariants needn't be re-proved at every use. Recommendation: [later: one Opus design note after function equations (D2163) and audit stage 2 (SW-1029)]. Also D2170 (not decided): the report's human-editor features (no agent evidence) get no tickets; recommendation [yes, note them as \"no agent evidence\" only].\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
