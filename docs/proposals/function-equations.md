@@ -406,7 +406,10 @@ that contains it, by name, in `rewrite` or `Eq.trans`. A local `def` in its plac
 of its own (below).
 
 **`let`** is substituted (above). One whose value is used many times makes a long statement;
-§10 bounds the size.
+§10 bounds the size. A destructuring `let` is a `let` here too: a tuple or record pattern binds
+projections (`patlet.rs`), so a tail `match` or `if` below it gets its branches (SW-1081). One
+whose pattern compiles into the case tree instead (a data constructor, `_`, `()`) isn't stated,
+and `doc` says so.
 
 **Mutual groups.** Each member gets its equations once the group is final; a call of another
 member is just a call.
