@@ -57,16 +57,13 @@ def addRightmost (amount: Nat): Number → Number
 def explode (depth: Nat): Number → Option Explosion
   | Regular _ => None
   | Pair (Regular a) (Regular b) => if 4 ≤ depth then Some ({ toLeft = a, number = Regular 0, toRight = b }) else None
-  | Pair left right => explodeIn left right (explode (depth + 1) left) (explode (depth + 1) right)
-
---| An explosion in the pair of `left` and `right`, given those in each: the
---| left's if there is one, and the value it hands right goes to the
---| leftmost regular number of `right`; else the right's, handing its left
---| value to the rightmost regular number of `left`.
-def explodeIn (left: Number) (right: Number): Option Explosion → Option Explosion → Option Explosion
-  | Some inLeft, _ => Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 })
-  | None, Some inRight => Some ({ toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight })
-  | None, None => None
+  | Pair left right =>
+    match explode (depth + 1) left with
+      | Some inLeft => Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 })
+      | None =>
+        match explode (depth + 1) right with
+          | Some inRight => Some ({ toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight })
+          | None => None
 
 --| The leftmost regular number of 10 or more, split into its halves (the
 --| left rounded down, the right up).
