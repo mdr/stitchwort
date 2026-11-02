@@ -346,14 +346,14 @@ impl Elaborator {
         match result {
             Ok(()) => {}
             Err(Stop::Skip(why)) => {
-                self.globals.rewind(&mark);
+                self.rewind_globals(&mark);
                 if !why.is_empty() {
                     self.equation_skips.push((d.f, suffix, why));
                 }
             }
             Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
             Err(Stop::Error(e)) => {
-                self.globals.rewind(&mark);
+                self.rewind_globals(&mark);
                 self.equation_skips.push((
                     d.f,
                     suffix,

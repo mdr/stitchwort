@@ -1318,6 +1318,14 @@ impl Elaborator {
         pretty::value(&self.globals, &[], value)
     }
 
+    /// Rewinds the environment to `mark`, which also clears the
+    /// metavariables: the types navigation has noted are printed first,
+    /// while their metavariables still have their solutions (SW-1072).
+    pub(crate) fn rewind_globals(&mut self, mark: &stitchwort_core::globals::GlobalsMark) {
+        self.flush_navigation();
+        self.globals.rewind(mark);
+    }
+
     pub(crate) fn clear_metas(&self) {
         self.flush_navigation();
         self.flush_goals();
