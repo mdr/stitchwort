@@ -3457,14 +3457,14 @@
     {
       "id": 1085,
       "title": "Research: Osprey's effects (https://www.ospreylang.dev/docs/effects/) - what it is, and what Stitchwort's abilities/handlers could borrow",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "research",
         "design"
       ],
-      "body": "",
+      "body": "\n\nResult (Opus research lane, 2 Nov 2026; read-only). Osprey: functional language in Rust -> LLVM by one author (Nimblesite), repo since June 2025, v0.28, ~65 stars, spec well ahead of what's built; a credible prototype, not a reference design. Effects: per-operation modes (value vs control abort/once/many), deep handlers, handler values or block-scoped `handle`, rows by inclusion (open rows a prototype), `handle static` (compile-time discharge or error), Arith effect, replayable, finally/mask/instance (mostly planned).\nStitchwort already same or better: direct style, deep handlers, return clause, unhandled = compile error, row polymorphism built (effect-polymorphism.md 0-3), multi-shot on every runner (D1162), kernel-checked handler termination via Effect.Comp/foldComp (DESIGN §8), handler-based testing plus proofs; Arith not needed (unbounded numbers, / needs a proof).\nCandidates, ranked: (1) a \"handle static\"-style assertion that a handler takes the fused/in-place fast path or says which clause stopped it (fusion.rs reasons; would have caught SW-861): worth doing, as evidence for research T5 (docs/research/effects.md §6). (2) declared operation modes (Koka fun/ctl, Osprey abort/once): maybe, add to SW-791/D1428's options; also answers DESIGN §16 Q9 for JS extraction. (3) differential tests of handler semantics against Koka (nixpkgs koka 3.2.9; port examples/accept/abilities.sw and row tests): worth a low-priority ticket, it checks the trusted translation independently. (4) requirement provenance in diagnostics/hover (Store@3:15.get): maybe, fold into research rank 6. No: mask/named instances (abilities.md:229), finally/replayable, block-scoped handle / second syntax.\nSources: ospreylang.dev/docs/effects/, /spec/0017-algebraiceffects/, /status/, github.com/Nimblesite/osprey (examples/handlers, docs/plans/0016-algebraic-effects-and-handlers.md).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
