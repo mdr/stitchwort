@@ -1,5 +1,5 @@
 {
-  "next": 1084,
+  "next": 1085,
   "tickets": [
     {
       "id": 47,
@@ -3433,6 +3433,21 @@
       "labels": [
         "tooling",
         "decision"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1084,
+      "title": "Experiment (D2202 b, D2203): the same loose brief to DeepSeek V4.1 Flash and Sonnet for three tasks of rising difficulty (SW-926 easy, SW-1081 medium, SW-1073 hard), to find where each model's work can be trusted. Score per run: correctness (line-by-line review), completeness, rules followed, wall time, cost; merge the best run of a task only if useful and Matt agrees",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "research"
       ],
       "body": "",
       "created": "2026-11-02",
