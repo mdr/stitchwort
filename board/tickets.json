@@ -1,5 +1,5 @@
 {
-  "next": 1089,
+  "next": 1090,
   "tickets": [
     {
       "id": 47,
@@ -1430,7 +1430,7 @@
         "bug",
         "diagnostics"
       ],
-      "body": "Found by the SW-804 lane (31 Oct 2026), exists on main: the E-IMPORT-CLASH note says \"write `List.length` where you mean that one\", but `List.length` is E-UNKNOWN-NAME without `import Std (List)` (checked: `def x: Nat := List.length [1, 2]`). Repro on main: `import Std.List (length)` plus `def length`. The note should suggest a spelling that resolves in the file (the full `Std.List.length`, or the short form plus the import it needs), as SW-918 made goals do.\n",
+      "body": "Found by the SW-804 lane (31 Oct 2026), exists on main: the E-IMPORT-CLASH note says \"write `List.length` where you mean that one\", but `List.length` is E-UNKNOWN-NAME without `import Std (List)` (checked: `def x: Nat := List.length [1, 2]`). Repro on main: `import Std.List (length)` plus `def length`. The note should suggest a spelling that resolves in the file (the full `Std.List.length`, or the short form plus the import it needs), as SW-918 made goals do.\n\n\nModel result: Sonnet, worked (experiment SW-1084; DeepSeek wrote the same fix but its test was wrong and its run ended early).\n",
       "created": "2026-10-31",
       "updated": "2026-11-02",
       "commits": [
@@ -3399,17 +3399,19 @@
     {
       "id": 1081,
       "title": "Function equations: a destructuring let ({row, column} := guard.position) before a tail match/if blocks equations (AoC 2024 day 6 Lab.ahead, Sightlines.nextTurn); would replace aheadUp/Down/Right/Left and the *Edge lemmas in Proofs/Sightlines.sw:120-137 (found by SW-1080)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elaborator",
         "proof"
       ],
-      "body": "",
+      "body": "\n\nMerged 183b437e (DeepSeek's version, experiment SW-1084): merge tier 1052/1052, audits clean, Day06 search audit 140/140 (one vacuity warning on loopsFrom.eq2.some, unrelated). Model result: DeepSeek, worked (broader than Sonnet's: also proof-constructor lets; caught the let-proof-pattern-unfold change).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "74a961a2"
+      ]
     },
     {
       "id": 1082,
@@ -3510,6 +3512,20 @@
       "labels": [
         "effects",
         "tests"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1089,
+      "title": "f.induct nested patterns, follow-ups from the Opus review of SW-1073 (List.unfold.induct): (1) a later constructor field whose type depends on the nested one (Some (MkSig (MkPair a b) w), w: Fin (Pair.fst q)) is skipped only because the kernel refuses the proof; check before splitting and give a proper reason; (2) an inner type with several constructors (Some None / Some (Some k)) gets the generic 'don't cover its type once' reason; say 'nested pattern on a type with several constructors'; (3) function-equations.md stage 2a item 4: also list indexed inner types, dependent later fields, and a nested match below its own split (rd != depth) as uncovered; fix the short line break; (4) tidy: open_node's duplicate args_at/at (drops the clippy allow), the 'isn't of its scrutinee's type' reason also covers arity mismatch; (5) tests: two nested fields, and skipped(...) for cases 1 and 2. Small; DeepSeek candidate (elaborator, generates kernel terms, so Opus reviews)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "equations"
       ],
       "body": "",
       "created": "2026-11-02",
