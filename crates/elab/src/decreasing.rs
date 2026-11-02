@@ -832,13 +832,26 @@ impl crate::queue::ErrorFrame for MeasureFrame {
 }
 
 impl Elaborator {
-    /// A definition with `decreasing`, on its own (a group of one): its
+    /// A group with a member that has `decreasing`: refused unless it is
+    /// that definition on its own (a group of one), which gets its
     /// signature, then everything [the module's documentation](self) lists.
+    /// The member with `decreasing` needn't be the first: a theorem that
+    /// names `g.unfold` where `g` names it back is a group of two (SW-1077).
     pub(crate) fn decreasing_group(
         &mut self,
         members: &[(usize, &Decl, &[Decl])],
     ) -> Vec<(usize, Diagnostic)> {
-        let (item, signature, equations) = members[0];
+        let Some(&(item, signature, equations)) = members.iter().find(|(_, s, _)| {
+            matches!(
+                s,
+                Decl::Signature {
+                    decreasing: Some(_),
+                    ..
+                }
+            )
+        }) else {
+            unreachable!("only called for a group with a `decreasing` signature")
+        };
         let Decl::Signature {
             name,
             decreasing: Some(measure),
@@ -847,7 +860,7 @@ impl Elaborator {
             ..
         } = signature
         else {
-            unreachable!("only called for a signature with `decreasing`")
+            unreachable!("found as a signature with `decreasing`")
         };
         let mut out = Vec::new();
         self.module.item = Some(item);
