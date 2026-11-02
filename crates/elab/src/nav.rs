@@ -1640,6 +1640,15 @@ impl Walk<'_> {
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
                     then(&mut stack, steps);
                 }
+                Expr::Induct { call, alts, .. } => {
+                    let mut steps = vec![Work::Expr(call)];
+                    for alt in alts {
+                        steps.extend(alt.binders.iter().map(Work::Bind));
+                        steps.push(Work::Expr(&alt.body));
+                        steps.extend(alt.binders.iter().map(|b| Work::Unbind(&b.text)));
+                    }
+                    then(&mut stack, steps);
+                }
                 Expr::Handle { body, clauses, .. }
                 | Expr::Reify {
                     thunk: body,

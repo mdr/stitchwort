@@ -1282,6 +1282,55 @@ Examples: `examples/reject/function-equations-*.sw`,
 `crates/driver/tests/function_equations.rs`,
 `crates/driver/tests/function_induct.rs`.
 
+**`match induct (f args) with`** (SW-1058) is `f.induct` written as a `match`,
+with the motive worked out from the goal. `induct` is a keyword only after
+`match`, followed by the call:
+
+```
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
+  match induct (countAbove k xs) with
+    | eq1 => omega
+    | eq2IfTrue x xs h ih => omega
+    | eq2IfFalse x xs h ih => omega
+```
+
+- **The call** is `f` applied to its explicit arguments, written out: the
+  fixed prefix (`k`) may be any terms; the arguments in the motive's places
+  (`xs`) must be distinct variables of the context (`E-MATCH-MOTIVE`
+  otherwise, saying to generalise them first). The goal must be a proposition.
+- **The motive** is the goal with the call replaced by the motive's result and
+  those variables by its other parameters. A variable in scope whose type
+  mentions the call or one of those variables (and, in turn, one whose type
+  mentions that one), including a hypothesis, is generalised as a `match` on an
+  expression does: the motive takes it as a premise, each alternative sees it
+  under its own name with its type refined to the case, and each `ih` takes it
+  as a premise. `found` in `examples/accept/match-induct.sw` is one: the third
+  alternative's `ih` is `firstBig rest = Some y → …`, and its body is `ih
+  found`. A hole `?` shows these refined types
+  (`examples/goals/match-induct.sw`).
+- **An alternative** is `| case b1 b2 … => body`, named after a case of
+  `f.induct` (the equation's name, `eq2IfTrue`). The names bind the case's
+  variables, then its hypotheses, then its induction hypotheses, in
+  `f.induct`'s order and all of them; `_` ignores one. A goal that is an
+  implication isn't introduced by the names: the body is a function
+  (`| eq1 => none => cases`). Alternatives come in any order.
+- **Errors.** `E-INDUCT-CASE`: a name that isn't a case, two alternatives for a
+  case, or the wrong number of names (each says the cases or the names
+  expected). `E-NONEXHAUSTIVE`: a case without an alternative (the message lists
+  the cases). `E-NO-INDUCT`: `f` has no `f.induct`, with the reason it wasn't
+  made (the `E-NO-EQUATION` one, or that `f` doesn't call itself).
+  `E-MATCH-MOTIVE`: the goal isn't a proposition, an argument isn't a
+  variable, or the motive worked out doesn't give the goal back (the goal
+  mentions the call where it can't be abstracted, as with a `match` on an
+  expression); write `f.induct` out in that case.
+- It is exactly `f.induct` applied to the prefix, the motive, the cases (the
+  alternatives, each a function of its names and of the generalised
+  variables), the variables, and the generalised variables, so the kernel
+  checks it as it does the explicit form.
+
+Examples: `examples/accept/match-induct.sw`, `examples/goals/match-induct.sw`,
+`examples/reject/match-induct-*.sw`.
+
 ## `Partial`
 
 A function that might not finish says `Partial` in its row, and so does

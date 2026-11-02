@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `double.induct`, and `double` has none
+    ╭─[ reject/match-induct-not-recursive.sw:12:17 ]
+    │
+ 12 │   match induct (double n) with
+    │                 ────┬───  
+    │                     ╰───── this call
+    │ 
+    │ Note: `double` doesn't call itself, so it has no `double.induct`: a proof about it splits as it does, with its equations (`stitchwort doc double` lists them)
+────╯

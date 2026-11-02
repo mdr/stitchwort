@@ -156,6 +156,16 @@ pub enum Expr {
         clauses: Vec<Clause>,
         span: Span,
     },
+    /// `match induct (f args) with | eq1 x ih => … | eq2 … => …`: in a proof,
+    /// functional induction on `f`'s call by `f.induct`, one alternative per
+    /// case, named after the equation, binding the case's variables,
+    /// hypotheses and induction hypotheses in order
+    /// (docs/proposals/function-equations.md §5.3).
+    Induct {
+        call: Box<Expr>,
+        alts: Vec<InductAlt>,
+        span: Span,
+    },
     /// `match e with | p -> body | …`; several scrutinees `match a, b with | p, q -> …`;
     /// naming the equation `match h : e with …` (docs/proposals/syntax-conveniences.md §4).
     Match {
@@ -315,6 +325,18 @@ pub struct Alt {
     pub span: Span,
 }
 
+/// One alternative of a `match induct`: `| eqK b₁ b₂ … => body`.
+#[derive(Clone, Debug)]
+pub struct InductAlt {
+    /// The case's name, as `f.induct` names it.
+    pub case: Name,
+    /// The names for the case's binders, in order (`_` ignores one).
+    pub binders: Vec<Name>,
+    pub body: Expr,
+    /// From the `|` to the end of the body.
+    pub span: Span,
+}
+
 impl Expr {
     /// If this is a method section `.f ….g args`, the first name after the
     /// `.` (`f`), for messages.
@@ -402,6 +424,7 @@ impl Expr {
             | Expr::CtorFields { span, .. }
             | Expr::Handle { span, .. }
             | Expr::Reify { span, .. }
+            | Expr::Induct { span, .. }
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
             | Expr::Omega { span, .. }
@@ -493,6 +516,7 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => facts.iter().any(nested),
         Expr::Cases { body, .. } => body.as_deref().is_some_and(nested),
+        Expr::Induct { call, alts, .. } => nested(call) || alts.iter().any(|a| nested(&a.body)),
         Expr::Match {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
@@ -616,6 +640,13 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             body: Some(body), ..
         } => take(body),
         Expr::Cases { body: None, .. } => {}
+        Expr::Induct { call, alts, .. } => {
+            for e in std::iter::once(&mut **call).chain(alts.iter_mut().map(|a| &mut a.body)) {
+                if !is_leaf(e) {
+                    pending.push(std::mem::replace(e, Expr::Prop(Span::NOWHERE)));
+                }
+            }
+        }
         // A pattern `let` nests the rest of its block in its alternative,
         // so a long block nests deeply there.
         Expr::Match {

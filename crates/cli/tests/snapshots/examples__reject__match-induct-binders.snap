@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDUCT-CASE] Error: the case `eq2IfTrue` of `countAbove.induct` binds 4 names, but this alternative has 2
+    ╭─[ reject/match-induct-binders.sw:12:7 ]
+    │
+ 12 │     | eq2IfTrue x xs => omega
+    │       ────┬────  
+    │           ╰────── binds `x`, `xs`, `h1`, `ih`
+    │ 
+    │ Note: an alternative names the case's variables, then its hypotheses, then its induction hypotheses, in order; `_` ignores one
+────╯

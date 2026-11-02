@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDUCT-CASE] Error: `eq2Else` isn't a case of `countAbove.induct`
+    ╭─[ reject/match-induct-unknown-case.sw:13:7 ]
+    │
+ 13 │     | eq2Else x xs h ih => omega
+    │       ───┬───  
+    │          ╰───── no case has this name
+    │ 
+    │ Note: the cases are `eq1`, `eq2IfTrue`, `eq2IfFalse`
+────╯
