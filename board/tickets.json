@@ -2620,7 +2620,7 @@
     {
       "id": 1030,
       "title": "E-PROJECT-CONFIG note says 'the known key is sources' but audit is also a key (project.rs:1057)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratchpad/tasks/sw1030",
       "labels": [
@@ -2629,7 +2629,9 @@
       "body": "Found by the docs accuracy sweep (SW-1026). Also left doubtful there: publishing.md:6 'nothing pushed or enabled' vs the live site link; core.md/DESIGN.md status dates; DESIGN must-reject row for runState/IsData; guide claims about row arguments, property tests, runtimes agreeing on every example, reserved namespaces.",
       "created": "2026-11-01",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "ebd8bdd2"
+      ]
     },
     {
       "id": 1031,
