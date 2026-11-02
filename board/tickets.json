@@ -1,5 +1,5 @@
 {
-  "next": 1094,
+  "next": 1096,
   "tickets": [
     {
       "id": 47,
@@ -1406,14 +1406,14 @@
     {
       "id": 921,
       "title": "Memory: resources test reaches 6.7 GB loading one small program repeatedly (sessions not freed?); lsp aoc_navigation test 7.9 GB",
-      "status": "next",
+      "status": "done",
       "agent": "Opus",
       "where": "lane (D2079): daily tier time + resources memory",
       "labels": [
         "bug",
         "tooling"
       ],
-      "body": "Found while getting the daily tier green (31 Oct 2026). Measured alone with /usr/bin/time -l (peak memory footprint), STITCHWORT_TIER=daily:\n- crates/driver/tests/resources.rs `running_out_at_any_point_only_ever_means_no_answer`: 6.7 GB on main (6.35 GB at 6e25695e, 28 Oct). It loads one small PROGRAM in a fresh `Session::new()` at every work limit from 1 up, so peak memory should be about one session. 6.7 GB suggests sessions (or something global they register: interned names, metas, caches, Rc cycles) aren't freed when dropped. A long-running language server creating sessions would leak the same way. Find what grows per iteration (e.g. measure footprint every N iterations) and fix the leak.\n- crates/cli/tests/lsp.rs `aoc_navigation_matches_check_index`: 7.9 GB on main, 33 s (9.9 GB, 176 s on 28 Oct, so better than it was). Find whether that's inherent (the whole AoC project in the LSP plus check --index) or held longer than needed.\nTogether they took `task test:daily` past its 16 GB cap. Workaround merged tonight: the resources test (and rt's aoc_agrees / every_aoc_main_lowers, which are AoC sweeps) joined the `corpus-sweeps` one-at-a-time group in .config/nextest.toml. docs/testing.md's table still says the daily peak is \"not measured\".\n\n\nD2079 (Matt, 31 Oct 2026): lane to cut the daily tier toward 5 min. Evidence: daily 606 s of tests; the one-at-a-time corpus-sweeps group took 562 s over 33 tests run serially; resources 109 s and fmt_hashes 102 s are a third of it. Do: sparser fmt_hashes daily sample; SW-921 (why the resources test holds 6.7 GB and takes 109 s); re-time the tier.\n\n\nLane progress (31 Oct): the resources test runs 161 work limits. Not a leak: after each session drops, the Rust heap is back at 30 MB (counting allocator). Limits 2075 to 8166 (about 30 of them) make about 50 library theorems fail; each failure runs a counterexample search whose fast-runtime recursion grows the machine's register Vec to 162 MB (240 MB live at the peak, about 1 s per session). macOS's system malloc keeps those freed large blocks in its large cache: RSS +229 MB per such session, about 6 GB in all. With MallocLargeCache=0, RSS stays at 61 MB; with mimalloc (which the CLI and language server use), at 345 MB. Fix: the test uses mimalloc, and the daily tier samples the work limits.\n\nLane progress: the time is the counterexample searches (cargo's env sets STITCHWORT_UNTIMED_COUNTEREXAMPLES=1, so there's no 200 ms backstop): with it, 107 s for all 161 limits, without it, 37 s. Change: the test samples its limits with tier_sample(…, 4) (daily 25 s at load 33, 364 MB; full 107 s, 367 MB, was 5.2 to 6.7 GB) and has left corpus-sweeps. fmt_hashes: 137 of its 160 s was the AoC project (two whole loads on one thread), now full only; files and projects every 8th: 22 s at load 24, 217 MB (was 115 to 160 s, 2.0 GB). Both pass in daily and full. Re-timing the daily tier next.\n\nLane done: commit 2c13d892 on worktree-agent-a900b8669314821d6. Daily tier re-timed at load 7 to 80 (other lanes running): 599 s of tests, all 1766 passed, memguard peak 11.5 GB. The load roughly doubled other tests' times (rewind examples 32 to 61 s), so this doesn't compare with the 606 s quiet run. resources went from 109 to 53 s and left the serial group; fmt_hashes went from 102 to 21 s. Without them the serial group is about 350 s of quiet time, so the tier is still over 5 min. Next candidates are the sweeps with no sample: erasure, run_js, run_reference, cli examples accepted/rejected, std_library core_alone, fuzz_elab, rt lower/machine examples (stride 2 to 4 each); rewind examples 8 to 16; differential 4 to 8. New: lsp a_newer_edit_cancels_the_check_running took 298 s and 8.4 GB under load.\n\n\n1 Nov 2026 evening: the merge tier was killed twice by memguard at its 3 GB cap (3.03 GB physical footprint; goal_index tests lemmas_check_as_the_same_goal / printed_goals_paste_back_as_lemmas running at the time), and passed on re-run each time. The merge tier now peaks near its cap; find what grew (goal_index? new doc/missing-case tests?) before raising the cap.\n1 Nov: SW-1052 made LSP navigation marks an undo log (was a clone per namespace, quadratic); aoc_navigation_matches_check_index now peaks 1.87 GB (was ~7.9). Resources test not re-measured.",
+      "body": "Found while getting the daily tier green (31 Oct 2026). Measured alone with /usr/bin/time -l (peak memory footprint), STITCHWORT_TIER=daily:\n- crates/driver/tests/resources.rs `running_out_at_any_point_only_ever_means_no_answer`: 6.7 GB on main (6.35 GB at 6e25695e, 28 Oct). It loads one small PROGRAM in a fresh `Session::new()` at every work limit from 1 up, so peak memory should be about one session. 6.7 GB suggests sessions (or something global they register: interned names, metas, caches, Rc cycles) aren't freed when dropped. A long-running language server creating sessions would leak the same way. Find what grows per iteration (e.g. measure footprint every N iterations) and fix the leak.\n- crates/cli/tests/lsp.rs `aoc_navigation_matches_check_index`: 7.9 GB on main, 33 s (9.9 GB, 176 s on 28 Oct, so better than it was). Find whether that's inherent (the whole AoC project in the LSP plus check --index) or held longer than needed.\nTogether they took `task test:daily` past its 16 GB cap. Workaround merged tonight: the resources test (and rt's aoc_agrees / every_aoc_main_lowers, which are AoC sweeps) joined the `corpus-sweeps` one-at-a-time group in .config/nextest.toml. docs/testing.md's table still says the daily peak is \"not measured\".\n\n\nD2079 (Matt, 31 Oct 2026): lane to cut the daily tier toward 5 min. Evidence: daily 606 s of tests; the one-at-a-time corpus-sweeps group took 562 s over 33 tests run serially; resources 109 s and fmt_hashes 102 s are a third of it. Do: sparser fmt_hashes daily sample; SW-921 (why the resources test holds 6.7 GB and takes 109 s); re-time the tier.\n\n\nLane progress (31 Oct): the resources test runs 161 work limits. Not a leak: after each session drops, the Rust heap is back at 30 MB (counting allocator). Limits 2075 to 8166 (about 30 of them) make about 50 library theorems fail; each failure runs a counterexample search whose fast-runtime recursion grows the machine's register Vec to 162 MB (240 MB live at the peak, about 1 s per session). macOS's system malloc keeps those freed large blocks in its large cache: RSS +229 MB per such session, about 6 GB in all. With MallocLargeCache=0, RSS stays at 61 MB; with mimalloc (which the CLI and language server use), at 345 MB. Fix: the test uses mimalloc, and the daily tier samples the work limits.\n\nLane progress: the time is the counterexample searches (cargo's env sets STITCHWORT_UNTIMED_COUNTEREXAMPLES=1, so there's no 200 ms backstop): with it, 107 s for all 161 limits, without it, 37 s. Change: the test samples its limits with tier_sample(…, 4) (daily 25 s at load 33, 364 MB; full 107 s, 367 MB, was 5.2 to 6.7 GB) and has left corpus-sweeps. fmt_hashes: 137 of its 160 s was the AoC project (two whole loads on one thread), now full only; files and projects every 8th: 22 s at load 24, 217 MB (was 115 to 160 s, 2.0 GB). Both pass in daily and full. Re-timing the daily tier next.\n\nLane done: commit 2c13d892 on worktree-agent-a900b8669314821d6. Daily tier re-timed at load 7 to 80 (other lanes running): 599 s of tests, all 1766 passed, memguard peak 11.5 GB. The load roughly doubled other tests' times (rewind examples 32 to 61 s), so this doesn't compare with the 606 s quiet run. resources went from 109 to 53 s and left the serial group; fmt_hashes went from 102 to 21 s. Without them the serial group is about 350 s of quiet time, so the tier is still over 5 min. Next candidates are the sweeps with no sample: erasure, run_js, run_reference, cli examples accepted/rejected, std_library core_alone, fuzz_elab, rt lower/machine examples (stride 2 to 4 each); rewind examples 8 to 16; differential 4 to 8. New: lsp a_newer_edit_cancels_the_check_running took 298 s and 8.4 GB under load.\n\n\n1 Nov 2026 evening: the merge tier was killed twice by memguard at its 3 GB cap (3.03 GB physical footprint; goal_index tests lemmas_check_as_the_same_goal / printed_goals_paste_back_as_lemmas running at the time), and passed on re-run each time. The merge tier now peaks near its cap; find what grew (goal_index? new doc/missing-case tests?) before raising the cap.\n1 Nov: SW-1052 made LSP navigation marks an undo log (was a clone per namespace, quadratic); aoc_navigation_matches_check_index now peaks 1.87 GB (was ~7.9). Resources test not re-measured.\n\nClosed 2 Nov 2026 (D2214): the resources test fix (mimalloc, sampled limits, 2c13d892) and SW-1052 (aoc_navigation 7.9 -> 1.87 GB) are on main; the 1 Nov merge-cap kills were SW-1076 (search --at; cap 4 GB) and goal_index has left the merge tier (SW-1092). Remaining work moved to SW-1094 (a_newer_edit_cancels_the_check_running) and SW-1095 (daily tier time).\n",
       "created": "2026-10-31",
       "updated": "2026-11-02",
       "commits": [
@@ -3585,6 +3585,35 @@
       "labels": [
         "tests",
         "perf"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1094,
+      "title": "Measure lsp a_newer_edit_cancels_the_check_running on a quiet machine (from SW-921, D2214): it took 298 s and 8.4 GB once, under load (31 Oct), never re-measured. If it still holds GBs or minutes, find whether that's inherent or held longer than needed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests",
+        "perf"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1095,
+      "title": "Daily tier over its 5-minute budget (from SW-921, D2214): ~600 s of tests on 31 Oct under load (606 s quiet before SW-921's fixes). Investigate like SW-1090: per-test timings, CPU vs critical path (the serial corpus-sweeps group was ~350 s quiet), this machine (10-core M1 Pro) vs the 14-core budget, options (sample the unsampled sweeps listed on SW-921: erasure, run_js, run_reference, cli examples, std_library core_alone, fuzz_elab, rt lower/machine examples, rewind, differential). Full daily-tier runs need Matt's agreement on the number before the lane starts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
       ],
       "body": "",
       "created": "2026-11-02",
