@@ -28,6 +28,14 @@ does not do significant work itself:
   (code, proofs, design notes, investigations) goes to an agent, including
   fixes for problems found in review.
 - Lanes that touch the same area run one after another, not side by side.
+- It creates each lane's worktree itself, from local `main`
+  (`git worktree add -b lane/SW-N .claude/worktrees/SW-N main`), and gives
+  the agent the path. Not Claude Code's `isolation: "worktree"`: that starts
+  from `origin/main`, which misses everything not yet pushed (D2193, Matt,
+  2 Nov 2026). DeepSeek's scratch clones are cloned from local `main` too.
+- Once a lane's work is merged or dropped, it deletes the worktree and its
+  branch (`git worktree remove`, `git branch -D`), or the scratch clone.
+  Each holds gigabytes of build output.
 
 ## Choosing the model
 
