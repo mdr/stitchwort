@@ -15,5 +15,5 @@ expression: output
    │     ─┬─  
    │      ╰─── defined here, which would hide the import
    │ 
-   │ Note: remove the import, and write `List.map` where you mean that one
+   │ Note: remove the import, and write `Std.List.map` where you mean that one
 ───╯

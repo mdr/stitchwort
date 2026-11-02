@@ -219,3 +219,46 @@ fn imports_still_work_for_eval_after_a_single_file() {
         .unwrap();
     session.elab.infer_expr(&expr).unwrap();
 }
+
+/// SW-926: the name the E-IMPORT-CLASH note suggests (`remove the import,
+/// and write X`) resolves in that file once the import is removed.
+#[test]
+fn an_import_clash_note_suggests_a_name_that_resolves() {
+    let cases = [
+        // (import line, declaration, where the name goes, suggestion)
+        (
+            "import Std.List (length)",
+            "def length (n: Nat): Nat := n",
+            "def x: Nat := length 3",
+            "Std.List.length",
+        ),
+        (
+            "import List (length)",
+            "def length (n: Nat): Nat := n",
+            "def x: Nat := length 3",
+            "Std.List.length",
+        ),
+        (
+            "import Std.List (length as count)",
+            "def count (n: Nat): Nat := n",
+            "def x: Nat := count 3",
+            "Std.List.length",
+        ),
+    ];
+    for (import, declaration, usage, suggestion) in cases {
+        let source = |import: &str, usage: &str| {
+            format!("namespace N\n\n{import}\n\n{declaration}\n\n{usage}\n")
+        };
+        let (_, errors) = errors(&[("a.sw", &source(import, usage))]);
+        assert_eq!(errors.len(), 1, "{import}: {errors:#?}");
+        assert_eq!(errors[0].code, "E-IMPORT-CLASH");
+        let note = errors[0].notes.join("\n");
+        assert!(
+            note.contains(&format!("write `{suggestion}`")),
+            "{import}: {note}"
+        );
+        // Following the note: no import, and the suggested name in use.
+        let fixed = source("", &format!("def y (xs: List Nat): Nat := {suggestion} xs"));
+        load(&[("a.sw", &fixed)]);
+    }
+}
