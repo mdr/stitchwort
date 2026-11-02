@@ -114,8 +114,16 @@ fn doc_says_which_equations_were_not_generated_and_why() {
     let names: Vec<&str> = (skipped.iter())
         .map(|s| s["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Main.explode.eq3", "Main.explode.induct"], "{report}");
-    assert!(skipped.iter().all(|s| s["reason"].as_str().unwrap().len() > 20));
+    assert_eq!(
+        names,
+        ["Main.explode.eq3", "Main.explode.induct"],
+        "{report}"
+    );
+    assert!(
+        skipped
+            .iter()
+            .all(|s| s["reason"].as_str().unwrap().len() > 20)
+    );
     assert!(report["equations"]["induct"].is_null(), "{report}");
     let (_, out, _) = run("doc", &dir, &["explode", "a.sw"]);
     assert!(
@@ -140,7 +148,10 @@ fn a_library_definition_lists_its_equations() {
     assert_eq!(equations["shown"][1]["name"], "List.filter.eq2");
     assert_eq!(equations["shown"][1]["stuck"], false);
     assert_eq!(equations["shown"][1]["file"], "std/List/Toolkit.sw");
-    assert_eq!(equations["induct"]["name"], "List.filter.induct", "{report}");
+    assert_eq!(
+        equations["induct"]["name"], "List.filter.induct",
+        "{report}"
+    );
     assert!(theorem_names(&report).iter().all(|n| !n.contains(".eq")));
     let (code, out, err) = run("doc", &dir, &["List.filter"]);
     assert_eq!(code, 0, "{out}\n{err}");

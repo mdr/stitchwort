@@ -1557,7 +1557,11 @@ fn render_equations(q: &Equations) -> String {
         "equations"
     };
     // `f.induct` isn't an equation: named beside the count (SW-1073).
-    let and_induct = if q.induct.is_some() { " and f.induct" } else { "" };
+    let and_induct = if q.induct.is_some() {
+        " and f.induct"
+    } else {
+        ""
+    };
     if q.total == 0 && q.induct.is_none() {
         out.push_str("Equations: none generated\n");
     } else if q.total == 0 {
