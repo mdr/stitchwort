@@ -3436,7 +3436,13 @@ fn typed_lambda(
     let g = cx.g();
     let (written, _) = check_type(cx, ann)?;
     let written = cx.eval(&written)?;
-    if !cx.unify(&written, dom)? {
+    // Equal now, or once the queue settles what both still wait on (a
+    // number literal in each, `Cons 1 ys` against `Cons 1 ys`, SW-1055).
+    if !cx.unify(&written, dom)?
+        && !with_span(cx, ann.span(), |cx| {
+            crate::queue::compare_waiting(cx, &written, dom, crate::queue::Failure::Mismatch)
+        })?
+    {
         let (expected, found) = (cx.show(dom), cx.show(&written));
         return with_span(cx, ann.span(), |cx| {
             Err(cx.error(

@@ -952,7 +952,20 @@ impl Session {
         let gave_up = std::mem::take(&mut checker.gave_up);
         drop(checker);
         let session = &*self;
-        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
+        // What closes before what applies; among either, a written theorem
+        // before a generated equation (`f.eqK`, whose side may compute to
+        // the goal's: docs/proposals/function-equations.md §3.4, SW-1055),
+        // then by class.
+        results.sort_by_key(|(s, rank)| {
+            (
+                s.class == "applicable",
+                stitchwort_elab::is_equation_name(&s.name),
+                class_rank(s.class),
+                s.witnesses,
+                s.goals.len(),
+                *rank,
+            )
+        });
         let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
         // A proof using the induction hypothesis is checked given it; in a
         // file on its own, nothing checks that its call terminates
