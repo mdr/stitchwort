@@ -310,6 +310,17 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
     match e {
         Expr::Bracketed(inner, _) => tail_split(inner),
         Expr::Let { body, .. } | Expr::LocalDefs { body, .. } => tail_split(body),
+        // A destructuring `let` (`let (a, b) := e`, `let { x, y } := e`) is a
+        // one-alternative `match` in the source. A tuple or record pattern
+        // (or a proof constructor's) binds projections outside a proof
+        // (`patlet.rs`), so the split below it is in tail position as an
+        // ordinary `let`'s is; one whose pattern compiles into the case tree
+        // is skipped by `alternative_rows`, with the reason.
+        Expr::Match {
+            alts,
+            kind: MatchKind::Let,
+            ..
+        } if alts.len() == 1 => tail_split(&alts[0].body),
         Expr::If {
             binder,
             then,
@@ -413,12 +424,22 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
     let Expr::Match {
         scrutinees,
         alts,
-        kind: MatchKind::Match,
+        kind,
         ..
     } = rhs
     else {
         return Err("its `match` compiled into the case tree isn't its whole right side");
     };
+    if matches!(kind, MatchKind::Let) {
+        return Err(
+            "a destructuring `let` compiled into the case tree (a data constructor, `_` or `()`) \
+             isn't stated in stage 1b: only a tuple or record pattern `let` binds projections, \
+             which a tail `match` or `if` can be stated below",
+        );
+    }
+    if !matches!(kind, MatchKind::Match) {
+        return Err("its `match` compiled into the case tree isn't its whole right side");
+    }
     if parent.or.is_some() {
         return Err(
             "a `match` compiled into the case tree below an arm with an or-pattern isn't stated \

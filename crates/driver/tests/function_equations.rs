@@ -533,6 +533,104 @@ fn branch_equations() {
     });
 }
 
+/// A destructuring `let` before a tail `match` or `if` is a `let` for tail
+/// position too (§3.1): a record or tuple pattern binds projections, and the
+/// splits below it get the branch equations they have after an ordinary
+/// `let`. The two theorems use a generated equation by applying it, so the
+/// statements are usable in a proof, not just listed.
+const DESTRUCTURING_LETS: &str = r#"
+import Std (Bool, Nat, Option, Pair)
+
+type Cell = { row: Nat, column: Nat }
+
+def cellAhead (cell: Cell): Option Nat :=
+  let { row, column } := cell
+  match row with
+    | Zero => if column == 0 then None else Some column
+    | Succ n => Some (n + column)
+
+def pairAhead (p: (Nat, Nat)): Nat :=
+  let (a, b) := p
+  match a with
+    | Zero => b
+    | Succ n => n + b
+
+type Flagged = { flag: Bool, value: Nat }
+
+def flagged (f: Flagged): Nat :=
+  let { flag, value } := f
+  if flag then value else 0
+
+def ctorAhead (p: Pair Nat Nat): Nat :=
+  let MkPair a b := p
+  match a with
+    | Zero => b
+    | Succ n => n + b
+
+theorem pairAheadSucc (a: Nat) (b: Nat): pairAhead (Succ a, b) = a + b :=
+  pairAhead.eq.succ (Succ a, b) a rfl
+
+theorem flaggedTrue (n: Nat): flagged { flag = True, value = n } = n :=
+  flagged.eq.ifTrue { flag = True, value = n } rfl
+"#;
+
+#[test]
+fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
+    with_source(DESTRUCTURING_LETS.to_string(), |s| {
+        let cases = [
+            (
+                "cellAhead.eq.zero.ifTrue",
+                "(cell: Cell) → (isZero: cell.row = 0) → \
+                 (h1: (x => Decidable.toBool (Nat.decEq x 0)) cell.column = True) → \
+                 cellAhead cell = None",
+            ),
+            (
+                "cellAhead.eq.zero.ifFalse",
+                "(cell: Cell) → (isZero: cell.row = 0) → \
+                 (h1: (x => Decidable.toBool (Nat.decEq x 0)) cell.column = False) → \
+                 cellAhead cell = Some cell.column",
+            ),
+            (
+                "cellAhead.eq.succ",
+                "(cell: Cell) → (n: Nat) → (isSucc: cell.row = Succ n) → \
+                 cellAhead cell = Some (n + cell.column)",
+            ),
+            (
+                "pairAhead.eq.zero",
+                "(p: (Nat, Nat)) → (isZero: p.fst = 0) → pairAhead p = p.snd",
+            ),
+            (
+                "pairAhead.eq.succ",
+                "(p: (Nat, Nat)) → (n: Nat) → (isSucc: p.fst = Succ n) → \
+                 pairAhead p = n + p.snd",
+            ),
+            (
+                "flagged.eq.ifTrue",
+                "(f: Flagged) → (h1: f.flag = True) → flagged f = f.value",
+            ),
+            (
+                "flagged.eq.ifFalse",
+                "(f: Flagged) → (h1: f.flag = False) → flagged f = 0",
+            ),
+        ];
+        let mut wrong = Vec::new();
+        for (name, want) in cases {
+            let got = generated(s, name);
+            if got != want {
+                wrong.push(format!("{name}:\n  {got}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        // A constructor pattern `let` is compiled into the case tree, not
+        // bound as projections, so it's skipped with a reason that says so.
+        let why = skipped(s, "ctorAhead.eq.zero");
+        assert!(
+            why.contains("destructuring `let`") && why.contains("tuple or record"),
+            "{why}"
+        );
+    });
+}
+
 /// §3.4: where stepping through a lifted `match` by hand fails (§1.2), the
 /// error names the branch equations that state its steps.
 #[test]
