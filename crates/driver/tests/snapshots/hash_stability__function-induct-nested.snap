@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Std.List.unfold.eq.none 228ebd3d9585faab5368dae9f7d034f7711989fa8e721aa7be0edb0fe003be2f
+Std.List.unfold.eq.alt2 c092cc0b91a4f44282ae8115261bd0e62377925d6213f7a1f8a66ea5f1c4ab91
+Std.List.unfold.induct df60af35407e142d45d25cfb933cf235e867a1f7f7f5f93e3b3a2d38a11cf757
+Std.List.unfold.induct.%split1 05528da4d1bfd5cef7837d170639505725dfe0d48483352275f9cfae2c891f10
+Std.List.unfold.induct.%split2 0262ed8b9461792a1481eafd19656bad0ecdf838242040d997a18d188273a441
+Std.List.unfold.induct.%step e0b70804607d210366b5484053d2b175415e0ff350d391e06362d83b9e49fdb7
+Std.List.unfold.induct.%go 89a194424a3f07ed5cd6b9d593441903be24c3e18633abfcc28aec30d0a8b215
+Main.unfoldLengthLe 45aa07c726b415cadd8d13bec9c1790cf71a35b6a0130d203e45fbe6cf6a9f8b

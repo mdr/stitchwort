@@ -1,5 +1,5 @@
 {
-  "next": 1090,
+  "next": 1091,
   "tickets": [
     {
       "id": 47,
@@ -3526,6 +3526,20 @@
       "where": "",
       "labels": [
         "equations"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1090,
+      "title": "Merge tier over budget: 122-141 s on the last four runs against its 60 s budget (.config/nextest.toml, docs/testing.md). Find what takes the time (per-test durations, the slowest tests and binaries, build vs run, parallelism, memory cap) and how to bring it back under budget without losing coverage that matters; also how much is this machine (now an M1 Pro, 10 cores, 32 GB) vs the one the budget was set on (D2197)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
       ],
       "body": "",
       "created": "2026-11-02",
