@@ -121,17 +121,26 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
         }
     }
     let first = *helpers.first()?;
-    // A branch's proof names the helper, or the hidden lemma
-    // `f.%match1.eq2` stating one of its alternatives.
+    // A branch through the `match` uses the helper's equation for its
+    // alternative: the hidden lemma `f.%match1.eq2`, or that equation
+    // inline, `(proof : … → f.%match1 … = …)`. (Its statement may name the
+    // helper without stepping through it: `(match …) || …`.)
     let lemmas: Vec<String> = helpers
         .iter()
         .map(|h| format!("{}.eq", g.def(*h).name))
         .collect();
-    let mentioned = |id: &DefId| {
-        helpers.contains(id)
-            || lemmas
-                .iter()
-                .any(|n| g.def(*id).name.starts_with(n.as_str()))
+    let is_lemma = |id: &DefId| {
+        lemmas
+            .iter()
+            .any(|n| g.def(*id).name.starts_with(n.as_str()))
+    };
+    let states_helper = |ty: &Term| {
+        let mut t = ty.strip_loc();
+        while let Term::Pi(_, _, _, cod) = t {
+            t = cod.strip_loc();
+        }
+        matches!(t, Term::Eq(_, lhs, _)
+            if matches!(lhs.spine().0, Term::Def(id) if helpers.contains(id)))
     };
     let mut found: Vec<String> = Vec::new();
     for i in 0..g.defs.len() {
@@ -140,10 +149,11 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
             continue;
         }
         let Some(body) = d.body() else { continue };
-        if body
-            .subterms()
-            .any(|(s, _)| matches!(s, Term::Def(id) if mentioned(id)))
-        {
+        if body.subterms().any(|(s, _)| match s {
+            Term::Def(id) => is_lemma(id),
+            Term::Ann(_, ty) => states_helper(ty),
+            _ => false,
+        }) {
             found.push(format!("`{}`", d.name));
         }
     }
