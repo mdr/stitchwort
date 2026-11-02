@@ -1,5 +1,5 @@
 {
-  "next": 1075,
+  "next": 1077,
   "tickets": [
     {
       "id": 47,
@@ -4074,7 +4074,7 @@
     {
       "id": 1058,
       "title": "Function equations stage 2b: match induct (f args) with | eqK … (D2182)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4237,7 +4237,7 @@
     {
       "id": 1069,
       "title": "Function equations: a match on a definition's own variable nested below a lifted match alternative (refine the left side); largest AoC skip reason (20: 2021 day 16 readPackets, 2024 day 24 repair, Wire.ofName)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4267,7 +4267,7 @@
     {
       "id": 1071,
       "title": "Function equations: an arm overlapped by an earlier arm whose body has a lifted match gets no equation (body elaborated once per case of the earlier arm's patterns; no single right side) — blocks 2021 day 18 explode as first written (§6.2, explode.eq3.*)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4320,6 +4320,36 @@
         "proof"
       ],
       "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1075,
+      "title": "Function equations: f.induct for definitions whose equations are read per leaf (SW-1071: explode) or have a refined left side (SW-1069: readPackets, repair) — one case per leaf plus refined cases",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "From SW-1071's rebase (2 Nov 2026): explode.induct (made before, on the reshaped explode) is now skipped with a reason; AoC f.induct 99 -> 98. Nothing in AoC uses it.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1076,
+      "title": "Merge tier peaks just over its 3 GB cap (3.10 GB, many small processes: run/check of examples) since function equations are generated for every example; passes with --test-threads 6. Measure and either cut per-process memory or set the cap/threads deliberately",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tests",
+        "performance"
+      ],
+      "body": "See SW-921. 2 Nov 2026: two memguard kills of task test:merge at 3.10 GB; biggest processes 0.43 GB (run builders-deep.sw), 0.34 GB (check --index counterexample-big-numbers-1.sw), 0.28 GB (examples accepted_examples_check).",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
