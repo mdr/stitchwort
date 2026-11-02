@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Position e7eef5d2e806d8f69e806167d7faed4b584ff6e3238c7e92044d6b64552d2319
@@ -60,8 +59,8 @@ Main.sized db56d547d003ba25df9e78be1ec69350e6f69980552a578adf8f60aebabe76e7
 Main.ok a42e7b13c05621768dc888a22a7bfb9d9c97f3212a1d7a92ad24bf770ae6dbf8
 Main.ok.eq1 d5ab5410ae1b66904fdc244c0704ad845faf56beb8cf503fed1fa13421022830
 Main.ok.eq2 52170f341f00f0179b539e12d4b910ce578fbfa6a4f7ca076a367fc482a36523
-Main.test "inArgument" ed2f661fd54c37e6bb447ce077d3fcee350fb2da953059cd1de3f4697a7f1bdd
-Main.test "inTuple" 13e01385f43168b552aaf054e220822812ebb5fd52a76edb0a7a144dcd6e57b9
-Main.test "nested" d078c102e0004e7e994b7304a8fee2366189aeb27f17bfd8d6273b3c16ac739c
-Main.test "generic" 776e436074a35c18251333d6aedc36443c4a95989915c6a393ded18c25f95f04
-Main.test "sized" 04f37a8ed69918ae06a7c234b66ccbefc025a46da43a8f811a70076615cec96a
+Main.test "inArgument" 9e50a29c88e561f77adaae39e42b58c84fe144df783d115aafa2f4ebf5189058
+Main.test "inTuple" 98e0a49b073c7b30b54c03f37e6c87d44322d368c89dd89e4c919c9c3310eb43
+Main.test "nested" b78fb532194a3cdb980bc660cf907563c73f0124ad5183cd04e86ae1a77f7411
+Main.test "generic" 942b2b2d78eaca46ee0f28ce7d849567677ddd6db114d4e9199a5dbd421942da
+Main.test "sized" d2d7ba449262077914692f128c8d9db3e52d98db52275040c021333ec474b67b
