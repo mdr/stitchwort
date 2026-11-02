@@ -59,7 +59,11 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
 /// random-seed.sw rolls with the seed `IO.randomSeed` gives, a variable in its
 /// normal form. In lemma-on-large-normal-form.sw, `keep x k` on an unknown
 /// `k` is stuck on `k` around `grow 30 (Leaf x)`, a tree of 2^30 nodes written
-/// out (the example is about exactly that). An entry is a name, or `example:
+/// out (the example is about exactly that). In match-bounded-search.sw,
+/// `answer xs` is `search` on an unknown list unfolded through all of its
+/// 1,000,000,000 steps, each an `if` stuck on `xs`, and `describe` matches on
+/// it (the example is about not reading that back; with them compared, the
+/// test passed 14 GB, SW-1052). An entry is a name, or `example:
 /// name` for one example's definition. Their closed uses (the module's and the
 /// example's tests) are still compared, except the tests listed here.
 const NORMAL_FORM_TOO_BIG: &[&str] = &[
@@ -72,6 +76,8 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: generate",
     "accept/kernel-same-call-arguments.sw: descend",
     "accept/lemma-on-large-normal-form.sw: keep",
+    "accept/match-bounded-search.sw: answer",
+    "accept/match-bounded-search.sw: describe",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
