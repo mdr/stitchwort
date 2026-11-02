@@ -10,10 +10,24 @@
 version: '3'
 
 vars:
-  # Shell for worktree:new and scratch:new: clone the main checkout's build
-  # output and check caches into "$wt" (those that exist).
-  CLONE_CACHES: |
-    for d in target aoc/.stitchwort games/rogue/.stitchwort; do
+  # Shell for worktree:new and scratch:new, which make "$wt" under
+  # .claude/worktrees/. Every checkout there builds through kache (the
+  # compiler cache in the devShell), from .claude/worktrees/.cargo/config.toml,
+  # which cargo finds above the checkout; the main checkout doesn't. The
+  # Stitchwort check caches are cloned copy-on-write on APFS (macOS's
+  # /bin/cp -c; the Nix cp has no -c).
+  LANE_SETUP: |
+    mkdir -p '{{.ROOT_DIR}}/.claude/worktrees/.cargo'
+    cat > '{{.ROOT_DIR}}/.claude/worktrees/.cargo/config.toml' <<'TOML'
+    # Written by task worktree:new / scratch:new (Taskfile.yml, D2200): lane
+    # checkouts build through kache. Build-script runs aren't cached, so
+    # crates/driver/build.rs's fingerprint is always computed afresh.
+    [build]
+    rustc-wrapper = "kache"
+    [env]
+    KACHE_BUILD_SCRIPT_CACHE = "0"
+    TOML
+    for d in aoc/.stitchwort games/rogue/.stitchwort; do
       if [ -d '{{.ROOT_DIR}}'/"$d" ]; then /bin/cp -c -R '{{.ROOT_DIR}}'/"$d" "$wt/$d"; fi
     done
   # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
@@ -477,15 +491,14 @@ tasks:
     cmds:
       - ./editors/vscode/install.sh
 
-  # Lane checkouts (CLAUDE.md, D2193). A new checkout starts with the build
-  # output and check caches of the main checkout, cloned copy-on-write on
-  # APFS (macOS's /bin/cp -c; the Nix cp has no -c): about 1.5 s and a few MB
-  # for 5 GB. Cargo still rebuilds the 14 Stitchwort crates from a new path
-  # (48 s against 71 s cold, measured 2 Nov 2026). The recipe lives here so
-  # it can change in one place.
+  # Lane checkouts (CLAUDE.md, D2193, D2200), set up by LANE_SETUP above.
+  # Measured 2 Nov 2026, a release build of the workspace in a new checkout:
+  # 71 s cold, 48 s from a cloned target/, 8 s through kache once another
+  # checkout has built the same code. AoC check 64 s cold, 2.9 s with the
+  # cloned check cache. The recipe lives here so it can change in one place.
   worktree:new:
     silent: true
-    desc: 'Make a lane worktree from local main with cloned build caches (task worktree:new -- SW-1083: .claude/worktrees/SW-1083, branch lane/SW-1083)'
+    desc: 'Make a lane worktree from local main, building through kache (task worktree:new -- SW-1083: .claude/worktrees/SW-1083, branch lane/SW-1083)'
     cmds:
       - |
         set -eu
@@ -493,7 +506,7 @@ tasks:
         [ -n "$name" ] || { echo 'usage: task worktree:new -- NAME' >&2; exit 2; }
         wt='{{.ROOT_DIR}}/.claude/worktrees/'"$name"
         git -C '{{.ROOT_DIR}}' worktree add -q -b "lane/$name" "$wt" main
-        {{.CLONE_CACHES}}
+        {{.LANE_SETUP}}
         echo "$wt"
 
   worktree:rm:
@@ -509,13 +522,14 @@ tasks:
 
   scratch:new:
     silent: true
-    desc: 'Make a scratch clone for a DeepSeek task: cloned from local main, no remote, with cloned build caches (task scratch:new -- /abs/path)'
+    desc: 'Make a scratch clone for a DeepSeek task: from local main, no remote, building through kache (task scratch:new -- sw-1083: .claude/worktrees/scratch-sw-1083; delete with rm -rf)'
     cmds:
       - |
         set -eu
-        wt='{{.CLI_ARGS}}'
-        case "$wt" in /*) ;; *) echo 'usage: task scratch:new -- /absolute/path' >&2; exit 2;; esac
+        name='{{.CLI_ARGS}}'
+        [ -n "$name" ] || { echo 'usage: task scratch:new -- NAME' >&2; exit 2; }
+        wt='{{.ROOT_DIR}}/.claude/worktrees/scratch-'"$name"
         git clone -q --branch main '{{.ROOT_DIR}}' "$wt"
         git -C "$wt" remote remove origin
-        {{.CLONE_CACHES}}
+        {{.LANE_SETUP}}
         echo "$wt"

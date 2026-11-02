@@ -310,6 +310,7 @@
             pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
             pkgs.python3 # dev/memguard, which every test task runs under
             pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
+            pkgs.kache # compiler cache for lane checkouts only (task worktree:new, D2200)
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli
