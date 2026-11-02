@@ -1,5 +1,5 @@
 {
-  "next": 1054,
+  "next": 1056,
   "tickets": [
     {
       "id": 47,
@@ -4012,6 +4012,34 @@
       "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1054,
+      "title": "Daily/full round 2: expectations and output changes (search_at_aoc comment anchors, rt::lower snapshots, web AoC 2025 day 2 evaluation, rejected int-pattern-default error text)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1055,
+      "title": "Daily/full round 2: resources E-REFL vs E-TYPE-MISMATCH, search_at_bench stage two, rt::machine aoc_agrees 16 GB/45 min, every_aoc_main_lowers slow",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
       "commits": []
     }
   ]
