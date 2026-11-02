@@ -3563,16 +3563,18 @@
     {
       "id": 1092,
       "title": "Merge tier to 90 s on this machine (D2211 c, from SW-1090): sample the hash_stability examples/projects sweeps in the merge tier (every item still in daily), move goal_index to daily only, halve the aoc_answers sample in merge (every day still in daily); restate the budget as 90 s on a 10-core M1 Pro (docs/testing.md, .config/nextest.toml, Taskfile.yml)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "",
+      "body": "\n\nMerged f6d022e5 (ac5bc3fd). Merge tier 1030/1030 in 104 s with two other lanes running (load 7 at start, 34 at end), audits clean; re-time on a quiet machine. Coverage in merge: hash_stability 106 of 423 example files, 7 of 26 projects, prelude; aoc_answers 20 of 38; goal_index in lane-goals and daily only. Side effects accepted: lane-hashes also samples; new AoC days must be added to the merge filter by hand. Model result: DeepSeek, worked.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "ac5bc3fd"
+      ]
     },
     {
       "id": 1093,
