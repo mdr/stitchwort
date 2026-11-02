@@ -23,7 +23,12 @@ vars:
   # for none); STITCHWORT_MEM_REPORT=1 prints the peak at the end.
   GUARD: '{{.ROOT_DIR}}/dev/memguard'
   MEM_CAP_LANE: 3
-  MEM_CAP_MERGE: 3
+  # Merge: 2.5 to 3.1 GB measured (2 Nov 2026, SW-1076; killed twice at 3). One
+  # process is 1.4 to 1.5 GB: `search --at` of a goal that mentions `≤` (cli
+  # `search` `what_closes_a_goal`) loads most of the library, as it did before
+  # function equations; the rest is many 0.1 to 0.4 GB processes. 4 GB leaves
+  # a quarter of headroom.
+  MEM_CAP_MERGE: 4
   MEM_CAP_DAILY: 16
   MEM_CAP_FULL: 16
 

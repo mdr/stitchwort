@@ -51,7 +51,7 @@ Several worktrees test on one 48 GB Mac at once, and a tier that runs away can l
 | Tier | Cap | Measured peak |
 |---|---|---|
 | lane | 3 GB | up to 0.7 GB (`aoc`, `hashes`, `examples`, `std`, `core`) |
-| merge | 3 GB | 1.7 GB |
+| merge | 4 GB | 2.5 to 3.1 GB (2 Nov 2026, SW-1076; 1.7 GB on 26 Oct, and killed twice at the old 3 GB cap). One process is 1.4 to 1.5 GB: `search --at` of a goal with `≤` (`what_closes_a_goal`) loads most of the library, and did so before function equations. The rest are 0.1 to 0.4 GB each |
 | daily, `test:one`, `test:affected`, `guide:update`, `bench` | 16 GB | 11.5 GB (31 Oct 2026, SW-921), of which `lsp` `a_newer_edit_cancels_the_check_running` 8.4 GB and `operators` `primitive_and_uniform_lowering_agree_on_the_library_and_aoc` 2.4 GB. Before, over 16 GB when `lsp` `aoc_navigation_matches_check_index` (7.9 GB alone) ran beside `resources` `running_out_at_any_point_only_ever_means_no_answer` (6.7 GB, macOS's allocator keeping freed blocks; under 400 MB on mimalloc) |
 | full, `snap:*` | 16 GB | not measured |
 
