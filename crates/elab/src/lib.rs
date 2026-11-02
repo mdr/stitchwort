@@ -29,6 +29,7 @@ mod derive_show;
 mod doc_links;
 mod dot;
 mod effects;
+mod equation_notes;
 mod equations;
 mod families;
 mod goals;

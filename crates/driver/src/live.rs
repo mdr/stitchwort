@@ -65,6 +65,8 @@ pub struct LiveRef {
     pub signature: Option<String>,
     /// The declaration's doc (docs/proposals/documentation.md §4), for hover.
     pub doc: Option<String>,
+    /// For a definition: its generated equations, for hover.
+    pub equations: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
@@ -244,10 +246,12 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         }
         let mut signature = None;
         let mut doc = None;
+        let mut equations = None;
         let (target, name, kind, ty) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
                 signature = s.signature.clone();
+                equations = s.equations.clone();
                 doc = s.doc.as_ref().map(|d| d.text.clone());
                 let target = Loc {
                     place: place(s.file),
@@ -276,6 +280,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             ty,
             signature,
             doc,
+            equations,
             defaults: r.defaults.clone(),
         });
     }

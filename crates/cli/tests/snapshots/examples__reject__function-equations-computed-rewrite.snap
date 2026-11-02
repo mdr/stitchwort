@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `0` in the goal
+    ╭─[ reject/function-equations-computed-rewrite.sw:12:54 ]
+    │
+ 12 │ theorem sizeNil (n: Nat): size [] + n = n := rewrite size.eq1 in rfl
+    │                                                      ────┬───  
+    │                                                          ╰───── looking for `0`
+    │ 
+    │ Note 1: goal as written: `size [] + n = n`
+    │ 
+    │ Note 2: goal as it computes: `n = n`
+    │ 
+    │ Note 3: `size.eq1` is a generated equation for an arm of `size`. A call that computes in the goal (its arguments are constructors) is already its computed form, as the goal shows above, so there is nothing for the equation to replace. Arm equations are for calls that are stuck (on a variable, or in a `decreasing` or `opaque` definition): `stitchwort doc size` marks those `[stuck]`
+    │ 
+    │ Note 4: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ 
+    │ Note 5: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ 
+    │ Note 6: to replace the right side by the left, write `rewrite <- …`
+────╯

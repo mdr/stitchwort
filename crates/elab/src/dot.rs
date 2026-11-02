@@ -753,6 +753,9 @@ fn find_or_block(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<Looku
         if let Some(d) = crate::equations::no_equation(cx.e, &name) {
             return Err(d);
         }
+        if let Some(d) = crate::equation_notes::unknown_equation(cx, &name) {
+            return Err(d);
+        }
     }
     let result = find_in_view(cx, recv, field, ty);
     if matches!(result, Ok(Lookup::Blocked(..)) | Err(_))

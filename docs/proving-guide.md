@@ -215,6 +215,18 @@ Import what you use: std's theorems live in namespaces that need an import
   proof]`. `f.unfold x` is a `decreasing` definition's own equation, for
   `rewrite f.unfold x in …`; on unknown arguments `f x` doesn't unfold by
   itself.
+- **Arms have equations.** Every `def` with arms gets `f.eq1`, `f.eq2`, …
+  (one for each arm, in the order written): the call on that arm's patterns
+  equals its body. An arm an earlier arm overlaps takes a hypothesis for
+  each overlap (`notArm1: x ≠ 3`). `stitchwort doc f` lists them, with `[stuck]` on the ones
+  to use and the reason for any it couldn't make. Prefer one to `f.unfold`
+  plus a hand-written `match`, or to a helper lemma that restates a step.
+  They help where `f`'s call is stuck: on a variable (`rewrite f.eq3 x h1 h2
+  in …`, the hypotheses proved by `omega` or `rfl`), and in `decreasing` and
+  `opaque` definitions. A call with constructors already computes, so
+  `rewrite f.eq2 in …` there is `E-REWRITE-NOTHING`: let `rfl` or `cases`
+  compute it. Adding an arm renumbers the ones after it, and a name that no
+  longer exists is `E-UNKNOWN-NAME` pointing at `doc`.
 - **Nested types**: for `type Packet = | Number (value: Nat) | Packets (items: List Packet)`,
   the compiler generates `Packet.size`, `Packet.induct` (the `Packets` case
   gets `List.All motive items`) and `Packet.inductMem` (every member `q`

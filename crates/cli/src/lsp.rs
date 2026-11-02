@@ -908,6 +908,9 @@ fn hover(r: &LiveRef) -> Hover {
     if let Some(defaults) = &r.defaults {
         text.push_str(&format!("\n\n{defaults}"));
     }
+    if let Some(equations) = &r.equations {
+        text.push_str(&format!("\n\n{equations}"));
+    }
     Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
