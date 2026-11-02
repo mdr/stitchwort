@@ -4222,7 +4222,7 @@
     {
       "id": 1068,
       "title": "Function equations: on-demand library equations compile arms in the caller's scope, so constructors private to a library file (Map.Tree's Tip, VNil, Omega's) aren't found and those definitions' equations are skipped in search/doc (a few hundred std names; 1a and 1b)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4237,7 +4237,7 @@
     {
       "id": 1069,
       "title": "Function equations: a match on a definition's own variable nested below a lifted match alternative (refine the left side); largest AoC skip reason (20: 2021 day 16 readPackets, 2024 day 24 repair, Wire.ofName)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4267,7 +4267,7 @@
     {
       "id": 1071,
       "title": "Function equations: an arm overlapped by an earlier arm whose body has a lifted match gets no equation (body elaborated once per case of the earlier arm's patterns; no single right side) — blocks 2021 day 18 explode as first written (§6.2, explode.eq3.*)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
