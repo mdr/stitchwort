@@ -3629,14 +3629,14 @@
     {
       "id": 1096,
       "title": "Memory grows ~5.8 KB per input character in Std.Parse loops, fused or not (D2215 b, from SW-1087; noted on SW-861): Parse.next over 160,000 chars peaks 1.2-1.6 GB against 94 MB for the input list; a fused Nat-state handler at 1M operations peaks 6.3 GB. Find what is retained per operation (trail, continuation, sharing, allocator) and fix it. Sonnet; measure on a quiet machine",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "runtime",
         "perf"
       ],
-      "body": "",
+      "body": "\n\nDiagnosis (Sonnet, 2 Nov 23:40; no fix, no commit). Not the runtime: the checker. A `match` in `main` on a long effectful call (`match C.run (...) 0 with ...`) is fully evaluated at check time by `matching::generalised_now` -> `normals` (crates/elab/src/matching.rs) with core::value::run (no fusion, no tail resumption), ~7.3-7.8 KB per op, to test whether the scrutinee occurs in the goal. `check cn1m.sw` alone: 7.36 GB, 17 s. Moving the match into a helper (`show (C.run ...)`): cn1m 7.36 GB/18 s -> 69.5 MB/1.0 s; next (160k chars) 1.39 GB/4.6 s -> 101.8 MB/0.43 s; machine slope ~0.06 KB/char (the input list). Machine is bounded (frames=1). Not the allocator, not a leak (alloc-trace).\nConsequence: SW-861 and SW-738's natural-vs-workaround memory comparisons measured the checker, not the fused machine; --js pays it too.\nProposed fix (needs Opus + Matt): in `normals`, return None (as the existing size cap does) when the scrutinee can't occur: closed, of an inductive Data type, and no constructor of it in the goal, hypothesis types or other scrutinees' types; or a work budget. Plus a regression test on check's peak memory. Longer term: fusion/tail resumption in core::value. Workaround: pass the handled result through a helper. Scratch helper-form programs: scratchpad/sw-1096/.\nModel result: Sonnet, worked (diagnosis), 10 min (est. 45).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
