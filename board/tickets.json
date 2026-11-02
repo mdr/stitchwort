@@ -1,5 +1,5 @@
 {
-  "next": 1101,
+  "next": 1102,
   "tickets": [
     {
       "id": 47,
@@ -3698,6 +3698,20 @@
       "labels": [
         "docs",
         "tooling"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1101,
+      "title": "Pilot: std List docs under the new rule (docs/syntax.md 'What to write', D2226 step 3): improve docs that only restate the type, add one- or two-line examples where they demonstrate the function. Left on its branch for Matt to judge (not merged)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
       ],
       "body": "",
       "created": "2026-11-02",
