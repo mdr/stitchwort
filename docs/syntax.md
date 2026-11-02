@@ -1189,14 +1189,25 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
   earlier alternatives it overlaps instead. A `match` on the arm's own
   variables puts its pattern in the left side: `takeFirst.eq2.cons (k) (x)
   (rest): takeFirst (Cons x rest) (Succ k) = Cons x (takeFirst rest k)`.
+  So does one below a `match` on an expression, on a variable bound further
+  up: in the left side for the definition's own variable (`repair.eq.some.succ
+  (bits) (fewer) (b) (isSome: List.head [bits] = Some b): repair (Succ fewer)
+  bits = Some (fewer + b)`), in the earlier alternative's pattern for one of
+  its variables (`isSome: List.head name = Some 'x'`).
+- **An overlapped arm's branches.** An arm after one that overlaps it is
+  elaborated once for each case of the earlier arm's patterns; where a
+  lifted `match` captures what a case binds, the arm has no equation of its
+  own, but its branches do, stated in the arm's variables with the overlap
+  hypothesis: `explode.eq3.some (depth) (left) (right) (notArm2: …) (inLeft)
+  (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left
+  right) = Some (…)`.
 - **Not generated** for a branch (`E-NO-EQUATION`, with the reason): one
   that uses the proof of an `if`'s `else` (as `a % b` does, with `b ≠ 0`),
   or of its `then` when the condition isn't an equation in a type with
   `DecEq` or a comparison (two proofs of it aren't known to be equal); a
-  `match` on several expressions, an alternative with an or-pattern, a
+  `match` on several expressions, an alternative with an or-pattern, and a
   `match` whose helper copies variables whose types mention what it
-  matches, and a `match` on a variable of the definition below a lifted
-  `match`'s alternative.
+  matches.
 - **Messages.** `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` on a goal
   stuck on a `match` inside `f` note which of `f`'s equations state its steps.
 

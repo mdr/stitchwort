@@ -71,7 +71,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 |---|---|---|
 | `syntax` | `stitchwort-syntax`: lexer, parser, layout, fuzzing | 6 s |
 | `core` | `stitchwort-core` unit tests and the `kernel`, `hash`, `admission`, `opaque` and `trusted` tests; the driver's `nested_oracle` (nested data types against their mutual encoding, 50 cases) and `division` (an open dividend's normal form stays small and prints as `/`; SW-922) | 6 s |
-| `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones; `function_equations` (the generated equations of docs/proposals/function-equations.md, stages 1a and 1b; `the_librarys_equations` is ignored, run with `--run-ignored`) | 4 s |
+| `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones; `function_equations` (the generated equations of docs/proposals/function-equations.md, stages 1a and 1b; `the_librarys_equations` and `a_projects_equations` (AoC, or `EQUATIONS_PROJECT`) count and list the skips, ignored, run with `--run-ignored`) | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
 | `rt` | `stitchwort-rt` unit tests, `stitchwort-host` (the threads on mapped stacks), `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests, `live_run`, `linked` (the tables a `--native` executable carries) | 5 s |

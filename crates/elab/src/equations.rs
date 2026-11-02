@@ -28,7 +28,11 @@
 //! leaves; their bodies are the same term with the arm's variables refined,
 //! unless the body captured a refined variable (a lifted `match` does), and
 //! then no leaf says the arm's right side in its own variables: the arm is
-//! skipped.
+//! skipped. Its branches aren't (SW-1071): each leaf is read in its own
+//! context ([`Elaborator::refined_leaves`]), the splits gone down from
+//! there, and the branch stated in the arm's variables, what the leaf
+//! refined each to (`Regular a`) being that variable again (`left`); every
+//! leaf must give the same statement, and each is proved by its own steps.
 //!
 //! **How it's proved.** As a kernel term, never trusted: a case tree on the
 //! equation's variables that splits wherever the definition's tree does
@@ -55,7 +59,12 @@
 //! a `J` along `Bool.uniqueEq` or `DecEq.uniqueEq` where the branch uses
 //! `h`, §3.5), and per lifted `match` the helper's own equation for the
 //! alternative (stage 1a's, a hidden lemma `f.%match1.eq2` where it splits)
-//! carried along the hypothesis by one `J`.
+//! carried along the hypothesis by one `J`. A `match` below a lifted
+//! alternative, compiled into its helper's tree, on a variable bound further
+//! up (SW-1069) is stated where the variable is bound, in the left side
+//! (`repair (Succ fewer) bits`) or in an earlier alternative's pattern
+//! (`List.head name = Some 'x'`): its pattern is compiled below that row
+//! ([`Refine`]).
 //!
 //! **When.** A program's definitions get theirs when they're checked. The
 //! core's and the library's are made on demand (D2178's fallback: eager,
@@ -108,6 +117,22 @@ const SIZE_FACTOR: usize = 10;
 /// number with every one of them in context, which the kernel refines at
 /// each number, so checking it costs their count squared.
 const LITERAL_CAP: usize = 64;
+
+/// Why a row an earlier one overlaps has no equation of its own when each
+/// of its leaves' bodies captures what that leaf refined (SW-1071).
+const REFINED: &str = "an earlier arm overlaps it, so its body was elaborated once for each \
+                       case of that arm's patterns, each with the variables refined, and a \
+                       lifted `match` or local definition captures them: no one right side \
+                       states it in the arm's variables";
+
+/// [`REFINED`], and for a row with branches, that they have equations.
+fn refined_reason(branches: bool) -> String {
+    if branches {
+        format!("{REFINED} (its branches' equations, each read from every case, do)")
+    } else {
+        REFINED.to_string()
+    }
+}
 
 // ------------------------------------------------------------ the leaf log
 
@@ -212,6 +237,7 @@ enum Form {
 /// 1b) an alternative of a `match` on the arm's variables that is compiled
 /// into the case tree (§3.2, "`match` in tail position"), whose pattern is
 /// part of its left side.
+#[derive(Clone)]
 struct Row {
     /// The arm's number, from 1 (0 for a [`Form::Body`]).
     arm: usize,
@@ -764,7 +790,10 @@ struct Stated {
     binders: Vec<(Name, Icit, Term)>,
     hyps: Vec<Hyp>,
     lhs: Term,
-    rhs: Term,
+    /// `None` for a row an earlier one overlaps whose leaves' bodies each
+    /// capture the variables that leaf refined: no one term says its right
+    /// side ([`Elaborator::refined_leaves`] reads each leaf instead).
+    rhs: Option<Term>,
     /// The sizes of the right side and of the leaf's body it came from.
     rhs_size: usize,
     arm_size: usize,
@@ -842,6 +871,15 @@ struct Call {
 /// arms' would be (stage 1a), or why not.
 struct Helper {
     arity: usize,
+    /// The helper as a definition whose arms are the alternatives, and
+    /// where its alternatives are written (for probing a row again with
+    /// patterns below it, [`Refine`]).
+    def: Def,
+    root: Span,
+    /// Rows made again with patterns below them ([`Elaborator::refined_row`]),
+    /// by the row and the refinements' keys.
+    #[allow(clippy::type_complexity)]
+    refined: std::cell::RefCell<HashMap<(usize, Vec<Span>), Rc<(HelperEq, Shape)>>>,
     /// By row: the alternatives first, then the rows below those whose
     /// right side is a `match` compiled into the helper's tree.
     shapes: Vec<std::result::Result<Shape, String>>,
@@ -863,6 +901,66 @@ struct HelperEq {
     /// a hidden lemma (`decl`) for the branches' proofs to use.
     split: bool,
     decl: std::cell::Cell<Option<DefId>>,
+}
+
+/// Where a variable a `match` below a lifted `match`'s alternative splits
+/// was bound (SW-1069): by the row's left side (the arm's patterns, the
+/// header's parameters), or as a pattern variable of the alternative taken
+/// at the lifted `match` that is `path[i]`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Site {
+    Row,
+    Step(usize),
+}
+
+/// A `match` compiled into a lifted `match`'s helper's tree, on a variable
+/// the helper captured from further up (SW-1069): the helper's equation for
+/// the alternative takes the variable as that `match`'s pattern, so the
+/// branch states it there, where the variable is bound. The `match`'s
+/// scrutinees and the alternative's patterns are compiled below that row
+/// (the definition's, or the helper's), as rows below an arm are.
+#[derive(Clone)]
+struct Refine {
+    site: Site,
+    scrutinees: Vec<Scrutinee>,
+    patterns: Vec<Pattern>,
+    /// The alternative's span: one refinement is asked for once.
+    key: Span,
+    /// The alternative's segment of the name (`zero`, `alt1`).
+    seg: String,
+}
+
+/// One leaf of a row an earlier row overlaps (SW-1071), as a walk of the
+/// definition's tree with the row's left side reaches it: its context is
+/// the row's variables then the fields the walk split off, `depth` in all.
+struct LeafCtx {
+    path: Vec<u32>,
+    depth: usize,
+    /// The leaf's body, read here (`let`s substituted, as a right side is).
+    body: Term,
+    /// The row's variables the walk refined, with what each is here
+    /// (`left` is `Regular a`).
+    images: Vec<(usize, Term)>,
+    /// The size of the leaf's body as elaborated.
+    size: usize,
+}
+
+/// A leaf's proof (SW-1071), at its [`LeafCtx`]'s depth then the branch's
+/// binders, that its body is the branch's right side.
+struct LeafProof {
+    path: Vec<u32>,
+    depth: usize,
+    q: Term,
+}
+
+/// How a row's leaf goes on, in an equation's proof: `rfl` (or
+/// `f.unfold`) alone; for a branch, along a proof that the row's right side
+/// is the branch's, one for every leaf, or (SW-1071) one per leaf; with the
+/// statement's left side (both at the statement's depth).
+enum Then {
+    Own,
+    One(Term, Term),
+    PerLeaf(Term, Vec<LeafProof>),
 }
 
 /// The declarations branch equations are proved with.
@@ -1761,9 +1859,14 @@ impl Elaborator {
                 row.arm != 0
             };
             if own {
+                let skipped = self.equation_skips.len();
+                let cache = &mut helpers;
                 self.one_equation(d, k, row.suffix(), &shapes, |e, d, shape, shapes| {
-                    e.equation(d, k, shape, shapes)
+                    e.equation(d, k, shape, shapes, span, cache)
                 })?;
+                if self.equation_skips.len() != skipped {
+                    helpers.clear();
+                }
             }
             if matches!(leaves[k], Some(Found::Match)) {
                 if let Some(why) = &unfollowed[k] {
@@ -1779,7 +1882,7 @@ impl Elaborator {
                 let skipped = self.equation_skips.len();
                 let cache = &mut helpers;
                 self.one_equation(d, k, suffix.clone(), &shapes, |e, d, shape, shapes| {
-                    e.branch_equation(d, k, shape, shapes, path, &suffix, cache)
+                    e.branch_equation(d, k, shape, shapes, path, &suffix, cache, span)
                 })?;
                 // A failed attempt is undone, hidden lemmas it declared
                 // included: the helpers' are made again when next needed.
@@ -2179,10 +2282,18 @@ impl Elaborator {
         k: usize,
         shape: &Shape,
         shapes: &[std::result::Result<Shape, String>],
+        span: Span,
+        helpers: &mut HashMap<DefId, Rc<Helper>>,
     ) -> R<()> {
         let s = self.stated(d, k, shape, shapes)?;
+        let Some(rhs) = &s.rhs else {
+            // Its leaves' bodies differ (SW-1071): read each, as a branch
+            // with no splits is.
+            let suffix = d.rows[k].suffix();
+            return self.branch_equation(d, k, shape, shapes, &[], &suffix, helpers, span);
+        };
         let depth = s.binders.len();
-        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(s.rhs.clone()));
+        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(rhs.clone()));
         let ty = pi_over(&s.binders, body.clone());
         // §10: a right side much larger than the arm's body (a `let` used
         // many times, substituted) isn't generated.
@@ -2193,7 +2304,7 @@ impl Elaborator {
             ));
         }
         // The proof.
-        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, depth, &body, None)?;
+        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, depth, &body, Then::Own)?;
         let lam_names: Vec<(Name, Icit)> =
             s.binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
         let proof = lams(&lam_names, tree);
@@ -2306,8 +2417,11 @@ impl Elaborator {
             .map(|(t, b)| Ok((at(t, depth)?, b.icit)))
             .collect::<R<_>>()?;
         let lhs = apps(Term::Def(d.f), f_args);
-        let rhs_size = rhs.subterms().count();
-        let rhs = at(&rhs, depth)?;
+        let rhs_size = rhs.as_ref().map_or(0, |r| r.subterms().count());
+        let rhs = match rhs {
+            Some(r) => Some(at(&r, depth)?),
+            None => None,
+        };
         Ok(Stated {
             binders,
             hyps,
@@ -2331,7 +2445,7 @@ impl Elaborator {
         hyps: &[Hyp],
         depth: usize,
         body: &Term,
-        then: Option<(Term, Term)>,
+        then: Then,
     ) -> R<Term> {
         let mut walk = Walk::new(self, d, k, shape, shapes, hyps, depth, body)?;
         walk.then = then;
@@ -2343,6 +2457,31 @@ impl Elaborator {
             });
         }
         walk.go(&d.tree, &mut fvals, &mut Vec::new())
+    }
+
+    /// Row `k`'s leaves, as walking the definition's tree with its left side
+    /// reaches them, each read in its own context (SW-1071): for a row an
+    /// earlier one overlaps, whose leaves' bodies capture what each refined.
+    fn refined_leaves(
+        &self,
+        d: &Def,
+        k: usize,
+        shape: &Shape,
+        shapes: &[std::result::Result<Shape, String>],
+    ) -> R<Vec<LeafCtx>> {
+        let tk = shape.tele.len();
+        let unused = Term::Refl;
+        let mut walk = Walk::new(self, d, k, shape, shapes, &[], tk, &unused)?;
+        walk.dry = Some(Vec::new());
+        let mut fvals = Vec::new();
+        for level in 0..d.tree_params() {
+            fvals.push(match d.param_of_tree_level(level) {
+                Some(i) => walk.pv_of(&shape.lhs[i], shape)?,
+                None => PV::Rec,
+            });
+        }
+        walk.go(&d.tree, &mut fvals, &mut Vec::new())?;
+        Ok(walk.dry.take().unwrap_or_default())
     }
 
     /// Declares the equation `f.suffix` of row `k`, of type `ty`, and has
@@ -2395,6 +2534,12 @@ impl Elaborator {
     /// `match`'s pattern variables). Proved by the row's own proof (`f lhs
     /// = rhs`, walking the definition's tree), carried along a proof that
     /// `rhs` is the branch's right side under the hypotheses.
+    ///
+    /// A `match` below a lifted `match`'s alternative, compiled into its
+    /// helper's tree, on a variable bound further up (SW-1069) is stated
+    /// where that variable is bound: an attempt finds it ([`Refine`]), and
+    /// the next compiles its pattern below that row, the definition's (so
+    /// its left side) or the alternative's.
     #[allow(clippy::too_many_arguments)]
     fn branch_equation(
         &mut self,
@@ -2405,38 +2550,198 @@ impl Elaborator {
         path: &[Taken],
         suffix: &str,
         helpers: &mut HashMap<DefId, Rc<Helper>>,
+        span: Span,
     ) -> R<()> {
+        let mut refines: Vec<Refine> = Vec::new();
+        loop {
+            let mut wanted = Vec::new();
+            let at = (shape, shapes, path, suffix, span);
+            match self.branch_equation_with(d, k, at, helpers, &refines, &mut wanted) {
+                Err(Stop::Skip(why)) if !wanted.is_empty() => {
+                    // Each refinement is asked for once, so this ends.
+                    if wanted
+                        .iter()
+                        .any(|w| refines.iter().any(|r| r.key == w.key))
+                    {
+                        return skip(why);
+                    }
+                    refines.extend(wanted);
+                }
+                other => return other,
+            }
+        }
+    }
+
+    /// [`Self::branch_equation`] with `refines` compiled below their rows;
+    /// any more it needs are added to `wanted` (and it is skipped).
+    #[allow(clippy::type_complexity)]
+    fn branch_equation_with(
+        &mut self,
+        d: &Def,
+        k: usize,
+        (shape, shapes, path, suffix, span): (
+            &Shape,
+            &[std::result::Result<Shape, String>],
+            &[Taken],
+            &str,
+            Span,
+        ),
+        helpers: &mut HashMap<DefId, Rc<Helper>>,
+        refines: &[Refine],
+        wanted: &mut Vec<Refine>,
+    ) -> R<()> {
+        // The row's patterns, with those of the `match`es on its variables
+        // below lifted alternatives (SW-1069) compiled below them.
+        let refined;
+        let shape = if refines.iter().any(|r| r.site == Site::Row) {
+            let mut row = d.rows[k].clone();
+            for r in refines.iter().filter(|r| r.site == Site::Row) {
+                row.chain.push((r.scrutinees.clone(), r.patterns.clone()));
+            }
+            refined = self.probe_row(d, &row, span)?;
+            &refined
+        } else {
+            shape
+        };
         let s = self.stated(d, k, shape, shapes)?;
         let base = s.binders.len();
-        let Stepped {
-            binders,
-            steps,
-            cur,
-            unfolding,
-        } = self.branch_steps(d, &s, path, helpers, false)?;
         let lib = self.branch_lib()?;
+        let tk = shape.tele.len();
+        let used: Vec<Name> = s.binders.iter().map(|b| b.0.clone()).collect();
+        let (binders, z, unfolding, then, arm_size) = match &s.rhs {
+            Some(rhs) => {
+                let run = self.branch_run(
+                    d,
+                    &lib,
+                    (s.binders.clone(), used, tk),
+                    rhs.clone(),
+                    path,
+                    helpers,
+                    (refines, wanted),
+                    false,
+                )?;
+                let g = &self.globals;
+                let top = run.binders.len();
+                // The proof that the row's right side is the branch's, from
+                // the inside out.
+                let mut q = Term::Refl;
+                for step in run.steps.iter().rev() {
+                    q = lib.step_proof(g, step, top, &run.cur, q)?;
+                }
+                let lhs = s.lhs.shift(g, top - base, 0)?;
+                let then = if matches!(q, Term::Refl) {
+                    Then::Own
+                } else {
+                    Then::One(lhs, q)
+                };
+                (run.binders, run.cur, run.unfolding, then, s.arm_size)
+            }
+            // An earlier row overlaps it and each of its leaves' bodies
+            // captures what that leaf refined (SW-1071): the splits are
+            // gone down from each leaf, in its own context, and stated in
+            // the row's variables, each term a leaf refined a variable to
+            // being that variable again; every leaf must say the same.
+            None => {
+                let leaves = self.refined_leaves(d, k, shape, shapes)?;
+                let Some(first) = leaves.first() else {
+                    return skip("its arm is never reached in the definition's case tree");
+                };
+                let arm_size = first.size;
+                let mut said: Option<(Vec<(Name, Icit, Term)>, Term)> = None;
+                let mut proofs = Vec::new();
+                let mut unfolding: Vec<DefId> = Vec::new();
+                for leaf in &leaves {
+                    let mut binders = s.binders[..tk].to_vec();
+                    for i in tk..leaf.depth {
+                        binders.push((
+                            format!("%field{i}").into(),
+                            Icit::Explicit,
+                            Term::Sort(Sort::Prop),
+                        ));
+                    }
+                    let run = self.branch_run(
+                        d,
+                        &lib,
+                        (binders, used.clone(), tk),
+                        leaf.body.clone(),
+                        path,
+                        helpers,
+                        (refines, wanted),
+                        false,
+                    )?;
+                    let g = &self.globals;
+                    let top = run.binders.len();
+                    let mut q = Term::Refl;
+                    for step in run.steps.iter().rev() {
+                        q = lib.step_proof(g, step, top, &run.cur, q)?;
+                    }
+                    let left_over = || {
+                        Stop::Skip(if path.is_empty() {
+                            let rhs = d.rows[k].rhs.as_ref();
+                            refined_reason(rhs.is_some_and(|e| !branch_paths(e).is_empty()))
+                        } else {
+                            "an earlier arm overlaps it, and in one case of that arm's patterns its \
+                             right side mentions what the case's patterns bind (a lifted `match` or \
+                             local definition captures it), which the arm's variables can't say"
+                                .to_string()
+                        })
+                    };
+                    let mut bs = Vec::new();
+                    for (i, (x, icit, ty)) in run.binders[leaf.depth..].iter().enumerate() {
+                        let ty = generalise(g, ty, leaf.depth + i, leaf, tk, base)?
+                            .ok_or_else(left_over)?;
+                        bs.push((x.clone(), *icit, ty));
+                    }
+                    let z = generalise(g, &run.cur, top, leaf, tk, base)?.ok_or_else(left_over)?;
+                    match &said {
+                        None => said = Some((bs, z)),
+                        Some((bs0, z0)) => {
+                            let same = bs0.len() == bs.len()
+                                && bs0.iter().zip(&bs).all(|(a, b)| {
+                                    a.1 == b.1 && stitchwort_core::value::same_term(&a.2, &b.2)
+                                })
+                                && stitchwort_core::value::same_term(z0, &z);
+                            if !same {
+                                return skip(
+                                    "an earlier arm overlaps it, and its cases of that arm's \
+                                     patterns state the branch differently",
+                                );
+                            }
+                        }
+                    }
+                    for u in run.unfolding {
+                        if !unfolding.contains(&u) {
+                            unfolding.push(u);
+                        }
+                    }
+                    proofs.push(LeafProof {
+                        path: leaf.path.clone(),
+                        depth: leaf.depth,
+                        q,
+                    });
+                }
+                let (bs, z) = said.expect("a leaf was read");
+                let mut binders = s.binders.clone();
+                binders.extend(bs);
+                let top = binders.len();
+                let lhs = s.lhs.shift(&self.globals, top - base, 0)?;
+                (binders, z, unfolding, Then::PerLeaf(lhs, proofs), arm_size)
+            }
+        };
         let g = &self.globals;
         let top = binders.len();
         // §10, for the branch's right side too.
-        let size = cur.subterms().count();
-        if size > 256 && size > SIZE_FACTOR * s.arm_size {
+        let size = z.subterms().count();
+        if size > 256 && size > SIZE_FACTOR * arm_size {
             return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {}",
-                s.arm_size
+                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
             ));
         }
-        // The proof that the row's right side is the branch's, from the
-        // inside out.
-        let z = cur;
-        let mut q = Term::Refl;
-        for step in steps.iter().rev() {
-            q = lib.step_proof(g, step, top, &z, q)?;
-        }
         // The row's proof, walking the definition's tree (its case splits
-        // at the top), going on along `q` at the row's leaf.
+        // at the top), going on along the proof that its right side is the
+        // branch's at the row's leaf.
         let lhs = s.lhs.shift(g, top - base, 0)?;
-        let body = Term::Eq(None, Rc::new(lhs.clone()), Rc::new(z));
-        let then = (!matches!(q, Term::Refl)).then_some((lhs, q));
+        let body = Term::Eq(None, Rc::new(lhs), Rc::new(z));
         let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
         let ty = pi_over(&binders, body);
         let lam_names: Vec<(Name, Icit)> =
@@ -2453,7 +2758,10 @@ impl Elaborator {
     /// binder is decided without the marks (the decrease proofs they keep
     /// don't count), an `else` normalised by D2186 whose decrease proofs use
     /// the refutation gets it from the other `Bool` equation, and the
-    /// helpers' proofs aren't made.
+    /// helpers' proofs aren't made. A row with no one right side (SW-1071)
+    /// and a branch that refines a variable bound further up (SW-1069) are
+    /// skipped here: their equations are stated from each leaf, or with a
+    /// refined left side, which a case of `f.induct` doesn't follow.
     fn branch_steps(
         &mut self,
         d: &Def,
@@ -2462,10 +2770,44 @@ impl Elaborator {
         helpers: &mut HashMap<DefId, Rc<Helper>>,
         marked: bool,
     ) -> R<Stepped> {
+        let Some(rhs) = s.rhs.clone() else {
+            return skip(
+                "an earlier arm overlaps it and its body captures what that arm's cases bind, so \
+                 its branches are stated from each case (SW-1071), which a case here doesn't follow",
+            );
+        };
         let lib = self.branch_lib()?;
-        let mut binders = s.binders.clone();
-        let mut used: Vec<Name> = binders.iter().map(|b| b.0.clone()).collect();
-        let mut cur = s.rhs.clone();
+        let used: Vec<Name> = s.binders.iter().map(|b| b.0.clone()).collect();
+        let row_vars = s.binders.len() - s.hyps.len();
+        let mut wanted = Vec::new();
+        let at = (s.binders.clone(), used, row_vars);
+        match self.branch_run(d, &lib, at, rhs, path, helpers, (&[], &mut wanted), marked) {
+            Err(Stop::Skip(_)) if !wanted.is_empty() => skip(
+                "a `match` below a lifted `match`'s alternative splits a variable bound further up, \
+                 so its equation refines where that is bound (SW-1069), which a case here doesn't \
+                 follow",
+            ),
+            other => other,
+        }
+    }
+
+    /// Goes down the splits of `path` from a row's right side `cur`, at the
+    /// depth of `binders` (whose names are `used`, the first `row_vars` of
+    /// them the row's variables): each split's hypothesis (and a lifted
+    /// `match`'s pattern variables) added, with the step its proof takes;
+    /// `marked` as for [`Self::branch_steps`].
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    fn branch_run(
+        &mut self,
+        d: &Def,
+        lib: &BranchLib,
+        (mut binders, mut used, row_vars): (Vec<(Name, Icit, Term)>, Vec<Name>, usize),
+        mut cur: Term,
+        path: &[Taken],
+        helpers: &mut HashMap<DefId, Rc<Helper>>,
+        (refines, wanted): (&[Refine], &mut Vec<Refine>),
+        marked: bool,
+    ) -> R<Stepped> {
         let mut steps: Vec<Step> = Vec::new();
         let mut unfolding: Vec<DefId> = Vec::new();
         let mut unnamed = 0;
@@ -2478,9 +2820,12 @@ impl Elaborator {
                 t.mentions(0)
             })
         };
-        let mut path = path.iter();
-        while let Some(taken) = path.next() {
+        // Which lifted `match` each binder is a pattern variable of.
+        let mut origin: Vec<Option<usize>> = Vec::new();
+        let mut path = path.iter().enumerate();
+        while let Some((pi, taken)) = path.next() {
             let depth = binders.len();
+            origin.resize(depth, None);
             let (head, args) = spine_icit(&cur);
             let lambda_body = |t: &Term| match t.strip_loc() {
                 Term::Lam(_, _, b) => Ok((**b).clone()),
@@ -2524,7 +2869,7 @@ impl Elaborator {
                             );
                         }
                         let uniq = if uses && !marked {
-                            Some(self.uniqueness(&lib, &p, &args[2].0, depth)?)
+                            Some(self.uniqueness(lib, &p, &args[2].0, depth)?)
                         } else {
                             None
                         };
@@ -2619,37 +2964,103 @@ impl Elaborator {
                     // `match` on its variables compiled into the helper's
                     // tree that the path goes on through.
                     let mut row = taken.choice;
+                    let mut below: Vec<&Taken> = Vec::new();
                     while !helper.children[row].is_empty() {
-                        let Some(next) = path.next() else {
+                        let Some((_, next)) = path.next() else {
                             return skip("its `match`'s alternative has no one right side");
                         };
                         row = *helper.children[row].get(next.choice).ok_or_else(|| {
                             Stop::Skip("its `match`'s alternatives couldn't be followed".into())
                         })?;
+                        below.push(next);
                     }
-                    // A `match` below the alternative on a variable of the
-                    // definition (one the helper captures) would refine the
-                    // definition's left side.
-                    if row != taken.choice
-                        && let Ok(he) = &helper.eqs[row]
-                        && he.args.iter().enumerate().any(|(p, (a, _))| {
-                            p != call.col
-                                && Some(p) != call.eq
-                                && !matches!(a.strip_loc(), Term::Var(_))
-                        })
-                    {
-                        return skip(
-                            "a `match` below its `match`'s alternative splits a variable of the \
-                             definition, which stage 1b doesn't put into the left side",
-                        );
-                    }
-                    let (he, hs) = match (&helper.eqs[row], &helper.shapes[row]) {
-                        (Ok(he), Ok(hs)) => (he, hs),
-                        (Err(why), _) | (_, Err(why)) => {
-                            return skip(format!("its `match`'s alternative: {why}"));
-                        }
+                    // With the patterns of `match`es further down on its
+                    // variables compiled below it (SW-1069).
+                    let here: Vec<&Refine> = refines
+                        .iter()
+                        .filter(|r| r.site == Site::Step(pi))
+                        .collect();
+                    let refined = if here.is_empty() {
+                        None
+                    } else {
+                        Some(self.refined_row(&helper, row, &here)?)
+                    };
+                    let (he, hs) = match &refined {
+                        Some(x) => (&x.0, &x.1),
+                        None => match (&helper.eqs[row], &helper.shapes[row]) {
+                            (Ok(he), Ok(hs)) => (he, hs),
+                            (Err(why), _) | (_, Err(why)) => {
+                                return skip(format!("its `match`'s alternative: {why}"));
+                            }
+                        },
                     };
                     let g = &self.globals;
+                    let n_h = helper.arity;
+                    let he_len = he.binders.len();
+                    // A variable the helper captured that the alternative's
+                    // row refines (a `match` below it, compiled into the
+                    // helper's tree): the call's argument is the pattern, its
+                    // variables the branch's; where it is only the variable,
+                    // that is refined where it is bound, and the branch
+                    // stated again (SW-1069).
+                    let (hb, _) = split_pis(&g.def(h).ty, Some(n_h));
+                    let mut solved: HashMap<usize, Term> = HashMap::default();
+                    let mut asked = Vec::new();
+                    for (p, (a, _)) in he.args.iter().enumerate() {
+                        if p == call.col
+                            || Some(p) == call.eq
+                            || matches!(a.strip_loc(), Term::Var(_))
+                        {
+                            continue;
+                        }
+                        if match_pattern(g, a, he_len, &args[p].0, &mut solved) {
+                            continue;
+                        }
+                        let site = match args[p].0.strip_loc() {
+                            Term::Var(i) if *i < depth => {
+                                let level = depth - 1 - i;
+                                if level < row_vars {
+                                    Some(Site::Row)
+                                } else {
+                                    origin[level].map(Site::Step)
+                                }
+                            }
+                            _ => None,
+                        };
+                        let by = below.iter().find_map(|t| match t.split {
+                            TailSplit::Match { scrutinees, alts }
+                                if scrutinees.iter().all(|s| {
+                                    s.name.is_none()
+                                        && matches!(&s.expr, Expr::Var(x) if x.text.as_str() == &*hb[p].name)
+                                }) =>
+                            {
+                                Some((scrutinees, &alts[t.choice], t.seg.clone()))
+                            }
+                            _ => None,
+                        });
+                        match (site, by) {
+                            (Some(site), Some((scrutinees, a, seg))) => asked.push(Refine {
+                                site,
+                                scrutinees: scrutinees.to_vec(),
+                                patterns: a.patterns.clone(),
+                                key: a.span,
+                                seg,
+                            }),
+                            _ => {
+                                return skip(
+                                    "a `match` below its `match`'s alternative splits a variable \
+                                     bound further up, where the branch can't state it refined",
+                                );
+                            }
+                        }
+                    }
+                    if !asked.is_empty() {
+                        wanted.extend(asked);
+                        return skip(
+                            "a `match` below its `match`'s alternative splits a variable bound \
+                             further up, and stating it refined there didn't give the pattern",
+                        );
+                    }
                     // The helper's equation's variables, as the branch has
                     // them: its captures are the call's arguments, the
                     // alternative's pattern variables are the branch's, a
@@ -2659,10 +3070,13 @@ impl Elaborator {
                         Term::Var(i) => Some(hs.depth - 1 - i),
                         _ => None,
                     };
-                    let n_h = helper.arity;
                     let mut hyp = None;
                     for (j, &l) in hs.tele.iter().enumerate() {
                         let here = binders.len();
+                        if let Some(t) = solved.get(&j) {
+                            vals.push((t.clone(), depth));
+                            continue;
+                        }
                         let (hname, hicit, hty) = &he.binders[j];
                         let param = (1..=n_h).contains(&l).then(|| l - 1);
                         if Some(l) == col_var || param == Some(call.col) {
@@ -2684,6 +3098,8 @@ impl Elaborator {
                                 *hicit
                             };
                             binders.push((name, icit, ty));
+                            origin.resize(here, None);
+                            origin.push(Some(pi));
                             vals.push((Term::Var(0), here + 1));
                             if param.is_some() {
                                 hyp = Some(here);
@@ -2691,7 +3107,6 @@ impl Elaborator {
                         }
                     }
                     let tk_h = hs.tele.len();
-                    let he_len = he.binders.len();
                     // The hypothesis that the scrutinee is the pattern,
                     // where the helper takes no equation of its own.
                     if hyp.is_none() && col_var.is_none() {
@@ -2705,7 +3120,6 @@ impl Elaborator {
                         };
                         // Its type, the helper's parameter's with the call's
                         // arguments (a pair's can't be inferred).
-                        let (hb, _) = split_pis(&g.def(h).ty, Some(n_h));
                         let at: Vec<(Term, usize)> = args[..call.col]
                             .iter()
                             .map(|(a, _)| (a.clone(), depth))
@@ -2734,7 +3148,6 @@ impl Elaborator {
                                     .iter()
                                     .map(|(a, _)| (a.clone(), depth))
                                     .collect();
-                                let (hb, _) = split_pis(&g.def(h).ty, Some(n_h));
                                 let col_ty = instantiate(g, &hb[call.col].ty, call.col, &at, here)?;
                                 typed_equations(g, &ty, &e, &col_ty, 0)?
                             }
@@ -2759,7 +3172,11 @@ impl Elaborator {
                         match he.decl.get() {
                             Some(id) => Term::Def(id),
                             None => {
-                                let id = self.helper_lemma(h, row, he, alt.span)?;
+                                let mut name = format!("eq{}", row + 1);
+                                for r in &here {
+                                    name += &format!(".{}", r.seg);
+                                }
+                                let id = self.helper_lemma(h, &name, he, alt.span)?;
                                 he.decl.set(Some(id));
                                 Term::Def(id)
                             }
@@ -2794,6 +3211,30 @@ impl Elaborator {
             cur,
             unfolding,
         })
+    }
+
+    /// Row `row` of a lifted `match`'s helper `h`, with the patterns of
+    /// `refines` compiled below it (SW-1069): its equation and shape, made
+    /// once for each set of refinements.
+    fn refined_row(
+        &mut self,
+        helper: &Helper,
+        row: usize,
+        refines: &[&Refine],
+    ) -> R<Rc<(HelperEq, Shape)>> {
+        let key = (row, refines.iter().map(|r| r.key).collect::<Vec<_>>());
+        if let Some(made) = helper.refined.borrow().get(&key) {
+            return Ok(made.clone());
+        }
+        let mut r = helper.def.rows[row].clone();
+        for x in refines {
+            r.chain.push((x.scrutinees.clone(), x.patterns.clone()));
+        }
+        let hs = self.probe_row(&helper.def, &r, helper.root)?;
+        let he = self.helper_equation(&helper.def, row, &hs, &helper.shapes)?;
+        let made = Rc::new((he, hs));
+        helper.refined.borrow_mut().insert(key, made.clone());
+        Ok(made)
     }
 
     /// Which of a lifted `match`'s helper's parameters is the one it
@@ -2957,17 +3398,21 @@ impl Elaborator {
         }
         Ok(Helper {
             arity,
+            def: hd,
+            root,
+            refined: Default::default(),
             shapes,
             eqs,
             children,
         })
     }
 
-    /// Declares alternative `i`'s equation of a lifted `match`'s helper `h`
-    /// as a hidden theorem, `f.%match1.eq2`, for a branch equation whose
-    /// proof uses it.
-    fn helper_lemma(&mut self, h: DefId, i: usize, he: &HelperEq, span: Span) -> R<DefId> {
-        let name: Name = format!("{}.eq{}", self.globals.def(h).name, i + 1).into();
+    /// Declares an alternative's equation of a lifted `match`'s helper `h`
+    /// as a hidden theorem, `f.%match1.eq2` (`suffix` is `eq2`, and for a
+    /// row refined below, SW-1069, its alternatives' names after it), for a
+    /// branch equation whose proof uses it.
+    fn helper_lemma(&mut self, h: DefId, suffix: &str, he: &HelperEq, span: Span) -> R<DefId> {
+        let name: Name = format!("{}.{suffix}", self.globals.def(h).name).into();
         let id = kernel::declare_def(&mut self.globals, &name, &he.ty, true, false, span)?;
         if self.globals.def(h).opaque {
             stitchwort_core::check::set_unfolding(&mut self.globals, id, &[h]);
@@ -2989,10 +3434,13 @@ impl Elaborator {
         shapes: &[std::result::Result<Shape, String>],
     ) -> R<HelperEq> {
         let s = self.stated(hd, i, shape, shapes)?;
+        let Some(rhs) = s.rhs.clone() else {
+            return skip(refined_reason(false));
+        };
         let depth = s.binders.len();
-        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(s.rhs.clone()));
+        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(rhs.clone()));
         let ty = pi_over(&s.binders, body.clone());
-        let tree = self.walk_proof(hd, i, shape, shapes, &s.hyps, depth, &body, None)?;
+        let tree = self.walk_proof(hd, i, shape, shapes, &s.hyps, depth, &body, Then::Own)?;
         let lam_names: Vec<(Name, Icit)> =
             s.binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
         let (_, args) = spine_icit(&s.lhs);
@@ -3002,7 +3450,7 @@ impl Elaborator {
         Ok(HelperEq {
             binders: s.binders,
             args,
-            rhs: s.rhs,
+            rhs,
             proof: lams(&lam_names, tree),
             ty,
             split,
@@ -3103,8 +3551,9 @@ impl Elaborator {
     }
 
     /// Row `k`'s right side, in its shape's context: the body of the first
-    /// of its leaves that mentions only what the arm's patterns bind.
-    fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Term, usize)> {
+    /// of its leaves that mentions only what the arm's patterns bind; `None`
+    /// if each leaf's body mentions what that leaf refined (SW-1071).
+    fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Option<Term>, usize)> {
         let g = &self.globals;
         let mut fmap: Vec<Option<Term>> = Vec::new();
         for level in 0..d.tree_params() {
@@ -3125,16 +3574,12 @@ impl Elaborator {
             &mut found,
         )?;
         match found {
-            Found::Rhs(t, size) => Ok((t, size)),
+            Found::Rhs(t, size) => Ok((Some(t), size)),
             Found::Match => skip(
                 "its right side is a `match` on its variables, compiled into the case tree, so \
                  no one equation states it: each alternative's has its own (`f.eqK.cons`, …)",
             ),
-            Found::Refined => skip(
-                "an earlier arm overlaps it, so its body was elaborated once for each case of \
-                 that arm's patterns, each with the variables refined (a lifted `match` or local \
-                 definition captures them): no one right side states it",
-            ),
+            Found::Refined => Ok((None, 0)),
             Found::None => skip("its arm is never reached in the definition's case tree"),
         }
     }
@@ -3225,6 +3670,114 @@ impl Elaborator {
                 Ok(ty)
             }
         }
+    }
+}
+
+/// `t`, at `at` in a leaf's context (the row's `tk` variables, the leaf's
+/// fields, then binders after them), in the statement's (the row's
+/// variables and hypotheses, `base` in all, then the same binders), each
+/// term the leaf refined a variable to being that variable again (SW-1071:
+/// `Regular a` is `left` again). `None` if a field is left over: the leaf
+/// says something of what its patterns bind that the row's variables can't.
+fn generalise(
+    g: &Globals,
+    t: &Term,
+    at: usize,
+    leaf: &LeafCtx,
+    tk: usize,
+    base: usize,
+) -> R<Option<Term>> {
+    // The largest first, so a refined variable inside another's is found
+    // within it.
+    let mut images: Vec<&(usize, Term)> = leaf.images.iter().collect();
+    images.sort_by_key(|(_, t)| std::cmp::Reverse(t.subterms().count()));
+    fn go(
+        g: &Globals,
+        t: &Term,
+        under: usize,
+        (at, from): (usize, usize),
+        images: &[&(usize, Term)],
+        cache: &mut Vec<Vec<Term>>,
+    ) -> stitchwort_core::budget::Result<Term> {
+        g.budget.nesting("equations")?;
+        while cache.len() <= under {
+            let by = at + cache.len() - from;
+            let shifted = images
+                .iter()
+                .map(|(_, image)| image.shift(g, by, 0))
+                .collect::<stitchwort_core::budget::Result<Vec<_>>>()?;
+            cache.push(shifted);
+        }
+        let here = at + under;
+        for (i, (level, _)) in images.iter().enumerate() {
+            if stitchwort_core::value::same_term(t, &cache[under][i]) {
+                return Ok(Term::Var(here - 1 - level));
+            }
+        }
+        rebuild(t, &mut |s, b| {
+            Ok(Rc::new(go(g, s, under + b, (at, from), images, cache)?))
+        })
+    }
+    let abstracted = go(g, t, 0, (at, leaf.depth), &images, &mut Vec::new())?;
+    let to = base + (at - leaf.depth);
+    Ok(remap(g, &abstracted, at, to, &|l| {
+        if l < tk {
+            Some(Term::Var(to - 1 - l))
+        } else if l < leaf.depth {
+            None
+        } else {
+            Some(Term::Var(to - 1 - (base + l - leaf.depth)))
+        }
+    })?)
+}
+
+/// Matches `pat`, a term at `depth` (a helper's equation's left-side
+/// argument, its variables that equation's binders), with `t`, solving its
+/// variables (by their position among the binders) as terms in `t`'s
+/// context (SW-1069).
+fn match_pattern(
+    g: &Globals,
+    pat: &Term,
+    depth: usize,
+    t: &Term,
+    out: &mut HashMap<usize, Term>,
+) -> bool {
+    match (pat.strip_loc(), t.strip_loc()) {
+        (Term::Var(i), _) if *i < depth => {
+            let j = depth - 1 - i;
+            match out.get(&j) {
+                Some(prev) => stitchwort_core::value::same_term(prev, t),
+                None => {
+                    out.insert(j, t.clone());
+                    true
+                }
+            }
+        }
+        (Term::Ctor(d, c, xs), other) => {
+            let Some((c2, ys)) = ctor_view(g, other, *d) else {
+                return false;
+            };
+            if *c != c2 || xs.len() != ys.len() {
+                return false;
+            }
+            for (x, y) in xs.iter().zip(&ys) {
+                if !match_pattern(g, x, depth, y, out) {
+                    return false;
+                }
+            }
+            true
+        }
+        (Term::Nat(_), Term::Ctor(d, ..)) => match ctor_view(g, pat, *d) {
+            Some((c, xs)) => match_pattern(
+                g,
+                &Term::Ctor(*d, c, xs.into_iter().map(Rc::new).collect()),
+                depth,
+                t,
+                out,
+            ),
+            None => false,
+        },
+        _ => closed(pat) && stitchwort_core::value::same_term(pat, t),
     }
 }
 
@@ -4464,7 +5017,12 @@ struct Walk<'a> {
     /// For a branch: the statement's left side and the proof (both at
     /// `base`) that the row's right side is the branch's, which the row's
     /// leaf goes on along.
-    then: Option<(Term, Term)>,
+    then: Then,
+    /// The arm's shape.
+    shape: &'a Shape,
+    /// A walk that only reads row `k`'s leaves ([`Elaborator::refined_leaves`]):
+    /// them, so far.
+    dry: Option<Vec<LeafCtx>>,
 }
 
 impl<'a> Walk<'a> {
@@ -4492,7 +5050,9 @@ impl<'a> Walk<'a> {
             pvals: (0..base).map(PV::Var).collect(),
             apart: HashMap::default(),
             lib,
-            then: None,
+            then: Then::Own,
+            shape,
+            dry: None,
         })
     }
 
@@ -4597,7 +5157,10 @@ impl<'a> Walk<'a> {
         if let Some(row) = self.d.row_at(path)
             && (row == self.k || !self.d.is_ancestor(row, self.k))
         {
-            return self.leaf(row, fvals);
+            if self.dry.is_some() {
+                return self.read_leaf(row, fvals, t, path);
+            }
+            return self.leaf(row, fvals, path);
         }
         match t.strip_loc() {
             Term::Case(ix, data, branches) => {
@@ -4742,8 +5305,58 @@ impl<'a> Walk<'a> {
         }
     }
 
+    /// At a leaf of row `row` of a dry walk ([`Elaborator::refined_leaves`]):
+    /// row `k`'s leaf body `t`, read here, with what the walk refined.
+    fn read_leaf(&mut self, row: usize, fvals: &[PV], t: &Term, path: &[u32]) -> R<Term> {
+        if row != self.k {
+            return Ok(Term::Refl);
+        }
+        if matches!(t.strip_loc(), Term::Case(..) | Term::NumCase(..)) {
+            return skip("its right side is a `match` compiled into the case tree");
+        }
+        let g = self.g();
+        let depth = self.depth();
+        let mut terms: Vec<Option<Term>> = Vec::new();
+        for v in fvals {
+            terms.push(Some(match v {
+                PV::Rec => rec_term(self.d, depth),
+                v => self.term(v)?,
+            }));
+        }
+        let body = remap(g, t, fvals.len(), depth, &|l| terms[l].clone())?
+            .ok_or_else(|| Stop::Skip("a leaf's body couldn't be read".into()))?;
+        let body = if matches!(self.d.kind, Kind::Decreasing { .. }) {
+            beta_rec(g, body)?
+        } else {
+            body
+        };
+        let body = if self.d.special.iter().any(Option::is_some) {
+            pure_at_empty(g, &body, depth)?
+        } else {
+            body
+        };
+        let body = zeta(g, &body)?;
+        let mut images = Vec::new();
+        for j in 0..self.tk {
+            if !matches!(&self.pvals[j], PV::Var(m) if *m == j) {
+                images.push((j, self.term(&PV::Var(j))?));
+            }
+        }
+        let size = t.subterms().count();
+        if let Some(found) = &mut self.dry {
+            found.push(LeafCtx {
+                path: path.to_vec(),
+                depth,
+                body,
+                images,
+                size,
+            });
+        }
+        Ok(Term::Refl)
+    }
+
     /// The proof at a leaf of row `row`.
-    fn leaf(&mut self, row: usize, fvals: &[PV]) -> R<Term> {
+    fn leaf(&mut self, row: usize, fvals: &[PV], path: &[u32]) -> R<Term> {
         if row == self.k {
             let own = match self.d.kind {
                 Kind::Decreasing { unfold, .. } => {
@@ -4760,13 +5373,43 @@ impl<'a> Walk<'a> {
             // A branch: on along its proof that the row's right side is
             // the branch's, `J (z _ => f lhs = z) own then` (here, where a
             // case tree may only be at the top).
-            let Some((lhs, then)) = &self.then else {
-                return Ok(own);
-            };
             let depth = self.depth();
             let g = self.g();
+            let (lhs, then) = match &self.then {
+                Then::Own => return Ok(own),
+                Then::One(lhs, then) => (lhs, then.shift(g, depth - self.base, 0)?),
+                // This leaf's own proof (SW-1071), from its context (the
+                // row's variables, its fields, the branch's binders) to
+                // here (the statement's binders, then the same fields).
+                Then::PerLeaf(lhs, proofs) => {
+                    let p = proofs.iter().find(|p| p.path == path).ok_or_else(|| {
+                        Stop::Skip("a leaf of its arm wasn't read before its proof".into())
+                    })?;
+                    let (tk, at) = (self.tk, self.tk + self.hyps.len());
+                    let fields = depth - self.base;
+                    if p.depth != tk + fields {
+                        return skip("a leaf of its arm has other fields than when it was read");
+                    }
+                    let from = p.depth + (self.base - at);
+                    let q = remap(g, &p.q, from, depth, &|l| {
+                        Some(Term::Var(
+                            depth
+                                - 1
+                                - if l < tk {
+                                    l
+                                } else if l < p.depth {
+                                    self.base + (l - tk)
+                                } else {
+                                    at + (l - p.depth)
+                                },
+                        ))
+                    })?
+                    .ok_or_else(|| Stop::Skip("a leaf's proof couldn't be moved".into()))?;
+                    (lhs, q)
+                }
+            };
             let lhs = self.refine(&lhs.shift(g, depth - self.base, 0)?)?;
-            let then = self.refine(&then.shift(g, depth - self.base, 0)?)?;
+            let then = self.refine(&then)?;
             let motive = Term::Lam(
                 "z".into(),
                 Icit::Explicit,
@@ -4863,12 +5506,7 @@ impl<'a> Walk<'a> {
 
     /// The position in the equation's variables of the arm's level `l`.
     fn shapes_tele(&self, l: &usize) -> Option<usize> {
-        self.shapes[self.k]
-            .as_ref()
-            .ok()?
-            .tele
-            .iter()
-            .position(|x| x == l)
+        self.shape.tele.iter().position(|x| x == l)
     }
 
     /// Matches an earlier row's left-side term (at `depth`) with a value

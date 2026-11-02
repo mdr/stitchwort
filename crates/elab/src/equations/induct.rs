@@ -454,7 +454,12 @@ impl Elaborator {
             let nvars = shape.tele.len();
             let mut stepped = Vec::new();
             if paths.is_empty() {
-                stepped.push((s.binders.clone(), Vec::new(), s.rhs.clone(), Vec::new()));
+                // An overlapped arm whose leaves capture what they refined
+                // has no equation (SW-1071), so it was refused above.
+                let Some(rhs) = s.rhs.clone() else {
+                    return skip("an arm has no one right side (SW-1071)");
+                };
+                stepped.push((s.binders.clone(), Vec::new(), rhs, Vec::new()));
             } else {
                 for path in &paths {
                     let st = self.branch_steps(d, &s, path, helpers, true)?;

@@ -178,13 +178,111 @@ fn the_notes_worked_examples() {
 /// `explode.eq3`, as first written (its third arm a lifted `match`), has no
 /// one right side: the arm is elaborated once for each case of arm 2's
 /// patterns, and each copy of the `match` captures the refined variables.
+/// Its branches are read from every case and stated in the arm's variables
+/// (SW-1071), as §3.2 states them.
 #[test]
-fn an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason() {
+fn an_overlapped_arms_branches_are_read_from_each_case() {
     with_session(|s| {
         generated(s, "explode.eq1");
         generated(s, "explode.eq2");
         let why = skipped(s, "explode.eq3");
-        assert!(why.contains("refined"), "{why}");
+        assert!(why.contains("refined") && why.contains("branches"), "{why}");
+        let not_arm2 = "(notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b)";
+        assert_eq!(
+            generated(s, "explode.eq3.some"),
+            format!(
+                "(depth: Nat) → (left: Number) → (right: Number) → {not_arm2} → (n: Nat) → \
+                 (isSome: explode (depth + 1) left = Some n) → explode depth (Pair left right) = Some n"
+            )
+        );
+        assert_eq!(
+            generated(s, "explode.eq3.none"),
+            format!(
+                "(depth: Nat) → (left: Number) → (right: Number) → {not_arm2} → \
+                 (isNone: explode (depth + 1) left = None) → \
+                 explode depth (Pair left right) = explode (depth + 1) right"
+            )
+        );
+    });
+}
+
+/// SW-1069: a `match` below a lifted `match`'s alternative, compiled into
+/// its helper's tree, on a variable bound further up is stated where that
+/// variable is bound: a header parameter in the left side, an earlier
+/// alternative's variable in that alternative's pattern.
+#[test]
+fn a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound() {
+    let source = r#"
+import Std (Bool, Char, List, Nat, Option, Void)
+
+def repair (budget: Nat) (bits: Nat): Option Nat :=
+  match List.head [bits] with
+    | Some b =>
+      match budget with
+        | Zero => None
+        | Succ fewer => Some (fewer + b)
+    | None => None
+
+def deeper: List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | Some y =>
+        match rest with
+          | Nil => x
+          | Cons z more => y + z
+      | None => 1
+
+def ofName (name: List Char): Nat :=
+  match List.head name with
+    | Some first =>
+      match List.length name with
+        | 3 =>
+          match first with
+            | 'x' => 1
+            | _ => 2
+        | _ => 3
+    | None => 4
+"#;
+    with_source(source.to_string(), |s| {
+        let cases = [
+            (
+                "repair.eq.some.zero",
+                "(bits: Nat) → (b: Nat) → (isSome: List.head [bits] = Some b) → repair 0 bits = None",
+            ),
+            (
+                "repair.eq.some.succ",
+                "(bits: Nat) → (fewer: Nat) → (b: Nat) → (isSome: List.head [bits] = Some b) → \
+                 repair (Succ fewer) bits = Some (fewer + b)",
+            ),
+            (
+                "deeper.eq2.some.cons",
+                "(x: Nat) → (z: Nat) → (more: List Nat) → (y: Nat) → \
+                 (isSome: List.head (Cons z more) = Some y) → deeper (Cons x (Cons z more)) = y + z",
+            ),
+            (
+                "deeper.eq2.some.nil",
+                "(x: Nat) → (y: Nat) → (isSome: List.head [] = Some y) → deeper [x] = x",
+            ),
+            (
+                "ofName.eq.some.alt1.alt1",
+                "(name: List Char) → (isSome: List.head name = Some 'x') → \
+                 (isAlt1: List.length name = 3) → ofName name = 1",
+            ),
+            (
+                "ofName.eq.some.alt1.alt2",
+                "(name: List Char) → (first: Char) → (isSome: List.head name = Some first) → \
+                 (isAlt1: List.length name = 3) → (notListed: first ∉ ['x']) → ofName name = 2",
+            ),
+        ];
+        let mut wrong = Vec::new();
+        for (name, want) in cases {
+            let got = generated(s, name);
+            if got != want {
+                wrong.push(format!("{name}:\n  {got}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
     });
 }
 
@@ -619,4 +717,69 @@ fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
             .collect();
         assert!(unseen.is_empty(), "{unseen:#?}");
     });
+}
+
+/// Every equation of a project (`EQUATIONS_PROJECT`, a directory relative
+/// to the repository's root; `aoc` if unset), made as `check` makes them:
+/// how many, and why the others weren't. None is refused by the kernel.
+/// Slow (the whole project is checked): `--run-ignored`.
+#[test]
+#[ignore]
+fn a_projects_equations() {
+    std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(|| {
+            let project = std::env::var("EQUATIONS_PROJECT").unwrap_or_else(|_| "aoc".to_string());
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .join(&project);
+            let name = root.file_name().unwrap().to_string_lossy().to_string();
+            let files = stitchwort_driver::project::DiskFiles { root };
+            let mut session = Session::eager_for_stack(256 << 20);
+            let first = session.elab.globals.defs.len();
+            if let Err(errors) = session.load_project(
+                &files,
+                &name,
+                &stitchwort_driver::project::Target::Everything,
+            ) {
+                panic!("{project} doesn't load: {errors:#?}");
+            }
+            let g = &session.elab.globals;
+            let made: Vec<&str> = g.defs[first..]
+                .iter()
+                .filter(|d| d.theorem && stitchwort_elab::is_equation_name(&d.name))
+                .filter(|d| !d.name.contains('%') && !d.name.starts_with("Std."))
+                .map(|d| &*d.name)
+                .collect();
+            let branches = made
+                .iter()
+                .filter(|n| {
+                    let last = n.rsplit('.').next().unwrap_or("");
+                    !(last.starts_with("eq") || last.starts_with("or"))
+                })
+                .count();
+            eprintln!("made {} ({} branches)", made.len(), branches);
+            let mut reasons: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+            for (id, s, why) in session.elab.equation_skips() {
+                if id.0 < first {
+                    continue;
+                }
+                reasons
+                    .entry(why.clone())
+                    .or_default()
+                    .push(format!("{}.{s}", g.defs[id.0].name));
+            }
+            for (why, names) in &reasons {
+                eprintln!("{} skipped: {why}\n    {}", names.len(), names.join(" "));
+            }
+            let refused: Vec<&String> = reasons
+                .iter()
+                .filter(|(why, _)| why.contains("kernel refused"))
+                .flat_map(|(_, n)| n)
+                .collect();
+            assert!(refused.is_empty(), "refused by the kernel: {refused:?}");
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }

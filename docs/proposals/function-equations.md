@@ -86,6 +86,7 @@ Labels:
 - [As built (stage 1b)](#as-built-stage-1b)
 - [As built (stage 1c)](#as-built-stage-1c)
 - [As built (stage 1d)](#as-built-stage-1d)
+- [As built (SW-1071, SW-1069)](#as-built-sw-1071-sw-1069)
 - [As built (stage 2a)](#as-built-stage-2a)
 - [Sources](#sources)
 - [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed)
@@ -685,24 +686,29 @@ backlog tickets, not part of this design.
 + height right ≠ 0`, used 6 times (`git grep`) **[checked]**.
 
 **After stage 1.** `explode` as first written, with the `match`es in its last arm
-(`p7.sw`, §3.2). Its generated equations:
+(`p7.sw`, §3.2). Its generated equations (generated since SW-1071; stages 1a to 1d skipped
+them, "As built (stage 1d)", because the arm is elaborated once per case of arm 2's patterns,
+"As built (SW-1071, SW-1069)"):
 
 ```
-explode.eq3.some      (…) (notArm2) (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left right) = Some ({ toLeft = inLeft.toLeft, … })
-explode.eq3.none.some (…) (notArm2) (isNone: explode (depth + 1) left = None) (isSome: explode (depth + 1) right = Some inRight): … = Some ({ toLeft = 0, … })
-explode.eq3.none.none (…) (notArm2) (isNone: … = None) (isNone2: … = None): explode depth (Pair left right) = None
+explode.eq3.some      (depth) (left) (right) (notArm2) (inLeft: Explosion) (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left right) = Some ({ inLeft | number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 })
+explode.eq3.none.some (depth) (left) (right) (notArm2) (isNone: explode (depth + 1) left = None) (inRight: Explosion) (isSome: explode (depth + 1) right = Some inRight): … = Some ({ inRight | toLeft = 0, … })
+explode.eq3.none.none (depth) (left) (right) (notArm2) (isNone: … = None) (isNone2: … = None): explode depth (Pair left right) = None
 ```
 
-all three proved as the generator would and checked, and used where the left part is a pair
-with `cases` for `notArm2` **[run: p7.sw]**. `notArm2` is a stronger premise than
+(the printer shows `{ toLeft = inLeft.toLeft, … }` as an update of `inLeft`; `explode.eq3`
+itself isn't generated, as its right side has the lifted `match`), all three kernel-checked,
+and used where the left part is a pair with `cases` for `notArm2` **[run: p7.sw; built:
+`aoc/src/Aoc/Year2021/Day18/Proofs/Explode.sw`]**. `notArm2` is a stronger premise than
 `explodeUnfold`'s (`Explode.sw:21`, `depth < 4 ∨ height left + height right ≠ 0`, which also
 covers two regular numbers above depth 4, where arm 2's `else` happens to agree), so
 `explode.eq3` is less general; all six uses are at `Regular a, Pair x y` or `Pair x y, _`
 (`Explode.sw:43, 46, 125, 128`, `Height.sw:32, 35`), where `cases` proves `notArm2`. `explodeInFound` (`Explode.sw:74`) then splits on
 `explode (depth + 1) left` as it does now and rewrites with `explode.eq3.some` or
 `.eq3.none.some` instead of `explodeUnfold` and `explodeIn`'s arms. The run time is back to
-0.98 s (`aoc/NOTES-2021.md:4558-4560`, the author's measurement). I didn't rewrite the whole proof
-file; that is stage 1's acceptance test (§9).
+0.98 s (`aoc/NOTES-2021.md:4558-4560`, the author's measurement). That is what SW-1071 did
+(below, "As built (SW-1071, SW-1069)"), with `explodeInFound` restated as `pairFound` (its
+premise was `explodeIn … = Some exploded`).
 
 ### 6.3 std's `Graph.searchFrom`
 
@@ -1019,7 +1025,7 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
    `ex.eq3`, the same arm without the `match` (`p1.sw`), is generated exactly as §3.2 states
    `explode.eq3` (`crates/driver/tests/function_equations.rs`). Branch equations (stage 1b)
    aren't affected: `explode.eq3.some` states only the branch's result, and each leaf is proved
-   on its own. Options for the arm equation: leave it skipped (recommended: its branches are what
+   on its own (stage 1b skipped them all the same, stage 1d; SW-1071 makes them). Options for the arm equation: leave it skipped (recommended: its branches are what
    proofs use); state it with a fresh helper elaborated once in the arm's variables (a new hidden
    declaration per such arm, proved equal to each leaf's helper by a case split on the scrutinee);
    or elaborate such arms once, in the arm's variables, for the definition itself (changes
@@ -1154,7 +1160,7 @@ until it names one.
    `match` whose helper copies variables whose types mention the scrutinee (§4, item 4; none met);
    an alternative with an or-pattern; and a `match` on a variable of the definition below a
    lifted `match`'s alternative (it refines the definition's own left side, which the helper's
-   equation can't say).
+   equation can't say; stated since SW-1069, "As built (SW-1071, SW-1069)").
 5. **Line in `doc`.** A branch shows its arm's line, not the branch's.
 6. **On-demand generation from a caller's scope** (a 1a limit, met again): `search` and `doc`
    make the library's put-off equations by compiling arms again in the caller's scope, where a
@@ -1280,7 +1286,121 @@ wrong: `p7.sw` writes them by hand, which checks, but the generator doesn't make
 `explodeIn` version and `explodeUnfold` (used 6 times) are left. Unblocking it needs the
 generator to state an overlapped arm whose body has a lifted `match`: either elaborating the
 body once, unrefined by the earlier arm's patterns, or recognising the per-case copies of the
-`match` helper as one function.
+`match` helper as one function. (SW-1071 did neither; see the next section.)
+
+## As built (SW-1071, SW-1069)
+
+SW-1071 and SW-1069, 2 November 2026, in `crates/elab/src/equations.rs`: the branches of an
+overlapped arm whose body captures what the overlap refined, and a `match` below a lifted
+alternative on a variable bound further up. Every new equation is a kernel-checked theorem in
+its own budget; no existing declaration's hash changed (the hash snapshots only gained the
+seven new equations of `termination-list-patterns.sw`) **[measured: `task snap:hashes`]**.
+
+**An overlapped arm's branches (SW-1071).** Of the two options stage 1d named, neither was
+needed: the per-case copies of the `match` helper stay as they are, and the definition is
+elaborated as before. The branch is read from **each** of the arm's leaves instead, and stated
+once in the arm's variables:
+
+- **Reading each leaf.** A walk of the definition's tree with the arm's left side, as the proof
+  walks it, records each of the arm's leaves: its context (the arm's variables, then the fields
+  the walk split off: `a`, or `x` and `y`), its body read there, and what the walk refined each
+  variable to (`left` is `Regular a`) (`Elaborator::refined_leaves`).
+- **Going down the splits there.** The branch's splits are gone down from each leaf's body as
+  from a right side (the same code, `branch_run`): there the lifted `match` is a call of that
+  leaf's own helper (`explode.%match1 depth a x y …` at `Regular a, Pair x y`,
+  `explode.%match2 depth right x y …` at `Pair x y, right`), so each step has the helper's own
+  equation for the alternative.
+- **Stating it in the arm's variables.** In each leaf's hypotheses and right side, every term
+  the leaf refined a variable to is that variable again (`explode (depth + 1) (Regular a)` is
+  `explode (depth + 1) left`), and no field may be left over; every leaf must give the same
+  statement (compared as terms, names and locations aside). The overlap hypotheses are the
+  arm's, as for any equation of the arm.
+- **The proof** walks the definition's tree as an arm's does, refuting arm 2's leaf by
+  `notArm2`, and at each of the arm's leaves goes on along **that leaf's** proof that its body
+  is the branch's right side, moved into the walk's context there (the same fields, in the same
+  order, since both walks split the same variables). Substituting what the leaf refined back
+  into the statement gives the leaf's own terms exactly, so the kernel's check is the leaf's.
+
+So `explode.eq3.some`, `.eq3.none.some` and `.eq3.none.none` are generated as §3.2 and §6.2
+state them. The arm equation `explode.eq3` still isn't (its right side is the helper call,
+whose captured `a` no term of the arm's variables says), with `E-NO-EQUATION` saying that its
+branches have equations; nor is one whose leaves state the branch differently, or leave a field
+over (a lifted `match` captured it into the branch's own right side).
+
+**A `match` on a variable bound further up (SW-1069).** Below a lifted `match`'s alternative,
+a `match` on a variable the helper captured (the definition's `budget` in 2024 day 24's
+`repair`, `bits` and then `rest` in 2021 day 16's `readPackets`, the outer alternative's
+`first` in `Wire.ofName`) is compiled into the helper's tree, so the helper's equation for the
+alternative takes that variable as the pattern: `explode`-style `J` along `e = pattern` can't
+say it. It is stated where the variable is bound, as stage 1b suggested:
+
+- **Finding it.** Going down the splits, the helper's equation's argument for a captured
+  variable is matched with the call's; where the call has only the variable, that variable is a
+  binder of the statement: one of the row's variables (bound by the left side), or a pattern
+  variable of an earlier lifted `match` (`Site`). The `match` that refined it is the one below
+  the alternative on that name. The attempt stops and asks for the refinement (`Refine`), and the
+  equation is made again with it; each is asked for once.
+- **Stating it.** The `match`'s scrutinee and the alternative's patterns are compiled below
+  that row, as stage 1b's rows below an arm are: below the definition's row, so the pattern is
+  in the left side, `repair.eq.some.succ (bits) (fewer) (b) (isSome: List.head [bits] = Some b):
+  repair (Succ fewer) bits = Some (fewer + b)`; below the earlier helper's alternative, so it is
+  in that alternative's hypothesis, `Wire.ofName.eq.alt1.alt1.alt1: Text.toList name = ['x',
+  tens, units] → (high: Nat) → (low: Nat) → (Char.digitValue tens, Char.digitValue units) =
+  (Some high, Some low) → Wire.ofName name = X (10 * high + low)` (the catch-all `.alt4` was
+  already made, with `first ∉ ['x', 'y', 'z']`). The variables come in the left side's order
+  (the header's parameters, the arm's, then the refining patterns'), then each split's.
+- **Proved** as before: the walk with the refined left side reaches the arm's leaf with the
+  variable already the pattern, and the helper's equation (a hidden lemma
+  `f.%match1.eqK.<segment>` where its proof splits) applies with the pattern's variables solved
+  by the match.
+
+**Counts** **[measured: the ignored tests `a_projects_equations` (new) and
+`the_librarys_equations`]**. AoC: 1,080 equations, 405 of them branches (before: 1,061 and
+382): the 20 of SW-1069 (`readPackets` 15, `Wire.ofName` 3, `repair` 2) are made (1,081 and
+402 with day 18 untouched), and 2021 day 18's `explode.eq3.some`, `.none.some`, `.none.none`
+once `explode` is back as first written (below; they replace `explodeIn.eq1`–`eq3` and the
+reshaped `explode.eq3`). Still skipped: 59 that
+perform abilities, 9 branches using `h` of a condition that isn't an equation or comparison
+(D2180), **9 `match`es on several expressions** (`transmissionBits`, `sumMagnitudes`,
+`letterAlong`, `isCorner`), and 2 arm equations whose alternatives replace them (`scan.eq3`,
+`Spec.route.eq2`), and the new `explode.eq3`. std is unchanged by this: 1,221 equations, 306
+branches, the same skips as stage 1b (none was an overlapped arm or a refining `match`); 1,578
+and 347 once rebased onto SW-1068's equations in the defining file's scope. The examples:
+`termination-list-patterns.sw`'s `firstSome.eq3`, `sumSmall.eq4`, `doubledSmall.eq3` stay
+skipped, and their seven branches are made. None refused by the kernel.
+
+**`f.induct` (stage 2a, rebased onto SW-1057).** A case of `f.induct` is a branch stated from
+the arm's own statement and right side, so it doesn't follow either change: an overlapped arm
+whose branches are read from each leaf, or a branch whose left side (or earlier alternative)
+is refined. Those definitions get no `f.induct`, each with its reason in `doc`: in AoC,
+`explode.induct` (made from the reshaped `explode` before; 99 → 98 `f.induct`),
+`readPackets.induct` and `repair.induct` (skipped before too, as their branches had no
+equations). std's 208 are unchanged. Making them would mean a case per leaf (for SW-1071) and
+cases with refined left sides (for SW-1069); left for a follow-up.
+
+**Cost** **[measured, one run each, `/usr/bin/time -l`, main at `bf6619de` against the
+lane]**: `check --no-cache` of the AoC project 649.78 G → 649.87 G instructions (+0.01%), peak
+1,541 → 1,545 MB; `search List.length --no-cache` (every library file and every equation)
+75.90 G → 76.25 G instructions (+0.5%), peak 211 MB both. The wall-clock times (54.0 → 58.6 s
+user, 6.2 → 8.2 s) were taken on a machine running other lanes and say nothing; the instruction
+counts are within §7.1's 10% gate.
+
+**2021 day 18 back as first written.** `explode`'s last arm is the two `match`es again and
+`explodeIn` is gone. `explodeUnfold` and `explodeInNone` (16 lines) became `pairNoneParts` (9),
+which splits on `explode (depth + 1) left` and `right` and rewrites with `explode.eq3.some`
+and `.eq3.none.some`; `explodeInFound` and `explodeInHeight`, whose premises were `explodeIn …
+= Some exploded`, became `pairFound` and `pairHeight`, taking `notArm2` and `explode depth
+(Pair left right) = Some exploded` instead; their callers pass `cases` for `notArm2`, as §6.2
+said. Every other theorem's statement is unchanged (`pairNone`, `explodeNoneShallow`,
+`explodeFound`, `explodeSome`, `explodeNone`, `explodeHeight`); the three files are 49 lines
+added and 47 removed. `audit Aoc.Year2021.Day18`: 0 failed; the warnings are main's (15 or 16:
+`solvePart2.eq.none` warns on some runs of the search and not others, on main too).
+
+**Not done: a `match` on several expressions.** `match a, b with` lifts one helper taking both
+scrutinees, so the branch needs a hypothesis for both and a `J` along each. It doesn't fall out
+of either change; the natural statement is the one `match (a, b)` already has, `isAlt1: (a, b)
+= (p, q)`, proved by one `J` whose motive takes the pair apart with its projections. Left for
+its own ticket.
 
 ## As built (stage 2a)
 
