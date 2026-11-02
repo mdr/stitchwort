@@ -755,6 +755,8 @@ pub(crate) struct LibraryState {
     pub stack: Vec<usize>,
     /// The files loaded so far, in order.
     pub order: Vec<usize>,
+    /// What the core declared, for making its equations in its own scope.
+    pub core: scope::CoreExtent,
 }
 
 /// What a nested load sets aside and puts back.
@@ -810,6 +812,12 @@ impl Elaborator {
             state,
             stack: Vec::new(),
             order: Vec::new(),
+            core: scope::CoreExtent {
+                defs: self.globals.defs.len(),
+                datas: self.globals.datas.len(),
+                abilities: self.abilities.len(),
+                fresh: usize::MAX,
+            },
         });
     }
 
@@ -1175,6 +1183,68 @@ impl Elaborator {
         }
         self.drop_unconfirmed(f);
         Ok(())
+    }
+
+    /// Runs `run` in the scope of library file `f` (the core for 0), loaded
+    /// already: as while it loaded, its own imports and the library's
+    /// names, whatever module is being checked (or none). For what is made
+    /// from a file's source after it loads, the equations made on demand,
+    /// so they come out the same whoever asks (SW-1068).
+    pub(crate) fn in_library_file<T>(&mut self, f: usize, run: impl FnOnce(&mut Self) -> T) -> T {
+        // The file loading is in its own scope already (its own proofs
+        // naming its equations), with its later declarations unchecked.
+        if self.scope.loading == Some(f) {
+            let saved = std::mem::replace(&mut self.globals.module, "Std".into());
+            let result = run(self);
+            self.globals.module = saved;
+            return result;
+        }
+        let lib = self.library.as_ref().expect("a library is installed");
+        let index = lib.index.clone();
+        let file = &index.files[f];
+        // The core loaded before the library's names were there.
+        let core_only = (f == 0).then_some(scope::CoreExtent {
+            fresh: self.globals.defs.len(),
+            ..lib.core
+        });
+        let saved = Context {
+            module: std::mem::take(&mut self.module),
+            namespace_root: std::mem::take(&mut self.namespace_root),
+            globals_module: std::mem::replace(&mut self.globals.module, "Std".into()),
+            imports: self.scope.take_imports(),
+            file_mode: self.file_mode.take(),
+            loading_prelude: std::mem::replace(&mut self.loading_prelude, true),
+            warnings: std::mem::take(&mut self.warnings),
+            lambda_warnings: self.lambda_warnings.take(),
+        };
+        self.module = ModuleState {
+            files: vec![crate::module::FileInfo {
+                id: Some(file.id),
+                name: format!("std/{}", file.path),
+            }],
+            file: Some(0),
+            ..ModuleState::default()
+        };
+        // Errors were reported when the file loaded, and its imports aren't
+        // the program's to navigate. (Only here: `clear_metas` flushes what
+        // navigation has pending, which needs it in place.)
+        let nav = self.nav.take();
+        let mut errors = Vec::new();
+        self.add_imports(&file.module.imports, false, &mut errors);
+        self.add_imports(&file.module.imports, true, &mut errors);
+        self.nav = nav;
+        let saved_core_only = std::mem::replace(&mut self.scope.core_only, core_only);
+        let result = run(self);
+        self.scope.core_only = saved_core_only;
+        self.module = saved.module;
+        self.namespace_root = saved.namespace_root;
+        self.globals.module = saved.globals_module;
+        self.scope.restore_imports(saved.imports);
+        self.file_mode = saved.file_mode;
+        self.loading_prelude = saved.loading_prelude;
+        self.warnings = saved.warnings;
+        self.lambda_warnings.replace(saved.lambda_warnings);
+        result
     }
 
     /// Removes the index's entries for file `f` that loading it didn't

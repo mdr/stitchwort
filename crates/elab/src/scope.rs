@@ -159,9 +159,36 @@ pub struct Scope {
     /// While a library file loads: its own index entries are out of the way,
     /// so it can declare the names the index promised.
     pub(crate) loading: Option<usize>,
+    /// While the core's equations are made on demand: what the core
+    /// declared, so the library's names (`Std.Empty`) are out of the way,
+    /// as they were while the core loaded (SW-1068).
+    pub(crate) core_only: Option<CoreExtent>,
     /// While a library file loads for the check cache: each key declared
     /// for the first time, in order, and each member marked (`cache`).
     pub(crate) log: Option<Vec<ScopeOp>>,
+}
+
+/// How many definitions, data types and abilities the core declared: those
+/// before the library was installed.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct CoreExtent {
+    pub defs: usize,
+    pub datas: usize,
+    pub abilities: usize,
+    /// The definitions from here on are new: the equations being made.
+    pub fresh: usize,
+}
+
+impl CoreExtent {
+    /// Whether `global` is the core's (or one of the equations being made).
+    fn has(&self, global: &Global) -> bool {
+        match *global {
+            Global::Def(d) => d.0 < self.defs || d.0 >= self.fresh,
+            Global::Data(d) | Global::Ctor(d, _) => d.0 < self.datas,
+            Global::Ability(a) | Global::Op(a, _) => a < self.abilities,
+            Global::Unchecked(_) | Global::Failed | Global::Pending(..) => false,
+        }
+    }
 }
 
 /// A change [`Scope::log`] records.
@@ -473,7 +500,7 @@ impl Scope {
     fn entry(&self, key: &str) -> Option<(&str, Global, Span)> {
         self.entries
             .get_key_value(key)
-            .filter(|(_, (g, _))| !self.is_loading(g))
+            .filter(|(_, (g, _))| !self.is_hidden(g))
             .map(|(k, (g, s))| (k.as_str(), *g, *s))
     }
 
@@ -481,12 +508,15 @@ impl Scope {
         self.entries
             .get(key)
             .copied()
-            .filter(|(g, _)| !self.is_loading(g))
+            .filter(|(g, _)| !self.is_hidden(g))
     }
 
-    /// Whether `global` is an index entry of the file being loaded.
-    fn is_loading(&self, global: &Global) -> bool {
+    /// Whether `global` is out of the way: an index entry of the file being
+    /// loaded, or, while the core's equations are made, a name the core
+    /// didn't declare.
+    fn is_hidden(&self, global: &Global) -> bool {
         matches!(global, Global::Pending(f, _) if self.loading == Some(*f))
+            || self.core_only.is_some_and(|c| !c.has(global))
     }
 
     /// Sets the file's imports aside, for a nested load.

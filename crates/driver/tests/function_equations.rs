@@ -212,8 +212,8 @@ fn a_catch_all_after_more_than_64_number_arms_is_skipped_with_its_reason() {
 }
 
 /// Every equation of the library, made (as `search` makes them): how many,
-/// and why the others weren't. None is refused by the kernel but those
-/// listed here (a library file's names the on-demand probe can't see).
+/// and why the others weren't. None is refused by the kernel, and none
+/// fails to compile again: each is made in its own file's scope (SW-1068).
 /// Slow (every library file is loaded): `--run-ignored`.
 #[test]
 #[ignore]
@@ -251,10 +251,15 @@ fn the_librarys_equations() {
             }
             let refused: Vec<&String> = reasons
                 .iter()
-                .filter(|(why, _)| why.contains("kernel refused") && !why.contains("unknown name"))
+                .filter(|(why, _)| {
+                    why.contains("kernel refused") || why.contains("couldn't be compiled again")
+                })
                 .flat_map(|(_, n)| n)
                 .collect();
-            assert!(refused.is_empty(), "refused by the kernel: {refused:?}");
+            assert!(
+                refused.is_empty(),
+                "refused or not compiled again: {refused:?}"
+            );
         })
         .unwrap()
         .join()
@@ -485,4 +490,133 @@ theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
         .unwrap()
         .join()
         .unwrap();
+}
+
+/// A library file whose definitions' constructors only it imports, as
+/// std/Map/Raw.sw imports `Map.Tree`'s `Tip` and `Bin` (SW-1068). With
+/// `own_proof`, its own proof names `Box.Tree.count.eq1`, so the equations
+/// are made while it loads.
+fn box_library(own_proof: bool) -> String {
+    let proof = if own_proof {
+        "\ntheorem Box.Tree.countLeaf: Box.Tree.count Leaf = 0 := Box.Tree.count.eq1\n"
+    } else {
+        ""
+    };
+    format!(
+        r#"--| Trees.
+
+import Box.Tree (Leaf, Node)
+
+--| A tree.
+type Box.Tree: Type =
+  | Leaf
+  | Node (left: Box.Tree) (right: Box.Tree)
+
+--| Whether it's a leaf.
+def Box.Tree.isLeaf: Box.Tree → Bool
+  | Leaf => True
+  | Node _ _ => False
+
+--| Its leaves, counting a leaf on the left once.
+def Box.Tree.count: Box.Tree → Nat
+  | Leaf => 0
+  | Node l r => if Box.Tree.isLeaf l then 1 + Box.Tree.count r else Box.Tree.count l + Box.Tree.count r
+{proof}"#
+    )
+}
+
+/// `Box.Tree.count`'s equations, each with its statement and hash.
+fn box_equations(session: &Session) -> Vec<(String, String, [u8; 32])> {
+    let g = &session.elab.globals;
+    ["eq1", "eq2.ifTrue", "eq2.ifFalse"]
+        .iter()
+        .map(|s| {
+            let name = format!("Box.Tree.count.{s}");
+            let id = (0..g.defs.len())
+                .map(stitchwort_core::DefId)
+                .find(|id| *g.def(*id).name == *name)
+                .unwrap_or_else(|| panic!("`{name}` isn't generated"));
+            let hash = stitchwort_core::hash::def_hash(g, id)
+                .unwrap()
+                .expect("final");
+            (name, statement(g, &g.def(id).ty), hash.0)
+        })
+        .collect()
+}
+
+fn in_thread(f: impl FnOnce() + Send + 'static) {
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(f)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+/// SW-1068: a library definition's equations are made in its own file's
+/// scope, so they come out the same, statement and hash, whether made
+/// while the file loads (its own proof names one), by `search` (every
+/// put-off equation), or by a program naming one, though the program
+/// doesn't import the constructors the arms name.
+#[test]
+fn a_library_equation_is_the_same_however_it_is_made() {
+    in_thread(|| {
+        let program =
+            "import Std (Box, Nat)\n\ndef leaves (t: Box.Tree): Nat := Box.Tree.count t\n";
+        // While the file loads.
+        let library = box_library(true);
+        let session =
+            Session::with_library_files(&[("Box/Box.sw", &library)], true, false).unwrap();
+        let eager = box_equations(&session);
+        // By `search`.
+        let library = box_library(false);
+        let mut session =
+            Session::with_library_files(&[("Box/Box.sw", &library)], false, false).unwrap();
+        session.load("leaves.sw", program).unwrap();
+        session.elab.generate_deferred_equations().unwrap();
+        let searched = box_equations(&session);
+        // Named by a program.
+        let mut session =
+            Session::with_library_files(&[("Box/Box.sw", &library)], false, false).unwrap();
+        let named = format!(
+            "{program}\ntheorem leftLeaf (r: Box.Tree):\n    \
+             Box.Tree.count (Box.Tree.Node Box.Tree.Leaf r) = 1 + Box.Tree.count r :=\n  \
+             Box.Tree.count.eq2.ifTrue Box.Tree.Leaf r rfl\n"
+        );
+        if let Err(errors) = session.load("named.sw", &named) {
+            panic!("doesn't load: {errors:#?}");
+        }
+        let by_name = box_equations(&session);
+        assert_eq!(eager[0].1, "Box.Tree.count Leaf = 0");
+        assert_eq!(eager, searched, "made while loading, and by `search`");
+        assert_eq!(
+            eager, by_name,
+            "made while loading, and by a program naming one"
+        );
+    });
+}
+
+/// SW-1068: `Map.Tree`'s functions, whose arms name `Tip` and `Bin` (which
+/// only std/Map/Raw.sw imports), get their equations from `search`, as
+/// every other definition of a loaded file does; before, they were
+/// skipped ("unknown name `Tip`").
+#[test]
+fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
+    in_thread(|| {
+        let mut session = Session::new();
+        let program = "import Std (Map, Nat)\n\ndef one: Map Nat Nat := Map.singleton 1 1\n";
+        if let Err(errors) = session.load("map.sw", program) {
+            panic!("doesn't load: {errors:#?}");
+        }
+        session.elab.generate_deferred_equations().unwrap();
+        let tip = generated(&session, "Map.Tree.size.eq1");
+        assert_eq!(tip, "[k: Type] → [v: Type] → Map.Tree.size Tip = 0");
+        generated(&session, "Map.Tree.singleL.eq2");
+        let g = &session.elab.globals;
+        let unseen: Vec<String> = (session.elab.equation_skips().iter())
+            .filter(|(_, _, why)| why.contains("couldn't be compiled again"))
+            .map(|(id, s, why)| format!("{}.{s}: {why}", g.defs[id.0].name))
+            .collect();
+        assert!(unseen.is_empty(), "{unseen:#?}");
+    });
 }
