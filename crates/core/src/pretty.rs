@@ -751,7 +751,8 @@ impl<'g> Printer<'g> {
                 // `-(n + 1)`, is `-(n + 1).toInt`, which computes to it.
                 if is(self.g, Builtin::Int, *d)
                     && let [n] = &args[..]
-                    && self.g.registry.loaded_def(Builtin::NatToInt).is_some()
+                    && (self.g.registry.loaded_def(Builtin::NatToInt).is_some()
+                        || self.g.registry.library_installed())
                 {
                     if *c == 0 {
                         return (self.to_int(names, n), Prec::Atom);

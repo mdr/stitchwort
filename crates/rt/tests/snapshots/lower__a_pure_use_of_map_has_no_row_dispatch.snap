@@ -1,5 +1,6 @@
 ---
 source: crates/rt/tests/lower.rs
+assertion_line: 434
 expression: ir
 ---
 native Std.Nat.add = %Nat.add/2
@@ -43,10 +44,14 @@ fn Std.List.sum(v0, v1) {3 slots} =
     }
   })
 fn Main.step(v0) {1 slots} = %Nat.add(v0, 1)
-fn Main.main(v0) {1 slots} =
-  %EffectBind(%EffectBind(%EffectBind(Done(Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ0(v0) {1 slots} =>
-    Done(Std.List.foldLeft[empty][1](v0, 0))), λ1(v0) {1 slots} =>
-    Done(%NatToText(v0))), λ2(v0) {1 slots} =>
+fn Main.main(v0) {2 slots} =
+  %EffectBind({
+    let v1 = {
+      let v1 = Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))
+      Std.List.foldLeft[empty][1](v1, 0)
+    }
+    Done(%NatToText(v1))
+  }, λ0(v0) {1 slots} =>
     Call(L(%print(v0)), done-k))
 fn Std.List.map[empty][0](v0) {3 slots} =
   let v1 = %HoleNew()
@@ -73,8 +78,12 @@ fn Std.List.map[empty][0][cells](v0, v1, v2) {7 slots} =
       let v6 = %HoleFill(v1, v2, v5)
       Std.List.map[empty][0][cells](v4, v5, 1)
   }
-entry {0 slots} =
-  %Effect.lift(%EffectBind(%EffectBind(%EffectBind(Done(Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ0(v0) {1 slots} =>
-    Done(Std.List.foldLeft[empty][1](v0, 0))), λ1(v0) {1 slots} =>
-    Done(%NatToText(v0))), λ2(v0) {1 slots} =>
+entry {1 slots} =
+  %Effect.lift(%EffectBind({
+    let v0 = {
+      let v0 = Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))
+      Std.List.foldLeft[empty][1](v0, 0)
+    }
+    Done(%NatToText(v0))
+  }, λ0(v0) {1 slots} =>
     Call(L(%print(v0)), done-k)))

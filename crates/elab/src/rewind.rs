@@ -78,6 +78,7 @@ pub struct Mark {
     namespace_keys: HashMap<String, cache::Key>,
     replayed_names: HashSet<String>,
     equations_done: usize,
+    tuple_matches: usize,
 }
 
 impl Mark {
@@ -127,6 +128,7 @@ impl Elaborator {
             namespace_keys: self.namespace_keys.clone(),
             replayed_names: self.replayed_names.clone(),
             equations_done: self.equations_done.len(),
+            tuple_matches: self.tuple_matches.borrow().len(),
         }
     }
 
@@ -245,7 +247,7 @@ impl Elaborator {
             no_counterexamples: _,
             untimed_counterexamples: _,
             counterexample_log: _,
-            tuple_matches: _,
+            tuple_matches, // truncated below
             source_epoch: _,
             leaf_log,
             arm_probe,
@@ -255,6 +257,9 @@ impl Elaborator {
         } = self;
         local_asts.get_mut().clear();
         equations_done.truncate(mark.equations_done);
+        // Spans name files by id, which a rewound session reuses: a match of the
+        // program rewound away would explain a termination error in another.
+        tuple_matches.get_mut().truncate(mark.tuple_matches);
         *leaf_log.get_mut() = Default::default();
         *arm_probe.get_mut() = Default::default();
         equation_skips.retain(|(id, _, _)| id.0 < mark.globals.defs());

@@ -661,10 +661,10 @@ mod tests {
             texts.clone(),
             "Aoc.Year2025.Day02,Aoc.Year2025.Day02.Tests",
             "",
-            "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges",
+            "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1",
         );
         assert!(
-            value.starts_with(r#"{"ok":true,"value":"1227775554""#),
+            value.starts_with(r#"{"ok":true,"value":"Ok 1227775554""#),
             "{value}"
         );
         // An import of the project's namespaces gives short names.
@@ -674,10 +674,10 @@ mod tests {
             texts.clone(),
             "Aoc.Year2025.Day02,Aoc.Year2025.Day02.Tests",
             "import Aoc.Year2025.Day02 (solvePart1)\nimport Aoc.Year2025.Day02.Tests (exampleRanges)",
-            "solvePart1 exampleRanges",
+            "exampleRanges.map solvePart1",
         );
         assert!(
-            short.starts_with(r#"{"ok":true,"value":"1227775554""#),
+            short.starts_with(r#"{"ok":true,"value":"Ok 1227775554""#),
             "{short}"
         );
         let nothing = extract_project(PROJECT, paths, texts, "Aoc.Year2025.Day02");
