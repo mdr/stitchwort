@@ -17,8 +17,11 @@ does not do significant work itself:
   types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
   `general-purpose`, so the agent list says what each one is.
 - It reviews every lane's diff before merging. It merges lanes into `main`
-  one at a time, then runs `task test:merge` and `task audit` (and
-  `task audit:touched -- <Namespace>` for a proof lane).
+  one at a time. The checks after a merge (`task test:merge`, `task audit`,
+  and `task audit:touched -- <Namespace>` for a proof lane) are run by a
+  background verifier agent, so the orchestrator isn't tied up (D2221; see
+  "Checks after a merge" in `docs/workflow.md`). The next merge waits for
+  the verifier's pass.
 - It keeps the board up to date (`board/board move`, `commit`, `add`). New
   findings go in `backlog`, unless they block work in progress.
 - It brings Matt the decisions that are his as D questions, numbered up from

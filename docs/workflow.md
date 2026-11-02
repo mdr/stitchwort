@@ -64,6 +64,24 @@ implementation start, usually in stages.
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
 
+## Checks after a merge
+
+(D2221, Matt, 2 Nov 2026.) After each merge the orchestrator starts a
+background verifier, a Haiku agent, with a short brief: the merge commit,
+the exact commands to run on `main` (`nix develop -c task test:merge`,
+`nix develop -c task audit`, and for a proof lane `task audit:touched --
+<Namespace>` from the project's directory, e.g. `aoc/`), and nothing else.
+It runs them one after another, never in the background, changes nothing,
+and reports pass, or each failing test with the first lines of its output,
+plus the wall time and `uptime` before and after. The orchestrator carries
+on meanwhile, but doesn't merge again until the verifier has passed; a
+failure becomes a fix for an agent. Only one verifier runs at a time, and
+none while timing-sensitive work is running.
+
+A test selector (SW-1098) is on trial: for the first ten or so merges the
+verifier runs both its choice and the fixed merge tier, and the results are
+compared before the fixed tier is dropped.
+
 ## Lane checkouts
 
 The orchestrator makes every lane's checkout itself, from the main checkout,

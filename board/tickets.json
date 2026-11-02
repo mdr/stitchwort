@@ -1,5 +1,5 @@
 {
-  "next": 1098,
+  "next": 1099,
   "tickets": [
     {
       "id": 47,
@@ -3650,6 +3650,21 @@
       "labels": [
         "tooling",
         "bug"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1098,
+      "title": "Test selector for the merge checks (D2221): given the merged diff, the tests the lane reported running, and a list of every test with its last measured time (nextest JUnit) and area (the lane profiles in .config/nextest.toml), choose the tests that best cover what's at risk of regression within a 120 s budget, as a nextest filter with a one-line reason per group; plus a small fixed core always run (rustfmt, kernel, one AoC day). Build: the timing inventory (task), the selector's brief (a cheap model), the filter output and a log of each selection. Trial for ~10 merges against the fixed merge tier; then score from daily-tier regressions the selector skipped",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests",
+        "tooling"
       ],
       "body": "",
       "created": "2026-11-02",
