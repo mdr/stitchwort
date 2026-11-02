@@ -288,9 +288,9 @@ sources: [.]
   once.
 - **An empty file is valid** and means all defaults.
 - **No other keys for now.** An unknown key is `E-PROJECT-CONFIG`
-  ("unknown key `source`; the known key is `sources`"). Later keys (a
-  project `name` for dependencies) are additions, so refusing unknown keys
-  now keeps them free.
+  ("unknown key `source`; the known keys are `sources` and `audit`"). Later
+  keys (a project `name` for dependencies) are additions, so refusing unknown
+  keys now keeps them free.
 - **Nested projects.** A folder under a source root that has its own
   `stitchwort.yaml` is `E-PROJECT-CONFIG` ("a project inside a project").
   Simpler than deciding who owns its files; relax later if needed.
@@ -1016,7 +1016,7 @@ New codes, each with a one-line shape (wording for implementation):
 ```
 error[E-PROJECT-CONFIG]: aoc/stitchwort.yaml: unknown key `source`
  1 | source: [.]
-   | ^^^^^^ the known key is `sources`
+   | ^^^^^^ the known keys are `sources` and `audit`
 ```
 (Also: not valid YAML, a value of the wrong kind, an unquoted `no`/`2025`
 where text is expected, a missing or outside source folder, a nested

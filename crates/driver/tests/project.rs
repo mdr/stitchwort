@@ -469,7 +469,17 @@ fn config_errors_say_what_is_wrong() {
     );
     let d = config("source: [a]\n").unwrap_err();
     assert!(d.message.ends_with("unknown key `source`"), "{}", d.message);
-    assert_eq!(d.notes, ["the known key is `sources`"]);
+    assert_eq!(d.notes, ["the known keys are `sources` and `audit`"]);
+    let d = config("audit:\n  allowed-axiom: [Quot.sound]\n").unwrap_err();
+    assert!(
+        d.message.ends_with("unknown key `allowed-axiom`"),
+        "{}",
+        d.message
+    );
+    assert_eq!(
+        d.notes,
+        ["the known key under `audit:` is `allowed-axioms`"]
+    );
     let d = config("sources: 5\n").unwrap_err();
     assert!(d.message.ends_with("expected a list"), "{}", d.message);
     let d = config("sources: []\n").unwrap_err();
