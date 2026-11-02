@@ -1233,17 +1233,17 @@ theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tr
     | Parse.next passes, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          match starts: s.at.rest with
+          match s.at.rest with
             | Nil =>
-              match c: (s).at.offset > furthest.offset with
+              match c: s.at.offset > furthest.offset with
                 | True =>
-                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start (s).at (s) k w
+                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start s.at s k w
                     (rewrite Effect.translateNoOp _ at h in h)
                 | False =>
-                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest (s) k w
+                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest s k w
                     (rewrite Effect.translateNoOp _ at h in h)
             | Cons char after =>
-              match holds: passes char with
+              match passes char with
                 | True =>
                   match c: (s.advance after 1).at.offset > furthest.offset with
                     | True =>
@@ -1253,24 +1253,24 @@ theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tr
                       Parse.runFromLabelWholeFromOkTree what (() => r (Some char)) (later (Some char)) start furthest (s.advance after 1) k w
                         (rewrite Effect.translateNoOp _ at h in h)
                 | False =>
-                  match c: (s).at.offset > furthest.offset with
+                  match c: s.at.offset > furthest.offset with
                     | True =>
-                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start (s).at (s) k w
+                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start s.at s k w
                         (rewrite Effect.translateNoOp _ at h in h)
                     | False =>
-                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest (s) k w
+                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest s k w
                         (rewrite Effect.translateNoOp _ at h in h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          match stripped: Text.stripPrefixChars chars s.at.rest with
+          match Text.stripPrefixChars chars s.at.rest with
             | None =>
-              match c: (s).at.offset > furthest.offset with
+              match c: s.at.offset > furthest.offset with
                 | True =>
-                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start (s).at (s) k w
+                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start s.at s k w
                     (rewrite Effect.translateNoOp _ at h in h)
                 | False =>
-                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start furthest (s) k w
+                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start furthest s k w
                     (rewrite Effect.translateNoOp _ at h in h)
             | Some after =>
               match c: (s.advance after chars.length).at.offset > furthest.offset with

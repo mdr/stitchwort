@@ -100,8 +100,10 @@ def Parse.State.advance (state: Parse.State) (rest: List Char) (count: Nat): Par
 
 --| What each reading operation gives, and the state after it, as one pair.
 -- `runFrom` doesn't call these: it resumes in each arm of its own `match`,
--- which keeps the handler a loop. They state what it does, for the lemmas
--- (`Parse.runFromNext`, `Parse.runFromLiteral`, `Parse.runFromSpan`).
+-- which keeps the handler a loop. They state what it does, for the lemmas:
+-- `Parse.runFromNext` and `Parse.runFromLiteral` are stated with them, and the
+-- tree lemmas of Parse/Reads.sw use `s.span` (definitionally equal to the
+-- handler's step).
 def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, Parse.State) :=
   let split := state.at.rest.span passes
   (split.fst, state.advance split.snd split.fst.length)

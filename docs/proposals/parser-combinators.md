@@ -493,7 +493,7 @@ Per line, the library is as fast as the prototype (3.29 s machine, 0.99 s JS): t
 
 AoC 2024 day 3 (scanning 18 KB of noise for `mul(…)`) used about 6.5 KB per input character, and day 5's whole-input parse about 1.5 KB.
 
-**Cause** **[ran]**. The runtime runs a state-passing handler such as `runFrom` as a loop (crates/rt/src/fusion.rs, "State-passing handlers run as a loop"): a clause's `k v s′` in tail position becomes a jump of the loop. The pass follows tail positions through `let`, applied lambdas, `if` and `Decidable.elim`, but not through `match`, which elaborates to a call of a separate case-tree definition (`Term::Case` appears only at the top of a definition). `runFrom`'s `span` clause destructured a pair with `let (taken, after) := …`, and its `next` and `literal` clauses matched on the input; there `k` was the real continuation, which "runs the same loop from where the operation was": a nested loop whose frames stay until the parse ends. So every `span`, `next` and `literal` kept a frame for the rest of the parse, while `mark`, `reset` and `note` (written `k x s′` directly) did not. Small programs over random noise, release build, peak resident memory:
+**Cause** **[ran]**. The runtime runs a state-passing handler such as `runFrom` as a loop (crates/rt/src/fusion.rs, "State-passing handlers run as a loop"): a clause's `k v s′` in tail position becomes a jump of the loop. The pass then followed tail positions through `let`, applied lambdas, `if` and `Decidable.elim`, but not through `match`, which elaborates to a call of a separate case-tree definition (`Term::Case` appears only at the top of a definition). Since 01462c09 the pass follows lifted matches too (SW-738 returned the clauses to the natural form). `runFrom`'s `span` clause destructured a pair with `let (taken, after) := …`, and its `next` and `literal` clauses matched on the input; there `k` was the real continuation, which "runs the same loop from where the operation was": a nested loop whose frames stay until the parse ends. So every `span`, `next` and `literal` kept a frame for the rest of the parse, while `mark`, `reset` and `note` (written `k x s′` directly) did not. Small programs over random noise, release build, peak resident memory:
 
 | program (per character) | 40 KB | 80 KB | 160 KB | growth per character |
 |---|---|---|---|---|
@@ -505,7 +505,7 @@ AoC 2024 day 3 (scanning 18 KB of noise for `mul(…)`) used about 6.5 KB per in
 
 `many`'s fuel and the backtracking marks hold nothing extra: a mark is a pointer into the input list, and `optional`'s forwarding handler resumes lazily.
 
-**Fix.** The clauses resume in tail position (§6.1; between 28 Oct and 2 Nov with `k step.fst step.snd`, now in the arms of a `match` again). Memory is now the input list (about 400 bytes a character on the machine) plus the result.
+**Fix.** The clauses resume in tail position (§6.1; between 28 Oct and 2 Nov with `k step.fst step.snd`, now in the arms of a `match` again). The "after" figures here were measured on the pair workaround, before SW-738. Memory is not just the input list plus the result: it still grows about 5.8 KB per character (SW-1096).
 
 **Scanning.** `Parse.findAll` replaces day 3's hand-written `many`/`oneOf`/`filterMap` scan. Day 3 (`findAll instruction`), the real input repeated, release build, Apple silicon, load average 30 to 40 on the machine, so user time is the steadier figure; the 1.8 MB "before" runs were stopped at a 4 GB cap **[ran]**:
 
