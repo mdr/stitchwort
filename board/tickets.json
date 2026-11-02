@@ -1,5 +1,5 @@
 {
-  "next": 1099,
+  "next": 1101,
   "tickets": [
     {
       "id": 47,
@@ -3672,6 +3672,35 @@
       "commits": [
         "4b4ec74f"
       ]
+    },
+    {
+      "id": 1099,
+      "title": "Commenting rule, two regimes (D2226 step 1): std is documented comprehensively as an API; application code (aoc, roguelike, examples) is parsimonious and never restates the code. Write it into docs/syntax.md 'Doc comments' and docs/proving-guide.md (and wherever docs are briefed)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1100,
+      "title": "doc --coverage: a target only for std; projects report counts without implying a goal (D2226 step 2)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
     }
   ]
 }
