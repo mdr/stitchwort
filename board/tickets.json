@@ -4282,7 +4282,7 @@
     {
       "id": 1072,
       "title": "check_cache the_cache_changes_nothing_for_the_examples panics (globals.rs:650 index out of bounds: a metavariable looked up after they were cleared) on accept/derive-ord-own-deceq.sw with navigation on; passed in this morning's full run, so from today's merges (SW-1049/1053/1067/1070/1068/1057)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
