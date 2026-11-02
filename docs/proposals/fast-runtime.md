@@ -609,8 +609,9 @@ to the writer as it happens.
   small: day 9's took 70 s on the evaluator and 2 s on the machine. A test the machine can't
   lower or finish runs on the evaluator, which also still shows a failure's sides; results
   are cached under a key with the runner in it (`modes` plus `m`); `stitchwort test
-  --reference` runs on the evaluator as before. The playground's Tests tab, the library
-  tests and `Session::run_tests` stay on the evaluator, and `crates/rt/tests/machine.rs`
+  --reference` runs on the evaluator as before. The library tests and `Session::run_tests`
+  stay on the evaluator (the playground's Tests tab moved to the machine the same day:
+  D1138 (b), commit ed9b72e2), and `crates/rt/tests/machine.rs`
   still compares the two on every test except the AoC real-input ones.
 - `stitchwort eval`, the REPL and the Evaluate tab: they print a value of any type, with
   types, proofs and functions in it, from the evaluator's values; the machine's are erased.

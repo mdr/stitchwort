@@ -119,8 +119,8 @@ boundary between native code and the machine (§4.6).
 
 | Runner | What it is | Used by |
 |---|---|---|
-| Reference evaluator (`crates/core`) | The type checker's own evaluator; trusted, slow | `run --reference`, the oracle in differential tests, `eval`, the Tests tab |
-| The machine (`crates/rt`) | Erased IR (`ir.rs`), simplified (`opt.rs`, `specialise.rs`, `fusion.rs`), compiled to register bytecode with moves and reuse tokens (`code.rs`), run by `machine.rs` with its frames on the heap | `stitchwort run`, `stitchwort test`, the playground's Run tab |
+| Reference evaluator (`crates/core`) | The type checker's own evaluator; trusted, slow | `run --reference`, `test --reference`, the oracle in differential tests, `eval`, the REPL, the Evaluate tab, library tests, tests the machine can't lower or finish |
+| The machine (`crates/rt`) | Erased IR (`ir.rs`), simplified (`opt.rs`, `specialise.rs`, `fusion.rs`), compiled to register bytecode with moves and reuse tokens (`code.rs`), run by `machine.rs` with its frames on the heap | `stitchwort run`, `stitchwort test`, the playground's Run and Tests tabs (D1138 (b)), `stitchwort build` |
 | JS backend (`crates/js`) | JavaScript from the checked terms (not from the rt IR), run by Node in a worker with a large stack | `run --js`, `extract` |
 
 **[source]**: `crates/rt/src/lib.rs`, `crates/js/src/run.rs:1-30` (worker
