@@ -4017,7 +4017,7 @@
     {
       "id": 1054,
       "title": "Daily/full round 2: expectations and output changes (search_at_aoc comment anchors, rt::lower snapshots, web AoC 2025 day 2 evaluation, rejected int-pattern-default error text)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
