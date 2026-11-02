@@ -372,6 +372,8 @@ pub fn index_data_of(
     // Each file's namespace, from its first top-level declaration, which a
     // doc link in it may name things in.
     let mut namespaces: HashMap<FileId, Option<String>> = HashMap::default();
+    // Each file's `import` lines, which a doc link in it may use (SW-1045).
+    let mut imports: HashMap<FileId, Vec<stitchwort_syntax::ast::Import>> = HashMap::default();
     for symbol in &index.symbols {
         if symbol.container.is_none()
             && symbol.kind != "test"
@@ -423,6 +425,12 @@ pub fn index_data_of(
                         target: session.elab.doc_link_target(
                             &link.name,
                             namespaces.get(&symbol.span.file).and_then(|n| n.as_deref()),
+                            imports.entry(symbol.span.file).or_insert_with(|| {
+                                stitchwort_syntax::docs::file_imports(
+                                    symbol.span.file,
+                                    &sources.get(symbol.span.file).text,
+                                )
+                            }),
                         ),
                     })
                     .collect(),

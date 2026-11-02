@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::ast::{Decl, Module};
+use crate::ast::{Decl, Import, Module};
 use crate::lexer::{Comment, Tok, Trivia, lex_with_trivia};
 use crate::parser::{DEFAULT_STACK, decl_ranges, parse_module_recovering, parse_namespace_line};
 use crate::{FileId, Span};
@@ -124,6 +124,46 @@ pub fn link_candidates(name: &str, namespace: Option<&str>) -> Vec<String> {
         out.push(format!("Std.{name}"));
     }
     out
+}
+
+/// What a doc link `name` may mean through the file's `imports` (SW-1045),
+/// in addition to [`link_candidates`]: `import N (x)` makes `x` (and `x.y`)
+/// mean `N.x` (`N.x.y`); `import N (x as z)`, `z`; `import N (..)`, every
+/// name of `N`. The namespace `N` is tried as written, under the file's
+/// `namespace` and under `Std.`, as `link_candidates` does. The caller keeps
+/// the candidates that exist. This is the syntax of imports only, with no
+/// elaboration: the file's imports are read by [`file_imports`].
+pub fn link_candidates_with_imports(
+    name: &str,
+    namespace: Option<&str>,
+    imports: &[Import],
+) -> Vec<String> {
+    let mut out = link_candidates(name, namespace);
+    let (first, rest) = match name.split_once('.') {
+        Some((first, rest)) => (first, Some(rest)),
+        None => (name, None),
+    };
+    for import in imports {
+        for base in link_candidates(&import.path.text, namespace) {
+            for item in &import.items {
+                if item.local().text == first {
+                    let key = format!("{base}.{}", item.name.text);
+                    out.push(rest.map_or(key.clone(), |r| format!("{key}.{r}")));
+                }
+            }
+            if import.everything.is_some() {
+                out.push(format!("{base}.{name}"));
+            }
+        }
+    }
+    out.dedup();
+    out
+}
+
+/// The `import` lines of a file, parsed without elaborating (a file that
+/// doesn't parse gives those before the error).
+pub fn file_imports(file: FileId, text: &str) -> Vec<Import> {
+    parse_module_recovering(file, text, DEFAULT_STACK).0.imports
 }
 
 /// The docs of a file's declarations, by the byte offset of the declaration's

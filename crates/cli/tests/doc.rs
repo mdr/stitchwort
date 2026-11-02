@@ -948,3 +948,85 @@ fn the_index_has_links_per_doc() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- Links through the file's imports (SW-1045) -----------------------------
+
+#[test]
+fn a_link_an_import_makes_resolve_resolves_in_doc_and_the_index() {
+    let dir = links_project("links-imports");
+    std::fs::write(
+        dir.join("src/third.sw"),
+        "\
+namespace Third
+
+import Lib (good as better)
+import Other (..)
+
+--| Calls [`better`] and [`double`] (both by an import), not [`good`], which this
+--| file renamed, nor [`Lib.later`], which needs no import.
+def use (n: Nat): Nat := double (better n)
+",
+    )
+    .unwrap();
+    // `check` accepts them all but the one that names nothing here.
+    let (code, out, err) = check_in(&dir, &[]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    let text = format!("{out}{err}");
+    assert!(!text.contains("the doc link `better`"), "{text}");
+    assert!(!text.contains("the doc link `double`"), "{text}");
+    assert_eq!(text.matches("[W-DOC-LINK]").count(), 3, "{text}");
+    assert!(text.contains("the doc link `good` names nothing"), "{text}");
+    let want = [
+        ("better", Some("Lib.good")),
+        ("double", Some("Other.double")),
+        ("good", None),
+        ("Lib.later", Some("Lib.later")),
+    ];
+    // `doc` agrees with `check`, with no elaboration.
+    let (code, out, err) = doc_in(
+        &dir,
+        &shared_cache(),
+        &["Third.use", "--theorems", "0", "--json"],
+    );
+    assert_eq!(code, 0, "{out}\n{err}");
+    let report: Value = serde_json::from_str(&out).unwrap();
+    let links: Vec<(&str, Option<&str>)> = (report["links"].as_array().unwrap().iter())
+        .map(|l| (l["text"].as_str().unwrap(), l["target"].as_str()))
+        .collect();
+    assert_eq!(links, want);
+    // So does the index.
+    let (code, out, err) = check_in(&dir, &["--index", "-"]);
+    assert_eq!(code, 0, "{err}");
+    let index: Value = serde_json::from_str(&out[out.find("{\"version\"").unwrap()..]).unwrap();
+    let symbol = (index["symbols"].as_array().unwrap().iter())
+        .find(|s| s["name"] == "Third.use")
+        .expect("Third.use");
+    let links: Vec<(&str, Option<&str>)> = (symbol["links"].as_array().unwrap().iter())
+        .map(|l| (l["text"].as_str().unwrap(), l["target"].as_str()))
+        .collect();
+    assert_eq!(links, want);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_cached_link_warning_follows_the_namespace_it_points_into() {
+    let dir = links_project("links-stale");
+    let lib = "namespace Lib\n\n--| Calls [`Third.helper`] (another namespace).\ndef caller (n: Nat): Nat := n\n";
+    let third = |name: &str| format!("namespace Third\n\ndef {name} (n: Nat): Nat := n\n");
+    std::fs::write(dir.join("src/lib.sw"), lib).unwrap();
+    std::fs::write(dir.join("src/third.sw"), third("other")).unwrap();
+    let warned = |run: &str| {
+        let (code, out, err) = check_in(&dir, &[]);
+        assert_eq!(code, 0, "{run}: {out}\n{err}");
+        format!("{out}{err}").contains("the doc link `Third.helper` names nothing")
+    };
+    assert!(warned("first"), "the link names nothing");
+    // Only `Third` changes (`Lib` does not use it, so its cache key is the
+    // same): the link now resolves, and the warning must go.
+    std::fs::write(dir.join("src/third.sw"), third("helper")).unwrap();
+    assert!(!warned("after Third gained helper"), "a stale warning");
+    // And back: the warning comes back.
+    std::fs::write(dir.join("src/third.sw"), third("other")).unwrap();
+    assert!(warned("after Third lost helper"), "a missing warning");
+    let _ = std::fs::remove_dir_all(&dir);
+}
