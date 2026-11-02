@@ -3707,13 +3707,13 @@
     {
       "id": 1101,
       "title": "Pilot: std List docs under the new rule (docs/syntax.md 'What to write', D2226 step 3): improve docs that only restate the type, add one- or two-line examples where they demonstrate the function. Left on its branch for Matt to judge (not merged)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "",
+      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
