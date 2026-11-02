@@ -139,6 +139,12 @@ These aren't style. A lane that breaks one has to say so in its report.
 6. **Work in a scratch file** for experiments (a lemma's shape, an error you
    don't understand), outside the repo or in the scratchpad, checked with
    `stitchwort check file.sw` (file mode: only `Std` is visible).
+7. **Comment sparingly.** A theorem's statement is usually its doc: give it
+   a `--|` doc only to say which part of the spec it covers or why a
+   hypothesis is needed. Inside a proof, a `--` note is for what the proof
+   can't show, such as why a lemma is stated more generally or why a
+   definition is `opaque` (§1, rule 4). Don't narrate the steps
+   ([syntax.md](syntax.md#what-to-write)).
 
 ## 3. Tools, and when each fits
 

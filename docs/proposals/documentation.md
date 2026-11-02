@@ -568,6 +568,13 @@ names. A doc that only repeats the name or is under 4 words counts as missing (D
 it never fails. Enforcing it on chosen std namespaces is a later decision, after the pass
 (D2138).
 
+**Note, 2 November 2026 (SW-1099).** Coverage is a target only for the standard library.
+Pushing the "documented" figure up in application code (AoC, the roguelike, examples) produced
+docs that restate the code, such as `--| Where the guard stands and which way she faces.` above
+`type Guard = { position: Position, facing: Direction }`. What a doc should say in each regime
+is now in [syntax.md, "What to write"](../syntax.md#what-to-write). SW-1100 changes the report
+to match.
+
 ## 7. Stage 3: checked links
 
 **Syntax.** ``[`Name`]`` in a `--|` line, where `Name` is name-shaped (letters, digits, `_`,

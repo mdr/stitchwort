@@ -41,6 +41,43 @@ def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
 
 Docs are read from the declaration's file as it is, when they are shown. They are not part of elaboration, hashes or the check cache's key, so editing one changes no hash. The code is `stitchwort_syntax::docs`.
 
+### What to write
+
+**A comment says what the code can't** (SW-1099; Matt, 2 November 2026). The standard library documents its whole API; application code comments sparingly.
+
+**The standard library** (`crates/elab/src/std`) is written for users who won't read the implementation. Every public definition, type, interface and ability has a `--|` doc that says what the type doesn't: the result in words, edge cases (empty, zero, past the end, not found), which abilities are performed and in what order, cost when it matters, and how it differs from its neighbours. Link a property's theorem (``[`List.allDistinctCorrect`]``) instead of restating it. Add an example when one or two lines show it; one that needs more setup belongs in a test or a `…Example` theorem, which `stitchwort doc` prints anyway. A std doc that only restates the type is improved, not deleted.
+
+- Not `--| Whether no element appears twice.` on `List.allDistinct`, which the name says, but what the type can't say: ``--| Whether no element appears twice, in O(n log n): `List.Distinct` as a `Bool` ([`List.allDistinctCorrect`]).``
+- The edge case is the doc: ``--| The number before `n`, and 0 for 0.`` (`Nat.pred`).
+- A one-line example settles what prose leaves open:
+
+  ```
+  --| The position of the first `x` in the list, counting from 0, or the list's
+  --| length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
+  def List.indexOf [auto eq: DecEq a]: List a → (x: a) → Nat
+  ```
+
+**Application code** (`aoc/`, `games/rogue/`, `examples/`) should explain itself through clear names and types. A comment is for what they can't say: why, an invariant, units, what a `None` or a constant means, a surprising choice, the rule from the puzzle that a function implements. Never restate a name, a type or a field list. Most declarations have no doc, and that's normal. Add an example only if one or two lines show it.
+
+- Restates the fields, so it should be deleted:
+
+  ```
+  --| Where the guard stands and which way she faces.
+  type Guard = { position: Position, facing: Direction }
+  ```
+
+  So does `--| What one character of the map shows.` above `type Cell = | Floor | Obstruction | GuardStart`.
+- Says why: `--| How many states the guard can be in: a walk this long has repeated one.` above `def Lab.stateCount (lab: Lab): Nat := lab.height * lab.width * 4`.
+- Says what the `None` means: ``--| The positions the guard visits before leaving, or `None` if she is still on the map after `stateCount` steps, and so walks forever.`` (`Lab.patrol`).
+- Gives the input format and failure, which the type `List Text → {Fail} Lab` doesn't: ``--| One line per row, all as long as the first: `.` floor, `#` an obstruction, `^` the guard. A failure names the line.`` (`parseLab`).
+- A file doc covers what spans the file: the puzzle in a sentence or two, how to run it, an invariant shared by several functions (the step budget in `Aoc.Year2024.Day06`'s).
+
+**Theorems.** In application code a theorem's statement usually is its doc; give one a `--|` doc only when the statement needs help: which sentence of the spec it covers, or why a hypothesis is there. In std, a theorem whose name and statement say it all (`List.lengthAppend`) needs no doc. [proving-guide.md](proving-guide.md) §2 has the rule for proofs.
+
+**`--` notes** are for maintainers, with the same parsimony: why the code is as it is, a workaround and its ticket, or something a reader would otherwise "fix". The note on `opaque def lcg` (`games/rogue/src/Rogue/Random.sw`) explains why it is opaque. A note should never narrate what the next lines do. Tools never show `--` notes, so anything a user needs goes in `--|`.
+
+**Coverage** (below) is a target only for std. In application code a low "documented" figure is no problem, and a doc written to raise it is noise (SW-1100 changes the report to match).
+
 ### Doc links
 
 A `--|` line may link to another declaration with ``[`Name`]`` (SW-1042; docs/proposals/documentation.md §7, D2149, D2153). `Name` must be name-shaped: letters, digits, `_`, `'` and `.`, starting with a letter or `_`. Only that is a link: bare `[Name]` is not (`[x]` is list notation), and neither is prose such as ``its `[` is; its `]` `` or a plain `--` note.
