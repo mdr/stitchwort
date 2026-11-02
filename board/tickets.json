@@ -4031,7 +4031,7 @@
     {
       "id": 1055,
       "title": "Daily/full round 2: resources E-REFL vs E-TYPE-MISMATCH, search_at_bench stage two, rt::machine aoc_agrees 16 GB/45 min, every_aoc_main_lowers slow",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
