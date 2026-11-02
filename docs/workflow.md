@@ -178,6 +178,11 @@ own tickets as described in [board/README.md](../board/README.md).
   statement, prove against a spec in the problem's words, report "not
   proved" honestly), workflow, tools, common errors and performance traps.
   A lane brief that hands out proofs links it.
+- A lane that writes or reviews docs or comments follows
+  [syntax.md, "What to write"](syntax.md#what-to-write), and its brief
+  links it. The standard library is documented in full, and application code
+  only where the code can't say it. A brief never asks for higher coverage
+  outside std.
 - Significant design decisions (soundness, the kernel, language semantics)
   get a design note in `docs/proposals/` first, researched against the
   literature, and wait for the user (and possibly an external reviewer)
