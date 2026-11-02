@@ -1,5 +1,5 @@
 {
-  "next": 1087,
+  "next": 1088,
   "tickets": [
     {
       "id": 47,
@@ -3478,6 +3478,21 @@
       "labels": [
         "research",
         "tooling"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1087,
+      "title": "Handler fast-path report, then assertion (research T5, docs/research/effects.md §4.4; Osprey's handle static, SW-1085): first a report (e.g. stitchwort check --explain-handlers) saying whether each handler runs as a fused loop / without capturing a resumption and, if not, which clause stopped it; later an attribute that fails when it doesn't (Scala @tailrec style), phrased for all backends. Needs fusion.rs's recognisers (carrier, done_field, resume) to return reasons. Start by re-measuring SW-861's natural Std.Parse form, which 01462c09 may already fuse on the machine (D2207)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects",
+        "diagnostics"
       ],
       "body": "",
       "created": "2026-11-02",
