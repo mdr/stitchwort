@@ -2865,7 +2865,7 @@
     {
       "id": 1045,
       "title": "Doc links: resolve in doc/index with the file's imports; cached W-DOC-LINK can go stale across namespaces",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -3666,7 +3666,7 @@
         "tests",
         "tooling"
       ],
-      "body": "\n\nMerged 372c9b9d (4b4ec74f): dev/test-inventory (+ unit tests), dev/run-selected, task test:inventory / test:selected, dev/selector-log.tsv, docs/test-selector.md (Haiku brief), docs/testing.md and workflow.md. Estimate max(sum/8.4, serial sweeps, longest): 114 s on the merge tier vs ~110 measured. Dry run on the SW-738 merge: 614 tests, est. 75 s. Orchestrator checks: unit tests OK, smoke selection (stitchwort-syntax, 206 tests) pass. Inventory on main built from the quiet pre-trim JUnit only (the overlapped-run junit.xml deleted). Caveats: 897 tests have no known time yet (fill from trial runs); auto-folding target/nextest/*/junit.xml means a bad run's times get in. Trial: next ~10 code merges, verifier runs selection and fixed tier. Model result: Sonnet, worked, 8 min (est. 60).\n",
+      "body": "\n\nMerged 372c9b9d (4b4ec74f): dev/test-inventory (+ unit tests), dev/run-selected, task test:inventory / test:selected, dev/selector-log.tsv, docs/test-selector.md (Haiku brief), docs/testing.md and workflow.md. Estimate max(sum/8.4, serial sweeps, longest): 114 s on the merge tier vs ~110 measured. Dry run on the SW-738 merge: 614 tests, est. 75 s. Orchestrator checks: unit tests OK, smoke selection (stitchwort-syntax, 206 tests) pass. Inventory on main built from the quiet pre-trim JUnit only (the overlapped-run junit.xml deleted). Caveats: 897 tests have no known time yet (fill from trial runs); auto-folding target/nextest/*/junit.xml means a bad run's times get in. Trial: next ~10 code merges, verifier runs selection and fixed tier. Model result: Sonnet, worked, 8 min (est. 60).\n\n\nTrial 1 (merge 3e9d7b8a, SW-1100+1045: cli/driver/elab cache/syntax docs): Haiku selection 916 tests, est. 90.6 s, actual 94 s, pass; fixed tier 1032 tests, 103.8 s, pass; nothing missed. Note: the selection was nearly the size of the fixed tier (wide change across four crates); the verifier as a whole took 10.5 min (inventory refresh 2+ min, audit 2 min).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": [
@@ -3692,7 +3692,7 @@
     {
       "id": 1100,
       "title": "doc --coverage: a target only for std; projects report counts without implying a goal (D2226 step 2)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
