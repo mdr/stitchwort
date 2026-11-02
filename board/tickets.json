@@ -1,5 +1,5 @@
 {
-  "next": 1092,
+  "next": 1094,
   "tickets": [
     {
       "id": 47,
@@ -3556,6 +3556,35 @@
         "build"
       ],
       "body": "\n\nPhase 1 (Opus, 2 Nov 2026; analysis only, nothing built). Correction: elab is 99k lines of .rs (plus 28k of embedded std .sw), not 188k. The cost of an edit is mostly fan-out: ~165 test binaries, ~135 depend on elab; lanes build all of them because test:one/test:lane run `nextest --workspace` (nextest builds every binary before filtering). A std .sw edit rebuilds the whole stack (include_str! plus driver/build.rs's fingerprint). Dev-dependency-only features (core reference/stack-check, syntax stack-check, rt alloc-trace) likely make `task build` and test builds compile the stack twice (inferred). elab also compiles twice per edit (lib and lib-test, 124 unit tests). Inside elab: 58 of 77 modules (89k lines) are one strongly connected cluster around `impl Elaborator`; no cheap split. Not significant: proc macros (none), generics, build scripts, linking. Release is needed for stack depth (debug ~10x larger frames) and sweep speed.\nRanked: (1) lanes build only the targets they run (--workspace --test X / --lib); (2) one feature set for all builds; (3) std read from disk in dev/test, embedded only in distributed builds (design note); (4) tuned test profile: release + incremental + more codegen units, maybe lower opt-level for elab/tests (measure; stack and kache risks); (5) one test binary per test package (design note); (6) elab's unit tests out of the lib; (7) split elab only if still on the critical path after 1-6. Not on stable: Cranelift, parallel front end.\nEnd state: incremental tuned test profile, one binary per test package, lanes build what they run, one feature set, std from disk except in distributed builds, elab split only if measured necessary. Order 1, 2, 4, 3, 6, 5, then 7.\nMeasurement plan M0-M8 (~50-60 min machine time on a quiet machine, scratch checkout, kache off, nothing committed); M5's merge-tier comparison needs Matt's approval. Script: scratchpad modgraph.py.\n\n\nD2210 (Matt, 2 Nov 2026): measurement phase deferred. Back to backlog; phase 1 above stands.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1092,
+      "title": "Merge tier to 90 s on this machine (D2211 c, from SW-1090): sample the hash_stability examples/projects sweeps in the merge tier (every item still in daily), move goal_index to daily only, halve the aoc_answers sample in merge (every day still in daily); restate the budget as 90 s on a 10-core M1 Pro (docs/testing.md, .config/nextest.toml, Taskfile.yml)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1093,
+      "title": "Profile two slow merge-tier tests (from SW-1090): hash_stability (186 CPU-s for 3 tests; one solo run showed 322 s user) and extract::generated_code_is_stable (docs say ~4 s, now 7 s solo). Find what dominates and whether it's a cheap fix",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests",
+        "perf"
+      ],
+      "body": "",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
