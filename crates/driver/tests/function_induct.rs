@@ -290,6 +290,38 @@ def dependent: List Sig → Nat
       | None => 0
       | Some (MkSig (MkPair a b) w) => a + b + dependent rest
 
+-- The dependency check's index (SW-1074): `w` depends on the nested field
+-- `q` two fields back, so it is skipped; in `S3` it depends on `n`, a field
+-- before the nested one, which splitting `q` leaves alone.
+type S2 =
+  | MkS2 (q: Pair Nat Nat) (n: Nat) (w: Fin (Pair.fst q))
+
+def dependentFar: List S2 → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkS2 (MkPair a b) n w) => a + b + n + dependentFar rest
+
+type S3 =
+  | MkS3 (n: Nat) (q: Pair Nat Nat) (w: Fin n)
+
+def dependentBefore: List S3 → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkS3 n (MkPair a b) w) => a + b + n + dependentBefore rest
+
+-- A nested pattern with several constructors one level further in.
+def nestedDeeper: List (Pair (Option Nat) Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkPair None c) => c
+      | Some (MkPair (Some k) c) => k + c + nestedDeeper rest
+
 -- A nested pattern whose inner type has several constructors.
 def nestedMulti: List (Option Nat) → Nat
   | Nil => 0
@@ -332,6 +364,24 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
         );
         let why = skipped(s, "dependent.induct");
         assert!(why.contains("depends on the nested field"), "{why}");
+        let why = skipped(s, "dependentFar.induct");
+        assert!(
+            why.contains("`w`") && why.contains("depends on the nested field `q`"),
+            "{why}"
+        );
+        let before = generated(s, "dependentBefore.induct");
+        assert!(
+            before.contains(
+                "(n: Nat) → (a: Nat) → (b: Nat) → (w: Fin n) → \
+                 List.head rest = Some (MkS3 n (a, b) w)"
+            ),
+            "{before}"
+        );
+        let why = skipped(s, "nestedDeeper.induct");
+        assert!(
+            why.contains("a nested pattern on a type with several constructors"),
+            "{why}"
+        );
         let why = skipped(s, "nestedMulti.induct");
         assert!(
             why.contains("a nested pattern on a type with several constructors"),

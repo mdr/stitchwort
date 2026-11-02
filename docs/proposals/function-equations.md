@@ -1160,7 +1160,8 @@ until it names one.
    hypotheses after a catch-all, where the scrutinee replaces its variable) carry the
    scrutinee's type, since the kernel can't infer a constructor of a type with parameters.
 4. **Not stated in stage 1b** (each skipped, counted above, with its reason): a `match` on
-   several expressions (`match a, b with`; `match (a, b)` on one pair is stated); a lifted
+   several expressions (`match a, b with`; `match (a, b)` on one pair is stated; since SW-1074
+   both are, below); a lifted
    `match` whose helper copies variables whose types mention the scrutinee (§4, item 4; none met);
    an alternative with an or-pattern; and a `match` on a variable of the definition below a
    lifted `match`'s alternative (it refines the definition's own left side, which the helper's
@@ -1366,7 +1367,7 @@ once `explode` is back as first written (below; they replace `explodeIn.eq1`–`
 reshaped `explode.eq3`). Still skipped: 59 that
 perform abilities, 9 branches using `h` of a condition that isn't an equation or comparison
 (D2180), **9 `match`es on several expressions** (`transmissionBits`, `sumMagnitudes`,
-`letterAlong`, `isCorner`), and 2 arm equations whose alternatives replace them (`scan.eq3`,
+`letterAlong`, `isCorner`; made since SW-1074, below), and 2 arm equations whose alternatives replace them (`scan.eq3`,
 `Spec.route.eq2`), and the new `explode.eq3`. std is unchanged by this: 1,221 equations, 306
 branches, the same skips as stage 1b (none was an overlapped arm or a refining `match`); 1,578
 and 347 once rebased onto SW-1068's equations in the defining file's scope. The examples:
@@ -1400,11 +1401,61 @@ said. Every other theorem's statement is unchanged (`pairNone`, `explodeNoneShal
 added and 47 removed. `audit Aoc.Year2021.Day18`: 0 failed; the warnings are main's (15 or 16:
 `solvePart2.eq.none` warns on some runs of the search and not others, on main too).
 
-**Not done: a `match` on several expressions.** `match a, b with` lifts one helper taking both
-scrutinees, so the branch needs a hypothesis for both and a `J` along each. It doesn't fall out
-of either change; the natural statement is the one `match (a, b)` already has, `isAlt1: (a, b)
-= (p, q)`, proved by one `J` whose motive takes the pair apart with its projections. Left for
-its own ticket.
+**A `match` on several expressions (SW-1074).** As SW-1071 decided, `match a, b with | p, q
+=> …` is stated as `match (a, b) with | (p, q) => …` already was: one hypothesis per
+alternative, `isAlt1: (a, b) = (p, q)`, at the tuple type `(A, B)` (nesting to the right for
+three or more, `(a, b, c) = (p, q, r)`), and the `notAltJ` hypotheses where the tuple form has
+them. Nothing changed in how the `match` is lifted or elaborated.
+
+- **Finding the columns.** The lifted helper takes the scrutinees as parameters: one that is a
+  variable as that variable's parameter, the others as its own parameters named `s`, in the
+  scrutinees' order (`helper_call`). The helper's equations are made as before, with all those
+  columns matched (`Def::columns`).
+- **The statement.** Each column's pattern is a component of the tuple pattern; a catch-all
+  component is a variable of the branch, named as the tuple form names it (`x` for a variable,
+  `fst` or `snd` for a `_`, as the component's field of `Pair`). The earlier alternatives'
+  hypotheses are the helper's, in those variables (`((x: Nat) → fst ≠ Some x)`, as the tuple
+  form's). An alternative whose patterns are **all** catch-alls takes no `isAlt`: its variables
+  are the expressions themselves, as a catch-all `_` of the tuple form, but its `notAltJ` are
+  stated one equation per expression (`(x: Nat) → a = Some x → b ≠ True`) where the tuple form
+  says `(a, b, c) ≠ (Some x, True, snd)`: the helper's hypotheses are per column, and restating
+  them on the tuple would need a congruence proof per hypothesis for no gain in use.
+- **The proof** is the single scrutinee's, with `y` the tuple: `J (y _ => (h … (Pair.fst y)
+  (Pair.snd y) … = result) → (h … a b … = result)) (x => x) isAlt1 proof`. At `y = (a, b)` the
+  projections compute to the call, so the base case is the identity; at `(p, q)` the helper's
+  own equation for the alternative fits. The kernel checks it as any other equation.
+- **Left skipped**, each with its reason in `doc`: a `match` on several expressions naming an
+  equation (`match h1: a, h2: b`); one on the same variable twice; one whose helper takes
+  variables whose types mention a scrutinee (no tuple of non-dependent components states it;
+  none met). `f.induct` of a definition whose case goes through such a `match` isn't made ("a
+  lifted `match` on several expressions isn't split by stage 2a"); none in AoC or std.
+
+```
+two.eq.ifFalse.alt1 (k) (a) (b) (h1: Decidable.toBool (Nat.decEq k 0) = False) (x) (y)
+    (isAlt1: (a, b) = (Some x, Some y)): two k a b = x + y
+three.eq.ifFalse.alt3 (k) (a) (b) (c) (h1: …) (n: Nat) (fst: Bool)
+    (isAlt3: (a, b, c) = (None, fst, Succ n)): three k a b c = n
+three.eq.ifFalse.alt4 (k) (a) (b) (c) (h1: …) (notAlt1: (x: Nat) → a = Some x → b ≠ True)
+    (notAlt2: b = False → c ≠ 0) (notAlt3: (n: Nat) → a = None → c ≠ Succ n): three k a b c = 2
+```
+
+**Counts** **[measured: the ignored `a_projects_equations` and `the_librarys_equations`]**. AoC:
+1,101 equations, 426 branches (the base wasn't measured again; the 9 skipped before are made,
+all branches:
+`transmissionBits.eq2.alt1`/`.alt2`, `sumMagnitudes.eq2.alt1`/`.alt2`, `letterAlong.eq.alt1`/`.alt2`,
+`Garden.isCorner.eq.alt1`–`.alt3`); no `match` on several expressions is skipped. std unchanged
+(1,578 and 347: none of its several-expression `match`es was a skipped branch). `f.induct`:
+AoC 99 made, std 209 (the ignored `a_projects_inducts` and `the_librarys_inducts`); none skipped
+for the new reason. `transmissionBits` and `sumMagnitudes` call themselves only in a scrutinee, so
+their cases have no `ih` and they get none, silently, as with a single scrutinee. None refused by the kernel. The hash snapshots gain the new equations' lines only
+(`function-equations-branches.sw`, `safe-fields.sw`).
+
+**AoC proofs.** None changed. The four definitions' proofs (`isCornerSplit`, 2024 day 12;
+`sumMagnitudesSound`, 2021 day 18; `digitsBits`, 2021 day 16; `letterAlong` has none) rewrite
+the scrutinees with a hypothesis, or match on them, and let the call compute (`rewrite
+verticalSame, horizontalSame in match verticalIn, horizontalIn with | False, False => rfl …`);
+none goes through a hand-written lemma or an unfolding that an equation replaces, and stating
+each case through `isAlt` would make them longer.
 
 ## As built (stage 2a)
 

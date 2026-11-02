@@ -82,6 +82,16 @@ theorem bothNone (b: Option Nat): both None b = 0 := both.eq.alt2 None b cases
 theorem bothSome (x: Nat) (y: Nat): both (Some x) (Some y) = x + y :=
   both.eq.alt1 (Some x) (Some y) x y rfl
 
+-- On several expressions, stated as on their tuple, `match (a, k + 1)`:
+-- `isAlt1: (a, k + 1) = (Some x, Succ y)` (SW-1074).
+def bothAfter (k: Nat) (a: Option Nat): Nat :=
+  match a, k + 1 with
+    | Some x, Succ y => x + y
+    | _, _ => 0
+
+theorem bothAfterSome (k: Nat) (a: Option Nat) (x: Nat) (h: a = Some x): bothAfter k a = x + k :=
+  bothAfter.eq.alt1 k a x k (rewrite h in rfl)
+
 -- Nested: a `match` on the alternative's variable.
 def firstTwo (xs: List Nat): Nat :=
   match List.head xs with
