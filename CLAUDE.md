@@ -33,9 +33,12 @@ does not do significant work itself:
 - It creates each lane's worktree itself, from the main checkout:
   `nix develop -c task worktree:new -- SW-N` (`.claude/worktrees/SW-N`,
   branch `lane/SW-N`, from local `main`), and gives the agent the path.
-  DeepSeek's scratch clones: `task scratch:new -- /abs/path`. Both clone the
-  main checkout's `target/` and check caches copy-on-write, so a lane starts
-  warm. Not Claude Code's `isolation: "worktree"`: that starts from
+  DeepSeek's scratch clones: `task scratch:new -- sw-N`
+  (`.claude/worktrees/scratch-sw-N`, no remote). Both build through kache, a
+  compiler cache, so a new checkout's build takes seconds once another has
+  built the same code; they also clone the AoC and roguelike check caches.
+  The main checkout doesn't use kache, so merges are built and tested
+  without it (D2200). Not Claude Code's `isolation: "worktree"`: that starts from
   `origin/main`, which misses everything not yet pushed (D2193, Matt,
   2 Nov 2026).
 - Once a lane's work is merged or dropped, it deletes the worktree and its
