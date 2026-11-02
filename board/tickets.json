@@ -1,5 +1,5 @@
 {
-  "next": 1066,
+  "next": 1067,
   "tickets": [
     {
       "id": 47,
@@ -4003,7 +4003,7 @@
     {
       "id": 1053,
       "title": "Number-arm equations are quadratic: a catch-all arm's f.eqK carries one hypothesis per earlier arm and the kernel refines the whole context at each number case (check-number-wide 2.8 ms -> 6.9 s at 1,000 arms; 250 arms 0.59 s). Options: one merged hypothesis (as character patterns do) or a cap",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4185,6 +4185,21 @@
         "design"
       ],
       "body": "D2171 (not decided; from the language-productivity report). Construction privacy / abstract types: stop code outside a namespace from building a value that breaks its invariant (e.g. a 2025 day 8 `Boxes` that isn't valid), so invariants needn't be re-proved at every use. Recommendation: [later: one Opus design note after function equations (D2163) and audit stage 2 (SW-1029)]. Also D2170 (not decided): the report's human-editor features (no agent evidence) get no tickets; recommendation [yes, note them as \"no agent evidence\" only].\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1066,
+      "title": "Kernel: refine context types lazily at case splits (case cost O(cases x context) today; lifts SW-1053's 64-hypothesis cap); also count Int/char literal hypotheses toward the cap",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "kernel",
+        "performance"
+      ],
+      "body": "From SW-1053 (2 Nov 2026). The kernel refines the whole context at every case: check_num_case (crates/core/src/check.rs:1241-1245, the `refined` closure) runs substitute_in over the whole environment and every context type — a read-back and re-evaluation per entry — at each number; check_case (1124-1135) does the same per constructor. So a case split with many hypotheses in scope costs O(cases x context). This is why a catch-all equation after N number arms costs N^2 (SW-1053 capped it at 64).\n\nIdea: record the pending substitution per branch (variable, value, environment) and apply it to an entry's type only when it is looked up (variable type lookup ~line 243; the matched variable's type ~870, ~1215; nested case refinement and the index unifier apply what's pending first). Entries that are just their own variable can be skipped outright (cheap and safe on its own). Effect: each arm of an equation proof touches only its hypothesis and the goal, so the cap could be lifted.\n\nCost/risk: trusted kernel. Must stay equivalent to eager refinement (eval(quote_folded(v)) gives the same value), keep checked terms and hashes (Term::Eq's filled-in type is read back from these types), and compose nested refinements in order. Skipping entries that don't mention the variable doesn't help here (every hypothesis mentions it).\n\nAlso from SW-1053: the 64 cap counts only Nat hypotheses — Int literal hypotheses aren't counted, and a big character table's merged notListed is one hypothesis with the same N^2 proof cost. Cover those with the cap (small) unless this kernel change lands first.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
