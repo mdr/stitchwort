@@ -1,5 +1,5 @@
 {
-  "next": 1067,
+  "next": 1068,
   "tickets": [
     {
       "id": 47,
@@ -4200,6 +4200,21 @@
         "performance"
       ],
       "body": "From SW-1053 (2 Nov 2026). The kernel refines the whole context at every case: check_num_case (crates/core/src/check.rs:1241-1245, the `refined` closure) runs substitute_in over the whole environment and every context type — a read-back and re-evaluation per entry — at each number; check_case (1124-1135) does the same per constructor. So a case split with many hypotheses in scope costs O(cases x context). This is why a catch-all equation after N number arms costs N^2 (SW-1053 capped it at 64).\n\nIdea: record the pending substitution per branch (variable, value, environment) and apply it to an entry's type only when it is looked up (variable type lookup ~line 243; the matched variable's type ~870, ~1215; nested case refinement and the index unifier apply what's pending first). Entries that are just their own variable can be skipped outright (cheap and safe on its own). Effect: each arm of an equation proof touches only its hypothesis and the goal, so the cap could be lifted.\n\nCost/risk: trusted kernel. Must stay equivalent to eager refinement (eval(quote_folded(v)) gives the same value), keep checked terms and hashes (Term::Eq's filled-in type is read back from these types), and compose nested refinements in order. Skipping entries that don't mention the variable doesn't help here (every hypothesis mentions it).\n\nAlso from SW-1053: the 64 cap counts only Nat hypotheses — Int literal hypotheses aren't counted, and a big character table's merged notListed is one hypothesis with the same N^2 proof cost. Cover those with the cap (small) unless this kernel change lands first.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1067,
+      "title": "Function equations stage 1c: doc Equations section, search flag and tie-break, hover, the three messages, docs/syntax.md and proving-guide sections",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "docs/proposals/function-equations.md §9 stage 1c (and the sections it cites). Parts may exist already: written theorems rank before generated equations in search --at (SW-1055); E-NO-EQUATION reasons (SW-1035, SW-1053's cap). Runs alongside 1b (SW-1049).",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
