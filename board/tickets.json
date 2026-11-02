@@ -2865,15 +2865,15 @@
     {
       "id": 1045,
       "title": "Doc links: resolve in doc/index with the file's imports; cached W-DOC-LINK can go stale across namespaces",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "Known limits from SW-1042 (accepted for now, 1 Nov 2026): (1) doc and check --index resolve links without the file's imports (they don't elaborate), so a link that only an import makes resolve gets no W-DOC-LINK from check but shows unresolved in doc and null in the index; (2) W-DOC-LINK is cached with the namespace check and links add no dependency, so a cached warning about a link into another namespace can go stale until that namespace changes or --no-cache; (3) the nearest-name suggestion scans every name in scope (~2 ms per unresolved link).\n",
+      "body": "Known limits from SW-1042 (accepted for now, 1 Nov 2026): (1) doc and check --index resolve links without the file's imports (they don't elaborate), so a link that only an import makes resolve gets no W-DOC-LINK from check but shows unresolved in doc and null in the index; (2) W-DOC-LINK is cached with the namespace check and links add no dependency, so a cached warning about a link into another namespace can go stale until that namespace changes or --no-cache; (3) the nearest-name suggestion scans every name in scope (~2 ms per unresolved link).\n\n\nFixed in 3e9d7b8a (lane/SW-1100): doc/index resolve links through the file's import lines (syntactic, no elaboration); W-DOC-LINK no longer cached, recomputed after every check and replay (old entries' warnings dropped). Tests: a_link_an_import_makes_resolve_resolves_in_doc_and_the_index, a_cached_link_warning_follows_the_namespace_it_points_into.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -3692,14 +3692,14 @@
     {
       "id": 1100,
       "title": "doc --coverage: a target only for std; projects report counts without implying a goal (D2226 step 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs",
         "tooling"
       ],
-      "body": "",
+      "body": "\n\nMerged 3e9d7b8a (lane/SW-1100, with SW-1045). Report target only for Std.*; projects show counts, --list for the list; JSON target field. Verifier + selector trial 1 running. Model result: Sonnet, worked, 10 min for both parts (est. 60).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
