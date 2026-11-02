@@ -110,8 +110,7 @@ pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -
         .filter(|d| d.severity == Severity::Goal)
         .filter_map(|d| {
             let span = d.primary_span()?;
-            (span.file == file)
-                .then(|| Some((span.start, span.end, (**d.goal.as_ref()?).clone())))?
+            (span.file == file).then(|| Some((span.start, span.end, d.goal_data()?.clone())))?
         })
         .collect();
     found.sort_by_key(|(at, _, _)| *at);
@@ -576,7 +575,7 @@ impl Checker<'_> {
             Ok(Checked::Goals(goals)) => Outcome::Goals(
                 goals
                     .into_iter()
-                    .filter_map(|d| d.goal.map(|g| *g))
+                    .filter_map(|d| d.detail.and_then(|x| x.goal))
                     .collect(),
             ),
             Err(_) => Outcome::Failed,

@@ -553,7 +553,7 @@ fn paste_listed_arms(example: &Example) -> Vec<usize> {
             panic!("{}: one error expected:\n{output}", example.name);
         };
         assert_eq!(d.code, "E-NONEXHAUSTIVE", "{}:\n{output}", example.name);
-        let missing = d.missing.as_ref().expect("lists the cases");
+        let missing = d.missing_data().expect("lists the cases");
         // The message has an arm line for each pattern listed, in order.
         let lines: Vec<&str> = d.message.lines().filter(|l| l.starts_with("| ")).collect();
         let arms: Vec<String> = (missing.shown().iter())

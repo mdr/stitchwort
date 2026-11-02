@@ -607,7 +607,7 @@ impl Elaborator {
         });
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
             d.notes.push(note);
-            d.counterexample = data;
+            d.detail_mut().counterexample = data.map(|b| *b);
         }
     }
 

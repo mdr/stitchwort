@@ -260,7 +260,7 @@ fn refutable(
 ) -> Diagnostic {
     // The message's first line, which for several cases is a count: the
     // cases themselves, as patterns, when it lists them.
-    let listed = missing.missing.as_ref().map(|m| {
+    let listed = missing.missing_data().map(|m| {
         let mut shown: Vec<String> = m.shown().iter().map(|p| format!("`{p}`")).collect();
         if m.more() > 0 {
             shown.push(format!("{} more", m.more()));
