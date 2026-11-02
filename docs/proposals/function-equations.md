@@ -958,6 +958,24 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
   `s6::division_stops_where_the_machine_does`); with it, 0.4 s **[measured]**.
 - **`let`s** in the right side are substituted (§3.1); a right side more than ten times the
   arm's elaborated body (and over 256 nodes) isn't generated (§10).
+- **At most 64 number hypotheses** (D2189, SW-1053): an equation that would take more than 64
+  `notArmJ: n ≠ k` (in practice a catch-all after 65 or more number arms) isn't generated,
+  decided before any kernel work, and `E-NO-EQUATION` says how many and the cap. Its proof
+  splits on the number with every hypothesis in context, and the kernel refines the whole
+  context at each number of a number case (`check_num_case` → `substitute_in`), so checking it
+  costs their count squared: on a table `t 0 = 0 … t 255 = 255; t _ = 0` the catch-all was
+  1.3 million of the check's steps and 0.49 s; at 1,000 arms it ran out of the budget after
+  6.9 s and was skipped anyway **[measured]**. At 64 it costs about 10 ms **[measured: `check
+  --no-cache`, 64 arms against 65]**. With the cap, the bench's `check-number-table` is 20,748
+  steps and 5 ms, `check-number-wide` 81,012 steps and 24 ms. **Merging the numbers into one
+  `notListed: n ∉ [0, 1, …]`**, as characters are, **was tried and rejected**: it cut the time
+  (table 74 ms, wide 0.28 s) but not the steps, which stayed quadratic (table 1.75 million,
+  +34%; the 1,000-arm catch-all still over the budget), since the one hypothesis holds the
+  whole list, which each number's refinement copies again, and refuting arm i proves
+  `kᵢ ∈ [k₁, …]` by walking the list to position i; and `omega` reads `n ≠ k` but not
+  `n ∉ […]` (D2175). Characters keep their merge. Refining a context type only when it's
+  looked up would make the per-arm `≠` form linear; that's a kernel change, left to its own
+  ticket.
 - **What isn't generated** is recorded with the reason (kept in the check cache), and naming it
   is `E-NO-EQUATION` with that reason; a theorem's or instance's arms are said from the
   definition. `doc f` lists the equations with the other theorems about `f` until stage 1c gives

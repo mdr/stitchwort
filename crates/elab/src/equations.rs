@@ -80,6 +80,12 @@ const ATTEMPT: stitchwort_core::budget::Limits = stitchwort_core::budget::Limits
 /// the note's guess).
 const SIZE_FACTOR: usize = 10;
 
+/// An equation that would take more than this many hypotheses `x ≠ k` for
+/// earlier number arms isn't generated (D2189): its proof splits on the
+/// number with every one of them in context, which the kernel refines at
+/// each number, so checking it costs their count squared.
+const LITERAL_CAP: usize = 64;
+
 // ------------------------------------------------------------ the leaf log
 
 /// Where each case tree's leaves are: recorded by `check_tree` while a
@@ -1201,6 +1207,15 @@ impl Elaborator {
             }
         }
         let hyps = merge_chars(g, hyps, shapes);
+        // D2189: past the cap, decided before any kernel work.
+        let literals = hyps.iter().filter(|h| number_overlap(h)).count();
+        if literals > LITERAL_CAP {
+            return skip(format!(
+                "it would take {literals} hypotheses `x ≠ k`, one for each earlier number arm, \
+                 more than the {LITERAL_CAP} an equation is made with (its proof's cost grows \
+                 with their square)"
+            ));
+        }
         // The right side: a leaf of this row, read in the arm's variables.
         let (rhs, arm_size) = self.right_side(d, k, shape)?;
         // The statement.
@@ -2396,6 +2411,12 @@ fn char_literal(g: &Globals, t: &Term) -> Option<char> {
         }
         _ => None,
     }
+}
+
+/// Whether `h` only says a variable isn't some number (`n ≠ k`).
+fn number_overlap(h: &Hyp) -> bool {
+    matches!(h, Hyp::Overlap { vars, eqs, .. }
+        if vars.is_empty() && eqs.len() == 1 && matches!(eqs[0].1.strip_loc(), Term::Nat(_)))
 }
 
 /// The earlier rows that only say a variable isn't some character, merged
