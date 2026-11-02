@@ -1217,11 +1217,17 @@ fn motive_holds(e: &crate::Elaborator, ty: &Term, span: stitchwort_syntax::Span)
     match kernel::without_glue(g, || kernel::check_type(&mut kcx, ty)) {
         Ok(_) => Ok(()),
         Err(d) if crate::undo::fatal(&d) => Err(d),
-        Err(d) => Err(motive_error(
-            span,
-            "generalising this `match`'s scrutinee makes its type ill-formed",
-        )
-        .with_note(format!("checking the type it would have: {}", d.message))),
+        Err(d) => {
+            let error = motive_error(
+                span,
+                "generalising this `match`'s scrutinee makes its type ill-formed",
+            )
+            .with_note(format!("checking the type it would have: {}", d.message));
+            Err(match crate::equation_notes::branch_note(e, &[ty]) {
+                Some(note) => error.with_note(note),
+                None => error,
+            })
+        }
     }
 }
 

@@ -1282,16 +1282,21 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
     for id in (0..g.defs.len()).map(DefId) {
         let d = g.def(id);
-        if !d.theorem || !stitchwort_elab::is_equation_name(&d.path) {
+        // Not the hidden lemmas branches use (`f.%match1.eq2`).
+        if !d.theorem || !stitchwort_elab::is_equation_name(&d.path) || d.path.contains('%') {
             continue;
         }
-        // The owner is what precedes the first `.eqK`.
+        // The owner is what precedes the first `.eqK` (or `.eq`, below a
+        // `:=` body: `gcd.eq.ifTrue`).
         let mut at = 0;
         let mut owner_end = None;
-        for part in d.path.split('.') {
+        let parts = d.path.split('.').count();
+        for (i, part) in d.path.split('.').enumerate() {
             let digits = part.strip_prefix("eq");
             if at > 0
-                && digits.is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+                && digits.is_some_and(|n| {
+                    (!n.is_empty() || i + 1 < parts) && n.bytes().all(|b| b.is_ascii_digit())
+                })
             {
                 owner_end = Some(at - 1);
                 break;
@@ -1334,6 +1339,20 @@ pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> Strin
 /// (`notArm1`, `notListed`, …): its left side then has a variable where an
 /// earlier arm has a pattern, so the call doesn't compute (§7.3).
 fn has_overlap_hypothesis(ty: &Term) -> bool {
+    // A branch's (`f.eq2.ifTrue`, `f.eq.some`): a hypothesis or a lifted
+    // `match`'s pattern variable is a parameter its left side doesn't
+    // mention, and the call is stuck on the condition it stands for.
+    let mut n = 0;
+    let mut t = ty.strip_loc();
+    while let Term::Pi(_, _, _, cod) = t {
+        n += 1;
+        t = cod.strip_loc();
+    }
+    if let Term::Eq(_, lhs, _) = t
+        && (0..n).any(|ix| !lhs.mentions(ix))
+    {
+        return true;
+    }
     let mut t = ty.strip_loc();
     while let Term::Pi(name, _, _, cod) = t {
         if let Some(rest) = name.strip_prefix("not")
@@ -1532,8 +1551,9 @@ fn render_equations(q: &Equations) -> String {
     }
     if q.shown.iter().any(|x| x.stuck) {
         out.push_str(
-            "  [stuck]: the left side doesn't compute (an overlap hypothesis, or a `decreasing` \
-             or `opaque` definition), so `rewrite` uses the equation; the others state what \
+            "  [stuck]: the left side doesn't compute (an overlap hypothesis, a branch's \
+             condition, or a `decreasing` or `opaque` definition), so `rewrite` uses the \
+             equation; the others state what \
              the goal has already computed, which `rfl` proves\n",
         );
     }

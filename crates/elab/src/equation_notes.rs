@@ -5,6 +5,7 @@
 //! equations themselves are made by `equations.rs`.
 
 use crate::Global;
+use stitchwort_core::{DefId, Term};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Expr};
 
@@ -99,4 +100,62 @@ pub(crate) fn computed_equation_note(equation: &str) -> String {
          calls that are stuck (on a variable, or in a `decreasing` or `opaque` definition): \
          `stitchwort doc {owner}` marks those `[stuck]`"
     )
+}
+
+/// The note for an `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` or `E-REFL` whose
+/// terms mention a lifted `match`'s helper (§3.4): the generated branch
+/// equations that state its steps (`firstBig.eq2.true`), which is what
+/// stepping through it by hand fails to do (§1.2). `None` if no helper is
+/// mentioned or none of its branches has an equation.
+pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<String> {
+    let g = &e.globals;
+    let mut helpers: Vec<DefId> = Vec::new();
+    for t in terms {
+        for (s, _) in t.subterms() {
+            if let Term::Def(id) = s
+                && g.def(*id).name.contains(".%match")
+                && !helpers.contains(id)
+            {
+                helpers.push(*id);
+            }
+        }
+    }
+    let first = *helpers.first()?;
+    // A branch's proof names the helper, or the hidden lemma
+    // `f.%match1.eq2` stating one of its alternatives.
+    let lemmas: Vec<String> = helpers
+        .iter()
+        .map(|h| format!("{}.eq", g.def(*h).name))
+        .collect();
+    let mentioned = |id: &DefId| {
+        helpers.contains(id)
+            || lemmas
+                .iter()
+                .any(|n| g.def(*id).name.starts_with(n.as_str()))
+    };
+    let mut found: Vec<String> = Vec::new();
+    for i in 0..g.defs.len() {
+        let d = g.def(DefId(i));
+        if !d.theorem || d.name.contains('%') || !crate::equations::is_equation_name(&d.name) {
+            continue;
+        }
+        let Some(body) = d.body() else { continue };
+        if body
+            .subterms()
+            .any(|(s, _)| matches!(s, Term::Def(id) if mentioned(id)))
+        {
+            found.push(format!("`{}`", d.name));
+        }
+    }
+    let owner = g.def(first).name.rsplit_once(".%match")?.0.to_string();
+    let listed = match found.len() {
+        0 => return None,
+        1..=4 => found.join(", "),
+        n => format!("{}, … ({n} in all)", found[..3].join(", ")),
+    };
+    Some(format!(
+        "the `match` inside `{owner}` has generated equations, one for each way through it: \
+         {listed}, each under the hypothesis its branch is taken under; `stitchwort doc \
+         {owner}` lists them"
+    ))
 }

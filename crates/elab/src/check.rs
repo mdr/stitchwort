@@ -5997,6 +5997,13 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
     let error = cx.with_unused_equation_notes(error, &[a, b]);
+    // A side stuck on a lifted `match`: its branches' equations.
+    let sides: Vec<Term> = [a, b].iter().filter_map(|v| cx.quote(v).ok()).collect();
+    let sides: Vec<&Term> = sides.iter().collect();
+    let error = match crate::equation_notes::branch_note(cx.e, &sides) {
+        Some(note) => error.with_note(note),
+        None => error,
+    };
     cx.with_opaque_notes(error, &[a, b])
 }
 

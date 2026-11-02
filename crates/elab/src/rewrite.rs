@@ -1393,7 +1393,13 @@ fn check_motive(
         .with_note(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
-        )),
+        ))
+        .map_err(
+            |d| match crate::equation_notes::branch_note(cx.e, &[body]) {
+                Some(note) => d.with_note(note),
+                None => d,
+            },
+        ),
     }
 }
 
