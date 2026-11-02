@@ -98,9 +98,12 @@ def Parse.State.note (state: Parse.State) (problem: Parse.Problem): Parse.State 
 def Parse.State.advance (state: Parse.State) (rest: List Char) (count: Nat): Parse.State :=
   { state | at = { rest, offset = state.at.offset + count, left = state.at.left - count } }
 
---| What each reading operation gives, and the state after it. The handler
---| resumes with the two directly, so that every resumption is a tail call
---| and the parse runs in constant stack and heap per operation.
+--| What each reading operation gives, and the state after it, as one pair.
+-- `runFrom` doesn't call these: it resumes in each arm of its own `match`,
+-- which keeps the handler a loop. They state what it does, for the lemmas:
+-- `Parse.runFromNext` and `Parse.runFromLiteral` are stated with them, and the
+-- tree lemmas of Parse/Reads.sw use `s.span` (definitionally equal to the
+-- handler's step).
 def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, Parse.State) :=
   let split := state.at.rest.span passes
   (split.fst, state.advance split.snd split.fst.length)
@@ -127,14 +130,16 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
     handle parser() with
       | return value => state => Ok value
       | Parse.span passes, k => state =>
-        let step := state.span passes
-        k step.fst step.snd
+        let (taken, after) := state.at.rest.span passes
+        k taken (state.advance after taken.length)
       | Parse.next passes, k => state =>
-        let step := state.next passes
-        k step.fst step.snd
+        match state.at.rest with
+          | Cons char after => if passes char then k (Some char) (state.advance after 1) else k None state
+          | Nil => k None state
       | Parse.literal chars, k => state =>
-        let step := state.literal chars
-        k step.fst step.snd
+        match Text.stripPrefixChars chars state.at.rest with
+          | Some after => k True (state.advance after chars.length)
+          | None => k False state
       | Parse.mark u, k => state => k state.at state
       | Parse.reset at, k => state => k () { state | at }
       | Parse.note problem, k => state => k () (state.note problem)
@@ -751,6 +756,23 @@ theorem Parse.runFromStop (state: Parse.State) (k: Empty → {Parse} a):
 
 theorem Parse.runFromFatal (state: Parse.State) (message: Text) (k: Empty → {Parse} a):
     Parse.runFrom state (() => k (Parse.fatal message)) = Err ({ offset = state.at.offset, messages = [message], expected = [], width = 0 }) := rfl
+
+--| `next`: the handler's step, as `Parse.State.next` gives it.
+theorem Parse.runFromNext (state: Parse.State) (passes: Char → Bool) (k: Option Char → {Parse} a):
+    Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.next passes).snd (() => k (state.next passes).fst) :=
+  match starts: state.at.rest with
+    | Nil => rfl
+    | Cons char after =>
+      match holds: passes char with
+        | True => rfl
+        | False => rfl
+
+--| `literal`: the handler's step, as `Parse.State.literal` gives it.
+theorem Parse.runFromLiteral (state: Parse.State) (chars: List Char) (k: Bool → {Parse} a):
+    Parse.runFrom state (() => k (Parse.literal chars)) = Parse.runFrom (state.literal chars).snd (() => k (state.literal chars).fst) :=
+  match stripped: Text.stripPrefixChars chars state.at.rest with
+    | None => rfl
+    | Some after => rfl
 
 theorem Parse.runFromSpan (state: Parse.State) (passes: Char → Bool) (k: List Char → {Parse} a):
     Parse.runFrom state (() => k (Parse.span passes)) =

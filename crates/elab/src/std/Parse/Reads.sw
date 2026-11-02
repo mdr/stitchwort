@@ -78,10 +78,15 @@ theorem Parse.runFromThenOkTree (p: () → {Parse} a) (tree: Effect.AlwaysTree (
         | AlwaysCall _ _ later => Parse.runFromThenOkTree (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd k w h
     | Parse.next passes, q =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromThenOkTree (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromNext s passes (y => (q y, Parse.mark())) in
+          Parse.runFromThenOkTree (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd k w
+            (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, q =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromThenOkTree (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromLiteral s chars (y => (q y, Parse.mark())) in
+          Parse.runFromThenOkTree (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromThenOkTree (() => q s.at) (later s.at) s k w h
@@ -112,11 +117,14 @@ theorem Parse.runFromThenOk2Tree (p: () → {Parse} a) (tree: Effect.AlwaysTree 
         | AlwaysCall _ _ later => Parse.runFromThenOk2Tree (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd j k w h
     | Parse.next passes, q =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromThenOk2Tree (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd j k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromNext s passes (y => (q y, Parse.mark())) in
+          Parse.runFromThenOk2Tree (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd j k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, q =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromThenOk2Tree (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd j k w h
+          rewrite Parse.runFromLiteral s chars (y => (q y, Parse.mark())) in
+          Parse.runFromThenOk2Tree (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd j k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromThenOk2Tree (() => q s.at) (later s.at) s j k w h
@@ -150,11 +158,13 @@ theorem Parse.runFromOptionalFromOkTree (q: () → {Parse} a) (tree: Effect.Alwa
     | Parse.next passes, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromOptionalFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w h
+          rewrite Parse.runFromNext s passes (y => (r y, Parse.mark())) in
+          Parse.runFromOptionalFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromOptionalFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w h
+          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          Parse.runFromOptionalFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromOptionalFromOkTree (() => r s.at) (later s.at) start s k w h
@@ -186,11 +196,13 @@ theorem Parse.runFromOptionalFromOk2Tree (q: () → {Parse} a) (tree: Effect.Alw
     | Parse.next passes, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromOptionalFromOk2Tree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd j k w h
+          rewrite Parse.runFromNext s passes (y => (r y, Parse.mark())) in
+          Parse.runFromOptionalFromOk2Tree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd j k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromOptionalFromOk2Tree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd j k w h
+          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          Parse.runFromOptionalFromOk2Tree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd j k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromOptionalFromOk2Tree (() => r s.at) (later s.at) start s j k w h
@@ -1033,11 +1045,14 @@ theorem Parse.runFromLabelFromOkTree (what: Text) (q: () → {Parse} a) (tree: E
         | AlwaysCall _ _ later => Parse.runFromLabelFromOkTree what (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd k w h
     | Parse.next passes, r =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromLabelFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromNext s passes (y => (r y, Parse.mark())) in
+          Parse.runFromLabelFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromLabelFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w h
+          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          Parse.runFromLabelFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromLabelFromOkTree what (() => r s.at) (later s.at) start s k w h
@@ -1168,11 +1183,14 @@ theorem Parse.runFromSectionLineFromOkTree (q: () → {Parse} a) (tree: Effect.A
         | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd k w h
     | Parse.next passes, r =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromNext s passes (y => (r y, Parse.mark())) in
+          Parse.runFromSectionLineFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromSectionLineFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w h
+          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          Parse.runFromSectionLineFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromSectionLineFromOkTree (() => r s.at) (later s.at) start s k w h
@@ -1215,23 +1233,53 @@ theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tr
     | Parse.next passes, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          match c: (s.next passes).snd.at.offset > furthest.offset with
-            | True =>
-              Parse.runFromLabelWholeFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd.at (s.next passes).snd k w
-                (rewrite Effect.translateNoOp _ at h in h)
-            | False =>
-              Parse.runFromLabelWholeFromOkTree what (() => r (s.next passes).fst) (later (s.next passes).fst) start furthest (s.next passes).snd k w
-                (rewrite Effect.translateNoOp _ at h in h)
+          match s.at.rest with
+            | Nil =>
+              match c: s.at.offset > furthest.offset with
+                | True =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start s.at s k w
+                    (rewrite Effect.translateNoOp _ at h in h)
+                | False =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest s k w
+                    (rewrite Effect.translateNoOp _ at h in h)
+            | Cons char after =>
+              match passes char with
+                | True =>
+                  match c: (s.advance after 1).at.offset > furthest.offset with
+                    | True =>
+                      Parse.runFromLabelWholeFromOkTree what (() => r (Some char)) (later (Some char)) start (s.advance after 1).at (s.advance after 1) k w
+                        (rewrite Effect.translateNoOp _ at h in h)
+                    | False =>
+                      Parse.runFromLabelWholeFromOkTree what (() => r (Some char)) (later (Some char)) start furthest (s.advance after 1) k w
+                        (rewrite Effect.translateNoOp _ at h in h)
+                | False =>
+                  match c: s.at.offset > furthest.offset with
+                    | True =>
+                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start s.at s k w
+                        (rewrite Effect.translateNoOp _ at h in h)
+                    | False =>
+                      Parse.runFromLabelWholeFromOkTree what (() => r None) (later None) start furthest s k w
+                        (rewrite Effect.translateNoOp _ at h in h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          match c: (s.literal chars).snd.at.offset > furthest.offset with
-            | True =>
-              Parse.runFromLabelWholeFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd.at (s.literal chars).snd k w
-                (rewrite Effect.translateNoOp _ at h in h)
-            | False =>
-              Parse.runFromLabelWholeFromOkTree what (() => r (s.literal chars).fst) (later (s.literal chars).fst) start furthest (s.literal chars).snd k w
-                (rewrite Effect.translateNoOp _ at h in h)
+          match Text.stripPrefixChars chars s.at.rest with
+            | None =>
+              match c: s.at.offset > furthest.offset with
+                | True =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start s.at s k w
+                    (rewrite Effect.translateNoOp _ at h in h)
+                | False =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r False) (later False) start furthest s k w
+                    (rewrite Effect.translateNoOp _ at h in h)
+            | Some after =>
+              match c: (s.advance after chars.length).at.offset > furthest.offset with
+                | True =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r True) (later True) start (s.advance after chars.length).at (s.advance after chars.length) k w
+                    (rewrite Effect.translateNoOp _ at h in h)
+                | False =>
+                  Parse.runFromLabelWholeFromOkTree what (() => r True) (later True) start furthest (s.advance after chars.length) k w
+                    (rewrite Effect.translateNoOp _ at h in h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later =>
@@ -1502,11 +1550,14 @@ theorem Parse.runFromAttemptFromOkTree (q: () → {Parse} a) (tree: Effect.Alway
         | AlwaysCall _ _ later => Parse.runFromAttemptFromOkTree (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd k w h
     | Parse.next passes, r =>
       match tree with
-        | AlwaysCall _ _ later => Parse.runFromAttemptFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w h
+        | AlwaysCall _ _ later =>
+          rewrite Parse.runFromNext s passes (y => (r y, Parse.mark())) in
+          Parse.runFromAttemptFromOkTree (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd k w (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
     | Parse.literal chars, r =>
       match tree with
         | AlwaysCall _ _ later =>
-          Parse.runFromAttemptFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w h
+          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          Parse.runFromAttemptFromOkTree (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd k w (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall _ _ later => Parse.runFromAttemptFromOkTree (() => r s.at) (later s.at) start s k w h
