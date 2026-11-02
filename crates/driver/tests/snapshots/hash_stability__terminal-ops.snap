@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.showBytes a185f37793da23fb963c13841367496ea3181cf9f54457a69834960d3401684f
@@ -10,6 +9,8 @@ Main.textOr fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
 Main.textOr.eq1 49a4ee2c33943dc5475c32b565edb4fa96050ce5486cf71dd1bbf526db0c58df
 Main.textOr.eq2 a0658c7e458d38142235d3809c16c01c94240090cb2d8a0f2d1ca341e0de50b7
 Main.yesNo 4b6c4fd6b2949e9aa2be975c5be96e725d21002e8479a8ebe5a0bf9f2ee447f7
+Main.yesNo.eq.ifTrue fef6803361b7d9d6697321f59cbd8a0d551ab231daecbffb04a7ab24da8d3254
+Main.yesNo.eq.ifFalse c088d84037ecb5427c962dbe5759dcf08c41ce2d41dc88643a81f7085d023aff
 Main.main 5ffcd3797f37e26d120aa99a817de4fa386ce6d332973d934bccb52ba8a710b9
 Main.transcript 8041d676ef9a1f261b11d32abdfc404aa1eba62712b16eeea6ffdbdbea5dc411
 Main.test "what main does under IO.simulate" b25512d96ec16ae85aff81d3360cf08a4ec7e6bfbae858c51d5bf13e44fe7ac6

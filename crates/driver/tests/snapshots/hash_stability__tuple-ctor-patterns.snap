@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.sum3 936b56ee480dfe17ceba348827b195564e5e13a129e99b1096991cff89aa2407
@@ -12,4 +11,7 @@ Main.sum2.eq2 ce421236f8251acffee3388a4ad57d9fbfb96cb39a717853b5168fa98eedd23f
 Main.sum2.eq3 4704442cdcb3b99c51153dfff0d182b72b88bbeb81d3de9b5ecee3f186f400de
 Main.inMatch 9cc961693abdf37becf96e7e56ffb771a2631b6ab881ff16dcb45a1d0398b90a
 Main.inMatch.%match1 936b56ee480dfe17ceba348827b195564e5e13a129e99b1096991cff89aa2407
+Main.inMatch.eq.alt1 4d502f036caca848346d87bbe6d6829b851524b6fd08cc45f3d2d30820219bef
+Main.inMatch.%match1.eq2 856dc8aa5491fc055403543822f561223a47e2d45509501dfe04781fd5c9324d
+Main.inMatch.eq.alt2 2e4965735b819b9af3b0896e8ac2686da82cfe9243a91f32f2777b2b918fbd9d
 Main.sum3Example 1e6e3766867c46f213e176f39e98c854f7267f12f4a2f0c342c170041b885421

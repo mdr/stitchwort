@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.getZeroHead 944319a8bee61768fb1d41532a436bcb78357c7cd30369f30c3aba302e36003f
@@ -10,6 +9,8 @@ Main.getAfterPrefix.%match1 5231cf1f9c7fde8c5ca6acd89ad8b6880fd17c2453629caed936
 Main.afterBit b9e702ff6a74f6fd0d82f39f60763edfd7140896b02defdfe05b8f6fa5195546
 Main.afterBit.eq1 41c1a6fe6b192be4cdff16701f0728aee0e61bb74fd564414511499eeb5c47f7
 Main.afterBit.eq2 448401fbda2a2f5a7a2e2cac2ab937716f6e66df87836141e544ec5d7a7c3e40
+Main.afterBit.eq2.ifTrue 7ee4f9e0bda804901841cd66fa12e63d4e2975ba820c99631818c3031f9d1cd7
+Main.afterBit.eq2.ifFalse ec276aac0df769ed44f7338d8a03b0e92ec67ae49bf7d0c1e18f4aef5c92a20c
 Main.headAfterBit 4494969206817624a08e49f05fdf52359d37e5e7619392b6e814fc0219fbef5b
 Main.headAfterBit.%match1 f70670f0ccb7484dcd2a7e219bdcf5d3539ba6c3883c222d36334c2408d30fff
 Main.headAfterBit.%match2 4f58b95bafd5a0fa3807e0de5081207cfd5d19556dd0bfc8bf7610167f6fc41f

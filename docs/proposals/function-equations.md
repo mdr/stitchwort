@@ -10,7 +10,7 @@ reviewed independently ("approve with changes"); every point is worked in, one r
 **Decided (Matt, 1 November 2026):** build stage 1 on the design's recommendations: D2173 to
 D2180 and D2183 to D2187 as recommended. **Stage 2 decided (2 November 2026, by Claude under Matt's
 delegation of the function equations track):** D2181 and D2182 as recommended. **Stage 1a is built** (SW-1035): see [As built (stage 1a)](#as-built-stage-1a), which
-records where the code differed from this note.
+records where the code differed from this note; **stage 1b** (SW-1049), [As built (stage 1b)](#as-built-stage-1b).
 
 It revisits D231 ("generated per-leaf equation lemmas: not now",
 [equation-lemmas.md §9](equation-lemmas.md#9-decisions)), whose trigger has fired (§1.3), and
@@ -82,6 +82,8 @@ Labels:
 - [9. Stages](#9-stages)
 - [10. Risks and what this doesn't do](#10-risks-and-what-this-doesnt-do)
 - [As built (stage 1a)](#as-built-stage-1a)
+- [As built (stage 1b)](#as-built-stage-1b)
+- [As built (stage 1c)](#as-built-stage-1c)
 - [Sources](#sources)
 - [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed)
 
@@ -1055,6 +1057,108 @@ on demand it takes 1,114,756 steps, 1,171,710 allocations and 3.1 MB, main's num
 the library files', not the core's: putting off only the core's left it unchanged. A program's
 own equations stay eager (its namespace is cached).
 
+## As built (stage 1b)
+
+SW-1049, 2 November 2026: branch equations, in `crates/elab/src/equations.rs`
+(`Elaborator::branch_equation`). Below every arm (and below a `:=` body that isn't a `match` on
+its parameters, as `f.eq`), each way through the `if`s and `match`es in tail position gets an
+equation, named and stated as §3.2 and §3.3 say; the names come from the source alone
+(`branch_paths`), so the library index lists them as candidates and naming a skipped one is
+`E-NO-EQUATION`. Every one is a kernel-checked theorem within its own budget, as in 1a; no
+existing declaration's hash changed (the hash snapshots of the examples and projects only gained
+lines) **[measured: `task snap:hashes`]**.
+
+```
+firstBig.eq2.true (x: Nat) (rest: List Nat) (big: 10 ≤ x): firstBig (Cons x rest) = Some ({ value = x, isBig = big })
+countFresh.eq2.ifFalse (b: Bool) (rest: List Bool) (notFresh: b = True): countFresh (Cons b rest) = countFresh rest
+check.eq.ifTrue (n: Nat) (i: Nat) (h: i < n): check n i = Some (Fin.ofNatLt n i h)
+takeFirst.eq2.cons [a: Type] (k: Nat) (x: a) (rest: List a): takeFirst (Cons x rest) (Succ k) = Cons x (takeFirst rest k)
+headOr.eq.some (d: Nat) (xs: List Nat) (x: Nat) (isSome: List.head xs = Some x): headOr d xs = x
+both.eq.alt2 (a: Option Nat) (b: Option Nat) (notAlt1: (x: Nat) → (y: Nat) → (a, b) ≠ (Some x, Some y)): both a b = 0
+```
+
+(The printer shows `Nat.leq 10 x = True` as `10 ≤ x`; `crates/driver/tests/function_equations.rs`,
+`branch_equations`, checks these and the rest of §3.2's constructs.)
+
+**How.**
+
+- **A `match` on the arm's variables** compiled into the case tree (the 1a leftover) makes rows
+  of its own, one per alternative, whose patterns are probed below the arm's: their left sides
+  have the patterns, their hypotheses are the earlier arms and the earlier alternatives
+  (`notAltJ`) they overlap, and they are proved as arms are, walking the tree past the arm's leaf.
+  The arm itself keeps no equation (`E-NO-EQUATION` says its alternatives have them).
+- **Below a row**, each split adds its hypothesis and the proof goes on, at the row's leaf (case
+  splits may only be at the top of a declaration), from the row's proof along a proof that the
+  row's right side is the branch's: for a `Bool` `if`, one `J` on `c = True`; for `if h: p`,
+  `Decidable.elimEq`, with a `J` along `Bool.uniqueEq` (an equation of `Bool`s: `<` and `≤`) or
+  `DecEq.uniqueEq` (its instance read off the decision) where the branch uses `h` (§3.5), and
+  D2186's `else` refuted from the other `Bool` equation; for a lifted `match`, the helper's own
+  equation for the alternative (made by 1a's machinery on the helper, with its alternatives as
+  arms, so earlier alternatives give `notAltJ`), carried along `e = pattern` by one `J` whose
+  motive replaces the scrutinee *and* its equation argument (§1.2's `J`).
+- **A `match` on the alternative's variables inside a lifted `match`** is compiled into the
+  helper's tree, so the helper's rows go below the alternative as an arm's do.
+- **The notes** of §3.4: `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` whose terms mention a
+  lifted `match`'s helper list the owner's equations whose proofs go through it ("the `match`
+  inside `firstBig` has generated equations …: `firstBig.eq2.true`, `firstBig.eq2.false`"),
+  all three reproduced from `p2.sw` (`the_walls_errors_name_the_branch_equations`). `doc` marks a
+  branch `[stuck]` (a parameter its left side doesn't mention is a hypothesis or a lifted
+  pattern's variable) and lists `f.eq.*`.
+
+**Counts** **[measured]**. AoC (eager): 1,061 equations, 382 of them branches (379 through
+splits: 229 `Bool` `if`s, 35 `if h:`, 238 lifted `match` alternatives, 10 of them catch-alls,
+counting each split on the way; 3 alternatives of a `match` on the arm's variables), and 40
+branches skipped: 20 a `match` on a definition's variable below a lifted alternative (2021 day
+16's `readPackets`, 2024 day 24's `repair` and `Wire.ofName`), 9 a branch using `h` of a
+condition that isn't an equation or comparison (D2180), 9 a `match` on several expressions,
+and 2 arm equations whose alternatives replace them (`scan.eq3`, `Spec.route.eq2`, whose
+`.nil`/`.cons.ifTrue`/… and `.none`/`.some` are made). AoC was reshaped around the wall, so it
+has no named `match` and no branch using `h`. std (every equation `search` makes, all files
+loaded: the ignored test `the_librarys_equations`): 306 branches (373 `Bool` `if` steps, 26 `if
+h:` of which 6 normalised by D2186 and 5 using `h`, 73 lifted alternatives, 12 of them catch-alls and 2 of a named
+`match`es), among them `Graph.searchFrom.eq2.ifTrue/ifFalse` (§6.3's) and `List.chunksOf.eq1.nil/.cons`;
+skipped branches: `Mod.ofNat.eq.ifFalse` (below), one over the size bound, 10 whose helper's
+alternatives can't be compiled again from the caller's scope, and the branches of definitions
+skipped whole. None was refused by the kernel in std, AoC or the examples.
+
+**Cost** **[measured, one run each, `/usr/bin/time -l`, main at `03fb0bf3` against the lane]**:
+`check --no-cache` of the AoC project 655.3 G → 656.7 G instructions (+0.2%), 47.9 → 47.5 s,
+peak 1,569 → 1,573 MB; `search List.length` with no cache (every library file and every
+equation made) 78.4 G → 79.4 G instructions (+1.2%), 6.18 → 6.26 s, peak 223 → 234 MB (+5%).
+Within the 10% gate. std's and the core's stay on demand, so a program's start pays nothing
+until it names one.
+
+**Where the code differed from this note.**
+
+1. **`gcd.eq.ifFalse` isn't generated.** §3.2 and §3.5 assumed `gcd`'s `else` uses `h` only in
+   `[decreasing := …]`; but `a % b` takes an `auto` proof that `b ≠ 0`, found from `h`, so the
+   `else` branch uses its refutation `Not (b = 0)`, and two refutations aren't known to be equal
+   (they are functions into `Void`; without proof irrelevance or function extensionality).
+   D2180's limit covers it: skipped with that reason, as is `Mod.ofNat.eq.ifFalse` in std; none
+   in AoC. (`p4.sw`'s hand proof works because `cases` on `b` computes the proof away; a
+   generator could split the variables a condition mentions, but that is definition-specific.)
+2. **Hidden lemmas.** A lifted `match`'s alternative whose proof needs a case split (an earlier
+   alternative overlaps it) can't be inlined into the branch's proof, since a case tree may only
+   be at the top of a declaration; it is declared once as a hidden theorem `f.%match1.eqK` and
+   used. The hash snapshots gain these lines too (`Main.pick.%match1.eq2`). They are left out of
+   `doc`'s Equations.
+3. **A pair's hypothesis is typed.** `isAlt1: (a, b) = (Some x, Some y)` (and the `notAlt`
+   hypotheses after a catch-all, where the scrutinee replaces its variable) carry the
+   scrutinee's type, since the kernel can't infer a constructor of a type with parameters.
+4. **Not stated in stage 1b** (each skipped, counted above, with its reason): a `match` on
+   several expressions (`match a, b with`; `match (a, b)` on one pair is stated); a lifted
+   `match` whose helper copies variables whose types mention the scrutinee (§4, item 4; none met);
+   an alternative with an or-pattern; and a `match` on a variable of the definition below a
+   lifted `match`'s alternative (it refines the definition's own left side, which the helper's
+   equation can't say).
+5. **Line in `doc`.** A branch shows its arm's line, not the branch's.
+6. **On-demand generation from a caller's scope** (a 1a limit, met again): `search` and `doc`
+   make the library's put-off equations by compiling arms again in the caller's scope, where a
+   library file's own constructors (`Map.Tree`'s `Tip`, `Vec`'s `VNil`, `Omega`'s) aren't
+   visible unless imported, so those definitions' equations (and branches) are skipped there
+   ("its arms couldn't be compiled again: unknown name `Tip`"); naming one from a program that
+   imports the type makes it.
+
 
 ## As built (stage 1c)
 
@@ -1080,8 +1184,9 @@ SW-1067: `doc`, `search`, hover and two of the messages; the docs.
   arm equation as the rule gets a note that a call that computes needs no equation and that
   `doc` marks the stuck ones (`examples/reject/function-equations-renumbered.sw`,
   `-computed-rewrite.sw`).
-- **Not done:** the notes on `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` that name
-  `firstBig.eq2.true`: they name branch equations, which stage 1b makes.
+- **Not done here:** the notes on `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` that name
+  `firstBig.eq2.true`: they name branch equations, so stage 1b added them (below, "As built
+  (stage 1b)").
 
 ## Sources
 

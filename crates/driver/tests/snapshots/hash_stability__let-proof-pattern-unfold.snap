@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.half 6ce782a7d9ddf746bdebd9aa00b188aba62927d6874033ab24b18f0eb84c0bd4
@@ -15,6 +14,8 @@ Main.firstBlocked.%go 1d62c11141cb7e03dc4c144eb3721d4e076e9c5a770c34164c853f0dc1
 Main.firstBlocked.%step.%respects 4e0ecba5192e304fe6890d187d74346f43fc5f67ff44b1f6a8a767d53b4f0fee
 Main.firstBlocked.%irrel 869888fc9d27ffbc0f2a64d486ec54edad0469e95ef014a2b9921785b733b5be
 Main.firstBlocked.unfold 675af0f80caa4265907da5808ab6f883ed3c546d325ca97b06aa05f45f13ebb1
+Main.firstBlocked.eq.ifTrue 6fa9e8148a7f862f46a8bf701d6545adf83d07260bc8b0ea6f7ca01aed8ea447
+Main.firstBlocked.eq.ifFalse 9e1c5c500c338c4d83f4eb8e280e45115008b3dd7651411a284b9c33729657ca
 Main.firstBlockedSplit 963a201fad3fd148f7171feedf1f94453d3ada2748a7dc226a889fbc61c0ec47
 Main.lowerHalf 99ac1abc78d8db42668494a374e560e900de237780badb01efd2cc504e99054a
 Main.withBounds e772956986196c554955e14ede84e60099060bf75bf4ea4c00e1b6af783c3dc3

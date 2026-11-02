@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Fetch 25058c7cea4d35de069bafadf49dfb22ecbbfe45cd3fb641546dae0efad345eb
@@ -20,5 +19,9 @@ Main.SameFun f79b8e47f012a3ce2d0dac973c40f413aca23aa2bf5dc0320101ed981473d812
 Main.decSelf ea5dc12591c5599d94e328e82139b544a1e3df07342afc1ba652f0636f71fc31
 Main.adder c90143bde70813f010d012c8c37e72bb23bc5ed8c7858aa7047f9ab74ee0b068
 Main.same cdb7bc21441b79e19b9d84a8a1f7915fc9a33c074b10dbfd8ee5e9ad1edac307
+Main.same.eq.ifTrue 36914032efcd1bd7a2d7047f30824fbd5eaafc3807f29cb3a95074f9f61a1529
+Main.same.eq.ifFalse 39ca0166280ccce93e6704b42efc9a73cbd90afb15976791b767e42ccd4990e2
 Main.sameIf d671ad6b1f940a5c369b6887b306359d3c020e71f9b0453e89c03283b3a72f9f
+Main.sameIf.eq.ifTrue 8c3529521ea03d97824e0636709f1e40e8859359c8d3979b1c60b3696cdc74c8
+Main.sameIf.eq.ifFalse 7dde552863d100a0d27e690c6389b46f2a707399b6db154630a16b44c4cb46e3
 Main.test "found with the values" 29473f0838f5d7e96f91599a006d2682b4ce4f6d41f2394c07ca2382bbac7dad

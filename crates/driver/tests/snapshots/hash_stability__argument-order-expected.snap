@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.positiveSum a10de97ba5f48463ee52ab0d4c93acdc893f09fbf764e07428e5ca81305c3250
@@ -18,4 +17,6 @@ Main.countIsLength a83615eaedad943aba7285072707a3480f5f3ccb086ad415a6a6fce3a8c68
 Main.sums b6dce04b4f0ced7536ddf586298fb4dafb8b4f9e682af139e87d65adc5128eb1
 Main.sums.%match1 7c67bcbf16a5b0ba5913a466086ebc233bca2318d3546aeb98cc2e56d90a4806
 Main.lookup b736b1b2020eece0b7d9e5e9eb08bec3a27553a0e29b81aee5c81d6c011c1271
+Main.lookup.eq.ifTrue 45dfb5326ab3524bde5f9ad6dd9daf29cf52c1be3f77c1a5ebb809e9fb94c94f
+Main.lookup.eq.ifFalse 8c00a320365b94d4417f6336f925c65f59de6a2373110449f3c5772525264e75
 Main.anyHole 274d6c0f19f9e5d30bb90ccf67b87b21c834f58020e1f2d02dd4fc1772a994c9

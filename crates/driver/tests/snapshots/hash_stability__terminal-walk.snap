@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Position db747cbf0cb136d27f1a5f306e0b8dcc3087e30dc362ecea4760b9dc442eb481
@@ -36,6 +35,8 @@ Main.move.eq7 97c5e14c2fd5d17d6f4ce7f472831022ea8e8dd7da5f4d02fe4fb1b7971f859e
 Main.move.eq8 b7a6a3a701ac94307eb6606cd407a1096a93b8d375d61582ca7903863e6169c0
 Main.move.eq9 3806fa1dc34856ae3d18152b0437cc07eafe47ebc7b0dccd69468f40c36c8b2d
 Main.rowText 9ee047d2ea60e524e6320f6cef2916c3120bd375dec4713aa87f13483c94bed1
+Main.rowText.eq.ifTrue ac448f393c47629ca7a31ea01e6ec0b179cdc2b5e61c64c0b82b9e8c9068eb49
+Main.rowText.eq.ifFalse 7a6db8a75c77f3039ef499e8669ade49a52d7a677aa0d2be2036961ef6fc9c03
 Main.view c5f8c92851da1b1699cd6d79ddd6ad9928aa756f4569c54689d128975b0426b8
 Main.walk 4d519a509313d5fb30fe4d8590e90f9f1744883e9910c2723a38f92913b4d943
 Main.walk.%match1 7a3ca1bf1da92ea7156ffd9d09d1a8f80c3c4c8e61523de4455cb42a8f56986b

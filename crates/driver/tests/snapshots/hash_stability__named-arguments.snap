@@ -1,12 +1,14 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Shape b24311b33f5346fbbac338ff72f9fbca0cb5db735cb9653840c32a0d1b2a80b3
 data Main.Point f4a725f1b4a5bfa507ae7ee4e8e6a6348b154287ef127f901e3b890b2e786870
 Main.between 71097c0d2edf3fb5ffd1964a02dbbb90b5cc93e34deccbd30f62cd28e6b4f117
 Main.clampTo 45ef5c67d1eccf6410d823ce513f28d40d6bfe9a36b8f1335388f5b0c30f0b16
+Main.clampTo.eq.ifTrue c00b7ea7fa7f870a136b7d74303b7163caea449644a186f350df62a70e29a3df
+Main.clampTo.eq.ifFalse.ifTrue 21918af34c2a9f5ae444e232282f8f2c5f55b17c20c730b9b3c3bba627ac28ab
+Main.clampTo.eq.ifFalse.ifFalse 4ce6b4e156a9c10190eaafc30936d1f47c0996727695a414bcd647f72dc94882
 Main.place 862748ed5fffc135b77939072fbe2896b16b0eca15fad627ec9a0ad0be4ed2c0
 Main.pick b1e217a04d274c7069f8e3f6337d3b6d5b011f7c9130d048c365beea936a5f28
 Main.test "names in any order" 2aff66cec2e5525780a9f3c385a9c66af09e6b5dd0efe134b1b3b995f5740dea

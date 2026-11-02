@@ -210,3 +210,279 @@ fn a_catch_all_after_more_than_64_number_arms_is_skipped_with_its_reason() {
         assert!(why.contains("65 hypotheses") && why.contains("64"), "{why}");
     });
 }
+
+/// Every equation of the library, made (as `search` makes them): how many,
+/// and why the others weren't. None is refused by the kernel but those
+/// listed here (a library file's names the on-demand probe can't see).
+/// Slow (every library file is loaded): `--run-ignored`.
+#[test]
+#[ignore]
+fn the_librarys_equations() {
+    std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(|| {
+            let mut session = Session::eager();
+            session.elab.generate_deferred_equations().unwrap();
+            let g = &session.elab.globals;
+            let made: Vec<&str> = g
+                .defs
+                .iter()
+                .filter(|d| d.theorem && stitchwort_elab::is_equation_name(&d.name))
+                .filter(|d| !d.name.contains('%'))
+                .map(|d| &*d.name)
+                .collect();
+            let branches = made
+                .iter()
+                .filter(|n| {
+                    let last = n.rsplit('.').next().unwrap_or("");
+                    !(last.starts_with("eq") || last.starts_with("or"))
+                })
+                .count();
+            eprintln!("made {} ({} branches)", made.len(), branches);
+            let mut reasons: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+            for (id, s, why) in session.elab.equation_skips() {
+                reasons
+                    .entry(why.clone())
+                    .or_default()
+                    .push(format!("{}.{s}", g.defs[id.0].name));
+            }
+            for (why, names) in &reasons {
+                eprintln!("{} skipped: {why}\n    {}", names.len(), names.join(" "));
+            }
+            let refused: Vec<&String> = reasons
+                .iter()
+                .filter(|(why, _)| why.contains("kernel refused") && !why.contains("unknown name"))
+                .flat_map(|(_, n)| n)
+                .collect();
+            assert!(refused.is_empty(), "refused by the kernel: {refused:?}");
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+/// Stage 1b's constructs (§3.2): a branch of each kind of split in tail
+/// position, under an arm or a `:=` body.
+const BRANCHES: &str = r#"
+import Std (Bool, Eq, Fin, List, Nat, Option, Void)
+
+-- `if h: p` below a `:=` body, `decreasing`: `gcd.eq.ifTrue`. Its `else`
+-- uses `h` (`%` takes a proof that `b ≠ 0`): skipped (D2180).
+def gcd (a: Nat) (b: Nat): Nat
+    decreasing b
+:=
+  if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
+
+-- D2186: the `else` of `fresh: b = False` is `notFresh: b = True`.
+def countFresh: List Bool → Nat
+  | Nil => 0
+  | Cons b rest => if fresh: b = False then 1 + countFresh rest else countFresh rest
+
+-- A `Bool` `if`: `h1: c = True`, `h1: c = False`.
+def big: List Nat → Nat
+  | Nil => 0
+  | Cons x rest => if 4 ≤ x then x else big rest
+
+-- §1.2's wall: a named `match` on a `Bool`, its branch using the equation.
+type Big = { value: Nat, isBig: Nat.leq 10 value = True }
+
+def firstBig: List Nat → Option Big
+  | Nil => None
+  | Cons x rest =>
+    match big: Nat.leq 10 x with
+      | True => Some ({ value = x, isBig = big })
+      | False => firstBig rest
+
+-- §3.5: the branch uses `h`, a comparison: one `J` along `Bool.uniqueEq`.
+def check (n: Nat) (i: Nat): Option (Fin n) := if h: i < n then Some (Fin.ofNatLt n i h) else None
+
+-- A `match` on a variable, compiled into the case tree: its patterns are
+-- the left side's (the 1a leftover).
+def takeFirst [a: Type] (xs: List a): Nat → List a
+  | Zero => Nil
+  | Succ k =>
+    match xs with
+      | Nil => Nil
+      | Cons x rest => Cons x (takeFirst rest k)
+
+-- A lifted `match` on an expression: `isSome`, `isNone`.
+def headOr (d: Nat) (xs: List Nat): Nat :=
+  match List.head xs with
+    | Some x => x
+    | None => d
+
+-- A catch-all after an overlapping alternative: `notAlt1`; and a `match`
+-- on the alternative's variable, compiled into the helper's tree.
+def both (a: Option Nat) (b: Option Nat): Nat :=
+  match (a, b) with
+    | (Some x, Some y) => x + y
+    | _ => 0
+
+def firstTwo (xs: List Nat): Nat :=
+  match List.head xs with
+    | Some x =>
+      match x with
+        | 0 => 1
+        | Succ n => n
+    | None => 0
+"#;
+
+#[test]
+fn branch_equations() {
+    with_source(BRANCHES.to_string(), |s| {
+        let cases = [
+            (
+                "gcd.eq.ifTrue",
+                "(a: Nat) → (b: Nat) → (h: b = 0) → gcd a b = a",
+            ),
+            (
+                "countFresh.eq2.ifTrue",
+                "(b: Bool) → (rest: List Bool) → (fresh: b = False) → \
+                 countFresh (Cons b rest) = 1 + countFresh rest",
+            ),
+            (
+                "countFresh.eq2.ifFalse",
+                "(b: Bool) → (rest: List Bool) → (notFresh: b = True) → \
+                 countFresh (Cons b rest) = countFresh rest",
+            ),
+            // The printer shows `Nat.leq 4 x = True` as `3 < x`.
+            (
+                "big.eq2.ifTrue",
+                "(x: Nat) → (rest: List Nat) → (h1: 3 < x) → big (Cons x rest) = x",
+            ),
+            (
+                "big.eq2.ifFalse",
+                "(x: Nat) → (rest: List Nat) → (h1: (3 < x) = False) → \
+                 big (Cons x rest) = big rest",
+            ),
+            (
+                "firstBig.eq2.true",
+                "(x: Nat) → (rest: List Nat) → (big: 10 ≤ x) → \
+                 firstBig (Cons x rest) = Some ({ value = x, isBig = big })",
+            ),
+            (
+                "firstBig.eq2.false",
+                "(x: Nat) → (rest: List Nat) → (big: (10 <= x) = False) → \
+                 firstBig (Cons x rest) = firstBig rest",
+            ),
+            (
+                "check.eq.ifTrue",
+                "(n: Nat) → (i: Nat) → (h: i < n) → check n i = Some (Fin.ofNatLt n i h)",
+            ),
+            (
+                "check.eq.ifFalse",
+                "(n: Nat) → (i: Nat) → (notH: ¬(i < n)) → check n i = None",
+            ),
+            (
+                "takeFirst.eq2.nil",
+                "[a: Type] → (k: Nat) → takeFirst [] (Succ k) = []",
+            ),
+            (
+                "takeFirst.eq2.cons",
+                "[a: Type] → (k: Nat) → (x: a) → (rest: List a) → \
+                 takeFirst (Cons x rest) (Succ k) = Cons x (takeFirst rest k)",
+            ),
+            (
+                "headOr.eq.some",
+                "(d: Nat) → (xs: List Nat) → (x: Nat) → (isSome: List.head xs = Some x) → \
+                 headOr d xs = x",
+            ),
+            (
+                "headOr.eq.none",
+                "(d: Nat) → (xs: List Nat) → (isNone: List.head xs = None) → headOr d xs = d",
+            ),
+            (
+                "both.eq.alt1",
+                "(a: Option Nat) → (b: Option Nat) → (x: Nat) → (y: Nat) → \
+                 (isAlt1: (a, b) = (Some x, Some y)) → both a b = x + y",
+            ),
+            (
+                "both.eq.alt2",
+                "(a: Option Nat) → (b: Option Nat) → \
+                 (notAlt1: (x: Nat) → (y: Nat) → (a, b) ≠ (Some x, Some y)) → both a b = 0",
+            ),
+            (
+                "firstTwo.eq.some.alt1",
+                "(xs: List Nat) → (isSome: List.head xs = Some 0) → firstTwo xs = 1",
+            ),
+            (
+                "firstTwo.eq.some.succ",
+                "(xs: List Nat) → (n: Nat) → (isSome: List.head xs = Some (Succ n)) → \
+                 firstTwo xs = n",
+            ),
+            (
+                "firstTwo.eq.none",
+                "(xs: List Nat) → (isNone: List.head xs = None) → firstTwo xs = 0",
+            ),
+        ];
+        let mut wrong = Vec::new();
+        for (name, want) in cases {
+            let got = generated(s, name);
+            if got != want {
+                wrong.push(format!("{name}:\n  {got}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+        let why = skipped(s, "gcd.eq.ifFalse");
+        assert!(why.contains("D2180"), "{why}");
+        let why = skipped(s, "takeFirst.eq2");
+        assert!(why.contains("compiled into the case tree"), "{why}");
+    });
+}
+
+/// §3.4: where stepping through a lifted `match` by hand fails (§1.2), the
+/// error names the branch equations that state its steps.
+#[test]
+fn the_walls_errors_name_the_branch_equations() {
+    let source = r#"
+import Std (Bool, Eq, List, Nat, Option, Void)
+
+type Big = { value: Nat, isBig: Nat.leq 10 value = True }
+
+def firstBig: List Nat → Option Big
+  | Nil => None
+  | Cons x rest =>
+    match big: Nat.leq 10 x with
+      | True => Some ({ value = x, isBig = big })
+      | False => firstBig rest
+
+theorem byRewrite (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  rewrite h in rfl
+
+theorem byMatch (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  match e: Nat.leq 10 x with
+    | True => rfl
+    | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) h))
+
+theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  rfl
+"#;
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(move || {
+            let mut session = Session::new();
+            let errors = session
+                .load("wall.sw", source)
+                .expect_err("the three proofs fail");
+            let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
+            codes.sort_unstable();
+            assert_eq!(codes, ["E-MATCH-MOTIVE", "E-REFL", "E-REWRITE-MOTIVE"]);
+            for d in &errors {
+                assert!(
+                    d.notes
+                        .iter()
+                        .any(|n| n.contains("`firstBig.eq2.true`")
+                            && n.contains("`firstBig.eq2.false`")),
+                    "{}: {:#?}",
+                    d.code,
+                    d.notes
+                );
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
