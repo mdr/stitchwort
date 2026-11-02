@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: this `match induct` has no alternative for `eq2IfFalse`
+    ╭─[ reject/match-induct-missing-case.sw:10:3 ]
+    │
+ 10 │   match induct (countAbove k xs) with
+    │   ──────────────┬──────────────  
+    │                 ╰──────────────── every case of `f.induct` needs one
+    │ 
+    │ Note: the cases are `eq1`, `eq2IfTrue`, `eq2IfFalse`
+────╯

@@ -13,8 +13,8 @@
 
 use crate::ast::{
     Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, ImportItem,
-    LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern, RewriteRule, Row,
-    SECTION, Scrutinee,
+    InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern,
+    RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex, lex_with_bars};
 use crate::negation::{
@@ -2293,8 +2293,83 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// Whether `induct` starts here as the keyword it is after `match`: followed
+    /// by the call, not by `with`, `,` or `:` (where it is an ordinary name).
+    fn induct_ahead(&self) -> bool {
+        matches!(self.peek(), Some(Tok::Lower(name)) if name == "induct")
+            && !matches!(
+                self.peek_at(1),
+                Some(Tok::KwWith | Tok::Comma | Tok::Colon) | None
+            )
+    }
+
+    /// `match induct (f args) with | eqK x y ih => … | …`, after `match` and
+    /// `induct` (docs/proposals/function-equations.md §5.3).
+    fn induct_expr(&mut self, start: Span) -> Result<Expr> {
+        let call = self.expr_inline()?;
+        if self.peek() == Some(&Tok::Comma) {
+            return Err(error(
+                self.here(),
+                "`match induct` takes one call, with nothing else to match",
+            )
+            .into());
+        }
+        self.expect(Tok::KwWith, "`with`")?;
+        let mut alts = Vec::new();
+        // Alternatives on their own lines line up, as a match's do.
+        let mut column = None;
+        while self.peek() == Some(&Tok::Pipe) {
+            let token = &self.tokens[self.pos];
+            if token.line_start {
+                match column {
+                    None => column = Some(token.column),
+                    Some(c) if c != token.column => break,
+                    Some(_) => {}
+                }
+            }
+            let bar = self.bump().span;
+            let case = self.lower("the name of a case of `f.induct`")?;
+            let mut binders = Vec::new();
+            loop {
+                match self.peek() {
+                    Some(Tok::Lower(_)) => binders.push(self.lower("a name")?),
+                    Some(Tok::Underscore) => {
+                        let span = self.bump().span;
+                        binders.push(Name {
+                            text: "_".to_string(),
+                            span,
+                        });
+                    }
+                    _ => break,
+                }
+            }
+            self.expect_fat_arrow("`=>`")?;
+            let body = self.expr()?;
+            alts.push(InductAlt {
+                span: bar.to(body.span()),
+                case,
+                binders,
+                body,
+            });
+        }
+        if alts.is_empty() {
+            return Err(self
+                .unexpected("`|` and an alternative named after a case")
+                .into());
+        }
+        Ok(Expr::Induct {
+            span: start.to(self.prev_span()),
+            call: Box::new(call),
+            alts,
+        })
+    }
+
     /// `match e, h : e2 with | p, q => body | …`
     fn match_expr(&mut self, start: Span) -> Result<Expr> {
+        if self.induct_ahead() {
+            self.bump();
+            return self.induct_expr(start);
+        }
         if self.reify_ahead() {
             self.bump();
             return self.reify_expr(start);
@@ -4494,6 +4569,40 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", "");
         assert!(parse_module(file, "type T: Nat -> Type = Nat\n").is_err());
+    }
+
+    #[test]
+    fn match_induct_names_a_case_and_its_binders() {
+        let text = "match induct (f k xs) with\n  | eq1 => a\n  | eq2Step x _ ih => b\n";
+        let e = expression(text).unwrap();
+        let Expr::Induct { call, alts, .. } = &e else {
+            panic!("expected a `match induct`");
+        };
+        assert!(matches!(**call, Expr::App(..)));
+        let shown: Vec<(String, Vec<String>)> = alts
+            .iter()
+            .map(|a| {
+                let bound = a.binders.iter().map(|b| b.text.clone());
+                (a.case.text.clone(), bound.collect())
+            })
+            .collect();
+        assert_eq!(shown[0], ("eq1".to_string(), vec![]));
+        assert_eq!(
+            shown[1],
+            (
+                "eq2Step".to_string(),
+                vec!["x".to_string(), "_".to_string(), "ih".to_string()]
+            )
+        );
+    }
+
+    #[test]
+    fn induct_is_a_name_except_after_match() {
+        let e = expression("match induct with\n  | x => x\n").unwrap();
+        assert!(matches!(e, Expr::Match { .. }));
+        let e = expression("induct x").unwrap();
+        assert!(matches!(e, Expr::App(..)));
+        assert!(expression("match induct x, y with\n  | eq1 => a\n").is_err());
     }
 
     #[test]

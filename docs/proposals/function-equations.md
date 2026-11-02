@@ -11,7 +11,7 @@ reviewed independently ("approve with changes"); every point is worked in, one r
 D2180 and D2183 to D2187 as recommended. **Stage 2 decided (2 November 2026, by Claude under Matt's
 delegation of the function equations track):** D2181 and D2182 as recommended. **Stage 1a is built** (SW-1035): see [As built (stage 1a)](#as-built-stage-1a), which
 records where the code differed from this note; **stage 1b** (SW-1049), [As built (stage 1b)](#as-built-stage-1b);
-**stage 2a**, `f.induct` (SW-1057), [As built (stage 2a)](#as-built-stage-2a).
+**stage 2a**, `f.induct` (SW-1057), [As built (stage 2a)](#as-built-stage-2a); **stage 2b**, `match induct` (SW-1058), [As built (stage 2b)](#as-built-stage-2b).
 
 It revisits D231 ("generated per-leaf equation lemmas: not now",
 [equation-lemmas.md §9](equation-lemmas.md#9-decisions)), whose trigger has fired (§1.3), and
@@ -88,6 +88,7 @@ Labels:
 - [As built (stage 1d)](#as-built-stage-1d)
 - [As built (SW-1071, SW-1069)](#as-built-sw-1071-sw-1069)
 - [As built (stage 2a)](#as-built-stage-2a)
+- [As built (stage 2b)](#as-built-stage-2b)
 - [Sources](#sources)
 - [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed)
 
@@ -1524,6 +1525,71 @@ program that names no library equation pays nothing for std's.
 4. **Not covered in 2a**: an overlap hypothesis that a number or character arm makes; a lifted
    `match` with a catch-all, a nested pattern (`Some (k, rest)`) or literals; a `match` compiled
    into a helper's tree below an alternative. Each is recorded.
+
+## As built (stage 2b)
+
+SW-1058, 2 November 2026: `match induct (f args) with | eqK b… => body`, D2182 as decided. The
+code is `crates/elab/src/induct_match.rs`; the parser (`Expr::Induct`, `InductAlt`), the
+formatter (token-based, so no change: a golden pair covers it) and the navigation walks
+(`nav.rs`, `module.rs`, `autobind.rs`, `numbers.rs`) know it as they know `match reify`.
+Syntax and errors are in `docs/syntax.md` ("`match induct`"); the examples are
+`examples/accept/match-induct.sw` (six theorems, three of them re-proved from
+`function-induct.sw`: `countAboveLe`, `halvingsGe`, `exAtMostTotal`; `firstBigIsBig` with a
+generalised hypothesis), `examples/goals/match-induct.sw` and `examples/reject/match-induct-*.sw`.
+
+**How.** It is elaborated to the application the proposal said, not a new proof form:
+
+- **The call** `f a₁…aₙ` is elaborated as written, for the occurrence test (its normal form, as
+  `match` on an expression reads its scrutinee). `f.induct` is looked up by name; its explicit
+  parameters before `motive` are the fixed prefix, taken from the call's first arguments (any
+  terms); the rest, as many as the motive has parameters but the last, must be distinct
+  variables of the context.
+- **The motive** is built in a context extended by the motive's own parameters: the targets map
+  onto them, the call onto the result parameter; the variables in scope whose types mention the
+  call or a target, then those whose types mention a variable already taken (`matching.rs`'s
+  rule, unrefined variables and `let`s), are rebound after them with the replaced types and
+  become `Π` premises of the motive's body, the goal with the same replacements. The
+  alternatives are then checked against `f.induct`'s case types with that motive: the case's
+  own binders by position, then those premises introduced automatically under the original
+  names (`Ctx::rebind`, as a generalised `match`'s copies are), so the arm sees them refined
+  and an `ih` takes them as arguments. The result is applied to the targets and to the original
+  variables, and its type must unify with the goal, else `E-MATCH-MOTIVE`.
+- **No lifting.** Unlike a generalised `match` this builds no helper definition: the arms are
+  lambdas inside the proof term.
+
+**Decisions made in the build** (what §5.3 left open):
+
+1. **Binding syntax is positional**: `| eq2IfTrue x xs h ih => …` names the case's variables,
+   then its hypotheses, then its induction hypotheses, in `f.induct`'s order, all of them, `_`
+   to ignore. Not named fields (`{x, ih}`): the names are already in `f.induct`'s type, and an
+   arm that ignores a field is `_`, so there is nothing to select. A count mismatch is
+   `E-INDUCT-CASE` listing the names the case binds.
+2. **The generalised hypotheses are not bound by the arm**: they stay in scope under their own
+   names, refined. Binding them positionally would make every arm repeat them, and a theorem
+   with a `state` hypothesis would need it named in every alternative.
+3. **A goal that is an implication isn't introduced by the names.** `| eq1 => none => cases`
+   (a lambda body), since the arity check would otherwise depend on the goal's shape. Stating
+   the premise as a hypothesis in scope (`(found: …)`) is the idiom and gets it generalised
+   and refined.
+4. **New codes, not reused ones**: `E-INDUCT-CASE` (unknown or duplicate case name, wrong count of
+   names), `E-NO-INDUCT` (no `f.induct`; carries the `E-NO-EQUATION` reason as a note, or the
+   not-recursive note). A missing case is `E-NONEXHAUSTIVE`, as §5.3 said.
+5. **`E-MATCH-MOTIVE`** for a goal that isn't a proposition, a target that isn't a variable,
+   and a motive that doesn't give the goal back. The last is the check after the fact: the
+   goal mentions the call or a target where abstracting it isn't type-correct (§1.2's case).
+   No reject example exists for it, as no small program was found that reaches it: a goal that
+   mentions a target in a type is generalised, which is the usual way out. An inferred
+   `match induct` (no expected type) is also `E-MATCH-MOTIVE`: there is no goal to abstract.
+6. **The call is `f` by name** (qualified or not), with its explicit arguments written out; no
+   method call, named argument, or computed head. `f.induct` must exist, which a definition
+   without it (not recursive, skipped, mutual) can't use.
+7. **Nothing warns when the goal mentions neither the call nor a target**: the motive is then
+   constant and the arms prove the goal in each case, which is sound and sometimes wanted.
+   (`match` warns with `W-MATCH-NOT-FOUND` only for a named equation.)
+
+**Limits.** Dot notation for the call (`garden.fill …`) isn't read; a target that a case split
+has already refined is refused; an arm's error is reported without the "in alternative"
+context frame `match` adds.
 
 ## Sources
 

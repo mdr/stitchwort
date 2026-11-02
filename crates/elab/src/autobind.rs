@@ -563,6 +563,15 @@ fn walk_at(
                 bound.truncate(before);
             }
         }
+        Expr::Induct { call, alts, .. } => {
+            walk(e, call, bound, false, uses)?;
+            for alt in alts {
+                let before = bound.len();
+                bound.extend(alt.binders.iter().map(|b| b.text.clone()));
+                walk(e, &alt.body, bound, false, uses)?;
+                bound.truncate(before);
+            }
+        }
         Expr::Handle { body, clauses, .. }
         | Expr::Reify {
             thunk: body,

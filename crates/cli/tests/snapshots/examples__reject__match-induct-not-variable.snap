@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MATCH-MOTIVE] Error: the arguments of the call in the motive's places must be distinct variables
+    ╭─[ reject/match-induct-not-variable.sw:10:3 ]
+    │
+ 10 │   match induct (countAbove k (Cons 1 xs)) with
+    │   ──────────────────┬─────────────┬────  
+    │                     ╰──────────────────── this `match induct`
+    │                                   │      
+    │                                   ╰────── this isn't a variable of the context
+    │ 
+    │ Note 1: the explicit `f.induct`, with the motive written out, is the fallback (docs/proposals/function-equations.md §5.3)
+    │ 
+    │ Note 2: the motive abstracts them, which a term can't be; generalise them first (a fixed prefix may be any terms)
+────╯

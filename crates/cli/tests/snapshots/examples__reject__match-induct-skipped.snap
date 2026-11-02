@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `pick.induct`, and `pick` has none
+    ╭─[ reject/match-induct-skipped.sw:13:17 ]
+    │
+ 13 │   match induct (pick d xs) with
+    │                 ────┬────  
+    │                     ╰────── this call
+    │ 
+    │ Note 1: why: at one of its cases, an overlap hypothesis's equations don't differ in a constructor (a number or a character `match` refines it), which stage 2a's proof needs to establish it
+    │ 
+    │ Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
+────╯

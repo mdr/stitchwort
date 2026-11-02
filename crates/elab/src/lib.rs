@@ -33,6 +33,7 @@ mod equation_notes;
 mod equations;
 mod families;
 mod goals;
+mod induct_match;
 mod interfaces;
 mod kernel;
 mod library;

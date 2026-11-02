@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDUCT-CASE] Error: the case `eq2IfTrue` has two alternatives
+    ╭─[ reject/match-induct-duplicate-case.sw:13:7 ]
+    │
+ 12 │     | eq2IfTrue x xs h ih => omega
+    │       ────┬────  
+    │           ╰────── and this one
+ 13 │     | eq2IfTrue x xs h ih => omega
+    │       ────┬────  
+    │           ╰────── this one
+────╯

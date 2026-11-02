@@ -1,0 +1,169 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        },
+        {
+          "name": "found",
+          "type": "None = Some y"
+        }
+      ],
+      "lemma": "theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: None = Some y): 10 ≤ y := ?",
+      "target": "10 ≤ y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\ny: Nat\nfound: None = Some y\n⊢ 10 ≤ y",
+        "range": [
+          13,
+          13,
+          13,
+          14
+        ]
+      }
+    ],
+    "message": "in `firstBigIsBig`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      13,
+      13,
+      13,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "rest",
+          "type": "List Nat"
+        },
+        {
+          "name": "big",
+          "type": "10 ≤ x"
+        },
+        {
+          "name": "found",
+          "type": "Some x = Some y"
+        }
+      ],
+      "lemma": "theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?",
+      "target": "10 ≤ y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\ny: Nat\nx: Nat\nrest: List Nat\nbig: 10 ≤ x\nfound: Some x = Some y\n⊢ 10 ≤ y",
+        "range": [
+          14,
+          28,
+          14,
+          29
+        ]
+      }
+    ],
+    "message": "in `firstBigIsBig`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      14,
+      28,
+      14,
+      29
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "rest",
+          "type": "List Nat"
+        },
+        {
+          "name": "big",
+          "type": "(10 <= x) = False"
+        },
+        {
+          "name": "ih",
+          "type": "firstBig rest = Some y → 10 ≤ y"
+        },
+        {
+          "name": "found",
+          "type": "firstBig rest = Some y"
+        }
+      ],
+      "lemma": "theorem firstBigIsBigGoal3 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: (10 <= x) = False) (ih: firstBig rest = Some y → 10 ≤ y) (found: firstBig rest = Some y): 10 ≤ y := ?",
+      "target": "10 ≤ y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\ny: Nat\nx: Nat\nrest: List Nat\nbig: (10 <= x) = False\nih: firstBig rest = Some y → 10 ≤ y\nfound: firstBig rest = Some y\n⊢ 10 ≤ y",
+        "range": [
+          15,
+          32,
+          15,
+          33
+        ]
+      }
+    ],
+    "message": "in `firstBigIsBig`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      15,
+      32,
+      15,
+      33
+    ],
+    "severity": "goal"
+  }
+]

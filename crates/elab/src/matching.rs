@@ -68,7 +68,7 @@ pub(crate) fn unknown_type(cx: &Ctx, expr: &Expr) -> Term {
     ty
 }
 
-fn is_var(value: &Value, level: usize) -> bool {
+pub(crate) fn is_var(value: &Value, level: usize) -> bool {
     matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
 }
 
@@ -1232,7 +1232,7 @@ fn motive_holds(e: &crate::Elaborator, ty: &Term, span: stitchwort_syntax::Span)
 }
 
 /// The free variables of `term` (in `depth` variables), by level.
-fn free_levels(term: &Term, depth: usize) -> Vec<usize> {
+pub(crate) fn free_levels(term: &Term, depth: usize) -> Vec<usize> {
     let mut out = Vec::new();
     for (t, under) in term.subterms() {
         if let Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) = t

@@ -2932,6 +2932,15 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(names.iter().map(|x| Work::Unbind(x)));
                 then(&mut stack, steps);
             }
+            Expr::Induct { call, alts, .. } => {
+                let mut steps = vec![Work::Expr(call)];
+                for alt in alts {
+                    steps.extend(alt.binders.iter().map(|b| Work::Bind(&b.text)));
+                    steps.push(Work::Expr(&alt.body));
+                    steps.extend(alt.binders.iter().map(|b| Work::Unbind(&b.text)));
+                }
+                then(&mut stack, steps);
+            }
             Expr::Handle { body, clauses, .. }
             | Expr::Reify {
                 thunk: body,

@@ -1,0 +1,47 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `firstBigIsBig`
+    ╭─[ goals/match-induct.sw:14:14 ]
+    │
+ 14 │     | eq1 => ?
+    │              ┬  
+    │              ╰── xs: List Nat
+    │                  y: Nat
+    │                  found: None = Some y
+    │                  ⊢ 10 ≤ y
+    │ 
+    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+────╯
+[GOAL] Goal: in `firstBigIsBig`
+    ╭─[ goals/match-induct.sw:15:29 ]
+    │
+ 15 │     | eq2True x rest big => ?
+    │                             ┬  
+    │                             ╰── xs: List Nat
+    │                                 y: Nat
+    │                                 x: Nat
+    │                                 rest: List Nat
+    │                                 big: 10 ≤ x
+    │                                 found: Some x = Some y
+    │                                 ⊢ 10 ≤ y
+    │ 
+    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+────╯
+[GOAL] Goal: in `firstBigIsBig`
+    ╭─[ goals/match-induct.sw:16:33 ]
+    │
+ 16 │     | eq2False x rest big ih => ?
+    │                                 ┬  
+    │                                 ╰── xs: List Nat
+    │                                     y: Nat
+    │                                     x: Nat
+    │                                     rest: List Nat
+    │                                     big: (10 <= x) = False
+    │                                     ih: firstBig rest = Some y → 10 ≤ y
+    │                                     found: firstBig rest = Some y
+    │                                     ⊢ 10 ≤ y
+    │ 
+    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+────╯

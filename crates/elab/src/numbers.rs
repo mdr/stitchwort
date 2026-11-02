@@ -2004,6 +2004,10 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
                 stack.extend(scrutinees.iter().map(|s| &s.expr));
                 stack.extend(alts.iter().map(|a| &a.body));
             }
+            Expr::Induct { call, alts, .. } => {
+                stack.push(call);
+                stack.extend(alts.iter().map(|a| &a.body));
+            }
             Expr::Handle { body, clauses, .. }
             | Expr::Reify {
                 thunk: body,
