@@ -1,5 +1,5 @@
 {
-  "next": 1070,
+  "next": 1071,
   "tickets": [
     {
       "id": 47,
@@ -4059,7 +4059,7 @@
     {
       "id": 1057,
       "title": "Function equations stage 2a: f.induct for recursive definitions (D2181: unfolding form, fixed prefix, no IH under binders, no mutual groups)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4245,6 +4245,21 @@
         "proof"
       ],
       "body": "From SW-1049 (2 Nov 2026), decided later (Claude, delegated). Also skipped: a match on several expressions (9 in AoC). D2180's else-refutation branches (gcd.eq.ifFalse, Mod.ofNat.eq.ifFalse) stay skipped until proof irrelevance.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1070,
+      "title": "Function equations stage 1d: acceptance (examples of every construct; 2021 day 18 explode as first written with proofs on the equations; 2024 day 12 step lemmas deleted; std Graph.search* lemmas deleted and uses renamed (D2184); search_bench and std cold check against §7)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "proof",
+        "examples"
+      ],
+      "body": "",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
