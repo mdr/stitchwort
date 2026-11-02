@@ -14,7 +14,7 @@
 
 use std::cell::RefCell;
 
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::{DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{FileId, Span};
@@ -28,13 +28,13 @@ use crate::{Elaborator, Global};
 #[derive(Clone, Default)]
 pub(crate) struct Recorder {
     /// A name resolved to a declaration, by the span of the name.
-    pub(crate) refs: HashMap<Span, Noted>,
+    pub(crate) refs: Logged<Span, Noted>,
     /// The types of local variables where they're used, not yet printed
     /// (the metavariables in them are solved by the end of the
     /// declaration): the span, the type, and the names of the context.
     pub(crate) pending: Vec<(Span, Value, Vec<Name>, bool)>,
     /// The printed types, by where the use starts.
-    pub(crate) local_types: HashMap<(FileId, u32), String>,
+    pub(crate) local_types: Logged<(FileId, u32), String>,
     /// Local variables used, from the walk.
     pub(crate) locals: Vec<LocalUse>,
     /// Where local variables are bound (a binder refers to itself).
@@ -42,7 +42,7 @@ pub(crate) struct Recorder {
     /// The definitions of the files walked.
     pub(crate) outline: Vec<OutlineItem>,
     /// Each record field's name, by its type's declaration and its name.
-    pub(crate) field_spans: HashMap<(Span, String), Span>,
+    pub(crate) field_spans: Logged<(Span, String), Span>,
     /// Whether to note the type of every elaborated expression
     /// ([`Elaborator::enable_expression_types`]).
     pub(crate) exprs: bool,
@@ -52,10 +52,10 @@ pub(crate) struct Recorder {
     pub(crate) generated: usize,
     /// The printed type of the expression written at a span (the last one
     /// elaborated there), for hovering over a selection.
-    pub(crate) expr_types: HashMap<Span, String>,
+    pub(crate) expr_types: Logged<Span, String>,
     /// For hover on the head of a call that left defaulted parameters out,
     /// by the head's span: the defaults it used.
-    pub(crate) call_defaults: HashMap<Span, String>,
+    pub(crate) call_defaults: Logged<Span, String>,
 }
 
 impl Recorder {
@@ -146,6 +146,137 @@ impl Recorder {
                 binder: span,
             });
         }
+    }
+}
+
+/// A map of the [`Recorder`] that can be put back as it was at a mark
+/// ([`Recorder::mark`]) without a copy of it: what each change replaced is
+/// logged. A language server keeps a mark before each namespace it has
+/// checked, and a copy of the maps in each made them quadratic in the
+/// project (8 of the 13 GB of an editor session on the AoC project; SW-1052).
+/// Reads go through to the map itself.
+#[derive(Clone)]
+pub(crate) struct Logged<K, V> {
+    map: HashMap<K, V>,
+    /// Each change since the first mark, oldest first: its key, and the
+    /// value it replaced (`None`: there was none).
+    undo: Vec<(K, Option<V>)>,
+    /// The keys changed since the last mark (or rewind): only a key's first
+    /// change since then is logged, as rewinding to that mark or an earlier
+    /// one puts back the value from before it.
+    touched: HashSet<K>,
+    /// Whether a mark has been taken: changes before the first need no
+    /// undoing (a session without marks, such as `check --index`, logs
+    /// nothing).
+    logging: bool,
+}
+
+impl<K, V> Default for Logged<K, V> {
+    fn default() -> Self {
+        Logged {
+            map: HashMap::default(),
+            undo: Vec::new(),
+            touched: HashSet::default(),
+            logging: false,
+        }
+    }
+}
+
+impl<K: std::hash::Hash + Eq + Clone, V> Logged<K, V> {
+    pub(crate) fn insert(&mut self, key: K, value: V) {
+        let old = self.map.insert(key.clone(), value);
+        if self.logging && self.touched.insert(key.clone()) {
+            self.undo.push((key, old));
+        }
+    }
+
+    /// Inserts `value` unless `key` has one already.
+    pub(crate) fn insert_absent(&mut self, key: K, value: V) {
+        if !self.map.contains_key(&key) {
+            self.insert(key, value);
+        }
+    }
+
+    /// Where the map is now, to [`Self::rewind`] to.
+    fn mark(&mut self) -> usize {
+        self.logging = true;
+        self.touched.clear();
+        self.undo.len()
+    }
+
+    /// Takes back every change since `mark`, newest first.
+    fn rewind(&mut self, mark: usize) {
+        assert!(mark <= self.undo.len(), "a mark from after a rewind");
+        for (key, old) in self.undo.drain(mark..).rev() {
+            match old {
+                Some(value) => self.map.insert(key, value),
+                None => self.map.remove(&key),
+            };
+        }
+        self.touched.clear();
+    }
+}
+
+impl<K, V> std::ops::Deref for Logged<K, V> {
+    type Target = HashMap<K, V>;
+
+    fn deref(&self) -> &HashMap<K, V> {
+        &self.map
+    }
+}
+
+/// Where a [`Recorder`] was, to rewind it to ([`crate::rewind`]): the
+/// logged maps' and the lists' lengths (the lists only grow between
+/// marks).
+pub(crate) struct NavMark {
+    refs: usize,
+    local_types: usize,
+    field_spans: usize,
+    expr_types: usize,
+    call_defaults: usize,
+    locals: usize,
+    binders: usize,
+    outline: usize,
+    pending: Vec<(Span, Value, Vec<Name>, bool)>,
+    exprs: bool,
+    generated: usize,
+}
+
+impl Recorder {
+    pub(crate) fn mark(&mut self) -> NavMark {
+        NavMark {
+            refs: self.refs.mark(),
+            local_types: self.local_types.mark(),
+            field_spans: self.field_spans.mark(),
+            expr_types: self.expr_types.mark(),
+            call_defaults: self.call_defaults.mark(),
+            locals: self.locals.len(),
+            binders: self.binders.len(),
+            outline: self.outline.len(),
+            pending: self.pending.clone(),
+            exprs: self.exprs,
+            generated: self.generated,
+        }
+    }
+
+    pub(crate) fn rewind(&mut self, mark: &NavMark) {
+        self.refs.rewind(mark.refs);
+        self.local_types.rewind(mark.local_types);
+        self.field_spans.rewind(mark.field_spans);
+        self.expr_types.rewind(mark.expr_types);
+        self.call_defaults.rewind(mark.call_defaults);
+        assert!(
+            mark.locals <= self.locals.len()
+                && mark.binders <= self.binders.len()
+                && mark.outline <= self.outline.len(),
+            "a mark from after a rewind"
+        );
+        self.locals.truncate(mark.locals);
+        self.binders.truncate(mark.binders);
+        self.outline.truncate(mark.outline);
+        self.pending = mark.pending.clone();
+        self.exprs = mark.exprs;
+        self.generated = mark.generated;
     }
 }
 
@@ -1208,8 +1339,7 @@ impl Walk<'_> {
                             .insert((ctor.name.span, field.text.clone()), field.span);
                         self.nav
                             .field_spans
-                            .entry((span, field.text.clone()))
-                            .or_insert(field.span);
+                            .insert_absent((span, field.text.clone()), field.span);
                     }
                 }
             }

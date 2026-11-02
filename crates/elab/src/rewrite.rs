@@ -1209,8 +1209,13 @@ impl Search<'_, '_> {
 /// The kernel's context for `cx`'s variables. The kernel never sees a
 /// metavariable (it compares a solved one's head as it is), so what the
 /// variables' types and values mention is read back with them replaced.
+/// Read back folded, calls as calls (convertible with their unfoldings):
+/// read back unfolded, every call in the context's types and values was
+/// written out as what it computes to, for each `rewrite`, and AoC 2021 day
+/// 16's `readPacketsSound` (a `rewrite` deep in nested `match`es, in a large
+/// context) took 3 GB and 8 s to check; folded, 0.3 GB and 0.3 s (SW-1052).
 pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
-    let zonked = |v: &Value| cx.eval(&cx.quote(v)?);
+    let zonked = |v: &Value| cx.eval(&cx.quote_folded(v)?);
     let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _), s) if s.is_empty());
     let env = cx
         .env
