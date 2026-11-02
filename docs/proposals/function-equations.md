@@ -1476,7 +1476,9 @@ Garden.fill.induct (garden: Garden) (plant: Char)
   cut it), its skip reason under "Not generated"; `search` marks it generated
   (`is_generated_name`, which tells it from a data type's `T.induct` by whether a type has the
   owner's name); a reference to `f.induct` is a module's need, as `f.eq2` is, so std's are made
-  on demand. Hover counts it with the equations.
+  on demand. `doc` and hover name it beside the count of equations, not in it ("2 generated
+  equations and f.induct", SW-1073); `doc --json` gives it as `equations.induct`, outside
+  `shown` and `total`.
 - **Budget**: one attempt, with the per-equation budget of 1a (`ATTEMPT`); out of it, skipped.
 
 **Counts** **[measured: `crates/driver/tests/function_induct.rs`, the ignored
