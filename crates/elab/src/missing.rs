@@ -53,10 +53,10 @@ enum Shape {
 /// message listing them as arms, and the `missing` data for the index.
 pub(crate) fn diagnostic(span: Span, cases: Vec<(Vec<usize>, String)>) -> Diagnostic {
     let mut d = Diagnostic::error("E-NONEXHAUSTIVE", "").with_label(span, "");
-    d.missing = Some(Box::new(MissingCases {
+    d.detail_mut().missing = Some(MissingCases {
         patterns: Vec::new(),
         order: Vec::new(),
-    }));
+    });
     describe(&mut d, cases);
     d
 }
@@ -86,7 +86,7 @@ fn describe(d: &mut Diagnostic, mut cases: Vec<(Vec<usize>, String)>) {
     if let Some(label) = d.labels.first_mut() {
         label.message = headline;
     }
-    d.missing = Some(Box::new(missing));
+    d.detail_mut().missing = Some(missing);
 }
 
 /// Folds the `E-NONEXHAUSTIVE` errors that list missing cases and are for
@@ -111,7 +111,7 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
 
 /// Whether `d` lists missing cases.
 pub(crate) fn listed(d: &Diagnostic) -> bool {
-    d.code == "E-NONEXHAUSTIVE" && d.missing.is_some()
+    d.code == "E-NONEXHAUSTIVE" && d.missing_data().is_some()
 }
 
 /// `all`, with the errors that list missing cases and are for the same
@@ -123,7 +123,7 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
     let mut joined: Vec<bool> = Vec::new();
     for d in all {
         let own = |d: &Diagnostic| -> Vec<(Vec<usize>, String)> {
-            let m = d.missing.as_ref().expect("listed");
+            let m = d.missing_data().expect("listed");
             m.order
                 .iter()
                 .cloned()

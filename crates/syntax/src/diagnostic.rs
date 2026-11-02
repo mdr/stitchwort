@@ -29,15 +29,25 @@ pub struct Diagnostic {
     pub message: String,
     pub labels: Vec<Label>,
     pub notes: Vec<String>,
+    /// What the code navigation index carries besides the text. One box for
+    /// the three, which are rare, so that a `Result<_, Diagnostic>` (held in
+    /// every frame of a recursive pass, and the debug build's frames are
+    /// large) stays small (SW-1056).
+    pub detail: Option<Box<Detail>>,
+}
+
+/// The index data of a [`Diagnostic`] (its `detail`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Detail {
     /// For a goal: its hypotheses and target, each printed apart, for the
     /// code navigation index (docs/proposals/code-navigation.md).
-    pub goal: Option<Box<GoalData>>,
+    pub goal: Option<GoalData>,
     /// A counterexample to the statement, when one of the notes says the
     /// statement is false: its bindings, for the index.
-    pub counterexample: Option<Box<Counterexample>>,
+    pub counterexample: Option<Counterexample>,
     /// For `E-NONEXHAUSTIVE` on a constructor case: every case no arm
     /// matches, as patterns, for the index.
-    pub missing: Option<Box<MissingCases>>,
+    pub missing: Option<MissingCases>,
 }
 
 /// The cases a `match` leaves out (SW-1027): each a row of patterns, one
@@ -102,6 +112,23 @@ pub struct Counterexample {
 }
 
 impl Diagnostic {
+    /// The index data, to set: made when first needed.
+    pub fn detail_mut(&mut self) -> &mut Detail {
+        self.detail.get_or_insert_with(Default::default)
+    }
+
+    pub fn goal_data(&self) -> Option<&GoalData> {
+        self.detail.as_ref()?.goal.as_ref()
+    }
+
+    pub fn counterexample_data(&self) -> Option<&Counterexample> {
+        self.detail.as_ref()?.counterexample.as_ref()
+    }
+
+    pub fn missing_data(&self) -> Option<&MissingCases> {
+        self.detail.as_ref()?.missing.as_ref()
+    }
+
     pub fn error(code: &'static str, message: impl Into<String>) -> Self {
         Self::new(Severity::Error, code, message)
     }
@@ -121,9 +148,7 @@ impl Diagnostic {
             message: message.into(),
             labels: Vec::new(),
             notes: Vec::new(),
-            goal: None,
-            counterexample: None,
-            missing: None,
+            detail: None,
         }
     }
 

@@ -520,9 +520,9 @@ pub fn index_data_of(
             at,
             labels,
             notes: d.notes.clone(),
-            goal: d.goal.as_deref().cloned(),
-            counterexample: d.counterexample.as_deref().cloned(),
-            missing: d.missing.as_deref().cloned(),
+            goal: d.goal_data().cloned(),
+            counterexample: d.counterexample_data().cloned(),
+            missing: d.missing_data().cloned(),
         });
     }
 

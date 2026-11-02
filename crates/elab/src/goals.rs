@@ -554,11 +554,11 @@ impl Elaborator {
                  at` binds) {are} listed, as nothing shown mentions {them}"
             ));
         }
-        diagnostic.goal = Some(Box::new(GoalData {
+        diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
             target,
             lemma: None,
-        }));
+        });
         Found {
             span: p.span,
             diagnostic,
@@ -721,7 +721,9 @@ impl Elaborator {
                     }
                 };
                 let mut d = f.diagnostic;
-                if let (Some((keyword, rest)), Some(goal)) = (f.lemma, d.goal.as_mut()) {
+                if let (Some((keyword, rest)), Some(goal)) =
+                    (f.lemma, d.detail.as_mut().and_then(|x| x.goal.as_mut()))
+                {
                     let name = match &f.base {
                         Some(base) => format!("{base}Goal{n}"),
                         None => format!("goal{n}"),
