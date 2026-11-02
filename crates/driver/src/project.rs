@@ -1054,7 +1054,14 @@ fn yaml_error(file: FileId, display: &str, text: &str, e: &serde_saphyr::Error) 
     let what = if first.contains("unknown field")
         && let Some(key) = first.split('`').nth(1)
     {
-        note = Some("the known key is `sources`");
+        // The message names the fields it expected after `expected`; those
+        // say which struct the unknown key was in.
+        let expected = first.split_once("expected ").map_or("", |(_, rest)| rest);
+        if expected.contains("allowed-axioms") {
+            note = Some("the known key under `audit:` is `allowed-axioms`");
+        } else if expected.contains("sources") || expected.contains("audit") {
+            note = Some("the known keys are `sources` and `audit`");
+        }
         format!("unknown key `{key}`")
     } else {
         // The library's message starts with where the error is, which the
