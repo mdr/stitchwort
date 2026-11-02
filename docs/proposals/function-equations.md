@@ -8,8 +8,8 @@ reviewed independently ("approve with changes"); every point is worked in, one r
 [function-equations/review-1.md](function-equations/review-1.md).
 
 **Decided (Matt, 1 November 2026):** build stage 1 on the design's recommendations: D2173 to
-D2180 and D2183 to D2187 as recommended. Stage 2 (D2181 `f.induct`, D2182 `match induct`) is not
-decided. **Stage 1a is built** (SW-1035): see [As built (stage 1a)](#as-built-stage-1a), which
+D2180 and D2183 to D2187 as recommended. **Stage 2 decided (2 November 2026, by Claude under Matt's
+delegation of the function equations track):** D2181 and D2182 as recommended. **Stage 1a is built** (SW-1035): see [As built (stage 1a)](#as-built-stage-1a), which
 records where the code differed from this note.
 
 It revisits D231 ("generated per-leaf equation lemmas: not now",
@@ -833,11 +833,12 @@ Each with my recommendation in [brackets] and its assumptions in full.
   rare; stage 1b counts them.
 - **D2181. Stage 2, `f.induct` for recursive definitions: unfolding form only, a fixed prefix,
   cases named after the equations, no IH for calls under a binder, no mutual groups.** [Yes,
-  after stage 1.] **Not decided.** The alternatives: also the plain form (`f.inductPlain`; a statement not about
+  after stage 1.] **Decided (2 November 2026, Claude under Matt's delegation): as recommended.** The alternatives: also the plain form (`f.inductPlain`; a statement not about
   `f` ignores one argument instead), or Lean's both. Assumes most theorems that need it are about
   `f`'s result, as `fillCorrect` is.
 - **D2182. Stage 2b, `match induct (f args) with | eqK … => …`, the motive worked out from the
-  goal and hypotheses generalised as a `match` on an expression does.** [Yes.] **Not decided.** Assumes the
+  goal and hypotheses generalised as a `match` on an expression does.** [Yes.] **Decided (2 November
+  2026, Claude under Matt's delegation): as recommended.** Assumes the
   generalisation `match` already does (`matching.rs:10-19`) is what the motive needs; if a goal
   mentions a target inside a proof (as §1.2's did), it can hit `E-MATCH-MOTIVE` like `match`, and
   the explicit `f.induct` stays the fallback.

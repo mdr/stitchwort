@@ -3981,7 +3981,7 @@
       "labels": [
         "tests"
       ],
-      "body": "\n\nD2188 (not decided; built as recommended): check --counterexamples skips generated f.eqK equations (the kernel checks each; searching them costs a 2,000-10,000-input search per arm). Alternative: search them too, which also tests the generator.\n",
+      "body": "\n\nD2188 (decided 2 Nov 2026 as built, Claude under Matt's delegation): check --counterexamples skips generated f.eqK equations (the kernel checks each; searching them costs a 2,000-10,000-input search per arm). Alternative: search them too, which also tests the generator.\n\n",
       "created": "2026-11-01",
       "updated": "2026-11-02",
       "commits": []
@@ -4003,13 +4003,13 @@
     {
       "id": 1053,
       "title": "Number-arm equations are quadratic: a catch-all arm's f.eqK carries one hypothesis per earlier arm and the kernel refines the whole context at each number case (check-number-wide 2.8 ms -> 6.9 s at 1,000 arms; 250 arms 0.59 s). Options: one merged hypothesis (as character patterns do) or a cap",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "performance"
       ],
-      "body": "\n\nD2189 (not decided; 2 Nov 2026): fix by (a) one merged hypothesis for the earlier arms, as character patterns already do [recommended], or (b) a cap on how many hypotheses an equation carries.\n",
+      "body": "\n\nD2189 (decided 2 Nov 2026, Claude under Matt's delegation): fix by (a) one merged hypothesis for the earlier arms, as character patterns already do [recommended], or (b) a cap on how many hypotheses an equation carries.\n\n",
       "created": "2026-11-01",
       "updated": "2026-11-02",
       "commits": []
@@ -4058,30 +4058,30 @@
     },
     {
       "id": 1057,
-      "title": "Function equations stage 2: f.induct for recursive definitions (D2181, undecided)",
-      "status": "backlog",
+      "title": "Function equations stage 2a: f.induct for recursive definitions (D2181: unfolding form, fixed prefix, no IH under binders, no mutual groups)",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "proof"
       ],
-      "body": "D2181 (not decided; Matt, 2 Nov 2026). Function equations stage 2 (docs/proposals/function-equations.md, D2181): generate `f.induct` for recursive definitions, an induction principle that follows f's own recursion. Proposed scope: unfolding form only (statements about f's result), a fixed prefix of parameters, cases named after f's equations, no induction hypothesis for calls under a binder, no mutual groups. Alternatives: also the plain form (`f.inductPlain`), or both as Lean has. Recommendation: [yes, after stage 1 (SW-1049 and the rest of stage 1)]. Assumes most theorems that need it are about f's result (as fillCorrect is). Lanes asked for this at least four times (SW-199, SW-802, SW-809, SW-980). Opus.\n",
+      "body": "D2181 (decided 2 Nov 2026 as recommended, by Claude under Matt's delegation of the function equations track). Function equations stage 2 (docs/proposals/function-equations.md, D2181): generate `f.induct` for recursive definitions, an induction principle that follows f's own recursion. Proposed scope: unfolding form only (statements about f's result), a fixed prefix of parameters, cases named after f's equations, no induction hypothesis for calls under a binder, no mutual groups. Alternatives: also the plain form (`f.inductPlain`), or both as Lean has. Recommendation: [yes, after stage 1 (SW-1049 and the rest of stage 1)]. Assumes most theorems that need it are about f's result (as fillCorrect is). Lanes asked for this at least four times (SW-199, SW-802, SW-809, SW-980). Opus.\n\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
     },
     {
       "id": 1058,
-      "title": "Function equations stage 2b: match induct (f args) with | eqK … (D2182, undecided)",
-      "status": "backlog",
+      "title": "Function equations stage 2b: match induct (f args) with | eqK … (D2182)",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "proof"
       ],
-      "body": "D2182 (not decided; Matt, 2 Nov 2026). Function equations stage 2b (docs/proposals/function-equations.md, D2182): `match induct (f args) with | eqK … => …`, the friendly front end to f.induct: the motive is worked out from the goal and hypotheses are generalised as a match on an expression does (matching.rs:10-19). Recommendation: [yes, after D2181's ticket]. Assumes match's generalisation is what the motive needs; a goal mentioning the target inside a proof can hit E-MATCH-MOTIVE like match, and explicit f.induct stays the fallback.\n",
+      "body": "D2182 (decided 2 Nov 2026 as recommended, by Claude under Matt's delegation of the function equations track). Function equations stage 2b (docs/proposals/function-equations.md, D2182): `match induct (f args) with | eqK … => …`, the friendly front end to f.induct: the motive is worked out from the goal and hypotheses are generalised as a match on an expression does (matching.rs:10-19). Recommendation: [yes, after D2181's ticket]. Assumes match's generalisation is what the motive needs; a goal mentioning the target inside a proof can hit E-MATCH-MOTIVE like match, and explicit f.induct stays the fallback.\n\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
