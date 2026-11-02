@@ -631,6 +631,214 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
     });
 }
 
+/// SW-1074: a `match` on several expressions, `match a, b with | p, q`,
+/// is stated as the same `match` on their tuple is, `match (a, b) with |
+/// (p, q)`: one hypothesis `isAlt1: (a, b) = (p, q)` per alternative, a
+/// `_` being `fst` or `snd` as the tuple's component is; an alternative of
+/// catch-alls only takes the earlier ones' hypotheses, about the
+/// expressions themselves. The theorems at the end use them.
+const SEVERAL: &str = r#"
+import Std (Bool, Fin, Nat, Option)
+
+def two (k: Nat) (a: Option Nat) (b: Option Nat): Nat :=
+  if k == 0 then 0 else
+  match a, b with
+    | Some x, Some y => x + y
+    | Some x, None => x
+    | None, Some y => y
+    | None, None => k
+
+def twoPair (k: Nat) (a: Option Nat) (b: Option Nat): Nat :=
+  if k == 0 then 0 else
+  match (a, b) with
+    | (Some x, Some y) => x + y
+    | (Some x, None) => x
+    | (None, Some y) => y
+    | (None, None) => k
+
+def three (k: Nat) (a: Option Nat) (b: Bool) (c: Nat): Nat :=
+  if k == 0 then 0 else
+  match a, b, c with
+    | Some x, True, _ => x
+    | _, False, Zero => 1
+    | None, _, Succ n => n
+    | _, _, _ => 2
+
+def threePair (k: Nat) (a: Option Nat) (b: Bool) (c: Nat): Nat :=
+  if k == 0 then 0 else
+  match (a, b, c) with
+    | (Some x, True, _) => x
+    | (_, False, Zero) => 1
+    | (None, _, Succ n) => n
+    | _ => 2
+
+def computed (k: Nat) (a: Option Nat): Nat :=
+  match a, k + 1 with
+    | Some x, Succ y => x + y
+    | _, _ => k
+
+-- The columns are the lifter's, not read off names: a parameter called `s`
+-- (the name the helper gives an expression it matches) matched second.
+def isEven (x: Nat): Bool := x % 2 == 0
+
+def swapped (s: Bool) (x: Nat): Nat :=
+  match isEven x, s with
+    | True, False => 1
+    | False, True => 2
+    | _, _ => 0
+
+-- A copied parameter named `s` whose type mentions the expression matched.
+def succOf (n: Nat): Nat := n + 1
+
+def dependentCopy (n: Nat) (s: Fin (succOf n)) (b: Bool): Nat :=
+  match succOf n, b with
+    | Succ k, True => k + Fin.toNat s
+    | _, _ => 0
+
+-- A `let` both captured and matched by name.
+def letMatched (x: Nat) (b: Bool): Nat :=
+  let y := x + 1
+  match y, b with
+    | Succ k, True => k + y
+    | _, _ => y
+
+-- Named equations on several expressions aren't stated.
+def namedBoth (a: Nat) (b: Nat): Nat :=
+  if a == 0 then 0 else
+  match h1: a, h2: b with
+    | Succ k, Zero => k
+    | _, _ => 1
+
+-- Recursive, with a call in an alternative: `f.induct` isn't made.
+def walk (k: Nat): List (Option Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match x, k + 1 with
+      | Some a, Succ b => a + b + walk k rest
+      | _, _ => walk k rest
+
+theorem twoBoth (x: Nat) (y: Nat): two 1 (Some x) (Some y) = x + y :=
+  two.eq.ifFalse.alt1 1 (Some x) (Some y) rfl x y rfl
+
+theorem threeNone (a: Option Nat) (b: Bool) (c: Nat) (h: three 1 a b c = 7) (n: Nat) (ha: a = None) (hc: c = Succ n): n = 7 :=
+  rewrite three.eq.ifFalse.alt3 1 a b c rfl n b (rewrite ha in rewrite hc in rfl) at h in h
+
+theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 a True c = 2 :=
+  three.eq.ifFalse.alt4 1 a True c rfl (x => e => rewrite ha at e in cases) (e => cases) (n => e => rewrite hc in cases)
+"#;
+
+#[test]
+fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
+    with_source(SEVERAL.to_string(), |s| {
+        let not_zero = "(k: Nat) → (a: Option Nat) → (b: Option Nat) → \
+                        (h1: Decidable.toBool (Nat.decEq k 0) = False)";
+        let three_not_zero = "(k: Nat) → (a: Option Nat) → (b: Bool) → (c: Nat) → \
+                              (h1: Decidable.toBool (Nat.decEq k 0) = False)";
+        let cases = [
+            (
+                "two.eq.ifFalse.alt1",
+                format!(
+                    "{not_zero} → (x: Nat) → (y: Nat) → (isAlt1: (a, b) = (Some x, Some y)) → \
+                     two k a b = x + y"
+                ),
+            ),
+            (
+                "two.eq.ifFalse.alt4",
+                format!("{not_zero} → (isAlt4: (a, b) = (None, None)) → two k a b = k"),
+            ),
+            (
+                "three.eq.ifFalse.alt1",
+                format!(
+                    "{three_not_zero} → (x: Nat) → (snd: Nat) → \
+                     (isAlt1: (a, b, c) = (Some x, True, snd)) → three k a b c = x"
+                ),
+            ),
+            (
+                "three.eq.ifFalse.alt2",
+                format!(
+                    "{three_not_zero} → (fst: Option Nat) → \
+                     (isAlt2: (a, b, c) = (fst, False, 0)) → three k a b c = 1"
+                ),
+            ),
+            (
+                "three.eq.ifFalse.alt3",
+                format!(
+                    "{three_not_zero} → (n: Nat) → (fst: Bool) → \
+                     (isAlt3: (a, b, c) = (None, fst, Succ n)) → three k a b c = n"
+                ),
+            ),
+            // Every pattern a catch-all: the earlier alternatives' hypotheses
+            // about the expressions, one equation each (`match (a, b, c)
+            // with | _` states them on the tuple instead).
+            (
+                "three.eq.ifFalse.alt4",
+                format!(
+                    "{three_not_zero} → (notAlt1: (x: Nat) → a = Some x → b ≠ True) → \
+                     (notAlt2: b = False → c ≠ 0) → (notAlt3: (n: Nat) → a = None → c ≠ Succ n) → \
+                     three k a b c = 2"
+                ),
+            ),
+            (
+                "swapped.eq.alt1",
+                "(s: Bool) → (x: Nat) → (isAlt1: (isEven x, s) = (True, False)) → swapped s x = 1"
+                    .to_string(),
+            ),
+            (
+                "swapped.eq.alt2",
+                "(s: Bool) → (x: Nat) → (isAlt2: (isEven x, s) = (False, True)) → swapped s x = 2"
+                    .to_string(),
+            ),
+            (
+                "letMatched.eq.alt1",
+                "(x: Nat) → (b: Bool) → (k: Nat) → (isAlt1: (x + 1, b) = (Succ k, True)) → \
+                 letMatched x b = k + Succ k"
+                    .to_string(),
+            ),
+            (
+                "computed.eq.alt1",
+                "(k: Nat) → (a: Option Nat) → (x: Nat) → (y: Nat) → \
+                 (isAlt1: (a, k + 1) = (Some x, Succ y)) → computed k a = x + y"
+                    .to_string(),
+            ),
+            (
+                "computed.eq.alt2",
+                "(k: Nat) → (a: Option Nat) → \
+                 (notAlt1: (x: Nat) → (y: Nat) → a = Some x → k + 1 ≠ Succ y) → computed k a = k"
+                    .to_string(),
+            ),
+        ];
+        let mut wrong = Vec::new();
+        for (name, want) in cases {
+            let got = generated(s, name);
+            if got != want {
+                wrong.push(format!("{name}:\n  {got}"));
+            }
+        }
+        let why = skipped(s, "dependentCopy.eq.alt1");
+        assert!(why.contains("types mention what it matches"), "{why}");
+        let why = skipped(s, "namedBoth.eq.ifFalse.alt1");
+        assert!(why.contains("naming one's equation"), "{why}");
+        let why = skipped(s, "walk.induct");
+        assert!(why.contains("on several expressions"), "{why}");
+        // The same statements as the `match` on the tuple's, but where
+        // every pattern is a catch-all.
+        let same = [("two", "twoPair", 1..=4), ("three", "threePair", 1..=3)];
+        for (several, pair, alts) in same {
+            for i in alts {
+                let got = generated(s, &format!("{several}.eq.ifFalse.alt{i}"));
+                let want = generated(s, &format!("{pair}.eq.ifFalse.alt{i}"))
+                    .replace(&format!("{pair} k"), &format!("{several} k"));
+                if got != want {
+                    wrong.push(format!(
+                        "{several}.eq.ifFalse.alt{i} isn't {pair}'s:\n  {got}\n  {want}"
+                    ));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    });
+}
+
 /// §3.4: where stepping through a lifted `match` by hand fails (§1.2), the
 /// error names the branch equations that state its steps.
 #[test]

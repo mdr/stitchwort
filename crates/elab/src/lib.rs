@@ -521,6 +521,8 @@ pub struct Elaborator {
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,
+    /// Each lifted `match`'s helper's parameters it matches (SW-1074).
+    match_columns: HashMap<DefId, Rc<lift::MatchColumns>>,
     /// Run bodies for lifted helpers that take a `let`'s value from their
     /// caller, set once the helper is final (`lift.rs`).
     pending_run_bodies: Vec<(DefId, Term)>,

@@ -927,10 +927,13 @@ impl Elaborator {
                 depth,
                 head,
                 args,
-                col,
+                cols,
                 ..
             } => {
-                let (depth, col) = (*depth, *col);
+                let &[col] = cols.as_slice() else {
+                    return skip("a lifted `match` on several expressions isn't split by stage 2a");
+                };
+                let depth = *depth;
                 let Term::Def(h) = head else {
                     return skip("its `match` isn't a call of a lifted `match`'s helper here");
                 };
@@ -1000,17 +1003,6 @@ impl Elaborator {
                     // alternatives' constructors are checked for
                     // repetition: `Some None` and `Some (Some k)` would
                     // otherwise be reported as not covering their type once.
-                    fn nested_unsplittable(g: &Globals, pat: &Pat) -> bool {
-                        match pat {
-                            Pat::Leaf => false,
-                            Pat::Node { data, fields, .. } => {
-                                let decl = g.data(*data);
-                                !decl.indices.is_empty()
-                                    || decl.ctors.len() != 1
-                                    || fields.iter().any(|f| nested_unsplittable(g, f))
-                            }
-                        }
-                    }
                     if pf.iter().any(|f| nested_unsplittable(g, f)) {
                         return skip(
                             "a nested pattern on a type with several constructors or indices \
@@ -1500,6 +1492,20 @@ fn parse_pat(t: &Term, n: usize, seen: &mut usize) -> Option<Pat> {
             })
         }
         _ => None,
+    }
+}
+
+/// Whether a nested pattern can't be split: somewhere in it, a constructor
+/// of a type with indices or with several constructors.
+fn nested_unsplittable(g: &Globals, pat: &Pat) -> bool {
+    match pat {
+        Pat::Leaf => false,
+        Pat::Node { data, fields, .. } => {
+            let decl = g.data(*data);
+            !decl.indices.is_empty()
+                || decl.ctors.len() != 1
+                || fields.iter().any(|f| nested_unsplittable(g, f))
+        }
     }
 }
 

@@ -377,6 +377,11 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         span(&mut out, *s);
         out.push('\n');
     }
+    let mut columns: Vec<_> = e.match_columns.iter().collect();
+    columns.sort_by_key(|(id, _)| id.0);
+    for (id, c) in columns {
+        let _ = writeln!(out, "match columns {} {:?} {:?}", id.0, c.cols, c.eqs);
+    }
     for t in &e.tests {
         let _ = write!(
             out,

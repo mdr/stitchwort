@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 135
 expression: "lines(session, d, f)"
 ---
 data Main.Counter 92723f54fb32874fb8653335adf18f6f3dc04c13c1401ff4107f8319b8f8162c
@@ -21,6 +22,9 @@ Main.Counter.%instOrd d98b8c50fdac3fa9eba3e5ea8c0bf6404851af71ec01972118af9d7874
 Main.Counter.ext a3ff8feb57cdcc5855b8b799933469ce374f9beba989b6bc4177d8280207822d
 Main.counter 6aeff375fda36bda197873468069a47871f2ea0040603672cdece04d9ed17c79
 Main.counter.%match1 6bc5c3a4b8e211d6272eb1b8a63b348b59bcb55dae6bba21ad08d3cd9b276e57
+Main.counter.eq.alt1 b3a3d3651a896024dab910cc6c07dfd97ea2e6819e78b91fef886ad9c80ce5fd
+Main.counter.%match1.eq2 efd3bcf415f9a1fbae92eb235a30ee5196e78caafa6b4f480e7d8cc4b4c2febc
+Main.counter.eq.alt2 cc015d27260f18b730c3e567b45ae4f7ff2a2243d1ccaaee4ffaea953bb70ff8
 Main.three 0da6530fd212a9a7d01bdba5ba7317f1177a100e8be96093cbc0179a371cf5ab
 Main.four 0aa29616ca855d7c34ef11eb985ce43298ee1dab327288d9eb2ebea78cf98ae0
 Main.minusTwo f2172bee6786f7454dfedd6fb9b8f4482881829996d651a17ac4a52c3cf08915

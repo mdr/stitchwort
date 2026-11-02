@@ -854,7 +854,7 @@ enum Step {
         normal: Option<(Term, bool)>,
     },
     /// A lifted `match`'s helper `head` applied to `args`, one
-    /// alternative: matching argument `col` (with its equation argument
+    /// alternative: matching argument `cols` (with its equation argument
     /// `eq`, `match h: e`), its hypothesis `e = pattern` the binder at
     /// level `hyp` (none for a catch-all), the statement having `after`
     /// binders once the alternative's are added. `proof`, at `after`, is
@@ -865,7 +865,11 @@ enum Step {
         after: usize,
         head: Term,
         args: Vec<(Term, Icit)>,
-        col: usize,
+        /// The arguments matched: one, or on several expressions (SW-1074)
+        /// each, `hyp` being `(e1, e2, …) = (p1, p2, …)` at the tuple of
+        /// `col_tys` (at `depth`), which is otherwise empty.
+        cols: Vec<usize>,
+        col_tys: Vec<Term>,
         eq: Option<usize>,
         hyp: Option<usize>,
         proof: Term,
@@ -884,7 +888,7 @@ enum Uniq {
 /// A lifted `match`'s helper's call: the parameter it matches, and its
 /// equation's (`match h: e`), if it takes one.
 struct Call {
-    col: usize,
+    cols: Vec<usize>,
     eq: Option<usize>,
 }
 
@@ -1256,23 +1260,43 @@ impl BranchLib {
             }
             // `J (y q => (h args[y, q] = result) → (h args = result)) (x =>
             // x) hyp proof`, then on to `z` along `q`.
+            //
+            // On several expressions, `y` is the tuple, taken apart by its
+            // projections: `h … (Pair.fst y) (Pair.snd y) …`, which at
+            // `(e1, e2)` computes to the call.
             Step::Helper {
                 depth,
                 after,
                 head,
                 args,
-                col,
+                cols,
+                col_tys,
                 eq,
                 hyp,
                 proof,
                 result,
             } => {
                 let proof = proof.shift(g, top - after, 0)?;
+                // (Every one a catch-all: no hypothesis, no `col_tys`.)
+                let parts = if !col_tys.is_empty() {
+                    let tys = col_tys
+                        .iter()
+                        .map(|t| up(t, *depth, 2))
+                        .collect::<std::result::Result<Vec<_>, _>>()?;
+                    tuple_projections(g, &tys, Term::Var(1))?
+                } else {
+                    vec![Term::Var(1)]
+                };
                 let call = |by: usize, swap: bool| -> R<Term> {
                     let mut out = head.clone();
                     for (i, (a, icit)) in args.iter().enumerate() {
-                        let a = match (swap, i == *col, Some(i) == *eq) {
-                            (true, true, _) => Term::Var(1),
+                        // Swapped only under `hyp: Some`, where `parts` has
+                        // one component for each column.
+                        let a = match (swap, cols.iter().position(|c| *c == i), Some(i) == *eq) {
+                            (true, Some(k), _) => {
+                                debug_assert!(hyp.is_some() && k < parts.len());
+                                parts[k].clone()
+                            }
                             (true, _, true) => Term::Var(0),
                             _ => up(a, *depth, by)?,
                         };
@@ -1320,6 +1344,61 @@ impl BranchLib {
             }
         })
     }
+}
+
+/// `Pair` and its constructor, for a `match` on several expressions.
+fn tuple_parts(g: &Globals) -> R<(DataId, usize)> {
+    g.registry
+        .ctor(Builtin::MkPair)
+        .ok_or_else(|| Stop::Skip("`Pair` isn't loaded yet".into()))
+}
+
+/// `(t1, t2, …)`, nesting to the right as a tuple does.
+fn tuple(pair: (DataId, usize), ts: &[Term]) -> Term {
+    match ts {
+        [] => unreachable!("a tuple of no terms"),
+        [t] => t.clone(),
+        [t, rest @ ..] => Term::ctor(pair.0, pair.1, vec![t.clone(), tuple(pair, rest)]),
+    }
+}
+
+/// `(T1, T2, …)`: `Pair T1 (Pair T2 …)`.
+fn tuple_ty(pair: DataId, ts: &[Term]) -> Term {
+    match ts {
+        [] => unreachable!("a tuple type of no types"),
+        [t] => t.clone(),
+        [t, rest @ ..] => Term::Data(
+            pair,
+            vec![Rc::new(t.clone()), Rc::new(tuple_ty(pair, rest))],
+        ),
+    }
+}
+
+/// The components of `y`, a tuple of these types: `Pair.fst y`,
+/// `Pair.fst (Pair.snd y)`, …, the last `Pair.snd (… y)`.
+fn tuple_projections(g: &Globals, tys: &[Term], y: Term) -> R<Vec<Term>> {
+    let pair = tuple_parts(g)?.0;
+    let none = || Stop::Skip("`Pair.fst` isn't loaded yet".into());
+    let fst = g.registry.def(Builtin::Fst).ok_or_else(none)?;
+    let snd = g.registry.def(Builtin::Snd).ok_or_else(none)?;
+    let project = |f: DefId, i: usize, t: Term| {
+        apps(
+            Term::Def(f),
+            [
+                (tys[i].clone(), Icit::Implicit),
+                (tuple_ty(pair, &tys[i + 1..]), Icit::Implicit),
+                (t, Icit::Explicit),
+            ],
+        )
+    };
+    let mut out = Vec::new();
+    let mut rest = y;
+    for i in 0..tys.len() - 1 {
+        out.push(project(fst, i, rest.clone()));
+        rest = project(snd, i, rest);
+    }
+    out.push(rest);
+    Ok(out)
 }
 
 /// `(x: A) → … → body` over `binders`.
@@ -2968,9 +3047,16 @@ impl Elaborator {
                     }
                 }
                 TailSplit::Match { scrutinees, alts } => {
-                    let [scrutinee] = scrutinees else {
-                        return skip("a `match` on several expressions isn't stated in stage 1b");
-                    };
+                    // On several expressions (SW-1074), stated as on the
+                    // one tuple of them: `isAlt1: (a, b) = (p, q)`.
+                    let several = scrutinees.len() > 1;
+                    if several && scrutinees.iter().any(|s| s.name.is_some()) {
+                        return skip(
+                            "a `match` on several expressions naming one's equation (`h: e`) \
+                             isn't stated",
+                        );
+                    }
+                    let scrutinee = &scrutinees[0];
                     let alt = &alts[taken.choice];
                     if alt.patterns.iter().any(has_or) {
                         return skip(
@@ -2982,20 +3068,20 @@ impl Elaborator {
                         return skip("its `match` isn't a call of a lifted `match`'s helper here");
                     };
                     let h = *h;
-                    let call = self.helper_call(h, scrutinee, &args)?;
+                    let call = self.helper_call(h, scrutinees, &args)?;
                     // Only unrefined: a row refined where its variable is
                     // bound (SW-1069) can close a scrutinee the program
                     // computes from that variable (`List.head rest` with
                     // `rest` refined to `Nil`); the closed check is for terms
                     // closed in the program, which the unrefined run meets
                     // first (SW-1078).
-                    if refines.is_empty() && closed(&args[call.col].0) {
+                    if refines.is_empty() && call.cols.iter().all(|&c| closed(&args[c].0)) {
                         return skip(CLOSED_SPLIT);
                     }
                     let helper = match helpers.get(&h) {
                         Some(x) => x.clone(),
                         None => {
-                            let made = Rc::new(self.helper(d, h, call.col, alts)?);
+                            let made = Rc::new(self.helper(d, h, &call.cols, alts)?);
                             helpers.insert(h, made.clone());
                             made
                         }
@@ -3050,7 +3136,7 @@ impl Elaborator {
                     let mut solved: HashMap<usize, Term> = HashMap::default();
                     let mut asked = Vec::new();
                     for (p, (a, _)) in he.args.iter().enumerate() {
-                        if p == call.col
+                        if call.cols.contains(&p)
                             || Some(p) == call.eq
                             || matches!(a.strip_loc(), Term::Var(_))
                         {
@@ -3108,11 +3194,23 @@ impl Elaborator {
                     // them: its captures are the call's arguments, the
                     // alternative's pattern variables are the branch's, a
                     // catch-all is the scrutinee itself.
+                    // On several expressions, a catch-all is a variable of
+                    // the branch, as a tuple pattern's component is (named
+                    // `fst` or `snd` for a `_`, as that component is); where
+                    // every one is, the expressions themselves, as for a
+                    // catch-all of the tuple.
                     let mut vals: Vec<(Term, usize)> = Vec::new();
-                    let col_var = match hs.lhs[call.col].strip_loc() {
-                        Term::Var(i) => Some(hs.depth - 1 - i),
-                        _ => None,
-                    };
+                    let col_vars: Vec<Option<usize>> = call
+                        .cols
+                        .iter()
+                        .map(|&c| match hs.lhs[c].strip_loc() {
+                            Term::Var(i) => Some(hs.depth - 1 - i),
+                            _ => None,
+                        })
+                        .collect();
+                    let col = call.cols[0];
+                    let all_vars = col_vars.iter().all(Option::is_some);
+                    let col_var = if several { None } else { col_vars[0] };
                     let mut hyp = None;
                     for (j, &l) in hs.tele.iter().enumerate() {
                         let here = binders.len();
@@ -3122,8 +3220,29 @@ impl Elaborator {
                         }
                         let (hname, hicit, hty) = &he.binders[j];
                         let param = (1..=n_h).contains(&l).then(|| l - 1);
-                        if Some(l) == col_var || param == Some(call.col) {
-                            vals.push((args[call.col].0.clone(), depth));
+                        let component = (0..call.cols.len())
+                            .find(|&c| col_vars[c] == Some(l) || param == Some(call.cols[c]));
+                        if several
+                            && all_vars
+                            && let Some(c) = component
+                        {
+                            vals.push((args[call.cols[c]].0.clone(), depth));
+                        } else if several && let Some(c) = component {
+                            let ty = instantiate(g, hty, j, &vals, here)?;
+                            let base = match &alt.patterns[c] {
+                                Pattern::Wildcard(_) if c + 1 < call.cols.len() => "fst",
+                                Pattern::Wildcard(_) => "snd",
+                                Pattern::Var(x) => x.text.as_str(),
+                                _ => &**hname,
+                            };
+                            let name: Name = fresh(&used, base).into();
+                            used.push(name.clone());
+                            binders.push((name, Icit::Explicit, ty));
+                            origin.resize(here, None);
+                            origin.push(Some(pi));
+                            vals.push((Term::Var(0), here + 1));
+                        } else if Some(l) == col_var || param == Some(col) {
+                            vals.push((args[col].0.clone(), depth));
                         } else if param.is_some() && param != call.eq {
                             let p = param.expect("a parameter");
                             vals.push((args[p].0.clone(), depth));
@@ -3152,10 +3271,42 @@ impl Elaborator {
                     let tk_h = hs.tele.len();
                     // The hypothesis that the scrutinee is the pattern,
                     // where the helper takes no equation of its own.
-                    if hyp.is_none() && col_var.is_none() {
+                    // On several expressions, `(a, b) = (p, q)`, at the type
+                    // `(A, B)` of the helper's parameters.
+                    let mut col_tys = Vec::new();
+                    if several && !all_vars {
                         let here = binders.len();
-                        let pattern = instantiate(g, &he.args[call.col].0, he_len, &vals, here)?;
-                        let e = args[call.col].0.shift(g, here - depth, 0)?;
+                        let mut es = Vec::new();
+                        let mut ps = Vec::new();
+                        for &c in &call.cols {
+                            ps.push(instantiate(g, &he.args[c].0, he_len, &vals, here)?);
+                            es.push(args[c].0.shift(g, here - depth, 0)?);
+                            let at: Vec<(Term, usize)> =
+                                args[..c].iter().map(|(a, _)| (a.clone(), depth)).collect();
+                            col_tys.push(instantiate(g, &hb[c].ty, c, &at, depth)?);
+                        }
+                        let tys = col_tys
+                            .iter()
+                            .map(|t| t.shift(g, here - depth, 0))
+                            .collect::<std::result::Result<Vec<_>, _>>()?;
+                        let pair = tuple_parts(g)?;
+                        let name: Name = fresh(&used, &format!("isAlt{}", taken.choice + 1)).into();
+                        used.push(name.clone());
+                        binders.push((
+                            name,
+                            Icit::Explicit,
+                            Term::Eq(
+                                Some(Rc::new(tuple_ty(pair.0, &tys))),
+                                Rc::new(tuple(pair, &es)),
+                                Rc::new(tuple(pair, &ps)),
+                            ),
+                        ));
+                        hyp = Some(here);
+                    }
+                    if !several && hyp.is_none() && col_var.is_none() {
+                        let here = binders.len();
+                        let pattern = instantiate(g, &he.args[col].0, he_len, &vals, here)?;
+                        let e = args[col].0.shift(g, here - depth, 0)?;
                         let base = match (&scrutinee.name, alt_ctor(alt)) {
                             (Some(n), _) => n.text.to_string(),
                             (None, Some(c)) => format!("is{c}"),
@@ -3163,11 +3314,11 @@ impl Elaborator {
                         };
                         // Its type, the helper's parameter's with the call's
                         // arguments (a pair's can't be inferred).
-                        let at: Vec<(Term, usize)> = args[..call.col]
+                        let at: Vec<(Term, usize)> = args[..col]
                             .iter()
                             .map(|(a, _)| (a.clone(), depth))
                             .collect();
-                        let ty = instantiate(g, &hb[call.col].ty, call.col, &at, here)?;
+                        let ty = instantiate(g, &hb[col].ty, col, &at, here)?;
                         let name: Name = fresh(&used, &base).into();
                         used.push(name.clone());
                         binders.push((
@@ -3185,13 +3336,24 @@ impl Elaborator {
                         // `e = p`, where `e` took a catch-all's place: typed,
                         // as a pair's equation can't be inferred.
                         let ty = match col_var {
+                            None if several && all_vars => {
+                                let mut ty = ty;
+                                for &c in &call.cols {
+                                    let e = args[c].0.shift(g, here - depth, 0)?;
+                                    let at: Vec<(Term, usize)> =
+                                        args[..c].iter().map(|(a, _)| (a.clone(), depth)).collect();
+                                    let col_ty = instantiate(g, &hb[c].ty, c, &at, here)?;
+                                    ty = typed_equations(g, &ty, &e, &col_ty, 0)?;
+                                }
+                                ty
+                            }
                             Some(_) => {
-                                let e = args[call.col].0.shift(g, here - depth, 0)?;
-                                let at: Vec<(Term, usize)> = args[..call.col]
+                                let e = args[col].0.shift(g, here - depth, 0)?;
+                                let at: Vec<(Term, usize)> = args[..col]
                                     .iter()
                                     .map(|(a, _)| (a.clone(), depth))
                                     .collect();
-                                let col_ty = instantiate(g, &hb[call.col].ty, call.col, &at, here)?;
+                                let col_ty = instantiate(g, &hb[col].ty, col, &at, here)?;
                                 typed_equations(g, &ty, &e, &col_ty, 0)?
                             }
                             None => ty,
@@ -3238,7 +3400,8 @@ impl Elaborator {
                         after,
                         head: head.clone(),
                         args,
-                        col: call.col,
+                        cols: call.cols.clone(),
+                        col_tys,
                         eq: call.eq,
                         hyp,
                         proof,
@@ -3280,9 +3443,11 @@ impl Elaborator {
         Ok(made)
     }
 
-    /// Which of a lifted `match`'s helper's parameters is the one it
-    /// matches, and which its equation (`match h: e`), from its call.
-    fn helper_call(&self, h: DefId, scrutinee: &Scrutinee, args: &[(Term, Icit)]) -> R<Call> {
+    /// Which of a lifted `match`'s helper's parameters are the ones it
+    /// matches, and which its equation (`match h: e`): as the lifter
+    /// recorded them (`lift::MatchColumns`), one for each scrutinee, never
+    /// read off the parameters' names.
+    fn helper_call(&self, h: DefId, scrutinees: &[Scrutinee], args: &[(Term, Icit)]) -> R<Call> {
         let g = &self.globals;
         let def = g.def(h);
         if !def.name.contains(".%match") {
@@ -3292,46 +3457,49 @@ impl Elaborator {
         if hb.len() != def.arity || args.len() != def.arity {
             return skip("its `match`'s helper isn't called with all its parameters");
         }
-        let mut col = None;
-        let mut eq = None;
-        if scrutinee.name.is_some() {
-            for (j, (a, _)) in args.iter().enumerate() {
-                if let (Term::Refl, Term::Eq(_, _, rhs)) = (a.strip_loc(), hb[j].ty.strip_loc())
-                    && let Term::Var(i) = rhs.strip_loc()
-                    && *i < j
-                {
-                    eq = Some(j);
-                    col = Some(j - 1 - i);
+        let Some(recorded) = self.match_columns.get(&h) else {
+            return skip("its `match`'s helper doesn't record what it matches");
+        };
+        if recorded.cols.len() != scrutinees.len()
+            || recorded
+                .cols
+                .iter()
+                .chain(recorded.eqs.iter().flatten())
+                .any(|&p| p >= hb.len())
+        {
+            return skip("its `match`'s helper doesn't take what it matches");
+        }
+        let cols = recorded.cols.clone();
+        // The lifter refuses a variable matched twice, so this is a guard.
+        let distinct = (1..cols.len()).all(|i| !cols[..i].contains(&cols[i]));
+        debug_assert!(distinct, "a `match`'s columns are distinct");
+        if !distinct {
+            return skip("its `match`'s helper doesn't take what it matches");
+        }
+        let eq = match recorded.eqs.as_slice() {
+            [eq] => *eq,
+            _ => None,
+        };
+        for &col in &cols {
+            for (j, b) in hb.iter().enumerate().skip(col + 1) {
+                if Some(j) != eq && b.ty.mentions(j - 1 - col) {
+                    return skip(if cols.len() == 1 {
+                        "its `match`'s helper takes copies of variables whose types mention what \
+                         it matches, which stage 1b doesn't transport (§4, item 4)"
+                    } else {
+                        "its `match`'s helper takes variables whose types mention what it \
+                         matches, which a tuple of the expressions can't state"
+                    });
                 }
             }
         }
-        if col.is_none() {
-            let wanted: Vec<&str> = match (&scrutinee.name, &scrutinee.expr) {
-                (None, Expr::Var(x)) => vec![x.text.as_str(), "s"],
-                _ => vec!["s"],
-            };
-            col = wanted
-                .into_iter()
-                .find_map(|w| hb.iter().rposition(|b| &*b.name == w));
-        }
-        let col = col.ok_or_else(|| {
-            Stop::Skip("its `match`'s helper doesn't take what it matches".into())
-        })?;
-        for (j, b) in hb.iter().enumerate().skip(col + 1) {
-            if Some(j) != eq && b.ty.mentions(j - 1 - col) {
-                return skip(
-                    "its `match`'s helper takes copies of variables whose types mention what it \
-                     matches, which stage 1b doesn't transport (§4, item 4)",
-                );
-            }
-        }
-        Ok(Call { col, eq })
+        Ok(Call { cols, eq })
     }
 
     /// The equations of a lifted `match`'s helper `h`, one for each of its
-    /// alternatives (`alts`), matching parameter `col`: as a definition's
+    /// alternatives (`alts`), matching parameters `cols`: as a definition's
     /// for its arms (stage 1a), not declared, each a closed term.
-    fn helper(&mut self, owner: &Def, h: DefId, col: usize, alts: &[Alt]) -> R<Helper> {
+    fn helper(&mut self, owner: &Def, h: DefId, cols: &[usize], alts: &[Alt]) -> R<Helper> {
         let g = &self.globals;
         let def = g.def(h);
         let arity = def.arity;
@@ -3377,7 +3545,7 @@ impl Elaborator {
             tree: Term::peel_lams_rc(&body, arity),
             leaves: Vec::new(),
             rows,
-            columns: vec![col],
+            columns: cols.to_vec(),
             alt_names: true,
             mark_rec: std::cell::Cell::new(false),
         };
