@@ -3961,7 +3961,7 @@
     {
       "id": 1050,
       "title": "Daily/full fallout: doc-track failures (prelude W-DOC-LINK, nav docs/snapshot, guide 09 quote, aoc cache + LSP)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3969,7 +3969,7 @@
       ],
       "body": "",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
