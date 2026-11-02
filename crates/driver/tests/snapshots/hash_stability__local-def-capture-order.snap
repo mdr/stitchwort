@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.reach b13dbee13ace66bb5a4fd4c320e210c240c1cfed533c2773dba89b0546ad965e
@@ -10,6 +9,8 @@ Main.reach.left.eq2 ee86505646a1f6dd64b085613700250a3b3e249a3ad868c6a948dfb27844
 Main.reach.eq1 23dc1832c3ade9e55e715f4f24fc3f64c7b8cb81fe7efd5639e8e246fa18ffe3
 Main.reach.eq2 7c778f37c51c2802cf9a62a3593b59aad658e317a3749e2cec35b42b6398365f
 Main.reach.eq3 b328a3e29dc2384a48826dac20d5ef3c9508e8bc7259473ea3dd92a8dcb8f5aa
+Main.reach.eq3.ifTrue 2c327e7aa46c1bd33609232d23c2b60ce32988e3c9010634a0f851f8a8a011a8
+Main.reach.eq3.ifFalse 6eeeda3bc5b3f2afb22f233397ed12e807c397bf1375ecdde8972a1fc1b953cf
 Main.leftZero 08175fd8c67f4e21e0f2a1d3790faf80fc2ca606f22d83312943b119fb839ab8
 Main.leftSucc ee86505646a1f6dd64b085613700250a3b3e249a3ad868c6a948dfb278447c40
 Main.reachSplit bdb53188accd5785f0c94739d4493c41c6de7d8b065dc4739c3046201afc5591

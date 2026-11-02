@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Ordered 03a76281d7aeec3ccf8d58b2c66d2f777d75232db564bfb1cb3cacf1f6cdd230
@@ -28,6 +27,9 @@ Main.Tree.insert 98f26c2fe4f70126aaa557fc04cd703f24366f0790ada362bed5d8cf890a9cc
 Main.Tree.insert.%match1 990d29feb9e8e85cc8412391379e35a680eb6a653a556213928ff16abaf92670
 Main.Tree.insert.eq1 ebe52c841f2fc4e6deea112a53d5ab99c07a412389a621645f58fab1fdcf55f8
 Main.Tree.insert.eq2 4776f8b37bf50f370f1a8a7e734909b1d68c80e3d8a098f4b627b35d36f3511b
+Main.Tree.insert.eq2.less edadf4c4de520fda4ea2e8cddae73017d1392833902bb2ffb766521a792add39
+Main.Tree.insert.eq2.equal d52a733d74427e328c3990950f85e41c510e7c32997e8d4d714012c46d90f93f
+Main.Tree.insert.eq2.greater e84cedafae59d2940912cf0c5b9b2d700859ec1025878b80018de308069c661a
 Main.Tree.toList a38fdfc6ca378668eacbc18c6ae0ebf465ed85130fa99a84c8c40f05bdd5f434
 Main.Tree.toList.eq1 99919e2224ddc335d50712d8b784ef4bedd1e1449c60ab7325f2f08b66fe6bf9
 Main.Tree.toList.eq2 6d8283b79b35e094e03f1de4b12be1e38887bb777585e35d8d2f89b4a53ede2d

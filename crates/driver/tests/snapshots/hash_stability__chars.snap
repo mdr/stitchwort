@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.isSome e4e3abac4d488104d26424dfa6c21914039655dbefa5760ad3ecd5e676210b2a
@@ -26,4 +25,6 @@ Main.test "escape" 03e8d4c598715306c83e61c59a626e52faece1a7aef64f7a66f50e438ff96
 Main.test "from lit" e5f78614f4e7558cfca829b27ada7ee7ebb2ccce358c0f20776c7a1e0c236568
 Main.aIsA 94427c50832e3f89be1785fae8cc23a08e657dcabbc824f2237be46dadb7ae98
 Main.sameChar 9affe3643cfdacfe63564cb0d4326cfd1c42e8eb180eebfdf05f5ebc66811449
+Main.sameChar.eq.ifTrue ef246ac8e24812f86cd62b1fb7f35ea15eebf61b0d02bf60255fc10a0461601a
+Main.sameChar.eq.ifFalse 09c36517d7fdcc725786eeef1b2e0628133acfae12d3f1589e67d4ae578e45a1
 Main.test "if h" baf5b2170b950ba74e757dfa26d9f1be332ef53a0ace6c4f46c545539649aaa3

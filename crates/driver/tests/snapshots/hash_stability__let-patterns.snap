@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
@@ -59,6 +58,8 @@ Main.swapLines 1123b599c87ca7c47acd7da64d4e091a7d0e5a64fd1187495c1b489a3fd0a50f
 Main.eqTexts f926daa42662eb4de0647fa2344c668afb1ce4238a782c5f3fea6d3323828145
 Main.eqTexts.eq1 76159df9a0e8892dd4a9f2d5e357f0fee3d9bc3cf4bf9ae829fe935d14af27bd
 Main.eqTexts.eq2 06e1da3ba011bc001b24b5ac18c79abdbacbec610bd4fcabbaf52949deac5fe4
+Main.eqTexts.eq2.ifTrue fd532ee6acf2d399b81595cd33de7c7dc1320b52ba48496138661a2a7d029639
+Main.eqTexts.eq2.ifFalse da352b69af7778adbb85d59fb069d47a3bda6ae8a54bbf84c4d8dfe53c216ad3
 Main.eqTexts.eq3 8e60a595d3eb9ca33a53db46106fae860f69b43343be3f3d5ba3e45150ab36a0
 Main.test "tuple" 22e7d68a02b4229382a2c55b5081c8cd3b95ff676e000e2cb981a00c2b65d32f
 Main.test "nested" 48b6e78d45764e06a4ce0b4a47e1c74210c20772ae00ca88f844216e59405507

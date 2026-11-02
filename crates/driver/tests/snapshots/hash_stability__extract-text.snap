@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Person 14ea7ab2c5db04536ed976b955a829571bfaf00127b52f173ad572847a105599
@@ -28,6 +27,8 @@ Main.reverse 4453bb511ef81ac6e35cf3b650a219159a2f7205dbd51d6cd1f0ea53eaaae15f
 Main.countIn 64eb735f08508ce04c8b0262c3caffe37938bd4a50906a6845bcb09e743b4a3f
 Main.countIn.eq1 ee5346e0fca1774d397dbf5f399466ae4c50aaefca55f5ee1127e3fb35194591
 Main.countIn.eq2 928157c4e97f70facf823e9d7753baee9eb08f1670fea66558bd384522b0988e
+Main.countIn.eq2.ifTrue ee1190d988dd878035152dabc9074019a0c93a3bedb7796d26d9ce760bab91c6
+Main.countIn.eq2.ifFalse 7fbe24005e9dab07ba8439d364aa798ddd64e341251a38bc9174343a539b5500
 Main.countChar 039e12bb3133535886d5e2e950660b6b751f77cc24ba1102ed6de17790c26bb5
 Main.Person.name e0e40a2a8f09bb7353c41ae6d1acb07cc04a3aac7be715fe0a50effd6355c8c3
 Main.Person.initial 588aca7ee1c36e57c0154da5689fdb097191c4d689521fa1c44c84e96a86e866

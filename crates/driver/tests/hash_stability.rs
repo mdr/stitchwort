@@ -162,7 +162,8 @@ theorem c (s: Set Nat) (x: Nat) (h: x ∈ s): x ∈ s := h
 def d (seen: List Nat) (x: Nat): Bool := if x ∈ seen then x ∉ [1, 2] else 3 ∈ seen ∨ x ∈ Set.fromList seen
 ";
     let ascii_lines = own_lines(ascii);
-    assert_eq!(ascii_lines.lines().count(), 4, "{ascii_lines}");
+    // Four declarations, and `d`'s two branch equations (`d.eq.ifTrue`, `d.eq.ifFalse`).
+    assert_eq!(ascii_lines.lines().count(), 6, "{ascii_lines}");
     assert_eq!(ascii_lines, own_lines(unicode));
     // The propositions in their long forms (`d`, a program, is left out:
     // its conditions are decided by another route when written in full).
@@ -173,7 +174,7 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
 ";
     let without_d: String = ascii_lines
         .lines()
-        .filter(|l| !l.starts_with("Main.d "))
+        .filter(|l| !l.starts_with("Main.d ") && !l.starts_with("Main.d."))
         .map(|l| format!("{l}\n"))
         .collect();
     assert_eq!(without_d, own_lines(long));

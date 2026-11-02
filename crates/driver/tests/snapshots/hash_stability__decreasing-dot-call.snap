@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Counter d7a06d8b35c8fcb379b1b72d2fe3c7842bb9e01b43573c2b98be2d6f7a3bca04
@@ -30,6 +29,8 @@ Main.Counter.downIf.%go d98196a9b938cb4ebe2ad4d9f3dbb07da957c65e6e7a80ef3422318c
 Main.Counter.downIf.%step.%respects 0cbad8b5a60c52b2e5fff5ef6ebed527a9403230844905b3ac7fd5550b5f75a8
 Main.Counter.downIf.%irrel 6a6c4923a8251a72c390cd95b10787d72d588120367baa95b33af6ace7401d71
 Main.Counter.downIf.unfold e4fe84017b3d980d29f80083c57977a6be51cd41263b658f16224181a4c3ab77
+Main.Counter.downIf.eq.ifTrue 3434496ca2d9bf549e8426f9bc2bdaed61fa564edcf72e7d9ddf7f1b2ae3cfb2
+Main.Counter.downIf.eq.ifFalse 84c30d226228ea7befae0e567838c8254a12fda9c6fa78535fae8fa9470a8543
 Main.Counter.ack 6afbb1a9afe4214c4b5220a095fea0c0e85e8c63bb6f8b6ea05547e30ffb0e30
 Main.Counter.ack.%step 8a692945e1f50ea7c0b665e7f00e485cb83515f4a3176cd1bb2df40643189fe3
 Main.Counter.ack.%go be6502dd7e72cdc5c480d2b98df21afec0849255217fab2afdd42fb008aa1dc6

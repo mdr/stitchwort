@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Vec 4cc4104f40e64ca89957132f93fe7cb53692d7d69310cda043fe66224774bb54
@@ -70,4 +69,6 @@ Main.test "get" 2078fe29beefcc6e717e33ffe19d3b5ec324a5f0a6188773a9d50c39c59c98a8
 Main.test "depth" 1d0dafa1740ffb1821298a90ff5957aa07f58a1727335198a5f77ffac009430c
 Main.isEven d965081e984d1ef095b9dc7694d6db9a6110abae3c7b066e0571a61f3c69c7a6
 Main.isEven.%match1 20ff2a6ce4c5a00f32638852259247811e959a4785f042b3c62918c19d7b4e27
+Main.isEven.eq.yes 9f23ccea4f3c66411bff811abb57a54ce3a34b3773847fd405d09a25d1600be8
+Main.isEven.eq.no 74fcd931d82cc574286bb7aa8aff512723b4fbb547bc44aeda310dddceb101a0
 Main.test "decEven" b2830549451447b5b265685a2abd89ca92fde71286ace08c6359e240a1e54fae
