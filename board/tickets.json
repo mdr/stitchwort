@@ -1,5 +1,5 @@
 {
-  "next": 1083,
+  "next": 1084,
   "tickets": [
     {
       "id": 47,
@@ -3420,6 +3420,21 @@
         "performance"
       ],
       "body": "\n\nAnalysis (read-only Explore agent, 2 Nov 2026; code read, nothing run; medium confidence on the mechanism):\n- Loading isn't the difference: search --at loads all std up front for every goal (load_all_libraries, crates/cli/src/main.rs:1857; driver search_at.rs:1567, :1670). Goals 1/3 0.29 GB vs goal 2 1.5 GB comes from searching and checking.\n- closing_plans turns the constants filter off (filter: false, crates/elab/src/closing.rs:365), so every declaration is unified with the goal. ≤ on Nat is the built-in Nat.LessEq, which unfolds to `… = True`, so any `_ = True` conclusion matches, including generated equations from unrelated files (closing.rs:421-424 cites Char.isAsciiSpaceCode.eq1 closing a Float.ieeeLe goal). Each match gets several plans (hypotheses h1, h2) and each is tried with rfl/omega/cases/byDecision (search_at.rs:1250); search.md:1165 records one cases check at 1.2 GB.\n- Memory held: Globals defs/datas (core/src/globals.rs:421), whole-library generated equations (search_at.rs:612), lifted <input N> definitions kept per check (lib.rs:1178); nothing freed until main.rs:1888.\n- Levers: filter on in closing_plans (or overlaps, search.rs:893) with the relaxed second pass as fallback; skip generated equations sharing no data type with the goal; load only the goal's needs (library.rs:1002 load_needs); per-check memory/step caps or no cases on obligations (today time only, search_at.rs:541).\nPlan when picked up (Opus): confirm with STITCHWORT_SEARCH_DEBUG per-check timings; then the filter with fallback; report memory and the AoC closing rate (66% today, SW-915) before/after. The recall benchmark is beyond targeted tests: agree the test strategy with Matt first (D2198, Matt 2 Nov: backlog for now).\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1083,
+      "title": "Consider building the main checkout through kache too: after a merge, main rebuilds exactly what the lane already built (the lane's crates are in kache's cache), so its post-merge build before task test:merge could come from the cache. Today main stays on plain cargo as an independent check at merge (D2200). Decide after a trial of kache on lanes; would need a check that a cached build can't hide a stale artifact (driver build fingerprint, include_str! of std)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "decision"
+      ],
+      "body": "",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
