@@ -81,11 +81,15 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
 }
 
 fn with_session(f: impl FnOnce(&Session) + Send + 'static) {
+    with_source(SOURCE.to_string(), f);
+}
+
+fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
         .stack_size(64 << 20)
         .spawn(move || {
             let mut session = Session::new();
-            if let Err(errors) = session.load("equations.sw", SOURCE) {
+            if let Err(errors) = session.load("equations.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
             f(&session);
@@ -181,5 +185,28 @@ fn an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason() {
         generated(s, "explode.eq2");
         let why = skipped(s, "explode.eq3");
         assert!(why.contains("refined"), "{why}");
+    });
+}
+
+/// D2189: an equation that would take more than 64 hypotheses `x ≠ k`, one
+/// per earlier number arm, isn't generated (its proof costs their count
+/// squared), and says so; one with 64 is.
+#[test]
+fn a_catch_all_after_more_than_64_number_arms_is_skipped_with_its_reason() {
+    let table = |name: &str, arms: usize| -> String {
+        let rows: String = (0..arms).map(|i| format!("  | {i} => {i}\n")).collect();
+        format!("def {name}: Nat → Nat\n{rows}  | _ => 0\n\n")
+    };
+    let source = format!(
+        "import Std (Nat)\n\n{}{}",
+        table("at64", 64),
+        table("at65", 65)
+    );
+    with_source(source, |s| {
+        let at64 = generated(s, "at64.eq65");
+        assert!(at64.contains("(notArm64: x1 ≠ 63) → at64 x1 = 0"), "{at64}");
+        generated(s, "at65.eq65");
+        let why = skipped(s, "at65.eq66");
+        assert!(why.contains("65 hypotheses") && why.contains("64"), "{why}");
     });
 }
