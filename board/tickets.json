@@ -3569,13 +3569,13 @@
     {
       "id": 1092,
       "title": "Merge tier to 90 s on this machine (D2211 c, from SW-1090): sample the hash_stability examples/projects sweeps in the merge tier (every item still in daily), move goal_index to daily only, halve the aoc_answers sample in merge (every day still in daily); restate the budget as 90 s on a 10-core M1 Pro (docs/testing.md, .config/nextest.toml, Taskfile.yml)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "\n\nMerged f6d022e5 (ac5bc3fd). Merge tier 1030/1030 in 104 s with two other lanes running (load 7 at start, 34 at end), audits clean; re-time on a quiet machine. Coverage in merge: hash_stability 106 of 423 example files, 7 of 26 projects, prelude; aoc_answers 20 of 38; goal_index in lane-goals and daily only. Side effects accepted: lane-hashes also samples; new AoC days must be added to the merge filter by hand. Model result: DeepSeek, worked.\n",
+      "body": "\n\nMerged f6d022e5 (ac5bc3fd). Merge tier 1030/1030 in 104 s with two other lanes running (load 7 at start, 34 at end), audits clean; re-time on a quiet machine. Coverage in merge: hash_stability 106 of 423 example files, 7 of 26 projects, prelude; aoc_answers 20 of 38; goal_index in lane-goals and daily only. Side effects accepted: lane-hashes also samples; new AoC days must be added to the merge filter by hand. Model result: DeepSeek, worked.\n\n\nRe-time (2 Nov, 22:31): two merge-tier runs overlapped by mistake, so wall times (~200 s) are invalid; CPU per run ~920 CPU-s (865 user + 57 sys) vs 1022 before the trim: the trim saved ~10% (~12 s wall), not the ~30 s estimated; expect ~110 s quiet. Superseded in direction by D2221 (verifier + selector, SW-1098).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": [
@@ -3659,7 +3659,7 @@
     {
       "id": 1098,
       "title": "Test selector for the merge checks (D2221): given the merged diff, the tests the lane reported running, and a list of every test with its last measured time (nextest JUnit) and area (the lane profiles in .config/nextest.toml), choose the tests that best cover what's at risk of regression within a 120 s budget, as a nextest filter with a one-line reason per group; plus a small fixed core always run (rustfmt, kernel, one AoC day). Build: the timing inventory (task), the selector's brief (a cheap model), the filter output and a log of each selection. Trial for ~10 merges against the fixed merge tier; then score from daily-tier regressions the selector skipped",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
