@@ -485,6 +485,9 @@ enum Entry {
 #[derive(Default)]
 pub struct Registry {
     entries: HashMap<Builtin, Entry>,
+    /// A library is installed, so a built-in of it that isn't bound yet is
+    /// only not loaded: a program may still use it, and a message may name it.
+    library: bool,
 }
 
 impl Registry {
@@ -511,6 +514,16 @@ impl Registry {
             Some(Entry::Data(d)) => Some(*d),
             _ => None,
         }
+    }
+
+    /// Records that a library is installed (see [`Registry::library_installed`]).
+    pub fn install_library(&mut self) {
+        self.library = true;
+    }
+
+    /// Whether a library is installed, loaded or not.
+    pub fn library_installed(&self) -> bool {
+        self.library
     }
 
     /// Built-in definition `b` if it is bound yet. Unlike [`Registry::def`]

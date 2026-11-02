@@ -787,6 +787,7 @@ impl Elaborator {
     }
 
     pub fn install_library(&mut self, index: Arc<LibraryIndex>) {
+        self.globals.registry.install_library();
         let mut state = vec![LoadState::NotLoaded; index.files.len()];
         state[0] = LoadState::Loaded;
         for (f, file) in index.files.iter().enumerate().skip(1) {
