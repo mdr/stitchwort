@@ -4304,7 +4304,7 @@
         "elaborator",
         "proof"
       ],
-      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.",
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n2 Nov: the doc wording part is done by SW-1077 (f.induct listed apart: \"N generated equations and f.induct\").\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
@@ -4357,7 +4357,7 @@
     {
       "id": 1077,
       "title": "Daily 2 Nov afternoon: doc_equations counts (f.induct, day 18), check_work if ==/if < step growth, bench baseline, std index missing Std.Graph.searchFrom.induct, soundness_fuzz crash on mutated Nat.digitsAccSmall (unreachable: only called for a signature with decreasing)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
