@@ -2661,7 +2661,7 @@ impl Elaborator {
         // at the top), going on along `q` at the row's leaf.
         let lhs = s.lhs.shift(g, top - base, 0)?;
         let body = Term::Eq(None, Rc::new(lhs.clone()), Rc::new(z));
-        let then = (!matches!(q, Term::Refl)).then(|| (lhs, q));
+        let then = (!matches!(q, Term::Refl)).then_some((lhs, q));
         let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
         let ty = pi_over(&binders, body);
         let lam_names: Vec<(Name, Icit)> =
