@@ -1,5 +1,5 @@
 {
-  "next": 1088,
+  "next": 1089,
   "tickets": [
     {
       "id": 47,
@@ -819,9 +819,9 @@
       "labels": [
         "decision"
       ],
-      "body": "The compiler already detects them in state handlers; Effekt detects them too. Rec: automatically.",
+      "body": "The compiler already detects them in state handlers; Effekt detects them too. Rec: automatically.\n\n2 Nov 2026 (SW-1085, D2206): one more data point for declaring the mode. Osprey declares it per operation (a value operation, or `control` with abort/once/many resumptions; a handler can't change it), as Koka does with fun/ctl and Lexa does. A declaration would let the runtime take the in-place path without detection, and would give JS extraction the at-most-once guarantee it needs (DESIGN §16 Q9). `many` adds nothing here (every resumption is multi-shot already). SW-1087 (report/assert the fast path) addresses the silent-detection risk if detection stays.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -3495,6 +3495,21 @@
       "labels": [
         "effects",
         "diagnostics"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1088,
+      "title": "Differential tests of handler semantics against Koka (from SW-1085, D2206): port examples/accept/abilities.sw and the effect-row tests to Koka (nixpkgs koka 3.2.9), run both, compare outputs. Checks independently what DESIGN §8 says is still trusted (the translation of handler programs to Effect.Comp), which today is tested only against hand-written expected values. Low priority",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects",
+        "tests"
       ],
       "body": "",
       "created": "2026-11-02",

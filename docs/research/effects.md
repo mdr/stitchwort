@@ -836,10 +836,10 @@ wasn't checked **[inferred]**.
 |---|---|---|---|---|
 | 1 | ~~DESIGN.md: retire the handler-termination conjecture text; name the real gap (faithful translation)~~ **Done (SW-899, `4e33920c`).** | correctness of docs; §16 Q6, Q9 | small (docs) | our code and docs [checked]; C8 |
 | 2 | `Effect.bindCongAlways` (H-elim on the free monad). *Audit: it helps neither rogue gap 2 nor SW-548 (wrong claims 1 and 2 at the top). It is a small lemma for rewriting a continuation under a guaranteed fact.* | equations under a postcondition | small (std) | C2, deep read 4.2 |
-| 3 | Handler fast-path assertion or report | SW-861, SW-791 | small (diagnostic) | C4, deep read 4.4 |
+| 3 | Handler fast-path assertion or report. **Ticket SW-1087** (D2207); Osprey's `handle static` is the same idea (SW-1085) | SW-861, SW-791 | small (diagnostic) | C4, deep read 4.4, Osprey |
 | 4 | Handler specifications as predicate transformers (`wp` per handler, spec lemmas, adequacy) | SW-570, rogue loop | medium (std + note), tactic later | C3, C2, deep read 4.3 |
 | 5 | Monad laws as trusted conversion rules (`bind`, `foldComp`) | SW-548, rogue gap 2, proof ergonomics | kernel change | C1, deep read 4.1 |
-| 6 | Messages never show a bare row unknown without saying where it came from | effect error messages | small | C6 |
+| 6 | Messages never show a bare row unknown without saying where it came from. Osprey renders requirements with their origin (`Store@3:15.get`) and shows transitive ones on hover (SW-1085, D2206) | effect error messages | small | C6, Osprey |
 | 7 | TRMC for generic-row `map`, guarded by "no multi-shot handler in scope" | SW-868 (b) | runtime, large | C5, deep read 4.5 |
 | 8 | Per-ability runtime strategy (rare against frequent operations) | SW-593 | research | C11 |
 | 9 | Modal effects instead of `{e}` on higher-order functions | effect-polymorphism ergonomics | research; conflicts with DESIGN §8 | C6 |
