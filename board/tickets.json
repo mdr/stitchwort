@@ -3291,14 +3291,14 @@
     {
       "id": 1074,
       "title": "Function equations: a match on several expressions (9 AoC skips) stated as one tuple hypothesis isAlt1: (a, b) = (p, q), proved with one projection step",
-      "status": "backlog",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elaborator",
         "proof"
       ],
-      "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.",
+      "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.\n\nMatt, 2 Nov 2026: queued after SW-1089 (same code, induct/equations). Scope includes the AoC side: once the 9 skipped definitions (transmissionBits, sumMagnitudes, letterAlong, isCorner, ...) get equations, use them in the AoC proofs in place of hand-written lemmas or unfolding where that makes the proofs simpler (a proof lane: proving guide, audit:touched for the namespaces changed). Opus (generates kernel terms).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
@@ -3491,14 +3491,14 @@
     {
       "id": 1087,
       "title": "Handler fast-path report, then assertion (research T5, docs/research/effects.md §4.4; Osprey's handle static, SW-1085): first a report (e.g. stitchwort check --explain-handlers) saying whether each handler runs as a fused loop / without capturing a resumption and, if not, which clause stopped it; later an attribute that fails when it doesn't (Scala @tailrec style), phrased for all backends. Needs fusion.rs's recognisers (carrier, done_field, resume) to return reasons. Start by re-measuring SW-861's natural Std.Parse form, which 01462c09 may already fuse on the machine (D2207)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "effects",
         "diagnostics"
       ],
-      "body": "",
+      "body": "\n\nStep 1 result (Sonnet, 2 Nov 2026; under load 7-37, re-time before citing). SW-861's natural form is fused on the machine now (01462c09): Std.Parse Parse.next over 160,000 chars, natural vs pair form same user time (~4.6-4.8 s vs 4.55-4.64 s), natural 13% less memory (1.39 vs 1.60 GB); the 28 Oct 9.4 s / 2.2 s doesn't reproduce. Discriminator: at 1M operations a fused natural handler completes, an all-non-tail control hits the recursion limit (machine and --js). JS: fuse gets bodies=None so it can't follow a lifted %match; no slowdown seen in --js runs but not confirmed whether those ran on node. Memory grows ~5.8 KB per char in every form (fusion doesn't bound it). SW-738 revert: plausible after a JS check (build --js, big parse in node) and re-running the Parse.runFrom* rfl lemmas. Decline points in fusion.rs (11, each a silent Ok(None) or fallthrough today): partial foldComp; carrier not at the empty row / not state-passing; return clause not Done e; unrecognised handler structure; clause not x,k => ...; k used non-tail at <span>; depth > 200; > 64 matches followed; backend can't see inside match (JS); no arm of a match resumes; no clause resumes. Plus \"partly fused\" when one clause falls back. Plan: fuse returns Result<Result<Fused, Decline>> with a span; call sites ignore it; `stitchwort check --explain-handlers` calls fuse with the machine's bodies and with None, one line per handler (machine / js / not fused). Scratch: scratchpad/sw-1087/.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
