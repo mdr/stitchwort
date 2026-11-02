@@ -3298,7 +3298,7 @@
         "elaborator",
         "proof"
       ],
-      "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.\n\nMatt, 2 Nov 2026: queued after SW-1089 (same code, induct/equations). Scope includes the AoC side: once the 9 skipped definitions (transmissionBits, sumMagnitudes, letterAlong, isCorner, ...) get equations, use them in the AoC proofs in place of hand-written lemmas or unfolding where that makes the proofs simpler (a proof lane: proving guide, audit:touched for the namespaces changed). Opus (generates kernel terms).\n",
+      "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.\n\nMatt, 2 Nov 2026: queued after SW-1089 (same code, induct/equations). Scope includes the AoC side: once the 9 skipped definitions (transmissionBits, sumMagnitudes, letterAlong, isCorner, ...) get equations, use them in the AoC proofs in place of hand-written lemmas or unfolding where that makes the proofs simpler (a proof lane: proving guide, audit:touched for the namespaces changed). Opus (generates kernel terms).\n\n\nAlso (from the SW-1089 review, same code): add two fixtures to crates/driver/tests/function_induct.rs that pin the dependency check's index (induct.rs ~1404): MkS2 (q: Pair Nat Nat) (n: Nat) (w: Fin (Pair.fst q)) must skip, MkS3 (n: Nat) (q: Pair Nat Nat) (w: Fin n) with the nested pattern on q must generate; and a test of the recursive branch of nested_unsplittable (e.g. Some (MkPair (Some k) c)); optionally move fn nested_unsplittable out of the loop body.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
@@ -3527,10 +3527,12 @@
       "labels": [
         "equations"
       ],
-      "body": "\n\n2 Nov 2026: first DeepSeek run hung (32 min, 2 s CPU, no edits, empty log); stopped; API answered a test prompt in 5 s; rerun at ~21:50 with estimate 25 min (D2216), hard stop 75 min.\n",
+      "body": "\n\n2 Nov 2026: first DeepSeek run hung (32 min, 2 s CPU, no edits, empty log); stopped; API answered a test prompt in 5 s; rerun at ~21:50 with estimate 25 min (D2216), hard stop 75 min.\n\n\nMerged 7e60e0f6 (b51b81b9). Opus review: merge, no blocking issues (index of the dependency check verified against Ctor::fields; the early multi-constructor check only changes reason text). function_induct 5/5 including the library and AoC sweeps (rerun by the orchestrator). Model result: DeepSeek, worked, 8 min (est. 25), after two runs that hung at OpenCode startup (SW-1097).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "b51b81b9"
+      ]
     },
     {
       "id": 1090,
