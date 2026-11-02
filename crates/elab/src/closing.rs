@@ -194,6 +194,11 @@ impl Elaborator {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
             let (term, _) = infer(&mut cx, expr)?;
+            // What waits is settled first, as at the end of a declaration
+            // (W4): a number literal waits for its type (K4), and left
+            // waiting it is an unknown in the goal, which no hypothesis
+            // matches (`Cons 1 ys` in `List.consInjectiveExample`, SW-1055).
+            self.settle_queue()?;
             let v = cx.eval(&term)?;
             self.open_from(&cx, Vec::new(), hyps, v, span)
         })();
@@ -412,7 +417,18 @@ impl Elaborator {
                     .collect::<Vec<_>>(),
             );
         }
-        hits.sort_by_key(|(h, _)| std::cmp::Reverse(conclusion_defs(h.item)));
+        // A written theorem before a generated equation (`f.eqK`), as the
+        // search ranks them (docs/proposals/function-equations.md §3.4):
+        // an equation whose side computes to the goal's closes it too
+        // (`Char.isAsciiSpaceCode.eq1` closes `Float.ieeeLe 1.0 2.0 =
+        // True`), and ahead of the lemma it would push it out of the
+        // results shown (SW-1055).
+        hits.sort_by_key(|(h, _)| {
+            (
+                h.item.generated_equation(g),
+                std::cmp::Reverse(conclusion_defs(h.item)),
+            )
+        });
         let plans = (hits.into_iter())
             .take(max)
             .filter_map(|(hit, sym)| {

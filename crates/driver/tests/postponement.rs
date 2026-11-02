@@ -369,3 +369,31 @@ theorem wrong (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => 
     assert!(message.contains("R.contains r 4") && message.contains("R.contains r 3"));
     assert!(pointed_at(source, &errors).starts_with("List.anyPerm xs ys h"));
 }
+
+/// A typed lambda's parameter against an expected function type, both
+/// mentioning a number literal waiting for its type (`Cons 1 ys`, K4): the
+/// two are compared once the literals are settled, not refused at once
+/// (SW-1055; `search --at` checks a goal's hypotheses written this way).
+#[test]
+fn a_typed_parameter_with_a_waiting_literal_waits_for_it() {
+    let source = "\
+import Std (List)
+
+def proof: Unit := (let x := (((ys: List Nat) => (zs: List Nat) => (p: Cons 1 ys = Cons 1 zs) => List.consInjective _ ys zs p): (ys: List Nat) → (zs: List Nat) → (p: Cons 1 ys = Cons 1 zs) → ys = zs); ())
+";
+    load(source).unwrap_or_else(|e| panic!("{e:#?}"));
+}
+
+/// [`a_typed_parameter_with_a_waiting_literal_waits_for_it`] with the
+/// numbers different: still a mismatch, at the parameter's type.
+#[test]
+fn a_typed_parameter_with_a_different_literal_is_a_mismatch() {
+    let source = "\
+import Std (List)
+
+def proof: Unit := (let x := (((ys: List Nat) => (zs: List Nat) => (p: Cons 2 ys = Cons 2 zs) => List.consInjective _ ys zs p): (ys: List Nat) → (zs: List Nat) → (p: Cons 1 ys = Cons 1 zs) → ys = zs); ())
+";
+    let errors = load(source).expect_err("rejected");
+    assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
+    assert_eq!(pointed_at(source, &errors), "Cons 2 ys = Cons 2 zs");
+}

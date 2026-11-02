@@ -641,8 +641,8 @@ theorem Parse.readsOptional (p: () → {Parse} a) (spec: List Char → a → Pro
         Witness [] (rewrite <- valueSame, <- atSame, back in Both rfl (Both honest rfl))
 
 --| One round of `many` reads what its next step read, or nothing when it is done.
-theorem Parse.readsManyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: b) (spec: List Char → b → Prop)
-    (readsNext: (v: a) → found = Some v → Parse.Reads (() => next v) spec) (readsDone: found = None → Parse.Reads (() => done) spec):
+theorem Parse.readsManyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: () → b) (spec: List Char → b → Prop)
+    (readsNext: (v: a) → found = Some v → Parse.Reads (() => next v) spec) (readsDone: found = None → Parse.Reads (() => done()) spec):
     Parse.Reads (() => Parse.manyStep before found next done) spec :=
   match found with
     | None => readsDone rfl
@@ -691,10 +691,10 @@ theorem Parse.readsManyFuel (p: () → {Parse} a) (spec: List Char → a → Pro
       Parse.readsWeaken _ (Parse.Then (read (at: Parse.Mark) => read = []) (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)))
         (Parse.ManyFound spec found)
         (Parse.readsBind (() => Parse.mark())
-          (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p (Cons v found)) found.reverse) (read at => read = [])
+          (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p (Cons v found)) (() => found.reverse)) (read at => read = [])
           (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) Parse.readsMark
           (before =>
-            Parse.readsBind (() => Parse.optional p) (result => Parse.manyStep before result (v => Parse.manyFuel more p (Cons v found)) found.reverse)
+            Parse.readsBind (() => Parse.optional p) (result => Parse.manyStep before result (v => Parse.manyFuel more p (Cons v found)) (() => found.reverse))
               (Parse.Maybe spec) (Parse.ManyNext spec found) (Parse.readsOptional p spec reads)
               (result =>
                 Parse.readsManyStep before result _ _ (Parse.ManyNext spec found result)
