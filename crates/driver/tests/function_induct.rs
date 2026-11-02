@@ -256,6 +256,60 @@ fn each_kind_of_recursion_and_split() {
     });
 }
 
+/// A lifted `match` with a nested pattern (`Some (MkPair v next)`, SW-1073):
+/// its alternative's variables are the pattern's, and the equation is
+/// `e = Some (MkPair v next)`. The library's `List.unfold` is one.
+#[test]
+fn a_nested_pattern_in_a_lifted_match() {
+    let source = r#"
+import Std (Eq, List, Nat, Option, Pair, Void)
+
+def deep: List (Pair (Pair Nat Nat) Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkPair (MkPair a b) c) => a + b + c + deep rest
+
+theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat)
+    (shrinks: (x: s) → (y: s) → (v: a) → step x = Some (MkPair v y) → measure y < measure x):
+    step seed = None → List.unfold seed step measure shrinks = [] :=
+  List.unfold.induct (seed step measure shrinks result => step seed = None → result = [])
+    (seed step measure shrinks found same => rfl)
+    (seed step measure shrinks v next found ih same =>
+      Void.exfalso (Option.noneNotSome (MkPair v next) (rewrite same at found in found)))
+    seed step measure shrinks
+"#;
+    with_source(source.to_string(), |s| {
+        let deep = generated(s, "deep.induct");
+        assert!(
+            deep.contains(
+                "(eq2Alt2: (x: ((Nat, Nat), Nat)) → (rest: List ((Nat, Nat), Nat)) → \
+                 (a: Nat) → (b: Nat) → (c: Nat) → List.head rest = Some ((a, b), c) → \
+                 motive rest (deep rest) → motive (Cons x rest) (a + b + c + deep rest))"
+            ),
+            "{deep}"
+        );
+        let unfold = generated(s, "List.unfold.induct");
+        let shrinks =
+            "(shrinks: (x: s) → (y: s) → (v: a) → step x = Some (v, y) → measure y < measure x)";
+        let want = format!(
+            "[s: Type] → [a: Type] → (motive: s → (step: s → Option (a, s)) → \
+             (measure: s → Nat) → ((x: s) → (y: s) → (v: a) → step x = Some (v, y) → \
+             measure y < measure x) → List a → Prop) → \
+             (eqNone: (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
+             step seed = None → motive seed step measure shrinks []) → \
+             (eqAlt2: (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
+             (v: a) → (next: s) → step seed = Some (v, next) → \
+             motive next step measure shrinks (List.unfold next step measure shrinks) → \
+             motive seed step measure shrinks (Cons v (List.unfold next step measure shrinks))) → \
+             (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
+             motive seed step measure shrinks (List.unfold seed step measure shrinks)"
+        );
+        assert_eq!(unfold, want);
+    });
+}
+
 /// Using them: a theorem by each, the motive written out; `E-NO-EQUATION`
 /// with the reason for one that isn't generated, a note for a definition
 /// that isn't recursive, and the name reserved.
