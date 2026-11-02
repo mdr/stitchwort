@@ -76,7 +76,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   `docs/workflow.md`). GLM is the fallback. Run it with OpenCode's default
   permissions, without a sandbox (Matt, 2 Nov 2026): `opencode run
   --standalone --auto --agent build --model opencode-go/deepseek-v4.1-flash
-  "<brief>"` in the clone, as a background job of the orchestrator's. The
+  "<brief>" </dev/null` in the clone, as a background job of the
+  orchestrator's. The `</dev/null` matters: with stdin an open pipe,
+  OpenCode 2.1.x waits for it to close and never starts (SW-1097, upstream
+  anomalyco/opencode#59287). The
   safety comes from the clone having no remote, the brief's rules, and the
   review.
 - **Neither model's "done" is taken on trust:** the orchestrator runs the
