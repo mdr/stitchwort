@@ -3676,16 +3676,18 @@
     {
       "id": 1099,
       "title": "Commenting rule, two regimes (D2226 step 1): std is documented comprehensively as an API; application code (aoc, roguelike, examples) is parsimonious and never restates the code. Write it into docs/syntax.md 'Doc comments' and docs/proving-guide.md (and wherever docs are briefed)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "",
+      "body": "\n\nMerged (60c9552a): docs/syntax.md 'What to write', proving-guide §2 item 7, workflow.md bullet, documentation.md §6.2 note. Docs only, no test run. Open point for Matt: std theorems whose name and statement say it all need no doc (the lane limited 'every public declaration' to what coverage counts).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "60c9552a"
+      ]
     },
     {
       "id": 1100,
