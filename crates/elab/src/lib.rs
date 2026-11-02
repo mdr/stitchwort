@@ -82,7 +82,7 @@ pub use kernel::{
 };
 pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
 pub mod std_dir;
-pub use equations::is_equation_name;
+pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;
@@ -1959,6 +1959,22 @@ impl Elaborator {
                 }
                 _ => false,
             };
+            if is_def && suffix == "induct" {
+                let owner = scope::display(owner);
+                return Err(error(
+                    "E-DUPLICATE",
+                    n.span,
+                    format!(
+                        "`{}` is the name of `{owner}`'s generated functional induction",
+                        n.text
+                    ),
+                )
+                .with_note(format!(
+                    "a recursive definition gets `{owner}.induct`, an induction principle with a \
+                     case for each of its equations; the name is reserved for it. Give this \
+                     declaration another name"
+                )));
+            }
             if is_def {
                 let owner = scope::display(owner);
                 return Err(error(

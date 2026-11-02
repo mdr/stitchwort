@@ -207,7 +207,7 @@ impl Session {
                 (def.theorem
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_equation_name(&def.name)
+                    && !stitchwort_elab::is_generated_name(g, &def.name)
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
                 .then(|| (id, def.name.to_string(), state == State::Final))

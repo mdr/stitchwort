@@ -1236,7 +1236,8 @@ impl Session {
                     statement: statement(g, &d.ty),
                     line,
                     file,
-                    stuck: !transparent_tree || has_overlap_hypothesis(&d.ty),
+                    stuck: !stitchwort_elab::is_function_induct(g, &d.name)
+                        && (!transparent_tree || has_overlap_hypothesis(&d.ty)),
                 }
             })
             .collect();
@@ -1283,13 +1284,23 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
     for id in (0..g.defs.len()).map(DefId) {
         let d = g.def(id);
         // Not the hidden lemmas branches use (`f.%match1.eq2`).
-        if !d.theorem || !stitchwort_elab::is_equation_name(&d.path) || d.path.contains('%') {
+        if !d.theorem || !stitchwort_elab::is_generated_name(g, &d.name) || d.path.contains('%') {
             continue;
         }
         // The owner is what precedes the first `.eqK` (or `.eq`, below a
         // `:=` body: `gcd.eq.ifTrue`).
         let mut at = 0;
         let mut owner_end = None;
+        // `f.induct`, before the equations (stage 2a): listed first, never cut.
+        if stitchwort_elab::is_function_induct(g, &d.name)
+            && let Some(owner) = d.path.strip_suffix(".induct")
+        {
+            by_owner
+                .entry(owner.to_string())
+                .or_default()
+                .push((Vec::new(), id));
+            continue;
+        }
         let parts = d.path.split('.').count();
         for (i, part) in d.path.split('.').enumerate() {
             let digits = part.strip_prefix("eq");

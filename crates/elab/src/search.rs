@@ -471,7 +471,7 @@ impl Item {
     pub fn generated_equation(self, g: &Globals) -> bool {
         match self {
             Item::Def(id) | Item::Part(id, _) => {
-                g.def(id).theorem && crate::equations::is_equation_name(&g.def(id).name)
+                g.def(id).theorem && crate::equations::is_generated_name(g, &g.def(id).name)
             }
             Item::Ctor(..) => false,
         }

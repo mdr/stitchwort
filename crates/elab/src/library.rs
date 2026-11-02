@@ -899,7 +899,10 @@ impl Elaborator {
         // make on demand (`equations.rs`); read as a field of `f` too.
         let owner = match r {
             Ref::Name(n) => crate::equations::reserved_suffix(&n.text).map(|(o, _)| o),
-            Ref::Dot(n, field, _) if crate::equations::is_equation_name(&format!("f.{field}")) => {
+            Ref::Dot(n, field, _)
+                if field == "induct"
+                    || crate::equations::is_equation_name(&format!("f.{field}")) =>
+            {
                 Some(n.text.as_str())
             }
             _ => None,
