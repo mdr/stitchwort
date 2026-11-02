@@ -2836,8 +2836,17 @@ impl Elaborator {
                     let named = binder.filter(|b| b.text != "_");
                     let yes = taken.choice == 0;
                     let is = |id: DefId| matches!(head, Term::Def(h) if *h == id);
-                    // The condition is `args[1]` of either form.
-                    if args.len() >= 2 && closed(&args[1].0) {
+                    // The condition: `c` of `Bool.ifThenElse [a] c t e`, `p` of
+                    // `Decidable.elim p motive dec yes no` (whose `args[1]`
+                    // is the result type, closed whatever the condition).
+                    let condition = if is(lib.ite) && args.len() == 4 {
+                        Some(&args[1].0)
+                    } else if is(lib.elim) && args.len() == 5 {
+                        Some(&args[0].0)
+                    } else {
+                        None
+                    };
+                    if condition.is_some_and(closed) {
                         return skip(CLOSED_SPLIT);
                     }
                     if is(lib.ite) && args.len() == 4 && named.is_none() {
