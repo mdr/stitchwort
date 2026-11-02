@@ -713,14 +713,18 @@
     {
       "id": 738,
       "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\n28 Oct lane: workaround kept, no change. The natural form (23632129 shape: let/match with k inside the arm) is still worse on the interpreter: a Parse.next loop over 160,000 chars takes 1.49 GB / 9.4 s natural vs 1.01 GB / 2.2 s workaround; a mixed span/literal/next loop of 100,000 is 19.8 s vs 11.2 s (loaded machine). So the runtime still doesn't treat k inside a match arm of a state-handler clause as a tail jump (2b541087). Blocked on the runtime ticket below.\n\n\nD2215 a (Matt, 2 Nov 2026): revert Std.Parse's pair-returning workaround to the natural form (k inside match arms), now that SW-1087 step 1 found it fused on the machine (same time, 13% less memory). First: a JS check (build --js and a large parse on node, since JS's fuse can't follow lifted matches), and re-prove the Parse.runFrom* lemmas (proved by rfl against runFrom). Sonnet. Then close SW-861.\n\n\nStarted 21:55, 2 Nov 2026 (D2218): Sonnet, estimate 40 min (stop and report at 60, hard stop 120).\n",
+      "body": "\n\n28 Oct lane: workaround kept, no change. The natural form (23632129 shape: let/match with k inside the arm) is still worse on the interpreter: a Parse.next loop over 160,000 chars takes 1.49 GB / 9.4 s natural vs 1.01 GB / 2.2 s workaround; a mixed span/literal/next loop of 100,000 is 19.8 s vs 11.2 s (loaded machine). So the runtime still doesn't treat k inside a match arm of a state-handler clause as a tail jump (2b541087). Blocked on the runtime ticket below.\n\n\nD2215 a (Matt, 2 Nov 2026): revert Std.Parse's pair-returning workaround to the natural form (k inside match arms), now that SW-1087 step 1 found it fused on the machine (same time, 13% less memory). First: a JS check (build --js and a large parse on node, since JS's fuse can't follow lifted matches), and re-prove the Parse.runFrom* lemmas (proved by rfl against runFrom). Sonnet. Then close SW-861.\n\n\nStarted 21:55, 2 Nov 2026 (D2218): Sonnet, estimate 40 min (stop and report at 60, hard stop 120).\n\n\nMerged 2ab36ac9 (4d842a99, review fixes 76274ccd), snapshots 91082abe. Opus review: behaviour and every statement unchanged; fixes made (the 8-leaf runFromLabelWholeFromOkTree proof stays: the stuck match hides translate from rewrite). JS (node) and machine: same time within noise, 13% less memory (1.39 vs 1.60 GB over 160,000 chars). Merge tier 1030/1030, audits clean (std 2546), Day03+Day05 search audit 60/60. Model result: Sonnet, needed fixes (review tidy-ups), 19 + 2 min (est. 40 + 15).\n",
       "created": "2026-10-28",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "4d842a99",
+        "76274ccd",
+        "91082abe"
+      ]
     },
     {
       "id": 741,
@@ -1211,15 +1215,15 @@
     {
       "id": 861,
       "title": "Runtime: a state-handler clause that resumes k inside a match arm isn't run as a loop (k not in tail position), so Std.Parse needs its pair-returning workaround",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "runtime"
       ],
-      "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.\n\n29 Oct, from docs/comparisons/aoc-2024-day01-community.md: on 100,000 synthetic lines, about 1.0 s of the native build's 1.2 s is Std.Parse, five times slower than splitting on white space. On real inputs (1,000 to 20,000 lines) parsing costs 10 to 200 ms natively. See also the day 2 and day 3 numbers on SW-593.",
+      "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.\n\n29 Oct, from docs/comparisons/aoc-2024-day01-community.md: on 100,000 synthetic lines, about 1.0 s of the native build's 1.2 s is Std.Parse, five times slower than splitting on white space. On real inputs (1,000 to 20,000 lines) parsing costs 10 to 200 ms natively. See also the day 2 and day 3 numbers on SW-593.\n\nClosed 2 Nov 2026: fixed by 01462c09 (fusion follows lifted matches on the machine); confirmed by SW-1087 step 1; Std.Parse back in the natural form (SW-738). Memory growth per char split out as SW-1096.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-29",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
