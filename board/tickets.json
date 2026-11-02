@@ -3659,17 +3659,19 @@
     {
       "id": 1098,
       "title": "Test selector for the merge checks (D2221): given the merged diff, the tests the lane reported running, and a list of every test with its last measured time (nextest JUnit) and area (the lane profiles in .config/nextest.toml), choose the tests that best cover what's at risk of regression within a 120 s budget, as a nextest filter with a one-line reason per group; plus a small fixed core always run (rustfmt, kernel, one AoC day). Build: the timing inventory (task), the selector's brief (a cheap model), the filter output and a log of each selection. Trial for ~10 merges against the fixed merge tier; then score from daily-tier regressions the selector skipped",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "tests",
         "tooling"
       ],
-      "body": "",
+      "body": "\n\nMerged 372c9b9d (4b4ec74f): dev/test-inventory (+ unit tests), dev/run-selected, task test:inventory / test:selected, dev/selector-log.tsv, docs/test-selector.md (Haiku brief), docs/testing.md and workflow.md. Estimate max(sum/8.4, serial sweeps, longest): 114 s on the merge tier vs ~110 measured. Dry run on the SW-738 merge: 614 tests, est. 75 s. Orchestrator checks: unit tests OK, smoke selection (stitchwort-syntax, 206 tests) pass. Inventory on main built from the quiet pre-trim JUnit only (the overlapped-run junit.xml deleted). Caveats: 897 tests have no known time yet (fill from trial runs); auto-folding target/nextest/*/junit.xml means a bad run's times get in. Trial: next ~10 code merges, verifier runs selection and fixed tier. Model result: Sonnet, worked, 8 min (est. 60).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "4b4ec74f"
+      ]
     }
   ]
 }
