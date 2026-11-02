@@ -332,10 +332,11 @@ def ok : Pair Nat Nat := MkPair (List.length (replicate 3 1)) 0
 theorem wrong : List.length (replicate 3 1) = 4 := Std.Eq.cong (x => x) rfl
 "
     );
-    assert_eq!(
-        codes(session.load("needed.sw", &source)),
-        ["E-TYPE-MISMATCH"]
-    );
+    // `rfl` is checked after the rest of its call (postponement stage 7),
+    // against `List.length (replicate 3 1) = 4`: computing the left side
+    // gives 3, so `rfl` itself is refused (before stage 7, the call's
+    // result type was: `E-TYPE-MISMATCH`).
+    assert_eq!(codes(session.load("needed.sw", &source)), ["E-REFL"]);
 }
 
 const LISTS: &str = "
