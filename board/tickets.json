@@ -3629,7 +3629,7 @@
     {
       "id": 1096,
       "title": "Memory grows ~5.8 KB per input character in Std.Parse loops, fused or not (D2215 b, from SW-1087; noted on SW-861): Parse.next over 160,000 chars peaks 1.2-1.6 GB against 94 MB for the input list; a fused Nat-state handler at 1M operations peaks 6.3 GB. Find what is retained per operation (trail, continuation, sharing, allocator) and fix it. Sonnet; measure on a quiet machine",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
