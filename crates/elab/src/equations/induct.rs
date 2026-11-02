@@ -991,7 +991,30 @@ impl Elaborator {
                     };
                     if pd != data || decl.ctors[c].fields.len() != pf.len() {
                         return skip(
-                            "a lifted `match`'s alternative isn't of its scrutinee's type",
+                            "a lifted `match`'s alternative isn't of its scrutinee's type, or \
+                             isn't applied to the fields of that type's constructor",
+                        );
+                    }
+                    // A nested pattern can only be split on a non-indexed
+                    // type with one constructor. Say so here, before the
+                    // alternatives' constructors are checked for
+                    // repetition: `Some None` and `Some (Some k)` would
+                    // otherwise be reported as not covering their type once.
+                    fn nested_unsplittable(g: &Globals, pat: &Pat) -> bool {
+                        match pat {
+                            Pat::Leaf => false,
+                            Pat::Node { data, fields, .. } => {
+                                let decl = g.data(*data);
+                                !decl.indices.is_empty()
+                                    || decl.ctors.len() != 1
+                                    || fields.iter().any(|f| nested_unsplittable(g, f))
+                            }
+                        }
+                    }
+                    if pf.iter().any(|f| nested_unsplittable(g, f)) {
+                        return skip(
+                            "a nested pattern on a type with several constructors or indices \
+                             isn't split by stage 2a",
                         );
                     }
                     let pat = Pat::Node {
@@ -1281,15 +1304,7 @@ impl Elaborator {
         let Pat::Node { ctor, fields, .. } = pat else {
             return skip("a nested pattern isn't a constructor");
         };
-        let root = self.open_node(
-            n.data,
-            *ctor,
-            fields,
-            n.data_args.to_vec(),
-            n.depth,
-            None,
-            n.depth,
-        );
+        let root = self.open_node(n.data, *ctor, fields, n.data_args.to_vec(), None, n.depth);
         let m = root.fields.len();
         let mut nodes = vec![root];
         let work: Vec<(usize, usize)> = (0..m)
@@ -1312,15 +1327,13 @@ impl Elaborator {
     }
 
     /// A constructor node whose fields are bound at levels `at..`, then
-    /// its equation.
-    #[allow(clippy::too_many_arguments)]
+    /// its equation; its `args` are in a context of `at` variables.
     fn open_node(
         &self,
         data: DataId,
         ctor: usize,
         pats: &[Pat],
         args: Vec<Term>,
-        args_at: usize,
         target: Option<usize>,
         at: usize,
     ) -> NestNode {
@@ -1329,7 +1342,7 @@ impl Elaborator {
             data,
             ctor,
             args,
-            args_at,
+            args_at: at,
             pats: pats.to_vec(),
             kids: vec![None; m],
             fields: (at..at + m).collect(),
@@ -1388,8 +1401,19 @@ impl Elaborator {
         else {
             return skip("a nested pattern's field isn't a constructor");
         };
-        // The field's type here.
         let decl = g.data(node.data);
+        // A later field whose type mentions this one: splitting the field
+        // would need the later field's type rewritten by the split, which
+        // stage 2a's lemma doesn't do.
+        let fields = &decl.ctors[node.ctor].fields;
+        if let Some(j) = (k + 1..fields.len()).find(|&j| fields[j].1.mentions(j - 1 - k)) {
+            return skip(format!(
+                "a later field `{}` of the constructor has a type that depends on the nested \
+                 field `{}`, which stage 2a doesn't split",
+                fields[j].0, fields[k].0
+            ));
+        }
+        // The field's type here.
         let np = decl.params.len();
         let mut vals: Vec<(Term, usize)> = node
             .args
@@ -1415,7 +1439,7 @@ impl Elaborator {
         }
         let fargs: Vec<Term> = fargs.iter().map(|a| (**a).clone()).collect();
         let m = fdecl.ctors[0].fields.len();
-        let child = self.open_node(fd, 0, &pf, fargs.clone(), cur, Some(node.fields[k]), cur);
+        let child = self.open_node(fd, 0, &pf, fargs.clone(), Some(node.fields[k]), cur);
         let ci = nodes.len();
         nodes[ni].kids[k] = Some(ci);
         nodes.push(child);
