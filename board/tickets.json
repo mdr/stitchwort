@@ -1,5 +1,5 @@
 {
-  "next": 1072,
+  "next": 1074,
   "tickets": [
     {
       "id": 47,
@@ -4059,7 +4059,7 @@
     {
       "id": 1057,
       "title": "Function equations stage 2a: f.induct for recursive definitions (D2181: unfolding form, fixed prefix, no IH under binders, no mutual groups)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4222,7 +4222,7 @@
     {
       "id": 1068,
       "title": "Function equations: on-demand library equations compile arms in the caller's scope, so constructors private to a library file (Map.Tree's Tip, VNil, Omega's) aren't found and those definitions' equations are skipped in search/doc (a few hundred std names; 1a and 1b)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4275,6 +4275,36 @@
         "proof"
       ],
       "body": "From SW-1070 (2 Nov 2026). Recorded since 1a (an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason). §6.2 of the proposal was wrong that explode's branch equations are generated; p7.sw writes them by hand. Day18.sw keeps explodeIn/explodeUnfold. The As built (stage 1d) section says what would unblock it.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1072,
+      "title": "check_cache the_cache_changes_nothing_for_the_examples panics (globals.rs:650 index out of bounds: a metavariable looked up after they were cleared) on accept/derive-ord-own-deceq.sw with navigation on; passed in this morning's full run, so from today's merges (SW-1049/1053/1067/1070/1068/1057)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tests",
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1073,
+      "title": "f.induct follow-ups: split lifted matches with a catch-all or nested pattern (6 skips: 4 std, 2 AoC) on %split/%apart; doc header says 'N equations and f.induct'",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
