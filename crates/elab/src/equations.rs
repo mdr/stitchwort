@@ -61,7 +61,9 @@
 //! core's and the library's are made on demand (D2178's fallback: eager,
 //! they cost every start), when first named (a module's needs) or listed
 //! (`search`), from their source in the library index
-//! ([`Elaborator::ensure_equations`]).
+//! ([`Elaborator::ensure_equations`]), in the defining file's scope (its
+//! imports, and for the core no library names), so they come out the same
+//! whoever asks.
 //!
 //! What isn't generated (§3.2, "Not generated") is recorded with the reason,
 //! and naming it is `E-NO-EQUATION` ([`no_equation`]).
@@ -3806,8 +3808,6 @@ impl Elaborator {
             return Ok(());
         }
         let saved_item = self.module.item.take();
-        // Their full names are the library's, wherever they're made.
-        let saved_module = std::mem::replace(&mut self.globals.module, "Std".into());
         let saved_leaves = std::mem::take(&mut self.leaf_log.borrow_mut().leaves);
         let decreasing = matches!(
             signature,
@@ -3817,15 +3817,19 @@ impl Elaborator {
             }
         );
         let opaque = matches!(signature, Decl::Signature { opaque: true, .. });
-        let result = if decreasing {
-            self.decreasing_equations(id, signature, equations, Some(key))
-        } else {
-            let kind = if opaque { Kind::Opaque } else { Kind::Plain };
-            self.generate_equations_keyed(id, signature, equations, kind, Some(key))
-        };
+        // In the defining file's scope (its imports, the library's names,
+        // the library's full names), whoever asks: a program, `search`, or
+        // another library file (SW-1068).
+        let result = self.in_library_file(f, |e| {
+            if decreasing {
+                e.decreasing_equations(id, signature, equations, Some(key))
+            } else {
+                let kind = if opaque { Kind::Opaque } else { Kind::Plain };
+                e.generate_equations_keyed(id, signature, equations, kind, Some(key))
+            }
+        });
         self.leaf_log.borrow_mut().leaves = saved_leaves;
         self.module.item = saved_item;
-        self.globals.module = saved_module;
         result
     }
 

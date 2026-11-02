@@ -992,7 +992,8 @@ keyed.eq2 (c: Char) (xs: List Char) (notArm1: c = 'k' → xs = [] → Void): key
   gets its equations when they're first named, not when it's checked. A reference to `f.eq2`
   (as a name, or `f`'s field) is one of the module's needs, as a library file is: the
   equations are made after the files load and before the module's check-cache entry starts, so
-  never part of it, and the entry lists them so a replay makes them first. They're made from
+  never part of it, and the entry lists them so a replay makes them first. They're made (since
+  SW-1068, in the defining file's scope, below) from
   the definition's source in the library index, its leaves found by compiling its arms again (a
   definition with a `()` arm can't be, and says so). A library file's own proofs that name its
   equations get them once the definition is final. `search` (and `doc`, which lists through it)
@@ -1157,7 +1158,48 @@ until it names one.
    library file's own constructors (`Map.Tree`'s `Tip`, `Vec`'s `VNil`, `Omega`'s) aren't
    visible unless imported, so those definitions' equations (and branches) are skipped there
    ("its arms couldn't be compiled again: unknown name `Tip`"); naming one from a program that
-   imports the type makes it.
+   imports the type makes it. **Fixed by SW-1068** (below, "On-demand equations in the defining
+   file's scope").
+
+### On-demand equations in the defining file's scope (SW-1068)
+
+SW-1068, 2 November 2026. The cause of item 6 above: `ensure_equations_of`
+(`crates/elab/src/equations.rs`) set only the full names' module (`Std`) and compiled the arms
+again (`recompute_leaves`) in whatever scope was current: the program's, `search`'s, or the
+library file loading at the time. A library file's own imports (`import Map.Tree (Tip, Bin)` in
+std/Map/Raw.sw) weren't there, so its definitions were skipped wherever the caller didn't
+import the same names. The result depended on who asked.
+
+Now `Elaborator::in_library_file` (`crates/elab/src/library.rs`) runs the generation in the
+defining file's scope, as it had while loading: the library's names (`loading_prelude`), no
+namespace root, no file mode, a module of that one file with the file's own imports, and the
+caller's module, imports and warnings put back afterwards. The file that's loading (its own
+proofs naming its equations) is in its own scope already and is left as it is. **The core** loaded
+before the library's names were installed, so while its equations are made the names it didn't
+declare are hidden (`Scope::core_only`, a `CoreExtent` of the core's definitions, data types and
+abilities taken at `install_library`, plus the equations being made). Without this,
+`Effect.rowOp`'s `| Empty =>` read std/Abort/Abort.sw's `Std.Empty` ("`Empty` isn't a
+constructor").
+
+`a_library_equation_is_the_same_however_it_is_made`
+(`crates/driver/tests/function_equations.rs`) builds a test library whose file imports its own
+type's constructors, and checks that `Box.Tree.count.eq1`, `.eq2.ifTrue` and `.eq2.ifFalse`
+have the same statement and the same hash made while the file loads (its own proof names
+one), by `search`, and by a program that names one without importing the constructors.
+`search_makes_the_equations_of_a_file_with_its_own_constructors` makes `Map.Tree.size.eq1` and
+`Map.Tree.singleL.eq2` from `search`. Both failed before.
+
+**Counts** **[measured: `the_librarys_equations`, every library file loaded]**: 1,221 equations
+made (306 branches) before, **1,575 (344 branches)** after. The 359 names skipped as "couldn't be
+compiled again" (30 different unknown names: `Tip` 54, `Printable` 41, `FLe` 30, `VNil` 24,
+…) are now 0; the ignored test asserts it. What std still skips (131): 117 that perform
+abilities, 6 with a `()` arm (`Void.absurd`, `Empty.absurd`, …: a `()` arm can't be compiled
+again), 3 whose right side is a `match` on the arm's variables, 3 branches of
+`Terminal.decode` (a `match` below an alternative that splits a definition variable; before,
+the whole definition was skipped), `Mod.ofNat.eq.ifFalse` (D2180) and one over the size bound.
+
+**Cost** **[measured, one run each, `/usr/bin/time -l`, `search List.length --no-cache`]**: 76.46 G
+→ 76.82 G instructions (+0.5%), 6.13 → 6.25 s user, peak 210 → 212 MB.
 
 
 ## As built (stage 1c)
