@@ -2846,7 +2846,7 @@ impl Elaborator {
                     } else {
                         None
                     };
-                    if condition.is_some_and(closed) {
+                    if refines.is_empty() && condition.is_some_and(closed) {
                         return skip(CLOSED_SPLIT);
                     }
                     if is(lib.ite) && args.len() == 4 && named.is_none() {
@@ -2962,7 +2962,13 @@ impl Elaborator {
                     };
                     let h = *h;
                     let call = self.helper_call(h, scrutinee, &args)?;
-                    if closed(&args[call.col].0) {
+                    // Only unrefined: a row refined where its variable is
+                    // bound (SW-1069) can close a scrutinee the program
+                    // computes from that variable (`List.head rest` with
+                    // `rest` refined to `Nil`); the closed check is for terms
+                    // closed in the program, which the unrefined run meets
+                    // first (SW-1078).
+                    if refines.is_empty() && closed(&args[call.col].0) {
                         return skip(CLOSED_SPLIT);
                     }
                     let helper = match helpers.get(&h) {
