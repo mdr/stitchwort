@@ -3283,7 +3283,7 @@
         "elaborator",
         "proof"
       ],
-      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n2 Nov: the doc wording part is done by SW-1077 (f.induct listed apart: \"N generated equations and f.induct\").\n",
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n2 Nov: the doc wording part is done by SW-1077 (f.induct listed apart: \"N generated equations and f.induct\").\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
@@ -3446,14 +3446,14 @@
     {
       "id": 1084,
       "title": "Experiment (D2202 b, D2203): the same loose brief to DeepSeek V4.1 Flash and Sonnet for three tasks of rising difficulty (SW-926 easy, SW-1081 medium, SW-1073 hard), to find where each model's work can be trusted. Score per run: correctness (line-by-line review), completeness, rules followed, wall time, cost; merge the best run of a task only if useful and Matt agrees",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tooling",
         "research"
       ],
-      "body": "\n\nResults (2 Nov 2026). Same loose brief per task (D2202 b); DeepSeek via opencode run in a scratch clone, Sonnet as a general-purpose subagent; from pair 2 on, both briefs say \"never run a command in the background\".\n\n| Task | Sonnet | DeepSeek |\n|---|---|---|\n| SW-926 easy (diagnostic note) | correct minimal fix, good test passes, 3 snapshots; one slip (started a full sweep, killed it). 6 min, 55k tokens | same fix, nearly identical code; its test FAILS (one wrong case, never run); unfinished: backgrounded its build and the one-shot run ended, no report. 7.5 min |\n| SW-1081 medium (destructuring let equations) | correct, narrow (tuple/record only); existing examples unchanged; example + doc test. 15 min, 79k tokens | correct, broader (proof-ctor lets too, kernel-checked); caught the change to an existing example and left the snapshot; specific skip reason; updated the design note. 15 min |\n| SW-1073 hard, narrowed (List.unfold.induct) | works: all induct tests incl. library and AoC sweeps pass; also handles doubly nested patterns. 26 min, 123k tokens | works: same tests pass; nested pattern in the last field only. 31 min |\n\nFindings:\n- On code, DeepSeek matched Sonnet at all three levels given a loose brief; Sonnet's solutions were somewhat more general on the hard task, DeepSeek's more thorough on the medium one.\n- DeepSeek's failures were process, not reasoning: a one-shot opencode run can't wait on a backgrounded command (fixed by one brief line), and it shipped a test it never ran.\n- Neither diff can be trusted without review; the hard task's kernel-term code needs an Opus line-by-line review before merging either.\nSuggested boundary: DeepSeek (with \"never background\", \"run every test you add\") for tasks up to medium elaborator work from a goal-level brief; Sonnet where generality and judgement on a design matter (kernel-adjacent generators), or where a wrong guess spreads. Small sample: three tasks, one run each.\nMergeable: SW-926 Sonnet's; SW-1081 DeepSeek's (broader) or Sonnet's (smaller); SW-1073 either after review (Sonnet's more general). Matt to choose.\n",
+      "body": "\n\nResults (2 Nov 2026). Same loose brief per task (D2202 b); DeepSeek via opencode run in a scratch clone, Sonnet as a general-purpose subagent; from pair 2 on, both briefs say \"never run a command in the background\".\n\n| Task | Sonnet | DeepSeek |\n|---|---|---|\n| SW-926 easy (diagnostic note) | correct minimal fix, good test passes, 3 snapshots; one slip (started a full sweep, killed it). 6 min, 55k tokens | same fix, nearly identical code; its test FAILS (one wrong case, never run); unfinished: backgrounded its build and the one-shot run ended, no report. 7.5 min |\n| SW-1081 medium (destructuring let equations) | correct, narrow (tuple/record only); existing examples unchanged; example + doc test. 15 min, 79k tokens | correct, broader (proof-ctor lets too, kernel-checked); caught the change to an existing example and left the snapshot; specific skip reason; updated the design note. 15 min |\n| SW-1073 hard, narrowed (List.unfold.induct) | works: all induct tests incl. library and AoC sweeps pass; also handles doubly nested patterns. 26 min, 123k tokens | works: same tests pass; nested pattern in the last field only. 31 min |\n\nFindings:\n- On code, DeepSeek matched Sonnet at all three levels given a loose brief; Sonnet's solutions were somewhat more general on the hard task, DeepSeek's more thorough on the medium one.\n- DeepSeek's failures were process, not reasoning: a one-shot opencode run can't wait on a backgrounded command (fixed by one brief line), and it shipped a test it never ran.\n- Neither diff can be trusted without review; the hard task's kernel-term code needs an Opus line-by-line review before merging either.\nSuggested boundary: DeepSeek (with \"never background\", \"run every test you add\") for tasks up to medium elaborator work from a goal-level brief; Sonnet where generality and judgement on a design matter (kernel-adjacent generators), or where a wrong guess spreads. Small sample: three tasks, one run each.\nMergeable: SW-926 Sonnet's; SW-1081 DeepSeek's (broader) or Sonnet's (smaller); SW-1073 either after review (Sonnet's more general). Matt to choose.\n\n\nClosed 2 Nov 2026: merged Sonnet's SW-926, DeepSeek's SW-1081, Sonnet's SW-1073 part (D2205); model choice revised from it (D2208).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
@@ -3461,7 +3461,7 @@
     {
       "id": 1085,
       "title": "Research: Osprey's effects (https://www.ospreylang.dev/docs/effects/) - what it is, and what Stitchwort's abilities/handlers could borrow",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
