@@ -3527,7 +3527,7 @@
       "labels": [
         "equations"
       ],
-      "body": "",
+      "body": "\n\n2 Nov 2026: first DeepSeek run hung (32 min, 2 s CPU, no edits, empty log); stopped; API answered a test prompt in 5 s; rerun at ~21:50 with estimate 25 min (D2216), hard stop 75 min.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
