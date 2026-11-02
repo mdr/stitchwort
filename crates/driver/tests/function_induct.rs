@@ -262,7 +262,7 @@ fn each_kind_of_recursion_and_split() {
 #[test]
 fn a_nested_pattern_in_a_lifted_match() {
     let source = r#"
-import Std (Eq, List, Nat, Option, Pair, Void)
+import Std (Eq, Fin, List, Nat, Option, Pair, Void)
 
 def deep: List (Pair (Pair Nat Nat) Nat) → Nat
   | Nil => 0
@@ -270,6 +270,34 @@ def deep: List (Pair (Pair Nat Nat) Nat) → Nat
     match List.head rest with
       | None => 0
       | Some (MkPair (MkPair a b) c) => a + b + c + deep rest
+
+-- Two nested fields, both split.
+def both: List (Pair (Pair Nat Nat) (Pair Nat Nat)) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkPair (MkPair a b) (MkPair c e)) => a + b + c + e + both rest
+
+-- A later constructor field (`w`) whose type mentions the nested field (`q`).
+type Sig =
+  | MkSig (q: Pair Nat Nat) (w: Fin (Pair.fst q))
+
+def dependent: List Sig → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some (MkSig (MkPair a b) w) => a + b + dependent rest
+
+-- A nested pattern whose inner type has several constructors.
+def nestedMulti: List (Option Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some None => 1
+      | Some (Some k) => k + nestedMulti rest
 
 theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat)
     (shrinks: (x: s) → (y: s) → (v: a) → step x = Some (MkPair v y) → measure y < measure x):
@@ -289,6 +317,25 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
                  motive rest (deep rest) → motive (Cons x rest) (a + b + c + deep rest))"
             ),
             "{deep}"
+        );
+        let both = generated(s, "both.induct");
+        assert!(
+            both.contains(
+                "(eq2Alt2: (x: ((Nat, Nat), Nat, Nat)) → \
+                 (rest: List ((Nat, Nat), Nat, Nat)) → \
+                 (a: Nat) → (b: Nat) → (c: Nat) → (e: Nat) → \
+                 List.head rest = Some ((a, b), c, e) → \
+                 motive rest (both rest) → \
+                 motive (Cons x rest) (a + b + c + e + both rest))"
+            ),
+            "{both}"
+        );
+        let why = skipped(s, "dependent.induct");
+        assert!(why.contains("depends on the nested field"), "{why}");
+        let why = skipped(s, "nestedMulti.induct");
+        assert!(
+            why.contains("a nested pattern on a type with several constructors"),
+            "{why}"
         );
         let unfold = generated(s, "List.unfold.induct");
         let shrinks =
