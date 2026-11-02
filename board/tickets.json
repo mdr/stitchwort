@@ -1,5 +1,5 @@
 {
-  "next": 1056,
+  "next": 1057,
   "tickets": [
     {
       "id": 47,
@@ -4033,6 +4033,20 @@
       "title": "Daily/full round 2: resources E-REFL vs E-TYPE-MISMATCH, search_at_bench stage two, rt::machine aoc_agrees 16 GB/45 min, every_aoc_main_lowers slow",
       "status": "done",
       "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1056,
+      "title": "Debug-build builtins tests: E-RESOURCE 'nested too deeply for the elaborator' checking Int.divAddModNeg (prelude-only session); fails at 04f0b400 too, so from earlier this week",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tests"
