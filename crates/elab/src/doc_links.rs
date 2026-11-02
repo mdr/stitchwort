@@ -8,11 +8,15 @@
 //! library name without `Std.` (`List.map`) or a name in the file's own
 //! namespace resolves, whatever the file imports, so a link never forces an
 //! `import`. A link adds no dependency: nothing here is read by the check
-//! cache's key, and a namespace replayed from the cache replays the warnings
-//! it had.
+//! cache's key. So the warnings are not cached (SW-1045): they are worked
+//! out again each time, after a namespace is checked or replayed, against the
+//! names as they are now. A file's `import` lines count by their syntax
+//! (`link_candidates_with_imports`), as they do in `doc` and the index, since
+//! a replayed namespace has not had its imports applied.
 
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::docs::{DocLink, link_candidates};
+use stitchwort_syntax::ast::Import;
+use stitchwort_syntax::docs::{DocLink, link_candidates_with_imports};
 
 use crate::Elaborator;
 use crate::project::SourceUnit;
@@ -39,7 +43,7 @@ impl Elaborator {
             }
             let saved = self.module.file.replace(file);
             for link in &unit.module.doc_links {
-                match self.link_meaning(&link.name) {
+                match self.link_meaning(&link.name, &unit.module.imports) {
                     Meaning::Found => {}
                     Meaning::Ambiguous(keys) => out.push(
                         Diagnostic::warning(
@@ -63,7 +67,7 @@ impl Elaborator {
         out
     }
 
-    fn link_meaning(&self, name: &str) -> Meaning {
+    fn link_meaning(&self, name: &str, imports: &[Import]) -> Meaning {
         match self.resolve(name) {
             Resolved::Found { rest, .. } if rest.is_empty() => return Meaning::Found,
             // A type and its constructor of the same name are one thing to
@@ -75,7 +79,7 @@ impl Elaborator {
             Resolved::Found { .. } | Resolved::Missing => {}
         }
         if self
-            .doc_link_target(name, self.module.namespace.as_deref())
+            .doc_link_target(name, self.module.namespace.as_deref(), imports)
             .is_some()
         {
             Meaning::Found
@@ -129,13 +133,18 @@ impl Elaborator {
         best.map(|(_, name)| name)
     }
 
-    /// What a doc link `name` means without any file's imports (as `doc` and
-    /// the index show it): the full name of the declaration or namespace it
-    /// names, trying `namespace` (the namespace of the file the doc is in),
+    /// What a doc link `name` means, through the file's `imports` if given
+    /// (as `doc` and the index show it): the full name of the declaration or
+    /// namespace it names, trying `namespace` (the namespace of the file the doc is in),
     /// then the name as written, then the library's. `None` if it names
     /// nothing.
-    pub fn doc_link_target(&self, name: &str, namespace: Option<&str>) -> Option<String> {
-        link_candidates(name, namespace)
+    pub fn doc_link_target(
+        &self,
+        name: &str,
+        namespace: Option<&str>,
+        imports: &[Import],
+    ) -> Option<String> {
+        link_candidates_with_imports(name, namespace, imports)
             .into_iter()
             .find(|key| self.is_known_key(key))
     }

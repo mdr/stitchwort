@@ -17,9 +17,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use stitchwort_core::{DataId, DefId, Globals, Term};
-use stitchwort_syntax::ast::{Decl, Expr, Module};
+use stitchwort_syntax::ast::{Decl, Expr, Import, Module};
 use stitchwort_syntax::docs::{
-    Doc, docs, file_doc, file_doc_namespace, link_candidates, link_ranges,
+    Doc, docs, file_doc, file_doc_namespace, file_imports, link_candidates_with_imports,
+    link_ranges,
 };
 use stitchwort_syntax::{
     DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex, parse_module_recovering,
@@ -138,6 +139,8 @@ pub struct Decls {
     namespaces: BTreeSet<String>,
     /// Docs by file, read once.
     docs: RefCell<BTreeMap<usize, BTreeMap<u32, Doc>>>,
+    /// Each file's `import` lines, read when a link in it is resolved.
+    imports: RefCell<BTreeMap<usize, Vec<Import>>>,
 }
 
 /// Where examples and theorems are looked for (D2146): the files of these
@@ -171,6 +174,7 @@ impl Decls {
             by_path: BTreeMap::new(),
             namespaces: BTreeSet::new(),
             docs: RefCell::new(BTreeMap::new()),
+            imports: RefCell::new(BTreeMap::new()),
         };
         let std = stitchwort_elab::std_text();
         // The core's files are joined in the prelude: each is read alone.
@@ -433,10 +437,15 @@ impl Decls {
 
     /// The links of `doc`, which is in file `file`, and what each names (§7,
     /// D2153): a name in the file's namespace, a full name, or a library
-    /// name without `Std.`. Not by the file's imports, which `check` reads
-    /// (and warns by): `doc` doesn't elaborate (D2152).
+    /// name without `Std.`, or a name the file's `import` lines bring in
+    /// (read from the syntax, as `doc` doesn't elaborate, D2152: SW-1045).
     pub fn links(&self, file: usize, doc: &Doc) -> Vec<LinkReport> {
         let namespace = self.file_namespace(file);
+        let mut cache = self.imports.borrow_mut();
+        let f = &self.files[file];
+        let imports = cache
+            .entry(file)
+            .or_insert_with(|| file_imports(f.id, &self.sources.get(f.id).text));
         doc.links
             .iter()
             .map(|link| {
@@ -447,7 +456,7 @@ impl Decls {
                     file: None,
                     line: None,
                 };
-                let hit = link_candidates(&link.name, namespace.as_deref())
+                let hit = link_candidates_with_imports(&link.name, namespace.as_deref(), imports)
                     .into_iter()
                     .find(|c| self.by_path.contains_key(c) || self.is_namespace(c));
                 if let Some(path) = hit {

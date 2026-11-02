@@ -465,9 +465,15 @@ impl Elaborator {
             && let Some(bytes) = store.read(unit, key)
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
-                Ok(warnings) => {
+                Ok(mut warnings) => {
                     self.replayed_names.clear();
                     self.cache_stats.namespace_hits += 1;
+                    // Doc links aren't cached: they may point into other
+                    // namespaces, which can change without this one's key
+                    // changing (SW-1045). Entries written before that held
+                    // them, so they are dropped here too.
+                    warnings.retain(|d| d.code != crate::doc_links::CODE);
+                    warnings.extend(self.doc_link_warnings(files));
                     return (warnings, true);
                 }
                 Err(Miss::Early(why)) => debug(&format!("{ns}: a miss: {why}")),
@@ -503,7 +509,11 @@ impl Elaborator {
             && self.globals.unfinished.borrow().len() == unfinished
             && !self.globals.budget.cancelled();
         if ok && let Some(capture) = capture {
-            match self.encode_namespace(files, capture, &diagnostics, key, store.salt()) {
+            let cached: Vec<Diagnostic> = (diagnostics.iter())
+                .filter(|d| d.code != crate::doc_links::CODE)
+                .cloned()
+                .collect();
+            match self.encode_namespace(files, capture, &cached, key, store.salt()) {
                 Ok(entry) => {
                     store.write(unit, key, &entry);
                     self.cache_stats.namespace_written += 1;
