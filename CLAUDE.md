@@ -47,22 +47,40 @@ does not do significant work itself:
 
 ## Choosing the model
 
-Use the cheapest model that can do the work well:
+Use the cheapest model that can do the work well. Provisional (D2208, Matt,
+2 Nov 2026), from the SW-1084 experiment (three tasks, one run each):
 
 - **Opus:** work that needs design or real intelligence: design notes,
   the kernel and soundness, proofs, tricky bugs, and specs for other models.
-- **Sonnet:** changes of medium complexity, such as implementation across
-  several files, or anywhere a misreading would spread.
-- **DeepSeek via OpenCode:** mechanical work from a precise spec written by
-  the orchestrator or Opus: renames, sweeps, boilerplate, new tests, small
-  features with a clear shape. It runs in a scratch clone with no remote,
-  and its diff is reviewed line by line before merging (see "Handing a task
-  to DeepSeek" in `docs/workflow.md`). GLM is the fallback. Run it with
-  OpenCode's default permissions, without a sandbox (Matt, 2 Nov 2026):
-  `opencode run --standalone --auto --agent build --model
-  opencode-go/deepseek-v4.1-flash "<spec>"` in the clone, in the background.
-  The safety comes from the clone having no remote, the spec's rules, and
-  the review.
+  It also reviews every change that generates kernel terms or touches
+  proofs, whichever model wrote it.
+- **Sonnet:** work near the kernel or proof generation, tasks where
+  generality and design judgement matter, and changes across several crates
+  where a wrong guess would spread.
+- **DeepSeek via OpenCode:** the default for well-bounded tasks up to medium
+  difficulty, from a goal-level brief (the goal, a repro, the limits):
+  diagnostics, small features, elaborator changes with a clear goal, and
+  mechanical work (renames, sweeps, boilerplate, new tests). In SW-1084 its
+  code matched Sonnet's at all three levels; its failures were in process.
+  So every DeepSeek brief has these lines:
+  - Never run a command in the background: wait for each to finish.
+  - Run every test you add and show it passing.
+  - Finish with a report: what you changed, each command you ran and its
+    result, and what you were unsure of.
+
+  It runs in a scratch clone with no remote, and its diff is reviewed line
+  by line before merging (see "Handing a task to DeepSeek" in
+  `docs/workflow.md`). GLM is the fallback. Run it with OpenCode's default
+  permissions, without a sandbox (Matt, 2 Nov 2026): `opencode run
+  --standalone --auto --agent build --model opencode-go/deepseek-v4.1-flash
+  "<brief>"` in the clone, as a background job of the orchestrator's. The
+  safety comes from the clone having no remote, the brief's rules, and the
+  review.
+- **Neither model's "done" is taken on trust:** the orchestrator runs the
+  tests it relies on itself before merging.
+- **Keeping score:** when a DeepSeek or Sonnet task is closed, its ticket
+  gets one line: `Model result: <model>, worked | needed fixes (what) |
+  failed (why)`. After about ten more tasks, look at the boundary again.
 
 ## Lane agents
 

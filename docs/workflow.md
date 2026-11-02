@@ -8,15 +8,21 @@ and any model working on the repo can read it. The kanban board in `board/` is t
 
 | Model | Used for |
 |---|---|
-| **Claude Opus** | Design notes, analysis, anything touching the kernel or soundness, proofs, tricky bugs, writing specs for other models, and reviewing every diff before it's merged. Also orchestrates: hands out tasks, merges, runs the test tiers. |
-| **Claude Sonnet** | Implementation that needs judgement: changes across several files, the checker and elaborator, anywhere a misreading would spread. |
-| **DeepSeek V4.1 Flash** (via OpenCode Go) | Mechanical coding from a precise spec: renames, sweeps, boilerplate, new tests, small features with a clear shape. |
+| **Claude Opus** | Design notes, analysis, anything touching the kernel or soundness, proofs, tricky bugs, writing specs for other models, and reviewing every diff before it's merged (and, for changes that generate kernel terms or touch proofs, a dedicated review). Also orchestrates: hands out tasks, merges, runs the test tiers. |
+| **Claude Sonnet** | Work near the kernel or proof generation, tasks where generality and design judgement matter, changes across several crates where a wrong guess would spread. |
+| **DeepSeek V4.1 Flash** (via OpenCode Go) | The default for well-bounded tasks up to medium difficulty, from a goal-level brief: diagnostics, small features, elaborator changes with a clear goal and a repro, and mechanical work (renames, sweeps, boilerplate, new tests). |
 | **GLM-5.3-Flash** (via OpenCode Go) | Fallback when DeepSeek is unavailable. |
 | Local model (Ollama) | Offline fallback only; about 20 times slower. |
 
 The aim is to spend Opus on the hard reasoning and hand everything else to
-cheaper models. Specs for DeepSeek are written by Opus: a spec says which
-files to read, what to change, what tests to add, and which checks to run.
+cheaper models. The split is provisional (D2208, 2 Nov 2026): it comes from
+SW-1084, where DeepSeek and Sonnet got the same goal-level brief for an
+easy, a medium and a hard task. DeepSeek's code matched Sonnet's at every
+level; its failures were in process (a backgrounded build that ended its
+one-shot run, a test it never ran), which three standing lines in its
+brief now cover (`CLAUDE.md`, "Choosing the model"). Each closed task's
+ticket records how the model did, and the split is looked at again after
+about ten more.
 
 ## Significant designs
 
@@ -30,12 +36,16 @@ implementation start, usually in stages.
 1. Make a scratch clone with no git remote, so the model can't push:
    `nix develop -c task scratch:new -- sw-N`, from the main checkout
    (`.claude/worktrees/scratch-sw-N`; see "Lane checkouts" below).
-2. Run OpenCode there in the background with the spec (the command is in
-   `CLAUDE.md`, "Choosing the model"). The spec says: no
-   sub-agents, no commits; run `cargo fmt`, clippy and the relevant tests;
-   leave new snapshots (`.snap.new`) and benchmark changes for the reviewer.
-3. Opus reviews the diff line by line. DeepSeek has introduced real bugs
-   before, so its own "tests pass" isn't enough.
+2. Run OpenCode there in the background with the brief (the command is in
+   `CLAUDE.md`, "Choosing the model"). The brief gives the goal, a repro and
+   the limits, and says: no sub-agents, no commits; never run a command in
+   the background; run `cargo fmt`, clippy and the relevant targeted tests,
+   and every test it adds, showing them passing; leave new snapshots
+   (`.snap.new`) and benchmark changes for the reviewer; finish with a
+   report of each command and its result.
+3. Opus reviews the diff line by line and reruns the tests it relies on.
+   DeepSeek has introduced real bugs before, and once handed over a test it
+   had never run, so its own "tests pass" isn't enough.
 4. Commit in the clone with the trailer "Done by OpenCode with DeepSeek V4.1
    Flash (OpenCode Go) from a spec by Claude; reviewed by Claude", check the
    commit author, then fetch and merge into `main`.
