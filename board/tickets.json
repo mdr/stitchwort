@@ -3295,7 +3295,7 @@
     {
       "id": 1074,
       "title": "Function equations: a match on several expressions (9 AoC skips) stated as one tuple hypothesis isAlt1: (a, b) = (p, q), proved with one projection step",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
