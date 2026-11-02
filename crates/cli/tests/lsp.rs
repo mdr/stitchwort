@@ -95,7 +95,17 @@ impl Client {
     }
 
     fn diagnostics_checking(&mut self, uri: &str, version: i32, never: Option<i32>) -> Vec<Value> {
-        let deadline = Instant::now() + Duration::from_secs(120);
+        self.diagnostics_within(uri, version, never, Duration::from_secs(120))
+    }
+
+    fn diagnostics_within(
+        &mut self,
+        uri: &str,
+        version: i32,
+        never: Option<i32>,
+        wait: Duration,
+    ) -> Vec<Value> {
+        let deadline = Instant::now() + wait;
         loop {
             let n = match self.queue.pop_front() {
                 Some(n) => n,
@@ -500,9 +510,12 @@ fn aoc_navigation_matches_check_index() {
     );
     assert_eq!(client.diagnostics(&first, 1), Vec::<Value>::new());
     // Wait for the rest of the project (checked in the background, after
-    // the namespaces that use `Aoc.Year2025.Day01`).
+    // the namespaces that use `Aoc.Year2025.Day01`). On a cold cache this is
+    // the whole project elaborated once more: the editor's entries (with
+    // expression types) aren't the ones `check` warmed, so some proofs take
+    // seconds each (about 100 s in all, measured; SW-1050).
     let last = uri(&project.join(files[1]));
-    client.diagnostics(&last, 0);
+    client.diagnostics_within(&last, 0, None, Duration::from_secs(600));
 
     let mut compared = 0;
     for path in files {

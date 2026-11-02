@@ -283,7 +283,7 @@ def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2
 
 --| Whether a computation in a bare row `{e}` may not finish. A signature whose
 --| row variable `e` appears only bare takes one of these beside `e`, so a
---| function like [`List.map`] takes partial callbacks: at `MayDiverge` its
+--| function like `List.map` takes partial callbacks: at `MayDiverge` its
 --| computations are `Delay`s. Like `Effects`, only the library may name it,
 --| its constructors and the definitions below.
 -- (D1214)

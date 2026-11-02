@@ -347,7 +347,7 @@ def use (b: Bag): Nat := b.size + [1].length
     // A library symbol: the comment above `List.length` in the core.
     let length = symbol("Std.List.length");
     assert!(
-        length.contains(r#""doc":"`a` is bound automatically"#)
+        length.contains(r#""doc":"The number of elements: "#)
             && length.contains(r#""docMarker":"--|""#),
         "{length}"
     );

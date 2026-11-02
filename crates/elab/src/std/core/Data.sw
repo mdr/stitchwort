@@ -78,7 +78,7 @@ type List (a: Type): Type =
 
 --| `n` plus the length of `xs`, counted in a loop. The runtimes run it for
 --| [`List.length`], so a long list doesn't run out of stack
---| ([`List.lengthOntoEq`] proves them equal).
+--| (`List.lengthOntoEq` proves them equal).
 def List.lengthOnto: List a → Nat → Nat
   | Nil, n => n
   | Cons x xs, n => List.lengthOnto xs (Succ n)

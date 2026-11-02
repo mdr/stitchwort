@@ -18,13 +18,13 @@ type Text: Type =
 def Text.toList: Text → List Char
   | MkText cs => cs
 
---| The text of the characters, in order; [`Text.toList`] undoes it ([`Text.toFromList`]).
+--| The text of the characters, in order; [`Text.toList`] undoes it (`Text.toFromList`).
 def Text.fromList (cs: List Char): Text := MkText cs
 
 theorem Text.fromToList: (t: Text) → Text.fromList (Text.toList t) = t
   | MkText cs => rfl
 
---| `a ++ b`: the characters of `a`, then those of `b` ([`Text.lengthAppend`]).
+--| `a ++ b`: the characters of `a`, then those of `b` (`Text.lengthAppend`).
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 --| A decision whether two texts are equal, from one on their characters.
