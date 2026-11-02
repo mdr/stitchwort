@@ -3535,13 +3535,13 @@
     {
       "id": 1090,
       "title": "Merge tier over budget: 122-141 s on the last four runs against its 60 s budget (.config/nextest.toml, docs/testing.md). Find what takes the time (per-test durations, the slowest tests and binaries, build vs run, parallelism, memory cap) and how to bring it back under budget without losing coverage that matters; also how much is this machine (now an M1 Pro, 10 cores, 32 GB) vs the one the budget was set on (D2197)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "",
+      "body": "\n\nResult (Sonnet lane, 2 Nov 2026; 2 full merge-tier runs under D2209). Stable at ~120 s (120.9, 120.9, 119.4 s). CPU-bound, not critical-path: 1022 CPU-s at 841% of 10 cores (102 s floor at perfect packing, ~17 s idle tail); longest test 34 s; 57 tests >= 5 s are 60% of test time; process start-up ~5%. Biggest by solo CPU: hash_stability 186 (3 tests), cli examples sweeps ~130, aoc_answers 122, goal_index 74, extract 54, build 44, search_at 36, search 35, run 34, doc 20, pinned_hashes 12 (these 11 ~760 of 1020). corpus-sweeps chain is stretched by contention, not a separate bottleneck; no sign of the memory cap holding things back.\nMachine: budget set 25 Oct (3adb2672) \"for this 14-core Mac\"; 30 Oct figures there 51.5-62.6 s under load, with ~875-910 tests; now 1052 tests (search family, doc, pinned_hashes, equation hashes ~14% of CPU). 14 -> 10 cores (8P+2E) is >= 1.4x alone; with the added tests ~1.6x of the 2x (reasoned, not measured). Previous machine's model unknown.\nOptions (1 wall-s ~ 8.4 CPU-s; 60 s needs ~500 CPU-s cut): (1) revise the budget for this machine (no coverage cost); (2) hash_stability examples/projects sweeps to daily or sampled (17-20 s / ~10 s); (3) halve aoc_answers (7-10 s); (4) goal_index and part of the search family to their lane profiles only (~22 s); (5) cli examples sample every 8th (~8 s); (6) split/schedule the long tail (up to ~10 s, no coverage cost); (7) profile slow code: hash_stability, extract generated_code_is_stable (7 s solo, docs say ~4 s).\nLane's recommendation: budget ~2 min, stated as \"on a 10-core M1 Pro\", then trim to ~90 s with (2), goal_index to daily, half of aoc_answers (~35 s). Files: scratchpad junit-run1-cold.xml, junit-run2.xml, an.py.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
