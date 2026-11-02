@@ -1,5 +1,5 @@
 {
-  "next": 1068,
+  "next": 1070,
   "tickets": [
     {
       "id": 47,
@@ -3946,7 +3946,7 @@
     {
       "id": 1049,
       "title": "Function equations stage 1b: branch equations (tail if with Bool normalisation, if h: via uniqueEq, match on variables and expressions, named match by J)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4215,6 +4215,36 @@
         "tooling"
       ],
       "body": "docs/proposals/function-equations.md §9 stage 1c (and the sections it cites). Parts may exist already: written theorems rank before generated equations in search --at (SW-1055); E-NO-EQUATION reasons (SW-1035, SW-1053's cap). Runs alongside 1b (SW-1049).",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1068,
+      "title": "Function equations: on-demand library equations compile arms in the caller's scope, so constructors private to a library file (Map.Tree's Tip, VNil, Omega's) aren't found and those definitions' equations are skipped in search/doc (a few hundred std names; 1a and 1b)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "search"
+      ],
+      "body": "From SW-1049 (2 Nov 2026). When search/doc make the library's equations on demand they compile arms in the caller's scope. Naming one from a program that imports the type does make it (Fin.toNat.eq1 the same on main). Fix: compile in the defining file's scope.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1069,
+      "title": "Function equations: a match on a definition's own variable nested below a lifted match alternative (refine the left side); largest AoC skip reason (20: 2021 day 16 readPackets, 2024 day 24 repair, Wire.ofName)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "From SW-1049 (2 Nov 2026), decided later (Claude, delegated). Also skipped: a match on several expressions (9 in AoC). D2180's else-refutation branches (gcd.eq.ifFalse, Mod.ofNat.eq.ifFalse) stay skipped until proof irrelevance.",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
