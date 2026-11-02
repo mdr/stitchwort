@@ -3953,9 +3953,9 @@
         "elaborator",
         "proof"
       ],
-      "body": "docs/proposals/function-equations.md stage 1b; D2174, D2180, D2186 decided. Includes 1a's leftovers: arms whose right side is a match on their own variables (3 in std, 5 in AoC).",
+      "body": "docs/proposals/function-equations.md stage 1b; D2174, D2180, D2186 decided. Includes 1a's leftovers: arms whose right side is a match on their own variables (3 in std, 5 in AoC).\n\nFrom 1c (SW-1067): add the E-MATCH-MOTIVE, E-REWRITE-MOTIVE and E-REFL notes naming branch equations (e.g. firstBig.eq2.true) once they exist (crates/elab/src/equation_notes.rs); revisit doc's [stuck] rule for branch equations (stuck on their condition).\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -4207,7 +4207,7 @@
     {
       "id": 1067,
       "title": "Function equations stage 1c: doc Equations section, search flag and tie-break, hover, the three messages, docs/syntax.md and proving-guide sections",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
