@@ -650,21 +650,6 @@
       "commits": []
     },
     {
-      "id": 687,
-      "title": "Soundness fuzzing: mutate proofs in examples, AoC and rogue (change constants, swap lemmas, drop hypotheses); an accepted mutated theorem must have no counterexample (counterexample search as oracle); plus automated attempts to prove Void, as the 19 Oct pilot did by hand (27 Oct discussion)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "merged: soundness fuzzer in daily (19 s) and full; task fuzz:soundness; no findings",
-      "labels": [],
-      "body": "\n\nD2070 (Matt, 31 Oct 2026): yes; start when a lane frees. Oracle: stitchwort audit (SW-912) counterexample search on accepted mutants.\n\n\n31 Oct: lane started (worktree agent-ad807384fa53c783e). Plan: driver test harness soundness_fuzz.rs (statement mutation + audit search oracle; Void attempts).\n31 Oct: crates/driver/tests/soundness_fuzz.rs committed (44fccadd): statement/proof mutants + audit search oracle; ~500 generated Void attempts + mutated soundness examples. No findings so far (800-mutant all-corpus run in progress).\n31 Oct: runs, no soundness findings. Mutants: 791 all-corpus (726 rejected, 306 of them refuted by the search; 65 accepted, 60 searched clean, 5 out of scope) + 203 std (193 rejected; 10 accepted, 0 counterexamples). Void: 514 generated + 800 mutated soundness examples, 1303 rejected, 11 accepted (mutants), 0 findings. Daily ~20 s. Branch worktree-agent-ad807384fa53c783e (44fccadd, ab99025d); ready for review.\n",
-      "created": "2026-10-27",
-      "updated": "2026-10-31",
-      "commits": [
-        "44fccadd",
-        "ab99025d"
-      ]
-    },
-    {
       "id": 688,
       "title": "Generated well-typed programs: a type-directed generator of random programs (data, functions, matches, effects) that must be accepted, run differentially on reference, rt, JS and native (run_reference/run_js harnesses) (27 Oct discussion)",
       "status": "backlog",
@@ -952,23 +937,6 @@
       "commits": []
     },
     {
-      "id": 800,
-      "title": "decide: a proof form that checks every case of a statement over finite types (design lane, with SW-807)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "decision"
-      ],
-      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.\n\n30 Oct (lane, draft 2): review-1 copied; R1 evidence run (real Corners.sw: after-colon := cases is E-CASES, lambda form checks, 519 nodes; restored); R2 simulated by hand in decide/fallback.sw; closer-order and bv_decide checked. Writing decide.md draft 2.\n\n30 Oct (lane, draft 2): done, decide.md draft 2 on branch worktree-agent-a1d5a1c5a3c6346e6 (747f75de). Intro after the closers (intro-first breaks a by-hypothesis Pi proof); decision closer after omega, No falls through (counterexample in closer_order.sw); fallback fewest-then-latest (2 vs 24, 22 vs 11 leaves by hand). D1971-D1973 revised, open; no new decision.\n\n30 Oct (impl lane): rebased, built; decide.md draft 2, prototypes, review-1, cases.rs, auto.rs read. Baseline pinned: examples/accept/cases-pi-goals.sw hash snapshot from main's elaborator (63f1b329); aoc and rogue hashes dumped to scratch for comparison.\n\n30 Oct (impl lane): part 1 (binder introduction, after the closers) committed f3b3db79; rowEndsAfter hashes the same as before-colon/lambda (8d5e5e07); pinned Pi-goal hashes unchanged; Day12 rowEndsSplit/columnEndsSplit and Day21 tabulateSame converted to := cases. Lanes elab/core/std/examples/hashes pass.\n\n30 Oct (impl lane): part 2 (decision closer after omega, No goes on) d3a33677; part 3 (fallback split, fewest cases then latest, (fallback) diagnostics) 1f8c9621; Day21 everyNumericKey/everyDirectionKey converted. Lanes pass. Finding: everyNumericKey's cases takes ~45 ms in aoc (0.8 ms by hand), mostly auto::decision_procedures re-sorting the library per decide call in project mode. Next: aoc check/test, rogue, timings, docs.\n\n30 Oct (impl lane): done, rebased on main (bbede571); branch worktree-agent-aa82edd8eaf83460f, c27de3a9..daac3c66. Lanes elab/core/std/examples/hashes pass; aoc check --no-cache OK, test 914/914, aoc_answers 20/20; rogue 100/100; clippy, fmt clean. No pre-existing snapshot or hash changed; aoc hash changes are only the 5 converted proofs and their dependents (Day12/Day21.Proofs). Docs: decide.md §13 As built, syntax.md cases, NOTES-2024. Follow-up suggested: cache auto::decision_procedures' order (everyNumericKey 43 ms vs 0.8 ms by hand).\n",
-      "created": "2026-10-28",
-      "updated": "2026-10-30",
-      "commits": [
-        "6241357b",
-        "0516e372"
-      ]
-    },
-    {
       "id": 801,
       "title": "Consider D1438: Define != as !(==) for every type",
       "status": "backlog",
@@ -1011,41 +979,6 @@
       "commits": []
     },
     {
-      "id": 804,
-      "title": "Consider D1441: Import aliases (import … as)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "done: stage 1 (import P (S)) and stage 2 (import M (x as y)) merged",
-      "labels": [
-        "decision"
-      ],
-      "body": "Day 13's spec and program both define fewestTokens, so proofs wrote one by its full name. Rec: yes, import Aoc.Year2024.Day13.Spec as Spec.\n\n30 Oct (orchestrator): evidence: 4 lines in aoc+rogue write a project name in full, all Day 13 `Aoc.Year2024.Day13.Spec.fewestTokens` (Proofs/Part1.sw:89,102; Tests/Examples.sw:88,95). `Spec.fewestTokens` is E-UNKNOWN-NAME today (tried, reverted). Options: (a) `import M as A` then `A.x`; (b) parent-relative `Spec.x` after importing the module; (c) per-name renaming `import M (x as y)`. Goal printing (SW-918, shortest resolving name) must take aliases into account; hashes must not change.\nD2071 (Matt, 30 Oct 2026): design lane. Output: docs/proposals/import-aliases.md compared against other languages, plus a reviewer brief with Stitchwort context.\n\n\n30 Oct (design lane): the 4 Day 13 full names are not clashes: importing `fewestTokens` by name checks and the 25 tests pass (probed, reverted). `import Aoc.Year2024.Day13 (Spec)` is accepted but `Spec.x` stays unknown, while `import Std (Eq)` then `Eq.sym` works. Reading other languages next.\n\n30 Oct (design lane): note and brief committed (e4264321, branch worktree-agent-a37cb78344089221c): docs/proposals/import-aliases.md, import-aliases/review-brief.md. Rec: namespace items for project namespaces, no new syntax (D2072); `(..)` brings sub-namespaces (D2073); no `as` for now, error note instead (D2074).\n\n\nD2072 (Matt, 31 Oct 2026): yes, two stages. Stage 1: import P (S) makes S a qualifier for namespace P.S for project namespaces as for Std (the documented rule; fixes the E-IMPORT-UNKNOWN / E-UNKNOWN-NAME bug), with review 1 changes: qualifier clashes are E-AMBIGUOUS where used (file names still win, nothing silently hides), imported qualifiers modelled as their own binding, `import M as A` gets a specific error pointing at import P (S). Stage 2: per-name renaming `import M (x as y)`, goals and messages print the local name (pasteable), no hash changes, LSP hover/definition/rename. Whole-module `import M as A` stays out for now. D2073 (sub-namespaces via (..)): not now.\n\n\n31 Oct (impl lane, worktree-agent-a46e2b849068a6684): stage 1 committed (6f8809f0). `import P (S)` makes S a qualifier for P.S (own binding; own names win with E-IMPORT-CLASH; any other meaning makes uses E-AMBIGUOUS); pre-pass edge to the item; `as` is E-PARSE with a note; Day 13 rewritten to `Spec.fewestTokens`, aoc hash dump byte-identical. Stage 2 (`import M (x as y)`) next.\n\n\n31 Oct (impl lane, resumed): rebased on main (clean). Stage 2 committed: `import M (x as y)` for definitions, types (constructors keep their names) and namespaces (`import Shop (Spec as S)`); case kept (E-PARSE); clashes as ordinary imports; old name gets a note; goals/messages print the local name (paste-back test); navigation records both names; no LSP rename exists. Commits ab0d04a7 (stage 1, plus a missed nested-short-name snapshot for the new note), 53317ab6, ba6712da. aoc and rogue hash dumps byte-identical to main (10,657 / 5,228 lines). Ready to merge.\n",
-      "created": "2026-10-28",
-      "updated": "2026-10-31",
-      "commits": [
-        "e4264321",
-        "ab0d04a7",
-        "53317ab6",
-        "ba6712da"
-      ]
-    },
-    {
-      "id": 805,
-      "title": "Consider D1442: Infer a record literal's type from its field names",
-      "status": "done",
-      "agent": "",
-      "where": "merged afea8395 (last-resort rule, D1991)",
-      "labels": [
-        "decision"
-      ],
-      "body": "Reverses the rule \"no type is guessed from the field names\". Built on branch record-literal-inference: exactly one record type in scope with exactly those fields. Rec: yes as built.\n30 Oct rebase lane: safe-fields hash change was already in fc74cbce (not SW-896): `==`'s group infers the literal side first, the rule now made it succeed, so it decided the type and the other side was checked; fix: the rule is held back inside such tries (==/comparisons, ++, calc) and used only if the construct then fails; hashes unchanged.\n30 Oct: done on worktree-agent-a4f9f02fbc6f9b2be (8b12865a + 8f52025b); lanes elab 78/78, examples 7/7, hashes 3/3 (only record-literal-inferred.snap grows), std 21/21; aoc check ok; docs syntax.md + records.md U6 As built.",
-      "created": "2026-10-28",
-      "updated": "2026-10-30",
-      "commits": [
-        "afea8395"
-      ]
-    },
-    {
       "id": 806,
       "title": "Consider D1443: Compare terms up to a match arm's equation everywhere in the arm",
       "status": "backlog",
@@ -1058,22 +991,6 @@
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
-    },
-    {
-      "id": 807,
-      "title": "Consider D1444: Derive a list of all values (with completeness proof) for constructor-only types",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "decision"
-      ],
-      "body": "Like Haskell's Enum/Bounded and Lean's Fintype, beside derived DecEq/Ord. Day 21 wrote 11-deep membership proofs by hand; gives decide something to range over. Rec: yes.\n- Lane: core/Finite.sw (interface, Bool/Ordering/Option/Pair instances), derive_finite.rs (derived per type; proof by per-constructor lemmas + a generic cover, since a match whose goal names the list makes the kernel refine it at the list's cost), Finite.check (std/Finite), byDecision (std/Decidable), Fin instance; cases notes. Measuring.\n- Done on branch worktree-agent-a28b5d277dd8002c6 (bbd1a155, 9c60d379): derive adds 0.5-2.1 ms per day 21 type; Finite.check 2^10 ~93 ms, 2^16 ~12.4 s (prototype 6.5 s); day 21 converted; lanes elab/std/examples/hashes pass; aoc 914, rogue 100 pass. Small check.rs change (rfl retries after ready instances). decide.md §14.",
-      "created": "2026-10-28",
-      "updated": "2026-10-30",
-      "commits": [
-        "8dd7dec8"
-      ]
     },
     {
       "id": 808,
@@ -1263,22 +1180,6 @@
       "commits": []
     },
     {
-      "id": 845,
-      "title": "Mismatch alias notes: nested aliases (List Q vs List Other) and Prop aliases get no unfolded note",
-      "status": "done",
-      "agent": "",
-      "where": "re-check lane (D2085)",
-      "labels": [
-        "bug"
-      ],
-      "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type (List Q vs List Other), and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c).\n\n\nD2085 (Matt, 31 Oct 2026): re-check on main after postponement stages 1-3 and 6; close if fixed, else fix.\n\n\n31 Oct (D2085 lane, worktree-agent-ab0acb2ae177e62ab, 0bf921ab): not fixed on main (02e83151). `List Q` vs `List Other` and `List (Vec Bool)` vs `List (List Nat)` gave no note; `h: Same x y` against `y = x` gave none. Fixed in check.rs (alias_notes): looks inside Data args and Pi domains where the sides differ, names both aliases when two different ones meet, allows equations, skips calls shown in notation (`n < 3` vs `n ≤ 3` stays note-free). Examples reject/mismatch-alias-nested.sw, reject/mismatch-alias-prop.sw. No existing snapshot or hash changed. Ready for review.\n",
-      "created": "2026-10-28",
-      "updated": "2026-10-31",
-      "commits": [
-        "0bf921ab"
-      ]
-    },
-    {
       "id": 847,
       "title": "A let-bound unannotated lambda over a pair can't use dot on a component (AoC 2024 day 3 proofs)",
       "status": "backlog",
@@ -1291,22 +1192,6 @@
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
-    },
-    {
-      "id": 858,
-      "title": "Alias place 3 in general: expressions of unknown type other than variables lose the alias name when checked",
-      "status": "done",
-      "agent": "",
-      "where": "lane (D2092)",
-      "labels": [
-        "bug"
-      ],
-      "body": "Follow-up to SW-846 (f18cbe57), which fixed only a variable whose type is an unsolved meta (name_unknown_type in check.rs). Applications, fields and other expressions with an unknown type are still solved against the forced (unfolded) expected type in check_inner. docs/proposals/alias-functions.md place 3 / §8 item 4; the proposal's earlier broad patch broke std/List/Lemmas.sw and Toolkit.sw, so this needs design.\n\nD2085 (Matt, 31 Oct 2026): re-check on main after postponement stages 1-3 and 6; close if fixed, else fix.\n\n\n31 Oct (D2085 lane): not fixed on main (02e83151). `both (n counts => counts.size n) (n counts => Counts.add (same counts) n) 1 [2, 3]` (with `same (x: a): a`) gives E-UNKNOWN-FIELD \"`List` has no field `size`\", counts: List Nat. Cause: propagate (check.rs) unifies `same`'s result `?a` with the forced expected `List Nat`, then `counts` is checked against `?a`. Experiment (not committed): thread the unforced expected type into check_value/fallback/propagate and solve an unknown result type with it (name_unknown_type generalised). It accepts the repro and `(counts : _)`, but implicit arguments are then elaborated as the alias, so terms change: std Float.neg/abs/sub fail the builtin shape check (E-BUILTIN) and hash_stability prelude/examples/projects fail. Needs design: either the builtin shape check and hashes compare up to alias unfolding, or naming stays out of elaborated terms (only in local binder types). Not a small fix; left open.\n\n\nD2092 (Matt, 31 Oct 2026): yes. Keep alias names (Counts) only in local variables' types (what dot-lookup reads), never in compiled terms (hidden type arguments keep the unfolded type), so hashes and built-in checks are unaffected. First confirm dot-lookup only reads local types. Experiment branch sw858-experiment shows the naive version.\n\n\n31 Oct (D2092 lane): dot notation on a variable reads its type as written (cx.written[level]), else its type (cx.types[level]) (dot.rs written_type, receiver_type, dot_on). Fix: an unknown solved through propagate with an unfolded alias gets a name note (`?b ~ Counts`, Elaborator::meta_names); dot notation and goal display read it; solutions and terms keep `List Nat`. Repro and `(counts: _)` accepted; std+aoc and std+rogue HASH_DUMP byte-identical. Tests and commit next.\n\n31 Oct (D2092 lane): committed b6685dd1 on worktree-agent-a6a87968cfbe0c603. Examples accept/ and goals/lambda-propagated-alias.sw (goal shows `counts: Counts`); `sized` hashes equal to the call with `[b := List Nat]` written out. Lanes elab/examples/hashes/goals/aoc pass, clippy clean, audit passes. SW-859's A/B still rejected, C/E accepted (unchanged, stage 5). Ready for review.\n\n",
-      "created": "2026-10-28",
-      "updated": "2026-10-31",
-      "commits": [
-        "b6685dd1"
-      ]
     },
     {
       "id": 859,
@@ -1368,22 +1253,6 @@
       "commits": []
     },
     {
-      "id": 871,
-      "title": "Misleading E-ABILITY: passing an effectful call to a Comp NoOp r Nat parameter says the ability isn't in the enclosing function's abilities",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "bug"
-      ],
-      "body": "From SW-862 (29 Oct): with def pass (c: Comp NoOp r Nat): Nat, the call pass (log 3) inside a {Log} Nat definition gives E-ABILITY '`Log` isn't in the abilities of the enclosing function', which is false; the real problem is that the parameter is a Comp in the empty row with foreign results (SW-851). Likely from SW-851's rule that unknown results become the row's own (unconfirmed). Give the right error.\n30 Oct: cause is not SW-851 (Comp NoOp NoRes Nat gives the same): a passed argument is checked in the parameter's row and not_allowed only knows that row. Fixed message-only in effects.rs (passed_not_allowed), reject/passed-computation-ability.sw; commit 29ebe682 on worktree-agent-ae6f4fa0c6d6b00e2.",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "06158061"
-      ]
-    },
-    {
       "id": 885,
       "title": "Record literal with an effectful field is E-CANNOT-INFER as an argument, tuple part or nested field",
       "status": "backlog",
@@ -1396,22 +1265,6 @@
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
-    },
-    {
-      "id": 886,
-      "title": "() in a tuple pattern gives E-NOT-EMPTY, though let () := e on its own works",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "bug"
-      ],
-      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw.\n30 Oct: cause: only a whole argument's () with a rhs became the unit pattern; a nested one stayed absurd (lib.rs compile -> Tree::Absurd -> E-NOT-EMPTY). Now compile takes it as unit where the column's type is known to be (). accept/unit-pattern-in-tuple.sw, reject/unit-pattern-in-tuple-not-unit.sw; commit 2be6a532 on worktree-agent-ae6f4fa0c6d6b00e2.",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "06158061"
-      ]
     },
     {
       "id": 887,
@@ -1456,70 +1309,6 @@
       "commits": []
     },
     {
-      "id": 894,
-      "title": "Literature trawl: dependent types and effect systems, ideas to steal",
-      "status": "done",
-      "agent": "",
-      "where": "done: seven registers audited or redone from full texts; summary report docs/research/summary/literature-review.pdf (394f0a87)",
-      "labels": [
-        "research"
-      ],
-      "body": "Deliberate literature trawl for ideas to steal: dependently typed language implementation and effect systems. Started 29 Oct at Matt's request (first: effects, elaboration).\n\nD1830 (Matt, 29 Oct): yes, all seven clusters, two or three lanes at a time, starting with effects and elaboration.\nD1831 (Matt, 29 Oct): 2022 cutoff for now (venue sweep 2022-2026, snowballing within that); may go deeper later.\n\nClusters (with board hooks):\n1. Kernel/type theory: rewrite rules, definitional proof irrelevance (SProp), record eta, observational TT, quotients, universe polymorphism (SW-787, SW-55/789, SW-93/803).\n2. Inductive types and recursion: nested, inductive-inductive, QIITs; size-change termination, well-founded recursion, guard checking (SW-704, SW-199).\n3. Elaboration: unification (pattern fragment, postponement), implicits, glued evaluation, Kovacs elaboration-zoo/smalltt, error messages (SW-509, 553, 817, 859).\n4. Proof automation: simp-style rewriting, decision procedures, reflection, e-graphs, omega/ring, counterexample search (rewrite/cases friction in AoC notes).\n5. Effects and handlers: row typing, evidence passing (Koka), capability passing (Effekt), lexical handlers, OCaml 5, handler termination, effects + dependent types (Ahman, F*, ExTT) (SW-790-792, effect-runtime notes, handler-termination conjecture).\n6. Compilation and runtime: erasure, Perceus/FBIP, Lean IR, interpreter design, WASM/JS (SW-813, native backend).\n7. Infrastructure and trust: content-addressed code (Unison), query-based incremental compilers, kernel fuzzing/testing, mechanised kernels (MetaRocq, Lean4Lean) (check cache, SW-684-689).\n\nSources: POPL, PLDI, ICFP, OOPSLA, ESOP, ECOOP, CPP, ITP, TYPES, FSCD, TyDe, HOPE, ML workshop, CoqPL/RocqPL, Lean workshops; arXiv cs.PL/cs.LO; Lean/Agda/Rocq/Idris2/Koka/Effekt/Flix/OCaml/Unison/Roc release notes and RFCs; snowballing from LFST, Taming of the Rew, Allais-McBride-Boutillier, Koka evidence passing, Perceus; blogs (Kovacs, Cockx, Danielsson, Leijen, Brachthauser).\n\nPipeline: harvest per cluster (record queries) -> screen on title/abstract against hooks (keep/maybe/drop) -> ~5-line card per kept paper (claim, what to steal, which ticket/note, cost: small/kernel/research, links, full text reachable?) -> deep-read top 3-5 per cluster -> ticket or design note, never straight to code.\nOutput: docs/research/ (one file per cluster + ranked \"steal next\" index); new tickets labelled research for ideas that pass; short summary to Matt with at most a couple of decisions. Lanes screen ~40-80 papers, deep-read up to 5. Quarterly light refresh from saved queries.\n\n29 Oct: REDO ALL SEVEN CLUSTERS with full-text reading (Matt). First four registers (effects, elaboration, proof automation, kernel) relied partly on abstracts: no PDF tool was used. Mandatory protocol: pdftotext via nix (nixpkgs#poppler-utils), source order arXiv/author/DBLP/Semantic Scholar/Dagstuhl/HAL/ACM/archive; anything not read in full is NOT READ, can't be deep-read or ranked, and goes in a 'for Matt to fetch' table; counts (screened/carded/read in full/not read) at the top of each register. Running lanes (inductives, compilation, infrastructure) got the protocol mid-run; the four finished registers are queued for full redo.\n\nPAUSED 29 Oct (Matt). Lessons and pointers to partial results: SW-897.\n\n30 Oct audit of compilation.md (branch worktree-agent-a08055d8ccf540b94): 20 of 21 read cards checked against full texts so far; one WRONG (C8: groupBy is the thesis author's example, not Lean's library), several minor misquotes; fixes in progress.\n\n30 Oct audit done (7f1a90dd on worktree-agent-a08055d8ccf540b94): 21 read cards: 12 OK, 8 minor fixed, 1 wrong fixed (C8), 0 cannot verify; C12 found (IA copy of ACM PDF) and read; C22 still 404, not for Matt; no steal-next re-rank.\n\n\n30 Oct kernel redo lane (D1974, branch worktree-agent-aa3ed73cc19565c96): rebased on main; protocol, SW-897 and model registers read; started reading full texts from ~/stitchwort-papers.\n\n30 Oct kernel redo done (bb30577b on worktree-agent-aa3ed73cc19565c96, not merged): screened 62; carded 27; read in full 26; not read 1 (Agda Core, TU Delft unreachable, not for Matt); 6 old claims found wrong; decisions D1980, D1981; 5 WebSearch calls.\n\n\n30 Oct elaboration redo lane (D1974, branch worktree-agent-a61e0aa163e5402fe): rebased on main; protocol, SW-897, models and old register read; reading elaborator code next.\n\n30 Oct elaboration redo: 20 sources read in full (PDFs via pdftotext, Lean/Agda/GHC/smalltt sources via gh); 6 old claims found wrong; writing register.\n\n30 Oct elaboration redo done (ac849d61 on worktree-agent-a61e0aa163e5402fe, not merged): screened 64; carded 20; read in full 20; not read 0; 6 old claims found wrong; decisions D1990, D1991; tickets T1-T6 proposed; stale kernel.md links in inductives.md/infrastructure.md fixed; 5 WebSearch calls.\n\n\n30 Oct T1 must-reject lane (D1983, branch worktree-agent-a7adfc4c9abf6d2dc): STOPPED, soundness bug: `def wrap: Type 0 := Type 4294967295` is ACCEPTED (u32 wraparound in Sort::succ, crates/core/src/term.rs:32; elab check.rs:1218); nothing committed; reported to orchestrator.\n\n30 Oct T4 (D1983 item 4, branch worktree-agent-ad30421be2738895e): Taming of the Rew read (Example 4.3, Defs 6.2-6.3, Thms 6.4, 6.7, 7.3, Example 7.5); parallel rule checked: both evaluators reach R5's right side up to conversion (the sum is NatAdd(2, m + n), R5's rhs as written is two Succ ctors); test the_parallel_rule_is_reached added; rewriting §9.4.\n\n30 Oct proof automation redo lane (D1974, branch worktree-agent-a4495d44e4d437aa5): rebased on main; protocol, SW-897, models and old register read; reading automation code next.\n\n30 Oct T4 done: c1084edd on worktree-agent-ad30421be2738895e (not merged): §9.4 rests on Taming Lemma 4.2/Thm 6.4/Thm 7.3 (check by hand with R5, A1-A3); new assumption A1' (core's triangle property); Newman/Mueller dropped; §9.3, §9.5, core.md, kernel.md §5.3 updated; nat_add_rule 7/7, lane core 153/153.\n\n30 Oct proof automation redo done (abd75d93 on worktree-agent-a4495d44e4d437aa5, not merged): screened 72; carded 29; read in full 25; not read 4 (none for Matt); 6 old claims found wrong; decisions D2000, D2001; tickets T1-T6 proposed; stale links in infrastructure.md and decide.md fixed; 6 WebSearch calls.\n\n\n30 Oct effects check lane (D1974, branch worktree-agent-a48f1717f3b6a2f2d): rebased on main; protocol, SW-897, models and effects.md read; auditing its 11 cards against full texts.\n\n30 Oct effects check done (7b953ad8 on worktree-agent-a48f1717f3b6a2f2d, not merged): fixed in place (1 wrong). Screened 75; carded 11; read in full 10 papers + Lean manual; not read 0 (old: 1 full, 5 partial, 4 unread). Audit 6 OK, 4 minor, 1 wrong (C2 steal: bindCongAlways helps neither rogue gap 2 nor SW-548), 0 can't verify; 5 old claims wrong; T1/D1852 closed by SW-899; no new decisions; nothing for Matt; 1 WebSearch.\n\n30 Oct T1 must-reject lane done (D1983; 3208ab72, 1ae69c78 on worktree-agent-a88c67f9be5366666, not merged): 14 programs for 72703, 72705, k-rec-conv, eta-unit-like-proof-field, lean4#14806 cache and forged-quot-ind, ALL REJECTED (E-TERMINATION, E-REFL, E-DUPLICATE), ~0.13 s CPU each; kernel test kernel_bugs_2026 6/6 on hand-built terms; C25 truncation can't be tested cheaply (usize counts); kernel.md §5.4 and DESIGN §13 updated; lanes core 166/166, examples soundness, hashes pass.\n\n\n30 Oct inductives audit lane (branch worktree-agent-a0809f7f025278b8f): rebased on main; protocol, models and inductives.md read; tally slip found (17 maybe / 18 drop, file says 18 / 17); fetching full texts for the 19 read cards.\n\n30 Oct inductives audit done (8c8e2fb7 on worktree-agent-a0809f7f025278b8f, not merged): screened 56; carded 21; read in full 21 (C20, C21 read via Internet Archive); not read 0. Audit of the 19 first read: 11 OK, 8 minor (fixed), 0 wrong, 0 can't verify; tally fixed (17 maybe/18 drop); one wrong Stitchwort assumption (E1: day 21 DirectionKey has a field), so T4/D1912 withdrawn for decide.md D1972; T.induct/D1823 and D1450 marked done; nothing for Matt to fetch; 0 WebSearch.\n\n30 Oct infrastructure audit lane (branch worktree-agent-a441f350beee39e20): rebased; 24 read cards checked against full texts (C1 numbers came from the anonymous submission copy: published 156/137/85, 52+22); C23 Sisyphus now read (ilyasergey.net); C3 Eris still unreadable (ACM OA, 403); §5.3 stuck-test caveat wrong (tests run erased); Part B sources reached; editing register.\n\n\n30 Oct infrastructure audit done (002a7ae2 on worktree-agent-a441f350beee39e20, not merged): screened 68; carded 29; read in full 28; not read 1 (C3 Eris, for Matt: ACM open access, scripts get 403). Was 59/26/24/2. Audit of 24 read cards: 18 OK, 5 minor, 1 wrong (C1 numbers from submission copy); §5.3 stuck-test claim wrong (tests run erased; T10 simplified); C23 Sisyphus read; C31 Forster, C32 Nawrocki, C33 fuzz-d added; D2030 (erased test key); 12 WebSearch calls.\n\n30 Oct summary report lane (branch agent-aa7aa90e3231df032): rebased on main; all seven registers, README, SW-897 and SW-894 read; acted-on items checked in git log and board; file:line refs re-checked on main (several moved); bib fields from cards plus arXiv API, Crossref and DataCite (no personal data); writing LaTeX.\n\n30 Oct summary report done (bb44e6cd on branch agent-aa7aa90e3231df032, not merged): docs/research/summary/literature-review.pdf, 37 pages, built with latexmk (no errors; no undefined citations or references; largest overfull box 1.1 pt); 144 citations, all to cards marked read; 17 open decisions tabled with assumptions; linked from docs/research/README.md.\n\n30 Oct Eris lane (branch worktree-agent-a1a99433dce4d1c3d): rebased on main; Matt fetched the PDF; Eris (PLDI 2026) read in full (25 pp.; no proofs in the paper, they are in the supplement); mapping it onto the elaborator, kernel and must-reject suite.\n\n30 Oct Eris lane done (01841ce3 on worktree-agent-a1a99433dce4d1c3d, not merged): C3 read in full (64 bugs: 51 soundness, 13 crashes, 33 fixed; 4 analyzers); infrastructure.md now 68/29/29/0; T2 overwrite half becomes error enumeration, kernel stage first; D2031; summary report rebuilt, 38 pages, totals 154 read / 6 not read, nothing left for Matt to fetch; 0 WebSearch.\n",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "6f855bb7",
-        "739c1cc7",
-        "1b011df7",
-        "578d88c1",
-        "cfdac50f",
-        "db97c113",
-        "76196e5c",
-        "e041d2de",
-        "f3b5ab0f",
-        "f9521afe",
-        "2b3210ca",
-        "084bed2e",
-        "f38544f6",
-        "afbe1b65",
-        "f3fd83b5",
-        "394f0a87"
-      ]
-    },
-    {
-      "id": 895,
-      "title": "Goals and errors print x + 1 as Succ x and x + 3 as 3 + x since + computes on both sides (SW-787): read sums back as written",
-      "status": "done",
-      "agent": "",
-      "where": "merged 1f187b60",
-      "labels": [
-        "diagnostics"
-      ],
-      "body": "After SW-787, a stuck sum x + k is read back as Succ x / k + x, so goals and error messages show a different shape from the source. Read back NatAdd(k, x) as x + k (or keep the folded call as written), as glued evaluation does for other calls.\n- 30 Oct: display readback (quote_shown, new quote_unfolded_shown) writes NatAdd(k, x) as x + k; kernel quote unchanged; 15 example snapshots updated, 2 new examples; lanes running.\n- 30 Oct: done on worktree-agent-ac0033dc3d8b166c3 (1170a94b..4a059967): lanes elab 78, core 153, examples 7 (all files), hashes 3 (no snapshot change), lsp 6, std 21, cli 72 pass; guide outputs updated; aoc CPU branch 37.0/38.4/42.0 s vs main 41.4/44.6/42.3 s. Limit: k = 1 through an elaborated term (rewrite, :t) still prints Succ x.",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "1f187b60",
-        "08be2398"
-      ]
-    },
-    {
-      "id": 896,
-      "title": "Unifier: x + ?m against a computed Succ (x + t) (invert R4 of SW-787) so List.memBetween-style implicits are inferred again",
-      "status": "done",
-      "agent": "",
-      "where": "merged b9d29564 (D1982: with put-aside pairs)",
-      "labels": [
-        "elab"
-      ],
-      "body": "Since + computes on its second argument (SW-787), x + ?m no longer unifies with Succ (x + t); aoc and rogue now pass List.memBetween's implicit arguments explicitly. Consider a unification rule: x + ?m =?= Succ s solves ?m := Succ ?m' with x + ?m' =?= s (and the literal case).\n- 10-30 lane: plus_rule in crates/elab/src/unify.rs (R4/R3 and R2/R1 read backwards, a meta-free, ?m a pattern) works for x + ?d =?= Succ (x + t) and x + ?d =?= x; List.memBetween h still fails: its shape is Succ ?hi - ?lo =?= n - 1 (a Nat.sub spine compared before ?lo is known), not a stuck + (investigating)\n- 10-30 lane: memBetween fixed by a second change: run() puts aside a pair that fails while stuck on an unknown, retries it re-evaluated once something is solved (undoing its partial solutions broke std). Standalone x + ?d =?= x dropped (rewrite found Nat.pow 10 k as k + 0 in 2025 day 2); ?d := k only after peeling. aoc + rogue check; 2 explicit implicits reverted; examples + driver test added. Next: docs, timings, clippy\n- 10-30 lane done: 7 commits on worktree-agent-a736c6643c901c9a2 (top b1f3922c); lane tiers green, clippy/fmt clean, aoc + rogue check --no-cache; aoc CPU same as main within noise; docs core.md + note §10.1",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "b9d29564"
-      ]
-    },
-    {
       "id": 897,
       "title": "Literature research: lessons (how NOT to run it) and where the partial results are; PAUSED",
       "status": "backlog",
@@ -1532,103 +1321,6 @@
       "created": "2026-10-29",
       "updated": "2026-10-30",
       "commits": []
-    },
-    {
-      "id": 898,
-      "title": "Kernel: pin the Nat natives to their definitions by content hash (register_native checks only arity and type; cf. Lean #15908)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "kernel"
-      ],
-      "body": "crates/core/src/native.rs register_native (line ~379) checks a definition's arity and type, not its body; the + rules (nat_add.rs), compact text and Float are already bound by content hash. Natives are registered only while the prelude loads, so the exposure is a prelude edit, but the kernel would then compute natively something other than the definition. Pin them as the other trusted extras are.\n\nDecided 30 Oct 2026 (Matt): won't pin. The risk is only an edited standard library (user code can't define Nat.add: E-STD-NAMESPACE, checked), and we won't add broken natives. Documented instead that std is trusted and that --std-dir with altered Nat definitions is outside the guarantees: docs/core.md (Numbers, Trust) and DESIGN.md §13 (e938efea).\n",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "e938efea"
-      ]
-    },
-    {
-      "id": 899,
-      "title": "DESIGN.md: handler termination is no longer a tracked conjecture, and there is no stitchwort assumptions command; say what is actually trusted",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "docs"
-      ],
-      "body": "DESIGN.md lines 42, 123, 552 (§8, §13 Known gaps, §16) call handler termination a tracked conjecture and document stitchwort assumptions; the CLI has no such command (grep crates/cli). abilities.md says the kernel's termination check now covers the translated program and the remaining trust is that the translation is faithful (abilities.md ~line 35). Verify in code, then correct.\n\n30 Oct (D1983 item 5, branch worktree-agent-ad30421be2738895e): verified: no assumptions subcommand (crates/cli/src/main.rs), no assume (docs/core.md:15), stitchwort test prints no assuming line, ping-handler.sw rejected E-TERMINATION; handle is foldComp (effects.rs), checked by termination.rs; rewriting DESIGN.md §1, §3, §7, §8, §13, §16.\n\n30 Oct done: 4e33920c on worktree-agent-ad30421be2738895e (not merged): DESIGN.md §1 table, §3 Assumption-free, §7 test output, §8 (draft 2 rule marked superseded; new 'How handlers terminate today' with what is trusted), §13 measures and Known gaps, §16 Q6. Docs only.\n",
-      "created": "2026-10-29",
-      "updated": "2026-10-30",
-      "commits": [
-        "f9521afe"
-      ]
-    },
-    {
-      "id": 900,
-      "title": "Memory blow-up: List.Mem hypothesis + failing proof + Vec-nested type",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "bug"
-      ],
-      "body": "`check --no-cache` on this file goes past 28 GB in about 8 s (found by the SW-704 stage 3 lane). It happens on main too: the binary built from main 82729c37 was killed by dev/memguard at 3.17 GB against a 2 GB cap (checked by the orchestrator on 30 Oct). So it isn't caused by stage 3.\n\n    import Std (List, Nat, Vec)\n    type Packet: Type = | Number (value: Nat) | Packets (items: List Packet)\n    theorem smaller (items: List Packet) (q: Packet) (h: List.Mem q items): q = q := nope\n    type Wide: Type = | WLeaf | WNode (kids: Vec Wide 2)\n\nThe lane found that all three parts are needed: removing `Wide`, removing `h`, or giving a working proof makes it fine. Not investigated beyond that. Always run repros under dev/memguard --cap-gb 2.\n\nInvestigation (30 Oct, lane worktree-agent-a41739081c8754ea3):\n- Smaller repro, no `h`, no `Wide`, no Vec: `type Rose: Type = | Leaf | Node (kids: List Rose)` with `theorem t (q: Rose): q = q := nope`. Killed by memguard at 3.05 GB after 1.0 s CPU.\n- `sample` shows 712 of 737 samples in `counterexample::search_counterexample`, inside a deep recursion of `Inputs::random` (List branch) under `Inputs::random_tuple`.\n- Cause: in crates/elab/src/counterexample/inputs.rs:714-716, a random `List` gets a length of up to `size`, and every element is drawn at the full `size` again. For a rose tree this grows faster than exponentially. Debug counter: the biggest tuple per size was 4063 nodes at size 12, 134260 at 15, 466313 at 16 and 2942245 at 17, while sizes go up to RANDOM_SIZE = 40. MAX_DEPTH bounds only the depth, not the width. mod.rs:540-548 builds all the random tuples before any time check.\n- Why the three parts: a failing proof (any failing proof, `:= h` too, not only an unknown name) runs the search (module.rs:580). `h: List.Mem q items` puts the theorem out of scope (\"nothing decides List.Any\") unless List.decMem is loaded, and any use of Vec (even `def foo: Vec Nat 0 := Vec.VNil`) loads it. So `Wide` matters only because it uses Vec. Removing `h` doesn't make it go away when `items` stays. Declaration order doesn't matter.\n- Not related to derive_induct.rs or size_from_member.\n- Experiment (debug commit 8b5cbbea): give each list element `size / length`. The repro then finishes in 0.14 s CPU with at most 64 nodes per tuple, and d9.sw checks in 0.83 s.\nFix lane (30 Oct, worktree-agent-acfd19afe8504e35e): list and Vec elements share the size (size / length), MAX_RANDOM_VALUES = 1000 per draw, drawing stops at the random phase's time; Rose repro 3 GB-killed -> 0.15 s CPU (1b571d5c). Next: examples, snapshots, docs.\nFix lane done (30 Oct): commits 1b571d5c (fix), 9c8f91f2 (example reject/counterexample-nested-trees.sw + driver test), 39805dec (docs). No existing snapshot changed (task snap:examples). Lane elab 78/78, examples NAME=counterexample 7/7, core 153/153, driver counterexamples 22/22; clippy, fmt clean. Ready for the merge tier.\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "7ddcf623"
-      ]
-    },
-    {
-      "id": 901,
-      "title": "Extract snapshot comparison in the merge tier (stale JS snapshots went unnoticed)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "tooling"
-      ],
-      "body": "- D1983 item 1. Old test 28 s: checking the 53 examples 17.7 s, tsc 9.7 s, generate+compare 0.2 s.\n- Split: generated_code_is_stable (par_map check + snapshots, ~4.2 s alone; 4 threads 6.9 s, 14 threads 4.0 s; 323 MB peak) in merge; the_declarations_type_check (tsc) daily. Catches a corrupted snapshot. Not in a lane (4 s > 'about a second'; lane-cli already 12 s).\n- In corpus-sweeps it sat on the merge tier's tail chain (hash_stability examples started as it ended), so it runs beside the sweeps instead.\n- Merge tier (load 23-146 from other worktrees, noisy): before 48.6, 54.5, 56.7, 97.9 s; after (in group) 51.7, 52.0, 106.0, 70.1 s; after (beside sweeps) 56.7, 110.7, 81.1 s. No cost resolvable over the noise; needs a quiet-machine pair.\n- Branch worktree-agent-a1f0f053454506cfc: 31c79738, 72f0533f. fmt, clippy clean.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "319663a8"
-      ]
-    },
-    {
-      "id": 902,
-      "title": "SOUNDNESS: universe level overflow, Type 4294967295 : Type 0 is accepted",
-      "status": "done",
-      "agent": "",
-      "where": "merged 65f6a236",
-      "labels": [
-        "kernel",
-        "bug"
-      ],
-      "body": "SOUNDNESS. Found 30 Oct 2026 by the kernel-bug test lane (kernel register T1, porting Lean's looseBVarRange bit-overflow shape); reproduced by the orchestrator with main's release binary.\n\n`def wrap: Type 0 := Type 4294967295` is ACCEPTED (\"checked\"). So is `def wrap2: Type 4294967295 := Type 4294967294`. (`def big: Type 4294967295 := Nat` is rightly E-UNIVERSE; `Type 4294967296` is E-PARSE \"universe level is too large\".)\n\nCause: universe levels are u32 (`crates/core/src/term.rs:24`, `Sort::Type(u32)`), and the step to the next universe adds one unchecked: the kernel's `Sort::succ` (`term.rs:32`, `Sort::Type(i) => Sort::Type(i + 1)`, used at `crates/core/src/check.rs:286` and `:608`) and the elaborator (`crates/elab/src/check.rs:1218`). Release builds have no overflow checks (no `overflow-checks` in Cargo.toml), so `Type u32::MAX : Type 0`. The parser accepts any level that fits in a u32 (`crates/syntax/src/parser.rs:3882`).\n\nConsequence: the universe hierarchy is cyclic (Type 0 : ... : Type u32::MAX : Type 0), the setting of Girard's/Hurkens' paradox, so a proof of Void should be constructible (not built; treat as unsound). Also `Sort::fits_in` (term.rs:53-58) lets a Type 0 data type hold a field of type Type u32::MAX.\n\nFix direction: the kernel must refuse a universe whose successor doesn't exist (checked add, an error rather than saturating, since Type MAX : Type MAX is just as bad), the elaborator likewise, and the parser should keep levels far below the limit. Then audit the kernel for other unchecked arithmetic on levels, de Bruijn indices or counters. Must-reject tests for both programs above.\n\n\n30 Oct (fix lane): reproduced on main release: wrap, wrap2 and a Type 0 data type with a `Type 4294967295` field are all \"checked\". Plan: MAX_LEVEL = 65535 (u16::MAX), checked Sort::succ in kernel and elab, parser limit, cache read limit.\n30 Oct (fix lane): fix committed on branch (e1d444d7 kernel, da80af16 parser/elab/cache, d8d36404 examples); repros now E-PARSE / E-UNIVERSE; hashes lane unchanged. Next: audit, docs, lanes.\n30 Oct (fix lane): done on branch worktree-agent-a00641332c276221f (e1d444d7, da80af16, d8d36404, d3c2dee4). Lanes core 160, elab 78, syntax 170, examples 7, std 21, hashes 3 all pass; hashes unchanged; clippy, fmt clean. overflow-checks=true on aoc check: no difference above noise (user median 41.1 s main, 39.4 s with checks, 40.6 s branch, loaded machine). Ready for review.\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "65f6a236"
-      ]
-    },
-    {
-      "id": 903,
-      "title": "Counterexample search misses a false theorem silently when its hypothesis holds only for small inputs",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab"
-      ],
-      "body": "Found by the proof-automation register redo (docs/research/proof-automation.md §5.2), re-run by the orchestrator 30 Oct on main's binary.\n\n`theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6` is false ([0, 1, 2, 3, 4, 5]), but `check --counterexamples --verbose` prints \"none in 10000 cases (sizes up to 40; evidence, not a proof)\". With `h: xs.length < 100` instead, it finds [0, 0, 0, 0, 0, 0]. Probe: /private/tmp/claude-501/-Users-matt-repos-mdr-stitchwort/3eef38f5-69c2-4f26-b1b3-39bd97dd0fd4/scratchpad/sw894probe/sparse.sw (temporary).\n\nWhy it's silent: the verdict is \"gave up\" only when hypotheses hold in under 10% of inputs (crates/driver/src/counterexample.rs:82); here they hold often, but only for short lists, so nothing says the search never reached a falsifying size. Speculative, not checked: SW-900 (random list elements now share the size) may have made long increasing lists rarer than before; check against a pre-SW-900 build (branch sw900-investigation's base).\n\nRegister proposals: T2, report the size reached by inputs that satisfy the hypotheses (measurement first); T3, generators from Bool hypotheses (Palamedes PLDI 2026), only if T2 finds such cases.\n\n\nSW-903 lane (30 Oct): held size in the generator's units is 40 for shortIncreasing (singletons of large numbers hold), so the lane also tracks shape (constructors with data fields): held 4-5 vs 40 made. Pre-SW-900 build finds the counterexample on 5 of 40 seeds, main on 0 of 40.\n\nSW-903 lane done (30 Oct): 763ef574, d861cb58 on worktree-agent-a5e6dc0f68e2e9181. Weak if held size or shape < 1/4 of made; corpus flags 50 of 675 candidates (std 6, examples 28, aoc 13, rogue 3), only shortIncreasing known false. No snapshot text changed (verdict lines are not in snapshots). Side finding: std searches Nat.shiftRightShiftLeft hangs (shiftLeft by an edge 2^64) and Float.Theory.pow2FromPow goes past 2 GB, under the driver API only (check skips Std).\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "b85c3405"
-      ]
     },
     {
       "id": 904,
@@ -1664,107 +1356,6 @@
       "commits": []
     },
     {
-      "id": 906,
-      "title": "HASH_DUMP hash-dump test fails with E-RESOURCE on main (stack too small)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "tooling",
-        "bug"
-      ],
-      "body": "Found by the postponement stage 1 lane (30 Oct 2026): the repo's HASH_DUMP hash-dump test fails on main with E-RESOURCE (the dump recurses too deep for its stack). The lane used a scratch copy with a bigger stack to compare std+aoc (10,420 declarations) and std+rogue (5,164) byte for byte. Not yet reproduced by the orchestrator. Fix: give the dump test a bigger stack (as other corpus tests do with a spawned thread), so later stages can use it for identity checks.\n30 Oct, stage-2 lane: reproduced on main (E-RESOURCE in Day22 part1Correct); fixed in 0caa1f93 on worktree-agent-a0aa020bf904664ef (64 MB thread + eager_for_stack, HASH_DUMP_PROJECT for rogue; docs/testing.md \"Hash dumps\"); baselines 10,420 / 5,164 lines.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "6338d997"
-      ]
-    },
-    {
-      "id": 907,
-      "title": "Counterexample search ignores its time budget and blows memory on shiftLeft-shaped theorems (unreproduced)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab",
-        "bug"
-      ],
-      "body": "Found by the SW-903 lane (30 Oct 2026), running the counterexample search over std through the driver API (check never searches std, but a user theorem of the same shape would): Std.Nat.shiftRightShiftLeft ran for over 4 minutes, ignoring its 500 ms budget; Std.Float.Theory.pow2FromPow went past 2 GB. The lane's guess, not checked: Nat.shiftLeft by a random edge value (2^64) builds an enormous number, and that work isn't charged to the time or memory budget. Not yet reproduced by the orchestrator: reproduce under dev/memguard --cap-gb 2 with a user copy of each theorem first.\n\nJanitorial lane (30 Oct): reproduced with user theorems under memguard 2 GB: pow2From shape killed at 3.84 GB in 2 s; shiftLeft shape 4.4 s against the 500 ms budget. sample: time in rt prims::nat_mul (bignum mul and to_biguint memmove); a step is a frame, whatever the number's size; reference evaluator went past 5.9 GB too. Fix cd8ea57e on worktree-agent-a219941b3330387db: opt-in step per big-number word (product for mul/div, charged first), on in the search only (rt Limits::number_words, Budget::count_number_words). Now 0.08 GB and about 0.4 s of search. Example goals/counterexample-big-numbers.sw.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "bbede571"
-      ]
-    },
-    {
-      "id": 908,
-      "title": "(c: {} Nat) parameter type read as an empty record literal (E-CANNOT-INFER); gaps.sw header stale",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab",
-        "bug"
-      ],
-      "body": "Found by the SW-871/886 lane (30 Oct 2026): a parameter type written (c: {} Nat) gives E-CANNOT-INFER 'can't tell which record type this literal is'; {} seems to be parsed as an empty record literal rather than an empty ability row. Not reproduced by the orchestrator yet. Also: docs/proposals/direct-style-grammars/gaps.sw's header still says inArgument, inTuple and nested give E-CANNOT-INFER, which SW-805 fixed; update the header.\n\nJanitorial lane (30 Oct): reproduced (def run (c: {} Nat): Nat := c, E-CANNOT-INFER at 1:13; (c: {IO} Nat) is E-PARSE 'expected | and the fields to update'). Parser's fault: rows are parsed only on result types (parser.rs result_type), a binder's type is an expr, so {} is a record literal. D1141 (d) keeps rows off parameter types, so not accepted: 318ac176 on worktree-agent-a219941b3330387db refuses {…} T in a parameter's type with E-PARSE saying to drop an empty row or take () -> {IO} Nat; example reject/row-in-parameter-type.sw. gaps.sw header now: E-TYPE-MISMATCH at dependent, W-NO-EFFECT at forgotten, nothing else.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "bbede571"
-      ]
-    },
-    {
-      "id": 909,
-      "title": "Research: optimising Stitchwort for agentic (AI) theorem proving",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "research"
-      ],
-      "body": "Matt, 30 Oct 2026: the primary theorem provers using Stitchwort will be AI agents, not humans. Research how to optimise Stitchwort for agentic theorem proving: literature and tools on the web (full-text reading protocol, counts first), plus ideas of our own grounded in Stitchwort's code and in the friction our own agent lanes recorded while proving AoC and rogue (aoc/NOTES-*.md findings, games/rogue PROOFS.md, board tickets). Output: docs/research/agentic-proving.md in the register format. One research lane at a time.\n- 30 Oct (lane): rebased; read protocol, SW-897, README, infrastructure/proof-automation cards; mined aoc/NOTES-2024.md ranked lists and rogue NOTES/PROOFS; probed check/--index/goals/counterexamples/axioms/test/repl on main's binary; 24 arXiv full texts downloaded (0 WebSearch so far).\n- 30 Oct (lane): register written, docs/research/agentic-proving.md + README row, commit b1280336 on worktree-agent-ac87663ea06086a14 (not merged). Screened 69 / carded 24 / 12 read in full + 12 in part / 0 not read. 1 WebSearch. Tickets T1-T7, decisions D2040-D2041.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "a630a517"
-      ]
-    },
-    {
-      "id": 910,
-      "title": "Let-bound curried lambda r => p => … can't be inferred, while r p => … can",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab",
-        "bug"
-      ],
-      "body": "Found by the postponement stage 2 lane (30 Oct 2026), on main too: a let-bound curried lambda written with nested arrows, r => p => …, can't be inferred, while the same lambda written r p => … can. The two should elaborate the same (a lambda of two parameters). Not yet reproduced by the orchestrator: reproduce first, then find where nested lambdas are inferred differently from multi-parameter ones (lambda inference in crates/elab), and make them agree. Likely small.\n\n\n\n30 Oct: reproduced (let two := n => m => roll n + roll m: E-TYPE-MISMATCH \"expected type is ?2 n\"; as an argument both forms already worked). Fixed in check.rs infer: nested plain lambdas collected into one function type, as x y => is. Example lambda-nested-arrows.sw; testing.\n30 Oct: done on branch worktree-agent-ad6f1536ac44e12ef, commit 538c3259; lanes elab/examples/hashes/std pass, aoc and rogue check, no existing hash changes.\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "381db0de"
-      ]
-    },
-    {
-      "id": 911,
-      "title": "Effectful let-bound lambdas: 'expected Nat, but this has type {Fail} Nat' when used twice or only with literals",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab",
-        "bug"
-      ],
-      "body": "Found by the SW-910 lane (30 Oct 2026), predates SW-910 (flat and nested forms both): effectful let-bound lambdas fail with 'expected Nat, but this has type {Fail} Nat' in two shapes: (1) two separate effectful let lambdas in one body used as a 1 3 + b 2 5; (2) one effectful let lambda in a function with no parameters, called only with literals (span 1 3 + span 2 5). Giving the function a parameter (span base 3) avoids it. Not yet reproduced by the orchestrator; repros in the scratchpad sw910/ folder (temporary). Reproduce first.\n\n30 Oct: reproduced (both shapes; even a lone 'span 1 3' in a parameterless def). Cause: effects.rs same_results compares the lambda's written results 'PlusRes Fail.res (rowRes ?e)' with ?e solved to Empty since (close_inferred_row) but not re-evaluated, so not NoRes: performs_after says the call doesn't perform. Fix: refresh and compare again. Example let-lambda-effects-closed.sw; testing.\n30 Oct: done on branch worktree-agent-a34a004efeac92f9a, commit 680214be; lanes elab/effects/examples/hashes pass, no existing hash changes (one new snapshot for the example).",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "8e896fa6"
-      ]
-    },
-    {
       "id": 912,
       "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
       "status": "backlog",
@@ -1779,38 +1370,6 @@
       "updated": "2026-10-30",
       "commits": [
         "c2b8e0f9"
-      ]
-    },
-    {
-      "id": 913,
-      "title": "auto: cache the ordering of decision procedures (re-sorted on every call in a project) (D2036)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab"
-      ],
-      "body": "D2036 (Matt, 30 Oct 2026: yes), found by the SW-800 lane: in a project, auto::decision_procedures re-sorts the library's decision procedures on every call (profiled), so an 11-item membership by cases takes ~43 ms (14 ms in single-file mode; 0.8 ms by hand). Every auto obligation in a project pays this. Cache the ordering; the cache must survive or be invalidated correctly by session rewinds (rewind.rs) and library loading. Measure before/after on day 21's everyNumericKey and the aoc check.\n30 Oct (lane): cached the order below the module's own defs (auto::DecisionOrder, keyed on first_def/prelude_defs/closure/namespace_defs/bootstrap, cleared on rewind); everyNumericKey 89-99 -> 14 ms, everyDirectionKey 27-29 -> 5 ms (5 interleaved runs); aoc check -0.9% instructions; tests running.\n30 Oct (lane): done, commit 6712837b on worktree-agent-aeef848827d1cf5da; lanes elab/std/examples/hashes/lsp pass, aoc 914/914 (output identical to before), rogue 100/100, clippy+fmt clean; 4 invalidation tests in driver/tests/decision_search.rs.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "ed9eb0b2"
-      ]
-    },
-    {
-      "id": 914,
-      "title": "Goals as data in check --index JSON (agentic T3)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "tooling"
-      ],
-      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n- 30 Oct: goal/counterexample data on Diagnostic (syntax), printed apart in goals.rs; index v3 writes goal + counterexample members. Next: lemma round trip, elision.\n- 30 Oct: lemma round trip passes (32 lemmas of 46 goals in examples/goals; 14 skipped); --full-goals, 400-char line cut; docs. Running lane tiers.\n- 30 Oct: done on branch worktree-agent-a92c7888bac964155, commit b0f1a3ea. Lanes cli/elab/examples/lsp/hashes green; clippy, fmt clean. Ready to merge.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "54acfcb5"
       ]
     },
     {
@@ -1845,92 +1404,6 @@
       ]
     },
     {
-      "id": 916,
-      "title": "Proving guide for agent lanes (agentic T7)",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "docs"
-      ],
-      "body": "D2044 (Matt). docs/research/agentic-proving.md T7: a proving guide for agent lanes (skill-file style, cf. C21): how to finish a proof lane (audit), never weaken statements, use ? and cases/omega/auto/byDecision, counterexample search, common error codes and fixes, lemma discovery, from our own friction (§5).\n\n30 Oct: done on branch worktree-agent-a34a004efeac92f9a, commit 5a67b37e: docs/proving-guide.md (rules, workflow, tools, errors with output run on examples, lemma grep, performance, report), linked from docs/workflow.md and T7. No CLAUDE.md in the repo.",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "8e896fa6"
-      ]
-    },
-    {
-      "id": 917,
-      "title": "rewrite with an open lemma argument takes ~25 s (vs 0.25 s with it given)",
-      "status": "done",
-      "agent": "Claude",
-      "where": "fixed for rewrite (c037491b, 24 s to 0.25 s); unifier half split to new ticket",
-      "labels": [
-        "elab",
-        "bug"
-      ],
-      "body": "Found by the SW-916 lane (30 Oct 2026) while testing the proving guide: with an opaque lcg, 'rewrite lcg.unfold in …' (the lemma's argument left open) took about 25 s to check, while 'rewrite lcg.unfold seed in …' took 0.25 s and 'unfolding lcg' 0.18 s. STITCHWORT_REWRITE_METRICS shows the rewrite itself is cheap, so the time is elsewhere (unification of the open argument against the goal? the motive?). Cause unknown; not yet reproduced by the orchestrator. Reproduce, profile with sample, fix or document.\n\n30 Oct (investigation lane): reproduced on main 82a79b30: scratch file opaque lcg + theorem lcg seed < 2^31 by rewrite lcg.unfold in Std.Nat.modLt …: 24.1 s user; with seed given 0.22 s; unfolding lcg 0.16 s. Profiling next.\n30 Oct (investigation lane): cause found: rewrite builds the new goal from the rule's right side as computed before matching, so it holds the solved unknown ?x, not seed; core::value::identical (same_closure) doesn't see through solved unknowns, so unify descends into both sides' Nat.divFuel unfoldings, one level per Succ of + 12345 (steps ~ C^2; 154M). Fix in rewrite.rs (refresh the right side after a match by conversion): 24.1 s -> 0.20 s. Testing next.\n30 Oct (investigation lane): done on branch worktree-agent-a829ead674fd2209f, commit c037491b: rewrite.rs refreshes the rule's right side after an open rule matches by conversion, kept only when the new goal reads back the same (hashes unchanged; first unguarded try changed 83 prelude hashes). Repro 24.1 s -> 0.25 s; example accept/rewrite-open-argument-solved.sw 47.1 s -> 0.21 s. Lanes elab/examples/hashes, clippy, fmt, rogue check pass. Left open (unifier, not fixed): Std.Nat.modLt (_ * 1103515245 + 12345) 2147483648 against a transparent (seed*…+12345) % 2^31 < 2^31 still takes 24.7 s, same mechanism, no rewrite involved.\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "c037491b"
-      ]
-    },
-    {
-      "id": 918,
-      "title": "Goals print library names the file can't resolve (List.count without import); goal_index test in no tier",
-      "status": "done",
-      "agent": "Opus",
-      "where": "merged; goal_index in merge tier (+~7 s)",
-      "labels": [
-        "elab",
-        "tooling"
-      ],
-      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n\n\nD2061 (Matt, 30 Oct 2026): lane started. Repro on main: `theorem evensLe (xs: List Nat): xs.count (n => n % 2 == 0) ≤ xs.length := ?` prints `⊢ List.count xs (n => Decidable.toBool (Nat.decEq (n % 2) 0)) ≤ List.length xs`; pasting that as a lemma gives E-UNKNOWN-NAME for List.count. Also in scope (separate commit): `==` printed as `Decidable.toBool (Nat.decEq ..)`.\n\n\nLane progress: cause found. Library declarations are stored with `name` relative to Std (`List.count`), and the scoped printer fell back to that name when no shorter part resolved. Now it falls back to the key (`Std.List.count`). Note `List.length` and `Decidable.toBool` do not resolve without an import either (checked: E-UNKNOWN-NAME), so they print as `Std.…` too. 19 snapshots change (goals and error messages).\n\n\nLane done (branch worktree-agent-a46f334ed87c46286): f1819edb names (Std.List.count without import; 24 snapshots + 1 new), 7bfc7c7b goal_index in merge + new lane-goals (merge 51.5 s -> 58.9 s at load 28; 4-at-a-time to stay under the 3 GB cap), 80cc659c goals print `==` where it elaborates back to the same term (3 snapshots). Repro now: `⊢ Std.List.count xs (n => n % 2 == 0) ≤ Std.List.length xs`.\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-30",
-      "commits": [
-        "f1819edb",
-        "7bfc7c7b",
-        "80cc659c"
-      ]
-    },
-    {
-      "id": 919,
-      "title": "Panic 'internal error: applying a constructor' (value.rs:815) in dev search matching std theorem pairs",
-      "status": "done",
-      "agent": "Opus",
-      "where": "fixed (939c66a8): E-TYPE-MISMATCH instead of panic; search panics 80-91 -> 0-3",
-      "labels": [
-        "bug",
-        "elab"
-      ],
-      "body": "Found by the SW-915 search lane (30 Oct 2026). `stitchwort dev search 'self:conclusion'` (docs/proposals/search/queries-draft2.sh, section self) panics with \"internal error: applying a constructor\" (crates/core/src/value.rs:815, the catch-all in apply) on 4 pairs of std theorems with the constants filter and 12 without, e.g. the pattern from `Std.Parse.runFromMark` against `Std.Parse.runFromNatThere` (docs/proposals/search.md §6.1, stage S1a).\n\nNot yet known: whether this is reachable from ordinary elaboration, or only from search's matching (which unifies a pattern with theorem types it hasn't type-checked against, so an ill-typed meta solution could put a constructor in head position). First step: reduce the pair to a minimal repro, then decide whether the fix is in search (check types before unifying) or in unify/eval. A panic in core is a bug either way; it should be an error, not a crash.\n\n30 Oct (lane): reachable from ordinary `stitchwort check`, not search-only. Minimal repro (panics at value.rs:815 under plain `check`; backtrace effects::pure_let -> quote_folded -> force_solved -> apply_step):\n\n    def app [p: Bool → Type] (x: p True): p True := x\n\n    def probe (t: (Nat → Nat) → Type) (mk: (g: Nat → Nat) → t g) (use: (g: Nat → Nat) → t g → g 0 = g 0): Nat :=\n      let e := use _ (app (mk _))\n      let f: 1 = 1 := e\n      0\n\nCause: unify.rs `first_order`. Checking `mk ?g : t ?g` against `?p True`: `?p True` isn't a pattern (True isn't a variable), so first_order pairs the last arguments, `True =?= ?g`, and solves `?g : Nat → Nat` with `True` (logged: `solve ?g := x x x => True`). Its doc comment says \"the kernel re-checks the result\", but the elaborator evaluates `?g 0` (from `g 0 = g 0`) before any re-check, and applying `True` panics. With `use` returning `Nat` instead, the same file gives a clean E-TYPE-MISMATCH (\"`True` builds a `Bool`, but the expected type is `Nat → Nat`\").\n\nSearch pair (runFromMark against runFromNatThere): same mechanism. Logged solutions: pattern `?k (?s.at)` against target `Effect.bind (Parse.nat.%match1 …) k'`; first_order gives `?k := Effect.bind (Parse.nat.%match1 …)` and `k' := Parse.State.at ?s` (a Mark record, where k' : Nat → {Parse} a). A postponed comparison (unify::run, Task::Later) then re-quotes and applies it. Search only makes such ill-typed pairings more common.\n\nThe fix belongs in unify.rs (first_order mustn't pair last arguments of different types, or a solution must be checked before use). Stopped per the lane brief, since the postponement stage 6 lane is rewriting the unifier. No commits.\n\n\n\n30 Oct (orchestrator): repro verified on main: plain `stitchwort check` on the 6-line file panics at value.rs:815. So this is an elaborator bug, not search-only: `first_order` (unify.rs) solves `?g: Nat → Nat` with `True` from `True =?= ?g` when `?p True` isn't a pattern, and the elaborator evaluates `?g 0` before the kernel re-check. A crash, not a false theorem (the kernel still re-checks). Fix belongs in unify.rs (don't pair last arguments of different types, or check a solution's type before use; `can_apply` in `push_eta` is a partial guard). Waits for postponement stage 6 (SW-817), which is rewriting the unifier; then a lane fixes it with the repro as a reject example. Core's panic arm left as is: turning it into an error needs a new eval error kind, since callers read eval errors as budget errors.\n\n\nD2075 (Matt, 31 Oct 2026): one unifier lane, SW-919 first then SW-920, separate commits.\n\n31 Oct (unifier lane, 939c66a8 on worktree-agent-aeeef626c57618f7d): fixed in the unifier. Unknowns record their type where whoever makes them knows it (a hole checked against a type, an implicit or `auto` argument, search's opened binders: `Meta::ty`). `first_order` refuses to pair the last arguments (or the rest) when their types are known to differ in outermost form (`apart`, by `rigid_head` without type variables). Repro: panic -> E-TYPE-MISMATCH (`reject/unify-last-arguments-types-differ.sw`); unit test in unify.rs. Hashes: std+aoc and std+rogue dumps byte-identical. Search panics, queries-draft3.sh, base -> lane: conclusions 4,4,4,4,12 -> 0,0,0,0,0; left sides 2,2,2,2,12 -> 0,0,0,0,7; uses 18,80,80,78,79,91 -> 0,1,1,1,0,3. The 7 left-side panics left (filter:off) are a different one, value.rs:1621: a case meets a constructor of another type, e.g. Nat.compareFlip's left side (an Ordering) against Bool.xorAssoc's (a Bool). [Inferred: search compares sides of different types, which no guard in first_order can make well-typed; the uses ones not examined.]\n\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-31",
-      "commits": [
-        "939c66a8"
-      ]
-    },
-    {
-      "id": 920,
-      "title": "Unifier: identity shortcut doesn't see through solved unknowns (modLt against % 2^31: 24.7 s)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "fixed (3ffe8f83): 25 s -> 0.1 s",
-      "labels": [
-        "elab",
-        "perf"
-      ],
-      "body": "Split from SW-917 (30 Oct 2026). The slowdown happens without `rewrite`: `Std.Nat.modLt (_ * 1103515245 + 12345) 2147483648` checked against a transparent `(seed * 1103515245 + 12345) % 2147483648 < 2147483648` takes 24.7 s and 154M steps (quadratic in the added constant: `Nat.mod` unfolds `Nat.divFuel` once per `Succ` of `+ 12345`).\n\nCause found by the SW-917 lane: the identical-closure shortcut (`same_closure`, unify.rs Lam case ~936, via `value::identical`, crates/core/src/value.rs ~3393) compares heads without forcing solved unknowns, so `Meta(?x)` (solved to `seed`) against `Var(seed)` counts as different and unify descends into two equal terms structurally. The `Nat.div` call shortcut misses because its arguments solve the `auto ok` proof.\n\nLikely fix: make the identity shortcut see through solved unknowns (substitute before comparing, or retry identity after forcing). Touches unify.rs / core `identical`, so wait until postponement stage 6 (SW-817) has merged; then re-measure, since stage 6 may change these paths. Hash changes possible; must be explained.\n\n\nD2075 (Matt, 31 Oct 2026): one unifier lane, SW-919 first then SW-920, separate commits.\n\n31 Oct (unifier lane, 3ffe8f83 on worktree-agent-aeeef626c57618f7d): fixed. Unification's two identity shortcuts (Lam pairs and codomains) use core's new `same_closure_solved`: where two values differ as they are and one is headed by a solved unknown, they're compared again with the solution applied (a cold path, reached only on a mismatch). The kernel's `same_closure` is unchanged. Repro: elaboration 23,900 ms -> 0.5 ms; work 155,038,533 -> 528,572 steps (prelude included; with `seed` written: 528,513). Test `conv_shortcut::a_solved_unknown_is_seen_through_by_the_identity_shortcut` bounds the `_` version's work by the `seed` version's +10% (fails at 155M without the fix; added to lane-elab), plus a core unit test. Hashes: std+aoc and std+rogue dumps byte-identical. aoc `check --no-cache` user CPU 43.0 s base vs 41.1 s lane (noisy machine); a few declarations' steps move by tens to hundreds (applying solutions in the shortcut).\n\n",
-      "created": "2026-10-30",
-      "updated": "2026-10-31",
-      "commits": [
-        "3ffe8f83"
-      ]
-    },
-    {
       "id": 921,
       "title": "Memory: resources test reaches 6.7 GB loading one small program repeatedly (sessions not freed?); lsp aoc_navigation test 7.9 GB",
       "status": "next",
@@ -1948,78 +1421,6 @@
       ]
     },
     {
-      "id": 922,
-      "title": "R4 (SW-787) makes x % D with a + K literal unfold Nat.divFuel K levels: huge normal forms (Float.Theory magUnits*, lcg), slow unification (SW-920)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "stage 1 merged (P1); stage 2 / SW-554 later (D2081); bench times need re-recording on a quiet machine",
-      "labels": [
-        "bug",
-        "perf"
-      ],
-      "body": "Found while getting the full tier green (31 Oct 2026; differential test fix 817c3ad7). Since 1ed90886 (SW-787, R4: `+` also computes on its second argument), `x + K` with a literal K normalises to `Nat.add K x`-style forms that hand known fuel to recursions such as `Nat.divFuel`. So `m % D` or `m / D` where m contains `+ K` and an unknown unfolds `divFuel` up to K levels, each stuck on the unknown with the next inside it: the normal form grows with K (measured for small K = 4, 8, 16, 32: 1.6k, 4.1k, 11.9k, 37.6k characters, faster than linear).\nWhere it bites today:\n- std Float.Theory `magUnitsFieldNext`, `magUnitsWholeAt`, `magUnitsWhole`, `magUnitsCarry` (types about `magUnits (e * 2^52 + 2^52 + …)`, `magUnits m = Nat.divFuel m m 2^52`): quoting a type passes 4 GB; the reference `conv` overflows.\n- examples/accept/partial-handlers.sw `lcg seed = (seed * 1103515245 + 12345) % 2^31`: normal forms over 4 GB; two closed tests take ~55 s in conversion.\n- SW-920 (unifier `modLt` against `% 2^31`, 24.7 s) and SW-917 (rewrite, fixed separately) are the same unfolding.\nThese are left out of the differential test for now. Not yet decided: whether R4 should stop handing literal fuel to such recursions (e.g. don't commute when the result feeds a fuel argument, a fuel-free Nat.div/mod (SW-554), or lazy unfolding), measured on std/AoC/rogue. Inferred, not tested: these passed before 1ed90886.\n\n\nD2077 (Matt, 31 Oct 2026): design lane. Compare the fix options (1) a division that does not step through the number one unit at a time (SW-554), (2) narrowing R4, (3) lazier unfolding; measure each on std, AoC and rogue; and compare what other languages in our space do for Nat division/mod (definitions, kernel/native support, reduction behaviour) and how well they handle this case compared to us. Design note before any code.\n\n31 Oct (design lane): reproduced: normal form of (x*3+K)/2^31 is 355, 29.8k, 438k, 6.9M, 27.4M chars at K = 4, 64, 256, 1024, 2048 (41 s), E-RESOURCE at 4096. Prototype P1 (divFuel's step takes the comparison as its first argument, so a stuck step stays folded; natives unchanged): 132 chars at K = 12345; SW-920 repro 29.8 s -> 0.21 s; std 2328, aoc 1363, rogue 190 theorems pass, two std lemma statements changed; differential test passes partial-handlers and float-playlist with the R4 exclusions removed. Lean, Agda, Rocq, Idris run; note next.\n\n31 Oct (design lane): note docs/proposals/division.md on branch worktree-agent-aa5219c3981af5a43 (768497c8; prototype bf47f1d3, reverted ad6bcb34). Others: Agda/Rocq count down the dividend with a counter (small stuck term); Lean and Idris 2 use our fuel scheme (Lean hides it with irreducible; forced, worse than ours); Agda running our divFuel blows up as we do. Option (b) (R4 only up to 64) breaks Float.Theory.keyHigh. P1 merge tier: 906/911, the 5 are hash snapshots plus Nat.toText's runtime native dropping off its pinned hash (re-pin in stage 1). Rec: P1 as stage 1, keep R4. Open: D2080-D2082.\n\n\nD2080 (Matt, 31 Oct 2026): yes. Build P1 as stage 1 (docs/proposals/division.md): divFuel step as a folded call on its comparison, R4 unchanged; re-pin Float and the runtime text natives; print the step as `/` in goals; remove the R4 skips from the differential test.\n\n\n31 Oct (stage 1 lane): P1 in (Nat.divStep, registry DivStep); printer shows a first step as `/` (`(x*3+12345) % 2^31` prints `(12345 + (x * 3)) % 2147483648`). Re-pinned 5 Float kernel hashes and 9 runtime natives (Nat.toText and 8 Int: div, mod, tdiv, tmod, fdiv, fmod, modNat, toText; the prototype missed the Int ones). New merge-tier test pinned_hashes checks every hash binding. Differential R4 skips removed: daily 17 s 0.48 GB, full 55 s 2.28 GB peak, pass.\n\n\n31 Oct (stage 1, resumed): rebased on main (583b5d58), 3 commits on worktree-agent-a34e9da4171290b2e: 42d6e454 code and tests, 6425ad64 hash snapshots (Nat.div/mod dependents: toText, derived show, Int division, Float, Std.Char digits), 1a67964b bench baseline (counts unchanged by this change: examples 3,523.1M steps before vs 3,522.9M after; times kept from the old baseline, machine at load 20). Merge tier 950/950; extract, JS 59/59; audit std 2328, aoc 1363, rogue 190 pass; float wasm gate 1989/0; clippy, fmt clean. Differential: daily 28 s 0.76 GB, full 65 s 2.37 GB peak, pass. SW-920 proof 0.53M steps (0.54M without shortcuts). pinned_hashes checked by reverting Nat.toText's pin: fails naming it. aoc check --no-cache user CPU 39.0 s before, 38.1 s after. Ready to merge.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "bf47f1d3",
-        "ad6bcb34",
-        "768497c8",
-        "42d6e454",
-        "6425ad64",
-        "1a67964b"
-      ]
-    },
-    {
-      "id": 923,
-      "title": "Tests (and hosts) running a checker session on a thread smaller than its limits claim: audit, fix, helper",
-      "status": "done",
-      "agent": "Opus",
-      "where": "merged: 20 tests fixed, with_session helper, stack-check feature on in tests; hosts OK",
-      "labels": [
-        "tooling",
-        "bug"
-      ],
-      "body": "Found getting the full tier green (31 Oct 2026). Two full-tier tests (driver check_cache aocs_namespaces_load_on_their_own_from_the_whole_projects_cache, fixed 1bc65f72; driver rewind a_check_cancelled_part_way_rewinds, fixed dc331002) ran a checker session on libtest's default 2 MiB thread while the session's limits said 16 MiB (`Session::for_stack` / `navigable_for_stack`), so the stack guard could never fire before the real stack ran out: a hard abort instead of E-RESOURCE. Latent until AoC day 22 (28 Oct) evaluated ~2000 deep while checking.\nD2078 (Matt, 31 Oct 2026): audit every test for sessions created or used outside a thread of the size their limits claim (Session::new / for_stack / navigable_for_stack / load / check run on the test's own thread), fix each, and add a helper that makes the thread and session together so they can't disagree; point tests at it. Also check the language server (crates/lsp or wherever it checks) and any other non-CLI host gives its checker a thread matching its limits.\n\n\nProgress (lane): stack-check feature (core, on in tests via dev-deps) panics when an outermost operation's stack limit exceeds what its thread has left; with_session(stack, make, f) helper in driver; docs/testing.md \"Stack\". Running all tests at lane sample to find mismatches.\n\nDone (lane, 8895355d on worktree-agent-ac2c34995a415a26e): the check, run over all 1766 tests (lane sample, daily profile), failed 20 tests in 3 files (erasure, named_arguments, signature_defaults: 16/64 MiB sessions on the 2 MiB test thread); fixed. Full-only and ignored paths checked by reading: OK. Hosts: CLI 64 MiB thread + 64 MiB limits OK; LSP checker thread stack_size(options.stack) = its sessions' limits OK; web wasm own 256 KiB guard on 8 MiB OK, native tests 2 MiB or 256 MiB threads OK; bench and rt_run with_stack OK.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "8895355d"
-      ]
-    },
-    {
-      "id": 924,
-      "title": "dev search: remaining panic at value.rs:1621 (case meets a constructor of another type), 7 left sides unfiltered, 1-3 proof uses",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "bug",
-        "elab"
-      ],
-      "body": "Found by the SW-919 lane (31 Oct 2026), after its fix: `docs/proposals/search/queries-draft3.sh` still panics 7 times in the left-sides section with filter:off, and 1-3 times in proof uses, at crates/core/src/value.rs:1621: a `case` meets a constructor of another type, e.g. `Nat.compareFlip`'s left side (an Ordering) against `Bool.xorAssoc`'s (a Bool). Unconfirmed guess: search unifies two sides whose types differ (search's patterns aren't type-checked against the theorem's side), which no guard in first_order can catch. First step: reproduce one pair, find whether ordinary `check` can reach it (as SW-919's could), then fix in search (compare types first) or upstream. Blocks search stage 1 (SW-915) only lightly, but stage 1 shouldn't ship with panics.\n\n\n31 Oct (stage 1 lane, worktree-agent-a14fe24bf4989ac6b): rebased, read draft 3, review 1, guide. Reproducing the value.rs:1621 panic.\n\n\n31 Oct (stage 1 lane, resumed; branch worktree-agent-a14fe24bf4989ac6b): 20fd3dc2 search compares a target's type with the pattern's before unifying. Ordinary `check` doesn't reach the value.rs:1621 panic: `rewrite Nat.compareFlip in Bool.xorAssoc a b c` (also `<-`, and the reverse pair) gives E-REWRITE-NOTHING (rewrite.rs has_carrier checks the candidate's type first). queries-draft3.sh with a build of 20fd3dc2: self and left 0 internal errors in all 10 runs; proof uses 0/1/1/1/0/3 over its 6 runs. Those were value.rs:815 (List.foldRightCons's use vs Effect.foldCompDone) and value.rs:1040 (Eq.trans's use in List.sumByGet vs List.sumByAttach/From). Fixed: 097f8720 unify first_order: pairing the last arguments that solves the head unknown itself with a non-function fails and is taken back (unit test); and the proof-use benchmark now gives its holes their parameter types, so SW-919's guard sees them. Successor benchmark (crates/driver/tests/search_bench.rs, full tier): conclusions 2,324, left sides 1,587, proof uses 5,197 queries, 0 internal errors in each. Whether ordinary check can reach the first_order case: not checked.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "20fd3dc2",
-        "097f8720"
-      ]
-    },
-    {
-      "id": 925,
-      "title": "A match's motive check is skipped when its scrutinee holds an unsolved unknown (E-MATCH-MOTIVE missed)",
-      "status": "done",
-      "agent": "",
-      "where": "fixed by SW-817 step 4.0 (4e765fba)",
-      "labels": [
-        "bug",
-        "elab"
-      ],
-      "body": "Found by the D2086 design lane (SW-817), 31 Oct 2026, on main 8b75b5c7 [run].\n\nA `match` on an expression checks that generalising its scrutinee keeps every type well formed (`check_motive`, crates/elab/src/matching.rs:765-766). When the scrutinee still holds an unsolved unknown, building that type fails (\"can't work out an implicit argument\") and the check is skipped: \"something isn't known yet: checked when it's admitted\". But the helper is admitted with only the variables its body uses, so a generalised hypothesis the body doesn't use is never checked.\n\nRepros (docs/proposals/postponement/, added by the D2086 design commit):\n- motive-field-later.sw: `apply (r => match List.length [r.x, r.x] with ...) p` with `q: two 2 rfl b = 2` in scope; `r.x` waits for `r`'s type (stage 2's K2). Accepted. The same with `(r: P)` is E-MATCH-MOTIVE.\n- motive-param-later.sw: `match List.length [r] with ...`, `r` a lambda parameter of unknown type (an ordinary unknown, no queue item). Accepted; the annotated twin is E-MATCH-MOTIVE.\n\nFix (D2086 design, \"Stage 4: design for the third attempt\" in docs/proposals/postponement.md): the check doesn't skip; the match waits for the unknowns its generalisation reads (a queue item, scrutinee kept as a term), so the motive is checked once they are known. Step 4.0 of the third attempt; can land before K4.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": []
-    },
-    {
       "id": 926,
       "title": "E-IMPORT-CLASH note suggests List.length, which doesn't resolve without import Std (List)",
       "status": "backlog",
@@ -2035,38 +1436,6 @@
       "commits": []
     },
     {
-      "id": 927,
-      "title": "search: overloaded operators with an unknown operand (List.length (_ ++ _)) not tried at each resolution; query log not built",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "tooling"
-      ],
-      "body": "Found verifying search stage 1 (31 Oct 2026): `stitchwort search 'List.length (_ ++ _) = _'` fails with E-TYPE-MISMATCH \"`++` joins two texts or two lists … this is a `?1`\", although List.length fixes the operand as a list; `List.length ((_: List _) ++ _) = _` works. Draft 1 section 3.1 / draft 3 section 4 promised overloaded operators with an unknown operand type are tried at each resolution and the results merged: not built. A natural agent query. Also not built from S1d: the opt-in query log (--log).\n\n\n31 Oct: done in 77d2e8e3 on worktree-agent-a6ada3b771b4b7037 (readings merged; --log).\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "77d2e8e3"
-      ]
-    },
-    {
-      "id": 928,
-      "title": "AoC 2021 day 1: sonar sweep, solved and proved",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 day 1 (sonar sweep): solution, spec, proofs for every input, tests (example and Matt's input: 1616, 1645), aoc_answers.rs, and a new aoc/NOTES-2021.md friction report. Lane worktree agent-aef82ecfc6a72e17f, branch worktree-agent-aef82ecfc6a72e17f, commit 96014f28.\n\nProgress 31 Oct: solved (1616, 1645); part1Correct, windowsCorrect (any window size) and part2Correct proved for every input; audit 14/14 passed; lane tier and year2021_day01 pass; task audit clean. Ready to merge.",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "96014f28"
-      ]
-    },
-    {
       "id": 929,
       "title": "match last resort: generalise at the end and re-check when only the match's own alternatives fix an unknown (step 4.0 follow-up)",
       "status": "backlog",
@@ -2079,204 +1448,6 @@
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
-    },
-    {
-      "id": 930,
-      "title": "Operator section (<) gives a Prop, not a Bool: zipWith … (<) |> .count fails E-AUTO-NONE, error points at the lambda not at (<)",
-      "status": "done",
-      "agent": "",
-      "where": "merged (D2098 a)",
-      "labels": [
-        "elab",
-        "diagnostics"
-      ],
-      "body": "Repro in NOTES-2021 item 1. Either a section of a comparison where a Bool is expected should be the Bool comparison (as a < b written inline in a Bool position is decided), or the error must point at the section and say how to get the Bool form.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, 6160d345): made it work. A section comparing with < <= > >= (incl. method sections) whose result type is still an unknown (or {e} ?t) solves it with Bool before checking the body, so zipWith … (<) and map (> 3) give List Bool. Where a Prop is expected (List.All (< 5)) unchanged; a written lambda (a b => a < b) stays Prop (the one place a section differs from its lambda; docs/syntax.md says so). Example examples/accept/section-comparison-bool.sw; no other example hash/message changed.\n\n\nD2098 (Matt, 31 Oct 2026): (a) accept the section rule as built; a written-out lambda keeps today's behaviour (option b is a possible follow-up). Cherry-picked onto main.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "723d7784"
-      ]
-    },
-    {
-      "id": 931,
-      "title": "Blanks (_) in a lemma call aren't filled before its proof argument is checked (Eq.trans (List.filterSkip _ _ _ (rewrite …)) fails)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "worktree-agent-ac7e942e67cd1a855",
-      "labels": [
-        "elab"
-      ],
-      "body": "NOTES-2021 item 2; same friction as AoC 2024 day 1. Find whether postponement (SW-817) or the order of argument checking explains it; fix or report.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\nProgress (Opus lane, worktree-agent-ac7e942e67cd1a855):\n- Repro: the holes form of windowsShort checks on main, and on 0eb53617 (the day 1 lane's base). The lane's failing try had a different proof (`rewrite List.takeAll …, equalBelow … in rfl`), which fails with the holes written out too (E-REWRITE-MOTIVE). The holes are filled; the wrong error was shown.\n- Cause: `propagate` (check.rs) compares Eq.trans's type with the goal first. When the application then fails, it is elaborated again without the goal (to keep old messages), and that error (goal `?6 … = False`) wins. Only a lambda argument kept the first error (in_same_lambda, 338e0e50).\n- Fix: keep the first error when both are inside the same explicit argument (in_same_argument). Failure path only, so accepted programs and hashes can't change. 2024 day 1 already uses `_ _` (fixed earlier).\n- Refined: strictly inside a non-lambda argument (an error about the whole argument, as in reject/expected-type-retry, keeps the old message). Reject snapshots: only the new one. Hashes: check.rs alone gives byte-identical std+aoc and std+rogue dumps; with windowsShort simplified, 6 Day01.Proofs hashes change (windowsShort and the 5 that depend on it).\n- Done on branch worktree-agent-ac7e942e67cd1a855 (0ebe8197, 063ccdaa), rebased on main; ready for review.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "0ebe8197",
-        "063ccdaa"
-      ]
-    },
-    {
-      "id": 932,
-      "title": "std: List.windows and drop lemmas (dropAt, dropPast); move list drop lemmas out of Std.Map.Tree and an equalSwap out of Std.Float.Theory",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "stdlib"
-      ],
-      "body": "NOTES-2021 item 3: std lacks List.windows and drop counterparts of takeSucc/takeAll (dropAt, dropPast proved in Aoc.Year2021.Day01.Proofs); three list drop lemmas live in Std.Map.Tree; Nat.equalSwap's equivalent lives in Std.Float.Theory. Move them where search and readers expect.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, cfdceb9e): List.windows (n+1-size windows; size 0 gives n+1 empty ones) with lengthWindows, lengthOfMemWindows, windowsCons, windowsShort, windowsTails; List.dropAt/dropPast (AoC uses them); Map.Tree.drop* -> List.dropNil/dropAdd/dropLength; Float.Theory.equalSwap -> Nat.equalComm. Lane tiers std/hashes/aoc pass.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "cfdceb9e"
-      ]
-    },
-    {
-      "id": 933,
-      "title": "if h: inside a proof is an error, and its suggestion (match on a Bool) loses h",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "elab",
-        "diagnostics"
-      ],
-      "body": "NOTES-2021 item 4. Either allow the dependent if (h) in proofs, or make the suggestion one that keeps h (match on the decision procedure, e.g. Nat.decLessThan).\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, abdbe349): suggestion route (allowing proof-valued if is SW-373's design, waiting on Matt). The E-UNIVERSE note now names the decision procedure and keeps h: `match Std.Nat.decLessThan m (List.length rest) with | Yes h => … | No h => …`; for a == b its decEq; for a plain Bool `match e: c with`. New examples/reject/if-h-chooses-proofs.sw.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "abdbe349"
-      ]
-    },
-    {
-      "id": 934,
-      "title": "Goals print a == b as Decidable.toBool (Nat.decEqFrom …) in some cases, hiding that DecEq.refl closes it",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "diagnostics"
-      ],
-      "body": "NOTES-2021 item 5. SW-918 made goals print == when the decider is what == would choose; extend it to the decEqFrom form (and List's decEq taking the items' decider) where it reads back to the same term.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, efb35637): goals fold toBool {a = b} d to a == b when d is (or is definitionally, goal variables unknown) what == applies; eq_decider -> eq_decision returns the closed decision term, so List's (with items' decider) counts. decEqFrom and List.decCons forms now print (Succ m == Succ m) = True / (Cons m xs == Cons m xs) = True; paste-back test extended.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "efb35637"
-      ]
-    },
-    {
-      "id": 935,
-      "title": "search: premise patterns fall back to the relaxed pass with unrelated results; project errors reprinted on every search",
-      "status": "done",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "tooling"
-      ],
-      "body": "From AoC 2021 day 1's use of stitchwort search (List.sum (_ ++ _) is SW-926, in progress). Rank or filter the relaxed pass better for premise patterns; print project errors once (or summarise) rather than on every search.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nAoC 2021 day 2 (31 Oct): closed examples rank above general lemmas (List.sumInts above List.sumCons; List.scanLeftSums first): search hides only names ending in Example. Rank closed instances (no variables) below general lemmas, or hide std examples by marking them.\n\n\n31 Oct: f0d919a6 on worktree-agent-a6ada3b771b4b7037: a premise pattern's relaxed pass needs a definition in common, absorbing matches dropped; an unchecked project or file is one line. Not done: closed examples (List.sumInts) ranked above general lemmas (the day 2 note).\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "f0d919a6"
-      ]
-    },
-    {
-      "id": 936,
-      "title": "AoC 2021 day 2: Dive! (program, spec, proofs)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "worktree-agent-a00a254fc4c1f8211",
-      "labels": [
-        "aoc"
-      ],
-      "body": "Solve AoC 2021 day 2 (Dive!) in aoc/src/Aoc/Year2021/Day02: program, spec (step-by-step simulation), proofs that the solution equals the spec for every input, tests, friction report in aoc/NOTES-2021.md.\n\nProgress:\n- started; worktree agent-a00a254fc4c1f8211\n- program, spec, proofs (part1Correct, part2Correct, no hypotheses, Int depth/aim) and tests done; audit: 13 theorems, 0 failed, 0 with warnings\n- committed 2851eab6 on worktree-agent-a00a254fc4c1f8211; ready to merge (aoc_answers year2021_day02 passes, task audit clean, fmt clean)\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "2851eab6"
-      ]
-    },
-    {
-      "id": 937,
-      "title": "cases on Int goals: case descriptions show Int internals (subNatNatFrom) and can hit the 64-case budget",
-      "status": "done",
-      "agent": "",
-      "where": "lane (D2099)",
-      "labels": [
-        "elab",
-        "diagnostics"
-      ],
-      "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n\n\nD2099 (Matt, 31 Oct 2026): yes. Print Int values as numbers in cases and goals (OfNat n as n, NegSucc n as -(n+1)); stop cases splitting Int's internals unless an existing proof needs it (if one does, keep the split and ship the printing only).\n\n\n31 Oct (D2099 lane): repro confirmed on main in a scratch copy of day 2 (E-CASES case `start.depth = OfNat n✝, Int.neg (OfNat units✝) = NegSucc n✝, Int.subNatNatFrom …`, and E-CASES-BUDGET for aimedDepthAfter). Baseline hash dumps taken (std+aoc 10,897, std+rogue 5,240). Next: printer (OfNat/NegSucc/Int.neg/Nat.toInt) and the atom rule.\n\n\n31 Oct (D2099 lane): done on worktree-agent-a74107ae92b748389: 84e52988 printing (OfNat n as n.toInt, NegSucc m as -(m + 1).toInt, Int.neg x as -x; paste-back test), ab34f117 atom rule (no atom inside Int arithmetic: neg/add/sub/mul/div/mod/leq/less/subNatNat(From); the fallback still splits an Int variable, which aimedDepthAfter needs: omega fails on depth + aim*units + F = depth + (aim*units + F) without it). Day 2 repro: E-CASES at `command = Up units✝`, no Int.subNatNatFrom, no budget error. Hashes: std, rogue unchanged; aoc only Day02 proofs (fewer matches). audit, lanes elab/examples/goals/hashes/aoc pass.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "84e52988",
-        "ab34f117"
-      ]
-    },
-    {
-      "id": 938,
-      "title": "AoC 2021 day 3: Binary Diagnostic, solved and proved against a spec",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "Solve AoC 2021 day 3 (Binary Diagnostic) in aoc/src/Aoc/Year2021/Day03 with a spec in the puzzle's words, proofs that the solution equals the spec for every input where it is defined, tests (worked example, real input), and a day 3 section in aoc/NOTES-2021.md. Lane in worktree agent-a700583c7c504c664.\n\nProgress (lane):\n- program, spec, tests written; both answers right on the first run (4191876, 3414905); proofs next.\n- all 26 proof theorems check (part1Correct, part2Correct, epsilonComplement; no hypotheses); audit: 28 passed; breaking the program breaks the proofs. Notes next.\n- committed on worktree-agent-a700583c7c504c664: 6ae8a904 (input), a8cf75b6 (day 3, notes, aoc_answers). test:lane aoc, test:one year2021_day03, task audit, fmt test pass. Ready for review.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "6ae8a904",
-        "a8cf75b6"
-      ]
-    },
-    {
-      "id": 939,
-      "title": "cases splits two stuck calls on the same variable separately (impossible combinations) instead of splitting the variable",
-      "status": "done",
-      "agent": "",
-      "where": "batch lane (D2102)",
-      "labels": [
-        "elab"
-      ],
-      "body": "cases splits stuck calls separately (List.get t 0, List.head t) instead of the variable they are stuck on (t), creating impossible case combinations (one None, the other Some False); matching on t by hand fixed it. Related: SW-608 item 4 (an unfolded Bool test split as independent atoms).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed 7aa41bf0: survey pass splits a shared recursive-type value (not Nat) once before stuck calls' atoms; day 3 getAfterPrefix/keepAfterPrefix by cases; example accept/cases-shared-list.sw. Hashes: Day03, 2024 Day02 (safeKept…) and Day05 (brokenHasBoth…) proofs change; std, rogue, examples unchanged. SW-608 item 4 not addressed.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "7aa41bf0"
-      ]
-    },
-    {
-      "id": 940,
-      "title": "std: binary number from List Bool, transpose column lemma, Option.mapCong / Option.mapId",
-      "status": "done",
-      "agent": "",
-      "where": "batch lane (D2102)",
-      "labels": [
-        "stdlib"
-      ],
-      "body": "std candidates proved locally in Aoc.Year2021.Day03.Proofs: reading a List Bool as a binary number (and its lemmas), what transpose's columns are, Option.mapCong / Option.mapId.\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed 9ee951f1 (worktree agent-a2838d0205dd855ff): Nat.fromBits(+From/Cons/Flipped), List.transposeNColumns(From)/transposeColumns, Option.mapId/mapCong; day 3 uses them; search finds each.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "9ee951f1"
-      ]
-    },
-    {
-      "id": 941,
-      "title": "E-TERMINATION: matching on a tuple of parameters loses structural recursion, and the message doesn't say so",
-      "status": "done",
-      "agent": "",
-      "where": "batch lane (D2102)",
-      "labels": [
-        "diagnostics"
-      ],
-      "body": "Matching on a tuple of parameters loses structural recursion, and the E-TERMINATION message doesn't say that the tuple match is why (or suggest matching the parameters directly).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed f40f88d4: E-TERMINATION at a call inside `match (xs, n) with` gets a note naming the tuple match as why, suggesting `match xs, n with` or `decreasing`; reject example termination-tuple-match.sw. Making tuple matches structural not done (see report).\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "f40f88d4"
-      ]
     },
     {
       "id": 942,
@@ -2295,154 +1466,6 @@
       ]
     },
     {
-      "id": 943,
-      "title": "AoC 2021 day 4: Giant Squid (bingo), solved and proved against a spec",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "Solve AoC 2021 day 4 (Giant Squid: bingo) in aoc/src/Aoc/Year2021/Day04 with a spec in the puzzle's words, proofs that the solution equals the spec for every input, tests (worked example, real input), and a day 4 section in aoc/NOTES-2021.md. Lane in worktree agent-a3b0b025e90ad7b65.\n\nProgress (lane):\n- started; rebased on main, input copied.\n- program, spec, tests written; all 16 tests pass first run, both answers right (49860, 24628), example 4512/1924; proofs next.\n- all proofs check (part1Correct, part2Correct; no hypotheses); audit: 21 passed; breaking the program breaks the proofs with counterexamples. Notes and tiers next.\n- committed on worktree-agent-a3b0b025e90ad7b65: 6661e2e9 (input), eab5aa61 (day 4, notes, aoc_answers). test:one year2021_day04, test:lane aoc, task audit, fmt pass. Ready for review.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "6661e2e9",
-        "eab5aa61",
-        "1b37e639"
-      ]
-    },
-    {
-      "id": 944,
-      "title": "Comparison beside Bool && / || in a statement: E-NOT-A-TYPE with no hint to write (… : Bool)",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "elab",
-        "diagnostics"
-      ],
-      "body": "A comparison next to a Bool && / || in a theorem statement fails E-NOT-A-TYPE: the comparison makes the equation one between propositions. Writing ((… < k): Bool) fixes it, but the note doesn't suggest it. Also: search --at can't re-elaborate such printed goals (E-SEARCH-AT). Related to SW-930's section rule (which covers sections only).\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit d25940b0): made it work rather than a note. An = or != with a < / <= side that fails is elaborated again (first try undone) with those sides as the Bool the other side decides, as if ascribed ((…): Bool); if that fails too, the first error. Only previously failing equations change. docs/syntax.md, examples/accept/comparison-beside-bool.sw. Printed goals of this shape paste back (search --at part left to the search lane).\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "d25940b0"
-      ]
-    },
-    {
-      "id": 945,
-      "title": "std: List.filterFilter, contains/indexOf lemma, Nat.max/min fold lemmas",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "stdlib"
-      ],
-      "body": "std candidates proved locally in Aoc.Year2021.Day04.Proofs: List.filterFilter, a lemma linking contains to indexOf, lemmas for folds of Nat.max / Nat.min.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, friction-batch worktree, commit 613a95c5): List.filterFilter, List.containsIndexOf (+ containsIndexOfAppend), List.foldMaxLt, List.foldMinLt in std; day 4 uses them (markedBefore, latestBefore, earliestBefore, filterFilter removed). Audit day 4: 17 passed.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "613a95c5"
-      ]
-    },
-    {
-      "id": 946,
-      "title": "Day 4 small items: b ∨ False printed as b && True; record literal E-UNSOLVED reported on the wrong line; toBoolOfNot _ not filled from expected type",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "diagnostics"
-      ],
-      "body": "Smaller items: (1) goals print b ∨ False as b && True (reproduced in a scratch file); (2) a record literal whose type isn't known yet gives E-UNSOLVED on the next line instead of at the literal; (3) Decidable.toBoolOfNot _ doesn't fill its decision procedure from the expected type.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit 9b4a2ba0): (a) b || False and b && True are one term (if b then True else False); now printed as that if on its own, and with the chain's operator as a chain's last operand (b && c && True, b || c || False); pastes back (examples/goals/bool-constant-branches.sw). (b) E-UNSOLVED after a record literal whose type the field-name rule chose at the end is reported at the literal, naming the type (examples/reject/record-literal-type-late.sw). (c) not fillable: toBool (Nat.decLessThan a b) doesn't compute to the Bool a < b (Nat.leq (Succ a) b) on variables, so no d fits; omega proves these (day 4's pastTheEnd replaced by omega).\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "9b4a2ba0"
-      ]
-    },
-    {
-      "id": 947,
-      "title": "AoC 2021 day 5: Hydrothermal Venture, solved and proved",
-      "status": "done",
-      "agent": "Opus",
-      "where": "worktree-agent-aeb1c100461c9580a",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 day 5 (Hydrothermal Venture) in aoc/src/Aoc/Year2021/Day05/: program, spec in the puzzle's terms (the points each line covers; points where at least two overlap), proofs for every input, tests (example 5/12, input 8060/21577), NOTES-2021.md section.\n\nProgress:\n- 31 Oct: program, spec, tests committed (9448f1a8); answers 8060/21577 right first run, run 3.0 s. Proofs next.\n- 31 Oct: proofs done (2ae48b91): part1Correct (no hypothesis), part2Correct (every line horizontal, vertical or 45-degree diagonal), numberOfPointsUnique; audit 40 theorems, 0 failed, 0 warnings. NOTES-2021.md day 5 added. Ready for review.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "9448f1a8",
-        "2ae48b91"
-      ]
-    },
-    {
-      "id": 948,
-      "title": "cases doesn't use Bool-guarded implication hypotheses (b = True → fact); two-coordinate goals hit the case budget",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "elab"
-      ],
-      "body": "cases doesn't use hypotheses of the form b = True → fact (implications guarded by a Bool); the proof had to match on b by hand and apply them. Also: proving both coordinates at once ran past the 64-case budget.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ab64d895): before splitting, cases applies a hypothesis P → Q whose premise (an equation) holds in the case (sides compute equal, e.g. True = True → fact after splitting b, or a hypothesis says P), adding Q and starting the case again. Day 5's combine lemmas are now := cases. Hash dumps: only Day05.Proofs changes (the combine lemmas and their users); no std/other aoc/rogue hash changed. Two-coordinate pointLinear by one cases still over budget (20 atoms): its open cases are infeasible comparisons omega only sees at leaves (D1319); a fix would be pruning by omega during splitting, a design change, not done.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "ab64d895"
-      ]
-    },
-    {
-      "id": 949,
-      "title": "std: Nat.mulRightCancel, List.countRangeEq, a counting notion with uniqueness",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "stdlib"
-      ],
-      "body": "std candidates from day 5: Nat.mulRightCancel (with a Bool form), List.countRangeEq, a general 'number of x with p x' with a uniqueness lemma. Search by pattern for factor cancellation found nothing; grep found Nat.mulSuccCancel.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, commit 613a95c5): Nat.mulRightCancel, Nat.mulRightCancelBool, List.countRangeEq (+ countRangeFromEq), List.NumberWith with numberWithUnique/numberWithCong in std; day 5's spec and proofs use them. Audit day 5: 36 passed.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "613a95c5"
-      ]
-    },
-    {
-      "id": 950,
-      "title": "Day 5 small items: argument on its own line misread (error points wrong place); tuple def parameter error lacks a hint; --at fails on shadowed hypotheses",
-      "status": "done",
-      "agent": "",
-      "where": "friction batch (D2106)",
-      "labels": [
-        "diagnostics"
-      ],
-      "body": "(1) An argument written on its own line at the call's indentation is read as a separate statement; the error points at the argument and the real clue is a later warning. (2) A tuple pattern isn't allowed as a def parameter and the parse error doesn't suggest let (x, y) := point. (3) search --at on a project file failed E-IMPORT-UNKNOWN (reads the file alone; in progress in SW-915); in a scratch copy E-SEARCH-AT because a match Nat.decEq leaves a shadowed hypothesis (shape✝) that can't be written.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ef35041f): items 1-2. (1) An error on the line after a statement that is a function missing its arguments now points first at that statement, with a note that a line at the same indentation is a new statement (indent the argument further). (2) Tuple/record pattern as a def parameter: E-PARSE note suggests naming it and let (x, y) := point or a match. Examples argument-on-its-own-line.sw, tuple-parameter.sw. Item 3 left to the search lane.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "ef35041f"
-      ]
-    },
-    {
-      "id": 951,
-      "title": "AoC 2021 day 6: Lanternfish, bucket count proved equal to the per-fish simulation",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 day 6 (Lanternfish) in aoc/src/Aoc/Year2021/Day06: program counting fish per timer value (9 buckets), spec as the puzzle's per-fish simulation, proof that the bucket count equals the per-fish simulation's count for every input and every number of days. Notes in aoc/NOTES-2021.md. Lane worktree agent-a28a64f0e7f540791.\n\n- 31 Oct: done in lane, commit 6a80cc6a on worktree-agent-a28a64f0e7f540791. fishAfterCorrect/part1Correct/part2Correct proved for every number of days and every list of timers ≤ 8 (hypothesis needed: a fish at 9 has no count; parser rejects >8). Audit: 21 theorems, 0 failed, 0 warnings. Answers 380243, 1708791884591; run 0.24 s. Ready for review.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "6a80cc6a"
-      ]
-    },
-    {
       "id": 952,
       "title": "search --at polish: noisy lemma list when a tactic closes the goal (unrelated AoC days first); misses after unfolding the goal's definition; slow re-checks",
       "status": "backlog",
@@ -2455,22 +1478,6 @@
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
-    },
-    {
-      "id": 953,
-      "title": "AoC 2021 day 7: The Treachery of Whales (program, spec, proofs)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "agent-a6b7e5d108eef7b9b",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 day 7 (crab alignment, minimal fuel) in aoc/src/Aoc/Year2021/Day07: program, spec (least total fuel over all positions), proofs for every input, tests, notes in aoc/NOTES-2021.md. Lane worktree agent-a6b7e5d108eef7b9b.\n\n31 Oct: done in lane, commit 980024e3 (branch worktree-agent-a6b7e5d108eef7b9b). part1Correct/part2Correct for every list of crabs, no hypotheses (so D2108's parser theorem has nothing to cover); audit 19 theorems, 0 failed, 0 warnings; run 0.86 s. Ready to merge; expect a NOTES-2021.md conflict with day 6.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "980024e3"
-      ]
     },
     {
       "id": 954,
@@ -2486,38 +1493,6 @@
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
-    },
-    {
-      "id": 955,
-      "title": "AoC 2021 days 5-6: parser guarantees (D2108)",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 days 5 and 6: prove the parsers guarantee what the correctness theorems assume (D2108). Day 5: every line of a successful `parseLines` is horizontal, vertical or diagonal at 45 degrees, so `part2Correct` composes into an end-to-end theorem about the input text. Day 6: every timer of a successful `parseTimers` is at most 8, with the end-to-end theorems. Pattern for \"a successful parse\" documented in aoc/NOTES-2021.md.\n\n- 31 Oct: done on worktree-agent-af2241c18cbe2b1aa at 6df69251: parseLinesShapes + part2FromInput (day 5), parseTimersBounded + part1FromInput/part2FromInput (day 6); audit 45/45 and 27/27 passed.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "6df69251"
-      ]
-    },
-    {
-      "id": 956,
-      "title": "AoC 2021 day 8: Seven Segment Search",
-      "status": "done",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "aoc"
-      ],
-      "body": "AoC 2021 day 8, Seven Segment Search: program, spec (a decoding is a wiring, a permutation of segments a-g, under which the ten patterns are exactly the ten digit patterns), proofs for every input that keeps the puzzle's promise, parser guarantees (D2108), tests (examples 26 / 61229 / 5353; input 445 / 1043101), NOTES-2021 entry.\n\n- 31 Oct: done on worktree-agent-af2241c18cbe2b1aa at 48334d4e: score-based decoding; parser checks each wiring so part1FromInput/part2FromInput have no hypothesis; audit 39/39 passed; Entry.wiring opaque (proof perf). Friction in aoc/NOTES-2021.md day 8.\n",
-      "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": [
-        "48334d4e"
-      ]
     },
     {
       "id": 957,
@@ -4372,17 +3347,19 @@
     {
       "id": 1078,
       "title": "function_equations a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound fails: deeper.eq2.some.nil not generated (after SW-1077 / de25c46e)",
-      "status": "next",
-      "agent": "Opus",
+      "status": "done",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "tests",
         "bug"
       ],
-      "body": "Known failing daily-tier test at push (2 Nov 2026): stitchwort-driver::function_equations a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound — `deeper.eq2.some.nil` isn't generated (function_equations.rs:109). SW-1069's nested-match case (def deeper: `Cons x rest => match List.head rest with | Some y => match rest with | Nil => x | Cons z more => y + z | None => 1`).\n\nIt passed when SW-1069/1071 merged (lane ran it), so SW-1077 (closed-condition skip, CLOSED_SPLIT in crates/elab/src/equations.rs) or de25c46e (the if h: condition fix to that skip) probably broke it. Tried and reverted (didn't fix it): exempting a constructor-headed scrutinee from the match-side closed check (equations.rs ~2965). Cause unknown. A missing equation, not unsoundness.\n\nNext: bisect SW-1077's merge vs de25c46e with only this test plus branch_equations, an_overlapped_arms_branches_are_read_from_each_case, the_walls_errors_name_the_branch_equations; fix; rerun only those (Matt: strict test budget).\n",
+      "body": "Known failing daily-tier test at push (2 Nov 2026): stitchwort-driver::function_equations a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound — `deeper.eq2.some.nil` isn't generated (function_equations.rs:109). SW-1069's nested-match case (def deeper: `Cons x rest => match List.head rest with | Some y => match rest with | Nil => x | Cons z more => y + z | None => 1`).\n\nIt passed when SW-1069/1071 merged (lane ran it), so SW-1077 (closed-condition skip, CLOSED_SPLIT in crates/elab/src/equations.rs) or de25c46e (the if h: condition fix to that skip) probably broke it. Tried and reverted (didn't fix it): exempting a constructor-headed scrutinee from the match-side closed check (equations.rs ~2965). Cause unknown. A missing equation, not unsoundness.\n\nNext: bisect SW-1077's merge vs de25c46e with only this test plus branch_equations, an_overlapped_arms_branches_are_read_from_each_case, the_walls_errors_name_the_branch_equations; fix; rerun only those (Matt: strict test budget).\n\n\nCause (found 2 Nov 2026, Speedwell, by reading the code; no bisect run needed): SW-1077's match-side CLOSED_SPLIT check (bf554bea). de25c46e only touched the if-side check, and deeper has no if. For eq2.some.nil the first run asks to refine rest (bound in the row) to Nil; in the refined run the outer scrutinee List.head rest becomes List.head Nil, which is closed, so the branch was skipped. The test expects exactly that closed hypothesis (isSome: List.head [] = Some y). The earlier constructor-head exemption missed it because List.head Nil is headed by a Def.\n\nFix (uncommitted in the working tree): both CLOSED_SPLIT checks in branch_run (if and match) apply only when refines is empty, i.e. on the unrefined run, which meets any term that is closed in the program first. Trade-off: a split that is closed in the program and lies below the step where the first run stopped to ask for a refinement is now stated, not skipped. That costs kernel work but is sound, and the case is narrow.\n\nTests run: function_equations, the 4 targeted tests (a_match_below..., branch_equations, an_overlapped_arms..., the_walls_errors...): 4/4 ok. rustfmt clean. Hashes lane tier (STITCHWORT_TIER=lane, profile lane-hashes: hash_stability examples/projects/prelude + pinned_hashes): 5/5 passed, so no snapshot changes. Ready to commit.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "b2a1104b"
+      ]
     },
     {
       "id": 1079,
@@ -4393,7 +3370,7 @@
       "labels": [
         "decision"
       ],
-      "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n",
+      "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n\nUpdate 2 Nov 2026 (moved to Speedwell): SW-1078 fixed in the working tree, uncommitted (see the ticket); hashes lane tier passed 5/5. Done tickets updated before 1 Nov archived to board/archive/2026-10.json.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
