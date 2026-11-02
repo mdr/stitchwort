@@ -43,6 +43,9 @@ implementation start, usually in stages.
    and every test it adds, showing them passing; leave new snapshots
    (`.snap.new`) and benchmark changes for the reviewer; finish with a
    report of each command and its result.
+   The brief also gives a time estimate; the run stops and reports at 1.5×
+   it, and the orchestrator watches the elapsed time and stops a run at 2×
+   that is going in circles (D2216; `CLAUDE.md`, "Choosing the model").
 3. Opus reviews the diff line by line and reruns the tests it relies on.
    DeepSeek has introduced real bugs before, and once handed over a test it
    had never run, so its own "tests pass" isn't enough.

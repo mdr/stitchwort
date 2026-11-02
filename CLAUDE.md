@@ -80,13 +80,25 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   tests it relies on itself before merging.
 - **Keeping score:** when a DeepSeek or Sonnet task is closed, its ticket
   gets one line: `Model result: <model>, worked | needed fixes (what) |
-  failed (why)`. After about ten more tasks, look at the boundary again.
+  failed (why), <minutes> min (est. <minutes>)`. After about ten more
+  tasks, look at the boundary again.
+- **Time estimates (D2216, Matt, 2 Nov 2026):** every brief states an
+  estimate ("expected: 20 min"), recorded on the ticket when the lane
+  starts. At 1.5× the estimate the lane stops and reports what's done,
+  what's left, a new estimate and whether it's stuck; the orchestrator
+  resumes it (`SendMessage` keeps its context) or ends it. At 3× it stops
+  regardless. A DeepSeek run can't be resumed, so the orchestrator also
+  watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
+  shows it going in circles.
 
 ## Lane agents
 
 - Work only in your worktree and branch. Don't merge into `main` or push.
 - Move your own ticket as described in `board/README.md`, and report what
   you did, what you didn't do, and which tests you ran.
+- Keep to your brief's time estimate: run `date` at the start and at each
+  milestone. At 1.5× the estimate, stop and report (done, left, new
+  estimate, stuck or not); at 3×, stop regardless.
 - Proof lanes read [docs/proving-guide.md](docs/proving-guide.md) first and
   finish as in "How a proof lane finishes" in `docs/workflow.md`.
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
