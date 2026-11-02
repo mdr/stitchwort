@@ -2010,10 +2010,13 @@ impl Elaborator {
                         ),
                         _ => format!("{imported}, but this file also defines `{}`", item.text),
                     };
+                    // Written in full (`Std.List.length`): a full name works
+                    // whatever the file imports, where `List.length` needs
+                    // `import Std (List)`.
                     let write = if self.scope.get(&key).is_none() {
-                        format!("`{}.x` for a name `x` in that namespace", display(&key))
+                        format!("`{key}.x` for a name `x` in that namespace")
                     } else {
-                        format!("`{}` where you mean that one", display(&key))
+                        format!("`{key}` where you mean that one")
                     };
                     diagnostics.push(
                         error("E-IMPORT-CLASH", item.span, message)
@@ -2110,7 +2113,7 @@ impl Elaborator {
             "`{0}.x` here means `{1}.x`; remove the import and write `{2}.x` for the imported one",
             item.text,
             display(&own),
-            display(key)
+            key
         )));
         true
     }
