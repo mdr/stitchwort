@@ -1,5 +1,5 @@
 {
-  "next": 1078,
+  "next": 1080,
   "tickets": [
     {
       "id": 47,
@@ -1933,7 +1933,7 @@
     {
       "id": 921,
       "title": "Memory: resources test reaches 6.7 GB loading one small program repeatedly (sessions not freed?); lsp aoc_navigation test 7.9 GB",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": "lane (D2079): daily tier time + resources memory",
       "labels": [
@@ -4365,6 +4365,35 @@
         "bug"
       ],
       "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1078,
+      "title": "function_equations a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound fails: deeper.eq2.some.nil not generated (after SW-1077 / de25c46e)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tests",
+        "bug"
+      ],
+      "body": "Known failing daily-tier test at push (2 Nov 2026): stitchwort-driver::function_equations a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound — `deeper.eq2.some.nil` isn't generated (function_equations.rs:109). SW-1069's nested-match case (def deeper: `Cons x rest => match List.head rest with | Some y => match rest with | Nil => x | Cons z more => y + z | None => 1`).\n\nIt passed when SW-1069/1071 merged (lane ran it), so SW-1077 (closed-condition skip, CLOSED_SPLIT in crates/elab/src/equations.rs) or de25c46e (the if h: condition fix to that skip) probably broke it. Tried and reverted (didn't fix it): exempting a constructor-headed scrutinee from the match-side closed check (equations.rs ~2965). Cause unknown. A missing equation, not unsoundness.\n\nNext: bisect SW-1077's merge vs de25c46e with only this test plus branch_equations, an_overlapped_arms_branches_are_read_from_each_case, the_walls_errors_name_the_branch_equations; fix; rerun only those (Matt: strict test budget).\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1079,
+      "title": "Session state 2 Nov 2026: what's pushed, tests at push, open work, Matt's test-budget rules",
+      "status": "backlog",
+      "agent": "Claude",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
