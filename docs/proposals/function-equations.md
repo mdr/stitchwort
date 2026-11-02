@@ -1188,6 +1188,55 @@ SW-1067: `doc`, `search`, hover and two of the messages; the docs.
   `firstBig.eq2.true`: they name branch equations, so stage 1b added them (below, "As built
   (stage 1b)").
 
+## As built (stage 1d)
+
+SW-1070, 2 November 2026: acceptance. Three of the four items moved onto the generated
+equations; 2021 day 18 did not, and says why.
+
+- **`examples/accept/function-equations-branches.sw`** (new; `function-equations.sw` from 1a
+  already has the arm constructs): every branch construct of §3.2, each used in a small proof by
+  naming the equation or by `rewrite`: a `Bool` `if` (`big.eq2.ifTrue/ifFalse`, `rewrite … in
+  omega`), `if h:` with D2186's complement (`countFresh.eq2.ifFalse`), `if h:` using `h`
+  (`check.eq.ifTrue`), a `decreasing` definition (`gcd.eq.ifTrue`), `match` on an expression
+  (`headOr.eq.some/none`), on a variable of the arm (`takeFirst.eq2.cons`), a catch-all after an
+  overlapping alternative (`both.eq.alt1/alt2`, `cases` for `notAlt1`), nested `match`
+  (`firstTwo.eq.some.succ`), and §1.2's named `match` (`firstBig.eq2.true/false`). It checks and
+  audits (43 theorems, 0 failed, 0 warnings); its hash snapshot is new.
+- **2024 day 12.** `fillSkip`, `fillTake` and `fillOther` (`Proofs/Fill.sw`, 21 lines with docs)
+  deleted; `fillCorrect`'s three `rewrite`s name `Garden.fill.eq2.ifFalse`,
+  `.eq2.ifTrue.ifTrue` and `.eq2.ifTrue.ifFalse` (the last takes `fresh` and `other`, as §6.1
+  said). No theorem statement changed (the three lemmas had no other use). The equations'
+  argument order is `garden plant visited members position rest` (the header's parameters, then
+  the arm's variables), not the lemmas' order. `check --no-cache Aoc.Year2024.Day12.Proofs`:
+  3.69 s user before, 3.60 s after; audit 0 failed (its one warning, `chainSnoc`, is older and
+  untouched).
+- **std.** `Graph.searchEmpty`, `searchSkip` and `searchSettle` (26 lines) deleted; their three
+  uses in `Graph.searchFromCorrect` name `Graph.searchFrom.eq1`, `.eq2.ifFalse` and
+  `.eq2.ifTrue` with the same arguments. No other statement changed; the hashes of
+  `searchFromCorrect` and `distancesCorrect` (their proofs) did, and the prelude snapshot lost 3
+  lines and gained 4 `Graph.searchFrom.eq*` (the proof now makes them). `audit Std.Graph`: 47
+  theorems, 0 failed, 0 warnings.
+- **Numbers against §7** **[measured]**. `search_bench` (daily sample): conclusions 2,535
+  queries, 0 not found, strict top-1 87.4%, recall@10 98.1%; left sides 1,655, 80.9%,
+  recall@10 99.2%; 0 internal errors. The tree without this lane's std change gives 2,538
+  queries, 87.4% and 80.9% (the same), so the lane moves neither. Both are 0.3 points under
+  §7.2's 87.7% and 81.2%, which predate the generated equations; the test's own floors (86%,
+  78%) hold. Std cold check (`search List.length --no-cache`, every library file): 5.93 and
+  6.01 s user before, 5.85 and 5.85 s after, far inside the 10% gate.
+
+**2021 day 18 stays as reshaped.** `explode` as first written was restored and `stitchwort doc`
+run on it: `explode.eq1`, `eq2` and its two branches are made, but **`explode.eq3` and its
+`.some`, `.none.some`, `.none.none` are not** ("an earlier arm overlaps it, so its body was
+elaborated once for each case of that arm's patterns, each with the variables refined (a lifted
+`match` or local definition captures them): no one right side states it"). That is the limit
+stage 1a recorded (`an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason`), and it
+is exactly day 18's case, so §6.2's claim that the three branch equations are generated was
+wrong: `p7.sw` writes them by hand, which checks, but the generator doesn't make them. The
+`explodeIn` version and `explodeUnfold` (used 6 times) are left. Unblocking it needs the
+generator to state an overlapped arm whose body has a lifted `match`: either elaborating the
+body once, unrefined by the earlier arm's patterns, or recognising the per-case copies of the
+`match` helper as one function.
+
 ## Sources
 
 - [L1] Lean 4, `src/Lean/Meta/Match/MatchEqs.lean`, `getEquationsForImpl` (overlap hypotheses),

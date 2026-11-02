@@ -95,28 +95,6 @@ theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Po
                   | Inr (Inl same) => Inl (Inl same)
                   | Inr (Inr inRest) => Inr (List.memAppendRight next (garden.neighboursGrowing plant position) rest inRest)))))
 
---| One step of the fill: a position already visited is dropped...
-theorem fillSkip (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
-    (taken: visited.contains position = True): Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
-    Decidable.elimEq _ _ _ _ (fresh => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) taken))) (other => rfl)
-
---| ...one growing `plant` is taken and its neighbours growing `plant` pushed...
-theorem fillTake (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
-    (fresh: visited.contains position = False) (grows: garden.plantAt position = Some plant):
-    Garden.fill garden plant (Cons position rest) visited members
-      = Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members) :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
-    Decidable.elimEq _ _ _ _ (isFresh => Decidable.elimEq _ _ _ _ (isGrowing => rfl) (notGrowing => Void.exfalso (notGrowing grows)))
-      (notFresh => Void.exfalso (notFresh fresh))
-
---| ...and one growing something else is dropped.
-theorem fillOther (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
-    (other: Not (garden.plantAt position = Some plant)):
-    Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
-  rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
-    Decidable.elimEq _ _ _ _ (isFresh => Decidable.elimEq _ _ _ _ (isGrowing => Void.exfalso (other isGrowing)) (notGrowing => rfl)) (notFresh => rfl)
-
 --| The fill returns what `FillResult` says, from any state.
 theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
     (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members)
@@ -142,7 +120,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
         let result := fillCorrect garden plant start rest visited members (popKeeps garden plant start position rest visited members state (Inl isMember))
           [decreasing := Nat.LexLess.Second rfl (omega)]
         let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-        rewrite fillSkip garden plant position rest visited members taken in
+        rewrite Garden.fill.eq2.ifFalse garden plant visited members position rest taken in
           Both distinct
             (Both sound
               (Both closed
@@ -161,7 +139,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
               (takeKeeps garden plant start position rest visited members state fresh grows)
               [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
           let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-          rewrite fillTake garden plant position rest visited members fresh grows in
+          rewrite Garden.fill.eq2.ifTrue.ifTrue garden plant visited members position rest fresh grows in
             Both distinct
               (Both sound
                 (Both closed
@@ -176,7 +154,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
           let result := fillCorrect garden plant start rest visited members (popKeeps garden plant start position rest visited members state (Inr other))
             [decreasing := Nat.LexLess.Second rfl (omega)]
           let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-          rewrite fillOther garden plant position rest visited members other in
+          rewrite Garden.fill.eq2.ifTrue.ifFalse garden plant visited members position rest fresh other in
             Both distinct
               (Both sound
                 (Both closed
