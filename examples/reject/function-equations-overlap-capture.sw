@@ -3,7 +3,8 @@
 -- for each case of arm 2's patterns, and its lifted `match` captures the
 -- refined variables: no one right side states the arm in its own
 -- variables, so `explode.eq3` isn't generated
--- (docs/proposals/function-equations.md, stage 1a).
+-- (docs/proposals/function-equations.md, stage 1a). Its branches'
+-- equations, `explode.eq3.some` and `explode.eq3.none`, are (SW-1071).
 import Std (Nat, Option)
 
 type Number =

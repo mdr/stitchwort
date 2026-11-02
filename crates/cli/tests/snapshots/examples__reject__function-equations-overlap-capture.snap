@@ -1,14 +1,13 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 594
 expression: output
 ---
 [E-NO-EQUATION] Error: `explode.eq3` isn't generated
-    ╭─[ reject/function-equations-overlap-capture.sw:23:3 ]
+    ╭─[ reject/function-equations-overlap-capture.sw:24:3 ]
     │
- 23 │   explode.eq3 depth left right
+ 24 │   explode.eq3 depth left right
     │   ─────┬─────  
-    │        ╰─────── an earlier arm overlaps it, so its body was elaborated once for each case of that arm's patterns, each with the variables refined (a lifted `match` or local definition captures them): no one right side states it
+    │        ╰─────── an earlier arm overlaps it, so its body was elaborated once for each case of that arm's patterns, each with the variables refined, and a lifted `match` or local definition captures them: no one right side states it in the arm's variables (its branches' equations, each read from every case, do)
     │ 
     │ Note: an equation for each arm is generated where it can be stated and proved (docs/proposals/function-equations.md); prove this one by hand, or use `f.unfold` and a `match`
 ────╯
