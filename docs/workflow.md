@@ -27,8 +27,11 @@ implementation start, usually in stages.
 
 ## Handing a task to DeepSeek
 
-1. Make a scratch clone with no git remote, so the model can't push.
-2. Run OpenCode there in the background with the spec. The spec says: no
+1. Make a scratch clone with no git remote, so the model can't push:
+   `nix develop -c task scratch:new -- sw-N`, from the main checkout
+   (`.claude/worktrees/scratch-sw-N`; see "Lane checkouts" below).
+2. Run OpenCode there in the background with the spec (the command is in
+   `CLAUDE.md`, "Choosing the model"). The spec says: no
    sub-agents, no commits; run `cargo fmt`, clippy and the relevant tests;
    leave new snapshots (`.snap.new`) and benchmark changes for the reviewer.
 3. Opus reviews the diff line by line. DeepSeek has introduced real bugs
@@ -39,9 +42,38 @@ implementation start, usually in stages.
 5. Regenerate snapshots and the benchmark baseline, stage them, and run the
    merge tier (below). For playground changes also run `task test:browser`.
 6. Update the ticket: move it to done and record the commits (`board/board commit N HASH`, `board/board move N done`).
+7. Delete the clone (`rm -rf .claude/worktrees/scratch-sw-N`).
 
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
+
+## Lane checkouts
+
+The orchestrator makes every lane's checkout itself, from the main checkout,
+and deletes it once the work is merged or dropped (D2193, D2200, Matt,
+2 Nov 2026):
+
+| | Make | Delete |
+|---|---|---|
+| Claude lane | `task worktree:new -- SW-N`: `.claude/worktrees/SW-N`, branch `lane/SW-N` | `task worktree:rm -- SW-N` |
+| DeepSeek | `task scratch:new -- sw-N`: `.claude/worktrees/scratch-sw-N`, no remote | `rm -rf` the folder |
+
+- Both start from local `main`, so they have everything committed but not
+  yet pushed. Claude Code's own `isolation: "worktree"` isn't used: it
+  starts from `origin/main`.
+- Both build through **kache**, a compiler cache (in the devShell), set up
+  in `.claude/worktrees/.cargo/config.toml`, which the tasks write and cargo
+  finds above each checkout. A new checkout's release build takes about 9 s
+  once another checkout has built the same code (72 s cold). Build-script
+  runs aren't cached, so the driver's build fingerprint is always computed
+  afresh. The main checkout doesn't use kache: every merge is built and
+  tested without it.
+- Both clone the AoC and roguelike check caches (`.stitchwort/`)
+  copy-on-write, so a first `stitchwort check` of AoC takes about 3 s, not
+  a minute.
+- The recipe is in `Taskfile.yml` (`LANE_SETUP`), so it changes in one
+  place. Measurements behind it: sccache and a cloned `target/` were tried
+  first (66 s and 48 s).
 
 ## The test tiers
 
@@ -77,7 +109,7 @@ Pushing to GitHub happens only when Matt asks.
 ## Lanes and the task list
 
 Work runs in lanes (up to three at once), each in its own git worktree and
-branch, merged into `main` one at a time (with `task test:merge` and
+branch ("Lane checkouts" above), merged into `main` one at a time (with `task test:merge` and
 `task audit` after each).
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and keeps the board up to date. Agents move their
