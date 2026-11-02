@@ -1626,13 +1626,7 @@ impl Elaborator {
                 return Ok(());
             }
         }
-        let before = self.equation_skips.len();
         self.equations_of(&mut d, def_name.span)?;
-        if std::env::var_os("SW_EQ_DEBUG").is_some() {
-            for (_, s, why) in &self.equation_skips[before..] {
-                eprintln!("skip {key}.{s}: {why}");
-            }
-        }
         // Every name the source implies is made or recorded as skipped: one
         // whose split the elaborated definition doesn't show is said here.
         for s in &suffixes {
@@ -2317,9 +2311,6 @@ impl Elaborator {
             self.module.def_items.insert(id, item);
         }
         let key = format!("{}.{suffix}", d.key);
-        if std::env::var_os("SW_EQ_DEBUG").is_some() {
-            eprintln!("made {key}");
-        }
         self.scope
             .insert(&key, Global::Def(id), d.rows[k].span, false);
         // A name under `f.eqK`, as an update lemma is under its accessor:
@@ -2401,9 +2392,6 @@ impl Elaborator {
                         let branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
                         let uses = branch.mentions(0);
                         if uses && !yes {
-                            if std::env::var_os("SW_EQ_DEBUG").is_some() {
-                                eprintln!("debug else: {:?}", branch);
-                            }
                             return skip(
                                 "its `else` branch uses the proof that the condition is false: \
                                  two such proofs aren't known to be equal without proof \

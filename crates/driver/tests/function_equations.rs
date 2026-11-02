@@ -429,3 +429,60 @@ fn branch_equations() {
         assert!(why.contains("compiled into the case tree"), "{why}");
     });
 }
+
+/// §3.4: where stepping through a lifted `match` by hand fails (§1.2), the
+/// error names the branch equations that state its steps.
+#[test]
+fn the_walls_errors_name_the_branch_equations() {
+    let source = r#"
+import Std (Bool, Eq, List, Nat, Option, Void)
+
+type Big = { value: Nat, isBig: Nat.leq 10 value = True }
+
+def firstBig: List Nat → Option Big
+  | Nil => None
+  | Cons x rest =>
+    match big: Nat.leq 10 x with
+      | True => Some ({ value = x, isBig = big })
+      | False => firstBig rest
+
+theorem byRewrite (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  rewrite h in rfl
+
+theorem byMatch (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  match e: Nat.leq 10 x with
+    | True => rfl
+    | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) h))
+
+theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+    firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
+  rfl
+"#;
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(move || {
+            let mut session = Session::new();
+            let errors = session
+                .load("wall.sw", source)
+                .expect_err("the three proofs fail");
+            let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
+            codes.sort_unstable();
+            assert_eq!(codes, ["E-MATCH-MOTIVE", "E-REFL", "E-REWRITE-MOTIVE"]);
+            for d in &errors {
+                assert!(
+                    d.notes
+                        .iter()
+                        .any(|n| n.contains("`firstBig.eq2.true`")
+                            && n.contains("`firstBig.eq2.false`")),
+                    "{}: {:#?}",
+                    d.code,
+                    d.notes
+                );
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
