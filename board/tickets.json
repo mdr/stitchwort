@@ -4045,7 +4045,7 @@
     {
       "id": 1056,
       "title": "Debug-build builtins tests: E-RESOURCE 'nested too deeply for the elaborator' checking Int.divAddModNeg (prelude-only session); fails at 04f0b400 too, so from earlier this week",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
