@@ -1,5 +1,5 @@
 {
-  "next": 1074,
+  "next": 1075,
   "tickets": [
     {
       "id": 47,
@@ -4305,6 +4305,21 @@
         "proof"
       ],
       "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1074,
+      "title": "Function equations: a match on several expressions (9 AoC skips) stated as one tuple hypothesis isAlt1: (a, b) = (p, q), proved with one projection step",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "From SW-1071 (2 Nov 2026), decided yes (Claude, delegated): matches how match (a, b) is already stated; one hypothesis per alternative.",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
