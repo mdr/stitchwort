@@ -149,6 +149,34 @@ tasks:
       - cargo fmt --check
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile merge {{.CLI_ARGS}}'
 
+  test:inventory:
+    desc: 'Build target/test-inventory.json: every test, its profiles and last known time (task test:inventory -- --junit PATH)'
+    summary: |
+      For the post-merge test selector (SW-1098; docs/testing.md, "The test
+      selector"). Lists every test nextest knows with the profiles that
+      include it and its last known wall time, folding in the JUnit files
+      named with `--junit PATH[@SCALE]` (and any target/nextest/*/junit.xml).
+      Times are kept in target/test-timings.json, latest wins. With
+      `--estimate 'FILTER'` it prints a filterset's tests and estimated time.
+      Lists only; runs no test.
+    cmds:
+      - '{{.ROOT_DIR}}/dev/test-inventory {{.CLI_ARGS}}'
+
+  test:selected:
+    desc: "Run the selector's filterset as the merge tier would (task test:selected -- '<filterset>'), and log it"
+    summary: |
+      `cargo fmt --check`, then nextest under the merge profile's settings
+      (STITCHWORT_TIER=merge, memory guard, features) with the given
+      filterset in place of the profile's own, then a line in
+      dev/selector-log.tsv (date, commit, estimated and actual seconds,
+      result, failed tests, filter). SELECTOR_ESTIMATE=N records the
+      selector's own estimate.
+    env:
+      STITCHWORT_MEM_CAP_GB_MERGE: '{{.MEM_CAP_MERGE}}'
+    cmds:
+      - cargo fmt --check
+      - '{{.ROOT_DIR}}/dev/run-selected {{.CLI_ARGS}}'
+
   test:daily:
     desc: Daily tier, under 5 minutes; also what `nix flake check` runs
     summary: |

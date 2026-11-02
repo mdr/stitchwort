@@ -78,9 +78,28 @@ on meanwhile, but doesn't merge again until the verifier has passed; a
 failure becomes a fix for an agent. Only one verifier runs at a time, and
 none while timing-sensitive work is running.
 
-A test selector (SW-1098) is on trial: for the first ten or so merges the
-verifier runs both its choice and the fixed merge tier, and the results are
-compared before the fixed tier is dropped.
+A test selector (SW-1098) is on trial. It replaces the fixed merge tier by a
+choice of tests that fits the change, within a 120 s budget:
+
+1. The verifier refreshes the inventory (`nix develop -c task test:inventory
+   -- --junit target/nextest/merge/junit.xml`), which lists every test with
+   its profiles and last known time. Times come from nextest's JUnit files;
+   each run folds in, the latest wins.
+2. A second Haiku agent, the selector, follows
+   [test-selector.md](test-selector.md) with the merge's diff, the lane's
+   report and the inventory, and returns a filterset, an `EXAMPLES` value
+   and an estimate, always including the fixed core (core, syntax, one AoC
+   day).
+3. The verifier runs `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop -c task
+   test:selected -- '<filterset>'`, which runs `cargo fmt --check` and
+   nextest as `test:merge` does, and logs a line to `dev/selector-log.tsv`.
+   Then, for the trial, the fixed `task test:merge` as well.
+
+For about ten merges both run. A failure the fixed tier caught and the
+selection did not counts against the selector; the trial is scored from the
+log (estimated against actual time, result) and the verifier's reports. If
+the selector misses nothing across the ten, the fixed tier is dropped from
+the post-merge checks (it stays for `task test:merge` by hand).
 
 ## Lane checkouts
 

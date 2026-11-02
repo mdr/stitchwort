@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""Test inventory for the post-merge test selector (SW-1098, D2221).
+
+  dev/test-inventory [--junit PATH[@SCALE]]... [--tier TIER] [--out FILE]
+  dev/test-inventory --fold-only --junit PATH...
+  dev/test-inventory --estimate 'FILTER'   (needs a built inventory)
+  dev/test-inventory --profile-filter lane-std   (prints that profile's filterset)
+
+Lists every test nextest knows (release, workspace, stitchwort-cli/native),
+which profiles (tiers and lane-* areas) include it, whether it is in the
+`corpus-sweeps` test group (those run one at a time), and its last known wall
+time. Writes target/test-inventory.json (not committed).
+
+Times live in a timings store, target/test-timings.json: for each test and
+tier, the latest time seen (by the JUnit file's own timestamp) and when. Each
+run folds in the JUnit files named with --junit plus any
+target/nextest/*/junit.xml here; the tier of a file is its parent folder's
+name when that is a profile (merge, daily, full), else --tier (default merge).
+PATH@SCALE multiplies a file's times, e.g. @0.55 for a run made with another
+run alongside. Run `task test:inventory -- ...` inside `nix develop`.
+Test this script with: python3 dev/test-inventory_test.py
+"""
+import argparse
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TARGET = os.path.join(ROOT, "target")
+NEXTEST = ["cargo", "nextest"]
+BUILD = ["--release", "--workspace", "--features", "stitchwort-cli/native"]
+TIERS = ("merge", "daily", "full")
+
+
+def run(args):
+    r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("FAIL: %s\n%s" % (" ".join(args), r.stderr[-2000:]))
+    return r.stdout
+
+
+def parse_list(text, only_matching):
+    """{(binary_id, name): package} from `nextest list --message-format json`."""
+    out = {}
+    for bid, suite in json.loads(text)["rust-suites"].items():
+        for name, case in suite["testcases"].items():
+            if only_matching and case["filter-match"]["status"] != "matches":
+                continue
+            out[(bid, name)] = suite["package-name"]
+    return out
+
+
+def parse_groups(text):
+    """{(binary_id, name): group} from `nextest show-config test-groups`."""
+    out, group, binary = {}, None, None
+    for line in text.splitlines():
+        if m := re.match(r"group: (\S+)", line):
+            group, binary = m.group(1), None
+        elif group and (m := re.match(r"^      (\S+):$", line)):
+            binary = m.group(1)
+        elif group and binary and (m := re.match(r"^          (\S+)$", line)):
+            out[(binary, m.group(1))] = group
+    return out
+
+
+def parse_junit(path):
+    """(timestamp, {(binary_id, name): seconds}) from a nextest JUnit file."""
+    root = ET.parse(path).getroot()
+    stamp = root.get("timestamp", "")
+    times = {}
+    for case in root.iter("testcase"):
+        times[(case.get("classname"), case.get("name"))] = float(case.get("time", 0))
+    return stamp, times
+
+
+def fold(store, tier, stamp, times, scale=1.0):
+    """Latest wins, by timestamp, per test and tier."""
+    for (bid, name), t in times.items():
+        slot = store.setdefault("%s %s" % (bid, name), {})
+        old = slot.get(tier)
+        if old is None or old["at"] <= stamp:
+            slot[tier] = {"time": round(t * scale, 3), "at": stamp}
+
+
+def best_time(slot):
+    """The merge tier's time if known (sweeps sample by tier), else the
+    latest of the others; (seconds or None, tier it came from)."""
+    if not slot:
+        return None, None
+    if "merge" in slot:
+        return slot["merge"]["time"], "merge"
+    tier = max(slot, key=lambda k: slot[k]["at"])
+    return slot[tier]["time"], tier
+
+
+def build(all_tests, profiles, groups, store):
+    tests = []
+    for (bid, name), pkg in sorted(all_tests.items()):
+        t, src = best_time(store.get("%s %s" % (bid, name)))
+        tests.append({
+            "id": "%s %s" % (bid, name), "package": pkg, "binary": bid,
+            "name": name,
+            "profiles": sorted(p for p, s in profiles.items() if (bid, name) in s),
+            "group": groups.get((bid, name)),
+            "time": t, "time_tier": src, "time_known": t is not None,
+        })
+    return tests
+
+
+PARALLELISM = 8.4
+UNKNOWN_SECONDS = 3.0
+
+
+def estimate(tests, ids):
+    """Estimated wall time of running the tests `ids` (a set of ids) on 10
+    cores, nextest's `num-cpus` threads, the corpus sweeps one at a time."""
+    chosen = [t for t in tests if t["id"] in ids]
+    time = lambda t: t["time"] if t["time_known"] else UNKNOWN_SECONDS
+    total = sum(time(t) for t in chosen)
+    sweeps = sum(time(t) for t in chosen if t["group"])
+    longest = max([time(t) for t in chosen], default=0.0)
+    return {
+        "count": len(chosen), "unknown": sum(not t["time_known"] for t in chosen),
+        "sum": round(total, 1), "sweeps": round(sweeps, 1), "longest": round(longest, 1),
+        "estimate": round(max(total / PARALLELISM, sweeps, longest), 1),
+    }
+
+
+def parse_args_junit(spec, default_tier):
+    scale = 1.0
+    if "@" in spec:
+        spec, s = spec.rsplit("@", 1)
+        scale = float(s)
+    parent = os.path.basename(os.path.dirname(os.path.abspath(spec)))
+    return spec, (parent if parent in TIERS else default_tier), scale
+
+
+def show_estimate(a):
+    inv = json.load(open(a.out))["tests"]
+    text = run(NEXTEST + ["list"] + BUILD + ["--message-format", "json", "-E", a.estimate])
+    ids = {"%s %s" % k for k in parse_list(text, True)}
+    r = estimate(inv, ids)
+    print("tests %(count)d (unknown time: %(unknown)d)  sum %(sum)s s  sweeps %(sweeps)s s  "
+          "longest %(longest)s s  ESTIMATE %(estimate)s s" % r)
+    known = [t for t in inv if t["id"] in ids]
+    per = {}
+    for t in known:
+        n, s = per.get(t["binary"], (0, 0.0))
+        per[t["binary"]] = (n + 1, s + (t["time"] or UNKNOWN_SECONDS))
+    for b, (n, s) in sorted(per.items(), key=lambda kv: -kv[1][1]):
+        print("  %-45s %4d tests %7.1f s" % (b, n, s))
+    print("slowest:")
+    for t in sorted(known, key=lambda t: -(t["time"] or 0))[:8]:
+        print("  %6.1f s  %s%s" % (t["time"] or 0, t["id"], "  [sweep]" if t["group"] else ""))
+    if not ids:
+        sys.exit("FAIL: the filter selects no tests")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--junit", action="append", default=[])
+    ap.add_argument("--tier", default="merge")
+    ap.add_argument("--timings", default=os.path.join(TARGET, "test-timings.json"))
+    ap.add_argument("--out", default=os.path.join(TARGET, "test-inventory.json"))
+    ap.add_argument("--estimate", metavar="FILTER", help="estimate a filterset's time from the built inventory")
+    ap.add_argument("--profile-filter", metavar="PROFILE", help="print a profile's default-filter, to paste into a filterset")
+    ap.add_argument("--fold-only", action="store_true", help="update the timings store, skip nextest")
+    a = ap.parse_args()
+
+    if a.profile_filter:
+        import tomllib
+        cfg = tomllib.load(open(os.path.join(ROOT, ".config", "nextest.toml"), "rb"))
+        f = cfg["profile"][a.profile_filter]["default-filter"]
+        print(" ".join(f.split()))
+        return
+    if a.estimate is not None:
+        return show_estimate(a)
+
+    store = {}
+    if os.path.exists(a.timings):
+        store = json.load(open(a.timings))
+    specs = list(a.junit) + glob.glob(os.path.join(TARGET, "nextest", "*", "junit.xml"))
+    for spec in specs:
+        path, tier, scale = parse_args_junit(spec, a.tier)
+        stamp, times = parse_junit(path)
+        fold(store, tier, stamp, times, scale)
+        print("folded %d times from %s as %s" % (len(times), path, tier), file=sys.stderr)
+    os.makedirs(TARGET, exist_ok=True)
+    json.dump(store, open(a.timings, "w"), indent=0, sort_keys=True)
+    if a.fold_only:
+        return
+
+    toml = open(os.path.join(ROOT, ".config", "nextest.toml")).read()
+    names = [p for p in re.findall(r"^\[profile\.([\w-]+)\]", toml, re.M) if p != "default"]
+    lst = NEXTEST + ["list"] + BUILD + ["--message-format", "json"]
+    all_tests = parse_list(run(lst + ["--ignore-default-filter"]), False)
+    profiles = {p: set(parse_list(run(lst + ["--profile", p]), True)) for p in names}
+    groups = parse_groups(run(NEXTEST + ["show-config", "test-groups"] + BUILD))
+    tests = build(all_tests, profiles, groups, store)
+    json.dump({"profiles": names, "tests": tests}, open(a.out, "w"), indent=0)
+    known = sum(t["time_known"] for t in tests)
+    print("%s: %d tests, %d with a known time, %d profiles" % (a.out, len(tests), known, len(names)))
+
+
+if __name__ == "__main__":
+    main()

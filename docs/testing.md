@@ -17,6 +17,15 @@ Tests are only useful while they aren't friction, so they run in four tiers, eac
 
 `task test:one -- FILTER` runs the tests matching a nextest filter (a name substring, or `-E 'binary(lsp)'`), at the daily sample. `task test:gate` is `nix flake check` (the daily tier in the Nix sandbox, plus a build from clean), and `task test:full:nix` builds `.#stitchwort-full` (the full tier in the sandbox; only when Matt asks).
 
+### The test selector
+
+After a merge, a selector (a model following [test-selector.md](test-selector.md)) picks what to run instead of the fixed merge tier (SW-1098, D2221; on trial, see [workflow.md](workflow.md), "Checks after a merge"). Its tools:
+
+- `task test:inventory [-- --junit PATH[@SCALE] ...]` (`dev/test-inventory`) writes `target/test-inventory.json`, not committed: every test nextest knows (release, workspace, `stitchwort-cli/native`), the profiles that include it, whether it is in the `corpus-sweeps` group, and its last known time. Times are kept in `target/test-timings.json`, per test and tier, the latest by the JUnit file's timestamp winning; each run folds in the `--junit` files named and any `target/nextest/*/junit.xml` in the checkout (`PATH@0.55` scales a run made under load; the file's parent folder, if a tier, says which tier it is, else `--tier`). Tests never run in a recorded JUnit file (the daily-only ones) have an unknown time, which the estimate counts as 3 s. Refresh after any run; `task test:selected` writes `target/nextest/merge/junit.xml`, so its times arrive in the next refresh.
+- `task test:inventory -- --estimate '<filterset>'` lists what a filterset selects and estimates its wall time on 10 cores: `max(sum of times / 8.4, the corpus-sweeps tests' sum, the longest test)`. On the merge tier itself (961 s of test time) it gives 114 s; measured, about 110 s.
+- `task test:selected -- '<filterset>'` (`dev/run-selected`) is `cargo fmt --check`, then nextest as `test:merge` runs it (`STITCHWORT_TIER=merge`, the memory guard, the native feature, the `merge` profile) but with the given filterset in place of the profile's own, so it can reach tests the tier leaves out. `EXAMPLES=name` applies as in the lanes; `SELECTOR_ESTIMATE=N` records the selector's estimate. It appends a line to `dev/selector-log.tsv` (date, commit, estimated and actual seconds, result, failed tests, `EXAMPLES`, filterset), from which the trial is scored.
+- `python3 dev/test-inventory_test.py` tests the script.
+
 ### How a tier is chosen
 
 Two things make a tier, and the tasks set both:
