@@ -4009,7 +4009,7 @@
       "labels": [
         "performance"
       ],
-      "body": "\n\nD2189 (decided 2 Nov 2026, Claude under Matt's delegation): fix by (a) one merged hypothesis for the earlier arms, as character patterns already do [recommended], or (b) a cap on how many hypotheses an equation carries.\n\n",
+      "body": "\n\nD2189 (decided 2 Nov 2026, Claude under Matt's delegation): fix by (a) one merged hypothesis for the earlier arms, as character patterns already do [recommended], or (b) a cap on how many hypotheses an equation carries.\n\n\n\nD2189 revised 2 Nov 2026 (Claude, delegated): the merge was built and measured (wall time ~15x down but kernel steps still quadratic: each number case re-substitutes a context whose type holds the O(N) list, and each refuted arm walks the list), and omega cannot read n ∉ [...]. So: keep one n ≠ k per earlier arm, and cap: an equation needing more than 64 literal-overlap hypotheses is not generated (decided up front, recorded reason). Kernel-side lazy context substitution to be filed separately.\n",
       "created": "2026-11-01",
       "updated": "2026-11-02",
       "commits": []
