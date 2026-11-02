@@ -1754,6 +1754,9 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     if let Some(d) = crate::equations::no_equation(cx.e, name) {
         return Err(d);
     }
+    if let Some(d) = crate::equation_notes::unknown_equation(cx, name) {
+        return Err(d);
+    }
     if let Some(fields) = as_fields(cx, name) {
         return infer_app_with(cx, &fields, args, fill);
     }

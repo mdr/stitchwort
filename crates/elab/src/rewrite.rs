@@ -1627,6 +1627,9 @@ fn nothing_found(
              with `at`, as `rewrite … at {name} in …`"
         ));
     }
+    if let Some(equation) = crate::equation_notes::rule_equation(&rule.proof) {
+        error = error.with_note(crate::equation_notes::computed_equation_note(&equation));
+    }
     if computed_lhs != shown_lhs {
         error = error.with_note(format!(
             "the search compares what terms compute to: it looked for `{computed_lhs}`, what \

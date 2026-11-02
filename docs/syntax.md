@@ -1130,6 +1130,59 @@ theorem doubleTwo: double 2 = 4 := rewrite double.unfold in rfl
 
 Examples: `examples/accept/opaque-*.sw`, `examples/reject/opaque-*.sw`.
 
+## Generated equations
+
+(SW-1035, SW-1067; docs/proposals/function-equations.md.) Every `def` with
+arms gets a theorem for each arm: **`f.eqK`** for arm K, counting from 1 in
+the order written (`f.eqK.or1`, `f.eqK.or2`, … for the alternatives of an
+arm with or-patterns). Each says what a call of `f` on that arm's patterns is:
+
+```
+def kind: Nat → Nat
+  | 3 => 1
+  | 7 => 2
+  | n => 0
+```
+
+gives `kind.eq1: kind 3 = 1`, `kind.eq2: kind 7 = 2` and `kind.eq3 (n: Nat)
+(notArm1: n ≠ 3) (notArm2: n ≠ 7): kind n = 0`. An arm that an earlier arm
+overlaps takes **a hypothesis for each overlap** (`notArmJ`, or `notListed:
+c ∉ [...]` for characters), so the equation is true where the arm is the one
+that runs. They are ordinary theorems, proved by the compiler and checked by
+the kernel: use them like any lemma, `rewrite kind.eq3 n h1 h2 in …`.
+
+- **Names are reserved.** `theorem f.eq2` is `E-DUPLICATE`, and a local
+  definition can't be called `eq`, `eqK` or `induct` (`E-LOCAL-DEFINITION`).
+  Adding or removing an arm renumbers the arms after it; a name that no
+  longer exists is `E-UNKNOWN-NAME`, whose note says which equations `f` has.
+- **Which ones are useful.** A transparent definition's call with constructors
+  in its arguments computes in the goal already, so `rewrite f.eq2 in …` there
+  is `E-REWRITE-NOTHING` and `rfl` proves it. The equations that matter are
+  those whose left side is **stuck**: an arm with overlap hypotheses (`kind
+  n`, `n` a variable), and every equation of a `decreasing` or `opaque`
+  definition.
+- **Not generated.** An equation isn't made when it can't be stated or
+  proved within bounds: a definition that performs abilities at the empty row,
+  an arm with `()`, an arm whose right side is a `match` on its own variables
+  (stage 1b's branches), an overlapped arm whose body lifts a `match`, a
+  statement more than ten times its arm's size, an arm that more than 64
+  number hypotheses guard, or one that went over the kernel's step budget.
+  Naming one is `E-NO-EQUATION` with the reason.
+- **Where they are listed.** `stitchwort doc f` has an **Equations** section
+  before the theorems: each statement with the line of its arm (`[stuck]`
+  marks the ones whose left side doesn't compute), then the equations that
+  weren't generated and why; `--json` has `equations` with `total`, `shown`
+  (`name`, `statement`, `line`, `file`, `stuck`), `skipped` (`name`,
+  `reason`) and `command`. At most 16 are shown. `search` lists them like any
+  theorem, after the written theorems of the same relation and place, with
+  `"generated": true` in JSON (and `· generated` in the text). Hover on a
+  definition shows the count and the first four of those that were made. A
+  program's equations are made with it; std's and the core's on demand, when a
+  proof names one or `search` or `doc` lists them.
+
+Examples: `examples/reject/function-equations-*.sw`,
+`crates/driver/tests/function_equations.rs`.
+
 ## `Partial`
 
 A function that might not finish says `Partial` in its row, and so does

@@ -1056,6 +1056,33 @@ the library files', not the core's: putting off only the core's left it unchange
 own equations stay eager (its namespace is cached).
 
 
+## As built (stage 1c)
+
+SW-1067: `doc`, `search`, hover and two of the messages; the docs.
+
+- **`doc f`** has an Equations section before Theorems (`Session::equations_of`,
+  `crates/driver/src/doc.rs`): each generated equation with its statement and the line of its
+  arm, at most 16 and then a count and the `search` command; `[stuck]` marks an equation whose
+  left side doesn't compute (§7.3), decided from the statement: it takes an overlap hypothesis
+  (`notArm…`, `notAlt…`, `notOr…`, `notListed`) or `f` is `decreasing` or `opaque`; then "Not
+  generated:" with the recorded `E-NO-EQUATION` reasons. JSON: `equations` with `total`, `shown`
+  (`name`, `statement`, `line`, `file`, `stuck`), `skipped` (`name`, `reason`), `command`.
+  Generated equations are left out of the Theorems groups. `doc` makes the put-off equations
+  of std and the core first, as `search` does.
+- **`search`** gets `"generated": true` (absent for written theorems) and `· generated` in the
+  text. The tie-break was already in (SW-1035, SW-1055): a generated equation ranks after the
+  written theorems of the same relation and place in plain `search` and `search --at` alike.
+- **Hover** on a definition adds "Equations (N)" and the first four, for those made: a
+  program's, and a library definition's only once something has made them (hover doesn't force
+  the on-demand ones).
+- **Messages.** `E-UNKNOWN-NAME` for `f.eqK` that doesn't exist (`crates/elab/src/equation_notes.rs`),
+  noting which equations `f` has and pointing at `doc f`; and `E-REWRITE-NOTHING` with an
+  arm equation as the rule gets a note that a call that computes needs no equation and that
+  `doc` marks the stuck ones (`examples/reject/function-equations-renumbered.sw`,
+  `-computed-rewrite.sw`).
+- **Not done:** the notes on `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` that name
+  `firstBig.eq2.true`: they name branch equations, which stage 1b makes.
+
 ## Sources
 
 - [L1] Lean 4, `src/Lean/Meta/Match/MatchEqs.lean`, `getEquationsForImpl` (overlap hypotheses),

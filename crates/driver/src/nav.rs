@@ -76,6 +76,9 @@ pub struct Symbol {
     /// Its doc, read from the comments above it (docs/proposals/documentation.md
     /// §4), with the first sentence of it and its marker (always `--|`).
     pub doc: Option<SymbolDoc>,
+    /// A definition's generated equations, as hover shows them (markdown):
+    /// the count and the first few; none if it has none made.
+    pub equations: Option<String>,
 }
 
 /// A symbol's doc, as [`stitchwort_syntax::docs::Doc`] without the span.
@@ -379,6 +382,12 @@ pub fn index_data_of(
                 .or_insert_with(|| Some(namespace.to_string()));
         }
     }
+    // The equations generated so far, by definition (function-equations §3.4).
+    let generated = crate::doc::generated_equations(&session.elab.globals);
+    let equations_text = |name: &str| -> Option<String> {
+        let ids = generated.get(name)?;
+        Some(crate::doc::equations_hover(&session.elab.globals, ids))
+    };
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
@@ -428,6 +437,7 @@ pub fn index_data_of(
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),
             doc,
+            equations: equations_text(&symbol.name),
         });
     }
 

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `size.eq3`
+    ╭─[ reject/function-equations-renumbered.sw:12:71 ]
+    │
+ 12 │ theorem sizeOfThree (xs: List Nat): size (Cons 3 xs) = size xs + 1 := size.eq3 3 xs
+    │                                                                       ────┬───  
+    │                                                                           ╰───── no such equation
+    │ 
+    │ Note 1: `size` has equations `size.eq1` to `size.eq2`: they are numbered by arm, so adding or removing an arm renumbers the ones after it
+    │ 
+    │ Note 2: `stitchwort doc size` lists the equations of `size` and which weren't generated
+────╯

@@ -732,6 +732,7 @@ impl Decls {
             members,
             examples: self.examples(i, within),
             theorems: None,
+            equations: None,
             namespace: None,
             warnings: Vec::new(),
         }
@@ -924,6 +925,10 @@ pub struct Report {
     pub examples: Vec<Example>,
     /// `null` when not asked for (`--theorems 0`) or not a definition's.
     pub theorems: Option<Theorems>,
+    /// The generated equations of a definition with arms, and what wasn't
+    /// generated (function-equations §3.4); absent for the others.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub equations: Option<Equations>,
     /// A name that is a type and a namespace: the namespace's listing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub namespace: Option<NamespaceReport>,
@@ -1041,6 +1046,42 @@ pub struct Theorems {
     pub command: String,
 }
 
+/// The equations generated for a definition's arms, and the ones that
+/// weren't (function-equations §3.4).
+#[derive(Serialize, Debug)]
+pub struct Equations {
+    /// How many were generated.
+    pub total: usize,
+    /// The first of them, in the order of the arms.
+    pub shown: Vec<EquationJson>,
+    /// The implied equations that weren't generated, with the reason.
+    pub skipped: Vec<SkippedEquation>,
+    /// The `search` command that lists all of them.
+    pub command: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct EquationJson {
+    pub name: String,
+    /// The statement without the leading parameters that only later ones use.
+    pub statement: String,
+    /// The line of the arm it came from.
+    pub line: usize,
+    pub file: String,
+    /// The left side doesn't compute: `rewrite` can use the equation, where
+    /// for the others the goal has already computed the call (§7.3).
+    pub stuck: bool,
+}
+
+#[derive(Serialize, Debug)]
+pub struct SkippedEquation {
+    pub name: String,
+    pub reason: String,
+}
+
+/// How many equations `doc` lists before counting the rest.
+const EQUATIONS_SHOWN: usize = 16;
+
 #[derive(Serialize, Debug)]
 pub struct TheoremJson {
     pub name: String,
@@ -1122,7 +1163,8 @@ impl Session {
             let example = last
                 .trim_end_matches(|c: char| c.is_ascii_digit())
                 .ends_with("Example");
-            if example || !seen.insert(r.name.clone()) {
+            // Generated equations have their own section.
+            if example || r.generated || !seen.insert(r.name.clone()) {
                 continue;
             }
             let ty = def_named(g, &r.name).map(|id| g.def(id).ty.clone());
@@ -1162,6 +1204,148 @@ impl Session {
             report.warnings,
         ))
     }
+}
+
+impl Session {
+    /// The equations generated for definition `path`'s arms, and the implied
+    /// ones that weren't (function-equations §3.4); `None` for a definition
+    /// with neither. The library's and the core's are made on demand, so
+    /// this makes them first. `command_extra` is added to the `search`
+    /// command that lists all of them.
+    pub fn equations_of(
+        &mut self,
+        path: &str,
+        command_extra: &str,
+    ) -> Result<Option<Equations>, stitchwort_syntax::Diagnostic> {
+        self.elab.generate_deferred_equations()?;
+        let g = &self.elab.globals;
+        let Some(f) = def_named(g, path) else {
+            return Ok(None);
+        };
+        // `f.eq2`, `f.eq2.or1`: the owner's path, then the reserved suffix.
+        let found = generated_equations(g).remove(path).unwrap_or_default();
+        let transparent_tree = def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque;
+        let shown_name = |p: &str| shown(p).to_string();
+        let equations: Vec<EquationJson> = found
+            .iter()
+            .map(|(_, id)| {
+                let d = g.def(*id);
+                let (file, line) = crate::render::location(&self.sources, d.span);
+                EquationJson {
+                    name: shown_name(&d.path),
+                    statement: statement(g, &d.ty),
+                    line,
+                    file,
+                    stuck: !transparent_tree || has_overlap_hypothesis(&d.ty),
+                }
+            })
+            .collect();
+        // What the source implies and elaboration skipped, once for each
+        // suffix (the latest reason), unless it was made since.
+        let mut skipped: Vec<SkippedEquation> = Vec::new();
+        for (owner, suffix, why) in self.elab.equation_skips().iter().rev() {
+            if *owner != f || g.def(*owner).path.as_ref() != path {
+                continue;
+            }
+            let name = format!("{path}.{suffix}");
+            if def_named(g, &name).is_some() || skipped.iter().any(|s| s.name == shown_name(&name))
+            {
+                continue;
+            }
+            skipped.push(SkippedEquation {
+                name: shown_name(&name),
+                reason: why.clone(),
+            });
+        }
+        skipped.reverse();
+        if equations.is_empty() && skipped.is_empty() {
+            return Ok(None);
+        }
+        let name = path.strip_prefix("Std.").unwrap_or(path);
+        let command = format!(
+            "stitchwort search '{name}' --theorems --limit {}{command_extra}",
+            equations.len().max(EQUATIONS_SHOWN)
+        );
+        let total = equations.len();
+        Ok(Some(Equations {
+            total,
+            shown: equations.into_iter().take(EQUATIONS_SHOWN).collect(),
+            skipped,
+            command,
+        }))
+    }
+}
+
+/// Every generated equation made so far, by its definition's full path, in
+/// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
+pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
+    let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
+    for id in (0..g.defs.len()).map(DefId) {
+        let d = g.def(id);
+        if !d.theorem || !stitchwort_elab::is_equation_name(&d.path) {
+            continue;
+        }
+        // The owner is what precedes the first `.eqK`.
+        let mut at = 0;
+        let mut owner_end = None;
+        for part in d.path.split('.') {
+            let digits = part.strip_prefix("eq");
+            if at > 0
+                && digits.is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+            {
+                owner_end = Some(at - 1);
+                break;
+            }
+            at += part.len() + 1;
+        }
+        let Some(end) = owner_end else { continue };
+        let order = d.path[end + 1..]
+            .split('.')
+            .map(|p| p.trim_start_matches(|c: char| c.is_ascii_alphabetic()))
+            .filter_map(|n| n.parse().ok())
+            .collect();
+        by_owner
+            .entry(d.path[..end].to_string())
+            .or_default()
+            .push((order, id));
+    }
+    for list in by_owner.values_mut() {
+        list.sort();
+    }
+    by_owner
+}
+
+/// A definition's generated equations as hover shows them: the count and
+/// the first few (function-equations §3.4), in markdown.
+pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> String {
+    const HOVER_SHOWN: usize = 4;
+    let mut out = format!("Equations ({}), listed by `stitchwort doc`:", ids.len());
+    for (_, id) in ids.iter().take(HOVER_SHOWN) {
+        let d = g.def(*id);
+        out.push_str(&format!("\n- `{}`: `{}`", d.name, statement(g, &d.ty)));
+    }
+    if ids.len() > HOVER_SHOWN {
+        out.push_str(&format!("\n- … and {} more", ids.len() - HOVER_SHOWN));
+    }
+    out
+}
+
+/// Whether `ty`, an equation's statement, takes an overlap hypothesis
+/// (`notArm1`, `notListed`, …): its left side then has a variable where an
+/// earlier arm has a pattern, so the call doesn't compute (§7.3).
+fn has_overlap_hypothesis(ty: &Term) -> bool {
+    let mut t = ty.strip_loc();
+    while let Term::Pi(name, _, _, cod) = t {
+        if let Some(rest) = name.strip_prefix("not")
+            && ["Arm", "Alt", "Or", "Listed"]
+                .iter()
+                .any(|p| rest.starts_with(p))
+        {
+            return true;
+        }
+        t = cod.strip_loc();
+    }
+    false
 }
 
 /// The definition with full name `path`.
@@ -1274,6 +1458,10 @@ pub fn render_text(r: &Report, show_theorems: bool) -> String {
             }
         }
     }
+    if show_theorems && let Some(q) = &r.equations {
+        out.push('\n');
+        out.push_str(&render_equations(q));
+    }
     if show_theorems && let Some(t) = &r.theorems {
         out.push('\n');
         let verb = if t.total == 1 { "mentions" } else { "mention" };
@@ -1307,6 +1495,53 @@ pub fn render_text(r: &Report, show_theorems: bool) -> String {
     }
     for w in &r.warnings {
         out.push_str(&format!("warning: {w}\n"));
+    }
+    out
+}
+
+/// The Equations section: the generated equations with the line of their
+/// arm, the stuck ones marked, then what wasn't generated.
+fn render_equations(q: &Equations) -> String {
+    let mut out = String::new();
+    let verb = if q.total == 1 {
+        "equation"
+    } else {
+        "equations"
+    };
+    if q.total == 0 {
+        out.push_str("Equations: none generated\n");
+    } else if q.total > q.shown.len() {
+        out.push_str(&format!(
+            "Equations: {} generated {verb}; {} shown\n",
+            q.total,
+            q.shown.len()
+        ));
+    } else {
+        out.push_str(&format!("Equations: {} generated {verb}\n", q.total));
+    }
+    let width = q.shown.iter().map(|x| x.name.len()).max().unwrap_or(0);
+    for x in &q.shown {
+        let stuck = if x.stuck { "  [stuck]" } else { "" };
+        out.push_str(&format!(
+            "  {:width$}  {}{stuck}   ({}:{})\n",
+            x.name, x.statement, x.file, x.line
+        ));
+    }
+    if q.total > q.shown.len() {
+        out.push_str(&format!("  all {}: {}\n", q.total, q.command));
+    }
+    if q.shown.iter().any(|x| x.stuck) {
+        out.push_str(
+            "  [stuck]: the left side doesn't compute (an overlap hypothesis, or a `decreasing` \
+             or `opaque` definition), so `rewrite` uses the equation; the others state what \
+             the goal has already computed, which `rfl` proves\n",
+        );
+    }
+    if !q.skipped.is_empty() {
+        out.push_str("Not generated:\n");
+        for s in &q.skipped {
+            out.push_str(&format!("  {}  {}\n", s.name, s.reason));
+        }
     }
     out
 }

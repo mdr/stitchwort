@@ -294,6 +294,12 @@ fn answer(
                     .warnings
                     .push(format!("the theorems couldn't be searched: {}", d.message)),
             }
+            match session.equations_of(&entry.path, &extra) {
+                Ok(equations) => result.equations = equations,
+                Err(d) => result
+                    .warnings
+                    .push(format!("the equations couldn't be listed: {}", d.message)),
+            }
         }
     }
     // A type that is a namespace too: its listing follows.

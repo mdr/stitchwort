@@ -372,18 +372,16 @@ fn a_project_name_looks_in_its_namespace_and_those_that_use_it() {
     );
     // Theorems: the namespace's and `Shapes.Tests`'; the `…Example` theorem
     // is an example, not listed.
-    // `Shape.scale`'s generated equations are theorems about it too
-    // (docs/proposals/function-equations.md; stage 1c gives them a section
-    // of their own).
+    // `Shape.scale`'s generated equations have a section of their own
+    // (docs/proposals/function-equations.md, stage 1c).
     assert_eq!(
         shown(&report),
         [
             ("Shapes.Shape.scaleOne", "rewrite"),
             ("Shapes.Tests.scaleTwice", "rewrite"),
-            ("Shapes.Shape.scale.eq1", "other"),
-            ("Shapes.Shape.scale.eq2", "other"),
         ]
     );
+    assert_eq!(report["equations"]["total"], 2);
     let command = report["theorems"]["command"].as_str().unwrap();
     assert!(
         command.contains(" --in Shapes --in Shapes.Tests"),
@@ -393,7 +391,8 @@ fn a_project_name_looks_in_its_namespace_and_those_that_use_it() {
     // The text.
     let (code, out, _) = doc_in(&dir, &shared_cache(), &["Shape.scale"]);
     assert_eq!(code, 0);
-    assert!(out.contains("Theorems: 4 mention it\n"), "{out}");
+    assert!(out.contains("Theorems: 2 mention it\n"), "{out}");
+    assert!(out.contains("Equations: 2 generated equations\n"), "{out}");
     assert!(
         out.contains("  test \"Shape.scale of a square\" := "),
         "{out}"

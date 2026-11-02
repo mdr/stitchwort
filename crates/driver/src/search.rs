@@ -506,6 +506,10 @@ pub struct Result1 {
     /// as a hole): which found it.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub via: Vec<&'static str>,
+    /// A generated equation (`f.eqK`, `f.eqK.orN`; function-equations §3.4),
+    /// not a written theorem; absent for the others.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub generated: bool,
     pub absorbed: usize,
     pub instantiated: usize,
     pub premises: usize,
@@ -831,6 +835,7 @@ impl Session {
             place: pattern.then(|| hit.place.name()),
             equation: (pattern && rewrite).then_some(if hit.iff { "iff" } else { "eq" }),
             via: hit.via.iter().map(|v| Via::name(*v)).collect(),
+            generated: item.generated_equation(g),
             absorbed: hit.absorbed,
             instantiated: hit.instantiated,
             premises: hit.premises,
@@ -1056,7 +1061,12 @@ pub fn render_text(report: &Report) -> String {
             Some(part) => format!("{} (its {part} conjunct)", r.name),
             None => r.name.clone(),
         };
-        out.push_str(&format!("{:>2}. {name}  {}{how}\n", i + 1, r.kind));
+        let generated = if r.generated { " · generated" } else { "" };
+        out.push_str(&format!(
+            "{:>2}. {name}  {}{generated}{how}\n",
+            i + 1,
+            r.kind
+        ));
         out.push_str(&format!("    {}\n", r.ty));
         let import = r
             .import

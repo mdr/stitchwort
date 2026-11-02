@@ -347,6 +347,36 @@ fn hover_shows_the_doc() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Hover on a definition with arms shows its generated equations: the count
+/// and the first few (function-equations §3.4); one without arms shows none.
+#[test]
+fn hover_shows_the_generated_equations() {
+    let dir = temp_dir("equations");
+    let file = dir.join("eq.sw");
+    let text =
+        "def kind: Nat → Nat\n  | 3 => 1\n  | 7 => 2\n  | n => 0\n\ndef plain: Nat := kind 3\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let hover = client.at("textDocument/hover", &uri, 0, 5);
+    let kind = hover["contents"]["value"].as_str().unwrap();
+    assert!(
+        kind.contains("Equations (3), listed by `stitchwort doc`:\n- `kind.eq1`: `kind 3 = 1`\n"),
+        "{kind}"
+    );
+    assert!(
+        kind.contains("- `kind.eq3`: `n ≠ 3 → n ≠ 7 → kind n = 0`"),
+        "{kind}"
+    );
+    let hover = client.at("textDocument/hover", &uri, 5, 5);
+    let plain = hover["contents"]["value"].as_str().unwrap();
+    assert!(!plain.contains("Equations"), "{plain}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The server never runs a test, so a test that loops forever (a bug,
 /// D1183) can't hang it: the file checks, and the server still answers.
 #[test]
