@@ -1,5 +1,5 @@
 {
-  "next": 1086,
+  "next": 1087,
   "tickets": [
     {
       "id": 47,
@@ -3463,6 +3463,21 @@
       "labels": [
         "research",
         "design"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1086,
+      "title": "Research: mold linker (https://github.com/rui314/mold) as a quick win for Stitchwort's Rust builds on this Mac and Linux: does it support macOS, how much of our build/test time is linking, what would wiring it in cost",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "research",
+        "tooling"
       ],
       "body": "",
       "created": "2026-11-02",
