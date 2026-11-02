@@ -1423,7 +1423,7 @@
     {
       "id": 926,
       "title": "E-IMPORT-CLASH note suggests List.length, which doesn't resolve without import Std (List)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1432,8 +1432,10 @@
       ],
       "body": "Found by the SW-804 lane (31 Oct 2026), exists on main: the E-IMPORT-CLASH note says \"write `List.length` where you mean that one\", but `List.length` is E-UNKNOWN-NAME without `import Std (List)` (checked: `def x: Nat := List.length [1, 2]`). Repro on main: `import Std.List (length)` plus `def length`. The note should suggest a spelling that resolves in the file (the full `Std.List.length`, or the short form plus the import it needs), as SW-918 made goals do.\n",
       "created": "2026-10-31",
-      "updated": "2026-10-31",
-      "commits": []
+      "updated": "2026-11-02",
+      "commits": [
+        "829af7c1"
+      ]
     },
     {
       "id": 929,
@@ -3472,14 +3474,14 @@
     {
       "id": 1086,
       "title": "Research: mold linker (https://github.com/rui314/mold) as a quick win for Stitchwort's Rust builds on this Mac and Linux: does it support macOS, how much of our build/test time is linking, what would wiring it in cost",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "research",
         "tooling"
       ],
-      "body": "",
+      "body": "\n\nResult (Sonnet research lane, 2 Nov 2026): not worth wiring in. mold is ELF-only now (Mach-O support removed; the macOS port continues commercially as sold); nixpkgs mold 3.0.0 evaluates on aarch64-darwin but can't link Mach-O. Measured here (release, no kache): linking is ~0.4-0.5 s of a 15 s incremental rebuild (touch crates/cli: ~3%), 0.43 s of a 113 s test-binary rebuild (<0.4%); a clean build makes 44 links of ~0.3 s each in parallel. ld-prime and ld64.lld no different (noise, ±0.1-0.2 s). Note: the devShell's linker is nix's ld64-956.6, not Apple's ld-prime. Linux: mold would save at most tenths of a second per 16-22 MB binary; not worth it (musl static path, reproducibility). If Linux links ever take seconds: [target.'cfg(target_os = \"linux\")'] link-arg=-fuse-ld=mold in .cargo/config.toml plus pkgs.mold/clang in the Linux devShell; measure with --timings first. Build time is rustc/LLVM codegen.\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
