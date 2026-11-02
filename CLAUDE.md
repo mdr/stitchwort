@@ -68,6 +68,10 @@ Use the cheapest model that can do the work well:
   run takes more than a minute or two. Don't run broader suites "to be
   safe"; the orchestrator runs the merge tier after merging. After a
   failure, rerun only the failing tests.
+- Exceptions (a lane working on the test suites themselves, say) are agreed
+  with Matt before the lane starts: the orchestrator asks, and the brief
+  states the agreed strategy. A brief never allows a broader suite on the
+  orchestrator's own judgement.
 - Spend test time according to risk, within a stated budget.
 - Run long jobs (builds, browser tests, the daily tier when it's approved)
   in the background.
