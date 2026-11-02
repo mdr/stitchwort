@@ -958,7 +958,7 @@ impl Session {
         results.sort_by_key(|(s, rank)| {
             (
                 s.class == "applicable",
-                stitchwort_elab::is_equation_name(&s.name),
+                stitchwort_elab::is_generated_name(&session.elab.globals, &s.name),
                 class_rank(s.class),
                 s.witnesses,
                 s.goals.len(),

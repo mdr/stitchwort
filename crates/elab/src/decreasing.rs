@@ -1040,33 +1040,7 @@ impl Elaborator {
         let go = self.generated(&plan, |e| e.decreasing_go(&plan, step))?;
         made.push(go);
         // 3. The function itself.
-        {
-            let g = &self.globals;
-            // `go (Succ (m x)) x (Nat.leRefl (m x))`, with a fuel for each
-            // measure of a pair.
-            let mut measures = vec![plan.measure_at(g, n, &|l| l)?];
-            if plan.second.is_some() {
-                measures.push(plan.second_at(g, n, &|l| l)?);
-            }
-            let starts = measures
-                .iter()
-                .map(|m| (plan.p.succ(m.clone()), Icit::Explicit));
-            let refls = measures.iter().map(|m| {
-                (
-                    Term::app(Term::Def(plan.p.le_refl), m.clone()),
-                    Icit::Explicit,
-                )
-            });
-            let body = lams(
-                &plan.lam_names(),
-                apps(
-                    Term::Def(go),
-                    starts.chain(plan.args(n, &|l| l, 0..n)).chain(refls),
-                ),
-            );
-            kernel::mark_folded(&mut self.globals, f);
-            self.generated_admit(&plan, &[(f, body)])?;
-        }
+        self.decreasing_wrapper(&plan, go)?;
         if !theorem {
             let mut st = Gen {
                 name: def_name.text.clone(),
@@ -1128,6 +1102,117 @@ impl Elaborator {
                 )
                 .with_label(measure.span(), "this measure isn't needed"),
             );
+        }
+        Ok(())
+    }
+
+    /// `f` itself: `go (Succ (m x)) x (Nat.leRefl (m x))`, with a fuel for
+    /// each measure of a pair.
+    fn decreasing_wrapper(&mut self, plan: &Plan, go: DefId) -> Result<()> {
+        let g = &self.globals;
+        let n = plan.n();
+        let mut measures = vec![plan.measure_at(g, n, &|l| l)?];
+        if plan.second.is_some() {
+            measures.push(plan.second_at(g, n, &|l| l)?);
+        }
+        let starts = measures
+            .iter()
+            .map(|m| (plan.p.succ(m.clone()), Icit::Explicit));
+        let refls = measures.iter().map(|m| {
+            (
+                Term::app(Term::Def(plan.p.le_refl), m.clone()),
+                Icit::Explicit,
+            )
+        });
+        let body = lams(
+            &plan.lam_names(),
+            apps(
+                Term::Def(go),
+                starts.chain(plan.args(n, &|l| l, 0..n)).chain(refls),
+            ),
+        );
+        kernel::mark_folded(&mut self.globals, plan.f);
+        self.generated_admit(plan, &[(plan.f, body)])
+    }
+
+    /// The measure of `decreasing` definition `f` (and the second of a
+    /// pair), in the context of all its parameters, read off its body `go
+    /// (Succ m) … x… (Nat.leRefl m) …`.
+    pub(crate) fn decreasing_measure(&self, f: DefId) -> Option<(Term, Option<Term>)> {
+        let g = &self.globals;
+        let def = g.def(f);
+        let n = def.arity;
+        let body = def.body()?;
+        let (head, args) = spine(body.peel_lams(n));
+        if !matches!(head.strip_loc(), Term::Def(go) if g.def(*go).name.ends_with(".%go")) {
+            return None;
+        }
+        let p = Prelude::new(g).ok()?;
+        let fuel = |t: &Term| match t.strip_loc() {
+            Term::Ctor(d, c, a) if *d == p.nat && *c == p.succ && a.len() == 1 => {
+                Some((*a[0]).clone())
+            }
+            _ => None,
+        };
+        match args.len() {
+            l if l == n + 2 => Some((fuel(args[0].0)?, None)),
+            l if l == n + 4 => Some((fuel(args[0].0)?, Some(fuel(args[1].0)?))),
+            _ => None,
+        }
+    }
+
+    /// Declared theorem `id` (`name`, of type `(tel) → result`) proved by
+    /// recursion on `measure` (a pair with `second`), in the context of all
+    /// of `tel`, as a `decreasing` theorem is: `step`, a term in the
+    /// context of `tel` then `%rec: (y: tel) → [decreasing: m y < m x] →
+    /// result y`, becomes `name.%step`, then `name.%go` and `id`'s proof
+    /// are made from it. For `f.induct` (`equations/induct.rs`).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn decreasing_theorem(
+        &mut self,
+        id: DefId,
+        name: &str,
+        tel: Vec<Binder>,
+        result: Term,
+        measure: Term,
+        second: Option<Term>,
+        span: Span,
+        step: Term,
+    ) -> Result<()> {
+        let p = Prelude::new(&self.globals)?;
+        let n = tel.len();
+        let plan = Plan {
+            f: id,
+            name: name.to_string(),
+            tel,
+            result,
+            header: n,
+            measure,
+            second,
+            theorem: true,
+            span,
+            p,
+        };
+        let g = &self.globals;
+        let mut binders = plan.binders(g, 0)?;
+        binders.push(Binder {
+            name: REC.into(),
+            icit: Icit::Explicit,
+            ty: plan.rec_ty(g, n, &|l| l)?,
+        });
+        let ty = pis(&binders, plan.result_at(g, n + 1, &|l| l)?);
+        let step_name: Name = format!("{name}.%step").into();
+        let step_id = kernel::declare_def(&mut self.globals, &step_name, &ty, true, false, span)?;
+        let mut names = plan.lam_names();
+        names.push((REC.into(), Icit::Explicit));
+        kernel::define_group(&mut self.globals, &[(step_id, lams(&names, step))])?;
+        let go = self.decreasing_go(&plan, step_id)?;
+        let made = [step_id, go];
+        self.decreasing_wrapper(&plan, go)?;
+        if let Some(item) = self.module.item {
+            for id in made {
+                self.module.def_items.insert(id, item);
+            }
         }
         Ok(())
     }

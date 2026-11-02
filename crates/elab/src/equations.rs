@@ -83,6 +83,8 @@ use crate::check::{Ctx, Saved};
 use crate::decreasing::{Binder, apps, lams, pis, split_pis};
 use crate::{Elaborator, Global, Result, kernel};
 
+mod induct;
+
 /// The variable the probe's body is: [`probe`] records the context it's
 /// checked in.
 pub(crate) const PROBE: &str = "%equation-probe";
@@ -723,7 +725,11 @@ pub(crate) fn reserved_suffix(key: &str) -> Option<(&str, &str)> {
         }
         owner_len += part.len() + 1;
     }
-    None
+    // `f.induct` (stage 2a).
+    match key.strip_suffix(".induct") {
+        Some(owner) if !owner.is_empty() => Some((owner, "induct")),
+        _ => None,
+    }
 }
 
 /// Whether a local definition can't be called `name`: `eq`, `eqK` and
@@ -762,6 +768,16 @@ struct Stated {
     /// The sizes of the right side and of the leaf's body it came from.
     rhs_size: usize,
     arm_size: usize,
+}
+
+/// A branch's statement below its row's ([`Elaborator::branch_steps`]):
+/// the row's binders and the splits' after them, the splits, and the
+/// branch's right side at the depth of all the binders.
+struct Stepped {
+    binders: Vec<(Name, Icit, Term)>,
+    steps: Vec<Step>,
+    cur: Term,
+    unfolding: Vec<DefId>,
 }
 
 /// One split a branch goes down, as its statement says it (stage 1b):
@@ -892,6 +908,42 @@ impl BranchLib {
             }
             _ => None,
         }
+    }
+
+    /// `Not (b = X)` from the hypothesis `b = notX`, the innermost binder:
+    /// `e => apart (J (y _ => y = X) e hyp)`.
+    fn refutation_of_other(&self, x: bool) -> Term {
+        let target = self.bool_value(x);
+        let motive = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam(
+                "e".into(),
+                Icit::Explicit,
+                Rc::new(Term::Eq(
+                    Some(Rc::new(self.bool_ty())),
+                    Rc::new(Term::Var(1)),
+                    Rc::new(target),
+                )),
+            )),
+        );
+        // Under `e`: `e` is 0, the hypothesis 1. `J` along `b = notX` from
+        // `b = X` gives `notX = X`.
+        let swapped = Term::J(
+            Rc::new(motive),
+            Rc::new(Term::Var(0)),
+            Rc::new(Term::Var(1)),
+        );
+        let apart = if x {
+            self.false_not_true
+        } else {
+            self.true_not_false
+        };
+        Term::Lam(
+            "e".into(),
+            Icit::Explicit,
+            Rc::new(Term::app(Term::Def(apart), swapped)),
+        )
     }
 
     /// `Void.exfalso [goal] void`.
@@ -1242,6 +1294,11 @@ struct Def {
     /// Whether its rows are a `match`'s alternatives (a lifted `match`'s
     /// helper): the hypotheses for earlier ones are `notAltJ`.
     alt_names: bool,
+    /// While `f.induct` is made (`induct.rs`): `%rec` stands for `(y… p =>
+    /// f y… p)`, a recursive call keeping its decrease proof as one more
+    /// argument, so a branch's right side says the proofs its calls were
+    /// made with ([`unmark`] drops them).
+    mark_rec: std::cell::Cell<bool>,
 }
 
 impl Def {
@@ -1455,6 +1512,7 @@ impl Elaborator {
                 for s in &suffixes {
                     self.equation_skips.push((f, s.clone(), why.to_string()));
                 }
+                induct::no_equations(self, f, kind, why);
             }
             return Ok(());
         }
@@ -1495,6 +1553,7 @@ impl Elaborator {
             for s in &suffixes {
                 e.equation_skips.push((f, s.clone(), why.to_string()));
             }
+            induct::no_equations(e, f, kind, why);
         };
         let (tree_def, tree_lams) = match kind {
             Kind::Decreasing { step, header, .. } => (step, Some(header)),
@@ -1586,6 +1645,7 @@ impl Elaborator {
             rows,
             columns,
             alt_names: false,
+            mark_rec: std::cell::Cell::new(false),
         };
         if body_form {
             // A `:=` body is one leaf, the whole tree.
@@ -1728,7 +1788,8 @@ impl Elaborator {
                 }
             }
         }
-        Ok(())
+        // `f.induct`, for a recursive definition (stage 2a).
+        self.function_induct(d, &shapes, &leaves, &mut helpers)
     }
 
     /// Makes one equation of row `k` named `suffix` with `make`, or records
@@ -2346,8 +2407,62 @@ impl Elaborator {
         helpers: &mut HashMap<DefId, Rc<Helper>>,
     ) -> R<()> {
         let s = self.stated(d, k, shape, shapes)?;
-        let lib = self.branch_lib()?;
         let base = s.binders.len();
+        let Stepped {
+            binders,
+            steps,
+            cur,
+            unfolding,
+        } = self.branch_steps(d, &s, path, helpers, false)?;
+        let lib = self.branch_lib()?;
+        let g = &self.globals;
+        let top = binders.len();
+        // §10, for the branch's right side too.
+        let size = cur.subterms().count();
+        if size > 256 && size > SIZE_FACTOR * s.arm_size {
+            return skip(format!(
+                "its right side would be {size} nodes, more than ten times its arm's {}",
+                s.arm_size
+            ));
+        }
+        // The proof that the row's right side is the branch's, from the
+        // inside out.
+        let z = cur;
+        let mut q = Term::Refl;
+        for step in steps.iter().rev() {
+            q = lib.step_proof(g, step, top, &z, q)?;
+        }
+        // The row's proof, walking the definition's tree (its case splits
+        // at the top), going on along `q` at the row's leaf.
+        let lhs = s.lhs.shift(g, top - base, 0)?;
+        let body = Term::Eq(None, Rc::new(lhs.clone()), Rc::new(z));
+        let then = (!matches!(q, Term::Refl)).then_some((lhs, q));
+        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
+        let ty = pi_over(&binders, body);
+        let lam_names: Vec<(Name, Icit)> =
+            binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
+        let proof = lams(&lam_names, tree);
+        self.declare_equation(d, k, suffix, &ty, proof, &unfolding)
+    }
+
+    /// The splits of `path` below row `k`'s statement `s`, each adding its
+    /// hypothesis (and a lifted `match`'s pattern variables) to the
+    /// statement's binders: the steps, and the branch's right side. With
+    /// `marked` (for `f.induct`, `induct.rs`), the statement was made with
+    /// recursive calls marked ([`Def::mark_rec`]): whether a branch uses its
+    /// binder is decided without the marks (the decrease proofs they keep
+    /// don't count), an `else` normalised by D2186 whose decrease proofs use
+    /// the refutation gets it from the other `Bool` equation, and the
+    /// helpers' proofs aren't made.
+    fn branch_steps(
+        &mut self,
+        d: &Def,
+        s: &Stated,
+        path: &[Taken],
+        helpers: &mut HashMap<DefId, Rc<Helper>>,
+        marked: bool,
+    ) -> R<Stepped> {
+        let lib = self.branch_lib()?;
         let mut binders = s.binders.clone();
         let mut used: Vec<Name> = binders.iter().map(|b| b.0.clone()).collect();
         let mut cur = s.rhs.clone();
@@ -2355,6 +2470,14 @@ impl Elaborator {
         let mut unfolding: Vec<DefId> = Vec::new();
         let mut unnamed = 0;
         let decreasing = matches!(d.kind, Kind::Decreasing { .. });
+        // Whether a branch uses its binder, its decrease proofs aside.
+        let uses_var = |g: &Globals, t: &Term| -> stitchwort_core::budget::Result<bool> {
+            Ok(if marked {
+                unmark(g, d, t)?.mentions(0)
+            } else {
+                t.mentions(0)
+            })
+        };
         let mut path = path.iter();
         while let Some(taken) = path.next() {
             let depth = binders.len();
@@ -2391,8 +2514,8 @@ impl Elaborator {
                         cur = branch;
                     } else if is(lib.elim) && args.len() == 5 {
                         let p = args[0].0.clone();
-                        let branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
-                        let uses = branch.mentions(0);
+                        let mut branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
+                        let uses = uses_var(&self.globals, &branch)?;
                         if uses && !yes {
                             return skip(
                                 "its `else` branch uses the proof that the condition is false: \
@@ -2400,7 +2523,7 @@ impl Elaborator {
                                  irrelevance (D2180)",
                             );
                         }
-                        let uniq = if uses {
+                        let uniq = if uses && !marked {
                             Some(self.uniqueness(&lib, &p, &args[2].0, depth)?)
                         } else {
                             None
@@ -2428,6 +2551,25 @@ impl Elaborator {
                             ),
                             (None, false) => Term::app(Term::Def(lib.not), p.clone()),
                         };
+                        // A decrease proof that uses the refutation `Not (b =
+                        // X)` gets it from the hypothesis `b = notX`.
+                        if marked
+                            && let Some((_, x)) = &normal
+                            && branch.mentions(0)
+                        {
+                            let conv = lib.refutation_of_other(*x);
+                            let at = depth + 1;
+                            branch = remap(&self.globals, &branch, at, at, &|l| {
+                                Some(if l == depth {
+                                    conv.clone()
+                                } else {
+                                    Term::Var(at - 1 - l)
+                                })
+                            })?
+                            .ok_or_else(|| {
+                                Stop::Skip("an `if`'s branch couldn't be read".into())
+                            })?;
+                        }
                         let name: Name = fresh(&used, &base_name).into();
                         used.push(name.clone());
                         binders.push((name, Icit::Explicit, ty));
@@ -2611,7 +2753,9 @@ impl Elaborator {
                     // Its proof inline, or where it splits a variable (a
                     // case tree may only be at the top of a declaration),
                     // declared as a hidden lemma `f.%match1.eq2` once.
-                    let mut proof = if he.split {
+                    let mut proof = if marked {
+                        Term::Refl
+                    } else if he.split {
                         match he.decl.get() {
                             Some(id) => Term::Def(id),
                             None => {
@@ -2624,8 +2768,10 @@ impl Elaborator {
                         Term::Ann(Rc::new(he.proof.clone()), Rc::new(he.ty.clone()))
                     };
                     let g = &self.globals;
-                    for ((v, at), (_, icit, _)) in vals.iter().zip(&he.binders) {
-                        proof = Term::app_icit(proof, v.shift(g, after - at, 0)?, *icit);
+                    if !marked {
+                        for ((v, at), (_, icit, _)) in vals.iter().zip(&he.binders) {
+                            proof = Term::app_icit(proof, v.shift(g, after - at, 0)?, *icit);
+                        }
                     }
                     steps.push(Step::Helper {
                         depth,
@@ -2642,34 +2788,12 @@ impl Elaborator {
                 }
             }
         }
-        let g = &self.globals;
-        let top = binders.len();
-        // §10, for the branch's right side too.
-        let size = cur.subterms().count();
-        if size > 256 && size > SIZE_FACTOR * s.arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {}",
-                s.arm_size
-            ));
-        }
-        // The proof that the row's right side is the branch's, from the
-        // inside out.
-        let z = cur;
-        let mut q = Term::Refl;
-        for step in steps.iter().rev() {
-            q = lib.step_proof(g, step, top, &z, q)?;
-        }
-        // The row's proof, walking the definition's tree (its case splits
-        // at the top), going on along `q` at the row's leaf.
-        let lhs = s.lhs.shift(g, top - base, 0)?;
-        let body = Term::Eq(None, Rc::new(lhs.clone()), Rc::new(z));
-        let then = (!matches!(q, Term::Refl)).then_some((lhs, q));
-        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
-        let ty = pi_over(&binders, body);
-        let lam_names: Vec<(Name, Icit)> =
-            binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
-        let proof = lams(&lam_names, tree);
-        self.declare_equation(d, k, suffix, &ty, proof, &unfolding)
+        Ok(Stepped {
+            binders,
+            steps,
+            cur,
+            unfolding,
+        })
     }
 
     /// Which of a lifted `match`'s helper's parameters is the one it
@@ -2771,6 +2895,7 @@ impl Elaborator {
             rows,
             columns: vec![col],
             alt_names: true,
+            mark_rec: std::cell::Cell::new(false),
         };
         let arms: Vec<SourceArm> = alts
             .iter()
@@ -3527,10 +3652,13 @@ fn remap(
 fn rec_term(d: &Def, depth: usize) -> Term {
     let n = d.binders.len();
     let inner = depth + n + 1;
-    let call = apps(
+    let mut call = apps(
         Term::Def(d.f),
         (0..n).map(|i| (Term::Var(inner - 1 - (depth + i)), d.binders[i].icit)),
     );
+    if d.mark_rec.get() {
+        call = Term::app_icit(call, Term::Var(0), Icit::Auto);
+    }
     let mut names: Vec<(Name, Icit)> = d.binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
     names.push(("decreasing".into(), Icit::Auto));
     lams(&names, call)
@@ -3576,6 +3704,45 @@ fn beta_rec(g: &Globals, t: Term) -> stitchwort_core::budget::Result<Term> {
         Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
         _ => t,
     })
+}
+
+/// `t` with the marks of [`Def::mark_rec`] dropped: `f y… p` is `f y…`.
+fn unmark(g: &Globals, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Term> {
+    let n = d.binders.len();
+    let f = d.f;
+    fn go(g: &Globals, f: DefId, n: usize, t: &Term) -> stitchwort_core::budget::Result<Term> {
+        g.budget.nesting("equations")?;
+        if let Term::App(head, _, Icit::Auto) = t {
+            let (h, args) = t.spine();
+            if matches!(h.strip_loc(), Term::Def(x) if *x == f) && args.len() == n + 1 {
+                return go(g, f, n, head);
+            }
+        }
+        let sub = |t: &Rc<Term>| -> stitchwort_core::budget::Result<Rc<Term>> {
+            Ok(Rc::new(go(g, f, n, t)?))
+        };
+        let all = |ts: &[Rc<Term>]| -> stitchwort_core::budget::Result<Vec<Rc<Term>>> {
+            ts.iter().map(sub).collect()
+        };
+        Ok(match t {
+            Term::App(a, b, i) => Term::App(sub(a)?, sub(b)?, *i),
+            Term::Loc(s, inner) => Term::Loc(*s, sub(inner)?),
+            Term::Ctor(d, c, args) => Term::Ctor(*d, *c, all(args)?),
+            Term::Data(d, args) => Term::Data(*d, all(args)?),
+            Term::Quot(q, args, e) => Term::Quot(*q, all(args)?, *e),
+            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, sub(a)?, sub(b)?),
+            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, sub(b)?),
+            Term::Ann(a, b) => Term::Ann(sub(a)?, sub(b)?),
+            Term::Let(x, a, v, b, e) => Term::Let(x.clone(), sub(a)?, sub(v)?, sub(b)?, *e),
+            Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(sub).transpose()?, sub(a)?, sub(b)?),
+            Term::J(m, b, p) => Term::J(sub(m)?, sub(b)?, sub(p)?),
+            _ => t.clone(),
+        })
+    }
+    if !d.mark_rec.get() {
+        return Ok(t.clone());
+    }
+    go(g, f, n, t)
 }
 
 enum Found {
@@ -4986,6 +5153,20 @@ pub fn is_equation_name(name: &str) -> bool {
         })
 }
 
+/// Whether `name` is a definition's generated functional induction,
+/// `f.induct` (stage 2a), not a data type's `T.induct`
+/// (`derive_induct.rs`).
+pub fn is_function_induct(g: &Globals, name: &str) -> bool {
+    name.strip_suffix(".induct")
+        .is_some_and(|o| !o.is_empty() && !o.contains('%') && g.find_data(o).is_none())
+}
+
+/// Whether `name` is a generated theorem's: an equation (`f.eq2`) or a
+/// definition's `f.induct`.
+pub fn is_generated_name(g: &Globals, name: &str) -> bool {
+    is_equation_name(name) || is_function_induct(g, name)
+}
+
 // ------------------------------------------------------------ E-NO-EQUATION
 
 /// `E-NO-EQUATION` if `name` is an equation the source implies that wasn't
@@ -4996,8 +5177,13 @@ pub(crate) fn no_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic
         return None;
     };
     let def = e.globals.def(*f);
-    let lazy = if def.theorem {
+    let induct = suffix == "induct";
+    let lazy = if def.theorem && induct {
+        Some("a theorem has no `induct`: it is made for a recursive definition".to_string())
+    } else if def.theorem {
         Some("a theorem's arms have no equations: nothing unfolds a proof".to_string())
+    } else if def.instance && induct {
+        Some("an instance has no `induct`: it is made for a recursive definition".to_string())
     } else if def.instance {
         Some(
             "an instance's arms have no equations: write the method as a named `def` the \
@@ -5023,11 +5209,15 @@ pub(crate) fn no_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic
             format!("`{}.{suffix}` isn't generated", e.globals.def(*f).name),
         )
         .with_label(name.span, why)
-        .with_note(
+        .with_note(if induct {
+            "`f.induct` is generated for a recursive definition where it can be stated and \
+             proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as \
+             the definition does, with its equations for the steps"
+        } else {
             "an equation for each arm is generated where it can be stated and proved \
              (docs/proposals/function-equations.md); prove this one by hand, or use \
-             `f.unfold` and a `match`",
-        ),
+             `f.unfold` and a `match`"
+        }),
     )
 }
 

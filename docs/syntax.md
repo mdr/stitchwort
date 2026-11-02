@@ -1229,8 +1229,58 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
   program's equations are made with it; std's and the core's on demand, when a
   proof names one or `search` or `doc` lists them.
 
+**Functional induction, `f.induct`** (SW-1057). A recursive definition
+(structural or `decreasing`) also gets an induction principle with **one case
+for each of its equations** above, named after it (`f.eq2.ifTrue.ifFalse` is
+case `eq2IfTrueIfFalse`): the equation's variables and hypotheses, then an
+induction hypothesis `ih` (`ih1`, `ih2`, … for several) for each recursive call
+in the branch's right side, and the motive at the arm's patterns and **the
+branch's right side**. So a case never rewrites with an equation: the motive
+is given `f`'s result. The leading parameters that every recursive call passes
+on unchanged come first, once, and aren't the motive's:
+
+```
+def countAbove (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x xs => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
+
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
+  countAbove.induct k (xs result => result ≤ List.length xs)
+    omega                    -- eq1:        motive [] 0
+    (x xs h ih => omega)     -- eq2IfTrue:  … → motive (Cons x xs) (Succ (countAbove k xs))
+    (x xs h ih => omega)     -- eq2IfFalse: … → motive (Cons x xs) (countAbove k xs)
+    xs
+```
+
+`countAbove.induct (k: Nat) (motive: List Nat → Nat → Prop) (eq1: motive []
+0) (eq2IfTrue: (x: Nat) → (xs: List Nat) → (h1: k ≤ x) → (ih: motive xs
+(countAbove k xs)) → motive (Cons x xs) (Succ (countAbove k xs))) (eq2IfFalse:
+…): (x: List Nat) → motive x (countAbove k x)`. A proof by it needs no decrease
+proofs, even for a `decreasing` definition: the generated one recurses on the
+same measure with the definition's own. A statement that doesn't mention `f`
+ignores the motive's last argument.
+
+- **An inner call first.** `ack k (ack (Succ k) j)` gives the inner call's
+  `ih` and then the outer's. A call under a binder whose arguments don't
+  mention it (a thunk of `&&` or `||`) has its `ih` like any other.
+- **Not generated** (`E-NO-EQUATION` with the reason, and in `doc`'s list): a
+  definition with a case whose equation isn't generated (above), or with an
+  overlap hypothesis that a number or character `match` refines; one that
+  calls itself with an argument that depends on a binder (a function given to
+  `List.map`) or inside a lifted `match` or local definition that isn't in tail
+  position; one with a lifted `match` whose alternatives aren't one constructor
+  each, applied to variables, covering its type (a catch-all, a nested
+  pattern); a mutual group. A definition that doesn't call itself has none
+  (`E-UNKNOWN-NAME`, with a note). `theorem f.induct` beside `def f` is
+  `E-DUPLICATE`.
+- **Where.** Made with the equations (a program's eagerly, std's on demand);
+  `doc f` lists it first in its Equations section; `search` marks it
+  generated.
+
 Examples: `examples/reject/function-equations-*.sw`,
-`crates/driver/tests/function_equations.rs`.
+`examples/accept/function-induct.sw`,
+`crates/driver/tests/function_equations.rs`,
+`crates/driver/tests/function_induct.rs`.
 
 ## `Partial`
 

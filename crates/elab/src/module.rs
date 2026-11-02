@@ -2831,7 +2831,8 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 // `f.eq2`, read as a field of `f`: the equations of `f`, which
                 // the library and the core make on demand (`equations.rs`).
                 if let Expr::Var(owner) = &**e
-                    && crate::equations::is_equation_name(&format!("f.{}", field.text))
+                    && (field.text == "induct"
+                        || crate::equations::is_equation_name(&format!("f.{}", field.text)))
                 {
                     out.push(Ref::Dot(owner, field.text.clone(), None));
                 }

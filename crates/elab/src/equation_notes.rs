@@ -29,6 +29,19 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
     if def.theorem || def.instance || e.named(&name.text).is_some() {
         return None;
     }
+    // `f.induct` of a definition that doesn't call itself.
+    if suffix == "induct" {
+        let written = &def.name;
+        return Some(
+            Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{written}.induct`"))
+                .with_label(name.span, "no such induction principle")
+                .with_note(format!(
+                    "`{written}` doesn't call itself, so it has no `{written}.induct`: a proof \
+                     about it splits as it does, with its equations (`stitchwort doc {written}` \
+                     lists them)"
+                )),
+        );
+    }
     // The arm numbers there are: `f.eq1`, `f.eq2`, … (an `or` or a branch
     // below an arm has its arm's number).
     let prefix = format!("{}.eq", def.path);
