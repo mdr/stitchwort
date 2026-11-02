@@ -4074,8 +4074,8 @@
     {
       "id": 1058,
       "title": "Function equations stage 2b: match induct (f args) with | eqK … (D2182)",
-      "status": "next",
-      "agent": "Opus",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "design",
