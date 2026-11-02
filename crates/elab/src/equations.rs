@@ -38,6 +38,25 @@
 //! proved by `f.unfold`; an `opaque` one's equations are checked with
 //! `unfolding f`, as `f.unfold` is (§4).
 //!
+//! **Branches** (stage 1b). Below each arm (and below a `:=` body, as
+//! `f.eq`), every way through the `if`s and `match`es in tail position gets
+//! an equation of its own, `f.eq2.ifTrue`, `f.eq3.some.none`
+//! ([`branch_paths`] names them from the source alone). A `match` on the
+//! arm's variables that is compiled into the case tree gives rows of its
+//! own, whose patterns are part of the left side ([`alternative_rows`]);
+//! below a row, each split adds the hypothesis it was taken under: `c =
+//! True` for a `Bool` `if`, `h: p` or `notH: Not p` for `if h: p` (the
+//! other `Bool` equation for `p` of the form `b = True`, D2186), and for a
+//! lifted `match`, its pattern variables, `e = pattern` (named after the
+//! `match`'s equation, `match found: e`) and the earlier alternatives it
+//! overlaps ([`Elaborator::branch_equation`]). Proved by the row's proof,
+//! going on at the row's leaf along a proof that its right side is the
+//! branch's: one `J` per `Bool` `if`, `Decidable.elimEq` per `if h:` (with
+//! a `J` along `Bool.uniqueEq` or `DecEq.uniqueEq` where the branch uses
+//! `h`, §3.5), and per lifted `match` the helper's own equation for the
+//! alternative (stage 1a's, a hidden lemma `f.%match1.eq2` where it splits)
+//! carried along the hypothesis by one `J`.
+//!
 //! **When.** A program's definitions get theirs when they're checked. The
 //! core's and the library's are made on demand (D2178's fallback: eager,
 //! they cost every start), when first named (a module's needs) or listed
@@ -180,11 +199,17 @@ enum Form {
     /// A `:=` body that is, as a whole, a `match` on header parameters
     /// (D2187): its alternatives are the arms, matching those parameters.
     WholeMatch,
+    /// Any other `:=` body with a split in tail position: no arms, so no
+    /// `f.eqK`, only the branches below the body, `f.eq.ifTrue` (§3.3).
+    Body,
 }
 
-/// One row: an arm, or one alternative of an arm with or-patterns.
+/// One row: an arm, one alternative of an arm with or-patterns, or (stage
+/// 1b) an alternative of a `match` on the arm's variables that is compiled
+/// into the case tree (§3.2, "`match` in tail position"), whose pattern is
+/// part of its left side.
 struct Row {
-    /// The arm's number, from 1.
+    /// The arm's number, from 1 (0 for a [`Form::Body`]).
     arm: usize,
     /// The alternative's number among the arm's, from 1; `None` for an arm
     /// without or-patterns.
@@ -197,15 +222,266 @@ struct Row {
     span: Span,
     /// Whether it has a right side (an arm with `()` has none).
     has_rhs: bool,
+    /// Its name below the definition's: `eq2`, `eq2.or1`, `eq2.cons`.
+    suffix: String,
+    /// The right side as written, if the row has one.
+    rhs: Option<Expr>,
+    /// For an alternative of a `match` compiled into the case tree: the
+    /// row whose right side the `match` is, and its number in the `match`.
+    parent: Option<usize>,
+    alt: usize,
+    /// The `match`es from the arm down to this alternative, each with the
+    /// alternative's patterns: the probe compiles them below the arm's.
+    chain: Vec<(Vec<Scrutinee>, Vec<Pattern>)>,
 }
 
 impl Row {
     fn suffix(&self) -> String {
-        match self.or {
-            Some(m) => format!("eq{}.or{m}", self.arm),
-            None => format!("eq{}", self.arm),
+        self.suffix.clone()
+    }
+
+    /// Every pattern from the arm down: the variables in written order.
+    fn written(&self) -> Vec<Pattern> {
+        let mut out = self.patterns.clone();
+        for (_, ps) in &self.chain {
+            out.extend(ps.iter().cloned());
+        }
+        out
+    }
+}
+
+// ------------------------------------------------- splits, as written
+
+/// A split in tail position of a right side, as the source writes it
+/// (§3.1): tail position goes through `let`s and local definitions, and
+/// through the branches of these splits, nowhere else.
+#[derive(Clone, Copy)]
+enum TailSplit<'a> {
+    If {
+        binder: Option<&'a ast::Name>,
+    },
+    Match {
+        scrutinees: &'a [Scrutinee],
+        alts: &'a [Alt],
+    },
+}
+
+/// One way through a split: the split, which way (`0` for `then`, or the
+/// alternative's index), and its segment of the name.
+#[derive(Clone)]
+struct Taken<'a> {
+    split: TailSplit<'a>,
+    choice: usize,
+    seg: String,
+}
+
+/// The split `e` is in tail position, and its ways, each with its body.
+fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
+    match e {
+        Expr::Bracketed(inner, _) => tail_split(inner),
+        Expr::Let { body, .. } | Expr::LocalDefs { body, .. } => tail_split(body),
+        Expr::If {
+            binder,
+            then,
+            otherwise,
+            ..
+        } => Some((
+            TailSplit::If {
+                binder: binder.as_ref(),
+            },
+            vec![
+                ("ifTrue".to_string(), &**then),
+                ("ifFalse".to_string(), &**otherwise),
+            ],
+        )),
+        Expr::Match {
+            scrutinees,
+            alts,
+            kind: MatchKind::Match,
+            ..
+        } => Some((
+            TailSplit::Match { scrutinees, alts },
+            alt_names(alts)
+                .into_iter()
+                .zip(alts)
+                .map(|(s, a)| (s, &a.body))
+                .collect(),
+        )),
+        _ => None,
+    }
+}
+
+/// The constructor an alternative is, when it's one constructor applied to
+/// variables or `_` (in one column): `Some`, `Cons`, `True`.
+fn alt_ctor(alt: &Alt) -> Option<String> {
+    let [p] = alt.patterns.as_slice() else {
+        return None;
+    };
+    let plain = |p: &Pattern| matches!(p, Pattern::Var(_) | Pattern::Wildcard(_));
+    let last = |n: &ast::Name| n.text.rsplit('.').next().unwrap_or("").to_string();
+    let name = match p {
+        Pattern::Ctor(n, args, _) if args.iter().all(plain) => last(n),
+        Pattern::Var(n) if last(n).starts_with(|c: char| c.is_uppercase()) => last(n),
+        Pattern::CtorFields { ctor, fields, .. } if fields.iter().all(|(_, p)| plain(p)) => {
+            last(ctor)
+        }
+        Pattern::Nil(_) => "Nil".to_string(),
+        Pattern::Cons(a, b, _) if plain(a) && plain(b) => "Cons".to_string(),
+        _ => return None,
+    };
+    (!name.is_empty()).then_some(name)
+}
+
+/// Each alternative's segment of the name (§3.2): its constructor in lower
+/// case (`some`, `cons`, `true`), or `altN` (a literal, a nested pattern,
+/// several columns, a catch-all, or a constructor an earlier one took).
+fn alt_names(alts: &[Alt]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for (i, a) in alts.iter().enumerate() {
+        let name = alt_ctor(a).map(|c| {
+            let mut cs = c.chars();
+            let first = cs.next().map(|f| f.to_lowercase().collect::<String>());
+            first.unwrap_or_default() + cs.as_str()
+        });
+        match name {
+            Some(n) if !out.contains(&n) => out.push(n),
+            _ => out.push(format!("alt{}", i + 1)),
         }
     }
+    out
+}
+
+/// The ways through the splits in tail position of `e`, to a result
+/// through at least one split, each as the splits taken.
+fn branch_paths(e: &Expr) -> Vec<Vec<Taken<'_>>> {
+    let Some((split, ways)) = tail_split(e) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for (choice, (seg, body)) in ways.into_iter().enumerate() {
+        let taken = Taken { split, choice, seg };
+        let below = branch_paths(body);
+        if below.is_empty() {
+            out.push(vec![taken.clone()]);
+        }
+        for mut b in below {
+            b.insert(0, taken.clone());
+            out.push(b);
+        }
+    }
+    out
+}
+
+/// The rows for the alternatives of the `match` that is row `parent`'s
+/// (index `at`) right side, compiled into the case tree: each with the
+/// alternative's patterns below the row's. Or why there are none.
+fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'static str> {
+    let mut rhs = parent.rhs.as_ref().ok_or("it has no right side")?;
+    while let Expr::Bracketed(inner, _) = rhs {
+        rhs = inner;
+    }
+    let Expr::Match {
+        scrutinees,
+        alts,
+        kind: MatchKind::Match,
+        ..
+    } = rhs
+    else {
+        return Err("its `match` compiled into the case tree isn't its whole right side");
+    };
+    if parent.or.is_some() {
+        return Err(
+            "a `match` compiled into the case tree below an arm with an or-pattern isn't stated \
+             in stage 1b",
+        );
+    }
+    if alts.iter().any(|a| a.patterns.iter().any(has_or)) {
+        return Err(
+            "an alternative with an or-pattern, in a `match` compiled into the case tree, isn't \
+             stated in stage 1b",
+        );
+    }
+    let mut out = Vec::new();
+    for (a, (alt, seg)) in alts.iter().zip(alt_names(alts)).enumerate() {
+        let mut chain = parent.chain.clone();
+        chain.push((scrutinees.clone(), alt.patterns.clone()));
+        out.push(Row {
+            arm: parent.arm,
+            or: None,
+            patterns: parent.patterns.clone(),
+            alternatives: Vec::new(),
+            span: alt.span,
+            has_rhs: true,
+            suffix: format!("{}.{seg}", parent.suffix),
+            rhs: Some(alt.body.clone()),
+            parent: Some(at),
+            alt: a + 1,
+            chain,
+        });
+    }
+    Ok(out)
+}
+
+/// The body a probe compiles in place of an arm's right side `rhs`, when
+/// the arms are compiled again: the probe, or where the right side is a
+/// `match` on the variables `known` (which the definition compiled into its
+/// case tree), that `match` with a probe for each alternative's body, so
+/// its leaves are recorded too.
+fn probe_body(rhs: Option<&Expr>, span: Span, known: &[String]) -> Expr {
+    let probe = Expr::Var(ast::Name {
+        text: PROBE.into(),
+        span,
+    });
+    let Some(Expr::Match {
+        scrutinees,
+        alts,
+        span: at,
+        kind: MatchKind::Match,
+    }) = rhs
+    else {
+        return probe;
+    };
+    let mut seen: Vec<&str> = Vec::new();
+    for s in scrutinees {
+        match (&s.name, &s.expr) {
+            (None, Expr::Var(x)) if known.contains(&x.text.to_string()) => {
+                if seen.contains(&x.text.as_str()) {
+                    return probe;
+                }
+                seen.push(&x.text);
+            }
+            _ => return probe,
+        }
+    }
+    Expr::Match {
+        scrutinees: scrutinees.clone(),
+        alts: alts
+            .iter()
+            .map(|a| {
+                let mut inner = known.to_vec();
+                inner.extend(
+                    crate::written_names(&a.patterns)
+                        .into_iter()
+                        .map(str::to_string),
+                );
+                Alt {
+                    patterns: a.patterns.clone(),
+                    body: probe_body(Some(&a.body), a.span, &inner),
+                    span: a.span,
+                }
+            })
+            .collect(),
+        span: *at,
+        kind: MatchKind::Match,
+    }
+}
+
+/// A path's name below its row's: `ifTrue.some`.
+fn path_suffix(path: &[Taken]) -> String {
+    path.iter()
+        .map(|t| t.seg.as_str())
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 /// Every way of choosing one alternative of each or-pattern in `patterns`:
@@ -298,18 +574,28 @@ fn has_or(p: &Pattern) -> bool {
     expand_one(p).len() > 1 || matches!(p, Pattern::Or(..))
 }
 
-/// The arms of a definition, as the source writes them: the form, the
-/// columns' parameter names (for a whole-body `match`, its scrutinees), and
-/// each arm's patterns, right side and span.
+/// One arm as the source writes it: its patterns, its right side (`None`
+/// for an arm with `()`), and its span.
+struct SourceArm {
+    patterns: Vec<Pattern>,
+    rhs: Option<Expr>,
+    span: Span,
+}
+
 /// A definition's arms as the source writes them (`source_arms`): the form,
-/// the columns' parameter names, and each arm's patterns, whether it has a
-/// right side, and its span.
-type SourceArms = (Form, Vec<String>, Vec<(Vec<Pattern>, bool, Span)>);
+/// the columns' parameter names (for a whole-body `match`, its
+/// scrutinees), and the arms (for a [`Form::Body`], the body as one arm
+/// without patterns).
+type SourceArms = (Form, Vec<String>, Vec<SourceArm>);
 
 fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
     let first = equations.first()?;
     let Decl::Equation {
-        patterns, rhs, arm, ..
+        patterns,
+        rhs,
+        arm,
+        span,
+        ..
     } = first
     else {
         return None;
@@ -323,7 +609,11 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
                     rhs,
                     span,
                     ..
-                } => Some((patterns.clone(), rhs.is_some(), *span)),
+                } => Some(SourceArm {
+                    patterns: patterns.clone(),
+                    rhs: rhs.clone(),
+                    span: *span,
+                }),
                 _ => None,
             })
             .collect();
@@ -332,14 +622,30 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
     if equations.len() != 1 {
         return None;
     }
-    let Some(Expr::Match {
+    let body = rhs.as_ref()?;
+    // Any other `:=` body: its branches, if it has a split in tail
+    // position.
+    let as_body = || {
+        (!branch_paths(body).is_empty()).then(|| {
+            (
+                Form::Body,
+                Vec::new(),
+                vec![SourceArm {
+                    patterns: Vec::new(),
+                    rhs: Some(body.clone()),
+                    span: *span,
+                }],
+            )
+        })
+    };
+    let Expr::Match {
         scrutinees,
         alts,
         kind: MatchKind::Match,
         ..
-    }) = rhs
+    } = body
     else {
-        return None;
+        return as_body();
     };
     let header: Vec<&str> = patterns
         .iter()
@@ -354,35 +660,48 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
             (None, Expr::Var(x)) if header.contains(&x.text.as_str()) => {
                 columns.push(x.text.to_string())
             }
-            _ => return None,
+            _ => return as_body(),
         }
     }
     let arms = alts
         .iter()
-        .map(|a: &Alt| (a.patterns.clone(), true, a.span))
+        .map(|a: &Alt| SourceArm {
+            patterns: a.patterns.clone(),
+            rhs: Some(a.body.clone()),
+            span: a.span,
+        })
         .collect();
     Some((Form::WholeMatch, columns, arms))
 }
 
 /// The equation names the source implies for a definition with these
-/// equations (§3.3): `eq1`, `eq2`, `eq3.or1`, …, under the definition's
-/// key. The library index lists them before the file is elaborated.
+/// equations (§3.3): `eq1`, `eq2`, `eq3.or1`, …, and below each its
+/// branches (`eq2.ifTrue`, `eq3.some.none`; `eq.ifFalse` below a `:=`
+/// body), under the definition's key. The library index lists them before
+/// the file is elaborated.
 pub(crate) fn source_suffixes(equations: &[Decl]) -> Vec<String> {
-    let Some((_, _, arms)) = source_arms(equations) else {
+    let Some((form, _, arms)) = source_arms(equations) else {
         return Vec::new();
     };
     let mut out = Vec::new();
-    for (k, (patterns, _, _)) in arms.iter().enumerate() {
-        let combos = if patterns.iter().any(has_or) {
-            expand_or(patterns).len()
+    for (k, arm) in arms.iter().enumerate() {
+        let mut rows = Vec::new();
+        if matches!(form, Form::Body) {
+            rows.push("eq".to_string());
+        } else if arm.patterns.iter().any(has_or) {
+            for m in 1..=expand_or(&arm.patterns).len() {
+                rows.push(format!("eq{}.or{m}", k + 1));
+            }
         } else {
-            0
-        };
-        if combos == 0 {
-            out.push(format!("eq{}", k + 1));
-        } else {
-            for m in 1..=combos {
-                out.push(format!("eq{}.or{m}", k + 1));
+            rows.push(format!("eq{}", k + 1));
+        }
+        let paths = arm.rhs.as_ref().map(branch_paths).unwrap_or_default();
+        for row in rows {
+            if !matches!(form, Form::Body) {
+                out.push(row.clone());
+            }
+            for path in &paths {
+                out.push(format!("{row}.{}", path_suffix(path)));
             }
         }
     }
@@ -429,6 +748,412 @@ struct Shape {
     names: Vec<Name>,
     icits: Vec<Icit>,
     types: Vec<Term>,
+}
+
+/// A row's statement ([`Elaborator::stated`]): the variables and
+/// hypotheses it takes, and its two sides at their depth.
+struct Stated {
+    binders: Vec<(Name, Icit, Term)>,
+    hyps: Vec<Hyp>,
+    lhs: Term,
+    rhs: Term,
+    /// The sizes of the right side and of the leaf's body it came from.
+    rhs_size: usize,
+    arm_size: usize,
+}
+
+/// One split a branch goes down, as its statement says it (stage 1b):
+/// `depth` is how many binders the statement has before the split's, and
+/// the terms are at that depth.
+enum Step {
+    /// `Bool.ifThenElse [a] c t e`, either way; its hypothesis `c = True` (or
+    /// `False`) is the binder at level `depth`.
+    Ite {
+        depth: usize,
+        head: Term,
+        args: Vec<(Term, Icit)>,
+    },
+    /// `Decidable.elim [p] [a] d y n` (`if h: p`), one way; its hypothesis
+    /// is the binder at level `depth`: `p`, or `Not p`, or for `p` of the
+    /// form `b = X` (`X` a `Bool`, `true` if `True`), `b` is the other
+    /// (`normal`, D2186). `uniq`: how two proofs of `p` are equal, when
+    /// the branch uses its proof (§3.5).
+    Dec {
+        depth: usize,
+        args: Vec<(Term, Icit)>,
+        yes: bool,
+        uniq: Option<Uniq>,
+        normal: Option<(Term, bool)>,
+    },
+    /// A lifted `match`'s helper `head` applied to `args`, one
+    /// alternative: matching argument `col` (with its equation argument
+    /// `eq`, `match h: e`), its hypothesis `e = pattern` the binder at
+    /// level `hyp` (none for a catch-all), the statement having `after`
+    /// binders once the alternative's are added. `proof`, at `after`, is
+    /// the helper's equation for the alternative: `head args' = result`,
+    /// with `args'` the call's arguments but the pattern for `e`.
+    Helper {
+        depth: usize,
+        after: usize,
+        head: Term,
+        args: Vec<(Term, Icit)>,
+        col: usize,
+        eq: Option<usize>,
+        hyp: Option<usize>,
+        proof: Term,
+        result: Term,
+    },
+}
+
+/// How two proofs of an `if`'s condition are equal: `Bool.uniqueEq l r`
+/// for an equation `l = r` of `Bool`s; `DecEq.uniqueEq` with these
+/// arguments (`[a] [instance] [x] [y]`) and the icits of its two proofs.
+enum Uniq {
+    Bool(Term, Term),
+    DecEq(DefId, Vec<(Term, Icit)>, Vec<Icit>),
+}
+
+/// A lifted `match`'s helper's call: the parameter it matches, and its
+/// equation's (`match h: e`), if it takes one.
+struct Call {
+    col: usize,
+    eq: Option<usize>,
+}
+
+/// A lifted `match`'s helper's equations, one for each alternative, as its
+/// arms' would be (stage 1a), or why not.
+struct Helper {
+    arity: usize,
+    /// By row: the alternatives first, then the rows below those whose
+    /// right side is a `match` compiled into the helper's tree.
+    shapes: Vec<std::result::Result<Shape, String>>,
+    eqs: Vec<std::result::Result<HelperEq, String>>,
+    /// Each row's rows below it, in the inner `match`'s order.
+    children: Vec<Vec<usize>>,
+}
+
+/// One alternative's equation of a helper: its binders (variables, then
+/// hypotheses), the helper's arguments on its left side and its right side
+/// (at their depth), and its proof and type, closed.
+struct HelperEq {
+    binders: Vec<(Name, Icit, Term)>,
+    args: Vec<(Term, Icit)>,
+    rhs: Term,
+    proof: Term,
+    ty: Term,
+    /// Whether its proof splits a variable: then it is declared, once, as
+    /// a hidden lemma (`decl`) for the branches' proofs to use.
+    split: bool,
+    decl: std::cell::Cell<Option<DefId>>,
+}
+
+/// The declarations branch equations are proved with.
+struct BranchLib {
+    ite: DefId,
+    elim: DefId,
+    elim_eq: DefId,
+    elim_eq_icits: Vec<Icit>,
+    bool: DataId,
+    true_: usize,
+    false_: usize,
+    not: DefId,
+    exfalso: DefId,
+    true_not_false: DefId,
+    false_not_true: DefId,
+    bool_unique: DefId,
+    deceq_unique: Option<(DefId, Vec<Icit>)>,
+    deceq_decide: Option<DefId>,
+}
+
+impl BranchLib {
+    fn bool_ty(&self) -> Term {
+        Term::Data(self.bool, Vec::new())
+    }
+
+    fn bool_value(&self, value: bool) -> Term {
+        Term::Ctor(
+            self.bool,
+            if value { self.true_ } else { self.false_ },
+            Vec::new(),
+        )
+    }
+
+    /// `b` and whether `X` is `True`, when `p` is `b = X` with `X` a
+    /// `Bool` constructor.
+    fn bool_test(&self, p: &Term) -> Option<(Term, bool)> {
+        let Term::Eq(_, b, x) = p.strip_loc() else {
+            return None;
+        };
+        match x.strip_loc() {
+            Term::Ctor(d, c, args) if *d == self.bool && args.is_empty() => {
+                Some(((**b).clone(), *c == self.true_))
+            }
+            _ => None,
+        }
+    }
+
+    /// `Void.exfalso [goal] void`.
+    fn exfalso(&self, goal: Term, void: Term) -> Term {
+        apps(
+            Term::Def(self.exfalso),
+            [(goal, Icit::Implicit), (void, Icit::Explicit)],
+        )
+    }
+
+    /// From `q`, a proof (at `top`, the statement's depth) that the tail
+    /// below `step` is `z`, a proof that the tail at `step` is.
+    fn step_proof(&self, g: &Globals, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
+        let up = |t: &Term, from: usize, by: usize| t.shift(g, top - from + by, 0);
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let pi =
+            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let id = lam("x", Term::Var(0));
+        Ok(match step {
+            // `J (y _ => (ite y t e = z) → (ite c t e = z)) (x => x) h q`.
+            Step::Ite { depth, head, args } => {
+                let hyp = Term::Var(top - 1 - depth);
+                let call = |cond: Term, by: usize| -> R<Term> {
+                    let mut out = head.clone();
+                    for (i, (a, icit)) in args.iter().enumerate() {
+                        let a = if i == 1 {
+                            cond.clone()
+                        } else {
+                            up(a, *depth, by)?
+                        };
+                        out = Term::app_icit(out, a, *icit);
+                    }
+                    Ok(out)
+                };
+                let ty = |by: usize| up(&args[0].0, *depth, by).map(Rc::new);
+                let dom = Term::Eq(
+                    Some(ty(2)?),
+                    Rc::new(call(Term::Var(1), 2)?),
+                    Rc::new(z.shift(g, 2, 0)?),
+                );
+                let cod = Term::Eq(
+                    Some(ty(3)?),
+                    Rc::new(call(up(&args[1].0, *depth, 3)?, 3)?),
+                    Rc::new(z.shift(g, 3, 0)?),
+                );
+                let motive = lam("y", lam("e", pi(dom, cod)));
+                Term::app(Term::J(Rc::new(motive), Rc::new(id), Rc::new(hyp)), q)
+            }
+            // `Decidable.elimEq d y n z (h' => …) (r => …)`.
+            Step::Dec {
+                depth,
+                args,
+                yes,
+                uniq,
+                normal,
+            } => {
+                let hyp = Term::Var(top - 1 - depth);
+                let a: Vec<Term> = args
+                    .iter()
+                    .map(|(t, _)| up(t, *depth, 0))
+                    .collect::<stitchwort_core::budget::Result<_>>()?;
+                let (y, n) = (&a[3], &a[4]);
+                let result = |by: usize| a[1].shift(g, by, 0).map(|t| Some(Rc::new(t)));
+                // Under the one binder of `ey` or `en`.
+                // `branch h = z`, the application reduced (the kernel
+                // infers an equation's type from its left side).
+                let goal_of = |branch: &Term| -> R<Term> {
+                    let Term::Lam(_, _, body) = branch.strip_loc() else {
+                        return skip("an `if`'s branch isn't a function as elaborated");
+                    };
+                    Ok(Term::Eq(
+                        result(1)?,
+                        Rc::new((**body).clone()),
+                        Rc::new(z.shift(g, 1, 0)?),
+                    ))
+                };
+                let (ey, en) = if *yes {
+                    let taken = match uniq {
+                        None => q.shift(g, 1, 0)?,
+                        Some(uniq) => {
+                            // `J (q e => A[q] = z) q' (unique hyp h')`.
+                            let Term::Lam(_, _, body) = y.strip_loc() else {
+                                return skip("an `if`'s branch isn't a function as elaborated");
+                            };
+                            let at = top + 3;
+                            let opened = remap(g, body, top + 1, at, &|l| {
+                                Some(if l < top {
+                                    Term::Var(at - 1 - l)
+                                } else {
+                                    Term::Var(1)
+                                })
+                            })?
+                            .ok_or_else(|| {
+                                Stop::Skip("an `if`'s branch couldn't be read".into())
+                            })?;
+                            let motive = lam(
+                                "q",
+                                lam(
+                                    "e",
+                                    Term::Eq(
+                                        result(3)?,
+                                        Rc::new(opened),
+                                        Rc::new(z.shift(g, 3, 0)?),
+                                    ),
+                                ),
+                            );
+                            let both = [hyp.shift(g, 1, 0)?, Term::Var(0)];
+                            let proof = match uniq {
+                                Uniq::Bool(l, r) => apps(
+                                    Term::Def(self.bool_unique),
+                                    [
+                                        (up(l, *depth, 1)?, Icit::Explicit),
+                                        (up(r, *depth, 1)?, Icit::Explicit),
+                                        (both[0].clone(), Icit::Explicit),
+                                        (both[1].clone(), Icit::Explicit),
+                                    ],
+                                ),
+                                Uniq::DecEq(unique, given, icits) => {
+                                    let mut out = Term::Def(*unique);
+                                    for (t, icit) in given {
+                                        out = Term::app_icit(out, up(t, *depth, 1)?, *icit);
+                                    }
+                                    for (t, icit) in both.iter().zip(icits) {
+                                        out = Term::app_icit(out, t.clone(), *icit);
+                                    }
+                                    out
+                                }
+                            };
+                            Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
+                        }
+                    };
+                    let refuted = Term::app(Term::Var(0), hyp.shift(g, 1, 0)?);
+                    (
+                        lam("h", taken),
+                        lam("r", self.exfalso(goal_of(n)?, refuted)),
+                    )
+                } else {
+                    // `h'` against the hypothesis: `Not p` applied, or for
+                    // the other `Bool` equation (D2186), `X = notX` from
+                    // `J (y _ => b = notX → y = notX) (x => x) h' hyp`.
+                    let void = match normal {
+                        None => Term::app(hyp.shift(g, 1, 0)?, Term::Var(0)),
+                        Some((b, x)) => {
+                            let other = self.bool_value(!*x);
+                            let b = up(b, *depth, 1)?;
+                            let dom = Term::Eq(
+                                Some(Rc::new(self.bool_ty())),
+                                Rc::new(b.shift(g, 2, 0)?),
+                                Rc::new(other.clone()),
+                            );
+                            let cod = Term::Eq(
+                                Some(Rc::new(self.bool_ty())),
+                                Rc::new(Term::Var(2)),
+                                Rc::new(other),
+                            );
+                            let motive = lam("y", lam("e", pi(dom, cod)));
+                            let swapped = Term::app(
+                                Term::J(Rc::new(motive), Rc::new(id), Rc::new(Term::Var(0))),
+                                hyp.shift(g, 1, 0)?,
+                            );
+                            let apart = if *x {
+                                self.true_not_false
+                            } else {
+                                self.false_not_true
+                            };
+                            Term::app(Term::Def(apart), swapped)
+                        }
+                    };
+                    (
+                        lam("h", self.exfalso(goal_of(y)?, void)),
+                        lam("r", q.shift(g, 1, 0)?),
+                    )
+                };
+                let given = [
+                    a[0].clone(),
+                    a[1].clone(),
+                    a[2].clone(),
+                    y.clone(),
+                    n.clone(),
+                    z.clone(),
+                    ey,
+                    en,
+                ];
+                if self.elim_eq_icits.len() != given.len() {
+                    return skip("`Decidable.elimEq` isn't as stage 1b expects");
+                }
+                apps(
+                    Term::Def(self.elim_eq),
+                    given.into_iter().zip(self.elim_eq_icits.iter().copied()),
+                )
+            }
+            // `J (y q => (h args[y, q] = result) → (h args = result)) (x =>
+            // x) hyp proof`, then on to `z` along `q`.
+            Step::Helper {
+                depth,
+                after,
+                head,
+                args,
+                col,
+                eq,
+                hyp,
+                proof,
+                result,
+            } => {
+                let proof = proof.shift(g, top - after, 0)?;
+                let call = |by: usize, swap: bool| -> R<Term> {
+                    let mut out = head.clone();
+                    for (i, (a, icit)) in args.iter().enumerate() {
+                        let a = match (swap, i == *col, Some(i) == *eq) {
+                            (true, true, _) => Term::Var(1),
+                            (true, _, true) => Term::Var(0),
+                            _ => up(a, *depth, by)?,
+                        };
+                        out = Term::app_icit(out, a, *icit);
+                    }
+                    Ok(out)
+                };
+                let local = match hyp {
+                    None => proof,
+                    Some(level) => {
+                        let result = result.shift(g, top - after, 0)?;
+                        let dom = Term::Eq(
+                            None,
+                            Rc::new(call(2, true)?),
+                            Rc::new(result.shift(g, 2, 0)?),
+                        );
+                        let cod = Term::Eq(
+                            None,
+                            Rc::new(call(3, false)?),
+                            Rc::new(result.shift(g, 3, 0)?),
+                        );
+                        let motive = lam("y", lam("e", pi(dom, cod)));
+                        Term::app(
+                            Term::J(
+                                Rc::new(motive),
+                                Rc::new(id),
+                                Rc::new(Term::Var(top - 1 - level)),
+                            ),
+                            proof,
+                        )
+                    }
+                };
+                if matches!(q, Term::Refl) {
+                    local
+                } else {
+                    let motive = lam(
+                        "w",
+                        lam(
+                            "e",
+                            Term::Eq(None, Rc::new(call(2, false)?), Rc::new(Term::Var(1))),
+                        ),
+                    );
+                    Term::J(Rc::new(motive), Rc::new(local), Rc::new(q))
+                }
+            }
+        })
+    }
+}
+
+/// `(x: A) → … → body` over `binders`.
+fn pi_over(binders: &[(Name, Icit, Term)], body: Term) -> Term {
+    binders.iter().rev().fold(body, |acc, (x, icit, ty)| {
+        Term::Pi(x.clone(), *icit, Rc::new(ty.clone()), Rc::new(acc))
+    })
 }
 
 /// A hypothesis: an earlier row the arm overlaps, as the arm's variables
@@ -492,11 +1217,11 @@ pub(crate) enum Kind {
 }
 
 /// The definition, as the generator reads it.
-struct Def<'a> {
+struct Def {
     f: DefId,
     kind: Kind,
     /// Its key and display name.
-    key: &'a str,
+    key: String,
     display: String,
     /// Its parameters, as many as its body takes.
     binders: Vec<Binder>,
@@ -512,9 +1237,12 @@ struct Def<'a> {
     rows: Vec<Row>,
     /// The parameters matched (indices into `binders`).
     columns: Vec<usize>,
+    /// Whether its rows are a `match`'s alternatives (a lifted `match`'s
+    /// helper): the hypotheses for earlier ones are `notAltJ`.
+    alt_names: bool,
 }
 
-impl Def<'_> {
+impl Def {
     /// The number of parameters of the tree (one more than `binders` for
     /// `decreasing`: `%rec`).
     fn tree_params(&self) -> usize {
@@ -537,7 +1265,9 @@ impl Def<'_> {
         }
     }
 
-    /// The row a leaf of the tree at `path` belongs to, if it's an arm's.
+    /// The row a leaf of the tree at `path` belongs to, if it's an arm's:
+    /// the innermost, for an alternative of a `match` compiled into the
+    /// tree below an arm.
     fn row_at(&self, path: &[u32]) -> Option<usize> {
         let leaf = self
             .leaves
@@ -547,9 +1277,62 @@ impl Def<'_> {
         let mut alts = leaf.alternatives.clone();
         alts.sort_by_key(|s| (s.start, s.end));
         alts.dedup();
-        self.rows
-            .iter()
-            .position(|r| contains(r.span, leaf.span) && r.alternatives == alts)
+        let mut best: Option<(usize, u32)> = None;
+        for (i, r) in self.rows.iter().enumerate() {
+            if contains(r.span, leaf.span) && r.alternatives == alts {
+                let size = r.span.end - r.span.start;
+                if best.is_none_or(|(_, s)| size < s) {
+                    best = Some((i, size));
+                }
+            }
+        }
+        best.map(|(i, _)| i)
+    }
+
+    /// Row `j` in a message, and what it is: `arm 2`, `alternative 1`.
+    fn row_said(&self, j: usize) -> (String, &'static str) {
+        let r = &self.rows[j];
+        if r.parent.is_some() {
+            (format!("alternative {}", r.alt), "alternative")
+        } else if self.alt_names {
+            (format!("alternative {}", r.arm), "alternative")
+        } else {
+            (format!("arm {}", r.arm), "arm")
+        }
+    }
+
+    /// Whether row `a` is `k` or one it is an alternative below.
+    fn is_ancestor(&self, a: usize, k: usize) -> bool {
+        let mut at = Some(k);
+        while let Some(r) = at {
+            if r == a {
+                return true;
+            }
+            at = self.rows[r].parent;
+        }
+        false
+    }
+
+    /// The rows that come before row `k`, in the order the definition tries
+    /// them: the earlier arms, and for `k` and each row it is below, the
+    /// earlier alternatives of its `match`.
+    fn earlier(&self, k: usize) -> Vec<usize> {
+        let mut out = Vec::new();
+        let mut at = k;
+        loop {
+            let parent = self.rows[at].parent;
+            for (j, r) in self.rows.iter().enumerate().take(at) {
+                if r.parent == parent {
+                    out.push(j);
+                }
+            }
+            match parent {
+                Some(p) => at = p,
+                None => break,
+            }
+        }
+        out.sort_unstable();
+        out
     }
 }
 
@@ -679,24 +1462,36 @@ impl Elaborator {
         }
         let (arity, def_ty) = (def.arity, def.ty.clone());
         let mut rows = Vec::new();
-        for (k, (patterns, has_rhs, span)) in arms.iter().enumerate() {
-            let combos = expand_or(patterns);
-            let or = patterns.iter().any(has_or);
+        let body_form = matches!(form, Form::Body);
+        for (k, arm) in arms.iter().enumerate() {
+            let combos = expand_or(&arm.patterns);
+            let or = arm.patterns.iter().any(has_or);
             for (m, (patterns, alternatives)) in combos.into_iter().enumerate() {
+                let or = or.then_some(m + 1);
+                let suffix = match (body_form, or) {
+                    (true, _) => "eq".to_string(),
+                    (false, Some(m)) => format!("eq{}.or{m}", k + 1),
+                    (false, None) => format!("eq{}", k + 1),
+                };
                 rows.push(Row {
-                    arm: k + 1,
-                    or: or.then_some(m + 1),
+                    arm: if body_form { 0 } else { k + 1 },
+                    or,
                     patterns,
                     alternatives,
-                    span: *span,
-                    has_rhs: *has_rhs,
+                    span: arm.span,
+                    has_rhs: arm.rhs.is_some(),
+                    suffix,
+                    rhs: arm.rhs.clone(),
+                    parent: None,
+                    alt: 0,
+                    chain: Vec::new(),
                 });
             }
         }
         let display = crate::scope::display(&key).to_string();
         let skip_all = |e: &mut Elaborator, why: &str| {
-            for r in &rows {
-                e.equation_skips.push((f, r.suffix(), why.to_string()));
+            for s in &suffixes {
+                e.equation_skips.push((f, s.clone(), why.to_string()));
             }
         };
         let (tree_def, tree_lams) = match kind {
@@ -733,18 +1528,7 @@ impl Elaborator {
             return Ok(());
         }
         let tree = Term::peel_lams_rc(&body, tree_params);
-        // The names the probe binds the parameters by: their own where
-        // they're plain and distinct, else `%eN`.
-        let mut names: Vec<String> = Vec::new();
-        for (i, b) in binders.iter().enumerate() {
-            let n = b.name.to_string();
-            let plain = !n.is_empty()
-                && n != "_"
-                && !n.starts_with('%')
-                && n.chars().next().is_some_and(|c| c.is_alphabetic())
-                && !names.contains(&n);
-            names.push(if plain { n } else { format!("%e{i}") });
-        }
+        let names = probe_names(&binders);
         let columns: Vec<usize> = match form {
             // The last explicit parameters: a local definition's captures
             // come before its own.
@@ -771,6 +1555,7 @@ impl Elaborator {
                 }
                 cols
             }
+            Form::Body => Vec::new(),
         };
         if let Some(first) = rows.first()
             && first.patterns.len() != columns.len()
@@ -786,10 +1571,10 @@ impl Elaborator {
             .filter(|l| l.root == def_name.span)
             .cloned()
             .collect();
-        let d = Def {
+        let mut d = Def {
             f,
             kind,
-            key: &key,
+            key: key.clone(),
             display,
             binders,
             names,
@@ -798,8 +1583,25 @@ impl Elaborator {
             leaves,
             rows,
             columns,
+            alt_names: false,
         };
-        let mut d = d;
+        if body_form {
+            // A `:=` body is one leaf, the whole tree.
+            if d.special.iter().any(Option::is_some) {
+                skip_all(
+                    self,
+                    "an effect-polymorphic definition's `:=` body isn't stated at the empty row \
+                     in stage 1b",
+                );
+                return Ok(());
+            }
+            d.leaves = vec![Leaf {
+                root: def_name.span,
+                path: Vec::new(),
+                span: d.rows[0].span,
+                alternatives: Vec::new(),
+            }];
+        }
         // Made on demand, after the definition: its leaves weren't
         // recorded, so its arms are compiled again.
         if d.leaves.is_empty() {
@@ -820,19 +1622,44 @@ impl Elaborator {
                 Err(Stop::Skip(why)) => Some(why),
             };
             if let Some(why) = why {
-                for r in &d.rows {
-                    self.equation_skips.push((f, r.suffix(), why.clone()));
-                }
+                skip_all(self, &why);
                 return Ok(());
             }
         }
-        self.equations_of(&d, def_name.span)
+        let before = self.equation_skips.len();
+        self.equations_of(&mut d, def_name.span)?;
+        if std::env::var_os("SW_EQ_DEBUG").is_some() {
+            for (_, s, why) in &self.equation_skips[before..] {
+                eprintln!("skip {key}.{s}: {why}");
+            }
+        }
+        // Every name the source implies is made or recorded as skipped: one
+        // whose split the elaborated definition doesn't show is said here.
+        for s in &suffixes {
+            let made = self.scope.get(&format!("{key}.{s}")).is_some();
+            let said = (self.equation_skips.iter()).any(|(g, t, _)| *g == f && t == s);
+            if !made && !said {
+                self.equation_skips.push((
+                    f,
+                    s.clone(),
+                    "its branch couldn't be followed in the elaborated definition".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 
-    fn equations_of(&mut self, d: &Def, span: Span) -> Result<()> {
-        // Each row's shape, from the probe.
+    fn equations_of(&mut self, d: &mut Def, span: Span) -> Result<()> {
+        // Each row's shape, from the probe, and what its leaf is. A row
+        // whose right side is a `match` on its variables, compiled into
+        // the case tree, has rows below it, one for each alternative.
         let mut shapes: Vec<std::result::Result<Shape, String>> = Vec::new();
-        for row in &d.rows {
+        let mut leaves: Vec<Option<Found>> = Vec::new();
+        // Why a row's alternatives aren't rows of their own.
+        let mut unfollowed: Vec<Option<String>> = Vec::new();
+        let mut i = 0;
+        while i < d.rows.len() {
+            let row = &d.rows[i];
             let shape = if !row.has_rhs {
                 Err("an arm with `()` has no right side".to_string())
             } else {
@@ -845,50 +1672,112 @@ impl Elaborator {
                     }
                 }
             };
+            let found = match &shape {
+                Ok(s) => match self.attempt(|e| e.leaf_found(d, i, s)) {
+                    Ok(f) => Some(f),
+                    Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            };
+            let mut why_not = None;
+            if matches!(found, Some(Found::Match)) {
+                match alternative_rows(&d.rows[i], i) {
+                    Ok(new) => d.rows.extend(new),
+                    Err(why) => why_not = Some(why.to_string()),
+                }
+            }
             shapes.push(shape);
+            leaves.push(found);
+            unfollowed.push(why_not);
+            i += 1;
         }
-        for (k, row) in d.rows.iter().enumerate() {
-            let name = (d.f, row.suffix());
-            if self
-                .scope
-                .get(&format!("{}.{}", d.key, row.suffix()))
-                .is_some()
-            {
-                // Reserved names are refused where they're declared; a
-                // clash here is one declared before the definition.
+        // The lifted `match`es' helpers met so far, with their equations.
+        let mut helpers: HashMap<DefId, Rc<Helper>> = HashMap::default();
+        for k in 0..d.rows.len() {
+            let row = &d.rows[k];
+            let paths = row.rhs.as_ref().map(branch_paths).unwrap_or_default();
+            // The row's own equation: an arm's (stage 1a), or an
+            // alternative's with nothing below it.
+            let own = if row.parent.is_some() {
+                paths.is_empty() && !matches!(leaves[k], Some(Found::Match))
+            } else {
+                row.arm != 0
+            };
+            if own {
+                self.one_equation(d, k, row.suffix(), &shapes, |e, d, shape, shapes| {
+                    e.equation(d, k, shape, shapes)
+                })?;
+            }
+            if matches!(leaves[k], Some(Found::Match)) {
+                if let Some(why) = &unfollowed[k] {
+                    for path in &paths {
+                        let s = format!("{}.{}", row.suffix, path_suffix(path));
+                        self.equation_skips.push((d.f, s, why.clone()));
+                    }
+                }
+                continue;
+            }
+            for path in &paths {
+                let suffix = format!("{}.{}", row.suffix, path_suffix(path));
+                let skipped = self.equation_skips.len();
+                let cache = &mut helpers;
+                self.one_equation(d, k, suffix.clone(), &shapes, |e, d, shape, shapes| {
+                    e.branch_equation(d, k, shape, shapes, path, &suffix, cache)
+                })?;
+                // A failed attempt is undone, hidden lemmas it declared
+                // included: the helpers' are made again when next needed.
+                if self.equation_skips.len() != skipped {
+                    helpers.clear();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Makes one equation of row `k` named `suffix` with `make`, or records
+    /// why not.
+    fn one_equation(
+        &mut self,
+        d: &Def,
+        k: usize,
+        suffix: String,
+        shapes: &[std::result::Result<Shape, String>],
+        make: impl FnOnce(&mut Self, &Def, &Shape, &[std::result::Result<Shape, String>]) -> R<()>,
+    ) -> Result<()> {
+        let name = (d.f, suffix);
+        if self.scope.get(&format!("{}.{}", d.key, name.1)).is_some() {
+            // Reserved names are refused where they're declared; a clash
+            // here is one declared before the definition.
+            self.equation_skips
+                .push((name.0, name.1, "the name is already declared".to_string()));
+            return Ok(());
+        }
+        let shape = match &shapes[k] {
+            Ok(s) => s,
+            Err(why) => {
+                self.equation_skips.push((name.0, name.1, why.clone()));
+                return Ok(());
+            }
+        };
+        let mark = self.globals.mark();
+        match self.attempt(|e| make(e, d, shape, shapes)) {
+            Ok(()) => {}
+            Err(Stop::Skip(why)) => {
+                self.globals.rewind(&mark);
+                self.equation_skips.push((name.0, name.1, why));
+            }
+            Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
+            Err(Stop::Error(e)) => {
+                self.globals.rewind(&mark);
                 self.equation_skips.push((
                     name.0,
                     name.1,
-                    "the name is already declared".to_string(),
+                    format!(
+                        "the kernel refused the generated proof ({}: {})",
+                        e.code, e.message
+                    ),
                 ));
-                continue;
-            }
-            let shape = match &shapes[k] {
-                Ok(s) => s,
-                Err(why) => {
-                    self.equation_skips.push((name.0, name.1, why.clone()));
-                    continue;
-                }
-            };
-            let mark = self.globals.mark();
-            match self.attempt(|e| e.equation(d, k, shape, &shapes)) {
-                Ok(()) => {}
-                Err(Stop::Skip(why)) => {
-                    self.globals.rewind(&mark);
-                    self.equation_skips.push((name.0, name.1, why));
-                }
-                Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
-                Err(Stop::Error(e)) => {
-                    self.globals.rewind(&mark);
-                    self.equation_skips.push((
-                        name.0,
-                        name.1,
-                        format!(
-                            "the kernel refused the generated proof ({}: {})",
-                            e.code, e.message
-                        ),
-                    ));
-                }
             }
         }
         Ok(())
@@ -927,6 +1816,56 @@ impl Elaborator {
     /// The shape of `row`: compiles its patterns alone, as a `match` on the
     /// definition's parameters, and probes its body.
     fn probe_row(&mut self, d: &Def, row: &Row, span: Span) -> R<Shape> {
+        if d.columns.is_empty() && row.chain.is_empty() {
+            return self.body_shape(d);
+        }
+        let drafts = self.drafts.borrow().len();
+        let shape = self.probe_row_in(d, row, span);
+        // A `match` below the arm is compiled into the tree, as it was in
+        // the definition; were one lifted instead, its helper is dropped.
+        if self.drafts.borrow().len() != drafts {
+            self.drafts.borrow_mut().truncate(drafts);
+            return skip("its `match`es couldn't be compiled again as the definition's were");
+        }
+        shape
+    }
+
+    /// The shape of a [`Form::Body`]'s one row: the parameters themselves.
+    fn body_shape(&self, d: &Def) -> R<Shape> {
+        let g = &self.globals;
+        let n = d.binders.len();
+        let depth = n + 1;
+        let lhs: Vec<Term> = (0..n).map(|i| Term::Var(n - 1 - i)).collect();
+        let tele: Vec<usize> = (1..=n).collect();
+        let mut names: Vec<Name> = Vec::new();
+        let mut unnamed = 0;
+        for b in &d.binders {
+            let base = b.name.to_string();
+            let base = if base.is_empty() || base == "_" || base.starts_with('%') {
+                unnamed += 1;
+                format!("x{unnamed}")
+            } else {
+                base
+            };
+            names.push(fresh(&names, &base).into());
+        }
+        let mut types = Vec::new();
+        for (i, b) in d.binders.iter().enumerate() {
+            let ty = remap(g, &b.ty, i, depth, &|l| Some(Term::Var(n - 1 - l)))?
+                .ok_or_else(|| Stop::Skip("a parameter's type couldn't be read".into()))?;
+            types.push(ty);
+        }
+        Ok(Shape {
+            depth,
+            lhs,
+            tele,
+            names,
+            icits: d.binders.iter().map(|b| b.icit).collect(),
+            types,
+        })
+    }
+
+    fn probe_row_in(&mut self, d: &Def, row: &Row, span: Span) -> R<Shape> {
         let g = &self.globals;
         let n = d.binders.len();
         // The predicate `%P: (params) → Prop` the goal applies to the
@@ -980,6 +1919,30 @@ impl Elaborator {
                     span,
                 })
             };
+            // Below an arm, its `match`es down to the row's alternative.
+            let mut body = var(PROBE, probe_span);
+            for (scrutinees, patterns) in row.chain.iter().rev() {
+                body = Expr::Match {
+                    scrutinees: scrutinees.clone(),
+                    alts: vec![
+                        Alt {
+                            patterns: patterns.clone(),
+                            body,
+                            span: probe_span,
+                        },
+                        Alt {
+                            patterns: scrutinees
+                                .iter()
+                                .map(|_| Pattern::Wildcard(other_span))
+                                .collect(),
+                            body: var(PROBE, other_span),
+                            span: other_span,
+                        },
+                    ],
+                    span,
+                    kind: MatchKind::Match,
+                };
+            }
             let expr = Expr::Match {
                 scrutinees: d
                     .columns
@@ -992,7 +1955,7 @@ impl Elaborator {
                 alts: vec![
                     Alt {
                         patterns: row.patterns.clone(),
-                        body: var(PROBE, probe_span),
+                        body,
                         span: probe_span,
                     },
                     Alt {
@@ -1071,7 +2034,8 @@ impl Elaborator {
         // The parameters the arms don't match (implicit ones, the
         // header's), then the arm's variables as written, then the rest
         // (`_`s) by level.
-        let written: Vec<usize> = crate::written_names(&row.patterns)
+        let all_patterns = row.written();
+        let written: Vec<usize> = crate::written_names(&all_patterns)
             .into_iter()
             .filter_map(|x| cx.lookup(x))
             .collect();
@@ -1159,19 +2123,48 @@ impl Elaborator {
         shape: &Shape,
         shapes: &[std::result::Result<Shape, String>],
     ) -> R<()> {
+        let s = self.stated(d, k, shape, shapes)?;
+        let depth = s.binders.len();
+        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(s.rhs.clone()));
+        let ty = pi_over(&s.binders, body.clone());
+        // §10: a right side much larger than the arm's body (a `let` used
+        // many times, substituted) isn't generated.
+        let (size, arm_size) = (s.rhs_size, s.arm_size);
+        if size > 256 && size > SIZE_FACTOR * arm_size {
+            return skip(format!(
+                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
+            ));
+        }
+        // The proof.
+        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, depth, &body, None)?;
+        let lam_names: Vec<(Name, Icit)> =
+            s.binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
+        let proof = lams(&lam_names, tree);
+        self.declare_equation(d, k, &d.rows[k].suffix(), &ty, proof, &[])
+    }
+
+    /// Row `k`'s statement: its variables and hypotheses, and the two sides
+    /// of its equation, at the depth of those.
+    fn stated(
+        &self,
+        d: &Def,
+        k: usize,
+        shape: &Shape,
+        shapes: &[std::result::Result<Shape, String>],
+    ) -> R<Stated> {
         let g = &self.globals;
         // The hypotheses: each earlier row it overlaps.
         let mut hyps: Vec<Hyp> = Vec::new();
-        for (j, shape_j) in shapes.iter().enumerate().take(k) {
-            let other = match shape_j {
+        for j in d.earlier(k) {
+            let (what, noun) = d.row_said(j);
+            let other = match &shapes[j] {
                 Ok(s) => s,
                 // An earlier arm without a right side (`()`): what it covers
                 // has no values, so it needs no hypothesis.
                 Err(_) if !d.rows[j].has_rhs => continue,
                 Err(_) => {
                     return skip(format!(
-                        "the overlap with arm {} can't be stated: that arm's patterns couldn't be read",
-                        d.rows[j].arm
+                        "the overlap with {what} can't be stated: that {noun}'s patterns couldn't be read"
                     ));
                 }
             };
@@ -1179,23 +2172,20 @@ impl Elaborator {
                 Overlap::Disjoint => {}
                 Overlap::Unknown => {
                     return skip(format!(
-                        "the overlap with arm {} can't be stated as equations of this arm's \
-                         variables",
-                        d.rows[j].arm
+                        "the overlap with {what} can't be stated as equations of this arm's \
+                         variables"
                     ));
                 }
                 Overlap::Indexed => {
                     return skip(format!(
-                        "it overlaps arm {} on an indexed family, where the hypothesis would \
+                        "it overlaps {what} on an indexed family, where the hypothesis would \
                          compare values of different types (D2185; a heterogeneous equation \
-                         isn't in std)",
-                        d.rows[j].arm
+                         isn't in std)"
                     ));
                 }
                 Overlap::Covers => {
                     return skip(format!(
-                        "arm {} matches everything it does, so it's never reached",
-                        d.rows[j].arm
+                        "{what} matches everything it does, so it's never reached"
                     ));
                 }
                 Overlap::Meets { vars, eqs, bound } => hyps.push(Hyp::Overlap {
@@ -1225,16 +2215,19 @@ impl Elaborator {
         for (j, ty) in shape.types.iter().enumerate() {
             binders.push((shape.names[j].clone(), shape.icits[j], at(ty, j)?));
         }
-        let mut hyp_names: Vec<Name> = Vec::new();
         let mut used: Vec<Name> = shape.names.clone();
         for (i, h) in hyps.iter().enumerate() {
             let base = match h {
                 Hyp::Overlap { row, .. } => {
                     let r = &d.rows[*row];
-                    if r.arm == d.rows[k].arm {
+                    if r.parent.is_some() {
+                        format!("notAlt{}", r.alt)
+                    } else if d.alt_names {
+                        format!("notAlt{}", r.arm)
+                    } else if r.arm == d.rows[k].arm {
                         format!("notOr{}", r.or.unwrap_or(1))
                     } else {
-                        let same_arm = hyps.iter().filter(|h| matches!(h, Hyp::Overlap { row: o, .. } if d.rows[*o].arm == r.arm)).count();
+                        let same_arm = hyps.iter().filter(|h| matches!(h, Hyp::Overlap { row: o, .. } if d.rows[*o].arm == r.arm && d.rows[*o].parent.is_none())).count();
                         match (same_arm > 1, r.or) {
                             (true, Some(m)) => format!("notArm{}or{m}", r.arm),
                             _ => format!("notArm{}", r.arm),
@@ -1245,7 +2238,6 @@ impl Elaborator {
             };
             let name: Name = fresh(&used, &base).into();
             used.push(name.clone());
-            hyp_names.push(name.clone());
             let ty = self.hyp_type(h, shape, shapes, tk + i)?;
             binders.push((name, Icit::Explicit, ty));
         }
@@ -1257,24 +2249,35 @@ impl Elaborator {
             .map(|(t, b)| Ok((at(t, depth)?, b.icit)))
             .collect::<R<_>>()?;
         let lhs = apps(Term::Def(d.f), f_args);
-        let rhs_term = at(&rhs, depth)?;
-        let body = Term::Eq(None, Rc::new(lhs), Rc::new(rhs_term));
-        let ty = binders
-            .iter()
-            .rev()
-            .fold(body.clone(), |acc, (x, icit, ty)| {
-                Term::Pi(x.clone(), *icit, Rc::new(ty.clone()), Rc::new(acc))
-            });
-        // §10: a right side much larger than the arm's body (a `let` used
-        // many times, substituted) isn't generated.
-        let size = rhs.subterms().count();
-        if size > 256 && size > SIZE_FACTOR * arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
-            ));
-        }
-        // The proof.
-        let mut walk = Walk::new(self, d, k, shape, shapes, &hyps, depth, &body)?;
+        let rhs_size = rhs.subterms().count();
+        let rhs = at(&rhs, depth)?;
+        Ok(Stated {
+            binders,
+            hyps,
+            lhs,
+            rhs,
+            rhs_size,
+            arm_size,
+        })
+    }
+
+    /// The proof, at `depth` (the statement's variables and hypotheses,
+    /// and any binders after them), of row `k`'s `body` (`f lhs = rhs`): a
+    /// case tree that walks the definition's.
+    #[allow(clippy::too_many_arguments)]
+    fn walk_proof(
+        &self,
+        d: &Def,
+        k: usize,
+        shape: &Shape,
+        shapes: &[std::result::Result<Shape, String>],
+        hyps: &[Hyp],
+        depth: usize,
+        body: &Term,
+        then: Option<(Term, Term)>,
+    ) -> R<Term> {
+        let mut walk = Walk::new(self, d, k, shape, shapes, hyps, depth, body)?;
+        walk.then = then;
         let mut fvals = Vec::new();
         for level in 0..d.tree_params() {
             fvals.push(match d.param_of_tree_level(level) {
@@ -1282,32 +2285,706 @@ impl Elaborator {
                 None => PV::Rec,
             });
         }
-        let tree = walk.go(&d.tree, &mut fvals, &mut Vec::new())?;
-        let lam_names: Vec<(Name, Icit)> =
-            binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
-        let proof = lams(&lam_names, tree);
+        walk.go(&d.tree, &mut fvals, &mut Vec::new())
+    }
+
+    /// Declares the equation `f.suffix` of row `k`, of type `ty`, and has
+    /// the kernel check `proof`; `unfolding` are the opaque helpers it
+    /// looks inside, besides an opaque `f`.
+    fn declare_equation(
+        &mut self,
+        d: &Def,
+        k: usize,
+        suffix: &str,
+        ty: &Term,
+        proof: Term,
+        unfolding: &[DefId],
+    ) -> R<()> {
         // Declared and checked by the kernel like any theorem.
-        let name: Name = format!("{}.{}", d.display, d.rows[k].suffix()).into();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, d.rows[k].span)?;
-        if matches!(d.kind, Kind::Opaque) {
-            stitchwort_core::check::mark_opaque(&mut self.globals, id);
-            stitchwort_core::check::set_unfolding(&mut self.globals, id, &[d.f]);
+        let name: Name = format!("{}.{suffix}", d.display).into();
+        let id = kernel::declare_def(&mut self.globals, &name, ty, true, false, d.rows[k].span)?;
+        let opaque = matches!(d.kind, Kind::Opaque);
+        if opaque || !unfolding.is_empty() {
+            let mut all: Vec<DefId> = opaque.then_some(d.f).into_iter().collect();
+            all.extend(unfolding.iter().copied());
+            if opaque {
+                stitchwort_core::check::mark_opaque(&mut self.globals, id);
+            }
+            stitchwort_core::check::set_unfolding(&mut self.globals, id, &all);
         }
         kernel::define_group(&mut self.globals, &[(id, proof)])?;
         if let Some(item) = self.module.item {
             self.module.def_items.insert(id, item);
         }
-        let key = format!("{}.{}", d.key, d.rows[k].suffix());
+        let key = format!("{}.{suffix}", d.key);
+        if std::env::var_os("SW_EQ_DEBUG").is_some() {
+            eprintln!("made {key}");
+        }
         self.scope
             .insert(&key, Global::Def(id), d.rows[k].span, false);
         // A name under `f.eqK`, as an update lemma is under its accessor:
-        // dot notation looks these up as local definitions.
-        if d.rows[k].or.is_some() {
-            self.helper_keys
-                .insert(format!("{}.eq{}", d.key, d.rows[k].arm));
+        // dot notation looks these up as local definitions; so are the
+        // names it is under (`f.eq2` for `f.eq2.or1` and `f.eq2.ifTrue`).
+        let parts: Vec<&str> = suffix.split('.').collect();
+        let mut under = d.key.clone();
+        for part in &parts[..parts.len() - 1] {
+            under = format!("{under}.{part}");
+            self.helper_keys.insert(under.clone());
         }
         self.helper_keys.insert(key);
         Ok(())
+    }
+
+    /// The equation of one branch below row `k` (stage 1b, §3.2 and §4,
+    /// item 4): the row's statement, then one step down each split of
+    /// `path`, each adding the hypothesis it was taken under (and a lifted
+    /// `match`'s pattern variables). Proved by the row's own proof (`f lhs
+    /// = rhs`, walking the definition's tree), carried along a proof that
+    /// `rhs` is the branch's right side under the hypotheses.
+    #[allow(clippy::too_many_arguments)]
+    fn branch_equation(
+        &mut self,
+        d: &Def,
+        k: usize,
+        shape: &Shape,
+        shapes: &[std::result::Result<Shape, String>],
+        path: &[Taken],
+        suffix: &str,
+        helpers: &mut HashMap<DefId, Rc<Helper>>,
+    ) -> R<()> {
+        let s = self.stated(d, k, shape, shapes)?;
+        let lib = self.branch_lib()?;
+        let base = s.binders.len();
+        let mut binders = s.binders.clone();
+        let mut used: Vec<Name> = binders.iter().map(|b| b.0.clone()).collect();
+        let mut cur = s.rhs.clone();
+        let mut steps: Vec<Step> = Vec::new();
+        let mut unfolding: Vec<DefId> = Vec::new();
+        let mut unnamed = 0;
+        let decreasing = matches!(d.kind, Kind::Decreasing { .. });
+        let mut path = path.iter();
+        while let Some(taken) = path.next() {
+            let depth = binders.len();
+            let (head, args) = spine_icit(&cur);
+            let lambda_body = |t: &Term| match t.strip_loc() {
+                Term::Lam(_, _, b) => Ok((**b).clone()),
+                _ => skip("an `if`'s branch isn't a function as elaborated"),
+            };
+            match taken.split {
+                TailSplit::If { binder } => {
+                    let named = binder.filter(|b| b.text != "_");
+                    let yes = taken.choice == 0;
+                    let is = |id: DefId| matches!(head, Term::Def(h) if *h == id);
+                    if is(lib.ite) && args.len() == 4 && named.is_none() {
+                        let branch = lambda_body(&args[if yes { 2 } else { 3 }].0)?;
+                        if branch.mentions(0) {
+                            return skip("its `if`'s branch uses its `()`");
+                        }
+                        unnamed += 1;
+                        let name: Name = fresh(&used, &format!("h{unnamed}")).into();
+                        let value = lib.bool_value(yes);
+                        let ty = Term::Eq(
+                            Some(Rc::new(lib.bool_ty())),
+                            Rc::new(args[1].0.clone()),
+                            Rc::new(value),
+                        );
+                        used.push(name.clone());
+                        binders.push((name, Icit::Explicit, ty));
+                        steps.push(Step::Ite {
+                            depth,
+                            head: head.clone(),
+                            args,
+                        });
+                        cur = branch;
+                    } else if is(lib.elim) && args.len() == 5 {
+                        let p = args[0].0.clone();
+                        let branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
+                        let uses = branch.mentions(0);
+                        if uses && !yes {
+                            if std::env::var_os("SW_EQ_DEBUG").is_some() {
+                                eprintln!("debug else: {:?}", branch);
+                            }
+                            return skip(
+                                "its `else` branch uses the proof that the condition is false: \
+                                 two such proofs aren't known to be equal without proof \
+                                 irrelevance (D2180)",
+                            );
+                        }
+                        let uniq = if uses {
+                            Some(self.uniqueness(&lib, &p, &args[2].0, depth)?)
+                        } else {
+                            None
+                        };
+                        // D2186: the `else` of `b = True` is `b = False`.
+                        let normal = if yes { None } else { lib.bool_test(&p) };
+                        let base_name = match named {
+                            Some(h) if yes => h.text.to_string(),
+                            Some(h) => {
+                                let mut cs = h.text.chars();
+                                let first = cs.next().map(|c| c.to_uppercase().collect::<String>());
+                                format!("not{}{}", first.unwrap_or_default(), cs.as_str())
+                            }
+                            None => {
+                                unnamed += 1;
+                                format!("h{unnamed}")
+                            }
+                        };
+                        let ty = match (&normal, yes) {
+                            (_, true) => p.clone(),
+                            (Some((b, x)), false) => Term::Eq(
+                                Some(Rc::new(lib.bool_ty())),
+                                Rc::new(b.clone()),
+                                Rc::new(lib.bool_value(!*x)),
+                            ),
+                            (None, false) => Term::app(Term::Def(lib.not), p.clone()),
+                        };
+                        let name: Name = fresh(&used, &base_name).into();
+                        used.push(name.clone());
+                        binders.push((name, Icit::Explicit, ty));
+                        steps.push(Step::Dec {
+                            depth,
+                            args,
+                            yes,
+                            uniq,
+                            normal,
+                        });
+                        cur = branch;
+                    } else {
+                        return skip(
+                            "its `if` isn't elaborated as `Bool.ifThenElse` or `Decidable.elim`, \
+                             the two stage 1b follows",
+                        );
+                    }
+                }
+                TailSplit::Match { scrutinees, alts } => {
+                    let [scrutinee] = scrutinees else {
+                        return skip("a `match` on several expressions isn't stated in stage 1b");
+                    };
+                    let alt = &alts[taken.choice];
+                    if alt.patterns.iter().any(has_or) {
+                        return skip(
+                            "an alternative with an or-pattern, in a lifted `match`, isn't stated \
+                             in stage 1b",
+                        );
+                    }
+                    let Term::Def(h) = head else {
+                        return skip("its `match` isn't a call of a lifted `match`'s helper here");
+                    };
+                    let h = *h;
+                    let call = self.helper_call(h, scrutinee, &args)?;
+                    let helper = match helpers.get(&h) {
+                        Some(x) => x.clone(),
+                        None => {
+                            let made = Rc::new(self.helper(d, h, call.col, alts)?);
+                            helpers.insert(h, made.clone());
+                            made
+                        }
+                    };
+                    if self.globals.def(h).opaque {
+                        unfolding.push(h);
+                    }
+                    // The alternative's row, or below it, the row of each
+                    // `match` on its variables compiled into the helper's
+                    // tree that the path goes on through.
+                    let mut row = taken.choice;
+                    while !helper.children[row].is_empty() {
+                        let Some(next) = path.next() else {
+                            return skip("its `match`'s alternative has no one right side");
+                        };
+                        row = *helper.children[row].get(next.choice).ok_or_else(|| {
+                            Stop::Skip("its `match`'s alternatives couldn't be followed".into())
+                        })?;
+                    }
+                    // A `match` below the alternative on a variable of the
+                    // definition (one the helper captures) would refine the
+                    // definition's left side.
+                    if row != taken.choice
+                        && let Ok(he) = &helper.eqs[row]
+                        && he.args.iter().enumerate().any(|(p, (a, _))| {
+                            p != call.col
+                                && Some(p) != call.eq
+                                && !matches!(a.strip_loc(), Term::Var(_))
+                        })
+                    {
+                        return skip(
+                            "a `match` below its `match`'s alternative splits a variable of the \
+                             definition, which stage 1b doesn't put into the left side",
+                        );
+                    }
+                    let (he, hs) = match (&helper.eqs[row], &helper.shapes[row]) {
+                        (Ok(he), Ok(hs)) => (he, hs),
+                        (Err(why), _) | (_, Err(why)) => {
+                            return skip(format!("its `match`'s alternative: {why}"));
+                        }
+                    };
+                    let g = &self.globals;
+                    // The helper's equation's variables, as the branch has
+                    // them: its captures are the call's arguments, the
+                    // alternative's pattern variables are the branch's, a
+                    // catch-all is the scrutinee itself.
+                    let mut vals: Vec<(Term, usize)> = Vec::new();
+                    let col_var = match hs.lhs[call.col].strip_loc() {
+                        Term::Var(i) => Some(hs.depth - 1 - i),
+                        _ => None,
+                    };
+                    let n_h = helper.arity;
+                    let mut hyp = None;
+                    for (j, &l) in hs.tele.iter().enumerate() {
+                        let here = binders.len();
+                        let (hname, hicit, hty) = &he.binders[j];
+                        let param = (1..=n_h).contains(&l).then(|| l - 1);
+                        if Some(l) == col_var || param == Some(call.col) {
+                            vals.push((args[call.col].0.clone(), depth));
+                        } else if param.is_some() && param != call.eq {
+                            let p = param.expect("a parameter");
+                            vals.push((args[p].0.clone(), depth));
+                        } else {
+                            let ty = instantiate(g, hty, j, &vals, here)?;
+                            let base = match (param, &scrutinee.name) {
+                                (Some(_), Some(n)) => n.text.to_string(),
+                                _ => hname.to_string(),
+                            };
+                            let name: Name = fresh(&used, &base).into();
+                            used.push(name.clone());
+                            let icit = if param.is_some() {
+                                Icit::Explicit
+                            } else {
+                                *hicit
+                            };
+                            binders.push((name, icit, ty));
+                            vals.push((Term::Var(0), here + 1));
+                            if param.is_some() {
+                                hyp = Some(here);
+                            }
+                        }
+                    }
+                    let tk_h = hs.tele.len();
+                    let he_len = he.binders.len();
+                    // The hypothesis that the scrutinee is the pattern,
+                    // where the helper takes no equation of its own.
+                    if hyp.is_none() && col_var.is_none() {
+                        let here = binders.len();
+                        let pattern = instantiate(g, &he.args[call.col].0, he_len, &vals, here)?;
+                        let e = args[call.col].0.shift(g, here - depth, 0)?;
+                        let base = match (&scrutinee.name, alt_ctor(alt)) {
+                            (Some(n), _) => n.text.to_string(),
+                            (None, Some(c)) => format!("is{c}"),
+                            (None, None) => format!("isAlt{}", taken.choice + 1),
+                        };
+                        // Its type, the helper's parameter's with the call's
+                        // arguments (a pair's can't be inferred).
+                        let (hb, _) = split_pis(&g.def(h).ty, Some(n_h));
+                        let at: Vec<(Term, usize)> = args[..call.col]
+                            .iter()
+                            .map(|(a, _)| (a.clone(), depth))
+                            .collect();
+                        let ty = instantiate(g, &hb[call.col].ty, call.col, &at, here)?;
+                        let name: Name = fresh(&used, &base).into();
+                        used.push(name.clone());
+                        binders.push((
+                            name,
+                            Icit::Explicit,
+                            Term::Eq(Some(Rc::new(ty)), Rc::new(e), Rc::new(pattern)),
+                        ));
+                        hyp = Some(here);
+                    }
+                    // The earlier alternatives it overlaps.
+                    for j in tk_h..he_len {
+                        let here = binders.len();
+                        let (hname, _, hty) = &he.binders[j];
+                        let ty = instantiate(g, hty, j, &vals, here)?;
+                        // `e = p`, where `e` took a catch-all's place: typed,
+                        // as a pair's equation can't be inferred.
+                        let ty = match col_var {
+                            Some(_) => {
+                                let e = args[call.col].0.shift(g, here - depth, 0)?;
+                                let at: Vec<(Term, usize)> = args[..call.col]
+                                    .iter()
+                                    .map(|(a, _)| (a.clone(), depth))
+                                    .collect();
+                                let (hb, _) = split_pis(&g.def(h).ty, Some(n_h));
+                                let col_ty = instantiate(g, &hb[call.col].ty, call.col, &at, here)?;
+                                typed_equations(g, &ty, &e, &col_ty, 0)?
+                            }
+                            None => ty,
+                        };
+                        let name: Name = fresh(&used, hname).into();
+                        used.push(name.clone());
+                        binders.push((name, Icit::Explicit, ty));
+                        vals.push((Term::Var(0), here + 1));
+                    }
+                    let after = binders.len();
+                    let mut result = instantiate(g, &he.rhs, he_len, &vals, after)?;
+                    if decreasing {
+                        result = beta_rec(g, result)?;
+                    }
+                    // Its proof inline, or where it splits a variable (a
+                    // case tree may only be at the top of a declaration),
+                    // declared as a hidden lemma `f.%match1.eq2` once.
+                    let mut proof = if he.split {
+                        match he.decl.get() {
+                            Some(id) => Term::Def(id),
+                            None => {
+                                let id = self.helper_lemma(h, row, he, alt.span)?;
+                                he.decl.set(Some(id));
+                                Term::Def(id)
+                            }
+                        }
+                    } else {
+                        Term::Ann(Rc::new(he.proof.clone()), Rc::new(he.ty.clone()))
+                    };
+                    let g = &self.globals;
+                    for ((v, at), (_, icit, _)) in vals.iter().zip(&he.binders) {
+                        proof = Term::app_icit(proof, v.shift(g, after - at, 0)?, *icit);
+                    }
+                    steps.push(Step::Helper {
+                        depth,
+                        after,
+                        head: head.clone(),
+                        args,
+                        col: call.col,
+                        eq: call.eq,
+                        hyp,
+                        proof,
+                        result: result.clone(),
+                    });
+                    cur = result;
+                }
+            }
+        }
+        let g = &self.globals;
+        let top = binders.len();
+        // §10, for the branch's right side too.
+        let size = cur.subterms().count();
+        if size > 256 && size > SIZE_FACTOR * s.arm_size {
+            return skip(format!(
+                "its right side would be {size} nodes, more than ten times its arm's {}",
+                s.arm_size
+            ));
+        }
+        // The proof that the row's right side is the branch's, from the
+        // inside out.
+        let z = cur;
+        let mut q = Term::Refl;
+        for step in steps.iter().rev() {
+            q = lib.step_proof(g, step, top, &z, q)?;
+        }
+        // The row's proof, walking the definition's tree (its case splits
+        // at the top), going on along `q` at the row's leaf.
+        let lhs = s.lhs.shift(g, top - base, 0)?;
+        let body = Term::Eq(None, Rc::new(lhs.clone()), Rc::new(z));
+        let then = (!matches!(q, Term::Refl)).then(|| (lhs, q));
+        let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
+        let ty = pi_over(&binders, body);
+        let lam_names: Vec<(Name, Icit)> =
+            binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
+        let proof = lams(&lam_names, tree);
+        self.declare_equation(d, k, suffix, &ty, proof, &unfolding)
+    }
+
+    /// Which of a lifted `match`'s helper's parameters is the one it
+    /// matches, and which its equation (`match h: e`), from its call.
+    fn helper_call(&self, h: DefId, scrutinee: &Scrutinee, args: &[(Term, Icit)]) -> R<Call> {
+        let g = &self.globals;
+        let def = g.def(h);
+        if !def.name.contains(".%match") {
+            return skip("its `match` isn't a call of a lifted `match`'s helper here");
+        }
+        let (hb, _) = split_pis(&def.ty, Some(def.arity));
+        if hb.len() != def.arity || args.len() != def.arity {
+            return skip("its `match`'s helper isn't called with all its parameters");
+        }
+        let mut col = None;
+        let mut eq = None;
+        if scrutinee.name.is_some() {
+            for (j, (a, _)) in args.iter().enumerate() {
+                if let (Term::Refl, Term::Eq(_, _, rhs)) = (a.strip_loc(), hb[j].ty.strip_loc())
+                    && let Term::Var(i) = rhs.strip_loc()
+                    && *i < j
+                {
+                    eq = Some(j);
+                    col = Some(j - 1 - i);
+                }
+            }
+        }
+        if col.is_none() {
+            let wanted: Vec<&str> = match (&scrutinee.name, &scrutinee.expr) {
+                (None, Expr::Var(x)) => vec![x.text.as_str(), "s"],
+                _ => vec!["s"],
+            };
+            col = wanted
+                .into_iter()
+                .find_map(|w| hb.iter().rposition(|b| &*b.name == w));
+        }
+        let col = col.ok_or_else(|| {
+            Stop::Skip("its `match`'s helper doesn't take what it matches".into())
+        })?;
+        for (j, b) in hb.iter().enumerate().skip(col + 1) {
+            if Some(j) != eq && b.ty.mentions(j - 1 - col) {
+                return skip(
+                    "its `match`'s helper takes copies of variables whose types mention what it \
+                     matches, which stage 1b doesn't transport (§4, item 4)",
+                );
+            }
+        }
+        Ok(Call { col, eq })
+    }
+
+    /// The equations of a lifted `match`'s helper `h`, one for each of its
+    /// alternatives (`alts`), matching parameter `col`: as a definition's
+    /// for its arms (stage 1a), not declared, each a closed term.
+    fn helper(&mut self, owner: &Def, h: DefId, col: usize, alts: &[Alt]) -> R<Helper> {
+        let g = &self.globals;
+        let def = g.def(h);
+        let arity = def.arity;
+        let (binders, _) = split_pis(&def.ty, Some(arity));
+        let body = def
+            .body()
+            .cloned()
+            .ok_or_else(|| Stop::Skip("its `match`'s helper has no body".into()))?;
+        let special = special_params(g, &binders);
+        if special.iter().any(Option::is_some) {
+            return skip("its `match`'s helper is polymorphic in abilities");
+        }
+        let names = probe_names(&binders);
+        let rows = alts
+            .iter()
+            .enumerate()
+            .map(|(i, a)| Row {
+                arm: i + 1,
+                or: None,
+                patterns: a.patterns.clone(),
+                alternatives: Vec::new(),
+                span: a.span,
+                has_rhs: true,
+                suffix: format!("alt{}", i + 1),
+                rhs: Some(a.body.clone()),
+                parent: None,
+                alt: i + 1,
+                chain: Vec::new(),
+            })
+            .collect();
+        let mut hd = Def {
+            f: h,
+            kind: if def.opaque {
+                Kind::Opaque
+            } else {
+                Kind::Plain
+            },
+            key: def.name.to_string(),
+            display: def.name.to_string(),
+            binders,
+            names,
+            special,
+            tree: Term::peel_lams_rc(&body, arity),
+            leaves: Vec::new(),
+            rows,
+            columns: vec![col],
+            alt_names: true,
+        };
+        let arms: Vec<SourceArm> = alts
+            .iter()
+            .map(|a| SourceArm {
+                patterns: a.patterns.clone(),
+                rhs: Some(a.body.clone()),
+                span: a.span,
+            })
+            .collect();
+        let root = alts.first().map_or(owner.rows[0].span, |a| a.span);
+        hd.leaves = match self.recompute_leaves(&hd, &arms, root) {
+            Ok(Some(leaves)) => leaves,
+            Ok(None) => return skip("its `match` has an alternative with `()`"),
+            Err(Stop::Error(e)) if !crate::undo::fatal(&e) => {
+                return skip(format!(
+                    "its `match`'s alternatives couldn't be compiled again: {}",
+                    e.message
+                ));
+            }
+            Err(e) => return Err(e),
+        };
+        // Each alternative's shape; one whose body is a `match` on its
+        // variables, compiled into the helper's tree, has rows below it.
+        let mut shapes = Vec::new();
+        let mut children: Vec<Vec<usize>> = Vec::new();
+        let mut i = 0;
+        while i < hd.rows.len() {
+            let shape = match self.probe_row(&hd, &hd.rows[i], root) {
+                Ok(s) => Ok(s),
+                Err(Stop::Skip(why)) => Err(why),
+                Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(Stop::Error(e)),
+                Err(Stop::Error(e)) => Err(format!("its patterns couldn't be read: {}", e.message)),
+            };
+            let mut below = Vec::new();
+            if let Ok(s) = &shape
+                && matches!(self.leaf_found(&hd, i, s)?, Found::Match)
+                && let Ok(rows) = alternative_rows(&hd.rows[i], i)
+            {
+                below = (hd.rows.len()..hd.rows.len() + rows.len()).collect();
+                hd.rows.extend(rows);
+            }
+            shapes.push(shape);
+            children.push(below);
+            i += 1;
+        }
+        let mut eqs = Vec::new();
+        for (i, shape) in shapes.iter().enumerate() {
+            let made = match shape {
+                Ok(_) if !children[i].is_empty() => Err(Stop::Skip(String::new())),
+                Ok(shape) => self.helper_equation(&hd, i, shape, &shapes),
+                Err(why) => Err(Stop::Skip(why.clone())),
+            };
+            eqs.push(match made {
+                Ok(e) => Ok(e),
+                Err(Stop::Skip(why)) => Err(why),
+                Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(Stop::Error(e)),
+                Err(Stop::Error(e)) => Err(format!("{}: {}", e.code, e.message)),
+            });
+        }
+        Ok(Helper {
+            arity,
+            shapes,
+            eqs,
+            children,
+        })
+    }
+
+    /// Declares alternative `i`'s equation of a lifted `match`'s helper `h`
+    /// as a hidden theorem, `f.%match1.eq2`, for a branch equation whose
+    /// proof uses it.
+    fn helper_lemma(&mut self, h: DefId, i: usize, he: &HelperEq, span: Span) -> R<DefId> {
+        let name: Name = format!("{}.eq{}", self.globals.def(h).name, i + 1).into();
+        let id = kernel::declare_def(&mut self.globals, &name, &he.ty, true, false, span)?;
+        if self.globals.def(h).opaque {
+            stitchwort_core::check::set_unfolding(&mut self.globals, id, &[h]);
+        }
+        kernel::define_group(&mut self.globals, &[(id, he.proof.clone())])?;
+        if let Some(item) = self.module.item {
+            self.module.def_items.insert(id, item);
+        }
+        Ok(id)
+    }
+
+    /// Alternative `i`'s equation of a helper `hd`, as a closed term and
+    /// its type (checked where it is used).
+    fn helper_equation(
+        &self,
+        hd: &Def,
+        i: usize,
+        shape: &Shape,
+        shapes: &[std::result::Result<Shape, String>],
+    ) -> R<HelperEq> {
+        let s = self.stated(hd, i, shape, shapes)?;
+        let depth = s.binders.len();
+        let body = Term::Eq(None, Rc::new(s.lhs.clone()), Rc::new(s.rhs.clone()));
+        let ty = pi_over(&s.binders, body.clone());
+        let tree = self.walk_proof(hd, i, shape, shapes, &s.hyps, depth, &body, None)?;
+        let lam_names: Vec<(Name, Icit)> =
+            s.binders.iter().map(|(x, i, _)| (x.clone(), *i)).collect();
+        let (_, args) = spine_icit(&s.lhs);
+        let split = tree
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Case(..) | Term::NumCase(..)));
+        Ok(HelperEq {
+            binders: s.binders,
+            args,
+            rhs: s.rhs,
+            proof: lams(&lam_names, tree),
+            ty,
+            split,
+            decl: std::cell::Cell::new(None),
+        })
+    }
+
+    /// A proof that any two proofs of `p` (decided by `decision`, at
+    /// `depth`) are equal, for a branch of `if h: p` that uses `h` (§3.5,
+    /// D2180): `p` an equation of `Bool`s (`<` and `≤` on `Nat` and `Int`
+    /// are), or one decided by a `DecEq` instance.
+    fn uniqueness(&self, lib: &BranchLib, p: &Term, decision: &Term, depth: usize) -> R<Uniq> {
+        let g = &self.globals;
+        let env: Vec<Value> = (0..depth).map(Value::var).collect();
+        if let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)?
+            && matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool)
+        {
+            return Ok(Uniq::Bool(
+                stitchwort_core::value::quote(g, depth, &l)?,
+                stitchwort_core::value::quote(g, depth, &r)?,
+            ));
+        }
+        if let (Some((unique, icits)), Some(decide)) = (&lib.deceq_unique, lib.deceq_decide) {
+            let (head, args) = spine_icit(decision);
+            if matches!(head, Term::Def(id) if *id == decide) && args.len() == 4 && icits.len() == 6
+            {
+                return Ok(Uniq::DecEq(
+                    *unique,
+                    args.into_iter()
+                        .zip(icits)
+                        .map(|((t, _), i)| (t, *i))
+                        .collect(),
+                    icits[4..].to_vec(),
+                ));
+            }
+        }
+        skip(
+            "its branch uses the proof `h` of a condition that isn't an equation in a type with \
+             `DecEq` (or a comparison): two proofs of it aren't known to be equal without proof \
+             irrelevance (D2180)",
+        )
+    }
+
+    /// The declarations branch equations are made with.
+    fn branch_lib(&self) -> R<BranchLib> {
+        let g = &self.globals;
+        let r = &g.registry;
+        let none = || Stop::Skip("the core's logic isn't loaded yet".into());
+        let def = |key: &str| self.lookup_def(&format!("Std.{key}")).ok_or_else(none);
+        let (bool_, true_) = r.ctor(Builtin::True).ok_or_else(none)?;
+        let (_, false_) = r.ctor(Builtin::False).ok_or_else(none)?;
+        let elim_eq = def("Decidable.elimEq")?;
+        let (eb, _) = split_pis(&g.def(elim_eq).ty, None);
+        let deceq_unique = self.lookup_def("Std.DecEq.uniqueEq").map(|id| {
+            let (b, _) = split_pis(&g.def(id).ty, None);
+            (id, b.iter().map(|b| b.icit).collect::<Vec<_>>())
+        });
+        Ok(BranchLib {
+            ite: r.def(Builtin::IfThenElse).ok_or_else(none)?,
+            elim: r.def(Builtin::ElimDec).ok_or_else(none)?,
+            elim_eq,
+            elim_eq_icits: eb.iter().map(|b| b.icit).collect(),
+            bool: bool_,
+            true_,
+            false_,
+            not: r.def(Builtin::Not).ok_or_else(none)?,
+            exfalso: r.def(Builtin::VoidExfalso).ok_or_else(none)?,
+            true_not_false: def("Bool.trueNotFalse")?,
+            false_not_true: r.def(Builtin::FalseNotTrue).ok_or_else(none)?,
+            bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
+            deceq_unique,
+            deceq_decide: self.lookup_def("Std.DecEq.decide"),
+        })
+    }
+
+    /// What row `k`'s leaf is ([`Found`]).
+    fn leaf_found(&self, d: &Def, k: usize, shape: &Shape) -> R<Found> {
+        let g = &self.globals;
+        let mut fmap: Vec<Option<Term>> = Vec::new();
+        for level in 0..d.tree_params() {
+            fmap.push(match d.param_of_tree_level(level) {
+                Some(i) => Some(shape.lhs[i].clone()),
+                None => Some(rec_term(d, shape.depth)),
+            });
+        }
+        let mut found = Found::None;
+        find_rhs(
+            g,
+            d,
+            k,
+            shape,
+            &d.tree,
+            &mut fmap,
+            &mut Vec::new(),
+            &mut found,
+        )?;
+        Ok(found)
     }
 
     /// Row `k`'s right side, in its shape's context: the body of the first
@@ -1335,8 +3012,8 @@ impl Elaborator {
         match found {
             Found::Rhs(t, size) => Ok((t, size)),
             Found::Match => skip(
-                "its right side is a `match` on its variables, compiled into the case tree: its \
-                 branches get equations in stage 1b",
+                "its right side is a `match` on its variables, compiled into the case tree, so \
+                 no one equation states it: each alternative's has its own (`f.eqK.cons`, …)",
             ),
             Found::Refined => skip(
                 "an earlier arm overlaps it, so its body was elaborated once for each case of \
@@ -1434,6 +3111,76 @@ impl Elaborator {
             }
         }
     }
+}
+
+/// `t` as a head applied to arguments, with how each is passed, looking
+/// through locations.
+fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
+    let mut args = Vec::new();
+    let mut head = t.strip_loc();
+    while let Term::App(f, a, icit) = head {
+        args.push(((**a).clone(), *icit));
+        head = f.strip_loc();
+    }
+    args.reverse();
+    (head, args)
+}
+
+/// `t`, a term under the first `from` binders of an equation whose
+/// binder `l` is `vals[l]` (a term at the depth given), at depth `to`.
+fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: usize) -> R<Term> {
+    remap(g, t, from, to, &|l| {
+        let (v, at) = vals.get(l)?;
+        v.shift(g, to - at, 0).ok()
+    })?
+    .ok_or_else(|| Stop::Skip("a `match`'s alternative couldn't be stated in the branch".into()))
+}
+
+/// `t` (under `by` binders more than `e` and `ty`) with each untyped
+/// equation `e = p` given the type `ty`.
+fn typed_equations(g: &Globals, t: &Term, e: &Term, ty: &Term, by: usize) -> R<Term> {
+    g.budget.nesting("equations")?;
+    if let Term::Eq(None, a, b) = t {
+        let e = e.shift(g, by, 0)?;
+        if stitchwort_core::value::same_term(a, &e) {
+            return Ok(Term::Eq(
+                Some(Rc::new(ty.shift(g, by, 0)?)),
+                a.clone(),
+                b.clone(),
+            ));
+        }
+    }
+    let mut failed = None;
+    let out = rebuild(
+        t,
+        &mut |s, under| match typed_equations(g, s, e, ty, by + under) {
+            Ok(t) => Ok(Rc::new(t)),
+            Err(stop) => {
+                failed = Some(stop);
+                Ok(s.clone())
+            }
+        },
+    )?;
+    match failed {
+        Some(stop) => Err(stop),
+        None => Ok(out),
+    }
+}
+
+/// The names a probe binds a definition's parameters by: their own where
+/// they're plain and distinct, else `%eN`.
+fn probe_names(binders: &[Binder]) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for (i, b) in binders.iter().enumerate() {
+        let n = b.name.to_string();
+        let plain = !n.is_empty()
+            && n != "_"
+            && !n.starts_with('%')
+            && n.chars().next().is_some_and(|c| c.is_alphabetic())
+            && !names.contains(&n);
+        names.push(if plain { n } else { format!("%e{i}") });
+    }
+    names
 }
 
 /// A fresh name: `base`, or with a digit added if it's taken.
@@ -1868,7 +3615,9 @@ fn find_rhs(
     if matches!(found, Found::Rhs(..)) {
         return Ok(());
     }
-    if let Some(row) = d.row_at(path) {
+    if let Some(row) = d.row_at(path)
+        && (row == k || !d.is_ancestor(row, k))
+    {
         if row != k {
             return Ok(());
         }
@@ -2148,10 +3897,10 @@ impl Elaborator {
     fn recompute_leaves(
         &mut self,
         d: &Def,
-        arms: &[(Vec<Pattern>, bool, Span)],
+        arms: &[SourceArm],
         root: Span,
     ) -> R<Option<Vec<Leaf>>> {
-        if arms.iter().any(|(_, has_rhs, _)| !has_rhs) {
+        if arms.iter().any(|a| a.rhs.is_none()) {
             return Ok(None);
         }
         let g = &self.globals;
@@ -2160,6 +3909,7 @@ impl Elaborator {
         let nav = self.nav.take();
         let lambda_warnings = self.lambda_warnings.borrow().len();
         let branch_errors = self.branch_errors.borrow().len();
+        let drafts = self.drafts.borrow().len();
         let logged = self.leaf_log.borrow().leaves.len();
         let saved_root = self.leaf_log.borrow_mut().enter_root(root);
         let result = (|| -> Result<Option<()>> {
@@ -2203,10 +3953,18 @@ impl Elaborator {
                     .collect(),
                 alts: arms
                     .iter()
-                    .map(|(patterns, _, span)| Alt {
-                        patterns: patterns.clone(),
-                        body: var(PROBE, *span),
-                        span: *span,
+                    .map(|a| {
+                        let mut known: Vec<String> = d.names.clone();
+                        known.extend(
+                            crate::written_names(&a.patterns)
+                                .into_iter()
+                                .map(str::to_string),
+                        );
+                        Alt {
+                            patterns: a.patterns.clone(),
+                            body: probe_body(a.rhs.as_ref(), a.span, &known),
+                            span: a.span,
+                        }
                     })
                     .collect(),
                 span: root,
@@ -2220,6 +3978,10 @@ impl Elaborator {
         self.nav = nav;
         self.lambda_warnings.borrow_mut().truncate(lambda_warnings);
         self.branch_errors.borrow_mut().truncate(branch_errors);
+        // A `match` below an arm that was lifted, not compiled into the
+        // tree: its helper is dropped (its leaves are below the arm's, so
+        // the arm's leaf is found as before).
+        self.drafts.borrow_mut().truncate(drafts);
         let leaves = {
             let mut log = self.leaf_log.borrow_mut();
             log.leave_root(saved_root);
@@ -2523,7 +4285,7 @@ enum PV {
 /// The proof of one equation, built by walking the definition's tree.
 struct Walk<'a> {
     e: &'a Elaborator,
-    d: &'a Def<'a>,
+    d: &'a Def,
     k: usize,
     shapes: &'a [std::result::Result<Shape, String>],
     hyps: &'a [Hyp],
@@ -2540,13 +4302,17 @@ struct Walk<'a> {
     /// `None` before the core's logic is loaded: then no leaf of an earlier
     /// arm can be refuted.
     lib: Option<Lib>,
+    /// For a branch: the statement's left side and the proof (both at
+    /// `base`) that the row's right side is the branch's, which the row's
+    /// leaf goes on along.
+    then: Option<(Term, Term)>,
 }
 
 impl<'a> Walk<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
         e: &'a Elaborator,
-        d: &'a Def<'a>,
+        d: &'a Def,
         k: usize,
         shape: &'a Shape,
         shapes: &'a [std::result::Result<Shape, String>],
@@ -2567,6 +4333,7 @@ impl<'a> Walk<'a> {
             pvals: (0..base).map(PV::Var).collect(),
             apart: HashMap::default(),
             lib,
+            then: None,
         })
     }
 
@@ -2668,7 +4435,9 @@ impl<'a> Walk<'a> {
     /// `fvals`), here.
     fn go(&mut self, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
         self.g().budget.nesting("equations")?;
-        if let Some(row) = self.d.row_at(path) {
+        if let Some(row) = self.d.row_at(path)
+            && (row == self.k || !self.d.is_ancestor(row, self.k))
+        {
             return self.leaf(row, fvals);
         }
         match t.strip_loc() {
@@ -2817,7 +4586,7 @@ impl<'a> Walk<'a> {
     /// The proof at a leaf of row `row`.
     fn leaf(&mut self, row: usize, fvals: &[PV]) -> R<Term> {
         if row == self.k {
-            return match self.d.kind {
+            let own = match self.d.kind {
                 Kind::Decreasing { unfold, .. } => {
                     let mut args = Vec::new();
                     for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
@@ -2825,12 +4594,36 @@ impl<'a> Walk<'a> {
                             args.push((self.term(v)?, self.d.binders[i].icit));
                         }
                     }
-                    Ok(apps(Term::Def(unfold), args))
+                    apps(Term::Def(unfold), args)
                 }
-                _ => Ok(Term::Refl),
+                _ => Term::Refl,
             };
+            // A branch: on along its proof that the row's right side is
+            // the branch's, `J (z _ => f lhs = z) own then` (here, where a
+            // case tree may only be at the top).
+            let Some((lhs, then)) = &self.then else {
+                return Ok(own);
+            };
+            let depth = self.depth();
+            let g = self.g();
+            let lhs = self.refine(&lhs.shift(g, depth - self.base, 0)?)?;
+            let then = self.refine(&then.shift(g, depth - self.base, 0)?)?;
+            let motive = Term::Lam(
+                "z".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Eq(
+                        None,
+                        Rc::new(lhs.shift(g, 2, 0)?),
+                        Rc::new(Term::Var(1)),
+                    )),
+                )),
+            );
+            return Ok(Term::J(Rc::new(motive), Rc::new(own), Rc::new(then)));
         }
-        if row > self.k {
+        if !self.d.earlier(self.k).contains(&row) {
             return skip("a later arm's leaf is reached from its left side");
         }
         // An earlier row: its hypothesis is refuted here.
@@ -3182,21 +4975,23 @@ fn same_pv(a: &PV, b: &PV) -> bool {
     }
 }
 
-/// Whether `name` is a generated equation's: `f.eqK` or `f.eqK.orN` (the
-/// names are reserved for them, D2176).
+/// Whether `name` is a generated equation's: `f.eqK`, `f.eqK.orN`, or a
+/// branch's, `f.eqK.ifTrue.some`, `f.eq.ifFalse` (the names are reserved
+/// for them, D2176). `f.eq` alone counts: it is the start of a branch's.
 pub fn is_equation_name(name: &str) -> bool {
-    let number = |s: &str, prefix: &str| {
-        s.strip_prefix(prefix)
-            .is_some_and(|d| !d.is_empty() && d.chars().all(|c| c.is_ascii_digit()))
-    };
     let parts: Vec<&str> = name.split('.').collect();
-    match parts.as_slice() {
-        [.., owner, last] if !owner.is_empty() && number(last, "eq") => parts.len() >= 2,
-        [.., owner, eq, or] if !owner.is_empty() && number(eq, "eq") && number(or, "or") => {
-            parts.len() >= 3
-        }
-        _ => false,
-    }
+    let Some(at) = parts.iter().enumerate().skip(1).position(|(_, p)| {
+        p.strip_prefix("eq")
+            .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+    }) else {
+        return false;
+    };
+    let at = at + 1;
+    !parts[at - 1].is_empty()
+        && parts[at + 1..].iter().all(|p| {
+            p.starts_with(|c: char| c.is_ascii_lowercase())
+                && p.chars().all(|c| c.is_ascii_alphanumeric())
+        })
 }
 
 // ------------------------------------------------------------ E-NO-EQUATION

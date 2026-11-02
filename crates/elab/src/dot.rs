@@ -355,6 +355,18 @@ struct Blocked {
     error: Diagnostic,
 }
 
+/// `a.b.c` written as a name, and where it starts, if `e` is one.
+fn dotted(e: &Expr) -> Option<(String, stitchwort_syntax::Span)> {
+    match e {
+        Expr::Var(n) => Some((n.text.to_string(), n.span)),
+        Expr::Field(inner, f) => {
+            let (written, span) = dotted(inner)?;
+            Some((format!("{written}.{}", f.text), span))
+        }
+        _ => None,
+    }
+}
+
 /// [`infer_dot`], with a stop at an unknown left to the caller.
 fn dot_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
     if let Some(id) = helper(cx, recv, field) {
@@ -362,6 +374,20 @@ fn dot_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Res
         let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
         let (term, ty) = crate::check::apply_args(cx, head, args)?;
         return Ok(Dotted::Done(term, ty));
+    }
+    // A branch's equation (`f.eq2.ifTrue`) that wasn't generated: why, not
+    // a dot call on `f.eq2`.
+    if let Expr::Field(..) = recv
+        && let Some((written, span)) = dotted(recv)
+        && let Some(d) = crate::equations::no_equation(
+            cx.e,
+            &AstName {
+                text: format!("{written}.{}", field.text),
+                span: span.to(field.span),
+            },
+        )
+    {
+        return Err(d);
     }
     let before = crate::undo::Snapshot::take(cx);
     let (rterm, rty) = infer_receiver(cx, recv, field)?;
