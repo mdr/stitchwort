@@ -4,12 +4,12 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 
 ## Tiers
 
-Tests are only useful while they aren't friction, so they run in four tiers, each with a time budget. The budgets assume the release test binaries are built (`task build:tests`) and are for this 14-core Mac. Run them through [Task](https://taskfile.dev) (`Taskfile.yml`; `task --list` shows the menu), inside `nix develop`.
+Tests are only useful while they aren't friction, so they run in four tiers, each with a time budget. The budgets assume the release test binaries are built (`task build:tests`) and are for this 14-core Mac, but for the merge tier's, which is for a 10-core M1 Pro. Run them through [Task](https://taskfile.dev) (`Taskfile.yml`; `task --list` shows the menu), inside `nix develop`.
 
 | Tier | Command | Budget | When | What |
 |---|---|---|---|---|
 | lane | `task test:lane AREA=…` | under 10 s | while working, in a subagent lane | a handful of fast tests for one area (the map below) |
-| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers but 2021 day 15's (about 50 s under load, interpreted Dijkstra on 250,000 cells; daily and up), every example's hash snapshots, every extraction example's generated JS and `.d.ts` snapshots, the `goal_index` tests |
+| merge | `task test:merge` | under 90 s on a 10-core M1 Pro | after every merge | rustfmt, then a broad smoke test: every lane area but `goals`, a quarter of the accepted, rejected and soundness examples, half the AoC days' answers (every other day, spread across the years; all of them in daily and up), a quarter of the examples' and projects' hash snapshots, every extraction example's generated JS and `.d.ts` snapshots |
 | daily | `task test:daily` | under 5 minutes | a daily checkpoint; `nix flake check` runs the same | rustfmt, clippy, every test with each corpus sweep on a fixed sample, the doctests, `builtins` in the debug profile, the board's tests |
 | full | `task test:full` | tens of minutes | only when Matt asks | every test, every sweep over the whole corpus, the full-only tests |
 
@@ -35,6 +35,7 @@ What only the full tier runs: the AoC project in the std_library, rewind, check-
 | `fmt_hashes` `formatting_changes_no_declaration_hash` | every 8th file and project (the AoC project, 137 of its 160 s under load, in full only) | every 32nd |
 | `differential` `the_evaluators_agree_on_the_prelude_and_every_example`, `conv_shortcut` | every 4th | every 16th |
 | `resources` `running_out_at_any_point_only_ever_means_no_answer` (not a sweep, but sampled the same way) | every 4th of its 161 work limits | every 16th |
+| `hash_stability` `examples` and `projects` | all | every 4th |
 | `extract` `run_lines_*`, `random_inputs_*` | every 2nd | every 8th |
 | `cli` `examples` (every folder), `cli` `check_cache` projects | all (projects: every 4th) | every 4th (projects: every 16th); all of those matching `EXAMPLES` when it's set |
 
@@ -80,7 +81,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `goals` | `cli` `goal_index`: goals in `check --index` end to end, every lemma and printed goal pasted back and checked again (SW-918) | 10 s at load 30 (`lemmas_check_as_the_same_goal` 8 s) |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
-| `aoc` | six AoC days on their real input, by exact name (`aoc_answers`: `year2024_day02`, `04`, `07`, `year2025_day01`, `05`, `07`; the rest are for merge and up) | 2 s |
+| `aoc` | six AoC days on their real input, by exact name (`aoc_answers`: `year2024_day02`, `04`, `07`, `year2025_day01`, `05`, `07`; merge runs every other day, and these six; the rest are for daily and up) | 2 s |
 | `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` (with and without `--native`) but for the roguelike's two tests (merge runs those too) | 12 s at load 70 (`build --native`'s `set_nat` the longest) |
 | `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it; and `pinned_hashes`: every native, representation and kernel rule bound by content hash still applies to the library (a changed declaration drops its native silently otherwise; SW-922) | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
@@ -165,7 +166,7 @@ HASH_DUMP=/tmp/rogue.txt HASH_DUMP_PROJECT=games/rogue cargo test --release -p s
 - `HASH_DUMP_PROJECT` is a project directory relative to the repository's root; `aoc` if unset.
 - With `HASH_DEPS` set to a second path, it also writes each definition's direct references, one line per definition, to work out which changed hashes only follow from another.
 - It runs on a thread with the command line's 64 MB stack, so a project loads as `stitchwort check` loads it (on the harness's default stack AoC ran out with `E-RESOURCE`, SW-906).
-- The accepted examples' and extract examples' hashes are the `hashes` area's snapshots: `STITCHWORT_TIER=full` with `cargo insta test` shows every one that changed.
+- The accepted examples' and extract examples' hashes are the `hashes` area's snapshots: `STITCHWORT_TIER=full` with `cargo insta test` shows every one that changed. The merge tier asserts a fixed quarter of them and leaves the rest untouched; the daily and full tiers assert every one, so a new example's snapshot is missing, and noticed, there.
 
 ## The allocation trace
 

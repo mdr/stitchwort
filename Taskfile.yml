@@ -3,10 +3,10 @@
 # rest), e.g. `nix develop -c task test:merge`.
 #
 # Test tiers (docs/testing.md, "Tiers"): `lane` under 10 s, `merge` under
-# 60 s, `daily` under 5 minutes (what `nix flake check` runs), `full` only
-# when Matt asks. Which tests each tier runs is a nextest profile of the same
-# name in .config/nextest.toml; STITCHWORT_TIER tells the corpus sweeps how
-# much of the corpus to cover.
+# 90 s on a 10-core M1 Pro, `daily` under 5 minutes (what `nix flake check`
+# runs), `full` only when Matt asks. Which tests each tier runs is a nextest
+# profile of the same name in .config/nextest.toml; STITCHWORT_TIER tells the
+# corpus sweeps how much of the corpus to cover.
 version: '3'
 
 vars:
@@ -137,11 +137,11 @@ tasks:
         rm -f "$err"; exit $status
 
   test:merge:
-    desc: Merge tier, under 60 s; run after every merge
+    desc: Merge tier, under 90 s on a 10-core M1 Pro; run after every merge
     summary: |
       A broad smoke test: rustfmt, the parser and kernel, a sample of the
-      accepted and rejected examples, every AoC day's answers, the hash
-      snapshots of every example, and more (the `merge` profile in
+      accepted and rejected examples, half the AoC days' answers, a quarter of
+      the examples' hash snapshots, and more (the `merge` profile in
       .config/nextest.toml). Clippy is in the daily tier.
     env:
       STITCHWORT_TIER: merge

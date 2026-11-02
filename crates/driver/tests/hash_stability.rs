@@ -6,13 +6,15 @@
 //! order. For examples only the declarations the file added are listed.
 //!
 //! Files that fail to load in a fresh session are skipped (computed, not
-//! hard-coded).
+//! hard-coded). The daily and full tiers check every file and project; the
+//! merge tier and the lanes check a fixed quarter of them (`tier_sample`),
+//! and `EXAMPLES` keeps exactly the named ones.
 
 use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, par_map, par_map_with};
+use stitchwort_driver::driver::{Session, par_map, par_map_with, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::rewind::Mark;
 
@@ -46,6 +48,17 @@ fn eager_worker() -> (Session, Mark) {
 /// Whether `EXAMPLES` is filtering the examples.
 fn filtering() -> bool {
     std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
+}
+
+/// A sweep's share of the examples or projects in this tier: all of them when
+/// `EXAMPLES` picks some by name, otherwise `tier_sample`'s fixed sample
+/// (every one in the daily and full tiers, every fourth in merge and lane).
+fn share<T>(items: Vec<T>) -> Vec<T> {
+    if filtering() {
+        items
+    } else {
+        tier_sample(items, 1)
+    }
 }
 
 fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
@@ -96,6 +109,7 @@ fn examples() {
         found.sort();
         files.extend(found.into_iter().map(|p| (dir, p)));
     }
+    let files = share(files);
     let checked = par_map_with(
         STACK,
         &files,
@@ -230,6 +244,7 @@ fn projects() {
         .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
         .collect();
     dirs.sort();
+    let dirs = share(dirs);
     if !filtering() {
         assert!(!dirs.is_empty());
     }
