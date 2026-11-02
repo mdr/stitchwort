@@ -270,6 +270,21 @@ fn the_cache_changes_nothing_for_the_examples() {
     });
 }
 
+/// SW-1072: an example that derives `Ord` over its own `DecEq`, with
+/// navigation recorded, round-trips through the cache. Always runs, so the
+/// merge tier covers it without the full example sweep.
+#[test]
+fn the_cache_changes_nothing_for_derive_ord_own_deceq() {
+    let path = examples_dir().join("accept/derive-ord-own-deceq.sw");
+    let source = Source::File(
+        "accept/derive-ord-own-deceq.sw".into(),
+        std::fs::read_to_string(&path).unwrap(),
+    );
+    par_map(STACK, &[source], |source| {
+        assert_cache_changes_nothing(source, true);
+    });
+}
+
 /// Opaque definitions and their `unfolding` lists are replayed through the
 /// kernel (docs/proposals/opaque-definitions.md), whatever the sample.
 #[test]

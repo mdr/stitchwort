@@ -1821,12 +1821,12 @@ impl Elaborator {
         match self.attempt(|e| make(e, d, shape, shapes)) {
             Ok(()) => {}
             Err(Stop::Skip(why)) => {
-                self.globals.rewind(&mark);
+                self.rewind_globals(&mark);
                 self.equation_skips.push((name.0, name.1, why));
             }
             Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
             Err(Stop::Error(e)) => {
-                self.globals.rewind(&mark);
+                self.rewind_globals(&mark);
                 self.equation_skips.push((
                     name.0,
                     name.1,
