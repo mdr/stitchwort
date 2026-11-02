@@ -10,7 +10,8 @@ reviewed independently ("approve with changes"); every point is worked in, one r
 **Decided (Matt, 1 November 2026):** build stage 1 on the design's recommendations: D2173 to
 D2180 and D2183 to D2187 as recommended. **Stage 2 decided (2 November 2026, by Claude under Matt's
 delegation of the function equations track):** D2181 and D2182 as recommended. **Stage 1a is built** (SW-1035): see [As built (stage 1a)](#as-built-stage-1a), which
-records where the code differed from this note; **stage 1b** (SW-1049), [As built (stage 1b)](#as-built-stage-1b).
+records where the code differed from this note; **stage 1b** (SW-1049), [As built (stage 1b)](#as-built-stage-1b);
+**stage 2a**, `f.induct` (SW-1057), [As built (stage 2a)](#as-built-stage-2a).
 
 It revisits D231 ("generated per-leaf equation lemmas: not now",
 [equation-lemmas.md §9](equation-lemmas.md#9-decisions)), whose trigger has fired (§1.3), and
@@ -84,6 +85,8 @@ Labels:
 - [As built (stage 1a)](#as-built-stage-1a)
 - [As built (stage 1b)](#as-built-stage-1b)
 - [As built (stage 1c)](#as-built-stage-1c)
+- [As built (stage 1d)](#as-built-stage-1d)
+- [As built (stage 2a)](#as-built-stage-2a)
 - [Sources](#sources)
 - [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed)
 
@@ -1236,6 +1239,129 @@ wrong: `p7.sw` writes them by hand, which checks, but the generator doesn't make
 generator to state an overlapped arm whose body has a lifted `match`: either elaborating the
 body once, unrefined by the earlier arm's patterns, or recognising the per-case copies of the
 `match` helper as one function.
+
+## As built (stage 2a)
+
+SW-1057, 2 November 2026: `f.induct`, in `crates/elab/src/equations/induct.rs` (with a
+`decreasing` definition's through `Elaborator::decreasing_theorem` in `decreasing.rs`). D2181 as
+decided: the unfolding form only, a fixed prefix, cases named after the equations, no mutual
+groups. Every one is a kernel-checked theorem; no existing declaration's hash changed (the hash
+snapshots only gained lines: each `f.induct` and its hidden helpers) **[measured: `task
+snap:hashes`]**.
+
+```
+countAbove.induct (k: Nat) (motive: List Nat → Nat → Prop) (eq1: motive [] 0)
+    (eq2IfTrue: (x: Nat) → (xs: List Nat) → (h1: k ≤ x) → (ih: motive xs (countAbove k xs)) →
+      motive (Cons x xs) (Succ (countAbove k xs)))
+    (eq2IfFalse: (x: Nat) → (xs: List Nat) → (h1: (k <= x) = False) → (ih: motive xs (countAbove k xs)) →
+      motive (Cons x xs) (countAbove k xs)):
+    (x: List Nat) → motive x (countAbove k x)
+Garden.fill.induct (garden: Garden) (plant: Char)
+    (motive: List Position → Set Position → List Position → List Position → Prop)
+    (eq1: (visited: Set Position) → (members: List Position) → motive [] visited members members)
+    (eq2IfTrueIfTrue: (visited) → (members) → (position: Position) → (rest: List Position) →
+      (fresh: visited.contains position = False) → (grows: garden.plantAt position = Some plant) →
+      (ih: motive (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+             (Garden.fill garden plant (…) (visited.insert position) (Cons position members))) →
+      motive (Cons position rest) visited members (Garden.fill garden plant (…) (visited.insert position) (Cons position members)))
+    (eq2IfTrueIfFalse: …) (eq2IfFalse: … (notFresh: visited.contains position = True) → …):
+    (stack: List Position) → (visited: Set Position) → (members: List Position) →
+    motive stack visited members (Garden.fill garden plant stack visited members)
+```
+
+**How.**
+
+- **The cases** are the leaf equations of 1a and 1b: an arm with no split below it, or each of
+  its branches. A case's binders are its equation's, in its order (so `Garden.fill`'s are
+  `visited members position rest …`, the header's parameters before the arm's variables, as the
+  equations have them, not §5.1's `position rest visited members`), then one `ih` per recursive
+  call in the branch's right side, innermost first, then `motive (left side's arguments) (right
+  side)`. A recursive definition one of whose cases has no equation gets no `f.induct`, and the
+  reason names the equation and its own reason.
+- **The fixed prefix**: the leading parameters that every case's left side has as a variable and
+  every recursive call passes as it is (`k`, `garden plant`; an implicit `[a: Type]`). An
+  effect-polymorphic definition's implicit rows are `Empty` (its equations' row), not
+  parameters.
+- **The proof** is a kernel term: the definition's own case tree (its `f.%step`'s for
+  `decreasing`) on `f.induct`'s parameters; at each leaf, the arm's variables read off the
+  leaf, its overlap hypotheses proved there, and below, one split per `if` or lifted `match`
+  the arm's branches go through: `Bool.inspect` for a `Bool` `if` and for `if h: b = X` (whose
+  `else` is D2186's other equation), `Decidable.elimProof` for another `if h:`, and for a lifted
+  `match` a hidden lemma `f.induct.%splitN` (a case on the scrutinee's type, each case given `e
+  = C fields`). At each branch the case is applied, its `ih`s being `f.induct`'s own recursive
+  calls (for `decreasing`, `%rec` with the decrease proof the definition's call has: the
+  equations' right sides are made a second time keeping it, `Def::mark_rec`), and carried to
+  `motive … (f lhs)` along the branch's equation by `J`. Structural recursion passes the
+  kernel's termination check as the definition's did; `decreasing` goes through
+  `decreasing_theorem` (`%step`, `%go` and the wrapper, from the step term), with the measure
+  read off the definition's wrapper (`decreasing_measure`).
+- **Overlap hypotheses** (`notArmJ`) are proved at each leaf of the arm: one of the hypothesis's
+  equations has sides that differ in a constructor there (the case tree separated the arm from
+  arm J), and `J` with a hidden definition `f.induct.%apartN` (`Unit` for a value with the
+  leaf's constructors on the way to the difference, `Void` otherwise) gives `Void`. A `notListed`
+  (characters) or a number arm's hypothesis isn't proved this way; such a definition gets none.
+- **Calls under binders.** §5.1 said calls under a binder get no `ih` and the definition no
+  `f.induct`. As built, a call under a binder whose arguments (and decrease proof) don't mention
+  the binder is lifted out and gets its `ih` like any other: the thunks of `&&`, `||` and an `if`
+  that isn't in tail position (`Omega.allZero`'s `Omega.isZero a && Omega.allZero as`). One whose
+  arguments do mention it (a function given to `List.map`) makes the definition skip.
+- **Names and discovery.** `f.induct` is reserved (`theorem f.induct` beside `def f` is
+  `E-DUPLICATE`); naming a skipped one is `E-NO-EQUATION` with the reason; a definition that
+  doesn't call itself gives `E-UNKNOWN-NAME` with a note saying so. A recursive definition whose
+  equations aren't made at all (abilities, on-demand compilation failing) records why for
+  `induct` too. `doc f` lists `f.induct` first in its Equations section (so the 16 shown never
+  cut it), its skip reason under "Not generated"; `search` marks it generated
+  (`is_generated_name`, which tells it from a data type's `T.induct` by whether a type has the
+  owner's name); a reference to `f.induct` is a module's need, as `f.eq2` is, so std's are made
+  on demand. Hover counts it with the equations.
+- **Budget**: one attempt, with the per-equation budget of 1a (`ATTEMPT`); out of it, skipped.
+
+**Counts** **[measured: `crates/driver/tests/function_induct.rs`, the ignored
+`the_librarys_inducts` and `a_projects_inducts`]**. std (every file loaded, every put-off
+equation made): **178 made**, none refused by the kernel; skipped for its own reasons 9:
+`List.unfold` (a lifted `match` with a nested pattern), `Map.Tree.lookupList`,
+`Map.Spec.lastBelow`, `Map.lookupWithOnto` (a catch-all alternative), `Text.readDigits`,
+`Map.Tree.buildFuel`, `Parse.Each`, `Parse.Scattered` (a call whose argument is a lambda's
+variable), `Key.allWithin` (a case without an equation); and 59 recursive definitions whose
+equations aren't made (14 performing abilities; 45 whose arms can't be compiled again from the
+listing scope, `Map.Tree.*`, `Vec.*`, `Ring.*`, …, which a program importing the type gets).
+AoC (eager): **99 made**, none refused; skipped 20: 7 a call whose argument is a lambda's
+variable (2024 days 7, 10, 21), 5 a recursive call inside a lifted `match` not in tail position
+(2021 day 12, 2024 day 7, 2025 day 7), 3 a lifted `match` with a catch-all or nested pattern
+(2021 day 16's `badOperatorIn`, 2024 day 17's `Machine.run`, day 23's `largestFrom` with `Some
+(candidate, others)`), 4 a case without an equation (2021 day 16's `readPackets` and
+`transmissionBits`, day 18's `sumMagnitudes`, 2024 day 24's `repair`), 1 performing abilities
+(2021 day 18's `number`). The 7 AoC definitions with overlap hypotheses (2021 days 3, 14, 16,
+18) are among those made. (2021 day 18's `explode` as first written would be skipped too, its
+`eq3` cases having no equations, 1d's limit; AoC keeps the reshaped one.)
+
+**A real theorem by it.** §6.1's `fillCorrect`, proved again by the generated
+`Garden.fill.induct` with its statement unchanged
+([prototypes/day12-fill-induct.sw](function-equations/prototypes/day12-fill-induct.sw), run in a
+copy of the AoC project): 47 lines, against `fillCorrect`'s 67 (on 1d's equations), with no
+decrease proof, no `rewrite` with an equation, and no `match taken:` on a `Bool`; `check
+--no-cache Aoc.Year2024.Day12.Proofs` in 3.6 to 4.7 s user (before and after rebasing on 1d). It isn't in AoC itself, where it would be a
+second proof of the same statement. `examples/accept/function-induct.sw` proves five smaller
+theorems with five kinds of `f.induct` (a fixed prefix and `if`, `decreasing`, a named `match`, a
+`match` on an expression, an overlap with two calls).
+
+**Cost** **[measured, one run each, `/usr/bin/time -l`, main at `bf6619de` against the lane]**:
+`check --no-cache` of the AoC project (207 namespaces) 656.8 G → 658.2 G instructions (+0.22%),
+55.2 → 53.5 s user, peak 1,572 → 1,575 MB; `search List.length --no-cache` (every library file
+and every put-off equation and `f.induct` made) 76.5 G → 77.3 G instructions (+0.99%), 6.74 →
+6.37 s user, peak 226 → 232 MB (+2.9%). Within §7.1's 10% gate; the times are within noise. A
+program that names no library equation pays nothing for std's.
+
+**Where the code differed from this note.**
+
+1. **Case binder order** follows the equations (above), not §5.1's example.
+2. **Calls under a binder** that doesn't reach their arguments get an `ih` (above).
+3. **`gcd.induct` isn't generated**: its `else` equation isn't (1b's D2180 limit, its `a % b`
+   uses the refutation), so neither is the case. A generator could split on the decision itself
+   (`d = No r` makes the right side compute), but that is a case equation of its own.
+4. **Not covered in 2a**: an overlap hypothesis that a number or character arm makes; a lifted
+   `match` with a catch-all, a nested pattern (`Some (k, rest)`) or literals; a `match` compiled
+   into a helper's tree below an alternative. Each is recorded.
 
 ## Sources
 

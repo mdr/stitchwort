@@ -75,6 +75,12 @@ def gcd (a: Nat) (b: Nat): Nat
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
+-- A nested call: the inner call's `ih` first.
+def ack: Nat → Nat → Nat
+  | Zero, j => Succ j
+  | Succ k, Zero => ack k 1
+  | Succ k, Succ j => ack k (ack (Succ k) j)
+
 -- Not recursive: no `induct`.
 def double (n: Nat): Nat := n + n
 "#;
@@ -222,6 +228,15 @@ fn each_kind_of_recursion_and_split() {
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
         // An overlap below the top of the pattern is established too.
         generated(s, "rating.induct");
+        let ack = generated(s, "ack.induct");
+        assert!(
+            ack.contains(
+                "(eq3: (k: Nat) → (j: Nat) → motive (Succ k) j (ack (Succ k) j) → \
+                 motive k (ack (Succ k) j) (ack k (ack (Succ k) j)) → \
+                 motive (Succ k) (Succ j) (ack k (ack (Succ k) j)))"
+            ),
+            "{ack}"
+        );
         let why = skipped(s, "lengths.induct");
         assert!(why.contains("binder"), "{why}");
         let why = skipped(s, "gcd.induct");
