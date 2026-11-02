@@ -10,6 +10,12 @@
 version: '3'
 
 vars:
+  # Shell for worktree:new and scratch:new: clone the main checkout's build
+  # output and check caches into "$wt" (those that exist).
+  CLONE_CACHES: |
+    for d in target aoc/.stitchwort games/rogue/.stitchwort; do
+      if [ -d '{{.ROOT_DIR}}'/"$d" ]; then /bin/cp -c -R '{{.ROOT_DIR}}'/"$d" "$wt/$d"; fi
+    done
   # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
   # CARGO_BUILD_TARGET, the musl target, which cargo puts in its own folder).
   SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
@@ -470,3 +476,46 @@ tasks:
     desc: Package the VS Code extension and install it into VS Code
     cmds:
       - ./editors/vscode/install.sh
+
+  # Lane checkouts (CLAUDE.md, D2193). A new checkout starts with the build
+  # output and check caches of the main checkout, cloned copy-on-write on
+  # APFS (macOS's /bin/cp -c; the Nix cp has no -c): about 1.5 s and a few MB
+  # for 5 GB. Cargo still rebuilds the 14 Stitchwort crates from a new path
+  # (48 s against 71 s cold, measured 2 Nov 2026). The recipe lives here so
+  # it can change in one place.
+  worktree:new:
+    silent: true
+    desc: 'Make a lane worktree from local main with cloned build caches (task worktree:new -- SW-1083: .claude/worktrees/SW-1083, branch lane/SW-1083)'
+    cmds:
+      - |
+        set -eu
+        name='{{.CLI_ARGS}}'
+        [ -n "$name" ] || { echo 'usage: task worktree:new -- NAME' >&2; exit 2; }
+        wt='{{.ROOT_DIR}}/.claude/worktrees/'"$name"
+        git -C '{{.ROOT_DIR}}' worktree add -q -b "lane/$name" "$wt" main
+        {{.CLONE_CACHES}}
+        echo "$wt"
+
+  worktree:rm:
+    silent: true
+    desc: 'Delete a lane worktree and its branch, after merging or dropping it (task worktree:rm -- SW-1083)'
+    cmds:
+      - |
+        set -eu
+        name='{{.CLI_ARGS}}'
+        [ -n "$name" ] || { echo 'usage: task worktree:rm -- NAME' >&2; exit 2; }
+        git -C '{{.ROOT_DIR}}' worktree remove --force '{{.ROOT_DIR}}/.claude/worktrees/'"$name"
+        git -C '{{.ROOT_DIR}}' branch -D "lane/$name"
+
+  scratch:new:
+    silent: true
+    desc: 'Make a scratch clone for a DeepSeek task: cloned from local main, no remote, with cloned build caches (task scratch:new -- /abs/path)'
+    cmds:
+      - |
+        set -eu
+        wt='{{.CLI_ARGS}}'
+        case "$wt" in /*) ;; *) echo 'usage: task scratch:new -- /absolute/path' >&2; exit 2;; esac
+        git clone -q --branch main '{{.ROOT_DIR}}' "$wt"
+        git -C "$wt" remote remove origin
+        {{.CLONE_CACHES}}
+        echo "$wt"
