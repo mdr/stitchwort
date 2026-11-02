@@ -93,7 +93,7 @@ that most of the time the tests being run are fast ones:
 - **lane**, under 10 s: a lane runs `task test:lane AREA=…` for the area it
   changed, and `task test:one -- NAME` for the tests it touched, while it
   works.
-- **merge**, under 60 s: `task test:merge` on `main` after every merge.
+- **merge**, under 90 s on a 10-core M1 Pro: `task test:merge` on `main` after every merge.
 - **daily**, under 5 minutes: `task test:daily`, or `nix flake check`
   (`task test:gate`), at a daily checkpoint: formatting, clippy, every test
   with the corpus sweeps on a sample, the examples and their snapshots, hash
@@ -169,4 +169,4 @@ Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
   monster at exactly the given cell), say so in a line.
 - The report quotes the summary line (`audited N theorems: …`).
 
-**At merge** (D2043, Matt, 30 October 2026): every merge runs `task audit` (std, aoc and the roguelike without the search, about 11 s warm), and a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 60 s budget the search would break.
+**At merge** (D2043, Matt, 30 October 2026): every merge runs `task audit` (std, aoc and the roguelike without the search, about 11 s warm), and a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 90 s budget the search would break.
