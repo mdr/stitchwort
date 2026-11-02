@@ -1,5 +1,5 @@
 {
-  "next": 1080,
+  "next": 1081,
   "tickets": [
     {
       "id": 47,
@@ -2620,15 +2620,15 @@
     {
       "id": 1030,
       "title": "E-PROJECT-CONFIG note says 'the known key is sources' but audit is also a key (project.rs:1057)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratchpad/tasks/sw1030",
       "labels": [
         "diagnostics"
       ],
       "body": "Found by the docs accuracy sweep (SW-1026). Also left doubtful there: publishing.md:6 'nothing pushed or enabled' vs the live site link; core.md/DESIGN.md status dates; DESIGN must-reject row for runState/IsData; guide claims about row arguments, property tests, runtimes agreeing on every example, reserved namespaces.",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-02",
       "commits": []
     },
     {
@@ -3317,9 +3317,9 @@
     {
       "id": 1076,
       "title": "Merge tier peaks just over its 3 GB cap (3.10 GB, many small processes: run/check of examples) since function equations are generated for every example; passes with --test-threads 6. Measure and either cut per-process memory or set the cap/threads deliberately",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree (lane)",
       "labels": [
         "tests",
         "performance"
@@ -3371,6 +3371,21 @@
         "decision"
       ],
       "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n\nUpdate 2 Nov 2026 (moved to Speedwell): SW-1078 fixed in the working tree, uncommitted (see the ticket); hashes lane tier passed 5/5. Done tickets updated before 1 Nov archived to board/archive/2026-10.json.\n",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1080,
+      "title": "AoC proofs onto function equations and f.induct, batch 1: AoC 2024 days 1-8 (delete hand-written step/unfolding lemmas and provability reshapes the generated equations replace)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree (lane)",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
