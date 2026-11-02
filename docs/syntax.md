@@ -1151,6 +1151,55 @@ c ∉ [...]` for characters), so the equation is true where the arm is the one
 that runs. They are ordinary theorems, proved by the compiler and checked by
 the kernel: use them like any lemma, `rewrite kind.eq3 n h1 h2 in …`.
 
+**Branches** (SW-1049). Below each arm, every way through the `if`s and
+`match`es in tail position (through `let`s and local definitions, not into
+arguments or `&&`/`||`) gets an equation of its own, named by the arm's and
+one segment per split: `.ifTrue`/`.ifFalse` for an `if`, and for a `match`
+the constructor of the alternative in lower case (`.some`, `.none`, `.cons`,
+`.true`) where it is one constructor applied to variables, else `.altN`. A
+`:=` body that isn't a `match` on its parameters has no arm equation, only
+its branches, under `f.eq`: `gcd.eq.ifTrue`. Each branch takes the
+hypothesis it was taken under:
+
+```
+def firstBig: List Nat → Option Big
+  | Nil => None
+  | Cons x rest =>
+    match big: Nat.leq 10 x with
+      | True => Some ({ value = x, isBig = big })
+      | False => firstBig rest
+
+def countFresh: List Bool → Nat
+  | Nil => 0
+  | Cons b rest => if fresh: b = False then 1 + countFresh rest else countFresh rest
+```
+
+gives `firstBig.eq2.true (x) (rest) (big: Nat.leq 10 x = True): firstBig
+(Cons x rest) = Some ({ value = x, isBig = big })`, the step a proof can't
+take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
+(notFresh: b = True): countFresh (Cons b rest) = countFresh rest`.
+
+- **Hypotheses.** A `Bool` `if c` gives `h1: c = True` / `h1: c = False`
+  (`h2`, … for later unnamed ones), as elaborated: `if 4 ≤ x` is a test of
+  `Nat.leq 4 x`. `if h: p` gives `h: p` / `notH: Not p`, except that the
+  `else` of `p` = `b = True` (or `False`) is the other equation, `b = False`
+  (D2186). A `match` on an expression gives its pattern's variables and `e =
+  pattern`, named after the `match`'s equation (`match found: e`) or
+  `isSome`, `isNone`, `isAlt2`; a catch-all takes `notAlt1`, … for the
+  earlier alternatives it overlaps instead. A `match` on the arm's own
+  variables puts its pattern in the left side: `takeFirst.eq2.cons (k) (x)
+  (rest): takeFirst (Cons x rest) (Succ k) = Cons x (takeFirst rest k)`.
+- **Not generated** for a branch (`E-NO-EQUATION`, with the reason): one
+  that uses the proof of an `if`'s `else` (as `a % b` does, with `b ≠ 0`),
+  or of its `then` when the condition isn't an equation in a type with
+  `DecEq` or a comparison (two proofs of it aren't known to be equal); a
+  `match` on several expressions, an alternative with an or-pattern, a
+  `match` whose helper copies variables whose types mention what it
+  matches, and a `match` on a variable of the definition below a lifted
+  `match`'s alternative.
+- **Messages.** `E-MATCH-MOTIVE`, `E-REWRITE-MOTIVE` and `E-REFL` on a goal
+  stuck on a `match` inside `f` note which of `f`'s equations state its steps.
+
 - **Names are reserved.** `theorem f.eq2` is `E-DUPLICATE`, and a local
   definition can't be called `eq`, `eqK` or `induct` (`E-LOCAL-DEFINITION`).
   Adding or removing an arm renumbers the arms after it; a name that no
@@ -1159,12 +1208,12 @@ the kernel: use them like any lemma, `rewrite kind.eq3 n h1 h2 in …`.
   in its arguments computes in the goal already, so `rewrite f.eq2 in …` there
   is `E-REWRITE-NOTHING` and `rfl` proves it. The equations that matter are
   those whose left side is **stuck**: an arm with overlap hypotheses (`kind
-  n`, `n` a variable), and every equation of a `decreasing` or `opaque`
-  definition.
+  n`, `n` a variable), a branch (stuck on its condition), and every equation
+  of a `decreasing` or `opaque` definition.
 - **Not generated.** An equation isn't made when it can't be stated or
   proved within bounds: a definition that performs abilities at the empty row,
   an arm with `()`, an arm whose right side is a `match` on its own variables
-  (stage 1b's branches), an overlapped arm whose body lifts a `match`, a
+  (its alternatives' are), an overlapped arm whose body lifts a `match`, a
   statement more than ten times its arm's size, an arm that more than 64
   number hypotheses guard, or one that went over the kernel's step budget.
   Naming one is `E-NO-EQUATION` with the reason.
