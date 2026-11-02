@@ -476,7 +476,17 @@ fn lifted(
         let body = in_alternatives(cx, kind, alts, &levels, |cx| {
             crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
         })?;
-        return lift::draft(cx, base, Vec::new(), body, goal, span);
+        let eqs = vec![None; levels.len()];
+        return lift::draft_with(
+            cx,
+            base,
+            Vec::new(),
+            body,
+            goal,
+            span,
+            false,
+            Some((levels, eqs)),
+        );
     }
     generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
 }
@@ -970,7 +980,25 @@ fn generalised_now(
             }
         }
     }
-    lift::draft_with(cx, base, extra, body, &motive, span, motive_later)
+    let eqs = (0..levels.len())
+        .map(|c| {
+            let i = match columns[c] {
+                Column::Expr(i) => i,
+                Column::Var(..) => return None,
+            };
+            equations.iter().find(|&&(j, _)| j == i).map(|&(_, l)| l)
+        })
+        .collect();
+    lift::draft_with(
+        cx,
+        base,
+        extra,
+        body,
+        &motive,
+        span,
+        motive_later,
+        Some((levels, eqs)),
+    )
 }
 
 /// The scrutinees' normal forms, for the occurrence test: each as types
@@ -1129,6 +1157,7 @@ fn check_motive(
         local: None,
         update: None,
         motive_later: false,
+        columns: None,
     };
     match cx.e.lifted_type(&draft) {
         Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
@@ -1204,6 +1233,7 @@ pub(crate) fn check_motive_when_lifted(e: &crate::Elaborator, d: &Draft) -> Resu
         local: None,
         update: None,
         motive_later: false,
+        columns: None,
     };
     let ty = e.lifted_type(&draft)?;
     motive_holds(e, &ty, d.span)

@@ -91,6 +91,20 @@ pub(crate) struct Draft {
     /// check, made when it is lifted, once they have
     /// (`matching::check_motive_when_lifted`).
     pub motive_later: bool,
+    /// For a `match`: the levels its scrutinees are matched at, in the
+    /// scrutinees' order, and for each its equation's (`match h: e`), if
+    /// named; recorded by the helper's parameter positions once it is
+    /// lifted ([`MatchColumns`]).
+    pub columns: Option<(Vec<usize>, Vec<Option<usize>>)>,
+}
+
+/// A lifted `match`'s helper's parameters that it matches, one for each
+/// scrutinee in order, and each one's equation parameter (`match h: e`),
+/// if named: what the equations read (SW-1074), not the parameters' names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MatchColumns {
+    pub cols: Vec<usize>,
+    pub eqs: Vec<Option<usize>>,
 }
 
 /// A record update's `match` (`shared.rs`): the variable of the record
@@ -153,11 +167,13 @@ pub(crate) fn draft(
     goal: &Value,
     span: Span,
 ) -> Result<Term> {
-    draft_with(cx, base, extra, body, goal, span, false)
+    draft_with(cx, base, extra, body, goal, span, false, None)
 }
 
 /// [`draft`], for a `match` whose motive is checked when it is lifted if
-/// `motive_later` ([`Draft::motive_later`]).
+/// `motive_later` ([`Draft::motive_later`]), recording its `columns`
+/// ([`Draft::columns`]).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draft_with(
     cx: &Ctx,
     base: usize,
@@ -166,6 +182,7 @@ pub(crate) fn draft_with(
     goal: &Value,
     span: Span,
     motive_later: bool,
+    columns: Option<(Vec<usize>, Vec<Option<usize>>)>,
 ) -> Result<Term> {
     let g = cx.g();
     let goal = cx.quote_folded(goal)?;
@@ -191,6 +208,7 @@ pub(crate) fn draft_with(
         local: None,
         update: None,
         motive_later,
+        columns,
     });
     Ok(call)
 }
@@ -718,6 +736,18 @@ impl Elaborator {
                         );
                     }
                     None => self.lifted.push((id, d.span)),
+                }
+                // Where each scrutinee (and its equation) is among the
+                // helper's parameters, which are the captures in order.
+                if let Some((levels, eqs)) = &d.columns {
+                    let at = |l: usize| ordered[i].iter().position(|&c| c == l);
+                    let cols: Option<Vec<usize>> = levels.iter().map(|&l| at(l)).collect();
+                    // An equation the alternatives don't use isn't taken.
+                    let eqs: Vec<Option<usize>> = eqs.iter().map(|e| e.and_then(at)).collect();
+                    if let Some(cols) = cols {
+                        self.match_columns
+                            .insert(id, Rc::new(MatchColumns { cols, eqs }));
+                    }
                 }
                 members.push((i, id));
             }

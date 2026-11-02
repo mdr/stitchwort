@@ -1616,6 +1616,20 @@ impl Elaborator {
             e.def(*id);
             e.span(*span);
         }
+        let mut columns: Vec<(&DefId, &Rc<crate::lift::MatchColumns>)> =
+            (self.match_columns.iter())
+                .filter(|(id, _)| id.0 >= before.defs)
+                .collect();
+        columns.sort_by_key(|(id, _)| id.0);
+        e.w.usize(columns.len());
+        for (id, c) in columns {
+            e.def(*id);
+            e.w.usize(c.cols.len());
+            for (col, eq) in c.cols.iter().zip(&c.eqs) {
+                e.w.usize(*col);
+                e.w.usize(eq.map_or(0, |q| q + 1));
+            }
+        }
         let mut helpers: Vec<&String> = self.helper_keys.difference(&before.helper_keys).collect();
         helpers.sort();
         e.w.usize(helpers.len());
@@ -1977,6 +1991,7 @@ struct Tables {
     by_data: [Vec<(DataId, String)>; 4],
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
+    match_columns: Vec<(DefId, crate::lift::MatchColumns)>,
     helper_keys: Vec<String>,
     equation_skips: Vec<(DefId, String, String)>,
     /// Extensions, and the keys they stand for.
@@ -2878,6 +2893,9 @@ impl Elaborator {
         self.no_show.extend(no_show);
         self.no_ord.extend(no_ord);
         self.lifted.extend(t.lifted);
+        for (id, c) in t.match_columns {
+            self.match_columns.insert(id, Rc::new(c));
+        }
         self.helper_keys.extend(t.helper_keys);
         self.equation_skips.extend(t.equation_skips);
         for (key, target) in t.extensions {
@@ -2969,6 +2987,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         by_data: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
         abilities: Vec::new(),
         lifted: Vec::new(),
+        match_columns: Vec::new(),
         helper_keys: Vec::new(),
         equation_skips: Vec::new(),
         extensions: Vec::new(),
@@ -3174,6 +3193,20 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let n = b.count()?;
     for _ in 0..n {
         t.lifted.push((b.def()?, b.span()?));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let id = b.def()?;
+        let k = b.count()?;
+        let mut c = crate::lift::MatchColumns {
+            cols: Vec::new(),
+            eqs: Vec::new(),
+        };
+        for _ in 0..k {
+            c.cols.push(b.r.usize()?);
+            c.eqs.push(b.r.usize()?.checked_sub(1));
+        }
+        t.match_columns.push((id, c));
     }
     let n = b.count()?;
     for _ in 0..n {

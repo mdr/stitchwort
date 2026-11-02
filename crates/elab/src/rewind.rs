@@ -195,6 +195,7 @@ impl Elaborator {
             glue: _,
             arounds,
             lifted,
+            match_columns,
             pending_run_bodies,
             owner,
             body_type,
@@ -317,6 +318,7 @@ impl Elaborator {
         drafts.get_mut().clear();
         *arounds.get_mut() = Default::default();
         lifted.truncate(mark.lifted);
+        match_columns.retain(|id, _| id.0 < defs);
         pending_run_bodies.retain(|(id, _)| id.0 < defs);
         owner.get_mut().clear();
         *body_type.get_mut() = None;

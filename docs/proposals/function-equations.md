@@ -1160,8 +1160,8 @@ until it names one.
    hypotheses after a catch-all, where the scrutinee replaces its variable) carry the
    scrutinee's type, since the kernel can't infer a constructor of a type with parameters.
 4. **Not stated in stage 1b** (each skipped, counted above, with its reason): a `match` on
-   several expressions (`match a, b with`; `match (a, b)` on one pair is stated; since SW-1074
-   both are, below); a lifted
+   several expressions (`match a, b with`; `match (a, b)` on one pair is stated; since
+   SW-1074 both are, below); a lifted
    `match` whose helper copies variables whose types mention the scrutinee (§4, item 4; none met);
    an alternative with an or-pattern; and a `match` on a variable of the definition below a
    lifted `match`'s alternative (it refines the definition's own left side, which the helper's
@@ -1407,10 +1407,13 @@ alternative, `isAlt1: (a, b) = (p, q)`, at the tuple type `(A, B)` (nesting to t
 three or more, `(a, b, c) = (p, q, r)`), and the `notAltJ` hypotheses where the tuple form has
 them. Nothing changed in how the `match` is lifted or elaborated.
 
-- **Finding the columns.** The lifted helper takes the scrutinees as parameters: one that is a
-  variable as that variable's parameter, the others as its own parameters named `s`, in the
-  scrutinees' order (`helper_call`). The helper's equations are made as before, with all those
-  columns matched (`Def::columns`).
+- **Finding the columns.** The lifter records them: when a `match`'s helper is lifted, the
+  level each scrutinee is matched at (a variable's, or the hidden one bound for an expression)
+  and its equation's (`match h: e`) are turned into positions among the helper's parameters
+  (`lift::MatchColumns`, in `Elaborator::match_columns`, kept by the check cache and rewound
+  with the definitions), and `helper_call` reads those, for one scrutinee too. Nothing is read
+  off the parameters' names (a parameter called `s` once looked like an expression's). The
+  helper's equations are made as before, with all those columns matched (`Def::columns`).
 - **The statement.** Each column's pattern is a component of the tuple pattern; a catch-all
   component is a variable of the branch, named as the tuple form names it (`x` for a variable,
   `fst` or `snd` for a `_`, as the component's field of `Pair`). The earlier alternatives'
@@ -1425,9 +1428,9 @@ them. Nothing changed in how the `match` is lifted or elaborated.
   projections compute to the call, so the base case is the identity; at `(p, q)` the helper's
   own equation for the alternative fits. The kernel checks it as any other equation.
 - **Left skipped**, each with its reason in `doc`: a `match` on several expressions naming an
-  equation (`match h1: a, h2: b`); one on the same variable twice; one whose helper takes
-  variables whose types mention a scrutinee (no tuple of non-dependent components states it;
-  none met). `f.induct` of a definition whose case goes through such a `match` isn't made ("a
+  equation (`match h1: a, h2: b`); one whose helper takes variables whose types mention a
+  scrutinee (a copy of `s: Fin (g n)` for `match g n, b`: no tuple of non-dependent components
+  states it). `f.induct` of a definition whose case goes through such a `match` isn't made ("a
   lifted `match` on several expressions isn't split by stage 2a"); none in AoC or std.
 
 ```

@@ -306,6 +306,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
             }),
             update: None,
             motive_later: false,
+            columns: None,
         });
     }
     Ok(())
@@ -451,6 +452,7 @@ pub(crate) fn draft(
         }),
         update: None,
         motive_later: false,
+        columns: None,
     });
     Ok(call)
 }

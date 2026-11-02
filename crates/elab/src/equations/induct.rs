@@ -931,10 +931,7 @@ impl Elaborator {
                 ..
             } => {
                 let &[col] = cols.as_slice() else {
-                    return skip(
-                        "a lifted `match` on several expressions isn't split by stage 2a \
-                         (SW-1074 made its equations only)",
-                    );
+                    return skip("a lifted `match` on several expressions isn't split by stage 2a");
                 };
                 let depth = *depth;
                 let Term::Def(h) = head else {

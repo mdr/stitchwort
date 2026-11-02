@@ -638,7 +638,7 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
 /// catch-alls only takes the earlier ones' hypotheses, about the
 /// expressions themselves. The theorems at the end use them.
 const SEVERAL: &str = r#"
-import Std (Bool, Nat, Option)
+import Std (Bool, Fin, Nat, Option)
 
 def two (k: Nat) (a: Option Nat) (b: Option Nat): Nat :=
   if k == 0 then 0 else
@@ -676,6 +676,38 @@ def computed (k: Nat) (a: Option Nat): Nat :=
   match a, k + 1 with
     | Some x, Succ y => x + y
     | _, _ => k
+
+-- The columns are the lifter's, not read off names: a parameter called `s`
+-- (the name the helper gives an expression it matches) matched second.
+def isEven (x: Nat): Bool := x % 2 == 0
+
+def swapped (s: Bool) (x: Nat): Nat :=
+  match isEven x, s with
+    | True, False => 1
+    | False, True => 2
+    | _, _ => 0
+
+-- A copied parameter named `s` whose type mentions the expression matched.
+def succOf (n: Nat): Nat := n + 1
+
+def dependentCopy (n: Nat) (s: Fin (succOf n)) (b: Bool): Nat :=
+  match succOf n, b with
+    | Succ k, True => k + Fin.toNat s
+    | _, _ => 0
+
+-- A `let` both captured and matched by name.
+def letMatched (x: Nat) (b: Bool): Nat :=
+  let y := x + 1
+  match y, b with
+    | Succ k, True => k + y
+    | _, _ => y
+
+-- Named equations on several expressions aren't stated.
+def namedBoth (a: Nat) (b: Nat): Nat :=
+  if a == 0 then 0 else
+  match h1: a, h2: b with
+    | Succ k, Zero => k
+    | _, _ => 1
 
 -- Recursive, with a call in an alternative: `f.induct` isn't made.
 def walk (k: Nat): List (Option Nat) → Nat
@@ -747,6 +779,22 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
                 ),
             ),
             (
+                "swapped.eq.alt1",
+                "(s: Bool) → (x: Nat) → (isAlt1: (isEven x, s) = (True, False)) → swapped s x = 1"
+                    .to_string(),
+            ),
+            (
+                "swapped.eq.alt2",
+                "(s: Bool) → (x: Nat) → (isAlt2: (isEven x, s) = (False, True)) → swapped s x = 2"
+                    .to_string(),
+            ),
+            (
+                "letMatched.eq.alt1",
+                "(x: Nat) → (b: Bool) → (k: Nat) → (isAlt1: (x + 1, b) = (Succ k, True)) → \
+                 letMatched x b = k + Succ k"
+                    .to_string(),
+            ),
+            (
                 "computed.eq.alt1",
                 "(k: Nat) → (a: Option Nat) → (x: Nat) → (y: Nat) → \
                  (isAlt1: (a, k + 1) = (Some x, Succ y)) → computed k a = x + y"
@@ -766,6 +814,10 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
                 wrong.push(format!("{name}:\n  {got}"));
             }
         }
+        let why = skipped(s, "dependentCopy.eq.alt1");
+        assert!(why.contains("types mention what it matches"), "{why}");
+        let why = skipped(s, "namedBoth.eq.ifFalse.alt1");
+        assert!(why.contains("naming one's equation"), "{why}");
         let why = skipped(s, "walk.induct");
         assert!(why.contains("on several expressions"), "{why}");
         // The same statements as the `match` on the tuple's, but where

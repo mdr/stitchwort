@@ -1290,8 +1290,13 @@ impl BranchLib {
                 let call = |by: usize, swap: bool| -> R<Term> {
                     let mut out = head.clone();
                     for (i, (a, icit)) in args.iter().enumerate() {
+                        // Swapped only under `hyp: Some`, where `parts` has
+                        // one component for each column.
                         let a = match (swap, cols.iter().position(|c| *c == i), Some(i) == *eq) {
-                            (true, Some(k), _) => parts[k].clone(),
+                            (true, Some(k), _) => {
+                                debug_assert!(hyp.is_some() && k < parts.len());
+                                parts[k].clone()
+                            }
                             (true, _, true) => Term::Var(0),
                             _ => up(a, *depth, by)?,
                         };
@@ -3439,10 +3444,9 @@ impl Elaborator {
     }
 
     /// Which of a lifted `match`'s helper's parameters are the ones it
-    /// matches, and which its equation (`match h: e`), from its call. On
-    /// several expressions (none named), each is its variable's parameter,
-    /// or for one that isn't a variable, the next of the helper's own
-    /// (`s`, bound in the scrutinees' order).
+    /// matches, and which its equation (`match h: e`): as the lifter
+    /// recorded them (`lift::MatchColumns`), one for each scrutinee, never
+    /// read off the parameters' names.
     fn helper_call(&self, h: DefId, scrutinees: &[Scrutinee], args: &[(Term, Icit)]) -> R<Call> {
         let g = &self.globals;
         let def = g.def(h);
@@ -3453,91 +3457,43 @@ impl Elaborator {
         if hb.len() != def.arity || args.len() != def.arity {
             return skip("its `match`'s helper isn't called with all its parameters");
         }
-        let [scrutinee] = scrutinees else {
-            let by_name: Vec<Option<usize>> = scrutinees
-                .iter()
-                .map(|s| match &s.expr {
-                    Expr::Var(x) if x.text.as_str() != "s" => {
-                        hb.iter().rposition(|b| &*b.name == x.text.as_str())
-                    }
-                    _ => None,
-                })
-                .collect();
-            let own: Vec<usize> = (0..hb.len()).filter(|&j| &*hb[j].name == "s").collect();
-            let wanted = by_name.iter().filter(|c| c.is_none()).count();
-            if own.len() < wanted {
-                return skip("its `match`'s helper doesn't take what it matches");
-            }
-            let mut own = own[own.len() - wanted..].iter().copied();
-            let cols: Vec<usize> = by_name
-                .into_iter()
-                .map(|c| c.or_else(|| own.next()).expect("counted"))
-                .collect();
-            if (1..cols.len()).any(|i| cols[..i].contains(&cols[i])) {
-                return skip("its `match` is on the same variable twice");
-            }
-            for &col in &cols {
-                for (j, b) in hb.iter().enumerate().skip(col + 1) {
-                    if b.ty.mentions(j - 1 - col) {
-                        return skip(
-                            "its `match`'s helper takes variables whose types mention what it \
-                             matches, which a tuple of the expressions can't state",
-                        );
-                    }
-                }
-            }
-            return Ok(Call { cols, eq: None });
+        let Some(recorded) = self.match_columns.get(&h) else {
+            return skip("its `match`'s helper doesn't record what it matches");
         };
-        self.helper_call_one(h, scrutinee, args)
-    }
-
-    fn helper_call_one(&self, h: DefId, scrutinee: &Scrutinee, args: &[(Term, Icit)]) -> R<Call> {
-        let g = &self.globals;
-        let def = g.def(h);
-        if !def.name.contains(".%match") {
-            return skip("its `match` isn't a call of a lifted `match`'s helper here");
+        if recorded.cols.len() != scrutinees.len()
+            || recorded
+                .cols
+                .iter()
+                .chain(recorded.eqs.iter().flatten())
+                .any(|&p| p >= hb.len())
+        {
+            return skip("its `match`'s helper doesn't take what it matches");
         }
-        let (hb, _) = split_pis(&def.ty, Some(def.arity));
-        if hb.len() != def.arity || args.len() != def.arity {
-            return skip("its `match`'s helper isn't called with all its parameters");
+        let cols = recorded.cols.clone();
+        // The lifter refuses a variable matched twice, so this is a guard.
+        let distinct = (1..cols.len()).all(|i| !cols[..i].contains(&cols[i]));
+        debug_assert!(distinct, "a `match`'s columns are distinct");
+        if !distinct {
+            return skip("its `match`'s helper doesn't take what it matches");
         }
-        let mut col = None;
-        let mut eq = None;
-        if scrutinee.name.is_some() {
-            for (j, (a, _)) in args.iter().enumerate() {
-                if let (Term::Refl, Term::Eq(_, _, rhs)) = (a.strip_loc(), hb[j].ty.strip_loc())
-                    && let Term::Var(i) = rhs.strip_loc()
-                    && *i < j
-                {
-                    eq = Some(j);
-                    col = Some(j - 1 - i);
+        let eq = match recorded.eqs.as_slice() {
+            [eq] => *eq,
+            _ => None,
+        };
+        for &col in &cols {
+            for (j, b) in hb.iter().enumerate().skip(col + 1) {
+                if Some(j) != eq && b.ty.mentions(j - 1 - col) {
+                    return skip(if cols.len() == 1 {
+                        "its `match`'s helper takes copies of variables whose types mention what \
+                         it matches, which stage 1b doesn't transport (§4, item 4)"
+                    } else {
+                        "its `match`'s helper takes variables whose types mention what it \
+                         matches, which a tuple of the expressions can't state"
+                    });
                 }
             }
         }
-        if col.is_none() {
-            let wanted: Vec<&str> = match (&scrutinee.name, &scrutinee.expr) {
-                (None, Expr::Var(x)) => vec![x.text.as_str(), "s"],
-                _ => vec!["s"],
-            };
-            col = wanted
-                .into_iter()
-                .find_map(|w| hb.iter().rposition(|b| &*b.name == w));
-        }
-        let col = col.ok_or_else(|| {
-            Stop::Skip("its `match`'s helper doesn't take what it matches".into())
-        })?;
-        for (j, b) in hb.iter().enumerate().skip(col + 1) {
-            if Some(j) != eq && b.ty.mentions(j - 1 - col) {
-                return skip(
-                    "its `match`'s helper takes copies of variables whose types mention what it \
-                     matches, which stage 1b doesn't transport (§4, item 4)",
-                );
-            }
-        }
-        Ok(Call {
-            cols: vec![col],
-            eq,
-        })
+        Ok(Call { cols, eq })
     }
 
     /// The equations of a lifted `match`'s helper `h`, one for each of its
