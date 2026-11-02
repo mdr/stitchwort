@@ -742,6 +742,33 @@ def main(): {IO} () :=
     assert_eq!(out, "250000\n500000\nfound\nmissing\n");
 }
 
+/// `Parse.many` is linear in what it reads: 20,000 digits (AoC 2024 day
+/// 9's input) take a few steps each. Its end value was once computed every
+/// round, quadratic: about 2×10⁸ steps here (SW-1055; 0.6 s to 12 s on the
+/// day's input, and 21 GB on the reference evaluator).
+#[test]
+fn many_is_linear_in_what_it_reads() {
+    let input = "12345".repeat(4_000) + "\n";
+    let (out, result) = on_the_machine_with(
+        r#"
+import Std (Fail, IO, List, Nat, Parse, Text)
+import Std.Parse (digit, many1)
+
+def main(): {IO, Fail} () :=
+  let digits := Parse.all IO.readAll() (() => many1 (() => digit().toNat))
+  IO.print (Nat.toText digits.length)
+"#,
+        Limits {
+            steps: 20_000_000,
+            frames: 1_000_000,
+            number_words: false,
+        },
+        input.as_bytes(),
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "20000\n");
+}
+
 /// Reuse in place (stage 4) only ever changes a cell nobody else can see: a
 /// list that's still used after a `map`, `filter` or sort over it, one a
 /// closure captured, one a constant holds, and one bound twice, is

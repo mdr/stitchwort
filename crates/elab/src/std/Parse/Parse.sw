@@ -362,14 +362,18 @@ def Parse.manyFuel (fuel: Nat) (parser: () → {Parse} a) (found: List a): {Pars
     | Zero => found.reverse
     | Succ more =>
       let before := Parse.mark()
-      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser (Cons value found)) found.reverse
+      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser (Cons value found)) (() => found.reverse)
 
 --| One round of `many`, once `optional parser` has given `found` from
---| `before`: `done` if it failed, `next` of its value if it read something.
--- A function of its own so that proofs (Parse/Reads.sw) can name it.
-def Parse.manyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: b): {Parse} b :=
+--| `before`: `done()` if it failed, `next` of its value if it read something.
+-- A function of its own so that proofs (Parse/Reads.sw) can name it. `done`
+-- is a function so that it is computed only at the end: as a value,
+-- `found.reverse` was computed every round, quadratic in the rounds (AoC
+-- 2024 day 9's 20,000 digits: 0.6 s to 12 s, and 21 GB on the reference
+-- evaluator, SW-1055).
+def Parse.manyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: () → b): {Parse} b :=
   match found with
-    | None => done
+    | None => done()
     | Some value =>
       if Parse.mark().offset > before.offset then next value
       else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")
