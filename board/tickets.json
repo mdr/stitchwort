@@ -1,5 +1,5 @@
 {
-  "next": 1071,
+  "next": 1072,
   "tickets": [
     {
       "id": 47,
@@ -4252,7 +4252,7 @@
     {
       "id": 1070,
       "title": "Function equations stage 1d: acceptance (examples of every construct; 2021 day 18 explode as first written with proofs on the equations; 2024 day 12 step lemmas deleted; std Graph.search* lemmas deleted and uses renamed (D2184); search_bench and std cold check against §7)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4260,6 +4260,21 @@
         "examples"
       ],
       "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1071,
+      "title": "Function equations: an arm overlapped by an earlier arm whose body has a lifted match gets no equation (body elaborated once per case of the earlier arm's patterns; no single right side) — blocks 2021 day 18 explode as first written (§6.2, explode.eq3.*)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "From SW-1070 (2 Nov 2026). Recorded since 1a (an_overlapped_arm_with_a_lifted_match_is_skipped_with_its_reason). §6.2 of the proposal was wrong that explode's branch equations are generated; p7.sw writes them by hand. Day18.sw keeps explodeIn/explodeUnfold. The As built (stage 1d) section says what would unblock it.",
       "created": "2026-11-02",
       "updated": "2026-11-02",
       "commits": []
