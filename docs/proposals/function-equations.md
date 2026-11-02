@@ -1363,10 +1363,20 @@ reshaped `explode.eq3`). Still skipped: 59 that
 perform abilities, 9 branches using `h` of a condition that isn't an equation or comparison
 (D2180), **9 `match`es on several expressions** (`transmissionBits`, `sumMagnitudes`,
 `letterAlong`, `isCorner`), and 2 arm equations whose alternatives replace them (`scan.eq3`,
-`Spec.route.eq2`), and the new `explode.eq3`. std is unchanged: 1,221 equations, 306 branches,
-the same skips as stage 1b (none was an overlapped arm or a refining `match`). The examples:
+`Spec.route.eq2`), and the new `explode.eq3`. std is unchanged by this: 1,221 equations, 306
+branches, the same skips as stage 1b (none was an overlapped arm or a refining `match`); 1,578
+and 347 once rebased onto SW-1068's equations in the defining file's scope. The examples:
 `termination-list-patterns.sw`'s `firstSome.eq3`, `sumSmall.eq4`, `doubledSmall.eq3` stay
 skipped, and their seven branches are made. None refused by the kernel.
+
+**`f.induct` (stage 2a, rebased onto SW-1057).** A case of `f.induct` is a branch stated from
+the arm's own statement and right side, so it doesn't follow either change: an overlapped arm
+whose branches are read from each leaf, or a branch whose left side (or earlier alternative)
+is refined. Those definitions get no `f.induct`, each with its reason in `doc`: in AoC,
+`explode.induct` (made from the reshaped `explode` before; 99 → 98 `f.induct`),
+`readPackets.induct` and `repair.induct` (skipped before too, as their branches had no
+equations). std's 208 are unchanged. Making them would mean a case per leaf (for SW-1071) and
+cases with refined left sides (for SW-1069); left for a follow-up.
 
 **Cost** **[measured, one run each, `/usr/bin/time -l`, main at `bf6619de` against the
 lane]**: `check --no-cache` of the AoC project 649.78 G → 649.87 G instructions (+0.01%), peak
