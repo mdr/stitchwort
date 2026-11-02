@@ -64,10 +64,10 @@ time_ms = 1.2
 
 [check-number-table]
 steps = 20748
-visits = 9762
-allocations = 87636
-peak_bytes = 746014
-time_ms = 4.7
+visits = 11560
+allocations = 124195
+peak_bytes = 931573
+time_ms = 6.4
 
 [check-list-rfl]
 steps = 720063
@@ -113,10 +113,10 @@ time_ms = 1.1
 
 [check-number-wide]
 steps = 81012
-visits = 38034
-allocations = 342240
-peak_bytes = 3481367
-time_ms = 24.4
+visits = 45040
+allocations = 858054
+peak_bytes = 3886201
+time_ms = 48.3
 
 [check-number-dependent]
 steps = 86984

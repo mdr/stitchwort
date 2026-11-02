@@ -89,6 +89,24 @@ fn files_build_on_the_prelude_and_earlier_files() {
     assert_eq!(errors[0].code, "E-DUPLICATE");
 }
 
+/// A group of definitions that call each other where `decreasing` is on a
+/// later member, not the first: refused with `E-DECREASING`, not a panic
+/// (SW-1077: the soundness fuzzer's mutation of `Nat.digitsAccSmall` to name
+/// `Nat.digitsAccAppend.unfold` made it a group with the `decreasing`
+/// theorem that uses it, and the compiler hit an `unreachable!`).
+#[test]
+fn decreasing_on_a_later_member_of_a_group_is_refused() {
+    let mut session = Session::new();
+    let errors = session
+        .load(
+            "a.sw",
+            "def pong (n: Nat): Nat := if h: n = 0 then 0 else ping (n - 1)\n\
+             def ping (n: Nat): Nat\n  decreasing n\n:=\n  if h: n = 0 then 0 else pong (n - 1)\n",
+        )
+        .expect_err("refused");
+    assert_eq!(errors[0].code, "E-DECREASING", "{errors:?}");
+}
+
 #[test]
 fn imports_typed_in_accumulate() {
     let mut session = Session::new();

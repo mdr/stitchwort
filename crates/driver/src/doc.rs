@@ -1050,10 +1050,13 @@ pub struct Theorems {
 /// weren't (function-equations §3.4).
 #[derive(Serialize, Debug)]
 pub struct Equations {
-    /// How many were generated.
+    /// How many were generated, not counting `f.induct`.
     pub total: usize,
     /// The first of them, in the order of the arms.
     pub shown: Vec<EquationJson>,
+    /// `f.induct` (stage 2a), when it was generated: not an equation, so
+    /// neither counted in `total` nor in `shown`.
+    pub induct: Option<EquationJson>,
     /// The implied equations that weren't generated, with the reason.
     pub skipped: Vec<SkippedEquation>,
     /// The `search` command that lists all of them.
@@ -1226,9 +1229,10 @@ impl Session {
         let found = generated_equations(g).remove(path).unwrap_or_default();
         let transparent_tree = def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque;
         let shown_name = |p: &str| shown(p).to_string();
-        let equations: Vec<EquationJson> = found
-            .iter()
-            .map(|(_, id)| {
+        let mut induct = None;
+        let mut equations: Vec<EquationJson> = Vec::new();
+        for (_, id) in &found {
+            let json = {
                 let d = g.def(*id);
                 let (file, line) = crate::render::location(&self.sources, d.span);
                 EquationJson {
@@ -1239,8 +1243,13 @@ impl Session {
                     stuck: !stitchwort_elab::is_function_induct(g, &d.name)
                         && (!transparent_tree || has_overlap_hypothesis(&d.ty)),
                 }
-            })
-            .collect();
+            };
+            if stitchwort_elab::is_function_induct(g, &g.def(*id).name) {
+                induct = Some(json);
+            } else {
+                equations.push(json);
+            }
+        }
         // What the source implies and elaboration skipped, once for each
         // suffix (the latest reason), unless it was made since.
         let mut skipped: Vec<SkippedEquation> = Vec::new();
@@ -1259,18 +1268,19 @@ impl Session {
             });
         }
         skipped.reverse();
-        if equations.is_empty() && skipped.is_empty() {
+        if equations.is_empty() && induct.is_none() && skipped.is_empty() {
             return Ok(None);
         }
         let name = path.strip_prefix("Std.").unwrap_or(path);
         let command = format!(
             "stitchwort search '{name}' --theorems --limit {}{command_extra}",
-            equations.len().max(EQUATIONS_SHOWN)
+            found.len().max(EQUATIONS_SHOWN)
         );
         let total = equations.len();
         Ok(Some(Equations {
             total,
             shown: equations.into_iter().take(EQUATIONS_SHOWN).collect(),
+            induct,
             skipped,
             command,
         }))
@@ -1335,7 +1345,15 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
 /// the first few (function-equations §3.4), in markdown.
 pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> String {
     const HOVER_SHOWN: usize = 4;
-    let mut out = format!("Equations ({}), listed by `stitchwort doc`:", ids.len());
+    // `f.induct`, listed first, isn't an equation: not counted (SW-1073).
+    let inducts = (ids.iter())
+        .filter(|(_, id)| stitchwort_elab::is_function_induct(g, &g.def(*id).name))
+        .count();
+    let and_induct = if inducts > 0 { " and `f.induct`" } else { "" };
+    let mut out = format!(
+        "Equations ({}){and_induct}, listed by `stitchwort doc`:",
+        ids.len() - inducts
+    );
     for (_, id) in ids.iter().take(HOVER_SHOWN) {
         let d = g.def(*id);
         out.push_str(&format!("\n- `{}`: `{}`", d.name, statement(g, &d.ty)));
@@ -1538,19 +1556,31 @@ fn render_equations(q: &Equations) -> String {
     } else {
         "equations"
     };
-    if q.total == 0 {
+    // `f.induct` isn't an equation: named beside the count (SW-1073).
+    let and_induct = if q.induct.is_some() {
+        " and f.induct"
+    } else {
+        ""
+    };
+    if q.total == 0 && q.induct.is_none() {
         out.push_str("Equations: none generated\n");
+    } else if q.total == 0 {
+        out.push_str("Equations: none generated; f.induct\n");
     } else if q.total > q.shown.len() {
         out.push_str(&format!(
-            "Equations: {} generated {verb}; {} shown\n",
+            "Equations: {} generated {verb}{and_induct}; {} shown\n",
             q.total,
             q.shown.len()
         ));
     } else {
-        out.push_str(&format!("Equations: {} generated {verb}\n", q.total));
+        out.push_str(&format!(
+            "Equations: {} generated {verb}{and_induct}\n",
+            q.total
+        ));
     }
-    let width = q.shown.iter().map(|x| x.name.len()).max().unwrap_or(0);
-    for x in &q.shown {
+    let listed: Vec<&EquationJson> = q.induct.iter().chain(&q.shown).collect();
+    let width = listed.iter().map(|x| x.name.len()).max().unwrap_or(0);
+    for x in listed {
         let stuck = if x.stuck { "  [stuck]" } else { "" };
         out.push_str(&format!(
             "  {:width$}  {}{stuck}   ({}:{})\n",

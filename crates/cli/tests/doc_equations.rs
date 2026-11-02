@@ -100,7 +100,9 @@ fn doc_lists_generated_equations_in_their_own_section() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// An arm that couldn't be stated is listed with its reason.
+/// An arm that couldn't be stated is listed with its reason, and so is an
+/// `f.induct` that wasn't made (here because `eq3` is read per leaf,
+/// SW-1071).
 #[test]
 fn doc_says_which_equations_were_not_generated_and_why() {
     let dir = folder("skipped");
@@ -109,9 +111,20 @@ fn doc_says_which_equations_were_not_generated_and_why() {
     assert_eq!(code, 0, "{out}\n{err}");
     let report: Value = serde_json::from_str(&out).unwrap();
     let skipped = report["equations"]["skipped"].as_array().unwrap();
-    assert_eq!(skipped.len(), 1, "{report}");
-    assert_eq!(skipped[0]["name"], "Main.explode.eq3");
-    assert!(skipped[0]["reason"].as_str().unwrap().len() > 20);
+    let names: Vec<&str> = (skipped.iter())
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["Main.explode.eq3", "Main.explode.induct"],
+        "{report}"
+    );
+    assert!(
+        skipped
+            .iter()
+            .all(|s| s["reason"].as_str().unwrap().len() > 20)
+    );
+    assert!(report["equations"]["induct"].is_null(), "{report}");
     let (_, out, _) = run("doc", &dir, &["explode", "a.sw"]);
     assert!(
         out.contains("Not generated:\n  Main.explode.eq3  "),
@@ -121,7 +134,8 @@ fn doc_says_which_equations_were_not_generated_and_why() {
 }
 
 /// A library definition's equations are made on demand and listed: the
-/// second arm of `filter` has no hypothesis, so it isn't stuck.
+/// second arm of `filter` has no hypothesis, so it isn't stuck. Its
+/// `f.induct` is listed first but isn't counted as an equation (SW-1073).
 #[test]
 fn a_library_definition_lists_its_equations() {
     let dir = folder("library");
@@ -130,10 +144,21 @@ fn a_library_definition_lists_its_equations() {
     let report: Value = serde_json::from_str(&out).unwrap();
     let equations = &report["equations"];
     assert_eq!(equations["total"], 2, "{report}");
+    assert_eq!(equations["shown"].as_array().unwrap().len(), 2, "{report}");
     assert_eq!(equations["shown"][1]["name"], "List.filter.eq2");
     assert_eq!(equations["shown"][1]["stuck"], false);
     assert_eq!(equations["shown"][1]["file"], "std/List/Toolkit.sw");
+    assert_eq!(
+        equations["induct"]["name"], "List.filter.induct",
+        "{report}"
+    );
     assert!(theorem_names(&report).iter().all(|n| !n.contains(".eq")));
+    let (code, out, err) = run("doc", &dir, &["List.filter"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert!(
+        out.contains("Equations: 2 generated equations and f.induct\n  List.filter.induct  "),
+        "{out}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

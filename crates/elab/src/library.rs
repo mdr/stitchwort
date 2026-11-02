@@ -286,7 +286,7 @@ impl LibraryIndex {
             // full, never reached by a dot call.
             for name in (file.names.iter())
                 .filter(|n| n.kind == PendingKind::Def)
-                .filter(|n| !(n.candidate && crate::equations::is_equation_name(&n.key)))
+                .filter(|n| !(n.candidate && crate::equations::reserved_suffix(&n.key).is_some()))
             {
                 let ns = name.key.rsplit_once('.').map(|(ns, _)| ns);
                 let namespace = ns.and_then(|ns| owner.get(ns).copied());
@@ -573,6 +573,24 @@ pub(crate) fn file_names(
             for suffix in crate::equations::source_suffixes(equations) {
                 out.push(IndexedName {
                     key: Elaborator::member_key(&key, &suffix),
+                    kind: PendingKind::Def,
+                    follower: false,
+                    function: false,
+                    span: *span,
+                    candidate: true,
+                });
+            }
+            // `f.induct` (stage 2a), for a definition that may call itself:
+            // one that names anything of its own short name, generously,
+            // since it's a candidate (SW-1077).
+            let short = scope::short(&key);
+            let recursive = decl_refs(decl, equations).iter().any(|(r, _)| match r {
+                Ref::Name(n) => scope::short(&n.text) == short,
+                Ref::Dot(_, field, _) => field == short,
+            });
+            if recursive {
+                out.push(IndexedName {
+                    key: Elaborator::member_key(&key, "induct"),
                     kind: PendingKind::Def,
                     follower: false,
                     function: false,

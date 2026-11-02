@@ -2836,6 +2836,10 @@ impl Elaborator {
                     let named = binder.filter(|b| b.text != "_");
                     let yes = taken.choice == 0;
                     let is = |id: DefId| matches!(head, Term::Def(h) if *h == id);
+                    // The condition is `args[1]` of either form.
+                    if args.len() >= 2 && closed(&args[1].0) {
+                        return skip(CLOSED_SPLIT);
+                    }
                     if is(lib.ite) && args.len() == 4 && named.is_none() {
                         let branch = lambda_body(&args[if yes { 2 } else { 3 }].0)?;
                         if branch.mentions(0) {
@@ -2949,6 +2953,9 @@ impl Elaborator {
                     };
                     let h = *h;
                     let call = self.helper_call(h, scrutinee, &args)?;
+                    if closed(&args[call.col].0) {
+                        return skip(CLOSED_SPLIT);
+                    }
                     let helper = match helpers.get(&h) {
                         Some(x) => x.clone(),
                         None => {
@@ -4862,6 +4869,15 @@ fn unify(
 fn closed(t: &Term) -> bool {
     levels_in(t, usize::MAX).is_empty()
 }
+
+/// Why a branch below an `if` or a `match` on a closed term (`if cost == 5`,
+/// no variable in it) isn't stated: the kernel would compute the term to
+/// read the hypothesis's type, and again checking its proof, work that
+/// checking the program never needed (SW-1077, `check_work`). The call
+/// takes one way, which computing the definition finds.
+const CLOSED_SPLIT: &str = "it is below an `if` or `match` on a term that mentions no variable, \
+     which the kernel would compute to state the branch's hypothesis; computing the definition \
+     takes the branch it goes down";
 
 fn data_of(t: &Term) -> Option<DataId> {
     match t.strip_loc() {
