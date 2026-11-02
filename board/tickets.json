@@ -3549,7 +3549,7 @@
     {
       "id": 1091,
       "title": "Build speed through crate and compilation architecture (D2201): edit-rebuild time is dominated by recompiling large crates (crates/elab ~188k lines) in release mode without incremental compilation; linking is negligible (SW-1086). Measure what a one-line edit costs to rebuild in elab and in core (today, and with incremental release), then propose the end-state architecture (crate splits, profiles, codegen units, generated code, test-binary layout, dev vs release for tests) that gives the fastest edit-test loop; migration cost secondary (Matt). Design note first if it proposes restructuring",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
