@@ -54,6 +54,10 @@ pub struct Unattached {
 #[serde(rename_all = "camelCase")]
 pub struct NamespaceCoverage {
     pub namespace: String,
+    /// Whether documenting everything is the aim here: true for the library
+    /// (`Std.*`), false for a project's code, which is documented
+    /// sparingly (SW-1100).
+    pub target: bool,
     /// Definitions, types, interfaces and abilities.
     pub declarations: Counts,
     /// Theorems, apart.
@@ -171,6 +175,9 @@ impl Decls {
     fn coverage_set(&self, namespace: &str, set: &BTreeSet<usize>) -> NamespaceCoverage {
         let mut out = NamespaceCoverage {
             namespace: namespace.to_string(),
+            target: set
+                .iter()
+                .all(|&i| self.files[self.entries[i].file].std.is_some()),
             declarations: Counts {
                 with_example: Some(0),
                 ..Counts::default()
@@ -260,9 +267,11 @@ fn percent(part: usize, whole: usize) -> String {
     }
 }
 
-/// The report as text: per namespace the figures, then the undocumented
-/// names and the unattached examples.
-pub fn render_coverage(c: &Coverage) -> String {
+/// The report as text. For the library (a target), the figures with
+/// percentages and the undocumented names. For a project, plain counts, and
+/// the names that have no doc only when `list` is set (SW-1100). The
+/// unattached examples are listed for both.
+pub fn render_coverage(c: &Coverage, list: bool) -> String {
     let mut out = String::new();
     for (i, ns) in c.namespaces.iter().chain(c.total.as_ref()).enumerate() {
         if i > 0 {
@@ -270,27 +279,47 @@ pub fn render_coverage(c: &Coverage) -> String {
         }
         out.push_str(&format!("{}\n", ns.namespace));
         let d = &ns.declarations;
-        let with_example = d.with_example.unwrap_or(0);
-        out.push_str(&format!(
-            "  documented: {} / {} ({})\n",
-            d.documented,
-            d.total,
-            percent(d.documented, d.total)
-        ));
-        out.push_str(&format!(
-            "  with an example: {with_example} / {} ({})\n",
-            d.total,
-            percent(with_example, d.total)
-        ));
         let t = &ns.theorems;
-        out.push_str(&format!(
-            "  theorems documented (counted apart): {} / {} ({})\n",
-            t.documented,
-            t.total,
-            percent(t.documented, t.total)
-        ));
-        if !ns.undocumented.is_empty() {
-            out.push_str(&format!("  undocumented ({}):\n", ns.undocumented.len()));
+        let with_example = d.with_example.unwrap_or(0);
+        if ns.target {
+            out.push_str(&format!(
+                "  documented: {} / {} ({})\n",
+                d.documented,
+                d.total,
+                percent(d.documented, d.total)
+            ));
+            out.push_str(&format!(
+                "  with an example: {with_example} / {} ({})\n",
+                d.total,
+                percent(with_example, d.total)
+            ));
+            out.push_str(&format!(
+                "  theorems documented (counted apart): {} / {} ({})\n",
+                t.documented,
+                t.total,
+                percent(t.documented, t.total)
+            ));
+        } else {
+            out.push_str(&format!(
+                "  with a doc: {} of {} declarations\n",
+                d.documented, d.total
+            ));
+            out.push_str(&format!(
+                "  with an example: {with_example} of {} declarations\n",
+                d.total
+            ));
+            out.push_str(&format!(
+                "  theorems with a doc (counted apart): {} of {}\n",
+                t.documented, t.total
+            ));
+        }
+        if (ns.target || list) && !ns.undocumented.is_empty() {
+            let word = if ns.target {
+                "undocumented"
+            } else {
+                "without a doc that counts"
+            };
+            out.push_str(&format!("  {word} ({}):\n", ns.undocumented.len()));
             for m in &ns.undocumented {
                 out.push_str(&format!(
                     "    {}  {}  {}:{}  ({})\n",

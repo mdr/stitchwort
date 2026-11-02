@@ -34,6 +34,8 @@ pub(super) struct Args<'a> {
     pub coverage: Option<&'a [String]>,
     pub project: Option<&'a Path>,
     pub json: bool,
+    /// `--list`: with `--coverage`, list a project's declarations with no doc.
+    pub list: bool,
     /// How many theorems to show; 0: none, and no check.
     pub theorems: usize,
     pub cache: &'a CacheArgs,
@@ -175,7 +177,7 @@ fn coverage(decls: &Decls, names: &[String], program: bool, args: &Args) -> Exit
         }
         decls.coverage(&found)
     };
-    emit(args, || render_coverage(&report), &report);
+    emit(args, || render_coverage(&report, args.list), &report);
     ExitCode::SUCCESS
 }
 

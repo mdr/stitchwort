@@ -656,26 +656,35 @@ fn coverage_counts_a_project_namespace() {
     assert_eq!(code, 0, "{out}\n{err}");
     // 6 declarations; `good` and `Box` count; `plainDoc` (a plain `--` note
     // is no doc), `noDoc`, `short` and `fillTheWholeBag` (it repeats its
-    // name) don't.
-    assert!(out.contains("documented: 2 / 6 (33%)\n"), "{out}");
-    assert!(!out.contains("marked `--`"), "{out}");
+    // name) don't. A project is no target (SW-1100): plain counts, no
+    // percentages, no list of defects.
+    assert!(out.contains("with a doc: 2 of 6 declarations\n"), "{out}");
+    assert!(!out.contains('%') && !out.contains("undocumented"), "{out}");
+    assert!(!out.contains("Lib.noDoc"), "{out}");
     // Examples by name: the test for `noDoc`, the theorem for `good`.
-    assert!(out.contains("with an example: 2 / 6 (33%)"), "{out}");
-    // Theorems apart: one of four has a doc.
     assert!(
-        out.contains("theorems documented (counted apart): 1 / 4 (25%)"),
+        out.contains("with an example: 2 of 6 declarations"),
         "{out}"
     );
-    assert!(out.contains("undocumented (4):"), "{out}");
+    // Theorems apart: one of four has a doc.
+    assert!(
+        out.contains("theorems with a doc (counted apart): 1 of 4"),
+        "{out}"
+    );
+    // The unattached `…Example` theorem, and not the attached one.
+    assert!(out.contains("Lib.ghostExample  "), "{out}");
+    assert!(!out.contains("Lib.goodExample  "), "{out}");
+    // `--list` names the declarations without a doc that counts.
+    let (code, out, err) = doc_in(&dir, &shared_cache(), &["--coverage", "--list", "Lib"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert!(out.contains("without a doc that counts (4):"), "{out}");
     assert!(out.contains("Lib.plainDoc  definition  "), "{out}");
     assert!(out.contains("Lib.noDoc  definition  "), "{out}");
     assert!(out.contains("(no doc)"), "{out}");
     assert!(out.contains("(too short)"), "{out}");
     assert!(out.contains("(repeats the name)"), "{out}");
     assert!(!out.contains("Lib.good  "), "{out}");
-    // The unattached `…Example` theorem, and not the attached one.
-    assert!(out.contains("Lib.ghostExample  "), "{out}");
-    assert!(!out.contains("Lib.goodExample  "), "{out}");
+    assert!(!out.contains('%'), "{out}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -692,6 +701,9 @@ fn coverage_json_and_the_default_scope() {
         .collect();
     assert_eq!(names, ["Lib", "Other"]);
     let lib = &report["namespaces"][0];
+    // A project has no target, but the JSON keeps the lists.
+    assert_eq!(lib["target"], false);
+    assert_eq!(report["total"]["target"], false);
     assert_eq!(lib["declarations"]["total"], 6);
     assert_eq!(lib["declarations"]["documented"], 2);
     assert!(lib["declarations"].get("plain").is_none(), "{lib}");
@@ -746,6 +758,7 @@ fn coverage_of_a_library_namespace_has_the_shape() {
     assert_eq!(code, 0);
     let ns = &report["namespaces"][0];
     assert_eq!(ns["namespace"], "Std.List");
+    assert_eq!(ns["target"], true);
     let n = |v: &Value| v.as_u64().unwrap();
     let d = &ns["declarations"];
     assert!(n(&d["total"]) > 50, "{d}");

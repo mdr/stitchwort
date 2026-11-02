@@ -568,6 +568,8 @@ names. A doc that only repeats the name or is under 4 words counts as missing (D
 it never fails. Enforcing it on chosen std namespaces is a later decision, after the pass
 (D2138).
 
+**As built (SW-1100, Matt, 2 Nov 2026).** The library is documented comprehensively; application code is parsimonious, and docs must not restate it. So the text report is a target only for `Std.*` (percentages and the undocumented list). For a project it gives plain counts (`with a doc: N of M declarations`) and lists the declarations without a doc only with `--list`. JSON gains `target` (true for the library) and keeps the lists.
+
 ## 7. Stage 3: checked links
 
 **Syntax.** ``[`Name`]`` in a `--|` line, where `Name` is name-shaped (letters, digits, `_`,

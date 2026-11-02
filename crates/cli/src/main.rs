@@ -315,11 +315,17 @@ enum Command {
         /// Report how much is documented, from parsing alone: per namespace
         /// (none: the library, or the project's), the definitions, types,
         /// interfaces and abilities with a doc and with an example, the
-        /// theorems with a doc (apart), the undocumented names and the
+        /// theorems with a doc (apart), the undocumented names (the library's; a
+        /// project's with `--list`) and the
         /// `…Example` theorems that attach to nothing. Only `--|` docs count:
         /// a plain `--` comment is no doc
         #[arg(long)]
         coverage: bool,
+        /// With `--coverage` on a project, also list the declarations without
+        /// a doc. The library's report always lists them: documenting it all
+        /// is the aim there, not in a project's code
+        #[arg(long, requires = "coverage")]
+        list: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it (with neither a file nor a project, the library
         /// alone). For a library name it adds the project's theorems
@@ -672,6 +678,7 @@ fn run(cli: Cli) -> ExitCode {
             file,
             more,
             coverage,
+            list,
             project,
             json,
             theorems,
@@ -687,6 +694,7 @@ fn run(cli: Cli) -> ExitCode {
                 coverage: coverage.then_some(&names[..]),
                 project: project.as_deref(),
                 json,
+                list,
                 theorems,
                 cache: &cache,
             })
