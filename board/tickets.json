@@ -1,5 +1,5 @@
 {
-  "next": 1082,
+  "next": 1083,
   "tickets": [
     {
       "id": 47,
@@ -3319,17 +3319,19 @@
     {
       "id": 1076,
       "title": "Merge tier peaks just over its 3 GB cap (3.10 GB, many small processes: run/check of examples) since function equations are generated for every example; passes with --test-threads 6. Measure and either cut per-process memory or set the cap/threads deliberately",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree (lane)",
       "labels": [
         "tests",
         "performance"
       ],
-      "body": "See SW-921. 2 Nov 2026: two memguard kills of task test:merge at 3.10 GB; biggest processes 0.43 GB (run builders-deep.sw), 0.34 GB (check --index counterexample-big-numbers-1.sw), 0.28 GB (examples accepted_examples_check).",
+      "body": "See SW-921. 2 Nov 2026: two memguard kills of task test:merge at 3.10 GB; biggest processes 0.43 GB (run builders-deep.sw), 0.34 GB (check --index counterexample-big-numbers-1.sw), 0.28 GB (examples accepted_examples_check).\n\nLane result (Sonnet, 2 Nov 2026): function equations are not the cause. check of ~1,100 examples, today vs the commit before stage 1a (64ee5077^1): mean 65 vs 66 MB, max 370 MB both (ring-pow-variable); only match-induct examples grew (~12 MB each). builders-deep's 0.43 GB is data (2.1M-element lists).\nThe one big process: cli search test what_closes_a_goal (stitchwort search --at goals.sw --goal 2, a goal with ≤) at 1.5 GB (1.49 GB before stage 1a); mimalloc shows 1.4 GB live. Goals 1 and 3: 0.29 GB.\nMerge tier, one run with memory report: 1052/1052, peak 2.52 GB (that search 1.41 GB + check --index counterexample-big-numbers-2 0.34 GB + small processes). Kills at 3.0-3.1 GB are that search overlapping a crowd of 0.1-0.4 GB processes.\nD2196 (Matt, 2 Nov 2026): merge cap 3 -> 4 GB (Taskfile.yml, docs/testing.md; 520ccce6); threads unchanged. The real fix is SW-1082 (search --at loads most of the library).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
-      "commits": []
+      "commits": [
+        "520ccce6"
+      ]
     },
     {
       "id": 1077,
@@ -3401,6 +3403,21 @@
       "labels": [
         "elaborator",
         "proof"
+      ],
+      "body": "",
+      "created": "2026-11-02",
+      "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1082,
+      "title": "search --at on a goal mentioning ≤ (cli test what_closes_a_goal) elaborates most of the library (Float, Int, Char files...), 1.4 GB live; find why lazy loading pulls it in and load only what the search needs (found by SW-1076)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search",
+        "performance"
       ],
       "body": "",
       "created": "2026-11-02",
