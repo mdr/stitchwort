@@ -1,5 +1,5 @@
 {
-  "next": 1142,
+  "next": 1144,
   "tickets": [
     {
       "id": 47,
@@ -4274,6 +4274,34 @@
         "perf"
       ],
       "body": "From SW-1137 (F3): LiveProject keeps a full copy of scope, module, instances, library and about ten more tables in each namespace's mark; estimated several hundred MB on aoc, the same failure as SW-1052. Measure first. Also F5: aoc check --no-cache peaks at 1.59 GB against 162 MB in language-server.md.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1142,
+      "title": "A missing std library should be a clean CLI error, not a panic with a backtrace note",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1136: when no std directory is found (or STITCHWORT_STD_DIR names a missing one) the process panics naming the places tried. Make it an ordinary error exit in the CLI and the language server's startup message. DeepSeek candidate.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1143,
+      "title": "std definitions now open as file: URIs when std is read from a directory: check what assumes stitchwort-std:",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
