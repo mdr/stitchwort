@@ -529,7 +529,7 @@ fn queue_item(
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
     };
-    let q = &cx.e.queue;
+    let q = &cx.e.attempt.queue;
     // Shown as its source only applied to the variables it was made with,
     // by name: applied to others (a lambda's parameter given an argument),
     // the source would name the wrong variables.
@@ -691,13 +691,13 @@ pub(crate) fn framed<T, F: ErrorFrame + 'static>(
     body: impl FnOnce(&mut Ctx) -> Result<T>,
     frame: impl FnOnce(&mut Ctx) -> F,
 ) -> Result<T> {
-    let frames = &cx.e.queue.frames;
+    let frames = &cx.e.attempt.queue.frames;
     let id = frames.next.get();
     frames.next.set(id + 1);
-    let from = cx.e.queue.len();
+    let from = cx.e.attempt.queue.len();
     frames.active.borrow_mut().push(id);
     let result = body(cx);
-    let frames = &cx.e.queue.frames;
+    let frames = &cx.e.attempt.queue.frames;
     {
         let mut active = frames.active.borrow_mut();
         debug_assert_eq!(active.last(), Some(&id), "frames nest");
@@ -707,13 +707,13 @@ pub(crate) fn framed<T, F: ErrorFrame + 'static>(
         Err(e) if !crate::undo::fatal(&e) => Err(frame(cx).map(cx, e)),
         Err(e) => Err(e),
         Ok(t) => {
-            let q = &cx.e.queue;
+            let q = &cx.e.attempt.queue;
             let waiting: Vec<usize> = (from.min(q.len())..q.len())
                 .filter(|&i| !matches!(q.state(i), State::Done))
                 .collect();
             if !waiting.is_empty() {
                 let map = Box::new(frame(cx));
-                let q = &cx.e.queue;
+                let q = &cx.e.attempt.queue;
                 let frame = Rc::new(Frame {
                     id,
                     saved: cx.save(),
@@ -738,7 +738,7 @@ impl Elaborator {
             return e;
         }
         let running = |id: u64| {
-            let f = &self.queue.frames;
+            let f = &self.attempt.queue.frames;
             f.active.borrow().contains(&id) || f.resuming.borrow().iter().any(|r| r.id == id)
         };
         for frame in frames.iter().filter(|f| !running(f.id)) {
@@ -753,7 +753,7 @@ impl Elaborator {
 /// unification hasn't solved either, if any: for a choice that must wait for
 /// it (invariant 8; `check::decide_to_bool`). Free while nothing waits.
 pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
-    let q = &cx.e.queue;
+    let q = &cx.e.attempt.queue;
     let unfilled: Vec<usize> = {
         let (items, states) = (q.items.borrow(), q.states.borrow());
         (0..items.len())
@@ -780,7 +780,7 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
 /// on a term whose value is large to compute (step 4.3: `bananasBySequence
 /// 50 buyers == …`).
 pub(crate) fn unfilled_in_term(cx: &Ctx, term: &Term) -> Result<Option<usize>> {
-    let q = &cx.e.queue;
+    let q = &cx.e.attempt.queue;
     let unfilled: Vec<usize> = {
         let (items, states) = (q.items.borrow(), q.states.borrow());
         (0..items.len())
@@ -814,7 +814,7 @@ fn unfilled_among(cx: &Ctx, term: &Term, unfilled: &[usize]) -> Result<Option<us
 /// comparison that fails only on one of them can wait for it.
 pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
     let g = cx.g();
-    let q = &cx.e.queue;
+    let q = &cx.e.attempt.queue;
     let mut pending = HashSet::default();
     for i in 0..q.len() {
         let state = q.state(i);
@@ -849,7 +849,7 @@ pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
 pub(crate) fn search_pending(cx: &Ctx) -> Result<HashSet<usize>> {
     let g = cx.g();
     let mut pending = pending(cx)?;
-    for ob in cx.e.obligations.borrow().iter() {
+    for ob in cx.e.attempt.obligations.borrow().iter() {
         if let Term::Meta(m) = ob.meta.spine().0
             && g.meta_solution(*m).is_none()
         {
@@ -862,7 +862,7 @@ pub(crate) fn search_pending(cx: &Ctx) -> Result<HashSet<usize>> {
 /// An unknown of [`search_pending`] that `v` mentions, if any. Free while
 /// nothing is queued and no obligation waits.
 pub(crate) fn search_pending_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
-    if cx.e.queue.len() == 0 && cx.e.obligations.borrow().is_empty() {
+    if cx.e.attempt.queue.len() == 0 && cx.e.attempt.obligations.borrow().is_empty() {
         return Ok(None);
     }
     let pending = search_pending(cx)?;
@@ -883,7 +883,7 @@ pub(crate) fn search_pending_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
 /// A check against it that needs its shape (`rfl` needs an equation) can
 /// wait for it through a comparison. Free while nothing is queued.
 pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
-    if cx.e.queue.len() == 0 {
+    if cx.e.attempt.queue.len() == 0 {
         return Ok(false);
     }
     let pending = pending(cx)?;
@@ -891,7 +891,7 @@ pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
         return Ok(false);
     }
     Ok(crate::unify::on_pending_in(
-        cx.g(),
+        &cx.u(),
         cx.level(),
         v,
         &pending,
@@ -1051,7 +1051,7 @@ pub(crate) fn compare_waiting(
     expected: &Value,
     failure: Failure,
 ) -> Result<bool> {
-    if cx.e.queue.len() == 0 {
+    if cx.e.attempt.queue.len() == 0 {
         return Ok(false);
     }
     let pending = pending(cx)?;
@@ -1059,7 +1059,7 @@ pub(crate) fn compare_waiting(
         return Ok(false);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+    match crate::unify::unify_waiting(&cx.u(), cx.level(), found, expected, &pending)? {
         Answer::Yes => Ok(true),
         Answer::No => {
             snapshot.restore(cx);
@@ -1149,7 +1149,7 @@ impl Check for Comparison {
         }
         let pending = pending(cx)?;
         let still =
-            match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+            match crate::unify::unify_waiting(&cx.u(), cx.level(), found, expected, &pending)? {
                 Answer::Yes => return Ok(Resumed::Holds),
                 Answer::No => return Err(self.failure.error(cx, found, expected)?),
                 Answer::Blocked(pairs) => pairs,
@@ -1193,7 +1193,7 @@ pub(crate) fn queue_constraint(
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
     };
-    let q = &cx.e.queue;
+    let q = &cx.e.attempt.queue;
     let saved = cx.save_sharing(q.items.borrow().last().map(|item| &item.saved));
     q.items.borrow_mut().push(Rc::new(Item {
         check,
@@ -1287,11 +1287,11 @@ impl Elaborator {
     /// these terms in place of the placeholders, so they are specialised
     /// before it.
     pub(crate) fn specialise_fills(&self) -> Result<()> {
-        if self.operator_dictionaries.borrow().is_empty() {
+        if self.attempt.operator_dictionaries.borrow().is_empty() {
             return Ok(());
         }
-        for i in 0..self.queue.len() {
-            let m = self.queue.item(i).meta;
+        for i in 0..self.attempt.queue.len() {
+            let m = self.attempt.queue.item(i).meta;
             let Some((s, call)) = self.globals.lifted_calls.borrow().get(&m).cloned() else {
                 continue;
             };
@@ -1307,18 +1307,18 @@ impl Elaborator {
     /// (invariant 3).
     pub(crate) fn resume_application(&self, from: usize) -> Result<()> {
         debug_assert!(
-            from <= self.queue.len(),
+            from <= self.attempt.queue.len(),
             "an application's checks outlived it (invariant 3)"
         );
-        if self.queue.len() == from {
+        if self.attempt.queue.len() == from {
             return Ok(());
         }
         self.resume_from(from)?;
         // Each placeholder still unfilled here is one a comparison may meet
         // before its item can say what it is (the stage-6 trigger, §5.13).
-        for i in from..self.queue.len() {
-            let item = self.queue.item(i);
-            if self.queue.waiting(i).is_some() && !item.crossed.replace(true) {
+        for i in from..self.attempt.queue.len() {
+            let item = self.attempt.queue.item(i);
+            if self.attempt.queue.waiting(i).is_some() && !item.crossed.replace(true) {
                 count(&CROSSED);
             }
         }
@@ -1329,21 +1329,22 @@ impl Elaborator {
     /// blocker is solved, in creation order, again while any is: whether
     /// any was.
     pub(crate) fn resume_from(&self, from: usize) -> Result<bool> {
-        if self.queue.len() <= from {
+        if self.attempt.queue.len() <= from {
             return Ok(false);
         }
         debug_assert!(
-            (from..self.queue.len()).all(|i| !matches!(self.queue.state(i), State::Running)),
+            (from..self.attempt.queue.len())
+                .all(|i| !matches!(self.attempt.queue.state(i), State::Running)),
             "a resume point reached a running item (invariant 4, T3)"
         );
         let mut any = false;
         loop {
             let mut progress = false;
             let mut i = from;
-            while i < self.queue.len() {
-                if let Some(needs) = self.queue.waiting(i)
+            while i < self.attempt.queue.len() {
+                if let Some(needs) = self.attempt.queue.waiting(i)
                     && (ready(&self.globals, &needs)?
-                        || self.queue.check(i).wakes(&self.globals)?)
+                        || self.attempt.queue.check(i).wakes(&self.globals)?)
                 {
                     self.resume_item(i)?;
                     progress = true;
@@ -1359,16 +1360,16 @@ impl Elaborator {
 
     /// Resumes item `i`, running until its check returns.
     fn resume_item(&self, i: usize) -> Result<()> {
-        let item = self.queue.item(i);
-        let check = self.queue.check(i);
-        let replaced = match self.queue.state(i) {
+        let item = self.attempt.queue.item(i);
+        let check = self.attempt.queue.check(i);
+        let replaced = match self.attempt.queue.state(i) {
             State::Waiting(Some(again)) => again.check.clone(),
             _ => None,
         };
-        self.queue.set(i, State::Running, &self.globals);
+        self.attempt.queue.set(i, State::Running, &self.globals);
         count(&RESUMED);
         // What it queues while it runs is made inside its constructs too.
-        let outer = (self.queue.frames.resuming).replace(item.all_frames());
+        let outer = (self.attempt.queue.frames.resuming).replace(item.all_frames());
         let mut cx = item.saved.ctx(self);
         let waits = |needs: &Value| {
             debug_assert!(
@@ -1395,14 +1396,14 @@ impl Elaborator {
                 }))))
             }
         });
-        self.queue.frames.resuming.replace(outer);
+        self.attempt.queue.frames.resuming.replace(outer);
         match resumed {
             Ok(state) => {
-                self.queue.set(i, state, &self.globals);
+                self.attempt.queue.set(i, state, &self.globals);
                 Ok(())
             }
             Err(e) => {
-                self.queue.set(i, State::Failed, &self.globals);
+                self.attempt.queue.set(i, State::Failed, &self.globals);
                 Err(self.through_frames(&item, e))
             }
         }
@@ -1415,9 +1416,9 @@ impl Elaborator {
     /// zonking writes it rather than the solution read back, which would
     /// write out what its calls unfold to (§5.10).
     fn fill(&self, cx: &mut Ctx, i: usize, item: &Item, term: &Term) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.unifier();
         debug_assert!(
-            matches!(self.queue.state(i), State::Running),
+            matches!(self.attempt.queue.state(i), State::Running),
             "only its own running item fills a placeholder (invariant 2)"
         );
         debug_assert!(
@@ -1470,7 +1471,7 @@ impl Elaborator {
     /// `match` whose type only a default says needs it before its helper is
     /// made. What still waits is reported at W4.
     pub(crate) fn resume_before_lifting(&self) -> Result<()> {
-        if !self.queue.any_waiting() {
+        if !self.attempt.queue.any_waiting() {
             return Ok(());
         }
         self.solve_obligations_until_stuck()?;
@@ -1498,16 +1499,16 @@ impl Elaborator {
     /// `again` (the ladder's steps 1 and 2 at that point), with
     /// [`Queue::settling`] set throughout.
     fn defaults_from(&self, from: usize, mut again: impl FnMut(&Self) -> Result<()>) -> Result<()> {
-        let settling = self.queue.settling.replace(true);
+        let settling = self.attempt.queue.settling.replace(true);
         let defaulted = (|| -> Result<()> {
-            while (from..self.queue.len()).any(|i| self.queue.waiting(i).is_some())
+            while (from..self.attempt.queue.len()).any(|i| self.attempt.queue.waiting(i).is_some())
                 && self.apply_default(from)?
             {
                 again(self)?;
             }
             Ok(())
         })();
-        self.queue.settling.set(settling);
+        self.attempt.queue.settling.set(settling);
         defaulted
     }
 
@@ -1536,7 +1537,7 @@ impl Elaborator {
     /// again if anything was settled.
     pub(crate) fn settled_fact(cx: &mut Ctx, fact: &Expr) -> Result<(Term, Value)> {
         let metas = cx.g().metas.borrow().len();
-        let queued = cx.e.queue.len();
+        let queued = cx.e.attempt.queue.len();
         let (term, ty) = crate::check::infer(cx, fact)?;
         let (term, ty) = crate::check::insert(cx, term, ty)?;
         if Self::settle_rule(cx, queued, metas)? {
@@ -1566,9 +1567,9 @@ impl Elaborator {
     /// The error of the first waiting check `which` picks, as it would be
     /// reported stuck at W4.
     fn waiting_error(&self, which: impl Fn(&Item) -> bool) -> Result<Option<Diagnostic>> {
-        for i in 0..self.queue.len() {
-            let item = self.queue.item(i);
-            if let Some(needs) = self.queue.waiting(i)
+        for i in 0..self.attempt.queue.len() {
+            let item = self.attempt.queue.item(i);
+            if let Some(needs) = self.attempt.queue.waiting(i)
                 && !item.constraint
                 && which(&item)
             {
@@ -1585,7 +1586,7 @@ impl Elaborator {
     /// else (queued without one, [`queue_without_error`]) what its own
     /// check says.
     fn stuck_error(&self, i: usize, item: &Item, blocker: Option<usize>) -> Diagnostic {
-        (self.queue.check(i).stuck_error(self, blocker))
+        (self.attempt.queue.check(i).stuck_error(self, blocker))
             .or_else(|| item.error.as_deref().cloned())
             .or_else(|| item.check.stuck_error(self, blocker))
             .expect("a check queued without its site's error makes its own")
@@ -1603,11 +1604,11 @@ impl Elaborator {
     /// rule that began at unknown `metas`.
     fn settle_closed(cx: &Ctx, from: usize, metas: Option<usize>) -> Result<bool> {
         let e = cx.e;
-        if e.queue.len() <= from {
+        if e.attempt.queue.len() <= from {
             return Ok(false);
         }
         let mut any = e.resume_from(from)?;
-        if (from..e.queue.len()).any(|i| e.queue.waiting(i).is_some()) {
+        if (from..e.attempt.queue.len()).any(|i| e.attempt.queue.waiting(i).is_some()) {
             count(&RULE_SETTLED);
         }
         #[cfg(debug_assertions)]
@@ -1625,7 +1626,7 @@ impl Elaborator {
         // said: its `Add`), found as `check::compare` finds them: only the
         // rule's own (made at or after `metas`), and only those whose type
         // has no unknown left, so the answer can't depend on when.
-        let own: Vec<usize> = (e.obligations.borrow().iter())
+        let own: Vec<usize> = (e.attempt.obligations.borrow().iter())
             .filter_map(|ob| match ob.meta.spine().0 {
                 Term::Meta(m) if *m >= metas => Some(*m),
                 _ => None,
@@ -1645,7 +1646,7 @@ impl Elaborator {
     fn assert_rule_closed(&self, cx: &Ctx, from: usize, metas: usize) -> Result<()> {
         let g = &self.globals;
         let blocker = |i: usize| -> Result<Option<usize>> {
-            match self.queue.waiting(i) {
+            match self.attempt.queue.waiting(i) {
                 Some(needs) => head_meta(g, &needs),
                 None => Ok(None),
             }
@@ -1663,8 +1664,8 @@ impl Elaborator {
                 }
             }
         }
-        for i in from..self.queue.len() {
-            if self.queue.check(i).default_priority().is_none() {
+        for i in from..self.attempt.queue.len() {
+            if self.attempt.queue.check(i).default_priority().is_none() {
                 continue;
             }
             if let Some(m) = blocker(i)? {
@@ -1682,22 +1683,25 @@ impl Elaborator {
     /// did.
     fn apply_default(&self, from: usize) -> Result<bool> {
         debug_assert!(
-            self.queue.settling(),
+            self.attempt.queue.settling(),
             "a default outside invariant 7's points"
         );
-        let mut candidates: Vec<(Priority, usize)> = (from..self.queue.len())
-            .filter(|&i| self.queue.waiting(i).is_some())
-            .filter_map(|i| Some((self.queue.check(i).default_priority()?, i)))
+        let mut candidates: Vec<(Priority, usize)> = (from..self.attempt.queue.len())
+            .filter(|&i| self.attempt.queue.waiting(i).is_some())
+            .filter_map(|i| Some((self.attempt.queue.check(i).default_priority()?, i)))
             .collect();
         candidates.sort();
         for (_, i) in candidates {
-            let item = self.queue.item(i);
+            let item = self.attempt.queue.item(i);
             let mut cx = item.saved.ctx(self);
             let snapshot = crate::undo::Snapshot::take(&cx);
-            if self.queue.check(i).apply_default(&mut cx)? {
+            if self.attempt.queue.check(i).apply_default(&mut cx)? {
                 debug_assert!(
-                    (self.queue.waiting(i))
-                        .is_none_or(|needs| ready(&self.globals, &needs).unwrap_or(true)),
+                    (self.attempt.queue.waiting(i)).is_none_or(|needs| ready(
+                        &self.globals,
+                        &needs
+                    )
+                    .unwrap_or(true)),
                     "a default solves what its item waits on"
                 );
                 count(&DEFAULTED);
@@ -1719,8 +1723,8 @@ impl Elaborator {
     fn stuck_report(&self) -> Result<Option<Diagnostic>> {
         let g = &self.globals;
         let mut waiting: Vec<(usize, Option<usize>)> = Vec::new();
-        for i in 0..self.queue.len() {
-            if let Some(needs) = self.queue.waiting(i) {
+        for i in 0..self.attempt.queue.len() {
+            if let Some(needs) = self.attempt.queue.waiting(i) {
                 waiting.push((i, head_meta(g, &needs)?));
             }
         }
@@ -1731,7 +1735,7 @@ impl Elaborator {
         // The waiting item each unknown is the placeholder or the type of.
         let mut made_by: HashMap<usize, usize> = HashMap::default();
         for (w, &(i, _)) in waiting.iter().enumerate() {
-            let item = self.queue.item(i);
+            let item = self.attempt.queue.item(i);
             if !item.constraint {
                 made_by.insert(item.meta, w);
             }
@@ -1775,12 +1779,15 @@ impl Elaborator {
         }
         let mut errors = (reports.iter()).map(|&(_, w)| {
             let (i, blocker) = waiting[w];
-            let item = self.queue.item(i);
+            let item = self.attempt.queue.item(i);
             let error = self.stuck_error(i, &item, blocker);
             self.through_frames(&item, error)
         });
         let first = errors.next();
-        self.branch_errors.borrow_mut().extend(errors.take(2));
+        self.attempt
+            .branch_errors
+            .borrow_mut()
+            .extend(errors.take(2));
         Ok(first)
     }
 }
@@ -1853,8 +1860,9 @@ fn count(counter: &AtomicUsize) {
 /// asserted in a debug build.
 pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
     count(&KEPT);
-    let defaulted = cx.e.defaulted.borrow().len() > before.defaulted();
-    let generic = (cx.e.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
+    let defaulted = cx.e.attempt.defaulted.borrow().len() > before.defaulted();
+    let generic =
+        (cx.e.attempt.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
     if defaulted || generic {
         count(&KEPT_CHOSE);
     }
@@ -2036,11 +2044,11 @@ mod tests {
     }
 
     fn waiting(e: &Elaborator, i: usize) -> bool {
-        matches!(e.queue.state(i), State::Waiting(..))
+        matches!(e.attempt.queue.state(i), State::Waiting(..))
     }
 
     fn done(e: &Elaborator, i: usize) -> bool {
-        matches!(e.queue.state(i), State::Done)
+        matches!(e.attempt.queue.state(i), State::Done)
     }
 
     fn expression(text: &str) -> Expr {
@@ -2061,14 +2069,14 @@ mod tests {
         let before = Snapshot::take(&cx);
         let (_, needs) = unknown(&cx);
         let first = push(&cx, probe("a", &log, anything()), needs);
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         before.restore(&mut cx);
-        assert_eq!(e.queue.len(), 0);
+        assert_eq!(e.attempt.queue.len(), 0);
         assert!(e.globals.metas.borrow().len() <= meta_of(&first));
         // Again: a new item, with its own placeholder.
         let (blocker, needs) = unknown(&cx);
         let again = push(&cx, probe("a", &log, anything()), needs);
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         let placeholder = meta_of(&again);
         // Resumed inside an attempt that is then undone.
         let attempt = Snapshot::take(&cx);
@@ -2079,15 +2087,15 @@ mod tests {
         assert!(e.globals.meta_solution(placeholder).is_some());
         attempt.restore(&mut cx);
         assert!(waiting(&e, 0));
-        assert_eq!(e.queue.resumptions(0), 0);
+        assert_eq!(e.attempt.queue.resumptions(0), 0);
         assert!(!e.globals.lifted_calls.borrow().contains_key(&placeholder));
         assert!(e.globals.meta_solution(placeholder).is_none());
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         // Resumed again, for good.
         e.globals.solve_meta(blocker, ty(1));
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(e.queue.resumptions(0), 1);
+        assert_eq!(e.attempt.queue.resumptions(0), 1);
         assert_eq!(*log.borrow(), ["resumed a", "resumed a"]);
     }
 
@@ -2103,17 +2111,17 @@ mod tests {
             let (_, needs) = unknown(&cx);
             push(&cx, probe("a", &log, anything()), needs);
         }
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         e.rewind(&mark);
-        assert_eq!(e.queue.len(), 0);
+        assert_eq!(e.attempt.queue.len(), 0);
         {
             let cx = Ctx::new(&e, span());
             let (_, needs) = unknown(&cx);
             push(&cx, probe("b", &log, anything()), needs);
         }
         e.clear_metas();
-        assert_eq!(e.queue.len(), 0);
-        assert!(e.queue.log.borrow().is_empty());
+        assert_eq!(e.attempt.queue.len(), 0);
+        assert!(e.attempt.queue.log.borrow().is_empty());
     }
 
     /// States: an item resumed that meets another unknown waits again, on
@@ -2136,7 +2144,7 @@ mod tests {
         e.globals.solve_meta(second, ty(1));
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(e.queue.resumptions(0), 2);
+        assert_eq!(e.attempt.queue.resumptions(0), 2);
     }
 
     /// Invariant 4: an item whose check contains an application is resumed
@@ -2154,7 +2162,7 @@ mod tests {
         e.globals.solve_meta(blocker, ty(1));
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(e.queue.resumptions(0), 1);
+        assert_eq!(e.attempt.queue.resumptions(0), 1);
         assert_eq!(*log.borrow(), ["resumed a"]);
     }
 
@@ -2173,7 +2181,7 @@ mod tests {
         push(&cx, a, needs);
         e.globals.solve_meta(blocker, ty(1));
         assert!(e.resume_from(0).unwrap());
-        assert_eq!(e.queue.resumptions(0), 1);
+        assert_eq!(e.attempt.queue.resumptions(0), 1);
         assert_eq!(*log.borrow(), ["resumed a"]);
     }
 
@@ -2193,7 +2201,7 @@ mod tests {
         crate::check::infer(&mut cx, &expression("((x: Type 1) => x) Type")).unwrap();
         assert!(waiting(&e, 0));
         // One queued inside an application that began after `outer` was.
-        let start = e.queue.len();
+        let start = e.attempt.queue.len();
         let (inner_blocker, needs) = unknown(&cx);
         push(&cx, probe("inner", &log, anything()), needs);
         e.globals.solve_meta(inner_blocker, ty(1));
@@ -2254,7 +2262,7 @@ mod tests {
         two_with_defaults(&cx, &log);
         e.resume_before_lifting().unwrap();
         assert_eq!(*log.borrow(), IN_ORDER);
-        assert!(!e.queue.settling(), "settling only while W2 runs");
+        assert!(!e.attempt.queue.settling(), "settling only while W2 runs");
         assert!(e.settle_queue().unwrap().is_none());
         assert_eq!(log.borrow().len(), 4);
     }
@@ -2272,7 +2280,7 @@ mod tests {
         let mut outer = probe("outer", &log, anything());
         outer.default = Some((Priority::FieldNames, outer_blocker));
         push(&cx, outer, needs.clone());
-        let from = e.queue.len();
+        let from = e.attempt.queue.len();
         let metas = cx.g().metas.borrow().len();
         // Ready already: resumed, no default needed.
         let (ready, ready_needs) = unknown(&cx);
@@ -2288,7 +2296,7 @@ mod tests {
             ["resumed ready", "default rule", "resumed rule"]
         );
         assert!(waiting(&e, 0) && done(&e, 1) && done(&e, 2));
-        assert!(!e.queue.settling());
+        assert!(!e.attempt.queue.settling());
         // Nothing of the rule's left: settling again does nothing.
         assert!(!Elaborator::settle_rule(&cx, from, metas).unwrap());
         assert!(e.settle_queue().unwrap().is_none());
@@ -2305,7 +2313,7 @@ mod tests {
         let cx = Ctx::new(&e, span());
         let log = Log::default();
         let (outside, needs) = unknown(&cx);
-        let from = e.queue.len();
+        let from = e.attempt.queue.len();
         let metas = cx.g().metas.borrow().len();
         let mut rule = probe("rule", &log, anything());
         rule.default = Some((Priority::FieldNames, outside));
@@ -2342,7 +2350,7 @@ mod tests {
         }
         let reported = e.settle_queue().expect_err("stuck");
         assert_eq!(reported.message, "a");
-        let more: Vec<String> = (e.branch_errors.borrow().iter())
+        let more: Vec<String> = (e.attempt.branch_errors.borrow().iter())
             .map(|d| d.message.clone())
             .collect();
         assert_eq!(more, ["d", "e"]);
@@ -2377,7 +2385,7 @@ mod tests {
         let error = e.resume_from(0).expect_err("disagrees");
         assert_eq!(error.code, "E-TYPE-MISMATCH");
         assert_eq!(error.labels[0].span, at);
-        assert!(matches!(e.queue.state(0), State::Failed));
+        assert!(matches!(e.attempt.queue.state(0), State::Failed));
         assert!(DISAGREED.load(Ordering::Relaxed) > disagreed);
     }
 
@@ -2497,7 +2505,7 @@ mod tests {
         assert!(cx.g().meta_solution(p).is_none());
         let pending = pending(&cx).unwrap();
         assert!(pending.contains(&p));
-        let answer = crate::unify::unify_waiting(cx.g(), 1, &a, &b, &pending).unwrap();
+        let answer = crate::unify::unify_waiting(&cx.u(), 1, &a, &b, &pending).unwrap();
         assert!(matches!(answer, Answer::Blocked(ref pairs) if pairs.len() == 1));
         assert!(cx.g().meta_solution(p).is_none());
         e.globals.solve_meta(blocker, ty(1));
@@ -2528,7 +2536,7 @@ mod tests {
         let value = cx.eval(&Term::Def(two)).unwrap();
         let waited = WAITED.load(Ordering::Relaxed);
         assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
-        assert_eq!(e.queue.len(), 2);
+        assert_eq!(e.attempt.queue.len(), 2);
         assert!(waiting(&e, 1));
         assert!(WAITED.load(Ordering::Relaxed) > waited);
         // Nothing solved yet: neither resumes.
@@ -2577,7 +2585,7 @@ mod tests {
         assert_eq!(error.code, "E-REFL");
         assert_eq!(error.labels[0].span, at);
         assert!(done(&e, 0));
-        assert!(matches!(e.queue.state(1), State::Failed));
+        assert!(matches!(e.attempt.queue.state(1), State::Failed));
     }
 
     /// Stage 6: a rigid mismatch doesn't wait, and nothing it solved is
@@ -2589,7 +2597,7 @@ mod tests {
         let zero = cx.eval(&Term::ctor(n, 0, Vec::new())).unwrap();
         let two = cx.eval(&Term::Def(two)).unwrap();
         assert!(!compare_waiting(&mut cx, &two, &zero, Failure::Mismatch).unwrap());
-        assert_eq!(e.queue.len(), 0);
+        assert_eq!(e.attempt.queue.len(), 0);
         let log = Log::default();
         let (_, placeholder) = waiting_item(&cx, &log, anything());
         let (x, unknown_value) = unknown(&cx);
@@ -2600,7 +2608,7 @@ mod tests {
         );
         let b = Value::Eq(Rc::new(ty(0)), Rc::new(placeholder), Rc::new(two));
         assert!(!compare_waiting(&mut cx, &a, &b, Failure::Mismatch).unwrap());
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         assert!(cx.g().meta_solution(x).is_none(), "undone");
     }
 
@@ -2615,9 +2623,9 @@ mod tests {
         let value = cx.eval(&Term::Def(two)).unwrap();
         let before = Snapshot::take(&cx);
         assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
-        assert_eq!(e.queue.len(), 2);
+        assert_eq!(e.attempt.queue.len(), 2);
         before.restore(&mut cx);
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
         let woken = Snapshot::take(&cx);
         e.globals.solve_meta(blocker, ty(1));
@@ -2640,7 +2648,7 @@ mod tests {
         assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Refl).unwrap());
         let reported = e.settle_queue().expect_err("stuck");
         assert_eq!(reported.message, "a");
-        assert!(e.branch_errors.borrow().is_empty());
+        assert!(e.attempt.branch_errors.borrow().is_empty());
     }
 
     /// Records and a type-level identity for the K1 and K2 tests: `P` and
@@ -2689,7 +2697,7 @@ mod tests {
         let (e, data) = module(RECORDS);
         let mut cx = Ctx::new(&e, span());
         let (term, ty) = crate::check::infer(&mut cx, &expression("{ row = Z }")).unwrap();
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         assert!(waiting(&e, 0));
         assert!(head_meta(cx.g(), &ty).unwrap().is_some());
         assert!(cx.unify(&ty, &data(&e, "Q")).unwrap());
@@ -2748,12 +2756,12 @@ mod tests {
         cx.bind("p", ty);
         let metas = e.globals.metas.borrow().len();
         let (term, _) = crate::check::infer(&mut cx, &expression("p.row")).unwrap();
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         // What inferring the receiver made was undone: the item's
         // placeholder and its type are all that is new.
         assert_eq!(e.globals.metas.borrow().len(), metas + 2);
         assert_eq!(
-            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            head_meta(cx.g(), &e.attempt.queue.waiting(0).unwrap()).unwrap(),
             Some(blocker)
         );
         e.globals.solve_meta(blocker, data(&e, "P"));
@@ -2777,7 +2785,7 @@ mod tests {
         crate::check::infer(&mut cx, &expression("({ only = Z }).only")).unwrap();
         // The literal, and the `.only` on it; the literal queued while the
         // prefix form was tried was undone with it.
-        assert_eq!(e.queue.len(), 2);
+        assert_eq!(e.attempt.queue.len(), 2);
         assert!(KEPT.load(Ordering::Relaxed) > kept);
         assert!(e.settle_queue().unwrap().is_none());
         assert!(done(&e, 0) && done(&e, 1));
@@ -2798,7 +2806,7 @@ mod tests {
         cx.bind("p", cx.eval(&applied).unwrap());
         crate::check::infer(&mut cx, &expression("p.row")).unwrap();
         assert_eq!(
-            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            head_meta(cx.g(), &e.attempt.queue.waiting(0).unwrap()).unwrap(),
             Some(first)
         );
         let (second, b) = unknown(&cx);
@@ -2810,13 +2818,13 @@ mod tests {
         assert!(REQUEUED.load(Ordering::Relaxed) > requeued);
         assert!(waiting(&e, 0));
         assert_eq!(
-            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            head_meta(cx.g(), &e.attempt.queue.waiting(0).unwrap()).unwrap(),
             Some(second)
         );
         e.globals.solve_meta(second, data(&e, "P"));
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(e.queue.resumptions(0), 2);
+        assert_eq!(e.attempt.queue.resumptions(0), 2);
     }
 
     /// Invariant 6's assertion: a receiver kept as a term must have made no
@@ -2830,7 +2838,7 @@ mod tests {
         let cx = Ctx::new(&e, span());
         let before = Snapshot::take(&cx);
         let (m, _) = unknown(&cx);
-        (e.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
+        (e.attempt.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
         let chose = KEPT_CHOSE.load(Ordering::Relaxed);
         kept_receiver(&cx, &before);
         assert!(KEPT_CHOSE.load(Ordering::Relaxed) > chose);
@@ -2863,12 +2871,12 @@ mod tests {
         let (e, data) = module(&source);
         let mut cx = Ctx::new(&e, span());
         let (term, dom) = section(&mut cx, ".row");
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         assert!(waiting(&e, 0));
         assert!(cx.unify(&dom, &data(&e, "P")).unwrap());
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         let text = zonked(&cx, &term);
         assert!(text.starts_with("Ann(") && text.contains("Def("), "{text}");
         assert!(!text.contains("Lam("), "{text}");
@@ -2901,7 +2909,7 @@ mod tests {
             let (e, _) = module(&module_source);
             let mut cx = Ctx::new(&e, span());
             crate::check::infer(&mut cx, &expression(source)).unwrap();
-            assert_eq!(e.queue.len(), 1, "{source}");
+            assert_eq!(e.attempt.queue.len(), 1, "{source}");
             let error = e.settle_queue().expect_err("stuck");
             assert_eq!(error.code, "E-CANNOT-INFER", "{source}");
             assert_eq!(
@@ -3062,7 +3070,7 @@ mod tests {
                 Err(error) => error,
                 Ok(_) => {
                     assert!(!during);
-                    assert_eq!(e.queue.len(), 2);
+                    assert_eq!(e.attempt.queue.len(), 2);
                     e.globals.solve_meta(second, ty(0));
                     e.resume_from(0).expect_err("fails")
                 }
@@ -3080,7 +3088,7 @@ mod tests {
         let (blocker, ty) = unknown(&cx);
         cx.bind("p", ty);
         let (term, _) = crate::check::infer(&mut cx, &expression("p.row")).unwrap();
-        assert_eq!(e.queue.len(), 1);
+        assert_eq!(e.attempt.queue.len(), 1);
         let shown = |cx: &Ctx| cx.show(&cx.eval(&term).unwrap());
         assert_eq!(shown(&cx), "p.row");
         e.globals.solve_meta(blocker, data(&e, "P"));

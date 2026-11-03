@@ -696,7 +696,7 @@ fn blocker(
             return Ok(Some(m));
         }
     }
-    if cx.e.queue.len() == 0 {
+    if cx.e.attempt.queue.len() == 0 {
         return Ok(None);
     }
     let pending = crate::queue::pending(cx)?;
@@ -979,7 +979,7 @@ fn generalised_now(
     })?;
     if !not_found.is_empty() {
         let used = free_levels(&body, depth);
-        let mut warnings = cx.e.lambda_warnings.borrow_mut();
+        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (i, warning) in not_found {
             let unused = (equations.iter()).any(|&(j, level)| j == i && !used.contains(&level));
             let span = warning.labels.first().map(|l| l.span);

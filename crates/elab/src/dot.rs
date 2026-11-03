@@ -230,7 +230,7 @@ pub(crate) fn meta_name_in(
     level: usize,
     ty: &Value,
 ) -> Result<Option<Value>> {
-    if e.meta_names.borrow().is_empty() {
+    if e.attempt.meta_names.borrow().is_empty() {
         return Ok(None);
     }
     let g = &e.globals;
@@ -239,7 +239,7 @@ pub(crate) fn meta_name_in(
         let Value::Neutral(Head::Meta(m), spine) = &value else {
             return Ok(None);
         };
-        let noted = (e.meta_names.borrow().iter().rev())
+        let noted = (e.attempt.meta_names.borrow().iter().rev())
             .find(|(n, _)| n == m)
             .map(|(_, name)| name.clone());
         if let Some(name) = noted {

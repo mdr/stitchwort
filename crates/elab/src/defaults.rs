@@ -802,7 +802,7 @@ pub(crate) fn of_head(cx: &Ctx, head: &Term) -> Option<HeadDefaults> {
 }
 
 fn local_of(cx: &Ctx, head: LocalHead, prefix: usize) -> Option<HeadDefaults> {
-    let table = cx.e.local_defaults.borrow().get(&head).cloned()?;
+    let table = cx.e.attempt.local_defaults.borrow().get(&head).cloned()?;
     (table.prefix == prefix).then(|| HeadDefaults {
         of: DefaultsOf::Local(head),
         prefix,
@@ -856,7 +856,8 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
         }
         DefaultsOf::Local(head) => {
             let table =
-                cx.e.local_defaults
+                cx.e.attempt
+                    .local_defaults
                     .borrow()
                     .get(&head)
                     .cloned()
@@ -1268,7 +1269,7 @@ pub(crate) fn local_defaults(
         )?);
     }
     label_defaults(cx, h.clone(), &telescope[..header], &params);
-    cx.e.local_defaults.borrow_mut().insert(
+    cx.e.attempt.local_defaults.borrow_mut().insert(
         local_head,
         Rc::new(LocalDefaults {
             base,

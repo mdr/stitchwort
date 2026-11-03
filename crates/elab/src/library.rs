@@ -1064,7 +1064,7 @@ impl Elaborator {
             file_mode: self.file_mode.take(),
             loading_prelude: self.loading_prelude,
             warnings: std::mem::take(&mut self.warnings),
-            lambda_warnings: self.lambda_warnings.take(),
+            lambda_warnings: self.attempt.lambda_warnings.take(),
         };
         self.loading_prelude = true;
         self.scope.loading = Some(f);
@@ -1083,7 +1083,7 @@ impl Elaborator {
         self.file_mode = saved.file_mode;
         self.loading_prelude = saved.loading_prelude;
         self.warnings = saved.warnings;
-        self.lambda_warnings.replace(saved.lambda_warnings);
+        self.attempt.lambda_warnings.replace(saved.lambda_warnings);
         let lib = self.library.as_mut().expect("a library is installed");
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
@@ -1146,7 +1146,7 @@ impl Elaborator {
             file_mode: self.file_mode.take(),
             loading_prelude: std::mem::replace(&mut self.loading_prelude, true),
             warnings: std::mem::take(&mut self.warnings),
-            lambda_warnings: self.lambda_warnings.take(),
+            lambda_warnings: self.attempt.lambda_warnings.take(),
         };
         self.module = ModuleState {
             files: vec![crate::module::FileInfo {
@@ -1174,7 +1174,7 @@ impl Elaborator {
         self.file_mode = saved.file_mode;
         self.loading_prelude = saved.loading_prelude;
         self.warnings = saved.warnings;
-        self.lambda_warnings.replace(saved.lambda_warnings);
+        self.attempt.lambda_warnings.replace(saved.lambda_warnings);
         result
     }
 

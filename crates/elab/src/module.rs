@@ -1619,7 +1619,8 @@ impl Elaborator {
         };
         diagnostics.extend(self.warnings.drain(..).map(|w| (item.position, w)));
         diagnostics.extend(
-            self.lambda_warnings
+            self.attempt
+                .lambda_warnings
                 .take()
                 .into_iter()
                 .map(|w| (item.position, w)),

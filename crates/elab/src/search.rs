@@ -176,7 +176,7 @@ pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Opt
 /// Whether a pattern of type `ours` may match a target of type `theirs`:
 /// the two types unify (solving what they leave open), or both are types.
 /// An unknown type, on either side, doesn't rule a match out.
-fn types_agree(g: &Globals, ours: Option<&Ty>, theirs: Option<&Ty>) -> Res<bool> {
+fn types_agree(g: &crate::unify::Unifier<'_>, ours: Option<&Ty>, theirs: Option<&Ty>) -> Res<bool> {
     let is_type = |v: &Value| -> Res<bool> {
         Ok(matches!(
             force(g, v.clone())?,
@@ -901,7 +901,7 @@ pub fn overlaps(pattern: &Pattern, index: &Index) -> bool {
 /// Puts things back as they were before a comparison, also when it panics
 /// (so a caller that catches the panic can go on).
 pub(crate) struct Restore<'g> {
-    pub(crate) g: &'g Globals,
+    pub(crate) g: crate::unify::Unifier<'g>,
     pub(crate) metas: usize,
     pub(crate) trail: usize,
     pub(crate) frozen: usize,
@@ -910,7 +910,7 @@ pub(crate) struct Restore<'g> {
 
 impl Drop for Restore<'_> {
     fn drop(&mut self) {
-        let g = self.g;
+        let g = &self.g;
         g.frozen_metas.borrow_mut().truncate(self.frozen);
         crate::unify::undo_since(g, self.trail);
         g.metas.borrow_mut().truncate(self.metas);
@@ -1372,10 +1372,10 @@ impl Elaborator {
             return None;
         }
         stats.compared += 1;
-        let g = &self.globals;
+        let g = &self.unifier();
         let frozen = g.frozen_metas.borrow().len();
         let _restore = Restore {
-            g,
+            g: *g,
             metas: g.metas.borrow().len().max(pattern.metas),
             trail: g.meta_trail.borrow().len(),
             frozen,
@@ -1683,7 +1683,12 @@ fn is_dictionary(g: &Globals, arg: &Term) -> bool {
 /// is `Ord.equal`'s statement after its explicit `x` and `y`, which the
 /// whole-type match, starting at the first explicit parameter, doesn't
 /// skip.
-fn reordered(g: &Globals, pattern: &Value, theirs: &[Value], concl: &Value) -> Res<bool> {
+fn reordered(
+    g: &crate::unify::Unifier<'_>,
+    pattern: &Value,
+    theirs: &[Value],
+    concl: &Value,
+) -> Res<bool> {
     let mut ours: Vec<Value> = Vec::new();
     let mut v = force(g, pattern.clone())?;
     // Rigid variables, not unknowns: a hole under the arrows is an unknown

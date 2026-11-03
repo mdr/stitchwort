@@ -394,7 +394,7 @@ impl crate::queue::Check for Number {
 
     fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
         debug_assert!(
-            cx.e.queue.settling(),
+            cx.e.attempt.queue.settling(),
             "a number literal was defaulted before the end (invariant 7)"
         );
         let meta = head_meta(cx, &self.expected)?;
@@ -402,7 +402,7 @@ impl crate::queue::Check for Number {
             return Ok(false);
         }
         if let Some(meta) = meta {
-            cx.e.defaulted.borrow_mut().push(Defaulted {
+            cx.e.attempt.defaulted.borrow_mut().push(Defaulted {
                 meta,
                 span: self.span,
                 literal: Some((*self.k).clone()),
@@ -581,7 +581,7 @@ pub(crate) fn explain_default(cx: &Ctx, d: Diagnostic, types: &[&Value]) -> Diag
     if d.code != "E-TYPE-MISMATCH" || d.notes.iter().any(|n| n.contains("because of the literal")) {
         return d;
     }
-    let defaulted = cx.e.defaulted.borrow();
+    let defaulted = cx.e.attempt.defaulted.borrow();
     for ty in types {
         let Value::Neutral(Head::Meta(m), _) = ty else {
             continue;
@@ -1312,7 +1312,7 @@ impl crate::queue::Check for NumberGroup {
             leaf.state = state.clone();
         }
         let t = force(cx.g(), self.t.clone())?;
-        let defaulted = (cx.e.defaulted.borrow().iter())
+        let defaulted = (cx.e.attempt.defaulted.borrow().iter())
             .any(|d| d.literal.is_none() && d.span == self.expr.span());
         // What a message says decided it: the ladder's default; the
         // expected type; or the first leaf whose type is now known.
@@ -1373,7 +1373,7 @@ impl crate::queue::Check for NumberGroup {
 
     fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
         debug_assert!(
-            cx.e.queue.settling(),
+            cx.e.attempt.queue.settling(),
             "a number group was defaulted before the end (invariant 7)"
         );
         let meta = head_meta(cx, &self.t)?;
@@ -1381,7 +1381,7 @@ impl crate::queue::Check for NumberGroup {
             return Ok(false);
         }
         if let Some(meta) = meta {
-            cx.e.defaulted.borrow_mut().push(Defaulted {
+            cx.e.attempt.defaulted.borrow_mut().push(Defaulted {
                 meta,
                 span: self.expr.span(),
                 literal: None,
@@ -1410,7 +1410,7 @@ impl crate::queue::Check for GroupType {
 
     fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
         debug_assert!(
-            cx.e.queue.settling(),
+            cx.e.attempt.queue.settling(),
             "a group's type was defaulted outside invariant 7's points"
         );
         let meta = head_meta(cx, &self.t)?;
@@ -1418,7 +1418,7 @@ impl crate::queue::Check for GroupType {
             return Ok(false);
         }
         if let Some(meta) = meta {
-            cx.e.defaulted.borrow_mut().push(Defaulted {
+            cx.e.attempt.defaulted.borrow_mut().push(Defaulted {
                 meta,
                 span: self.span,
                 literal: None,

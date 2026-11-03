@@ -909,7 +909,13 @@ impl Elaborator {
         }
         let result = self.signature(signature);
         out.extend(self.warnings.drain(..).map(|w| (item, w)));
-        out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
+        out.extend(
+            self.attempt
+                .lambda_warnings
+                .take()
+                .into_iter()
+                .map(|w| (item, w)),
+        );
         let f = match result {
             Ok(id) => id,
             Err(d) => {
@@ -929,7 +935,13 @@ impl Elaborator {
         self.preadmitted.borrow_mut().clear();
         let result = self.decreasing_definition(f, name, measure, *theorem, *span, equations);
         *self.decreasing.borrow_mut() = None;
-        out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
+        out.extend(
+            self.attempt
+                .lambda_warnings
+                .take()
+                .into_iter()
+                .map(|w| (item, w)),
+        );
         out.extend(self.warnings.drain(..).map(|w| (item, w)));
         match result {
             Ok(()) => {
@@ -1251,8 +1263,8 @@ impl Elaborator {
         })();
         self.owner.borrow_mut().clear();
         let term = term?;
-        if !self.drafts.borrow().is_empty() {
-            self.drafts.borrow_mut().clear();
+        if !self.attempt.drafts.borrow().is_empty() {
+            self.attempt.drafts.borrow_mut().clear();
             return Err(Diagnostic::error(
                 "E-DECREASING",
                 "a measure can't contain a `match` or a local definition",

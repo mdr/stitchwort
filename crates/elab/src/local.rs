@@ -110,7 +110,13 @@ fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
             .with_note("give it another name"));
         }
         let key = format!("{prefix}.{}", name.text);
-        if let Some((_, first)) = e.local_keys.borrow().iter().find(|(k, _)| *k == key) {
+        if let Some((_, first)) = e
+            .attempt
+            .local_keys
+            .borrow()
+            .iter()
+            .find(|(k, _)| *k == key)
+        {
             let owner = crate::scope::display(&e.owner.borrow()[0]).to_string();
             return Err(Diagnostic::error(
                 "E-DUPLICATE",
@@ -124,7 +130,10 @@ fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
                 crate::scope::display(&key)
             )));
         }
-        e.local_keys.borrow_mut().push((key.clone(), name.span));
+        e.attempt
+            .local_keys
+            .borrow_mut()
+            .push((key.clone(), name.span));
         keys.push(key);
     }
     for component in components(defs) {
@@ -238,7 +247,10 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         let value = cx.eval(&ty)?;
         let meta = g.new_meta(name.span);
         g.freeze_meta(meta);
-        e.local_metas.borrow_mut().insert(meta, name.text.clone());
+        e.attempt
+            .local_metas
+            .borrow_mut()
+            .insert(meta, name.text.clone());
         let levels = spine(&cx.env, &cx.lets);
         let mut call = Term::Meta(meta);
         for &level in &levels {
@@ -285,7 +297,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         e.local_asts
             .borrow_mut()
             .push((keys[i].clone(), (*def).clone()));
-        e.drafts.borrow_mut().push(Draft {
+        e.attempt.drafts.borrow_mut().push(Draft {
             meta,
             span,
             env: cx.env.clone(),
@@ -419,7 +431,10 @@ pub(crate) fn draft(
     let base = cx.level();
     let meta = g.new_meta(span);
     g.freeze_meta(meta);
-    e.local_metas.borrow_mut().insert(meta, name.to_string());
+    e.attempt
+        .local_metas
+        .borrow_mut()
+        .insert(meta, name.to_string());
     let levels = spine(&cx.env, &cx.lets);
     let mut call = Term::Meta(meta);
     for &level in &levels {
@@ -431,7 +446,7 @@ pub(crate) fn draft(
         levels,
         defaults: None,
     });
-    e.drafts.borrow_mut().push(Draft {
+    e.attempt.drafts.borrow_mut().push(Draft {
         meta,
         span,
         env: cx.env.clone(),
@@ -472,7 +487,7 @@ impl Elaborator {
         {
             return Err(d);
         }
-        let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
+        let drafts = std::mem::take(&mut *self.attempt.drafts.borrow_mut());
         let index: stitchwort_core::collections::HashMap<usize, usize> = drafts
             .iter()
             .enumerate()

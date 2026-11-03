@@ -221,7 +221,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         splittable: RefCell::new(HashMap::default()),
     });
     let saved = cx.cases.replace(run.clone());
-    let errors = cx.e.branch_errors.borrow().len();
+    let errors = cx.e.attempt.branch_errors.borrow().len();
     let result = node(cx, &run, expected);
     cx.cases = saved;
     let error = match result {
@@ -231,8 +231,8 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     };
     // The other cases that failed were kept for the definition to report
     // after this one (`check_tree`): one error says it for the `cases`.
-    let others = cx.e.branch_errors.borrow().len() - errors;
-    cx.e.branch_errors.borrow_mut().truncate(errors);
+    let others = cx.e.attempt.branch_errors.borrow().len() - errors;
+    cx.e.attempt.branch_errors.borrow_mut().truncate(errors);
     if run.over.get() {
         return Err(budget_error(&run));
     }
@@ -323,7 +323,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     let mut failed_body = None;
     if let Some(body) = &run.body {
         let snapshot = crate::undo::Snapshot::take(cx);
-        let errors = cx.e.branch_errors.borrow().len();
+        let errors = cx.e.attempt.branch_errors.borrow().len();
         match crate::check::check(cx, body, goal) {
             Ok(term) => {
                 run.closed.borrow_mut().term += 1;
@@ -331,7 +331,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
             }
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(e) => {
-                cx.e.branch_errors.borrow_mut().truncate(errors);
+                cx.e.attempt.branch_errors.borrow_mut().truncate(errors);
                 snapshot.restore(cx);
                 failed_body = Some(e);
             }

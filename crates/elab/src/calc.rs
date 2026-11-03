@@ -101,7 +101,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let Expr::Calc { first, steps, .. } = expr else {
         unreachable!("only called on a calc");
     };
-    let queued_from = cx.e.queue.len();
+    let queued_from = cx.e.attempt.queue.len();
     let (start, ty) = infer(cx, first)?;
     let (start, ty) = insert(cx, start, ty)?;
     let ty_term = Rc::new(cx.quote(&ty)?);

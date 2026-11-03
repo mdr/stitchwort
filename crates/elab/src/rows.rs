@@ -81,7 +81,7 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
     if !cx.g().registry.is_data(Builtin::Row, d) && !divergence {
         return;
     }
-    cx.e.row_metas.borrow_mut().push(RowMeta {
+    cx.e.attempt.row_metas.borrow_mut().push(RowMeta {
         env: cx.env.clone(),
         types: cx.types.clone(),
         names: cx.names.clone(),
@@ -108,7 +108,7 @@ fn row_meta_value(e: &Elaborator, item: &RowMeta) -> Result<Value> {
 /// the declaration, and marks the row unknowns it set, so that an error found
 /// later explains them as defaulted ones are.
 pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> Result<()> {
-    let metas = cx.e.row_metas.borrow().clone();
+    let metas = cx.e.attempt.row_metas.borrow().clone();
     let mut unsolved = Vec::new();
     for (i, item) in metas.iter().enumerate() {
         if !item.divergence
@@ -123,7 +123,7 @@ pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> R
     settle()?;
     for i in unsolved {
         if is_empty_row(cx.g(), &row_meta_value(cx.e, &metas[i])?)
-            && let Some(item) = cx.e.row_metas.borrow_mut().get_mut(i)
+            && let Some(item) = cx.e.attempt.row_metas.borrow_mut().get_mut(i)
         {
             item.settled_empty = true;
         }
@@ -222,9 +222,9 @@ fn missing(cx: &Ctx, b: Builtin) -> stitchwort_syntax::Diagnostic {
 /// otherwise nothing changes.
 pub(crate) fn postpone(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<bool> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    match unify_postponing(cx.g(), cx.level(), found, expected)? {
+    match unify_postponing(&cx.u(), cx.level(), found, expected)? {
         Some(put_aside) if !put_aside.is_empty() => {
-            let mut kept = cx.e.row_constraints.borrow_mut();
+            let mut kept = cx.e.attempt.row_constraints.borrow_mut();
             for constraint in put_aside {
                 kept.push(Postponed {
                     env: cx.env.clone(),
@@ -270,7 +270,7 @@ impl Elaborator {
     /// ([`SettledFirst::Waiting`]) is compared as it stands.
     fn retry(&self, start: usize, last: bool) -> Result<bool> {
         let kept = {
-            let mut all = self.row_constraints.borrow_mut();
+            let mut all = self.attempt.row_constraints.borrow_mut();
             let start = start.min(all.len());
             all.split_off(start)
         };
@@ -287,12 +287,12 @@ impl Elaborator {
                 }
                 SettledFirst::No | SettledFirst::Waiting => {}
                 SettledFirst::Abilities(comp) => {
-                    self.row_constraints.borrow_mut().extend(still);
+                    self.attempt.row_constraints.borrow_mut().extend(still);
                     return Err(settled_too_early(&cx, &comp));
                 }
             }
             let (a, b) = (fresh_a, fresh_b);
-            match unify_postponing(cx.g(), *level, &a, &b)? {
+            match unify_postponing(&cx.u(), *level, &a, &b)? {
                 Some(again) if again.is_empty() => progress = true,
                 Some(again) => {
                     for constraint in again {
@@ -303,7 +303,7 @@ impl Elaborator {
                     }
                 }
                 None => {
-                    self.row_constraints.borrow_mut().extend(still);
+                    self.attempt.row_constraints.borrow_mut().extend(still);
                     return Err(explain_defaulted(
                         cx.mismatch(&b, &a),
                         &self.settled_early()?,
@@ -311,7 +311,7 @@ impl Elaborator {
                 }
             }
         }
-        self.row_constraints.borrow_mut().extend(still);
+        self.attempt.row_constraints.borrow_mut().extend(still);
         Ok(progress)
     }
 
@@ -336,12 +336,12 @@ impl Elaborator {
             });
             after.map_err(|d| explain_defaulted(d, &defaulted))?;
         } else if let Some(d) = stuck {
-            self.obligations.borrow_mut().clear();
+            self.attempt.obligations.borrow_mut().clear();
             return Err(d);
         } else {
             while self.retry(0, true)? {}
         }
-        let first = self.row_constraints.borrow().first().cloned();
+        let first = self.attempt.row_constraints.borrow().first().cloned();
         if let Some(item) = first {
             let cx = item.context(self);
             let RowConstraint { a, b, .. } = &item.constraint;
@@ -351,14 +351,14 @@ impl Elaborator {
             defaulted.extend(self.settled_early()?);
             return Err(explain_defaulted(d, &defaulted));
         }
-        self.row_metas.borrow_mut().clear();
+        self.attempt.row_metas.borrow_mut().clear();
         Ok(())
     }
 
     /// Where each row unknown set to the empty row by [`settling_empty`] was
     /// made, if it's still the empty row.
     fn settled_early(&self) -> Result<Vec<Span>> {
-        let metas = self.row_metas.borrow().clone();
+        let metas = self.attempt.row_metas.borrow().clone();
         let mut spans = Vec::new();
         for item in metas.iter().filter(|item| item.settled_empty) {
             if is_empty_row(&self.globals, &row_meta_value(self, item)?) {
@@ -372,7 +372,7 @@ impl Elaborator {
     /// unsolved, to the empty row. Where each one that was set was made (the
     /// calls whose row became empty).
     fn default_rows(&self) -> Result<Vec<Span>> {
-        let metas = std::mem::take(&mut *self.row_metas.borrow_mut());
+        let metas = std::mem::take(&mut *self.attempt.row_metas.borrow_mut());
         let mut defaulted = Vec::new();
         for item in metas {
             let cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn a_data_type_makes_the_row_empty_and_the_results_are_compared() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let (meta, left) = comp_in(g, nat(g));
             assert!(unify(g, 0, &left, &nat(g)).unwrap());
             assert!(solved_with(g, meta, Builtin::RowEmpty));
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn a_function_type_a_sort_and_a_variable_make_the_row_empty() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let nat_id = g.registry.data(Builtin::Nat).expect("Nat");
             let nat_term = Rc::new(Term::Data(nat_id, Vec::new()));
             let function = eval(
@@ -637,7 +637,7 @@ mod tests {
     #[test]
     fn a_comp_over_abilities_gives_its_row() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let no_op = data(g, Builtin::NoOp, Vec::new());
             let ops = data(g, Builtin::Plus, vec![nat(g), no_op]);
             // Closed, so that it can be part of `?e`'s solution.
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn a_comp_over_no_abilities_is_data() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let no_op = data(g, Builtin::NoOp, Vec::new());
             let comp = data(g, Builtin::Comp, vec![no_op, Value::var(0), nat(g)]);
             // `?e := Empty`, so the result is compared with the whole `Comp`.
@@ -674,7 +674,7 @@ mod tests {
     #[test]
     fn a_partial_computation_never_fits_a_row_variable() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let delay = g.builtins.primitive_id(Primitive::Delay).expect("Delay");
             let partial = applied(Head::Def(delay), vec![nat(g)]);
             let (meta, left) = comp_in(g, nat(g));
@@ -691,7 +691,7 @@ mod tests {
     fn a_quotient_type_is_apart_and_a_stuck_lift_is_put_aside() {
         use stitchwort_core::QuotForm;
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let quotient = applied(Head::Quot(QuotForm::Type), vec![nat(g), Value::var(0)]);
             let (meta, left) = comp_in(g, quotient.clone());
             assert!(unify(g, 1, &left, &quotient).unwrap());
@@ -712,7 +712,7 @@ mod tests {
     #[test]
     fn a_type_stuck_on_an_unknown_is_put_aside() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             // `rowOp ?f`: a definition stuck on an unknown.
             let row_op = g.registry.def(Builtin::RowOp).expect("rowOp");
             let unknown = applied(Head::Meta(g.new_meta(span())), Vec::new());

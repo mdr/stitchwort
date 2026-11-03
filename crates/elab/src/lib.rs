@@ -77,6 +77,7 @@ mod scope;
 pub mod search;
 mod shared;
 pub mod shown;
+mod state;
 pub mod timings;
 pub use kernel::{
     record_rejections as record_kernel_rejections, take_rejections as take_kernel_rejections,
@@ -312,29 +313,8 @@ pub struct Elaborator {
     include_files: Option<Rc<dyn project::IncludeFiles>>,
     include_locations: HashMap<stitchwort_syntax::FileId, String>,
     next_include_location: Option<String>,
-    /// Auto arguments still to be proved in the current declaration.
-    obligations: RefCell<Vec<auto::Obligation>>,
-    /// Row unknowns made for row-polymorphic functions' implicit row
-    /// parameters in the current declaration: defaulted to the empty row if
-    /// nothing else decides them (docs/proposals/effect-polymorphism.md
-    /// §5.C.1, D1123).
-    row_metas: RefCell<Vec<rows::RowMeta>>,
-    /// Row comparisons put aside until more is known (`unify_postponing`),
-    /// retried with the obligations.
-    row_constraints: RefCell<Vec<rows::Postponed>>,
-    /// Checks waiting for an unknown type to be known, resumed as it is
-    /// (`queue.rs`; docs/proposals/postponement.md).
-    pub(crate) queue: queue::Queue,
-    /// Comparisons that met a helper not lifted yet, compared again once it
-    /// is (`lift::await_helpers`).
-    awaiting_helpers: RefCell<Vec<lift::AwaitingHelpers>>,
-    /// Metavariables that literals made `Nat` in the current declaration.
-    defaulted: RefCell<Vec<numbers::Defaulted>>,
-    /// Record literals in the current declaration whose type the
-    /// field-name rule chose at its end (`records.rs`), and that type's
-    /// name: an implicit argument left unsolved after one is reported at it
-    /// (SW-946).
-    defaulted_records: RefCell<Vec<(Span, String)>>,
+    /// The inference state a failed attempt takes back (`state::Attempt`).
+    pub(crate) attempt: state::Attempt,
     /// The characters whose patterns became number patterns (by span), so
     /// a missing case can be reported as characters.
     char_patterns: RefCell<HashMap<Span, char>>,
@@ -371,18 +351,6 @@ pub struct Elaborator {
     /// declaration-level code (`&mut self`) adds them, so an attempt undone
     /// by `undo.rs` can't have added any.
     warnings: Vec<Diagnostic>,
-    /// `W-LAMBDA-SHADOW` warnings, found while checking a lambda, where only
-    /// a shared reference to the elaborator is at hand. One per lambda
-    /// (checking can reach the same lambda twice); drained with `warnings`.
-    /// Also others found while checking, such as `W-NO-EFFECT` (one per
-    /// statement line, dropped when an attempt is undone, `undo.rs`).
-    lambda_warnings: RefCell<Vec<Diagnostic>>,
-    /// Errors from the other bad branches of a case whose first bad branch's
-    /// error is the one returned. Where only a shared reference to the
-    /// elaborator is at hand; a definition that fails reports them after its
-    /// own error, and one that succeeds (the check was an attempt that was
-    /// undone) drops them.
-    pub(crate) branch_errors: RefCell<Vec<Diagnostic>>,
     /// Arms of the definition being checked that a case on an indexed family
     /// dropped because their constructor can't be there, with a reason, and
     /// the arms that were reached: those dropped and never reached are
@@ -452,9 +420,6 @@ pub struct Elaborator {
     /// The `D.All` generated for each container of the program a nested
     /// type is in, by container (`derive_induct.rs`).
     generated_alls: HashMap<DataId, DefId>,
-    /// Helpers elaborated in the current declaration and not yet lifted
-    /// (`lift.rs`). Part of the inference state `undo.rs` restores.
-    drafts: RefCell<Vec<lift::Draft>>,
     /// How many expressions have been elaborated standalone (the REPL's,
     /// `eval`'s): a `match` in one is lifted to a helper owned by
     /// `<input N>`, which keeps the helpers of different inputs apart.
@@ -485,9 +450,6 @@ pub struct Elaborator {
     /// (and where it is), whose erasure decides whether `match reify` may be
     /// used in it (D1147, `reify.rs`). `None` elsewhere.
     pub(crate) body_type: RefCell<Option<(Value, Span)>>,
-    /// The keys of the local definitions met in the current declaration,
-    /// for `E-DUPLICATE`. Part of the inference state `undo.rs` restores.
-    local_keys: RefCell<Vec<(String, Span)>>,
     /// Local definitions admitted after an attempt at their owner's body
     /// failed, by key, for the next attempt (`local.rs`).
     preadmitted: RefCell<HashMap<String, lift::Resolved>>,
@@ -513,45 +475,11 @@ pub struct Elaborator {
     /// Every local definition's key, so dot notation never finds one
     /// (docs/proposals/syntax-conveniences.md §3.6).
     pub(crate) helper_keys: stitchwort_core::collections::HashSet<String>,
-    /// The frozen metavariables standing for local definitions, with their
-    /// names, for messages.
-    pub(crate) local_metas: RefCell<HashMap<usize, String>>,
-    /// Names for unknowns, newest last: an unknown type solved with what an
-    /// alias unfolds to (`List Nat`) where the alias (`Counts`) was
-    /// expected, with the alias. Only dot notation reads it, for a variable
-    /// of that type (`counts.size`), so terms keep the unfolded type
-    /// (SW-858, D2092). A list, so an attempt undone truncates it.
-    pub(crate) meta_names: RefCell<Vec<(usize, Value)>>,
-    /// The dictionaries of operators (`==`, `+`, `<`, …) that weren't found
-    /// when the operator was elaborated, by metavariable: the method called
-    /// and the field of its interface it projects. One found to be a global
-    /// instance by the end is written as that instance's field, as it is
-    /// when found at once (`interfaces::specialise_operators`).
-    pub(crate) operator_dictionaries: RefCell<HashMap<usize, (DefId, usize)>>,
-    /// The dictionaries found in scope (§5.5 step 4: a local variable, or
-    /// a superclass path from one), by metavariable, each with the length
-    /// of `Globals::meta_trail` before it was solved, so a snapshot's
-    /// restore drops those it undoes. Such an operator dictionary stays
-    /// generic at the end, even when its solution (a `let`'s value, written
-    /// in place of the variable) has since become a global instance's
-    /// record: [`Elaborator::specialise_operators`].
-    pub(crate) local_dictionaries: RefCell<HashMap<usize, usize>>,
-    /// The parameter defaults of the local definitions in scope, by what
-    /// their name stands for (`defaults::LocalHead`).
-    pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
     /// The open goals, `?`, of the declaration being checked (`goals.rs`).
     pub(crate) goals: RefCell<goals::Goals>,
     /// The latest goals printed, as terms, by where their `?` is: what
     /// `search --at` searches (SW-989).
     pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
-    /// The metavariables standing for a `_` written where a proof goes:
-    /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
-    /// metavariables.
-    pub(crate) proof_holes: RefCell<stitchwort_core::collections::HashSet<usize>>,
-    /// The metavariables standing for the types of an unannotated lambda's
-    /// parameters, with the parameters' names, for messages. Cleared with
-    /// the metavariables.
-    pub(crate) parameter_metas: RefCell<HashMap<usize, String>>,
     /// While a `rewrite` rule is elaborated (`rewrite.rs`), each `_` it
     /// makes: the metavariable, the number of variables in scope, and the
     /// type expected there, so `rewrite` can prove the premises left open.
@@ -884,6 +812,14 @@ fn name(n: &ast::Name) -> Name {
 }
 
 impl Elaborator {
+    /// The unifier, on this elaborator's metavariables and attempt.
+    pub(crate) fn unifier(&self) -> unify::Unifier<'_> {
+        unify::Unifier {
+            g: &self.globals,
+            attempt: &self.attempt,
+        }
+    }
+
     pub fn new() -> Self {
         // Glued evaluation (docs/proposals/folded-calls.md) is on while
         // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
@@ -1109,7 +1045,7 @@ impl Elaborator {
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
         *self.owner.borrow_mut() = vec![key.clone()];
-        self.local_keys.borrow_mut().clear();
+        self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
             let (term, ty) = infer(&mut cx, expr)?;
@@ -1178,7 +1114,7 @@ impl Elaborator {
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
         *self.owner.borrow_mut() = vec![key.clone()];
-        self.local_keys.borrow_mut().clear();
+        self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<Term> {
             let (mut cx, target, mut binders) = self.enter_snapshot(snapshot, body.span())?;
             for (name, ty) in extra {
@@ -1227,7 +1163,7 @@ impl Elaborator {
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
         *self.owner.borrow_mut() = vec![key.clone()];
-        self.local_keys.borrow_mut().clear();
+        self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
             let (mut term, mut ty) = infer(&mut cx, expr)?;
@@ -1283,23 +1219,8 @@ impl Elaborator {
     pub(crate) fn clear_metas(&self) {
         self.flush_navigation();
         self.flush_goals();
-        self.proof_holes.borrow_mut().clear();
-        self.parameter_metas.borrow_mut().clear();
         self.globals.clear_metas();
-        self.drafts.borrow_mut().clear();
-        self.local_metas.borrow_mut().clear();
-        self.meta_names.borrow_mut().clear();
-        self.operator_dictionaries.borrow_mut().clear();
-        self.local_dictionaries.borrow_mut().clear();
-        self.local_defaults.borrow_mut().clear();
-        self.obligations.borrow_mut().clear();
-        self.row_metas.borrow_mut().clear();
-        self.row_constraints.borrow_mut().clear();
-        self.queue.clear();
-        crate::unify::forget_lossy_since(0);
-        self.awaiting_helpers.borrow_mut().clear();
-        self.defaulted.borrow_mut().clear();
-        self.defaulted_records.borrow_mut().clear();
+        self.attempt.reset();
         self.instance_steps.borrow_mut().clear();
     }
 
@@ -1382,9 +1303,9 @@ impl Elaborator {
     /// also a waiting `match`'s, stuck on it at the end (`matching.rs`).
     pub(crate) fn unsolved_error(&self, m: usize) -> Diagnostic {
         match m {
-            m if self.local_metas.borrow().contains_key(&m) => {
+            m if self.attempt.local_metas.borrow().contains_key(&m) => {
                 let span = self.globals.metas.borrow()[m].span;
-                let name = self.local_metas.borrow()[&m].clone();
+                let name = self.attempt.local_metas.borrow()[&m].clone();
                 Diagnostic::error(
                     "E-LOCAL-DEFINITION",
                     format!("the local definition `{name}` can't be used here"),
@@ -1417,9 +1338,9 @@ impl Elaborator {
             m if self.has_goal_at(self.globals.metas.borrow()[m].span) => {
                 goals::open_goal(self.globals.metas.borrow()[m].span)
             }
-            m if self.parameter_metas.borrow().contains_key(&m) => {
+            m if self.attempt.parameter_metas.borrow().contains_key(&m) => {
                 let span = self.globals.metas.borrow()[m].span;
-                let name = self.parameter_metas.borrow()[&m].clone();
+                let name = self.attempt.parameter_metas.borrow()[&m].clone();
                 Diagnostic::error(
                     "E-CANNOT-INFER",
                     format!("can't work out the type of this function's parameter `{name}`"),
@@ -1432,7 +1353,7 @@ impl Elaborator {
             }
             m => {
                 let span = self.globals.metas.borrow()[m].span;
-                let note = if self.proof_holes.borrow().contains(&m) {
+                let note = if self.attempt.proof_holes.borrow().contains(&m) {
                     // A proof left as `_` (D641).
                     "write `?` to see what's needed here"
                 } else {
@@ -1444,6 +1365,7 @@ impl Elaborator {
                 // the end, from its field names: what came after it needed
                 // the type sooner (SW-946).
                 let late = self
+                    .attempt
                     .defaulted_records
                     .borrow()
                     .iter()
@@ -2584,7 +2506,7 @@ impl Elaborator {
         loop {
             self.clear_metas();
             *self.owner.borrow_mut() = vec![key.to_string()];
-            self.local_keys.borrow_mut().clear();
+            self.attempt.local_keys.borrow_mut().clear();
             let result = attempt(self);
             self.owner.borrow_mut().clear();
             let d = match result {
@@ -2637,7 +2559,13 @@ impl Elaborator {
             self.module.item = Some(item);
             let result = self.signature(signature);
             out.extend(self.warnings.drain(..).map(|w| (item, w)));
-            out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
+            out.extend(
+                self.attempt
+                    .lambda_warnings
+                    .take()
+                    .into_iter()
+                    .map(|w| (item, w)),
+            );
             match result {
                 Ok(id) => ids.push(id),
                 Err(d) => out.push((item, d)),
@@ -2744,8 +2672,8 @@ impl Elaborator {
             self.module.item = Some(item);
             self.module.phase = Phase::Body;
             self.clear_metas();
-            self.branch_errors.take();
-            crate::unify::take_rigid_divergence();
+            self.attempt.branch_errors.take();
+            self.attempt.take_rigid_divergence();
             let mut checked =
                 self.in_body_of(*id, &ids, |e| e.lifted_body(*id, def_name, equations));
             // A body that moves a computation in its bare row `{e}` into a
@@ -2755,7 +2683,7 @@ impl Elaborator {
             // it couldn't be compared with while `e` may be partial. Only
             // those: any other failure would fail the same way again, so
             // isn't checked twice (SW-439).
-            if crate::unify::take_rigid_divergence()
+            if self.attempt.take_rigid_divergence()
                 && let Err(d) = &checked
                 && !undo::fatal(d)
             {
@@ -2763,7 +2691,7 @@ impl Elaborator {
                 match self.retype_total(signature, *id) {
                     Ok(true) => {
                         self.clear_metas();
-                        self.branch_errors.take();
+                        self.attempt.branch_errors.take();
                         checked =
                             self.in_body_of(*id, &ids, |e| e.lifted_body(*id, def_name, equations));
                         if checked.is_ok()
@@ -2785,7 +2713,7 @@ impl Elaborator {
                     out.push((item, d));
                     // The other bad branches of the case it failed in.
                     let mut seen: Vec<Span> = Vec::new();
-                    for d in self.branch_errors.take() {
+                    for d in self.attempt.branch_errors.take() {
                         let at = d.labels.first().map(|l| l.span);
                         let repeated = at.is_some_and(|at| seen.contains(&at))
                             || out.iter().any(|(_, o)| {
@@ -2800,7 +2728,13 @@ impl Elaborator {
                     }
                 }
             }
-            out.extend(self.lambda_warnings.take().into_iter().map(|w| (item, w)));
+            out.extend(
+                self.attempt
+                    .lambda_warnings
+                    .take()
+                    .into_iter()
+                    .map(|w| (item, w)),
+            );
         }
         if bodies.len() < members.len() {
             return out;
@@ -3008,7 +2942,7 @@ impl Elaborator {
         }
         let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
         *self.owner.borrow_mut() = vec![key.to_string()];
-        self.local_keys.borrow_mut().clear();
+        self.attempt.local_keys.borrow_mut().clear();
         // A row variable used only as a row's tail, `{e}` or `{A | e}`, gets
         // a divergence index beside it, so it may stand for a partial row
         // (docs/proposals/partial-stage-3.md §2.2, D1214;
@@ -4527,7 +4461,7 @@ fn report_failed_branches(cx: &Ctx, failed: Vec<Diagnostic>) -> Result<()> {
     let Some(first) = failed.next() else {
         return Ok(());
     };
-    cx.e.branch_errors.borrow_mut().extend(failed);
+    cx.e.attempt.branch_errors.borrow_mut().extend(failed);
     Err(first)
 }
 

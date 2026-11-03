@@ -710,7 +710,8 @@ fn update_match(
     // The helper the `match` is lifted to is shown as the update.
     if let (Term::Meta(meta), _) = term.spine()
         && let Some(draft) =
-            cx.e.drafts
+            cx.e.attempt
+                .drafts
                 .borrow_mut()
                 .iter_mut()
                 .rev()

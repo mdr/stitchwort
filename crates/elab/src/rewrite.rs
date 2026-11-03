@@ -437,7 +437,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
     let g = cx.g();
     let rule_metas = g.metas.borrow().len();
     let outer = cx.e.hole_log.replace(Some(Vec::new()));
-    let queued = cx.e.queue.len();
+    let queued = cx.e.attempt.queue.len();
     let inferred = infer(cx, &rule.proof).and_then(|(proof, ty)| insert(cx, proof, ty));
     let logged = cx.e.hole_log.replace(outer).unwrap_or_default();
     let (mut proof, mut ty) = inferred?;

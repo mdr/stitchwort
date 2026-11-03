@@ -4,12 +4,14 @@
 //! solutions it made before failing. So anything that tries one way and,
 //! if it doesn't work, another, runs the first inside a transaction.
 //!
-//! The elaborator's inference state, all of it reachable from a [`Ctx`]:
+//! The elaborator's inference state, all of it reachable from a [`Ctx`].
+//! Most of it is in [`crate::state::Attempt`], whose `mark` and `restore`
+//! name every field; the rest is listed in [`Snapshot`]:
 //! - the metavariables (`Globals::metas`): their solutions are undone from
 //!   `Globals::meta_trail`, and those created since are dropped;
 //! - lifted helpers not yet resolved (`lift.rs`), and the local
 //!   definitions' keys met so far (`local.rs`);
-//! - pending auto obligations and defaulted-literal records (`Elaborator`);
+//! - pending auto obligations and defaulted-literal records;
 //! - the queued checks and the resumption log of their states
 //!   (`queue.rs`): an attempt undone takes back both the checks it queued
 //!   and the resumptions it made, with the terms they filled in;
@@ -17,7 +19,12 @@
 //!   (`nav.rs`), which may mention the metavariables dropped;
 //! - the open goals noted (`goals.rs`), and the `_`s noted as proofs, for
 //!   the same reason;
-//! - the local context and the current span.
+//! - the local context and the current span;
+//! - the unifier's note of solutions made by comparing arguments
+//!   (`Attempt::lossy`), cut with the trail. Its other state is set around
+//!   a single comparison by guards, which an attempt is wholly inside or
+//!   outside of, except `Attempt::rigid_divergence`, which an undone
+//!   attempt keeps (see the field).
 //!
 //! Warnings mostly aren't part of it: declaration-level code adds most of
 //! them (it needs `&mut Elaborator`, which a `Ctx` doesn't have), and those
@@ -41,29 +48,20 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Ctx;
 use crate::check::{Mark, Result};
+use crate::state::AttemptMark;
 
-/// The inference state at some point, to return to with [`Snapshot::restore`].
+/// The inference state at some point, to return to with [`Snapshot::restore`]:
+/// the [`Attempt`](crate::state::Attempt)'s mark, and what is still outside
+/// it (the metavariables in `Globals`, the local types and goals noted for
+/// presentation, the local context and span).
 pub(crate) struct Snapshot {
     mark: Mark,
     span: Span,
     metas: usize,
     trail: usize,
-    obligations: usize,
-    row_metas: usize,
-    row_constraints: usize,
-    queue: crate::queue::Mark,
-    awaiting_helpers: usize,
-    defaulted: usize,
-    defaulted_records: usize,
-    drafts: usize,
-    local_keys: usize,
+    attempt: AttemptMark,
     local_types: usize,
-    meta_names: usize,
     goals: usize,
-    branch_errors: usize,
-    /// How many warnings were noted: a `W-NO-EFFECT` found in an attempt
-    /// undone is dropped, since it was judged with what the attempt assumed.
-    noted_warnings: usize,
 }
 
 impl Snapshot {
@@ -74,20 +72,9 @@ impl Snapshot {
             span: cx.span,
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
-            obligations: cx.e.obligations.borrow().len(),
-            row_metas: cx.e.row_metas.borrow().len(),
-            row_constraints: cx.e.row_constraints.borrow().len(),
-            queue: cx.e.queue.mark(),
-            awaiting_helpers: cx.e.awaiting_helpers.borrow().len(),
-            defaulted: cx.e.defaulted.borrow().len(),
-            defaulted_records: cx.e.defaulted_records.borrow().len(),
-            drafts: cx.e.drafts.borrow().len(),
-            local_keys: cx.e.local_keys.borrow().len(),
+            attempt: cx.e.attempt.mark(),
             local_types: cx.e.pending_local_types(),
-            meta_names: cx.e.meta_names.borrow().len(),
             goals: cx.e.pending_goals(),
-            branch_errors: cx.e.branch_errors.borrow().len(),
-            noted_warnings: cx.e.lambda_warnings.borrow().len(),
         }
     }
 
@@ -100,13 +87,13 @@ impl Snapshot {
     /// How many number literals had been made `Nat` at once
     /// (`numbers::Defaulted`).
     pub(crate) fn defaulted(&self) -> usize {
-        self.defaulted
+        self.attempt.defaulted()
     }
 
     /// Whether local definitions or `match`es have been drafted for lifting
     /// (`lift.rs`) since the snapshot was taken.
     pub(crate) fn drafted_since(&self, cx: &Ctx) -> bool {
-        cx.e.drafts.borrow().len() > self.drafts
+        cx.e.attempt.drafts.borrow().len() > self.attempt.drafts()
     }
 
     /// The metavariables solved (or re-solved) since the snapshot was taken.
@@ -140,47 +127,11 @@ impl Snapshot {
             g.print_labels
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
-            cx.e.local_metas.borrow_mut().retain(|m, _| *m < self.metas);
-            cx.e.operator_dictionaries
-                .borrow_mut()
-                .retain(|m, _| *m < self.metas);
-            cx.e.local_dictionaries
-                .borrow_mut()
-                .retain(|_, trail| *trail < self.trail);
-            cx.e.local_defaults
-                .borrow_mut()
-                .retain(|h, _| h.before(self.metas));
-            cx.e.proof_holes.borrow_mut().retain(|m| *m < self.metas);
-            cx.e.parameter_metas
-                .borrow_mut()
-                .retain(|m, _| *m < self.metas);
-            crate::unify::forget_lossy_since(self.trail);
         }
-        cx.e.obligations.borrow_mut().truncate(self.obligations);
-        cx.e.row_metas.borrow_mut().truncate(self.row_metas);
-        cx.e.row_constraints
-            .borrow_mut()
-            .truncate(self.row_constraints);
-        cx.e.queue.restore(self.queue, g, self.metas);
-        cx.e.awaiting_helpers
-            .borrow_mut()
-            .truncate(self.awaiting_helpers);
-        cx.e.defaulted.borrow_mut().truncate(self.defaulted);
-        cx.e.defaulted_records
-            .borrow_mut()
-            .truncate(self.defaulted_records);
-        cx.e.drafts.borrow_mut().truncate(self.drafts);
-        cx.e.local_keys.borrow_mut().truncate(self.local_keys);
+        cx.e.attempt
+            .restore(self.attempt, g, self.metas, self.trail);
         cx.e.drop_local_types_since(self.local_types);
-        cx.e.meta_names.borrow_mut().truncate(self.meta_names);
         cx.e.drop_goals_since(self.goals);
-        // The errors of other bad branches of an attempt undone here.
-        cx.e.branch_errors.borrow_mut().truncate(self.branch_errors);
-        let mut i = 0;
-        cx.e.lambda_warnings.borrow_mut().retain(|w| {
-            i += 1;
-            i <= self.noted_warnings || w.code != crate::no_effect::CODE
-        });
         cx.reset(self.mark);
         cx.span = self.span;
     }
@@ -228,7 +179,7 @@ pub(crate) fn unify(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
 /// [`crate::unify::unify_solving_arguments`], undoing what it solved if it fails.
 pub(crate) fn unify_solving_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     Ok(transaction(cx, |cx| {
-        Ok(crate::unify::unify_solving_arguments(cx.g(), cx.level(), a, b)?.then_some(()))
+        Ok(crate::unify::unify_solving_arguments(&cx.u(), cx.level(), a, b)?.then_some(()))
     })?
     .is_some())
 }
@@ -330,7 +281,7 @@ mod tests {
         let found: Option<()> = transaction(&mut cx, |cx| {
             cx.bind("y", ty(0));
             crate::check::implicit_arg(cx, Icit::Auto, &ty(0));
-            assert_eq!(cx.e.obligations.borrow().len(), 1);
+            assert_eq!(cx.e.attempt.obligations.borrow().len(), 1);
             cx.g().budget.step().unwrap();
             spent.set(cx.g().budget.total_work());
             Ok(None)
@@ -339,7 +290,7 @@ mod tests {
         assert!(found.is_none());
         assert_eq!(cx.level(), level);
         assert!(cx.lookup("y").is_none());
-        assert!(cx.e.obligations.borrow().is_empty());
+        assert!(cx.e.attempt.obligations.borrow().is_empty());
         assert!(cx.g().metas.borrow().is_empty());
         assert!(spent.get() > work);
         assert_eq!(cx.g().budget.total_work(), spent.get());

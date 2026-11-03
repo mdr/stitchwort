@@ -932,7 +932,10 @@ pub(crate) fn attempt(
             let trail = g.meta_trail.borrow().len();
             let solved = solve(cx, &placeholder, &value)?;
             if let Term::Meta(m) = ob.meta.spine().0 {
-                cx.e.local_dictionaries.borrow_mut().insert(*m, trail);
+                cx.e.attempt
+                    .local_dictionaries
+                    .borrow_mut()
+                    .insert(*m, trail);
             }
             return Ok(solved);
         }
@@ -1031,7 +1034,7 @@ pub(crate) fn attempt(
             InstanceParam::Head(k) => (cx.quote(&args[*k])?, args[*k].clone()),
             InstanceParam::Prerequisite => {
                 let meta = implicit_arg(cx, Icit::Auto, &dom);
-                if let Some(last) = cx.e.obligations.borrow_mut().last_mut() {
+                if let Some(last) = cx.e.attempt.obligations.borrow_mut().last_mut() {
                     last.tree = ob.tree;
                 }
                 let value = cx.eval(&meta)?;
@@ -1424,7 +1427,7 @@ impl Elaborator {
         };
         let root = *root;
         let tree = {
-            let obligations = self.obligations.borrow();
+            let obligations = self.attempt.obligations.borrow();
             match obligations
                 .iter()
                 .find(|ob| matches!(ob.meta.spine().0, Term::Meta(m) if *m == root))
@@ -1441,6 +1444,7 @@ impl Elaborator {
         loop {
             // The next obligation of this tree not tried yet.
             let ob = self
+                .attempt
                 .obligations
                 .borrow()
                 .iter()
@@ -1605,7 +1609,7 @@ impl Elaborator {
         }
         let mut ready = Vec::new();
         {
-            let obligations = self.obligations.borrow();
+            let obligations = self.attempt.obligations.borrow();
             for ob in obligations.iter() {
                 let Term::Meta(m) = ob.meta.spine().0 else {
                     continue;
@@ -1789,7 +1793,7 @@ pub(crate) fn method_call(
 /// ([`Elaborator::specialise_operators`]).
 fn note_operator_dictionary(cx: &Ctx, meta: &Term, method: DefId, field: usize) {
     if let Term::Meta(m) = meta.spine().0 {
-        (cx.e.operator_dictionaries.borrow_mut()).insert(*m, (method, field));
+        (cx.e.attempt.operator_dictionaries.borrow_mut()).insert(*m, (method, field));
     }
 }
 
@@ -1802,7 +1806,7 @@ impl Elaborator {
     /// y`). So the term doesn't depend on when the dictionary was found
     /// (docs/proposals/postponement.md §5.10). `None` if there's none.
     pub(crate) fn specialise_operators(&self, term: &Term, depth: usize) -> Result<Option<Term>> {
-        if self.operator_dictionaries.borrow().is_empty() {
+        if self.attempt.operator_dictionaries.borrow().is_empty() {
             return Ok(None);
         }
         let failed = std::cell::Cell::new(None);
@@ -1831,9 +1835,9 @@ impl Elaborator {
             let Term::Meta(m) = dict.spine().0 else {
                 return None;
             };
-            let (noted, field) = *self.operator_dictionaries.borrow().get(m)?;
+            let (noted, field) = *self.attempt.operator_dictionaries.borrow().get(m)?;
             // One found in scope stays generic, whatever its `let`'s value.
-            if noted != *method || self.local_dictionaries.borrow().contains_key(m) {
+            if noted != *method || self.attempt.local_dictionaries.borrow().contains_key(m) {
                 return None;
             }
             match self.projected(dict, field, depth + under) {
