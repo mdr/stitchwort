@@ -4169,7 +4169,7 @@
     {
       "id": 1134,
       "title": "Selector inputs: fix the stale time of lsp workspace_symbols_cover_namespaces_not_checked_yet; let EXAMPLES take a list",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -4239,7 +4239,7 @@
     {
       "id": 1139,
       "title": "Put task test:features in a tier",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -4295,7 +4295,7 @@
     {
       "id": 1143,
       "title": "std definitions now open as file: URIs when std is read from a directory: check what assumes stitchwort-std:",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
