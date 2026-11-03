@@ -16,7 +16,7 @@ use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_cli::driver::{Session, par_map, tier_sample};
+use stitchwort_cli::driver::{Session, par_map_with, tier_sample};
 use stitchwort_cli::render::render;
 use stitchwort_core::hash::data_hash;
 use stitchwort_core::registry::Builtin;
@@ -128,16 +128,28 @@ const STACK: usize = 16 * 1024 * 1024;
 
 /// The generated module and declarations are snapshot-tested, so any change to
 /// the output shows up in review. Checking the examples is nearly all of the
-/// time, so they are checked in parallel; generating and comparing take
-/// a fraction of a second.
+/// time, so they are checked in parallel, each worker loading the core once
+/// and rewinding to it for each example (most of an example's time is the core
+/// load; a rewound session gives what a fresh one does, so the snapshots are
+/// the same); generating and comparing take a fraction of a second.
 #[test]
 fn generated_code_is_stable() {
-    let outputs = par_map(STACK, &examples().paths(), |path| {
-        let (name, _, session) = check_example(path);
-        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
-            .expect("extraction succeeds");
-        (name, output)
-    });
+    let outputs = par_map_with(
+        STACK,
+        &examples().paths(),
+        || {
+            let session = Session::new();
+            let mark = session.mark();
+            (session, mark)
+        },
+        |(session, mark), path| {
+            session.rewind(mark);
+            let name = read_and_load(session, path).0;
+            let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+                .expect("extraction succeeds");
+            (name, output)
+        },
+    );
     for (name, output) in outputs {
         let stem = name.trim_end_matches(".sw");
         insta::assert_snapshot!(format!("{stem}.js"), output.js);
@@ -213,9 +225,16 @@ struct Examples(Vec<(PathBuf, std::cell::OnceCell<(String, String, Session)>)>);
 /// Checks the example at `path`, panicking with its diagnostics if it
 /// doesn't check.
 fn check_example(path: &Path) -> (String, String, Session) {
+    let mut session = Session::new();
+    let (name, text) = read_and_load(&mut session, path);
+    (name, text, session)
+}
+
+/// Loads the example at `path` into `session`, panicking with its diagnostics
+/// if it doesn't check; its file name and text.
+fn read_and_load(session: &mut Session, path: &Path) -> (String, String) {
     let name = path.file_name().unwrap().to_string_lossy().to_string();
     let text = std::fs::read_to_string(path).expect("readable example");
-    let mut session = Session::new();
     if let Err(diagnostics) = session.load(&name, &text) {
         let rendered: String = diagnostics
             .iter()
@@ -223,7 +242,7 @@ fn check_example(path: &Path) -> (String, String, Session) {
             .collect();
         panic!("{name} doesn't check:\n{rendered}");
     }
-    (name, text, session)
+    (name, text)
 }
 
 impl Examples {
