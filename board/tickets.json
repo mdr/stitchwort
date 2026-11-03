@@ -3817,14 +3817,14 @@
     },
     {
       "id": 1109,
-      "title": "Load std faster for eager-session tests (on-disk snapshot of the loaded library?)",
+      "title": "Tests load std from the check cache by default (a per-build cache under target/); a named few check it from source",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1104 item 4: Session::eager_for_stack costs ~9.0 CPU-s per load in release; 136 tests in 17 driver binaries load it, ~1,220 CPU-s (13% of the daily tier's CPU). Sharing per binary doesn't work under nextest (a process per test), and Session isn't Clone. Options: an on-disk snapshot or cache of the loaded library, or fewer test processes.",
+      "body": "SW-1104 item 4: Session::eager_for_stack costs ~9.0 CPU-s per load in release; 136 tests in 17 driver binaries load it, ~1,220 CPU-s (13% of the daily tier's CPU). Sharing per binary doesn't work under nextest (a process per test), and Session isn't Clone. Options: an on-disk snapshot or cache of the loaded library, or fewer test processes.\n\nD2268 (Matt, 3 Nov): yes, tests should by default load std from the check cache. First measure a std replay against a full eager load; tests that must check std from source (std_library, hash_stability prelude, audit, check_cache, rewind) are named. A whole-library on-disk snapshot stays a later option after the state migration. Sonnet, est. 60 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
