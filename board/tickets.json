@@ -1,5 +1,5 @@
 {
-  "next": 1122,
+  "next": 1127,
   "tickets": [
     {
       "id": 47,
@@ -3937,7 +3937,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3994,6 +3994,76 @@
         "editor"
       ],
       "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1122,
+      "title": "Native layout probe reads uninitialised padding as an integer (probe_functions, crates/rt/src/native_abi.rs)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Review §1.1: reads the first eight bytes of a Fun as u64 at ~lines 294 and 315; bytes 1-3 are padding. Undefined behaviour in a safety check. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1123,
+      "title": "Compiler/test fingerprint omits the fast runtime's source",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Review §1.2: a rebuilt runtime can reuse results produced by older runtime code (traced through the fast test-cache lookup). From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1124,
+      "title": "Native compilation exposes borrowed raw pointers through an owning-looking safe API",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Review §1.3: safe Rust can construct an executor whose tables point into a dropped image. Fix the unsafe boundary: compiled code retains or explicitly borrows its backing storage. Also review the macOS JIT write-protection state declared Send (§4.3). From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1125,
+      "title": "Background proof actions: document-version guard and a bounded worker pool",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Review §1.4: suggestions can refer to old text; repeated requests start overlapping expensive searches. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1126,
+      "title": "Kernel environment mutable outside kernel admission: make final logical declarations read-only outside the kernel (design note first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "Review §1.5 and §3.3: a safe-Rust probe changed a final declaration's type and admitted a false theorem (not reachable from source). Route logical changes through admission; remove production availability of test-only bypasses. Touches the trust boundary: design note in docs/proposals/ and Matt's decisions before implementation. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
