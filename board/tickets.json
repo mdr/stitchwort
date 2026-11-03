@@ -4183,7 +4183,7 @@
     {
       "id": 1135,
       "title": "equations_done may be dropped by check-cache replay like SW-1128's tables",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4211,7 +4211,7 @@
     {
       "id": 1137,
       "title": "Design note: the elaborator's state (lifetimes, persistent structures or not, and every workflow over it)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4253,7 +4253,7 @@
     {
       "id": 1140,
       "title": "total_rows probably dropped by check-cache replay (like SW-1128)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
