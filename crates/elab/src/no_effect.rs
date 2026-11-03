@@ -82,7 +82,7 @@ pub(crate) fn pure_as_plain_calls(cx: &mut Ctx, expr: &Expr) -> Result<Option<Va
         return Ok(None);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let first_new = cx.e.row_constraints.borrow().len();
+    let first_new = cx.e.attempt.row_constraints.borrow().len();
     let first_meta = cx.g().metas.borrow().len();
     let found = crate::check::infer_value(cx, expr).and_then(|(_, ty)| {
         while cx.e.retry_rows_from(first_new)? {}
@@ -190,7 +190,7 @@ pub(crate) fn warn(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
         }
         _ => "remove the line, or bind its value with `let` if it's meant for later".to_string(),
     };
-    let mut seen = cx.e.lambda_warnings.borrow_mut();
+    let mut seen = cx.e.attempt.lambda_warnings.borrow_mut();
     if seen
         .iter()
         .any(|w| w.code == CODE && w.labels.first().is_some_and(|l| l.span == span))

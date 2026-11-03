@@ -399,12 +399,12 @@ pub(crate) fn warn_unreachable<T>(
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
     let saved = cx.e.arm_reach.take();
-    let errors = cx.e.branch_errors.borrow().len();
+    let errors = cx.e.attempt.branch_errors.borrow().len();
     let result = f(cx);
     let result = crate::missing::merge(cx, errors, result);
     let here = cx.e.arm_reach.replace(saved);
     if result.is_ok() {
-        let mut warnings = cx.e.lambda_warnings.borrow_mut();
+        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (span, why) in here.dropped {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));

@@ -1327,7 +1327,7 @@ pub(crate) fn pure_first(
         return Ok(PureFirst::Run(None));
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let first_new = cx.e.row_constraints.borrow().len();
+    let first_new = cx.e.attempt.row_constraints.borrow().len();
     // The row comparisons the expression put aside are retried before the
     // row is looked at: a callback whose type was blocked (`Answer ?flag`)
     // may have become a computation with abilities once later arguments were
@@ -1885,7 +1885,8 @@ fn fresh_function_type_in(
     // Noted now, not only once the lambda is checked: a case split in its
     // body unpins it from the matched variable ([`unpin_parameter_types`]).
     if let Value::Neutral(Head::Meta(m), _) = force(cx.g(), dom_value.clone())? {
-        cx.e.parameter_metas
+        cx.e.attempt
+            .parameter_metas
             .borrow_mut()
             .insert(m, name.to_string());
     }
@@ -2053,7 +2054,8 @@ fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
     let mut rest = force(g, ty.clone())?;
     while let Value::Pi(name, _, dom, cod) = rest {
         if let Value::Neutral(Head::Meta(m), _) = force(g, (*dom).clone())? {
-            cx.e.parameter_metas
+            cx.e.attempt
+                .parameter_metas
                 .borrow_mut()
                 .insert(m, name.to_string());
         }
@@ -2080,14 +2082,14 @@ pub(crate) fn unpin_parameter_types(cx: &Ctx, level: usize) -> Result<()> {
         let Value::Neutral(Head::Meta(m), _) = force(g, ty.clone())? else {
             continue;
         };
-        let Some(name) = cx.e.parameter_metas.borrow().get(&m).cloned() else {
+        let Some(name) = cx.e.attempt.parameter_metas.borrow().get(&m).cloned() else {
             continue;
         };
         crate::unify::prune_variable(g, ty, level)?;
         if let Value::Neutral(Head::Meta(m2), _) = force(g, ty.clone())?
             && m2 != m
         {
-            cx.e.parameter_metas.borrow_mut().insert(m2, name);
+            cx.e.attempt.parameter_metas.borrow_mut().insert(m2, name);
         }
     }
     Ok(())
@@ -2316,7 +2318,7 @@ fn apply_args_postponing(
     let (mut term, mut ty) = head;
     // The checks queued from here on are this application's (`queue.rs`),
     // and so are the unknowns made from here on.
-    let queued_from = cx.e.queue.len();
+    let queued_from = cx.e.attempt.queue.len();
     let metas_from = cx.g().metas.borrow().len();
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
@@ -2635,7 +2637,7 @@ fn check_searches_last(
                 || crate::undo::unify_solving_arguments(cx, ty, expected)?;
         }
     }
-    let own: Vec<usize> = (cx.e.obligations.borrow().iter())
+    let own: Vec<usize> = (cx.e.attempt.obligations.borrow().iter())
         .filter_map(|ob| match ob.meta.spine().0 {
             Term::Meta(m) if *m >= metas_from => Some(*m),
             _ => None,
@@ -3327,15 +3329,18 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
         if let Some(ignorable) = ignorable_arguments(cx, ty) {
             cx.g().set_meta_ignorable(tree, ignorable);
         }
-        cx.e.obligations.borrow_mut().push(crate::auto::Obligation {
-            env: cx.env.clone(),
-            types: cx.types.clone(),
-            names: cx.names.clone(),
-            goal: ty.clone(),
-            meta: meta.clone(),
-            span: cx.span,
-            tree,
-        });
+        cx.e.attempt
+            .obligations
+            .borrow_mut()
+            .push(crate::auto::Obligation {
+                env: cx.env.clone(),
+                types: cx.types.clone(),
+                names: cx.names.clone(),
+                goal: ty.clone(),
+                meta: meta.clone(),
+                span: cx.span,
+                tree,
+            });
     }
     meta
 }
@@ -3693,7 +3698,7 @@ fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
             None => return Ok(()),
         },
     };
-    cx.e.meta_names.borrow_mut().push((m, name));
+    cx.e.attempt.meta_names.borrow_mut().push((m, name));
     Ok(())
 }
 
@@ -3734,7 +3739,7 @@ pub(crate) fn check_value(
             if crate::patlet::proposition(cx, &expected)?
                 && let Term::Meta(m) = hole.spine().0
             {
-                cx.e.proof_holes.borrow_mut().insert(*m);
+                cx.e.attempt.proof_holes.borrow_mut().insert(*m);
             }
             Ok(hole)
         }
@@ -4738,12 +4743,12 @@ pub(crate) fn decision_blocker(cx: &Ctx, term: &Term, depth: Depth) -> Result<Op
         return Ok(Some(placeholder));
     }
     let e = cx.e;
-    if e.operator_dictionaries.borrow().is_empty() {
+    if e.attempt.operator_dictionaries.borrow().is_empty() {
         return Ok(None);
     }
     let unsolved = || -> Result<Vec<usize>> {
         let zonked = e.zonk_keeping(term, cx.level(), &|_| true)?;
-        let noted = e.operator_dictionaries.borrow();
+        let noted = e.attempt.operator_dictionaries.borrow();
         Ok(zonked
             .subterms()
             .filter_map(|(t, _)| match t {
@@ -5223,7 +5228,7 @@ fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstN
     if !names_a_function(cx, &first.text)? {
         return Ok(None);
     }
-    let mut seen = cx.e.lambda_warnings.borrow_mut();
+    let mut seen = cx.e.attempt.lambda_warnings.borrow_mut();
     if !seen
         .iter()
         .any(|w| w.labels.first().is_some_and(|l| l.span == first.span))

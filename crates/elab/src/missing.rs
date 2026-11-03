@@ -99,13 +99,13 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     };
     let mut all = vec![first];
     {
-        let mut extra = cx.e.branch_errors.borrow_mut();
+        let mut extra = cx.e.attempt.branch_errors.borrow_mut();
         let at = start.min(extra.len());
         all.extend(extra.drain(at..));
     }
     let mut kept = fold(all).into_iter();
     let first = kept.next().expect("the error returned");
-    cx.e.branch_errors.borrow_mut().extend(kept);
+    cx.e.attempt.branch_errors.borrow_mut().extend(kept);
     Err(first)
 }
 

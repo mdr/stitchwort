@@ -192,7 +192,7 @@ pub(crate) fn draft_with(
     for level in spine(&cx.env[..base], &cx.lets) {
         call = Term::app(call, Term::Var(base - 1 - level));
     }
-    cx.e.drafts.borrow_mut().push(Draft {
+    cx.e.attempt.drafts.borrow_mut().push(Draft {
         meta,
         span,
         env: cx.env.clone(),
@@ -263,21 +263,30 @@ pub(crate) fn await_helpers(
     expected: &Value,
     failure: Failure,
 ) -> Result<bool> {
-    let drafted: HashSet<usize> = cx.e.drafts.borrow().iter().map(|d| d.meta).collect();
+    let drafted: HashSet<usize> =
+        cx.e.attempt
+            .drafts
+            .borrow()
+            .iter()
+            .map(|d| d.meta)
+            .collect();
     if drafted.is_empty() {
         return Ok(false);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
     if crate::unify::unify_awaiting_helpers(cx.g(), cx.level(), found, expected, drafted)? {
-        cx.e.awaiting_helpers.borrow_mut().push(AwaitingHelpers {
-            env: cx.env.clone(),
-            types: cx.types.clone(),
-            names: cx.names.clone(),
-            span: cx.span,
-            found: found.clone(),
-            expected: expected.clone(),
-            failure,
-        });
+        cx.e.attempt
+            .awaiting_helpers
+            .borrow_mut()
+            .push(AwaitingHelpers {
+                env: cx.env.clone(),
+                types: cx.types.clone(),
+                names: cx.names.clone(),
+                span: cx.span,
+                found: found.clone(),
+                expected: expected.clone(),
+                failure,
+            });
         return Ok(true);
     }
     snapshot.restore(cx);
@@ -287,7 +296,7 @@ pub(crate) fn await_helpers(
 /// Whether `term` mentions the frozen metavariable of a helper not lifted
 /// yet.
 pub(crate) fn mentions_draft(cx: &Ctx, term: &Term) -> bool {
-    let drafts = cx.e.drafts.borrow();
+    let drafts = cx.e.attempt.drafts.borrow();
     !drafts.is_empty()
         && term
             .subterms()
@@ -298,7 +307,7 @@ impl Elaborator {
     /// Makes again the comparisons [`await_helpers`] kept, now that the
     /// helpers are lifted: one that fails is an error.
     pub(crate) fn compare_awaiting_helpers(&self) -> Result<()> {
-        let awaiting = std::mem::take(&mut *self.awaiting_helpers.borrow_mut());
+        let awaiting = std::mem::take(&mut *self.attempt.awaiting_helpers.borrow_mut());
         for item in awaiting {
             let mut cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
             if !crate::undo::unify(&mut cx, &item.found, &item.expected)? {
@@ -586,19 +595,25 @@ impl Elaborator {
         // A queued check may hold a `match`, drafted when it is resumed
         // (`queue.rs`, W2).
         self.resume_before_lifting()?;
-        if self.drafts.borrow().is_empty() {
+        if self.attempt.drafts.borrow().is_empty() {
             return Ok(Vec::new());
         }
         self.solve_obligations()?;
         self.check_motives_later()?;
-        let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
+        let drafts = std::mem::take(&mut *self.attempt.drafts.borrow_mut());
         Ok(self.resolve_batch(owner, drafts, join)?.0)
     }
 
     /// The motive checks left for lifting ([`Draft::motive_later`]), now
     /// that what the `match`es' alternatives worked out is known.
     fn check_motives_later(&self) -> Result<()> {
-        for d in self.drafts.borrow().iter().filter(|d| d.motive_later) {
+        for d in self
+            .attempt
+            .drafts
+            .borrow()
+            .iter()
+            .filter(|d| d.motive_later)
+        {
             crate::matching::check_motive_when_lifted(self, d)?;
         }
         Ok(())
@@ -612,12 +627,12 @@ impl Elaborator {
     pub(crate) fn lift_signature(&mut self, owner: &str) -> Result<()> {
         self.signature_matches.remove(owner);
         self.resume_before_lifting()?;
-        if self.drafts.borrow().is_empty() {
+        if self.attempt.drafts.borrow().is_empty() {
             return Ok(());
         }
         self.solve_obligations()?;
         self.check_motives_later()?;
-        let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
+        let drafts = std::mem::take(&mut *self.attempt.drafts.borrow_mut());
         let mut counts: HashMap<String, usize> = HashMap::default();
         for prefix in match_prefixes(owner, &drafts).into_iter().flatten() {
             *counts.entry(prefix).or_default() += 1;

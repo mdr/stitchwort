@@ -279,7 +279,7 @@ pub(crate) fn short_circuit(
             // type afterwards; if it doesn't, it's checked again assuming
             // `a`, in case a search made while checking it needed `a`.
             let level = cx.level();
-            let before = cx.e.obligations.borrow().len();
+            let before = cx.e.attempt.obligations.borrow().len();
             let first = crate::undo::attempt(cx, |cx| {
                 let mark = cx.mark();
                 cx.bind("_", unit.clone());
@@ -291,7 +291,7 @@ pub(crate) fn short_circuit(
                 Some(b) => {
                     if needs_proofs(cx, before)? {
                         let assumption = assumption(cx, &prop, and)?;
-                        for ob in &mut cx.e.obligations.borrow_mut()[before..] {
+                        for ob in &mut cx.e.attempt.obligations.borrow_mut()[before..] {
                             if ob.types.len() > level {
                                 ob.types[level] = assumption.clone();
                             }
@@ -375,7 +375,7 @@ fn assumption(cx: &mut Ctx, prop: &Term, and: bool) -> Result<Value> {
 /// an auto argument (not an instance to find), whose search sees the
 /// hypotheses in scope.
 fn needs_proofs(cx: &Ctx, before: usize) -> Result<bool> {
-    let goals: Vec<Value> = cx.e.obligations.borrow()[before..]
+    let goals: Vec<Value> = cx.e.attempt.obligations.borrow()[before..]
         .iter()
         .map(|ob| ob.goal.clone())
         .collect();

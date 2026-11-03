@@ -2079,12 +2079,12 @@ impl Elaborator {
         if d.columns.is_empty() && row.chain.is_empty() {
             return self.body_shape(d);
         }
-        let drafts = self.drafts.borrow().len();
+        let drafts = self.attempt.drafts.borrow().len();
         let shape = self.probe_row_in(d, row, span);
         // A `match` below the arm is compiled into the tree, as it was in
         // the definition; were one lifted instead, its helper is dropped.
-        if self.drafts.borrow().len() != drafts {
-            self.drafts.borrow_mut().truncate(drafts);
+        if self.attempt.drafts.borrow().len() != drafts {
+            self.attempt.drafts.borrow_mut().truncate(drafts);
             return skip("its `match`es couldn't be compiled again as the definition's were");
         }
         shape
@@ -2143,8 +2143,8 @@ impl Elaborator {
             end: span.end,
         };
         let nav = self.nav.take();
-        let lambda_warnings = self.lambda_warnings.borrow().len();
-        let branch_errors = self.branch_errors.borrow().len();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
         *self.arm_probe.borrow_mut() = ProbeState {
             wanted: Some(probe_span),
             found: None,
@@ -2237,8 +2237,14 @@ impl Elaborator {
             }
         })();
         self.nav = nav;
-        self.lambda_warnings.borrow_mut().truncate(lambda_warnings);
-        self.branch_errors.borrow_mut().truncate(branch_errors);
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        self.attempt
+            .branch_errors
+            .borrow_mut()
+            .truncate(branch_errors);
         let found = std::mem::take(&mut *self.arm_probe.borrow_mut()).found;
         self.clear_metas();
         match result {
@@ -4830,9 +4836,9 @@ impl Elaborator {
         let n = d.binders.len();
         let pred_ty = eval(g, &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
         let nav = self.nav.take();
-        let lambda_warnings = self.lambda_warnings.borrow().len();
-        let branch_errors = self.branch_errors.borrow().len();
-        let drafts = self.drafts.borrow().len();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
+        let drafts = self.attempt.drafts.borrow().len();
         let logged = self.leaf_log.borrow().leaves.len();
         let saved_root = self.leaf_log.borrow_mut().enter_root(root);
         let result = (|| -> Result<Option<()>> {
@@ -4899,12 +4905,18 @@ impl Elaborator {
             }
         })();
         self.nav = nav;
-        self.lambda_warnings.borrow_mut().truncate(lambda_warnings);
-        self.branch_errors.borrow_mut().truncate(branch_errors);
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        self.attempt
+            .branch_errors
+            .borrow_mut()
+            .truncate(branch_errors);
         // A `match` below an arm that was lifted, not compiled into the
         // tree: its helper is dropped (its leaves are below the arm's, so
         // the arm's leaf is found as before).
-        self.drafts.borrow_mut().truncate(drafts);
+        self.attempt.drafts.borrow_mut().truncate(drafts);
         let leaves = {
             let mut log = self.leaf_log.borrow_mut();
             log.leave_root(saved_root);

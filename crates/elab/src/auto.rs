@@ -91,7 +91,7 @@ impl Elaborator {
             None => Ok(()),
             Some(stuck) => {
                 // Reported: nothing is left waiting.
-                self.obligations.borrow_mut().clear();
+                self.attempt.obligations.borrow_mut().clear();
                 Err(stuck)
             }
         }
@@ -106,7 +106,7 @@ impl Elaborator {
         let mut waiting: Vec<(Obligation, Diagnostic)> = Vec::new();
         let mut progress = false;
         loop {
-            let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
+            let obligations = std::mem::take(&mut *self.attempt.obligations.borrow_mut());
             if obligations.is_empty() {
                 // Queued checks whose unknown is solved now (`queue.rs`,
                 // W3): they may make obligations.
@@ -124,13 +124,14 @@ impl Elaborator {
                 }
                 if !progress {
                     let stuck = waiting.swap_remove(0);
-                    let mut kept = self.obligations.borrow_mut();
+                    let mut kept = self.attempt.obligations.borrow_mut();
                     kept.push(stuck.0);
                     kept.extend(waiting.into_iter().map(|(ob, _)| ob));
                     return Ok(Some(stuck.1));
                 }
                 progress = false;
-                self.obligations
+                self.attempt
+                    .obligations
                     .borrow_mut()
                     .extend(waiting.drain(..).map(|(ob, _)| ob));
                 continue;
@@ -196,6 +197,7 @@ impl Elaborator {
     /// proved.
     pub(crate) fn prove_now(&self, wanted: &dyn Fn(usize) -> bool) -> Result<bool> {
         let pending: Vec<_> = self
+            .attempt
             .obligations
             .borrow()
             .iter()
@@ -205,7 +207,7 @@ impl Elaborator {
         let mut proved = false;
         for meta in pending {
             let ob = {
-                let obligations = self.obligations.borrow();
+                let obligations = self.attempt.obligations.borrow();
                 let id = |t: &Term| match t.spine().0 {
                     Term::Meta(m) => Some(*m),
                     _ => None,

@@ -152,13 +152,7 @@ impl Elaborator {
             include_files,
             include_locations,
             next_include_location,
-            obligations,
-            row_metas,
-            row_constraints,
-            queue,
-            awaiting_helpers,
-            defaulted,
-            defaulted_records,
+            attempt,
             char_patterns,
             char_proofs,
             loading_prelude,
@@ -171,8 +165,6 @@ impl Elaborator {
             numbers_as_succ: _,
             module,
             warnings,
-            lambda_warnings,
-            branch_errors,
             arm_reach,
             no_propagation,
             bare_rows_pure,
@@ -190,7 +182,6 @@ impl Elaborator {
             no_finite,
             no_decide,
             generated_alls,
-            drafts,
             standalone_inputs: _,
             glue: _,
             arounds,
@@ -199,22 +190,14 @@ impl Elaborator {
             pending_run_bodies,
             owner,
             body_type,
-            local_keys,
             preadmitted,
             signature_matches,
             owner_unfolding,
             owner_helpers,
             local_helpers,
             helper_keys,
-            local_metas,
-            meta_names,
-            operator_dictionaries,
-            local_dictionaries,
-            local_defaults,
             goals,
             goal_snapshots,
-            proof_holes,
-            parameter_metas,
             hole_log: _,
             cong_candidates,
             result_heads,
@@ -280,13 +263,7 @@ impl Elaborator {
         *include_files = mark.include_files.clone();
         *include_locations = mark.include_locations.clone();
         *next_include_location = mark.next_include_location.clone();
-        obligations.get_mut().clear();
-        row_metas.get_mut().clear();
-        row_constraints.get_mut().clear();
-        queue.clear();
-        awaiting_helpers.get_mut().clear();
-        defaulted.get_mut().clear();
-        defaulted_records.get_mut().clear();
+        attempt.rewind();
         char_patterns.get_mut().clear();
         char_proofs.get_mut().clear();
         *loading_prelude = mark.loading_prelude;
@@ -294,8 +271,6 @@ impl Elaborator {
         abilities.truncate(mark.abilities);
         *module = mark.module.clone();
         *warnings = mark.warnings.clone();
-        lambda_warnings.get_mut().clear();
-        branch_errors.get_mut().clear();
         *arm_reach.get_mut() = Default::default();
         no_propagation.set(0);
         bare_rows_pure.set(false);
@@ -315,30 +290,21 @@ impl Elaborator {
         generated_alls.retain(|d, id| d.0 < datas && id.0 < defs);
         interfaces.retain(|d, _| d.0 < datas);
         data_owners.retain(|d, _| d.0 < datas);
-        drafts.get_mut().clear();
         *arounds.get_mut() = Default::default();
         lifted.truncate(mark.lifted);
         match_columns.retain(|id, _| id.0 < defs);
         pending_run_bodies.retain(|(id, _)| id.0 < defs);
         owner.get_mut().clear();
         *body_type.get_mut() = None;
-        local_keys.get_mut().clear();
         preadmitted.get_mut().clear();
         signature_matches.clear();
         *owner_unfolding.get_mut() = None;
         owner_helpers.get_mut().clear();
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
-        local_metas.get_mut().clear();
-        meta_names.get_mut().clear();
-        operator_dictionaries.get_mut().clear();
-        local_dictionaries.get_mut().clear();
-        local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
         // Their terms may name what is forgotten.
         goal_snapshots.get_mut().clear();
-        proof_holes.get_mut().clear();
-        parameter_metas.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         // It may list definitions declared since the mark, whose numbers the

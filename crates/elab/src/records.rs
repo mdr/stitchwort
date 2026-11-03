@@ -323,7 +323,7 @@ impl Elaborator {
             && fields.iter().all(|(n, _)| record_has(g, r, &n.text))
         {
             let field = &ctor.fields[explicit[0]].0;
-            let mut warnings = self.lambda_warnings.borrow_mut();
+            let mut warnings = self.attempt.lambda_warnings.borrow_mut();
             if !warnings
                 .iter()
                 .any(|w| w.labels.first().is_some_and(|l| l.span == span))
@@ -756,7 +756,7 @@ impl crate::queue::Check for Literal {
 
     fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
         debug_assert!(
-            cx.e.queue.settling(),
+            cx.e.attempt.queue.settling(),
             "the field-name rule chose a type before the end (invariant 8)"
         );
         let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
@@ -771,7 +771,10 @@ impl crate::queue::Check for Literal {
         let chosen = cx.unify(&Value::Data(d, params), &self.expected)?;
         if chosen {
             let name = cx.g().data(d).name.to_string();
-            cx.e.defaulted_records.borrow_mut().push((self.span, name));
+            cx.e.attempt
+                .defaulted_records
+                .borrow_mut()
+                .push((self.span, name));
         }
         Ok(chosen)
     }

@@ -81,7 +81,7 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
     if !cx.g().registry.is_data(Builtin::Row, d) && !divergence {
         return;
     }
-    cx.e.row_metas.borrow_mut().push(RowMeta {
+    cx.e.attempt.row_metas.borrow_mut().push(RowMeta {
         env: cx.env.clone(),
         types: cx.types.clone(),
         names: cx.names.clone(),
@@ -108,7 +108,7 @@ fn row_meta_value(e: &Elaborator, item: &RowMeta) -> Result<Value> {
 /// the declaration, and marks the row unknowns it set, so that an error found
 /// later explains them as defaulted ones are.
 pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> Result<()> {
-    let metas = cx.e.row_metas.borrow().clone();
+    let metas = cx.e.attempt.row_metas.borrow().clone();
     let mut unsolved = Vec::new();
     for (i, item) in metas.iter().enumerate() {
         if !item.divergence
@@ -123,7 +123,7 @@ pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> R
     settle()?;
     for i in unsolved {
         if is_empty_row(cx.g(), &row_meta_value(cx.e, &metas[i])?)
-            && let Some(item) = cx.e.row_metas.borrow_mut().get_mut(i)
+            && let Some(item) = cx.e.attempt.row_metas.borrow_mut().get_mut(i)
         {
             item.settled_empty = true;
         }
@@ -224,7 +224,7 @@ pub(crate) fn postpone(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<
     let snapshot = crate::undo::Snapshot::take(cx);
     match unify_postponing(cx.g(), cx.level(), found, expected)? {
         Some(put_aside) if !put_aside.is_empty() => {
-            let mut kept = cx.e.row_constraints.borrow_mut();
+            let mut kept = cx.e.attempt.row_constraints.borrow_mut();
             for constraint in put_aside {
                 kept.push(Postponed {
                     env: cx.env.clone(),
@@ -270,7 +270,7 @@ impl Elaborator {
     /// ([`SettledFirst::Waiting`]) is compared as it stands.
     fn retry(&self, start: usize, last: bool) -> Result<bool> {
         let kept = {
-            let mut all = self.row_constraints.borrow_mut();
+            let mut all = self.attempt.row_constraints.borrow_mut();
             let start = start.min(all.len());
             all.split_off(start)
         };
@@ -287,7 +287,7 @@ impl Elaborator {
                 }
                 SettledFirst::No | SettledFirst::Waiting => {}
                 SettledFirst::Abilities(comp) => {
-                    self.row_constraints.borrow_mut().extend(still);
+                    self.attempt.row_constraints.borrow_mut().extend(still);
                     return Err(settled_too_early(&cx, &comp));
                 }
             }
@@ -303,7 +303,7 @@ impl Elaborator {
                     }
                 }
                 None => {
-                    self.row_constraints.borrow_mut().extend(still);
+                    self.attempt.row_constraints.borrow_mut().extend(still);
                     return Err(explain_defaulted(
                         cx.mismatch(&b, &a),
                         &self.settled_early()?,
@@ -311,7 +311,7 @@ impl Elaborator {
                 }
             }
         }
-        self.row_constraints.borrow_mut().extend(still);
+        self.attempt.row_constraints.borrow_mut().extend(still);
         Ok(progress)
     }
 
@@ -336,12 +336,12 @@ impl Elaborator {
             });
             after.map_err(|d| explain_defaulted(d, &defaulted))?;
         } else if let Some(d) = stuck {
-            self.obligations.borrow_mut().clear();
+            self.attempt.obligations.borrow_mut().clear();
             return Err(d);
         } else {
             while self.retry(0, true)? {}
         }
-        let first = self.row_constraints.borrow().first().cloned();
+        let first = self.attempt.row_constraints.borrow().first().cloned();
         if let Some(item) = first {
             let cx = item.context(self);
             let RowConstraint { a, b, .. } = &item.constraint;
@@ -351,14 +351,14 @@ impl Elaborator {
             defaulted.extend(self.settled_early()?);
             return Err(explain_defaulted(d, &defaulted));
         }
-        self.row_metas.borrow_mut().clear();
+        self.attempt.row_metas.borrow_mut().clear();
         Ok(())
     }
 
     /// Where each row unknown set to the empty row by [`settling_empty`] was
     /// made, if it's still the empty row.
     fn settled_early(&self) -> Result<Vec<Span>> {
-        let metas = self.row_metas.borrow().clone();
+        let metas = self.attempt.row_metas.borrow().clone();
         let mut spans = Vec::new();
         for item in metas.iter().filter(|item| item.settled_empty) {
             if is_empty_row(&self.globals, &row_meta_value(self, item)?) {
@@ -372,7 +372,7 @@ impl Elaborator {
     /// unsolved, to the empty row. Where each one that was set was made (the
     /// calls whose row became empty).
     fn default_rows(&self) -> Result<Vec<Span>> {
-        let metas = std::mem::take(&mut *self.row_metas.borrow_mut());
+        let metas = std::mem::take(&mut *self.attempt.row_metas.borrow_mut());
         let mut defaulted = Vec::new();
         for item in metas {
             let cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);

@@ -58,7 +58,7 @@ impl Elaborator {
                 redundant_alternatives(pattern, &reached, Some(&top_level), &mut found);
             }
         }
-        let mut warnings = self.lambda_warnings.borrow_mut();
+        let mut warnings = self.attempt.lambda_warnings.borrow_mut();
         for warning in found {
             let span = warning.primary_span();
             let known =
