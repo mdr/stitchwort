@@ -1,5 +1,5 @@
 {
-  "next": 1116,
+  "next": 1122,
   "tickets": [
     {
       "id": 47,
@@ -3853,7 +3853,7 @@
       "labels": [
         "docs"
       ],
-      "body": "D2237 (Matt, 3 Nov): yes; also the playground. Note merged: docs/proposals/editor-and-playground-roadmap.md (14 editor features, 8 playground ones, shared work, order, open questions). Key dependency: move position-based answers (goal at cursor, hover, signature, quick fixes) from lsp.rs into crates/driver so the LSP and playground share them, plus an elaborator probe for expected type and locals at a cursor. Found: the playground has no completion, code actions, search or sharing; it re-sends a stateless check 250 ms after typing; implicit arguments aren't recorded in nav::Ref. Open questions to Matt as D2241-D2246. Verifier deferred until SW-1115's build measurements are done (docs only). Model result: Sonnet, worked, 2 min (est. 45).",
+      "body": "D2237 (Matt, 3 Nov): yes; also the playground. Note merged: docs/proposals/editor-and-playground-roadmap.md (14 editor features, 8 playground ones, shared work, order, open questions). Key dependency: move position-based answers (goal at cursor, hover, signature, quick fixes) from lsp.rs into crates/driver so the LSP and playground share them, plus an elaborator probe for expected type and locals at a cursor. Found: the playground has no completion, code actions, search or sharing; it re-sends a stateless check 250 ms after typing; implicit arguments aren't recorded in nav::Ref. Open questions to Matt as D2241-D2246. Verifier deferred until SW-1115's build measurements are done (docs only). Model result: Sonnet, worked, 2 min (est. 45).\n\nDecisions (Matt, 3 Nov): D2241 a real editor component is worth considering, especially for IDE features; D2242 the playground is both showcase and tour; D2243 delegated: approximation first; D2244 pending; D2245 project tests only; D2246 grouped tickets: SW-1116 SW-1117 SW-1118 SW-1119 SW-1120 SW-1121.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3910,6 +3910,90 @@
         "architecture"
       ],
       "body": "D2239 (Matt, 3 Nov): yes. Stitchwort grew rapidly and organically without up-front architectural planning; identify weak points in the architecture and how to address them. Include compilation architecture: the set of crates, minimising unnecessary rebuild work; crates as a modularity unit; elab's size. Builds on docs/research/rust-codebase-review.md (§2-4), SW-1091 phase 1 (build architecture), docs/architecture/crates.pdf. Opus, read-only plus limited build measurements. Output: docs/research/architecture-review.md.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1116,
+      "title": "Editor foundation: position-based answers (goal at cursor, hover, signature, quick fixes) in crates/driver, shared by the LSP and the playground; elaborator probe for expected type and locals at a cursor",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1117,
+      "title": "Editor small wins: add-import quick fix (machine-readable diagnostic field), signature help, let inlay hints, semantic tokens",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1118,
+      "title": "Playground: evaluate a real editor component (CodeMirror 6), then goals panel, share a snippet by URL, inline diagnostics",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1119,
+      "title": "Fill a non-exhaustive match and case split (from E-NONEXHAUSTIVE with a structured list of missing cases)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1120,
+      "title": "Name completion on a persistent worker session (LSP and playground)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1121,
+      "title": "Test Explorer and code lenses (run main, run test, audit theorem), then rename",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
