@@ -1,5 +1,5 @@
 {
-  "next": 1144,
+  "next": 1145,
   "tickets": [
     {
       "id": 47,
@@ -4302,6 +4302,20 @@
         "lsp"
       ],
       "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1144,
+      "title": "Elaborator state, step 1: the Attempt component (per-attempt fields and unify.rs thread-locals; mark/restore by exhaustive destructuring)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
