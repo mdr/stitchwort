@@ -322,6 +322,8 @@ impl Elaborator {
             first_test,
             ..ModuleState::default()
         };
+        // Until set below, after the loads: not the last module's.
+        self.unit.omega_for_auto = false;
         self.scope.clear_imports();
         if !std::mem::take(&mut self.unit.skip_navigation_walk) {
             self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());

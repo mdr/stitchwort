@@ -1099,3 +1099,43 @@ fn index_cost() {
         started.elapsed()
     );
 }
+
+/// What `auto` may use in a typed-in expression is the enclosing module's
+/// setting, not the last library file loaded for it (SW-1150).
+#[test]
+fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
+    // Before any module, the default; loading the library files an
+    // expression names (`List.lengthAppend` is in a file that reaches
+    // `omega`'s) must not leave that file's value behind.
+    let mut session = Session::new();
+    assert!(!session.elab.omega_for_auto());
+    let ds = session.add_imports("<i>", "import Std (List)\n");
+    assert!(ds.is_empty(), "{}", messages(&ds));
+    let _ = session.parse_expression("<t>", "List.lengthAppend [1] [2]");
+    assert!(
+        session
+            .elab
+            .loaded_library_files()
+            .iter()
+            .any(|f| f == "List/Lemmas.sw")
+    );
+    assert!(!session.elab.omega_for_auto());
+
+    // After a module that doesn't load `omega`'s library, and after one that
+    // does, an expression sees that module's value, whatever it loads.
+    let mut session = Session::new();
+    session
+        .load("t.sw", "import Std (Nat)\ndef x: Nat := 1\n")
+        .unwrap();
+    let _ = session.parse_expression("<t>", "List.lengthAppend [1] [2]");
+    assert!(!session.elab.omega_for_auto());
+    let mut session = Session::new();
+    let omega_module = "import Std (Nat)\n\
+        theorem gap (low: Nat) (high: Nat) (below: low < high): 0 < high - low := omega\n";
+    session
+        .load("t.sw", omega_module)
+        .unwrap_or_else(|e| panic!("{}", messages(&e)));
+    assert!(session.elab.omega_for_auto());
+    let _ = session.parse_expression("<t>", "List.lengthAppend [1] [2]");
+    assert!(session.elab.omega_for_auto());
+}

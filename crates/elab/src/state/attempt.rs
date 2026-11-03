@@ -117,11 +117,20 @@ pub(crate) struct Attempt {
     /// after each body ([`Attempt::take_rigid_divergence`], in
     /// `Elaborator::group`).
     ///
-    /// Not restored when an attempt is undone, nor emptied by
-    /// [`Attempt::reset`] or a rewind: a meeting anywhere in the body
-    /// counts, in an attempt that was undone too. That is how it behaved as
-    /// a thread-local; whether it is intended isn't recorded
-    /// (elaborator-state.md F7).
+    /// Deliberately not restored when an attempt is undone (SW-1147), nor
+    /// emptied by [`Attempt::reset`] or a rewind: a meeting anywhere in the
+    /// body counts, in an attempt that was undone too. It isn't a fact about
+    /// the final elaboration but a trigger: a body that fails after one is
+    /// checked once more with the divergence total, and that second check's
+    /// result replaces the first's. An extra trigger from an undone attempt
+    /// therefore costs a second check of a body that failed anyway; it can
+    /// only turn a failure into a pass if the program really checks with
+    /// `e` total. Restoring the flag on undo could skip the second check
+    /// where it is needed (the undone attempt is often the one whose
+    /// comparison failed, the body then failing on a fallback), rejecting
+    /// programs that are accepted now, so it is kept as it behaved.
+    /// Cleared at the start of each body (`Elaborator::group`), which is
+    /// what keeps it from leaking between declarations.
     pub(crate) rigid_divergence: Cell<bool>,
     /// While `unify::unify_awaiting_helpers` runs: the frozen metavariables
     /// of the helpers not lifted yet, taken as equal to whatever they meet.

@@ -24,7 +24,7 @@
 //!   (`Attempt::lossy`), cut with the trail. Its other state is set around
 //!   a single comparison by guards, which an attempt is wholly inside or
 //!   outside of, except `Attempt::rigid_divergence`, which an undone
-//!   attempt keeps (see the field).
+//!   attempt keeps on purpose (see the field).
 //!
 //! Warnings mostly aren't part of it: declaration-level code adds most of
 //! them (it needs `&mut Elaborator`, which a `Ctx` doesn't have), and those
@@ -294,6 +294,25 @@ mod tests {
         assert!(cx.g().metas.borrow().is_empty());
         assert!(spent.get() > work);
         assert_eq!(cx.g().budget.total_work(), spent.get());
+    }
+
+    #[test]
+    fn a_rigid_divergence_met_in_an_undone_attempt_still_counts() {
+        // Deliberately sticky (SW-1147, `Attempt::rigid_divergence`): it only
+        // asks `Elaborator::group` to check a failed body once more with the
+        // signature's divergence total, so a meeting in an attempt that was
+        // undone can cost a second check but never changes the answer.
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        let found: Option<()> = transaction(&mut cx, |cx| {
+            cx.e.attempt.note_rigid_divergence();
+            Ok(None)
+        })
+        .unwrap();
+        assert!(found.is_none());
+        assert!(cx.e.attempt.take_rigid_divergence());
+        // Taking it clears it, as `group` does before each body.
+        assert!(!cx.e.attempt.take_rigid_divergence());
     }
 
     #[test]

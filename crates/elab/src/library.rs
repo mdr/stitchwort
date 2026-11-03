@@ -819,6 +819,12 @@ impl Elaborator {
         self.session.library.as_ref().map(|lib| lib.index.clone())
     }
 
+    /// Whether `auto` may try `omega` now (the unit's setting; for tests).
+    #[doc(hidden)]
+    pub fn omega_for_auto(&self) -> bool {
+        self.unit.omega_for_auto
+    }
+
     /// The paths of the library files loaded so far, in the order they
     /// loaded.
     pub fn loaded_library_files(&self) -> Vec<String> {

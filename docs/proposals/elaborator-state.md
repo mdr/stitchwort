@@ -124,8 +124,11 @@ restored ("steps spent aren't refunded").
   function that sets one also resets it. `RIGID_DIVERGENCE` is read and
   reset by `take_rigid_divergence` before and after a body (`lib.rs:2797`,
   `:2807`). A flag set inside an undone attempt survives the undo. That
-  may be intended (any such meeting in the body counts), but nothing says
-  so, and a nested session on the same thread (§2.7) would see the outer
+  is intended (SW-1147): the flag only triggers a second check of a body
+  that failed, with the divergence total, so an extra trigger costs time
+  and cannot change what is accepted, while restoring it on undo could
+  skip a needed second check. It is documented on the field, with a test
+  in `undo.rs`. And a nested session on the same thread (§2.7) would see the outer
   one's flag.
 - `dot_failed` is keyed by `(call, metas.len(), trail.len())`, which stands
   for "the same metavariable state". That holds only while lengths identify
@@ -994,7 +997,7 @@ by hand where a regex missed (`records` is dumped).
 | `namespace_keys` | `--RE-` | Session | logged | copied per mark |
 | `namespace_capture` | `--rE-` | Unit | swap |  |
 | `skip_navigation_walk` | `--rE-` | Unit | swap |  |
-| `omega_for_auto` | `--s--` | Unit | per module | carried into and out of a nested library load, and not rewound: a library file's value is what the next module's code sees until it sets its own (SW-1150) |
+| `omega_for_auto` | `--R--` | Unit | swap | copied per mark. Cleared when a module starts and set after its loads. A nested library load starts with the outer unit's value and the outer's comes back with it (SW-1150); a mark keeps it. Typed-in expressions (`eval`, the REPL) see the last module's, or `false` before any |
 | `replayed_names` | `--RE-` | Session | logged | copied per mark |
 | `fail_replays_late` | `--sE-` | Options | test switch |  |
 | `recheck_namespaces` | `--s--` | Options | test switch |  |
