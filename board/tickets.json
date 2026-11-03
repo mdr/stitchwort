@@ -4519,13 +4519,13 @@
     {
       "id": 1159,
       "title": "[Opus] Research note: Perceus-style in-place reuse (precise reference counting, drop at last use, constructor reuse, borrowing) for rt and native",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2270 (Matt, 3 Nov): backlog, after the current tidy-ups; Matt: a really promising direction to explore. Note in docs/research/, no code, ~60 min. Answer: (1) what rt and native do with reference counts today and how precise ownership is; (2) what the passes would cost (ownership/drop insertion, reuse analysis, borrow inference, runtime support); (3) estimated savings from allocation counts on the SW-593 effects benchmark (allocation+freeing 49% vs dispatch 14%) and two or three AoC days and the roguelike; (4) fit with SW-593 (effect representation change) and the tick-identical differential tests; (5) a diagnostic for accidental sharing (cf. Lean dbgTraceIfShared). References: Koka Perceus (Reinking, Xie, de Moura, Leijen 2021), Lean 4 Counting Immutable Beans (Ullrich, de Moura 2019), FBIP.\n\nD2271 (Matt, 3 Nov): start now. Opus, est. 60 min, worktree SW-1159.",
+      "body": "D2270 (Matt, 3 Nov): backlog, after the current tidy-ups; Matt: a really promising direction to explore. Note in docs/research/, no code, ~60 min. Answer: (1) what rt and native do with reference counts today and how precise ownership is; (2) what the passes would cost (ownership/drop insertion, reuse analysis, borrow inference, runtime support); (3) estimated savings from allocation counts on the SW-593 effects benchmark (allocation+freeing 49% vs dispatch 14%) and two or three AoC days and the roguelike; (4) fit with SW-593 (effect representation change) and the tick-identical differential tests; (5) a diagnostic for accidental sharing (cf. Lean dbgTraceIfShared). References: Koka Perceus (Reinking, Xie, de Moura, Leijen 2021), Lean 4 Counting Immutable Beans (Ullrich, de Moura 2019), FBIP.\n\nD2271 (Matt, 3 Nov): start now. Opus, est. 60 min, worktree SW-1159.\n\nDone (Opus, 20 min, est. 60), merged: docs/research/in-place-reuse.md. The runtimes already do most of Perceus (code.rs moves on last use, drops dead variables at branch entry, reuses a just-unpacked cell for a same-arity constructor; native follows the same instructions). Gaps: reuse stops at function boundaries (Set.fromList 11.7% reused), read-only calls cost inc/dec, effects.sw allocation is mostly effect-runtime nodes. Decisions renumbered D2273-D2277, parked on SW-1163 (Matt: fresh eyes, soon). Model result: Opus, worked, 20 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
