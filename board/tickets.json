@@ -4595,7 +4595,7 @@
       "labels": [
         "build"
       ],
-      "body": "Seen by several verifiers and lanes on 3 Nov (33 warnings); harmless so far. Find why the symbols are defined twice and whether the wrong one could be picked.",
+      "body": "Seen by several verifiers and lanes on 3 Nov (33 warnings); harmless so far. Find why the symbols are defined twice and whether the wrong one could be picked.\n\nDone c3a7b3f0 (DeepSeek, 11 min, est. 20), reviewed; merges after the SW-1165 verifier. Cause: rt lib tests link two copies of rt (the test crate itself and the rlib via dev-dependencies), each exporting the 33 #[no_mangle] sw_* functions. Harmless today (same source; rt lib tests run no native code) but fragile: each copy has its own statics (alloc trace, EXECUTED counter, host OnceLocks). Fix: #[cfg_attr(not(test), unsafe(no_mangle))] in native_abi.rs; release, standalone staticlib (nm checked) and other crates tests keep the exports. 0 duplicates now; rt+standalone+cli build 124 passed. Model result: DeepSeek, worked, 11 min (est. 20).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
