@@ -774,6 +774,13 @@ impl Decls {
 /// `Std.` (as `search` shows it): `import Std (List)`, or `import Lib
 /// (Range)` for a program's `Lib.Range.size`.
 fn import_line(path: &str, namespace: Option<&str>) -> Option<String> {
+    // A built-in is always in scope, and `Builtins.sw` only documents it
+    // (SW-1146): no import brings it in (SW-1148).
+    if let Some(name) = path.strip_prefix("Std.")
+        && stitchwort_elab::is_builtin(name)
+    {
+        return None;
+    }
     let (ns, rest) = match (path.strip_prefix("Std."), namespace) {
         (Some(rest), None) => ("Std", rest),
         (_, Some(ns)) => (ns, path.strip_prefix(&format!("{ns}."))?),

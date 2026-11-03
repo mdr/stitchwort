@@ -168,7 +168,7 @@ fn the_json_contract() {
 }
 
 /// SW-1146: a built-in name has no declaration of its own, and is documented
-/// by `core/Builtins.sw`.
+/// by `core/Builtins.sw`. SW-1148: being always in scope, it has no import.
 #[test]
 fn a_built_in_name_is_documented_by_builtins_sw() {
     let cwd = folder("builtin");
@@ -177,6 +177,10 @@ fn a_built_in_name_is_documented_by_builtins_sw() {
         (
             "Quot",
             "def Quot: (a: Type) \u{2192} (r: a \u{2192} a \u{2192} Prop) \u{2192} Type",
+        ),
+        (
+            "Quot.mk",
+            "def Quot.mk: [a: Type] \u{2192} [r: a \u{2192} a \u{2192} Prop] \u{2192} (x: a) \u{2192} Quot a r",
         ),
         ("rfl", "def rfl: [a: Type] \u{2192} [x: a] \u{2192} x = x"),
     ] {
@@ -191,6 +195,16 @@ fn a_built_in_name_is_documented_by_builtins_sw() {
             "{report}"
         );
         assert!(!report["doc"].as_str().unwrap_or("").is_empty(), "{report}");
+        assert!(
+            report["import"].is_null(),
+            "a built-in needs no import: {report}"
+        );
+        let (code, out, err) = doc_in(&cwd, &cache, &[name, "--theorems", "0"]);
+        assert_eq!(code, 0, "{out}\n{err}");
+        assert!(
+            !out.contains("(import "),
+            "a built-in needs no import: {out}"
+        );
     }
     let _ = std::fs::remove_dir_all(&cwd);
 }

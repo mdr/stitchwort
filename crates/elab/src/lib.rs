@@ -11,6 +11,7 @@ mod auto;
 mod autobind;
 mod bind;
 mod builtin_docs;
+pub use builtin_docs::is_builtin;
 pub mod cache;
 mod calc;
 mod check;

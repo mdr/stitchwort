@@ -21,8 +21,9 @@ use stitchwort_syntax::ast::Decl;
 
 use crate::{Elaborator, Global, kernel, scope};
 
-/// The names `Builtins.sw` documents.
-pub(crate) const DOCUMENTED: &[&str] = &[
+/// The names `Builtins.sw` documents. They are always in scope: nothing
+/// imports them (SW-1148).
+pub const DOCUMENTED: &[&str] = &[
     "rfl",
     "J",
     "Quot",
@@ -31,6 +32,12 @@ pub(crate) const DOCUMENTED: &[&str] = &[
     "Quot.ind",
     "Quot.sound",
 ];
+
+/// Whether `name`, without `Std.`, is one of `Builtins.sw`'s: a built-in,
+/// always in scope, so it needs no `import`.
+pub fn is_builtin(name: &str) -> bool {
+    DOCUMENTED.contains(&name)
+}
 
 /// The kernel form named `name`, applied to the `params` parameters of its
 /// signature, which are the innermost `params` variables.
