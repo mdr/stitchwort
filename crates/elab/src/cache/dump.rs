@@ -4,7 +4,9 @@
 //! must give the same text as one that elaborated everything.
 //!
 //! It is written independently of the entry encoding, so a field the
-//! encoder forgets shows up as a difference. A session's load order is the
+//! encoder forgets shows up as a difference: `state::Tables::dump` prints
+//! each table whole through its kind, and each row's text is written here
+//! ([`Dump`]), apart from its bytes (`rows.rs`). A session's load order is the
 //! same with and without the cache, so ids are printed as they are.
 
 use std::fmt::Write;
@@ -13,6 +15,14 @@ use stitchwort_core::{Icit, Term};
 use stitchwort_syntax::Span;
 
 use crate::Elaborator;
+use crate::TestDecl;
+use crate::effects::AbilityInfo;
+use crate::interfaces::{InstanceInfo, InterfaceInfo};
+use crate::lift::MatchColumns;
+use crate::records::RecordInfo;
+use crate::state::Dump;
+use std::rc::Rc;
+use stitchwort_core::{DataId, DefId};
 
 fn span(out: &mut String, s: Span) {
     let _ = write!(out, "@{}:{}-{}", s.file.index(), s.start, s.end);
@@ -313,120 +323,122 @@ pub fn canonical_dump(e: &Elaborator) -> String {
 
     e.scope.dump(&mut out);
 
-    let mut sorted: Vec<String> = e
-        .records
-        .iter()
-        .map(|(d, r)| {
-            format!(
-                "record {} {:?}",
-                d.0,
-                r.projections
-                    .iter()
-                    .map(|p| p.map(|p| p.0))
-                    .collect::<Vec<_>>()
-            )
-        })
-        .collect();
-    sorted.extend(e.interfaces.iter().map(|(d, i)| {
-        format!(
-            "interface {} {} supers {:?} projections {:?} methods {:?} relations {:?}",
-            d.0,
-            i.dict,
-            i.supers.iter().map(|(k, s)| (k, s.0)).collect::<Vec<_>>(),
-            i.projections.iter().map(|p| p.0).collect::<Vec<_>>(),
-            i.methods.iter().map(|p| p.0).collect::<Vec<_>>(),
-            i.relations,
-        )
-    }));
-    sorted.extend(e.instances.iter().map(|((i, h), info)| {
-        let mut s = format!(
-            "instance {} {} def {} {} {:?} valid {} ",
-            i.0, h.0, info.def.0, info.name, info.params, info.valid
-        );
-        span(&mut s, info.span);
-        s
-    }));
-    for (what, table) in [
-        ("owner", &e.data_owners),
-        ("no_eq", &e.no_eq),
-        ("no_show", &e.no_show),
-        ("no_ord", &e.no_ord),
-        ("no_finite", &e.no_finite),
-        ("no_decide", &e.no_decide),
-    ] {
-        sorted.extend(table.iter().map(|(d, s)| format!("{what} {} {s}", d.0)));
-    }
-    sorted.extend(
-        e.generated_alls
-            .iter()
-            .map(|(d, id)| format!("generated_all {} def {}", d.0, id.0)),
-    );
-    sorted.extend(e.helper_keys.iter().map(|k| format!("helper {k}")));
-    sorted.extend(
-        (e.equation_skips.iter())
-            .map(|(d, suffix, why)| format!("equation_skip {} {suffix} {why}", d.0)),
-    );
-    sorted.extend(
-        e.equations_done
-            .iter()
-            .map(|k| format!("equations_done {k}")),
-    );
-    sorted.extend(e.total_rows.borrow().iter().map(|(d, at)| {
-        let mut s = format!("total_row {} ", d.0);
-        span(&mut s, *at);
-        s
-    }));
-    sorted.extend(
-        e.namespace_defs
-            .iter()
-            .map(|(n, r)| format!("namespace {n} {r:?}")),
-    );
-    sorted.sort();
-    for line in sorted {
-        out.push_str(&line);
-        out.push('\n');
-    }
-    for (i, a) in e.abilities.iter().enumerate() {
-        let _ = writeln!(
-            out,
-            "ability {i} {} op_data {} res {} elim {} ops {:?} order {:?}",
-            a.name, a.op_data.0, a.res.0, a.elim.0, a.ops, a.order
-        );
-    }
-    for (id, s) in &e.lifted {
-        let _ = write!(out, "lifted {} ", id.0);
-        span(&mut out, *s);
-        out.push('\n');
-    }
-    let mut columns: Vec<_> = e.match_columns.iter().collect();
-    columns.sort_by_key(|(id, _)| id.0);
-    for (id, c) in columns {
-        let _ = writeln!(out, "match columns {} {:?} {:?}", id.0, c.cols, c.eqs);
-    }
-    for t in &e.tests {
-        let _ = write!(
-            out,
-            "test {} {} {} def {} ",
-            t.library, t.namespace, t.name, t.def.0
-        );
-        span(&mut out, t.span);
-        if let Some(probe) = &t.probe {
-            out.push_str(" probe ");
-            dump_probe(&mut out, probe);
-        }
-        out.push('\n');
-    }
+    e.tables.dump(&mut out);
     let _ = writeln!(out, "module {:?}", g.module);
-    let _ = writeln!(
-        out,
-        "prelude_defs {} library {:?}",
-        e.prelude_defs,
-        e.loaded_library_files()
-    );
+    let _ = writeln!(out, "library {:?}", e.loaded_library_files());
     // What navigation recorded, which its index is made from.
     if let Some(nav) = &e.nav {
         nav.borrow()
             .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
     }
     out
+}
+
+impl Dump for DefId {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{}", self.0);
+    }
+}
+
+impl Dump for DataId {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{}", self.0);
+    }
+}
+
+impl Dump for Span {
+    fn dump(&self, out: &mut String) {
+        span(out, *self);
+    }
+}
+
+impl Dump for String {
+    fn dump(&self, out: &mut String) {
+        out.push_str(self);
+    }
+}
+
+impl<A: Dump, B: Dump> Dump for (A, B) {
+    fn dump(&self, out: &mut String) {
+        self.0.dump(out);
+        out.push(' ');
+        self.1.dump(out);
+    }
+}
+
+impl<A: Dump, B: Dump, C: Dump> Dump for (A, B, C) {
+    fn dump(&self, out: &mut String) {
+        self.0.dump(out);
+        out.push(' ');
+        self.1.dump(out);
+        out.push(' ');
+        self.2.dump(out);
+    }
+}
+
+impl Dump for RecordInfo {
+    fn dump(&self, out: &mut String) {
+        let projections: Vec<Option<usize>> =
+            self.projections.iter().map(|p| p.map(|p| p.0)).collect();
+        let _ = write!(out, "{projections:?}");
+    }
+}
+
+impl Dump for InterfaceInfo {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            "{} supers {:?} projections {:?} methods {:?} relations {:?}",
+            self.dict,
+            self.supers
+                .iter()
+                .map(|(k, s)| (k, s.0))
+                .collect::<Vec<_>>(),
+            self.projections.iter().map(|p| p.0).collect::<Vec<_>>(),
+            self.methods.iter().map(|p| p.0).collect::<Vec<_>>(),
+            self.relations,
+        );
+    }
+}
+
+impl Dump for InstanceInfo {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            "def {} {} {:?} valid {} ",
+            self.def.0, self.name, self.params, self.valid
+        );
+        span(out, self.span);
+    }
+}
+
+impl Dump for Rc<MatchColumns> {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{:?} {:?}", self.cols, self.eqs);
+    }
+}
+
+impl Dump for AbilityInfo {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            "{} op_data {} res {} elim {} ops {:?} order {:?}",
+            self.name, self.op_data.0, self.res.0, self.elim.0, self.ops, self.order
+        );
+    }
+}
+
+impl Dump for TestDecl {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(
+            out,
+            "{} {} {} def {} ",
+            self.library, self.namespace, self.name, self.def.0
+        );
+        span(out, self.span);
+        if let Some(probe) = &self.probe {
+            out.push_str(" probe ");
+            dump_probe(out, probe);
+        }
+    }
 }

@@ -1279,7 +1279,7 @@ impl Session {
         let g = &self.elab.globals;
         let wanted: Vec<stitchwort_core::DefId> = self
             .elab
-            .tests
+            .tests()
             .iter()
             .filter(|test| selected(test))
             .filter(|test| {
@@ -1331,7 +1331,7 @@ impl Session {
             )
         });
         self.elab
-            .tests
+            .tests()
             .iter()
             .filter(|test| selected(test))
             .map(|test| {

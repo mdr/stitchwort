@@ -71,16 +71,16 @@ impl Elaborator {
         }
         // `Ord`'s `eq` is `T`'s `DecEq` instance, found when the instance is
         // built.
-        if let Some(why) = self.no_eq.get(&d) {
+        if let Some(why) = self.tables.no_eq.get(&d) {
             let why = format!("`Ord` needs `==`, which isn't derived for it: {why}");
-            self.no_ord.insert(d, why);
+            self.tables.no_ord.insert(d, why);
             return Ok(());
         }
         if self.declares_instance_of(dec_eq) {
             if let Some(item) = self.unit.module.item {
                 self.unit.module.ord_after_dec_eq.insert(item, d);
             }
-            self.no_ord.insert(
+            self.tables.no_ord.insert(
                 d,
                 "its module's own `DecEq` instance, which `Ord` needs, uses this, so it isn't \
                  checked yet here; declare an `Ord` instance too"
@@ -113,10 +113,10 @@ impl Elaborator {
                     "`Ord` needs `==`, and its module's own `DecEq` instance `{}` didn't check",
                     self.unit.module.items[instance].name
                 );
-                self.no_ord.insert(d, why);
+                self.tables.no_ord.insert(d, why);
                 continue;
             }
-            self.no_ord.remove(&d);
+            self.tables.no_ord.remove(&d);
             let item = self.unit.module.item.replace(data_item);
             let result = self.unnoted(|e| e.derive_ord_with_eq(d));
             self.unit.module.item = item;
@@ -133,7 +133,7 @@ impl Elaborator {
         let plan = match self.field_plan(d, ord, "`Ord`")? {
             Ok(plan) => plan,
             Err(why) => {
-                self.no_ord.insert(d, why);
+                self.tables.no_ord.insert(d, why);
                 return Ok(());
             }
         };
@@ -163,7 +163,8 @@ impl Elaborator {
             Ok(()) => {}
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => {
-                self.no_ord
+                self.tables
+                    .no_ord
                     .insert(d, format!("deriving it failed: {}", e.message));
             }
         }

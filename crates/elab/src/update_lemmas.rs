@@ -85,8 +85,8 @@ impl Elaborator {
                 // `f`: dot notation looks these up as local definitions.
                 Ok(()) => {
                     let under = key.rsplit_once('.').map(|(k, _)| k.to_string());
-                    self.helper_keys.extend(under);
-                    self.helper_keys.insert(key);
+                    self.tables.helper_keys.extend(under);
+                    self.tables.helper_keys.insert(key);
                 }
                 Err(e) if e.code == "E-RESOURCE" => return Err(e),
                 // Not stated or not proved: left out, its name unknown.

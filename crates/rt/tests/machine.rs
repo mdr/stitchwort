@@ -88,7 +88,7 @@ fn run_tests_where(
     };
     let decls = session
         .elab
-        .tests
+        .tests()
         .iter()
         .filter(|t| t.library == library && (library || keep(t)));
     let mut m = Machine::new(program, Limits::from_core(session.elab.options.limits));

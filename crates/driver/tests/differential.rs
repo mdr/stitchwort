@@ -254,7 +254,7 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             let g = &session.elab.globals;
             compare_definitions(g, name);
             compare_conversion(g, name);
-            for test in &session.elab.tests {
+            for test in session.elab.tests() {
                 if listed(NORMAL_FORM_TOO_BIG, name, &g.def(test.def).name) {
                     continue;
                 }

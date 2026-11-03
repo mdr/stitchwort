@@ -1824,7 +1824,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
             Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
         }
         Some((Global::Op(a, _), _)) => {
-            let ability = cx.e.abilities[*a].name.clone();
+            let ability = cx.e.tables.abilities[*a].name.clone();
             Err(cx
                 .error(
                     "E-ABILITY",
@@ -2732,7 +2732,7 @@ pub(crate) fn own_dictionaries(mut term: &Term) -> Vec<usize> {
 /// ?d]`): those are left (docs/proposals/interfaces.md, "As built (stage
 /// 5)").
 pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Result<Value> {
-    if own.is_empty() || cx.e.interfaces.is_empty() {
+    if own.is_empty() || cx.e.tables.interfaces.is_empty() {
         return Ok(ty);
     }
     Ok(crate::interfaces::find_ready_dictionaries(cx, &ty, Some(own))?.unwrap_or(ty))
@@ -2877,7 +2877,7 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
     let Term::Def(id) = head.spine().0.strip_loc() else {
         return e;
     };
-    let Some(at) = cx.e.total_rows.borrow().get(id).copied() else {
+    let Some(at) = cx.e.tables.total_rows.get(id).copied() else {
         return e;
     };
     let name = cx.g().def(*id).name.to_string();
@@ -2897,7 +2897,7 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
 fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
     if let Term::Def(id) = head.spine().0 {
         let def = cx.g().def(*id);
-        if cx.e.helper_keys.contains(&def.name.to_string()) {
+        if cx.e.tables.helper_keys.contains(&def.name.to_string()) {
             // The telescope with its parameters' names, as a signature.
             let g = cx.g();
             let mut names: Vec<Name> = Vec::new();
@@ -4960,7 +4960,7 @@ pub(crate) fn unifies_with_instances(
     // still be stuck on it.)
     let ready = cx.e.solve_ready_instances()?;
     if ready
-        || (!cx.e.interfaces.is_empty()
+        || (!cx.e.tables.interfaces.is_empty()
             && (crate::interfaces::stuck_on_found(cx, found)?
                 || crate::interfaces::stuck_on_found(cx, expected)?))
     {
@@ -4978,7 +4978,7 @@ pub(crate) fn unifies_with_instances(
     // types it learnt are undone with the rest. Kept here, they make the
     // dictionary ready to find; all of it is undone unless the comparison
     // then succeeds.
-    if !cx.e.interfaces.is_empty()
+    if !cx.e.tables.interfaces.is_empty()
         && crate::undo::transaction(cx, |cx| {
             cx.unify(found, expected)?;
             if !cx.e.solve_ready_instances()? {
@@ -5952,7 +5952,7 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
 /// [`compare`]. Only reached where `rfl` would otherwise fail.
 #[inline(never)]
 pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
-    if cx.e.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
+    if cx.e.tables.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
         return Ok(false);
     }
     let a = crate::interfaces::refresh(cx, a)?;

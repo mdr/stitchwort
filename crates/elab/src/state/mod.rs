@@ -7,16 +7,16 @@
 //! each mechanism does with it.
 //!
 //! The components planned (§4.1), of which [`Options`], [`Session`],
-//! [`Unit`], [`Decl`], [`Attempt`] and [`Caches`] exist so far (§7 steps
-//! 1 to 4); the
-//! rest of the state is still fields of the `Elaborator` and of `Globals`:
+//! [`Unit`], [`Decl`], [`Attempt`], [`Caches`] and [`Tables`] exist so far (§7
+//! steps 1 to 5); the rest of the state is still fields of the `Elaborator`
+//! and of `Globals`:
 //!
 //! - [`Options`]: settings and test switches, and the cache key;
 //! - `Kernel`: the kernel's half of `Globals` (definitions, data types,
 //!   builtins);
-//! - `Tables`: what later units read (scope, records, instances, ...), each
-//!   table of one of four kinds that says how it is marked, rewound, encoded
-//!   and dumped;
+//! - [`Tables`]: what later units read (records, instances, tests, ...),
+//!   each table of a kind that says how it is marked, rewound, encoded and
+//!   dumped ([`table`]); the scope joins them in step 6;
 //! - [`Session`]: project and cache bookkeeping, statistics;
 //! - [`Unit`]: the unit being elaborated, set aside whole while a library
 //!   file is loaded inside one;
@@ -30,6 +30,8 @@ mod caches;
 mod decl;
 mod options;
 mod session;
+mod table;
+mod tables;
 mod unit;
 
 pub(crate) use attempt::Attempt;
@@ -41,6 +43,10 @@ pub use options::Options;
 pub(crate) use session::Mark as SessionMark;
 pub use session::Session;
 pub(crate) use session::Stats;
+pub(crate) use table::{Codec, Dump, Ids};
+pub(crate) use tables::Delta as TablesDelta;
+pub(crate) use tables::Mark as TablesMark;
+pub(crate) use tables::Tables;
 pub(crate) use unit::Mark as UnitMark;
 pub(crate) use unit::Unit;
 

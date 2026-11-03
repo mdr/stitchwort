@@ -977,7 +977,7 @@ impl Elaborator {
                 }
             }
             Global::Data(d) => {
-                if self.interfaces.contains_key(&d) {
+                if self.tables.interfaces.contains_key(&d) {
                     "interface"
                 } else if self.globals.data(d).record {
                     "record"
@@ -1108,7 +1108,7 @@ impl Elaborator {
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
-                Some(match self.total_rows.borrow().contains_key(&id) {
+                Some(match self.tables.total_rows.contains_key(&id) {
                     true => format!(
                         "{ty}\n-- takes only total callbacks: its body runs a callback where \
                          partial code can't run"

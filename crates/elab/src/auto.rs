@@ -531,7 +531,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
         let Value::Data(r, params) = force(g, ty)? else {
             continue;
         };
-        let Some(info) = cx.e.records.get(&r) else {
+        let Some(info) = cx.e.tables.records.get(&r) else {
             continue;
         };
         for projection in info.projections.iter().flatten() {
@@ -730,10 +730,10 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         .with_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
     // A record of propositions whose decision couldn't be derived: why.
     let error = match force(cx.g(), prop.clone())? {
-        Value::Data(d, _) if cx.e.no_decide.contains_key(&d) => error.with_note(format!(
+        Value::Data(d, _) if cx.e.tables.no_decide.contains_key(&d) => error.with_note(format!(
             "`{}` has no derived decision: {}",
             cx.e.relative_to_root(&cx.g().data(d).name),
-            cx.e.no_decide[&d]
+            cx.e.tables.no_decide[&d]
         )),
         _ => error,
     };
@@ -829,9 +829,9 @@ impl DecisionOrder {
     fn matches(&self, e: &Elaborator, first_def: usize, bootstrap: bool) -> bool {
         self.first_def == first_def
             && self.bootstrap == bootstrap
-            && self.prelude_defs == e.prelude_defs
+            && self.prelude_defs == e.tables.prelude_defs
             && self.closure == e.unit.module.closure
-            && self.namespace_defs == e.namespace_defs
+            && self.namespace_defs == e.tables.namespace_defs
     }
 }
 
@@ -848,7 +848,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         Some(closure) => {
             let mut all = Vec::new();
             for namespace in closure.iter().rev() {
-                let Some(range) = e.namespace_defs.get(namespace) else {
+                let Some(range) = e.tables.namespace_defs.get(namespace) else {
                     continue;
                 };
                 let mut ids: Vec<DefId> = range.clone().map(DefId).collect();
@@ -861,14 +861,14 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
             // without its file loaded), by name: every definition
             // outside the core that no namespace of the project made.
             // File mode sees them as it sees everything.
-            let project: Vec<Range<usize>> = e.namespace_defs.values().cloned().collect();
-            let mut library: Vec<DefId> = (e.prelude_defs..first_def)
+            let project: Vec<Range<usize>> = e.tables.namespace_defs.values().cloned().collect();
+            let mut library: Vec<DefId> = (e.tables.prelude_defs..first_def)
                 .filter(|id| !project.iter().any(|range| range.contains(id)))
                 .map(DefId)
                 .collect();
             library.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
             all.extend(library);
-            all.extend((0..e.prelude_defs).rev().map(DefId));
+            all.extend((0..e.tables.prelude_defs).rev().map(DefId));
             all
         }
     };
@@ -881,9 +881,9 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         .collect();
     *e.caches.decision_order.borrow_mut() = Some(DecisionOrder {
         first_def,
-        prelude_defs: e.prelude_defs,
+        prelude_defs: e.tables.prelude_defs,
         closure: e.unit.module.closure.clone(),
-        namespace_defs: e.namespace_defs.clone(),
+        namespace_defs: e.tables.namespace_defs.clone(),
         bootstrap,
         candidates: candidates.clone(),
     });
@@ -907,7 +907,8 @@ fn unrelated_hints(
     let mut error = error;
     let mut hints = 0;
     let namespaces: Vec<(String, std::ops::Range<usize>)> =
-        cx.e.namespace_defs
+        cx.e.tables
+            .namespace_defs
             .iter()
             .filter(|(name, _)| **name != current && !closure.contains(name))
             .map(|(name, range)| (name.clone(), range.clone()))
