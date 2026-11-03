@@ -24,17 +24,19 @@ time in `core::value`, which has no handler fusion or tail resumption:
   calls `isDefEq` only on closed subterms whose head symbol and argument
   count match the pattern's (`toHeadIndex`, `headNumArgs`) **[fetched]**.
   So the expensive check runs only on syntactically plausible candidates,
-  and the discriminant is never run. `generalizing := false` turns off
+  and the discriminant is never evaluated on its own (though `isDefEq` on a
+  candidate with the same head can unfold definitions). `generalizing := false` turns off
   generalisation in the hypotheses ([reference: pattern
   matching](https://lean-lang.org/doc/reference/latest/Terms/Pattern-Matching),
   [KAbstract.lean](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/KAbstract.lean),
   [Match.lean](https://github.com/leanprover/lean4/blob/master/src/Lean/Elab/Match.lean)).
 - **Rocq/Coq.** A `match` with no `return` clause takes its predicate from
   the expected type by abstracting the term's occurrences, or else uses a
-  non-dependent one. `destruct`, `case_eq` and `generalize` abstract
-  occurrences by matching subterms up to syntactic equality modulo evars,
-  with a head key, not up to conversion. Neither normalises the term
-  **[memory]**. Otherwise the user writes `as … in … return` by hand.
+  non-dependent one (`abstract_tycon` in the pretyper). `destruct`,
+  `case_eq` and `generalize` abstract occurrences by matching subterms up
+  to syntactic equality modulo evars, not up to conversion; keyed
+  unification is opt-in and affects `rewrite`. None of them normalises the
+  term **[memory, not checked]**. Otherwise the user writes `as … in … return` by hand.
 - **Agda.** `with`-abstraction normalises both the with-expression and the
   goal and argument types, then abstracts syntactically: "X ≃ Y" is
   "equality of the normal forms of X and Y". Only occurrences visible at
@@ -47,9 +49,9 @@ time in `core::value`, which has no handler fusion or tail resumption:
   clause elaborator) **[memory]**. It is close to Agda's design and pays
   the same cost.
 
-So the systems fall into two groups. Lean and Rocq never evaluate the
-scrutinee: they match occurrences up to syntax, with a head-symbol filter in
-front of a definitional-equality check. Agda and Idris 2 normalise, and
+So the systems fall into two groups. Lean and Rocq don't evaluate the
+scrutinee: Rocq matches occurrences syntactically, and Lean puts a
+head-symbol filter in front of a definitional-equality check. Agda and Idris 2 normalise, and
 evaluating something expensive at elaboration time is the price they pay
 for finding occurrences that differ from the source only by computation.
 
@@ -78,18 +80,32 @@ headed by a variable free in both, since a definition's application has
 the wrong type. There is no such variable if the scrutinee has no free
 variables or unknowns, or if the targets have no free variables. So `n`
 occurs nowhere, and `normals` answers "too big to occur" (`None`) without
-evaluating, as its size cap already does. The outcome is the same as
-today's for every program: the occurrence test would have found nothing.
-The only differences are that a scrutinee whose evaluation ran out of
-resources now checks, and that W-MATCH-NOT-FOUND shows the scrutinee as
-written. `main`'s goal `{IO} ()` passes: its effect row holds definitions,
-but none whose type ends in the scrutinee's data type.
+evaluating, as its size cap already does. The occurrence test would have
+found nothing, so the motive is the same, and whether a program checks is
+unchanged, except that a closed scrutinee whose evaluation ran out of
+resources now checks. Its diagnostics can differ:
+
+- W-MATCH-NOT-FOUND for an uncomputed scrutinee with free variables is
+  never given: its normal form might have been a variable, which doesn't
+  warn. So a warning the old code gave for one whose normal form wasn't a
+  variable is lost. A closed one still warns, showing the scrutinee as
+  written instead of its normal form.
+- The D230 hints inside the alternatives (`unrefined_hint`, the "came in
+  after the match" note in `check.rs`, `replaced_by_match` in `rewrite.rs`)
+  read `cx.scrutinees`, which holds only computed normal forms, so they
+  aren't given for an uncomputed scrutinee. A scrutinee over the size cap
+  already loses them in the same way.
+
+`main`'s goal `{IO} ()` passes: its effect row holds definitions, but none
+whose type ends in the scrutinee's data type.
 
 This is a filter in Lean's spirit (look at the targets' heads before doing
 anything expensive), applied in front of Agda's comparison. It covers the
 case that hurts, a `match` in `main` on a handled computation, whose goal is
-`{IO} ()`. It doesn't help when the goal mentions a constructor or number of
-any type: then the scrutinee is still evaluated. A finer filter (only the
+`{IO} ()`. The scrutinee is still evaluated when a target holds a
+constructor or number of any type; a definition whose type ends in the
+scrutinee's data type, in a type variable, in an alias or in `=`; or a
+free variable, when the scrutinee has one too. A finer filter (only the
 scrutinee type's own constructors, plus the heads a stuck normal form could
 have) or a work budget could follow if that case shows up. Fusion and tail
 resumption in `core::value` would lower the cost of whatever is still
