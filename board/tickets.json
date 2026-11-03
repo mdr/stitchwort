@@ -1,5 +1,5 @@
 {
-  "next": 1164,
+  "next": 1165,
   "tickets": [
     {
       "id": 47,
@@ -4533,7 +4533,7 @@
     {
       "id": 1160,
       "title": "BUG on main: driver named_arguments named_calls_keep_every_hash fails: E-ARITY J takes 3 arguments (examples/accept/char-pattern-proofs.sw and 13 more)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4582,6 +4582,20 @@
         "decision"
       ],
       "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1164,
+      "title": "Linker warns about duplicate _sw_* symbols (_sw_unary, _sw_test, _sw_text_last, ...) between stitchwort_rt's object and its rlib in release test links",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "build"
+      ],
+      "body": "Seen by several verifiers and lanes on 3 Nov (33 warnings); harmless so far. Find why the symbols are defined twice and whether the wrong one could be picked.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
