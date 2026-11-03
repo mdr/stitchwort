@@ -1,5 +1,5 @@
 {
-  "next": 1173,
+  "next": 1174,
   "tickets": [
     {
       "id": 47,
@@ -4687,7 +4687,7 @@
     {
       "id": 1171,
       "title": "State step 6a: ownership tag per declaration and the journal (Checkpoint, Transaction, Logged with stamps; nav::Logged moved onto it) (elaborator-state.md §4.8.2, §4.8.4, §7)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4708,6 +4708,20 @@
         "perf"
       ],
       "body": "D2287 (Matt, 3 Nov): approved, ~30-40 min of background runs per build, success criteria in §4.8.7. Sonnet, est. 90 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1173,
+      "title": "State step 6b: the copied tables onto the journal (Scope maps private, instances, helper_keys, Session's copied maps as Logged; Mark stops copying; LiveProject and Session::cancellable hold and release Checkpoints) (elaborator-state.md §4.8, §7 row 6b)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Part of step 6 (D2283-D2287, Matt, 3 Nov). Opus, est. 150 min. Includes the rewind test's slow tier once (STITCHWORT_SLOW=1, approved). Orchestrator's call: start right after 6a verified.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
