@@ -3420,16 +3420,16 @@
     {
       "id": 1082,
       "title": "search --at on a goal mentioning ≤ (cli test what_closes_a_goal) elaborates most of the library (Float, Int, Char files...), 1.4 GB live; find why lazy loading pulls it in and load only what the search needs (found by SW-1076)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "search",
         "performance"
       ],
-      "body": "\n\nAnalysis (read-only Explore agent, 2 Nov 2026; code read, nothing run; medium confidence on the mechanism):\n- Loading isn't the difference: search --at loads all std up front for every goal (load_all_libraries, crates/cli/src/main.rs:1857; driver search_at.rs:1567, :1670). Goals 1/3 0.29 GB vs goal 2 1.5 GB comes from searching and checking.\n- closing_plans turns the constants filter off (filter: false, crates/elab/src/closing.rs:365), so every declaration is unified with the goal. ≤ on Nat is the built-in Nat.LessEq, which unfolds to `… = True`, so any `_ = True` conclusion matches, including generated equations from unrelated files (closing.rs:421-424 cites Char.isAsciiSpaceCode.eq1 closing a Float.ieeeLe goal). Each match gets several plans (hypotheses h1, h2) and each is tried with rfl/omega/cases/byDecision (search_at.rs:1250); search.md:1165 records one cases check at 1.2 GB.\n- Memory held: Globals defs/datas (core/src/globals.rs:421), whole-library generated equations (search_at.rs:612), lifted <input N> definitions kept per check (lib.rs:1178); nothing freed until main.rs:1888.\n- Levers: filter on in closing_plans (or overlaps, search.rs:893) with the relaxed second pass as fallback; skip generated equations sharing no data type with the goal; load only the goal's needs (library.rs:1002 load_needs); per-check memory/step caps or no cases on obligations (today time only, search_at.rs:541).\nPlan when picked up (Opus): confirm with STITCHWORT_SEARCH_DEBUG per-check timings; then the filter with fallback; report memory and the AoC closing rate (66% today, SW-915) before/after. The recall benchmark is beyond targeted tests: agree the test strategy with Matt first (D2198, Matt 2 Nov: backlog for now).\n",
+      "body": "\n\nAnalysis (read-only Explore agent, 2 Nov 2026; code read, nothing run; medium confidence on the mechanism):\n- Loading isn't the difference: search --at loads all std up front for every goal (load_all_libraries, crates/cli/src/main.rs:1857; driver search_at.rs:1567, :1670). Goals 1/3 0.29 GB vs goal 2 1.5 GB comes from searching and checking.\n- closing_plans turns the constants filter off (filter: false, crates/elab/src/closing.rs:365), so every declaration is unified with the goal. ≤ on Nat is the built-in Nat.LessEq, which unfolds to `… = True`, so any `_ = True` conclusion matches, including generated equations from unrelated files (closing.rs:421-424 cites Char.isAsciiSpaceCode.eq1 closing a Float.ieeeLe goal). Each match gets several plans (hypotheses h1, h2) and each is tried with rfl/omega/cases/byDecision (search_at.rs:1250); search.md:1165 records one cases check at 1.2 GB.\n- Memory held: Globals defs/datas (core/src/globals.rs:421), whole-library generated equations (search_at.rs:612), lifted <input N> definitions kept per check (lib.rs:1178); nothing freed until main.rs:1888.\n- Levers: filter on in closing_plans (or overlaps, search.rs:893) with the relaxed second pass as fallback; skip generated equations sharing no data type with the goal; load only the goal's needs (library.rs:1002 load_needs); per-check memory/step caps or no cases on obligations (today time only, search_at.rs:541).\nPlan when picked up (Opus): confirm with STITCHWORT_SEARCH_DEBUG per-check timings; then the filter with fallback; report memory and the AoC closing rate (66% today, SW-915) before/after. The recall benchmark is beyond targeted tests: agree the test strategy with Matt first (D2198, Matt 2 Nov: backlog for now).\n\n\nD2278 (Matt, 3 Nov): start. Sonnet, est. 45 min. SW-1164 on DeepSeek alongside.",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-03",
       "commits": []
     },
     {
@@ -4589,7 +4589,7 @@
     {
       "id": 1164,
       "title": "Linker warns about duplicate _sw_* symbols (_sw_unary, _sw_test, _sw_text_last, ...) between stitchwort_rt's object and its rlib in release test links",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
