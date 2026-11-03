@@ -1,0 +1,17 @@
+# A scratch benchmark for docs/proposals/elaborator-state.md: not a workspace
+# member. Run from this folder: nix develop <repo root> -c cargo run --release
+[package]
+name = "state-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+imbl = "7"
+rpds = "1"
+archery = "1"
+
+[profile.release]
+debug = false
