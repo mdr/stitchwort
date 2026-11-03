@@ -1711,7 +1711,9 @@ impl Elaborator {
             // the definition itself.
             if !*theorem && !*instance {
                 for s in &suffixes {
-                    self.equation_skips.push((f, s.clone(), why.to_string()));
+                    self.tables
+                        .equation_skips
+                        .push((f, s.clone(), why.to_string()));
                 }
                 induct::no_equations(self, f, kind, why);
             }
@@ -1752,7 +1754,9 @@ impl Elaborator {
         let display = crate::scope::display(&key).to_string();
         let skip_all = |e: &mut Elaborator, why: &str| {
             for s in &suffixes {
-                e.equation_skips.push((f, s.clone(), why.to_string()));
+                e.tables
+                    .equation_skips
+                    .push((f, s.clone(), why.to_string()));
             }
             induct::no_equations(e, f, kind, why);
         };
@@ -1895,9 +1899,9 @@ impl Elaborator {
         // whose split the elaborated definition doesn't show is said here.
         for s in &suffixes {
             let made = self.scope.get(&format!("{key}.{s}")).is_some();
-            let said = (self.equation_skips.iter()).any(|(g, t, _)| *g == f && t == s);
+            let said = (self.tables.equation_skips.iter()).any(|(g, t, _)| *g == f && t == s);
             if !made && !said {
-                self.equation_skips.push((
+                self.tables.equation_skips.push((
                     f,
                     s.clone(),
                     "its branch couldn't be followed in the elaborated definition".to_string(),
@@ -1963,12 +1967,12 @@ impl Elaborator {
                 row.arm != 0
             };
             if own {
-                let skipped = self.equation_skips.len();
+                let skipped = self.tables.equation_skips.len();
                 let cache = &mut helpers;
                 self.one_equation(d, k, row.suffix(), &shapes, |e, d, shape, shapes| {
                     e.equation(d, k, shape, shapes, span, cache)
                 })?;
-                if self.equation_skips.len() != skipped {
+                if self.tables.equation_skips.len() != skipped {
                     helpers.clear();
                 }
             }
@@ -1976,21 +1980,21 @@ impl Elaborator {
                 if let Some(why) = &unfollowed[k] {
                     for path in &paths {
                         let s = format!("{}.{}", row.suffix, path_suffix(path));
-                        self.equation_skips.push((d.f, s, why.clone()));
+                        self.tables.equation_skips.push((d.f, s, why.clone()));
                     }
                 }
                 continue;
             }
             for path in &paths {
                 let suffix = format!("{}.{}", row.suffix, path_suffix(path));
-                let skipped = self.equation_skips.len();
+                let skipped = self.tables.equation_skips.len();
                 let cache = &mut helpers;
                 self.one_equation(d, k, suffix.clone(), &shapes, |e, d, shape, shapes| {
                     e.branch_equation(d, k, shape, shapes, path, &suffix, cache, span)
                 })?;
                 // A failed attempt is undone, hidden lemmas it declared
                 // included: the helpers' are made again when next needed.
-                if self.equation_skips.len() != skipped {
+                if self.tables.equation_skips.len() != skipped {
                     helpers.clear();
                 }
             }
@@ -2013,14 +2017,19 @@ impl Elaborator {
         if self.scope.get(&format!("{}.{}", d.key, name.1)).is_some() {
             // Reserved names are refused where they're declared; a clash
             // here is one declared before the definition.
-            self.equation_skips
-                .push((name.0, name.1, "the name is already declared".to_string()));
+            self.tables.equation_skips.push((
+                name.0,
+                name.1,
+                "the name is already declared".to_string(),
+            ));
             return Ok(());
         }
         let shape = match &shapes[k] {
             Ok(s) => s,
             Err(why) => {
-                self.equation_skips.push((name.0, name.1, why.clone()));
+                self.tables
+                    .equation_skips
+                    .push((name.0, name.1, why.clone()));
                 return Ok(());
             }
         };
@@ -2029,12 +2038,12 @@ impl Elaborator {
             Ok(()) => {}
             Err(Stop::Skip(why)) => {
                 self.rewind_globals(&mark);
-                self.equation_skips.push((name.0, name.1, why));
+                self.tables.equation_skips.push((name.0, name.1, why));
             }
             Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
             Err(Stop::Error(e)) => {
                 self.rewind_globals(&mark);
-                self.equation_skips.push((
+                self.tables.equation_skips.push((
                     name.0,
                     name.1,
                     format!(
@@ -2632,9 +2641,9 @@ impl Elaborator {
         let mut under = d.key.clone();
         for part in &parts[..parts.len() - 1] {
             under = format!("{under}.{part}");
-            self.helper_keys.insert(under.clone());
+            self.tables.helper_keys.insert(under.clone());
         }
-        self.helper_keys.insert(key);
+        self.tables.helper_keys.insert(key);
         Ok(())
     }
 
@@ -3467,7 +3476,7 @@ impl Elaborator {
         if hb.len() != def.arity || args.len() != def.arity {
             return skip("its `match`'s helper isn't called with all its parameters");
         }
-        let Some(recorded) = self.match_columns.get(&h) else {
+        let Some(recorded) = self.tables.match_columns.get(&h) else {
             return skip("its `match`'s helper doesn't record what it matches");
         };
         if recorded.cols.len() != scrutinees.len()
@@ -4668,7 +4677,7 @@ impl Elaborator {
             };
             if decreasing {
                 for s in source_suffixes(&def.equations) {
-                    self.equation_skips.push((
+                    self.tables.equation_skips.push((
                         *id,
                         s,
                         "a local definition in a `decreasing` definition takes `%rec`, which a \
@@ -4713,7 +4722,7 @@ impl Elaborator {
     }
 
     fn ensure_equations_of(&mut self, key: &str) -> Result<()> {
-        if self.equations_done.iter().any(|k| k == key) {
+        if self.tables.equations_done.iter().any(|k| k == key) {
             return Ok(());
         }
         let Some(lib) = &self.session.library else {
@@ -4739,7 +4748,7 @@ impl Elaborator {
         else {
             return Ok(());
         };
-        self.equations_done.push(key.to_string());
+        self.tables.equations_done.push(key.to_string());
         // Made with the definition already (a library file replayed from
         // the check cache, whose own proofs named them).
         if source_suffixes(equations)
@@ -6072,6 +6081,7 @@ pub(crate) fn no_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic
     let why = match lazy {
         Some(why) => why,
         None => e
+            .tables
             .equation_skips
             .iter()
             .rev()
@@ -6101,6 +6111,6 @@ impl Elaborator {
     /// The equations the source implies that weren't generated, by key,
     /// with the reason.
     pub fn equation_skips(&self) -> &[(DefId, String, String)] {
-        &self.equation_skips
+        &self.tables.equation_skips
     }
 }

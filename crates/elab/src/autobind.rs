@@ -197,7 +197,7 @@ fn type_former(
     let data = match e.named(&name.text)? {
         (Global::Data(d), _) => e.globals.data(*d),
         // An ability's parameters are those of its operations' type.
-        (Global::Ability(a), _) => e.globals.data(e.abilities[*a].op_data),
+        (Global::Ability(a), _) => e.globals.data(e.tables.abilities[*a].op_data),
         (Global::Def(id), _) => {
             let mut params = Vec::new();
             let mut ty = &e.globals.def(*id).ty;

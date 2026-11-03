@@ -674,7 +674,7 @@ fn infer_receiver(cx: &mut Ctx, recv: &Expr, field: &AstName) -> Result<(Term, V
 /// notation, which never finds a local definition.
 pub(crate) fn helper(cx: &Ctx, recv: &Expr, field: &AstName) -> Option<DefId> {
     let key = format!("{}.{}", helper_owner(cx, recv)?, field.text);
-    if !cx.e.helper_keys.contains(&key) {
+    if !cx.e.tables.helper_keys.contains(&key) {
         return None;
     }
     match cx.e.scope.get(&key) {
@@ -703,7 +703,7 @@ fn helper_owner(cx: &Ctx, recv: &Expr) -> Option<String> {
         }
         Expr::Field(inner, field) => {
             let key = format!("{}.{}", helper_owner(cx, inner)?, field.text);
-            cx.e.helper_keys.contains(&key).then_some(key)
+            cx.e.tables.helper_keys.contains(&key).then_some(key)
         }
         _ => None,
     }
@@ -715,7 +715,8 @@ fn no_update_lemma(cx: &Ctx, recv: &Expr, field: &AstName, owner: &str) -> Diagn
     let shown_owner = scope::display(owner);
     let prefix = format!("{owner}.update.");
     let mut lemmas: Vec<String> =
-        cx.e.helper_keys
+        cx.e.tables
+            .helper_keys
             .iter()
             .filter(|k| k.starts_with(&prefix))
             .map(|k| format!("`{}`", scope::display(k)))
@@ -880,7 +881,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field of a dictionary is its record's own projection, not
                 // the method of that name (docs/proposals/interfaces.md §5.1).
                 if let TyHead::Data(d) = h
-                    && let Some(info) = cx.e.interfaces.get(&d)
+                    && let Some(info) = cx.e.tables.interfaces.get(&d)
                     && let Some(i) = g.data(d).ctors[0]
                         .fields
                         .iter()
@@ -889,7 +890,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                     return Ok(Lookup::Found(h, info.projections[i], shown_key));
                 }
                 // A local definition is never found by dot notation (§3.6).
-                let mut found = match cx.e.helper_keys.contains(&key) {
+                let mut found = match cx.e.tables.helper_keys.contains(&key) {
                     true => None,
                     false => cx.e.scope.get(&key),
                 };
@@ -1339,7 +1340,7 @@ fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<(Stri
                 let owner = key.strip_suffix(&suffix)?;
                 if owner.contains('%')
                     || tried_namespaces.iter().any(|ns| ns == owner)
-                    || cx.e.helper_keys.contains(key)
+                    || cx.e.tables.helper_keys.contains(key)
                 {
                     return None;
                 }

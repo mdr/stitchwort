@@ -106,7 +106,7 @@ impl Elaborator {
         let plan = match self.finite_plan(d, finite)? {
             Ok(plan) => plan,
             Err(why) => {
-                self.no_finite.insert(d, why);
+                self.tables.no_finite.insert(d, why);
                 return Ok(());
             }
         };
@@ -132,7 +132,8 @@ impl Elaborator {
             Ok(()) => {}
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => {
-                self.no_finite
+                self.tables
+                    .no_finite
                     .insert(d, format!("deriving it failed: {}", e.message));
             }
         }

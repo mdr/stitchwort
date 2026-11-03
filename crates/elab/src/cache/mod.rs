@@ -42,8 +42,10 @@
 
 mod codec;
 mod dump;
+mod rows;
 
 use std::collections::BTreeSet;
+use std::ops::Range;
 use std::rc::Rc;
 
 use crate::kernel;
@@ -56,15 +58,14 @@ use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
-use crate::effects::AbilityInfo;
-use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
 use crate::library::{Needs, PendingKind};
 use crate::nav::{LocalUse, Noted};
 use crate::project::SourceUnit;
-use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
+use crate::state;
 use crate::{Elaborator, Global};
-use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
+pub(crate) use codec::Read;
+use codec::{Bad, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
 use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults, UpdateShown};
 use stitchwort_syntax::{Diagnostic, Label, Severity};
 
@@ -146,16 +147,11 @@ pub(crate) struct Capture {
 pub(crate) struct Before {
     defs: usize,
     datas: usize,
-    abilities: usize,
-    lifted: usize,
-    tests: usize,
+    tables: state::TablesMark,
     scope: HashMap<String, (Global, Span)>,
-    instances: HashMap<(DataId, DataId), (DefId, bool)>,
-    helper_keys: HashSet<String>,
-    equation_skips: usize,
-    equations_done: usize,
-    /// The sizes of the tables keyed by data type (`by_data`).
-    by_data: Vec<usize>,
+    /// How many data types had fields' defaults: a unit adds them only to
+    /// its own.
+    defaults: usize,
     nav: Option<(usize, usize, usize)>,
 }
 
@@ -301,19 +297,9 @@ impl Elaborator {
         Before {
             defs: self.globals.defs.len(),
             datas: self.globals.datas.len(),
-            abilities: self.abilities.len(),
-            lifted: self.lifted.len(),
-            tests: self.tests.len(),
+            tables: self.tables.mark(self.ids()),
             scope: self.scope.entries.clone(),
-            instances: self
-                .instances
-                .iter()
-                .map(|(k, v)| (*k, (v.def, v.valid)))
-                .collect(),
-            helper_keys: self.helper_keys.clone(),
-            equation_skips: self.equation_skips.len(),
-            equations_done: self.equations_done.len(),
-            by_data: self.by_data().iter().map(|t| t.len()).collect(),
+            defaults: self.with_defaults(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
                 (nav.locals.len(), nav.binders.len(), nav.outline.len())
@@ -321,25 +307,12 @@ impl Elaborator {
         }
     }
 
-    /// The side tables keyed by data type, as `(data type, row)` lists:
-    /// records, interfaces, owners, and why `==`, `show` and `compare`
-    /// aren't derived. Loading a file only adds rows for its own types.
-    fn by_data(&self) -> Vec<Vec<DataId>> {
-        vec![
-            self.records.keys().copied().collect(),
-            (0..self.globals.datas.len())
-                .map(DataId)
-                .filter(|d| self.globals.data(*d).defaults.is_some())
-                .collect(),
-            self.interfaces.keys().copied().collect(),
-            self.data_owners.keys().copied().collect(),
-            self.no_eq.keys().copied().collect(),
-            self.no_show.keys().copied().collect(),
-            self.no_ord.keys().copied().collect(),
-            self.no_finite.keys().copied().collect(),
-            self.no_decide.keys().copied().collect(),
-            self.generated_alls.keys().copied().collect(),
-        ]
+    /// How many data types have fields' defaults.
+    fn with_defaults(&self) -> usize {
+        let g = &self.globals;
+        (0..g.datas.len())
+            .filter(|d| g.data(DataId(*d)).defaults.is_some())
+            .count()
     }
 
     /// After library file `f` loaded: writes its entry, if it checked and
@@ -717,7 +690,7 @@ impl Elaborator {
             namespace: Some(ns.to_string()),
             closure: Some(closure.to_vec()),
             first_def: self.globals.defs.len(),
-            first_test: self.tests.len(),
+            first_test: self.tables.tests.len(),
             ..crate::module::ModuleState::default()
         };
         self.scope.clear_imports();
@@ -744,12 +717,13 @@ impl Elaborator {
             return Err(Miss::Late("a test made it fail".to_string()));
         }
         let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
-        let warnings = std::mem::take(&mut d.tables.warnings);
+        let warnings = std::mem::take(&mut d.rest.warnings);
         let base_defs = self.globals.defs.len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound)
             .map_err(late)?;
-        self.replay_tables(d.tables, &pre.early);
-        self.namespace_defs
+        self.replay_tables(d.rest, &pre.early);
+        self.tables
+            .namespace_defs
             .insert(ns.to_string(), base_defs..self.globals.defs.len());
         Ok(warnings)
     }
@@ -868,19 +842,24 @@ impl Refs for Out<'_> {
 
 /// An entry's parts while it is written: the terms and strings, and the
 /// rest.
-struct Encoding<'g> {
+pub(crate) struct Encoding<'g> {
     out: Out<'g>,
     terms: TermWriter,
     w: Writer,
 }
 
 impl Encoding<'_> {
-    fn str(&mut self, s: &str) {
+    /// How many rows follow.
+    pub(crate) fn count(&mut self, n: usize) {
+        self.w.usize(n);
+    }
+
+    pub(crate) fn str(&mut self, s: &str) {
         let i = self.terms.string(s);
         self.w.uint(u64::from(i));
     }
 
-    fn term(&mut self, t: &Term) {
+    pub(crate) fn term(&mut self, t: &Term) {
         match self.terms.term(&mut self.out, t) {
             Ok(id) => self.w.uint(u64::from(id)),
             Err(_) => self.out.fail("a term with a metavariable".to_string()),
@@ -888,7 +867,7 @@ impl Encoding<'_> {
     }
 
     /// A test's probe (D601).
-    fn probe(&mut self, p: &crate::Probe) {
+    pub(crate) fn probe(&mut self, p: &crate::Probe) {
         self.span(p.span);
         match &p.truth {
             None => self.w.bool(false),
@@ -914,15 +893,15 @@ impl Encoding<'_> {
         }
     }
 
-    fn def(&mut self, id: DefId) {
+    pub(crate) fn def(&mut self, id: DefId) {
         self.out.def(&mut self.w, id);
     }
 
-    fn data(&mut self, id: DataId) {
+    pub(crate) fn data(&mut self, id: DataId) {
         self.out.data(&mut self.w, id);
     }
 
-    fn span(&mut self, span: Span) {
+    pub(crate) fn span(&mut self, span: Span) {
         self.out.span(&mut self.w, span);
     }
 
@@ -943,11 +922,11 @@ impl Encoding<'_> {
             }
             Global::Ability(i) => {
                 self.w.u8(3);
-                self.data(e.abilities[i].op_data);
+                self.data(e.tables.abilities[i].op_data);
             }
             Global::Op(i, j) => {
                 self.w.u8(4);
-                self.data(e.abilities[i].op_data);
+                self.data(e.tables.abilities[i].op_data);
                 self.w.usize(j);
             }
             Global::Pending(f, kind) => {
@@ -1206,25 +1185,15 @@ impl Elaborator {
                 return Err(format!("`{}` is a core built-in", b.name()));
             }
         }
-        let tests = &self.tests[before.tests..];
+        let tests = self.tables.tests.since(before.tables.tests());
         if tests.iter().any(|t| t.library) || (unit.library && !tests.is_empty()) {
             return Err("a library test was kept".to_string());
         }
-        let old_rows = self
-            .by_data()
-            .iter()
-            .map(|t| t.iter().filter(|d| d.0 < before.datas).count())
-            .collect::<Vec<_>>();
-        if old_rows != before.by_data {
+        let old_defaults = (0..before.datas)
+            .filter(|d| g.data(DataId(*d)).defaults.is_some())
+            .count();
+        if old_defaults != before.defaults {
             return Err("a row for an older data type changed".to_string());
-        }
-        if self.instances.iter().any(|(k, v)| {
-            before
-                .instances
-                .get(k)
-                .is_some_and(|old| *old != (v.def, v.valid))
-        }) {
-            return Err("an instance from before changed".to_string());
         }
 
         let mut def_paths: HashMap<&str, usize> = HashMap::default();
@@ -1431,289 +1400,14 @@ impl Elaborator {
             e.str(k);
         }
 
-        // The elaborator's tables.
-        let new_data = |d: &DataId| d.0 >= before.datas;
-        let mut records: Vec<(&DataId, &RecordInfo)> =
-            self.records.iter().filter(|(d, _)| new_data(d)).collect();
-        records.sort_by_key(|(d, _)| d.0);
-        e.w.usize(records.len());
-        for (d, info) in records {
-            e.data(*d);
-            e.w.usize(info.projections.len());
-            for p in &info.projections {
-                e.w.bool(p.is_some());
-                if let Some(p) = p {
-                    e.def(*p);
-                }
-            }
-        }
-        // Fields' defaults (docs/proposals/named-arguments.md §5.2): for
-        // each constructor and field, its helper and what the helper takes.
-        let defaults: Vec<(DataId, &FieldDefaults)> = datas
-            .clone()
-            .map(DataId)
-            .filter_map(|d| g.data(d).defaults.as_deref().map(|t| (d, t)))
-            .collect();
-        e.w.usize(defaults.len());
-        for (d, ctors) in defaults {
-            e.data(d);
-            e.w.usize(ctors.len());
-            for fields in ctors {
-                e.w.usize(fields.len());
-                for field in fields {
-                    e.w.bool(field.is_some());
-                    if let Some(field) = field {
-                        e.def(field.helper);
-                        e.w.usize(field.captures.len());
-                        for &l in &field.captures {
-                            e.w.usize(l);
-                        }
-                    }
-                }
-            }
-        }
-        // Parameters' defaults (docs/proposals/signature-defaults.md §7.3):
-        // for each definition with any, its header's length and, for each
-        // parameter, its helper and what the helper takes.
-        let param_defaults: Vec<(DefId, &ParamDefaults)> = defs
-            .clone()
-            .map(DefId)
-            .filter_map(|id| g.def(id).param_defaults.as_deref().map(|t| (id, t)))
-            .collect();
-        e.w.usize(param_defaults.len());
-        for (id, table) in param_defaults {
-            e.def(id);
-            e.w.usize(table.header);
-            e.w.usize(table.params.len());
-            for param in &table.params {
-                e.w.bool(param.is_some());
-                if let Some(param) = param {
-                    e.def(param.helper);
-                    e.w.usize(param.captures.len());
-                    for &l in &param.captures {
-                        e.w.usize(l);
-                    }
-                }
-            }
-        }
-        // How the unit's update helpers are shown: each one's parameter
-        // count, record and new values.
-        let update_shown: Vec<(DefId, &UpdateShown)> = defs
-            .clone()
-            .map(DefId)
-            .filter_map(|id| g.def(id).update_shown.as_deref().map(|s| (id, s)))
-            .collect();
-        e.w.usize(update_shown.len());
-        for (id, shown) in update_shown {
-            e.def(id);
-            e.w.usize(shown.params);
-            e.term(&shown.base);
-            e.w.usize(shown.fields.len());
-            for (field, value) in &shown.fields {
-                e.str(field);
-                e.term(value);
-            }
-        }
-        // `js_repr`: how the unit's attributed data types cross the JS
-        // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
-        // only this table carries it; it travels with the type's unit.
-        let js: Vec<(DataId, &JsRepr)> = datas
-            .clone()
-            .map(DataId)
-            .filter_map(|d| g.data(d).js.as_deref().map(|r| (d, r)))
-            .collect();
-        e.w.usize(js.len());
-        for (d, repr) in js {
-            e.data(d);
-            e.str(&repr.tag_key);
-            e.w.bool(repr.string_enum);
-            e.w.bool(repr.unboxed);
-            e.w.usize(repr.ctors.len());
-            for ctor in &repr.ctors {
-                e.str(&ctor.tag);
-                e.w.usize(ctor.keys.len());
-                for key in &ctor.keys {
-                    e.w.bool(key.is_some());
-                    if let Some(key) = key {
-                        e.str(key);
-                    }
-                }
-                for &optional in &ctor.optional {
-                    e.w.bool(optional);
-                }
-            }
-        }
-        let mut interfaces: Vec<(&DataId, &InterfaceInfo)> = self
-            .interfaces
-            .iter()
-            .filter(|(d, _)| new_data(d))
-            .collect();
-        interfaces.sort_by_key(|(d, _)| d.0);
-        e.w.usize(interfaces.len());
-        for (d, info) in interfaces {
-            e.data(*d);
-            e.str(&info.dict);
-            e.w.usize(info.supers.len());
-            for (i, s) in &info.supers {
-                e.w.usize(*i);
-                e.data(*s);
-            }
-            e.w.usize(info.projections.len());
-            for p in &info.projections {
-                e.def(*p);
-            }
-            e.w.usize(info.methods.len());
-            for m in &info.methods {
-                e.def(*m);
-            }
-            e.w.usize(info.relations.len());
-            for (r, d) in &info.relations {
-                e.w.usize(*r);
-                e.w.usize(*d);
-            }
-        }
-        let mut instances: Vec<(&(DataId, DataId), &InstanceInfo)> = self
-            .instances
-            .iter()
-            .filter(|(k, _)| !before.instances.contains_key(k))
-            .collect();
-        instances.sort_by_key(|(k, _)| (k.0.0, k.1.0));
-        e.w.usize(instances.len());
-        for ((iface, head), info) in instances {
-            e.data(*iface);
-            e.data(*head);
-            e.def(info.def);
-            e.str(&info.name);
-            e.span(info.span);
-            e.w.usize(info.params.len());
-            for p in &info.params {
-                match p {
-                    InstanceParam::Head(k) => {
-                        e.w.u8(0);
-                        e.w.usize(*k);
-                    }
-                    InstanceParam::Prerequisite => e.w.u8(1),
-                }
-            }
-            e.w.bool(info.valid);
-        }
-        for table in [
-            &self.data_owners,
-            &self.no_eq,
-            &self.no_show,
-            &self.no_ord,
-            &self.no_finite,
-            &self.no_decide,
-        ] {
-            let mut rows: Vec<(&DataId, &String)> =
-                table.iter().filter(|(d, _)| new_data(d)).collect();
-            rows.sort_by_key(|(d, _)| d.0);
-            e.w.usize(rows.len());
-            for (d, s) in rows {
-                e.data(*d);
-                e.str(s);
-            }
-        }
-        let mut alls: Vec<(&DataId, &DefId)> = self
-            .generated_alls
-            .iter()
-            .filter(|(d, _)| new_data(d))
-            .collect();
-        alls.sort_by_key(|(d, _)| d.0);
-        e.w.usize(alls.len());
-        for (d, all) in alls {
-            e.data(*d);
-            e.def(*all);
-        }
-        e.w.usize(self.abilities.len() - before.abilities);
-        for a in &self.abilities[before.abilities..] {
-            e.str(&a.name);
-            e.data(a.op_data);
-            e.def(a.res);
-            e.def(a.elim);
-            e.w.usize(a.ops.len());
-            for op in &a.ops {
-                e.str(op);
-            }
-            e.w.bool(a.order.0);
-            e.str(&a.order.1);
-        }
-        e.w.usize(self.lifted.len() - before.lifted);
-        for (id, span) in &self.lifted[before.lifted..] {
-            e.def(*id);
-            e.span(*span);
-        }
-        let mut columns: Vec<(&DefId, &Rc<crate::lift::MatchColumns>)> =
-            (self.match_columns.iter())
-                .filter(|(id, _)| id.0 >= before.defs)
-                .collect();
-        columns.sort_by_key(|(id, _)| id.0);
-        e.w.usize(columns.len());
-        for (id, c) in columns {
-            e.def(*id);
-            e.w.usize(c.cols.len());
-            for (col, eq) in c.cols.iter().zip(&c.eqs) {
-                e.w.usize(*col);
-                e.w.usize(eq.map_or(0, |q| q + 1));
-            }
-        }
-        let mut helpers: Vec<&String> = self.helper_keys.difference(&before.helper_keys).collect();
-        helpers.sort();
-        e.w.usize(helpers.len());
-        for k in helpers {
-            e.str(k);
-        }
-        // The equations the source implies that weren't generated.
-        e.w.usize(self.equation_skips.len() - before.equation_skips);
-        for (id, suffix, why) in &self.equation_skips[before.equation_skips..] {
-            e.def(*id);
-            e.str(suffix);
-            e.str(why);
-        }
-        // The library definitions whose equations the unit made on demand.
-        e.w.usize(self.equations_done.len() - before.equations_done);
-        for key in &self.equations_done[before.equations_done..] {
-            e.str(key);
-        }
-        // The unit's own functions checked again with their rows total.
-        let rows = self.total_rows.borrow();
-        let mut total: Vec<(&DefId, &Span)> =
-            rows.iter().filter(|(id, _)| id.0 >= before.defs).collect();
-        total.sort_by_key(|(id, _)| id.0);
-        e.w.usize(total.len());
-        for (id, at) in total {
-            e.def(*id);
-            e.span(*at);
-        }
-        // The extensions the namespace declares (a library file has none).
-        let own = self.current_namespace().filter(|_| !unit.library);
-        let mut extensions: Vec<(&String, &String)> = self
-            .scope
-            .all_extended()
-            .filter(|(k, _)| own.is_some() && self.longest_namespace(k, false).as_deref() == own)
-            .collect();
-        extensions.sort();
-        e.w.usize(extensions.len());
-        for (k, target) in extensions {
-            e.str(k);
-            e.str(target);
-        }
-
-        // The tests, in the order they run.
-        e.w.usize(tests.len());
-        for t in tests {
-            e.str(&t.name);
-            e.str(&t.namespace);
-            e.def(t.def);
-            e.span(t.span);
-            match &t.probe {
-                None => e.w.bool(false),
-                Some(probe) => {
-                    e.w.bool(true);
-                    e.probe(probe);
-                }
-            }
-        }
+        // The elaborator's tables, and the two parts the format puts
+        // between them.
+        self.tables.encode_since(
+            &before.tables,
+            &mut e,
+            |e| self.encode_side_facts(e, defs.clone(), datas.clone()),
+            |e| self.encode_extensions(e, unit),
+        )?;
 
         // The warnings, in the order they are reported.
         e.w.usize(warnings.len());
@@ -1845,6 +1539,124 @@ impl Elaborator {
         body.raw(&e.terms.nodes.bytes);
         body.raw(&e.w.bytes);
         Ok(seal(key, salt, &e.out.deps, &body.bytes))
+    }
+
+    /// The side facts of the unit's declarations, which their hashes
+    /// don't cover.
+    fn encode_side_facts(&self, e: &mut Encoding, defs: Range<usize>, datas: Range<usize>) {
+        let g = &self.globals;
+        // Fields' defaults (docs/proposals/named-arguments.md §5.2): for
+        // each constructor and field, its helper and what the helper takes.
+        let defaults: Vec<(DataId, &FieldDefaults)> = datas
+            .clone()
+            .map(DataId)
+            .filter_map(|d| g.data(d).defaults.as_deref().map(|t| (d, t)))
+            .collect();
+        e.w.usize(defaults.len());
+        for (d, ctors) in defaults {
+            e.data(d);
+            e.w.usize(ctors.len());
+            for fields in ctors {
+                e.w.usize(fields.len());
+                for field in fields {
+                    e.w.bool(field.is_some());
+                    if let Some(field) = field {
+                        e.def(field.helper);
+                        e.w.usize(field.captures.len());
+                        for &l in &field.captures {
+                            e.w.usize(l);
+                        }
+                    }
+                }
+            }
+        }
+        // Parameters' defaults (docs/proposals/signature-defaults.md §7.3):
+        // for each definition with any, its header's length and, for each
+        // parameter, its helper and what the helper takes.
+        let param_defaults: Vec<(DefId, &ParamDefaults)> = defs
+            .clone()
+            .map(DefId)
+            .filter_map(|id| g.def(id).param_defaults.as_deref().map(|t| (id, t)))
+            .collect();
+        e.w.usize(param_defaults.len());
+        for (id, table) in param_defaults {
+            e.def(id);
+            e.w.usize(table.header);
+            e.w.usize(table.params.len());
+            for param in &table.params {
+                e.w.bool(param.is_some());
+                if let Some(param) = param {
+                    e.def(param.helper);
+                    e.w.usize(param.captures.len());
+                    for &l in &param.captures {
+                        e.w.usize(l);
+                    }
+                }
+            }
+        }
+        // How the unit's update helpers are shown: each one's parameter
+        // count, record and new values.
+        let update_shown: Vec<(DefId, &UpdateShown)> = defs
+            .clone()
+            .map(DefId)
+            .filter_map(|id| g.def(id).update_shown.as_deref().map(|s| (id, s)))
+            .collect();
+        e.w.usize(update_shown.len());
+        for (id, shown) in update_shown {
+            e.def(id);
+            e.w.usize(shown.params);
+            e.term(&shown.base);
+            e.w.usize(shown.fields.len());
+            for (field, value) in &shown.fields {
+                e.str(field);
+                e.term(value);
+            }
+        }
+        // `js_repr`: how the unit's attributed data types cross the JS
+        // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
+        // only this table carries it; it travels with the type's unit.
+        let js: Vec<(DataId, &JsRepr)> = datas
+            .clone()
+            .map(DataId)
+            .filter_map(|d| g.data(d).js.as_deref().map(|r| (d, r)))
+            .collect();
+        e.w.usize(js.len());
+        for (d, repr) in js {
+            e.data(d);
+            e.str(&repr.tag_key);
+            e.w.bool(repr.string_enum);
+            e.w.bool(repr.unboxed);
+            e.w.usize(repr.ctors.len());
+            for ctor in &repr.ctors {
+                e.str(&ctor.tag);
+                e.w.usize(ctor.keys.len());
+                for key in &ctor.keys {
+                    e.w.bool(key.is_some());
+                    if let Some(key) = key {
+                        e.str(key);
+                    }
+                }
+                for &optional in &ctor.optional {
+                    e.w.bool(optional);
+                }
+            }
+        }
+    }
+
+    fn encode_extensions(&self, e: &mut Encoding, unit: &UnitOut) {
+        // The extensions the namespace declares (a library file has none).
+        let own = self.current_namespace().filter(|_| !unit.library);
+        let mut extensions: Vec<(&String, &String)> = self
+            .scope
+            .all_extended()
+            .filter(|(k, _)| own.is_some() && self.longest_namespace(k, false).as_deref() == own)
+            .collect();
+        extensions.sort();
+        e.w.usize(extensions.len());
+        for (k, target) in extensions {
+            e.str(k);
+            e.str(target);
+        }
     }
 }
 
@@ -2014,46 +1826,30 @@ enum GlobalEntry {
 }
 
 /// Everything an entry holds besides the kernel's declarations.
-struct Tables {
+struct Rest {
     changed: Vec<(String, GlobalEntry, Span)>,
     new: Vec<(String, GlobalEntry, Span, bool)>,
     /// What each name declared before the library files loaded names
     /// ([`Pre::early`]), in the same order.
     early: Vec<GlobalEntry>,
     members: Vec<String>,
-    records: Vec<(DataId, RecordInfo)>,
+    /// What `state::Tables` holds.
+    tables: state::TablesDelta,
+    facts: SideFacts,
+    /// Extensions, and the keys they stand for.
+    extensions: Vec<(String, String)>,
+    warnings: Vec<Diagnostic>,
+    nav: Option<NavEntry>,
+}
+
+/// The side facts of an entry's declarations, read.
+#[derive(Default)]
+struct SideFacts {
     field_defaults: Vec<(DataId, FieldDefaults)>,
     param_defaults: Vec<(DefId, ParamDefaults)>,
     update_shown: Vec<(DefId, UpdateShown)>,
     /// How attributed data types cross the JS boundary.
     js_repr: Vec<(DataId, JsRepr)>,
-    interfaces: Vec<(DataId, InterfaceInfo)>,
-    instances: Vec<((DataId, DataId), InstanceInfo)>,
-    /// `data_owners`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`.
-    by_data: [Vec<(DataId, String)>; 6],
-    /// The `D.All` generated for each of the file's own container types.
-    generated_alls: Vec<(DataId, DefId)>,
-    abilities: Vec<AbilityInfo>,
-    lifted: Vec<(DefId, Span)>,
-    match_columns: Vec<(DefId, crate::lift::MatchColumns)>,
-    helper_keys: Vec<String>,
-    equation_skips: Vec<(DefId, String, String)>,
-    equations_done: Vec<String>,
-    total_rows: Vec<(DefId, Span)>,
-    /// Extensions, and the keys they stand for.
-    extensions: Vec<(String, String)>,
-    tests: Vec<TestEntry>,
-    warnings: Vec<Diagnostic>,
-    nav: Option<NavEntry>,
-}
-
-/// A test, read.
-struct TestEntry {
-    name: String,
-    namespace: String,
-    def: DefId,
-    span: Span,
-    probe: Option<crate::Probe>,
 }
 
 /// Where a reference leads: a span, or the declaration with that key.
@@ -2073,27 +1869,27 @@ struct NavEntry {
 }
 
 /// An entry's body being read.
-struct Body<'a> {
+pub(crate) struct Body<'a> {
     r: Reader<'a>,
     terms: Terms,
     refs: In,
 }
 
 impl Body<'_> {
-    fn str(&mut self) -> Read<Name> {
+    pub(crate) fn str(&mut self) -> Read<Name> {
         self.terms.name(&mut self.r)
     }
 
-    fn string(&mut self) -> Read<String> {
+    pub(crate) fn string(&mut self) -> Read<String> {
         Ok(self.str()?.to_string())
     }
 
-    fn term(&mut self) -> Read<Term> {
+    pub(crate) fn term(&mut self) -> Read<Term> {
         self.terms.term(&mut self.r)
     }
 
     /// A test's probe, `depth` `&&`s down.
-    fn probe(&mut self, depth: usize) -> Read<crate::Probe> {
+    pub(crate) fn probe(&mut self, depth: usize) -> Read<crate::Probe> {
         if depth > 64 {
             return bad("a probe nested too deep".to_string());
         }
@@ -2131,19 +1927,19 @@ impl Body<'_> {
         })
     }
 
-    fn def(&mut self) -> Read<DefId> {
+    pub(crate) fn def(&mut self) -> Read<DefId> {
         self.refs.def(&mut self.r)
     }
 
-    fn data(&mut self) -> Read<DataId> {
+    pub(crate) fn data(&mut self) -> Read<DataId> {
         self.refs.data(&mut self.r)
     }
 
-    fn span(&mut self) -> Read<Span> {
+    pub(crate) fn span(&mut self) -> Read<Span> {
         self.refs.span(&mut self.r)
     }
 
-    fn count(&mut self) -> Read<usize> {
+    pub(crate) fn count(&mut self) -> Read<usize> {
         self.r.count(1)
     }
 
@@ -2228,7 +2024,7 @@ struct Decoded {
     defs: Vec<DefEntry>,
     datas: Vec<DataEntry>,
     bound: Vec<(u8, usize, Builtin)>,
-    tables: Tables,
+    rest: Rest,
 }
 
 impl Elaborator {
@@ -2496,24 +2292,25 @@ impl Elaborator {
             }
         }
 
-        let tables = read_tables(&mut body, index.files.len(), early.len())?;
+        let rest = read_tables(&mut body, index.files.len(), early.len())?;
         if !body.r.done() {
             return bad("bytes after the tables");
         }
-        if tables.nav.is_some() != self.nav.is_some() {
+        if rest.nav.is_some() != self.nav.is_some() {
             return bad("navigation recorded or not");
         }
         // Every ability a name refers to is one there will be.
         let abilities: HashSet<DataId> = self
+            .tables
             .abilities
             .iter()
-            .chain(&tables.abilities)
+            .chain(&rest.tables.abilities)
             .map(|a| a.op_data)
             .collect();
-        let globals = tables.changed.iter().map(|(_, g, _)| g);
-        let globals = globals.chain(tables.new.iter().map(|(_, g, _, _)| g));
-        let globals = globals.chain(&tables.early);
-        let globals = globals.chain(tables.nav.iter().flat_map(|n| n.refs.iter().map(|r| &r.3)));
+        let globals = rest.changed.iter().map(|(_, g, _)| g);
+        let globals = globals.chain(rest.new.iter().map(|(_, g, _, _)| g));
+        let globals = globals.chain(&rest.early);
+        let globals = globals.chain(rest.nav.iter().flat_map(|n| n.refs.iter().map(|r| &r.3)));
         for g in globals {
             if let GlobalEntry::Ability(d) | GlobalEntry::Op(d, _) = g
                 && !abilities.contains(d)
@@ -2522,12 +2319,12 @@ impl Elaborator {
             }
         }
         // Every target kept by name is one there will be.
-        if let Some(nav) = &tables.nav {
-            let own: HashSet<&str> = tables
+        if let Some(nav) = &rest.nav {
+            let own: HashSet<&str> = rest
                 .changed
                 .iter()
                 .map(|(k, _, _)| k.as_str())
-                .chain(tables.new.iter().map(|(k, _, _, _)| k.as_str()))
+                .chain(rest.new.iter().map(|(k, _, _, _)| k.as_str()))
                 .chain(early.iter().map(|(k, _, _)| k.as_str()))
                 .collect();
             for (_, key, target, _, _) in &nav.refs {
@@ -2543,7 +2340,7 @@ impl Elaborator {
             defs,
             datas,
             bound,
-            tables,
+            rest,
         })
     }
 
@@ -2556,11 +2353,11 @@ impl Elaborator {
             return bad("a library file's entry with a namespace's parts");
         }
         let d = self.decode(&deps, head, &[])?;
-        if !d.tables.tests.is_empty() || !d.tables.warnings.is_empty() {
+        if !d.rest.tables.tests.is_empty() || !d.rest.warnings.is_empty() {
             return bad("a library file's entry with tests or warnings");
         }
         self.admit_replayed(&d.defs, &d.datas, &d.bound)?;
-        self.replay_tables(d.tables, &[]);
+        self.replay_tables(d.rest, &[]);
         Ok(())
     }
 
@@ -2890,10 +2687,12 @@ impl Elaborator {
     /// `early` are the names a namespace declared before its library files
     /// loaded, already there (`replay_namespace`), which now get what they
     /// name.
-    fn replay_tables(&mut self, t: Tables, early: &[(String, Span, bool)]) {
-        self.abilities.extend(t.abilities);
+    fn replay_tables(&mut self, t: Rest, early: &[(String, Span, bool)]) {
+        // The abilities first: a name may be one.
+        self.tables.replay(t.tables);
         let ability = |e: &Elaborator, op_data: DataId| {
-            e.abilities
+            e.tables
+                .abilities
                 .iter()
                 .position(|a| a.op_data == op_data)
                 .expect("checked when read (`replay`)")
@@ -2918,49 +2717,20 @@ impl Elaborator {
         for key in t.members {
             self.scope.mark_member(&key);
         }
-        self.records.extend(t.records);
-        for (d, table) in t.field_defaults {
+        for (d, table) in t.facts.field_defaults {
             self.globals.datas[d.0].defaults = Some(Rc::new(table));
         }
-        for (id, table) in t.param_defaults {
+        for (id, table) in t.facts.param_defaults {
             self.globals.set_param_defaults(id, table);
         }
-        for (id, shown) in t.update_shown {
+        for (id, shown) in t.facts.update_shown {
             self.globals.defs[id.0].update_shown = Some(Rc::new(shown));
         }
-        for (d, repr) in t.js_repr {
+        for (d, repr) in t.facts.js_repr {
             self.globals.datas[d.0].js = Some(Rc::new(repr));
         }
-        self.interfaces.extend(t.interfaces);
-        self.instances.extend(t.instances);
-        let [owners, no_eq, no_show, no_ord, no_finite, no_decide] = t.by_data;
-        self.data_owners.extend(owners);
-        self.no_eq.extend(no_eq);
-        self.no_show.extend(no_show);
-        self.no_ord.extend(no_ord);
-        self.no_finite.extend(no_finite);
-        self.no_decide.extend(no_decide);
-        self.generated_alls.extend(t.generated_alls);
-        self.lifted.extend(t.lifted);
-        for (id, c) in t.match_columns {
-            self.match_columns.insert(id, Rc::new(c));
-        }
-        self.helper_keys.extend(t.helper_keys);
-        self.equation_skips.extend(t.equation_skips);
-        self.equations_done.extend(t.equations_done);
-        self.total_rows.get_mut().extend(t.total_rows);
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
-        }
-        for test in t.tests {
-            self.tests.push(crate::TestDecl {
-                library: false,
-                name: test.name,
-                namespace: test.namespace,
-                def: test.def,
-                span: test.span,
-                probe: test.probe,
-            });
         }
         if let (Some(nav), Some(entry)) = (&self.nav, t.nav) {
             for (at, key, target, g, dot) in entry.refs {
@@ -3022,30 +2792,15 @@ fn module_of(name: &str, path: &str) -> Read<Name> {
 
 /// The side tables of an entry, read; any ability a name refers to must
 /// be one known after replay.
-fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
-    let mut t = Tables {
+fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
+    let mut t = Rest {
         changed: Vec::new(),
         new: Vec::new(),
         early: Vec::new(),
         members: Vec::new(),
-        records: Vec::new(),
-        field_defaults: Vec::new(),
-        param_defaults: Vec::new(),
-        update_shown: Vec::new(),
-        js_repr: Vec::new(),
-        interfaces: Vec::new(),
-        instances: Vec::new(),
-        by_data: Default::default(),
-        generated_alls: Vec::new(),
-        abilities: Vec::new(),
-        lifted: Vec::new(),
-        match_columns: Vec::new(),
-        helper_keys: Vec::new(),
-        equation_skips: Vec::new(),
-        equations_done: Vec::new(),
-        total_rows: Vec::new(),
+        tables: state::TablesDelta::default(),
+        facts: SideFacts::default(),
         extensions: Vec::new(),
-        tests: Vec::new(),
         warnings: Vec::new(),
         nav: None,
     };
@@ -3065,242 +2820,17 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     for _ in 0..n {
         t.members.push(b.string()?);
     }
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let k = b.count()?;
-        let mut projections = Vec::with_capacity(k);
-        for _ in 0..k {
-            projections.push(if b.r.bool()? { Some(b.def()?) } else { None });
-        }
-        t.records.push((d, RecordInfo { projections }));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let k = b.count()?;
-        let mut ctors = Vec::with_capacity(k);
-        for _ in 0..k {
-            let m = b.count()?;
-            let mut fields = Vec::with_capacity(m);
-            for _ in 0..m {
-                fields.push(if b.r.bool()? {
-                    let helper = b.def()?;
-                    let c = b.count()?;
-                    let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
-                    Some(FieldDefault { helper, captures })
-                } else {
-                    None
-                });
+    t.tables = state::Tables::decode(
+        b,
+        |b| read_side_facts(b, &mut t.facts),
+        |b| {
+            let n = b.count()?;
+            for _ in 0..n {
+                t.extensions.push((b.string()?, b.string()?));
             }
-            ctors.push(fields);
-        }
-        t.field_defaults.push((d, ctors));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let id = b.def()?;
-        let header = b.count()?;
-        let m = b.count()?;
-        let mut params = Vec::with_capacity(m);
-        for _ in 0..m {
-            params.push(if b.r.bool()? {
-                let helper = b.def()?;
-                let c = b.count()?;
-                let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
-                Some(FieldDefault { helper, captures })
-            } else {
-                None
-            });
-        }
-        t.param_defaults
-            .push((id, ParamDefaults { header, params }));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let id = b.def()?;
-        let params = b.count()?;
-        let base = b.term()?;
-        let m = b.count()?;
-        let mut fields = Vec::with_capacity(m);
-        for _ in 0..m {
-            fields.push((b.str()?, b.term()?));
-        }
-        t.update_shown.push((
-            id,
-            UpdateShown {
-                params,
-                base,
-                fields,
-            },
-        ));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let tag_key = b.string()?;
-        let string_enum = b.r.bool()?;
-        let unboxed = b.r.bool()?;
-        let k = b.count()?;
-        let mut ctors = Vec::with_capacity(k);
-        for _ in 0..k {
-            let tag = b.string()?;
-            let m = b.count()?;
-            let keys = (0..m)
-                .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
-                .collect::<Read<_>>()?;
-            let optional = (0..m).map(|_| b.r.bool()).collect::<Read<_>>()?;
-            ctors.push(JsCtor {
-                tag,
-                keys,
-                optional,
-            });
-        }
-        t.js_repr.push((
-            d,
-            JsRepr {
-                tag_key,
-                ctors,
-                string_enum,
-                unboxed,
-            },
-        ));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let dict = b.string()?;
-        let k = b.count()?;
-        let supers = (0..k)
-            .map(|_| Ok((b.r.usize()?, b.data()?)))
-            .collect::<Read<_>>()?;
-        let k = b.count()?;
-        let projections = (0..k).map(|_| b.def()).collect::<Read<_>>()?;
-        let k = b.count()?;
-        let methods = (0..k).map(|_| b.def()).collect::<Read<_>>()?;
-        let k = b.count()?;
-        let relations = (0..k)
-            .map(|_| Ok((b.r.usize()?, b.r.usize()?)))
-            .collect::<Read<_>>()?;
-        t.interfaces.push((
-            d,
-            InterfaceInfo {
-                dict,
-                supers,
-                projections,
-                methods,
-                relations,
-            },
-        ));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let key = (b.data()?, b.data()?);
-        let def = b.def()?;
-        let name = b.string()?;
-        let span = b.span()?;
-        let k = b.count()?;
-        let mut params = Vec::with_capacity(k);
-        for _ in 0..k {
-            params.push(match b.r.u8()? {
-                0 => InstanceParam::Head(b.r.usize()?),
-                1 => InstanceParam::Prerequisite,
-                _ => return bad("an unknown kind of instance parameter"),
-            });
-        }
-        let valid = b.r.bool()?;
-        t.instances.push((
-            key,
-            InstanceInfo {
-                def,
-                name,
-                span,
-                params,
-                valid,
-            },
-        ));
-    }
-    for table in &mut t.by_data {
-        let n = b.count()?;
-        for _ in 0..n {
-            table.push((b.data()?, b.string()?));
-        }
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.generated_alls.push((b.data()?, b.def()?));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let name = b.string()?;
-        let op_data = b.data()?;
-        let res = b.def()?;
-        let elim = b.def()?;
-        let k = b.count()?;
-        let ops = (0..k).map(|_| b.string()).collect::<Read<_>>()?;
-        let order = (b.r.bool()?, b.string()?);
-        t.abilities.push(AbilityInfo {
-            name,
-            op_data,
-            res,
-            elim,
-            ops,
-            order,
-        });
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.lifted.push((b.def()?, b.span()?));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let id = b.def()?;
-        let k = b.count()?;
-        let mut c = crate::lift::MatchColumns {
-            cols: Vec::new(),
-            eqs: Vec::new(),
-        };
-        for _ in 0..k {
-            c.cols.push(b.r.usize()?);
-            c.eqs.push(b.r.usize()?.checked_sub(1));
-        }
-        t.match_columns.push((id, c));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.helper_keys.push(b.string()?);
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.equation_skips.push((b.def()?, b.string()?, b.string()?));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.equations_done.push(b.string()?);
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.total_rows.push((b.def()?, b.span()?));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        t.extensions.push((b.string()?, b.string()?));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let name = b.string()?;
-        let namespace = b.string()?;
-        let def = b.def()?;
-        let span = b.span()?;
-        let probe = if b.r.bool()? { Some(b.probe(0)?) } else { None };
-        t.tests.push(TestEntry {
-            name,
-            namespace,
-            def,
-            span,
-            probe,
-        });
-    }
+            Ok(())
+        },
+    )?;
     let n = b.count()?;
     for _ in 0..n {
         let mut d = Diagnostic::warning(static_code(&b.string()?), b.string()?);
@@ -3365,6 +2895,102 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         t.nav = Some(nav);
     }
     Ok(t)
+}
+
+/// What [`Elaborator::encode_side_facts`] wrote.
+fn read_side_facts(b: &mut Body, f: &mut SideFacts) -> Read<()> {
+    let n = b.count()?;
+    for _ in 0..n {
+        let d = b.data()?;
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let m = b.count()?;
+            let mut fields = Vec::with_capacity(m);
+            for _ in 0..m {
+                fields.push(if b.r.bool()? {
+                    let helper = b.def()?;
+                    let c = b.count()?;
+                    let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
+                    Some(FieldDefault { helper, captures })
+                } else {
+                    None
+                });
+            }
+            ctors.push(fields);
+        }
+        f.field_defaults.push((d, ctors));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let id = b.def()?;
+        let header = b.count()?;
+        let m = b.count()?;
+        let mut params = Vec::with_capacity(m);
+        for _ in 0..m {
+            params.push(if b.r.bool()? {
+                let helper = b.def()?;
+                let c = b.count()?;
+                let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
+                Some(FieldDefault { helper, captures })
+            } else {
+                None
+            });
+        }
+        f.param_defaults
+            .push((id, ParamDefaults { header, params }));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let id = b.def()?;
+        let params = b.count()?;
+        let base = b.term()?;
+        let m = b.count()?;
+        let mut fields = Vec::with_capacity(m);
+        for _ in 0..m {
+            fields.push((b.str()?, b.term()?));
+        }
+        f.update_shown.push((
+            id,
+            UpdateShown {
+                params,
+                base,
+                fields,
+            },
+        ));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let d = b.data()?;
+        let tag_key = b.string()?;
+        let string_enum = b.r.bool()?;
+        let unboxed = b.r.bool()?;
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let tag = b.string()?;
+            let m = b.count()?;
+            let keys = (0..m)
+                .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
+                .collect::<Read<_>>()?;
+            let optional = (0..m).map(|_| b.r.bool()).collect::<Read<_>>()?;
+            ctors.push(JsCtor {
+                tag,
+                keys,
+                optional,
+            });
+        }
+        f.js_repr.push((
+            d,
+            JsRepr {
+                tag_key,
+                ctors,
+                string_enum,
+                unboxed,
+            },
+        ));
+    }
+    Ok(())
 }
 
 #[doc(hidden)]

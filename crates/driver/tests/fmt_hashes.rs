@@ -66,7 +66,7 @@ fn summarize(session: &Session, first: (usize, usize, usize)) -> Summary {
             format!("{} export={}", show(def_hash(g, DefId(i))), d.export),
         ));
     }
-    let tests = session.elab.tests[first.2..]
+    let tests = session.elab.tests()[first.2..]
         .iter()
         .map(|t| {
             format!(
@@ -85,7 +85,7 @@ fn start() -> (Session, (usize, usize, usize)) {
     let first = (
         session.elab.globals.datas.len(),
         session.elab.globals.defs.len(),
-        session.elab.tests.len(),
+        session.elab.tests().len(),
     );
     (session, first)
 }

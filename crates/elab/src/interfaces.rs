@@ -160,7 +160,7 @@ impl Elaborator {
         if !self.globals.def(projection).name.contains('%') {
             return None;
         }
-        self.interfaces.values().find_map(|info| {
+        self.tables.interfaces.values().find_map(|info| {
             let k = info.projections.iter().position(|p| *p == projection)?;
             Some((*info.methods.get(k)?, info.dict.clone()))
         })
@@ -183,7 +183,7 @@ impl Elaborator {
 
     /// Whether `d` is an interface.
     pub(crate) fn is_interface(&self, d: DataId) -> bool {
-        self.interfaces.contains_key(&d)
+        self.tables.interfaces.contains_key(&d)
     }
 
     /// An interface's header: one parameter, a type, in `Type` (D174).
@@ -336,7 +336,7 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(id), span, false);
             self.scope.mark_member(&key);
         }
-        self.interfaces.insert(
+        self.tables.interfaces.insert(
             d,
             InterfaceInfo {
                 dict,
@@ -354,12 +354,12 @@ impl Elaborator {
     fn super_paths(&self, i: DataId) -> Vec<Vec<(usize, DataId)>> {
         let mut out = Vec::new();
         let mut pending: Vec<Vec<(usize, DataId)>> = Vec::new();
-        for &(f, j) in &self.interfaces[&i].supers {
+        for &(f, j) in &self.tables.interfaces[&i].supers {
             pending.push(vec![(f, j)]);
         }
         while let Some(path) = pending.pop() {
             let last = path.last().expect("not empty").1;
-            for &(f, j) in &self.interfaces[&last].supers {
+            for &(f, j) in &self.tables.interfaces[&last].supers {
                 let mut longer = path.clone();
                 longer.push((f, j));
                 pending.push(longer);
@@ -523,7 +523,8 @@ impl Elaborator {
         // Ownership (§5.6 rules 1, 2).
         let here = self.module_owner();
         let owner_of = |d: DataId| {
-            self.data_owners
+            self.tables
+                .data_owners
                 .get(&d)
                 .cloned()
                 .unwrap_or_else(|| "Std".to_string())
@@ -552,7 +553,7 @@ impl Elaborator {
             return Err(d);
         }
         // Overlap (§5.6 rule 3).
-        if let Some(first) = self.instances.get(&(interface, head)) {
+        if let Some(first) = self.tables.instances.get(&(interface, head)) {
             let head_name = g.data(head).name.clone();
             return Err(error(
                 "E-INSTANCE-OVERLAP",
@@ -569,7 +570,7 @@ impl Elaborator {
             ));
         }
         kernel::mark_instance(&mut self.globals, id);
-        self.instances.insert(
+        self.tables.instances.insert(
             (interface, head),
             InstanceInfo {
                 def: id,
@@ -587,14 +588,15 @@ impl Elaborator {
     /// context (its prerequisites in scope, and nothing else), by
     /// computation (§5.8 (b)). It's never changed. Then it's valid.
     pub(crate) fn validate_instance(&mut self, id: DefId) -> Result<()> {
-        let Some((&(interface, head), _)) = self.instances.iter().find(|(_, i)| i.def == id) else {
+        let Some((&(interface, head), _)) = self.tables.instances.iter().find(|(_, i)| i.def == id)
+        else {
             return Ok(());
         };
         let paths = self.super_paths(interface);
         if !paths.is_empty() {
             self.check_supers(id, interface, &paths)?;
         }
-        if let Some(info) = self.instances.get_mut(&(interface, head)) {
+        if let Some(info) = self.tables.instances.get_mut(&(interface, head)) {
             info.valid = true;
         }
         Ok(())
@@ -642,7 +644,7 @@ impl Elaborator {
             let mut at = interface;
             let mut shown = Vec::new();
             for &(field, parent) in path {
-                let proj = self.interfaces[&at].projections[field];
+                let proj = self.tables.interfaces[&at].projections[field];
                 let arg_term = cx.quote(&arg)?;
                 term = Term::app(
                     Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
@@ -677,7 +679,9 @@ impl Elaborator {
                 // The instance found, by name if it's a global one (its
                 // value would show as its body).
                 let global = match force(g, arg.clone())? {
-                    Value::Data(h, _) => self.instances.get(&(at, h)).map(|i| i.name.clone()),
+                    Value::Data(h, _) => {
+                        self.tables.instances.get(&(at, h)).map(|i| i.name.clone())
+                    }
                     _ => None,
                 };
                 let shown_found = global.unwrap_or_else(|| pretty::term(g, &names, &found));
@@ -790,7 +794,7 @@ impl Elaborator {
     /// the result is a definition's application (a synonym, perhaps): `cost
     /// = cost` isn't evaluated.
     pub(crate) fn is_dictionary_type(&self, ty: &Term) -> Result<bool> {
-        if self.interfaces.is_empty() {
+        if self.tables.interfaces.is_empty() {
             return Ok(false);
         }
         let g = &self.globals;
@@ -817,7 +821,7 @@ impl Elaborator {
 /// Whether `goal` is an interface applied to a type: the interface and the
 /// type.
 pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(DataId, Value)>> {
-    if e.interfaces.is_empty() {
+    if e.tables.interfaces.is_empty() {
         return Ok(None);
     }
     Ok(match force(&e.globals, goal.clone())? {
@@ -868,7 +872,7 @@ pub(crate) fn attempt(
     let arg = &refresh(cx, arg)?;
     let goal = Value::Data(interface, vec![arg.clone()]);
     let iface_name = g.data(interface).name.to_string();
-    let dict = cx.e.interfaces[&interface].dict.clone();
+    let dict = cx.e.tables.interfaces[&interface].dict.clone();
     step(cx, ob.tree, &goal)?;
     // 3. Wait while the type's head is unknown.
     let target = force(g, arg.clone())?;
@@ -977,7 +981,7 @@ pub(crate) fn attempt(
         }
         _ => return Err(none(cx, interface, &goal, None)),
     };
-    let Some(info) = cx.e.instances.get(&(interface, head)) else {
+    let Some(info) = cx.e.tables.instances.get(&(interface, head)) else {
         return Err(none(cx, interface, &goal, Some(head)));
     };
     if !info.valid {
@@ -1093,7 +1097,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     let g = cx.g();
     let e = cx.e;
     let iface_name = g.data(interface).name.to_string();
-    let dict = e.interfaces[&interface].dict.clone();
+    let dict = e.tables.interfaces[&interface].dict.clone();
     let arg = match goal {
         Value::Data(_, args) => args[0].clone(),
         _ => unreachable!(),
@@ -1107,7 +1111,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     if Some(interface) == dec_eq(e) {
         match force(g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
-                if let Some(why) = e.no_eq.get(&t) {
+                if let Some(why) = e.tables.no_eq.get(&t) {
                     d = d.with_note(format!(
                         "`==` isn't derived for `{}`: {why}",
                         g.data(t).name
@@ -1127,7 +1131,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     if Some(interface) == show(e) {
         match force(g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
-                if let Some(why) = e.no_show.get(&t) {
+                if let Some(why) = e.tables.no_show.get(&t) {
                     d = d.with_note(format!(
                         "`Show` isn't derived for `{}`: {why}",
                         g.data(t).name
@@ -1144,7 +1148,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     if Some(interface) == finite(e) {
         match force(g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
-                if let Some(why) = e.no_finite.get(&t) {
+                if let Some(why) = e.tables.no_finite.get(&t) {
                     d = d.with_note(format!(
                         "`Finite` isn't derived for `{}`: {why}",
                         g.data(t).name
@@ -1161,7 +1165,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     if Some(interface) == ord(e) {
         match force(g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
-                if let Some(why) = e.no_ord.get(&t) {
+                if let Some(why) = e.tables.no_ord.get(&t) {
                     d = d.with_note(format!(
                         "`Ord` isn't derived for `{}`: {why}",
                         g.data(t).name
@@ -1177,7 +1181,8 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     match head {
         Some(h) => {
             let owner = |d: DataId| {
-                e.data_owners
+                e.tables
+                    .data_owners
                     .get(&d)
                     .cloned()
                     .unwrap_or_else(|| "Std".to_string())
@@ -1233,7 +1238,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         if let Value::Data(i, args) = &def.ty_value
             && *i == interface
             && conv(g, cx.level(), &args[0], &arg).unwrap_or(false)
-            && !e.helper_keys.contains(&def.name.to_string())
+            && !e.tables.helper_keys.contains(&def.name.to_string())
         {
             let _ = k;
             d = d.with_note(format!(
@@ -1267,7 +1272,7 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
             arg: args[0].clone(),
         }];
         while let Some(c) = pending.pop() {
-            let info = &cx.e.interfaces[&c.interface];
+            let info = &cx.e.tables.interfaces[&c.interface];
             for &(field, parent) in &info.supers {
                 let proj = info.projections[field];
                 let arg_term = cx.quote(&c.arg)?;
@@ -1605,7 +1610,7 @@ impl Elaborator {
         keep: &[usize],
         only: Option<&[usize]>,
     ) -> Result<bool> {
-        if self.interfaces.is_empty() {
+        if self.tables.interfaces.is_empty() {
             return Ok(false);
         }
         let mut ready = Vec::new();
@@ -1671,7 +1676,7 @@ fn stuck_term(cx: &Ctx, term: &Term) -> bool {
             return false;
         }
         let (head, args) = t.spine();
-        matches!(head.strip_loc(), Term::Def(p) if cx.e.interfaces.values().any(|i| i.projections.contains(p)))
+        matches!(head.strip_loc(), Term::Def(p) if cx.e.tables.interfaces.values().any(|i| i.projections.contains(p)))
             && args.len() >= 2
             && match args[1].strip_loc().spine().0 {
                 Term::Ctor(..) => true,
@@ -1733,7 +1738,8 @@ pub(crate) fn library_interface(e: &Elaborator, path: &str) -> Option<DataId> {
 /// declared and valid (§5.8 (b)): before that, in the prelude's bootstrap
 /// phase, operators on `Nat` and `Int` are built directly (D187).
 pub(crate) fn instance_ready(e: &Elaborator, interface: DataId, head: DataId) -> bool {
-    e.instances
+    e.tables
+        .instances
         .get(&(interface, head))
         .is_some_and(|info| info.valid)
 }
@@ -1776,7 +1782,7 @@ pub(crate) fn method_call(
             cx.quote(&fields[index])?
         }
         _ => {
-            let method = cx.e.interfaces[&interface].methods[index];
+            let method = cx.e.tables.interfaces[&interface].methods[index];
             note_operator_dictionary(cx, &meta, method, index);
             let ty = cx.quote(ty)?;
             Term::app_icit(
@@ -1892,13 +1898,13 @@ impl Elaborator {
 /// arguments, `Ord.decLessThan [a] [d] x y`. No new search is made, so it
 /// can't find a different dictionary.
 pub(crate) fn relation_decider(cx: &Ctx, prop: &Value) -> Result<Option<Term>> {
-    if cx.e.interfaces.is_empty() {
+    if cx.e.tables.interfaces.is_empty() {
         return Ok(None);
     }
     let Value::Neutral(Head::Def(p), spine) = force(cx.g(), prop.clone())? else {
         return Ok(None);
     };
-    for info in cx.e.interfaces.values() {
+    for info in cx.e.tables.interfaces.values() {
         let Some(&(_, d)) = info
             .relations
             .iter()
@@ -1929,7 +1935,7 @@ pub(crate) fn relation_decider(cx: &Ctx, prop: &Value) -> Result<Option<Term>> {
 /// `Ord.decLessThan [a] [d] x y`. (A dictionary that's a record literal
 /// would compute the relation away before [`relation_decider`] sees it.)
 pub(crate) fn written_relation_decider(e: &Elaborator, prop: &Term) -> Option<Term> {
-    if e.interfaces.is_empty() {
+    if e.tables.interfaces.is_empty() {
         return None;
     }
     let mut args = Vec::new();
@@ -1943,7 +1949,7 @@ pub(crate) fn written_relation_decider(e: &Elaborator, prop: &Term) -> Option<Te
     if args.len() < 2 {
         return None;
     }
-    for info in e.interfaces.values() {
+    for info in e.tables.interfaces.values() {
         if let Some(&(_, d)) = info.relations.iter().find(|(r, _)| info.methods[*r] == *m) {
             let decider = Term::Def(info.methods[d]);
             return Some(

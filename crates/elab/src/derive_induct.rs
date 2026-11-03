@@ -737,7 +737,7 @@ impl Elaborator {
         if let Some((_, id)) = st.alls.iter().find(|(x, _)| *x == e) {
             return Ok(*id);
         }
-        if let Some(id) = self.generated_alls.get(&e) {
+        if let Some(id) = self.tables.generated_alls.get(&e) {
             return Ok(*id);
         }
         let data = self.globals.data(e);
@@ -752,7 +752,7 @@ impl Elaborator {
         };
         let id = self.define_all(st, e, owner, &member)?;
         if owner == e {
-            self.generated_alls.insert(e, id);
+            self.tables.generated_alls.insert(e, id);
         }
         Ok(id)
     }

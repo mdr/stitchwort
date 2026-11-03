@@ -77,7 +77,7 @@ impl Elaborator {
         let plan = match self.show_plan(d, show)? {
             Ok(plan) => plan,
             Err(why) => {
-                self.no_show.insert(d, why);
+                self.tables.no_show.insert(d, why);
                 return Ok(());
             }
         };
@@ -95,7 +95,8 @@ impl Elaborator {
             Ok(()) => {}
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => {
-                self.no_show
+                self.tables
+                    .no_show
                     .insert(d, format!("deriving it failed: {}", e.message));
             }
         }

@@ -70,7 +70,7 @@ fn mutual_recursion_and_dot_notation_across_files() {
         ),
     ]);
     passes(&session);
-    assert_eq!(session.elab.tests.len(), 2);
+    assert_eq!(session.elab.tests().len(), 2);
 }
 
 #[test]
@@ -154,9 +154,14 @@ fn tests_run_by_file_then_source_order() {
         ),
         ("a.sw", "namespace N\n\ntest \"a1\" := True\n"),
     ]);
-    let names: Vec<&str> = session.elab.tests.iter().map(|t| t.name.as_str()).collect();
+    let names: Vec<&str> = session
+        .elab
+        .tests()
+        .iter()
+        .map(|t| t.name.as_str())
+        .collect();
     assert_eq!(names, ["a1", "b2", "b1"]);
-    assert!(session.elab.tests.iter().all(|t| t.namespace == "N"));
+    assert!(session.elab.tests().iter().all(|t| t.namespace == "N"));
 }
 
 const PING: &str = "def ping (n: Nat): Nat := match n with

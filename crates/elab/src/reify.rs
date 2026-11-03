@@ -322,7 +322,7 @@ fn alternatives(
                         .with_label(other.span(), "here"));
                     }
                 };
-                let op_data = cx.e.abilities[ability].op_data;
+                let op_data = cx.e.tables.abilities[ability].op_data;
                 let mut operation = internal_ctor_pattern(op_data, index, vec![arg], op.span);
                 operation = internal_ctor_pattern(plus, left, vec![operation], op.span);
                 for _ in 0..position {
@@ -349,7 +349,7 @@ fn alternatives(
         missing.push("`return x`".to_string());
     }
     for (position, label) in row.labels.iter().enumerate() {
-        let info = &cx.e.abilities[label.ability];
+        let info = &cx.e.tables.abilities[label.ability];
         for (index, name) in info.ops.iter().enumerate() {
             if !seen.contains(&(position, index)) {
                 missing.push(format!("`{}.{name}`", info.name));

@@ -237,6 +237,8 @@ impl Elaborator {
         files: &[SourceUnit],
         closure: Option<&[String]>,
     ) -> Vec<Diagnostic> {
+        // Its declarations' rows in the tables are its own to write.
+        self.tables.begin_unit(self.ids());
         // A project namespace may come from the check cache (`cache`).
         let cached = self.namespace_cache_key(namespace, closure);
         let run = |e: &mut Self| match (&cached, namespace, closure) {
@@ -305,7 +307,7 @@ impl Elaborator {
             }
         }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
-        let mut first_test = self.tests.len();
+        let mut first_test = self.tables.tests.len();
         self.unit.module = ModuleState {
             files: files
                 .iter()
@@ -357,7 +359,7 @@ impl Elaborator {
             }
             // Not the definitions and tests the files made.
             self.unit.module.first_def = self.globals.defs.len();
-            first_test = self.tests.len();
+            first_test = self.tables.tests.len();
             self.unit.module.first_test = first_test;
         }
         self.capture_after_needs();
@@ -476,7 +478,7 @@ impl Elaborator {
         self.unit.module.item = None;
         self.unit.module.phase = Phase::Body;
         if let (Some(ns), Some(_)) = (namespace, closure) {
-            self.namespace_defs.insert(
+            self.tables.namespace_defs.insert(
                 ns.to_string(),
                 self.unit.module.first_def..self.globals.defs.len(),
             );
@@ -493,8 +495,9 @@ impl Elaborator {
             .enumerate()
             .filter_map(|(i, f)| f.id.map(|id| (id, i)))
             .collect();
-        self.tests[first_test..]
-            .sort_by_key(|t| (ranks.get(&t.span.file).copied().unwrap_or(0), t.span.start));
+        self.tables.tests.sort_since_by_key(first_test, |t| {
+            (ranks.get(&t.span.file).copied().unwrap_or(0), t.span.start)
+        });
         // Reported in source order, whatever order things were checked in.
         diagnostics.sort_by_key(|(position, _)| *position);
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
@@ -1405,7 +1408,7 @@ impl Elaborator {
             }
             seen.push(i);
             let parents: Vec<Global> = match i {
-                Global::Data(d) => match self.interfaces.get(&d) {
+                Global::Data(d) => match self.tables.interfaces.get(&d) {
                     Some(info) => info.supers.iter().map(|(_, p)| Global::Data(*p)).collect(),
                     None => Vec::new(),
                 },

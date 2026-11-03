@@ -204,7 +204,7 @@ pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) 
         }),
     };
     if calls {
-        e.equation_skips.push((
+        e.tables.equation_skips.push((
             f,
             "induct".to_string(),
             format!("its equations aren't made, and its cases are theirs: {why}"),
@@ -337,8 +337,11 @@ impl Elaborator {
         }
         let suffix = "induct".to_string();
         if self.scope.get(&format!("{}.{suffix}", d.key)).is_some() {
-            self.equation_skips
-                .push((d.f, suffix, "the name is already declared".to_string()));
+            self.tables.equation_skips.push((
+                d.f,
+                suffix,
+                "the name is already declared".to_string(),
+            ));
             return Ok(());
         }
         let mark = self.globals.mark();
@@ -350,13 +353,13 @@ impl Elaborator {
             Err(Stop::Skip(why)) => {
                 self.rewind_globals(&mark);
                 if !why.is_empty() {
-                    self.equation_skips.push((d.f, suffix, why));
+                    self.tables.equation_skips.push((d.f, suffix, why));
                 }
             }
             Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
             Err(Stop::Error(e)) => {
                 self.rewind_globals(&mark);
-                self.equation_skips.push((
+                self.tables.equation_skips.push((
                     d.f,
                     suffix,
                     match e.labels.first() {
@@ -415,7 +418,7 @@ impl Elaborator {
                 match self.scope.get(&format!("{}.{s}", d.key)) {
                     Some((Global::Def(id), _)) => eqs.push(id),
                     _ => {
-                        let why = (self.equation_skips.iter().rev())
+                        let why = (self.tables.equation_skips.iter().rev())
                             .find(|(g, t, _)| *g == d.f && t == s)
                             .map_or("it wasn't made".to_string(), |x| x.2.clone());
                         return skip(format!(
@@ -722,7 +725,7 @@ impl Elaborator {
         }
         let key = format!("{}.induct", d.key);
         self.scope.insert(&key, Global::Def(id), span, false);
-        self.helper_keys.insert(key);
+        self.tables.helper_keys.insert(key);
         Ok(())
     }
 

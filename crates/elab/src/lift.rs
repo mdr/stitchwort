@@ -753,7 +753,7 @@ impl Elaborator {
                             },
                         );
                     }
-                    None => self.lifted.push((id, d.span)),
+                    None => self.tables.lifted.push((id, d.span)),
                 }
                 // Where each scrutinee (and its equation) is among the
                 // helper's parameters, which are the captures in order.
@@ -763,7 +763,8 @@ impl Elaborator {
                     // An equation the alternatives don't use isn't taken.
                     let eqs: Vec<Option<usize>> = eqs.iter().map(|e| e.and_then(at)).collect();
                     if let Some(cols) = cols {
-                        self.match_columns
+                        self.tables
+                            .match_columns
                             .insert(id, Rc::new(MatchColumns { cols, eqs }));
                     }
                 }
@@ -1584,6 +1585,7 @@ impl Elaborator {
         }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
         let mut lifted: Vec<(String, Span)> = self
+            .tables
             .lifted
             .iter()
             .map(|&(id, span)| (self.globals.def(id).name.to_string(), span))

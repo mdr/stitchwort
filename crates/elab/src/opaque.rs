@@ -290,7 +290,7 @@ impl Elaborator {
         let unfold_key = format!("{key}.unfold");
         self.scope
             .insert(&unfold_key, Global::Def(unfold), def_name.span, false);
-        self.helper_keys.insert(unfold_key);
+        self.tables.helper_keys.insert(unfold_key);
         Ok(())
     }
 }

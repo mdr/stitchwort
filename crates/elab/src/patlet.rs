@@ -254,7 +254,7 @@ fn destructure(
             let Value::Data(_, params) = ty else {
                 unreachable!("`record_pattern` accepts only a record type")
             };
-            let projections = cx.e.records[&pattern.data].projections.clone();
+            let projections = cx.e.tables.records[&pattern.data].projections.clone();
             for (i, arg) in pattern.args.iter().enumerate() {
                 if matches!(&**arg, Pattern::Wildcard(_)) {
                     continue;

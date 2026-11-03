@@ -108,7 +108,7 @@ test \"qualified\" := qualified parsed == 4
     passes(&session);
     let tests: Vec<(&str, &str)> = session
         .elab
-        .tests
+        .tests()
         .iter()
         .map(|t| (t.namespace.as_str(), t.name.as_str()))
         .collect();
@@ -357,7 +357,7 @@ fn tests_in_two_namespaces_with_the_same_name() {
     let session = load(&[("a.sw", &file("A")), ("b.sw", &file("B"))]);
     let tests: Vec<(&str, &str)> = session
         .elab
-        .tests
+        .tests()
         .iter()
         .map(|t| (t.namespace.as_str(), t.name.as_str()))
         .collect();
@@ -564,7 +564,12 @@ fn directory_order_doesnt_matter() {
         let loaded = session
             .load_project(&memory(&project, reversed), "proj", &Target::Everything)
             .unwrap_or_else(|e| panic!("{e:#?}"));
-        let tests: Vec<String> = session.elab.tests.iter().map(|t| t.name.clone()).collect();
+        let tests: Vec<String> = session
+            .elab
+            .tests()
+            .iter()
+            .map(|t| t.name.clone())
+            .collect();
         (loaded.checked, tests, def_hash_of(&session, "A.f"))
     };
     assert_eq!(run(false), run(true));

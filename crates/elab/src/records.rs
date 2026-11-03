@@ -46,9 +46,9 @@ impl Elaborator {
     /// derived.
     pub(crate) fn after_record(&mut self, d: DataId, interface: bool) -> Result<()> {
         let projections = self.projections(d, interface)?;
-        self.records.insert(d, RecordInfo { projections });
+        self.tables.records.insert(d, RecordInfo { projections });
         if interface {
-            let projections = self.records[&d]
+            let projections = self.tables.records[&d]
                 .projections
                 .iter()
                 .map(|p| p.expect("an interface is in `Type`"))
@@ -692,7 +692,7 @@ fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, Stri
             };
             data.record
                 && data.indices.is_empty()
-                && !cx.e.interfaces.contains_key(&d)
+                && !cx.e.tables.interfaces.contains_key(&d)
                 && ctor.fields.len() == written.len()
                 && ctor.fields.iter().all(|(f, _)| written.contains(&**f))
         })
@@ -1031,7 +1031,7 @@ fn literal(
     let ctor = &g.data(d).ctors[0];
     // An interface's superclass fields may be left out: they're filled in
     // (docs/proposals/interfaces.md §5.8 (a)).
-    let supers: Vec<usize> = match cx.e.interfaces.get(&d) {
+    let supers: Vec<usize> = match cx.e.tables.interfaces.get(&d) {
         Some(info) => info.supers.iter().map(|(i, _)| *i).collect(),
         None => Vec::new(),
     };
@@ -1243,7 +1243,7 @@ fn update_fields(
                 },
             )?,
             None => {
-                let Some(proj) = cx.e.records.get(&d).and_then(|r| r.projections[i]) else {
+                let Some(proj) = cx.e.tables.records.get(&d).and_then(|r| r.projections[i]) else {
                     return Err(cx.error(
                         "E-PROP-ELIM",
                         format!("can't take field `{field}` out of a proof"),

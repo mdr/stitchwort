@@ -56,7 +56,7 @@ fn run_tests(session: &Session, program: &Program, what: &str, library: bool) ->
     };
     let decls = session
         .elab
-        .tests
+        .tests()
         .iter()
         .filter(|t| t.library == library && (library || keep(t)));
     let interp = interp::Interp::new(program);

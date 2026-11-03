@@ -8,13 +8,14 @@
 //! file loading), where every per-declaration table is empty. Rewinding
 //! restores each table in one of three ways:
 //!
-//! - **Grows only, indexed by load order** (definitions, data types,
-//!   abilities, lifted helpers, tests, the per-definition caches, the
-//!   library files loaded): cut back to its length at the mark.
-//! - **Keyed by data type** (records, interfaces, owners, why `==`, `show`
-//!   and `compare` aren't derived): the rows for types declared since are
-//!   removed. A type's rows are only ever written while its own module is
-//!   checked.
+//! - **Grows only, indexed by load order** (definitions, data types, the
+//!   library files loaded, and `state::Tables`' `GrowVec`s: abilities,
+//!   lifted helpers, tests): cut back to its length at the mark.
+//! - **Keyed by declaration** (`state::Tables`' `OwnedBy` tables: records,
+//!   interfaces, owners, why `==`, `show` and `compare` aren't derived): the
+//!   rows for declarations made since are removed. A declaration's rows are
+//!   only ever written while its own unit is checked, which writing one
+//!   asserts.
 //! - **Anything else that can change** (the names, instances, the module
 //!   state, the project's tables, the dot-call caches): a copy
 //!   taken at the mark is put back. These are the tables in which a later
@@ -40,13 +41,9 @@
 //! field doesn't compile until it says how it rewinds; the differential test
 //! (`crates/driver/tests/rewind.rs`) catches a field that rewinds wrongly.
 
-use std::collections::BTreeMap;
-
-use stitchwort_core::DataId;
-use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::GlobalsMark;
 
-use crate::{Elaborator, interfaces, nav, scope};
+use crate::{Elaborator, nav, scope};
 
 /// A point an [`Elaborator`] can be rewound to ([`Elaborator::mark`]). It
 /// stays valid, and can be rewound to any number of times, until the
@@ -55,17 +52,10 @@ pub struct Mark {
     globals: GlobalsMark,
     unit: crate::state::UnitMark,
     session: crate::state::SessionMark,
-    tests: usize,
+    tables: crate::state::TablesMark,
     scope: scope::Scope,
-    namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
-    prelude_defs: usize,
-    abilities: usize,
     caches: crate::state::CachesMark,
-    lifted: usize,
-    helper_keys: HashSet<String>,
-    instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
     nav: Option<nav::NavMark>,
-    equations_done: usize,
 }
 
 impl Mark {
@@ -91,17 +81,10 @@ impl Elaborator {
             globals: self.globals.mark(),
             unit: self.unit.mark(),
             session: self.session.mark(),
-            tests: self.tests.len(),
+            tables: self.tables.mark(self.ids()),
             scope: self.scope.clone(),
-            namespace_defs: self.namespace_defs.clone(),
-            prelude_defs: self.prelude_defs,
-            abilities: self.abilities.len(),
             caches: self.caches.mark(),
-            lifted: self.lifted.len(),
-            helper_keys: self.helper_keys.clone(),
-            instances: self.instances.clone(),
             nav: self.nav.as_ref().map(|n| n.borrow_mut().mark()),
-            equations_done: self.equations_done.len(),
         }
     }
 
@@ -112,70 +95,31 @@ impl Elaborator {
     pub fn rewind(&mut self, mark: &Mark) {
         let Elaborator {
             globals,
-            tests,
+            tables,
             scope,
-            namespace_defs,
-            prelude_defs,
             attempt,
             decl,
             unit,
             // Settings: they say how to check, not what was checked.
             options: _,
             session,
-            abilities,
             caches,
-            records,
-            no_eq,
-            no_show,
-            no_ord,
-            no_finite,
-            no_decide,
-            generated_alls,
-            lifted,
-            match_columns,
-            helper_keys,
             goals,
             goal_snapshots,
-            total_rows,
-            interfaces,
-            instances,
-            data_owners,
             nav,
-            equation_skips,
-            equations_done,
         } = self;
-        equations_done.truncate(mark.equations_done);
-        equation_skips.retain(|(id, _, _)| id.0 < mark.globals.defs());
         let defs = mark.globals.defs();
-        let datas = mark.globals.datas();
         globals.rewind(&mark.globals);
-        tests.truncate(mark.tests);
+        tables.rewind(&mark.tables);
         *scope = mark.scope.clone();
-        *namespace_defs = mark.namespace_defs.clone();
-        *prelude_defs = mark.prelude_defs;
         attempt.rewind();
         *decl = crate::state::Decl::default();
         unit.rewind(&mark.unit);
         session.rewind(&mark.session);
-        abilities.truncate(mark.abilities);
         caches.rewind(&mark.caches, defs);
-        records.retain(|d, _| d.0 < datas);
-        no_eq.retain(|d, _| d.0 < datas);
-        no_show.retain(|d, _| d.0 < datas);
-        no_ord.retain(|d, _| d.0 < datas);
-        no_finite.retain(|d, _| d.0 < datas);
-        no_decide.retain(|d, _| d.0 < datas);
-        generated_alls.retain(|d, id| d.0 < datas && id.0 < defs);
-        interfaces.retain(|d, _| d.0 < datas);
-        data_owners.retain(|d, _| d.0 < datas);
-        lifted.truncate(mark.lifted);
-        match_columns.retain(|id, _| id.0 < defs);
-        *helper_keys = mark.helper_keys.clone();
         *goals.get_mut() = Default::default();
         // Their terms may name what is forgotten.
         goal_snapshots.get_mut().clear();
-        total_rows.get_mut().retain(|id, _| id.0 < defs);
-        *instances = mark.instances.clone();
         if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
             nav.get_mut().rewind(at_mark);
         }

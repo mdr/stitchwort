@@ -101,7 +101,6 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::chars;
-use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
@@ -291,13 +290,8 @@ impl SidesCapture {
 #[derive(Default)]
 pub struct Elaborator {
     pub globals: Globals,
-    pub tests: Vec<TestDecl>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
-    /// In a project: the definitions each namespace checked so far made.
-    namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
-    /// How many definitions the prelude made.
-    prelude_defs: usize,
     /// The inference state a failed attempt takes back (`state::Attempt`).
     pub(crate) attempt: state::Attempt,
     /// The scratch state of the declaration being elaborated, emptied
@@ -313,55 +307,15 @@ pub struct Elaborator {
     pub session: state::Session,
     /// Memo tables that can be emptied at any time (`state::Caches`).
     pub(crate) caches: state::Caches,
-    abilities: Vec<effects::AbilityInfo>,
-    /// The record types declared so far (docs/proposals/records.md).
-    records: HashMap<DataId, records::RecordInfo>,
-    /// Why `DecEq` isn't derived for a data type or record, for the note
-    /// when `==` is used on it (`derive.rs`).
-    no_eq: HashMap<DataId, String>,
-    /// The same for `Show` (`derive_show.rs`).
-    no_show: HashMap<DataId, String>,
-    /// The same for `Finite` (`derive_finite.rs`).
-    no_finite: HashMap<DataId, String>,
-    /// Why a `Prop` record has no derived decision (`derive_decide.rs`), for
-    /// the note when one is wanted.
-    no_decide: HashMap<DataId, String>,
-    /// The same for `Ord` (`derive_ord.rs`).
-    no_ord: HashMap<DataId, String>,
-    /// The `D.All` generated for each container of the program a nested
-    /// type is in, by container (`derive_induct.rs`).
-    generated_alls: HashMap<DataId, DefId>,
-    /// Every lifted helper so far, with its `match`, for naming the `match`
-    /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
-    lifted: Vec<(DefId, Span)>,
-    /// Each lifted `match`'s helper's parameters it matches (SW-1074).
-    match_columns: HashMap<DefId, Rc<lift::MatchColumns>>,
-    /// Every local definition's key, so dot notation never finds one
-    /// (docs/proposals/syntax-conveniences.md §3.6).
-    pub(crate) helper_keys: stitchwort_core::collections::HashSet<String>,
+    /// What later units read of the declarations checked (`state::Tables`).
+    pub(crate) tables: state::Tables,
     /// The open goals, `?`, of the declaration being checked (`goals.rs`).
     pub(crate) goals: RefCell<goals::Goals>,
     /// The latest goals printed, as terms, by where their `?` is: what
     /// `search --at` searches (SW-989).
     pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
-    /// The definitions checked again with their bare row variables total
-    /// (D1215), with where the first check failed.
-    pub total_rows: RefCell<HashMap<DefId, Span>>,
-    /// The interfaces declared so far (docs/proposals/interfaces.md §5.1).
-    interfaces: HashMap<DataId, interfaces::InterfaceInfo>,
-    /// The global instances, by interface and head (§5.6).
-    instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
-    /// The module that declared each data type (§5.6 rule 1).
-    data_owners: HashMap<DataId, String>,
     /// What the code navigation index records, when it's on (`nav.rs`).
     nav: Option<RefCell<nav::Recorder>>,
-    /// The equations the source implies that weren't generated, by key,
-    /// with the reason: naming one is `E-NO-EQUATION` (D2176). Only grows,
-    /// so a library file's or namespace's are those after its start.
-    pub(crate) equation_skips: Vec<(DefId, String, String)>,
-    /// The library's and the core's definitions whose equations were made
-    /// on demand (`Elaborator::ensure_equations`), by key. Only grows.
-    pub(crate) equations_done: Vec<String>,
 }
 
 /// A pattern that matches a constructor.
@@ -648,7 +602,24 @@ impl Elaborator {
     /// The definitions checked as part of namespace `namespace` of the
     /// project, as indices into `globals.defs`; empty if it wasn't checked.
     pub fn namespace_def_range(&self, namespace: &str) -> std::ops::Range<usize> {
-        self.namespace_defs.get(namespace).cloned().unwrap_or(0..0)
+        self.tables
+            .namespace_defs
+            .get(namespace)
+            .cloned()
+            .unwrap_or(0..0)
+    }
+
+    /// The tests declared so far, in the order they run.
+    pub fn tests(&self) -> &[TestDecl] {
+        &self.tables.tests
+    }
+
+    /// How many declarations there are.
+    pub(crate) fn ids(&self) -> state::Ids {
+        state::Ids {
+            defs: self.globals.defs.len(),
+            datas: self.globals.datas.len(),
+        }
     }
 
     /// Whether definition `id` isn't checked by the kernel. In a session
@@ -743,7 +714,7 @@ impl Elaborator {
         self.unit.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
-        self.prelude_defs = self.globals.defs.len();
+        self.tables.prelude_defs = self.globals.defs.len();
         registry::check_complete_core(&self.globals)
     }
 
@@ -1183,7 +1154,7 @@ impl Elaborator {
         } else {
             0
         };
-        if let Some(earlier) = self.tests[from..].iter().find(|t| t.name == name) {
+        if let Some(earlier) = self.tables.tests[from..].iter().find(|t| t.name == name) {
             return Err(error(
                 "E-DUPLICATE",
                 span,
@@ -1262,7 +1233,7 @@ impl Elaborator {
         self.decl.local_helpers.clear();
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
-        self.tests.push(TestDecl {
+        self.tables.tests.push(TestDecl {
             library: self.unit.loading_prelude,
             name: name.to_string(),
             namespace: self.unit.module.namespace.clone().unwrap_or_default(),
@@ -1571,8 +1542,8 @@ impl Elaborator {
             unreachable!("just defined");
         };
 
-        let index = self.abilities.len();
-        self.abilities.push(effects::AbilityInfo {
+        let index = self.tables.abilities.len();
+        self.tables.abilities.push(effects::AbilityInfo {
             name: scope::display(&ability_key).to_string(),
             op_data,
             res,
@@ -1787,7 +1758,7 @@ impl Elaborator {
         let mut group_interfaces = Vec::new();
         for (&(_, decl), d) in members.iter().zip(&ids) {
             kernel::mark_auto_params(&mut self.globals, *d, Self::data_auto_params(decl));
-            self.data_owners.insert(*d, owner.clone());
+            self.tables.data_owners.insert(*d, owner.clone());
             if let Decl::Data {
                 interface: true, ..
             } = decl
@@ -2251,7 +2222,7 @@ impl Elaborator {
                 .with_label(other, "the declaration is here"));
             }
             self.scope.insert(&key, Global::Def(id), span, false);
-            self.helper_keys.insert(key);
+            self.tables.helper_keys.insert(key);
         }
         Ok(())
     }
@@ -2479,7 +2450,7 @@ impl Elaborator {
                         if checked.is_ok()
                             && let Some(at) = at
                         {
-                            self.total_rows.borrow_mut().insert(*id, at);
+                            self.tables.total_rows.insert(*id, at);
                         }
                     }
                     Ok(false) => {}
@@ -2637,7 +2608,7 @@ impl Elaborator {
         // first, unless it opts out (D309). Theorems follow their functions'
         // order (D308) without the warning.
         let plain = !*theorem && !*instance && !*export && !*synonym;
-        if plain && !no_receiver && !self.helper_keys.contains(&key) {
+        if plain && !no_receiver && !self.tables.helper_keys.contains(&key) {
             let cx = Ctx::new(self, *span);
             if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
                 self.unit.warnings.push(warning);

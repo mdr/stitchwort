@@ -239,7 +239,7 @@ impl Elaborator {
         let plan = match self.field_plan(d, dec_eq, "`==`")? {
             Ok(plan) => plan,
             Err(why) => {
-                self.no_eq.insert(d, why);
+                self.tables.no_eq.insert(d, why);
                 return Ok(());
             }
         };
@@ -275,7 +275,8 @@ impl Elaborator {
             Ok(()) => {}
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => {
-                self.no_eq
+                self.tables
+                    .no_eq
                     .insert(d, format!("deriving it failed: {}", e.message));
             }
         }

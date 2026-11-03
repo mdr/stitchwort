@@ -198,7 +198,10 @@ fn label_ops(cx: &Ctx, label: &Label) -> Value {
         let rec = data(cx, Builtin::Rec).expect("the prelude declares `Rec`");
         return Value::Data(rec, label.args.clone());
     }
-    Value::Data(cx.e.abilities[label.ability].op_data, label.args.clone())
+    Value::Data(
+        cx.e.tables.abilities[label.ability].op_data,
+        label.args.clone(),
+    )
 }
 
 fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
@@ -210,7 +213,7 @@ fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
             stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
         return Ok(apply(cx.g(), f, rec.ans.clone())?);
     }
-    let info = &cx.e.abilities[label.ability];
+    let info = &cx.e.tables.abilities[label.ability];
     let mut f = Value::Neutral(Head::Def(info.res), Spine::new());
     for a in &label.args {
         f = apply(cx.g(), f, a.clone())?;
@@ -409,7 +412,7 @@ fn primitive(cx: &Ctx, prim: Primitive) -> Result<DefId> {
 pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
     let g = cx.g();
     let ability_of =
-        |d: DataId| -> Option<usize> { cx.e.abilities.iter().position(|a| a.op_data == d) };
+        |d: DataId| -> Option<usize> { cx.e.tables.abilities.iter().position(|a| a.op_data == d) };
     let (Ok(plus), Ok(no_op), Ok(row_op), Ok((row_data, empty)), Ok((_, ops_ctor))) = (
         data(cx, Builtin::Plus),
         data(cx, Builtin::NoOp),
@@ -756,7 +759,7 @@ fn ability_name(cx: &Ctx, label: &Label) -> String {
     if label.ability == REC {
         return "Partial".to_string();
     }
-    cx.e.abilities[label.ability].name.clone()
+    cx.e.tables.abilities[label.ability].name.clone()
 }
 
 /// Makes the abilities in common agree, then solves an unknown tail of
@@ -1778,9 +1781,9 @@ pub fn effect_type(
         labels.push(label);
     }
     labels.sort_by(|a, b| {
-        cx.e.abilities[a.ability]
+        cx.e.tables.abilities[a.ability]
             .order
-            .cmp(&cx.e.abilities[b.ability].order)
+            .cmp(&cx.e.tables.abilities[b.ability].order)
     });
     let tail = match &row.tail {
         None => None,
@@ -1872,7 +1875,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
         }
         return Err(d);
     };
-    let op_data = cx.e.abilities[a].op_data;
+    let op_data = cx.e.tables.abilities[a].op_data;
     let params = cx.g().data(op_data).params.clone();
     if args.len() != params.len() {
         return Err(cx.error(
@@ -2518,7 +2521,7 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
     let key = (
         id,
         explicit,
-        cx.e.abilities.len(),
+        cx.e.tables.abilities.len(),
         cx.e.decl.recursion.is_some(),
         cx.e.decl.bare_rows_pure.get(),
     );
@@ -4234,7 +4237,7 @@ fn op_call(
     args: &[&Expr],
     row: &Row,
 ) -> Result<(Term, Value)> {
-    let info = &cx.e.abilities[a];
+    let info = &cx.e.tables.abilities[a];
     let [arg] = args else {
         return Err(cx.error(
             "E-ARITY",
@@ -4361,7 +4364,7 @@ fn make_call(
 /// An operation used as a value, `op`: the function `x => op x`, of type
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
-    let op_data = cx.e.abilities[a].op_data;
+    let op_data = cx.e.tables.abilities[a].op_data;
     let params = cx.g().data(op_data).params.len();
     let args: Vec<Value> = (0..params)
         .map(|_| {
@@ -4541,7 +4544,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             .error("E-HANDLER", "this handler has no `return` clause", "here")
             .with_note("add `| return x -> …` saying what to do with the result"));
     };
-    let info = &cx.e.abilities[a];
+    let info = &cx.e.tables.abilities[a];
     let (op_data, elim, op_names) = (info.op_data, info.elim, info.ops.clone());
     let mut op_clauses = Vec::new();
     for (i, name) in op_names.iter().enumerate() {

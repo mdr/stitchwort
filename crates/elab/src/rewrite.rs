@@ -163,7 +163,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     let budget = search_budget(cx);
     let mut remaining = budget;
     let mut stats = Stats::default();
-    let mut ty = match cx.e.interfaces.is_empty() {
+    let mut ty = match cx.e.tables.interfaces.is_empty() {
         true => ty,
         false => crate::interfaces::find_ready_dictionaries(cx, &ty, None)?.unwrap_or(ty),
     };
@@ -258,7 +258,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let mut written = cx.written_goal.take();
     // A dictionary the goal mentions whose type is known is found first, so
     // what it adds or compares computes (`xs.sumBy f`'s `+`).
-    let mut goal = match cx.e.interfaces.is_empty() {
+    let mut goal = match cx.e.tables.interfaces.is_empty() {
         true => expected.clone(),
         false => crate::interfaces::find_ready_dictionaries(cx, expected, None)?
             .unwrap_or_else(|| expected.clone()),
