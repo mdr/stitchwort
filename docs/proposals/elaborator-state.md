@@ -640,6 +640,9 @@ moving 9 fields into a struct that already exists. Its hard part is how
 `eval` reads solutions (a `&dyn MetaLookup` or a store argument), and that
 is review step 9's design question, not this note's.
 
+*Step 8's design is [globals-split.md](globals-split.md)* (SW-1174). It
+corrects Appendix B for `erasure`, `unfinished` and `module` (its §2.2).
+
 ### 4.7 Interaction with persistence of std (SW-1109)
 
 The check cache already serialises every library file's delta by path and
@@ -1464,7 +1467,7 @@ orchestrator.
 | 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s. *Done (SW-1173): §4.8.10; the host's whole-set maps shared (`Arc`) rather than logged; marks released by `LiveProject`, `cancellable` and the rewind test's hook; a mark on `aoc` 1.04 → 0.26 ms, 3.7 → 2.1 MB (the rest is the dot-call cache)* | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
 | 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
-| 8 | **The `Globals` split** (review step 9, its own design note): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
+| 8 | **The `Globals` split** (review step 9; design in [globals-split.md](globals-split.md)): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
 | 9 | **Frozen base** (optional, after measuring): its own short design note with the fork's measured value | SW-1109, search's second session | per that note |
 
 Steps 1-4 are independent of each other once step 1's module skeleton
