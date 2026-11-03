@@ -170,6 +170,61 @@ mod tests {
     #[test]
     fn the_fingerprint_covers_the_crate_graph() {
         let root = root();
+        let expected = metadata_graph(&root, "stitchwort-driver");
+        let built: Vec<&str> = crate::driver::FINGERPRINT_CRATES.split(',').collect();
+        assert_eq!(built, expected);
+        assert_eq!(super::source_crates(&root, "crates/driver"), expected);
+        assert!(
+            built.contains(&"crates/rt"),
+            "the runtime that runs the tests"
+        );
+    }
+
+    /// The bundle-staleness fingerprint covers web's graph, not just the
+    /// driver's: editing `crates/web` (or the formatter, which only the web
+    /// crate uses) must mark `web/pkg` stale (SW-1132).
+    #[test]
+    fn the_source_fingerprint_covers_the_web_crate() {
+        let root = root();
+        let expected = metadata_graph(&root, "stitchwort-web");
+        let built: Vec<&str> = crate::driver::SOURCE_FINGERPRINT_CRATES
+            .split(',')
+            .collect();
+        assert_eq!(built, expected);
+        assert_eq!(super::source_crates(&root, "crates/web"), expected);
+        for dir in ["crates/web", "crates/driver", "crates/fmt"] {
+            assert!(built.contains(&dir), "{dir} in {built:?}");
+        }
+        // The web crate's own manifest, build script and sources are hashed,
+        // so a change to any of them changes the fingerprint.
+        let files = super::source_files(&root, "crates/web");
+        for file in [
+            "crates/web/Cargo.toml",
+            "crates/web/build.rs",
+            "crates/web/src/lib.rs",
+        ] {
+            assert!(files.contains(&PathBuf::from(file)), "{file} in {files:?}");
+        }
+    }
+
+    /// Each covered crate's manifest, build script and sources are hashed:
+    /// the runtime's, say.
+    #[test]
+    fn a_crates_manifest_build_script_and_sources_are_hashed() {
+        let files = super::source_files(&root(), "crates/rt");
+        for file in [
+            "crates/rt/Cargo.toml",
+            "crates/rt/build.rs",
+            "crates/rt/src/prims.rs",
+        ] {
+            assert!(files.contains(&PathBuf::from(file)), "{file} in {files:?}");
+        }
+    }
+
+    /// The directories of `start`'s package and every workspace crate it
+    /// depends on (not dev- or build-), transitively, as `cargo metadata`
+    /// sees them, sorted.
+    fn metadata_graph(root: &Path, start: &str) -> Vec<String> {
         let out = std::process::Command::new(env!("CARGO"))
             .args([
                 "metadata",
@@ -178,7 +233,7 @@ mod tests {
                 "1",
                 "--offline",
             ])
-            .current_dir(&root)
+            .current_dir(root)
             .output()
             .expect("run cargo metadata");
         assert!(
@@ -191,11 +246,11 @@ mod tests {
         let dir_of = |manifest: &str| {
             Path::new(manifest)
                 .parent()
-                .and_then(|d| d.strip_prefix(&root).ok())
+                .and_then(|d| d.strip_prefix(root).ok())
                 .map(|d| d.to_string_lossy().into_owned())
                 .expect("a workspace crate")
         };
-        let mut expected = vec!["stitchwort-driver".to_string()];
+        let mut expected = vec![start.to_string()];
         let mut next = 0;
         while next < expected.len() {
             let package = packages
@@ -221,26 +276,6 @@ mod tests {
             })
             .collect();
         expected.sort();
-        let built: Vec<&str> = crate::driver::FINGERPRINT_CRATES.split(',').collect();
-        assert_eq!(built, expected);
-        assert_eq!(super::source_crates(&root, "crates/driver"), expected);
-        assert!(
-            built.contains(&"crates/rt"),
-            "the runtime that runs the tests"
-        );
-    }
-
-    /// Each covered crate's manifest, build script and sources are hashed:
-    /// the runtime's, say.
-    #[test]
-    fn a_crates_manifest_build_script_and_sources_are_hashed() {
-        let files = super::source_files(&root(), "crates/rt");
-        for file in [
-            "crates/rt/Cargo.toml",
-            "crates/rt/build.rs",
-            "crates/rt/src/prims.rs",
-        ] {
-            assert!(files.contains(&PathBuf::from(file)), "{file} in {files:?}");
-        }
+        expected
     }
 }
