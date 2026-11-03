@@ -1165,8 +1165,11 @@ SW-971 item 3, SW-980 item 1, SW-967 item 5): goals still show `split.%match1`, 
 - Found: one closer check can cost a lot. `cases` as the obligation of
   `Std.Float.Theory.magUnitsLeReflect line 3 ?` (a goal `line < 4`) took 1.5 s and 1.2 GB; each
   check runs under the declaration's resource limits, and a smaller step budget doesn't stop
-  `cases` (tried: no change). The lane tests leave that lemma out (`search_at.rs` `options`),
-  which keeps the lane tier under its 3 GB.
+  `cases` (tried: no change). Fixed in SW-1082: the cost was the size limit (10M nodes of a value,
+  `Nat.leq (magUnits a) (magUnits c)` grown until it tripped it), so a tried proof is checked
+  under 200,000 nodes (`Elaborator::proof_limits`; not through `options.limits`, which key the
+  check cache). Goal 2 of the `what_closes_a_goal` file: 1.55 GB to 0.31 GB, same answers; the
+  lane tests no longer leave that lemma out.
 
 ## As built (SW-993, stage 3 follow-ups)
 
