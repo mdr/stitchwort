@@ -3776,13 +3776,13 @@
     {
       "id": 1106,
       "title": "Checking a match re-evaluates every context value per branch (core::check::substitute_in), ~1.9 KB per input char",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "Found in SW-1096 (3 Nov): after the scrutinee fix, next.sw (Parse.next over 160,000 chars, the input bound by let input) still costs 395 MB at check time, ~1.9 KB per char. A sampled profile shows it in the match's case split: for every branch, core::check::substitute_in reads back and re-evaluates every value in the context, including the 160,000-element list. Core/kernel code: Opus lane, with a design note if the change is more than local.",
+      "body": "Found in SW-1096 (3 Nov): after the scrutinee fix, next.sw (Parse.next over 160,000 chars, the input bound by let input) still costs 395 MB at check time, ~1.9 KB per char. A sampled profile shows it in the match's case split: for every branch, core::check::substitute_in reads back and re-evaluates every value in the context, including the 160,000-element list. Core/kernel code: Opus lane, with a design note if the change is more than local.\n\nD2264 (Matt, 3 Nov): start now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4169,13 +4169,13 @@
     {
       "id": 1134,
       "title": "Selector inputs: fix the stale time of lsp workspace_symbols_cover_namespaces_not_checked_yet; let EXAMPLES take a list",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).\n\nAlso (SW-1144): `task test:one -- hash_stability` runs nothing (name filter; the tests are named otherwise); briefs and docs/testing.md should say -E binary(hash_stability) (with EXAMPLES=). Check the docs and fix the wording.\n\nSecond miss (SW-1145, 076532d9): cli run std_dir_reads_the_library_from_disk asserted the absolute path; the selection had doc/search but not run. Same rule as above: path-naming changes select every test that prints paths, including cli run.\n\nAlso (SW-1146 verification): the selection caught driver navigation references_of_a_project (snapshot with prelude line numbers) that the merge tier does not run; consider adding it to the merge profile (2 s). Rule: a change to core/ std files (or their order) selects snapshots that print <prelude> positions.",
+      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).\n\nAlso (SW-1144): `task test:one -- hash_stability` runs nothing (name filter; the tests are named otherwise); briefs and docs/testing.md should say -E binary(hash_stability) (with EXAMPLES=). Check the docs and fix the wording.\n\nSecond miss (SW-1145, 076532d9): cli run std_dir_reads_the_library_from_disk asserted the absolute path; the selection had doc/search but not run. Same rule as above: path-naming changes select every test that prints paths, including cli run.\n\nAlso (SW-1146 verification): the selection caught driver navigation references_of_a_project (snapshot with prelude line numbers) that the merge tier does not run; consider adding it to the merge profile (2 s). Rule: a change to core/ std files (or their order) selects snapshots that print <prelude> positions.\n\nD2264 (Matt, 3 Nov): start now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4239,13 +4239,13 @@
     {
       "id": 1139,
       "title": "Put task test:features in a tier",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "From SW-1091: dev/features-check (task test:features, ~3 s, builds nothing) catches a new dependency or feature that splits the build into variants again. Add to the merge tier (or test:selected's fixed core). Also: the -p syntax leaf variant (a no-op dependency would remove it at a small cost to lane-syntax).",
+      "body": "From SW-1091: dev/features-check (task test:features, ~3 s, builds nothing) catches a new dependency or feature that splits the build into variants again. Add to the merge tier (or test:selected's fixed core). Also: the -p syntax leaf variant (a no-op dependency would remove it at a small cost to lane-syntax).\n\nD2264 (Matt, 3 Nov): start now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4295,13 +4295,13 @@
     {
       "id": 1143,
       "title": "std definitions now open as file: URIs when std is read from a directory: check what assumes stitchwort-std:",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).",
+      "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).\n\nD2264 (Matt, 3 Nov): start now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4365,13 +4365,13 @@
     {
       "id": 1148,
       "title": "doc rfl / doc J print an import line (import Std (rfl)) though built-ins need no import",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "cli"
       ],
-      "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).",
+      "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).\n\nD2264 (Matt, 3 Nov): start now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
