@@ -2522,12 +2522,12 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
         cx.e.decl.recursion.is_some(),
         cx.e.decl.bare_rows_pure.get(),
     );
-    if let Some(&known) = cx.e.performs.borrow().get(&key) {
+    if let Some(&known) = cx.e.caches.performs.borrow().get(&key) {
         return Ok(known);
     }
     let found = performs_after(cx, crate::kernel::def_ty(g, id)?, explicit)?;
     if g.def(id).state() == stitchwort_core::globals::State::Final {
-        cx.e.performs.borrow_mut().insert(key, found);
+        cx.e.caches.performs.borrow_mut().insert(key, found);
     }
     Ok(found)
 }

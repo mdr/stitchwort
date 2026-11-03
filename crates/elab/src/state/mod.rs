@@ -7,7 +7,8 @@
 //! each mechanism does with it.
 //!
 //! The components planned (§4.1), of which [`Options`], [`Session`],
-//! [`Unit`], [`Decl`] and [`Attempt`] exist so far (§7 steps 1 to 3); the
+//! [`Unit`], [`Decl`], [`Attempt`] and [`Caches`] exist so far (§7 steps
+//! 1 to 4); the
 //! rest of the state is still fields of the `Elaborator` and of `Globals`:
 //!
 //! - [`Options`]: settings and test switches, and the cache key;
@@ -21,10 +22,11 @@
 //!   file is loaded inside one;
 //! - [`Decl`]: per-declaration scratch, rebuilt by `Default`;
 //! - [`Attempt`]: the inference state a failed attempt takes back;
-//! - `Caches`: tables that can be emptied at any time;
+//! - [`Caches`]: tables that can be emptied at any time;
 //! - `Presentation`: navigation, goals shown, logs.
 
 mod attempt;
+mod caches;
 mod decl;
 mod options;
 mod session;
@@ -32,6 +34,8 @@ mod unit;
 
 pub(crate) use attempt::Attempt;
 pub(crate) use attempt::Mark as AttemptMark;
+pub(crate) use caches::Caches;
+pub(crate) use caches::Mark as CachesMark;
 pub(crate) use decl::Decl;
 pub use options::Options;
 pub(crate) use session::Mark as SessionMark;

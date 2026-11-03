@@ -316,7 +316,7 @@ is unclear or mixed. Appendix B does the same for `Globals`. In summary:
 | `Unit` | 10 (+2 unclear) | the unit being elaborated | swapped on a nested library load; empty at marks | no |
 | `Decl` | 23 (+2 unclear) | one declaration (or group) | `Default` at each declaration; asserted empty at marks | no |
 | `Attempt` | 18 (+ 8 from `Globals`, + 7 thread-locals) | one declaration, with speculative sub-scopes | trail / lengths | no |
-| `Caches` | 6 (+ `Globals::hashes`) | any; derivable | cleared or cut by id | never |
+| `Caches` | 6 (+ `Globals::hashes`) | any; derivable | the dot-call tables copied; the rest cut by id or emptied | never |
 | `Presentation` | 2 (+ `goals`, shared with `Attempt`) | the session (nav, goals shown, logs) | `nav::Logged` | nav only |
 
 **Fields flagged** (lifetime unclear or mixed; each is a question for the
@@ -356,7 +356,7 @@ Elaborator
 ├── unit:    Unit             module state, namespace root, imports, file mode, warnings
 ├── decl:    Decl             per-declaration scratch (Default)
 ├── attempt: Attempt          MetaStore (Globals' meta half) + per-attempt tables + unify state + instance_steps
-├── caches:  Caches           derivable memo tables
+├── caches:  Caches           derivable memo tables; clear() empties all of them
 └── present: Presentation     nav recorder, goal snapshots, counterexample log
 ```
 
@@ -368,7 +368,7 @@ mechanisms become methods with exhaustive destructuring:
 | Undo an attempt | `Attempt::mark()` / `restore(m)` | trail lengths; `restore` destructures `Attempt` |
 | Per-declaration cleanup | `Decl`, `Attempt` | `*decl = Decl::default(); attempt.reset()`; nothing to list |
 | Nested library load | `Unit` | `let saved = mem::take(&mut self.unit); …; self.unit = saved` |
-| Rewind | `Kernel`, `Tables`, `Session`, `Unit`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them. A `Unit` mark keeps a copy of the fields that outlive a unit (the last module, the namespace root, warnings, file mode); `Session`'s copies the bookkeeping a later load can change and leaves its counters. `Decl` is asserted empty at a mark and reset on rewind; `Attempt` is reset. `Options` is left alone |
+| Rewind | `Kernel`, `Tables`, `Session`, `Unit`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them. `Caches`' mark copies `dot_heads` and `dot_failed` (keyed by addresses within a source epoch); its rewind cuts `result_heads` and `performs` to the definitions that remain and empties `cong_candidates` and `decision_order`. A `Unit` mark keeps a copy of the fields that outlive a unit (the last module, the namespace root, warnings, file mode); `Session`'s copies the bookkeeping a later load can change and leaves its counters. `Decl` is asserted empty at a mark and reset on rewind; `Attempt` is reset. `Options` is left alone |
 | Encode / replay | `Tables` (and `Kernel` for declarations) | `Tables::encode(&self, since: &TablesMark, w)` destructures `Tables`; each field's kind does the work |
 | Dump | `Tables`, `Kernel`, `Presentation` | `dump(&self, out)` destructures each |
 | Cache key | `Options` | `cache_key()` destructures `Options` and gives the settings part of `Elaborator::modes()`; the rest of the key's text is the kernel's native switches and the navigation tag |
@@ -439,7 +439,7 @@ destructuring, generic kinds.
 | `Tables` | four kinds (§4.2) | O(1) | rewinds are in stack order (§2.4); logs serve that with 7 MB where `imbl` holds 68 MB (§5.2) |
 | `Session` | small maps, `Logged` where copied today | O(1) | as above |
 | `Unit`, `Decl` | plain fields | none: empty at every mark | not marked |
-| `Caches` | `HashMap`/`Vec` | none: cleared or cut by id | not marked |
+| `Caches` | `HashMap`/`Vec` | the two dot-call tables are copied; the rest are cut by id or emptied at a rewind | `Caches::mark` |
 
 **What changes at run time** (estimated from §5.2 and §2):
 
@@ -737,7 +737,7 @@ orchestrator.
 | 1 | **`Attempt`.** Move the 18 per-attempt fields and `unify.rs`'s thread-locals into `state::Attempt`. `Snapshot` becomes `Attempt::mark`/`restore` with exhaustive destructuring; `clear_metas` becomes `Attempt::reset` | undo/cleanup lists; SW-1129's thread-locals | elab's `undo` unit tests, `postponement.rs`, `rewind.rs` |
 | 2 | **`Decl` and `Unit`.** Per-declaration scratch into `Decl` (reset by `Default`); per-unit fields into `Unit`, with `library::Context` replaced by a swap. Resolve the flagged fields' lifetimes as they move | per-declaration and nested-load lists | `std_library.rs`, `rewind.rs`, `namespaces.rs` |
 | 3 | **`Options` and `Session`.** Settings and test switches into `Options` with `cache_key()`; project and cache bookkeeping into `Session`; `queue.rs`'s counters and `MET_UNFILLED` into `Session::stats`. `include_files` and `core_link_names` are set by the host after the session is built, so they go to `Session`, not `Options` | SW-1129's globals | `postponement.rs`, `check_cache.rs`, `rewind.rs` |
-| 4 | **`Caches`**, plus a test switch that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
+| 4 | **`Caches`**, plus a test switch (`Options::clear_caches_per_declaration`, checked in `Elaborator::glued`) that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
 | 6 | **`Logged` for the copied tables.** `Scope`'s maps, `instances`, `helper_keys` and `Session`'s copied maps become undo-logged; `Mark` stops copying; `Before` stops copying `scope.entries`. Measure `LiveProject` memory on `aoc` before and after (F3) | mark memory and time | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs` |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
@@ -853,9 +853,9 @@ by hand where a regex missed (`records` is dumped).
 | `no_propagation` | `--r--` | Decl | dynamic extent | a Cell counter set and reset around a call |
 | `bare_rows_pure` | `--r--` | Decl | dynamic extent |  |
 | `late_literals` | `--r--` | Decl | dynamic extent |  |
-| `dot_heads` | `--R--` | Caches | cache | copied per mark; keyed by addresses within a source epoch |
+| `dot_heads` | `--R--` | Caches | cache | in `state::Caches`; copied per mark; keyed by addresses within a source epoch |
 | `source_epoch` | `--s--` | Session | counter | ignored by rewind (never reused) |
-| `dot_failed` | `--R--` | Caches | cache | keyed by meta-state lengths: valid only while those identify a state |
+| `dot_failed` | `--R--` | Caches | cache | in `state::Caches`; copied per mark; keyed by meta-state lengths: valid only while those identify a state |
 | `condition` | `--r--` | Decl | dynamic extent |  |
 | `app_expected` | `--r--` | Decl | dynamic extent |  |
 | `decreasing` | `--r--` | Decl | dynamic extent |  |
@@ -893,10 +893,10 @@ by hand where a regex missed (`records` is dumped).
 | `proof_holes` | `UCr--` | Attempt | meta-keyed |  |
 | `parameter_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `hole_log` | `--s--` | Decl | dynamic extent | ignored by rewind (only set inside one rewrite) |
-| `cong_candidates` | `--r--` | Caches | cache |  |
-| `result_heads` | `--r--` | Caches | cache (by DefId) |  |
-| `decision_order` | `--r--` | Caches | cache |  |
-| `performs` | `--r--` | Caches | cache (by DefId) |  |
+| `cong_candidates` | `--r--` | Caches | cache | in `state::Caches`; emptied by a rewind and at each namespace |
+| `result_heads` | `--r--` | Caches | cache (by DefId) | in `state::Caches`; cut to the remaining definitions by a rewind |
+| `decision_order` | `--r--` | Caches | cache | in `state::Caches`; emptied by a rewind |
+| `performs` | `--r--` | Caches | cache (by DefId) | in `state::Caches`; cut to the remaining definitions by a rewind |
 | `total_rows_only` | `--r--` | Decl | dynamic extent |  |
 | `total_rows` | `--r--` | Tables | owned by DefId | **gap**: read by later units (check.rs note, nav hover) but neither encoded nor dumped |
 | `interfaces` | `--RED` | Tables | owned by DataId |  |
@@ -918,6 +918,7 @@ by hand where a regex missed (`records` is dumped).
 | `replayed_names` | `--RE-` | Session | logged | copied per mark |
 | `fail_replays_late` | `--sE-` | Options | test switch |  |
 | `recheck_namespaces` | `--s--` | Options | test switch |  |
+| `clear_caches_per_declaration` | `--s--` | Options | test switch | new in step 4: empties `Caches` in `Elaborator::glued`, before each declaration |
 | `include_trace` | `--rE-` | Unit | log |  |
 | `library_digest` | `--sE-` | Session | computed once |  |
 | `counterexample_runner` | `--s--` | Options | setting (host) |  |

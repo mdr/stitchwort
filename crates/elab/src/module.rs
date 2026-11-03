@@ -281,7 +281,7 @@ impl Elaborator {
         closure: Option<&[String]>,
     ) -> Vec<Diagnostic> {
         // A namespace has its own scope, so its own congruence lemmas.
-        self.cong_candidates.borrow_mut().clear();
+        self.caches.cong_candidates.borrow_mut().clear();
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.unit.loading_prelude

@@ -79,7 +79,7 @@ pub(crate) type Candidates = Rc<[Rc<Contextual>]>;
 /// up once per definition until another declaration is added.
 pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
     let defs = e.globals.defs.len();
-    if let Some((at, found)) = e.cong_candidates.borrow().get(&f)
+    if let Some((at, found)) = e.caches.cong_candidates.borrow().get(&f)
         && *at == defs
     {
         return Ok(found.clone());
@@ -111,7 +111,8 @@ pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
         .filter_map(|lemma| validate_contextual(g, f, lemma).ok().map(Rc::new))
         .collect::<Vec<_>>()
         .into();
-    e.cong_candidates
+    e.caches
+        .cong_candidates
         .borrow_mut()
         .insert(f, (defs, found.clone()));
     Ok(found)
