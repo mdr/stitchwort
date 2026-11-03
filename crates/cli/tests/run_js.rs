@@ -25,6 +25,41 @@ fn examples() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept")
 }
 
+/// Whether `name` matches `filter`: unset or empty means every one, otherwise
+/// only those whose name contains one of its comma-separated substrings.
+fn matches(filter: &str, name: &str) -> bool {
+    filter.is_empty()
+        || filter
+            .split(',')
+            .map(str::trim)
+            .any(|part| !part.is_empty() && name.contains(part))
+}
+
+/// Whether the example called `name` should run: `EXAMPLES` unset or empty
+/// means every example, otherwise only those whose name contains one of its
+/// comma-separated substrings.
+fn wanted(name: &str) -> bool {
+    std::env::var("EXAMPLES").map_or(true, |filter| matches(&filter, name))
+}
+
+#[test]
+fn examples_filter_takes_a_comma_separated_list() {
+    assert!(matches("parse", "parse-basics.sw"));
+    assert!(!matches("parse", "safe-fields.sw"));
+    assert!(matches("parse,safe-fields", "safe-fields.sw"));
+    assert!(matches("safe-fields, parse", "parse-basics.sw"));
+    assert!(!matches("other,none", "parse-basics.sw"));
+    assert!(
+        matches("", "anything.sw"),
+        "an empty filter keeps everything"
+    );
+}
+
+/// Whether `EXAMPLES` is filtering the examples.
+fn filtering() -> bool {
+    std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
+}
+
 /// Runs `stitchwort run [--js] path` with `input` piped to it.
 fn run(path: &Path, js: bool, input: &[u8]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
@@ -84,6 +119,7 @@ fn examples_print_the_same_both_ways() {
         .expect("read examples")
         .map(|e| e.expect("read entry").path())
         .filter(|p| p.extension().is_some_and(|e| e == "sw"))
+        .filter(|p| wanted(&p.file_name().unwrap().to_string_lossy()))
         .collect();
     entries.sort();
     // Each example (three inputs, two runs each) is a few child processes:
@@ -113,7 +149,7 @@ fn examples_print_the_same_both_ways() {
     .flatten()
     .collect();
     // The examples this covers, so that losing one is noticed.
-    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+    if !filtering() {
         for name in [
             "adder.sw",
             "adder-fuel.sw",

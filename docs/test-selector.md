@@ -39,15 +39,17 @@ filterset, to paste in as `( ... )`.
 
 Sweeps (tests in `corpus-sweeps`, and the examples, hash and AoC corpora) run
 on the merge sample (STITCHWORT_TIER=merge) unless the environment variable
-`EXAMPLES=<substring>` is set: then every example or project whose name
-contains it runs, in `cli` `examples` and in `hash_stability`
-`examples`/`projects` (and `run_js`; nothing else is affected). Use it to cover the
-examples a change is about (`EXAMPLES=parse`), instead of the 1-in-4 sample.
+`EXAMPLES=<substrings>` is set: then every example or project whose name
+contains any of its comma-separated substrings runs, in `cli` `examples` and
+`run_js`, and in `hash_stability` `examples`/`projects` (nothing else is
+affected). A single name works as before. Use it to cover the examples a
+change is about (`EXAMPLES=parse`, or `EXAMPLES=parse,safe-fields` for two),
+instead of the 1-in-4 sample.
 
 ## The fixed core: always in the filter
 
 Roughly 6 s of wall time. It sits in the filter; `task test:selected` itself
-runs `cargo fmt --check` first.
+runs `task test:features` and `cargo fmt --check` first.
 
 | Part | Filterset | Time (sum) |
 |---|---|---|
@@ -77,6 +79,8 @@ a clause in the filterset; give it one line of reasoning.
    |---|---|
    | `crates/elab/src/std/**.sw` (the library) | `lane-std`; `hash_stability` `prelude` and `examples` and `pinned_hashes` (hash snapshots, 21 to 47 s); `the_standard_library_passes_its_own_tests`; `cli::fmt` `the_repository_sources_are_formatted` (18 s); the examples using the changed file (`EXAMPLES=`); a proof namespace's AoC days if proofs use it |
    | `crates/elab/**` (elaborator, equations, induct) | `package(stitchwort-elab)`; `function_equations`, `function_induct`; `cli::examples` accepted and rejected; `hash_stability` |
+   | `crates/elab/src/std_dir.rs`, how library files are named, found or loaded (file naming, spans) | every test that prints paths: `cli` `doc`, `search`, `run`, the `check --index` tests (`goal_index`), and diagnostics snapshots |
+   | `crates/elab/src/std/core/**` (the core files), `order.txt` | the snapshots that print `<prelude>` positions, such as driver `navigation` `references_of_a_project` |
    | `crates/core/**` | the fixed core is the start; add `nested_oracle`, `division`, `hash_stability`, `binary(differential)` if evaluation changed |
    | `crates/syntax/**`, `crates/fmt/**` | `package(stitchwort-fmt)` (without `repo`/`fuzz`), `cli::fmt`, `hash_stability`, `binary(lsp)` tests of lane-lsp |
    | `crates/rt/**`, `native`, `js`, `host` | `lane-rt`, `lane-native`, `lane-js`, `lane-effects`, `stitchwort-cli` `run` |
@@ -98,19 +102,27 @@ lane profiles exclude on purpose (the exclusion lists in
 `.config/nextest.toml` are for tests that are slow or flaky in the merge
 tier).
 
+- **Memory-heavy tests.** Leave `binary(run_js)` (`cli`) out of a selection
+  unless `crates/js`, `crates/cli/tests/run_js.rs` or the JS runtime changed:
+  its node processes take about 1 GB each, and including it pushed a
+  selection over the merge tier's 4 GB cap.
+- **Filters.** `task test:one -- NAME` matches test names only. For a whole
+  test binary use a filterset, `task test:one -- -E 'binary(hash_stability)'`
+  (with `EXAMPLES=` for particular examples).
+
 ## Output
 
 Exactly this, nothing else:
 
     FILTER: <one filterset line, usable as nextest -E>
-    EXAMPLES: <substring, or none>
+    EXAMPLES: <comma-separated substrings, or none>
     ESTIMATE: <seconds from dev/test-inventory --estimate> (<N> tests, <U> of unknown time)
     - fixed core: ... (one line)
     - <group>: why it is in (one line each)
     - not run: what you left out and why (one line)
 
 The orchestrator's verifier then runs
-`SELECTOR_ESTIMATE=<seconds> EXAMPLES=<substring> nix develop -c task test:selected -- '<FILTER>'`
+`SELECTOR_ESTIMATE=<seconds> EXAMPLES=<substrings> nix develop -c task test:selected -- '<FILTER>'`
 (`EXAMPLES` only if not none). Check first that the estimator prints the
 count you expect, and that the filter is not empty.
 

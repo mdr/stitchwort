@@ -92,7 +92,8 @@ tasks:
       AREA is one of: syntax, core, elab, effects, std, rt, js, native, lsp, goals, fmt,
       aoc, cli, hashes, bench, web, search, examples. For `examples` and `hashes`,
       NAME keeps only the example files or project folders whose names
-      contain it (task test:lane AREA=examples NAME=synonym).
+      contain it (a comma-separated list keeps any of several:
+      task test:lane AREA=examples NAME=synonym,map).
 
       Each area is the nextest profile `lane-AREA` in .config/nextest.toml,
       which says which tests it runs; the table is also in docs/testing.md.
@@ -110,8 +111,10 @@ tasks:
     summary: |
       Runs the tests matching the nextest arguments after `--`: a name
       substring (`task test:one -- named_calls`) or a filterset
-      (`task test:one -- -E 'binary(lsp)'`). Corpus sweeps take the daily
-      sample; set STITCHWORT_TIER=lane for the smallest, full for all.
+      (`task test:one -- -E 'binary(lsp)'`). A bare name matches test names
+      only, so for a whole test binary use `-E 'binary(name)'`.
+      Corpus sweeps take the daily sample; set STITCHWORT_TIER=lane for the
+      smallest, full for all.
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
 
@@ -155,13 +158,14 @@ tasks:
   test:merge:
     desc: Merge tier, under 90 s on a 10-core M1 Pro; run after every merge
     summary: |
-      A broad smoke test: rustfmt, the parser and kernel, a sample of the
-      accepted and rejected examples, half the AoC days' answers, a quarter of
-      the examples' hash snapshots, and more (the `merge` profile in
-      .config/nextest.toml). Clippy is in the daily tier.
+      A broad smoke test: the feature sets, rustfmt, the parser and kernel,
+      a sample of the accepted and rejected examples, half the AoC days'
+      answers, a quarter of the examples' hash snapshots, and more (the
+      `merge` profile in .config/nextest.toml). Clippy is in the daily tier.
     env:
       STITCHWORT_TIER: merge
     cmds:
+      - task: test:features
       - cargo fmt --check
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
 
@@ -181,15 +185,17 @@ tasks:
   test:selected:
     desc: "Run the selector's filterset as the merge tier would (task test:selected -- '<filterset>'), and log it"
     summary: |
-      `cargo fmt --check`, then nextest under the merge profile's settings
-      (STITCHWORT_TIER=merge, memory guard, features) with the given
+      The feature sets, then `cargo fmt --check`, then nextest under the merge
+      profile's settings (STITCHWORT_TIER=merge, memory guard) with the given
       filterset in place of the profile's own, then a line in
       dev/selector-log.tsv (date, commit, estimated and actual seconds,
-      result, failed tests, filter). SELECTOR_ESTIMATE=N records the
+      result, failed tests, filter). It folds its JUnit times into
+      target/test-timings.json at the end. SELECTOR_ESTIMATE=N records the
       selector's own estimate.
     env:
       STITCHWORT_MEM_CAP_GB_MERGE: '{{.MEM_CAP_MERGE}}'
     cmds:
+      - task: test:features
       - cargo fmt --check
       - '{{.ROOT_DIR}}/dev/run-selected {{.CLI_ARGS}}'
 
@@ -344,7 +350,7 @@ tasks:
   # ------------------------------------------- snapshots and generated text
 
   snap:examples:
-    desc: 'Update the examples'' error-message snapshots (NAME=part of a file name; all if unset), then list them'
+    desc: 'Update the examples'' error-message snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
     env:
       STITCHWORT_TIER: full
       INSTA_UPDATE: always
@@ -354,7 +360,7 @@ tasks:
       - git status --short -- '*.snap'
 
   snap:hashes:
-    desc: 'Update the hash-stability snapshots (NAME=part of a file name; all if unset), then list them'
+    desc: 'Update the hash-stability snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
     env:
       STITCHWORT_TIER: full
       INSTA_UPDATE: always

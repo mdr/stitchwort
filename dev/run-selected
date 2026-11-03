@@ -4,7 +4,8 @@
 # profile) but with the profile's own filter ignored, so the selection may
 # include tests the merge tier leaves out. Appends a line to
 # dev/selector-log.tsv: date, commit, estimated s, actual s, result, failed
-# tests, EXAMPLES, filter. Env: SELECTOR_ESTIMATE (the selector's estimate, in s).
+# tests, EXAMPLES, filter. Env: SELECTOR_ESTIMATE (the selector's estimate, in s);
+# EXAMPLES is a substring or a comma-separated list of substrings.
 set -u
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
@@ -20,6 +21,12 @@ start=$(date +%s)
   --profile merge --ignore-default-filter -E "$filter" 2>&1 | tee "$out"
 status=${PIPESTATUS[0]}
 actual=$(( $(date +%s) - start ))
+# Keep this run's times: the next merge or selection run overwrites the JUnit
+# file, and the inventory would otherwise lose them before anyone refreshes it.
+junit="$root/target/nextest/merge/junit.xml"
+if [ -f "$junit" ]; then
+  "$root/dev/test-inventory" --fold-only --junit "$junit" >/dev/null || true
+fi
 failed=$(sed -E 's/\x1b\[[0-9;]*m//g' "$out" | grep -E '^\s+(FAIL|SIGABRT|SIGSEGV|TIMEOUT) ' | awk '{print $NF}' | sort -u | paste -sd, -)
 rm -f "$out"
 result=pass; [ "$status" -eq 0 ] || result=fail

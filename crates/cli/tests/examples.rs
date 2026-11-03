@@ -53,10 +53,39 @@ impl Example {
     }
 }
 
+/// Whether `name` matches `filter`: unset or empty means every one, otherwise
+/// only those whose name contains one of its comma-separated substrings.
+fn matches(filter: &str, name: &str) -> bool {
+    filter.is_empty()
+        || filter
+            .split(',')
+            .map(str::trim)
+            .any(|part| !part.is_empty() && name.contains(part))
+}
+
 /// Whether the example called `name` should run: `EXAMPLES` unset or empty
-/// means every example, otherwise only those whose name contains it.
+/// means every example, otherwise only those whose name contains one of its
+/// comma-separated substrings.
 fn wanted(name: &str) -> bool {
-    std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
+    std::env::var("EXAMPLES").map_or(true, |filter| matches(&filter, name))
+}
+
+#[test]
+fn examples_filter_takes_a_comma_separated_list() {
+    assert!(matches("parse", "parse-basics.sw"));
+    assert!(!matches("parse", "safe-fields.sw"));
+    assert!(matches("parse,safe-fields", "safe-fields.sw"));
+    assert!(matches("safe-fields, parse", "parse-basics.sw"));
+    assert!(!matches("other,none", "parse-basics.sw"));
+    assert!(
+        matches("", "anything.sw"),
+        "an empty filter keeps everything"
+    );
+}
+
+/// Whether `EXAMPLES` is filtering the examples.
+fn filtering() -> bool {
+    std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
 }
 
 /// A sweep's share of the examples or projects of one folder: all of them
@@ -64,7 +93,7 @@ fn wanted(name: &str) -> bool {
 /// (`tier_sample`: every one in the daily and full tiers, every fourth in
 /// the merge and lane tiers).
 fn share<T>(items: Vec<T>) -> Vec<T> {
-    if std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty()) {
+    if filtering() {
         items
     } else {
         tier_sample(items, 1)
@@ -243,7 +272,7 @@ fn assert_goals(
 #[test]
 fn goal_examples_report_their_goals() {
     let all = examples("goals");
-    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+    if !filtering() {
         assert!(!all.is_empty());
     }
     par_map(STACK, &all, |example| {
@@ -262,7 +291,7 @@ fn goal_examples_report_their_goals() {
 #[test]
 fn goal_projects_report_their_goals() {
     let all = projects("goals");
-    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+    if !filtering() {
         assert!(!all.is_empty());
     }
     par_map(STACK, &all, |(name, path)| {
@@ -333,7 +362,7 @@ fn load_project(name: &str, path: &Path, session: &mut Session) -> Result<(), Ve
 #[test]
 fn accepted_projects_check() {
     let all = projects("accept");
-    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+    if !filtering() {
         assert!(!all.is_empty());
     }
     let failures: Vec<String> = par_map(STACK, &all, |(name, path)| {
@@ -380,7 +409,7 @@ fn accepted_projects_check() {
 #[test]
 fn rejected_projects_fail_for_the_expected_reason() {
     let all = projects("reject");
-    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+    if !filtering() {
         assert!(!all.is_empty());
     }
     par_map(STACK, &all, |(name, path)| {
