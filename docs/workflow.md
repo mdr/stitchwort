@@ -80,28 +80,32 @@ on meanwhile, but doesn't merge again until the verifier has passed; a
 failure becomes a fix for an agent. Only one verifier runs at a time, and
 none while timing-sensitive work is running.
 
-A test selector (SW-1098) is on trial. It replaces the fixed merge tier by a
-choice of tests that fits the change, within a 120 s budget:
+After each merge the tests run are a selection that fits the change, not a
+fixed set (SW-1098; D2255, Matt, 3 Nov 2026). The merge check is tuned for
+quick feedback that keeps work flowing; what it misses is caught later by
+the fixed merge tier, the daily tier or the full tier.
 
 1. The verifier refreshes the inventory (`nix develop -c task test:inventory
    -- --junit target/nextest/merge/junit.xml`), which lists every test with
    its profiles and last known time. Times come from nextest's JUnit files;
    each run folds in, the latest wins.
-2. A second Haiku agent, the selector, follows
-   [test-selector.md](test-selector.md) with the merge's diff, the lane's
-   report and the inventory, and returns a filterset, an `EXAMPLES` value
-   and an estimate, always including the fixed core (core, syntax, one AoC
-   day).
-3. The verifier runs `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop -c task
+2. It acts as the selector: it follows [test-selector.md](test-selector.md)
+   with the merge's diff, the lane's report and the inventory, and works
+   out a filterset, an `EXAMPLES` value and an estimate, always including
+   the fixed core (core, syntax, one AoC day).
+3. It runs `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop -c task
    test:selected -- '<filterset>'`, which runs `cargo fmt --check` and
    nextest as `test:merge` does, and logs a line to `dev/selector-log.tsv`.
-   Then, for the trial, the fixed `task test:merge` as well.
 
-For about ten merges both run. A failure the fixed tier caught and the
-selection did not counts against the selector; the trial is scored from the
-log (estimated against actual time, result) and the verifier's reports. If
-the selector misses nothing across the ten, the fixed tier is dropped from
-the post-merge checks (it stays for `task test:merge` by hand).
+The fixed merge tier (`task test:merge`) runs as well only when the merge
+touches `crates/core`, `crates/elab` or `crates/driver`, where a change can
+break things far from it. Otherwise it runs once per batch: after about five
+merges without it, and always before a push. A failure there that the
+selections missed is recorded on SW-1098 against the selector, and the
+merges since the last fixed-tier pass are the suspects.
+
+The trial (ten merges, 2 and 3 Nov 2026) ran both after every merge; the
+selections missed nothing, and the one real failure was caught by both.
 
 ## Lane checkouts
 
