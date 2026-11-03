@@ -3555,7 +3555,7 @@
     {
       "id": 1091,
       "title": "Build speed through crate and compilation architecture (D2201): edit-rebuild time is dominated by recompiling large crates (crates/elab ~188k lines) in release mode without incremental compilation; linking is negligible (SW-1086). Measure what a one-line edit costs to rebuild in elab and in core (today, and with incremental release), then propose the end-state architecture (crate splits, profiles, codegen units, generated code, test-binary layout, dev vs release for tests) that gives the fastest edit-test loop; migration cost secondary (Matt). Design note first if it proposes restructuring",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4197,7 +4197,7 @@
     {
       "id": 1136,
       "title": "Std library as data: no build embeds it; found beside the binary, in the checkout, or fetched by the playground",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -4211,7 +4211,7 @@
     {
       "id": 1137,
       "title": "Design note: the elaborator's state (lifetimes, persistent structures or not, and every workflow over it)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
