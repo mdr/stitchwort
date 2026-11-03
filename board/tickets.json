@@ -4281,7 +4281,7 @@
     {
       "id": 1142,
       "title": "A missing std library should be a clean CLI error, not a panic with a backtrace note",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
