@@ -1,5 +1,5 @@
 {
-  "next": 1156,
+  "next": 1157,
   "tickets": [
     {
       "id": 47,
@@ -4427,7 +4427,7 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.",
+      "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.\n\nDone 3dd0a91a (Sonnet, 35 min, est. 90); 80 files. Options (13 settings, public; from_env; cache_key() destructures, same text so no FORMAT bump); Session (project tables, include, library, namespace keys: copied by mark as before; epoch, stats, cache_stats, counterexample_log ignored by rewind); Stats (queue.rs 26 atomics + MET_UNFILLED) per session, registered with timings when STITCHWORT_TIMINGS is set. include_files and core_link_names are Session, not Options (set during a session). Note §2.8, §4.1, Appendix A updated for steps 2-3. Tests: lane elab 131; postponement, hash_stability, namespaces, check_cache, rewind 85; timings, interfaces, operators, rewrite, counterexamples 48. Finding filed: glue not in the cache key. Conflicts with SW-1093 in extract.rs (limits -> options.limits), orchestrator resolves. Model result: Sonnet, worked, 35 min (est. 90).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4470,6 +4470,20 @@
         "test"
       ],
       "body": "From SW-1093, which fixed it for hash_stability (user 170 -> 45 s). doc is 311 test-s of the tier's ~2500. Also re-time the tier and fix the under-90-s claims in hash_stability.rs and the Taskfile.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1156,
+      "title": "Check cache key leaves out glue (STITCHWORT_GLUE): can an entry made with gluing on be served with it off?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1152: Options::cache_key() leaves glue out. Check whether glued and unglued elaboration give different terms or tables for a library file; if so, add glue to the key (FORMAT bump) with a test.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
