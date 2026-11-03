@@ -4589,7 +4589,7 @@
     {
       "id": 1164,
       "title": "Linker warns about duplicate _sw_* symbols (_sw_unary, _sw_test, _sw_text_last, ...) between stitchwort_rt's object and its rlib in release test links",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
