@@ -88,14 +88,17 @@ the fixed merge tier, the daily tier or the full tier.
 1. The verifier refreshes the inventory (`nix develop -c task test:inventory
    -- --junit target/nextest/merge/junit.xml`), which lists every test with
    its profiles and last known time. Times come from nextest's JUnit files;
-   each run folds in, the latest wins.
+   each run folds in, the latest wins. `task test:selected` folds its own
+   JUnit times as it ends, so the next run cannot overwrite them unread.
 2. It acts as the selector: it follows [test-selector.md](test-selector.md)
    with the merge's diff, the lane's report and the inventory, and works
-   out a filterset, an `EXAMPLES` value and an estimate, always including
-   the fixed core (core, syntax, one AoC day).
+   out a filterset, an `EXAMPLES` value (one substring, or a comma-separated
+   list) and an estimate, always including the fixed core (core, syntax, one
+   AoC day).
 3. It runs `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop -c task
-   test:selected -- '<filterset>'`, which runs `cargo fmt --check` and
-   nextest as `test:merge` does, and logs a line to `dev/selector-log.tsv`.
+   test:selected -- '<filterset>'`, which runs `task test:features` and
+   `cargo fmt --check`, then nextest as `test:merge` does, and logs a line
+   to `dev/selector-log.tsv`.
 
 The fixed merge tier (`task test:merge`) runs as well only when the merge
 touches `crates/core`, `crates/elab` or `crates/driver`, where a change can
@@ -141,8 +144,9 @@ Tests run in tiers with time budgets ([testing.md](testing.md#tiers)), so
 that most of the time the tests being run are fast ones:
 
 - **lane**, under 10 s: a lane runs `task test:lane AREA=…` for the area it
-  changed, and `task test:one -- NAME` for the tests it touched, while it
-  works.
+  changed, and `task test:one -- NAME` for the tests it touched (a bare name
+  matches test names only; `-E 'binary(name)'` selects a whole test binary),
+  while it works.
 - **merge**, under 90 s on a 10-core M1 Pro: `task test:merge` on `main` after every merge.
 - **daily**, under 5 minutes: `task test:daily`, or `nix flake check`
   (`task test:gate`), at a daily checkpoint: formatting, clippy, every test

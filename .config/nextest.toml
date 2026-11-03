@@ -61,7 +61,8 @@ path = "junit.xml"
 # quarter of the examples' and projects' hash snapshots, half of the AoC days'
 # answers (spread across the years, and every day in `lane-aoc`), and every
 # extraction example's generated JS and `.d.ts` against their snapshots
-# (`generated_code_is_stable`, about 4 s; `tsc` on them is daily). The
+# (`generated_code_is_stable`, about 4 s; `tsc` on them is daily), and the
+# driver navigation snapshot that prints the prelude's line numbers. The
 # `goal_index` tests are in `lane-goals` and the daily tier, not here.
 [profile.merge]
 test-threads = "num-cpus"
@@ -70,7 +71,7 @@ slow-timeout = { period = "30s" }
 default-filter = """
 package(stitchwort-syntax)
 | package(stitchwort-core)
-| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division)))
+| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division) | (binary(navigation) & test(=references_of_a_project))))
 | (package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/))
 | binary(ability_errors) | binary(empty_row_kernel)
 | (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
@@ -155,11 +156,13 @@ default-filter = "binary(aoc_answers) & test(/^(year2024_day02|year2024_day04|ye
 # twice each. And `stitchwort audit` (`audit`, about 2 s).
 default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | binary(audit) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(build) & !test(/^the_roguelike_(built_native_)?plays_as_it_does_under_run$/))))"
 
-# With NAME (EXAMPLES): only the examples whose names contain it.
+# With NAME (EXAMPLES): only the examples whose names contain it (or any of a
+# comma-separated list).
 [profile.lane-hashes]
 default-filter = "(binary(hash_stability) & test(/^(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(pinned_hashes))"
 
-# With NAME (EXAMPLES): only the examples whose names contain it; without,
+# With NAME (EXAMPLES): only the examples whose names contain it (or any of a
+# comma-separated list); without,
 # the lane sample (a quarter of each folder).
 [profile.lane-examples]
 default-filter = "package(stitchwort-cli) & binary(examples)"

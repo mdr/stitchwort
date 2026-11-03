@@ -8,7 +8,8 @@
 //! Files that fail to load in a fresh session are skipped (computed, not
 //! hard-coded). The daily and full tiers check every file and project; the
 //! merge tier and the lanes check a fixed quarter of them (`tier_sample`),
-//! and `EXAMPLES` keeps exactly the named ones.
+//! and `EXAMPLES` keeps exactly the names matching its comma-separated
+//! substrings.
 
 use std::path::Path;
 
@@ -28,10 +29,34 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
     }
 }
 
+/// Whether `name` matches `filter`: unset or empty means every one, otherwise
+/// only those whose name contains one of its comma-separated substrings.
+fn matches(filter: &str, name: &str) -> bool {
+    filter.is_empty()
+        || filter
+            .split(',')
+            .map(str::trim)
+            .any(|part| !part.is_empty() && name.contains(part))
+}
+
 /// Whether the example called `name` should run: `EXAMPLES` unset or empty
-/// means every example, otherwise only those whose name contains it.
+/// means every example, otherwise only those whose name contains one of its
+/// comma-separated substrings.
 fn wanted(name: &str) -> bool {
-    std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
+    std::env::var("EXAMPLES").map_or(true, |filter| matches(&filter, name))
+}
+
+#[test]
+fn examples_filter_takes_a_comma_separated_list() {
+    assert!(matches("parse", "parse-basics.sw"));
+    assert!(!matches("parse", "safe-fields.sw"));
+    assert!(matches("parse,safe-fields", "safe-fields.sw"));
+    assert!(matches("safe-fields, parse", "parse-basics.sw"));
+    assert!(!matches("other,none", "parse-basics.sw"));
+    assert!(
+        matches("", "anything.sw"),
+        "an empty filter keeps everything"
+    );
 }
 
 /// A worker's eager session (every library file loaded, which takes a
