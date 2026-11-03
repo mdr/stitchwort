@@ -4379,7 +4379,7 @@
     {
       "id": 1149,
       "title": "Elaborator state, step 2: Decl and Unit components (per-declaration scratch reset by Default; per-unit fields; library::Context as a swap)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
