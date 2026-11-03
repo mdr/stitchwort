@@ -3818,7 +3818,7 @@
     {
       "id": 1109,
       "title": "Tests load std from the check cache by default (a per-build cache under target/); a named few check it from source",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -4421,7 +4421,7 @@
     {
       "id": 1152,
       "title": "Elaborator state step 3: state::Options (settings, cache_key()) and state::Session (project and cache bookkeeping, Stats with queue.rs's counters and MET_UNFILLED)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
