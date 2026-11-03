@@ -6,9 +6,9 @@
 //! component exhaustively: a new field doesn't compile until it says what
 //! each mechanism does with it.
 //!
-//! The components planned (§4.1), of which only [`Attempt`] exists so far
-//! (§7 step 1); the rest of the state is still fields of the `Elaborator`
-//! and of `Globals`:
+//! The components planned (§4.1), of which [`Unit`], [`Decl`] and
+//! [`Attempt`] exist so far (§7 steps 1 and 2); the rest of the state is
+//! still fields of the `Elaborator` and of `Globals`:
 //!
 //! - `Options`: settings given at construction, and the cache key;
 //! - `Kernel`: the kernel's half of `Globals` (definitions, data types,
@@ -17,17 +17,22 @@
 //!   table of one of four kinds that says how it is marked, rewound, encoded
 //!   and dumped;
 //! - `Session`: project and cache bookkeeping, statistics;
-//! - `Unit`: the unit being elaborated, swapped while a library file is
-//!   loaded inside one;
-//! - `Decl`: per-declaration scratch, rebuilt by `Default`;
+//! - [`Unit`]: the unit being elaborated, set aside whole while a library
+//!   file is loaded inside one;
+//! - [`Decl`]: per-declaration scratch, rebuilt by `Default`;
 //! - [`Attempt`]: the inference state a failed attempt takes back;
 //! - `Caches`: tables that can be emptied at any time;
 //! - `Presentation`: navigation, goals shown, logs.
 
 mod attempt;
+mod decl;
+mod unit;
 
 pub(crate) use attempt::Attempt;
 pub(crate) use attempt::Mark as AttemptMark;
+pub(crate) use decl::Decl;
+pub(crate) use unit::Mark as UnitMark;
+pub(crate) use unit::Unit;
 
 use std::cell::{Cell, RefCell};
 

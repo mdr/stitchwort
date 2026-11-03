@@ -243,7 +243,7 @@ fn as_prelude(source: &str) -> Vec<&'static str> {
     let file = sources.add("<prelude>", source);
     let module = parse_module(file, source).expect("parses");
     let mut elab = Elaborator::new();
-    elab.loading_prelude = true;
+    elab.set_loading_prelude(true);
     elab.elaborate_module(&module)
         .into_iter()
         .map(|d| d.code)

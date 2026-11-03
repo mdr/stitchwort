@@ -66,7 +66,7 @@ impl Elaborator {
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
         };
-        if self.loading_prelude || generated || self.declares_instance_of(ord) {
+        if self.unit.loading_prelude || generated || self.declares_instance_of(ord) {
             return Ok(());
         }
         // `Ord`'s `eq` is `T`'s `DecEq` instance, found when the instance is
@@ -77,8 +77,8 @@ impl Elaborator {
             return Ok(());
         }
         if self.declares_instance_of(dec_eq) {
-            if let Some(item) = self.module.item {
-                self.module.ord_after_dec_eq.insert(item, d);
+            if let Some(item) = self.unit.module.item {
+                self.unit.module.ord_after_dec_eq.insert(item, d);
             }
             self.no_ord.insert(
                 d,
@@ -98,28 +98,28 @@ impl Elaborator {
             return Ok(());
         };
         for &instance in component {
-            let info = &self.module.items[instance];
+            let info = &self.unit.module.items[instance];
             if !info.instance || info.interface != Some(Global::Data(dec_eq)) {
                 continue;
             }
             let Some(Global::Unchecked(data_item)) = info.head else {
                 continue;
             };
-            let Some(d) = self.module.ord_after_dec_eq.remove(&data_item) else {
+            let Some(d) = self.unit.module.ord_after_dec_eq.remove(&data_item) else {
                 continue;
             };
-            if self.module.items[instance].status != Status::Checked {
+            if self.unit.module.items[instance].status != Status::Checked {
                 let why = format!(
                     "`Ord` needs `==`, and its module's own `DecEq` instance `{}` didn't check",
-                    self.module.items[instance].name
+                    self.unit.module.items[instance].name
                 );
                 self.no_ord.insert(d, why);
                 continue;
             }
             self.no_ord.remove(&d);
-            let item = self.module.item.replace(data_item);
+            let item = self.unit.module.item.replace(data_item);
             let result = self.unnoted(|e| e.derive_ord_with_eq(d));
-            self.module.item = item;
+            self.unit.module.item = item;
             result?;
         }
         Ok(())

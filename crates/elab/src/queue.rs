@@ -2401,12 +2401,12 @@ mod tests {
         let module = stitchwort_syntax::parse_module(file, NUMBERS).expect("parses");
         let mut e = Elaborator::new();
         // As the prelude, which needn't have every built-in.
-        e.loading_prelude = true;
+        e.unit.loading_prelude = true;
         let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
             .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
             .collect();
         assert!(errors.is_empty(), "{errors:#?}");
-        e.loading_prelude = false;
+        e.unit.loading_prelude = false;
         e.globals.glue.set(true);
         let n = DataId(
             (e.globals.datas.iter())
@@ -2666,7 +2666,7 @@ mod tests {
         let file = sources.add("test", source);
         let module = stitchwort_syntax::parse_module(file, source).expect("parses");
         let mut e = Elaborator::new();
-        e.loading_prelude = true;
+        e.unit.loading_prelude = true;
         let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
             .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
             .collect();

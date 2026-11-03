@@ -230,7 +230,7 @@ fn a_constant_with_another_type_is_refused() {
             elab: Elaborator::new(),
             warnings: Vec::new(),
         };
-        session.elab.loading_prelude = true;
+        session.elab.set_loading_prelude(true);
         let errors = session.load("<prelude>", &prelude).unwrap_err();
         assert!(
             errors.iter().any(|d| d.code == "E-BUILTIN"),

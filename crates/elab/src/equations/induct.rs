@@ -714,10 +714,10 @@ impl Elaborator {
         } else {
             kernel::define_group(&mut self.globals, &[(id, lams(&names, tree))])?;
         }
-        if let Some(item) = self.module.item {
-            self.module.def_items.insert(id, item);
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.def_items.insert(id, item);
             for s in made {
-                self.module.def_items.insert(s, item);
+                self.unit.module.def_items.insert(s, item);
             }
         }
         let key = format!("{}.induct", d.key);

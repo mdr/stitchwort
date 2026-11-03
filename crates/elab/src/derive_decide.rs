@@ -42,7 +42,7 @@ impl Elaborator {
     /// proposition whose fields can each be decided.
     pub(crate) fn derive_record_decidable(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
-        if self.loading_prelude
+        if self.unit.loading_prelude
             || data.sort != Sort::Prop
             || data.group.len() > 1
             || !data.indices.is_empty()

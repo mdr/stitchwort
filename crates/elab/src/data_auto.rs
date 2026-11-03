@@ -123,7 +123,7 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
                     next += 1;
                     check(cx, value, &ty)?
                 }
-                _ if cx.e.in_instance_signature.get() => {
+                _ if cx.e.decl.in_instance_signature.get() => {
                     return Err(unwritten_in_head(cx, d, x));
                 }
                 _ => implicit_arg(cx, Icit::Auto, &ty),

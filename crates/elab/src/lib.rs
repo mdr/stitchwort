@@ -285,18 +285,18 @@ pub(crate) struct SidesCapture {
     pub(crate) truths: stitchwort_core::collections::HashMap<Span, Term>,
 }
 
+impl SidesCapture {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.wanted.is_empty() && self.sides.is_empty() && self.truths.is_empty()
+    }
+}
+
 #[derive(Default)]
 pub struct Elaborator {
     pub globals: Globals,
     pub tests: Vec<TestDecl>,
-    sides_capture: RefCell<SidesCapture>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
-    /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
-    /// for a file without a namespace line. Kept after the module is
-    /// elaborated, so names typed in afterwards (`eval`, the REPL, `main`)
-    /// are read as in the file.
-    namespace_root: String,
     /// The project's namespaces (`project::set_project_namespaces`).
     project_namespaces: BTreeSet<String>,
     /// Every prefix of a project namespace's name, the namespace included.
@@ -308,27 +308,19 @@ pub struct Elaborator {
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     /// How many definitions the prelude made.
     prelude_defs: usize,
-    /// While a single file from inside a project is loaded: what to say
-    /// when it uses the project (`E-FILE-MODE`).
-    pub file_mode: Option<project::FileModeContext>,
     /// Where `include` reads from, and where each source file is in it
     /// (`project::read_include`). Without them `include` is
     /// `E-INCLUDE-UNAVAILABLE`.
     include_files: Option<Rc<dyn project::IncludeFiles>>,
     include_locations: HashMap<stitchwort_syntax::FileId, String>,
-    next_include_location: Option<String>,
     /// The inference state a failed attempt takes back (`state::Attempt`).
     pub(crate) attempt: state::Attempt,
-    /// The characters whose patterns became number patterns (by span), so
-    /// a missing case can be reported as characters.
-    char_patterns: RefCell<HashMap<Span, char>>,
-    /// The spans of the `_` a char pattern puts for its proof field
-    /// (`'a'` is `MkChar 97 _`), so an arm can make the matched character
-    /// the literal itself (`canonical`).
-    char_proofs: RefCell<stitchwort_core::collections::HashSet<Span>>,
-    /// While the prelude is loaded, its built-in types and natively
-    /// implemented definitions are registered with the kernel by name.
-    pub loading_prelude: bool,
+    /// The scratch state of the declaration being elaborated, emptied
+    /// after it (`state::Decl`).
+    pub(crate) decl: state::Decl,
+    /// The state of the unit being elaborated, set aside while a library
+    /// file loads inside it (`state::Unit`).
+    pub(crate) unit: state::Unit,
     /// Evaluation steps one `rewrite`'s comparisons may use between them;
     /// `None` is the default (`rewrite.rs`). Tests set it small.
     pub rewrite_budget: Option<u64>,
@@ -349,32 +341,6 @@ pub struct Elaborator {
     /// patterns, even where a number case would do. Only usable with small
     /// numbers. Tests compare the two compilations.
     pub numbers_as_succ: bool,
-    /// The module being elaborated, and what's being checked in it.
-    module: module::ModuleState,
-    /// Warnings found while elaborating the current declaration. Only
-    /// declaration-level code (`&mut self`) adds them, so an attempt undone
-    /// by `undo.rs` can't have added any.
-    warnings: Vec<Diagnostic>,
-    /// Arms of the definition being checked that a case on an indexed family
-    /// dropped because their constructor can't be there, with a reason, and
-    /// the arms that were reached: those dropped and never reached are
-    /// `W-UNREACHABLE` (`families.rs`).
-    pub(crate) arm_reach: RefCell<families::ArmReach>,
-    /// Above zero while an application is elaborated again the old way
-    /// after its expected result type was used first and failed: no
-    /// application inside uses its expected type first
-    /// (docs/proposals/syntax-conveniences.md §7.4).
-    no_propagation: std::cell::Cell<usize>,
-    /// Set while asking whether an expression in a pure context performs
-    /// anything besides calls whose result is in a bare row (`{e} b`, as
-    /// `List.map`'s): those are elaborated as plain calls first, and the row
-    /// is settled by unification (`check::pure_first`).
-    pub(crate) bare_rows_pure: std::cell::Cell<bool>,
-    /// Above zero while an application is elaborated again after failing,
-    /// with an argument that is a list of numbers checked after the
-    /// arguments after it, so they can say its element type
-    /// (`check::retrying`).
-    pub(crate) late_literals: std::cell::Cell<usize>,
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every
@@ -390,23 +356,6 @@ pub struct Elaborator {
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed:
         RefCell<stitchwort_core::collections::HashSet<(dot::CallKey, usize, usize)>>,
-    /// The address of the condition whose `Bool` reading `logic::condition`
-    /// is trying, or 0: a proposition there isn't decided into a `Bool` by
-    /// `check::decide_to_bool`, as the condition's proposition reading does
-    /// that its own way.
-    condition: std::cell::Cell<usize>,
-    /// While an application checked against a known type is inferred
-    /// (`check::fallback`): the address of its last written argument and
-    /// that type, so a lambda argument that fails where its type still has
-    /// unknowns is checked again once the application's type has been
-    /// compared with it (`check::apply_args_postponing`).
-    pub(crate) app_expected: RefCell<Option<(usize, Value)>>,
-    /// While the body of a definition with `decreasing` is elaborated: what
-    /// its recursive calls stand for (`decreasing.rs`).
-    decreasing: RefCell<Option<decreasing::Active>>,
-    /// While the members of a partial recursive group are described: their
-    /// private recursion signature (`partial.rs`).
-    recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
     /// Why `DecEq` isn't derived for a data type or record, for the note
@@ -435,47 +384,11 @@ pub struct Elaborator {
     /// ([`Elaborator::glued`]), never while it is checked by the kernel or
     /// run.
     pub glue: bool,
-    /// While lifting, the `let`s each draft's terms are folded back to
-    /// (`lift::Arounds`); empty otherwise.
-    arounds: RefCell<lift::Arounds>,
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,
     /// Each lifted `match`'s helper's parameters it matches (SW-1074).
     match_columns: HashMap<DefId, Rc<lift::MatchColumns>>,
-    /// Run bodies for lifted helpers that take a `let`'s value from their
-    /// caller, set once the helper is final (`lift.rs`).
-    pending_run_bodies: Vec<(DefId, Term)>,
-    /// While a declaration is elaborated: its key, then the names of the
-    /// local definitions being elaborated inside it, for their keys
-    /// (`local.rs`).
-    owner: RefCell<Vec<String>>,
-    /// While a top-level declaration's body is elaborated: its declared type
-    /// (and where it is), whose erasure decides whether `match reify` may be
-    /// used in it (D1147, `reify.rs`). `None` elsewhere.
-    pub(crate) body_type: RefCell<Option<(Value, Span)>>,
-    /// Local definitions admitted after an attempt at their owner's body
-    /// failed, by key, for the next attempt (`local.rs`).
-    preadmitted: RefCell<HashMap<String, lift::Resolved>>,
-    /// By declaration key: how many `match`es its type has, by the prefix
-    /// they're numbered under, so that the body's are numbered after them
-    /// (docs/proposals/syntax-conveniences.md §2.4). Written each time the
-    /// type is elaborated and only read when the body's are lifted, so an
-    /// attempt at the body that's undone or tried again numbers the same.
-    signature_matches: HashMap<String, HashMap<String, usize>>,
-    /// While the body of a declaration with an `unfolding` clause is
-    /// elaborated: that clause, which each helper lifted from the body (a
-    /// `match`, a local definition) gets too, opaque, so its body may use
-    /// what the declaration's may (docs/proposals/opaque-definitions.md
-    /// §6.4: a definition that unfolds others must be opaque). `None`
-    /// elsewhere (`opaque.rs`).
-    pub(crate) owner_unfolding: RefCell<Option<Rc<[DefId]>>>,
-    /// The helpers [`Self::owner_unfolding`] made opaque that were admitted
-    /// on their own, before their owner: the owner unfolds them.
-    pub(crate) owner_helpers: RefCell<Vec<DefId>>,
-    /// The local definitions lifted from the declaration (or group) being
-    /// checked, bound in the module's scope once it's final.
-    local_helpers: Vec<(String, DefId, Span)>,
     /// Every local definition's key, so dot notation never finds one
     /// (docs/proposals/syntax-conveniences.md §3.6).
     pub(crate) helper_keys: stitchwort_core::collections::HashSet<String>,
@@ -484,10 +397,6 @@ pub struct Elaborator {
     /// The latest goals printed, as terms, by where their `?` is: what
     /// `search --at` searches (SW-989).
     pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
-    /// While a `rewrite` rule is elaborated (`rewrite.rs`), each `_` it
-    /// makes: the metavariable, the number of variables in scope, and the
-    /// type expected there, so `rewrite` can prove the premises left open.
-    pub(crate) hole_log: RefCell<Option<Vec<(Term, usize, Value)>>>,
     /// Each definition's congruence lemmas for `rewrite`
     /// (`congruence::candidates`), with how many definitions there were
     /// when they were looked up: a later declaration may add one.
@@ -509,9 +418,6 @@ pub struct Elaborator {
     /// worked out: asked for every call in every expression checked, and
     /// fixed once the definition is, like `result_heads`.
     pub(crate) performs: RefCell<HashMap<effects::PerformsKey, bool>>,
-    /// While set, a signature's bare row variables get no divergence index:
-    /// they stand for total rows only, as before stage 3 (D1215's re-check).
-    pub(crate) total_rows_only: std::cell::Cell<bool>,
     /// The definitions checked again with their bare row variables total
     /// (D1215), with where the first check failed.
     pub total_rows: RefCell<HashMap<DefId, Span>>,
@@ -521,10 +427,6 @@ pub struct Elaborator {
     instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
     /// The module that declared each data type (§5.6 rule 1).
     data_owners: HashMap<DataId, String>,
-    /// The instance steps each obligation tree has taken so far (§5.5 step
-    /// 7), by its first metavariable. Not part of the inference state
-    /// `undo.rs` restores: steps spent aren't refunded.
-    instance_steps: RefCell<HashMap<usize, usize>>,
     /// For tests: the instance step budget, instead of the default.
     pub instance_budget: Option<usize>,
     /// For tests: `+ * < <=` on `Nat` and `Int` always find their
@@ -536,10 +438,6 @@ pub struct Elaborator {
     /// For tests: how many times finding an instance has had to wait
     /// (`auto.rs`), in this session.
     pub instance_waits: std::cell::Cell<usize>,
-    /// Whether an instance's signature is being elaborated: there, a data
-    /// type's `auto` parameter must be written as a variable
-    /// (docs/proposals/interfaces.md §7.5).
-    in_instance_signature: std::cell::Cell<bool>,
     /// What the code navigation index records, when it's on (`nav.rs`).
     nav: Option<RefCell<nav::Recorder>>,
     /// Where library files' results are kept between runs, if anywhere
@@ -552,15 +450,6 @@ pub struct Elaborator {
     /// part of it).
     namespace_sources: HashMap<String, cache::Key>,
     namespace_keys: HashMap<String, cache::Key>,
-    /// While a project namespace that may be cached is elaborated: what it
-    /// is compared against at the end (`cache`).
-    namespace_capture: Option<cache::Capture>,
-    /// The namespace's files were already walked for navigation by a
-    /// replay that failed part way (`cache`): don't walk them again.
-    skip_navigation_walk: bool,
-    /// Whether the module being elaborated loads `omega`'s library, so
-    /// `auto` may prove what it can't decide by `omega` (`auto.rs`).
-    omega_for_auto: bool,
     /// The names such a replay declared (as failures) before it failed:
     /// the namespace's first pass claims them again rather than finding
     /// them taken (`cache`, `new_module_name`).
@@ -572,9 +461,6 @@ pub struct Elaborator {
     /// to just before it, and checks it again (`rewind.rs`).
     #[doc(hidden)]
     pub recheck_namespaces: bool,
-    /// The files `include` read in the namespace being elaborated, with a
-    /// hash of their text, for its cache entry.
-    include_trace: RefCell<Vec<(String, cache::Key)>>,
     /// A hash of the whole standard library's text, for the keys of
     /// project namespaces.
     library_digest: std::cell::OnceCell<cache::Key>,
@@ -592,23 +478,10 @@ pub struct Elaborator {
     pub untimed_counterexamples: bool,
     /// What each counterexample search did, in this session.
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
-    /// Each `match` on a tuple of variables, `match (xs, n) with`: its span,
-    /// the tuple as written, and the variables, so a termination error inside
-    /// it can say why (SW-941, `lift.rs`). A log that only grows.
-    tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
-    /// Where each arm's leaves are in the case trees checked for the
-    /// declaration being elaborated, for its generated equations
-    /// (`equations.rs`, docs/proposals/function-equations.md §9 stage 1a).
-    pub(crate) leaf_log: RefCell<equations::LeafLog>,
-    /// What `equations.rs`'s probe saw: the context at an arm's leaf.
-    pub(crate) arm_probe: RefCell<equations::ProbeState>,
     /// The equations the source implies that weren't generated, by key,
     /// with the reason: naming one is `E-NO-EQUATION` (D2176). Only grows,
     /// so a library file's or namespace's are those after its start.
     pub(crate) equation_skips: Vec<(DefId, String, String)>,
-    /// The local definitions elaborated in the declaration being checked,
-    /// by key, for their equations once their owner is final.
-    pub(crate) local_asts: RefCell<Vec<(String, ast::LocalDef)>>,
     /// The library's and the core's definitions whose equations were made
     /// on demand (`Elaborator::ensure_equations`), by key. Only grows.
     pub(crate) equations_done: Vec<String>,
@@ -855,8 +728,8 @@ impl Elaborator {
     /// plain term, not in computation mode, which would take it for the
     /// result of one.
     pub(crate) fn divergence_case_body(&self) -> bool {
-        self.loading_prelude
-            && self.owner.borrow().first().is_some_and(|key| {
+        self.unit.loading_prelude
+            && self.decl.owner.borrow().first().is_some_and(|key| {
                 let name = key.strip_prefix("Std.").unwrap_or(key);
                 matches!(
                     name,
@@ -937,9 +810,9 @@ impl Elaborator {
     /// and reach a project's names only qualified
     /// (docs/proposals/multi-file.md §9.1).
     pub fn leave_namespace(&mut self) {
-        self.namespace_root = String::new();
+        self.unit.namespace_root = String::new();
         self.scope.clear_imports();
-        self.module = module::ModuleState::default();
+        self.unit.module = module::ModuleState::default();
     }
 
     /// After a namespace was elaborated (and not left): names typed in from
@@ -947,9 +820,9 @@ impl Elaborator {
     /// that file's imports (`search --at` in a project's file, SW-915).
     /// False if `file` isn't one of the namespace's files.
     pub fn use_file_scope(&mut self, file: stitchwort_syntax::FileId) -> bool {
-        let found = (self.module.files.iter()).position(|f| f.id == Some(file));
+        let found = (self.unit.module.files.iter()).position(|f| f.id == Some(file));
         if found.is_some() {
-            self.module.file = found;
+            self.unit.module.file = found;
         }
         found.is_some()
     }
@@ -967,10 +840,23 @@ impl Elaborator {
         diagnostics
     }
 
+    /// Whether what is loaded next is checked as the prelude is: its
+    /// built-in types and natively implemented definitions registered with
+    /// the kernel by name.
+    pub fn set_loading_prelude(&mut self, on: bool) {
+        self.unit.loading_prelude = on;
+    }
+
+    /// While a single file from inside a project is loaded: what to say
+    /// when it uses the project (`E-FILE-MODE`).
+    pub fn set_file_mode(&mut self, context: Option<project::FileModeContext>) {
+        self.unit.file_mode = context;
+    }
+
     /// Ends loading the core: every core built-in must be bound by now. (A
     /// library built-in is bound when its file loads.)
     pub fn finish_core(&mut self) -> Result<()> {
-        self.loading_prelude = false;
+        self.unit.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
         self.prelude_defs = self.globals.defs.len();
@@ -1016,11 +902,14 @@ impl Elaborator {
     /// `f` with gluing on if [`Elaborator::glue`] is set: around the
     /// elaboration of one declaration (or component) or one expression.
     /// Evaluation outside it (running a program, the driver's own uses of
-    /// the environment) never sees a glued call.
+    /// the environment) never sees a glued call. `f` starts with an empty
+    /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.decl = state::Decl::default();
         let was = self.globals.glue.replace(self.glue);
         let out = f(self);
         self.globals.glue.set(was);
+        self.decl = state::Decl::default();
         out
     }
 
@@ -1048,7 +937,7 @@ impl Elaborator {
         self.clear_goals();
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
-        *self.owner.borrow_mut() = vec![key.clone()];
+        *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
@@ -1060,7 +949,7 @@ impl Elaborator {
         } else {
             None
         };
-        self.owner.borrow_mut().clear();
+        self.decl.owner.borrow_mut().clear();
         let (term, _) = elaborated?;
         if let Some(goals) = goals {
             return Ok(Checked::Goals(goals));
@@ -1117,7 +1006,7 @@ impl Elaborator {
         self.clear_goals();
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
-        *self.owner.borrow_mut() = vec![key.clone()];
+        *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<Term> {
             let (mut cx, target, mut binders) = self.enter_snapshot(snapshot, body.span())?;
@@ -1142,7 +1031,7 @@ impl Elaborator {
         } else {
             None
         };
-        self.owner.borrow_mut().clear();
+        self.decl.owner.borrow_mut().clear();
         let term = elaborated?;
         if let Some(goals) = goals {
             return Ok(Checked::Goals(goals));
@@ -1166,7 +1055,7 @@ impl Elaborator {
         self.clear_metas();
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);
-        *self.owner.borrow_mut() = vec![key.clone()];
+        *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
@@ -1179,7 +1068,7 @@ impl Elaborator {
             }
             Ok((term, cx.quote(&ty)?))
         })();
-        self.owner.borrow_mut().clear();
+        self.decl.owner.borrow_mut().clear();
         let (term, ty) = elaborated?;
         // A `match` typed in is lifted to a helper, as in a definition.
         self.lift(&key, false)?;
@@ -1225,7 +1114,6 @@ impl Elaborator {
         self.flush_goals();
         self.globals.clear_metas();
         self.attempt.reset();
-        self.instance_steps.borrow_mut().clear();
     }
 
     /// Proves outstanding auto arguments, then substitutes metavariable
@@ -1400,11 +1288,11 @@ impl Elaborator {
     }
 
     fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {
-        self.module.phase = Phase::Body;
+        self.unit.module.phase = Phase::Body;
         // A test's name is unique in its namespace in a project, and in the
         // session for a file.
-        let from = if self.module.closure.is_some() {
-            self.module.first_test
+        let from = if self.unit.module.closure.is_some() {
+            self.unit.module.first_test
         } else {
             0
         };
@@ -1423,14 +1311,14 @@ impl Elaborator {
                 "tests need the prelude's `Bool`",
             ));
         };
-        let label: Name = if self.loading_prelude {
+        let label: Name = if self.unit.loading_prelude {
             format!("test \"{name}\"")
         } else {
             format!("{}test \"{name}\"", self.root())
         }
         .into();
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         let shown = ast::Name {
             text: label.to_string(),
             span,
@@ -1441,10 +1329,10 @@ impl Elaborator {
         // stepping it as `stitchwort run` steps a partial `main`.
         let mut partial = false;
         let (body, probe, ty) = loop {
-            self.local_helpers.clear();
-            self.preadmitted.borrow_mut().clear();
+            self.decl.local_helpers.clear();
+            self.decl.preadmitted.borrow_mut().clear();
             let result = self.with_local_retries(&label, &shown, |e| {
-                *e.sides_capture.borrow_mut() = SidesCapture {
+                *e.decl.sides_capture.borrow_mut() = SidesCapture {
                     wanted: probe::wanted(expr),
                     ..SidesCapture::default()
                 };
@@ -1474,7 +1362,8 @@ impl Elaborator {
                 // The probe is only for showing a failure: what can't be
                 // finished is left out. A partial test has none: its parts
                 // can't be computed apart from the run.
-                let probe = (!partial).then(|| probe::build(e, &e.sides_capture.borrow(), expr));
+                let probe =
+                    (!partial).then(|| probe::build(e, &e.decl.sides_capture.borrow(), expr));
                 Ok((body, probe, ty))
             });
             match result {
@@ -1482,14 +1371,14 @@ impl Elaborator {
                 result => break result?,
             }
         };
-        *self.sides_capture.borrow_mut() = SidesCapture::default();
-        self.local_helpers.clear();
+        *self.decl.sides_capture.borrow_mut() = SidesCapture::default();
+        self.decl.local_helpers.clear();
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
-            library: self.loading_prelude,
+            library: self.unit.loading_prelude,
             name: name.to_string(),
-            namespace: self.module.namespace.clone().unwrap_or_default(),
+            namespace: self.unit.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
             probe,
@@ -1841,7 +1730,7 @@ impl Elaborator {
                 Some((Global::Pending(_, library::PendingKind::Def), _)) => true,
                 Some((Global::Unchecked(item), _)) => {
                     matches!(
-                        self.module.items.get(item).map(|i| i.kind),
+                        self.unit.module.items.get(item).map(|i| i.kind),
                         Some(module::Kind::Def)
                     )
                 }
@@ -1883,7 +1772,7 @@ impl Elaborator {
         // Claimed for this declaration when the module's names were
         // collected.
         if let Some((Global::Unchecked(item), _)) = self.scope.get(key)
-            && self.module.in_current(item)
+            && self.unit.module.in_current(item)
         {
             return Ok(());
         }
@@ -1934,7 +1823,7 @@ impl Elaborator {
     /// A data type on its own (one in a component of its own, or one an
     /// ability generates).
     fn data(&mut self, decl: &Decl) -> Result<()> {
-        let item = self.module.item;
+        let item = self.unit.module.item;
         match self.data_group(&[(item, decl)]).into_iter().next() {
             Some((_, d)) => Err(d),
             None => Ok(()),
@@ -1957,7 +1846,7 @@ impl Elaborator {
         let mut member_indices = Vec::new();
         for &(item, decl) in members {
             if item.is_some() {
-                self.module.item = item;
+                self.unit.module.item = item;
             }
             match self.data_header(decl) {
                 Ok((params, indices, sort)) => {
@@ -2027,7 +1916,7 @@ impl Elaborator {
         let mut defined = Vec::new();
         for (&(item, decl), d) in members.iter().zip(&ids) {
             if item.is_some() {
-                self.module.item = item;
+                self.unit.module.item = item;
             }
             match self.data_ctors(decl, *d, &group_interfaces) {
                 Ok(ctors) => defined.push((*d, ctors)),
@@ -2039,7 +1928,7 @@ impl Elaborator {
             return out;
         }
         if members[0].0.is_some() {
-            self.module.item = members[0].0;
+            self.unit.module.item = members[0].0;
         }
         // Each constructor's fields, kept for a better message if the kernel
         // finds a member used inside a quotient (R10).
@@ -2100,7 +1989,7 @@ impl Elaborator {
         };
         self.check_new_name(data_name)?;
         self.clear_metas();
-        self.module.phase = Phase::Header;
+        self.unit.module.phase = Phase::Header;
         let mut cx = Ctx::new(self, *span);
         let mut checked = Vec::new();
         for (binder, auto) in params.iter().zip(auto_params) {
@@ -2277,7 +2166,7 @@ impl Elaborator {
             unreachable!()
         };
         let data_key = self.declaration_key(data_name)?;
-        self.module.phase = Phase::Fields;
+        self.unit.module.phase = Phase::Fields;
         let mut core_ctors = Vec::new();
         for (c, ctor) in ctors.iter().enumerate() {
             self.check_new_key(&Self::member_key(&data_key, &ctor.name.text), &ctor.name)?;
@@ -2356,7 +2245,7 @@ impl Elaborator {
             self.scope
                 .insert(&key, Global::Ctor(d, c), ctor.name.span, true);
         }
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             self.bind_builtin_data(d)?;
         }
         self.data_attributes(decl, d)?;
@@ -2408,9 +2297,9 @@ impl Elaborator {
         self.scope
             .insert(&key, Global::Def(id), def_name.span, false);
         self.clear_metas();
-        self.module.phase = Phase::Body;
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.unit.module.phase = Phase::Body;
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         let (body, mut members) = self.lifted_body(id, def_name, equations)?;
         members.insert(0, (id, body));
         kernel::define_group(&mut self.globals, &members).map_err(|d| self.explain_lifted(d))?;
@@ -2439,14 +2328,14 @@ impl Elaborator {
             ids.push(id);
         }
         let mut bodies = Vec::new();
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         for ((signature, equations), id) in group.iter().zip(&ids) {
             let Decl::Signature { name: def_name, .. } = signature else {
                 unreachable!()
             };
             self.clear_metas();
-            self.module.phase = Phase::Body;
+            self.unit.module.phase = Phase::Body;
             let (body, members) = self.lifted_body(*id, def_name, equations)?;
             bodies.push((*id, body));
             bodies.extend(members);
@@ -2462,7 +2351,7 @@ impl Elaborator {
     /// Once their owner is final, its local definitions can be named from
     /// outside: `sumTo.go` (docs/proposals/syntax-conveniences.md §3.6).
     fn bind_local_helpers(&mut self) -> Result<()> {
-        for (key, id, span) in std::mem::take(&mut self.local_helpers) {
+        for (key, id, span) in std::mem::take(&mut self.decl.local_helpers) {
             if let Some((_, other)) = self.scope.get(&key) {
                 return Err(error(
                     "E-DUPLICATE",
@@ -2509,18 +2398,18 @@ impl Elaborator {
     ) -> Result<T> {
         loop {
             self.clear_metas();
-            *self.owner.borrow_mut() = vec![key.to_string()];
+            *self.decl.owner.borrow_mut() = vec![key.to_string()];
             self.attempt.local_keys.borrow_mut().clear();
             let result = attempt(self);
-            self.owner.borrow_mut().clear();
+            self.decl.owner.borrow_mut().clear();
             let d = match result {
                 Ok(found) => return Ok(found),
                 Err(d) if undo::fatal(&d) => return Err(d),
                 Err(d) => d,
             };
-            let before = self.preadmitted.borrow().len();
+            let before = self.decl.preadmitted.borrow().len();
             match self.preadmit(key) {
-                Ok((true, _)) if self.preadmitted.borrow().len() > before => {}
+                Ok((true, _)) if self.decl.preadmitted.borrow().len() > before => {}
                 Ok((_, waiting)) => return Err(local::unfinished(d, &waiting, owner)),
                 Err(e) if undo::fatal(&e) => return Err(e),
                 Err(_) => return Err(d),
@@ -2541,8 +2430,6 @@ impl Elaborator {
         members: &[(usize, &Decl, &[Decl])],
         recursive: bool,
     ) -> Vec<(usize, Diagnostic)> {
-        self.leaf_log.borrow_mut().clear();
-        self.local_asts.borrow_mut().clear();
         // A library file's own definitions' equations its proofs name.
         self.ensure_loading_file_equations();
         // `Builtins.sw`'s documentation of the names the checker knows.
@@ -2564,9 +2451,9 @@ impl Elaborator {
         let mut out = Vec::new();
         let mut ids = Vec::new();
         for &(item, signature, _) in members {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             let result = self.signature(signature);
-            out.extend(self.warnings.drain(..).map(|w| (item, w)));
+            out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
             out.extend(
                 self.attempt
                     .lambda_warnings
@@ -2585,7 +2472,7 @@ impl Elaborator {
         // `Delay` and its constants: signatures without equations in the
         // prelude, which the kernel admits as primitives.
         if let [(item, Decl::Signature { name: n, .. }, [])] = members
-            && self.loading_prelude
+            && self.unit.loading_prelude
             && let Some(prim) = Primitive::named(&n.text)
             && let Ok(key) = self.declaration_key(n)
         {
@@ -2601,7 +2488,7 @@ impl Elaborator {
         // `Float.add` and the other float primitives, likewise, in the
         // library's `std/Float/Float.sw` (crates/core/src/float.rs).
         if let [(item, Decl::Signature { name: n, .. }, [])] = members
-            && self.loading_prelude
+            && self.unit.loading_prelude
             && let Some(op) = stitchwort_core::float::FloatOp::named(&n.text)
             && let Ok(key) = self.declaration_key(n)
         {
@@ -2627,7 +2514,7 @@ impl Elaborator {
         // Their `unfolding` clauses, now that every member can be named.
         let mut refused = false;
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             if let Err(d) = self.resolve_unfolding(signature, *id, &ids) {
                 out.push((item, d));
                 refused = true;
@@ -2638,7 +2525,7 @@ impl Elaborator {
         }
         // Each default's helper, from the header alone, before any body.
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             if let Err(d) = self.param_defaults(signature, *id) {
                 out.push((item, d));
                 refused = true;
@@ -2671,14 +2558,14 @@ impl Elaborator {
         }
         let mut bodies = Vec::new();
         let mut helpers = Vec::new();
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         for (&(item, signature, equations), id) in members.iter().zip(&ids) {
             let Decl::Signature { name: def_name, .. } = signature else {
                 unreachable!()
             };
-            self.module.item = Some(item);
-            self.module.phase = Phase::Body;
+            self.unit.module.item = Some(item);
+            self.unit.module.phase = Phase::Body;
             self.clear_metas();
             self.attempt.branch_errors.take();
             self.attempt.take_rigid_divergence();
@@ -2747,19 +2634,19 @@ impl Elaborator {
         if bodies.len() < members.len() {
             return out;
         }
-        self.module.item = Some(members[0].0);
+        self.unit.module.item = Some(members[0].0);
         bodies.extend(helpers);
         if let Err(d) = kernel::define_group(&mut self.globals, &bodies) {
             let d = self.explain_lifted(d);
             out.push((members[0].0, d));
             return out;
         }
-        let local_helpers = self.local_helpers.clone();
+        let local_helpers = self.decl.local_helpers.clone();
         if let Err(d) = self.bind_local_helpers() {
             out.push((members[0].0, d));
         }
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }
@@ -2776,11 +2663,10 @@ impl Elaborator {
             out.push((members[0].0, d));
         }
         if self.defers_equations() {
-            self.leaf_log.borrow_mut().clear();
             return out;
         }
         for &(item, signature, equations) in members {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             let Decl::Signature { name, opaque, .. } = signature else {
                 continue;
             };
@@ -2799,7 +2685,6 @@ impl Elaborator {
                 out.push((item, d));
             }
         }
-        self.leaf_log.borrow_mut().clear();
         out
     }
 
@@ -2838,7 +2723,7 @@ impl Elaborator {
         let no_receiver = self.definition_attributes(signature)?;
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
-        self.module.phase = Phase::Signature;
+        self.unit.module.phase = Phase::Signature;
         let (ty, notes) = self.signature_type(ty, *instance, *span, &key)?;
         self.check_redundant(&ty, def_name.span)?;
         let id = kernel::declare_def(
@@ -2850,8 +2735,8 @@ impl Elaborator {
             *span,
         )
         .map_err(|d| notes.iter().fold(d, |d, n| d.with_note(n.clone())))?;
-        if let Some(item) = self.module.item {
-            self.module.def_items.insert(id, item);
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.def_items.insert(id, item);
         }
         self.mark_opaque_signature(signature, id);
         // A dictionary keeps its name in what uses it (stage 1, item 13).
@@ -2868,7 +2753,7 @@ impl Elaborator {
         if plain && !no_receiver && !self.helper_keys.contains(&key) {
             let cx = Ctx::new(self, *span);
             if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
-                self.warnings.push(warning);
+                self.unit.warnings.push(warning);
             }
         }
         Ok(id)
@@ -2893,20 +2778,20 @@ impl Elaborator {
         };
         let key = self.declaration_key(def_name)?;
         let auto = autobind::auto_bound(self, ty)?;
-        if auto.indexed_rows.is_empty() || self.total_rows_only.get() {
+        if auto.indexed_rows.is_empty() || self.decl.total_rows_only.get() {
             return Ok(false);
         }
         self.clear_metas();
-        self.module.phase = Phase::Signature;
-        let warnings = self.warnings.len();
-        self.total_rows_only.set(true);
+        self.unit.module.phase = Phase::Signature;
+        let warnings = self.unit.warnings.len();
+        self.decl.total_rows_only.set(true);
         let retyped = self
             .signature_type(ty, *instance, *span, &key)
             .map(|(t, _)| t);
-        self.total_rows_only.set(false);
-        self.warnings.truncate(warnings);
+        self.decl.total_rows_only.set(false);
+        self.unit.warnings.truncate(warnings);
         kernel::retype_def(&mut self.globals, id, &retyped?)?;
-        self.module.phase = Phase::Body;
+        self.unit.module.phase = Phase::Body;
         Ok(true)
     }
 
@@ -2933,7 +2818,7 @@ impl Elaborator {
                  `[{0}: Type] ->`",
                 used.text
             );
-            self.warnings.push(
+            self.unit.warnings.push(
                 Diagnostic::warning(
                     "W-MODULE-NAME",
                     format!(
@@ -2949,14 +2834,14 @@ impl Elaborator {
             notes.push(note);
         }
         let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
-        *self.owner.borrow_mut() = vec![key.to_string()];
+        *self.decl.owner.borrow_mut() = vec![key.to_string()];
         self.attempt.local_keys.borrow_mut().clear();
         // A row variable used only as a row's tail, `{e}` or `{A | e}`, gets
         // a divergence index beside it, so it may stand for a partial row
         // (docs/proposals/partial-stage-3.md §2.2, D1214;
         // docs/proposals/partial-handlers.md §4, D1255).
         let divergence = match self.globals.registry.data(Builtin::Divergence) {
-            Some(d) if !self.total_rows_only.get() => Some(d),
+            Some(d) if !self.decl.total_rows_only.get() => Some(d),
             _ => None,
         };
         let ty = (|| {
@@ -2979,16 +2864,16 @@ impl Elaborator {
                 }
             }
             cx.span = span;
-            cx.e.in_instance_signature.set(instance);
+            cx.e.decl.in_instance_signature.set(instance);
             let checked = crate::queue::framed(&mut cx, |cx| check_type(cx, ty), |_| auto.frame());
-            cx.e.in_instance_signature.set(false);
+            cx.e.decl.in_instance_signature.set(false);
             let (mut term, _) = checked?;
             for (x, dom) in binders.into_iter().rev() {
                 term = Term::Pi(x, Icit::Implicit, Rc::new(dom), Rc::new(term));
             }
             Ok(term)
         })();
-        self.owner.borrow_mut().clear();
+        self.decl.owner.borrow_mut().clear();
         let ty = ty.map_err(with_notes)?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
@@ -3013,7 +2898,7 @@ impl Elaborator {
         if *instance {
             self.validate_instance(id)?;
         }
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             self.bind_builtin_def(id)?;
         }
         if *export {
@@ -3178,11 +3063,11 @@ impl Elaborator {
     }
 
     /// Runs `f`, the elaboration of the body of a top-level declaration of
-    /// type `ty`, with [`Elaborator::body_type`] set to it.
+    /// type `ty`, with `state::Decl::body_type` set to it.
     pub(crate) fn with_body_type<T>(&self, ty: &Value, span: Span, f: impl FnOnce() -> T) -> T {
-        let was = self.body_type.replace(Some((ty.clone(), span)));
+        let was = self.decl.body_type.replace(Some((ty.clone(), span)));
         let result = f();
-        *self.body_type.borrow_mut() = was;
+        *self.decl.body_type.borrow_mut() = was;
         result
     }
 
@@ -3191,7 +3076,7 @@ impl Elaborator {
     /// type alone (`check::telescope`, as `erase::of_def` uses it). `None`
     /// outside a top-level declaration's body.
     pub(crate) fn body_erased(&self) -> Result<Option<bool>> {
-        let Some((ty, span)) = self.body_type.borrow().clone() else {
+        let Some((ty, span)) = self.decl.body_type.borrow().clone() else {
             return Ok(None);
         };
         Ok(Some(
@@ -3475,12 +3360,12 @@ impl Elaborator {
             self.warn_redundant(&rows, &tree);
             tree
         };
-        let root = self.leaf_log.borrow_mut().enter_root(def_name.span);
+        let root = self.decl.leaf_log.borrow_mut().enter_root(def_name.span);
         let term = families::warn_unreachable(cx, |cx| {
             let start = columns.first().copied().unwrap_or(cx.level());
             check_tree_from(cx, start, &tree, &ty)
         });
-        self.leaf_log.borrow_mut().leave_root(root);
+        self.decl.leaf_log.borrow_mut().leave_root(root);
         let mut term = term?;
         for (x, icit) in lams.into_iter().rev() {
             term = Term::Lam(x, icit, Rc::new(term));
@@ -3584,7 +3469,7 @@ impl Elaborator {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
             let mut canon = Vec::new();
-            let proofs = self.char_proofs.borrow();
+            let proofs = self.decl.char_proofs.borrow();
             for (pattern, level) in first.pats.iter().zip(columns) {
                 if let Some(x) = pattern_var(pattern) {
                     aliases.push((&x.text, *level));
@@ -3775,7 +3660,7 @@ impl Elaborator {
             }
         }
         if others.is_empty() {
-            let chars = self.char_patterns.borrow();
+            let chars = self.decl.char_patterns.borrow();
             let as_chars: Option<Vec<String>> = by_key
                 .values()
                 .map(|rs| match &*rows[rs[0]].pats[j] {
@@ -3973,8 +3858,8 @@ impl Elaborator {
             // `'L'` is `MkChar 76 _`.
             Pattern::Char(c, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
-                self.char_patterns.borrow_mut().insert(*span, *c);
-                self.char_proofs.borrow_mut().insert(*span);
+                self.decl.char_patterns.borrow_mut().insert(*span, *c);
+                self.decl.char_proofs.borrow_mut().insert(*span);
                 Ok(Some(CtorPattern {
                     data,
                     ctor,
@@ -4485,7 +4370,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             alternatives,
         } => {
             families::reached(cx, *span);
-            cx.e.leaf_log.borrow_mut().record(*span, alternatives);
+            cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
             let Some(rhs) = rhs else {
                 return Err(error(
                     "E-ARITY",
@@ -4648,7 +4533,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     field_env.push(field.clone());
                     cx.bind_hidden(name.clone(), ty);
                 }
-                cx.e.leaf_log.borrow_mut().path.push(c as u32);
+                cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
                 let result = match subtree {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
@@ -4665,7 +4550,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     })(),
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
-                cx.e.leaf_log.borrow_mut().path.pop();
+                cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
                 cx.env = saved_env;
                 cx.types = saved_types;
@@ -4732,9 +4617,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
-                cx.e.leaf_log.borrow_mut().path.push(arm_index as u32);
+                cx.e.decl.leaf_log.borrow_mut().path.push(arm_index as u32);
                 let result = check_tree(cx, subtree, &arm_goal);
-                cx.e.leaf_log.borrow_mut().path.pop();
+                cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.env = saved_env;
                 cx.types = saved_types;
                 match result {
@@ -4761,7 +4646,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             // others takes its default; docs/proposals/literal-match-facts.md).
             // If its type mentions the variable, the programmer may have
             // expected more.
-            cx.e.leaf_log.borrow_mut().path.push(arms.len() as u32);
+            cx.e.decl.leaf_log.borrow_mut().path.push(arms.len() as u32);
             let default = match &cx.env[*x] {
                 Value::Neutral(Head::Var(l, known), spine) if l == x && spine.is_empty() => {
                     let mut numbers: Vec<BigUint> = arms.iter().map(|(k, _)| k.clone()).collect();
@@ -4791,7 +4676,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 }
                 _ => check_tree(cx, default, goal),
             };
-            cx.e.leaf_log.borrow_mut().path.pop();
+            cx.e.decl.leaf_log.borrow_mut().path.pop();
             let default = default.map_err(|d| {
                 let ix = cx.level() - 1 - x;
                 let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));

@@ -378,16 +378,22 @@ impl Elaborator {
 }
 
 /// The arms of the definition being checked that a case dropped (each with
-/// why) and those it reached (see `Elaborator::arm_reach`).
+/// why) and those it reached (see `state::Decl::arm_reach`).
 #[derive(Default)]
 pub(crate) struct ArmReach {
     dropped: Vec<(Span, String)>,
     reached: Vec<Span>,
 }
 
+impl ArmReach {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.dropped.is_empty() && self.reached.is_empty()
+    }
+}
+
 /// Records that the arm at `span` is reached.
 pub(crate) fn reached(cx: &Ctx, span: Span) {
-    cx.e.arm_reach.borrow_mut().reached.push(span);
+    cx.e.decl.arm_reach.borrow_mut().reached.push(span);
 }
 
 /// Runs `f`, which checks a compiled pattern match, then warns
@@ -398,11 +404,11 @@ pub(crate) fn warn_unreachable<T>(
     cx: &mut Ctx,
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
-    let saved = cx.e.arm_reach.take();
+    let saved = cx.e.decl.arm_reach.take();
     let errors = cx.e.attempt.branch_errors.borrow().len();
     let result = f(cx);
     let result = crate::missing::merge(cx, errors, result);
-    let here = cx.e.arm_reach.replace(saved);
+    let here = cx.e.decl.arm_reach.replace(saved);
     if result.is_ok() {
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (span, why) in here.dropped {
@@ -459,11 +465,11 @@ pub(crate) fn check_case(
         let mark = cx.mark();
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
-        cx.e.leaf_log.borrow_mut().path.push(c as u32);
+        cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
         let result = case_branch(
             cx, x, d, c, args, names, subtree, goal_term, span, &scrutinee,
         );
-        cx.e.leaf_log.borrow_mut().path.pop();
+        cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
         cx.env = saved_env;
         cx.types = saved_types;
@@ -516,7 +522,7 @@ fn case_branch(
                     cx.show(&k.lhs),
                     cx.show(&k.rhs)
                 );
-                let mut reach = cx.e.arm_reach.borrow_mut();
+                let mut reach = cx.e.decl.arm_reach.borrow_mut();
                 reach
                     .dropped
                     .extend(spans.into_iter().map(|s| (s, why.clone())));

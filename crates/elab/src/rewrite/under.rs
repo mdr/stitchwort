@@ -739,11 +739,11 @@ mod tests {
                 let core = stitchwort_syntax::parse_module(file, crate::prelude())
                     .expect("the core parses");
                 let mut e = Elaborator::new();
-                e.loading_prelude = true;
+                e.unit.loading_prelude = true;
                 let diagnostics = e.elaborate_module(&core);
                 assert!(diagnostics.iter().all(|d| d.severity != Severity::Error));
                 e.finish_core().expect("a complete core");
-                e.loading_prelude = false;
+                e.unit.loading_prelude = false;
                 let file = sources.add("test.sw", &source);
                 let module = stitchwort_syntax::parse_module(file, &source).expect("parses");
                 let errors = e

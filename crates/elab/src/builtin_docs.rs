@@ -73,7 +73,8 @@ impl Elaborator {
     /// Whether `name` is reserved for the built-in: not while the core's
     /// `Builtins.sw` is declaring it.
     pub(crate) fn is_reserved(&self, name: &str) -> bool {
-        crate::RESERVED.contains(&name) && !(self.loading_prelude && DOCUMENTED.contains(&name))
+        crate::RESERVED.contains(&name)
+            && !(self.unit.loading_prelude && DOCUMENTED.contains(&name))
     }
 
     /// If the group is one of `Builtins.sw`'s declarations: admits it, with
@@ -85,17 +86,17 @@ impl Elaborator {
         let [(item, signature @ Decl::Signature { name, span, .. }, [])] = members else {
             return None;
         };
-        if !self.loading_prelude || !DOCUMENTED.contains(&name.text.as_str()) {
+        if !self.unit.loading_prelude || !DOCUMENTED.contains(&name.text.as_str()) {
             return None;
         }
-        self.module.item = Some(*item);
+        self.unit.module.item = Some(*item);
         let admitted = (|| {
             let Decl::Signature { ty, .. } = signature else {
                 unreachable!()
             };
             let key = self.declaration_key(name)?;
             self.clear_metas();
-            self.module.phase = crate::module::Phase::Signature;
+            self.unit.module.phase = crate::module::Phase::Signature;
             let (ty, _) = self.signature_type(ty, false, *span, &key)?;
             // The parameters: the signature's `Pi`s, under source locations.
             let mut binders = Vec::new();
@@ -131,7 +132,7 @@ impl Elaborator {
                 false,
                 *span,
             )?;
-            self.module.def_items.insert(id, *item);
+            self.unit.module.def_items.insert(id, *item);
             self.scope.insert(&key, Global::Def(id), name.span, false);
             kernel::define_def(&mut self.globals, id, &body).map_err(|d| {
                 Diagnostic::error(

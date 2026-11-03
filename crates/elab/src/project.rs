@@ -59,11 +59,11 @@ impl Elaborator {
 
     /// The next file loaded on its own is at `path` in the include root.
     pub fn set_next_include_location(&mut self, path: String) {
-        self.next_include_location = Some(path);
+        self.unit.next_include_location = Some(path);
     }
 
     pub fn take_next_include_location(&mut self) -> Option<String> {
-        self.next_include_location.take()
+        self.unit.next_include_location.take()
     }
 
     /// Records that source file `file` is at `path` in the include root, so
@@ -119,7 +119,8 @@ impl Elaborator {
         if let Ok(text) = &read {
             // For the check cache: an entry is only good while the files
             // it read are unchanged.
-            self.include_trace
+            self.unit
+                .include_trace
                 .borrow_mut()
                 .push((full.clone(), *blake3::hash(text.as_bytes()).as_bytes()));
         }

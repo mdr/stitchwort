@@ -432,8 +432,12 @@ impl Elaborator {
     /// What a goal noted now is in, for its heading; and what a lemma of it
     /// is named after (`Pending::lemma_base`).
     fn goal_owner(&self) -> (String, Option<String>) {
-        let item = self.module.item.or(self.module.current.first().copied());
-        match item.and_then(|i| self.module.items.get(i)) {
+        let item = self
+            .unit
+            .module
+            .item
+            .or(self.unit.module.current.first().copied());
+        match item.and_then(|i| self.unit.module.items.get(i)) {
             Some(item) if item.kind == crate::module::Kind::Test => (item.name.clone(), None),
             Some(item) => {
                 let last = item.name.rsplit('.').next().unwrap_or(&item.name);
@@ -447,11 +451,11 @@ impl Elaborator {
     /// The definition of the item being elaborated: the first its
     /// declaration made (not a lifted helper), if it is a definition.
     fn owner_def(&self) -> Option<stitchwort_core::DefId> {
-        let item = self.module.item?;
-        if self.module.items.get(item)?.kind != crate::module::Kind::Def {
+        let item = self.unit.module.item?;
+        if self.unit.module.items.get(item)?.kind != crate::module::Kind::Def {
             return None;
         }
-        (self.module.def_items.iter())
+        (self.unit.module.def_items.iter())
             .filter(|(_, i)| **i == item)
             .map(|(id, _)| *id)
             .min_by_key(|id| id.0)

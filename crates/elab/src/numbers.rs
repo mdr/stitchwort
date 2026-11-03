@@ -843,7 +843,7 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     // first error is reported.
     if let Expr::Binary(BinOp::Eq | BinOp::Ne, a, b) = expr
         && (is_order(a) || is_order(b))
-        && cx.e.late_literals.get() == 0
+        && cx.e.decl.late_literals.get() == 0
     {
         let snapshot = crate::undo::Snapshot::take(cx);
         let first = match group_literals(cx, expr, expected, false) {

@@ -1455,7 +1455,7 @@ mod tests {
         let core = sources.add("<prelude>", crate::prelude());
         let core = parse_module(core, crate::prelude()).expect("the core parses");
         let mut e = Elaborator::new();
-        e.loading_prelude = true;
+        e.unit.loading_prelude = true;
         e.elaborate_module(&core);
         e.finish_core().expect("a complete core");
         let text = "type Rose: Type =\n  | Leaf\n  | Node (kids: List Rose)\n\n\

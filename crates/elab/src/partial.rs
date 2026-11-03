@@ -274,7 +274,7 @@ impl Elaborator {
         let span = first.span;
 
         // The request type, and what each request is answered with.
-        self.module.phase = Phase::Body;
+        self.unit.module.phase = Phase::Body;
         let req_name: Name = format!("{}.Request", first.name).into();
         let req = kernel::declare_data_group(
             &mut self.globals,
@@ -451,7 +451,7 @@ impl Elaborator {
         for ((m, recur), key) in infos.iter().zip(&recurs).zip(&keys) {
             self.scope.insert(key, Global::Def(*recur), m.span, false);
         }
-        self.recursion = Some(effects::Recursion {
+        self.decl.recursion = Some(effects::Recursion {
             ans: {
                 let mut ans = Value::Neutral(Head::Def(response), Spine::new());
                 for (i, p) in fixed_params.iter().enumerate() {
@@ -474,8 +474,8 @@ impl Elaborator {
             let Decl::Signature { name: def_name, .. } = decl else {
                 unreachable!()
             };
-            self.module.item = Some(item);
-            self.module.phase = Phase::Body;
+            self.unit.module.item = Some(item);
+            self.unit.module.phase = Phase::Body;
             // A `match` in the body is lifted to a helper, as in an ordinary
             // definition (`lift.rs`); the helper calls the member through
             // its request function, so it needn't wait for this body.
@@ -494,7 +494,7 @@ impl Elaborator {
                 Err(d) => out.push((item, d)),
             }
         }
-        self.recursion = None;
+        self.decl.recursion = None;
         for (((name, global), id), m) in saved.into_iter().zip(ids).zip(&infos) {
             let span = global.map_or(m.span, |(_, s)| s);
             self.scope.insert(&name, Global::Def(*id), span, false);
@@ -515,7 +515,7 @@ impl Elaborator {
         if pending_helpers.is_empty() {
             // (Each on its own, which keeps the descriptions' hashes.)
             for ((&(item, _, _), body), desc) in members.iter().zip(bodies).zip(&descriptions) {
-                self.module.item = Some(item);
+                self.unit.module.item = Some(item);
                 if let Err(d) = kernel::define_def(&mut self.globals, *desc, &body) {
                     out.push((item, d));
                 }
@@ -524,7 +524,7 @@ impl Elaborator {
             // Helpers that wait for a description are admitted with them.
             let mut group = pending_helpers;
             group.extend(descriptions.iter().copied().zip(bodies));
-            self.module.item = Some(members[0].0);
+            self.unit.module.item = Some(members[0].0);
             if let Err(d) = kernel::define_group(&mut self.globals, &group) {
                 out.push((members[0].0, d));
             }
@@ -534,7 +534,7 @@ impl Elaborator {
         }
 
         // The group's description: by cases on the request.
-        self.module.item = Some(members[0].0);
+        self.unit.module.item = Some(members[0].0);
         let body_id = {
             let depth = f + 1;
             let ops = ops_fixed.0.shift(&self.globals, 1, 0)?;
@@ -609,7 +609,7 @@ impl Elaborator {
         }
         kernel::define_group(&mut self.globals, &wrappers)?;
         for (&(item, signature, _), id) in members.iter().zip(ids) {
-            self.module.item = Some(item);
+            self.unit.module.item = Some(item);
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }

@@ -678,17 +678,17 @@ impl Elaborator {
         let Some(nav) = &self.nav else {
             return;
         };
-        let library = self.loading_prelude || !self.library_stack_is_empty();
+        let library = self.unit.loading_prelude || !self.library_stack_is_empty();
         let mut nav = nav.borrow_mut();
         for module in modules {
             let mut walk = Walk {
                 nav: &mut nav,
-                prefix: self.namespace_root.clone(),
+                prefix: self.unit.namespace_root.clone(),
                 outline: !library,
-                display: if self.namespace_root.is_empty() {
+                display: if self.unit.namespace_root.is_empty() {
                     "Main.".to_string()
                 } else {
-                    self.namespace_root.clone()
+                    self.unit.namespace_root.clone()
                 },
             };
             walk.module(module);

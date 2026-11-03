@@ -272,7 +272,7 @@ impl Elaborator {
     /// After data type `d` is admitted: its induction principles and size,
     /// if it's nested (module header).
     pub(crate) fn derive_nested(&mut self, d: DataId) -> crate::Result<()> {
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             return Ok(());
         }
         let data = self.globals.data(d);
@@ -744,7 +744,7 @@ impl Elaborator {
         if data.group.len() != 1 || data.sort != Sort::Type(0) {
             return Err(Stop::Unsupported);
         }
-        let ours = !data.path.starts_with("Std.") && data.defs_before >= self.module.first_def;
+        let ours = !data.path.starts_with("Std.") && data.defs_before >= self.unit.module.first_def;
         let (owner, member) = if ours && !self.has_member(e, "All") {
             (e, "All".to_string())
         } else {

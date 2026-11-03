@@ -2290,7 +2290,7 @@ pub(crate) fn apply_args_with(
 /// against a type that is an unknown applied to variables fails rather
 /// than waiting (`reject/decreasing-lambda-in-data.sw`).
 fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
-    if cx.e.late_literals.get() > 0 {
+    if cx.e.decl.late_literals.get() > 0 {
         return f(cx);
     }
     let first_try = crate::undo::Snapshot::take(cx);
@@ -2301,9 +2301,9 @@ fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
     first_try.restore(cx);
     crate::queue::note_retried();
     let second_try = crate::undo::Snapshot::take(cx);
-    cx.e.late_literals.set(1);
+    cx.e.decl.late_literals.set(1);
     let again = f(cx);
-    cx.e.late_literals.set(0);
+    cx.e.decl.late_literals.set(0);
     match again {
         Err(e) if crate::undo::fatal(&e) => Err(e),
         // Its error blames the literal that doesn't fit the type its
@@ -2334,7 +2334,7 @@ fn apply_args_postponing(
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
     // type expected of it, if `infer_expecting` says what that is.
-    let expecting = match &*cx.e.app_expected.borrow() {
+    let expecting = match &*cx.e.decl.app_expected.borrow() {
         Some((key, expected))
             if args.iter().any(
                 |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
@@ -2443,7 +2443,7 @@ fn apply_args_postponing(
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
                 if later
-                    && cx.e.late_literals.get() > 0
+                    && cx.e.decl.late_literals.get() > 0
                     && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
                     && numbers_in_list(value)
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
@@ -3221,7 +3221,7 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         Term::Var(ix) => (cx.names[cx.level() - 1 - ix].to_string(), false),
         _ => return None,
     };
-    let members = cx.e.recursion.as_ref()?.names.clone();
+    let members = cx.e.decl.recursion.as_ref()?.names.clone();
     let shown = |n: &String| format!("`{n}`");
     let what = match arg {
         Expr::Var(name) if !name.text.starts_with('%') => format!("`{}`", name.text),
@@ -3744,7 +3744,7 @@ pub(crate) fn check_value(
         }
         (Expr::Hole(_), _) => {
             let hole = cx.fresh_meta_of(&expected);
-            if let Some(log) = cx.e.hole_log.borrow_mut().as_mut() {
+            if let Some(log) = cx.e.decl.hole_log.borrow_mut().as_mut() {
                 log.push((hole.clone(), cx.level(), expected.clone()));
             }
             if crate::patlet::proposition(cx, &expected)?
@@ -4509,7 +4509,7 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
         let call = crate::pipe::as_call((**value).clone(), f);
         return fallback_named(cx, &call, expected, named);
     }
-    if cx.e.no_propagation.get() == 0
+    if cx.e.decl.no_propagation.get() == 0
         && let Some(found) = propagate(cx, expr, expected, named)?
     {
         return found;
@@ -4601,9 +4601,12 @@ fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term,
     ) {
         return infer(cx, expr);
     }
-    let outer = cx.e.app_expected.replace(Some((key, expected.clone())));
+    let outer =
+        cx.e.decl
+            .app_expected
+            .replace(Some((key, expected.clone())));
     let result = infer(cx, expr);
-    *cx.e.app_expected.borrow_mut() = outer;
+    *cx.e.decl.app_expected.borrow_mut() = outer;
     result
 }
 
@@ -4678,7 +4681,7 @@ fn decide_to_bool(
     found: &Value,
     expected: &Value,
 ) -> Result<Option<Term>> {
-    if cx.e.condition.get() == std::ptr::from_ref(expr) as usize
+    if cx.e.decl.condition.get() == std::ptr::from_ref(expr) as usize
         || !matches!(force(cx.g(), found.clone())?, Value::Sort(Sort::Prop))
     {
         return Ok(None);
@@ -5110,14 +5113,14 @@ fn propagate(
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(propagated) => {
             snapshot.restore(cx);
-            let off = &cx.e.no_propagation;
+            let off = &cx.e.decl.no_propagation;
             off.set(off.get() + 1);
             let old = (|| {
                 let (term, found) = infer(cx, expr)?;
                 let (term, found) = insert(cx, term, found)?;
                 compare(cx, term, &found, expected)
             })();
-            let off = &cx.e.no_propagation;
+            let off = &cx.e.decl.no_propagation;
             off.set(off.get() - 1);
             // Both fail inside the same argument: the first knew what the
             // argument must prove, where the second only had unknowns (a
@@ -5179,7 +5182,7 @@ pub(crate) fn propagate_comp(
     expected: &Value,
 ) -> Result<Option<(Term, Value)>> {
     if args.is_empty()
-        || cx.e.no_propagation.get() != 0
+        || cx.e.decl.no_propagation.get() != 0
         || matches!(
             force(cx.g(), expected.clone())?,
             Value::Neutral(Head::Meta(_), _)
@@ -5271,7 +5274,8 @@ fn hidden_function_name(cx: &Ctx, name: &str) -> String {
     }
     match cx.e.resolve(name) {
         scope::Resolved::Found { key, rest, .. }
-            if rest.is_empty() && key.strip_prefix(cx.e.namespace_root.as_str()) != Some(name) =>
+            if rest.is_empty()
+                && key.strip_prefix(cx.e.unit.namespace_root.as_str()) != Some(name) =>
         {
             scope::display(key).to_string()
         }

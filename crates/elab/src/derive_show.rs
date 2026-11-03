@@ -71,7 +71,7 @@ impl Elaborator {
         let Some(show) = interfaces::show(self) else {
             return Ok(());
         };
-        if self.loading_prelude || generated || self.declares_instance_of(show) {
+        if self.unit.loading_prelude || generated || self.declares_instance_of(show) {
             return Ok(());
         }
         let plan = match self.show_plan(d, show)? {
@@ -558,10 +558,10 @@ impl Elaborator {
     /// of `interface` declared by its module, by the names in the module's
     /// instance declarations (§5.11).
     pub(crate) fn declares_instance_of(&self, interface: DataId) -> bool {
-        let Some(item) = self.module.item else {
+        let Some(item) = self.unit.module.item else {
             return false;
         };
-        self.module.items.iter().any(|i| {
+        self.unit.module.items.iter().any(|i| {
             i.instance
                 && i.interface == Some(Global::Data(interface))
                 && i.head == Some(Global::Unchecked(item))

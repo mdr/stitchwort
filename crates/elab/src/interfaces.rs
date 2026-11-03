@@ -170,10 +170,11 @@ impl Elaborator {
     /// for the core and the library, the namespace in a project or a file
     /// with a namespace line, and `Main` for a file without one.
     pub(crate) fn module_owner(&self) -> String {
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             "Std".to_string()
         } else {
-            self.module
+            self.unit
+                .module
                 .namespace
                 .clone()
                 .unwrap_or_else(|| "Main".to_string())
@@ -327,7 +328,7 @@ impl Elaborator {
             let id = kernel::declare_def(&mut self.globals, &method, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
             // `Ord.compare` is the compiler's (crates/js).
-            if self.loading_prelude {
+            if self.unit.loading_prelude {
                 self.bind_builtin_def(id)?;
             }
             methods.push(id);
@@ -828,7 +829,7 @@ pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(Dat
 /// Spends one step of obligation tree `tree`'s budget.
 fn step(cx: &Ctx, tree: usize, goal: &Value) -> Result<()> {
     let budget = cx.e.instance_budget.unwrap_or(BUDGET);
-    let mut steps = cx.e.instance_steps.borrow_mut();
+    let mut steps = cx.e.attempt.instance_steps.borrow_mut();
     let used = steps.entry(tree).or_insert(0);
     *used += 1;
     if *used > budget {
@@ -1184,7 +1185,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             let (io, ho) = (owner(interface), owner(h));
             // A program can't add to `Std`, so only the other owner is any
             // use to it.
-            let user = !e.loading_prelude;
+            let user = !e.unit.loading_prelude;
             let where_ = if io == ho || (user && io == "Std") {
                 format!("in `{ho}`")
             } else if user && ho == "Std" {
@@ -1396,11 +1397,11 @@ impl Elaborator {
     /// `interface`, that aren't checked yet: their names.
     fn unchecked_instances(&self, interface: DataId) -> Vec<String> {
         let mut out = Vec::new();
-        for (i, item) in self.module.items.iter().enumerate() {
+        for (i, item) in self.unit.module.items.iter().enumerate() {
             if !item.instance || item.status != crate::module::Status::Waiting {
                 continue;
             }
-            if self.module.in_current(i) {
+            if self.unit.module.in_current(i) {
                 continue;
             }
             if item.interface == Some(Global::Data(interface)) {

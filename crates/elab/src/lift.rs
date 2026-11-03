@@ -625,7 +625,7 @@ impl Elaborator {
     /// each prefix had, for the body's to be numbered after them (§2.4).
     /// Numbered from 1 each time the type is elaborated.
     pub(crate) fn lift_signature(&mut self, owner: &str) -> Result<()> {
-        self.signature_matches.remove(owner);
+        self.decl.signature_matches.remove(owner);
         self.resume_before_lifting()?;
         if self.attempt.drafts.borrow().is_empty() {
             return Ok(());
@@ -638,7 +638,9 @@ impl Elaborator {
             *counts.entry(prefix).or_default() += 1;
         }
         self.resolve_batch(owner, drafts, false)?;
-        self.signature_matches.insert(owner.to_string(), counts);
+        self.decl
+            .signature_matches
+            .insert(owner.to_string(), counts);
         Ok(())
     }
 
@@ -650,8 +652,8 @@ impl Elaborator {
         drafts: Vec<Draft>,
         join: bool,
     ) -> Result<Batch> {
-        self.arounds.borrow_mut().clear();
-        let keys = keys(owner, &drafts, self.signature_matches.get(owner));
+        self.decl.arounds.borrow_mut().clear();
+        let keys = keys(owner, &drafts, self.decl.signature_matches.get(owner));
         let index: HashMap<usize, usize> = drafts
             .iter()
             .enumerate()
@@ -734,12 +736,13 @@ impl Elaborator {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
                 g.solve_meta(d.meta, eval(g, &[], &call)?);
-                if let Some(item) = self.module.item {
-                    self.module.def_items.insert(id, item);
+                if let Some(item) = self.unit.module.item {
+                    self.unit.module.def_items.insert(id, item);
                 }
                 match &d.local {
                     Some(local) => {
-                        self.local_helpers
+                        self.decl
+                            .local_helpers
                             .push((local.key.clone(), id, local.whole));
                         self.globals.print_labels.borrow_mut().push(
                             stitchwort_core::globals::PrintLabel {
@@ -771,7 +774,7 @@ impl Elaborator {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
                 bodies.push((id, lam));
                 if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
-                    self.pending_run_bodies.push((id, run));
+                    self.decl.pending_run_bodies.push((id, run));
                 }
             }
             let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();
@@ -808,7 +811,7 @@ impl Elaborator {
             .into_iter()
             .map(|r| r.expect("every component is resolved"))
             .collect();
-        self.arounds.borrow_mut().clear();
+        self.decl.arounds.borrow_mut().clear();
         Ok((joined, resolved))
     }
 
@@ -1025,7 +1028,7 @@ impl Elaborator {
         let g = &self.globals;
         let trail = g.meta_trail.borrow().len();
         let upto = depth.min(draft.lets.len());
-        let mut cache = self.arounds.borrow_mut();
+        let mut cache = self.decl.arounds.borrow_mut();
         let (made, done, around) = cache.entry(draft.meta).or_default();
         if *made != trail {
             (*made, *done) = (trail, 0);
@@ -1424,7 +1427,7 @@ impl Elaborator {
     /// it needs a `let`'s value and not just its type, keeps running its own
     /// body, which computes the `let` again.
     pub(crate) fn set_run_bodies(&mut self) -> Result<()> {
-        for (id, body) in std::mem::take(&mut self.pending_run_bodies) {
+        for (id, body) in std::mem::take(&mut self.decl.pending_run_bodies) {
             match self.globals.def(id).state() {
                 State::Final => {
                     if let Err(e) = kernel::set_run_body(&mut self.globals, id, &body)
@@ -1433,7 +1436,7 @@ impl Elaborator {
                         return Err(e);
                     }
                 }
-                State::Pending => self.pending_run_bodies.push((id, body)),
+                State::Pending => self.decl.pending_run_bodies.push((id, body)),
                 _ => {}
             }
         }
@@ -1546,10 +1549,10 @@ impl Elaborator {
     /// The type a `match`'s helper would have (for the motive check before
     /// its alternatives are elaborated).
     pub(crate) fn lifted_type(&self, draft: &Draft) -> Result<Term> {
-        self.arounds.borrow_mut().clear();
+        self.decl.arounds.borrow_mut().clear();
         let (ordered, _) = self.captures(std::slice::from_ref(draft), &HashMap::default())?;
         let ty = self.parts(draft, &ordered[0], &|_| false, false);
-        self.arounds.borrow_mut().clear();
+        self.decl.arounds.borrow_mut().clear();
         Ok(ty?.0)
     }
 
@@ -1561,7 +1564,7 @@ impl Elaborator {
         // Only the kernel's termination messages name one by its key; the
         // elaborator's own say what they mean.
         let helpers = match d.code {
-            "E-TERMINATION" => &self.local_helpers[..],
+            "E-TERMINATION" => &self.decl.local_helpers[..],
             _ => &[],
         };
         for (_, id, _) in helpers {
@@ -1669,7 +1672,7 @@ impl Elaborator {
         let inside = |outer: Span, inner: Span| {
             outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
         };
-        let matches = self.tuple_matches.borrow();
+        let matches = self.decl.tuple_matches.borrow();
         let Some((_, shown, names)) = matches
             .iter()
             .filter(|(span, _, _)| d.labels.iter().any(|l| inside(*span, l.span)))
