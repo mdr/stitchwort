@@ -1,5 +1,5 @@
 {
-  "next": 1170,
+  "next": 1173,
   "tickets": [
     {
       "id": 47,
@@ -4659,13 +4659,55 @@
     {
       "id": 1169,
       "title": "State note: answer the external review and finalise step 6's design (mark lifecycle, cache-entry attribution, ownership by unit, tests and measurements), keeping parallel checking possible",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2281 (Matt, 3 Nov): yes. Answer the external review (docs/reviews/elaborator-state-review.md) in docs/proposals/elaborator-state.md and finalise the step 6 design before implementing it: mark lifecycle (create, commit, invalidate, prune), which changes belong to which cache entry (log as a write-set index; nested library loads), ownership by unit rather than a numeric floor, step 6's tests (model-based Logged test, mutation-API audit, replay-then-depend) and measurements (LSP memory over many edits, edit latency, CLI logging cost). Take future parallel checking into account: not planned now, but the design must not close the door to it. Opus, est. 90 min. Step 6 implementation waits for Matt's approval of the revision; supersedes D2279.\n\n\nDone ae281abf (Opus, 16 min, est. 90), note draft 2 merged (board commit dropped). Findings: the review's Q2 example is caught by the count check (Before's cut is after nested loads), but an overwrite of a nested file's row, remove-then-insert, and cache-less sessions are not; latent (moved-floor probe on aoc: 17 namespaces load files inside, none declares first, assertion never fired). B gets its own entry; A's lists B as a dependency (plus B's members, F8, harmless). nav::Logged mark/rewind clear a HashSet whose capacity never shrinks (F10). instances' valid is set only in the instance's own unit. Design: one journal per session, Checkpoint (retained) and Transaction (commit/abort) handles with serial+depth validity; log only while a checkpoint is open; generation stamps replace touched; cache entry = the unit's write-set segments; ownership by unit tag; maps private, 12 escapes to remove; tests §4.8.6, measurements §4.8.7; parallel-ready constraints §4.9; step 6 split 6a/6b/6c; response table §10. Open: D2283-D2287 (§8). Orchestrator's call: F8-F10 tracked in the note, fixed by 6a/6c, no separate tickets.\n",
+      "body": "D2281 (Matt, 3 Nov): yes. Answer the external review (docs/reviews/elaborator-state-review.md) in docs/proposals/elaborator-state.md and finalise the step 6 design before implementing it: mark lifecycle (create, commit, invalidate, prune), which changes belong to which cache entry (log as a write-set index; nested library loads), ownership by unit rather than a numeric floor, step 6's tests (model-based Logged test, mutation-API audit, replay-then-depend) and measurements (LSP memory over many edits, edit latency, CLI logging cost). Take future parallel checking into account: not planned now, but the design must not close the door to it. Opus, est. 90 min. Step 6 implementation waits for Matt's approval of the revision; supersedes D2279.\n\n\nDone ae281abf (Opus, 16 min, est. 90), note draft 2 merged (board commit dropped). Findings: the review's Q2 example is caught by the count check (Before's cut is after nested loads), but an overwrite of a nested file's row, remove-then-insert, and cache-less sessions are not; latent (moved-floor probe on aoc: 17 namespaces load files inside, none declares first, assertion never fired). B gets its own entry; A's lists B as a dependency (plus B's members, F8, harmless). nav::Logged mark/rewind clear a HashSet whose capacity never shrinks (F10). instances' valid is set only in the instance's own unit. Design: one journal per session, Checkpoint (retained) and Transaction (commit/abort) handles with serial+depth validity; log only while a checkpoint is open; generation stamps replace touched; cache entry = the unit's write-set segments; ownership by unit tag; maps private, 12 escapes to remove; tests §4.8.6, measurements §4.8.7; parallel-ready constraints §4.9; step 6 split 6a/6b/6c; response table §10. Open: D2283-D2287 (§8). Orchestrator's call: F8-F10 tracked in the note, fixed by 6a/6c, no separate tickets.\n\n\nD2283-D2287 (Matt, 3 Nov): \"happy to go with your recommendations\": unit tag per declaration; the journal lifecycle as specified; a cache entry is its unit's write-set with nested loads as dependencies; adopt the §4.9 parallel-ready constraints and file the separate-processes experiment; step 6 measurement runs (before and after, ~30-40 min each, background) with §4.8.7's success criteria. Step 6 starts: 6a (Opus) and the before-measurement harness (Sonnet) in parallel.\n",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1170,
+      "title": "Research: parallel checking as separate processes: run independent namespaces as separate check processes, each replaying its imports from the check cache; measure aoc's import-graph critical path and the speedup (elaborator-state.md §4.9)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "research"
+      ],
+      "body": "D2286 (Matt, 3 Nov). Backlog; no Send/Sync change needed. Measure first: the critical path of aoc's namespace graph, then a prototype scheduler.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1171,
+      "title": "State step 6a: ownership tag per declaration and the journal (Checkpoint, Transaction, Logged with stamps; nav::Logged moved onto it) (elaborator-state.md §4.8.2, §4.8.4, §7)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2283, D2284 (Matt, 3 Nov). Opus, est. 150 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1172,
+      "title": "Step 6 measurements: build the LiveProject edit loop and JournalStats hooks (§4.8.7), take the before measurements on main",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "D2287 (Matt, 3 Nov): approved, ~30-40 min of background runs per build, success criteria in §4.8.7. Sonnet, est. 90 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
