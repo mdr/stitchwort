@@ -4715,7 +4715,7 @@
     {
       "id": 1173,
       "title": "State step 6b: the copied tables onto the journal (Scope maps private, instances, helper_keys, Session's copied maps as Logged; Mark stops copying; LiveProject and Session::cancellable hold and release Checkpoints) (elaborator-state.md §4.8, §7 row 6b)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
