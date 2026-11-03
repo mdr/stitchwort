@@ -105,6 +105,22 @@ test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == 
 
 Implicit parameters are named with square brackets, `[b := Text]`, as above. The language server completes parameter names after `(` and `[`.
 
+## Default values
+
+An explicit parameter may have a default, written after `:=`, as a record field may ([chapter 3](03-data.md#default-values)). A call that leaves it out gets the default. Defaults are given by name, so a positional argument never lands on a defaulted parameter, and adding a default to a function never changes what existing calls mean:
+
+<!-- snippet: functions.sw#param-defaults -->
+```stitchwort
+def price (base: Nat) (quantity: Nat := 1) (discount: Nat := 0): Nat := base * quantity - discount
+
+test "defaults" := price 5 == 5
+test "some by name" := price 5 (quantity := 3) == 15
+test "any order" := price 5 (discount := 2) (quantity := 3) == 13
+test "a call that leaves them out is a function of the rest" := [5, 8].map price == [5, 8]
+```
+
+A default may use the parameters before it. Every way of writing a call fills the defaults it doesn't name, so `price` is the function `base => price base 1 0` when passed as a value, as in the last test. A positional argument that would land on a defaulted parameter, `price 5 3`, is `E-DEFAULT-POSITIONAL`, which says to write `(quantity := 3)`. An `export def` can't have defaults yet ([chapter 11](11-running-and-shipping.md)).
+
 ## Dot notation
 
 `x.f args` calls the function `f` in the namespace of `x`'s type, with `x` as its **first** argument. So a function declared as `def Point.shift (point: Point) …` reads like a method:

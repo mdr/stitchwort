@@ -19,6 +19,34 @@ The house style is `name: Type`, with no space before the colon, as in Scala and
 
 There are no statements and no mutation. A definition is a value, and calling a function computes a new value from its arguments. `=` is only equality (a proposition, used in theorems), and `:=` gives a definition or a `let` its value.
 
+## Documentation
+
+A comment line that starts `--|` documents the declaration below it. The compiler ignores it, and tools show it: the language server on hover, `stitchwort search` as a one-line summary (the first sentence), and `stitchwort doc NAME`, which also prints the declaration's header, the tests named after it as examples, and the theorems about it:
+
+<!-- snippet: values.sw#docs -->
+```stitchwort
+--| How many shelves `width` wide fit along a wall, rounded down. A width of 0
+--| fits none. For the floor see [`area`].
+def shelves (wall: Nat) (width: Nat): Nat := if width ≠ 0 then wall / width else 0
+
+test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
+```
+
+<!-- output: doc shelves values.sw --theorems 0 -->
+```text
+Main.shelves  definition
+  def shelves (wall: Nat) (width: Nat): Nat
+  values.sw:17  (import Main (shelves))
+
+  How many shelves `width` wide fit along a wall, rounded down. A width of 0
+  fits none. For the floor see `area`.
+
+Examples:
+  test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0     values.sw:19
+```
+
+A doc says what the name and the type can't: an edge case, a unit, what a `None` means, why. ``[`area`]`` links to another declaration, and the compiler warns (`W-DOC-LINK`) if it names nothing. A plain `--` comment is a note for whoever edits the code, and no tool shows it. Most declarations in application code need no doc, while the standard library documents all of its API, so `stitchwort doc List.filterMap` is often quicker than reading the source ([chapter 6](06-namespaces-and-library.md#the-standard-library)). The rules are in [syntax.md](../syntax.md#doc-comments).
+
 ## Blocks
 
 A body that starts on a new line is a **block**. Each line at the block's indentation is one step: `let x := e` names a value for the lines after it, and the last line is the result:

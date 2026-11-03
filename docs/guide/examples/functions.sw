@@ -49,6 +49,15 @@ test "by name, in any order" := clamp (value := 50) (high := 10) (low := 0) == 1
 test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == [5, 50, 100]
 -- end named
 
+-- begin param-defaults
+def price (base: Nat) (quantity: Nat := 1) (discount: Nat := 0): Nat := base * quantity - discount
+
+test "defaults" := price 5 == 5
+test "some by name" := price 5 (quantity := 3) == 15
+test "any order" := price 5 (discount := 2) (quantity := 3) == 13
+test "a call that leaves them out is a function of the rest" := [5, 8].map price == [5, 8]
+-- end param-defaults
+
 -- begin dot
 type Point = { x: Int, y: Int }
 

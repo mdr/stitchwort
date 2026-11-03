@@ -1,3 +1,5 @@
+import Std (List)
+
 -- A field may have a default, written after `:=`. A record literal can then
 -- leave it out.
 type Greeting = {
@@ -23,3 +25,11 @@ type Shape =
   | Square (id: Text) (side: Nat := 1)
 
 test "constructor defaults" := Square { id = "unit" } == Square "unit" 1
+
+-- A function's parameters may have defaults too. They are given by name, and
+-- a call that leaves one out gets the default.
+def repeatText (text: Text) (times: Nat := 2) (separator: Text := "-"): Text :=
+  List.replicate times text |> .joinWith separator
+
+test "parameter defaults" := repeatText "ab" == "ab-ab"
+test "or named" := repeatText "ab" (times := 3) (separator := "+") == "ab+ab+ab"
