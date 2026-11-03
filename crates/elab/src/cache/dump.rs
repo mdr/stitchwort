@@ -351,9 +351,16 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         ("no_eq", &e.no_eq),
         ("no_show", &e.no_show),
         ("no_ord", &e.no_ord),
+        ("no_finite", &e.no_finite),
+        ("no_decide", &e.no_decide),
     ] {
         sorted.extend(table.iter().map(|(d, s)| format!("{what} {} {s}", d.0)));
     }
+    sorted.extend(
+        e.generated_alls
+            .iter()
+            .map(|(d, id)| format!("generated_all {} def {}", d.0, id.0)),
+    );
     sorted.extend(e.helper_keys.iter().map(|k| format!("helper {k}")));
     sorted.extend(
         e.namespace_defs

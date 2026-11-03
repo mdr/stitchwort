@@ -1123,3 +1123,108 @@ fn a_record_that_cannot_be_decided_is_cached() {
     assert_targets_share(&dir, &[], &["R"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- Side tables kept by the elaborator (SW-1128) -----------------------
+
+/// Fills a new cache from the project at `dir`, edits `src/B.sw` (so that
+/// `A` is replayed and `B` elaborated again), and checks that loading the
+/// edited project through the cache gives what loading it fresh does,
+/// diagnostics included. The cached run's dump.
+fn assert_replay_changes_nothing(dir: &Path) -> String {
+    let cache = temp_dir("replay-cache");
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    let cold = run(&source, false, Some(&cache));
+    assert_eq!(cold.stats.namespace_hits, 0);
+    let b = std::fs::read_to_string(dir.join("src/B.sw")).unwrap();
+    write_file(dir, "src/B.sw", &format!("-- edited\n{b}"));
+    let fresh = run(&source, false, None);
+    let warm = run(&source, false, Some(&cache));
+    let _ = std::fs::remove_dir_all(&cache);
+    assert_eq!(
+        (warm.stats.namespace_hits, warm.stats.namespace_misses),
+        (1, 1),
+        "`A` was replayed and `B` elaborated"
+    );
+    assert!(
+        warm.dump == fresh.dump,
+        "replaying a namespace changed the result: {}",
+        first_difference(&fresh.dump, &warm.dump)
+    );
+    warm.dump
+}
+
+#[test]
+fn a_replayed_type_keeps_why_finite_isnt_derived() {
+    let dir = temp_project(
+        "no-finite",
+        &[
+            ("src/A.sw", "namespace A\n\ntype Wide =\n  | Mk (n: Nat)\n"),
+            (
+                "src/B.sw",
+                "namespace B\n\nimport A (Wide)\n\ndef every: List Wide := Finite.all\n",
+            ),
+        ],
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), false, None);
+    assert!(
+        fresh.dump.contains("isn't derived for `A.Wide`"),
+        "the fresh run has the note:\n{}",
+        fresh.dump
+    );
+    let warm = assert_replay_changes_nothing(&dir);
+    assert!(warm.contains("isn't derived for `A.Wide`"), "{warm}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_replayed_record_keeps_why_no_decision_is_derived() {
+    let dir = temp_project(
+        "no-decide",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\n\ntype Dep: Prop = { n: Nat, same: n = n }\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\n\nimport A (Dep)\n\ndef isDep: Bool := if h: Dep then True else False\n",
+            ),
+        ],
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), false, None);
+    assert!(
+        fresh.dump.contains("has no derived decision"),
+        "the fresh run has the note:\n{}",
+        fresh.dump
+    );
+    let warm = assert_replay_changes_nothing(&dir);
+    assert!(warm.contains("has no derived decision"), "{warm}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_replayed_container_keeps_its_generated_all() {
+    let dir = temp_project(
+        "generated-all",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\n\ntype Box (a: Type): Type =\n  | MkBox (x: a)\n\n\
+                 type Tree: Type =\n  | Node (inside: Box Tree)\n  | Leaf\n\n\
+                 def Tree.size: Tree → Nat\n  | Leaf => 0\n  | Node (MkBox t) => Succ (Tree.size t)\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\n\nimport A (Box)\n\n\
+                 type Other: Type =\n  | Wrap (inside: Box Other)\n  | Stop\n\n\
+                 def Other.size: Other → Nat\n  | Stop => 0\n  | Wrap (MkBox t) => Succ (Other.size t)\n",
+            ),
+        ],
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), false, None);
+    assert!(fresh.dump.contains("\naccepted true\n"), "{}", fresh.dump);
+    // `B` reuses `A.Box.All`, not a private `%Box%All` of its own.
+    let warm = assert_replay_changes_nothing(&dir);
+    assert!(!warm.contains("%Box%All"), "B generated its own All");
+    let _ = std::fs::remove_dir_all(&dir);
+}

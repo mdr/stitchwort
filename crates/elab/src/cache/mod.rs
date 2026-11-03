@@ -70,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 20;
+pub const FORMAT: u32 = 21;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -342,6 +342,9 @@ impl Elaborator {
             self.no_eq.keys().copied().collect(),
             self.no_show.keys().copied().collect(),
             self.no_ord.keys().copied().collect(),
+            self.no_finite.keys().copied().collect(),
+            self.no_decide.keys().copied().collect(),
+            self.generated_alls.keys().copied().collect(),
         ]
     }
 
@@ -1598,7 +1601,14 @@ impl Elaborator {
             }
             e.w.bool(info.valid);
         }
-        for table in [&self.data_owners, &self.no_eq, &self.no_show, &self.no_ord] {
+        for table in [
+            &self.data_owners,
+            &self.no_eq,
+            &self.no_show,
+            &self.no_ord,
+            &self.no_finite,
+            &self.no_decide,
+        ] {
             let mut rows: Vec<(&DataId, &String)> =
                 table.iter().filter(|(d, _)| new_data(d)).collect();
             rows.sort_by_key(|(d, _)| d.0);
@@ -1607,6 +1617,17 @@ impl Elaborator {
                 e.data(*d);
                 e.str(s);
             }
+        }
+        let mut alls: Vec<(&DataId, &DefId)> = self
+            .generated_alls
+            .iter()
+            .filter(|(d, _)| new_data(d))
+            .collect();
+        alls.sort_by_key(|(d, _)| d.0);
+        e.w.usize(alls.len());
+        for (d, all) in alls {
+            e.data(*d);
+            e.def(*all);
         }
         e.w.usize(self.abilities.len() - before.abilities);
         for a in &self.abilities[before.abilities..] {
@@ -1997,8 +2018,10 @@ struct Tables {
     js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
     instances: Vec<((DataId, DataId), InstanceInfo)>,
-    /// `data_owners`, `no_eq`, `no_show`, `no_ord`.
-    by_data: [Vec<(DataId, String)>; 4],
+    /// `data_owners`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`.
+    by_data: [Vec<(DataId, String)>; 6],
+    /// The `D.All` generated for each of the file's own container types.
+    generated_alls: Vec<(DataId, DefId)>,
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
     match_columns: Vec<(DefId, crate::lift::MatchColumns)>,
@@ -2897,11 +2920,14 @@ impl Elaborator {
         }
         self.interfaces.extend(t.interfaces);
         self.instances.extend(t.instances);
-        let [owners, no_eq, no_show, no_ord] = t.by_data;
+        let [owners, no_eq, no_show, no_ord, no_finite, no_decide] = t.by_data;
         self.data_owners.extend(owners);
         self.no_eq.extend(no_eq);
         self.no_show.extend(no_show);
         self.no_ord.extend(no_ord);
+        self.no_finite.extend(no_finite);
+        self.no_decide.extend(no_decide);
+        self.generated_alls.extend(t.generated_alls);
         self.lifted.extend(t.lifted);
         for (id, c) in t.match_columns {
             self.match_columns.insert(id, Rc::new(c));
@@ -2994,7 +3020,8 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         js_repr: Vec::new(),
         interfaces: Vec::new(),
         instances: Vec::new(),
-        by_data: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+        by_data: Default::default(),
+        generated_alls: Vec::new(),
         abilities: Vec::new(),
         lifted: Vec::new(),
         match_columns: Vec::new(),
@@ -3181,6 +3208,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         for _ in 0..n {
             table.push((b.data()?, b.string()?));
         }
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.generated_alls.push((b.data()?, b.def()?));
     }
     let n = b.count()?;
     for _ in 0..n {
