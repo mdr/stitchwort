@@ -1,5 +1,5 @@
 {
-  "next": 1155,
+  "next": 1156,
   "tickets": [
     {
       "id": 47,
@@ -3592,7 +3592,7 @@
         "tests",
         "perf"
       ],
-      "body": "",
+      "body": "\n\nDone 4c834783 (Sonnet, 20 min, est. 45), reviewed; merges after the SW-1106 verifier. hash_stability: each sweep worker loads the whole library eagerly (~3 s idle each, ~15 loads) for a few ms of checking; examples/projects now use 2 workers in merge and lane tiers (par_map_with_at_most in driver.rs), all in daily/full: user 93.5 -> 25 s and 77 -> ~20 s (loaded machine). cli extract generated_code_is_stable: one core load per worker, rewound per example: ~15% less user time. The merge tier is bound by total work (2496 test-s over 10 cores), not one test; top binaries aoc_answers 398, doc 311, hash_stability 187, build 187, search_at 178. Model result: Sonnet, worked, 20 min (est. 45).",
       "created": "2026-11-02",
       "updated": "2026-11-03",
       "commits": []
@@ -4456,6 +4456,20 @@
         "kernel"
       ],
       "body": "From SW-1106: occurs could walk the value as Unchanged does, without reading back. Measure first.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1155,
+      "title": "Merge tier: the same per-worker eager library load in cli doc (5 tests, 43-51 s each), named_arguments and std_library sweeps; cap workers (par_map_with_at_most) or share one load",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "From SW-1093, which fixed it for hash_stability (user 170 -> 45 s). doc is 311 test-s of the tier's ~2500. Also re-time the tier and fix the under-90-s claims in hash_stability.rs and the Taskfile.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
