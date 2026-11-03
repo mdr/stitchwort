@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Stitchwort playground: CodeMirror 6 prototype</title>
+<!--
+  Prototype for SW-1118 (docs/proposals/playground-editor.md). Not wired into
+  the real page. It reuses ../playground-worker.js and ../pkg (build with
+  `nix develop -c web/build.sh`), so serve web/ (`web/serve.sh --no-build`) and
+  open http://127.0.0.1:8000/proto/codemirror.html.
+
+  codemirror.bundle.js is built from codemirror-entry.js:
+    cd web/proto && npm install && esbuild codemirror-entry.js --bundle --minify \
+      --format=esm --target=es2020 --outfile=codemirror.bundle.js
+-->
+<style>
+  body { font: 14px system-ui; margin: 1rem; }
+  #editor { border: 1px solid #aaa; max-width: 60rem; }
+  .cm-editor { height: 24rem; font: 14px ui-monospace, monospace; }
+  .cm-scroller { overflow: auto; }
+  #status { color: #555; margin: .5rem 0; }
+  .tip { font: 13px ui-monospace, monospace; padding: 2px 6px; }
+</style>
+<h1>Stitchwort with CodeMirror 6 (prototype)</h1>
+<div id="status">Loading the compiler...</div>
+<div id="editor"></div>
+<script type="text/plain" id="sample">
+import Std (Nat, List)
+
+def double (n : Nat) : Nat := n + n
+
+-- An error: a text where a Nat is expected.
+def bad : Nat := "oops"
+
+-- An unknown name.
+def worse : Nat := missing 3
+
+theorem hole (n : Nat) : n + 0 = n := ?
+</script>
+<script type="module" src="codemirror.bundle.js"></script>
+</html>
