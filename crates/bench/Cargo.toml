@@ -18,5 +18,9 @@ clap.workspace = true
 # also for `task bench`, which runs the binary.
 stitchwort-dev-features.workspace = true
 
+[dev-dependencies]
+# check_work.rs reads core terms.
+stitchwort-core.workspace = true
+
 [lints]
 workspace = true
