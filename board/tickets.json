@@ -1,5 +1,5 @@
 {
-  "next": 1112,
+  "next": 1113,
   "tickets": [
     {
       "id": 47,
@@ -3854,6 +3854,20 @@
         "docs"
       ],
       "body": "D2237 (Matt, 3 Nov): yes; also consider what features would be useful in the playground (web/, crates/web, the WebAssembly compiler). A short note in docs/proposals/: what exists today in each; candidate features (from the orchestrator's list: live goals panel, case split / fill match / match induct skeletons, lemma search from a goal, rename, add/organise imports, extract/inline, inlay hints, semantic tokens, signature help, go to implementation, call hierarchy, doc links, Test Explorer, code lenses; plus playground-specific ones); what each needs from the checker; shared work between the LSP and the playground; a suggested order. Then tickets from it. Sonnet; after SW-1110 (same area).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1112,
+      "title": "One-page PDF: the crates, their dependencies and responsibilities",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 3 Nov: a PDF one-pager with a diagram of the crates, their relationships and responsibilities. Source kept in the repo so it can be regenerated.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
