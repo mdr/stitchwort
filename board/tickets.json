@@ -4491,7 +4491,7 @@
     {
       "id": 1157,
       "title": "Native follow-ups from SW-1124: check real stack bounds at run time so NativeExecutor::new and run_main_native can be safe; are Cranelift stack probes on (frames larger than the guard page)?; make NativeRun crate-private so Crossing::enter/apply/step can be safe",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
