@@ -363,6 +363,20 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     );
     sorted.extend(e.helper_keys.iter().map(|k| format!("helper {k}")));
     sorted.extend(
+        (e.equation_skips.iter())
+            .map(|(d, suffix, why)| format!("equation_skip {} {suffix} {why}", d.0)),
+    );
+    sorted.extend(
+        e.equations_done
+            .iter()
+            .map(|k| format!("equations_done {k}")),
+    );
+    sorted.extend(e.total_rows.borrow().iter().map(|(d, at)| {
+        let mut s = format!("total_row {} ", d.0);
+        span(&mut s, *at);
+        s
+    }));
+    sorted.extend(
         e.namespace_defs
             .iter()
             .map(|(n, r)| format!("namespace {n} {r:?}")),
