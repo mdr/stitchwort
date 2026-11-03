@@ -4539,7 +4539,7 @@
       "labels": [
         "bug"
       ],
-      "body": "Found by SW-1109, confirmed by the orchestrator on main (3 Nov 18:40): fails from source too. Not in the merge tier, so missed. Likely since SW-1146 (Builtins.sw declares J etc. as bodyless defs). Find the cause, fix it, and say whether named_arguments (or one sample of it) should join the merge tier.",
+      "body": "Found by SW-1109, confirmed by the orchestrator on main (3 Nov 18:40): fails from source too. Not in the merge tier, so missed. Likely since SW-1146 (Builtins.sw declares J etc. as bodyless defs). Find the cause, fix it, and say whether named_arguments (or one sample of it) should join the merge tier.\n\nDone 92a423af (Sonnet, 3 min, est. 30), reviewed. Cause: since SW-1146 J, rfl and Quot.* are defs in globals.defs, so the test rewrite named() turned J m b p into named form, which the kernel form rejects. Fix in the test only: skip heads where is_builtin. named_arguments 6/6. Orchestrator call: add named_calls_keep_every_hash (~18 s) to the merge profile when merging; it would have caught this at SW-1146. Model result: Sonnet, worked, 3 min (est. 30).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
