@@ -1,5 +1,5 @@
 {
-  "next": 1158,
+  "next": 1159,
   "tickets": [
     {
       "id": 47,
@@ -4498,6 +4498,20 @@
         "native"
       ],
       "body": "From SW-1124 (unsafe boundary fixed). Probes first: if off, a large frame can step over the guard page.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1158,
+      "title": "Elaborator state step 4: state::Caches (derivable memo tables), with a test switch that clears them before every declaration; rewind test runs a sample with it",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "docs/proposals/elaborator-state.md §7 step 4 (D2257). After SW-1152. D2269 (Matt, 3 Nov): start as slots free. Sonnet, est. 60 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
