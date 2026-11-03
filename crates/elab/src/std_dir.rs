@@ -195,13 +195,11 @@ impl StdText {
     }
 
     /// How a file of the library (its path under `std/`) is named to the
-    /// reader: `std/List/Sort.sw` for a bundle, the file's own path when
-    /// read from a directory, so an editor can open it.
+    /// reader: `std/List/Sort.sw`, wherever the copy was read from. Output,
+    /// caches and hashes use this logical name; a host that must open the
+    /// file joins the path to [`StdText::dir`] itself.
     pub fn shown_path(&self, path: &str) -> String {
-        match &self.dir {
-            None => format!("std/{path}"),
-            Some(dir) => dir.join(path).display().to_string(),
-        }
+        format!("std/{path}")
     }
 
     /// Where this copy came from, for tests and tools to say.
