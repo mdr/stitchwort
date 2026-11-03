@@ -1,5 +1,5 @@
 {
-  "next": 1165,
+  "next": 1166,
   "tickets": [
     {
       "id": 47,
@@ -4497,7 +4497,7 @@
       "labels": [
         "native"
       ],
-      "body": "From SW-1124 (unsafe boundary fixed). Probes first: if off, a large frame can step over the guard page.",
+      "body": "From SW-1124 (unsafe boundary fixed). Probes first: if off, a large frame can step over the guard page.\n\nDone 5e4e5460 (Sonnet, 25 min, est. 45), reviewed by the orchestrator. Stack probes were OFF (Cranelift 0.136 default; the frames.rs comment claiming probes was false) and frames can pass a page (spills x 24 + operand temporaries): now enable_probestack, inline, size_log2 12 in host_isa (JIT and AOT); a frame under a page compiles identically (test a_frame_of_several_pages_is_probed). x86-64 probed frames fall back to the IR frame bound (untested here). Real stack bounds: thread_stack_low (macOS pthread_get_stackaddr_np/stacksize_np; Linux pthread_getattr_np) checked at the first crossing with a 256 KiB margin; refused (ResourceError::Depth) if smaller or unknown; NativeExecutor::new and run_main_native safe again. NativeRun crate-private; Crossing::enter/apply/step private and safe. Tests: native lane 48, cli build 19, standalone+linked 8, doctest 1, new n2b a_thread_with_less_stack_than_claimed_is_refused. Note: a refused stack reports as Depth (misleading message). Model result: Sonnet, worked, 25 min (est. 45).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4596,6 +4596,20 @@
         "build"
       ],
       "body": "Seen by several verifiers and lanes on 3 Nov (33 warnings); harmless so far. Find why the symbols are defined twice and whether the wrong one could be picked.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1165,
+      "title": "Elaborator state step 5: table kinds (GrowVec, OwnedBy, Derived) in state/table.rs and state::Tables; Tables::{mark, rewind, encode_since, replay, dump} destructure exhaustively; encoded bytes unchanged",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "docs/proposals/elaborator-state.md §4.2 and §7 step 5 (D2257, D2259). D2272 (Matt, 3 Nov): start. Opus, est. 120 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
