@@ -3847,13 +3847,13 @@
     {
       "id": 1111,
       "title": "Design note: editor (VS Code/LSP) and playground feature roadmap",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "D2237 (Matt, 3 Nov): yes; also consider what features would be useful in the playground (web/, crates/web, the WebAssembly compiler). A short note in docs/proposals/: what exists today in each; candidate features (from the orchestrator's list: live goals panel, case split / fill match / match induct skeletons, lemma search from a goal, rename, add/organise imports, extract/inline, inlay hints, semantic tokens, signature help, go to implementation, call hierarchy, doc links, Test Explorer, code lenses; plus playground-specific ones); what each needs from the checker; shared work between the LSP and the playground; a suggested order. Then tickets from it. Sonnet; after SW-1110 (same area).",
+      "body": "D2237 (Matt, 3 Nov): yes; also the playground. Note merged: docs/proposals/editor-and-playground-roadmap.md (14 editor features, 8 playground ones, shared work, order, open questions). Key dependency: move position-based answers (goal at cursor, hover, signature, quick fixes) from lsp.rs into crates/driver so the LSP and playground share them, plus an elaborator probe for expected type and locals at a cursor. Found: the playground has no completion, code actions, search or sharing; it re-sends a stateless check 250 ms after typing; implicit arguments aren't recorded in nav::Ref. Open questions to Matt as D2241-D2246. Verifier deferred until SW-1115's build measurements are done (docs only). Model result: Sonnet, worked, 2 min (est. 45).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
