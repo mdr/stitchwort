@@ -4351,13 +4351,13 @@
     {
       "id": 1147,
       "title": "Should rigid_divergence be restored when an attempt is undone? (state note F7)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.",
+      "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.\n\nDone 2f11c955 (Sonnet, with SW-1150), reviewed, merged. rigid_divergence triggers Elaborator::group's second check with the signature's divergence total (partial-stage-3 §2.2, SW-439). Decision (orchestrator's call): keep it sticky across undone attempts. An extra trigger only costs a second check of a body that failed anyway; restoring could skip a needed retry and reject programs accepted today. Documented on the field, in undo.rs and the note's F7; unit test a_rigid_divergence_met_in_an_undone_attempt_still_counts.\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4393,13 +4393,13 @@
     {
       "id": 1150,
       "title": "omega_for_auto leaks from the last loaded library file into eval and typed-in expressions",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.",
+      "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.\n\nDone 2113b0cc (Sonnet, with SW-1147, 18 min, est. 50), reviewed, merged. Cause: Unit::leave carried the nested library file's value out, and rewind marks didn't keep it; a module that failed before its loads kept the previous module's value. Decision (orchestrator's call, per decision-scope): a typed-in expression sees the last module's value, or false before any module; a nested load starts with the outer value and the outer value is restored after. Fix: leave no longer carries it, Unit::mark/rewind keep it, module.rs clears it at module start. Test std_library a_nested_library_load_keeps_the_outer_units_omega_for_auto (reads the flag via a doc(hidden) accessor; no behavioural repro found). Model result: Sonnet, worked, 18 min for both (est. 50).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
