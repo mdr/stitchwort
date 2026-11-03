@@ -1,5 +1,5 @@
 {
-  "next": 1105,
+  "next": 1106,
   "tickets": [
     {
       "id": 47,
@@ -3755,6 +3755,20 @@
         "perf"
       ],
       "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1105,
+      "title": "Bring the feature tour (web/guide) and the language guide (docs/guide) up to date with the language as it is",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 3 Nov: update both with any new features. Describe the language as it is now, not its history; keep the docs balanced, not weighted toward recent changes. Tour last changed 27 Oct, guide 1 Nov.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
