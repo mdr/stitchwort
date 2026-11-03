@@ -4637,7 +4637,7 @@
       "labels": [
         "design"
       ],
-      "body": "",
+      "body": "Matt (3 Nov): write it up as an artifact for an external reviewer. Opus writes the page; the orchestrator publishes it (private to Matt). Step 6 (D2279) waits for the review.\n\nDone 37eee11e (Opus, 7 min, est. 60), merged (docs only). Published privately: https://claude.ai/artifact/HQSbKp4dQ6wYuEJ1PWwA3h (slug 84d818c6-541b-4bb0-8085-7a1680853560). Externally verified: ena SnapshotVec/UnificationTable, rustc InferCtxtUndoLogs. Note/code gaps found (now reviewer questions 1-2): step 6 makes the cache Before a log mark, so CLI checks would log (note §4.3 says they do not), which needs a trimming rule; the OwnedBy floor is set before a namespace's nested library loads. Also: elaborate_namespace_cached clones every scope key into start_keys on each miss, a second copy step 6 should cover. Orchestrator's call: keep the gaps as reviewer questions rather than fix the note first.\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
