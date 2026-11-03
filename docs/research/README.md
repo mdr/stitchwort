@@ -14,6 +14,7 @@ file records how it was searched, so it can be refreshed.
 | Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
 | Agentic theorem proving (SW-909) | [agentic-proving.md](agentic-proving.md) | 69 / 24 / 12 in full + 12 in part / 0 | New 30 Oct; not yet audited; with a friction count from the AoC and rogue notes; D2040–D2041 |
 | Congruence closure in `cases` (SW-904, D2000) | [congruence-closure-evidence.md](congruence-closure-evidence.md) | evidence survey of the repo, not literature | New 30 Oct; recommends defer: about 150 sites, about 0 lines saved each |
+| Perceus-style in-place reuse (SW-1159) | [in-place-reuse.md](in-place-reuse.md) | evidence survey of the repo (allocation traces), literature from compilation.md C1, C4, C5 plus the Perceus TR | New 3 Nov; recommends a per-site reuse report first, then reuse across small helpers; D2272-D2276 |
 
 **Summary report:** [summary/literature-review.pdf](summary/literature-review.pdf)
 (LaTeX source and bibliography beside it; build with
