@@ -1209,7 +1209,7 @@ until step 8):
   nested library loads, namespace lookups and entry writes, then checked
   again with the entries written before the cancellation: as fresh). The
   model test also retains. Breaking the scope's undo of one table (the
-  followers) fails the first. `mark_and_rewind_cost_on_aoc` (ignored, run by
+  followers) fails the first. `mark_and_rewind_cost_alone` (ignored, run by
   name) runs the measurement below without the rest of the full tier.
 - **Measured** (`mark_and_rewind_cost`, `aoc` with navigation, the same
   test on the build before and after, load 3-9): a mark 1.04 → 0.26 ms, a
