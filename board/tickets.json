@@ -1,5 +1,5 @@
 {
-  "next": 1166,
+  "next": 1167,
   "tickets": [
     {
       "id": 47,
@@ -4477,13 +4477,13 @@
     {
       "id": 1156,
       "title": "Check cache key leaves out glue (STITCHWORT_GLUE): can an entry made with gluing on be served with it off?",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1152: Options::cache_key() leaves glue out. Check whether glued and unglued elaboration give different terms or tables for a library file; if so, add glue to the key (FORMAT bump) with a test.\n\nD2272 (Matt, 3 Nov): start. DeepSeek, est. 20 min, scratch-sw-1156. SW-1157 Sonnet (est. 45) alongside; state step 5 (Opus) after SW-1156 merges.\n\nDone 39d55f5a (DeepSeek, 23 min, est. 20), reviewed; merges after the SW-1153 verifier. Real bug: glue changes checked terms (Std.Nat.divModEq keeps or unfolds inner Nat calls), and an unglued run replayed 16 glued entries, giving a different dump from a fresh unglued run. Fix: glue in Options::cache_key() (key text ends uniform .. glue ..; old entries miss; FORMAT unchanged). Test the_cache_keeps_glued_results_from_an_unglued_run (fails without the fix: 16 hits). Model result: DeepSeek, worked, 23 min (est. 20).",
+      "body": "From SW-1152: Options::cache_key() leaves glue out. Check whether glued and unglued elaboration give different terms or tables for a library file; if so, add glue to the key (FORMAT bump) with a test.\n\nD2272 (Matt, 3 Nov): start. DeepSeek, est. 20 min, scratch-sw-1156. SW-1157 Sonnet (est. 45) alongside; state step 5 (Opus) after SW-1156 merges.\n\nDone 39d55f5a (DeepSeek, 23 min, est. 20), reviewed; merges after the SW-1153 verifier. Real bug: glue changes checked terms (Std.Nat.divModEq keeps or unfolds inner Nat calls), and an unglued run replayed 16 glued entries, giving a different dump from a fresh unglued run. Fix: glue in Options::cache_key() (key text ends uniform .. glue ..; old entries miss; FORMAT unchanged). Test the_cache_keeps_glued_results_from_an_unglued_run (fails without the fix: 16 hits). Model result: DeepSeek, worked, 23 min (est. 20).\n\nVerified: selected 582, merge tier 1043, audit clean; warm glued aoc check 2.6 s user (hits). The unglued aoc check (STITCHWORT_GLUE=0, all misses) ran over 24 min at ~13 GB before the orchestrator stopped it: the comparison switch is impractical on large projects (filed).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4610,6 +4610,20 @@
         "elab"
       ],
       "body": "docs/proposals/elaborator-state.md §4.2 and §7 step 5 (D2257, D2259). D2272 (Matt, 3 Nov): start. Opus, est. 120 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1166,
+      "title": "STITCHWORT_GLUE=0 on the aoc project runs for over 24 min and ~13 GB (glued: ~65 s): is unglued checking expected to be this slow, and is the comparison switch still useful?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "Seen 3 Nov by the SW-1156 verifier; stopped by the orchestrator. Find which namespace blows up unglued; decide whether to keep the switch, limit it to small inputs, or document it.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
