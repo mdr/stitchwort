@@ -78,16 +78,25 @@ const UNCACHEABLE: &[&str] = &["Float/Float.sw"];
 /// Loads `source` in a new session (navigation recorded or not), through
 /// the cache in `cache` if there is one.
 fn run(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
-    with_stack(STACK, || run_here(source, nav, cache))
+    with_stack(STACK, || run_here(source, nav, cache, None))
+}
+
+/// [`run`], with glued evaluation set to `glue` after the session is made
+/// (so the core, loaded then, is the same as in every other run).
+fn run_with_glue(source: &Source, nav: bool, cache: Option<&Path>, glue: bool) -> Run {
+    with_stack(STACK, || run_here(source, nav, cache, Some(glue)))
 }
 
 /// [`run`], on this thread.
-fn run_here(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
+fn run_here(source: &Source, nav: bool, cache: Option<&Path>, glue: Option<bool>) -> Run {
     let mut session = if nav {
         Session::navigable_for_stack(STACK)
     } else {
         Session::for_stack(STACK)
     };
+    if let Some(glue) = glue {
+        session.elab.options.glue = glue;
+    }
     if let Some(dir) = cache {
         session.use_check_cache(dir);
     }
@@ -268,6 +277,33 @@ fn the_cache_changes_nothing_for_the_examples() {
     par_map(STACK, &sources, |source| {
         assert_cache_changes_nothing(source, true);
     });
+}
+
+/// Gluing changes the terms elaboration checks (SW-1156: `Std.Nat.divModEq`'s
+/// body keeps or unfolds the calls of its inner `Nat` operations), so the
+/// key has to keep a glued entry from being replayed into an unglued run.
+/// The cold run fills a cache glued; the warm one, unglued, must not load
+/// any of it, and must give what a fresh unglued run gives.
+#[test]
+fn the_cache_keeps_glued_results_from_an_unglued_run() {
+    let path = examples_dir().join("accept/adder.sw");
+    let source = Source::File(
+        "accept/adder.sw".into(),
+        std::fs::read_to_string(path).unwrap(),
+    );
+    let fresh = run_with_glue(&source, false, None, false);
+    let dir = temp_dir("glue");
+    let cold = run_with_glue(&source, false, Some(&dir), true);
+    let warm = run_with_glue(&source, false, Some(&dir), false);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(cold.stats.hits, 0, "a new cache had entries");
+    assert!(cold.stats.written > 0, "the glued run wrote nothing");
+    assert_eq!(warm.stats.hits, 0, "the unglued run loaded a glued entry");
+    assert!(
+        warm.dump == fresh.dump,
+        "the glued cache changed the unglued result: {}",
+        first_difference(&fresh.dump, &warm.dump)
+    );
 }
 
 /// SW-1072: an example that derives `Ord` over its own `DecEq`, with
