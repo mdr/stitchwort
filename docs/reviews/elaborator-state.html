@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stitchwort elaborator state: design review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: one 65ch text column, wide blocks (code, tables, diagram) up to 54rem, 20px gutters */
+  --paper: #f3f5f7;
+  --ink: #1a2230;
+  --muted: #566173;
+  --rule: #cfd6df;
+  --accent: #1d5c86;
+  --flag: #8a5a00;
+  --panel: #e6eaef;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Serif", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12171e;
+    --ink: #dfe5ec;
+    --muted: #9aa6b5;
+    --rule: #2f3946;
+    --accent: #7db6dc;
+    --flag: #e0b25c;
+    --panel: #1b222c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12171e;
+  --ink: #dfe5ec;
+  --muted: #9aa6b5;
+  --rule: #2f3946;
+  --accent: #7db6dc;
+  --flag: #e0b25c;
+  --panel: #1b222c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.55;
+}
+main { max-width: 54rem; margin: 0 auto; padding: 2.5rem 20px 4rem; }
+main > p, main > ul, main > ol, section > p, section > ul, section > ol, .lede { max-width: 65ch; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.2; letter-spacing: 0.005em; }
+h1 { font-size: 1.9rem; margin: 0 0 0.4rem; }
+h2 { font-size: 1.4rem; margin: 2.8rem 0 0.6rem; padding-top: 0.8rem; border-top: 2px solid var(--ink); }
+h3 { font-size: 1.1rem; margin: 1.8rem 0 0.4rem; color: var(--accent); }
+h2 .num { color: var(--muted); font-weight: 500; margin-right: 0.4em; }
+a { color: var(--accent); }
+.meta { font-family: var(--display); color: var(--muted); font-size: 0.95rem; margin-bottom: 1.4rem; }
+.lede { font-size: 1.05rem; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--panel); padding: 0.05em 0.3em; border-radius: 3px; }
+pre {
+  font-family: var(--mono); font-size: 0.8rem; line-height: 1.45;
+  background: var(--panel); border-left: 3px solid var(--accent);
+  padding: 0.9rem 1rem; overflow-x: auto; margin: 0.8rem 0 1.2rem;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.src { font-family: var(--display); font-size: 0.85rem; color: var(--muted); margin: 1rem 0 -0.5rem; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.8rem 0 1.2rem; }
+.wrap { overflow-x: auto; }
+th, td { text-align: left; vertical-align: top; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--display); font-weight: 600; border-bottom: 2px solid var(--ink); white-space: nowrap; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 0.05em 0.45em; border: 1px solid currentColor; border-radius: 3px;
+  white-space: nowrap; vertical-align: 0.1em;
+}
+.m { color: var(--accent); }
+.e { color: var(--flag); }
+.p { color: var(--muted); }
+.key { font-family: var(--display); font-size: 0.9rem; color: var(--muted); }
+nav.toc { font-family: var(--display); background: var(--panel); padding: 0.8rem 1.1rem; margin: 1.2rem 0 0.5rem; max-width: 65ch; }
+nav.toc ol { margin: 0.3rem 0 0; padding-left: 1.4rem; columns: 2; column-gap: 2rem; }
+nav.toc li { margin: 0.1rem 0; break-inside: avoid; }
+.note { border-left: 3px solid var(--flag); padding: 0.4rem 0.9rem; margin: 1rem 0; max-width: 65ch; }
+.q { counter-reset: q; list-style: none; padding-left: 0; max-width: 65ch; }
+.q > li { counter-increment: q; margin: 0 0 1.1rem; padding-left: 2.4rem; position: relative; }
+.q > li::before { content: "Q" counter(q); position: absolute; left: 0; font-family: var(--display); font-weight: 600; color: var(--accent); }
+figure { margin: 1.2rem 0; }
+figcaption { font-family: var(--display); font-size: 0.88rem; color: var(--muted); max-width: 65ch; margin-top: 0.4rem; }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: var(--display); fill: var(--ink); }
+svg .lbl { font-size: 13px; font-weight: 600; }
+svg .sub { font-size: 11px; fill: var(--muted); }
+svg .bar { fill: var(--panel); stroke: var(--rule); }
+svg .barA { fill: var(--accent); opacity: 0.22; stroke: var(--accent); }
+svg .barF { fill: var(--flag); opacity: 0.18; stroke: var(--flag); }
+svg .tick { stroke: var(--accent); stroke-width: 2; }
+svg .axis { stroke: var(--muted); stroke-width: 1; }
+svg .undo { stroke: var(--flag); stroke-width: 1.5; fill: none; }
+footer { margin-top: 3rem; font-family: var(--display); font-size: 0.85rem; color: var(--muted); max-width: 65ch; }
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  main { padding: 1.5rem 16px 3rem; }
+  h1 { font-size: 1.5rem; }
+  nav.toc ol { columns: 1; }
+  th, td { padding: 0.35rem 0.4rem; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Stitchwort's elaborator state: a design for review</h1>
+<p class="meta">Brief for an outside reviewer. 3 November 2026. Stitchwort is a private repository, so this page tries to be self-contained: it quotes the code it relies on.</p>
+
+<p class="lede">We have restructured the state of a dependently typed elaborator by lifetime, and we are about to replace the copies it takes at rewind points with undo logs. Before we do, we would like an experienced implementer to look at the design. Section 8 has the questions. The rest gives you enough to answer them.</p>
+
+<p class="key">Labels used throughout: <span class="tag m">measured</span> a number from a run, with the file it is recorded in; <span class="tag e">estimate</span> reasoning or a benchmark standing in for the real thing; <span class="tag p">planned</span> not built yet. Paths are relative to the repository root.</p>
+
+<nav class="toc" aria-label="Contents">
+<strong>Contents</strong>
+<ol>
+<li><a href="#context">Stitchwort, briefly</a></li>
+<li><a href="#problem">The problem</a></li>
+<li><a href="#design">The design</a></li>
+<li><a href="#code">What the code looks like</a></li>
+<li><a href="#status">Status and what is next</a></li>
+<li><a href="#others">How others do it</a></li>
+<li><a href="#rejected">Alternatives we rejected</a></li>
+<li><a href="#questions">Questions for you</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ -->
+<section id="context">
+<h2><span class="num">1</span>Stitchwort, briefly</h2>
+
+<p>Stitchwort is a small, total, dependently typed functional language, used both for programs and for proofs about them. Functions terminate by default; anything that might not says so in its type (<code>Partial</code>). Effects are algebraic abilities with handlers, translated into ordinary data in the prelude, so the core has no effect judgement.</p>
+
+<ul>
+<li><strong>Kernel.</strong> A small core calculus (de Bruijn terms, inductive families, a built-in equality with <code>J</code>, quotients, numbered universes without polymorphism). The kernel, in <code>crates/core</code>, re-checks every term the elaborator produces from scratch. The elaborator is not trusted.</li>
+<li><strong>Elaborator.</strong> <code>crates/elab</code>, about 101,000 lines of Rust (counted). Metavariables and unification, implicit and auto arguments, instance search, pattern-match compilation into case trees, termination checking, derived instances, records, interfaces. It is single-threaded. Terms are <code>Rc</code>, and mutation goes through <code>RefCell</code>s on a shared <code>&amp;Elaborator</code>.</li>
+<li><strong>Standard library.</strong> 91 source files, about 28,000 lines (counted), loaded per file and on demand.</li>
+<li><strong>Runtimes.</strong> The kernel's own reference evaluator; a bytecode runtime with Perceus-style reference counting and in-place reuse; native code through Cranelift; and JavaScript.</li>
+</ul>
+
+<h3>Who drives the elaborator</h3>
+<ul>
+<li><strong>The command-line check</strong> of a project. A project is a folder of namespaces. Each library file and each namespace is a <em>unit</em>: elaborated as one piece, and stored as one entry in an on-disk <em>check cache</em>. An entry holds what the unit added, written by path and content hash rather than by load-order id, so it can be replayed into a session whose ids differ. Replay re-admits the declarations through a trusted path and extends the elaborator's side tables.</li>
+<li><strong>The language server</strong> keeps one session. It loads the whole library, takes a <em>mark</em> (a value it can later rewind to) before each namespace it checks, and keeps all of them. After an edit it rewinds to the mark before the first changed namespace and checks from there. A check cancelled from another thread also rewinds. Marks are only taken between units, never inside one.</li>
+<li><strong><code>search --at</code></strong>, a proof-action search, builds two sessions: one searches, the other checks candidates so the first isn't disturbed. Each loads the library separately.</li>
+<li><strong>Tests</strong>, including differential tests that compare a session against a fresh one: replayed from cache against fresh (<code>check_cache.rs</code>), rewound and re-checked against fresh (<code>rewind.rs</code>), and hash stability. What they compare is a <em>canonical dump</em> of everything a later unit can read, plus content hashes, the navigation index and diagnostics.</li>
+</ul>
+
+<h3>Scale</h3>
+<p>The largest project is <code>aoc</code>, Advent of Code solutions with proofs: 407 source files, about 35,500 lines (counted).</p>
+<div class="wrap"><table>
+<thead><tr><th>What</th><th>Value</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Units in a check of <code>aoc</code></td><td class="n">289</td><td>82 library files and 207 namespaces. <span class="tag m">measured</span> design note §5.2</td></tr>
+<tr><td>Declarations</td><td class="n">14,950</td><td><span class="tag m">measured</span> §5.2</td></tr>
+<tr><td>Cold check (<code>--no-cache</code>)</td><td class="n">68.7 s wall, 1.59 GB peak</td><td>51.5 s elaboration, 16.8 s kernel. <span class="tag m">measured</span> §5.2; a later run on the same day gave 68.7 s user, 1.56 GB</td></tr>
+<tr><td>Warm check (every entry a hit)</td><td class="n">3.2 s user</td><td><span class="tag m">measured</span> board ticket of step 3, against 71 s cold under load</td></tr>
+<tr><td>Project symbols / references in the index</td><td class="n">8,780 / 289,715</td><td><span class="tag m">measured</span> §5.2</td></tr>
+<tr><td>Language server: re-check after an edit in a small namespace</td><td class="n">41&ndash;47 ms</td><td>28 ms checking, 11 ms publishing. <span class="tag m">measured</span> language-server note, on an earlier, smaller <code>aoc</code></td></tr>
+<tr><td>Language server: one mark / rewind to it</td><td class="n">1.9 ms / 3.5 ms</td><td><span class="tag m">measured</span> language-server note, same earlier <code>aoc</code></td></tr>
+<tr><td>Cancellation latency</td><td class="n">5&ndash;23 ms</td><td>target 20 ms. <span class="tag m">measured</span> language-server note</td></tr>
+</tbody>
+</table></div>
+<p>"The design note" below is <code>docs/proposals/elaborator-state.md</code>, the internal proposal this page summarises.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="problem">
+<h2><span class="num">2</span>The problem</h2>
+
+<p>Before this work the <code>Elaborator</code> was one struct of 116 fields, 47 of them <code>RefCell</code>, plus 22 fields in a shared <code>Globals</code> (the kernel environment and the metavariable store together), plus about a dozen thread-locals and process globals (design note §1). The fields had very different lifetimes: per speculative attempt, per declaration, per unit, per session, and "grows with every unit and is read by later ones". Nothing in the code said which was which.</p>
+
+<p>Six mechanisms walk that state, and each kept its own hand-written list of fields:</p>
+<ol>
+<li><strong>Undoing a failed attempt</strong> (<code>undo::Snapshot</code>): 18 named things plus 9 maps filtered in <code>restore</code>. It runs on every application with an expected type, every dot call, every instance search step; 126 call sites.</li>
+<li><strong>Per-declaration cleanup</strong> (<code>clear_metas</code>), called from about 65 sites, plus other clears elsewhere. Four tables were undone by <code>Snapshot</code> but not cleared by it.</li>
+<li><strong>A library file loaded in the middle of a unit</strong>: save the unit's fields, elaborate the library file, put them back. Written out twice.</li>
+<li><strong>Rewind</strong> for the language server. The only list the compiler checked: <code>rewind</code> destructured every field.</li>
+<li><strong>The check cache</strong>: a <code>Before</code> snapshot per unit, then about 1,350 hand-written lines of encode, decode and replay, one block per table.</li>
+<li><strong>The canonical dump</strong>, the differential tests' oracle. Also a hand-written list.</li>
+</ol>
+
+<p>So a new table could be wrong in five ways the compiler couldn't see. These bugs were real:</p>
+<ul>
+<li><strong>Three tables missing from the cache and the dump.</strong> Why <code>Finite</code> and a decision procedure weren't derived for a type, and the <code>D.All</code> generated for a nested container. They were rewound correctly but neither encoded nor dumped. After a replay, a later namespace lost the "why not" notes, and generated a private copy of <code>All</code> instead of reusing the existing one: different hashes, different terms. The differential test couldn't see it, because the dump had the same gap. Reproduced and fixed.</li>
+<li><strong>The same shape, found by the design note:</strong> the set of definitions re-checked with total row variables was rewound but not cached or dumped. After a replay, an error note and a hover line went missing. Reproduced and fixed. A fourth table had the same gap but no visible effect.</li>
+<li><strong>State outside the object.</strong> Seven thread-locals in unification and 26 global counters in the postponement queue, so two sessions on one thread (the language server beside a search) shared them.</li>
+<li><strong>Memory from marks.</strong> A mark copies every table whose old rows a later unit can change. The language server keeps a mark per namespace, so the copies grow with namespaces times table size: quadratic in the project. Once, 8 of 13 GB of an editor session was copies of the navigation recorder <span class="tag m">measured</span>. That one table was moved to an undo log; about 15 others are still copied, the name scope among them (§5).</li>
+<li><strong>The cache's <code>Before</code></strong> copies the scope's entries, a map of 15,000&ndash;30,000 name-keyed rows on <code>aoc</code> <span class="tag e">estimate</span>, once per unit, 289 times per check.</li>
+</ul>
+
+<p>The cause was the same each time: fields with no declared lifetime, and mechanisms that are lists kept by hand.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="design">
+<h2><span class="num">3</span>The design</h2>
+
+<h3>3.1 Components by lifetime</h3>
+<p>The <code>Elaborator</code> becomes a handful of structs, one per lifetime. A field's lifetime decides which struct it goes in. Each mechanism is a method that destructures its component without <code>..</code>, so a new field doesn't compile until every mechanism says what it does with it.</p>
+
+<div class="wrap"><table>
+<thead><tr><th>Component</th><th>Lifetime</th><th>How each mechanism treats it</th></tr></thead>
+<tbody>
+<tr><td><code>Options</code></td><td>the session; fixed when it is built</td><td>never rewound; destructured to make the settings part of the cache key</td></tr>
+<tr><td><code>Kernel</code> <span class="tag p">planned</span></td><td>grows with each unit</td><td>definitions and data types in load-order <code>Vec</code>s: marked by length. Today still inside <code>Globals</code></td></tr>
+<tr><td><code>Tables</code></td><td>grows with each unit; read by later units</td><td>each table has a kind that supplies mark, rewind, encode, replay and dump (3.2)</td></tr>
+<tr><td><code>Session</code> (with <code>Stats</code>)</td><td>project and run bookkeeping; the counters that were globals</td><td>small maps copied at a mark today (undo-logged in step 6); counters left alone</td></tr>
+<tr><td><code>Caches</code></td><td>any; derivable</td><td>emptied or cut by id at a rewind, never encoded. A test switch empties them before every declaration and checks nothing changes</td></tr>
+<tr><td><code>Presentation</code> <span class="tag p">planned</span></td><td>the session: navigation recorder, goals shown, logs</td><td>navigation is already an undo log; the rest still on the <code>Elaborator</code></td></tr>
+<tr><td><code>Unit</code></td><td>the unit being elaborated</td><td>swapped out whole (<code>mem::replace</code>) while a nested library file loads</td></tr>
+<tr><td><code>Decl</code></td><td>one declaration or group</td><td>reset by <code>Decl::default()</code>; asserted empty at a mark</td></tr>
+<tr><td><code>Attempt</code></td><td>one declaration, with speculative sub-scopes</td><td>a <code>Copy</code> mark of 13 lengths plus a trail; restore by exhaustive destructuring</td></tr>
+<tr><td><code>Globals</code></td><td>mixed: kernel environment, metavariable store, operation state</td><td>still one struct in the core crate; split later in its own design (§5)</td></tr>
+</tbody>
+</table></div>
+
+<figure>
+<svg viewBox="0 0 860 330" role="img" aria-labelledby="figt figd">
+<title id="figt">Components by lifetime</title>
+<desc id="figd">A timeline of one session. Options, Kernel and Tables, Session, Caches and Presentation span the whole session. Unit spans one unit at a time, with a nested library load shown swapping it out. Decl spans one declaration. Attempt spans short speculative attempts, some undone. Marks are taken at unit boundaries.</desc>
+<line class="axis" x1="170" y1="300" x2="845" y2="300"/>
+<text class="sub" x="170" y="318">session starts</text>
+<text class="sub" x="845" y="318" text-anchor="end">time</text>
+<!-- marks at unit boundaries -->
+<line class="tick" x1="300" y1="20" x2="300" y2="300" stroke-dasharray="3 4"/>
+<line class="tick" x1="560" y1="20" x2="560" y2="300" stroke-dasharray="3 4"/>
+<line class="tick" x1="760" y1="20" x2="760" y2="300" stroke-dasharray="3 4"/>
+<text class="sub" x="300" y="14" text-anchor="middle">mark</text>
+<text class="sub" x="560" y="14" text-anchor="middle">mark</text>
+<text class="sub" x="760" y="14" text-anchor="middle">mark</text>
+<!-- Options -->
+<text class="lbl" x="10" y="42">Options</text>
+<text class="sub" x="10" y="56">fixed</text>
+<rect class="bar" x="170" y="30" width="675" height="22" rx="2"/>
+<!-- Kernel + Tables -->
+<text class="lbl" x="10" y="84">Kernel, Tables</text>
+<text class="sub" x="10" y="98">grow; later units read</text>
+<polygon class="barA" points="170,90 300,90 300,84 560,84 560,78 760,78 760,72 845,72 845,96 170,96"/>
+<!-- Session Caches Presentation -->
+<text class="lbl" x="10" y="126">Session, Caches,</text>
+<text class="lbl" x="10" y="141">Presentation</text>
+<rect class="bar" x="170" y="116" width="675" height="22" rx="2"/>
+<!-- Unit -->
+<text class="lbl" x="10" y="178">Unit</text>
+<text class="sub" x="10" y="192">one unit</text>
+<rect class="barA" x="172" y="166" width="126" height="22" rx="2"/>
+<rect class="barA" x="302" y="166" width="256" height="22" rx="2"/>
+<rect class="barF" x="400" y="166" width="70" height="22" rx="2"/>
+<text class="sub" x="435" y="181" text-anchor="middle">nested lib</text>
+<rect class="barA" x="562" y="166" width="196" height="22" rx="2"/>
+<rect class="barA" x="762" y="166" width="83" height="22" rx="2"/>
+<!-- Decl -->
+<text class="lbl" x="10" y="226">Decl</text>
+<text class="sub" x="10" y="240">one declaration</text>
+<g>
+<rect class="barA" x="175" y="214" width="34" height="22"/><rect class="barA" x="213" y="214" width="44" height="22"/><rect class="barA" x="261" y="214" width="34" height="22"/>
+<rect class="barA" x="305" y="214" width="40" height="22"/><rect class="barA" x="349" y="214" width="46" height="22"/><rect class="barA" x="405" y="214" width="28" height="22"/><rect class="barA" x="437" y="214" width="30" height="22"/><rect class="barA" x="475" y="214" width="38" height="22"/><rect class="barA" x="517" y="214" width="38" height="22"/>
+<rect class="barA" x="565" y="214" width="60" height="22"/><rect class="barA" x="629" y="214" width="44" height="22"/><rect class="barA" x="677" y="214" width="78" height="22"/>
+<rect class="barA" x="765" y="214" width="36" height="22"/><rect class="barA" x="805" y="214" width="38" height="22"/>
+</g>
+<!-- Attempt -->
+<text class="lbl" x="10" y="272">Attempt</text>
+<text class="sub" x="10" y="286">speculative; undone</text>
+<g>
+<rect class="barA" x="677" y="260" width="10" height="20"/><rect class="barF" x="690" y="260" width="14" height="20"/><rect class="barA" x="707" y="260" width="8" height="20"/><rect class="barF" x="718" y="260" width="18" height="20"/><rect class="barA" x="739" y="260" width="14" height="20"/>
+<path class="undo" d="M 704 258 q -7 -10 -14 0"/>
+<path class="undo" d="M 736 258 q -9 -10 -18 0"/>
+<line class="axis" x1="677" y1="236" x2="677" y2="260" stroke-dasharray="2 2"/>
+<line class="axis" x1="755" y1="236" x2="755" y2="260" stroke-dasharray="2 2"/>
+<text class="sub" x="600" y="276" text-anchor="end">(one declaration, enlarged)</text>
+</g>
+</svg>
+<figcaption>One session over time. Marks (dashed) fall only at unit boundaries, so <code>Unit</code>, <code>Decl</code> and <code>Attempt</code> are empty or reset at every mark and need no mark of their own beyond a few fields. Only the long-lived rows need marking, and they grow in steps, one per unit. Ochre: a nested library load that swaps <code>Unit</code> out, and undone attempts.</figcaption>
+</figure>
+
+<h3>3.2 Table kinds</h3>
+<p>The long-lived tables are not bare <code>HashMap</code>s. Each is one of four kinds, a small generic type that states its policy once, where the table is declared:</p>
+
+<div class="wrap"><table>
+<thead><tr><th>Kind</th><th>Invariant</th><th>Mark / rewind</th><th>Cache entry holds</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><code>GrowVec&lt;T&gt;</code></td><td>push only, in load order</td><td>length / truncate</td><td>rows past the mark</td><td><span class="tag m">built</span> 5 tables</td></tr>
+<tr><td><code>OwnedBy&lt;Id, V&gt;</code></td><td>a row for declaration <code>i</code> is written only while the unit that declared <code>i</code> is elaborated; <code>insert</code> asserts it</td><td>drop rows with ids past the mark</td><td>rows for the unit's own ids, by path and hash</td><td><span class="tag m">built</span> 11 tables</td></tr>
+<tr><td><code>Logged&lt;K, V&gt;</code></td><td>none: any row may change</td><td>undo log: O(1) mark, O(changes) rewind</td><td>the rows changed since the mark: the log is the delta</td><td><span class="tag p">step 6</span> scope maps, instances, helper keys</td></tr>
+<tr><td><code>Derived</code></td><td>correct if emptied at any time</td><td>emptied or cut by id</td><td>nothing</td><td>became the <code>Caches</code> component rather than a type</td></tr>
+</tbody>
+</table></div>
+
+<p>A table that fits no kind implements the <code>Table</code> trait by hand, and the compiler insists that it does. <code>OwnedBy</code>'s assertion turns a run-time check the cache used to make by hand ("a row for an older data type changed") into an invariant upheld at every write, so the bug is caught at its source in every test, not only in a cached run.</p>
+
+<h3>3.3 The codec and the dump stay independent</h3>
+<p>The dump is the differential tests' oracle, so it must not be generated from the encoder. The kind supplies <em>which</em> rows: the encoder writes the delta since a mark, the dump prints the whole live table. Each <em>row type</em> implements <code>Codec</code> (bytes) and <code>Dump</code> (text) separately, written by hand in different files. A delta selected wrongly, or a row that decodes wrongly, still shows up as a difference between replayed and fresh sessions, because the fresh session is the reference. What generation could mask is a table missing from the mechanism altogether, and that is what exhaustive destructuring prevents.</p>
+
+<h3>3.4 No persistent data structures as the general representation</h3>
+<p>Our workflows mark and rewind in stack order: a rewind is never to a mark older than one already rewound past. They don't need many live versions branching from each other, which is what persistence buys. Undo logs serve stack order at a fraction of the time and memory, and leave every lookup as it is. The numbers are in §7.</p>
+
+<h3>3.5 A frozen library base, later and only behind a measurement</h3>
+<p>Some workflows do need two live states sharing a past: the search's second session, tests that load the standard library repeatedly (about 9 CPU-seconds per load, 136 tests, about 1,220 CPU-seconds per daily test run <span class="tag m">measured</span>), and parallel namespaces some day. They all fork at one place, after the library has loaded. The proposal: freeze <code>Kernel</code> and <code>Tables</code> into an <code>Rc</code> there and give each session an overlay. Ids below the base's length go to the base (one comparison); maps probe the overlay first. Unlike Lean's staged map, an overlay row may shadow a base row. It touches every hot lookup, so it waits until a measurement shows the fork's value <span class="tag p">planned</span>.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="code">
+<h2><span class="num">4</span>What the code looks like</h2>
+<p>Excerpts from <code>crates/elab/src/state/</code> as merged, trimmed only where marked.</p>
+
+<p class="src">table.rs: the trait every kind implements</p>
+<pre><code>/// A row's bytes in a check cache entry: declarations by path and hash
+/// (through [`Encoding`]'s references), never by load-order id.
+pub(crate) trait Codec: Sized {
+    fn encode(&amp;self, e: &amp;mut Encoding&lt;'_&gt;);
+    fn decode(b: &amp;mut Body&lt;'_&gt;) -&gt; Read&lt;Self&gt;;
+}
+
+/// A row's text in the canonical dump, written independently of [`Codec`].
+pub(crate) trait Dump {
+    fn dump(&amp;self, out: &amp;mut String);
+}
+
+/// How a table of one kind serves each mechanism.
+pub(crate) trait Table {
+    type Mark;
+    /// What a check cache entry holds of the table, read back.
+    type Rows;
+    /// Where the table is, with `ids` declarations made so far.
+    fn mark(&amp;self, ids: Ids) -&gt; Self::Mark;
+    /// Back to `m` (stack order: no older mark has been rewound to since).
+    fn rewind(&amp;mut self, m: &amp;Self::Mark);
+    /// What the unit being encoded added since `m`; an error if it changed
+    /// what was there before in a way an entry can't hold.
+    fn encode_since(&amp;self, m: &amp;Self::Mark, e: &amp;mut Encoding&lt;'_&gt;) -&gt; Result&lt;(), String&gt;;
+    fn decode(b: &amp;mut Body&lt;'_&gt;) -&gt; Read&lt;Self::Rows&gt;;
+    /// Adds an entry's rows, read back.
+    fn replay(&amp;mut self, rows: Self::Rows);
+    /// The whole table, one line per row, each starting with `name`.
+    fn dump(&amp;self, name: &amp;str, out: &amp;mut String);
+}</code></pre>
+<p>Decoding is split from replaying because a replay must change nothing until the whole entry has been read and the kernel has admitted its declarations.</p>
+
+<p class="src">table.rs: OwnedBy, its ownership floor, and its encoder's check</p>
+<pre><code>pub(crate) struct OwnedBy&lt;I, V&gt; {
+    rows: HashMap&lt;I, V&gt;,
+    /// The first id of the unit being elaborated: rows below it are
+    /// another unit's.
+    floor: usize,
+}
+
+impl&lt;I: Id, V&gt; OwnedBy&lt;I, V&gt; {
+    pub(crate) fn insert(&amp;mut self, id: I, row: V) -&gt; Option&lt;V&gt; {
+        self.owned(id);
+        self.rows.insert(id, row)
+    }
+
+    fn owned(&amp;self, id: I) {
+        assert!(
+            id.index() &gt;= self.floor,
+            "a row for declaration {} written by a later unit (its first is {})",
+            id.index(),
+            self.floor,
+        );
+    }
+    // ... remove, sorted
+}
+
+impl&lt;I: Id, V: Codec + Dump&gt; Table for OwnedBy&lt;I, V&gt; {
+    // ... mark, rewind (rows.retain(|id, _| id.index() &lt; m.cut))
+    fn encode_since(&amp;self, m: &amp;OwnedMark, e: &amp;mut Encoding&lt;'_&gt;) -&gt; Result&lt;(), String&gt; {
+        let (old, new): (Vec&lt;_&gt;, Vec&lt;_&gt;) = self
+            .sorted()
+            .into_iter()
+            .partition(|(id, _)| id.index() &lt; m.cut);
+        if old.len() != m.rows {
+            return Err("a row for an older declaration changed".to_string());
+        }
+        e.count(new.len());
+        for (id, row) in new {
+            id.encode(e);
+            row.encode(e);
+        }
+        Ok(())
+    }
+    // ... decode, replay, dump
+}</code></pre>
+
+<p class="src">tables.rs: the Tables struct (doc comments shortened)</p>
+<pre><code>#[derive(Default)]
+pub(crate) struct Tables {
+    pub(crate) tests: GrowVec&lt;TestDecl&gt;,
+    pub(crate) abilities: GrowVec&lt;AbilityInfo&gt;,
+    pub(crate) lifted: GrowVec&lt;(DefId, Span)&gt;,
+    pub(crate) equation_skips: GrowVec&lt;(DefId, String, String)&gt;,
+    pub(crate) equations_done: GrowVec&lt;String&gt;,
+    pub(crate) records: OwnedBy&lt;DataId, RecordInfo&gt;,
+    pub(crate) interfaces: OwnedBy&lt;DataId, InterfaceInfo&gt;,
+    pub(crate) data_owners: OwnedBy&lt;DataId, String&gt;,
+    pub(crate) no_eq: OwnedBy&lt;DataId, String&gt;,       // why DecEq isn't derived
+    pub(crate) no_show: OwnedBy&lt;DataId, String&gt;,
+    pub(crate) no_ord: OwnedBy&lt;DataId, String&gt;,
+    pub(crate) no_finite: OwnedBy&lt;DataId, String&gt;,
+    pub(crate) no_decide: OwnedBy&lt;DataId, String&gt;,
+    pub(crate) generated_alls: OwnedBy&lt;DataId, DefId&gt;,
+    pub(crate) match_columns: OwnedBy&lt;DefId, Rc&lt;MatchColumns&gt;&gt;,
+    pub(crate) total_rows: OwnedBy&lt;DefId, Span&gt;,
+    // Of no kind yet: an older row may change (an instance's `valid`
+    // flag). Copied at a mark until step 6 makes them undo logs.
+    pub(crate) instances: HashMap&lt;(DataId, DataId), InstanceInfo&gt;,
+    pub(crate) helper_keys: HashSet&lt;String&gt;,
+    // Not in a cache entry: set by a namespace's replay, or once.
+    pub(crate) namespace_defs: BTreeMap&lt;String, Range&lt;usize&gt;&gt;,
+    pub(crate) prelude_defs: usize,
+    /// The first declarations of the unit being elaborated.
+    start: Ids,
+}</code></pre>
+
+<p class="src">tables.rs: one destructuring method in full. A new field is a compile error here until someone decides whether a unit owns it.</p>
+<pre><code>pub(crate) fn begin_unit(&amp;mut self, start: Ids) -&gt; Ids {
+    let Tables {
+        records,
+        interfaces,
+        data_owners,
+        no_eq,
+        no_show,
+        no_ord,
+        no_finite,
+        no_decide,
+        generated_alls,
+        match_columns,
+        total_rows,
+        start: old,
+        // Not owned by a unit.
+        tests: _,
+        abilities: _,
+        lifted: _,
+        equation_skips: _,
+        equations_done: _,
+        instances: _,
+        helper_keys: _,
+        namespace_defs: _,
+        prelude_defs: _,
+    } = self;
+    records.set_floor(start);
+    interfaces.set_floor(start);
+    // ... the same for the other eight OwnedBy tables
+    total_rows.set_floor(start);
+    std::mem::replace(old, start)
+}</code></pre>
+<p><code>mark</code>, <code>rewind</code>, <code>encode_since</code>, <code>replay</code> and <code>dump</code> have the same shape: destructure, then one line per field, which for a table of a kind is a call to the kind. <code>decode</code> builds the <code>Delta</code> struct whole, so it is exhaustive too.</p>
+
+<p class="src">rewind.rs: the top level. Every component is named; only the scope and navigation are still handled outside a component.</p>
+<pre><code>pub fn rewind(&amp;mut self, mark: &amp;Mark) {
+    let Elaborator {
+        globals, tables, scope, attempt, decl, unit,
+        // Settings: they say how to check, not what was checked.
+        options: _,
+        session, caches, goals, goal_snapshots, nav,
+    } = self;
+    let defs = mark.globals.defs();
+    globals.rewind(&amp;mark.globals);
+    tables.rewind(&amp;mark.tables);
+    *scope = mark.scope.clone();            // the big copy step 6 removes
+    attempt.rewind();
+    *decl = crate::state::Decl::default();
+    unit.rewind(&amp;mark.unit);
+    session.rewind(&amp;mark.session);
+    caches.rewind(&amp;mark.caches, defs);
+    // ... goals emptied, navigation rewound through its undo log
+}</code></pre>
+<p>(The original is formatted one field per line; the comment on the scope line is ours.) The <code>Elaborator</code> itself now has 13 fields, down from 116.</p>
+
+<p class="src">nav.rs: the undo-logged map that step 6 generalises</p>
+<pre><code>pub(crate) struct Logged&lt;K, V&gt; {
+    map: HashMap&lt;K, V&gt;,
+    /// Each change since the first mark, oldest first: its key, and the
+    /// value it replaced (`None`: there was none).
+    undo: Vec&lt;(K, Option&lt;V&gt;)&gt;,
+    /// The keys changed since the last mark (or rewind): only a key's first
+    /// change since then is logged, as rewinding to that mark or an earlier
+    /// one puts back the value from before it.
+    touched: HashSet&lt;K&gt;,
+    /// Whether a mark has been taken: changes before the first need no
+    /// undoing (a session without marks, such as `check --index`, logs
+    /// nothing).
+    logging: bool,
+}</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="status">
+<h2><span class="num">5</span>Status and what is next</h2>
+
+<p>The migration is ten steps, each one small change that keeps the main branch working, with the differential tests as the safety net. Step 0 fixed the bugs the design note found, so the refactor started from a dump that covered every table. Steps 1&ndash;5 are merged.</p>
+
+<div class="wrap"><table>
+<thead><tr><th>#</th><th>Step</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>Fix the known gaps: total-row definitions and on-demand equations encoded and dumped; a table that was encoded but not dumped added to the dump</td><td>The total-rows bug reproduced by a new cache test (a note and a hover label missing after replay), then fixed. The equations gap was not reproducible as a behaviour difference, only as a dump difference; fixed anyway</td></tr>
+<tr><td>1</td><td><code>Attempt</code>: 18 per-attempt fields and the 7 unification thread-locals; mark and restore by exhaustive destructuring; mark is <code>Copy</code></td><td>126 call sites unchanged. Unit tests, postponement, rewind and cache tests pass; the merge-tier run after merging passed 1,033 tests. <code>aoc</code> cold check 68.7 s user, 1.56 GB: no sign of a slowdown <span class="tag m">measured</span>, under load</td></tr>
+<tr><td>2</td><td><code>Decl</code> (27 fields, reset by <code>Default</code>, asserted empty at a mark) and <code>Unit</code> (swapped on a nested library load)</td><td>Each field whose lifetime the note flagged as unclear was resolved: all turned out per-declaration. Library, rewind, cache and namespace tests pass</td></tr>
+<tr><td>3</td><td><code>Options</code> (with <code>cache_key()</code> by destructuring; same key text) and <code>Session</code> with per-session <code>Stats</code> replacing the 26 global counters</td><td>Merge tier 1,039/1,039. Cold check 1.57 GB peak; warm check 3.2 s user <span class="tag m">measured</span>. Found on the way: one evaluation switch isn't in the cache key (filed)</td></tr>
+<tr><td>4</td><td><code>Caches</code>, and a test switch that empties them before every declaration</td><td>The rewind test's sample passes with the switch on. Shown to bite: corrupting one cache in <code>clear()</code> fails it on many examples; <code>clear()</code> runs about 69,000 times in that test <span class="tag m">measured</span></td></tr>
+<tr><td>5</td><td>Table kinds (<code>GrowVec</code>, <code>OwnedBy</code>) and <code>Tables</code>, every mechanism by exhaustive destructuring; entry format unchanged</td><td>Every cache entry for <code>aoc</code>, a roguelike game and six example projects, <strong>382 in all</strong>, written before and after the change, is byte for byte the same apart from the key and checksum (which include the build's fingerprint). Old entries, re-keyed, all load as hits. The <code>OwnedBy</code> assertion holds across the test suites touched and full checks of <code>aoc</code> and the game</td></tr>
+</tbody>
+</table></div>
+
+<h3>Next</h3>
+<div class="note"><strong>Step 6 is on hold for this review.</strong></div>
+<ul>
+<li><strong>Step 6: undo logs for the tables still copied.</strong> The scope's maps, <code>instances</code>, <code>helper_keys</code> and <code>Session</code>'s copied maps become <code>Logged</code>. A mark stops copying them, and the cache's <code>Before</code> stops copying the scope's entries. Measure the language server's resident memory on <code>aoc</code> before and after. Expected effect <span class="tag e">estimate</span>: marks go from about 2 ms and megabytes each to O(1); the memory marks hold drops from an estimated hundreds of MB to tens; a cold check saves 0.1&ndash;0.3 s of 69 s (the per-unit <code>Before</code> copy). None of these has been measured on the real program: the language server's mark memory was 348 MB resident against 165 MB for a plain index run on the earlier, smaller <code>aoc</code> <span class="tag m">measured</span>, and the rest of the estimate comes from the benchmark in §7.</li>
+<li><strong>Step 7: <code>Presentation</code>.</strong> The navigation recorder, goal snapshots and the counterexample log.</li>
+<li><strong>Then the <code>Globals</code> split</strong>, its own design note: the metavariable store moves into <code>Attempt</code>; the kernel environment becomes a private <code>Kernel</code>; backend facts become <code>OwnedBy</code> tables. Its hard part is how the evaluator reads metavariable solutions.</li>
+<li><strong>Last, optionally</strong>, the frozen library base (3.5), after a measurement.</li>
+</ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="others">
+<h2><span class="num">6</span>How others do it</h2>
+
+<p>From the design note's survey of sources (links below), plus the undo-log precedent outside proof assistants. To be candid: <strong>none of the proof assistants we looked at keeps an undo log for its environment.</strong> They use persistence, copying, or a registry of freezable tables. Undo logs are standard for speculative <em>inference</em> state, which is where our <code>Attempt</code> already uses one.</p>
+
+<div class="wrap"><table>
+<thead><tr><th>System</th><th>What it does</th><th>What we take</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/Basic.lean">Lean 4</a></td><td>Persistent everywhere. <code>Meta.SavedState.restore</code> restores "the backtrackable parts of the state", and the source documents which caches survive. Constants live in a staged map, <a href="https://florisvandoorn.com/LeanCourse24/docs/Lean/Data/SMap.html"><code>SMap</code></a>: imported entries in a hash table, local ones in a persistent map, never overwritten. Elaborator tables are <a href="https://lean-lang.org/doc/api/Lean/EnvExtension.html">environment extensions</a>, each registering how it is imported and exported. The server snapshots the whole state per command; reuse is decided by syntax, since there is no cheap way to compare environments</td><td>A per-table export policy (our kinds, at compile time); an explicit "what survives a restore" list; the staged map for the frozen base. Persistence is cheap for Lean partly because its runtime updates unshared values in place; Rust's <code>Rc</code> structures pay path copies</td></tr>
+<tr><td><a href="https://github.com/agda/agda/blob/master/src/full/Agda/TypeChecking/Monad/Base.hs">Agda</a></td><td><code>TCState</code> split by lifetime: <code>PersistentTCState</code> ("not reverted when an error is thrown or the state is reset"), <code>PreScopeState</code>, <code>PostScopeState</code></td><td>The same idea as our components, in Haskell. Which parts <code>localTCState</code> reverts was not confirmed</td></tr>
+<tr><td><a href="https://github.com/idris-lang/Idris2/blob/main/src/Core/Context.idr">Idris 2</a></td><td>The global context is a mutable array. Inside a <code>branch</code>, writes go to a persistent staging map; <code>commitCtxt</code> copies it into the array when the outermost branch commits</td><td>A mutable base with an overlay: the shape of the frozen base</td></tr>
+<tr><td><a href="https://github.com/rocq-prover/rocq/blob/master/library/summary.mli">Rocq</a></td><td>Every global table registers as a <em>summary</em> with freeze and unfreeze functions; values "should be pure and marshallable"; <code>frozen</code> is a snapshot of all registered tables</td><td>A run-time registry (rejected, §7); marshallable states are what let its document manager keep a state per sentence</td></tr>
+<tr><td><a href="https://salsa-rs.github.io/salsa/overview.html">salsa</a> (rust-analyzer)</td><td>Memoised queries over inputs, re-used when their inputs are unchanged</td><td>Not a fit (§7)</td></tr>
+</tbody>
+</table></div>
+
+<h3>The undo-log precedent</h3>
+<ul>
+<li><strong>Prolog's WAM.</strong> Variable bindings older than the newest choice point are recorded on a <em>trail</em>; backtracking unwinds the trail to the choice point's saved height. Only bindings that need undoing are trailed, which is the analogue of <code>Logged</code> recording only a key's first change since a mark. (Standard textbook material; not re-checked against a source for this page.)</li>
+<li><strong>SAT and SMT solvers.</strong> CDCL solvers keep a trail of assigned literals by decision level and backtrack by popping it. SMT solvers expose <code>push</code>/<code>pop</code> over logged undo actions. Strict stack order in both. (Also from general knowledge, not re-checked.)</li>
+<li><strong>rustc's inference tables</strong>, which we did check. The <a href="https://github.com/rust-lang/ena"><code>ena</code></a> crate's <code>SnapshotVec</code> (<code>src/snapshot_vec.rs</code>) is "a utility class for implementing 'snapshottable' things": it logs <code>NewElem(index)</code>, <code>SetElem(index, old value)</code> and an extensible <code>Other</code>, and only while a snapshot is open. <code>commit</code> keeps the changes, which "can still be undone if there is a snapshot further out", and its tests show out-of-order rollback panicking. <code>UnificationTable</code> (<code>src/unify/mod.rs</code>) is generic over its store, with an in-place store built on <code>SnapshotVec</code>'s log and a persistent alternative. In rustc, <code>compiler/rustc_infer/src/infer/snapshot/undo_log.rs</code> defines <code>InferCtxtUndoLogs</code>, "the combined undo log for all the various unification tables": one <code>Vec&lt;UndoLog&gt;</code> and a count of open snapshots, with variants for type, const, int and float variables, region constraints, the projection cache and opaque types. <code>rollback_to</code> pops entries back to the snapshot's length; committing the outermost snapshot clears the log; an assertion's comment says failures "may indicate a failure to follow a stack discipline". So rustc logs in-place tables, and a cache (projections) is in the same log. Checked against the current <code>master</code> branches on 3 November 2026.</li>
+</ul>
+<p>So the mechanism is well established for speculative inference state, but we found no proof assistant that uses it for the long-lived environment. Ours would: the scope's maps, instances and session maps, logged across marks that live for a whole editing session.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="rejected">
+<h2><span class="num">7</span>Alternatives we rejected</h2>
+
+<div class="wrap"><table>
+<thead><tr><th>Option</th><th>Why not</th></tr></thead>
+<tbody>
+<tr><td><strong>Persistent maps and vectors throughout</strong> (<code>imbl</code> or <code>rpds</code>)</td><td>A mark becomes one clone of the whole state, so rewind can't forget a field, but encode and dump still can. Every lookup gets slower (below), including the evaluator's reads of definitions and metavariables on every unfolding. Marks are not free in memory either, because each namespace's writes copy paths of 64-wide nodes and each mark keeps its paths alive</td></tr>
+<tr><td><strong>A run-time registry of tables</strong> (Rocq's summaries, Lean's extensions)</td><td>The same policy as our kinds, decided at run time. It suits systems where plugins add tables the core doesn't know. We have no plugins, so the compile-time version is better: no indirection, and a forgotten table is a compile error rather than a test failure</td></tr>
+<tr><td><strong>Query-based incremental computation</strong> (salsa)</td><td>Elaboration has side effects on a shared environment: metavariables, lifted helpers, generated declarations. In a dependently typed language a theorem about <code>f</code> can depend on <code>f</code>'s body, so rust-analyzer's "a body edit never invalidates global data" doesn't hold. The language-server design reached the same conclusion</td></tr>
+<tr><td><strong>A macro or derive</strong> to generate the components and their impls</td><td>It would save about 100 lines, but hide the exhaustive destructuring that is the point, and a proc macro would add a crate to the build</td></tr>
+<tr><td><strong>Keep the lists and add more tests</strong></td><td>That is what we had. The tests compare against a dump that is itself a hand-kept list, so they share its gaps: the first bug in §2 passed them</td></tr>
+</tbody>
+</table></div>
+
+<h3>Measurements</h3>
+<p>A standalone benchmark (<code>docs/proposals/elaborator-state/bench/</code>), run once on 3 November 2026 on an Apple laptop under heavy load (load average 20&ndash;37), best of 3, two runs; ranges where the runs disagreed by more than 30%. Keys shaped like scope keys, 24-byte values, the same Fx-style hasher for all maps, persistent maps on <code>Rc</code>. Heap bytes from a counting allocator. <span class="tag m">measured</span> on the benchmark; <span class="tag e">estimate</span> as a stand-in for the real scope.</p>
+
+<p class="src">Name-keyed hash maps, ns per operation (selected rows)</p>
+<div class="wrap"><table>
+<thead><tr><th>Map</th><th>Rows</th><th>Insert</th><th>Hit</th><th>Miss</th><th>Clone</th><th>Heap/row</th></tr></thead>
+<tbody>
+<tr><td>std <code>HashMap</code></td><td class="n">10,000</td><td class="n">71</td><td class="n">22</td><td class="n">19</td><td class="n">0.26&ndash;0.52 ms</td><td class="n">115 B</td></tr>
+<tr><td><code>imbl</code> 7.0.2</td><td class="n">10,000</td><td class="n">58</td><td class="n">29</td><td class="n">18</td><td class="n">~0</td><td class="n">139 B</td></tr>
+<tr><td><code>rpds</code> 1.2.1</td><td class="n">10,000</td><td class="n">145</td><td class="n">45&ndash;86</td><td class="n">27</td><td class="n">~0</td><td class="n">200 B</td></tr>
+<tr><td>std <code>HashMap</code></td><td class="n">30,000</td><td class="n">85</td><td class="n">37&ndash;87</td><td class="n">17</td><td class="n">0.9&ndash;1.6 ms</td><td class="n">143 B</td></tr>
+<tr><td><code>imbl</code></td><td class="n">30,000</td><td class="n">109</td><td class="n">102</td><td class="n">31</td><td class="n">~0</td><td class="n">247 B</td></tr>
+<tr><td><code>rpds</code></td><td class="n">30,000</td><td class="n">191</td><td class="n">129&ndash;149</td><td class="n">34</td><td class="n">~0</td><td class="n">185 B</td></tr>
+</tbody>
+</table></div>
+<p>At 10,000&ndash;30,000 rows a persistent map's hit takes 1.3&ndash;2.8 times as long, with 1.3&ndash;2 times the memory per row.</p>
+
+<p class="src">A language server's marks: 200 marks, all kept, each namespace adding rows/200 names</p>
+<div class="wrap"><table>
+<thead><tr><th>Rows</th><th>How</th><th>Build + all marks</th><th>Memory held</th><th>Rewind to the middle</th></tr></thead>
+<tbody>
+<tr><td class="n">30,000</td><td>copy at each mark (today's scope)</td><td class="n">82 ms</td><td class="n">341 MB</td><td class="n">0.8&ndash;1.3 ms</td></tr>
+<tr><td class="n">30,000</td><td><code>imbl</code>, clone at each mark</td><td class="n">18 ms</td><td class="n">68 MB</td><td class="n">0.06 ms</td></tr>
+<tr><td class="n">30,000</td><td>undo log (<code>Logged</code>)</td><td class="n">5 ms</td><td class="n">7 MB</td><td class="n">0.8&ndash;1.0 ms</td></tr>
+<tr><td class="n">100,000</td><td>copy</td><td class="n">324&ndash;336 ms</td><td class="n">1,157 MB</td><td class="n">3.1&ndash;3.5 ms</td></tr>
+<tr><td class="n">100,000</td><td><code>imbl</code></td><td class="n">71&ndash;87 ms</td><td class="n">222 MB</td><td class="n">0.16&ndash;0.19 ms</td></tr>
+<tr><td class="n">100,000</td><td>undo log</td><td class="n">16&ndash;19 ms</td><td class="n">21 MB</td><td class="n">4.1&ndash;5.5 ms</td></tr>
+</tbody>
+</table></div>
+<p>Persistence wins on rewind (O(1)), but a rewind of a few milliseconds is within the language server's budget; hundreds of megabytes are not.</p>
+
+<p class="src">Vectors indexed by id, 96-byte rows like a definition</p>
+<div class="wrap"><table>
+<thead><tr><th>Rows</th><th><code>Vec</code> get</th><th><code>imbl::Vector</code> get</th></tr></thead>
+<tbody>
+<tr><td class="n">10,000</td><td class="n">0.7 ns</td><td class="n">12&ndash;13 ns</td></tr>
+<tr><td class="n">100,000</td><td class="n">1.5&ndash;1.7 ns</td><td class="n">19.7&ndash;24.3 ns</td></tr>
+</tbody>
+</table></div>
+<p>Definitions and metavariables are read on every unfolding in the evaluator, so a tenfold read cost there rules persistent vectors out.</p>
+
+<p>What we have not counted: rows per table, and speculative attempts per check. The note estimates 10<sup>5</sup> to 10<sup>6</sup> attempts for an <code>aoc</code> check <span class="tag e">estimate</span>; there is no counter yet.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="questions">
+<h2><span class="num">8</span>Questions for you</h2>
+
+<ol class="q">
+<li><strong>Is an environment-level undo log sound here?</strong> Marks are only between units, in stack order, and a mark can be rewound to many times. But a library file can load in the middle of a namespace, writing scope and instance rows; a check can be cancelled part way through a unit and rewound; and step 6 wants the cache's per-unit <code>Before</code> to become a log mark, which means logging is on in every cached command-line check, not only in the language server. (The design note says elsewhere that outside a language server nothing is logged; those two statements need reconciling.) Do you see an interleaving where "log a key's first change since the last mark" restores the wrong value, or where the log grows without bound? Would rustc's rule, clearing the log when the outermost snapshot is committed, carry over?</li>
+<li><strong>Is the <code>OwnedBy</code> floor the right ownership rule?</strong> A row for a declaration is written only by the unit that declared it. Today a namespace's floor is set when the namespace starts, before the library files it uses load inside it, so the namespace could write rows for those library files' declarations without the assertion firing; the encoder's count check would then refuse the entry. Should the floor move to after the nested loads? And is there a class of table (instances, whose <code>valid</code> flag a later unit can change) where ownership by declaring unit is the wrong model altogether?</li>
+<li><strong>Should the frozen library base come before step 6?</strong> Much of what a mark copies today is the library's, loaded before the first mark (inferred: the project has 8,780 symbols of an estimated 15,000&ndash;30,000 scope rows). A frozen base would take them out of every mark and make the undo log cover only project rows. It also touches every hot lookup. Which order would you choose, and why?</li>
+<li><strong>Is the differential oracle independent enough?</strong> The table's kind now chooses both the rows the encoder writes and the rows the dump prints (delta against whole table); only per-row encode and dump are written separately. Is there a failure this lets through that a fully hand-written dump would catch?</li>
+<li><strong>What would you measure before and after step 6?</strong> We plan the language server's resident memory on <code>aoc</code> after a full check, and counters for attempts per check and rows per table. Is there a better proxy for mark cost, or a workload we are missing (long editing sessions, many rewinds to the same mark)?</li>
+<li><strong>Is Lean-style persistence worth a second look?</strong> We rejected it on lookup cost in Rust. Stitchwort's own runtimes already do Perceus-style in-place reuse, and widening that is on our research horizon, but the elaborator is written in Rust, so that work doesn't change the elaborator's costs unless it were ever self-hosted. Is there a persistent structure with cheap unique-owner mutation, or a hybrid, that we haven't priced?</li>
+<li><strong>Does the design stretch to marks inside a unit?</strong> The language server's later stage would rewind to a declaration, not a namespace, which needs O(1) marks. With undo logs that looks feasible; with today's copies it isn't. Do the components (<code>Unit</code> and <code>Decl</code> assumed empty at a mark) get in the way?</li>
+<li><strong>What risks have we missed?</strong> For example: <code>Rc</code> terms and <code>RefCell</code>s that rule out parallel namespaces; a cache of failed dot calls keyed by the lengths of the metavariable store and trail, which only identifies a state while lengths do; anything from your own implementation that bit you late.</li>
+</ol>
+</section>
+
+<footer>
+<p>Sources inside the repository: the design note <code>docs/proposals/elaborator-state.md</code> and its benchmark; <code>docs/proposals/language-server.md</code>; <code>crates/elab/src/state/</code>, <code>rewind.rs</code>, <code>nav.rs</code>, <code>cache/mod.rs</code>; the board tickets for steps 0&ndash;5. Line and file counts were taken from the main branch on 3 November 2026.</p>
+</footer>
+
+</main>
+</body>
+</html>
