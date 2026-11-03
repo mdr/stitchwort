@@ -4301,7 +4301,7 @@
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).\n\nD2264 (Matt, 3 Nov): start now.",
+      "body": "From SW-1136: check --index output, docs/proposals/documentation.md, and the VS Code extension (virtual document provider for stitchwort-std:) may assume the old scheme; also aoc_navigation_matches_check_index (its place() helper was adjusted but the test wasn't run).\n\nD2264 (Matt, 3 Nov): start now.\n\nDone a4309917 (Sonnet, 18 min incl. the 8-min AoC test; est. 30): nothing behavioural assumed the old scheme. Extension documentSelector already has scheme file; the server skips didOpen/didChange/didSave for files under the std dir. A real std file is read-only library source: hover, definition, references work; no diagnostics; edits apply after a server restart (README). Comments and docs updated (editors/vscode, language-server.md, lsp.rs). check --index uses a std field with the path under std/. Tests: aoc_navigation_matches_check_index passed (477 s), 4 lsp std tests, extension client.test.js 5/5. Model result: Sonnet, worked.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
