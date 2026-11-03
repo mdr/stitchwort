@@ -88,7 +88,9 @@ pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;
-pub use std_dir::{CORE_ORDER, STD_DIR_VAR, StdText, std_text, use_std_bundle, use_std_dir};
+pub use std_dir::{
+    CORE_ORDER, STD_DIR_VAR, StdText, load_std_text, std_text, use_std_bundle, use_std_dir,
+};
 mod undo;
 mod unify;
 mod update_lemmas;

@@ -411,6 +411,14 @@ enum Command {
     },
 }
 
+impl Command {
+    /// Whether running it reads the standard library. `fmt` doesn't; `lsp`
+    /// reads it after `initialize`, so that it can say why to the editor.
+    fn needs_std(&self) -> bool {
+        !matches!(self, Command::Fmt { .. } | Command::Lsp)
+    }
+}
+
 /// `check --counterexamples` (docs/proposals/counterexample-search.md
 /// §7.3, D1159).
 #[derive(clap::Args)]
@@ -506,7 +514,17 @@ fn main() -> ExitCode {
         && let Err(e) = stitchwort_elab::use_std_dir(dir)
     {
         eprintln!("error: {e}");
-        return ExitCode::FAILURE;
+        return ExitCode::from(2);
+    }
+    // The standard library is setup, not program input: find it before any
+    // work starts, so a missing or unreadable copy is one error, not a panic
+    // from deep inside a check. `fmt` doesn't need it, and `lsp` reads it
+    // once it is speaking to the editor, to report it there (see `serve`).
+    if cli.command.needs_std()
+        && let Err(e) = stitchwort_elab::load_std_text()
+    {
+        eprintln!("error: {e}");
+        return ExitCode::from(2);
     }
     // A program run natively may switch the terminal to keys mode: the
     // signals that would end it are caught first, before any thread starts,
