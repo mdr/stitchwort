@@ -1,5 +1,5 @@
 {
-  "next": 1128,
+  "next": 1131,
   "tickets": [
     {
       "id": 47,
@@ -3903,13 +3903,13 @@
     {
       "id": 1115,
       "title": "Architecture review: weak points, module and crate boundaries, elab's size, compilation architecture",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "architecture"
       ],
-      "body": "D2239 (Matt, 3 Nov): yes. Stitchwort grew rapidly and organically without up-front architectural planning; identify weak points in the architecture and how to address them. Include compilation architecture: the set of crates, minimising unnecessary rebuild work; crates as a modularity unit; elab's size. Builds on docs/research/rust-codebase-review.md (§2-4), SW-1091 phase 1 (build architecture), docs/architecture/crates.pdf. Opus, read-only plus limited build measurements. Output: docs/research/architecture-review.md.",
+      "body": "D2239 (Matt, 3 Nov): yes. Stitchwort grew rapidly and organically without up-front architectural planning; identify weak points in the architecture and how to address them. Include compilation architecture: the set of crates, minimising unnecessary rebuild work; crates as a modularity unit; elab's size. Builds on docs/research/rust-codebase-review.md (§2-4), SW-1091 phase 1 (build architecture), docs/architecture/crates.pdf. Opus, read-only plus limited build measurements. Output: docs/research/architecture-review.md.\n\nDone (Opus, 16 min, est. 90), merged: docs/research/architecture-review.md + scripts in docs/research/architecture-review/. Top findings: rebuild fan-out (elab edit: 37 s for elab, then 367 CPU-s for driver tests; 2-3 feature variants of the stack; 14% of commits change only std .sw and rebuild everything); Elaborator has 116 fields with no enforced lifecycle (32 in none of the hand lists, 7 thread-locals); Globals mixes kernel env, metas and backend facts, Def::ty still pub; fingerprints and FORMAT hand-kept; phase/ownership not in boundary types (~60 decisions on diagnostic code strings). Target: keep the crate set; std as data embedded only in shipped binaries; elab one crate reorganised by state lifetime and subsystem; kernel env private; maybe elab-auto later. Steps: (1) one feature set + lanes build what they run; (2) std from disk in tests/dev; (3) fingerprint from the dependency graph. Filed: SW-1128 SW-1129 SW-1130. Decisions to Matt: D2248-D2251. Verifier deferred until SW-1122 is done. Model result: Opus, worked, 16 min (est. 90).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4078,6 +4078,48 @@
         "docs"
       ],
       "body": "Matt, 3 Nov: a one-pager on crates/core. Merged: docs/architecture/core.typ, core-pipeline.dot, core-types.dot, core.pdf; build.sh builds it. Header placeholder commit fixed by the orchestrator (rebuilt with --input commit). Judgement calls: kernel/rules/support split read from module docs (registry as kernel, budget and hash as support). No GlobalId exists (DefId, DataId, HashKey). Verifier deferred with SW-1111 until SW-1115's build timings are done. Model result: Sonnet, worked (one placeholder), 5 min (est. 40).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1128,
+      "title": "Cache replay probably drops no_finite, no_decide and generated_alls (rewound but neither cache-encoded nor dumped)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by the architecture review (SW-1115, docs/research/architecture-review.md): these Elaborator fields are restored on rewind but not encoded in the check cache nor in the canonical dump, so a session loaded from the cache may elaborate differently from a fresh one, and the differential test (check_cache) can't see it because the dump has the same gap. Unconfirmed: reproduce first (a test that differs between fresh and cached), then fix and add them to the dump.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1129,
+      "title": "Session state held as globals: queue.rs's 26 global counters and unify.rs's thread-local inference state",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "architecture"
+      ],
+      "body": "Found by SW-1115: these are really per-session state; two sessions on one thread (the language server alongside a proof-action search) can interfere. Move into the session's state components (see the review's target architecture).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1130,
+      "title": "Backend facts in the kernel crate: Data::js and Globals::erasure",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "architecture"
+      ],
+      "body": "Found by SW-1115: backend-specific facts live in core's Globals. Move them out with the Globals split proposed in the review (kernel environment / elaborator metavariables / backend facts).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
