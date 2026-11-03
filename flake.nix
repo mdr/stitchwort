@@ -142,6 +142,9 @@
             # sweeps. Every test runs, so one failure doesn't hide the others.
             cargoNextestExtraArgs = "--no-fail-fast --profile daily --features stitchwort-cli/native";
             STITCHWORT_TIER = "daily";
+            # The corpus sweeps go two at a time (`corpus-sweeps` in
+            # `.config/nextest.toml`), each on a pool of 5 threads.
+            STITCHWORT_TEST_THREADS = "5";
             # Nextest doesn't run doctests, and stitchwort-partial-model has
             # three (src/typed.rs, two of them `compile_fail`), so run those
             # here: about a second.
