@@ -4435,7 +4435,7 @@
     {
       "id": 1153,
       "title": "Kernel: a number case computes unneeded let values first (force_all in check_num_case?): kernel time grows with an unrelated let-bound list",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4449,7 +4449,7 @@
     {
       "id": 1154,
       "title": "unify_index::occurs reads back the whole value with quote to find free variables (the cost pattern SW-1106 removed)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
