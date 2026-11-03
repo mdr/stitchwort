@@ -866,11 +866,17 @@ struct Memory {
 /// aren't reused.
 const COMPILER: &str = concat!("stitchwort-", env!("CARGO_PKG_VERSION"));
 
-/// A hash of the source of the syntax, the core, the elaborator (with the
-/// prelude) and this crate, made by `build.rs`: part of every cache key, so
-/// results from another build of the compiler aren't reused, even with the
-/// same version number.
+/// A hash of the source of this crate and every workspace crate it's built
+/// with ([`FINGERPRINT_CRATES`]: the elaborator with the prelude, the
+/// runtime that runs the tests, …), made by `build.rs`: part of every cache
+/// key, so results from another build of the compiler aren't reused, even
+/// with the same version number.
 pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
+
+/// The crates whose sources [`FINGERPRINT`] covers, as directories relative
+/// to the workspace root, comma-separated
+/// ([`crate::fingerprint::source_crates`]).
+pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 
 /// The fingerprint the caches key on: [`FINGERPRINT`], or, when the standard
 /// library is read from a directory (`STITCHWORT_STD_DIR`), a hash of it and

@@ -1228,6 +1228,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde-saphyr",
+ "serde_json",
  "stitchwort-core",
  "stitchwort-elab",
  "stitchwort-fmt",

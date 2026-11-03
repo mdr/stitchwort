@@ -118,10 +118,12 @@ pub const FUN_KEY_MASK: u64 = 0xffff_ffff_0000_00ff;
 #[allow(unsafe_code)]
 fn words(v: &Value) -> [u64; 3] {
     let p = (v as *const Value).cast::<u8>();
-    // SAFETY: reads within the 24 bytes of `v`. The tag byte is always
-    // initialised; the other two words are read as raw bytes into
-    // `MaybeUninit`, so padding is never read as an integer (callers only
-    // look at the words a variant initialises).
+    // SAFETY: reads within the 24 bytes of `v`, and only bytes its variant
+    // initialises: the tag byte always, a constructor's `u32` tag at bytes
+    // 4-7 for `Tag` and `Data`, the payload at bytes 8-15 for every variant
+    // that has one, the length at bytes 16-23 for `Data` and `Text`. The
+    // padding (bytes 1-3, and 4-7 elsewhere) is never read; the words it
+    // would fill stay 0.
     unsafe {
         let mut out = [0u64; 3];
         out[0] = u64::from(*p);
@@ -139,14 +141,32 @@ fn words(v: &Value) -> [u64; 3] {
     }
 }
 
+/// The address an owning value keeps at byte 8 (its `Rc`'s allocation), read
+/// as a pointer rather than through [`words`], so that it keeps its
+/// provenance and the probe can follow it (and Miri can check the probe).
+#[allow(unsafe_code)]
+fn allocation(v: &Value) -> *const u8 {
+    // SAFETY: called only on an owning value, whose bytes 8-15 are an
+    // initialised `Rc`'s pointer ([`probe_layout`] is checking that the
+    // address is its allocation's).
+    unsafe {
+        (v as *const Value)
+            .cast::<u8>()
+            .add(PAYLOAD_AT as usize)
+            .cast::<*const u8>()
+            .read()
+    }
+}
+
 /// The strong and weak counts of the `Rc` whose allocation is at `at`.
 #[allow(unsafe_code)]
-fn counts_at(at: u64) -> (u64, u64) {
-    // SAFETY: called only on the address word of a live owning value, which
-    // [`probe_layout`] is checking points at an `RcInner`.
+fn counts_at(at: *const u8) -> (u64, u64) {
+    // SAFETY: called only on the address of a live owning value's
+    // allocation, an `RcInner` (as [`probe_layout`] is checking), whose
+    // counts (initialised) are its first two words.
     unsafe {
-        let p = at as *const u64;
-        (*p, *p.add(1))
+        let p = at.cast::<u64>();
+        (p.read(), p.add(1).read())
     }
 }
 
@@ -236,9 +256,12 @@ fn probe() -> Result<(), String> {
         "where a cell's fields are",
     )?;
     let copy = fields.clone();
-    check(counts_at(w[1]) == (2, 1), "a cell's counts")?;
+    check(counts_at(allocation(&data)) == (2, 1), "a cell's counts")?;
     drop(copy);
-    check(counts_at(w[1]) == (1, 1), "a cell's counts after a drop")?;
+    check(
+        counts_at(allocation(&data)) == (1, 1),
+        "a cell's counts after a drop",
+    )?;
     let text: Rc<str> = "hello".into();
     let tv = Value::Text(text.clone());
     let tw = words(&tv);
@@ -246,14 +269,14 @@ fn probe() -> Result<(), String> {
         tw[1] + RC_VALUE_AT as u64 == Rc::as_ptr(&text).cast::<u8>() as u64 && tw[2] == 5,
         "a text's address and length",
     )?;
-    check(counts_at(tw[1]).0 == 2, "a text's count")?;
+    check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
     probe_functions()?;
     for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0] {
         let copy = v.clone();
-        let ok = counts_at(words(v)[1]).0 == 2;
+        let ok = counts_at(allocation(v)).0 == 2;
         drop(copy);
         check(
-            ok && counts_at(words(v)[1]).0 == 1,
+            ok && counts_at(allocation(v)).0 == 1,
             &format!("{v:?}'s count"),
         )?;
     }
@@ -284,21 +307,25 @@ fn probe_functions() -> Result<(), String> {
         args: vec![Value::Nat(1)].into(),
     }));
     // The address of a function value's `Fun`.
-    let at = |v: &Value| words(v)[1] + RC_VALUE_AT as u64;
+    let at = |v: &Value| allocation(v).wrapping_add(RC_VALUE_AT as usize);
+    check(cfg!(target_endian = "little"), "the byte order")?;
     // SAFETY: each address is a live `Rc<Fun>`'s value (`probe` checked
-    // that an owning value keeps its allocation's address at byte 8), and a
-    // `Fun` is at least 24 bytes.
-    let (first, captures, len) = unsafe {
-        let base = at(&closure) as *const u8;
+    // that an owning value keeps its allocation's address at byte 8). Every
+    // variant's first byte is initialised, and a `Closure`'s lambda (bytes
+    // 4-7) and captures (a slice's address and length, bytes 8-23) are;
+    // the padding (bytes 1-3) isn't read.
+    let (variant, key, captures, len) = unsafe {
+        let base = at(&closure);
         (
-            base.cast::<u64>().read(),
+            base.read(),
+            fun_key_at(base),
             base.add(FUN_CAPTURES_AT as usize).cast::<u64>().read(),
             base.add(FUN_CAPTURES_AT as usize + 8).cast::<u64>().read(),
         )
     };
-    check(first as u8 == FUN_CLOSURE, "a closure's variant")?;
+    check(variant == FUN_CLOSURE, "a closure's variant")?;
     check(
-        first & FUN_KEY_MASK == fun_key(FUN_CLOSURE, 0x1234_5678),
+        key == fun_key(FUN_CLOSURE, 0x1234_5678),
         "a closure's lambda",
     )?;
     let Value::Fun(f) = &closure else {
@@ -311,19 +338,50 @@ fn probe_functions() -> Result<(), String> {
         captures == c.as_ptr() as u64 && len == 3,
         "a closure's captures",
     )?;
-    // SAFETY: as above.
-    let first = unsafe { (at(&global) as *const u64).read() };
+    // SAFETY: as above; a `Global`'s index is at bytes 4-7.
+    let key = unsafe { fun_key_at(at(&global)) };
     check(
-        first & FUN_KEY_MASK == fun_key(FUN_GLOBAL, 0x0abc_def0),
+        key == fun_key(FUN_GLOBAL, 0x0abc_def0),
         "a global function's index",
     )?;
-    // SAFETY: as above.
-    let first = unsafe { (at(&pap) as *const u8).read() };
+    // SAFETY: as above; every variant's first byte is initialised.
+    let first = unsafe { at(&pap).read() };
     check(
         first != FUN_GLOBAL && first != FUN_CLOSURE,
         "a partial application's variant",
     )
 }
+
+/// The [`ApplyCache`] key of the `Fun` at `base`: what native code gets by
+/// masking its first word with [`FUN_KEY_MASK`] (on a little-endian
+/// target), read here as the two initialised parts of that word, the
+/// variant byte (offset 0) and the index or lambda (offset 4). Bytes 1-3
+/// are padding, which Rust doesn't promise is initialised, so reading the
+/// whole word as an integer would be undefined behaviour even masked
+/// (SW-1122); native code isn't bound by that, Rust code is.
+///
+/// # Safety
+/// `base` points at a live `Fun::Global` or `Fun::Closure`.
+#[allow(unsafe_code)]
+const unsafe fn fun_key_at(base: *const u8) -> u64 {
+    // SAFETY: the caller's contract: both variants initialise their first
+    // byte and a `u32` at offset 4, which is aligned since `Fun` is.
+    unsafe { fun_key(base.read(), base.add(4).cast::<u32>().read()) }
+}
+
+/// Rust's constant evaluator rejects a read of uninitialised bytes as an
+/// integer, so this checks at compile time that [`fun_key_at`] reads only
+/// initialised ones (a whole-word read is rejected: SW-1122). A test build
+/// only: a different layout is for [`probe_layout`] to report, not a reason
+/// the runtime won't build.
+#[cfg(test)]
+#[allow(unsafe_code)]
+const _: () = {
+    let f = std::mem::ManuallyDrop::new(Fun::Global(0x0abc_def0));
+    // SAFETY: `f` is a live `Fun::Global`.
+    let key = unsafe { fun_key_at((&raw const f).cast()) };
+    assert!(key == fun_key(FUN_GLOBAL, 0x0abc_def0));
+};
 
 /// [`ApplyCache`]'s key for a function value of `variant` and `index`.
 const fn fun_key(variant: u8, index: u32) -> u64 {
@@ -2665,5 +2723,16 @@ pub unsafe extern "C" fn sw_drop_deferred(context: *mut Context) {
     while let Some(fun) = run.deferred.pop() {
         // SAFETY: the word of a function value native code gave up.
         drop(unsafe { from_words(u64::from(TAG_FUN), fun, 0) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// The layout probe holds on this target. Small enough for Miri, which
+    /// also checks that the probe reads only initialised bytes (`cargo miri
+    /// test -p stitchwort-rt --lib native_abi::tests`).
+    #[test]
+    fn the_layout_probe_passes() {
+        super::probe().expect("the layout is as native code expects");
     }
 }
