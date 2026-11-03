@@ -51,6 +51,9 @@ native = ["dep:stitchwort-native"]
 alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
+# Linking it installs its counting allocator, whose live heap bytes the
+# language server's edit loop (`tests/lsp.rs`, `state_edit_loop`) prints.
+stitchwort-bench.workspace = true
 # Switches `dev` on for the test build (renamed, so that `--features stitchwort-cli/dev` names the feature, not
 # this dependency).
 cli-with-dev = { package = "stitchwort-cli", path = ".", features = ["dev"] }
