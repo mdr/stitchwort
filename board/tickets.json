@@ -3923,7 +3923,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3937,7 +3937,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.",
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3945,13 +3945,13 @@
     {
       "id": 1118,
       "title": "Playground: evaluate a real editor component (CodeMirror 6), then goals panel, share a snippet by URL, inline diagnostics",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): evaluate CodeMirror 6 for the playground, and briefly consider embedding VS Code (Monaco / VS Code for the web). Evaluation only: no commitment to editor-roadmap implementation while the tidy-ups (state migration, std) are running. Sonnet, expected 60 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3965,7 +3965,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3979,7 +3979,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3993,7 +3993,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).",
+      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4281,13 +4281,13 @@
     {
       "id": 1142,
       "title": "A missing std library should be a clean CLI error, not a panic with a backtrace note",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "cli"
       ],
-      "body": "From SW-1136: when no std directory is found (or STITCHWORT_STD_DIR names a missing one) the process panics naming the places tried. Make it an ordinary error exit in the CLI and the language server's startup message. DeepSeek candidate.",
+      "body": "From SW-1136: when no std directory is found (or STITCHWORT_STD_DIR names a missing one) the process panics naming the places tried. Make it an ordinary error exit in the CLI and the language server's startup message. DeepSeek candidate.\n\nD2263 (Matt, 3 Nov): DeepSeek in a scratch clone, expected 20 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
