@@ -13,7 +13,7 @@
 //!   any thread starts, so that Ctrl-C puts the terminal back.
 //! - Built with `--native`, the way is [`sw_run_native`]: it reads the
 //!   tables and literals (`stitchwort_rt::linked`) and runs the program as
-//!   `run --native` does ([`stitchwort_rt::run_main_linked`]): every body
+//!   `run --native` does ([`stitchwort_rt::run_main_native`]): every body
 //!   `main` reaches as native code, as `stitchwort build --native` compiled
 //!   them (stage S5: [`aot`]; stage NO4 of native-only.md: the entry too),
 //!   on a thread with the stack the build sized for them (stage NO5), with
@@ -107,11 +107,7 @@ pub unsafe fn run_native(manifest: &'static Manifest) -> i32 {
     on_stack(stack, move || {
         // SAFETY: the caller's contract. A mismatch ends the process with
         // nothing done.
-        let aot::Linked {
-            islands,
-            outline,
-            limits,
-        } = match unsafe { aot::AotIslands::read(manifest) } {
+        let aot::Linked { islands, limits } = match unsafe { aot::AotIslands::read(manifest) } {
             Ok(linked) => linked,
             Err(aot::Mismatch(why)) => {
                 eprintln!("internal error: this executable can't run: {why}");
@@ -119,15 +115,18 @@ pub unsafe fn run_native(manifest: &'static Manifest) -> i32 {
             }
         };
         with_terminal(|input, output, terminal| {
-            stitchwort_rt::run_main_linked(
-                outline,
-                Box::new(islands),
-                limits,
-                stack,
-                input,
-                output,
-                terminal,
-            )
+            // SAFETY: `on_stack` runs this on a thread with a stack of
+            // `stack` bytes, near its top.
+            unsafe {
+                stitchwort_rt::run_main_native(
+                    Box::new(islands),
+                    limits,
+                    stack,
+                    input,
+                    output,
+                    terminal,
+                )
+            }
         })
     })
 }

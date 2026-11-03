@@ -86,7 +86,7 @@ pub fn native_on(
     // docs/proposals/native-only.md): every body or a refusal, and a stack
     // sized for the frame limit, here at most the thread's `stack`.
     let image = stitchwort_rt::code::compile(program);
-    let compiled = compile(program, &image, options).and_then(|islands| {
+    let compiled = compile(program, image, options).and_then(|islands| {
         let sized = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
         Ok((islands, sized))
     });
@@ -95,16 +95,20 @@ pub fn native_on(
         Err(why) => return ((String::new(), Err(why.join("; "))), why),
     };
     let notes = vec![islands.note()];
-    let result = run_main_native(
-        program,
-        image,
-        Box::new(islands),
-        limits,
-        sized.min(stack),
-        &mut "".as_bytes(),
-        &mut output,
-        &mut NoTerminal,
-    );
+    // SAFETY: every caller calls this near the top of a `with_stack`
+    // thread whose stack is at least `stack` bytes, and `sized.min(stack)`
+    // is at most that.
+    #[allow(unsafe_code)]
+    let result = unsafe {
+        run_main_native(
+            Box::new(islands),
+            limits,
+            sized.min(stack),
+            &mut "".as_bytes(),
+            &mut output,
+            &mut NoTerminal,
+        )
+    };
     // A native run is native through and through (stage NO4 of
     // docs/proposals/native-only.md): the machine executes nothing.
     if ran_natively(&notes) {

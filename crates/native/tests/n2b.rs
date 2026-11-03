@@ -84,22 +84,26 @@ fn native_run(
     // docs/proposals/native-only.md): every body or a refusal, and a stack
     // sized for the frame limit, here at most the thread's `stack`.
     let image = stitchwort_rt::code::compile(program);
-    let compiled = compile(program, &image, options).and_then(|islands| {
+    let compiled = compile(program, image, options).and_then(|islands| {
         let sized = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
         Ok((islands, sized))
     });
     let (islands, sized) = compiled.unwrap_or_else(|why| panic!("doesn't compile: {why:#?}"));
     let notes = vec![islands.note()];
-    let result = run_main_native(
-        program,
-        image,
-        Box::new(islands),
-        limits,
-        sized.min(stack),
-        &mut "".as_bytes(),
-        &mut output,
-        &mut NoTerminal,
-    );
+    // SAFETY: every caller calls this near the top of a `with_stack`
+    // thread whose stack is at least `stack` bytes, and `sized.min(stack)`
+    // is at most that.
+    #[allow(unsafe_code)]
+    let result = unsafe {
+        run_main_native(
+            Box::new(islands),
+            limits,
+            sized.min(stack),
+            &mut "".as_bytes(),
+            &mut output,
+            &mut NoTerminal,
+        )
+    };
     (output, result, notes)
 }
 

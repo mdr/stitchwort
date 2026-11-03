@@ -415,18 +415,17 @@ fn effect_examples_agree_with_the_machine() {
                             trace_refcounts: trace,
                         };
                         let image = code::compile(&program);
-                        let islands = compile(&program, &image, options)
+                        let islands = compile(&program, image, options)
                             .unwrap_or_else(|why| panic!("`{source}`: {why:#?}"));
                         let stack =
                             stack_for(limits.frames as u64, islands.max_frame, &islands.widest)
                                 .unwrap_or_else(|why| panic!("`{source}`: {why:#?}"));
-                        let mut e = NativeExecutor::new(
-                            &program,
-                            image,
-                            Box::new(islands),
-                            limits,
-                            stack.min(STACK),
-                        );
+                        // SAFETY: on a thread with a stack of `STACK`
+                        // bytes (`with_stack`), near its top.
+                        #[allow(unsafe_code)]
+                        let mut e = unsafe {
+                            NativeExecutor::new(Box::new(islands), limits, stack.min(STACK))
+                        };
                         let v = e
                             .entry()
                             .unwrap_or_else(|e| panic!("`{source}` (native): {e}"));

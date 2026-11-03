@@ -132,6 +132,7 @@ use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
+use stitchwort_rt::linked::Outline;
 use stitchwort_rt::native_abi::{
     self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
     Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
@@ -152,13 +153,21 @@ pub struct Options {
     pub trace_refcounts: bool,
 }
 
-/// A program's bodies, compiled.
+/// A program's bodies, compiled, with the image they were compiled for.
+///
+/// It owns everything its crossing points into: the code memory (the
+/// module) and the image whose constant pool and number tables the tables
+/// point at. Its fields are private, so safe code can't take the crossing
+/// away from them.
 pub struct Islands {
+    /// The code's tables and the crossing, shared with a standalone
+    /// executable's linked code. Declared first, so dropped first.
+    crossing: abi::Crossing,
     /// Owns the code memory (never unmapped, so the pointers stay valid).
     _module: JITModule,
-    /// The code's tables and the crossing, shared with a standalone
-    /// executable's linked code.
-    crossing: abi::Crossing,
+    /// What the tables point into: the pool and the number tables, in the
+    /// image's own heap buffers, which stay put when the image moves.
+    _image: Image,
     /// A bound on the stack one counted frame uses (`frames`).
     pub max_frame: usize,
     /// The body with the widest frame, by name.
@@ -184,7 +193,7 @@ impl Islands {
 
 impl NativeIslands for Islands {
     fn crossing(&self) -> &abi::Crossing {
-        // The code is never unmapped (`_module`).
+        // Valid while `self` is: `_module` and `_image` are kept with it.
         &self.crossing
     }
 }
@@ -410,16 +419,79 @@ fn uses_state_handlers(program: &Program, instr: &Instr) -> bool {
 // --------------------------------------------------------------- compiling
 
 /// Compiles every body `program`'s entry reaches (`image` is the
-/// machine's compiled image, which must outlive the result: the tables
+/// machine's compiled image of it, which the result keeps: the tables
 /// point at its constants and number tables), or says why it can't: the
 /// message, then any notes.
-pub fn compile(program: &Program, image: &Image, options: Options) -> Result<Islands, Vec<String>> {
-    compile_audited(
+///
+/// The code can't outlive its image, as it could when this borrowed the
+/// image (SW-1124): it takes it.
+///
+/// ```compile_fail,E0308
+/// # fn f(program: &stitchwort_rt::Program) {
+/// let image = stitchwort_rt::code::compile(program);
+/// let code = stitchwort_native::n1::compile(program, &image, Default::default());
+/// drop(image);
+/// # }
+/// ```
+///
+/// Nor can safe code run it on a stack that might be too small:
+/// [`NativeExecutor::new`](stitchwort_rt::native_abi::NativeExecutor::new)
+/// is unsafe.
+///
+/// ```compile_fail,E0133
+/// # use stitchwort_rt::{Limits, native_abi::NativeExecutor};
+/// # fn f(program: &stitchwort_rt::Program) {
+/// let image = stitchwort_rt::code::compile(program);
+/// let code = stitchwort_native::n1::compile(program, image, Default::default()).unwrap();
+/// let executor = NativeExecutor::new(Box::new(code), Limits::default(), 8 << 20);
+/// # }
+/// ```
+pub fn compile(program: &Program, image: Image, options: Options) -> Result<Islands, Vec<String>> {
+    let compiled = compile_audited(
         program,
-        image,
+        &image,
         options,
-        &mut Audit::new(program, image, false),
-    )
+        &mut Audit::new(program, &image, false),
+    )?;
+    let Compiled {
+        module,
+        code,
+        n_caches,
+        widest,
+        bodies,
+        compile_time,
+    } = compiled;
+    let max_frame = code.max_frame;
+    // The tables point into `image`'s pool and number tables (heap
+    // buffers, which don't move when `image` moves into the islands below).
+    let tables = abi::TableStore::new(program, &image, n_caches);
+    let outline = Outline::of(program, &image);
+    // SAFETY: `code` is `compile_audited`'s finished code for `program` and
+    // `image`, against these tables and this outline; the islands own the
+    // module (whose code is never unmapped) and the image, and keep the
+    // crossing private, so both outlive it.
+    #[allow(unsafe_code)]
+    let crossing = unsafe { abi::Crossing::new(code, tables, outline) };
+    Ok(Islands {
+        crossing,
+        _module: module,
+        _image: image,
+        max_frame,
+        widest,
+        bodies,
+        compile_time,
+    })
+}
+
+/// What [`compile_audited`] made: the finished module and the ways into
+/// its code, before the tables are made.
+struct Compiled {
+    module: JITModule,
+    code: CrossingCode,
+    n_caches: usize,
+    widest: String,
+    bodies: usize,
+    compile_time: std::time::Duration,
 }
 
 /// The Cranelift IR of every function [`compile`] makes for `program`'s
@@ -459,7 +531,7 @@ fn compile_audited(
     image: &Image,
     options: Options,
     audit: &mut Audit,
-) -> Result<Islands, Vec<String>> {
+) -> Result<Compiled, Vec<String>> {
     preflight()?;
     let plan = plan(program, image)?;
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
@@ -531,8 +603,9 @@ fn compile_audited(
                 .map(|id| trampoline::<abi::StepTrampoline>(address(id))),
         )
     };
-    let crossing = abi::Crossing::new(
-        CrossingCode {
+    Ok(Compiled {
+        module,
+        code: CrossingCode {
             functions: table,
             lambdas,
             enter,
@@ -541,12 +614,7 @@ fn compile_audited(
             max_frame,
             resumes: plan.effects,
         },
-        abi::TableStore::new(program, image, n_caches),
-    );
-    Ok(Islands {
-        _module: module,
-        crossing,
-        max_frame,
+        n_caches,
         widest: body_name(program, image, widest),
         bodies: plan.bodies.len(),
         compile_time: start.elapsed(),

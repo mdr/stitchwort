@@ -12,7 +12,7 @@
 //! the tables and literals the object carries (`stitchwort_rt::linked`).
 
 use stitchwort_rt::Limits;
-use stitchwort_rt::linked::{self, LinkedTables, Outline};
+use stitchwort_rt::linked::{self, LinkedTables};
 use stitchwort_rt::native_abi::{
     self as abi, ApplyTrampoline, CrossingCode, EnterTrampoline, NativeIslands, StepTrampoline,
 };
@@ -26,11 +26,11 @@ pub struct AotIslands {
     _tables: LinkedTables,
 }
 
-/// What [`AotIslands::read`] reads from the object: the code, what the
-/// runtime needs to know of the program, and the limits it runs under.
+/// What [`AotIslands::read`] reads from the object: the code (with what
+/// the runtime needs to know of the program, its crossing's outline), and
+/// the limits it runs under.
 pub struct Linked {
     pub islands: AotIslands,
-    pub outline: Outline,
     pub limits: Limits,
 }
 
@@ -137,8 +137,14 @@ impl AotIslands {
             tables.ops.clone(),
             manifest.n_caches as usize,
         );
-        let islands = AotIslands {
-            crossing: abi::Crossing::new(
+        // SAFETY: the code and its trampolines are the manifest's, linked
+        // into this executable and never unmapped, compiled for the
+        // program the outline (read from the same manifest, its counts
+        // checked above) describes (the caller's contract); the pool and
+        // number tables are in `tables`, which the islands keep beside the
+        // crossing, privately.
+        let crossing = unsafe {
+            abi::Crossing::new(
                 CrossingCode {
                     functions: functions.into(),
                     lambdas: lambdas.into(),
@@ -149,14 +155,14 @@ impl AotIslands {
                     resumes: manifest.flags & FLAG_RESUMES != 0,
                 },
                 store,
-            ),
+                outline,
+            )
+        };
+        let islands = AotIslands {
+            crossing,
             _tables: tables,
         };
-        Ok(Linked {
-            islands,
-            outline,
-            limits,
-        })
+        Ok(Linked { islands, limits })
     }
 }
 
