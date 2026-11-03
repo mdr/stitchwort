@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote, quote_at_most};
-use stitchwort_core::{Name, Term, Value, pretty};
+use stitchwort_core::{DefId, Globals, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -1034,10 +1034,16 @@ fn normals(
             .unwrap_or(0) as u64,
         _ => u64::MAX,
     };
+    let targets = || {
+        (type_terms.iter())
+            .chain([goal])
+            .chain(exprs.iter().map(|s| &s.ty_term))
+    };
     exprs
         .iter()
         .map(|s| match &s.normal {
             Some(normal) => Ok(Some(normal.clone())),
+            None if exprs.len() == 1 && cannot_occur(g, s, targets(), base) => Ok(None),
             None => (|| {
                 let value = cx.eval(&s.term)?;
                 Ok(quote_at_most(g, base, &value, cap)?)
@@ -1045,6 +1051,63 @@ fn normals(
             .map_err(|d| in_scrutinee(d, s.span)),
         })
         .collect()
+}
+
+/// Whether `s`'s normal form can be seen, without computing it, to occur in
+/// none of `targets` (read back, in a context of `base` variables), so
+/// that [`normals`] needn't run it: a `match` in `main` on a long handled
+/// computation would otherwise run it at check time (SW-1096,
+/// docs/proposals/match-generalisation-evaluation.md).
+///
+/// It does if `s`'s type is a data type `D` and the targets hold only
+/// variables, data types, sorts, Π, λ, applications, `=`, annotations and
+/// definitions whose types end in a sort or in a data type other than `D`.
+/// The normal form, of type `D`, is neither a type nor a function, nor a
+/// redex. So a subterm of a target that equals it would be headed by a
+/// definition whose type ends in `D`, or by a variable free in both. There
+/// is no such variable if `s` has no free variables or unknowns, or if the
+/// targets have no free variables.
+fn cannot_occur<'a>(
+    g: &Globals,
+    s: &Scrut,
+    mut targets: impl Iterator<Item = &'a Term>,
+    base: usize,
+) -> bool {
+    let Term::Data(d, _) = s.ty_term.strip_loc() else {
+        return false;
+    };
+    // An unknown's solution may mention variables.
+    let closed = free_levels(&s.term, base).is_empty()
+        && !s.term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+    let other = |f: &DefId| {
+        let Some(def) = g.defs.get(f.0) else {
+            return false;
+        };
+        let mut ty = def.ty.strip_loc();
+        while let Term::Pi(_, _, _, b) = ty {
+            ty = b.strip_loc();
+        }
+        match ty {
+            Term::Sort(_) => true,
+            Term::Data(e, _) => e != d,
+            _ => false,
+        }
+    };
+    targets.all(|t| {
+        t.subterms().all(|(t, under)| match t {
+            Term::Var(ix) => closed || *ix < under,
+            Term::Def(f) => other(f),
+            Term::Data(..)
+            | Term::Sort(_)
+            | Term::Pi(..)
+            | Term::Lam(..)
+            | Term::App(..)
+            | Term::Ann(..)
+            | Term::Eq(..)
+            | Term::Loc(..) => true,
+            _ => false,
+        })
+    })
 }
 
 /// `d`, if it is running out of resources with nothing saying where, said

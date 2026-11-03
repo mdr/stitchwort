@@ -70,7 +70,9 @@ fn measure(program: String) -> Measured {
 /// `body`, after a definition `cost` whose value takes work proportional to
 /// `n` to compute.
 fn with_cost(n: usize, body: &str) -> String {
-    format!("import Std (List, Nat)\ndef cost : Nat := List.length (List.range {n})\n{body}\n")
+    format!(
+        "import Std (List, Nat, Result, Text)\ndef cost : Nat := List.length (List.range {n})\n{body}\n"
+    )
 }
 
 /// Programs whose checking must not compute `cost`: the note's table, rows
@@ -107,6 +109,25 @@ const CONSTANT: &[(&str, &str)] = &[
          def big (u : ()) : V cost := mk cost",
     ),
     ("rfl", "def big (u : ()) : cost = cost := rfl"),
+    // A `match` looks for its scrutinee in the goal and hypotheses, but
+    // needn't compute it to see it can't be there: `main`'s goal mentions no
+    // `Nat` or `Result` (SW-1096). The second ran `cost` handled operations
+    // in the checker's evaluator.
+    (
+        "match in main",
+        "def main () : {IO} () :=\n  match cost with\n    | 0 => IO.print \"none\"\n    \
+         | _ => IO.print \"some\"",
+    ),
+    (
+        "match in main on a handled computation",
+        "ability C where\n  next : () -> {C} Nat\n\n\
+         def C.run (prog : () -> {C} Nat) : Result Nat Text :=\n  \
+         handle prog () with\n    | return x => Ok x\n    | C.next u, k => k 1\n\n\
+         def loop (n : Nat) (acc : Nat) : {C} Nat :=\n  match n with\n    \
+         | Zero => acc\n    | Succ m => loop m (acc + C.next ())\n\n\
+         def main () : {IO} () :=\n  match C.run (() => loop cost 0) with\n    \
+         | Ok n => IO.print \"done\"\n    | Err e => IO.print \"failed\"",
+    ),
 ];
 
 /// The same shapes where the type depends on the value: they must still
