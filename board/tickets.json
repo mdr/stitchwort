@@ -4309,13 +4309,13 @@
     {
       "id": 1144,
       "title": "Elaborator state, step 1: the Attempt component (per-attempt fields and unify.rs thread-locals; mark/restore by exhaustive destructuring)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.\n\nDone 4110b96a, 8615295d (Opus, 28 min, est. 120); reviewed; waits for the SW-1145 verifier to merge. state/ module; Attempt holds the 18 per-attempt fields and the 7 unify.rs thread-locals (flags via Scoped/ScopedCell guards, restored on panic too); mark/restore/reset/rewind destructure exhaustively; Mark is Copy (13 integers); unify::Unifier { g, attempt } derefs to Globals; 126 call sites unchanged, ~230 field accesses rewritten. Preserved oddities documented: rigid_divergence survives undo/reset/rewind (F7); lossy not cleared by rewind; reset leaves local_keys, lambda_warnings, branch_errors. Tests: undo/unify/rows/queue units 77, postponement 12, rewind+check_cache 38, hash_stability 7, lane elab 131; clippy clean. Model result: Opus, worked, 28 min (est. 120).",
+      "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.\n\nDone 4110b96a, 8615295d (Opus, 28 min, est. 120); reviewed; waits for the SW-1145 verifier to merge. state/ module; Attempt holds the 18 per-attempt fields and the 7 unify.rs thread-locals (flags via Scoped/ScopedCell guards, restored on panic too); mark/restore/reset/rewind destructure exhaustively; Mark is Copy (13 integers); unify::Unifier { g, attempt } derefs to Globals; 126 call sites unchanged, ~230 field accesses rewritten. Preserved oddities documented: rigid_divergence survives undo/reset/rewind (F7); lossy not cleared by rewind; reset leaves local_keys, lambda_warnings, branch_errors. Tests: undo/unify/rows/queue units 77, postponement 12, rewind+check_cache 38, hash_stability 7, lane elab 131; clippy clean. Model result: Opus, worked, 28 min (est. 120).\n\nVerified ed90919e: selection 766 passed (incl. the rewind examples sweep), merge tier 1033 passed, audit clean. AoC check --no-cache: user 68.7 s, 1.56 GB peak (morning: 68.7 s wall incl. 51.5 s elab + 16.8 s kernel, 1.59 GB): no sign of a slowdown, though load was ~50.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
