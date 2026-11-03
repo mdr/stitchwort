@@ -1,5 +1,5 @@
 {
-  "next": 1174,
+  "next": 1176,
   "tickets": [
     {
       "id": 47,
@@ -4645,13 +4645,13 @@
     {
       "id": 1168,
       "title": "search --at tests are time-fragile under load: what_closes_a_goal and search_at use a 10 s search deadline in a debug build and come back empty or truncated when the machine is busy; raise --time for tests or build them at opt-level 1",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "From SW-1082 (3 Nov): failed repeatedly at load average ~28, passed alone.",
+      "body": "From SW-1082 (3 Nov): failed repeatedly at load average ~28, passed alone.\n\nMatt (3 Nov, overnight plan): go. DeepSeek, est. 20 min.\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4722,6 +4722,34 @@
         "elab"
       ],
       "body": "Part of step 6 (D2283-D2287, Matt, 3 Nov). Opus, est. 150 min. Includes the rewind test's slow tier once (STITCHWORT_SLOW=1, approved). Orchestrator's call: start right after 6a verified.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1174,
+      "title": "Design note: the Globals split (elaborator-state.md §4.6, step 8): Kernel/Env private, the meta store into Attempt, erasure and js as owned tables, how eval reads metavariable solutions; keep parallel checking possible",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2288 (Matt, 3 Nov): yes, overnight, docs only; decisions for Matt in the morning; implementation waits for his answers. Opus, est. 90 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1175,
+      "title": "Overnight 3-4 Nov: full tier at the end, fix what fails, push when green",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "Matt (3 Nov, 23:00): after the overnight plan (6b, 6c, after-measurements, step 7, SW-1168, SW-1155, the Globals note), run the full tier (task test:full), fix any issues, and push when everything is green. Supersedes D2289 (daily tier once).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
