@@ -4175,7 +4175,7 @@
       "labels": [
         "test"
       ],
-      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.",
+      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
