@@ -26,6 +26,8 @@ insta.workspace = true
 num-bigint.workspace = true
 num-traits.workspace = true
 stitchwort-core = { workspace = true, features = ["reference", "stack-check"] }
+# `cargo metadata`'s output, for the test of the fingerprint's crates.
+serde_json.workspace = true
 # The formatter, for `tests/fmt_hashes.rs`.
 stitchwort-fmt.workspace = true
 # The runtime model of `Partial`, which the runner is compared with.
