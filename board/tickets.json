@@ -3804,7 +3804,7 @@
     {
       "id": 1108,
       "title": "web:pkg sources omit files the bundle includes (aoc/src/**/*.sw, games/rogue/src, web/*.sh)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
