@@ -377,18 +377,14 @@ fn the_code_keeps_its_image() {
         let stack = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)
             .expect("fits the cap");
         let mut output = Vec::new();
-        // SAFETY: near the top of a `with_stack` thread of `STACK` bytes.
-        #[allow(unsafe_code)]
-        let result = unsafe {
-            run_main_native(
-                Box::new(islands),
-                limits,
-                stack.min(STACK),
-                &mut "".as_bytes(),
-                &mut output,
-                &mut NoTerminal,
-            )
-        };
+        let result = run_main_native(
+            Box::new(islands),
+            limits,
+            stack.min(STACK),
+            &mut "".as_bytes(),
+            &mut output,
+            &mut NoTerminal,
+        );
         drop(churn);
         assert_eq!(ended(output, result), expected);
     });

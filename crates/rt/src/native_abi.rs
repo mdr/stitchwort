@@ -426,7 +426,7 @@ pub struct Context {
     /// or null.
     pub lambdas: *const *const u8,
     /// The run this is part of.
-    pub run: *mut NativeRun<'static>,
+    pub(crate) run: *mut NativeRun<'static>,
     /// What compiled code refers to by number ([`Tables`]): it holds no
     /// address of the host's, so the same code can go into an object file.
     pub tables: *const Tables,
@@ -647,7 +647,7 @@ impl Drop for TableStore {
 /// What native code counts on from and reads, for the length of one call
 /// from the runtime into it ([`Crossing`]): the run's constants cache and
 /// effect counts, its counters, and what frames gave up on an error exit.
-pub struct NativeRun<'a> {
+pub(crate) struct NativeRun<'a> {
     pub outline: &'a Outline,
     /// Each global's value, once known: a constant's, or a function value
     /// (stage NO4 of docs/proposals/native-only.md: the run's own, where it
@@ -732,6 +732,57 @@ pub type ApplyTrampoline = unsafe extern "C" fn(*mut Context, *mut Value, *mut V
 /// result)`, in the host's C calling convention; the computation and the
 /// handler are moved in.
 pub type StepTrampoline = unsafe extern "C" fn(*mut Context, *mut Value, u64, *mut Value);
+
+/// Room kept above the end of the thread's stack, so that the lowest
+/// address native code may touch is clear of the guard page (which some
+/// systems count in the stack the thread reports).
+const STACK_MARGIN: u64 = 256 * 1024;
+
+/// The lowest address of the calling thread's stack, from the system's
+/// record of it (macOS: `pthread_get_stackaddr_np` and
+/// `pthread_get_stacksize_np`; Linux: `pthread_getattr_np` and
+/// `pthread_attr_getstack`), or `None` if it can't be found or the
+/// platform isn't one of those: a native run is then refused rather than
+/// trusted.
+#[cfg(target_os = "macos")]
+#[allow(unsafe_code)]
+pub fn thread_stack_low() -> Option<u64> {
+    // SAFETY: both only read the calling thread's own record.
+    let (top, size) = unsafe {
+        let me = libc::pthread_self();
+        (
+            libc::pthread_get_stackaddr_np(me) as usize,
+            libc::pthread_get_stacksize_np(me),
+        )
+    };
+    top.checked_sub(size).map(|low| low as u64)
+}
+
+/// As above, for Linux.
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+pub fn thread_stack_low() -> Option<u64> {
+    // SAFETY: `attr` is initialised by `pthread_getattr_np` (which we
+    // check) before anything reads it, and destroyed once; `base` and
+    // `size` are locals it writes.
+    unsafe {
+        let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
+        if libc::pthread_getattr_np(libc::pthread_self(), attr.as_mut_ptr()) != 0 {
+            return None;
+        }
+        let mut base = std::ptr::null_mut::<libc::c_void>();
+        let mut size: libc::size_t = 0;
+        let ok = libc::pthread_attr_getstack(attr.as_ptr(), &mut base, &mut size) == 0;
+        libc::pthread_attr_destroy(attr.as_mut_ptr());
+        (ok && !base.is_null()).then_some(base as u64)
+    }
+}
+
+/// Other platforms can't say, so a native run there is refused.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub fn thread_stack_low() -> Option<u64> {
+    None
+}
 
 /// What the host (the driver, the runner, the CLI) may have used above
 /// the crossing into native code.
@@ -920,18 +971,20 @@ impl Crossing {
     /// Runs the compiled entry body, its frame counted by the caller
     /// (`run.frames` includes it): its value.
     ///
-    /// # Safety
-    /// `run` is for this crossing (its outline is [`Crossing::outline`]),
-    /// and its `stack_floor` leaves at least [`HELPER_ROOM`] and a frame
-    /// of the current thread's stack below it: what [`NativeExecutor`]
-    /// makes, under [`NativeExecutor::new`]'s contract. The code and
-    /// tables are valid by [`Crossing::new`]'s.
+    /// Private, and safe because of who can call it: only
+    /// [`NativeExecutor::cross`] makes a [`NativeRun`] (crate-private, and
+    /// that is its only constructor), for this crossing's outline, with a
+    /// `stack_floor` it checked against the thread's real stack
+    /// ([`NativeExecutor::stack_floor`]) to leave [`HELPER_ROOM`] and a
+    /// frame of it below. The code and tables are valid by
+    /// [`Crossing::new`]'s contract.
     #[allow(unsafe_code)]
-    pub unsafe fn enter(&self, run: &mut NativeRun<'_>) -> Result<Value, ResourceError> {
+    fn enter(&self, run: &mut NativeRun<'_>) -> Result<Value, ResourceError> {
         let mut context = self.context(run);
         let mut out = MaybeUninit::<Value>::uninit();
         // SAFETY: finished entry code with live tables (`Crossing::new`'s
-        // contract), on a stack it can't run off (the caller's); the
+        // contract), on a stack it can't run off (`run.stack_floor`, checked
+        // against the thread's); the
         // pointers are to locals.
         unsafe { (self.enter)(&mut context, out.as_mut_ptr()) };
         // SAFETY: the entry wrote a whole value.
@@ -941,10 +994,9 @@ impl Crossing {
     /// `f` applied to `args` (one or two) through the apply stub, as the
     /// machine's `apply` does it with `run.frames` pending.
     ///
-    /// # Safety
-    /// As [`Crossing::enter`].
+    /// Private and safe for the reasons [`Crossing::enter`] is.
     #[allow(unsafe_code)]
-    pub unsafe fn apply(
+    fn apply(
         &self,
         f: Value,
         args: Vec<Value>,
@@ -976,10 +1028,9 @@ impl Crossing {
     /// (`Handler::Step`: up to its first operation), with `run.frames`
     /// pending.
     ///
-    /// # Safety
-    /// As [`Crossing::enter`].
+    /// Private and safe for the reasons [`Crossing::enter`] is.
     #[allow(unsafe_code)]
-    pub unsafe fn step(
+    fn step(
         &self,
         c: Value,
         handler: Rc<Handler>,
@@ -1044,20 +1095,14 @@ impl NativeExecutor {
     /// the frame counter fires first and the stack-pointer check behind it
     /// never does.
     ///
-    /// # Safety
-    /// The thread the executor is first called on has at least
-    /// `stack_size - HOST_ROOM` bytes of stack below where it calls from:
-    /// a thread whose stack is at least `stack_size` bytes, which has used
-    /// less than [`HOST_ROOM`] of it by then. Compiled code checks the
-    /// stack pointer only against the floor this implies; nothing checks
-    /// the claim, and code that ran past the thread's stack could step
-    /// over its guard page.
-    #[allow(unsafe_code)]
-    pub unsafe fn new(
-        code: Box<dyn NativeIslands>,
-        limits: Limits,
-        stack_size: usize,
-    ) -> NativeExecutor {
+    /// The claim that the thread has that stack is checked, at the first
+    /// crossing, against the thread's real stack ([`thread_stack_low`]):
+    /// the thread must have at least `stack_size - HOST_ROOM` bytes of
+    /// stack below the place the runner crosses from (a thread whose stack
+    /// is `stack_size` bytes, which has used less than [`HOST_ROOM`] of it
+    /// by then). If it doesn't, or the platform can't say, the run stops
+    /// with [`ResourceError::Depth`] before any native code runs.
+    pub fn new(code: Box<dyn NativeIslands>, limits: Limits, stack_size: usize) -> NativeExecutor {
         NativeExecutor {
             globals: vec![None; code.crossing().outline().globals.len()],
             code,
@@ -1071,22 +1116,36 @@ impl NativeExecutor {
     }
 
     /// [`NativeRun::stack_floor`]: `stack_size` less the host's and the
-    /// helpers' room and one frame below here, at the first crossing.
-    fn stack_floor(&mut self) -> u64 {
+    /// helpers' room and one frame below here, at the first crossing, if
+    /// the thread's stack reaches that far.
+    fn stack_floor(&mut self) -> Result<u64, ResourceError> {
         if let Some(floor) = self.stack_floor {
-            return floor;
+            return Ok(floor);
         }
         let here = {
             let marker = 0u8;
             std::hint::black_box(&marker) as *const u8 as u64
         };
-        let floor = match floor_depth(self.stack_size, self.code.crossing().max_frame()) {
-            Some(depth) => here.saturating_sub(depth as u64),
+        let max_frame = self.code.crossing().max_frame();
+        let floor = match floor_depth(self.stack_size, max_frame) {
+            Some(depth) => {
+                // Native code goes down to the floor, then a helper may use
+                // `HELPER_ROOM`, and a frame is pushed past the check.
+                let floor = here.checked_sub(depth as u64).ok_or(ResourceError::Depth)?;
+                let lowest = floor
+                    .checked_sub((HELPER_ROOM + max_frame) as u64)
+                    .ok_or(ResourceError::Depth)?;
+                let real = thread_stack_low().ok_or(ResourceError::Depth)?;
+                if lowest < real.saturating_add(STACK_MARGIN) {
+                    return Err(ResourceError::Depth);
+                }
+                floor
+            }
             // No room for even one frame: every call stops.
             None => u64::MAX,
         };
         self.stack_floor = Some(floor);
-        floor
+        Ok(floor)
     }
 
     /// The effect runtime's work so far ([`crate::effect`]), for tests.
@@ -1101,7 +1160,7 @@ impl NativeExecutor {
         frames: u64,
         call: impl FnOnce(&Crossing, &mut NativeRun<'_>) -> Result<Value, ResourceError>,
     ) -> Result<Value, ResourceError> {
-        let stack_floor = self.stack_floor();
+        let stack_floor = self.stack_floor()?;
         let crossing = self.code.crossing();
         let mut run = NativeRun {
             outline: crossing.outline(),
@@ -1145,7 +1204,6 @@ impl NativeExecutor {
 }
 
 impl crate::run::Executor for NativeExecutor {
-    #[allow(unsafe_code)]
     fn entry(&mut self) -> Result<Value, ResourceError> {
         // Counted as the machine's `push` of the entry's frame counts it.
         self.steps += 1;
@@ -1155,22 +1213,16 @@ impl crate::run::Executor for NativeExecutor {
         if self.limits.frames == 0 {
             return Err(ResourceError::Depth);
         }
-        // SAFETY: `cross` makes the run for this crossing, with the floor
-        // `stack_floor` fixed under `NativeExecutor::new`'s contract.
-        self.cross(1, |crossing, run| unsafe { crossing.enter(run) })
+        self.cross(1, |crossing, run| crossing.enter(run))
     }
 
-    #[allow(unsafe_code)]
     fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value, ResourceError> {
-        // SAFETY: as for `entry`.
-        self.cross(0, |crossing, run| unsafe { crossing.apply(f, args, run) })
+        self.cross(0, |crossing, run| crossing.apply(f, args, run))
     }
 
-    #[allow(unsafe_code)]
     fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError> {
         let handler = Rc::new(Handler::Step);
-        // SAFETY: as for `entry`.
-        self.cross(0, |crossing, run| unsafe { crossing.step(c, handler, run) })
+        self.cross(0, |crossing, run| crossing.step(c, handler, run))
     }
 
     fn reset_steps(&mut self) {

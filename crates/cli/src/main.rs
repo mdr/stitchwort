@@ -2809,14 +2809,12 @@ fn run_main_native(
         stack,
     } = native;
     let executed_before = stitchwort_rt::machine::instructions_executed();
-    // SAFETY: `run --native` runs on a thread whose stack is
-    // `stitchwort_host::NATIVE_STACK` (`main`), with little of it used
-    // here, and `stack` is at most that: `n1::stack_for` caps it at
-    // `STACK_CAP`, the same size (`compile_native`'s assertion).
-    #[allow(unsafe_code)]
-    let result = unsafe {
-        stitchwort_rt::run_main_native(Box::new(islands), limits, stack, input, output, terminal)
-    };
+    // `run --native` runs on a thread whose stack is
+    // `stitchwort_host::NATIVE_STACK` (`main`), and `stack` is at most that
+    // (`compile_native`'s assertion); the runtime checks it against the
+    // thread's real stack in any case.
+    let result =
+        stitchwort_rt::run_main_native(Box::new(islands), limits, stack, input, output, terminal);
     if verbose {
         eprintln!(
             "native: the machine executed {} instructions",

@@ -434,18 +434,10 @@ fn uses_state_handlers(program: &Program, instr: &Instr) -> bool {
 /// # }
 /// ```
 ///
-/// Nor can safe code run it on a stack that might be too small:
-/// [`NativeExecutor::new`](stitchwort_rt::native_abi::NativeExecutor::new)
-/// is unsafe.
-///
-/// ```compile_fail,E0133
-/// # use stitchwort_rt::{Limits, native_abi::NativeExecutor};
-/// # fn f(program: &stitchwort_rt::Program) {
-/// let image = stitchwort_rt::code::compile(program);
-/// let code = stitchwort_native::n1::compile(program, image, Default::default()).unwrap();
-/// let executor = NativeExecutor::new(Box::new(code), Limits::default(), 8 << 20);
-/// # }
-/// ```
+/// Nor can safe code run it on a stack that is too small:
+/// [`NativeExecutor`](stitchwort_rt::native_abi::NativeExecutor) checks the
+/// stack it is told it has against the thread's real one at its first
+/// crossing, and stops the run with a depth error if the thread has less.
 pub fn compile(program: &Program, image: Image, options: Options) -> Result<Islands, Vec<String>> {
     let compiled = compile_audited(
         program,
@@ -520,6 +512,14 @@ pub(crate) fn host_isa(pic: bool) -> Result<cranelift_codegen::isa::OwnedTargetI
     set(&mut flags, "preserve_frame_pointers", "true")?;
     // The steps left live in the pinned register (the module comment).
     set(&mut flags, "enable_pinned_reg", "true")?;
+    // Probe the stack of every frame of a page or more, a page at a time
+    // (SW-1157): a frame can pass a page (a body with many live values), and
+    // an unprobed one could step over the guard page. A frame under a page
+    // gets no probe, so the usual body costs nothing. Cranelift has no
+    // outline probes on aarch64.
+    set(&mut flags, "enable_probestack", "true")?;
+    set(&mut flags, "probestack_strategy", "inline")?;
+    set(&mut flags, "probestack_size_log2", "12")?;
     cranelift_native::builder()
         .map_err(|e| format!("this machine isn't supported: {e}"))?
         .finish(settings::Flags::new(flags))
@@ -4189,5 +4189,62 @@ mod tests {
         assert!(audit.function(&returning(0x1000_0000)).is_err());
         assert!(audit.function(&returning(shapes as i64 + 64)).is_ok());
         assert!(audit.function(&returning(42)).is_ok());
+    }
+
+    /// A function with a stack slot of `size` bytes, written and read back.
+    fn with_frame(size: u32) -> ir::Function {
+        let mut signature = ir::Signature::new(CallConv::SystemV);
+        signature.returns.push(AbiParam::new(types::I64));
+        let mut func = ir::Function::with_name_signature(ir::UserFuncName::user(0, 0), signature);
+        let mut context = FunctionBuilderContext::new();
+        let mut b = FunctionBuilder::new(&mut func, &mut context);
+        let entry = b.create_block();
+        b.switch_to_block(entry);
+        let slot =
+            b.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 4));
+        let one = b.ins().iconst(types::I64, 1);
+        b.ins().stack_store(types::I64, one, slot, 0);
+        let v = b.ins().stack_load(types::I64, types::I64, slot, 0);
+        b.ins().return_(&[v]);
+        b.seal_all_blocks();
+        b.finalize(host_isa(false).expect("an ISA").frontend_config());
+        func
+    }
+
+    /// The code of `func` for `isa`.
+    fn code_of(func: &ir::Function, isa: &dyn cranelift_codegen::isa::TargetIsa) -> Vec<u8> {
+        let mut context = cranelift_codegen::Context::for_function(func.clone());
+        context
+            .compile(isa, &mut Default::default())
+            .expect("compiles")
+            .code_buffer()
+            .to_vec()
+    }
+
+    #[test]
+    fn a_frame_of_several_pages_is_probed() {
+        let isa = host_isa(false).expect("an ISA");
+        assert!(isa.flags().enable_probestack());
+        let plain = cranelift_native::builder()
+            .expect("a supported machine")
+            .finish(settings::Flags::new({
+                let mut flags = settings::builder();
+                flags.set("preserve_frame_pointers", "true").unwrap();
+                flags.set("enable_pinned_reg", "true").unwrap();
+                flags.set("opt_level", "speed").unwrap();
+                flags
+            }))
+            .expect("an ISA");
+        let big = with_frame(100_000);
+        // The frame reader still sees the whole frame behind the probes.
+        let mut context = cranelift_codegen::Context::for_function(big.clone());
+        let compiled = context
+            .compile(&*isa, &mut Default::default())
+            .expect("compiles");
+        assert!(crate::frames::frame_bound(&big, compiled) >= 100_000);
+        assert!(code_of(&big, &*isa).len() > code_of(&big, &*plain).len());
+        // A frame under a page has no probe, so costs nothing.
+        let small = with_frame(1000);
+        assert_eq!(code_of(&small, &*isa), code_of(&small, &*plain));
     }
 }

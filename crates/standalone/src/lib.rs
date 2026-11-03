@@ -115,18 +115,16 @@ pub unsafe fn run_native(manifest: &'static Manifest) -> i32 {
             }
         };
         with_terminal(|input, output, terminal| {
-            // SAFETY: `on_stack` runs this on a thread with a stack of
-            // `stack` bytes, near its top.
-            unsafe {
-                stitchwort_rt::run_main_native(
-                    Box::new(islands),
-                    limits,
-                    stack,
-                    input,
-                    output,
-                    terminal,
-                )
-            }
+            // `on_stack` runs this on a thread with a stack of `stack` bytes;
+            // the runtime checks that against the thread's real stack.
+            stitchwort_rt::run_main_native(
+                Box::new(islands),
+                limits,
+                stack,
+                input,
+                output,
+                terminal,
+            )
         })
     })
 }

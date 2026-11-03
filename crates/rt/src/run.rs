@@ -193,13 +193,10 @@ pub trait Executor {
 /// docs/proposals/native-only.md) and the machine running nothing: what
 /// `run --native` and an executable built with `--native` (stage NO6) run.
 /// The code runs on a stack of `stack_size` bytes
-/// (`native_abi::native_stack`). Flushes `output`.
-///
-/// # Safety
-/// As [`NativeExecutor::new`]: the calling thread has at least
-/// `stack_size - HOST_ROOM` bytes of stack below here.
-#[allow(unsafe_code)]
-pub unsafe fn run_main_native(
+/// (`native_abi::native_stack`), which the first crossing checks against
+/// the thread's real stack ([`NativeExecutor::new`]): a thread with less
+/// stops the run with a depth error. Flushes `output`.
+pub fn run_main_native(
     code: Box<dyn NativeIslands>,
     limits: Limits,
     stack_size: usize,
@@ -207,8 +204,7 @@ pub unsafe fn run_main_native(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> Result<(), RunError> {
-    // SAFETY: the caller's contract.
-    let executor = unsafe { NativeExecutor::new(code, limits, stack_size) };
+    let executor = NativeExecutor::new(code, limits, stack_size);
     run_native_on(executor, limits, input, output, terminal)
 }
 
