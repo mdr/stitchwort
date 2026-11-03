@@ -11,6 +11,10 @@ stitchwort-core.workspace = true
 num-bigint.workspace = true
 smallvec.workspace = true
 
+[build-dependencies]
+# `src/fingerprint.rs`'s hash, shared with the driver's build script.
+blake3.workspace = true
+
 [features]
 # The bring-up allocation trace (`alloc_trace`); off in release builds.
 alloc-trace = []

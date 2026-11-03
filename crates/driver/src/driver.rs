@@ -905,7 +905,15 @@ pub fn build_fingerprint() -> &'static str {
 /// [`FINGERPRINT`] without the toolchain and target: the same in a native
 /// and a WebAssembly build of the same sources, so a test can tell whether
 /// the playground's bundle is up to date (`stitchwort_web::source_fingerprint`).
+/// It covers web's crate graph ([`SOURCE_FINGERPRINT_CRATES`]), so editing the
+/// web crate itself marks `web/pkg` stale.
 pub const SOURCE_FINGERPRINT: &str = env!("STITCHWORT_SOURCE_FINGERPRINT");
+
+/// The crates whose sources [`SOURCE_FINGERPRINT`] covers, as directories
+/// relative to the workspace root, comma-separated: web and every workspace
+/// crate it's built with (which includes the driver's graph and the
+/// formatter).
+pub const SOURCE_FINGERPRINT_CRATES: &str = env!("STITCHWORT_SOURCE_FINGERPRINT_CRATES");
 
 /// The effective modes of evaluation, for the cache key: whether the native
 /// implementations are used (`n1`) or not (`n0`), and whether text literals

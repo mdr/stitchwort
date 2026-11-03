@@ -18,6 +18,11 @@
 //! the target (`rustc -vV`, `TARGET`), which no source or lock file covers:
 //! float literals are parsed by the standard library, and the float
 //! primitives compiled by it (docs/proposals/float.md §3.3).
+//!
+//! The bundle-staleness fingerprint ([`fingerprint::fingerprint`] without the
+//! toolchain) covers web's crate graph instead, so editing `crates/web` marks
+//! `web/pkg` stale (SW-1132). The cache fingerprints stay over the driver's
+//! graph: a web-only edit doesn't affect a cached test result.
 
 use std::path::PathBuf;
 
@@ -53,6 +58,23 @@ fn main() {
         "cargo:rustc-env=STITCHWORT_FINGERPRINT_CRATES={}",
         crates.join(",")
     );
+    // The bundle's staleness check also needs the web crate itself, whose
+    // sources aren't part of the driver's graph (SW-1132). Its graph is the
+    // driver's plus the formatter (a web dependency, not a driver one), so
+    // read it from web's manifest rather than adding a list here.
+    let web_crates = fingerprint::source_crates(&root, "crates/web");
+    let mut web_sources = Vec::new();
+    for dir in &web_crates {
+        for file in fingerprint::source_files(&root, dir) {
+            println!("cargo:rerun-if-changed={}", root.join(&file).display());
+            let text = std::fs::read(root.join(&file)).expect("a source file can be read");
+            web_sources.push((file.to_string_lossy().into_owned(), text));
+        }
+    }
+    println!(
+        "cargo:rustc-env=STITCHWORT_SOURCE_FINGERPRINT_CRATES={}",
+        web_crates.join(",")
+    );
     // The compiler: `rustc -vV` names its version, commit and LLVM; and the
     // target it compiles for.
     let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
@@ -67,7 +89,9 @@ fn main() {
     let hex = fingerprint::fingerprint(lock.as_deref(), &sources, &version, &target);
     println!("cargo:rustc-env=STITCHWORT_FINGERPRINT={hex}");
     // The sources alone, the same for every target: so a test can tell
-    // whether the WebAssembly bundle was built from these sources.
-    let sources_only = fingerprint::fingerprint(lock.as_deref(), &sources, "", "");
+    // whether the WebAssembly bundle was built from these sources. Over
+    // web's graph, not the driver's, because a change to the web crate's
+    // own sources (or the formatter's) changes the bundle too.
+    let sources_only = fingerprint::fingerprint(lock.as_deref(), &web_sources, "", "");
     println!("cargo:rustc-env=STITCHWORT_SOURCE_FINGERPRINT={sources_only}");
 }
