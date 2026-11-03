@@ -1,5 +1,5 @@
 {
-  "next": 1150,
+  "next": 1151,
   "tickets": [
     {
       "id": 47,
@@ -4385,7 +4385,21 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/elaborator-state.md §7 step 2 (D2257, D2261 approved the migration). Opus, expected 120 min.",
+      "body": "docs/proposals/elaborator-state.md §7 step 2 (D2257, D2261 approved the migration). Opus, expected 120 min.\n\nDone bba20f3d (Opus, 37 min, est. 120). state::Decl (27 per-declaration fields, reset at the start and end of glued; asserted empty at a mark) and state::Unit (module, namespace_root, file_mode, loading_prelude, warnings, include and capture state, omega_for_auto; nested library loads swap it via enter/leave_nested_unit). Flagged fields: signature_matches, pending_run_bodies, tuple_matches, char_patterns/proofs -> Decl; nothing belongs in Tables. Orchestrator calls (implementation details, per Matt): instance_steps in Attempt (keyed by meta number, reset with metas, not refunded on undo); a Unit mark keeps a copy of the six fields that outlive a unit (the REPL and eval read the last module) rather than asserting empty; lambda_warnings stays in Attempt, set aside beside the Unit. Tests: hash_stability+namespaces+postponement 46, rewind 3, check_cache 35, std_library 33, lane elab 131. Model result: Opus, worked, 37 min (est. 120).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1150,
+      "title": "omega_for_auto leaks from the last loaded library file into eval and typed-in expressions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
