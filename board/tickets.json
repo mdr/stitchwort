@@ -1,5 +1,5 @@
 {
-  "next": 1104,
+  "next": 1105,
   "tickets": [
     {
       "id": 47,
@@ -3629,16 +3629,16 @@
     {
       "id": 1096,
       "title": "Memory grows ~5.8 KB per input character in Std.Parse loops, fused or not (D2215 b, from SW-1087; noted on SW-861): Parse.next over 160,000 chars peaks 1.2-1.6 GB against 94 MB for the input list; a fused Nat-state handler at 1M operations peaks 6.3 GB. Find what is retained per operation (trail, continuation, sharing, allocator) and fix it. Sonnet; measure on a quiet machine",
-      "status": "review",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "runtime",
         "perf"
       ],
-      "body": "\n\nDiagnosis (Sonnet, 2 Nov 23:40; no fix, no commit). Not the runtime: the checker. A `match` in `main` on a long effectful call (`match C.run (...) 0 with ...`) is fully evaluated at check time by `matching::generalised_now` -> `normals` (crates/elab/src/matching.rs) with core::value::run (no fusion, no tail resumption), ~7.3-7.8 KB per op, to test whether the scrutinee occurs in the goal. `check cn1m.sw` alone: 7.36 GB, 17 s. Moving the match into a helper (`show (C.run ...)`): cn1m 7.36 GB/18 s -> 69.5 MB/1.0 s; next (160k chars) 1.39 GB/4.6 s -> 101.8 MB/0.43 s; machine slope ~0.06 KB/char (the input list). Machine is bounded (frames=1). Not the allocator, not a leak (alloc-trace).\nConsequence: SW-861 and SW-738's natural-vs-workaround memory comparisons measured the checker, not the fused machine; --js pays it too.\nProposed fix (needs Opus + Matt): in `normals`, return None (as the existing size cap does) when the scrutinee can't occur: closed, of an inductive Data type, and no constructor of it in the goal, hypothesis types or other scrutinees' types; or a work budget. Plus a regression test on check's peak memory. Longer term: fusion/tail resumption in core::value. Workaround: pass the handled result through a helper. Scratch helper-form programs: scratchpad/sw-1096/.\nModel result: Sonnet, worked (diagnosis), 10 min (est. 45).\n",
+      "body": "\n\nDiagnosis (Sonnet, 2 Nov 23:40; no fix, no commit). Not the runtime: the checker. A `match` in `main` on a long effectful call (`match C.run (...) 0 with ...`) is fully evaluated at check time by `matching::generalised_now` -> `normals` (crates/elab/src/matching.rs) with core::value::run (no fusion, no tail resumption), ~7.3-7.8 KB per op, to test whether the scrutinee occurs in the goal. `check cn1m.sw` alone: 7.36 GB, 17 s. Moving the match into a helper (`show (C.run ...)`): cn1m 7.36 GB/18 s -> 69.5 MB/1.0 s; next (160k chars) 1.39 GB/4.6 s -> 101.8 MB/0.43 s; machine slope ~0.06 KB/char (the input list). Machine is bounded (frames=1). Not the allocator, not a leak (alloc-trace).\nConsequence: SW-861 and SW-738's natural-vs-workaround memory comparisons measured the checker, not the fused machine; --js pays it too.\nProposed fix (needs Opus + Matt): in `normals`, return None (as the existing size cap does) when the scrutinee can't occur: closed, of an inductive Data type, and no constructor of it in the goal, hypothesis types or other scrutinees' types; or a work budget. Plus a regression test on check's peak memory. Longer term: fusion/tail resumption in core::value. Workaround: pass the handled result through a helper. Scratch helper-form programs: scratchpad/sw-1096/.\nModel result: Sonnet, worked (diagnosis), 10 min (est. 45).\n\n\nD2229 (Matt, 3 Nov): yes, fix it, starting with a brief literature review / rival implementation check (what Lean etc. do when generalising a match scrutinee). Opus lane.\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-03",
       "commits": []
     },
     {
@@ -3651,9 +3651,9 @@
         "tooling",
         "bug"
       ],
-      "body": "\n\nHang 3, 23:17:46 (run a225c46a, SW-1102 in a new scratch clone scratch-sw-1102): same signature, server 92c3af4c logged 'cli starting' and nothing in 2 min. No other opencode run alive; 'opencode serve --service' (pid 48942, since ~17:36, ppid 1) was. Per D2217 the investigation is brought forward (started 23:21, Sonnet).\n\n\nResult (Sonnet, 2 Nov 23:41): cause found. With stdin not a terminal, opencode run waits for stdin EOF even with the prompt as an argument; an open pipe that never closes hangs it exactly as seen (server 'cli starting' then nothing). Repro: open pipe 2/2 hang; </dev/null 16/16 fine (reruns, fresh clones, production flags). Upstream anomalyco/opencode#59287 (open; triage says still on dev); 2.2.5 (nixpkgs-unstable) likely still hangs (fake-model test). Project.resolve stack was the idle server's startup fiber being cancelled. Not the serve --service process, not concurrency, not 2.1.4 (the wait is in v1 too, #38723). opencode comes from home.packages in ~/.config/nix-darwin/home/matt.nix:28. Workaround applied: </dev/null in CLAUDE.md and docs/workflow.md. Close after a few real runs start cleanly with it.\n",
+      "body": "\n\nHang 3, 23:17:46 (run a225c46a, SW-1102 in a new scratch clone scratch-sw-1102): same signature, server 92c3af4c logged 'cli starting' and nothing in 2 min. No other opencode run alive; 'opencode serve --service' (pid 48942, since ~17:36, ppid 1) was. Per D2217 the investigation is brought forward (started 23:21, Sonnet).\n\n\nResult (Sonnet, 2 Nov 23:41): cause found. With stdin not a terminal, opencode run waits for stdin EOF even with the prompt as an argument; an open pipe that never closes hangs it exactly as seen (server 'cli starting' then nothing). Repro: open pipe 2/2 hang; </dev/null 16/16 fine (reruns, fresh clones, production flags). Upstream anomalyco/opencode#59287 (open; triage says still on dev); 2.2.5 (nixpkgs-unstable) likely still hangs (fake-model test). Project.resolve stack was the idle server's startup fiber being cancelled. Not the serve --service process, not concurrency, not 2.1.4 (the wait is in v1 too, #38723). opencode comes from home.packages in ~/.config/nix-darwin/home/matt.nix:28. Workaround applied: </dev/null in CLAUDE.md and docs/workflow.md. Close after a few real runs start cleanly with it.\n\n\nD2228 (Matt, 3 Nov): close after 2-3 real DeepSeek runs start cleanly with </dev/null; the instruction is in CLAUDE.md and docs/workflow.md.\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-03",
       "commits": []
     },
     {
@@ -3741,6 +3741,20 @@
       "where": "",
       "labels": [],
       "body": "Overnight 2-3 Nov 2026 (D2227). Everything is on local main, not pushed.\n\nMerged (each verified: selection + merge tier + audit):\n- SW-1099: the commenting rule (docs/syntax.md \"What to write\"): std comprehensive, application code parsimonious.\n- SW-1100 + SW-1045: doc --coverage a target only for Std.*; doc links resolve through the file's imports; W-DOC-LINK no longer cached.\n- SW-1074: equations for a match on several expressions (all 9 AoC skips now have equations; no AoC proof changed: none needed them). Opus review found the match columns were found by name (misfired on a variable named `s`); fixed by having the lifter record them. Cache FORMAT 20.\n\nFor you to judge (branches, not merged):\n- lane/SW-1101: std List docs pilot (54 definitions, 52 with checked examples).\n- lane/SW-1102: AoC 2024 day 6 comments pilot (81 restating comments deleted, 36 kept, 2 shortened). Review: git diff main...lane/SW-1102.\n- Open point from SW-1099: under the rule, should std theorems whose name and statement say everything still need a doc?\n\nFindings:\n- SW-1097 (OpenCode hang): cause found. opencode run waits for stdin EOF; an open pipe hangs it (upstream anomalyco/opencode#59287, open). Fixed with </dev/null, now in CLAUDE.md and docs/workflow.md.\n- SW-1096 (Parse memory): not the runtime. The checker fully evaluates a match scrutinee in main (matching::generalised_now -> normals) with the unfused core evaluator: 7.36 GB at check time for 1M ops vs 69.5 MB when the match is in a helper. SW-861/SW-738's memory comparisons measured the checker. Fix proposed, not started (D2229).\n- Selector trial (SW-1098): 2 of ~10 merges done, nothing missed; selections 94 s and 56 s. Gap: EXAMPLES takes one substring.\n- audit:touched on 2021 d16/d18, 2024 d12: 35 vacuity warnings, probably older (not checked).\n\nDaily tier, 23:54-00:15: 1956 / 1956 passed. 20.7 min wall (nextest 1057 s), against \"under 5 minutes\" in the Taskfile. Its timings are folded into the selector inventory: 1956 of 1969 tests now have a known time (was ~1070).\n\nOpen D questions:\n- D2228: close SW-1097 after 2-3 clean DeepSeek starts with </dev/null? [rec: yes]\n- D2229: SW-1096 fix as an Opus lane (skip evaluating a scrutinee that can't occur in the goal, memory regression test, Opus review)? [rec: yes]\n- D2230: the daily tier takes 20 min vs its \"under 5 minutes\": investigate (as SW-1092 did for merge) or restate the budget? [rec: investigate, Sonnet]\n",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1104,
+      "title": "Daily tier takes 20.7 min against its 5-minute budget: what is slowing it",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
