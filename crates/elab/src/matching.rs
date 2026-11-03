@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote, quote_at_most};
-use stitchwort_core::{Name, Term, Value, pretty};
+use stitchwort_core::{DefId, Globals, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -814,12 +814,13 @@ fn generalised_now(
     };
     let type_terms: Vec<Term> = (0..base)
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
-            true => Ok(Term::Refl), // never copied, so never read
+            // Never copied, so never read (`cannot_occur` passes over it).
+            true => Ok(Term::Refl),
             false => quote(g, base, &cx.types[l]).map_err(in_match),
         })
         .collect::<Result<_>>()?;
     let goal_term = quote(g, base, goal).map_err(in_match)?;
-    let normals = normals(cx, &exprs, &type_terms, &goal_term, base)?;
+    let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
         for (j, b) in exprs.iter().enumerate() {
@@ -883,7 +884,16 @@ fn generalised_now(
         }
     }
     let not_found = if skip.is_none() {
-        not_found(cx, &exprs, &normals, &copied, &type_terms, goal, &goal_term)?
+        not_found(
+            cx,
+            &exprs,
+            &normals,
+            &unread,
+            &copied,
+            &type_terms,
+            goal,
+            &goal_term,
+        )?
     } else {
         Vec::new()
     };
@@ -1017,13 +1027,18 @@ fn generalised_now(
 /// With several scrutinees each is read back in full, since whether one is
 /// part of another (which this version can't generalise) is a question
 /// about the scrutinees themselves, however large.
+///
+/// A single scrutinee that [`cannot_occur`] isn't computed at all, and is
+/// `None` too. Also returned, for each scrutinee: whether it was left
+/// uncomputed with free variables, so that its normal form might have been
+/// a variable, which [`not_found`] doesn't warn about.
 fn normals(
     cx: &Ctx,
     exprs: &[Scrut],
     type_terms: &[Term],
     goal: &Term,
     base: usize,
-) -> Result<Vec<Option<Term>>> {
+) -> Result<(Vec<Option<Term>>, Vec<bool>)> {
     let g = cx.g();
     let cap = match exprs {
         [_] => (type_terms.iter())
@@ -1034,17 +1049,91 @@ fn normals(
             .unwrap_or(0) as u64,
         _ => u64::MAX,
     };
-    exprs
-        .iter()
-        .map(|s| match &s.normal {
+    // A type is never `refl`: that is a skipped level's placeholder.
+    let targets = || {
+        (type_terms.iter())
+            .filter(|t| !matches!(t, Term::Refl))
+            .chain([goal])
+            .chain(exprs.iter().map(|s| &s.ty_term))
+    };
+    let mut unread = vec![false; exprs.len()];
+    let normals = (exprs.iter().zip(&mut unread))
+        .map(|(s, unread)| match &s.normal {
             Some(normal) => Ok(Some(normal.clone())),
+            None if exprs.len() == 1 && cannot_occur(g, s, targets(), base) => {
+                *unread = !closed(s, base);
+                Ok(None)
+            }
             None => (|| {
                 let value = cx.eval(&s.term)?;
                 Ok(quote_at_most(g, base, &value, cap)?)
             })()
             .map_err(|d| in_scrutinee(d, s.span)),
         })
-        .collect()
+        .collect::<Result<_>>()?;
+    Ok((normals, unread))
+}
+
+/// Whether `s` has no free variables or unknowns (an unknown's solution
+/// may mention variables).
+fn closed(s: &Scrut, base: usize) -> bool {
+    free_levels(&s.term, base).is_empty()
+        && !s.term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+}
+
+/// Whether `s`'s normal form can be seen, without computing it, to occur in
+/// none of `targets` (read back, in a context of `base` variables), so
+/// that [`normals`] needn't run it: a `match` in `main` on a long handled
+/// computation would otherwise run it at check time (SW-1096,
+/// docs/proposals/match-generalisation-evaluation.md).
+///
+/// It does if `s`'s type is a data type `D` and the targets hold only
+/// variables, data types, sorts, Π, λ, applications, `=`, annotations and
+/// definitions whose types end in a sort or in a data type other than `D`.
+/// The normal form, of type `D`, is neither a type nor a function, nor a
+/// redex. So a subterm of a target that equals it would be headed by a
+/// definition whose type ends in `D`, or by a variable free in both. There
+/// is no such variable if `s` has no free variables or unknowns, or if the
+/// targets have no free variables.
+fn cannot_occur<'a>(
+    g: &Globals,
+    s: &Scrut,
+    mut targets: impl Iterator<Item = &'a Term>,
+    base: usize,
+) -> bool {
+    let Term::Data(d, _) = s.ty_term.strip_loc() else {
+        return false;
+    };
+    let closed = closed(s, base);
+    let other = |f: &DefId| {
+        let Some(def) = g.defs.get(f.0) else {
+            return false;
+        };
+        let mut ty = def.ty.strip_loc();
+        while let Term::Pi(_, _, _, b) = ty {
+            ty = b.strip_loc();
+        }
+        match ty {
+            Term::Sort(_) => true,
+            Term::Data(e, _) => e != d,
+            _ => false,
+        }
+    };
+    targets.all(|t| {
+        t.subterms().all(|(t, under)| match t {
+            Term::Var(ix) => closed || *ix < under,
+            Term::Def(f) => other(f),
+            Term::Data(..)
+            | Term::Sort(_)
+            | Term::Pi(..)
+            | Term::Lam(..)
+            | Term::App(..)
+            | Term::Ann(..)
+            | Term::Eq(..)
+            | Term::Loc(..) => true,
+            _ => false,
+        })
+    })
 }
 
 /// `d`, if it is running out of resources with nothing saying where, said
@@ -1068,11 +1157,15 @@ fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diag
 /// so every alternative has the goal unchanged. Each is given only if the
 /// alternatives don't use its equation either, and only in a proof, whose
 /// goal is a proposition. The note shows the goal as the occurrence test
-/// saw it.
+/// saw it. None is given for one left uncomputed with free variables
+/// (`unread`): its normal form might have been a variable, which this
+/// never warns about.
+#[allow(clippy::too_many_arguments)]
 fn not_found(
     cx: &Ctx,
     exprs: &[Scrut],
     normals: &[Option<Term>],
+    unread: &[bool],
     copied: &[usize],
     type_terms: &[Term],
     goal: &Value,
@@ -1083,10 +1176,11 @@ fn not_found(
     if !crate::patlet::proposition(cx, goal)? {
         return Ok(out);
     }
-    for ((i, s), normal) in exprs.iter().enumerate().zip(normals) {
+    for (((i, s), normal), &unread) in exprs.iter().enumerate().zip(normals).zip(unread) {
         // One larger than every type and the goal occurs in none of them.
         let found = |t: &Term| normal.as_ref().is_some_and(|n| occurs(n, t));
         if s.name.is_none()
+            || unread
             || normal
                 .as_ref()
                 .is_some_and(|n| matches!(n.strip_loc(), Term::Var(_)))
