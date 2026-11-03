@@ -717,8 +717,9 @@ fn copy_tree(from: &Path, to: &Path) {
 /// SW-145: with `STITCHWORT_STD_DIR` set, `stitchwort run` reads the
 /// standard library from that directory as it is now: an edit to a library
 /// function's body is seen with no rebuild, also through the check cache
-/// (its keys have the text read), and an error in a library file names the
-/// file on disk.
+/// (its keys have the text read), and an error in a library file names it
+/// by its place in the library, `std/Nat/Iterate.sw`, wherever the copy is
+/// (SW-1145).
 #[test]
 fn std_dir_reads_the_library_from_disk() {
     let std = std::env::temp_dir().join(format!("stitchwort-std-dir-{}", std::process::id()));
@@ -759,9 +760,9 @@ fn std_dir_reads_the_library_from_disk() {
     with_probe("n + True");
     let output = run_with_std();
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    let shown = iterate.display().to_string();
+    let shown = "std/Nat/Iterate.sw";
     assert!(
-        stderr(&output).contains(&shown),
+        stderr(&output).contains(shown),
         "the error names {shown}:\n{}",
         stderr(&output)
     );
