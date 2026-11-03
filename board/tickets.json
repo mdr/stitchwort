@@ -4603,7 +4603,7 @@
     {
       "id": 1165,
       "title": "Elaborator state step 5: table kinds (GrowVec, OwnedBy, Derived) in state/table.rs and state::Tables; Tables::{mark, rewind, encode_since, replay, dump} destructure exhaustively; encoded bytes unchanged",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
