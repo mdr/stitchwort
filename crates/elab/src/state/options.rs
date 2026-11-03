@@ -97,6 +97,7 @@ impl Options {
             numbers_as_succ,
             instance_budget,
             uniform_operators,
+            glue,
             // Not usable with the library test target (`cache_usable`).
             library_tests: _,
             // Where entries are kept, and a test's way of making replays fail.
@@ -111,12 +112,9 @@ impl Options {
             counterexample_runner: _,
             no_counterexamples: _,
             untimed_counterexamples: _,
-            // Not in the key, though glued and unglued evaluation might
-            // give different terms; that hasn't been checked.
-            glue: _,
         } = self;
         format!(
-            "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {}",
+            "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {}",
             numbers_as_succ,
             limits.work,
             limits.stack,
@@ -125,6 +123,7 @@ impl Options {
             rewrite_budget,
             instance_budget,
             uniform_operators,
+            glue,
         )
     }
 }
