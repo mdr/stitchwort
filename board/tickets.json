@@ -4603,13 +4603,13 @@
     {
       "id": 1165,
       "title": "Elaborator state step 5: table kinds (GrowVec, OwnedBy, Derived) in state/table.rs and state::Tables; Tables::{mark, rewind, encode_since, replay, dump} destructure exhaustively; encoded bytes unchanged",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/elaborator-state.md §4.2 and §7 step 5 (D2257, D2259). D2272 (Matt, 3 Nov): start. Opus, est. 120 min.",
+      "body": "docs/proposals/elaborator-state.md §4.2 and §7 step 5 (D2257, D2259). D2272 (Matt, 3 Nov): start. Opus, est. 120 min.\n\nDone c28ea92b, 98552247 (Opus, 42 min, est. 120), reviewed, merged. Tables: GrowVec (tests, abilities, lifted, equation_skips, equations_done), OwnedBy<DataId> (records, interfaces, data_owners, no_eq/show/ord/finite/decide, generated_alls), OwnedBy<DefId> (match_columns, total_rows); instances, helper_keys, namespace_defs, prelude_defs by hand; scope stays out until step 6 (its log is written in the names section). Table trait: mark, rewind, encode_since, decode, replay, dump; per-row Codec and Dump hand-written separately (D2259); Tables methods destructure exhaustively. OwnedBy insert asserts the id is in the current unit. Bytes unchanged: 382/382 entries identical apart from key and checksum across aoc, rogue, 6 projects; with rekeyed base entries every entry hit. Tests: lane elab 131, check_cache 35, rewind 4, hash_stability 8, postponement+namespaces 39. Elaborator::tests is now a method. Possible follow-up: set a namespace unit start after its libraries load to tighten the assertion. Model result: Opus, worked, 42 min (est. 120).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
