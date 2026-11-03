@@ -4631,13 +4631,13 @@
     {
       "id": 1167,
       "title": "External design review brief: the elaborator's state (context on Stitchwort, the problem, options, measurements, our recommendation, status of steps 1-5, questions for the reviewer)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "Matt (3 Nov): write it up as an artifact for an external reviewer. Opus writes the page; the orchestrator publishes it (private to Matt). Step 6 (D2279) waits for the review.",
+      "body": "",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
