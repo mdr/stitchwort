@@ -31,6 +31,83 @@ const fn parse_hash(text: &str) -> u64 {
     n
 }
 
+#[cfg(test)]
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    fn root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("the workspace root")
+    }
+
+    fn crates() -> Vec<String> {
+        env!("SW_RT_BUILD_CRATES")
+            .split(',')
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn inputs() -> Vec<PathBuf> {
+        env!("SW_RT_BUILD_INPUTS")
+            .split(',')
+            .filter(|p| !p.is_empty())
+            .map(PathBuf::from)
+            .collect()
+    }
+
+    /// The hash covers the runtime's workspace dependencies (not dev- or
+    /// build-), transitively: core's enums decide the encoded tags, and
+    /// syntax's the definitions lowered into the program.
+    #[test]
+    fn the_build_hash_covers_the_crate_graph() {
+        let expected = stitchwort_driver::fingerprint::source_crates(&root(), "crates/rt");
+        assert_eq!(crates(), expected);
+        for dir in ["crates/core", "crates/rt", "crates/syntax"] {
+            assert!(expected.iter().any(|e| e == dir), "{dir} in {expected:?}");
+        }
+    }
+
+    /// Every covered crate's manifest, build script and Rust sources are
+    /// hashed, not just the runtime's `src`.
+    #[test]
+    fn a_crates_manifest_build_script_and_sources_are_hashed() {
+        let root = root();
+        let mut expected = Vec::new();
+        for dir in &crates() {
+            expected.extend(stitchwort_driver::fingerprint::source_files(&root, dir));
+        }
+        assert_eq!(inputs(), expected);
+        for file in [
+            "crates/rt/Cargo.toml",
+            "crates/rt/build.rs",
+            "crates/rt/src/wire.rs",
+            "crates/core/Cargo.toml",
+            "crates/core/src/lib.rs",
+            "crates/syntax/Cargo.toml",
+            "crates/syntax/src/lib.rs",
+        ] {
+            assert!(
+                expected.contains(&PathBuf::from(file)),
+                "{file} in {expected:?}"
+            );
+        }
+    }
+
+    /// The enabled features are part of the hash (`CARGO_FEATURE_*`): a
+    /// feature can change the codec without changing a source file.
+    #[test]
+    fn the_build_hash_covers_enabled_features() {
+        let expected = if cfg!(feature = "alloc-trace") {
+            "alloc-trace"
+        } else {
+            ""
+        };
+        assert_eq!(env!("SW_RT_BUILD_FEATURES"), expected);
+    }
+}
+
 /// Why bytes aren't a program this runtime can run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodecError(pub String);
