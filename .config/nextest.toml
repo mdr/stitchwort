@@ -71,7 +71,7 @@ slow-timeout = { period = "30s" }
 default-filter = """
 package(stitchwort-syntax)
 | package(stitchwort-core)
-| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division) | (binary(navigation) & test(=references_of_a_project))))
+| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division) | (binary(navigation) & test(=references_of_a_project)) | (binary(named_arguments) & test(=named_calls_keep_every_hash))))
 | (package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/))
 | binary(ability_errors) | binary(empty_row_kernel)
 | (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
