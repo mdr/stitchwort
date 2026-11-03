@@ -118,6 +118,18 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         .initialize_finish(id, reply)
         .map_err(|e| e.to_string())?;
 
+    // The standard library is setup: find it now, and if it isn't there,
+    // tell the editor why and stop, rather than panicking when a check asks
+    // for it.
+    if let Err(e) = stitchwort_elab::load_std_text() {
+        let n = Notification::new(
+            "window/showMessage".to_string(),
+            serde_json::json!({ "type": lsp_types::MessageType::ERROR, "message": e }),
+        );
+        let _ = connection.sender.send(n.into());
+        return Err(e);
+    }
+
     let nav = Arc::new(RwLock::new(Nav::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     let (to_checker, edits) = crossbeam_channel::unbounded();

@@ -55,12 +55,36 @@ static STD: OnceLock<StdText> = OnceLock::new();
 /// The standard library's text, from where the module's documentation says.
 /// Panics, saying where it looked, if there is none or it can't be read: a
 /// fault in the installation or the developer's setup, not in a program.
+/// The CLI and the language server call [`load_std_text`] first, so that
+/// this fault is reported rather than panicking.
 pub fn std_text() -> &'static StdText {
-    STD.get_or_init(|| match locate() {
-        Ok(dir) => StdText::read(&dir)
-            .unwrap_or_else(|e| panic!("the standard library at {}: {e}", dir.display())),
-        Err(e) => panic!("{e}"),
-    })
+    load_std_text_inner().unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// Reads the standard library now, or says what it looked for and where.
+/// The CLI and the language server call this at startup, before anything
+/// uses the library, so that a missing or unreadable copy is an error, not
+/// a panic.
+pub fn load_std_text() -> Result<(), String> {
+    load_std_text_inner().map(|_| ())
+}
+
+fn load_std_text_inner() -> Result<&'static StdText, String> {
+    if let Some(text) = STD.get() {
+        return Ok(text);
+    }
+    let dir = locate()?;
+    let text = StdText::read(&dir).map_err(|e| {
+        format!(
+            "the standard library at {}: {e}. Give its directory with `--std-dir` or \
+             {STD_DIR_VAR}.",
+            dir.display()
+        )
+    })?;
+    // Another thread may have read it in the meantime; either copy is the
+    // one this process uses.
+    let _ = STD.set(text);
+    Ok(STD.get().expect("the standard library was just set"))
 }
 
 /// Reads the standard library from `dir` (the CLI's `--std-dir`). It must
