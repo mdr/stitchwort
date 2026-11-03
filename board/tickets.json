@@ -4687,13 +4687,13 @@
     {
       "id": 1171,
       "title": "State step 6a: ownership tag per declaration and the journal (Checkpoint, Transaction, Logged with stamps; nav::Logged moved onto it) (elaborator-state.md §4.8.2, §4.8.4, §7)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "D2283, D2284 (Matt, 3 Nov). Opus, est. 150 min.",
+      "body": "D2283, D2284 (Matt, 3 Nov). Opus, est. 150 min.\n\nDone c21ad5d7 (Opus, 27 min, est. 150), reviewed, merged. Owners (state/owners.rs) in Session, tagged at unit changes (begin/enter/leave); an untagged id belongs to the current unit; rewinds and failed admissions cut tags. OwnedBy insert/remove assert owner(id) == current unit (14 call sites + replay); floor gone. Journal (state/journal.rs): Logged<K,V> with generation stamps, checkpoint stack with serial+depth validity (stale handle panics), Transaction debug-asserts on drop, logs cleared when the stack empties. JournalStats public, summable. nav::Logged deleted; Recorder on the journal; Mark holds a Checkpoint (mark takes &mut self). Model test: 10,000 seeded sequences, ~256k steps, mutation-checked. Deviations: encoder still splits at the cut (count check kept as a release-mode refusal too); on-demand equations get their own unit; no segments yet (6c); marks aren't released in production yet (6b). Follow-up for 6b: Session::cancellable and the recheck_namespaces hook drop marks without releasing them, so the journal stack grows per call until a rewind. Model result: Opus, worked, 27 min (est. 150).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
