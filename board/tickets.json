@@ -1,5 +1,5 @@
 {
-  "next": 1169,
+  "next": 1170,
   "tickets": [
     {
       "id": 47,
@@ -4652,6 +4652,20 @@
         "test"
       ],
       "body": "From SW-1082 (3 Nov): failed repeatedly at load average ~28, passed alone.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1169,
+      "title": "State note: answer the external review and finalise step 6's design (mark lifecycle, cache-entry attribution, ownership by unit, tests and measurements), keeping parallel checking possible",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2281 (Matt, 3 Nov): yes. Answer the external review (docs/reviews/elaborator-state-review.md) in docs/proposals/elaborator-state.md and finalise the step 6 design before implementing it: mark lifecycle (create, commit, invalidate, prune), which changes belong to which cache entry (log as a write-set index; nested library loads), ownership by unit rather than a numeric floor, step 6's tests (model-based Logged test, mutation-API audit, replay-then-depend) and measurements (LSP memory over many edits, edit latency, CLI logging cost). Take future parallel checking into account: not planned now, but the design must not close the door to it. Opus, est. 90 min. Step 6 implementation waits for Matt's approval of the revision; supersedes D2279.\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
