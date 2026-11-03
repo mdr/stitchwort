@@ -2641,9 +2641,9 @@ impl Elaborator {
         let mut under = d.key.clone();
         for part in &parts[..parts.len() - 1] {
             under = format!("{under}.{part}");
-            self.tables.helper_keys.insert(under.clone());
+            self.tables.helper_keys.add(under.clone());
         }
-        self.tables.helper_keys.insert(key);
+        self.tables.helper_keys.add(key);
         Ok(())
     }
 

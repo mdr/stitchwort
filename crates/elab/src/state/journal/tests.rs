@@ -42,6 +42,25 @@ fn the_reviewers_sequence() {
     assert_eq!(t.entries(), 0);
 }
 
+/// A set's additions and a copy: a copy is what the rows were, whatever is
+/// done after it, and is put back by nothing.
+#[test]
+fn a_set_and_a_copy() {
+    let (mut j, mut t) = (Journal::<usize>::default(), LoggedSet::<u8>::default());
+    assert!(t.add(1));
+    let c = j.checkpoint(&mut t);
+    let copy = t.copy();
+    assert!(!t.add(1));
+    assert!(t.add(2));
+    assert!(t.remove(&1));
+    assert!(copy.contains_key(&1) && !copy.contains_key(&2));
+    assert_eq!(t.entries(), 2, "the addition and the removal logged");
+    j.rewind(&c, &mut t);
+    assert!(t.contains_key(&1) && !t.contains_key(&2));
+    j.release(c, &mut t);
+    assert_eq!(t.entries(), 0);
+}
+
 /// Writes before any checkpoint aren't logged, and the logs are dropped
 /// once nothing is open.
 #[test]
@@ -155,9 +174,15 @@ fn sequence(rng: &mut Rng, len: usize, run: &mut Run) {
                 t.insert_absent(key, value);
                 model.entry(key).or_insert(value);
             }
-            7..=8 => {
+            7 => {
                 run.writes += 1;
                 assert_eq!(t.remove(&key), model.remove(&key).is_some());
+            }
+            // Removes every row of one value.
+            8 => {
+                run.writes += 1;
+                t.retain(|_, v| *v != value);
+                model.retain(|_, v| *v != value);
             }
             9 => {
                 run.writes += 1;

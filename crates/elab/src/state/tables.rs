@@ -7,24 +7,27 @@
 //! compile until each says what it does with it, and a table of a kind
 //! ([`super::table`]) has all of that supplied by its kind.
 //!
-//! Three tables are of no kind yet. `instances` and `helper_keys` are any
-//! of whose rows a later unit may change (an instance's `valid` flag): a
-//! mark copies them, and an entry holds the rows the copy hasn't, until
-//! they become undo logs (§7 step 6, which also moves the scope here).
+//! `instances` and `helper_keys` are [`Logged`] (§4.8.2): a rewind's
+//! checkpoint puts them back from their logs ([`Tables::logged`]). An
+//! instance's row belongs to the unit of its definition, which alone may
+//! write it ([`Instances`], §4.8.4); any unit may add a helper's key. A
+//! check cache entry holds the rows a copy taken before the unit hasn't
+//! ([`Copies`]), until entries are made from write-sets (§4.8.3, step 6c).
 //! `namespace_defs` and `prelude_defs` aren't in an entry: the replay of a
 //! namespace sets its range from the definitions it admits, and the
-//! prelude is never cached.
+//! prelude is never cached. A mark copies them (one row per project
+//! namespace).
 
 use std::collections::BTreeMap;
 use std::ops::Range;
 use std::rc::Rc;
 
-use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
+use super::journal::{Copied, Logged, LoggedSet, Logs};
 use super::owners::Owners;
-use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table};
+use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table, owned};
 use crate::TestDecl;
 use crate::cache::{Body, Encoding, Read};
 use crate::effects::AbilityInfo;
@@ -74,10 +77,10 @@ pub(crate) struct Tables {
     /// (D1215), with where the first check failed.
     pub(crate) total_rows: OwnedBy<DefId, Span>,
     /// The global instances, by interface and head (interfaces.md §5.6).
-    pub(crate) instances: HashMap<(DataId, DataId), InstanceInfo>,
+    pub(crate) instances: Instances,
     /// Every local definition's key, so dot notation never finds one
     /// (docs/proposals/syntax-conveniences.md §3.6).
-    pub(crate) helper_keys: HashSet<String>,
+    pub(crate) helper_keys: LoggedSet<String>,
     /// In a project: the definitions each namespace checked so far made.
     pub(crate) namespace_defs: BTreeMap<String, Range<usize>>,
     /// How many definitions the prelude made.
@@ -103,8 +106,6 @@ pub(crate) struct Mark {
     generated_alls: OwnedMark,
     match_columns: OwnedMark,
     total_rows: OwnedMark,
-    instances: HashMap<(DataId, DataId), InstanceInfo>,
-    helper_keys: HashSet<String>,
     namespace_defs: BTreeMap<String, Range<usize>>,
     prelude_defs: usize,
 }
@@ -159,8 +160,9 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
-            instances,
-            helper_keys,
+            // Logged ([`Tables::logged`]).
+            instances: _,
+            helper_keys: _,
             namespace_defs,
             prelude_defs,
         } = self;
@@ -181,8 +183,6 @@ impl Tables {
             generated_alls: generated_alls.mark(ids),
             match_columns: match_columns.mark(ids),
             total_rows: total_rows.mark(ids),
-            instances: instances.clone(),
-            helper_keys: helper_keys.clone(),
             namespace_defs: namespace_defs.clone(),
             prelude_defs: *prelude_defs,
         }
@@ -207,8 +207,9 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
-            instances,
-            helper_keys,
+            // Put back by the journal.
+            instances: _,
+            helper_keys: _,
             namespace_defs,
             prelude_defs,
         } = self;
@@ -228,8 +229,6 @@ impl Tables {
         generated_alls.rewind(&m.generated_alls);
         match_columns.rewind(&m.match_columns);
         total_rows.rewind(&m.total_rows);
-        *instances = m.instances.clone();
-        *helper_keys = m.helper_keys.clone();
         *namespace_defs = m.namespace_defs.clone();
         *prelude_defs = m.prelude_defs;
     }
@@ -242,6 +241,7 @@ impl Tables {
     pub(crate) fn encode_since(
         &self,
         m: &Mark,
+        copies: &Copies,
         e: &mut Encoding<'_>,
         kernel: impl FnOnce(&mut Encoding<'_>),
         extensions: impl FnOnce(&mut Encoding<'_>),
@@ -270,7 +270,8 @@ impl Tables {
             prelude_defs: _,
         } = self;
         if instances.iter().any(|(k, v)| {
-            m.instances
+            copies
+                .instances
                 .get(k)
                 .is_some_and(|old| (old.def, old.valid) != (v.def, v.valid))
         }) {
@@ -281,7 +282,7 @@ impl Tables {
         interfaces.encode_since(&m.interfaces, e)?;
         let mut new: Vec<(&(DataId, DataId), &InstanceInfo)> = instances
             .iter()
-            .filter(|(k, _)| !m.instances.contains_key(k))
+            .filter(|(k, _)| !copies.instances.contains_key(*k))
             .collect();
         new.sort_by_key(|(k, _)| (k.0.0, k.1.0));
         e.count(new.len());
@@ -299,7 +300,9 @@ impl Tables {
         abilities.encode_since(&m.abilities, e)?;
         lifted.encode_since(&m.lifted, e)?;
         match_columns.encode_since(&m.match_columns, e)?;
-        let mut helpers: Vec<&String> = helper_keys.difference(&m.helper_keys).collect();
+        let mut helpers: Vec<&String> = (helper_keys.keys())
+            .filter(|k| !copies.helper_keys.contains_key(*k))
+            .collect();
         helpers.sort();
         e.count(helpers.len());
         for k in helpers {
@@ -427,8 +430,12 @@ impl Tables {
         generated_alls.replay(d_generated_alls, owners);
         match_columns.replay(d_match_columns, owners);
         total_rows.replay(d_total_rows, owners);
-        instances.extend(d_instances);
-        helper_keys.extend(d_helper_keys);
+        for (k, info) in d_instances {
+            instances.insert(owners, k, info);
+        }
+        for k in d_helper_keys {
+            helper_keys.add(k);
+        }
     }
 
     /// The whole of every table, for the canonical dump.
@@ -474,7 +481,7 @@ impl Tables {
                 s
             })
             .collect();
-        lines.extend(helper_keys.iter().map(|k| format!("helper {k}")));
+        lines.extend(helper_keys.keys().map(|k| format!("helper {k}")));
         lines.extend(
             namespace_defs
                 .iter()
@@ -493,5 +500,183 @@ impl Tables {
         lifted.dump("lifted", out);
         tests.dump("test", out);
         out.push_str(&format!("prelude_defs {prelude_defs}\n"));
+    }
+}
+
+/// What the check cache compares a unit's instances and helpers' keys with:
+/// copies taken before it (`cache::Before`), until its entries are made
+/// from write-sets (§4.8.3, step 6c).
+pub(crate) struct Copies {
+    instances: Copied<(DataId, DataId), InstanceInfo>,
+    helper_keys: Copied<String, ()>,
+}
+
+/// Where [`Tables`]' logged tables' logs are.
+pub(crate) struct Positions {
+    instances: usize,
+    helper_keys: usize,
+}
+
+impl Tables {
+    pub(crate) fn copies(&self) -> Copies {
+        Copies {
+            instances: self.instances.rows.copy(),
+            helper_keys: self.helper_keys.copy(),
+        }
+    }
+
+    /// The logged tables, with what each does in [`Logs`]'s methods.
+    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 2] {
+        let Tables {
+            instances,
+            helper_keys,
+            // Of a kind with its own mark, or copied by one.
+            tests: _,
+            abilities: _,
+            lifted: _,
+            equation_skips: _,
+            equations_done: _,
+            records: _,
+            interfaces: _,
+            data_owners: _,
+            no_eq: _,
+            no_show: _,
+            no_ord: _,
+            no_finite: _,
+            no_decide: _,
+            generated_alls: _,
+            match_columns: _,
+            total_rows: _,
+            namespace_defs: _,
+            prelude_defs: _,
+        } = self;
+        [&mut instances.rows, helper_keys]
+    }
+
+    fn logged_ref(&self) -> [&dyn Logs<Positions = usize>; 2] {
+        [&self.instances.rows, &self.helper_keys]
+    }
+}
+
+impl Logs for Tables {
+    type Positions = Positions;
+
+    fn positions(&self) -> Positions {
+        Positions {
+            instances: self.instances.rows.position(),
+            helper_keys: self.helper_keys.position(),
+        }
+    }
+
+    fn undo_to(&mut self, at: &Positions) -> usize {
+        let Positions {
+            instances,
+            helper_keys,
+        } = at;
+        let [a, b] = self.logged();
+        a.undo_to(instances) + b.undo_to(helper_keys)
+    }
+
+    fn set_generation(&mut self, g: Option<u32>) {
+        self.logged().into_iter().for_each(|t| t.set_generation(g));
+    }
+
+    fn entries(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.entries()).sum()
+    }
+
+    fn bytes(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.bytes()).sum()
+    }
+
+    fn distinct_keys(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.distinct_keys()).sum()
+    }
+}
+
+/// The global instances, by interface and head: [`Logged`], and a row is
+/// owned by the unit of its definition (`info.def`), which alone writes it
+/// (§4.8.4), as [`OwnedBy`]'s rows are by their key's. Its key can't say:
+/// an orphan instance's interface and head may both be older units'.
+#[derive(Default)]
+pub(crate) struct Instances {
+    rows: Logged<(DataId, DataId), InstanceInfo>,
+}
+
+impl std::ops::Deref for Instances {
+    type Target = Logged<(DataId, DataId), InstanceInfo>;
+    fn deref(&self) -> &Self::Target {
+        &self.rows
+    }
+}
+
+impl Instances {
+    /// Sets the instance for `key`; `owners` say which unit is being
+    /// elaborated, which must be the one that made `info.def`, and the
+    /// one that made any instance it replaces.
+    pub(crate) fn insert(&mut self, owners: &Owners, key: (DataId, DataId), info: InstanceInfo) {
+        owned(owners, info.def);
+        if let Some(old) = self.rows.get(&key) {
+            owned(owners, old.def);
+        }
+        self.rows.insert(key, info);
+    }
+
+    /// Changes `key`'s instance by `f`, as [`Instances::insert`]; whether
+    /// there is one. `f` keeps its definition.
+    pub(crate) fn update(
+        &mut self,
+        owners: &Owners,
+        key: (DataId, DataId),
+        f: impl FnOnce(&mut InstanceInfo),
+    ) -> bool {
+        let Some(def) = self.rows.get(&key).map(|i| i.def) else {
+            return false;
+        };
+        owned(owners, def);
+        self.rows.update(&key, |info| {
+            f(info);
+            assert_eq!(info.def, def, "an instance's definition changed");
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use super::*;
+
+    fn instance(def: usize) -> InstanceInfo {
+        InstanceInfo {
+            def: DefId(def),
+            name: format!("inst{def}"),
+            span: Span::point(stitchwort_syntax::SourceMap::new().add("test", ""), 0),
+            params: Vec::new(),
+            valid: false,
+        }
+    }
+
+    /// An instance's row is its definition's unit's (§4.8.4): an outer unit
+    /// can't change one a unit nested in it made, even under a key whose
+    /// types are its own; the unit that made it can.
+    #[test]
+    fn an_instance_is_written_by_its_definitions_unit_only() {
+        let ids = |defs| Ids { defs, datas: 0 };
+        let mut owners = Owners::default();
+        let mut t = Instances::default();
+        let key = (DataId(1), DataId(2));
+        owners.begin(ids(10));
+        let a = owners.enter(ids(10));
+        t.insert(&owners, key, instance(10));
+        assert!(t.update(&owners, key, |i| i.valid = true));
+        owners.leave(ids(11), a);
+        let update = catch_unwind(AssertUnwindSafe(|| {
+            t.update(&owners, key, |i| i.valid = false)
+        }));
+        assert!(update.is_err());
+        let replace = catch_unwind(AssertUnwindSafe(|| t.insert(&owners, key, instance(11))));
+        assert!(replace.is_err());
+        assert!(t.get(&key).is_some_and(|i| i.valid && i.def == DefId(10)));
     }
 }

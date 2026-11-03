@@ -21,7 +21,8 @@ use crate::driver::Session;
 
 /// A point a [`Session`] can be rewound to. It stays valid, and can be
 /// rewound to any number of times, until the session is rewound to an
-/// earlier mark.
+/// earlier mark. One no longer wanted is released ([`Session::release`]):
+/// until then, the session logs what each change replaces, for it.
 pub struct Mark {
     sources: usize,
     warnings: usize,
@@ -57,6 +58,12 @@ impl Session {
         self.elab.rewind(&mark.elab);
     }
 
+    /// Lets go of `mark`, the newest mark still open: what was done since
+    /// stays. An older one is let go of by rewinding to one older still.
+    pub fn release(&mut self, mark: Mark) {
+        self.elab.release(mark.elab);
+    }
+
     /// The flag that cancels this session's [`Session::cancellable`]
     /// checks: set it (from any thread) to stop the one running. Nothing
     /// else looks at it, so printing or running tests afterwards never
@@ -74,10 +81,14 @@ impl Session {
     /// Runs the check `f` so that it can be cancelled: the flag is cleared
     /// first (a request made before the check began was for an older
     /// one), and if it is set while `f` runs, the session is rewound to
-    /// where it was before `f` and the result is [`Cancelled`].
+    /// where it was before `f` and the result is [`Cancelled`]. The mark it
+    /// takes is released either way, so `f` mustn't leave one of its own
+    /// open.
     pub fn cancellable<T>(&mut self, f: impl FnOnce(&mut Session) -> T) -> Result<T, Cancelled> {
         let mark = self.mark();
-        self.cancellable_at(&mark, f)
+        let result = self.cancellable_at(&mark, f);
+        self.release(mark);
+        result
     }
 
     /// [`Session::cancellable`], with a mark the caller has already taken

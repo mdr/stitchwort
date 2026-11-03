@@ -16,17 +16,27 @@
 //!   rows for declarations made since are removed. A declaration's rows are
 //!   only ever written while its own unit is checked, which writing one
 //!   asserts.
-//! - **Anything else that can change** (the names, instances, the module
-//!   state, the project's tables, the dot-call caches): a copy
-//!   taken at the mark is put back. These are the tables in which a later
-//!   load can change an older row (`check-cache.md` stage 1, point 3), so
-//!   lengths aren't enough. Copying them costs a few milliseconds per
-//!   mark (measured in the note's "As built").
-//! - **Navigation**, which grows with every namespace checked: its maps
-//!   log what each change replaced (`state::Logged`), and the session's
-//!   journal takes it back: a mark is a checkpoint of it (`state::Journal`).
-//!   A copy at each of a language server's marks made them quadratic in
-//!   the project (SW-1052).
+//! - **Maps in which a later load can change an older row** (the names,
+//!   the instances, the helpers' keys, the keys of the project's
+//!   namespaces and where its files are; `check-cache.md` stage 1, point
+//!   3), so lengths aren't enough, and **navigation**, which grows with
+//!   every namespace checked: each map logs what its changes replaced
+//!   (`state::Logged`), and the session's journal takes them back. A mark
+//!   is a checkpoint of the journal (`state::Journal`,
+//!   docs/proposals/elaborator-state.md §4.8.2), which costs O(number of
+//!   tables), not a copy: copies at each of a language server's marks
+//!   made them quadratic in the project (SW-1052; the scope's cost 3 MB a
+//!   mark on the AoC project).
+//! - **What is left** is copied: the module state and its imports, the
+//!   library files' states, the ranges of the project's namespaces, all
+//!   small between namespaces, and the dot-call caches (`state::Caches`),
+//!   which aren't (2 MB a mark on the AoC project, nearly all a mark now
+//!   costs). What the host sets whole (the project's namespaces and their
+//!   names, their sources' keys) is shared with the mark.
+//!
+//! A mark that is no longer wanted is released ([`Elaborator::release`]),
+//! newest first, or dropped by rewinding to an older one; one only dropped
+//! keeps the journal logging, for nothing, until then.
 //!
 //! The per-declaration state is emptied: the inference state
 //! (`state::Attempt`; after a cancelled check it may be half-full) and the
@@ -44,20 +54,22 @@
 
 use stitchwort_core::globals::GlobalsMark;
 
-use crate::state::{Checkpoint, Logs};
+use crate::state::{
+    Checkpoint, Journal, Logs, SessionLogs, SessionPositions, Tables, TablesPositions,
+};
 use crate::{Elaborator, nav, scope};
 
 /// A point an [`Elaborator`] can be rewound to ([`Elaborator::mark`]). It
 /// stays valid, and can be rewound to any number of times, until the
 /// elaborator is rewound to an earlier mark; a rewind to it after that
-/// panics.
+/// panics. Released by [`Elaborator::release`] when no longer wanted.
 pub struct Mark {
     checkpoint: Checkpoint,
     globals: GlobalsMark,
     unit: crate::state::UnitMark,
     session: crate::state::SessionMark,
     tables: crate::state::TablesMark,
-    scope: scope::Scope,
+    scope: scope::Mark,
     caches: crate::state::CachesMark,
     nav: Option<nav::NavMark>,
 }
@@ -81,16 +93,14 @@ impl Elaborator {
         if let Some(field) = self.decl.leftover() {
             panic!("a mark in the middle of a declaration: `Decl::{field}` isn't empty");
         }
-        let checkpoint = self.session.journal.checkpoint(&mut LoggedTables {
-            nav: self.nav.as_mut().map(|n| n.get_mut()),
-        });
+        let checkpoint = self.with_journal(|journal, logs| journal.checkpoint(logs));
         Mark {
             checkpoint,
             globals: self.globals.mark(),
             unit: self.unit.mark(),
             session: self.session.mark(),
             tables: self.tables.mark(self.ids()),
-            scope: self.scope.clone(),
+            scope: self.scope.mark(),
             caches: self.caches.mark(),
             nav: self.nav.as_ref().map(|n| n.borrow_mut().mark()),
         }
@@ -116,16 +126,20 @@ impl Elaborator {
             goal_snapshots,
             nav,
         } = self;
-        session.journal.rewind(
+        let (journal, session_logs) = session.logged();
+        journal.rewind(
             &mark.checkpoint,
             &mut LoggedTables {
                 nav: nav.as_mut().map(|n| n.get_mut()),
+                scope,
+                tables,
+                session: session_logs,
             },
         );
         let defs = mark.globals.defs();
         globals.rewind(&mark.globals);
         tables.rewind(&mark.tables);
-        *scope = mark.scope.clone();
+        scope.rewind(&mark.scope);
         attempt.rewind();
         *decl = crate::state::Decl::default();
         unit.rewind(&mark.unit);
@@ -140,55 +154,128 @@ impl Elaborator {
     }
 }
 
+impl Elaborator {
+    /// Closes `mark`'s checkpoint: what was done since it stays, and the
+    /// journal stops logging for it. Only the newest mark still open
+    /// (an older one is dropped by rewinding to one older still, which
+    /// makes those after it unusable); panics otherwise.
+    pub fn release(&mut self, mark: Mark) {
+        let Mark { checkpoint, .. } = mark;
+        self.with_journal(|journal, logs| journal.release(checkpoint, logs));
+    }
+
+    /// `f` with the session's journal and the tables it covers.
+    pub(crate) fn with_journal<T>(
+        &mut self,
+        f: impl FnOnce(&mut Journal<LogPositions>, &mut LoggedTables<'_>) -> T,
+    ) -> T {
+        let Elaborator {
+            scope,
+            tables,
+            session,
+            nav,
+            ..
+        } = self;
+        let (journal, session) = session.logged();
+        f(
+            journal,
+            &mut LoggedTables {
+                nav: nav.as_mut().map(|n| n.get_mut()),
+                scope,
+                tables,
+                session,
+            },
+        )
+    }
+}
+
 /// The tables a [`Mark`]'s checkpoint covers: those that log their changes
 /// rather than being copied (docs/proposals/elaborator-state.md §4.8.2).
-/// Navigation's, while it is on.
+/// Navigation's, while it is on, the scope's, two of [`Tables`]' and two
+/// of the session's.
 pub(crate) struct LoggedTables<'a> {
     nav: Option<&'a mut nav::Recorder>,
+    scope: &'a mut scope::Scope,
+    tables: &'a mut Tables,
+    session: SessionLogs<'a>,
 }
 
 /// Where [`LoggedTables`]' logs are.
 pub(crate) struct LogPositions {
     nav: Option<nav::Positions>,
+    scope: scope::Positions,
+    tables: TablesPositions,
+    session: SessionPositions,
 }
 
 impl Logs for LoggedTables<'_> {
     type Positions = LogPositions;
 
     fn positions(&self) -> LogPositions {
-        let LoggedTables { nav } = self;
+        let LoggedTables {
+            nav,
+            scope,
+            tables,
+            session,
+        } = self;
         LogPositions {
             nav: nav.as_ref().map(|n| n.positions()),
+            scope: scope.positions(),
+            tables: tables.positions(),
+            session: session.positions(),
         }
     }
 
     fn undo_to(&mut self, at: &LogPositions) -> usize {
-        let LoggedTables { nav } = self;
-        match (nav, &at.nav) {
+        let LoggedTables {
+            nav,
+            scope,
+            tables,
+            session,
+        } = self;
+        let nav = match (nav, &at.nav) {
             (Some(n), Some(at)) => n.undo_to(at),
             // Turned on since: as for a mark taken without it, nothing to
             // undo.
             _ => 0,
-        }
+        };
+        nav + scope.undo_to(&at.scope) + tables.undo_to(&at.tables) + session.undo_to(&at.session)
     }
 
     fn set_generation(&mut self, g: Option<u32>) {
-        let LoggedTables { nav } = self;
+        let LoggedTables {
+            nav,
+            scope,
+            tables,
+            session,
+        } = self;
         if let Some(n) = nav {
             n.set_generation(g);
         }
+        scope.set_generation(g);
+        tables.set_generation(g);
+        session.set_generation(g);
     }
 
     fn entries(&self) -> usize {
         self.nav.as_ref().map_or(0, |n| n.entries())
+            + self.scope.entries()
+            + self.tables.entries()
+            + self.session.entries()
     }
 
     fn bytes(&self) -> usize {
         self.nav.as_ref().map_or(0, |n| n.bytes())
+            + self.scope.bytes()
+            + self.tables.bytes()
+            + self.session.bytes()
     }
 
     fn distinct_keys(&self) -> usize {
         self.nav.as_ref().map_or(0, |n| n.distinct_keys())
+            + self.scope.distinct_keys()
+            + self.tables.distinct_keys()
+            + self.session.distinct_keys()
     }
 }
 
@@ -196,9 +283,6 @@ impl Elaborator {
     /// What the session's journal has done, and holds now
     /// (docs/proposals/elaborator-state.md §4.8.7).
     pub fn journal_stats(&mut self) -> crate::state::JournalStats {
-        let logs = LoggedTables {
-            nav: self.nav.as_mut().map(|n| n.get_mut()),
-        };
-        self.session.journal.stats(&logs)
+        self.with_journal(|journal, logs| journal.stats(logs))
     }
 }

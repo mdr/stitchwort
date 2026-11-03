@@ -28,6 +28,7 @@ use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_syntax::ast::{self, Import};
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::state::{Copied, Logged, LoggedSet, Logs};
 use crate::{Elaborator, Global, Result, error};
 
 /// The library's root.
@@ -110,15 +111,21 @@ pub enum Resolved<'a> {
 }
 
 /// The names the program sees, and the library's.
-#[derive(Clone, Default)]
+///
+/// The tables that outlive a module are [`Logged`]: a rewind's
+/// checkpoint puts them back from their logs (`crate::rewind`; the
+/// scope's [`Logs`]), and every write goes through their methods
+/// (docs/proposals/elaborator-state.md §4.8.5). The current module's
+/// imports, and the flags of a load, are copied by a mark ([`Mark`]).
+#[derive(Default)]
 pub struct Scope {
     /// Every declaration, by key.
-    pub entries: HashMap<String, (Global, Span)>,
+    entries: Logged<String, (Global, Span)>,
     /// Constructors and operations, which are visible by their short names
     /// wherever their type's or ability's short name is: by short name.
-    followers: HashMap<String, Vec<String>>,
+    followers: Logged<String, Vec<String>>,
     /// Every proper prefix of a key: the namespaces.
-    namespaces: HashSet<String>,
+    namespaces: LoggedSet<String>,
     /// Each file of the current module's imports: short name to keys.
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
     /// Each file's imported qualifiers: an item that is a namespace and
@@ -144,18 +151,18 @@ pub struct Scope {
     /// uses of them aren't reported again as unknown.
     pub(crate) import_failed: HashSet<String>,
     /// What `Std` declares at its root, and its aliases: short name to key.
-    std_root: HashMap<String, String>,
+    std_root: Logged<String, String>,
     /// The members of a type's, ability's or interface's own declaration:
     /// constructors, operations, record fields and interface methods. A
     /// prelude type's are usable through its default name (D260).
-    members: HashSet<String>,
+    members: LoggedSet<String>,
     /// Extensions: functions one project namespace adds to another's type
     /// (`def Grid.probe` in `P.Spec`, for `P.Grid`). By the key each would
     /// have in the type's namespace (`P.Grid.probe`), the extensions' own
     /// keys (`P.Spec.Grid.probe`).
-    extensions: HashMap<String, Vec<String>>,
+    extensions: Logged<String, Vec<String>>,
     /// The reverse: an extension's key to the key it extends.
-    extended: HashMap<String, String>,
+    extended: Logged<String, String>,
     /// While a library file loads: its own index entries are out of the way,
     /// so it can declare the names the index promised.
     pub(crate) loading: Option<usize>,
@@ -201,7 +208,7 @@ pub(crate) enum ScopeOp {
 
 /// A file's imports, set aside while a library file loads in the middle of
 /// checking a module (`library.rs`).
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct SavedImports {
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
     qualifiers: Vec<HashMap<String, Vec<(String, Span)>>>,
@@ -471,17 +478,23 @@ impl Scope {
             }
             let mut prefix = key;
             while let Some(p) = parent(prefix) {
-                self.namespaces.insert(p.to_string());
+                if !self.namespaces.contains_key(p) {
+                    self.namespaces.add(p.to_string());
+                }
                 prefix = p;
             }
-            if follower {
-                self.members.insert(key.to_string());
+            if follower && !self.members.contains_key(key) {
+                self.members.add(key.to_string());
             }
             if follower && !short(key).starts_with('%') {
-                self.followers
-                    .entry(short(key).to_string())
-                    .or_default()
-                    .push(key.to_string());
+                let short = short(key);
+                if !self
+                    .followers
+                    .update(short, |keys| keys.push(key.to_string()))
+                {
+                    self.followers
+                        .insert(short.to_string(), vec![key.to_string()]);
+                }
             }
             if let Some(path) = key.strip_prefix("Std.") {
                 if !path.contains('.') {
@@ -545,7 +558,7 @@ impl Scope {
     }
 
     pub fn is_namespace(&self, key: &str) -> bool {
-        self.namespaces.contains(key)
+        self.namespaces.contains_key(key)
     }
 
     /// Whether `x` is a name at the library's root (or an alias of one).
@@ -562,8 +575,52 @@ impl Scope {
     /// Records that `key` belongs to its type's own declaration (a record
     /// field, an interface method), like a constructor.
     /// The members marked so far (for the check cache).
-    pub(crate) fn members(&self) -> &HashSet<String> {
-        &self.members
+    pub(crate) fn members(&self) -> impl Iterator<Item = &String> {
+        self.members.keys()
+    }
+
+    /// A copy of the members, to compare with later (for the check cache).
+    pub(crate) fn copy_members(&self) -> Copied<String, ()> {
+        self.members.copy()
+    }
+
+    /// A copy of every declaration's row, to compare with later (for the
+    /// check cache).
+    pub(crate) fn copy_entries(&self) -> Copied<String, (Global, Span)> {
+        self.entries.copy()
+    }
+
+    /// `key`'s row as stored, even if it is out of the way
+    /// ([`Scope::get`] isn't).
+    pub(crate) fn stored(&self, key: &str) -> Option<&(Global, Span)> {
+        self.entries.get(key)
+    }
+
+    /// Forgets the rows whose global `drop` picks, as [`Scope::remove`].
+    pub(crate) fn remove_where(&mut self, mut drop: impl FnMut(&Global) -> bool) {
+        self.entries.retain(|_, (g, _)| !drop(g));
+    }
+
+    /// Every row, in no particular order, out of the way or not.
+    pub(crate) fn rows(&self) -> impl Iterator<Item = (&String, &(Global, Span))> {
+        self.entries.iter()
+    }
+
+    /// Whether `key` has a row, even one out of the way.
+    pub(crate) fn has(&self, key: &str) -> bool {
+        self.entries.contains_key(key)
+    }
+
+    /// Changes what `key` names, keeping its span, if it is declared;
+    /// whether it is.
+    pub(crate) fn set_global(&mut self, key: &str, f: impl FnOnce(&mut Global)) -> bool {
+        self.entries.update(key, |(global, _)| f(global))
+    }
+
+    /// Forgets `key`'s row (not the namespaces, members or followers it
+    /// added): a name declared and then withdrawn.
+    pub(crate) fn remove(&mut self, key: &str) -> bool {
+        self.entries.remove(key)
     }
 
     /// Where `key` is among the followers of its short name, if it is one
@@ -578,12 +635,14 @@ impl Scope {
         if let Some(log) = &mut self.log {
             log.push(ScopeOp::Member(key.to_string()));
         }
-        self.members.insert(key.to_string());
+        if !self.members.contains_key(key) {
+            self.members.add(key.to_string());
+        }
     }
 
     /// Whether `key` belongs to its type's own declaration.
     pub(crate) fn is_member(&self, key: &str) -> bool {
-        self.members.contains(key)
+        self.members.contains_key(key)
     }
 
     pub fn clear_imports(&mut self) {
@@ -608,10 +667,13 @@ impl Scope {
             return;
         }
         self.extended.insert(key.to_string(), target.to_string());
-        self.extensions
-            .entry(target.to_string())
-            .or_default()
-            .push(key.to_string());
+        if !self
+            .extensions
+            .update(target, |keys| keys.push(key.to_string()))
+        {
+            self.extensions
+                .insert(target.to_string(), vec![key.to_string()]);
+        }
     }
 
     /// The extensions of `target`, by key.
@@ -648,13 +710,13 @@ impl Scope {
                 .iter()
                 .map(|(k, v)| format!("followers {k} {v:?}")),
         );
-        lines.extend(self.namespaces.iter().map(|k| format!("namespace {k}")));
+        lines.extend(self.namespaces.keys().map(|k| format!("namespace {k}")));
         lines.extend(
             self.std_root
                 .iter()
                 .map(|(k, v)| format!("std_root {k} {v}")),
         );
-        lines.extend(self.members.iter().map(|k| format!("member {k}")));
+        lines.extend(self.members.keys().map(|k| format!("member {k}")));
         lines.extend(
             self.extended
                 .iter()
@@ -664,6 +726,138 @@ impl Scope {
         for line in lines {
             let _ = writeln!(out, "{line}");
         }
+    }
+}
+
+/// What a rewind mark copies of a [`Scope`]: the current module's imports
+/// and a load's flags. Its tables are logged instead ([`Scope`]'s [`Logs`]).
+pub(crate) struct Mark {
+    imports: SavedImports,
+    loading: Option<usize>,
+    core_only: Option<CoreExtent>,
+    log: Option<Vec<ScopeOp>>,
+}
+
+/// Where each of a [`Scope`]'s logged tables' log is.
+pub(crate) struct Positions([usize; 7]);
+
+impl Scope {
+    pub(crate) fn mark(&self) -> Mark {
+        let Scope {
+            imports,
+            qualifiers,
+            renamed,
+            wildcards,
+            extenders,
+            wildcard_failed,
+            import_failed,
+            loading,
+            core_only,
+            log,
+            // Logged.
+            entries: _,
+            followers: _,
+            namespaces: _,
+            std_root: _,
+            members: _,
+            extensions: _,
+            extended: _,
+        } = self;
+        Mark {
+            imports: SavedImports {
+                imports: imports.clone(),
+                qualifiers: qualifiers.clone(),
+                renamed: renamed.clone(),
+                wildcards: wildcards.clone(),
+                extenders: extenders.clone(),
+                wildcard_failed: wildcard_failed.clone(),
+                import_failed: import_failed.clone(),
+            },
+            loading: *loading,
+            core_only: *core_only,
+            log: log.clone(),
+        }
+    }
+
+    /// Back to `m`; the tables are put back by the journal.
+    pub(crate) fn rewind(&mut self, m: &Mark) {
+        self.restore_imports(m.imports.clone());
+        self.loading = m.loading;
+        self.core_only = m.core_only;
+        self.log = m.log.clone();
+    }
+
+    /// The logged tables, with what each does in [`Logs`]'s methods.
+    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 7] {
+        let Scope {
+            entries,
+            followers,
+            namespaces,
+            std_root,
+            members,
+            extensions,
+            extended,
+            // Copied by a mark.
+            imports: _,
+            qualifiers: _,
+            renamed: _,
+            wildcards: _,
+            extenders: _,
+            wildcard_failed: _,
+            import_failed: _,
+            loading: _,
+            core_only: _,
+            log: _,
+        } = self;
+        [
+            entries, followers, namespaces, std_root, members, extensions, extended,
+        ]
+    }
+
+    fn logged_ref(&self) -> [&dyn Logs<Positions = usize>; 7] {
+        [
+            &self.entries,
+            &self.followers,
+            &self.namespaces,
+            &self.std_root,
+            &self.members,
+            &self.extensions,
+            &self.extended,
+        ]
+    }
+}
+
+/// The names a language server's checkpoints cover: a copy of them at
+/// each mark cost 3 MB and a millisecond on the AoC project (§4.8.7).
+impl Logs for Scope {
+    type Positions = Positions;
+
+    fn positions(&self) -> Positions {
+        Positions(self.logged_ref().map(|t| t.positions()))
+    }
+
+    fn undo_to(&mut self, at: &Positions) -> usize {
+        self.logged()
+            .into_iter()
+            .zip(&at.0)
+            .map(|(t, at)| t.undo_to(at))
+            .sum()
+    }
+
+    fn set_generation(&mut self, g: Option<u32>) {
+        self.logged().into_iter().for_each(|t| t.set_generation(g));
+    }
+
+    fn entries(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.entries()).sum()
+    }
+
+    fn bytes(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.bytes()).sum()
+    }
+
+    fn distinct_keys(&self) -> usize {
+        self.logged_ref().iter().map(|t| t.distinct_keys()).sum()
     }
 }
 
@@ -1490,7 +1684,7 @@ impl Elaborator {
     /// What `written` names, if it names one declaration exactly.
     pub(crate) fn named(&self, written: &str) -> Option<&(Global, Span)> {
         match self.resolve(written) {
-            Resolved::Found { key, rest, .. } if rest.is_empty() => self.scope.entries.get(key),
+            Resolved::Found { key, rest, .. } if rest.is_empty() => self.scope.stored(key),
             _ => None,
         }
     }
@@ -2217,7 +2411,7 @@ impl Elaborator {
                 }
                 for x in names {
                     let key = format!("{k}.{x}");
-                    if self.scope.entries.contains_key(&key) {
+                    if self.scope.has(&key) {
                         let keys = self.scope.wildcards[file].entry(x).or_default();
                         if let Err(at) = keys.binary_search_by(|(k, _)| k.as_str().cmp(&key)) {
                             keys.insert(at, (key, import.span));

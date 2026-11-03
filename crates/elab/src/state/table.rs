@@ -302,7 +302,7 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     }
 }
 
-fn owned<I: Id>(owners: &Owners, id: I) {
+pub(crate) fn owned<I: Id>(owners: &Owners, id: I) {
     let (owner, current) = (id.owner(owners), owners.current());
     assert!(
         owner == current,

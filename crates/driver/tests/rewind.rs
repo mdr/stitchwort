@@ -16,17 +16,22 @@
 //! - a check cancelled part way (stage 0c), rewound by
 //!   `Session::cancellable`, then done again.
 
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
+use stitchwort_driver::live::{LiveProject, Progress};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_driver::rewind::Cancelled;
-use stitchwort_elab::cache::canonical_dump;
+use stitchwort_elab::cache::{Key, Store, canonical_dump};
 use stitchwort_syntax::{Diagnostic, Severity};
 
 const STACK: usize = 16 * 1024 * 1024;
@@ -319,28 +324,67 @@ fn rewinding_changes_nothing_for_the_aoc_project() {
     par_map(STACK, &parts, |part| part(&source));
 }
 
-/// What a mark and a rewind cost after the whole project is checked
-/// (`--nocapture` shows it).
+/// [`mark_and_rewind_cost`] alone, without the rest of the full tier's
+/// `aoc` test, to compare builds (docs/proposals/elaborator-state.md
+/// §4.8.7): `task test:one -- mark_and_rewind_cost_on_aoc --run-ignored
+/// only --no-capture`. One check of the project.
+#[test]
+#[ignore = "a measurement: run it by name"]
+fn mark_and_rewind_cost_on_aoc() {
+    with_stack(STACK, || mark_and_rewind_cost(&aoc()));
+}
+
+/// The resident set of this process, in KB (`ps`), for a rough measure of
+/// what a mark holds.
+fn rss_kb() -> Option<u64> {
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+}
+
+/// What a mark and a rewind cost after the whole project is checked, and
+/// roughly what a mark holds (the resident set's growth over ten marks):
+/// `--nocapture` shows it.
 fn mark_and_rewind_cost(source: &Source) {
-    {
-        let mut s = session();
-        let empty = s.mark();
-        let _ = check(&mut s, source);
+    let mut s = session();
+    let empty = s.mark();
+    let _ = check(&mut s, source);
+    let t = std::time::Instant::now();
+    let mark = s.mark();
+    let marked = t.elapsed();
+    let t = std::time::Instant::now();
+    s.rewind(&mark);
+    let rewound = t.elapsed();
+    let ten_marks = |s: &mut Session, what: &str| {
+        let before = rss_kb();
         let t = std::time::Instant::now();
-        let mark = s.mark();
-        let marked = t.elapsed();
-        let t = std::time::Instant::now();
-        s.rewind(&mark);
-        let rewound = t.elapsed();
-        let t = std::time::Instant::now();
-        s.rewind(&empty);
-        eprintln!(
-            "aoc with navigation: mark {:.2} ms, rewind to it {:.2} ms, rewind to the start {:.2} ms",
-            marked.as_secs_f64() * 1000.0,
-            rewound.as_secs_f64() * 1000.0,
-            t.elapsed().as_secs_f64() * 1000.0
-        );
-    }
+        let marks: Vec<_> = (0..10).map(|_| s.mark()).collect();
+        let ten = t.elapsed();
+        if let (Some(before), Some(after)) = (before, rss_kb()) {
+            let more = after.saturating_sub(before);
+            eprintln!(
+                "aoc with navigation, {what}: ten marks {:.2} ms, resident set {more} KB more ({} KB a mark)",
+                ten.as_secs_f64() * 1000.0,
+                more / 10
+            );
+        }
+        marks
+    };
+    let in_namespace = ten_marks(&mut s, "in the last namespace");
+    // As a language server marks: once the namespace is left.
+    s.elab.leave_namespace();
+    let left = ten_marks(&mut s, "the namespace left");
+    let t = std::time::Instant::now();
+    s.rewind(&empty);
+    eprintln!(
+        "aoc with navigation: mark {:.2} ms, rewind to it {:.2} ms, rewind to the start {:.2} ms",
+        marked.as_secs_f64() * 1000.0,
+        rewound.as_secs_f64() * 1000.0,
+        t.elapsed().as_secs_f64() * 1000.0
+    );
+    drop((in_namespace, left));
 }
 
 /// Cancelled from another thread at various moments of a check of `aoc`:
@@ -405,4 +449,331 @@ fn a_check_cancelled_part_way_rewinds() {
     });
     let cancelled = was_cancelled.iter().filter(|c| **c).count();
     assert!(cancelled > 0, "no check was cancelled");
+}
+
+// ---- a language server's project, edited and cancelled -----------------
+
+/// An example project's files, by path within it, as a language server
+/// reads them.
+fn project_files(name: &str) -> BTreeMap<String, String> {
+    let root = examples_dir().join("projects/accept").join(name);
+    let mut files = BTreeMap::new();
+    let mut dirs = vec![root.clone()];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else if path.extension().is_some_and(|e| e == "sw" || e == "yaml") {
+                let relative = path.strip_prefix(&root).unwrap();
+                files.insert(
+                    relative.to_string_lossy().to_string(),
+                    std::fs::read_to_string(&path).unwrap(),
+                );
+            }
+        }
+    }
+    files
+}
+
+fn live_project(name: &str, files: &BTreeMap<String, String>) -> LiveProject {
+    let config = files.get("stitchwort.yaml").cloned();
+    let sources = files
+        .iter()
+        .filter(|(p, _)| p.ends_with(".sw"))
+        .map(|(p, t)| (p.clone(), t.clone()))
+        .collect();
+    LiveProject::new(session(), name, config, sources)
+}
+
+/// Steps `live` until everything is checked.
+fn finish(live: &mut LiveProject) {
+    while let Progress::Checked { .. } = live.step().expect("not cancelled") {}
+}
+
+/// What a fresh language server's session holds once it has checked
+/// `files`.
+fn fresh_live(name: &str, files: &BTreeMap<String, String>) -> String {
+    let mut live = live_project(name, files);
+    finish(&mut live);
+    outcome(&live.session, &Ok(()))
+}
+
+/// The project's first namespace's file is edited, checked, edited back and
+/// checked, five times (the review's "rewind to one mark twice", at the
+/// scale of a project; docs/proposals/elaborator-state.md §4.8.6 item 2):
+/// after each check the session is what a fresh one checking the same text
+/// holds. Its journal holds the base and a checkpoint per namespace, and
+/// what it logs comes back to the same size after each edit back: marks
+/// are released, not left open.
+fn edit_early_namespace_repeatedly(case: &EditCase, fresh: &[String; 3]) {
+    let EditCase { name, early, .. } = case;
+    let files = project_files(name);
+    let source = Source::Project(name.to_string(), PathBuf::from(name));
+    let mut live = live_project(name, &files);
+    finish(&mut live);
+    let now = outcome(&live.session, &Ok(()));
+    assert_same(&source, "first check", &fresh[0], &now);
+    let namespaces = live.order().len();
+    let first = live.session.elab.journal_stats();
+    assert_eq!(
+        first.open,
+        namespaces + 1,
+        "{name}: the base and a mark per namespace"
+    );
+    for round in 0..5 {
+        let edit = 1 + round % 2;
+        live.set_text(early, Some(case.text(&files, edit)));
+        finish(&mut live);
+        assert_same(
+            &source,
+            &format!("round {round}, edited"),
+            &fresh[edit],
+            &outcome(&live.session, &Ok(())),
+        );
+        live.set_text(early, Some(case.text(&files, 0)));
+        finish(&mut live);
+        assert_same(
+            &source,
+            &format!("round {round}, edited back"),
+            &fresh[0],
+            &outcome(&live.session, &Ok(())),
+        );
+        let now = live.session.elab.journal_stats();
+        assert_eq!(
+            now.open,
+            namespaces + 1,
+            "{name}, round {round}: marks left open"
+        );
+        assert_eq!(
+            now.held, first.held,
+            "{name}, round {round}: the journal holds more than the project needs"
+        );
+    }
+}
+
+/// An example project, its first namespace's file, and two edits of it
+/// (each added at its end).
+struct EditCase {
+    name: &'static str,
+    early: &'static str,
+    edits: [&'static str; 2],
+}
+
+impl EditCase {
+    /// The early file's text: as it is (0) or with an edit (1, 2).
+    fn text(&self, files: &BTreeMap<String, String>, edit: usize) -> String {
+        let original = &files[self.early];
+        match edit {
+            0 => original.clone(),
+            n => format!("{original}\n{}\n", self.edits[n - 1]),
+        }
+    }
+}
+
+#[test]
+fn repeated_edits_of_an_early_namespace_rewind_exactly() {
+    let cases = [
+        // P.Spec and P.Proofs extend P's `Grid`: rows of an older
+        // namespace's that later ones change.
+        EditCase {
+            name: "extension-visibility",
+            early: "src/grid.sw",
+            edits: [
+                "def Grid.extra (grid: Grid): Nat := grid.width",
+                "def broken: Nat := true",
+            ],
+        },
+        // Instances, in the namespace that owns the interface and in
+        // another.
+        EditCase {
+            name: "instance-owners",
+            early: "src/geometry.sw",
+            edits: [
+                "def unit: Nat := 1",
+                "instance Area.instBool: Area Bool := { area = b => 1 }",
+            ],
+        },
+    ];
+    // Each case's three texts checked fresh, side by side.
+    let jobs: Vec<(usize, usize)> = (0..cases.len())
+        .flat_map(|c| (0..3).map(move |t| (c, t)))
+        .collect();
+    let fresh = par_map(STACK, &jobs, |&(c, t)| {
+        let case = &cases[c];
+        let mut files = project_files(case.name);
+        let text = case.text(&files, t);
+        files.insert(case.early.to_string(), text);
+        fresh_live(case.name, &files)
+    });
+    let fresh: Vec<[String; 3]> = fresh
+        .chunks(3)
+        .map(|c| [c[0].clone(), c[1].clone(), c[2].clone()])
+        .collect();
+    let indices: Vec<usize> = (0..cases.len()).collect();
+    par_map(STACK, &indices, |&c| {
+        edit_early_namespace_repeatedly(&cases[c], &fresh[c])
+    });
+}
+
+/// A language server's check cancelled as each namespace begins (the flag
+/// set from a check cache's lookup of it, below): it says so, and checking
+/// on from there gives what a fresh check gives, with no mark left open.
+#[test]
+fn a_language_servers_check_cancelled_at_each_namespace_rewinds() {
+    let name = "extension-visibility";
+    let files = project_files(name);
+    let source = Source::Project(name.to_string(), PathBuf::from(name));
+    let (fresh, namespaces) = with_stack(STACK, || {
+        let mut live = live_project(name, &files);
+        finish(&mut live);
+        (outcome(&live.session, &Ok(())), live.order().len())
+    });
+    let points: Vec<usize> = (1..=namespaces).collect();
+    par_map(STACK, &points, |&at| {
+        let mut live = live_project(name, &files);
+        let store = CancellingStore::at_lookup(live.session.cancel_flag(), at);
+        live.session.elab.set_check_cache(store.clone());
+        let mut cancelled = 0;
+        loop {
+            match live.step() {
+                Ok(Progress::Done) => break,
+                Ok(Progress::Checked { .. }) => {}
+                Err(_) => cancelled += 1,
+            }
+        }
+        assert_eq!(cancelled, 1, "cancelled once, at namespace {at}");
+        assert_same(
+            &source,
+            &format!("cancelled at namespace {at}"),
+            &fresh,
+            &outcome(&live.session, &Ok(())),
+        );
+        let stats = live.session.elab.journal_stats();
+        assert_eq!(stats.open, namespaces + 1, "marks left open");
+    });
+}
+
+/// A check cache that keeps entries in memory and sets the cancellation
+/// flag at its `at`th use (a lookup or a write, counting from 1; with
+/// `lookups`, only lookups count): so a check is cancelled as a library
+/// file or namespace begins to load, nested in another's load or not, or
+/// once an entry is written.
+struct CancellingStore {
+    entries: RefCell<BTreeMap<(String, Key), Vec<u8>>>,
+    uses: Cell<usize>,
+    at: usize,
+    lookups: bool,
+    flag: Arc<AtomicBool>,
+}
+
+impl CancellingStore {
+    fn new(flag: Arc<AtomicBool>, at: usize) -> Rc<CancellingStore> {
+        Rc::new(CancellingStore {
+            entries: RefCell::default(),
+            uses: Cell::new(0),
+            at,
+            lookups: false,
+            flag,
+        })
+    }
+
+    fn at_lookup(flag: Arc<AtomicBool>, at: usize) -> Rc<CancellingStore> {
+        Rc::new(CancellingStore {
+            lookups: true,
+            ..Rc::into_inner(CancellingStore::new(flag, at)).unwrap()
+        })
+    }
+
+    fn used(&self) {
+        self.uses.set(self.uses.get() + 1);
+        if self.uses.get() == self.at {
+            self.flag.store(true, Ordering::Relaxed);
+        }
+    }
+}
+
+impl Store for CancellingStore {
+    fn compiler(&self) -> &str {
+        "rewind.rs"
+    }
+    fn salt(&self) -> [u8; 16] {
+        [7; 16]
+    }
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        self.used();
+        self.entries
+            .borrow()
+            .get(&(unit.to_string(), *key))
+            .cloned()
+    }
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if !self.lookups {
+            self.used();
+        }
+        (self.entries.borrow_mut()).insert((unit.to_string(), *key), entry.to_vec());
+    }
+}
+
+/// A check with a check cache cancelled at each of its uses of the cache:
+/// as a library file or the file begins to load (nested or not) and once an
+/// entry is written. Checked again, with the entries written before the
+/// cancellation, it gives what a fresh check (with a cache of its own)
+/// gives, and the mark `Session::cancellable` took is released.
+#[test]
+fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
+    let sources = [
+        Source::Project(
+            "extension-visibility".to_string(),
+            examples_dir().join("projects/accept/extension-visibility"),
+        ),
+        Source::File(
+            "accept/parse-digits-messages.sw".to_string(),
+            std::fs::read_to_string(examples_dir().join("accept/parse-digits-messages.sw"))
+                .unwrap(),
+        ),
+    ];
+    // A fresh check of each, and how many times it uses the cache.
+    let fresh: Vec<(String, usize)> = par_map(STACK, &sources, |source| {
+        let mut s = session();
+        let store = CancellingStore::new(Arc::new(AtomicBool::new(false)), 0);
+        s.elab.set_check_cache(store.clone());
+        let result = check(&mut s, source);
+        assert!(result.is_ok(), "{}: {result:?}", source.name());
+        let uses = store.uses.get();
+        assert!(
+            uses > 2,
+            "{}: the cache was used {uses} times",
+            source.name()
+        );
+        (outcome(&s, &result), uses)
+    });
+    let points: Vec<(usize, usize)> = (fresh.iter().enumerate())
+        .flat_map(|(i, (_, uses))| (1..=*uses).map(move |at| (i, at)))
+        .collect();
+    let cancelled = par_map(STACK, &points, |&(i, at)| {
+        let source = &sources[i];
+        let mut s = session();
+        let store = CancellingStore::new(s.cancel_flag(), at);
+        s.elab.set_check_cache(store.clone());
+        let before = s.elab.journal_stats().open;
+        let first = s.cancellable(|s| check(s, source));
+        assert_eq!(s.elab.journal_stats().open, before, "the mark released");
+        let cancelled = first.is_err();
+        let result = match first {
+            Err(Cancelled) => s.cancellable(|s| check(s, source)).expect("not cancelled"),
+            // The flag was set once nothing was left to see it.
+            Ok(result) => result,
+        };
+        assert_same(
+            source,
+            &format!("cancelled at use {at} of the cache"),
+            &fresh[i].0,
+            &outcome(&s, &result),
+        );
+        cancelled
+    });
+    let cancelled = cancelled.iter().filter(|c| **c).count();
+    eprintln!("{cancelled} of {} checks cancelled", points.len());
+    assert!(cancelled * 2 > points.len(), "most were cancelled");
 }

@@ -725,7 +725,7 @@ impl Elaborator {
         }
         let key = format!("{}.induct", d.key);
         self.scope.insert(&key, Global::Def(id), span, false);
-        self.tables.helper_keys.insert(key);
+        self.tables.helper_keys.add(key);
         Ok(())
     }
 

@@ -132,7 +132,7 @@ enum Miss {
 pub(crate) struct Capture {
     /// Before anything: the names there were, and the members marked.
     start_keys: HashSet<String>,
-    start_members: HashSet<String>,
+    start_members: state::Copied<String, ()>,
     /// The names the namespace declared before its library files loaded
     /// (`collect`), and what it needs from the library.
     early: Option<Vec<String>>,
@@ -148,7 +148,11 @@ pub(crate) struct Before {
     defs: usize,
     datas: usize,
     tables: state::TablesMark,
-    scope: HashMap<String, (Global, Span)>,
+    /// Copies of the logged tables an entry holds the new rows of, until
+    /// entries are made from write-sets (docs/proposals/elaborator-state.md
+    /// §4.8.3, step 6c).
+    copies: state::TablesCopies,
+    scope: state::Copied<String, (Global, Span)>,
     /// How many data types had fields' defaults: a unit adds them only to
     /// its own.
     defaults: usize,
@@ -298,7 +302,8 @@ impl Elaborator {
             defs: self.globals.defs.len(),
             datas: self.globals.datas.len(),
             tables: self.tables.mark(self.ids()),
-            scope: self.scope.entries.clone(),
+            copies: self.tables.copies(),
+            scope: self.scope.copy_entries(),
             defaults: self.with_defaults(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -354,7 +359,7 @@ impl Elaborator {
     /// configuration (§4.2 items 3 and 5). A namespace without one isn't
     /// cached.
     pub fn set_namespace_sources(&mut self, sources: HashMap<String, Key>) {
-        self.session.namespace_sources = sources;
+        self.session.namespace_sources = std::sync::Arc::new(sources);
     }
 
     /// Whether this elaborator keeps results in a check cache.
@@ -429,8 +434,8 @@ impl Elaborator {
     ) -> (Vec<Diagnostic>, bool) {
         self.session.namespace_keys.insert(ns.to_string(), *key);
         let store = self.options.check_cache.clone().expect("a cache is set");
-        let start_keys: HashSet<String> = self.scope.entries.keys().cloned().collect();
-        let start_members = self.scope.members().clone();
+        let start_keys: HashSet<String> = self.scope.keys().cloned().collect();
+        let start_members = self.scope.copy_members();
         if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
             && let Some(bytes) = store.read(unit, key)
         {
@@ -511,7 +516,6 @@ impl Elaborator {
         }
         let early: Vec<String> = self
             .scope
-            .entries
             .keys()
             .filter(|k| !c.start_keys.contains(*k))
             .cloned()
@@ -544,7 +548,7 @@ impl Elaborator {
     /// the library's and the project's.
     fn namespace_file_names(&self) -> HashMap<FileId, String> {
         let mut names = self.std_file_names();
-        for (id, path) in &self.session.include_locations {
+        for (id, path) in self.session.include_locations.iter() {
             names.insert(*id, project_file_name(path));
         }
         names
@@ -572,11 +576,11 @@ impl Elaborator {
         // that were added before it (the followers' order).
         let early_keys: HashSet<&str> = early.iter().map(String::as_str).collect();
         let mut changed = Vec::new();
-        for (k, old) in &before.scope {
+        for (k, old) in before.scope.iter() {
             if early_keys.contains(k.as_str()) {
                 continue;
             }
-            match self.scope.entries.get(k) {
+            match self.scope.stored(k) {
                 Some(now) if now == old => {}
                 Some(_) => changed.push(k.clone()),
                 None => return Err(format!("`{k}` was removed")),
@@ -596,7 +600,6 @@ impl Elaborator {
         early.sort_by_key(order);
         let mut late: Vec<String> = self
             .scope
-            .entries
             .keys()
             .filter(|k| !before.scope.contains_key(*k))
             .cloned()
@@ -605,8 +608,7 @@ impl Elaborator {
         let mut members: Vec<String> = self
             .scope
             .members()
-            .iter()
-            .filter(|k| !capture.start_members.contains(*k))
+            .filter(|k| !capture.start_members.contains_key(*k))
             .cloned()
             .collect();
         members.sort();
@@ -1104,8 +1106,7 @@ impl Elaborator {
         // they were declared, then the members marked.
         let mut changed: Vec<String> = self
             .scope
-            .entries
-            .iter()
+            .rows()
             .filter(|(k, v)| before.scope.get(*k).is_some_and(|old| old != *v))
             .map(|(k, _)| k.clone())
             .collect();
@@ -1252,7 +1253,7 @@ impl Elaborator {
         }
         e.w.usize(names.early.len());
         for (k, follower) in &names.early {
-            let Some((_, span)) = self.scope.entries.get(k) else {
+            let Some((_, span)) = self.scope.stored(k) else {
                 return Err(format!("`{k}` was declared and is gone"));
             };
             e.str(k);
@@ -1371,8 +1372,7 @@ impl Elaborator {
         // members marked.
         let entry = |k: &str| {
             self.scope
-                .entries
-                .get(k)
+                .stored(k)
                 .copied()
                 .ok_or_else(|| format!("`{k}` was declared and is gone"))
         };
@@ -1404,6 +1404,7 @@ impl Elaborator {
         // between them.
         self.tables.encode_since(
             &before.tables,
+            &before.copies,
             &mut e,
             |e| self.encode_side_facts(e, defs.clone(), datas.clone()),
             |e| self.encode_extensions(e, unit),

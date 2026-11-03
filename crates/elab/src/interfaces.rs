@@ -572,6 +572,7 @@ impl Elaborator {
         }
         kernel::mark_instance(&mut self.globals, id);
         self.tables.instances.insert(
+            &self.session.owners,
             (interface, head),
             InstanceInfo {
                 def: id,
@@ -597,9 +598,9 @@ impl Elaborator {
         if !paths.is_empty() {
             self.check_supers(id, interface, &paths)?;
         }
-        if let Some(info) = self.tables.instances.get_mut(&(interface, head)) {
+        (self.tables.instances).update(&self.session.owners, (interface, head), |info| {
             info.valid = true;
-        }
+        });
         Ok(())
     }
 
@@ -1239,7 +1240,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         if let Value::Data(i, args) = &def.ty_value
             && *i == interface
             && conv(g, cx.level(), &args[0], &arg).unwrap_or(false)
-            && !e.tables.helper_keys.contains(&def.name.to_string())
+            && !e.tables.helper_keys.contains_key(&def.name.to_string())
         {
             let _ = k;
             d = d.with_note(format!(

@@ -732,7 +732,7 @@ impl Elaborator {
             for name in &file.names {
                 // A name the core already has stays the core's; loading
                 // the file then reports the clash.
-                if self.scope.entries.contains_key(&name.key) {
+                if self.scope.has(&name.key) {
                     continue;
                 }
                 self.scope.insert(
@@ -767,8 +767,7 @@ impl Elaborator {
     #[doc(hidden)]
     pub fn pending_keys(&self) -> Vec<String> {
         self.scope
-            .entries
-            .iter()
+            .rows()
             .filter(|(_, (g, _))| matches!(g, Global::Pending(..)))
             .map(|(k, _)| k.clone())
             .collect()
@@ -1217,9 +1216,7 @@ impl Elaborator {
     /// fields' types differ, say), so `T.f` is then unknown, as it would be
     /// with every file loaded (docs/proposals/variant-fields.md §12.1).
     fn drop_unconfirmed(&mut self, f: usize) {
-        self.scope
-            .entries
-            .retain(|_, (g, _)| !matches!(g, Global::Pending(file, _) if *file == f));
+        (self.scope).remove_where(|g| matches!(g, Global::Pending(file, _) if *file == f));
     }
 
     /// The error for a reference to a name whose library file isn't

@@ -1002,10 +1002,10 @@ impl Elaborator {
             }
             self.unit.module.items = infos;
             for key in &self.unit.module.names {
-                if let Some((Global::Unchecked(i), _)) = self.scope.entries.get_mut(key)
+                if let Some((Global::Unchecked(i), _)) = self.scope.stored(key)
                     && let Some(&new) = renumber.get(i)
                 {
-                    *i = new;
+                    self.scope.set_global(key, |g| *g = Global::Unchecked(new));
                 }
             }
             return (kept, decl_spans);
@@ -1023,7 +1023,7 @@ impl Elaborator {
                 let Ok(key) = self.declaration_key(name) else {
                     continue;
                 };
-                if self.scope.entries.contains_key(&key) {
+                if self.scope.has(&key) {
                     continue;
                 }
                 self.scope.insert(&key, Global::Failed, name.span, false);
@@ -1441,10 +1441,9 @@ impl Elaborator {
     /// the module's own.
     fn fail_unchecked_names(&mut self) {
         for key in &self.unit.module.names {
-            if let Some((global, _)) = self.scope.entries.get_mut(key)
-                && let Global::Unchecked(_) = global
-            {
-                *global = Global::Failed;
+            if let Some((Global::Unchecked(_), _)) = self.scope.stored(key) {
+                self.scope
+                    .set_global(key, |global| *global = Global::Failed);
             }
         }
     }
