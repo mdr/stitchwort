@@ -167,6 +167,32 @@ fn the_json_contract() {
     assert_eq!(three["theorems"]["total"].as_u64().unwrap(), total);
 }
 
+/// SW-1146: a built-in name has no declaration of its own, and is documented
+/// by `core/Builtins.sw`.
+#[test]
+fn a_built_in_name_is_documented_by_builtins_sw() {
+    let cwd = folder("builtin");
+    let cache = cwd.join("fresh-cache");
+    for (name, header) in [
+        (
+            "Quot",
+            "def Quot: (a: Type) \u{2192} (r: a \u{2192} a \u{2192} Prop) \u{2192} Type",
+        ),
+        ("rfl", "def rfl: [a: Type] \u{2192} [x: a] \u{2192} x = x"),
+    ] {
+        let (code, out, err) = doc_in(&cwd, &cache, &[name, "--theorems", "0", "--json"]);
+        assert_eq!(code, 0, "{out}\n{err}");
+        let report: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(report["header"], header, "{report}");
+        assert!(
+            report["file"].as_str().is_some_and(|f| f.ends_with("core/Builtins.sw")),
+            "{report}"
+        );
+        assert!(!report["doc"].as_str().unwrap_or("").is_empty(), "{report}");
+    }
+    let _ = std::fs::remove_dir_all(&cwd);
+}
+
 /// D2152: with `--theorems 0` nothing is checked, so there is no type, and no
 /// cache is written (a check of the library would write one).
 #[test]

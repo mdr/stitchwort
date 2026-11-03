@@ -81,6 +81,7 @@ pub(crate) fn applied<'e>(cx: &Ctx, expr: &'e Expr) -> Option<(QuotForm, Vec<Arg
         return None;
     };
     let form = form_named(cx, &name.text)?;
+    cx.e.note_builtin(name);
     args.reverse();
     Some((form, args))
 }

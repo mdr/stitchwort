@@ -770,6 +770,52 @@ fn std_dir_reads_the_library_from_disk() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// SW-1146: `core/Builtins.sw` documents `Quot.mk` with a signature the
+/// kernel checks against the built-in, so one that drifts stops the core
+/// loading, naming the declaration.
+#[test]
+fn a_documented_built_in_signature_that_drifts_is_refused() {
+    let std = std::env::temp_dir().join(format!("stitchwort-builtins-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&std);
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std,
+    );
+    let file = std.join("core/Builtins.sw");
+    let original = std::fs::read_to_string(&file).unwrap();
+    let signature = "def Quot.mk: [a: Type] → [r: a → a → Prop] → (x: a) → Quot a r";
+    assert!(
+        original.contains(signature),
+        "the test's copy of the signature"
+    );
+    let program = source_file("builtins-drift.sw", "def n: Nat := 1\n");
+    let check = |text: &str| {
+        std::fs::write(&file, text).unwrap();
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("check")
+            .arg(&program)
+            .env("STITCHWORT_STD_DIR", &std)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    let output = check(&original);
+    assert!(output.status.success(), "{}", stderr(&output));
+    // A result that isn't the quotient the form makes.
+    let output = check(&original.replace(
+        signature,
+        "def Quot.mk: [a: Type] → [r: a → a → Prop] → (x: a) → a",
+    ));
+    assert!(!output.status.success());
+    let shown = stderr(&output);
+    assert!(
+        shown.contains("E-BUILTIN") && shown.contains("`Quot.mk`"),
+        "{shown}"
+    );
+    let _ = std::fs::remove_dir_all(&std);
+}
+
 /// `IO.randomSeed` gives a fresh 64-bit number each run.
 #[test]
 fn the_random_seed_is_fresh_each_run() {

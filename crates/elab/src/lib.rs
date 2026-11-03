@@ -10,6 +10,7 @@ mod attributes;
 mod auto;
 mod autobind;
 mod bind;
+mod builtin_docs;
 pub mod cache;
 mod calc;
 mod check;
@@ -1824,7 +1825,7 @@ impl Elaborator {
     }
 
     fn check_new_key(&self, key: &str, n: &ast::Name) -> Result<()> {
-        if RESERVED.contains(&n.text.as_str()) {
+        if self.is_reserved(&n.text) {
             return Err(error(
                 "E-DUPLICATE",
                 n.span,
@@ -2543,6 +2544,10 @@ impl Elaborator {
         self.local_asts.borrow_mut().clear();
         // A library file's own definitions' equations its proofs name.
         self.ensure_loading_file_equations();
+        // `Builtins.sw`'s documentation of the names the checker knows.
+        if let Some(done) = self.builtin_group(members) {
+            return done;
+        }
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
             matches!(
