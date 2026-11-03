@@ -17,7 +17,7 @@ use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
-    Apart, Head, Spine, Value, apply, conv, eval, force, force_ref, quot_value, quote,
+    Apart, Elim, Head, Spine, Value, apply, conv, eval, force, force_ref, quot_value, quote,
     quote_folded, unused,
 };
 
@@ -1301,10 +1301,22 @@ pub fn substitute_in(
             _ => Value::var(l),
         })
         .collect();
+    // What `identity` gives back for each variable but `x`.
+    let known = |l: usize| match env.get(l)? {
+        Value::Neutral(Head::Var(at, known), spine) if *at == l && spine.is_empty() => Some(*known),
+        _ => Some(Apart::NONE),
+    };
+    let mut unchanged = Unchanged::new(g, x, known);
     identity[x] = value.clone();
     values
         .iter()
-        .map(|v| eval(g, &identity, &quote_folded(g, level, v)?))
+        .map(|v| {
+            if unchanged.check(v) {
+                Ok(v.clone())
+            } else {
+                eval(g, &identity, &quote_folded(g, level, v)?)
+            }
+        })
         .collect()
 }
 
@@ -1322,10 +1334,200 @@ pub fn substitute(
 ) -> budget::Result<Vec<Value>> {
     let mut env: Vec<Value> = (0..level).map(Value::var).collect();
     env[x] = value.clone();
+    let mut unchanged = Unchanged::new(g, x, |l| (l < level).then_some(Apart::NONE));
     values
         .iter()
-        .map(|v| eval(g, &env, &quote_folded(g, level, v)?))
+        .map(|v| {
+            if unchanged.check(v) {
+                Ok(v.clone())
+            } else {
+                eval(g, &env, &quote_folded(g, level, v)?)
+            }
+        })
         .collect()
+}
+
+/// Which values [`substitute`] and [`substitute_in`] can return as they
+/// are, rather than reading them back and evaluating them again (SW-1106).
+///
+/// Refining a branch's context substitutes into every value in it, and most
+/// of them, often all but a few, don't mention the matched variable: a list
+/// bound by a `let`, the types of unrelated hypotheses. Reading those back
+/// and evaluating them again cost time and memory in proportion to the
+/// whole context at every branch.
+///
+/// Substitution evaluates `quote_folded(v)` in an environment `ρ` that maps
+/// `x` to the constructor value and every other variable `l` to itself, as
+/// `Var(l, known(l))`. A value `v` is returned as it is when
+/// [`Unchanged::check`] finds, looking through its constructors,
+/// eliminations and glued calls' arguments, that:
+///
+/// - no variable in it is `x`;
+/// - every variable `Var(l, k)` in it is in scope and has `k == known(l)`,
+///   which is what `ρ` would give back, so no [`Apart`] fact is gained or
+///   lost;
+/// - its heads are variables only: no metavariable (whose solution, read
+///   back, would be substituted in), no folded definition (which,
+///   evaluated again under a different transparency set or once its body
+///   is admitted, could unfold) and no quotient form (whose evaluation
+///   forces its quotient argument);
+/// - if it has a glued call, gluing is on, so evaluation makes the call
+///   again rather than unfolding it;
+/// - it has no closure ([`Value::Pi`], [`Value::Lam`]): reading one back
+///   evaluates its body, and evaluating that readback makes it the new
+///   body, so a call in it that steps at once is stored unfolded (`quote`
+///   reads back the same term, but `quote_shown` doesn't);
+/// - it has no `Zero` or `Succ` of a number as a [`Value::Ctor`], which
+///   evaluation would make a [`Value::Nat`] or [`Value::NatAdd`]
+///   ([`crate::native::ctor`]): a case on a `Nat` puts one in the
+///   environment;
+/// - it has no [`Value::NatAdd`], read back as `Succ x` (evaluated to a
+///   constructor) or `add k x` (which forces `x`);
+/// - it has no [`Value::Resumption`] (which never reaches the checker),
+///   and no field is erased (no erasure is active).
+///
+/// Soundness needs only the first: substituting for `x` in a value that
+/// doesn't mention it changes nothing, so `v` is convertible with what
+/// substitution would make, and the refined context means what it did. (A
+/// glued call is judged by its arguments: its unfolding is the definition,
+/// which is closed, applied to them.) The other conditions keep the result
+/// the same *value*, not just a convertible one, so that nothing the
+/// elaborator builds from a refined context (terms, and so hashes, and
+/// diagnostics) changes: with them, `ρ` gives back every variable of `v` as
+/// it is, and evaluating `v`'s readback rebuilds `v` node by node, with one
+/// exception. A glued call that steps at once
+/// ([`crate::value::matches_at_once`]: `List.replicate 160000 'a'`) is read
+/// back as its unfolding, so evaluated again it's that unfolding, not the
+/// call. Kept as the call, it still reads back folded ([`quote_folded`], so
+/// in every elaborated term) as the same term, and forced it unfolds to the
+/// same value; only display can tell (`quote_shown` writes such a call as
+/// its one step), which then writes it as it is outside the branch rather
+/// than as its whole result. Keeping it is what saves the work: written
+/// out, such a call is its whole result. The check is conservative: a value
+/// it can't vouch for (a function type, say) is substituted into as
+/// before.
+///
+/// Shared sequences (constructor fields, spines) found clean are looked at
+/// once per substitution, however many values share them, so the check is
+/// linear in the size of the values as stored, and allocates only its work
+/// list and that set.
+pub(crate) struct Unchanged<'g, K> {
+    g: &'g Globals,
+    x: usize,
+    known: K,
+    /// The shared sequences already found clean, by address.
+    seen: crate::collections::HashSet<*const ()>,
+    /// Those of `seen` added by the value being checked, whose contents
+    /// may not all have been looked at yet: if it turns out to change,
+    /// they're taken out again, so a later value sharing one of them looks
+    /// inside it.
+    added: Vec<*const ()>,
+}
+
+impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
+    pub(crate) fn new(g: &'g Globals, x: usize, known: K) -> Self {
+        Unchanged {
+            g,
+            x,
+            known,
+            seen: Default::default(),
+            added: Vec::new(),
+        }
+    }
+
+    /// Whether substitution would give `value` back (see [`Unchanged`]).
+    pub(crate) fn check(&mut self, value: &Value) -> bool {
+        self.added.clear();
+        // Evaluation drops erased fields then (`value::fields`).
+        let clean = !self.g.erasure.active() && self.look(value);
+        if !clean {
+            for ptr in self.added.drain(..) {
+                self.seen.remove(&ptr);
+            }
+        }
+        clean
+    }
+
+    /// The work of [`Unchanged::check`], which leaves `seen` holding
+    /// sequences it hadn't finished looking at when it finds a change. A
+    /// work list, not recursion: a list of a million elements is a million
+    /// nested constructors.
+    fn look(&mut self, value: &Value) -> bool {
+        let mut todo: Vec<&Value> = vec![value];
+        while let Some(v) = todo.pop() {
+            match v {
+                Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
+                // Read back, a closure's body is evaluated, and the
+                // readback becomes the new closure's body: a call in it that
+                // steps at once is then stored unfolded, which shows.
+                Value::Pi(..) | Value::Lam(..) => return false,
+                Value::Data(_, args) => todo.extend(args.iter()),
+                // `Zero`, or `Succ` of a number, which evaluation makes a
+                // number (`native::ctor`), so reads back differently:
+                // matching made it, as the matched variable's value.
+                Value::Ctor(d, c, fields)
+                    if Some(*d) == self.g.builtins.nat
+                        && (*c == 0
+                            || matches!(
+                                fields.first(),
+                                Some(Value::Nat(_) | Value::NatAdd(..))
+                            )) =>
+                {
+                    return false;
+                }
+                Value::Ctor(_, _, fields) => {
+                    if self.first(fields.as_ptr().cast(), fields.len()) {
+                        todo.extend(fields.iter());
+                    }
+                }
+                // Read back as `Succ x` or `add k x`, which evaluates to a
+                // `Succ` constructor or forces `x`.
+                Value::NatAdd(..) => return false,
+                Value::Eq(ty, a, b) => todo.extend([&**ty, &**a, &**b]),
+                Value::Neutral(head, spine) => {
+                    match *head {
+                        Head::Var(l, known) => {
+                            if l == self.x || Some(known) != (self.known)(l) {
+                                return false;
+                            }
+                        }
+                        Head::Def(_) | Head::Meta(_) | Head::Quot(_) => return false,
+                    }
+                    self.push_spine(spine, &mut todo);
+                }
+                // Evaluated again to the call only while gluing.
+                Value::Call(_, spine, _) => {
+                    if !self.g.glue.get() {
+                        return false;
+                    }
+                    self.push_spine(spine, &mut todo);
+                }
+                Value::Resumption(_) => return false,
+            }
+        }
+        true
+    }
+
+    /// Adds `spine`'s values to `todo`, unless it's been looked at.
+    fn push_spine<'a>(&mut self, spine: &'a Spine, todo: &mut Vec<&'a Value>) {
+        if self.first(spine.as_ptr().cast(), spine.len()) {
+            for elim in spine.iter() {
+                match elim {
+                    Elim::App(arg, _) => todo.push(arg),
+                    Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+                }
+            }
+        }
+    }
+
+    /// Whether the shared sequence at `ptr`, of `len` elements, is new.
+    fn first(&mut self, ptr: *const (), len: usize) -> bool {
+        let new = len > 0 && self.seen.insert(ptr);
+        if new {
+            self.added.push(ptr);
+        }
+        new
+    }
 }
 
 // Read-backs that keep calls (D1293, extending D483's arguments-first
