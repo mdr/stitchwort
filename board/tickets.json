@@ -3420,7 +3420,7 @@
     {
       "id": 1082,
       "title": "search --at on a goal mentioning ≤ (cli test what_closes_a_goal) elaborates most of the library (Float, Int, Char files...), 1.4 GB live; find why lazy loading pulls it in and load only what the search needs (found by SW-1076)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
