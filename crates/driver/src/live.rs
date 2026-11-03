@@ -544,9 +544,18 @@ impl LiveProject {
             (self.fatal.clone(), self.texts.keys().cloned().collect())
         };
         let root = format!("{}/", self.project);
-        let index = index_data_of(&self.session, &root, &diagnostics, !self.library_answered);
+        let library = !self.library_answered;
+        let index = index_data_of(&self.session, &root, &diagnostics, library);
         self.library_answered = true;
-        answers_from(&index, &wanted, "stitchwort.yaml")
+        let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
+        if !library {
+            // The index left out the library files' references, bar a few
+            // that remain (some 300 of Set.sw's 640, SW-1110); published,
+            // those would replace the full answers given before, and
+            // navigation inside a library document would stop working.
+            answers.retain(|place, _| !matches!(place, Place::Library(_)));
+        }
+        answers
     }
 
     /// The outline of every file of the project, read from its syntax alone
