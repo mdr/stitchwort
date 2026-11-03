@@ -68,7 +68,9 @@ function stopClient() {
   return c ? c.stop() : undefined;
 }
 
-// Read-only text of embedded library files: stitchwort-std:/List/Toolkit.sw.
+// Read-only text of embedded library files: stitchwort-std:List/Toolkit.sw.
+// Used only when the server's std is the embedded bundle; with a std
+// directory it names the real files (`file:` URIs) instead.
 const stdContent = {
   provideTextDocumentContent(uri) {
     const std = uri.path.replace(/^\//, '');

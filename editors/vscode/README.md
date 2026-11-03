@@ -26,9 +26,15 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
   off, as in VS Code generally; to turn it on for Stitchwort files, add
   `"[stitchwort]": { "editor.formatOnSave": true }` to your settings.
-- **Library source.** Definitions in the standard library open as read-only
-  documents with the scheme `stitchwort-std:`, whose text comes from
-  `stitchwort std-source` (run by the extension).
+- **Library source.** Definitions in the standard library open as the real
+  `std/` files when the server read std from a directory (the usual case in a
+  checkout, or with `STITCHWORT_STD_DIR`). Such a file gets hover, go to
+  definition and references like any other, but is not checked on its own: it
+  is part of the library, which the server loads when it starts, so it has no
+  diagnostics and edits to it apply after a restart. When std is the bundle
+  embedded in the program, definitions open as read-only documents with the
+  scheme `stitchwort-std:`, whose text comes from `stitchwort std-source` (run
+  by the extension).
 
 ## How the client finds and starts the server
 
@@ -36,7 +42,7 @@ On activation (a `.sw` file opens, or the workspace contains a
 `stitchwort.yaml`) the extension starts `<stitchwort.path> lsp` with
 `vscode-languageclient`, speaking LSP over stdio, with the first workspace
 folder as the working directory. It serves `.sw` files on disk and
-`stitchwort-std:` documents, and tells the server when a `stitchwort.yaml`
+`stitchwort-std:` documents (bundle mode), and tells the server when a `stitchwort.yaml`
 changes. Which project a file belongs to is the server's decision. The server's
 log is in the "Stitchwort" output channel. Changing `stitchwort.path` restarts
 it. If the program can't be run, a warning says so.
@@ -81,8 +87,8 @@ Build the CLI, install the extension, open `aoc/` in VS Code, then: type an
 error into a `.sw` file without saving and see the squiggle; F12 on a name,
 Shift-F12 on a definition, hover on a use, and the outline (Cmd-Shift-O) give
 the answers they gave before; write a `?` as a proof and run "Stitchwort: Show Goals": the panel shows the
-goal, follows the cursor and updates as you type; F12 on a library name opens a `stitchwort-std:`
-document; set `stitchwort.path` to a wrong path and see the warning.
+goal, follows the cursor and updates as you type; F12 on a library name opens the library file
+(a `stitchwort-std:` document in bundle mode); set `stitchwort.path` to a wrong path and see the warning.
 
 ## Uninstall
 
