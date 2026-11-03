@@ -4217,7 +4217,7 @@
       "labels": [
         "design"
       ],
-      "body": "D2250 (Matt, 3 Nov): the next structural priority. Matt: look into the options, persistent data structures or not, and how best to handle a complex piece of state like this with all the workflows we need. Architecture review issue 2 and step 8 (docs/research/architecture-review.md). Instances: SW-1128, SW-1135, SW-1129 (thread-locals and globals). Opus design note in docs/proposals/, no code; expected 90 min.",
+      "body": "D2250 (Matt, 3 Nov): the next structural priority. Matt: look into the options, persistent data structures or not, and how best to handle a complex piece of state like this with all the workflows we need. Architecture review issue 2 and step 8 (docs/research/architecture-review.md). Instances: SW-1128, SW-1135, SW-1129 (thread-locals and globals). Opus design note in docs/proposals/, no code; expected 90 min.\n\nNote done 65de60d7 (Opus, 19 min, est. 90): docs/proposals/elaborator-state.md + bench. D2257 (Matt, 3 Nov): yes to the end state: nine lifetime components with exhaustive destructuring, four table kinds (GrowVec, OwnedBy, Logged, Derived), no persistent structures as the general representation; a frozen library base + overlay possibly later behind a measurement. Remaining note decisions (2-9) to Matt one at a time. Findings filed: SW-1140 (F1, F2), SW-1141 (F3, F5).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
