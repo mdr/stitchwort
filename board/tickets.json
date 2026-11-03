@@ -3832,11 +3832,12 @@
     {
       "id": 1110,
       "title": "LSP: go-to-definition doesn't work inside a library file (e.g. Set.sw) reached by navigation",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "bug",
+        "lsp"
       ],
       "body": "Matt, 3 Nov, VS Code: navigating to a definition in Set.sw works, but inside Set.sw no definition can be navigated to (names referenced there). Client sends stitchwort-std: documents (editors/vscode/client.js documentSelector). Server: lookup()/locate() in crates/cli/src/lsp.rs answer a stitchwort-std: document from the first workspace whose files[Place::Library] has refs at that position. The only test (crates/cli/tests/lsp.rs ~279) hovers the definition's own position in the std document, not a reference inside it. Hypothesis (unverified): the workspace index records library declarations but not the references inside library bodies (or not when std comes from the prelude snapshot/check cache). Repro and fix with an LSP test of definition from a reference inside a std document.",
       "created": "2026-11-03",
