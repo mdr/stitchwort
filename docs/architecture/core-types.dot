@@ -1,0 +1,14 @@
+// How the central types of crates/core relate (docs/architecture/core.typ).
+digraph G {
+  rankdir=TB; nodesep=0.3; ranksep=0.32; pad=0.02;
+  node [shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#1a5fb4", fontname="Helvetica", fontsize=7.5, margin="0.06,0.03", penwidth=0.6];
+  edge [color="#444444", arrowsize=0.5, penwidth=0.6, fontname="Helvetica", fontsize=7.5];
+  { rank=same; Term [label="Term\nindices"]; Value [label="Value\nlevels, closures"]; }
+  G [label="Globals\ndefs: Vec<Def>, datas: Vec<Data>\nregistry, builtins, metas, budget", fillcolor="#fdf1e3", color="#c05800"];
+  Term -> Value [label=" eval"];
+  Value -> Term [label=" quote"];
+  G -> Term  [label="body, ty", style=dashed, constraint=false];
+  Term -> G  [label="DefId", style=dashed];
+  G -> Value [label="ty_value", style=dashed];
+  Value -> Value [label="apply, force"];
+}

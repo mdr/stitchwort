@@ -1,0 +1,25 @@
+// Admission pipeline of crates/core/src/check.rs (docs/architecture/core.typ).
+digraph G {
+  rankdir=TB; nodesep=0.1; ranksep=0.12; pad=0.02;
+  node [shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#1a5fb4", fontname="Helvetica", fontsize=7.5, margin="0.04,0.02", penwidth=0.6, width=1.9, height=0.3];
+  edge [color="#555555", arrowsize=0.5, penwidth=0.6];
+
+  subgraph cluster_def { label="definitions: define_group"; fontname="Helvetica-Bold"; fontsize=7.5; color="#999999"; style=rounded; margin=6;
+    d0 [label="1 declare_def: signature is a\ntype (theorem: a Prop); no body", fillcolor="#f6f6f6"];
+    d1 [label="2 set-up: arity, group, transparency\n(fixed before any body is checked)"];
+    d2 [label="3 admissible: references final or\nin group; case only at body top"];
+    d3 [label="4 check each body against its type\n(members opaque; glue on; conv)"];
+    d4 [label="5 termination::check_group\n(size-change graphs, sct.rs)"];
+    d5 [label="6 install all, Pending -> Final\n(any error: all Failed)", fillcolor="#e3f1e6", color="#2a7f3f"];
+    d0 -> d1 -> d2 -> d3 -> d4 -> d5;
+  }
+  subgraph cluster_data { label="data: define_data_group"; fontname="Helvetica-Bold"; fontsize=7.5; color="#999999"; style=rounded; margin=6;
+    t0 [label="1 declare_data_group: parameters\nas a telescope; no ctors yet", fillcolor="#f6f6f6"];
+    t1 [label="2 field types by check_type; result\nindices vs the index telescope"];
+    t2 [label="3 E-UNIVERSE: field sort fits the\ntype's sort (Prop always fits)"];
+    t3 [label="4 E-POSITIVITY: strictly positive;\nnesting only at nestable params"];
+    t4 [label="5 no field depends on one holding\nthe type; record shape; erasure"];
+    t5 [label="6 install all, Pending -> Final", fillcolor="#e3f1e6", color="#2a7f3f"];
+    t0 -> t1 -> t2 -> t3 -> t4 -> t5;
+  }
+}
