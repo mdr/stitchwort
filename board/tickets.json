@@ -1,5 +1,5 @@
 {
-  "next": 1176,
+  "next": 1177,
   "tickets": [
     {
       "id": 47,
@@ -4715,13 +4715,13 @@
     {
       "id": 1173,
       "title": "State step 6b: the copied tables onto the journal (Scope maps private, instances, helper_keys, Session's copied maps as Logged; Mark stops copying; LiveProject and Session::cancellable hold and release Checkpoints) (elaborator-state.md §4.8, §7 row 6b)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "Part of step 6 (D2283-D2287, Matt, 3 Nov). Opus, est. 150 min. Includes the rewind test's slow tier once (STITCHWORT_SLOW=1, approved). Orchestrator's call: start right after 6a verified.",
+      "body": "Part of step 6 (D2283-D2287, Matt, 3 Nov). Opus, est. 150 min. Includes the rewind test's slow tier once (STITCHWORT_SLOW=1, approved). Orchestrator's call: start right after 6a verified.\n\nDone c4bdb0fb (Opus, 52 min, est. 150), reviewed, merged (conflict in driver tests/rewind.rs with SW-1172's mark_and_rewind_cost_alone: kept that name, which dev/measure-state runs, plus 6b's rss_kb). Scope's 7 long-lived maps Logged and private, Scope not Clone; Instances over Logged with ownership asserts on info.def; helper_keys a LoggedSet; include_locations and namespace_keys Logged; host-replaced maps shared as Arc (orchestrator agrees: logging a whole replacement logs every row per edit). Escapes removed: 3 scope.entries.get_mut/remove, instances.get_mut, 7 helper_keys.insert, plus drop_unconfirmed's retain (missed by the note's grep). Checkpoints released by Session::cancellable, recheck_namespaces, LiveProject::step/rewind_to. Slow tier once (STITCHWORT_TIER=full on rewind's two aoc tests): pass, 547.6 s. New scenarios: repeated early edits (5x, compared with fresh), cancelled at each namespace, cancelled at each of 90 cache uses; mutation-checked. Mark on aoc 1.04 -> 0.25 ms, rewind 1.35 -> 0.27 ms, memory per mark 3.6 -> 2.0 MB. F11: remaining mark cost is Caches.dot_heads (15k rows, ~2 MB/mark, RefCell). Orchestrator ran navigation, check_cache, new rewind scenarios, journal/ownership tests: 59 passed. Model result: Opus, worked, 52 min (est. 150).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4729,13 +4729,13 @@
     {
       "id": 1174,
       "title": "Design note: the Globals split (elaborator-state.md §4.6, step 8): Kernel/Env private, the meta store into Attempt, erasure and js as owned tables, how eval reads metavariable solutions; keep parallel checking possible",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2288 (Matt, 3 Nov): yes, overnight, docs only; decisions for Matt in the morning; implementation waits for his answers. Opus, est. 90 min.",
+      "body": "D2288 (Matt, 3 Nov): yes, overnight, docs only; decisions for Matt in the morning; implementation waits for his answers. Opus, est. 90 min.\n\nDone abe49104 (Opus, 15 min, est. 90), docs/proposals/globals-split.md merged (docs only). Field destinations; meta lookup options benchmarked in a toy evaluator (no option slower than today; rec A, a context struct with &dyn Metas); admission runs with no meta store (soundness by signature); migration 8a-8f (~7 lanes), 8a-8c after 6c. Decisions for Matt in the morning: D2290-D2295. Findings G1-G5 (§9): G1 admission doesn't reset the erasure mode (no caller found; one-line kernel fix), G2 undo may leave frozen_metas/lifted_calls entries for older metas (unverified), G3 wrong doc on Globals::metas, G4 the state note's Appendix B wrong on erasure/module/unfinished/apart_sets, G5 no test submits a solved meta to admission. Orchestrator's call: G1-G5 wait for Matt's review of the note (kernel-adjacent).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4750,6 +4750,20 @@
         "test"
       ],
       "body": "Matt (3 Nov, 23:00): after the overnight plan (6b, 6c, after-measurements, step 7, SW-1168, SW-1155, the Globals note), run the full tier (task test:full), fix any issues, and push when everything is green. Supersedes D2289 (daily tier once).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1176,
+      "title": "State step 6c: cache entries from write-sets (segments by unit, entries from Journal::began_at and Logged::changed_since; Before.scope, Before.copies, start_keys, start_members go; entries byte for byte unchanged) (elaborator-state.md §4.8.3, §7 row 6c)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Part of step 6 (D2283-D2287). Opus, est. 150 min. Overnight plan (Matt, 3 Nov).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
