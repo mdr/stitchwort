@@ -105,7 +105,10 @@ tier).
 - **Memory-heavy tests.** Leave `binary(run_js)` (`cli`) out of a selection
   unless `crates/js`, `crates/cli/tests/run_js.rs` or the JS runtime changed:
   its node processes take about 1 GB each, and including it pushed a
-  selection over the merge tier's 4 GB cap.
+  selection over the merge tier's 4 GB cap. The same goes for the `cli`
+  `extract` tests that run `node test.mjs` (all but
+  `generated_code_is_stable`): one node took 2.1 GB. Include them only for
+  changes to `crates/js` or `extract.rs`, and then with little else.
 - **Filters.** `task test:one -- NAME` matches test names only. For a whole
   test binary use a filterset, `task test:one -- -E 'binary(hash_stability)'`
   (with `EXAMPLES=` for particular examples).

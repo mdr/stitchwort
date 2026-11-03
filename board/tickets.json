@@ -4421,13 +4421,13 @@
     {
       "id": 1152,
       "title": "Elaborator state step 3: state::Options (settings, cache_key()) and state::Session (project and cache bookkeeping, Stats with queue.rs's counters and MET_UNFILLED)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.\n\nDone 3dd0a91a (Sonnet, 35 min, est. 90); 80 files. Options (13 settings, public; from_env; cache_key() destructures, same text so no FORMAT bump); Session (project tables, include, library, namespace keys: copied by mark as before; epoch, stats, cache_stats, counterexample_log ignored by rewind); Stats (queue.rs 26 atomics + MET_UNFILLED) per session, registered with timings when STITCHWORT_TIMINGS is set. include_files and core_link_names are Session, not Options (set during a session). Note §2.8, §4.1, Appendix A updated for steps 2-3. Tests: lane elab 131; postponement, hash_stability, namespaces, check_cache, rewind 85; timings, interfaces, operators, rewrite, counterexamples 48. Finding filed: glue not in the cache key. Conflicts with SW-1093 in extract.rs (limits -> options.limits), orchestrator resolves. Model result: Sonnet, worked, 35 min (est. 90).",
+      "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.\n\nDone 3dd0a91a (Sonnet, 35 min, est. 90); 80 files. Options (13 settings, public; from_env; cache_key() destructures, same text so no FORMAT bump); Session (project tables, include, library, namespace keys: copied by mark as before; epoch, stats, cache_stats, counterexample_log ignored by rewind); Stats (queue.rs 26 atomics + MET_UNFILLED) per session, registered with timings when STITCHWORT_TIMINGS is set. include_files and core_link_names are Session, not Options (set during a session). Note §2.8, §4.1, Appendix A updated for steps 2-3. Tests: lane elab 131; postponement, hash_stability, namespaces, check_cache, rewind 85; timings, interfaces, operators, rewrite, counterexamples 48. Finding filed: glue not in the cache key. Conflicts with SW-1093 in extract.rs (limits -> options.limits), orchestrator resolves. Model result: Sonnet, worked, 35 min (est. 90).\n\nVerified (second verifier): AoC --no-cache 1.57 GB max resident (1.59 before), user 71 s under load 31-111; cache hits (orchestrator: warm aoc check 3.2 s user vs 71 cold); selection set A 760/760 (peak 1.81 GB), merge tier 1039/1039, audit clean. The first selection was killed by the 4 GB guard: cli extract node test.mjs processes (2.1 GB and 0.9 GB), not a regression; selector rule added.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
