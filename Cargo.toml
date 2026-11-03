@@ -19,6 +19,7 @@ stitchwort-standalone = { path = "crates/standalone" }
 stitchwort-fmt = { path = "crates/fmt" }
 stitchwort-native = { path = "crates/native" }
 stitchwort-dev-features = { path = "crates/dev-features" }
+stitchwort-bench = { path = "crates/bench" }
 
 ariadne = "0.6.0"
 blake3 = "1.8.7"

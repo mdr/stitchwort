@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# Measurements that accept step 6 of docs/proposals/elaborator-state.md
+# (section 4.8.7, D2287): the language server's edit loop (memory and latency),
+# the command-line modes' CPU time and peak memory, and the cost of a mark
+# and a rewind. Run it in the dev shell, once per build, in the foreground:
+#
+#   nix develop -c dev/measure-state [LABEL]
+#
+# Writes dev/measurements/LABEL-YYYY-MM-DD-HHMM.md (the raw log) and prints
+# its path. Environment, to cut the run:
+#   AOC_CYCLES=10,100,300     cycles at the early, middle and late file of aoc
+#   ROGUE_CYCLES=50,150,250   the same on games/rogue
+#   CLI_RUNS=2                runs of each command-line mode
+#   SKIP="loop,cli,rewind"    parts to leave out (comma-separated)
+# Compare CPU time, not wall time, when other builds are running: the load
+# averages at the start and end of each part are in the log. After step 6a,
+# JournalStats lines appear in the log (`grep -i journal`) with no change here.
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+label=${1:-state}
+stamp=$(date +%Y-%m-%d-%H%M)
+out="$root/dev/measurements/$label-$stamp.md"
+AOC_CYCLES=${AOC_CYCLES:-10,100,300}
+ROGUE_CYCLES=${ROGUE_CYCLES:-50,150,250}
+CLI_RUNS=${CLI_RUNS:-2}
+SKIP=${SKIP:-}
+work=$(mktemp -d "${TMPDIR:-/tmp}/measure-state.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+say() { printf '%s\n' "$*" | tee -a "$out"; }
+load() { say "load $1: $(uptime | sed 's/.*load averages*: //')"; }
+skipped() { [[ ",$SKIP," == *",$1,"* ]]; }
+# Fenced block of a command's output, to the log and the terminal.
+fenced() { say '```'; "$@" 2>&1 | tee -a "$out"; say '```'; }
+
+IFS=, read -r ae am al <<<"$AOC_CYCLES"
+IFS=, read -r re rm_ rl <<<"$ROGUE_CYCLES"
+
+say "# State measurements: $label"
+say
+say "- commit: $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- crates ':!crates/cli/tests' ':!crates/bench' ':!crates/driver/tests' || echo ' (+ uncommitted changes to crates)')"
+say "- date: $(date)"
+say "- machine: $(uname -sm), $(sysctl -n hw.ncpu 2>/dev/null || nproc) cpus"
+say "- aoc cycles (early,middle,late): $AOC_CYCLES; rogue: $ROGUE_CYCLES; cli runs: $CLI_RUNS"
+load start
+
+say
+say "## Build"
+task build >"$work/build.log" 2>&1 || { cat "$work/build.log"; exit 1; }
+bin="$root/target/release/stitchwort"
+[[ -x "$bin" ]] || bin="$(ls "$root"/target/*/release/stitchwort | head -1)"
+say "binary: $bin"
+cargo test --release -p stitchwort-cli --test lsp --no-run >"$work/build-lsp.log" 2>&1 || { cat "$work/build-lsp.log"; exit 1; }
+cargo test --release -p stitchwort-driver --test rewind --no-run >"$work/build-rewind.log" 2>&1 || { cat "$work/build-rewind.log"; exit 1; }
+
+# --- The edit loop.
+loop_on() { # name project plan
+  say
+  say "## Edit loop: $1"
+  load "start"
+  STATE_LOOP_NAME=$1 STATE_LOOP_PROJECT=$2 STATE_LOOP_PLAN=$3 \
+    fenced cargo test --release -p stitchwort-cli --test lsp -- --ignored --nocapture --test-threads=1 state_edit_loop
+  load "end"
+}
+if ! skipped loop; then
+  loop_on aoc "$root/aoc" \
+    "src/Aoc/Common/Range.sw:$ae,src/Aoc/Year2024/Day10/Day10.sw:$am,src/Aoc/Year2025/Day09/Proofs/Part2.sw:$al"
+  loop_on rogue "$root/games/rogue" \
+    "src/Rogue/Model.sw:$re,src/Rogue/Proofs/Loop.sw:$rm_,src/Rogue/Tests/PlayThrough.sw:$rl"
+fi
+
+# --- The command-line modes on aoc: user CPU and peak RSS from time -l.
+timed() { # mode, then the check's arguments
+  local mode=$1; shift
+  local log="$work/time.log"
+  STITCHWORT_TIMINGS=1 /usr/bin/time -l "$bin" check "$@" >"$work/check.out" 2>"$log" || { cat "$log"; exit 1; }
+  local user real rss
+  real=$(awk '/ real /{print $1}' "$log"); user=$(awk '/ real /{print $3}' "$log")
+  rss=$(awk '/maximum resident set size/{print $1}' "$log")
+  printf '| %s | %s | %s | %s |\n' "$mode" "$user" "$real" "$((rss / 1048576))" | tee -a "$out"
+  grep -i 'journal' "$log" | sed 's/^/    journal: /' | tee -a "$out" || true
+}
+if ! skipped cli; then
+  say
+  say "## Command line: stitchwort check on aoc"
+  load start
+  cp -R "$root/aoc" "$work/aoc"
+  rm -rf "$work/aoc/.stitchwort"
+  proj="$work/aoc"
+  say
+  say "| mode | user CPU s | wall s | peak RSS MB |"
+  say "|---|---|---|---|"
+  for i in $(seq "$CLI_RUNS"); do timed "cold --no-cache #$i" --project "$proj" --no-cache; done
+  for i in $(seq "$CLI_RUNS"); do
+    rm -rf "$work/cache"; timed "cold, empty cache folder #$i" --project "$proj" --cache-dir "$work/cache"
+  done
+  # $work/cache is now full.
+  for i in $(seq "$CLI_RUNS"); do timed "warm #$i" --project "$proj" --cache-dir "$work/cache"; done
+  mid="$proj/src/Aoc/Year2024/Day10/Day10.sw"
+  cp "$mid" "$work/mid.orig"
+  printf '\ndef stateMeasureProbe: Nat := 1 + 1\n' >>"$mid"
+  for i in $(seq "$CLI_RUNS"); do
+    rm -rf "$work/cache-mixed"; cp -R "$work/cache" "$work/cache-mixed"
+    timed "mixed, Aoc.Year2024.Day10 edited #$i" --project "$proj" --cache-dir "$work/cache-mixed"
+  done
+  cp "$work/mid.orig" "$mid"
+  load end
+fi
+
+# --- Mark and rewind.
+if ! skipped rewind; then
+  say
+  say "## Mark and rewind on aoc"
+  load start
+  for i in $(seq "$CLI_RUNS"); do
+    fenced cargo test --release -p stitchwort-driver --test rewind -- --ignored --nocapture --test-threads=1 mark_and_rewind_cost_alone
+  done
+  load end
+fi
+
+say
+load "finish"
+echo "log: $out"

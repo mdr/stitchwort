@@ -389,6 +389,17 @@ tasks:
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}'
 
+  measure:state:
+    desc: 'Step 6 measurements (elaborator-state.md 4.8.7): edit loop, CLI modes, rewind; about 40 min, foreground (task measure:state -- LABEL)'
+    summary: |
+      dev/measure-state: the language server's edit loop on aoc and
+      games/rogue (RSS, heap, latency), `check` on aoc cold, with an empty
+      cache folder, warm and mixed (user CPU, peak RSS), and the cost of a
+      mark and a rewind. Writes dev/measurements/LABEL-DATE.md. Cut it with
+      AOC_CYCLES, ROGUE_CYCLES, CLI_RUNS and SKIP (see the script).
+    cmds:
+      - dev/measure-state {{.CLI_ARGS}}
+
   bench:update:
     desc: Record this run as the benchmark baseline (bench/baseline.toml); on a quiet machine
     cmds:

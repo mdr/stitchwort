@@ -111,6 +111,12 @@ pub fn allocations() -> u64 {
     ALLOCATIONS.load(Relaxed)
 }
 
+/// Bytes allocated and not yet freed, on every thread. Reading it doesn't
+/// allocate.
+pub fn live() -> usize {
+    LIVE.load(Relaxed)
+}
+
 /// Allocations since `start`, and the most heap in use at once since then
 /// beyond what was in use at `start`.
 pub fn since(start: Snapshot) -> (u64, u64) {

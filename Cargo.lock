@@ -1194,6 +1194,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "stitchwort-bench",
  "stitchwort-cli",
  "stitchwort-core",
  "stitchwort-dev-features",

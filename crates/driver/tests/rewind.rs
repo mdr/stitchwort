@@ -319,6 +319,15 @@ fn rewinding_changes_nothing_for_the_aoc_project() {
     par_map(STACK, &parts, |part| part(&source));
 }
 
+/// `mark_and_rewind_cost` on its own, for `dev/measure-state` (SW-1172):
+/// `cargo test --release -p stitchwort-driver --test rewind -- --ignored
+/// --nocapture mark_and_rewind_cost_alone`.
+#[test]
+#[ignore]
+fn mark_and_rewind_cost_alone() {
+    with_stack(STACK, || mark_and_rewind_cost(&aoc()));
+}
+
 /// What a mark and a rewind cost after the whole project is checked
 /// (`--nocapture` shows it).
 fn mark_and_rewind_cost(source: &Source) {

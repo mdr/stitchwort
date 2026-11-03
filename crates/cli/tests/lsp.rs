@@ -1117,6 +1117,168 @@ fn latency_on_aoc() {
     client.shutdown();
 }
 
+/// The resident set of this process, in KB (the server runs in it).
+fn resident_kb() -> u64 {
+    if let Ok(statm) = std::fs::read_to_string("/proc/self/statm") {
+        let pages: u64 = statm.split_whitespace().nth(1).unwrap().parse().unwrap();
+        return pages * 4;
+    }
+    let out = Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).trim().parse().unwrap()
+}
+
+/// A copy of the project at `source` under Cargo's temporary folder, with its
+/// check cache warm, for the edit loop.
+fn copy_of_project(source: &Path, name: &str) -> PathBuf {
+    let project = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("lsp")
+        .join(name);
+    let _ = std::fs::remove_dir_all(&project);
+    copy_dir(source, &project);
+    let warm = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--project"])
+        .arg(&project)
+        .output()
+        .unwrap();
+    assert!(warm.status.success(), "{warm:?}");
+    project.canonicalize().unwrap()
+}
+
+fn percentile(sorted: &[Duration], p: f64) -> Duration {
+    sorted[(((sorted.len() - 1) as f64) * p).round() as usize]
+}
+
+/// Sustained memory and edit latency (SW-1172; docs/proposals/elaborator-state.md
+/// section 4.8.7): edit-and-recheck cycles over a project, in the language
+/// server. Run it through `dev/measure-state`, which sets:
+///
+/// - `STATE_LOOP_PROJECT`: the project's folder (copied, with a warm cache,
+///   so the repository isn't touched);
+/// - `STATE_LOOP_PLAN`: `path:cycles,...`, the file to edit (relative to the
+///   project) and how many cycles to run on it, in order; one cycle is one
+///   `didChange`, alternating between the file with a new `def stateLoopProbe`
+///   appended (a different literal each time) and the file as it was, so the
+///   project stays valid;
+/// - `STATE_LOOP_NAME`: a label for the copy (default `loop`).
+///
+/// Prints a `cycle` line for every change and a `sample` line every 10
+/// cycles: resident KB, live heap bytes (the counting allocator), and the
+/// last latency, then median and p95 per file at the end. The journal's
+/// statistics belong in `print_journal_stats` once `Session::stats` has them.
+#[test]
+#[ignore]
+fn state_edit_loop() {
+    let (Ok(source), Ok(plan)) = (
+        std::env::var("STATE_LOOP_PROJECT"),
+        std::env::var("STATE_LOOP_PLAN"),
+    ) else {
+        eprintln!("state_edit_loop: set STATE_LOOP_PROJECT and STATE_LOOP_PLAN");
+        return;
+    };
+    let name = std::env::var("STATE_LOOP_NAME").unwrap_or_else(|_| "loop".to_string());
+    let plan: Vec<(String, usize)> = plan
+        .split(',')
+        .map(|item| {
+            let (path, n) = item.rsplit_once(':').expect("path:cycles");
+            (path.to_string(), n.parse().expect("cycles"))
+        })
+        .collect();
+    let project = copy_of_project(Path::new(&source), &name);
+    let mut client = Client::start();
+    let mut version = 1;
+    let started = Instant::now();
+    // Open every file, then wait until the server has been quiet for 20 s:
+    // it publishes a file's diagnostics when its namespace is checked, which
+    // for the later files may be before they are opened.
+    for (path, _) in &plan {
+        let uri = uri(&project.join(path));
+        client.open(&uri, &std::fs::read_to_string(project.join(path)).unwrap());
+    }
+    let mut last_message = Instant::now();
+    while client
+        .conn
+        .receiver
+        .recv_timeout(Duration::from_secs(20))
+        .is_ok()
+    {
+        last_message = Instant::now();
+    }
+    eprintln!(
+        "first check: {:.1} s (to the last message)",
+        (last_message - started).as_secs_f64()
+    );
+    eprintln!(
+        "sample\tcycle 0\trss_kb {}\theap_bytes {}",
+        resident_kb(),
+        stitchwort_bench::alloc::live()
+    );
+    let mut cycle = 0;
+    let mut edit_times: BTreeMap<String, (Vec<Duration>, Vec<Duration>)> = BTreeMap::new();
+    for (path, cycles) in &plan {
+        let original = std::fs::read_to_string(project.join(path)).unwrap();
+        let uri = uri(&project.join(path));
+        for i in 0..*cycles {
+            cycle += 1;
+            version += 1;
+            let editing = i % 2 == 0;
+            let text = if editing {
+                format!("{original}\ndef stateLoopProbe: Nat := {i} + 1\n")
+            } else {
+                original.clone()
+            };
+            let at = Instant::now();
+            client.change(&uri, version, &text);
+            let found = client.diagnostics(&uri, version);
+            let took = at.elapsed();
+            assert_eq!(found, Vec::<Value>::new(), "{path} cycle {cycle}");
+            let entry = edit_times.entry(path.clone()).or_default();
+            if editing { &mut entry.0 } else { &mut entry.1 }.push(took);
+            eprintln!(
+                "cycle\t{cycle}\t{path}\t{}\t{:.0} ms",
+                if editing { "edit" } else { "undo" },
+                took.as_secs_f64() * 1000.0
+            );
+            if cycle % 10 == 0 {
+                eprintln!(
+                    "sample\tcycle {cycle}\trss_kb {}\theap_bytes {}",
+                    resident_kb(),
+                    stitchwort_bench::alloc::live()
+                );
+            }
+        }
+    }
+    eprintln!(
+        "final\tcycle {cycle}\trss_kb {}\theap_bytes {}",
+        resident_kb(),
+        stitchwort_bench::alloc::live()
+    );
+    for (path, (mut edits, mut undos)) in edit_times {
+        for (kind, times) in [("edit", &mut edits), ("undo", &mut undos)] {
+            if times.is_empty() {
+                continue;
+            }
+            times.sort();
+            eprintln!(
+                "latency\t{path}\t{kind}\tn {}\tmedian {:.0} ms\tp95 {:.0} ms",
+                times.len(),
+                percentile(times, 0.5).as_secs_f64() * 1000.0,
+                percentile(times, 0.95).as_secs_f64() * 1000.0
+            );
+        }
+    }
+    print_journal_stats();
+    client.shutdown();
+}
+
+/// The journal's statistics (SW-1171, step 6a), once the session reports
+/// them. Today there is nothing to print; the "after" run fills this in.
+fn print_journal_stats() {
+    eprintln!("journal\t(no JournalStats before step 6a)");
+}
+
 /// A program where the second declaration has an `if` over arithmetic.
 const SELECTION_PROGRAM: &str = "def double (n: Nat): Nat := n + n\n\ndef h (n: Nat): Nat := if n < 2 then double (n + 1) else 0\n";
 
