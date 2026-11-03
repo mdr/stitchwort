@@ -204,6 +204,38 @@ pub fn tier_sample<T>(items: Vec<T>, daily_stride: usize) -> Vec<T> {
     items.into_iter().step_by(stride).collect()
 }
 
+/// Where an eager session gets the standard library's files.
+enum StdCache {
+    /// Checked from source.
+    Source,
+    /// Replayed from the test cache under `target/` where it has them, and
+    /// checked (and cached) where not.
+    Test,
+}
+
+/// How long the test std cache keeps entries of other builds: a few
+/// minutes, because every edit-and-test cycle is a new build, and an entry
+/// is a few hundred KB.
+const TEST_STD_CACHE_GRACE: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
+/// The test std cache's folder for sessions with `stack` bytes of stack:
+/// `test-std-cache/{stack}` in the cargo target folder the running test
+/// binary is in (`target/release/deps/x` gives `target/`), or in the
+/// temporary folder if that is not found. The stack is part of the cache's
+/// key, and a unit's entries for other keys are evicted when it is
+/// written, so each stack has a folder of its own.
+fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
+    let target = std::env::current_exe().ok().and_then(|exe| {
+        exe.ancestors()
+            .find(|a| a.file_name().is_some_and(|n| n == "target"))
+            .map(std::path::Path::to_path_buf)
+    });
+    target
+        .unwrap_or_else(std::env::temp_dir)
+        .join("test-std-cache")
+        .join(stack.to_string())
+}
+
 impl Session {
     /// A session for a thread with `stack` bytes of stack.
     pub fn for_stack(stack: usize) -> Self {
@@ -230,6 +262,24 @@ impl Session {
             false,
             false,
             Limits::for_stack(stack),
+            StdCache::Test,
+        )
+        .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// [`Session::eager_for_stack`], checking the whole library from source
+    /// (the test cache is not used): for the tests whose point is that
+    /// check (docs/testing.md, "The test std cache").
+    #[doc(hidden)]
+    pub fn eager_from_source_for_stack(stack: usize) -> Self {
+        Self::start(
+            prelude(),
+            Library::Standard,
+            true,
+            false,
+            false,
+            Limits::for_stack(stack),
+            StdCache::Source,
         )
         .unwrap_or_else(|report| panic!("{report}"))
     }
@@ -249,6 +299,7 @@ impl Session {
             false,
             true,
             Limits::default(),
+            StdCache::Source,
         )
         .unwrap_or_else(|report| panic!("{report}"))
     }
@@ -272,6 +323,7 @@ impl Session {
             false,
             false,
             Limits::default(),
+            StdCache::Source,
         )
     }
 
@@ -287,6 +339,22 @@ impl Session {
             false,
             false,
             Limits::default(),
+            StdCache::Test,
+        )
+        .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// [`Session::eager`], checking the whole library from source.
+    #[doc(hidden)]
+    pub fn eager_from_source() -> Self {
+        Self::start(
+            prelude(),
+            Library::Standard,
+            true,
+            false,
+            false,
+            Limits::default(),
+            StdCache::Source,
         )
         .unwrap_or_else(|report| panic!("{report}"))
     }
@@ -302,6 +370,7 @@ impl Session {
             false,
             false,
             Limits::default(),
+            StdCache::Source,
         )
         .unwrap_or_else(|report| panic!("{report}"))
     }
@@ -323,6 +392,7 @@ impl Session {
             library_tests,
             false,
             Limits::default(),
+            StdCache::Source,
         )
     }
 
@@ -338,6 +408,7 @@ impl Session {
             true,
             false,
             Limits::default(),
+            StdCache::Source,
         )
         .unwrap_or_else(|report| panic!("{report}"))
     }
@@ -351,6 +422,7 @@ impl Session {
         library_tests: bool,
         navigation: bool,
         limits: Limits,
+        std_cache: StdCache,
     ) -> Result<Self, String> {
         let mut session = Session {
             sources: SourceMap::new(),
@@ -426,6 +498,12 @@ impl Session {
         }
         if !matches!(library, Library::None) {
             session.elab.install_library(index);
+        }
+        if eager && let StdCache::Test = std_cache {
+            let dir = test_std_cache_dir(session.elab.options.limits.stack);
+            session.elab.set_check_cache(std::rc::Rc::new(
+                crate::check_cache::CheckCache::with_grace(&dir, TEST_STD_CACHE_GRACE),
+            ));
         }
         if eager && let Err(diagnostics) = session.elab.load_all_libraries() {
             return Err(report(

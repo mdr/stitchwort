@@ -156,7 +156,7 @@ fn pinned_in(text: &str) -> Vec<String> {
 
 #[test]
 fn every_binding_by_hash_applies_to_the_library() {
-    let found = with_session(STACK, Session::eager_for_stack, |session| {
+    let found = with_session(STACK, Session::eager_from_source_for_stack, |session| {
         bindings(&session.elab.globals)
     });
     let unbound: Vec<String> = found

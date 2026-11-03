@@ -22,7 +22,7 @@ fn the_prelude_binds_every_builtin_to_a_final_declaration() {
 }
 
 fn prelude_binds_every_builtin() {
-    let session = Session::eager_for_stack(STACK);
+    let session = Session::eager_from_source_for_stack(STACK);
     let g = &session.elab.globals;
     let r = &g.registry;
     assert_eq!(r.missing(), Vec::<Builtin>::new());
@@ -77,7 +77,7 @@ fn library_hashes_as_in_the_release_build() {
         .filter_map(|line| line.rsplit_once(' '))
         .filter(|(_, hash)| hash.len() == 64)
         .collect();
-    let session = Session::eager_for_stack(STACK);
+    let session = Session::eager_from_source_for_stack(STACK);
     let g = &session.elab.globals;
     let show = |h: stitchwort_core::budget::Result<Option<stitchwort_core::hash::ContentHash>>| {
         h.ok().flatten().map(|h| h.hex())
