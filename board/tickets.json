@@ -4183,13 +4183,13 @@
     {
       "id": 1135,
       "title": "equations_done may be dropped by check-cache replay like SW-1128's tables",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-1128: Elaborator::equations_done (library/core definitions whose equations were made on demand; equations.rs ~4706) is rewound but neither cached nor dumped. If namespace A triggers equations for a library definition and A is replayed, a later re-elaborated namespace may redo them or see different definitions. Reproduce like the SW-1128 tests in check_cache.rs; also glance at signature_matches. Root cause is SW-1129-adjacent: state components (D2250).",
+      "body": "From SW-1128: Elaborator::equations_done (library/core definitions whose equations were made on demand; equations.rs ~4706) is rewound but neither cached nor dumped. If namespace A triggers equations for a library definition and A is replayed, a later re-elaborated namespace may redo them or see different definitions. Reproduce like the SW-1128 tests in check_cache.rs; also glance at signature_matches. Root cause is SW-1129-adjacent: state components (D2250).\n\nD2258 (Matt, 3 Nov): yes, step 0 of the state note before restructuring (\"shake out bugs first\"). One Sonnet lane for SW-1135 and SW-1140, expected 45 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4253,13 +4253,13 @@
     {
       "id": 1140,
       "title": "total_rows probably dropped by check-cache replay (like SW-1128)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-1137 (F1): Elaborator::total_rows (D1215) is rewound but neither cache-encoded nor dumped, and later units read it (note at check.rs:2867, hover line at nav.rs:1097). Also F2: equation_skips is encoded but not in the canonical dump. Reproduce as SW-1128's tests in check_cache.rs. With SW-1135 this is step 0 of the state note (docs/proposals/elaborator-state.md).",
+      "body": "From SW-1137 (F1): Elaborator::total_rows (D1215) is rewound but neither cache-encoded nor dumped, and later units read it (note at check.rs:2867, hover line at nav.rs:1097). Also F2: equation_skips is encoded but not in the canonical dump. Reproduce as SW-1128's tests in check_cache.rs. With SW-1135 this is step 0 of the state note (docs/proposals/elaborator-state.md).\n\nD2258 (Matt, 3 Nov): yes, step 0 of the state note before restructuring (\"shake out bugs first\"). One Sonnet lane for SW-1135 and SW-1140, expected 45 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
