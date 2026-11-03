@@ -467,7 +467,7 @@ starts `stitchwort lsp` and lets VS Code's standard client library
 grammar stays for instant colouring. The lookup logic in `navindex.js`
 moves into the server in Rust (it's the same logic: find the reference at a
 position, follow it). `std-source` stays: the server serves library files
-under the same read-only `stitchwort-std:` scheme. Other editors get the
+under the read-only `stitchwort-std:` scheme (SW-1136: only when std is the embedded bundle; with a std directory it names the real files). Other editors get the
 same features from configuration alone. No transition: once the server
 does what the extension does, the old process-per-save path is removed
 (`check --index` stays, for the playground and scripts).
@@ -757,7 +757,7 @@ pause before a check starts. The default is 100 ms; the tests use 0.
 
 | Method | What the server does |
 |---|---|
-| `textDocument/didOpen`, `didChange` | For a `file:` URI: the unsaved text replaces the file's text in its project, or the file is checked on its own if it isn't in a project's source folders. A `stitchwort-std:` document is accepted and ignored: it's read-only and gets no diagnostics. |
+| `textDocument/didOpen`, `didChange` | For a `file:` URI: the unsaved text replaces the file's text in its project, or the file is checked on its own if it isn't in a project's source folders. A library file (a `stitchwort-std:` document, or the real file under the std directory) is accepted and ignored: it's read-only and gets no diagnostics. |
 | `textDocument/didClose` | A project file goes back to its text on disk. A file on its own is forgotten, and its diagnostics are cleared. |
 | `textDocument/didSave` | Records the saved text as the file's text on disk. This only decides when the check cache may be written. |
 | `workspace/didChangeWatchedFiles` | Reads the file from disk again, unless it's open. The server doesn't register for this notification itself; a client may send it. |
@@ -769,11 +769,14 @@ pause before a check starts. The default is 100 ms; the tests use 0.
 | `workspace/symbol` | Ranked as the extension ranked them: the exact short name first, then a part of the full name, then the letters in order. A flat list of `SymbolInformation`. |
 | `shutdown`, `exit` | As the protocol says. Any other request gets `MethodNotFound`. |
 
-**Library files** are named by `stitchwort-std:` URIs, followed by the
-path under `std/` with no slash after the colon: `stitchwort-std:core/Data.sw`
-(a file of the core), `stitchwort-std:List/Toolkit.sw`. These are the
-`std` markers of `check --index`. The client shows their text with
-`stitchwort std-source <path>`. Definition, hover and references work in
+**Library files** are named by `file:` URIs of the real files when std was
+read from a directory (SW-1136), and are read-only: `didOpen` and `didChange`
+for them are ignored, so they get no diagnostics. With the embedded bundle they
+are named by `stitchwort-std:` URIs, followed by the path under `std/` with no
+slash after the colon: `stitchwort-std:core/Data.sw` (a file of the core),
+`stitchwort-std:List/Toolkit.sw`. Either way the path under `std/` is the
+`std` marker of `check --index`. For a `stitchwort-std:` URI the client shows
+the text with `stitchwort std-source <path>`. Definition, hover and references work in
 these documents too, answered from the first workspace that has
 references there.
 
@@ -880,7 +883,7 @@ which is what stage 5 is for. Other numbers:
   diagnostics; the text is unsaved, so the file on disk still has its
   error. Then definition, hover (type and name), references, a local's
   binder, the outline, and a library definition that gives a
-  `stitchwort-std:core/…` location, whose document then answers a hover.
+  location in `core/…` (a real file, or `stitchwort-std:core/…` in bundle mode), whose document then answers a hover.
 - **AoC against `check --index`.** For every word start in `Day01.sw`,
   `Proofs/Part2.sw` and `Day05.sw` (more than 500 names), the definition
   and hover type equal the extension's lookups (`refAt`, `targetOf`,

@@ -21,8 +21,11 @@ function serverCommand(configured, cwd) {
   return { command: cliPath(configured), args: ['lsp'], options };
 }
 
-// Files the server answers for: project files on disk, and the read-only
-// library documents (`stitchwort-std:`, text from `stitchwort std-source`).
+// Files the server answers for: files on disk (a library file opened from
+// navigation is one: the server reads std from a directory, and treats such a
+// file as read-only library source, with navigation and hover but no
+// diagnostics), and the read-only `stitchwort-std:` documents it names only
+// when std is the embedded bundle (text from `stitchwort std-source`).
 const documentSelector = [
   { scheme: 'file', language: LANGUAGE },
   { scheme: STD_SCHEME, language: LANGUAGE },

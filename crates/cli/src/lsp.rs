@@ -395,8 +395,8 @@ impl Main<'_> {
                 else {
                     return;
                 };
-                // A library file (`stitchwort-std:`) is read-only: nothing
-                // to check.
+                // A library file (`stitchwort-std:`, or the real file)
+                // is read-only: nothing to check.
                 self.texts
                     .borrow_mut()
                     .insert(p.text_document.uri.clone(), p.text_document.text.clone());
