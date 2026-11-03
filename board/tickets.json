@@ -1,5 +1,5 @@
 {
-  "next": 1160,
+  "next": 1161,
   "tickets": [
     {
       "id": 47,
@@ -3824,7 +3824,7 @@
       "labels": [
         "perf"
       ],
-      "body": "SW-1104 item 4: Session::eager_for_stack costs ~9.0 CPU-s per load in release; 136 tests in 17 driver binaries load it, ~1,220 CPU-s (13% of the daily tier's CPU). Sharing per binary doesn't work under nextest (a process per test), and Session isn't Clone. Options: an on-disk snapshot or cache of the loaded library, or fewer test processes.\n\nD2268 (Matt, 3 Nov): yes, tests should by default load std from the check cache. First measure a std replay against a full eager load; tests that must check std from source (std_library, hash_stability prelude, audit, check_cache, rewind) are named. A whole-library on-disk snapshot stays a later option after the state migration. Sonnet, est. 60 min.",
+      "body": "SW-1104 item 4: Session::eager_for_stack costs ~9.0 CPU-s per load in release; 136 tests in 17 driver binaries load it, ~1,220 CPU-s (13% of the daily tier's CPU). Sharing per binary doesn't work under nextest (a process per test), and Session isn't Clone. Options: an on-disk snapshot or cache of the loaded library, or fewer test processes.\n\nD2268 (Matt, 3 Nov): yes, tests should by default load std from the check cache. First measure a std replay against a full eager load; tests that must check std from source (std_library, hash_stability prelude, audit, check_cache, rewind) are named. A whole-library on-disk snapshot stays a later option after the state migration. Sonnet, est. 60 min.\n\nDone edd469be (Sonnet, ~30 min, est. 60), reviewed; merges after SW-1158. Replay of std from a warm check cache: 0.63 vs 9.1-9.8 user-s (15x). Session::eager and eager_for_stack use target/test-std-cache/{stack}/check (from the test binary path); opt-out eager_from_source(_for_stack). CheckCache::with_grace: other builds evicted after 10 min. Writes are temp+rename; cold concurrent processes each redo the load and all passed. From source: std_library, hash_stability prelude and its workers, pinned_hashes, builtins, doc_links (check_cache and rewind never used eager sessions). Per binary: int 64.9 -> 5.4 user-s, signature_defaults 96.8 -> 12.3. Expected ~1,000 CPU-s off the daily tier. One rewind test failed once under load ~140 and passed on rerun (cause not captured). Model result: Sonnet, worked, 30 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4511,7 +4511,7 @@
       "labels": [
         "elab"
       ],
-      "body": "docs/proposals/elaborator-state.md §7 step 4 (D2257). After SW-1152. D2269 (Matt, 3 Nov): start as slots free. Sonnet, est. 60 min.",
+      "body": "docs/proposals/elaborator-state.md §7 step 4 (D2257). After SW-1152. D2269 (Matt, 3 Nov): start as slots free. Sonnet, est. 60 min.\n\nDone 560e14ba (Sonnet, 15 min + 15 min check, est. 60), reviewed; merges after the SW-1124 verifier. Caches holds dot_heads, dot_failed, cong_candidates, result_heads, decision_order, performs (clear/mark/rewind destructure; rewind as before). Options::clear_caches_per_declaration, read in Elaborator::glued; not in cache_key. rewind.rs emptying_the_caches_changes_nothing_for_the_examples (normal sample, ~55-80 s) passes. Shown to bite: corrupting result_heads in clear() fails it on many examples; clear() runs ~69,000 times in it. Globals::hashes left in core. Model result: Sonnet, worked, 30 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4526,6 +4526,20 @@
         "design"
       ],
       "body": "D2270 (Matt, 3 Nov): backlog, after the current tidy-ups; Matt: a really promising direction to explore. Note in docs/research/, no code, ~60 min. Answer: (1) what rt and native do with reference counts today and how precise ownership is; (2) what the passes would cost (ownership/drop insertion, reuse analysis, borrow inference, runtime support); (3) estimated savings from allocation counts on the SW-593 effects benchmark (allocation+freeing 49% vs dispatch 14%) and two or three AoC days and the roguelike; (4) fit with SW-593 (effect representation change) and the tick-identical differential tests; (5) a diagnostic for accidental sharing (cf. Lean dbgTraceIfShared). References: Koka Perceus (Reinking, Xie, de Moura, Leijen 2021), Lean 4 Counting Immutable Beans (Ullrich, de Moura 2019), FBIP.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1160,
+      "title": "BUG on main: driver named_arguments named_calls_keep_every_hash fails: E-ARITY J takes 3 arguments (examples/accept/char-pattern-proofs.sw and 13 more)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by SW-1109, confirmed by the orchestrator on main (3 Nov 18:40): fails from source too. Not in the merge tier, so missed. Likely since SW-1146 (Builtins.sw declares J etc. as bodyless defs). Find the cause, fix it, and say whether named_arguments (or one sample of it) should join the merge tier.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
