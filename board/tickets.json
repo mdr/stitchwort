@@ -4351,13 +4351,13 @@
     {
       "id": 1147,
       "title": "Should rigid_divergence be restored when an attempt is undone? (state note F7)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.",
+      "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4393,13 +4393,13 @@
     {
       "id": 1150,
       "title": "omega_for_auto leaks from the last loaded library file into eval and typed-in expressions",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).",
+      "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).\n\nD2280 (Matt, 3 Nov): start SW-1150 and SW-1147 together in one Sonnet lane (worktree SW-1150), est. 50 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
