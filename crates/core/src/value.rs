@@ -2443,18 +2443,18 @@ fn conv_step(
         }
     }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
-    // `3` and `Succ x` are equal when `x` is `2`.
+    // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
+    // unfolded only as far as that needs (`compare_lazily`, SW-1153).
     if native::nat_like(g, &a) || native::nat_like(g, &b) {
-        return native::compare(
-            g,
-            &a,
-            &b,
-            |x, y| {
-                work.push(ConvTask::Values(level, x.clone(), y.clone()));
-                Ok(true)
-            },
-            |_, _| Ok(false),
-        );
+        let same = |x: &Value, y: &Value| {
+            work.push(ConvTask::Values(level, x.clone(), y.clone()));
+            Ok(true)
+        };
+        return if shortcuts_disabled() {
+            native::compare(g, &a, &b, same, |_, _| Ok(false))
+        } else {
+            native::compare_lazily(g, &a, &b, same)
+        };
     }
     // Compact lists: two ranges are equal when their characters are (their
     // expansions are then the same), and a range against anything else is

@@ -643,6 +643,92 @@ pub fn compare_with(
     }
 }
 
+/// [`compare`] for conversion, looking inside glued calls ([`Value::Call`])
+/// only as far as it must (SW-1153).
+///
+/// [`view`] forces every `Succ`'s field, so a number whose `Succ`s are
+/// glued calls is computed in full: `Succ (length xs)` against `length (Cons
+/// 'a' xs)` (one unfolded a step, the other not) counted the whole of `xs`
+/// on both sides, though once the other side is unfolded a step too, both
+/// are `Succ` of the same call. This takes off `Succ`s up to a call on each
+/// side and unfolds a call only while that leaves the two different: when
+/// one side has more `Succ`s, or one has reached a number or a stuck value
+/// and the other a call. Two bases left over with no `Succ`s on either side
+/// are handed to `same`, a call included, which [`crate::value::conv`]
+/// compares as it does any call: by its arguments first if the other is a
+/// call of the same definition, and otherwise unfolded.
+///
+/// It answers as [`compare`] does with `assign` always `false`. Unfolding a
+/// call gives its value, so the `Succ`s counted and the bases reached are
+/// [`compare`]'s whenever this unfolds every call; it stops early only by
+/// handing `same` two bases with no `Succ`s on either side, and those are
+/// equal exactly when their values, the bases and counts [`compare`] would
+/// reach, are (the same counts on both sides: none here, and then equal
+/// bases, or equal numbers). Only the work differs: a call is compared by
+/// its arguments, which only answers "equal" where unfolding would too
+/// (`CallMemo` in value.rs).
+pub fn compare_lazily(
+    g: &Globals,
+    a: &Value,
+    b: &Value,
+    same: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+) -> budget::Result<bool> {
+    let (mut k1, mut b1) = view_to_call(g, a.clone(), BigUint::zero())?;
+    let (mut k2, mut b2) = view_to_call(g, b.clone(), BigUint::zero())?;
+    loop {
+        let shared = k1.clone().min(k2.clone());
+        k1 -= &shared;
+        k2 -= &shared;
+        let call = |b: &Option<Value>| matches!(b, Some(Value::Call(..)));
+        // Which side to unfold a step: one with no `Succ`s left whose base
+        // is a call, when the other has `Succ`s left or is a number (a
+        // side with `Succ`s left and a base that isn't a call can't be
+        // equal to the other then, as `compare` finds).
+        let unfold_first = match (&b1, &b2) {
+            (Some(x), Some(y)) if k1.is_zero() && k2.is_zero() => return same(x, y),
+            (None, None) => return Ok(k1 == k2),
+            _ if k1.is_zero() && call(&b1) => true,
+            _ if k2.is_zero() && call(&b2) => false,
+            _ => return Ok(false),
+        };
+        if unfold_first {
+            let x = force(g, b1.take().expect("a call"))?;
+            (k1, b1) = view_to_call(g, x, k1)?;
+        } else {
+            let y = force(g, b2.take().expect("a call"))?;
+            (k2, b2) = view_to_call(g, y, k2)?;
+        }
+    }
+}
+
+/// [`view`] from `k` `Succ`s on, stopping at a glued call rather than
+/// unfolding it.
+fn view_to_call(
+    g: &Globals,
+    value: Value,
+    mut k: BigUint,
+) -> budget::Result<(BigUint, Option<Value>)> {
+    let mut value = value;
+    loop {
+        if !matches!(value, Value::Call(..)) {
+            value = force(g, value)?;
+        }
+        match value {
+            Value::Nat(n) => return Ok((k + &*n, None)),
+            Value::NatAdd(n, base) => {
+                k += &*n;
+                value = (*base).clone();
+            }
+            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Ok((k, None)),
+            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+                k += 1u32;
+                value = fields[0].clone();
+            }
+            other => return Ok((k, Some(other))),
+        }
+    }
+}
+
 /// The term for `k + base` shown to a person (SW-895): `base + k`, with the
 /// number on the right as sums are usually written, `x + 1` included. Only
 /// for printing ([`crate::value::quote_shown`],
