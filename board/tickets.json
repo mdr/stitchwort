@@ -3945,13 +3945,13 @@
     {
       "id": 1118,
       "title": "Playground: evaluate a real editor component (CodeMirror 6), then goals panel, share a snippet by URL, inline diagnostics",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): evaluate CodeMirror 6 for the playground, and briefly consider embedding VS Code (Monaco / VS Code for the web). Evaluation only: no commitment to editor-roadmap implementation while the tidy-ups (state migration, std) are running. Sonnet, expected 60 min.",
+      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): evaluate CodeMirror 6 for the playground, and briefly consider embedding VS Code (Monaco / VS Code for the web). Evaluation only: no commitment to editor-roadmap implementation while the tidy-ups (state migration, std) are running. Sonnet, expected 60 min.\n\nEvaluation done 43cd80c7 (Sonnet, 12 min, est. 60), merged: docs/proposals/playground-editor.md, prototype web/proto/codemirror.html. Rec: CodeMirror 6 (+109 kB gz on ~3.5 MB; MIT) as a built bundle (esbuild + lockfile in web/build.sh, flake, CI), after roadmap step 1; not Monaco (~8x size, no mobile) or VS Code (needs a wasm language server). Six decisions in the note, held per D2263. Model result: Sonnet, worked, 12 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
