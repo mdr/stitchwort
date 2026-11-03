@@ -4169,7 +4169,7 @@
     {
       "id": 1134,
       "title": "Selector inputs: fix the stale time of lsp workspace_symbols_cover_namespaces_not_checked_yet; let EXAMPLES take a list",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4239,7 +4239,7 @@
     {
       "id": 1139,
       "title": "Put task test:features in a tier",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4295,7 +4295,7 @@
     {
       "id": 1143,
       "title": "std definitions now open as file: URIs when std is read from a directory: check what assumes stitchwort-std:",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4413,7 +4413,7 @@
       "labels": [
         "test"
       ],
-      "body": "D2265 (Matt, 3 Nov): backlog; keep the current process for now. Measured 3 Nov: selection costs ~3-5 min per merge (inventory build 2-4 min, partly shared with the merge tier; Haiku's choice 1-2 min). Most merges touch core/elab/driver, so the fixed tier ran too and the selection was mostly extra, though it twice ran tests the merge tier lacks (navigation snapshot, an lsp test). Options: (1) when the merge tier runs, select only tests outside the merge profile; (2) dev/select: a script that turns the diff + docs/test-selector.md's path rules + the inventory into a filter in seconds, flagging unusual cases for a model; skip the inventory rebuild when no test file changed.",
+      "body": "D2265 (Matt, 3 Nov): backlog; keep the current process for now. Measured 3 Nov: selection costs ~3-5 min per merge (inventory build 2-4 min, partly shared with the merge tier; Haiku's choice 1-2 min). Most merges touch core/elab/driver, so the fixed tier ran too and the selection was mostly extra, though it twice ran tests the merge tier lacks (navigation snapshot, an lsp test). Options: (1) when the merge tier runs, select only tests outside the merge profile; (2) dev/select: a script that turns the diff + docs/test-selector.md's path rules + the inventory into a filter in seconds, flagging unusual cases for a model; skip the inventory rebuild when no test file changed.\n\nSmall items seen in the SW-1134 verification: dev/run-selected prints its folded line twice (double fold, harmless?); test:merge desc says under 90 s but takes ~110 s now.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
