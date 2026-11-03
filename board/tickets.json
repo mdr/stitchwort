@@ -1,5 +1,5 @@
 {
-  "next": 1146,
+  "next": 1147,
   "tickets": [
     {
       "id": 47,
@@ -4330,6 +4330,20 @@
         "bug"
       ],
       "body": "Merge tier after 76d1ba29: cli doc the_json_contract, doc a_library_name_shows_header_doc_location_and_theorems, search what_closes_a_goal (snapshot) expect std/List/Toolkit.sw and get /Users/matt/repos/mdr/stitchwort/crates/elab/src/std/List/Toolkit.sw. Library files' logical paths (std/...) must stay the names shown everywhere (diagnostics, doc, search, check --index, hashes?); the absolute path only where a host needs the real file (the LSP's file: URI). Selector miss: recorded on SW-1134.\n\nFixed b1a430b9 (fast-forward onto main): StdText::shown_path returned dir.join(path) when read from a directory; now always std/<path>; the LSP builds its file: URIs from StdText::dir itself. No other leaks. Tests: the three + doc/search binaries, lsp std-URI tests, std_library, hash_stability: 73/73. Suggested: a test that no output contains the std directory absolute path. Model result: Sonnet, worked, 6 min (est. 30).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1146,
+      "title": "Built-ins navigable: a std file documents each reserved name's signature (Quot, Quot.mk, Quot.lift, Quot.ind, Quot.sound, rfl, J, Partial)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "D2262 (Matt, 3 Nov): go-to-definition and hover on a built-in (e.g. Quot in std/Map/Map.sw) lead to a standard file that documents its signature, even though the implementation isn't shown. Today the reserved names (elab lib.rs RESERVED) have no source location, so navigation does nothing. A test checks each documented signature against what the kernel/elaborator actually uses, so they can't drift. doc <name> should work too. Sonnet, expected 60 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
