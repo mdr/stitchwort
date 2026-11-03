@@ -4141,13 +4141,13 @@
     {
       "id": 1132,
       "title": "SOURCE_FINGERPRINT (web bundle staleness) doesn't cover crates/web/src",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-1123: changes to the web crate itself don't mark web/pkg stale.",
+      "body": "From SW-1123: changes to the web crate itself don't mark web/pkg stale.\n\nD2266 (Matt, 3 Nov): start with SW-1133 on DeepSeek, est. 25 min, scratch-sw-1132. Then SW-1093 (Sonnet) and SW-1124 (Opus) as slots free.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4155,7 +4155,7 @@
     {
       "id": 1133,
       "title": "rt's SW_RT_BUILD_HASH covers only rt/src (not syntax, core, or rt's Cargo.toml features)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
