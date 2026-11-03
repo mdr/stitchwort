@@ -4645,13 +4645,13 @@
     {
       "id": 1168,
       "title": "search --at tests are time-fragile under load: what_closes_a_goal and search_at use a 10 s search deadline in a debug build and come back empty or truncated when the machine is busy; raise --time for tests or build them at opt-level 1",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "From SW-1082 (3 Nov): failed repeatedly at load average ~28, passed alone.\n\nMatt (3 Nov, overnight plan): go. DeepSeek, est. 20 min.\n",
+      "body": "From SW-1082 (3 Nov): failed repeatedly at load average ~28, passed alone.\n\nMatt (3 Nov, overnight plan): go. DeepSeek, est. 20 min.\n\n\nDone 1e31a6fc (DeepSeek, 5 min, est. 20), reviewed, merged. cli search tests pass --time 120s to every real search --at; driver search_at options() uses a 120 s deadline; the deadline test and the user default (10 s) unchanged. Verified by the orchestrator: cli search, driver search_at, core, syntax: 586 passed (test-only change; no core/elab/driver source change, so no merge tier now; it runs with the batch). Not covered: search_at_aoc.rs and search_at_bench.rs still use the default deadline. Model result: DeepSeek, worked, 5 min (est. 20).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
