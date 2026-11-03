@@ -3748,13 +3748,13 @@
     {
       "id": 1104,
       "title": "Daily tier takes 20.7 min against its 5-minute budget: what is slowing it",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.",
+      "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.\n\nFindings (Sonnet, 3 Nov, 26 min, est. 40). Wall 1244 s: nextest 1057 s (85%), builtins debug 84 s, web:pkg 37 s, fmt/clippy ~25 s. CPU 9293 s, ~870 s wall at perfect packing on 10 cores (82% efficient); 5 min needs ~70% less CPU.\n- Critical path: corpus-sweeps group (max-threads 1), 38 tests, 999 s serial, 36 s -> 1057 s; last 400 s ran on 1-3 cores. lsp group (lsp-aoc-copy, max-threads 1): 680 s; a_newer_edit_cancels_the_check_running 342 s, aoc_navigation_matches_check_index 245 s.\n- Tests >= 10 s: 133 tests, 76% of test time. Top CPU: search_at_on_aoc_goals 500, rewind examples 467, accepted_examples_check 292, erasure 288, every_day_from_the_whole_projects_cache 159 (one thread).\n- Since the budget (25 Oct, 3adb2672): it was never met after that; 606 s on 31 Oct (14 cores), 1057 s now. Tests 1766 -> 1956; search_at_aoc + soundness_fuzz added ~185 s to the serial group; the other sweeps ~2.2x (machine change + 8-thread pools contending; split not measured).\nProposals, ranked: (1) overlap the sweep chain (max-threads 2 or smaller pools; nextest priority), ~150-190 s, no coverage cost, needs a memory check; (2) LSP chain: priority, drop the group for tests not using the AoC copy, smaller namespace (SW-1094), up to 340 s off the path; (3) sample/move to full: search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering: ~1500 CPU-s, costs coverage; (4) share Session::eager_for_stack per binary (136 tests, ~1136 s test time; unmeasured); (5) builtins debug: move the two 60 s hash tests to release, skip web:pkg when fresh, ~70-80 s; (6) restate the budget for a 10-core M1 Pro after the above.\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
