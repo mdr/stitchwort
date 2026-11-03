@@ -91,7 +91,7 @@ struct Ran {
 
 fn limits(session: &Session, max_output: Option<usize>, scope: LimitScope) -> LiveLimits {
     LiveLimits {
-        machine: stitchwort_rt::Limits::from_core(session.elab.limits),
+        machine: stitchwort_rt::Limits::from_core(session.elab.options.limits),
         max_output,
         scope,
     }
@@ -106,7 +106,7 @@ fn single(source: &str) -> (Session, Program) {
     let main = session.main().expect("`main` has the right type");
     let program = lower_main(
         &session.elab.globals,
-        session.elab.limits,
+        session.elab.options.limits,
         main.term(),
         main.row,
     )
@@ -146,7 +146,7 @@ fn all_at_once(session: &Session, program: &Program, reads: &[&[u8]]) -> Ran {
     alloc_trace::start();
     let (result, counts) = run_main_counting_on(
         program,
-        stitchwort_rt::Limits::from_core(session.elab.limits),
+        stitchwort_rt::Limits::from_core(session.elab.options.limits),
         &Policy::default(),
         &mut input,
         &mut output,

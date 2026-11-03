@@ -403,9 +403,9 @@ fn effect_examples_agree_with_the_machine() {
                     .infer_expr(&expr)
                     .unwrap_or_else(|d| panic!("`{source}` doesn't check: {}", d.message));
                 let g = &session.elab.globals;
-                let program = lower_main(g, session.elab.limits, &term, MainRow::Io)
+                let program = lower_main(g, session.elab.options.limits, &term, MainRow::Io)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
-                let limits = Limits::from_core(session.elab.limits);
+                let limits = Limits::from_core(session.elab.options.limits);
                 // Runs the entry, on the machine or natively (counting
                 // through the runtime if `trace`): its value's text, whether
                 // it equals the machine's, and the effect counts.

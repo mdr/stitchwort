@@ -145,8 +145,9 @@ fn generated_code_is_stable() {
         |(session, mark), path| {
             session.rewind(mark);
             let name = read_and_load(session, path).0;
-            let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
-                .expect("extraction succeeds");
+            let output =
+                stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
+                    .expect("extraction succeeds");
             (name, output)
         },
     );
@@ -163,7 +164,7 @@ fn generated_code_is_stable() {
 #[test]
 fn the_declarations_type_check() {
     for (name, _, session) in examples() {
-        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
             .expect("extraction succeeds");
         let stem = name.trim_end_matches(".sw");
         let dir =
@@ -942,7 +943,7 @@ console.log("ok");
 fn options_cross_the_boundary_as_undefined() {
     let examples = examples();
     let session = example(&examples, "options.sw");
-    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .dts;
     for declaration in [
@@ -1330,7 +1331,7 @@ console.log("ok");
 fn input_shapes_leave_out_defaulted_fields() {
     let examples = examples();
     let session = example(&examples, "field-defaults.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     let app = r#"
 import { RangeOptions, RangeOptionsInput, Config, Job, bounds, widen, colourOf, echo, steps, nested } from "./module";
@@ -1383,7 +1384,7 @@ colourOf({ colour: null });
 fn generated_types_and_an_apps_types_are_mutually_assignable() {
     let examples = examples();
     let session = example(&examples, "app-types.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     let app = r#"
 import { Shape, Order, area, recolour, withCoupon, countItems } from "./module";
@@ -1567,7 +1568,7 @@ console.log("ok");
 fn an_apps_string_enums_meet_the_generated_unions() {
     let examples = examples();
     let session = example(&examples, "string-enums.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     assert!(
         output
@@ -1778,7 +1779,7 @@ console.log("ok");
 fn microtype_comparisons_are_their_fields() {
     let examples = examples();
     let session = example(&examples, "microtype-comparisons.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     for (name, field) in [
         ("CardId$d$gdecEq", "Text$ddecEq"),
@@ -1841,7 +1842,7 @@ console.log("ok");
 fn float_order_is_native() {
     let examples = examples();
     let session = example(&examples, "float-order.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     for line in [
         "const $Main$datMost = $Std$dFloat$dleq;",
@@ -1869,7 +1870,7 @@ fn float_order_is_native() {
 fn microtypes_are_plain_aliases_in_typescript() {
     let examples = examples();
     let session = example(&examples, "microtypes.sw");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     for line in [
         "export type UserId = string;",
@@ -1913,7 +1914,7 @@ fn the_default_tag_key_written_out_changes_nothing() {
         .map(|attr| {
             let mut session = Session::new();
             session.load("shape.sw", &source(attr)).expect("checks");
-            stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
                 .expect("extraction succeeds")
         })
         .collect();
@@ -2123,7 +2124,7 @@ export def f (n : Nat) : Nat := helper n
         .find(|id| &*g.def(*id).name == "helper")
         .expect("`helper` is declared");
     assert!(g.def(helper).body().is_none());
-    let e = stitchwort_js::generate(g, session.elab.limits)
+    let e = stitchwort_js::generate(g, session.elab.options.limits)
         .err()
         .expect("generation is refused");
     assert_eq!(e.code, "E-EXPORT");
@@ -2140,8 +2141,9 @@ fn run_script(name: &str, modules: &[(&str, &Session)], script: &str) {
     let modules: Vec<(&str, String)> = modules
         .iter()
         .map(|(file, session)| {
-            let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
-                .expect("extraction succeeds");
+            let output =
+                stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
+                    .expect("extraction succeeds");
             (*file, output.js)
         })
         .collect();
@@ -2767,7 +2769,7 @@ fn a_type_without_values_refuses_everything() {
     let source = "type Never : Type\n\nexport def fromNever (n : Never) : Nat := 0\n";
     let mut session = Session::new();
     session.load("never.sw", source).expect("checks");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     assert!(
         output.dts.contains("export type Never = never;\n"),
@@ -3423,7 +3425,7 @@ export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n) 0 (count d =
             .collect();
         panic!("doesn't check:\n{rendered}");
     }
-    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .js;
     // Each loop, from its `const` to the end of its body.
@@ -3527,7 +3529,7 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
     );
     define_def(g, use_k, &use_k_body).unwrap();
 
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     assert!(
         output.js.contains("const $Main$dk = () => "),
@@ -4004,7 +4006,7 @@ console.log("ok");
 fn int_crosses_the_boundary_strictly() {
     let examples = examples();
     let session = example(&examples, "integers.sw");
-    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .dts;
     assert!(dts.contains("export declare function add(a: bigint, b: bigint): bigint;"));
@@ -4072,7 +4074,7 @@ console.log("ok");
 fn safe_numbers_cross_the_boundary_as_numbers() {
     let examples = examples();
     let session = example(&examples, "safe-numbers.sw");
-    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .dts;
     for declaration in [
@@ -4188,7 +4190,7 @@ console.log("ok");
          export def same (n: SafeNat): SafeNat := n\n",
     )
     .unwrap_or_else(|_| panic!("a program's own `SafeNat` checks"));
-    let dts = stitchwort_js::generate(&own.elab.globals, own.elab.limits)
+    let dts = stitchwort_js::generate(&own.elab.globals, own.elab.options.limits)
         .expect("extraction succeeds")
         .dts;
     assert!(
@@ -4205,7 +4207,7 @@ console.log("ok");
 fn text_maps_cross_the_boundary_as_objects() {
     let examples = examples();
     let session = example(&examples, "dictionary.sw");
-    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .dts;
     for declaration in [
@@ -4472,9 +4474,10 @@ fn only_text_keyed_maps_cross_as_objects() {
                 .collect();
             return rendered;
         }
-        let diagnostic = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
-            .err()
-            .unwrap_or_else(|| panic!("{name}: extraction should be refused"));
+        let diagnostic =
+            stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
+                .err()
+                .unwrap_or_else(|| panic!("{name}: extraction should be refused"));
         render(&session.sources, &diagnostic, false)
     };
     let nat = refuse(
@@ -4602,7 +4605,7 @@ fn a_changed_int_operation_loses_only_its_native() {
         "only Int.add and its dependent Int.sub lose their natives"
     );
 
-    let js = stitchwort_js::generate(g, session.elab.limits)
+    let js = stitchwort_js::generate(g, session.elab.options.limits)
         .expect("extraction succeeds")
         .js;
     assert!(
@@ -4639,7 +4642,8 @@ fn a_changed_int_type_turns_the_representation_off() {
     let g = &session.elab.globals;
     let binding = stitchwort_js::bind_int(g).expect("hashes");
     assert!(!binding.bound, "the data type's hash should differ");
-    let output = stitchwort_js::generate(g, session.elab.limits).expect("extraction succeeds");
+    let output =
+        stitchwort_js::generate(g, session.elab.options.limits).expect("extraction succeeds");
     assert!(output.dts.contains("export type Int ="), "{}", output.dts);
     assert!(
         output
@@ -4713,7 +4717,7 @@ fn a_changed_nat_type_turns_the_representation_off() {
              export def plusThree (n : Nat) : Nat := n + 3\n",
         )
         .expect("checks");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     assert!(output.dts.contains("export type Nat ="), "{}", output.dts);
     assert!(
@@ -4760,7 +4764,7 @@ fn a_changed_text_type_turns_the_representation_off() {
              export def greet (t : Text) : Text := \"hi\" ++ t\n",
         )
         .expect("checks");
-    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds");
     assert!(output.dts.contains("export type Text ="), "{}", output.dts);
     assert!(
@@ -4799,7 +4803,7 @@ fn source_maps_point_generated_definitions_at_their_source() {
     let examples = examples();
     let (_, text, session) = examples.get("trees.sw");
     let generate = || {
-        stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
             .expect("extraction succeeds")
     };
     let map_of = |output: &stitchwort_js::Output| {
@@ -4960,7 +4964,7 @@ fn renumbered(code: &str) -> String {
 fn map_at_the_empty_row_is_a_pure_maps_loop() {
     let examples = examples();
     let (_, _, session) = examples.get("effect-rows.sw");
-    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .js;
     let pure_map = renumbered(&js_function(&js, "$Main$dpureMap"));
@@ -4992,7 +4996,7 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
 fn list_functions_at_the_empty_row_are_their_pure_loops() {
     let examples = examples();
     let (_, _, session) = examples.get("effect-lists.sw");
-    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
         .js;
     for (name, pure) in [

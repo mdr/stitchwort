@@ -104,7 +104,7 @@
 //!    resumed dot call has its implicit
 //!    arguments inserted before it fills a placeholder that doesn't take
 //!    them (`dot.rs`). Comparisons that fail at an unfilled placeholder are
-//!    counted (`unify::met_unfilled`).
+//!    counted (`Stats::met_unfilled`).
 //!
 //! The debug assertions below check 1-6 where they can be seen; the unit
 //! tests at the end exercise each with items made directly, and K1, K2 and
@@ -115,7 +115,6 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::PlaceholderText;
@@ -126,7 +125,9 @@ use stitchwort_syntax::ast::Expr;
 
 use crate::Elaborator;
 use crate::check::{Ctx, Result, Saved};
+use crate::state::Stats;
 use crate::unify::Answer;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// What a queued check does when it is resumed: one implementation per
 /// kind of item (K1-K4, stages 2-4 of the note).
@@ -394,7 +395,7 @@ impl Queue {
     /// Tells the unifier which placeholders aren't filled yet
     /// (`Globals::unfilled_placeholders`): they are frozen until filled
     /// (D2016), and a comparison that fails at one is counted
-    /// (`unify::met_unfilled`).
+    /// (`Stats::met_unfilled`).
     fn sync_item(&self, g: &Globals, i: usize) {
         let item = self.item(i);
         if matches!(self.states.borrow()[i], State::Done) || item.constraint {
@@ -569,7 +570,7 @@ fn queue_item(
     }));
     q.states.borrow_mut().push(State::Waiting(None));
     q.sync_item(cx.g(), q.len() - 1);
-    count(&QUEUED);
+    count(&cx.e.session.stats.queued);
     Ok(placeholder)
 }
 
@@ -927,7 +928,7 @@ pub(crate) fn tactic_or_wait(
                 expected: expected.clone(),
                 run,
             };
-            count(&TACTIC_WAITED);
+            count(&cx.e.session.stats.tactic_waited);
             queue(cx, Rc::new(check), on(m), expected.clone(), e)
         }
         result => result,
@@ -986,11 +987,11 @@ pub(crate) enum Search {
 
 impl Search {
     /// Its counters: runs on such a goal, and of those, failures.
-    fn counters(self) -> (&'static AtomicUsize, &'static AtomicUsize) {
+    fn counters(self, stats: &Stats) -> (&AtomicUsize, &AtomicUsize) {
         match self {
-            Search::Omega => (&OMEGA_PENDING, &OMEGA_PENDING_FAILED),
-            Search::Ring => (&RING_PENDING, &RING_PENDING_FAILED),
-            Search::Auto => (&AUTO_PENDING, &AUTO_PENDING_FAILED),
+            Search::Omega => (&stats.omega_pending, &stats.omega_pending_failed),
+            Search::Ring => (&stats.ring_pending, &stats.ring_pending_failed),
+            Search::Auto => (&stats.auto_pending, &stats.auto_pending_failed),
         }
     }
 }
@@ -1006,7 +1007,7 @@ pub(crate) fn counted_search<T>(
     let pending = search_pending_in(cx, goal)?.is_some();
     let result = run(cx);
     if pending {
-        let (ran, failed) = search.counters();
+        let (ran, failed) = search.counters(&cx.e.session.stats);
         count(ran);
         if result.is_err() {
             count(failed);
@@ -1084,7 +1085,7 @@ pub(crate) fn compare_waiting(
                 ..comparison
             };
             queue_constraint(cx, Rc::new(comparison), first, error)?;
-            count(&WAITED);
+            count(&cx.e.session.stats.waited);
             Ok(true)
         }
     }
@@ -1319,7 +1320,7 @@ impl Elaborator {
         for i in from..self.attempt.queue.len() {
             let item = self.attempt.queue.item(i);
             if self.attempt.queue.waiting(i).is_some() && !item.crossed.replace(true) {
-                count(&CROSSED);
+                count(&self.session.stats.crossed);
             }
         }
         Ok(())
@@ -1367,7 +1368,7 @@ impl Elaborator {
             _ => None,
         };
         self.attempt.queue.set(i, State::Running, &self.globals);
-        count(&RESUMED);
+        count(&self.session.stats.resumed);
         // What it queues while it runs is made inside its constructs too.
         let outer = (self.attempt.queue.frames.resuming).replace(item.all_frames());
         let mut cx = item.saved.ctx(self);
@@ -1376,7 +1377,7 @@ impl Elaborator {
                 !ready(&self.globals, needs).unwrap_or(false),
                 "an item waits again only on an unknown head"
             );
-            count(&REQUEUED);
+            count(&self.session.stats.requeued);
         };
         let resumed = check.resume(&mut cx).and_then(|resumed| match resumed {
             Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
@@ -1438,16 +1439,16 @@ impl Elaborator {
             return Ok(());
         }
         if g.meta_solution(item.meta).is_some() {
-            count(&SOLVED_FIRST);
+            count(&cx.e.session.stats.solved_first);
             if crate::unify::solved_lossily(g, item.meta) {
-                count(&LOSSY);
+                count(&cx.e.session.stats.lossy);
             }
         }
         let value = cx.eval(term)?;
         let placeholder = cx.eval(&item.placeholder)?;
         g.unfilled_placeholders.borrow_mut().remove(&item.meta);
         if !cx.unify(&placeholder, &value)? {
-            count(&DISAGREED);
+            count(&cx.e.session.stats.disagreed);
             return Err(cx.mismatch(&placeholder, &value));
         }
         match placeholder_call(cx, &item.placeholder, term)? {
@@ -1456,7 +1457,7 @@ impl Elaborator {
                     .borrow_mut()
                     .insert(item.meta, (s, Rc::new(call)));
             }
-            None => count(&READ_BACK),
+            None => count(&cx.e.session.stats.read_back),
         }
         Ok(())
     }
@@ -1609,7 +1610,7 @@ impl Elaborator {
         }
         let mut any = e.resume_from(from)?;
         if (from..e.attempt.queue.len()).any(|i| e.attempt.queue.waiting(i).is_some()) {
-            count(&RULE_SETTLED);
+            count(&e.session.stats.rule_settled);
         }
         #[cfg(debug_assertions)]
         if let Some(metas) = metas {
@@ -1618,7 +1619,7 @@ impl Elaborator {
         let metas = metas.unwrap_or(0);
         e.defaults_from(from, |e| {
             any = true;
-            count(&RULE_DEFAULTED);
+            count(&e.session.stats.rule_defaulted);
             e.resume_from(from).map(drop)
         })?;
         // The dictionaries the rule's operators need whose types are now
@@ -1704,7 +1705,7 @@ impl Elaborator {
                     .unwrap_or(true)),
                     "a default solves what its item waits on"
                 );
-                count(&DEFAULTED);
+                count(&self.session.stats.defaulted);
                 return Ok(true);
             }
             snapshot.restore(&mut cx);
@@ -1731,7 +1732,7 @@ impl Elaborator {
         if waiting.is_empty() {
             return Ok(None);
         }
-        STUCK.fetch_add(waiting.len(), Ordering::Relaxed);
+        (self.session.stats.stuck).fetch_add(waiting.len(), Ordering::Relaxed);
         // The waiting item each unknown is the placeholder or the type of.
         let mut made_by: HashMap<usize, usize> = HashMap::default();
         for (w, &(i, _)) in waiting.iter().enumerate() {
@@ -1792,63 +1793,36 @@ impl Elaborator {
     }
 }
 
-static QUEUED: AtomicUsize = AtomicUsize::new(0);
-static RESUMED: AtomicUsize = AtomicUsize::new(0);
-static DEFAULTED: AtomicUsize = AtomicUsize::new(0);
-static STUCK: AtomicUsize = AtomicUsize::new(0);
-static CROSSED: AtomicUsize = AtomicUsize::new(0);
-static SOLVED_FIRST: AtomicUsize = AtomicUsize::new(0);
-static LOSSY: AtomicUsize = AtomicUsize::new(0);
-static DISAGREED: AtomicUsize = AtomicUsize::new(0);
-static READ_BACK: AtomicUsize = AtomicUsize::new(0);
-static REQUEUED: AtomicUsize = AtomicUsize::new(0);
-static KEPT: AtomicUsize = AtomicUsize::new(0);
-static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
-static RETRIED: AtomicUsize = AtomicUsize::new(0);
-static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
-static WAITED: AtomicUsize = AtomicUsize::new(0);
-static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
-static MOTIVE_LATER: AtomicUsize = AtomicUsize::new(0);
-static RULE_SETTLED: AtomicUsize = AtomicUsize::new(0);
-static RULE_DEFAULTED: AtomicUsize = AtomicUsize::new(0);
-static TACTIC_WAITED: AtomicUsize = AtomicUsize::new(0);
-static OMEGA_PENDING: AtomicUsize = AtomicUsize::new(0);
-static OMEGA_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
-static RING_PENDING: AtomicUsize = AtomicUsize::new(0);
-static RING_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
-static AUTO_PENDING: AtomicUsize = AtomicUsize::new(0);
-static AUTO_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
-
 /// A generalising `match` queued to wait for an unknown its generalisation
 /// would read (`matching.rs`, `WaitingMatch`; step 4.0 of stage 4).
-pub(crate) fn note_match_waited() {
-    count(&MATCH_WAITED);
+pub(crate) fn note_match_waited(e: &Elaborator) {
+    count(&e.session.stats.match_waited);
 }
 
 /// A `match`'s motive check left for when its helper is lifted, because the
 /// expected type or a copied variable's type held an unknown that only its
 /// alternatives may solve (`matching.rs`, `check_motive`).
-pub(crate) fn note_motive_later() {
-    count(&MOTIVE_LATER);
+pub(crate) fn note_motive_later(e: &Elaborator) {
+    count(&e.session.stats.motive_later);
 }
 
 /// An application, group, list or `if` elaborated a second time with number
 /// literals checked last (`check::retrying`), because the first time failed:
 /// the path §5.11 meant to remove once number literals wait (K4); kept by
 /// stage 5 for the two gaps `check::retrying` names.
-pub(crate) fn note_retried() {
-    count(&RETRIED);
+pub(crate) fn note_retried(e: &Elaborator) {
+    count(&e.session.stats.retried);
 }
 
 /// A leaf of a number group or comparison that couldn't be inferred, so it
 /// was undone and checked later against the type the other leaves gave
 /// (`numbers::speculate`): one of the three "infer the other side" catches.
-pub(crate) fn note_leaf_uninferred() {
-    count(&LEAF_UNINFERRED);
+pub(crate) fn note_leaf_uninferred(e: &Elaborator) {
+    count(&e.session.stats.leaf_uninferred);
 }
 
 fn count(counter: &AtomicUsize) {
-    counter.fetch_add(1, Ordering::Relaxed);
+    Stats::bump(counter);
 }
 
 /// Invariant 6 for a `.field` whose receiver is kept as a term (K2,
@@ -1859,77 +1833,17 @@ fn count(counter: &AtomicUsize) {
 /// dictionary. Counted (`kept`, and `kept chose` for one that did), and
 /// asserted in a debug build.
 pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
-    count(&KEPT);
+    count(&cx.e.session.stats.kept);
     let defaulted = cx.e.attempt.defaulted.borrow().len() > before.defaulted();
     let generic =
         (cx.e.attempt.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
     if defaulted || generic {
-        count(&KEPT_CHOSE);
+        count(&cx.e.session.stats.kept_chose);
     }
     debug_assert!(
         !defaulted && !generic,
         "a receiver kept as a term chose from an unknown (invariant 6)"
     );
-}
-
-/// The queue's counters over the process, attempts undone included, for
-/// `STITCHWORT_TIMINGS` (`timings.rs`) and the stages after this one
-/// (docs/proposals/postponement.md, "As built (stage 1)" to "(stage 3)"):
-/// items queued, resumed, defaulted and reported stuck; items that reached
-/// the end of their application still waiting (`crossed W1`, the stage-6
-/// trigger); comparisons that failed at an unfilled placeholder (`met
-/// unfilled`, its other half, `unify::met_unfilled`); fills whose
-/// placeholder unification had solved first (`solved first`), and of
-/// those, solved by comparing two calls' arguments (`lossy`, the caveat to
-/// D2016's P1); fills that disagreed with that solution; fills whose term
-/// couldn't be written as a call of the placeholder, so zonking reads the
-/// solution back (`read back`); resumptions that met another unknown and
-/// waited again (`requeued`); and `.field`s queued with their receiver
-/// kept as a term (`kept`), of which those whose receiver made a choice
-/// from an unknown (`kept chose`, invariant 6; 0 expected); and
-/// elaborations run a second time with number literals last (`retried`,
-/// `check::retrying`, which K4 makes unneeded); and comparisons queued to
-/// wait for unknowns the queue still has to settle (`waited`, stage 6); and
-/// generalising `match`es that waited for an unknown their generalisation
-/// would read (`match waited`, step 4.0 of stage 4), and motive checks left
-/// for lifting (`motive later`); and, step 4.2, `rewrite` rules whose own
-/// checks still waited after resuming (`rule settled`) and the defaults
-/// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
-/// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
-/// holding an unknown the declaration will still settle, and of those the
-/// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
-/// "infer the other side" catch it keeps (`leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 27] {
-    let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
-    [
-        ("queued", get(&QUEUED)),
-        ("resumed", get(&RESUMED)),
-        ("defaulted", get(&DEFAULTED)),
-        ("stuck", get(&STUCK)),
-        ("crossed W1", get(&CROSSED)),
-        ("met unfilled", crate::unify::met_unfilled()),
-        ("solved first", get(&SOLVED_FIRST)),
-        ("lossy", get(&LOSSY)),
-        ("disagreed", get(&DISAGREED)),
-        ("read back", get(&READ_BACK)),
-        ("requeued", get(&REQUEUED)),
-        ("kept", get(&KEPT)),
-        ("kept chose", get(&KEPT_CHOSE)),
-        ("retried", get(&RETRIED)),
-        ("leaf uninferred", get(&LEAF_UNINFERRED)),
-        ("waited", get(&WAITED)),
-        ("match waited", get(&MATCH_WAITED)),
-        ("motive later", get(&MOTIVE_LATER)),
-        ("rule settled", get(&RULE_SETTLED)),
-        ("rule defaulted", get(&RULE_DEFAULTED)),
-        ("tactic waited", get(&TACTIC_WAITED)),
-        ("omega on pending", get(&OMEGA_PENDING)),
-        ("omega failed on pending", get(&OMEGA_PENDING_FAILED)),
-        ("ring on pending", get(&RING_PENDING)),
-        ("ring failed on pending", get(&RING_PENDING_FAILED)),
-        ("auto on pending", get(&AUTO_PENDING)),
-        ("auto failed on pending", get(&AUTO_PENDING_FAILED)),
-    ]
 }
 
 #[cfg(test)]
@@ -2381,12 +2295,12 @@ mod tests {
         assert!(!cx.unify(&solved, &zero).unwrap(), "frozen until filled");
         e.globals.solve_meta(meta_of(&placeholder), zero);
         e.globals.solve_meta(blocker, ty(1));
-        let disagreed = DISAGREED.load(Ordering::Relaxed);
+        let disagreed = e.session.stats.disagreed.load(Ordering::Relaxed);
         let error = e.resume_from(0).expect_err("disagrees");
         assert_eq!(error.code, "E-TYPE-MISMATCH");
         assert_eq!(error.labels[0].span, at);
         assert!(matches!(e.attempt.queue.state(0), State::Failed));
-        assert!(DISAGREED.load(Ordering::Relaxed) > disagreed);
+        assert!(e.session.stats.disagreed.load(Ordering::Relaxed) > disagreed);
     }
 
     const NUMBERS: &str = "type N: Type =\n  | Z\n  | S (n: N)\n\n\
@@ -2442,9 +2356,9 @@ mod tests {
         assert!(!cx.unify(&solved, &value).unwrap(), "frozen until filled");
         e.globals.solve_meta(meta_of(&placeholder), value);
         e.globals.solve_meta(blocker, ty(1));
-        let first = SOLVED_FIRST.load(Ordering::Relaxed);
+        let first = e.session.stats.solved_first.load(Ordering::Relaxed);
         assert!(e.resume_from(0).unwrap());
-        assert!(SOLVED_FIRST.load(Ordering::Relaxed) > first);
+        assert!(e.session.stats.solved_first.load(Ordering::Relaxed) > first);
         let zonked = crate::unify::zonk_in(cx.g(), 0, &placeholder, &|_| false, &[]).unwrap();
         assert!(
             matches!(zonked.strip_loc(), Term::Def(d) if *d == two),
@@ -2509,10 +2423,10 @@ mod tests {
         assert!(matches!(answer, Answer::Blocked(ref pairs) if pairs.len() == 1));
         assert!(cx.g().meta_solution(p).is_none());
         e.globals.solve_meta(blocker, ty(1));
-        let lossy = LOSSY.load(Ordering::Relaxed);
+        let lossy = e.session.stats.lossy.load(Ordering::Relaxed);
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0));
-        assert_eq!(LOSSY.load(Ordering::Relaxed), lossy);
+        assert_eq!(e.session.stats.lossy.load(Ordering::Relaxed), lossy);
     }
 
     /// Stage 6: an item `a` of type `N` whose term is `term`, waiting on a
@@ -2534,11 +2448,11 @@ mod tests {
         let log = Log::default();
         let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
         let value = cx.eval(&Term::Def(two)).unwrap();
-        let waited = WAITED.load(Ordering::Relaxed);
+        let waited = e.session.stats.waited.load(Ordering::Relaxed);
         assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
         assert_eq!(e.attempt.queue.len(), 2);
         assert!(waiting(&e, 1));
-        assert!(WAITED.load(Ordering::Relaxed) > waited);
+        assert!(e.session.stats.waited.load(Ordering::Relaxed) > waited);
         // Nothing solved yet: neither resumes.
         assert!(!e.resume_from(0).unwrap());
         e.globals.solve_meta(blocker, ty(1));
@@ -2781,12 +2695,12 @@ mod tests {
     fn a_field_on_a_waiting_literal_keeps_the_literal() {
         let (e, _) = module(RECORDS);
         let mut cx = Ctx::new(&e, span());
-        let kept = KEPT.load(Ordering::Relaxed);
+        let kept = e.session.stats.kept.load(Ordering::Relaxed);
         crate::check::infer(&mut cx, &expression("({ only = Z }).only")).unwrap();
         // The literal, and the `.only` on it; the literal queued while the
         // prefix form was tried was undone with it.
         assert_eq!(e.attempt.queue.len(), 2);
-        assert!(KEPT.load(Ordering::Relaxed) > kept);
+        assert!(e.session.stats.kept.load(Ordering::Relaxed) > kept);
         assert!(e.settle_queue().unwrap().is_none());
         assert!(done(&e, 0) && done(&e, 1));
     }
@@ -2813,9 +2727,9 @@ mod tests {
         let mut outer = Ctx::new(&e, span());
         outer.bind("z", data(&e, "N"));
         assert!(outer.unify(&outer.eval(&applied).unwrap(), &b).unwrap());
-        let requeued = REQUEUED.load(Ordering::Relaxed);
+        let requeued = e.session.stats.requeued.load(Ordering::Relaxed);
         assert!(e.resume_from(0).unwrap());
-        assert!(REQUEUED.load(Ordering::Relaxed) > requeued);
+        assert!(e.session.stats.requeued.load(Ordering::Relaxed) > requeued);
         assert!(waiting(&e, 0));
         assert_eq!(
             head_meta(cx.g(), &e.attempt.queue.waiting(0).unwrap()).unwrap(),
@@ -2839,9 +2753,9 @@ mod tests {
         let before = Snapshot::take(&cx);
         let (m, _) = unknown(&cx);
         (e.attempt.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
-        let chose = KEPT_CHOSE.load(Ordering::Relaxed);
+        let chose = e.session.stats.kept_chose.load(Ordering::Relaxed);
         kept_receiver(&cx, &before);
-        assert!(KEPT_CHOSE.load(Ordering::Relaxed) > chose);
+        assert!(e.session.stats.kept_chose.load(Ordering::Relaxed) > chose);
     }
 
     /// [`RECORDS`], with a function on `P` that takes an argument after its

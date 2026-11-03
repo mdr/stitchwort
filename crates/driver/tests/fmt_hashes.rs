@@ -81,7 +81,7 @@ fn summarize(session: &Session, first: (usize, usize, usize)) -> Summary {
 fn start() -> (Session, (usize, usize, usize)) {
     // Lazy: the library files a declaration uses load on demand.
     let mut session = Session::new();
-    session.elab.limits = stitchwort_core::Limits::for_stack(STACK);
+    session.elab.options.limits = stitchwort_core::Limits::for_stack(STACK);
     let first = (
         session.elab.globals.datas.len(),
         session.elab.globals.defs.len(),

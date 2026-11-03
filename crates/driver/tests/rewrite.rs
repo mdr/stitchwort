@@ -8,7 +8,7 @@ use stitchwort_driver::driver::Session;
 /// (`None`: the default).
 fn codes(budget: Option<u64>, text: &str) -> Vec<&'static str> {
     let mut session = Session::new();
-    session.elab.rewrite_budget = budget;
+    session.elab.options.rewrite_budget = budget;
     match session.load("test.sw", text) {
         Ok(_) => Vec::new(),
         Err(errors) => errors.iter().map(|e| e.code).collect(),
@@ -30,7 +30,7 @@ theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q
 #[test]
 fn the_budget_message_shows_both_terms_shortened() {
     let mut session = Session::new();
-    session.elab.rewrite_budget = Some(20);
+    session.elab.options.rewrite_budget = Some(20);
     let Err(errors) = session.load("test.sw", LONG_LEFT_SIDE) else {
         panic!("expected an error");
     };

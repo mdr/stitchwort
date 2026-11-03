@@ -227,10 +227,13 @@ fn library_targets_are_marked() {
         .expect("checks");
     let json = index_json(&session, false, None, "", &[]);
     assert!(json.contains(r#"{"path":"crates/elab/src/std/core/Data.sw","std":"core/Data.sw"}"#));
-    let text = stitchwort_driver::nav::std_source("core/Data.sw", session.elab.limits.stack)
-        .expect("embedded");
+    let text =
+        stitchwort_driver::nav::std_source("core/Data.sw", session.elab.options.limits.stack)
+            .expect("embedded");
     assert!(text.contains("List"));
-    assert!(stitchwort_driver::nav::std_source("nope.sw", session.elab.limits.stack).is_none());
+    assert!(
+        stitchwort_driver::nav::std_source("nope.sw", session.elab.options.limits.stack).is_none()
+    );
 }
 
 /// Diagnostics come with the index: where, what, the other labels and notes.

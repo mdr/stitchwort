@@ -155,7 +155,7 @@ pub fn build_executable(
             return ExitCode::FAILURE;
         }
     };
-    let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     discard(session);
     let object = match native {
         Some(verbose) => match native_object(&program, &limits, verbose) {

@@ -1826,8 +1826,9 @@ fn io_crossing_translations_runs_alike_in_js() {
             )
         };
         let wrapped = wrap(wrap(main.term().clone()));
-        let program = stitchwort_js::run::generate_program(g, session.elab.limits, &wrapped)
-            .expect("generating the wrapped main");
+        let program =
+            stitchwort_js::run::generate_program(g, session.elab.options.limits, &wrapped)
+                .expect("generating the wrapped main");
         for input in [
             "",
             "a\nbb\n",

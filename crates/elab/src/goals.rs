@@ -477,7 +477,7 @@ impl Elaborator {
             .map(|p| {
                 // With gluing, as while checking: calls stay folded, also
                 // under binders.
-                let was = g.glue.replace(self.glue);
+                let was = g.glue.replace(self.options.glue);
                 let printed = self.print_goal(p);
                 let snapshot = self.goal_snapshot_of(p);
                 g.glue.set(was);

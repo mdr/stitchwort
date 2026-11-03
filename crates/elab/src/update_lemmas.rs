@@ -101,7 +101,9 @@ impl Elaborator {
     /// Starts a new stretch of generated source: dot calls found in the
     /// source just checked are no longer matched.
     fn end_generated_source(&self) {
-        self.source_epoch.set(self.source_epoch.get() + 1);
+        self.session
+            .source_epoch
+            .set(self.session.source_epoch.get() + 1);
     }
 
     /// The lemmas `d` gets, in the shared fields' order.

@@ -2299,7 +2299,7 @@ fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
         return result;
     }
     first_try.restore(cx);
-    crate::queue::note_retried();
+    crate::queue::note_retried(cx.e);
     let second_try = crate::undo::Snapshot::take(cx);
     cx.e.decl.late_literals.set(1);
     let again = f(cx);
@@ -3958,7 +3958,7 @@ pub(crate) fn check_value(
             // 200 steps an element, so a literal that fits the stack as one
             // chain stays one (SW-332: `rfl` on a 20,000-element literal got
             // six times dearer).
-            let chunk = if terms.len() <= cx.e.limits.stack / LITERAL_BYTES {
+            let chunk = if terms.len() <= cx.e.options.limits.stack / LITERAL_BYTES {
                 usize::MAX
             } else {
                 LITERAL_CHUNK

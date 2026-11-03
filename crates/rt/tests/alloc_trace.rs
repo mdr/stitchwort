@@ -40,7 +40,7 @@ fn traced(source: &str) -> (Trace, String, Option<String>) {
         let main = session.main().expect("`main` has the right type");
         let program = lower_main(
             &session.elab.globals,
-            session.elab.limits,
+            session.elab.options.limits,
             main.term(),
             main.row,
         )
@@ -49,7 +49,7 @@ fn traced(source: &str) -> (Trace, String, Option<String>) {
         alloc_trace::start();
         let result = run_main_with(
             &program,
-            Limits::from_core(session.elab.limits),
+            Limits::from_core(session.elab.options.limits),
             &Policy::default(),
             &mut "".as_bytes(),
             &mut output,

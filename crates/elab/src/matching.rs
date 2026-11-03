@@ -632,7 +632,7 @@ fn generalised(
     if skip.is_none()
         && let Some(m) = blocker(cx, &exprs, goal, base, None)?
     {
-        crate::queue::note_match_waited();
+        crate::queue::note_match_waited(cx.e);
         let error = motive_error(
             span,
             "this `match` can't be generalised: what it matches on isn't known",
@@ -1261,7 +1261,7 @@ fn check_motive(
                 unknown_left_for_lifting(cx, &draft)?,
                 "a generalised `match` met an unknown it should have waited for (D2090)"
             );
-            crate::queue::note_motive_later();
+            crate::queue::note_motive_later(cx.e);
             Ok(true)
         }
     }

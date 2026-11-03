@@ -2058,7 +2058,7 @@ impl Elaborator {
             work: ATTEMPT.work,
             size: ATTEMPT.size,
             frames: ATTEMPT.frames,
-            ..self.limits
+            ..self.options.limits
         };
         let saved = self.globals.budget.start_attempt(limits);
         let result = f(self);
@@ -4716,7 +4716,7 @@ impl Elaborator {
         if self.equations_done.iter().any(|k| k == key) {
             return Ok(());
         }
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let index = lib.index.clone();
@@ -4779,7 +4779,7 @@ impl Elaborator {
     /// The equations of the library file being loaded's own definitions
     /// that its proofs name: made, as on demand, once the definitions are.
     pub(crate) fn ensure_loading_file_equations(&mut self) {
-        let (Some(f), Some(lib)) = (self.scope.loading, &self.library) else {
+        let (Some(f), Some(lib)) = (self.scope.loading, &self.session.library) else {
             return;
         };
         let needs = lib.index.files[f].equation_needs.clone();
@@ -4791,7 +4791,7 @@ impl Elaborator {
     /// Makes every put-off equation of the core and the loaded library
     /// files: for listing them all (`search`, `doc`).
     pub fn generate_deferred_equations(&mut self) -> Result<()> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let index = lib.index.clone();

@@ -326,7 +326,7 @@ impl Elaborator {
         }
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
         // Claimed again by now, if this follows a failed replay.
-        self.replayed_names.clear();
+        self.session.replayed_names.clear();
         let needs = self.dependencies(&items);
         // For the check cache: the names collected, before the library
         // files load (`cache`).
@@ -373,7 +373,7 @@ impl Elaborator {
 
         for component in order {
             // Each component is one operation, with its own resource limits.
-            let saved = self.globals.budget.start(self.limits);
+            let saved = self.globals.budget.start(self.options.limits);
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
             let (defs_before, datas_before) = (self.globals.defs.len(), self.globals.datas.len());
@@ -463,7 +463,7 @@ impl Elaborator {
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
             if !self.unit.module.ord_after_dec_eq.is_empty() {
-                let saved = self.globals.budget.start(self.limits);
+                let saved = self.globals.budget.start(self.options.limits);
                 if let Err(d) = self.glued(|e| e.derive_pending_ord(&component)) {
                     diagnostics.push((position, d));
                 }
@@ -598,19 +598,24 @@ impl Elaborator {
             return;
         };
         // The note as data, for the index: the search's log has its bindings.
-        let data = self.counterexample_log.borrow().last().and_then(|log| {
-            let found = log.found.as_ref()?;
-            Some(Box::new(stitchwort_syntax::Counterexample {
-                verdict: "false",
-                types: (log.found_types.iter())
-                    .map(|a| (a.clone(), "Nat".to_string()))
-                    .collect(),
-                bindings: (found.iter())
-                    .filter_map(|b| b.split_once(" = "))
-                    .map(|(name, value)| (name.to_string(), value.to_string()))
-                    .collect(),
-            }))
-        });
+        let data = self
+            .session
+            .counterexample_log
+            .borrow()
+            .last()
+            .and_then(|log| {
+                let found = log.found.as_ref()?;
+                Some(Box::new(stitchwort_syntax::Counterexample {
+                    verdict: "false",
+                    types: (log.found_types.iter())
+                        .map(|a| (a.clone(), "Nat".to_string()))
+                        .collect(),
+                    bindings: (found.iter())
+                        .filter_map(|b| b.split_once(" = "))
+                        .map(|(name, value)| (name.to_string(), value.to_string()))
+                        .collect(),
+                }))
+            });
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
             d.notes.push(note);
             d.detail_mut().counterexample = data.map(|b| *b);
@@ -812,7 +817,7 @@ impl Elaborator {
                 // library test target (`library_tests`), and are skipped
                 // otherwise.
                 if self.unit.loading_prelude
-                    && !self.library_tests
+                    && !self.options.library_tests
                     && matches!(decl, Decl::Test { .. })
                 {
                     continue;
@@ -1136,7 +1141,7 @@ impl Elaborator {
     /// (`cache`).
     fn taken(&self, key: &str) -> Option<Span> {
         let (global, span) = self.scope.get(key)?;
-        if matches!(global, Global::Failed) && self.replayed_names.contains(key) {
+        if matches!(global, Global::Failed) && self.session.replayed_names.contains(key) {
             return None;
         }
         Some(span)

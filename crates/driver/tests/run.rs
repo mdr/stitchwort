@@ -552,7 +552,7 @@ def main () : {IO} () :=
 #[test]
 fn running_out_of_resources_stops_the_program() {
     let mut session = load(SLOW);
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 100_000,
         ..Limits::default()
     };
@@ -581,7 +581,7 @@ fn each_step_between_operations_has_its_own_limits() {
                   printMany n\n\n\
                   def main () : {IO} () := printMany 2000\n";
     let mut session = load(source);
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 100_000,
         ..Limits::default()
     };

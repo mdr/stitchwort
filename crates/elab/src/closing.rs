@@ -188,8 +188,8 @@ impl Elaborator {
     /// An error if the statement doesn't elaborate here.
     pub fn open_goal(&mut self, expr: &Expr, hyps: usize) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.glue);
-        let saved = self.globals.budget.start(self.limits);
+        let was = self.globals.glue.replace(self.options.glue);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -217,8 +217,8 @@ impl Elaborator {
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.glue);
-        let saved = self.globals.budget.start(self.limits);
+        let was = self.globals.glue.replace(self.options.glue);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let g = &self.globals;
             let cx = Ctx::new(self, span);
@@ -460,7 +460,7 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.glue),
+            glue: g.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Vec<Plan>> {
@@ -749,7 +749,7 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.glue),
+            glue: g.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Option<Plan>> {
@@ -809,7 +809,7 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.glue),
+            glue: g.glue.replace(self.options.glue),
         };
         let made = (|| -> Res<Vec<RecursivePlan>> {
             let _op = g.budget.attempt(ATTEMPT);

@@ -504,7 +504,7 @@ fn a_file_that_runs_out_of_resources_is_not_written() {
     let attempt = || {
         with_stack(STACK, || {
             let mut session = Session::for_stack(STACK);
-            session.elab.limits.work = 20_000;
+            session.elab.options.limits.work = 20_000;
             session.use_check_cache(&dir);
             let result = session.elab.load_all_libraries();
             (

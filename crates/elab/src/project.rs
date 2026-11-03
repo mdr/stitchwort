@@ -54,7 +54,7 @@ pub trait IncludeFiles {
 impl Elaborator {
     /// Lets `include` read from `files`.
     pub fn set_include_files(&mut self, files: std::rc::Rc<dyn IncludeFiles>) {
-        self.include_files = Some(files);
+        self.session.include_files = Some(files);
     }
 
     /// The next file loaded on its own is at `path` in the include root.
@@ -69,7 +69,7 @@ impl Elaborator {
     /// Records that source file `file` is at `path` in the include root, so
     /// an `include` in it is relative to there.
     pub fn set_include_location(&mut self, file: FileId, path: String) {
-        self.include_locations.insert(file, path);
+        self.session.include_locations.insert(file, path);
     }
 
     /// The text of the file that `include "path"` at `span` names, read now
@@ -82,9 +82,10 @@ impl Elaborator {
                     "`include` works when `stitchwort` runs on files; the playground has none",
                 )
         };
-        let (Some(files), Some(from)) =
-            (&self.include_files, self.include_locations.get(&span.file))
-        else {
+        let (Some(files), Some(from)) = (
+            &self.session.include_files,
+            self.session.include_locations.get(&span.file),
+        ) else {
             return Err(unavailable());
         };
         let mut parts: Vec<&str> = from.split('/').collect();
@@ -207,8 +208,9 @@ impl Elaborator {
     /// Tells the elaborator which namespaces the project has (call before
     /// the pre-pass and before checking).
     pub fn set_project_namespaces(&mut self, names: impl IntoIterator<Item = String>) {
-        self.project_namespaces = names.into_iter().collect();
-        self.project_prefixes = self
+        self.session.project_namespaces = names.into_iter().collect();
+        self.session.project_prefixes = self
+            .session
             .project_namespaces
             .iter()
             .flat_map(|name| {
@@ -224,13 +226,13 @@ impl Elaborator {
     /// [`Self::set_project_namespaces`], before the pre-pass and checking).
     /// A namespace whose files didn't parse has no entry.
     pub fn set_project_names(&mut self, names: BTreeMap<String, BTreeSet<String>>) {
-        self.project_names = names;
+        self.session.project_names = names;
     }
 
     /// What the project pre-pass says `import N (..)` brings from namespace
     /// `ns`, if its files parsed.
     pub fn project_names(&self, ns: &str) -> Option<&BTreeSet<String>> {
-        self.project_names.get(ns)
+        self.session.project_names.get(ns)
     }
 
     /// The project namespaces `ns` uses directly, each with the first place
@@ -297,6 +299,7 @@ impl Elaborator {
                     match target {
                         Some(k)
                             if self
+                                .session
                                 .project_prefixes
                                 .contains(&format!("{k}.{}", item.name.text)) =>
                         {
@@ -369,7 +372,7 @@ impl Elaborator {
                 for item in &import.items {
                     if let Some(k) = target {
                         let key = format!("{k}.{}", item.name.text);
-                        if self.project_namespaces.contains(&key) && key != ns.name {
+                        if self.session.project_namespaces.contains(&key) && key != ns.name {
                             found(key, item.name.span);
                         }
                     }
@@ -408,7 +411,8 @@ impl Elaborator {
     /// The longest project namespace `Q` with `path == Q` (if `equal`) or
     /// `path` starting with `Q.`.
     pub(crate) fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
-        self.project_namespaces
+        self.session
+            .project_namespaces
             .iter()
             .filter(|q| (equal && q.as_str() == path) || path.starts_with(&format!("{q}.")))
             .max_by_key(|q| q.len())
@@ -526,7 +530,7 @@ impl QualifierLevels for PrePass<'_, '_> {
 
     fn own_namespace(&self, first: &str) -> bool {
         first != STD
-            && !self.e.project_prefixes.contains(first)
+            && !self.e.session.project_prefixes.contains(first)
             && !self.library_namespace(first)
             && self
                 .qualified
@@ -535,7 +539,7 @@ impl QualifierLevels for PrePass<'_, '_> {
     }
 
     fn project_namespace(&self, first: &str) -> bool {
-        self.e.project_prefixes.contains(first)
+        self.e.session.project_prefixes.contains(first)
     }
 
     fn library_namespace(&self, _: &str) -> bool {

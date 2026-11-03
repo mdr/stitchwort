@@ -242,11 +242,11 @@ impl Elaborator {
     /// false, with a counterexample, if one is found. Leaves the
     /// metavariables cleared.
     pub(crate) fn counterexample_note(&mut self, def: DefId) -> Option<String> {
-        if self.no_counterexamples {
+        if self.options.no_counterexamples {
             return None;
         }
         let (log, note) = self.search_counterexample(def, ON_FAILURE);
-        self.counterexample_log.borrow_mut().push(log);
+        self.session.counterexample_log.borrow_mut().push(log);
         note.map(|note| self.with_opaque_counterexample_note(def, note))
     }
 
@@ -294,7 +294,7 @@ impl Elaborator {
     ) -> (SearchLog, Option<String>) {
         let started = clock::now();
         let theorem = self.globals.def(def).name.to_string();
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let datas = (self.globals.defs.len(), self.globals.datas.len());
         let built = self.build_checker(def);
         self.clear_metas();
@@ -317,7 +317,7 @@ impl Elaborator {
             return (log, None);
         }
         // The time limit counts from here, unless searches are untimed.
-        let timed = started.filter(|_| !self.untimed_counterexamples);
+        let timed = started.filter(|_| !self.options.untimed_counterexamples);
         let note = self.run_search(&checker, budget, timed, &mut log);
         log.micros = clock::elapsed_micros(started);
         (log, note)
@@ -327,10 +327,10 @@ impl Elaborator {
     /// `Err` says why not. For measuring (the proposal's §12); leaves the
     /// metavariables cleared.
     pub fn counterexample_scope(&mut self, def: DefId) -> Result<(), String> {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let built = self.build_checker(def).and_then(|checker| {
             let g = &self.globals;
-            let _op = g.budget.operation(self.limits);
+            let _op = g.budget.operation(self.options.limits);
             let mut inputs = Inputs::new(g, 4 * MAX_INPUTS);
             for (name, ty) in &checker.params {
                 if inputs.plan(ty).is_none() {
@@ -498,7 +498,7 @@ impl Elaborator {
         let mut inputs = Inputs::new(g, 4 * budget.inputs);
         let mut plans = Vec::new();
         {
-            let _op = g.budget.operation(self.limits);
+            let _op = g.budget.operation(self.options.limits);
             for (name, ty) in &checker.params {
                 match inputs.plan(ty) {
                     Some(plan) => plans.push(plan),
@@ -513,7 +513,7 @@ impl Elaborator {
         // Phase 1: every input up to a size, in at most two fifths of the
         // time.
         let (enumerated, largest, exhaustive) = {
-            let _op = g.budget.operation(self.limits);
+            let _op = g.budget.operation(self.options.limits);
             inputs.enumerate(&plans, budget.inputs.div_ceil(2))
         };
         log.inputs = enumerated.len();
@@ -554,7 +554,7 @@ impl Elaborator {
             // past it, the batch would run none of them anyway (SW-900).
             // Each with the size it was drawn at.
             let (random, drawn): (Vec<Vec<Term>>, Vec<usize>) = {
-                let _op = g.budget.operation(self.limits);
+                let _op = g.budget.operation(self.options.limits);
                 (0..more)
                     .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
                     .filter_map(|i| {
@@ -605,7 +605,7 @@ impl Elaborator {
                     break;
                 }
                 let candidates = {
-                    let _op = g.budget.operation(self.limits);
+                    let _op = g.budget.operation(self.options.limits);
                     inputs.shrink_tuple(&plans, &input)
                 };
                 let batch = self.run_batch(
@@ -698,9 +698,9 @@ impl Elaborator {
             }
             true
         };
-        let fast = match self.counterexample_runner {
+        let fast = match self.options.counterexample_runner {
             Some(run) if !checker.params.is_empty() && !inputs.is_empty() => {
-                run(g, self.limits, &checker.term, inputs, &mut each)
+                run(g, self.options.limits, &checker.term, inputs, &mut each)
             }
             _ => false,
         };
@@ -735,7 +735,7 @@ impl Elaborator {
         let g = &self.globals;
         let _op = g.budget.operation(Limits {
             work: steps,
-            ..self.limits
+            ..self.options.limits
         });
         let _erasing = g.erasure.running();
         let call = input
@@ -791,7 +791,7 @@ impl Elaborator {
         let _op = g.budget.operation(Limits {
             size: shown::SHOWN_NODES,
             work: CONFIRM_STEPS,
-            ..self.limits
+            ..self.options.limits
         });
         // In full first, so a `Float` keeps the proof it prints by.
         if let Ok(t) = eval(g, &[], term).and_then(|v| quote(g, 0, &v))
@@ -859,7 +859,7 @@ impl Elaborator {
             for slot in &checker.slots {
                 let _op = g.budget.operation(Limits {
                     work: CONFIRM_STEPS,
-                    ..self.limits
+                    ..self.options.limits
                 });
                 let value = match slot {
                     Slot::Input(i) => eval(g, &env, &input[*i]),
@@ -876,7 +876,7 @@ impl Elaborator {
                 let limits = Limits {
                     size: shown::SHOWN_NODES,
                     work: CONFIRM_STEPS,
-                    ..self.limits
+                    ..self.options.limits
                 };
                 let in_full = {
                     let _op = g.budget.operation(limits);
@@ -1031,6 +1031,6 @@ mod untimed_tests {
     /// no longer reaches the tests (a runner that ignores cargo's `[env]`).
     #[test]
     fn tests_run_with_untimed_searches() {
-        assert!(crate::Elaborator::new().untimed_counterexamples);
+        assert!(crate::Elaborator::new().options.untimed_counterexamples);
     }
 }

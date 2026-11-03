@@ -37,7 +37,7 @@ fn lowered_source(file: &str, source: &str) -> (Program, Limits) {
         .unwrap_or_else(|e| panic!("{file} doesn't check: {e:?}"));
     let main = session.main().expect("a `main`");
     let program = session.lower_fast(&main).expect("lowers");
-    (program, Limits::from_core(session.elab.limits))
+    (program, Limits::from_core(session.elab.options.limits))
 }
 
 fn bench(name: &str) -> (Program, Limits) {
@@ -61,7 +61,7 @@ fn rogue() -> (Program, Limits) {
         .unwrap_or_else(|e| panic!("rogue doesn't check: {e:?}"));
     let main = session.main_named("Rogue.main", "rogue").expect("a `main`");
     let program = session.lower_fast(&main).expect("lowers");
-    (program, Limits::from_core(session.elab.limits))
+    (program, Limits::from_core(session.elab.options.limits))
 }
 
 /// The image in a form to compare: `Image` has no `PartialEq`.

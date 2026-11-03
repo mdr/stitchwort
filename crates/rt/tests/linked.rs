@@ -67,7 +67,11 @@ fn lowered(source: &str) -> (Program, Image, Limits) {
     let main = session.main().expect("a `main`");
     let program = session.lower_fast(&main).expect("lowers");
     let image = code::compile(&program);
-    (program, image, Limits::from_core(session.elab.limits))
+    (
+        program,
+        image,
+        Limits::from_core(session.elab.options.limits),
+    )
 }
 
 #[test]

@@ -301,7 +301,7 @@ impl Session {
         let (term, _) = self.elab.infer_expr(&expr)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);
-        let _op = g.budget.operation(self.elab.limits);
+        let _op = g.budget.operation(self.elab.options.limits);
         // Proofs and types aren't computed (`erase.rs`).
         let _erasing = g.erasure.running();
         let run = || -> Result<Vec<String>, ResourceError> {
@@ -402,8 +402,13 @@ impl Session {
     /// Lowers `main` for the machine of `stitchwort-rt`, as
     /// [`Session::run_main_fast`] does before running it.
     pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
-        stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
-            .map_err(RunError::Lowering)
+        stitchwort_rt::lower_main(
+            &self.elab.globals,
+            self.elab.options.limits,
+            main.term(),
+            main.row,
+        )
+        .map_err(RunError::Lowering)
     }
 
     /// Runs `main` on the machine of `stitchwort-rt` (docs/proposals/fast-runtime.md)
@@ -432,7 +437,7 @@ impl Session {
         let program = self.lower_fast(main)?;
         stitchwort_rt::run_main_on(
             &program,
-            stitchwort_rt::Limits::from_core(self.elab.limits),
+            stitchwort_rt::Limits::from_core(self.elab.options.limits),
             input,
             output,
             terminal,
@@ -500,12 +505,12 @@ impl Session {
         let mut lines = 0;
         let mut ticks = 0;
         let mut machine = {
-            let _op = g.budget.operation(self.elab.limits);
+            let _op = g.budget.operation(self.elab.options.limits);
             Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
             let mut obs = {
-                let _op = g.budget.operation(self.elab.limits);
+                let _op = g.budget.operation(self.elab.options.limits);
                 machine.step(g)?
             };
             // Perform operations until the step ends.
@@ -525,10 +530,10 @@ impl Session {
                     }
                     Obs::Call(o, pending) => {
                         let reply = {
-                            let _op = g.budget.operation(self.elab.limits);
+                            let _op = g.budget.operation(self.elab.options.limits);
                             self.perform(&s, o, input, output, terminal, &mut lines, trace)?
                         };
-                        let _op = g.budget.operation(self.elab.limits);
+                        let _op = g.budget.operation(self.elab.options.limits);
                         obs = pending.reply(g, reply)?;
                     }
                 }
@@ -544,11 +549,11 @@ impl Session {
         let g = &self.elab.globals;
         let _erasing = g.erasure.running();
         let mut machine = {
-            let _op = g.budget.operation(self.elab.limits);
+            let _op = g.budget.operation(self.elab.options.limits);
             Machine::start(g, force(g, eval(g, &[], term)?)?)
         };
         loop {
-            let _op = g.budget.operation(self.elab.limits);
+            let _op = g.budget.operation(self.elab.options.limits);
             match machine.step(g)? {
                 Obs::Now(v) => return force(g, v),
                 Obs::Later(rest) => machine = rest,

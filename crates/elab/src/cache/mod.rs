@@ -163,12 +163,12 @@ impl Elaborator {
     /// Keeps library files' results in `store` between runs, and loads them
     /// from it (see [`crate::cache`]).
     pub fn set_check_cache(&mut self, store: Rc<dyn Store>) {
-        self.check_cache = Some(store);
+        self.options.check_cache = Some(store);
     }
 
     /// What the cache has done so far.
     pub fn check_cache_stats(&self) -> Stats {
-        self.cache_stats
+        self.session.cache_stats
     }
 
     /// For tests: every namespace replay from now on fails where a
@@ -176,7 +176,7 @@ impl Elaborator {
     /// fail (a late miss), so the namespace is elaborated after all.
     #[doc(hidden)]
     pub fn fail_namespace_replays_late(&mut self) {
-        self.fail_replays_late = true;
+        self.options.fail_replays_late = true;
     }
 
     /// Whether library files may be loaded from, and written to, the cache
@@ -184,7 +184,7 @@ impl Elaborator {
     /// result. (A session whose core isn't the index's finds its entries'
     /// dependencies have other hashes: misses.)
     fn cache_usable(&self) -> bool {
-        self.check_cache.is_some() && !self.library_tests
+        self.options.check_cache.is_some() && !self.options.library_tests
     }
 
     /// The name of the unit an entry is for: the library file, and whether
@@ -202,7 +202,7 @@ impl Elaborator {
     /// The key of library file `f` (§4.2), and of the files it needs.
     pub(crate) fn library_key(&self, f: usize) -> Key {
         let index = self.library_index().expect("a library is installed");
-        let store = self.check_cache.as_ref().expect("a cache is set");
+        let store = self.options.check_cache.as_ref().expect("a cache is set");
         let mut keys: HashMap<usize, Key> = HashMap::default();
         // Dependencies first: the edges never form a cycle (the index is
         // checked), so a work list in post-order ends.
@@ -239,19 +239,11 @@ impl Elaborator {
     /// Everything else that changes what elaborating a library file gives.
     fn modes(&self) -> String {
         let g = &self.globals;
-        let l = self.limits;
         format!(
-            "natives {} compact {} succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} nav {:?}",
+            "natives {} compact {} {} nav {:?}",
             !g.builtins.disable_natives,
             g.builtins.compact_literals().is_some(),
-            self.numbers_as_succ,
-            l.work,
-            l.stack,
-            l.size,
-            l.frames,
-            self.rewrite_budget,
-            self.instance_budget,
-            self.uniform_operators,
+            self.options.cache_key(),
             self.nav_tag(),
         )
     }
@@ -279,19 +271,19 @@ impl Elaborator {
     /// it fits; `false` if it has to be elaborated instead (and then
     /// nothing has changed).
     pub(crate) fn load_from_cache(&mut self, f: usize, unit: &str, key: &Key) -> bool {
-        let store = self.check_cache.clone().expect("a cache is set");
+        let store = self.options.check_cache.clone().expect("a cache is set");
         let Some(bytes) = store.read(unit, key) else {
-            self.cache_stats.misses += 1;
+            self.session.cache_stats.misses += 1;
             return false;
         };
         match self.replay(&bytes, key, store.salt()) {
             Ok(()) => {
-                self.cache_stats.hits += 1;
+                self.session.cache_stats.hits += 1;
                 true
             }
             Err(Bad(why)) => {
                 debug(&format!("std file {f}: a miss: {why}"));
-                self.cache_stats.misses += 1;
+                self.session.cache_stats.misses += 1;
                 false
             }
         }
@@ -365,7 +357,7 @@ impl Elaborator {
         if !ok || self.globals.budget.cancelled() {
             return;
         }
-        let store = self.check_cache.clone().expect("a cache is set");
+        let store = self.options.check_cache.clone().expect("a cache is set");
         let entry = self.encode_library_file(f, &before, &log, key, store.salt());
         if let Err(why) = &entry {
             debug(&format!("std file {f} can't be cached: {why}"));
@@ -373,9 +365,9 @@ impl Elaborator {
         match entry {
             Ok(entry) => {
                 store.write(unit, key, &entry);
-                self.cache_stats.written += 1;
+                self.session.cache_stats.written += 1;
             }
-            Err(_why) => self.cache_stats.uncacheable += 1,
+            Err(_why) => self.session.cache_stats.uncacheable += 1,
         }
     }
 }
@@ -389,7 +381,7 @@ impl Elaborator {
     /// configuration (§4.2 items 3 and 5). A namespace without one isn't
     /// cached.
     pub fn set_namespace_sources(&mut self, sources: HashMap<String, Key>) {
-        self.namespace_sources = sources;
+        self.session.namespace_sources = sources;
     }
 
     /// Whether this elaborator keeps results in a check cache.
@@ -400,7 +392,7 @@ impl Elaborator {
     /// A hash of every library file's path and text: a namespace may use
     /// any of them.
     fn library_digest(&self) -> Key {
-        *self.library_digest.get_or_init(|| {
+        *self.session.library_digest.get_or_init(|| {
             let mut h = blake3::Hasher::new();
             if let Some(index) = self.library_index() {
                 for file in &index.files {
@@ -428,8 +420,8 @@ impl Elaborator {
         let (Some(ns), Some(closure)) = (namespace, closure) else {
             return None;
         };
-        let source = self.namespace_sources.get(ns)?;
-        let store = self.check_cache.as_ref()?;
+        let source = self.session.namespace_sources.get(ns)?;
+        let store = self.options.check_cache.as_ref()?;
         let library = self.library_digest();
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
@@ -445,7 +437,7 @@ impl Elaborator {
         part(source);
         for dependency in closure {
             part(dependency.as_bytes());
-            part(self.namespace_keys.get(dependency)?);
+            part(self.session.namespace_keys.get(dependency)?);
         }
         let nav = self.nav_tag();
         Some((format!("ns.{ns}{nav}"), *h.finalize().as_bytes()))
@@ -462,8 +454,8 @@ impl Elaborator {
         unit: &str,
         key: &Key,
     ) -> (Vec<Diagnostic>, bool) {
-        self.namespace_keys.insert(ns.to_string(), *key);
-        let store = self.check_cache.clone().expect("a cache is set");
+        self.session.namespace_keys.insert(ns.to_string(), *key);
+        let store = self.options.check_cache.clone().expect("a cache is set");
         let start_keys: HashSet<String> = self.scope.entries.keys().cloned().collect();
         let start_members = self.scope.members().clone();
         if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
@@ -471,8 +463,8 @@ impl Elaborator {
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
                 Ok(mut warnings) => {
-                    self.replayed_names.clear();
-                    self.cache_stats.namespace_hits += 1;
+                    self.session.replayed_names.clear();
+                    self.session.cache_stats.namespace_hits += 1;
                     // Doc links aren't cached: they may point into other
                     // namespaces, which can change without this one's key
                     // changing (SW-1045). Entries written before that held
@@ -484,13 +476,13 @@ impl Elaborator {
                 Err(Miss::Early(why)) => debug(&format!("{ns}: a miss: {why}")),
                 Err(Miss::Late(why)) => {
                     debug(&format!("{ns}: a miss after the replay began: {why}"));
-                    self.cache_stats.late_misses += 1;
+                    self.session.cache_stats.late_misses += 1;
                     // Its files were walked already.
                     self.unit.skip_navigation_walk = true;
                 }
             }
         }
-        self.cache_stats.namespace_misses += 1;
+        self.session.cache_stats.namespace_misses += 1;
         self.unit.include_trace.borrow_mut().clear();
         self.unit.namespace_capture = Some(Capture {
             start_keys,
@@ -521,11 +513,11 @@ impl Elaborator {
             match self.encode_namespace(files, capture, &cached, key, store.salt()) {
                 Ok(entry) => {
                     store.write(unit, key, &entry);
-                    self.cache_stats.namespace_written += 1;
+                    self.session.cache_stats.namespace_written += 1;
                 }
                 Err(why) => {
                     debug(&format!("{ns} can't be cached: {why}"));
-                    self.cache_stats.namespace_uncacheable += 1;
+                    self.session.cache_stats.namespace_uncacheable += 1;
                 }
             }
         }
@@ -579,7 +571,7 @@ impl Elaborator {
     /// the library's and the project's.
     fn namespace_file_names(&self) -> HashMap<FileId, String> {
         let mut names = self.std_file_names();
-        for (id, path) in &self.include_locations {
+        for (id, path) in &self.session.include_locations {
             names.insert(*id, project_file_name(path));
         }
         names
@@ -701,6 +693,7 @@ impl Elaborator {
         // The files it included must be as they were.
         for (path, hash) in &head.pre.includes {
             let same = self
+                .session
                 .include_files
                 .as_ref()
                 .and_then(|files| files.read(path).ok())
@@ -735,7 +728,7 @@ impl Elaborator {
         }
         // If replay fails from here on, elaborating the namespace declares
         // these again where they are (`taken`).
-        self.replayed_names = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
+        self.session.replayed_names = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
         if !pre.needs.files.is_empty()
             || !pre.needs.dots.is_empty()
             || !pre.needs.equations.is_empty()
@@ -747,7 +740,7 @@ impl Elaborator {
                 ))
             })?;
         }
-        if self.fail_replays_late {
+        if self.options.fail_replays_late {
             return Err(Miss::Late("a test made it fail".to_string()));
         }
         let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
@@ -1181,7 +1174,7 @@ impl Elaborator {
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
         let g = &self.globals;
-        let _op = g.budget.operation(self.limits);
+        let _op = g.budget.operation(self.options.limits);
         let (defs, datas) = (before.defs..g.defs.len(), before.datas..g.datas.len());
         for id in defs.clone().map(DefId) {
             let def = g.def(id);
@@ -2323,7 +2316,7 @@ impl Elaborator {
     fn decode(&self, deps: &[Dep], head: Head, early: &[(String, Span, bool)]) -> Read<Decoded> {
         let index = self.library_index().expect("a library is installed");
         let g = &self.globals;
-        let _op = g.budget.operation(self.limits);
+        let _op = g.budget.operation(self.options.limits);
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
@@ -2886,7 +2879,7 @@ impl Elaborator {
     /// Runs one kernel call as its own operation, with its own resource
     /// limits, as elaborating each component does.
     fn kernel_op<T>(&mut self, f: impl FnOnce(&mut Globals) -> T) -> T {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = f(&mut self.globals);
         self.globals.budget.restore(saved);
         result

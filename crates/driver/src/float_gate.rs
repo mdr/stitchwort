@@ -280,7 +280,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     let mut checks = Vec::new();
     let mut forms = Vec::new();
     let mut session = Session::new();
-    session.elab.limits = limits;
+    session.elab.options.limits = limits;
     {
         let b = &mut session.elab.globals.builtins;
         b.disable_natives = mode == Mode::AllNativesOff;

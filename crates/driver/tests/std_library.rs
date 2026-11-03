@@ -1000,7 +1000,7 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     // Whether each source used no library name (and so the core alone ran it).
     let ran_alone = par_map(STACK, &sources, |source| {
         let mut core = Session::core_alone();
-        core.elab.limits = stitchwort_core::Limits::for_stack(STACK);
+        core.elab.options.limits = stitchwort_core::Limits::for_stack(STACK);
         let mut full = Session::for_stack(STACK);
         let a = run(&mut core, source);
         let b = run(&mut full, source);

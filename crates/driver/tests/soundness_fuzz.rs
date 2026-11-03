@@ -741,13 +741,13 @@ fn session() -> Session {
 }
 
 fn configure(session: &mut Session) {
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: WORK,
         ..Limits::for_stack(STACK)
     };
-    session.elab.untimed_counterexamples = true;
+    session.elab.options.untimed_counterexamples = true;
     // No search on a failing proof: most mutants fail.
-    session.elab.no_counterexamples = true;
+    session.elab.options.no_counterexamples = true;
 }
 
 /// The theorem `name` of namespace `namespace` (or any, for a file), if

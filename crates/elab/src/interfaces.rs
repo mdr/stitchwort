@@ -828,7 +828,7 @@ pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(Dat
 
 /// Spends one step of obligation tree `tree`'s budget.
 fn step(cx: &Ctx, tree: usize, goal: &Value) -> Result<()> {
-    let budget = cx.e.instance_budget.unwrap_or(BUDGET);
+    let budget = cx.e.options.instance_budget.unwrap_or(BUDGET);
     let mut steps = cx.e.attempt.instance_steps.borrow_mut();
     let used = steps.entry(tree).or_insert(0);
     *used += 1;

@@ -72,7 +72,7 @@ fn new_session(paths: &[String], texts: &[String], navigation: bool) -> Session 
     } else {
         Session::new()
     };
-    session.elab.limits = limits();
+    session.elab.options.limits = limits();
     let files = paths
         .iter()
         .cloned()

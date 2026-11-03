@@ -341,7 +341,7 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
         let key = format!("{}{first}", self.0.root());
         // A project namespace below this one is reached by its full name
         // only (nesting is by name, not by scope): it isn't "own".
-        let nested = !self.0.root().is_empty() && self.0.project_prefixes.contains(&key);
+        let nested = !self.0.root().is_empty() && self.0.session.project_prefixes.contains(&key);
         !nested && self.0.scope.is_namespace(&key)
     }
 
@@ -1202,6 +1202,7 @@ impl Elaborator {
                     if !key.starts_with(root) && !key.starts_with("Std.") =>
                 {
                     let owner = self
+                        .session
                         .project_namespaces
                         .iter()
                         .filter(|q| key.starts_with(&format!("{q}.")))
@@ -1220,7 +1221,7 @@ impl Elaborator {
                     )));
                 }
                 Resolved::Missing
-                    if self.project_prefixes.contains(first)
+                    if self.session.project_prefixes.contains(first)
                         || ns == first
                         || ns.starts_with(&format!("{first}.")) =>
                 {
@@ -1228,7 +1229,7 @@ impl Elaborator {
                         "E-FOREIGN-NAMESPACE",
                         format!(
                             "`{first}` is a namespace {}, and {ns} can't add to it",
-                            if self.project_prefixes.contains(first) {
+                            if self.session.project_prefixes.contains(first) {
                                 "of the project"
                             } else {
                                 "of this file"
@@ -1817,6 +1818,7 @@ impl Elaborator {
             let own = self.current_namespace().unwrap_or("");
             // Those sharing the most leading components with this one first.
             let mut found: Vec<(usize, &String)> = self
+                .session
                 .project_namespaces
                 .iter()
                 .filter(|q| q.ends_with(&suffix))
@@ -2190,7 +2192,7 @@ impl Elaborator {
                 if self.scope.wildcards.len() <= file {
                     self.scope.wildcards.resize_with(file + 1, BTreeMap::new);
                 }
-                if self.project_namespaces.contains(k) {
+                if self.session.project_namespaces.contains(k) {
                     if self.scope.extenders.len() <= file {
                         self.scope.extenders.resize_with(file + 1, BTreeSet::new);
                     }
@@ -2265,8 +2267,8 @@ impl Elaborator {
         if own == Some(k) {
             return Some(WildcardSource::Refused(Refusal::Own));
         }
-        if self.project_namespaces.contains(k) {
-            return Some(match self.project_names.get(k) {
+        if self.session.project_namespaces.contains(k) {
+            return Some(match self.session.project_names.get(k) {
                 Some(names) => WildcardSource::Names(names.iter().cloned().collect()),
                 None => WildcardSource::Unknown,
             });
@@ -2281,7 +2283,7 @@ impl Elaborator {
         if let Some(q) = self.longest_namespace(k, false) {
             return Some(WildcardSource::Refused(Refusal::PartOf(q)));
         }
-        if self.project_prefixes.contains(k) {
+        if self.session.project_prefixes.contains(k) {
             return Some(WildcardSource::Refused(Refusal::Prefix));
         }
         None
@@ -2353,6 +2355,7 @@ impl Elaborator {
             Refusal::Prefix => {
                 let prefix = format!("{k}.");
                 let mut inside: Vec<String> = self
+                    .session
                     .project_namespaces
                     .iter()
                     .filter(|q| q.starts_with(&prefix))

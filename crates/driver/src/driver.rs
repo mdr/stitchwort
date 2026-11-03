@@ -208,14 +208,14 @@ impl Session {
     /// A session for a thread with `stack` bytes of stack.
     pub fn for_stack(stack: usize) -> Self {
         let mut session = Session::new();
-        session.elab.limits = Limits::for_stack(stack);
+        session.elab.options.limits = Limits::for_stack(stack);
         session
     }
 
     /// [`Session::navigable`], for a thread with `stack` bytes of stack.
     pub fn navigable_for_stack(stack: usize) -> Self {
         let mut session = Session::navigable();
-        session.elab.limits = Limits::for_stack(stack);
+        session.elab.options.limits = Limits::for_stack(stack);
         session
     }
 
@@ -357,13 +357,13 @@ impl Session {
             elab: Elaborator::new(),
             warnings: Vec::new(),
         };
-        session.elab.limits = limits;
+        session.elab.options.limits = limits;
         if navigation {
             session.elab.enable_navigation();
         }
         // Counterexample searches run on the fast runtime (D1154).
-        session.elab.counterexample_runner = Some(crate::counterexample::run_fast);
-        let stack = session.elab.limits.stack;
+        session.elab.options.counterexample_runner = Some(crate::counterexample::run_fast);
+        let stack = session.elab.options.limits.stack;
         let index = match library {
             Library::Standard | Library::None => LibraryIndex::standard(stack),
             Library::Files(files) => {
@@ -379,7 +379,7 @@ impl Session {
             report
         };
         session.elab.set_loading_prelude(true);
-        session.elab.library_tests = library_tests;
+        session.elab.options.library_tests = library_tests;
         let file = session.sources.add("<prelude>", prelude);
         // The library's files follow the core in the source map, in the
         // index's order, so the spans the index parsed are this session's.
@@ -486,7 +486,8 @@ impl Session {
         // A syntax error doesn't stop the declarations that parsed from
         // being checked, so one run reports every error; the file never
         // loads as a success, though.
-        let (module, parse_errors) = parse_module_recovering(file, text, self.elab.limits.stack);
+        let (module, parse_errors) =
+            parse_module_recovering(file, text, self.elab.options.limits.stack);
         let first_new_def = self.elab.globals.defs.len();
         self.elab.set_file_mode(context);
         let diagnostics =
@@ -518,7 +519,7 @@ impl Session {
         let mut modules = Vec::new();
         let mut errors = Vec::new();
         for (id, (_, text)) in ids.iter().zip(&sorted) {
-            match parse_module_within(*id, text, self.elab.limits.stack) {
+            match parse_module_within(*id, text, self.elab.options.limits.stack) {
                 Ok(module) => modules.push(module),
                 Err(parse_errors) => errors.extend(parse_errors),
             }
@@ -591,7 +592,7 @@ impl Session {
         let g = &self.elab.globals;
         let _op = g
             .budget
-            .operation(Limits::stack_only(self.elab.limits.stack));
+            .operation(Limits::stack_only(self.elab.options.limits.stack));
         for id in first_new_def..g.defs.len() {
             let id = stitchwort_core::DefId(id);
             if g.def(id).export
@@ -620,7 +621,7 @@ impl Session {
     /// session's stack limit.
     pub fn parse_expression(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         let file = self.sources.add(name, text);
-        let expr = parse_expression_within(file, text, self.elab.limits.stack)?;
+        let expr = parse_expression_within(file, text, self.elab.options.limits.stack)?;
         // The library files it uses load now: checking it needs them.
         self.elab.prepare_expr(&expr)?;
         Ok(expr)
@@ -631,7 +632,7 @@ impl Session {
     /// the errors and warnings, as a file's imports give.
     pub fn add_imports(&mut self, name: &str, text: &str) -> Vec<Diagnostic> {
         let file = self.sources.add(name, text);
-        let module = match parse_module_within(file, text, self.elab.limits.stack) {
+        let module = match parse_module_within(file, text, self.elab.options.limits.stack) {
             Ok(module) => module,
             Err(diagnostics) => return diagnostics,
         };
@@ -653,7 +654,7 @@ impl Session {
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
         let g = &self.elab.globals;
         self.refuse_unfinished((0..g.defs.len()).map(stitchwort_core::DefId))?;
-        stitchwort_js::generate(g, self.elab.limits)
+        stitchwort_js::generate(g, self.elab.options.limits)
     }
 
     /// An error if any of the exports among `ids` is unfinished (it, or
@@ -693,7 +694,7 @@ impl Session {
         self.refuse_unfinished(ids.iter().copied())?;
         stitchwort_js::generate_exports(
             g,
-            self.elab.limits,
+            self.elab.options.limits,
             stitchwort_js::Options::default(),
             &ids,
         )
@@ -705,7 +706,11 @@ impl Session {
         &self,
         main: &crate::run::Main,
     ) -> Result<stitchwort_js::run::Program, Diagnostic> {
-        stitchwort_js::run::generate_program(&self.elab.globals, self.elab.limits, main.term())
+        stitchwort_js::run::generate_program(
+            &self.elab.globals,
+            self.elab.options.limits,
+            main.term(),
+        )
     }
 }
 
@@ -1200,7 +1205,7 @@ impl Session {
             .iter()
             .filter(|test| selected(test))
             .filter(|test| {
-                let _op = g.budget.operation(self.elab.limits);
+                let _op = g.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
                     Ok(Some(hash)) => cache
                         .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
@@ -1214,7 +1219,7 @@ impl Session {
             return None;
         }
         let lower = |ids: &[stitchwort_core::DefId]| {
-            stitchwort_rt::lower_definitions(g, self.elab.limits, ids).ok()
+            stitchwort_rt::lower_definitions(g, self.elab.options.limits, ids).ok()
         };
         // Together, so what they share is lowered once; one at a time only
         // if some test can't be lowered.
@@ -1244,7 +1249,7 @@ impl Session {
         let mut machine = lowered.as_ref().map(|lowered| {
             stitchwort_rt::Machine::new(
                 &lowered.program,
-                stitchwort_rt::Limits::from_core(self.elab.limits),
+                stitchwort_rt::Limits::from_core(self.elab.options.limits),
             )
         });
         self.elab
@@ -1254,7 +1259,7 @@ impl Session {
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
-                let _op = g.budget.operation(self.elab.limits);
+                let _op = g.budget.operation(self.elab.options.limits);
                 let hash = match def_hash(g, test.def) {
                     Ok(hash) => hash.expect("tests are checked before they run"),
                     Err(e) => {
@@ -1285,7 +1290,7 @@ impl Session {
                     (Some(lowered), Some(machine)) => lowered.run(
                         machine,
                         test.def,
-                        partial.then(|| stitchwort_rt::Limits::from_core(self.elab.limits)),
+                        partial.then(|| stitchwort_rt::Limits::from_core(self.elab.options.limits)),
                     ),
                     _ => None,
                 };
@@ -1354,7 +1359,7 @@ impl Session {
     fn holds(&self, probe: &stitchwort_elab::Probe) -> Option<bool> {
         let g = &self.elab.globals;
         let term = probe.truth.as_ref()?;
-        let _op = g.budget.operation(self.elab.limits);
+        let _op = g.budget.operation(self.elab.options.limits);
         let _erasing = g.erasure.running();
         match eval(g, &[], term).and_then(|v| force(g, v)) {
             Ok(Value::Ctor(_, c, _)) => Some(c == 1),
@@ -1398,7 +1403,7 @@ impl Session {
         // long, which overflows the WebAssembly stack).
         let limits = Limits {
             size: SHOWN_SIDE_NODES,
-            ..self.elab.limits
+            ..self.elab.options.limits
         };
         let show = |term: &Term| -> (String, Option<Term>) {
             let _op = g.budget.operation(limits);

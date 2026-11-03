@@ -73,19 +73,20 @@ fn run(args: &[String]) -> ExitCode {
     };
     let checked = start.elapsed();
     let g = &session.elab.globals;
-    let program = match stitchwort_rt::lower_main(g, session.elab.limits, main.term(), main.row) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("{e:?}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let program =
+        match stitchwort_rt::lower_main(g, session.elab.options.limits, main.term(), main.row) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("{e:?}");
+                return ExitCode::FAILURE;
+            }
+        };
     let lowered = start.elapsed();
     // `RT_DUMP=FILE` writes the lowered program's listing there.
     if let Some(path) = std::env::var_os("RT_DUMP") {
         std::fs::write(path, program.to_string()).expect("write the listing");
     }
-    let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
     let result = stitchwort_rt::run_main(&program, limits, &mut input, &mut output);

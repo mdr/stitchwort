@@ -161,8 +161,8 @@ impl Elaborator {
     fn is_known_key(&self, key: &str) -> bool {
         self.scope.get(key).is_some()
             || self.scope.is_namespace(key)
-            || self.project_prefixes.contains(key)
-            || self.core_link_names.as_ref().is_some_and(|index| {
+            || self.session.project_prefixes.contains(key)
+            || self.session.core_link_names.as_ref().is_some_and(|index| {
                 index.owner(key).is_some()
                     || index
                         .names()
@@ -180,7 +180,7 @@ impl Elaborator {
     /// declarations, which aren't loaded yet (documentation.md §7: a name
     /// defined anywhere in std counts).
     pub fn set_core_link_names(&mut self, index: Option<std::sync::Arc<crate::LibraryIndex>>) {
-        self.core_link_names = index;
+        self.session.core_link_names = index;
     }
 }
 

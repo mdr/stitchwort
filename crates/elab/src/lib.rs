@@ -63,9 +63,6 @@ mod pipe;
 mod probe;
 pub mod project;
 mod queue;
-/// The postponement queue's counters (`queue.rs`), for measuring the stages
-/// that queue checks (docs/proposals/postponement.md, "As built (stage 1)").
-pub use queue::counts as queue_counts;
 mod quot;
 mod records;
 mod redundant;
@@ -110,7 +107,7 @@ use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Apart, Head, Spine, eval, force, quote};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
 
@@ -297,22 +294,10 @@ pub struct Elaborator {
     pub tests: Vec<TestDecl>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
-    /// The project's namespaces (`project::set_project_namespaces`).
-    project_namespaces: BTreeSet<String>,
-    /// Every prefix of a project namespace's name, the namespace included.
-    project_prefixes: BTreeSet<String>,
-    /// What `import N (..)` brings from each project namespace whose files
-    /// parsed (`project::set_project_names`).
-    project_names: BTreeMap<String, BTreeSet<String>>,
     /// In a project: the definitions each namespace checked so far made.
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     /// How many definitions the prelude made.
     prelude_defs: usize,
-    /// Where `include` reads from, and where each source file is in it
-    /// (`project::read_include`). Without them `include` is
-    /// `E-INCLUDE-UNAVAILABLE`.
-    include_files: Option<Rc<dyn project::IncludeFiles>>,
-    include_locations: HashMap<stitchwort_syntax::FileId, String>,
     /// The inference state a failed attempt takes back (`state::Attempt`).
     pub(crate) attempt: state::Attempt,
     /// The scratch state of the declaration being elaborated, emptied
@@ -321,26 +306,12 @@ pub struct Elaborator {
     /// The state of the unit being elaborated, set aside while a library
     /// file loads inside it (`state::Unit`).
     pub(crate) unit: state::Unit,
-    /// Evaluation steps one `rewrite`'s comparisons may use between them;
-    /// `None` is the default (`rewrite.rs`). Tests set it small.
-    pub rewrite_budget: Option<u64>,
-    /// The standard library's files, once the core is loaded
-    /// (`library.rs`).
-    library: Option<library::LibraryState>,
-    /// Whether the `test`s of the core and the library files are checked
-    /// (the library test target), instead of skipped.
-    pub library_tests: bool,
-    /// While the core is checked, the library's names, so a doc link in the
-    /// core may name a library declaration, which isn't loaded yet
-    /// (`set_core_link_names`, SW-1046).
-    core_link_names: Option<std::sync::Arc<library::LibraryIndex>>,
+    /// Settings and test switches, fixed when the session is built
+    /// (`state::Options`).
+    pub options: state::Options,
+    /// Project and cache bookkeeping, and statistics (`state::Session`).
+    pub session: state::Session,
     abilities: Vec<effects::AbilityInfo>,
-    /// Resource limits for checking each declaration.
-    pub limits: Limits,
-    /// For tests only: compile number patterns the old way, as nested `Succ`
-    /// patterns, even where a number case would do. Only usable with small
-    /// numbers. Tests compare the two compilations.
-    pub numbers_as_succ: bool,
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every
@@ -348,10 +319,6 @@ pub struct Elaborator {
     pub(crate) dot_heads: RefCell<
         stitchwort_core::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>,
     >,
-    /// Counts the stretches of compiler-generated source, which is freed
-    /// once checked so its addresses can be reused: dot calls are only
-    /// remembered within one (`dot::CallKey`).
-    pub(crate) source_epoch: std::cell::Cell<usize>,
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed:
@@ -373,17 +340,6 @@ pub struct Elaborator {
     /// The `D.All` generated for each container of the program a nested
     /// type is in, by container (`derive_induct.rs`).
     generated_alls: HashMap<DataId, DefId>,
-    /// How many expressions have been elaborated standalone (the REPL's,
-    /// `eval`'s): a `match` in one is lifted to a helper owned by
-    /// `<input N>`, which keeps the helpers of different inputs apart.
-    standalone_inputs: usize,
-    /// Whether declarations are elaborated with glued evaluation
-    /// (`Globals::glue`, docs/proposals/folded-calls.md): on unless
-    /// `STITCHWORT_GLUE=0`. The switch in `Globals` is on only while a
-    /// declaration or an expression typed in is elaborated
-    /// ([`Elaborator::glued`]), never while it is checked by the kernel or
-    /// run.
-    pub glue: bool,
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,
@@ -427,57 +383,8 @@ pub struct Elaborator {
     instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
     /// The module that declared each data type (§5.6 rule 1).
     data_owners: HashMap<DataId, String>,
-    /// For tests: the instance step budget, instead of the default.
-    pub instance_budget: Option<usize>,
-    /// For tests: `+ * < <=` on `Nat` and `Int` always find their
-    /// dictionary and project its field, instead of building the term the
-    /// projection would give directly when no dictionary of the interface is
-    /// in scope (docs/proposals/interfaces.md §5.13, D187: the two must be
-    /// the same).
-    pub uniform_operators: bool,
-    /// For tests: how many times finding an instance has had to wait
-    /// (`auto.rs`), in this session.
-    pub instance_waits: std::cell::Cell<usize>,
     /// What the code navigation index records, when it's on (`nav.rs`).
     nav: Option<RefCell<nav::Recorder>>,
-    /// Where library files' results are kept between runs, if anywhere
-    /// (`cache`).
-    check_cache: Option<Rc<dyn cache::Store>>,
-    cache_stats: cache::Stats,
-    /// For the check cache: each project namespace's sources, hashed by
-    /// the host (`cache::Elaborator::set_namespace_sources`), and each
-    /// namespace's key once worked out (the keys of its dependencies are
-    /// part of it).
-    namespace_sources: HashMap<String, cache::Key>,
-    namespace_keys: HashMap<String, cache::Key>,
-    /// The names such a replay declared (as failures) before it failed:
-    /// the namespace's first pass claims them again rather than finding
-    /// them taken (`cache`, `new_module_name`).
-    replayed_names: stitchwort_core::collections::HashSet<String>,
-    /// For tests: every namespace replay fails part way
-    /// (`fail_namespace_replays_late`).
-    fail_replays_late: bool,
-    /// For the rewind test: a project's driver checks each namespace, rewinds
-    /// to just before it, and checks it again (`rewind.rs`).
-    #[doc(hidden)]
-    pub recheck_namespaces: bool,
-    /// A hash of the whole standard library's text, for the keys of
-    /// project namespaces.
-    library_digest: std::cell::OnceCell<cache::Key>,
-    /// Runs counterexample searches on the fast runtime (the driver's);
-    /// without one they run on the reference evaluator
-    /// (`counterexample.rs`).
-    pub counterexample_runner: Option<counterexample::FastRunner>,
-    /// For tests: no counterexample search when a theorem fails.
-    pub no_counterexamples: bool,
-    /// Searches stop at their count of inputs, never at their wall-time
-    /// limit: for the benchmarks, whose counts must be the same on every
-    /// run (a timed search tries as many inputs as the machine manages), and
-    /// for tests, whose snapshots would lose a counterexample note under load.
-    /// `Elaborator::new` starts it from `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1`.
-    pub untimed_counterexamples: bool,
-    /// What each counterexample search did, in this session.
-    pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
     /// The equations the source implies that weren't generated, by key,
     /// with the reason: naming one is `E-NO-EQUATION` (D2176). Only grows,
     /// so a library file's or namespace's are those after its start.
@@ -694,24 +601,31 @@ impl Elaborator {
         unify::Unifier {
             g: &self.globals,
             attempt: &self.attempt,
+            stats: &self.session.stats,
         }
+    }
+
+    /// The postponement queue's counters in this session (`queue.rs`),
+    /// each with its name, for measuring the stages that queue checks
+    /// (docs/proposals/postponement.md, "As built (stage 1)").
+    pub fn queue_counts(&self) -> Vec<(&'static str, usize)> {
+        self.session.stats.counts().to_vec()
     }
 
     pub fn new() -> Self {
         // Glued evaluation (docs/proposals/folded-calls.md) is on while
         // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
         let e = Self {
-            glue: std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0"),
-            // `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1` (set for the workspace's
-            // tests by `.cargo/config.toml`): see `untimed_counterexamples`.
-            untimed_counterexamples: std::env::var("STITCHWORT_UNTIMED_COUNTEREXAMPLES")
-                .is_ok_and(|v| v == "1"),
+            options: state::Options::from_env(),
             ..Self::default()
         };
         // The names some syntax refers to, built once per process: built
         // here rather than on first use, so that the first program to use
         // them doesn't count work later ones don't (the bench's `repeat`
         // test). After the first time, this does nothing.
+        if timings::enabled() {
+            timings::register_stats(std::sync::Arc::clone(&e.session.stats));
+        }
         std::sync::LazyLock::force(&module::FLOAT_TYPE);
         std::sync::LazyLock::force(&omega::LIBRARY_NAMES);
         std::sync::LazyLock::force(&ring::LIBRARY_NAMES);
@@ -747,7 +661,7 @@ impl Elaborator {
     /// Elaborates a closed expression, and infers its type with the kernel.
     /// One operation, with its own resource limits.
     pub fn infer_expr(&mut self, expr: &Expr) -> Result<(Term, Value)> {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = self.infer_expr_in_operation(expr);
         self.globals.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
@@ -873,7 +787,7 @@ impl Elaborator {
     /// printed. One operation, with its own resource limits, including
     /// printing the value.
     pub fn eval_expr(&mut self, expr: &Expr) -> Result<(String, String)> {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let inferred = self.infer_expr_in_operation(expr);
         let run = || -> Result<(String, String)> {
             let (term, ty) = inferred?;
@@ -906,7 +820,7 @@ impl Elaborator {
     /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.decl = state::Decl::default();
-        let was = self.globals.glue.replace(self.glue);
+        let was = self.globals.glue.replace(self.options.glue);
         let out = f(self);
         self.globals.glue.set(was);
         self.decl = state::Decl::default();
@@ -924,7 +838,7 @@ impl Elaborator {
     /// a file's are ([`Checked::Goals`]), and nothing reaches the kernel.
     /// One operation, with its own resource limits.
     pub fn check_proof(&mut self, expr: &Expr) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = self.glued(|e| e.check_proof_glued(expr));
         self.globals.budget.restore(saved);
         self.clear_metas();
@@ -935,8 +849,8 @@ impl Elaborator {
     fn check_proof_glued(&mut self, expr: &Expr) -> Result<Checked> {
         self.clear_metas();
         self.clear_goals();
-        self.standalone_inputs += 1;
-        let key = format!("<input {}>", self.standalone_inputs);
+        self.session.standalone_inputs += 1;
+        let key = format!("<input {}>", self.session.standalone_inputs);
         *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
@@ -987,7 +901,7 @@ impl Elaborator {
         recursive: Option<&str>,
         body: &Expr,
     ) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.limits);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, recursive, body));
         self.globals.budget.restore(saved);
         self.clear_metas();
@@ -1004,8 +918,8 @@ impl Elaborator {
     ) -> Result<Checked> {
         self.clear_metas();
         self.clear_goals();
-        self.standalone_inputs += 1;
-        let key = format!("<input {}>", self.standalone_inputs);
+        self.session.standalone_inputs += 1;
+        let key = format!("<input {}>", self.session.standalone_inputs);
         *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<Term> {
@@ -1053,8 +967,8 @@ impl Elaborator {
 
     fn infer_expr_glued(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         self.clear_metas();
-        self.standalone_inputs += 1;
-        let key = format!("<input {}>", self.standalone_inputs);
+        self.session.standalone_inputs += 1;
+        let key = format!("<input {}>", self.session.standalone_inputs);
         *self.decl.owner.borrow_mut() = vec![key.clone()];
         self.attempt.local_keys.borrow_mut().clear();
         let elaborated = (|| -> Result<(Term, Term)> {
@@ -1097,7 +1011,7 @@ impl Elaborator {
     /// Prints a closed value, as one operation: a part too large or nested
     /// too deeply to print within its limits is shown as `…`.
     pub fn show(&self, value: &Value) -> String {
-        let _op = self.globals.budget.operation(self.limits);
+        let _op = self.globals.budget.operation(self.options.limits);
         pretty::value(&self.globals, &[], value)
     }
 
@@ -3449,7 +3363,7 @@ impl Elaborator {
             // those constructors, and numbers in it count down as it's split.
             // A column of `Int`s is split by sign first (see `pattern_ctor`).
             if matches!(**pattern, Pattern::Num(..))
-                && !self.numbers_as_succ
+                && !self.options.numbers_as_succ
                 && !rows
                     .iter()
                     .any(|r| matches!(*r.pats[j], Pattern::Ctor(..) | Pattern::CtorFields { .. }))

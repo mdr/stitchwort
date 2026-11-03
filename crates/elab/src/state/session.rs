@@ -1,0 +1,304 @@
+//! [`Session`]: project and cache bookkeeping, and statistics. What the
+//! host tells the elaborator about the project (its namespaces, where
+//! `include` reads from), what the check cache keeps track of, and what
+//! the session counts.
+//!
+//! A rewind puts back the bookkeeping that later loads can change
+//! ([`Session::mark`], [`Session::rewind`]; copies at this point); the rest
+//! only grows or counts, and a rewind leaves it.
+
+use std::cell::{Cell, OnceCell, RefCell};
+use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_syntax::FileId;
+
+use crate::{cache, counterexample, library, project};
+
+#[derive(Default)]
+pub struct Session {
+    /// The project's namespaces (`project::set_project_namespaces`).
+    pub(crate) project_namespaces: BTreeSet<String>,
+    /// Every prefix of a project namespace's name, the namespace included.
+    pub(crate) project_prefixes: BTreeSet<String>,
+    /// What `import N (..)` brings from each project namespace whose files
+    /// parsed (`project::set_project_names`).
+    pub(crate) project_names: BTreeMap<String, BTreeSet<String>>,
+    /// Where `include` reads from, and where each source file is in it
+    /// (`project::read_include`). Without them `include` is
+    /// `E-INCLUDE-UNAVAILABLE`. The host sets it as it loads a project or
+    /// a file on its own, so it is put back by a rewind.
+    pub(crate) include_files: Option<Rc<dyn project::IncludeFiles>>,
+    pub(crate) include_locations: HashMap<FileId, String>,
+    /// The standard library's files, once the core is loaded
+    /// (`library.rs`).
+    pub(crate) library: Option<library::LibraryState>,
+    /// While the core is checked, the library's names, so a doc link in the
+    /// core may name a library declaration, which isn't loaded yet
+    /// (`set_core_link_names`, SW-1046). Set by the host around the core's
+    /// load only, so empty at every mark.
+    pub(crate) core_link_names: Option<Arc<library::LibraryIndex>>,
+    /// Counts the stretches of compiler-generated source, which is freed
+    /// once checked so its addresses can be reused: dot calls are only
+    /// remembered within one (`dot::CallKey`). Never reused, so a rewind
+    /// leaves it.
+    pub(crate) source_epoch: Cell<usize>,
+    /// How many expressions have been elaborated standalone (the REPL's,
+    /// `eval`'s): a `match` in one is lifted to a helper owned by
+    /// `<input N>`, which keeps the helpers of different inputs apart.
+    pub(crate) standalone_inputs: usize,
+    /// For tests: how many times finding an instance has had to wait
+    /// (`auto.rs`), in this session.
+    pub instance_waits: Cell<usize>,
+    /// What the check cache has done in this session.
+    pub(crate) cache_stats: cache::Stats,
+    /// For the check cache: each project namespace's sources, hashed by
+    /// the host (`cache::Elaborator::set_namespace_sources`), and each
+    /// namespace's key once worked out (the keys of its dependencies are
+    /// part of it).
+    pub(crate) namespace_sources: HashMap<String, cache::Key>,
+    pub(crate) namespace_keys: HashMap<String, cache::Key>,
+    /// The names such a replay declared (as failures) before it failed:
+    /// the namespace's first pass claims them again rather than finding
+    /// them taken (`cache`, `new_module_name`).
+    pub(crate) replayed_names: HashSet<String>,
+    /// A hash of the whole standard library's text, for the keys of
+    /// project namespaces. Computed once.
+    pub(crate) library_digest: OnceCell<cache::Key>,
+    /// What each counterexample search did, in this session. Only grows.
+    pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
+    /// What the postponement queue and the unifier counted.
+    pub(crate) stats: Arc<Stats>,
+}
+
+/// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
+/// can change.
+pub(crate) struct Mark {
+    project_namespaces: BTreeSet<String>,
+    project_prefixes: BTreeSet<String>,
+    project_names: BTreeMap<String, BTreeSet<String>>,
+    include_files: Option<Rc<dyn project::IncludeFiles>>,
+    include_locations: HashMap<FileId, String>,
+    library: Option<library::LibraryState>,
+    namespace_sources: HashMap<String, cache::Key>,
+    namespace_keys: HashMap<String, cache::Key>,
+    replayed_names: HashSet<String>,
+}
+
+impl Session {
+    pub(crate) fn mark(&self) -> Mark {
+        let Session {
+            project_namespaces,
+            project_prefixes,
+            project_names,
+            include_files,
+            include_locations,
+            library,
+            namespace_sources,
+            namespace_keys,
+            replayed_names,
+            // Set around the core's load, so `None` here.
+            core_link_names: _,
+            // Counted, never reused or taken back.
+            source_epoch: _,
+            standalone_inputs: _,
+            instance_waits: _,
+            cache_stats: _,
+            library_digest: _,
+            counterexample_log: _,
+            stats: _,
+        } = self;
+        Mark {
+            project_namespaces: project_namespaces.clone(),
+            project_prefixes: project_prefixes.clone(),
+            project_names: project_names.clone(),
+            include_files: include_files.clone(),
+            include_locations: include_locations.clone(),
+            library: library.clone(),
+            namespace_sources: namespace_sources.clone(),
+            namespace_keys: namespace_keys.clone(),
+            replayed_names: replayed_names.clone(),
+        }
+    }
+
+    pub(crate) fn rewind(&mut self, mark: &Mark) {
+        let Session {
+            project_namespaces,
+            project_prefixes,
+            project_names,
+            include_files,
+            include_locations,
+            library,
+            namespace_sources,
+            namespace_keys,
+            replayed_names,
+            core_link_names: _,
+            source_epoch: _,
+            standalone_inputs: _,
+            instance_waits: _,
+            cache_stats: _,
+            library_digest: _,
+            counterexample_log: _,
+            stats: _,
+        } = self;
+        *project_namespaces = mark.project_namespaces.clone();
+        *project_prefixes = mark.project_prefixes.clone();
+        *project_names = mark.project_names.clone();
+        *include_files = mark.include_files.clone();
+        *include_locations = mark.include_locations.clone();
+        *library = mark.library.clone();
+        *namespace_sources = mark.namespace_sources.clone();
+        *namespace_keys = mark.namespace_keys.clone();
+        *replayed_names = mark.replayed_names.clone();
+    }
+}
+
+/// The queue's and the unifier's counters, attempts undone included, for
+/// `STITCHWORT_TIMINGS` (`timings.rs`) and the stages after this one
+/// (docs/proposals/postponement.md, "As built (stage 1)" to "(stage 3)"):
+/// items queued, resumed, defaulted and reported stuck; items that reached
+/// the end of their application still waiting (`crossed W1`, the stage-6
+/// trigger); comparisons that failed at an unfilled placeholder (`met
+/// unfilled`, its other half, `Stats::met_unfilled`); fills whose
+/// placeholder unification had solved first (`solved first`), and of
+/// those, solved by comparing two calls' arguments (`lossy`, the caveat to
+/// D2016's P1); fills that disagreed with that solution; fills whose term
+/// couldn't be written as a call of the placeholder, so zonking reads the
+/// solution back (`read back`); resumptions that met another unknown and
+/// waited again (`requeued`); and `.field`s queued with their receiver
+/// kept as a term (`kept`), of which those whose receiver made a choice
+/// from an unknown (`kept chose`, invariant 6; 0 expected); and
+/// elaborations run a second time with number literals last (`retried`,
+/// `check::retrying`, which K4 makes unneeded); and comparisons queued to
+/// wait for unknowns the queue still has to settle (`waited`, stage 6); and
+/// generalising `match`es that waited for an unknown their generalisation
+/// would read (`match waited`, step 4.0 of stage 4), and motive checks left
+/// for lifting (`motive later`); and, step 4.2, `rewrite` rules whose own
+/// checks still waited after resuming (`rule settled`) and the defaults
+/// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
+/// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
+/// holding an unknown the declaration will still settle, and of those the
+/// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
+/// "infer the other side" catch it keeps (`leaf uninferred`).
+///
+/// Per session; `STITCHWORT_TIMINGS` adds up the sessions of the process,
+/// each when it is dropped (`timings::add_queue_counts`). The counters are in
+/// the order [`Stats::counts`] lists (the order printed).
+#[derive(Default)]
+pub(crate) struct Stats {
+    pub(crate) queued: AtomicUsize,
+    pub(crate) resumed: AtomicUsize,
+    pub(crate) defaulted: AtomicUsize,
+    pub(crate) stuck: AtomicUsize,
+    pub(crate) crossed: AtomicUsize,
+    /// Comparisons that failed at a pair one side of which is headed by an
+    /// unfilled placeholder (stuck there, or put aside on it): the second
+    /// half of the stage-6 trigger (docs/proposals/postponement.md §5.13).
+    pub(crate) met_unfilled: AtomicUsize,
+    pub(crate) solved_first: AtomicUsize,
+    pub(crate) lossy: AtomicUsize,
+    pub(crate) disagreed: AtomicUsize,
+    pub(crate) read_back: AtomicUsize,
+    pub(crate) requeued: AtomicUsize,
+    pub(crate) kept: AtomicUsize,
+    pub(crate) kept_chose: AtomicUsize,
+    pub(crate) retried: AtomicUsize,
+    pub(crate) leaf_uninferred: AtomicUsize,
+    pub(crate) waited: AtomicUsize,
+    pub(crate) match_waited: AtomicUsize,
+    pub(crate) motive_later: AtomicUsize,
+    pub(crate) rule_settled: AtomicUsize,
+    pub(crate) rule_defaulted: AtomicUsize,
+    pub(crate) tactic_waited: AtomicUsize,
+    pub(crate) omega_pending: AtomicUsize,
+    pub(crate) omega_pending_failed: AtomicUsize,
+    pub(crate) ring_pending: AtomicUsize,
+    pub(crate) ring_pending_failed: AtomicUsize,
+    pub(crate) auto_pending: AtomicUsize,
+    pub(crate) auto_pending_failed: AtomicUsize,
+}
+
+/// How many counters [`Stats`] has.
+pub(crate) const STAT_COUNT: usize = 27;
+
+impl Stats {
+    /// One more of `counter`.
+    pub(crate) fn bump(counter: &AtomicUsize) {
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Every counter with its name, in the order `STITCHWORT_TIMINGS`
+    /// prints them.
+    pub(crate) fn counts(&self) -> [(&'static str, usize); STAT_COUNT] {
+        let Stats {
+            queued,
+            resumed,
+            defaulted,
+            stuck,
+            crossed,
+            met_unfilled,
+            solved_first,
+            lossy,
+            disagreed,
+            read_back,
+            requeued,
+            kept,
+            kept_chose,
+            retried,
+            leaf_uninferred,
+            waited,
+            match_waited,
+            motive_later,
+            rule_settled,
+            rule_defaulted,
+            tactic_waited,
+            omega_pending,
+            omega_pending_failed,
+            ring_pending,
+            ring_pending_failed,
+            auto_pending,
+            auto_pending_failed,
+        } = self;
+        [
+            ("queued", queued.load(Ordering::Relaxed)),
+            ("resumed", resumed.load(Ordering::Relaxed)),
+            ("defaulted", defaulted.load(Ordering::Relaxed)),
+            ("stuck", stuck.load(Ordering::Relaxed)),
+            ("crossed W1", crossed.load(Ordering::Relaxed)),
+            ("met unfilled", met_unfilled.load(Ordering::Relaxed)),
+            ("solved first", solved_first.load(Ordering::Relaxed)),
+            ("lossy", lossy.load(Ordering::Relaxed)),
+            ("disagreed", disagreed.load(Ordering::Relaxed)),
+            ("read back", read_back.load(Ordering::Relaxed)),
+            ("requeued", requeued.load(Ordering::Relaxed)),
+            ("kept", kept.load(Ordering::Relaxed)),
+            ("kept chose", kept_chose.load(Ordering::Relaxed)),
+            ("retried", retried.load(Ordering::Relaxed)),
+            ("leaf uninferred", leaf_uninferred.load(Ordering::Relaxed)),
+            ("waited", waited.load(Ordering::Relaxed)),
+            ("match waited", match_waited.load(Ordering::Relaxed)),
+            ("motive later", motive_later.load(Ordering::Relaxed)),
+            ("rule settled", rule_settled.load(Ordering::Relaxed)),
+            ("rule defaulted", rule_defaulted.load(Ordering::Relaxed)),
+            ("tactic waited", tactic_waited.load(Ordering::Relaxed)),
+            ("omega on pending", omega_pending.load(Ordering::Relaxed)),
+            (
+                "omega failed on pending",
+                omega_pending_failed.load(Ordering::Relaxed),
+            ),
+            ("ring on pending", ring_pending.load(Ordering::Relaxed)),
+            (
+                "ring failed on pending",
+                ring_pending_failed.load(Ordering::Relaxed),
+            ),
+            ("auto on pending", auto_pending.load(Ordering::Relaxed)),
+            (
+                "auto failed on pending",
+                auto_pending_failed.load(Ordering::Relaxed),
+            ),
+        ]
+    }
+}
