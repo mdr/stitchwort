@@ -9,7 +9,8 @@
 //! `f a b` becoming `f (x := a) (y := b)`, and every declaration must have
 //! the same hash. A call is rewritten when its head is a definition found by
 //! its full name (the file's own, or the library's as `List.map`), not a
-//! name the file binds anywhere else, and only the arguments whose
+//! name the file binds anywhere else (and not a built-in: `J`, `rfl` and the
+//! quotient forms are kernel forms, not calls), and only the arguments whose
 //! parameters have names (in the definition's declared type). Effectful
 //! calls are rewritten too: the effect trace is the term's.
 //!
@@ -360,7 +361,9 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
     let mut inserts: Vec<(u32, i64, String)> = Vec::new();
     let mut count = 0;
     for (head, piped, args) in &walk.calls {
-        if walk.bound.contains(head) {
+        // `rfl`, `J` and the quotient forms are kernel forms with their own
+        // arity checks; `Builtins.sw` only documents them (SW-1146).
+        if walk.bound.contains(head) || stitchwort_elab::is_builtin(head) {
             continue;
         }
         let Some(&id) = by_path
