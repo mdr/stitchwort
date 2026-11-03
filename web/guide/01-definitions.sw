@@ -3,7 +3,9 @@ def answer: Nat := 42
 
 def double (n: Nat): Nat := n + n
 
--- Text, Bool and Char are built in; `++` joins text.
+-- Text, Bool and Char are built in; `++` joins text. A `--|` comment above a
+-- declaration is its documentation: hover over `greeting` to see it.
+--| Greets by name: `greeting "Ada"` is `"Hello, Ada!"`.
 def greeting (name: Text): Text := "Hello, " ++ name ++ "!"
 
 -- Numbers have no upper limit: no overflow.

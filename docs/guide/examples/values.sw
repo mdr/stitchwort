@@ -11,6 +11,14 @@ def greeting (name: Text): Text := "Hello, " ++ name ++ "!"
 def area (width: Nat) (height: Nat): Nat := width * height
 -- end definitions
 
+-- begin docs
+--| How many shelves `width` wide fit along a wall, rounded down. A width of 0
+--| fits none. For the floor see [`area`].
+def shelves (wall: Nat) (width: Nat): Nat := if width ≠ 0 then wall / width else 0
+
+test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
+-- end docs
+
 -- begin blocks
 def describe (n: Nat): Text :=
   let half := n / 2

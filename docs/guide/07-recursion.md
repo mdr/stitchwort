@@ -166,6 +166,49 @@ def isOdd: Nat → Bool
 test "mutual recursion" := isEven 10 ∧ isOdd 7
 ```
 
+Types can refer to each other too. They are declared one after the other, and checked together, with the same parameters. A function over them is a pair of mutually recursive functions:
+
+<!-- snippet: recursion.sw#mutual-types -->
+```stitchwort
+type Rose =
+  | Branch (label: Nat) (kids: Roses)
+
+type Roses =
+  | RNil
+  | RCons (first: Rose) (rest: Roses)
+
+def Rose.total: Rose → Nat
+  | Branch label kids => label + Roses.total kids
+
+def Roses.total: Roses → Nat
+  | RNil => 0
+  | RCons first rest => Rose.total first + Roses.total rest
+
+test "types that refer to each other" := Rose.total (Branch 1 (RCons (Branch 2 RNil) (RCons (Branch 3 RNil) RNil))) == 6
+```
+
+## Recursion through a container
+
+A type may also contain itself inside a container, such as a list: a packet is a number or a list of packets. The recursive call is then on an element of the list, which isn't an argument's direct part, so the function names a measure with `decreasing`. For such a type `Packet` the compiler generates `Packet.size`, the number of constructors in a value, and `items.attach` pairs each element with the proof that it came from `items`, from which the call is seen to be smaller with nothing more to write:
+
+<!-- snippet: recursion.sw#nested -->
+```stitchwort
+type Packet =
+  | Number (value: Nat)
+  | Packets (items: List Packet)
+
+def Packet.depth (packet: Packet): Nat
+    decreasing Packet.size packet
+:=
+  match packet with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+
+test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
+```
+
+The same holds for `Option` and pairs, and for containers you declare yourself. The compiler also generates an induction principle, `Packet.induct`, for proofs ([chapter 10](10-proofs.md)). [syntax.md](../syntax.md#declaration-order) has the rules and their limits.
+
 ## `Partial`: functions that may not finish
 
 Some functions have no known reason to finish, such as the Collatz sequence. Mark them `Partial`. `Partial` is written in the type like an ability ([chapter 8](08-abilities.md)), and everything that calls a partial function must say `Partial` too:

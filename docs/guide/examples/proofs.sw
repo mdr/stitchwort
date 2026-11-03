@@ -105,6 +105,29 @@ theorem loopIsSum: (n: Nat) → (total: Nat) → sumFast.loop n total = total + 
 theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
 -- end spec
 
+-- begin induct
+def countAbove (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
+  match induct (countAbove k xs) with
+    | eq1 => omega
+    | eq2IfTrue y ys h ih => ih
+    | eq2IfFalse y ys h ih => omega
+
+theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k (Cons x xs) = countAbove k xs :=
+  countAbove.eq2.ifFalse k x xs h
+-- end induct
+
+-- begin opaque
+opaque def checksum (xs: List Nat): Nat := xs.foldLeft 0 (sum x => (sum * 31 + x) % 65521)
+
+theorem checksumNil: checksum [] = 0 unfolding checksum := rfl
+
+test "checksum" := checksum [1, 2] == 33
+-- end opaque
+
 -- begin match-equation
 def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 

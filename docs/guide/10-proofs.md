@@ -352,6 +352,63 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
 
 Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`: the hypothesis should say `n ≤ 2`. `cases` doesn't take apart lists or numbers, which is induction (written as recursion, above), and stops at 64 cases.
 
+## Induction that follows a function
+
+Induction on a list or a number is induction on the type. A function with an `if` in it has more cases than its type does: one for each branch. Every recursive function comes with an **induction principle** shaped like its own equations, and `match induct (f args)` proves a statement about a call of `f` by it. The goal is worked out from the statement, so the proof has one alternative for each branch of `f`, named after its equation (`eq2IfTrue` is the true branch of the `if` in arm 2), and each gets the variables of the branch, the fact the branch was taken under, and an induction hypothesis for each recursive call:
+
+<!-- snippet: proofs.sw#induct -->
+```stitchwort
+def countAbove (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
+  match induct (countAbove k xs) with
+    | eq1 => omega
+    | eq2IfTrue y ys h ih => ih
+    | eq2IfFalse y ys h ih => omega
+
+theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k (Cons x xs) = countAbove k xs :=
+  countAbove.eq2.ifFalse k x xs h
+```
+
+Leaving an alternative as `?` shows what that branch has to prove, and what it can use:
+
+<!-- snippet: errors/induct.sw -->
+```stitchwort
+def countAbove (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
+  match induct (countAbove k xs) with
+    | eq1 => omega
+    | eq2IfTrue y ys h ih => ?
+    | eq2IfFalse y ys h ih => omega
+```
+
+<!-- output: check errors/induct.sw -->
+```text
+[GOAL] Goal: in `countAboveLe`
+   ╭─[ errors/induct.sw:8:30 ]
+   │
+ 8 │     | eq2IfTrue y ys h ih => ?
+   │                              ┬
+   │                              ╰── k: Nat
+   │                                  xs: List Nat
+   │                                  y: Nat
+   │                                  ys: List Nat
+   │                                  h: k ≤ y
+   │                                  ih: countAbove k ys ≤ Std.List.length ys
+   │                                  ⊢ countAbove k ys ≤ Std.List.length ys
+───╯
+1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+```
+
+The names after the case bind its variables, then the condition it was taken under, then the induction hypotheses. Here `ih` is the statement for the tail `ys`. In the true branch the goal, once computed, is the same statement, so `ih` is the proof; in the false branch `omega` closes the goal from `ih`. Without `match induct`, the same proof is a function by cases on `xs` that also splits on the `if`.
+
+The pieces are theorems you can use directly. Every arm of a definition gets an equation, `f.eq1`, `f.eq2`, …, and every `if` or `match` in tail position inside it gets one for each way through, named for the split (`countAbove.eq2.ifFalse`, `.some`, `.cons`). Each says what a call is when the branch was taken, taking the fact it was taken under as a hypothesis, as `skipsSmall` above does. These are most useful where the call is stuck on a condition, which `rfl` and `rewrite` can't compute through. The induction principle itself is `f.induct`, and `match induct` is shorthand for applying it. `stitchwort doc f` lists a function's equations, and marks those whose left side is stuck. Not every definition gets them (mutually recursive groups, and arms whose branches can't be stated, say so when named), and a definition that doesn't call itself has no `f.induct`. The rules are in [syntax.md](../syntax.md#generated-equations).
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
@@ -502,6 +559,47 @@ export def clampPercent (n: Nat): Nat := clampTo 100 n
 theorem clampPercentAtMost (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100 n
 ```
 
+## Hiding a definition: `opaque`
+
+The checker looks inside definitions: `rfl` computes through them, and so does every later proof, even when the body is long or only an implementation detail. An `opaque def` is checked and run like any other, but other declarations see only its name and type. A call is equal to another call only through its arguments:
+
+<!-- snippet: errors/opaque.sw -->
+```stitchwort
+opaque def checksum (xs: List Nat): Nat := xs.foldLeft 0 (sum x => (sum * 31 + x) % 65521)
+
+theorem checksumNil: checksum [] = 0 := rfl
+```
+
+<!-- output: check errors/opaque.sw -->
+```text
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ errors/opaque.sw:3:41 ]
+   │
+ 3 │ theorem checksumNil: checksum [] = 0 := rfl
+   │                                         ─┬─
+   │                                          ╰─── `checksum []` and `0` aren't equal
+   │
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │
+   │ Note 2: `checksum` is opaque, so its body isn't used here
+   │
+   │ Note 3: add `unfolding checksum` after this declaration's signature, or rewrite with `checksum.unfold`
+───╯
+```
+
+A declaration that needs the body says so with `unfolding` after its type, or rewrites with the equation `checksum.unfold`:
+
+<!-- snippet: proofs.sw#opaque -->
+```stitchwort
+opaque def checksum (xs: List Nat): Nat := xs.foldLeft 0 (sum x => (sum * 31 + x) % 65521)
+
+theorem checksumNil: checksum [] = 0 unfolding checksum := rfl
+
+test "checksum" := checksum [1, 2] == 33
+```
+
+The program still runs the body, and the test uses it. What opacity changes is what other proofs can see: one that doesn't say `unfolding` can't depend on the body, and its check doesn't have to compute through it. `unfolding` is for a theorem or another `opaque def`, and not for a plain `def`, whose body is always visible.
+
 ## Proofs about effectful code
 
 A handler applied to a computation of a known shape computes, so many facts about effectful code are `rfl` ([chapter 8](08-abilities.md)). A law about *any* computation needs to split on what the computation does. `match reify t with` does that, with clauses written as a handler's: one for finishing with a value, and one per operation:
@@ -536,6 +634,15 @@ theorem doubleIsTimesTwo: double = (n => 2 * n) := Quot.funext Nat (n => Nat) do
 ```text
 Quot.sound
 ```
+
+`stitchwort axioms` answers for one theorem. A theorem can also check and still be worth little: a lemma it uses may be an unfinished `?`, or its hypotheses may contradict each other, so that it proves its conclusion only for inputs that don't exist (`theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := omega` checks). `stitchwort audit` looks at every theorem of a file, a namespace or a project for these and for axioms you didn't allow, and prints a line for each one with a finding:
+
+<!-- output: audit proofs.sw sumFastIsSum -->
+```text
+audited 1 theorem: 0 failed, 0 with warnings, 1 passed
+```
+
+A project can narrow the allowed axioms in its `stitchwort.yaml` ([projects.md](../projects.md)). A warning about hypotheses means the counterexample search found no input that satisfies them, which is evidence and not proof, so read the statement. [syntax.md](../syntax.md#auditing-theorems-stitchwort-audit) has the rest.
 
 ## A worked example: Advent of Code 2025, day 1
 

@@ -112,6 +112,22 @@ def simplify: Expr → Expr
 test "nested patterns" := simplify (Add (Num 0) (Neg (Neg (Num 5)))) == Num 5
 -- end nested-patterns
 
+-- begin or-patterns
+type Colour = | Red | Yellow | Green | Blue
+
+def Colour.isWarm: Colour → Bool
+  | Red | Yellow => True
+  | Green | Blue => False
+
+def keyMove (key: Char): Option Text :=
+  match key with
+    | 'k' | 'w' => Some "north"
+    | 'j' | 's' => Some "south"
+    | _ => None
+
+test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
+-- end or-patterns
+
 -- begin match
 def compareAges (a: Person) (b: Person): Text :=
   match Ord.compare a.age b.age with

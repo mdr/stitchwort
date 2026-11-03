@@ -120,7 +120,7 @@ test "label" := ada.label == "Ada (36)"
 
 ### Default values
 
-A field may have a default value, written after `:=`. A literal can then leave it out:
+A field may have a default value, written after `:=` (so may a function's parameter, [chapter 4](04-functions.md#default-values)). A literal can then leave it out:
 
 <!-- snippet: data.sw#defaults -->
 ```stitchwort
@@ -243,6 +243,25 @@ def simplify: Expr → Expr
   | e => e
 
 test "nested patterns" := simplify (Add (Num 0) (Neg (Neg (Num 5)))) == Num 5
+```
+
+Several patterns that give the same result are written in one arm with `|`. The alternatives can't bind variables (`_` is fine); for those, write arms of their own:
+
+<!-- snippet: data.sw#or-patterns -->
+```stitchwort
+type Colour = | Red | Yellow | Green | Blue
+
+def Colour.isWarm: Colour → Bool
+  | Red | Yellow => True
+  | Green | Blue => False
+
+def keyMove (key: Char): Option Text :=
+  match key with
+    | 'k' | 'w' => Some "north"
+    | 'j' | 's' => Some "south"
+    | _ => None
+
+test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 ```
 
 `match` takes values apart in the middle of an expression. It can match several values at once, separated by commas:

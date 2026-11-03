@@ -65,6 +65,39 @@ def isOdd: Nat → Bool
 test "mutual recursion" := isEven 10 ∧ isOdd 7
 -- end mutual
 
+-- begin mutual-types
+type Rose =
+  | Branch (label: Nat) (kids: Roses)
+
+type Roses =
+  | RNil
+  | RCons (first: Rose) (rest: Roses)
+
+def Rose.total: Rose → Nat
+  | Branch label kids => label + Roses.total kids
+
+def Roses.total: Roses → Nat
+  | RNil => 0
+  | RCons first rest => Rose.total first + Roses.total rest
+
+test "types that refer to each other" := Rose.total (Branch 1 (RCons (Branch 2 RNil) (RCons (Branch 3 RNil) RNil))) == 6
+-- end mutual-types
+
+-- begin nested
+type Packet =
+  | Number (value: Nat)
+  | Packets (items: List Packet)
+
+def Packet.depth (packet: Packet): Nat
+    decreasing Packet.size packet
+:=
+  match packet with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+
+test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
+-- end nested
+
 -- begin trees
 type Tree =
   | Leaf
