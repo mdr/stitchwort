@@ -3,7 +3,7 @@
 // WebAssembly instance in a broken state, and a runaway case can be stopped
 // by terminating the worker. See stress.html.
 
-import init, { check, evaluate, limits, test } from "./pkg/stitchwort_web.js";
+import init, { check, evaluate, limits, load_std, test } from "./pkg/stitchwort_web.js";
 
 let wasm;
 
@@ -11,7 +11,10 @@ self.onmessage = async ({ data }) => {
   const started = performance.now();
   const memory = () => wasm?.memory?.buffer.byteLength ?? null;
   try {
-    wasm ??= await init();
+    if (!wasm) {
+      wasm = await init();
+      load_std(new Uint8Array(await (await fetch(new URL("./pkg/std.bundle", import.meta.url))).arrayBuffer()));
+    }
     const run = {
       check: () => check(data.source),
       test: () => test(data.source),

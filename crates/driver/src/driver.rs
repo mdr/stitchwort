@@ -867,7 +867,7 @@ struct Memory {
 const COMPILER: &str = concat!("stitchwort-", env!("CARGO_PKG_VERSION"));
 
 /// A hash of the source of this crate and every workspace crate it's built
-/// with ([`FINGERPRINT_CRATES`]: the elaborator with the prelude, the
+/// with ([`FINGERPRINT_CRATES`]: the elaborator, the
 /// runtime that runs the tests, …), made by `build.rs`: part of every cache
 /// key, so results from another build of the compiler aren't reused, even
 /// with the same version number.
@@ -878,17 +878,14 @@ pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
 /// ([`crate::fingerprint::source_crates`]).
 pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 
-/// The fingerprint the caches key on: [`FINGERPRINT`], or, when the standard
-/// library is read from a directory (`STITCHWORT_STD_DIR`), a hash of it and
-/// the library's text as read. [`FINGERPRINT`] covers the embedded copy, not
-/// the one on disk, which can change without a rebuild.
+/// The fingerprint the caches key on: [`FINGERPRINT`] and a hash of the
+/// standard library's text as read. [`FINGERPRINT`] covers the Rust sources
+/// only: the library is read from files, not compiled in, so it can change
+/// without a rebuild.
 pub fn build_fingerprint() -> &'static str {
-    static FROM_DISK: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    let std = stitchwort_elab::std_text();
-    if std.dir.is_none() {
-        return FINGERPRINT;
-    }
-    FROM_DISK.get_or_init(|| {
+    static WITH_STD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    WITH_STD.get_or_init(|| {
+        let std = stitchwort_elab::std_text();
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());

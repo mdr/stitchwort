@@ -144,23 +144,21 @@ Random tests use fixed seeds, so every run tests the same cases and a failure ca
 
 ## Editing the standard library
 
-The standard library (`crates/elab/src/std/**`) is embedded in the binary, so normally an edit to it needs a rebuild before `stitchwort` or a test binary sees it. To skip the rebuild, point the compiler at the source tree:
+No build embeds the standard library (`crates/elab/src/std/**`): the compiler reads the files when a process first uses it (SW-1136, `docs/proposals/std-as-data.md`). So an edit to a `.sw` file compiles nothing: `task build` is a no-op, and `task test:one -- NAME` runs the test binary that is already built, on the edited library.
 
-```sh
-export STITCHWORT_STD_DIR=$PWD/crates/elab/src/std   # or: stitchwort --std-dir crates/elab/src/std run …
-target/release/stitchwort run prog.sw              # sees the edited std; no cargo build
-target/release/deps/std_library-<hash> loads       # an already built test binary, filtered
-```
+Where a process looks, first match wins:
 
-- Run binaries that are already built (`target/release/stitchwort`, `target/release/deps/<test>-<hash>`). `cargo run` and `cargo test` still rebuild the elaborator, because the embedded copy changed.
-- The directory is read once, when a process first uses the library. Library files are every `.sw` file outside `core/`, so a new one is picked up; the core's files are read in the order the build lists (`core_files!` in `crates/elab/src/lib.rs`), so a new core file needs a rebuild.
-- The caches stay correct: the check cache's keys hash each library file's text as read, and with the variable set the test-result cache's build fingerprint also hashes the library's text (`build_fingerprint` in `crates/driver/src/driver.rs`).
-- An error in a library file names its path on disk (`…/crates/elab/src/std/Nat/Iterate.sw:12:3`), so an editor can jump to it.
-- The language server reads the library when it starts: restart it after editing std.
-- The hash snapshots (`hash_stability`) and `std_library` print which copy they use (`std from …` or `embedded std`). Snapshots taken with the variable set are of the edited library; rebuild and rerun without it before committing.
-- Release builds, the WebAssembly playground and `nix build` use the embedded copy unless the variable or flag is set; WebAssembly never reads it.
+1. `stitchwort --std-dir DIR`, then `STITCHWORT_STD_DIR=DIR`: an explicit choice.
+2. An installed binary's `../share/stitchwort/std` (the flake's package lays it out there).
+3. The checkout's `crates/elab/src/std`, found from the executable (cargo's `target/` is inside the checkout, so test binaries find it, in the `nix flake check` sandbox too) and then from the current directory.
 
-Lanes working on std: set `STITCHWORT_STD_DIR` in the shell for the session, build `stitchwort` once, and iterate with the built binary.
+If none exists the process stops with a message naming the places tried. WebAssembly has no files: the playground fetches `pkg/std.bundle` beside the wasm (`web/bundle-std.sh`, run by `web/build.sh`) and passes it to `load_std`; a `.sw` edit there needs `task web:build`, not cargo.
+
+- The directory is read once, when a process first uses the library. The core's files are read in the order `crates/elab/src/std/core/order.txt` lists, one name per line; a new core file is a new line there. Library files are every other `.sw` file, so a new one is picked up.
+- The caches stay correct: the check cache's keys hash each library file's text as read, and `build_fingerprint` (`crates/driver/src/driver.rs`) mixes a hash of the library's text into the test-result and compile caches' key. The build fingerprint hashes Rust sources only, so a `.sw` edit changes the cache keys (as it must) and recompiles nothing.
+- An error in a library file names its path on disk (`…/crates/elab/src/std/Nat/Iterate.sw:12:3`), so an editor can jump to it. The language server opens that real file for a library definition (a `stitchwort-std:` document only when the library has no directory); it reads the library when it starts, so restart it after editing std.
+- The hash snapshots (`hash_stability`) and `std_library` print which library they use (`std from <directory>`). Snapshots taken against a library with local edits are of that library.
+- A library whose core differs from the built-in natives' expectations is stopped by registration (`E-BUILTIN`) or the pinned hashes (`pinned_hashes`); there is no separate version check (see the note above).
 
 ## Running
 

@@ -90,7 +90,8 @@
               ./examples # example programs are the main test suite
               ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
-              (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the standard library, read from the source tree by the tests
+              ./crates/elab/src/std/core/order.txt # the core's file list
               ./web/index.html # the playground's examples are checked
               ./web/guide # so are the guide's (crates/web)
               ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
@@ -113,6 +114,24 @@
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/inputs)
             ];
           };
+          # The standard library, as files: the installed binary reads it
+          # from `../share/stitchwort/std` beside itself, and the playground
+          # bundles it (docs/proposals/std-as-data.md).
+          stdSource = lib.fileset.toSource {
+            root = ./crates/elab/src/std;
+            fileset = lib.fileset.unions [
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates/elab/src/std)
+              ./crates/elab/src/std/core/order.txt
+            ];
+          };
+          # bundle-std.sh takes the repository's root.
+          stdBundleRoot = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates/elab/src/std)
+              ./crates/elab/src/std/core/order.txt
+            ];
+          };
           commonArgs = {
             inherit src;
             pname = "stitchwort";
@@ -126,6 +145,8 @@
           # from its own binary (docs/proposals/standalone-executables.md
           # §2.2). Crane installs a static library in `lib/`, if at all.
           installRuntime = ''
+            mkdir -p $out/share/stitchwort
+            cp -r --no-preserve=mode ${stdSource} $out/share/stitchwort/std
             mkdir -p $out/lib/stitchwort
             if [ -e $out/lib/libstitchwort_standalone.a ]; then
               mv $out/lib/libstitchwort_standalone.a $out/lib/stitchwort/
@@ -250,6 +271,7 @@
                 cp ${./web/index.html} $out/index.html
                 cp -r --no-preserve=mode ${./web/guide} $out/guide
                 cp ${./web/playground-worker.js} $out/playground-worker.js
+                bash ${./web/bundle-std.sh} ${stdBundleRoot} $out/pkg
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
                 bash ${./web/write-version.sh} $out
               '';

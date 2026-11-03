@@ -280,7 +280,7 @@ fn a_file_on_its_own_as_you_type() {
     // that document answers too.
     let library = client.at("textDocument/definition", &uri, 0, 17);
     let std_uri = library["uri"].as_str().unwrap().to_string();
-    assert!(std_uri.starts_with("stitchwort-std:core/"), "{library}");
+    assert!(std_rel(&std_uri).starts_with("core/"), "{library}");
     client.notify(
         "textDocument/didOpen",
         json!({"textDocument": {"uri": std_uri, "languageId": "stitchwort", "version": 1, "text": ""}}),
@@ -314,10 +314,8 @@ fn navigation_works_inside_a_library_document() {
     assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
     let library = client.at("textDocument/definition", &uri, 2, 22);
     let std_uri = library["uri"].as_str().unwrap().to_string();
-    assert!(std_uri.starts_with("stitchwort-std:List/"), "{library}");
-    let source =
-        stitchwort_elab::std_source(std_uri.trim_start_matches("stitchwort-std:"), 64 << 20)
-            .unwrap();
+    assert!(std_rel(&std_uri).starts_with("List/"), "{library}");
+    let source = stitchwort_elab::std_source(&std_rel(&std_uri), 64 << 20).unwrap();
     client.open(&std_uri, &source);
     // The recursive case of `filterMap` calls `List.consSome`.
     let (line, text) = source
@@ -369,7 +367,7 @@ fn library_navigation_survives_later_namespace_answers() {
     assert_eq!(got, Vec::<Value>::new());
     let library = client.at("textDocument/definition", &second_uri, 4, 20);
     let std_uri = library["uri"].as_str().unwrap().to_string();
-    assert_eq!(std_uri, "stitchwort-std:Set/Set.sw", "{library}");
+    assert_eq!(std_rel(&std_uri), "Set/Set.sw", "{library}");
     let source = stitchwort_elab::std_source("Set/Set.sw", 64 << 20).unwrap();
     client.open(&std_uri, &source);
     // `Set.insert`'s body uses other library names.
@@ -600,13 +598,37 @@ fn lsp_range(r: &Value) -> Value {
     ])
 }
 
+/// A library document's path under `std/` from its URI: `stitchwort-std:`
+/// when the library is embedded in a bundle, else the real file under the
+/// directory it was read from.
+fn std_rel(uri: &str) -> String {
+    if let Some(rel) = uri.strip_prefix("stitchwort-std:") {
+        return rel.to_string();
+    }
+    let dir = stitchwort_elab::std_text().dir.as_ref().expect("a directory");
+    let path = lsp_types::Url::parse(uri).unwrap().to_file_path().unwrap();
+    path.strip_prefix(dir)
+        .unwrap_or_else(|_| panic!("{uri} isn't under {}", dir.display()))
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
 /// The project's place for a location: its path within the project, or the
-/// `stitchwort-std:` URI.
+/// `stitchwort-std:` URI (for a library file, even when the server names the
+/// real file).
 fn place(project: &Path, location: &Value) -> String {
     let Some(uri) = location["uri"].as_str() else {
         return format!("no location: {location}");
     };
     match lsp_types::Url::parse(uri).unwrap().to_file_path() {
+        Ok(path)
+            if stitchwort_elab::std_text()
+                .dir
+                .as_ref()
+                .is_some_and(|d| path.starts_with(d)) =>
+        {
+            format!("stitchwort-std:{}", std_rel(uri))
+        }
         Ok(path) => path
             .strip_prefix(project)
             .unwrap()

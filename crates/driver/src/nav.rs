@@ -25,7 +25,7 @@ const STD_DIR: &str = "crates/elab/src/std/";
 /// (Looked up inside the elaborator's crate: the texts are constants, and a
 /// constant used from another crate is copied into it, which in WebAssembly
 /// doubles the library's size.)
-pub use stitchwort_elab::std_source;
+pub use stitchwort_elab::{std_source, use_std_bundle};
 
 /// `[startLine, startCharacter, endLine, endCharacter]`, from 0, characters
 /// in UTF-16 code units, the end exclusive (as LSP counts).

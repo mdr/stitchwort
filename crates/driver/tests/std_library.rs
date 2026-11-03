@@ -14,7 +14,7 @@ use stitchwort_driver::driver::{
 };
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
-use stitchwort_elab::{EMBEDDED_LIBRARY_FILES, LibraryIndex, library_files, prelude};
+use stitchwort_elab::{LibraryIndex, library_files, prelude};
 use stitchwort_syntax::Diagnostic;
 
 /// Examples run with this much stack, as from the command line.
@@ -65,14 +65,14 @@ fn say_mode() {
     SAID.call_once(|| eprintln!("std_library: {}", stitchwort_elab::std_text().mode()));
 }
 
-/// Every `.sw` file under `std/core/` is in `EMBEDDED_CORE_LAYOUT`, and each
+/// Every `.sw` file under `std/core/` is listed in `core/order.txt`, and each
 /// file's text, read back by path, is what the layout this run uses says:
 /// they join to `prelude()`.
 #[test]
 fn the_core_layout_lists_every_core_file() {
     say_mode();
     let on_disk: Vec<String> = files_on_disk().into_iter().filter(|p| is_core(p)).collect();
-    let mut listed: Vec<String> = stitchwort_elab::EMBEDDED_CORE_LAYOUT
+    let mut listed: Vec<String> = stitchwort_elab::core_layout()
         .iter()
         .map(|(p, _)| p.to_string())
         .collect();
@@ -87,31 +87,30 @@ fn the_core_layout_lists_every_core_file() {
     assert_eq!(joined, prelude());
 }
 
-/// The embedded table lists every library file in the checkout, in order,
-/// with its text. The text is compared only when this run uses the embedded
-/// copy: with `STITCHWORT_STD_DIR` set, the files on disk may be ahead of the
-/// build, which is the point.
+/// The library files this run reads are every `.sw` file outside `core/` in
+/// the checkout, in order, with their text. Compared only when this run
+/// reads the checkout's directory (not an installed or overriding one).
 #[test]
-fn the_table_lists_every_library_file_in_order() {
+fn the_library_is_every_library_file_in_order() {
     say_mode();
-    let listed: Vec<String> = EMBEDDED_LIBRARY_FILES
-        .iter()
-        .map(|(p, _)| p.to_string())
-        .collect();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");
+    let same = stitchwort_elab::std_text()
+        .dir
+        .as_ref()
+        .is_some_and(|d| d.canonicalize().ok() == root.canonicalize().ok());
+    if !same {
+        eprintln!("not compared: std is read from elsewhere");
+        return;
+    }
+    let listed: Vec<String> = library_files().iter().map(|(p, _)| p.to_string()).collect();
     assert_eq!(
         listed,
         files_on_disk()
             .into_iter()
             .filter(|p| !is_core(p))
-            .collect::<Vec<_>>(),
-        "EMBEDDED_LIBRARY_FILES in crates/elab/src/library.rs"
+            .collect::<Vec<_>>()
     );
-    if stitchwort_elab::std_text().dir.is_some() {
-        eprintln!("the embedded files' text isn't compared: std is read from disk");
-        return;
-    }
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");
-    for (path, text) in EMBEDDED_LIBRARY_FILES {
+    for (path, text) in library_files() {
         assert_eq!(&std::fs::read_to_string(root.join(path)).unwrap(), text);
     }
 }

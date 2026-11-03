@@ -989,11 +989,16 @@ export def area: Shape -> Nat
   // page has to be reloaded.
   class InPage {
     broken = null;
+    stdLoaded = null;
     async call(request, seconds, onOutput) {
       if (this.broken) return { crashed: true, error: this.broken, inPage: true };
       try {
         const compiler = await import(`./pkg/stitchwort_web.js${LOAD}`);
         await compiler.default({ module_or_path: await wasm });
+        this.stdLoaded ??= fetch(new URL(`pkg/std.bundle${LOAD}`, import.meta.url))
+          .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
+          .then((bytes) => compiler.load_std(new Uint8Array(bytes)));
+        await this.stdLoaded;
         const sink = { write: (text) => onOutput?.(text) };
         // As in playground-worker.js: a request with `paths` is for a project.
         if (request.action === "stdsource") return { out: { text: compiler.std_source(request.path) } };

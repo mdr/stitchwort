@@ -8,6 +8,8 @@ wasm-bindgen --target web --no-typescript --out-dir web/pkg \
   target/wasm32-unknown-unknown/release/stitchwort_web.wasm
 wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
   web/pkg/stitchwort_web_bg.wasm -o web/pkg/stitchwort_web_bg.wasm
+# The standard library, fetched beside the WebAssembly.
+web/bundle-std.sh . web/pkg
 # The AoC project's files, for the playground's Advent of Code group.
 web/bundle-projects.sh . web/pkg
 # pkg/version.json: the content hashes the page caches by (docs/proposals/

@@ -176,7 +176,14 @@ pub fn float_gate() -> String {
         .collect()
 }
 
-/// The text of an embedded library file, by the `std` value of a file of
+/// Gives the compiler the standard library, as `web/bundle-std.sh` writes it
+/// (`pkg/std.bundle`): call once after initialising, before any other call.
+#[wasm_bindgen]
+pub fn load_std(bundle: &[u8]) -> Result<(), String> {
+    stitchwort_driver::nav::use_std_bundle(bundle)
+}
+
+/// The text of a library file, by the `std` value of a file of
 /// the index (`List/Toolkit.sw`; `core/Int.sw` is a file of the core): empty if there's
 /// none.
 #[wasm_bindgen]

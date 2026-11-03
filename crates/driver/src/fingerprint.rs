@@ -74,7 +74,7 @@ pub fn source_crates(root: &std::path::Path, start: &str) -> Vec<String> {
 
 /// The files of `crate_dir` (relative to `root`) that the fingerprint
 /// hashes: its manifest (features change what's compiled), its build
-/// script, and the Rust and Stitchwort sources under `src`, by path
+/// script, and the Rust sources under `src`, by path
 /// relative to `root`, sorted.
 pub fn source_files(root: &std::path::Path, crate_dir: &str) -> Vec<std::path::PathBuf> {
     let dir = root.join(crate_dir);
@@ -91,7 +91,9 @@ pub fn source_files(root: &std::path::Path, crate_dir: &str) -> Vec<std::path::P
         .collect()
 }
 
-/// The Rust and Stitchwort sources under `dir`, recursively.
+/// The Rust sources under `dir`, recursively. Not the standard library's
+/// `.sw` files: they aren't compiled in, and the caches key on the text read
+/// ([`crate::driver::build_fingerprint`]).
 fn collect(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -100,10 +102,7 @@ fn collect(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
         let path = entry.path();
         if path.is_dir() {
             collect(&path, files);
-        } else if path
-            .extension()
-            .is_some_and(|ext| ext == "rs" || ext == "sw")
-        {
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
             files.push(path);
         }
     }

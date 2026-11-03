@@ -1,7 +1,7 @@
 --| The Stitchwort prelude (the core), loaded before every file.
 --| core/Imports.sw holds this header and the effect imports.
 -- It is the files of `std/core/`, checked as one module in the order
--- `CORE_FILES` lists them (crates/elab/src/lib.rs): this file first, so the
+-- `core/order.txt` lists them: this file first, so the
 -- import below covers all of them, and each file only uses what the files
 -- before it declare. Why each file is in the core:
 -- docs/proposals/prelude-slim.md §2.1.

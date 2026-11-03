@@ -1,6 +1,6 @@
 # The standard library as data (SW-1136)
 
-Status: plan, implemented in the same lane (D2249, D2256, Matt, 3 Nov 2026).
+Status: implemented in the same lane (D2249, D2256, Matt, 3 Nov 2026).
 Architecture review step 2 (`docs/research/architecture-review.md`).
 
 No build embeds the `.sw` standard library. A `.sw` edit compiles no Rust.
@@ -57,17 +57,19 @@ build.rs reading the `.sw` files and recompiling on every edit, which is
 what this change removes. What protects core builtins already works on the
 text read, not on the build: registration checks each builtin's type, arity
 and the shapes of `Nat`, `Bool`, `Decidable` (`E-BUILTIN`, a hard error), and
-the content-pinned natives are verified by `pinned_hashes`. A std that
-differs in a way those miss is outside the guarantees, as `--std-dir` already
-is (docs/core.md, SW-898). So: no new mismatch check; `StdText::hash()`, a
-BLAKE3 of paths and text, is what the caches use (below) and is shown by
-`mode()`, so a snapshot or report says which std it ran against.
+the content-pinned natives are verified by `pinned_hashes` (a pin that stops
+matching is dropped silently at run time, which only that test catches). A
+std that differs in a way those miss is outside the guarantees, as
+`--std-dir` already is (docs/core.md, SW-898). The installed std comes from
+the same source as the binary (one flake package), so a mismatch needs an
+explicit override. So: no new mismatch check; `mode()` says which directory a
+test run read, and the caches key on a hash of the text (below).
 
 ## Fingerprint and cache keys
 
 - The check cache keys on each library file's text as read already (SW-145),
   and the test-result cache and the compile cache use `build_fingerprint()`.
-  That function now always mixes in `StdText::hash()`; before, it did so only
+  That function now always mixes in a BLAKE3 of the core and library text; before, it did so only
   for a directory read, because `FINGERPRINT` covered the embedded copy.
   Hashing ~1 MB with BLAKE3 is under a millisecond, once per process.
 - `driver/build.rs` stops hashing `.sw` files (`source_files` keeps `.rs`), and
@@ -77,8 +79,8 @@ BLAKE3 of paths and text, is what the caches use (below) and is shown by
   `FINGERPRINT` and every crate untouched, and the caches are invalidated
   exactly as far as the text changed: the key moves, which is the point,
   but nothing is compiled. `SOURCE_FINGERPRINT` (is the wasm bundle stale?)
-  no longer covers `.sw`; the bundle's std is separate and its freshness is
-  `version.json`'s.
+  no longer covers `.sw`; the bundle's std (`pkg/std.bundle`) is hashed into
+  `version.json`'s `compiler` field instead.
 
 ## Not done
 
