@@ -2897,7 +2897,7 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
 fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
     if let Term::Def(id) = head.spine().0 {
         let def = cx.g().def(*id);
-        if cx.e.tables.helper_keys.contains(&def.name.to_string()) {
+        if cx.e.tables.helper_keys.contains_key(&def.name.to_string()) {
             // The telescope with its parameters' names, as a signature.
             let g = cx.g();
             let mut names: Vec<Name> = Vec::new();

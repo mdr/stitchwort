@@ -37,9 +37,10 @@
 //! (§4.9).
 //!
 //! Step 6a of the note's migration (§7) built this and put navigation's
-//! maps on it. Transactions, releases, removals and write-sets are for the
-//! tables 6b moves here and the cache entries 6c makes from write-sets;
-//! until then only the tests use them.
+//! maps on it; 6b put the scope's, the instances, the helpers' keys and
+//! the session's maps on it, and releases a language server's marks.
+//! Transactions and write-sets are for the cache entries 6c makes from
+//! write-sets; until then only the tests use them.
 #![cfg_attr(not(test), allow(dead_code))]
 
 use std::hash::Hash;
@@ -130,25 +131,79 @@ impl<K: Hash + Eq + Clone, V> Logged<K, V> {
         }
     }
 
+    /// Keeps only the rows `keep` picks, logging the others' removal.
+    pub(crate) fn retain(&mut self, mut keep: impl FnMut(&K, &V) -> bool) {
+        if self.generation.is_none() {
+            self.map.retain(|k, (v, _)| keep(k, v));
+            return;
+        }
+        let gone: Vec<K> = (self.map.iter())
+            .filter(|(k, (v, _))| !keep(k, v))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in &gone {
+            self.remove(k);
+        }
+    }
+
     /// Removes `key`'s row; whether there was one.
-    pub(crate) fn remove(&mut self, key: &K) -> bool {
-        let Some((old, stamp)) = self.map.remove(key) else {
+    pub(crate) fn remove<Q>(&mut self, key: &Q) -> bool
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let Some((key, (old, stamp))) = self.map.remove_entry(key) else {
             return false;
         };
         if let Some(g) = self.generation
             && stamp != g
         {
-            self.undo.push((key.clone(), Some(old)));
+            self.undo.push((key, Some(old)));
         }
         true
     }
 
-    pub(crate) fn get(&self, key: &K) -> Option<&V> {
+    pub(crate) fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
         self.map.get(key).map(|(v, _)| v)
+    }
+
+    /// The key as stored, with its row.
+    pub(crate) fn get_key_value<Q>(&self, key: &Q) -> Option<(&K, &V)>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.map.get_key_value(key).map(|(k, (v, _))| (k, v))
+    }
+
+    pub(crate) fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.map.contains_key(key)
     }
 
     pub(crate) fn is_empty(&self) -> bool {
         self.map.is_empty()
+    }
+
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &K> {
+        self.map.keys()
+    }
+
+    /// A copy of the rows as they are now, to compare with later (the check
+    /// cache's, until its entries are made from write-sets, §4.8.3). As
+    /// cheap as cloning the map: nothing is hashed again.
+    pub(crate) fn copy(&self) -> Copied<K, V>
+    where
+        V: Clone,
+    {
+        Copied(self.map.clone())
     }
 
     /// The rows, in no particular order.
@@ -181,18 +236,66 @@ impl<K: Hash + Eq + Clone, V> Logged<K, V> {
 
 impl<K: Hash + Eq + Clone, V: Clone> Logged<K, V> {
     /// Changes `key`'s row, if it has one, by `f`; whether it had one.
-    pub(crate) fn update(&mut self, key: &K, f: impl FnOnce(&mut V)) -> bool {
+    pub(crate) fn update<Q>(&mut self, key: &Q, f: impl FnOnce(&mut V)) -> bool
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        if let Some(g) = self.generation {
+            let Some((k, (value, stamp))) = self.map.get_key_value(key) else {
+                return false;
+            };
+            if *stamp != g {
+                self.undo.push((k.clone(), Some(value.clone())));
+            }
+        }
         let Some((value, stamp)) = self.map.get_mut(key) else {
             return false;
         };
-        if let Some(g) = self.generation
-            && *stamp != g
-        {
-            self.undo.push((key.clone(), Some(value.clone())));
+        if let Some(g) = self.generation {
             *stamp = g;
         }
         f(value);
         true
+    }
+}
+
+/// A set whose changes can be undone, as [`Logged`].
+pub(crate) type LoggedSet<K> = Logged<K, ()>;
+
+impl<K: Hash + Eq + Clone> Logged<K, ()> {
+    /// Adds `key`; whether it was new.
+    pub(crate) fn add(&mut self, key: K) -> bool {
+        if self.map.contains_key(&key) {
+            return false;
+        }
+        self.insert(key, ());
+        true
+    }
+}
+
+/// A copy of a [`Logged`] table's rows ([`Logged::copy`]), read-only.
+pub(crate) struct Copied<K, V>(HashMap<K, (V, Generation)>);
+
+impl<K: Hash + Eq, V> Copied<K, V> {
+    pub(crate) fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.0.get(key).map(|(v, _)| v)
+    }
+
+    pub(crate) fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.0.contains_key(key)
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
+        self.0.iter().map(|(k, (v, _))| (k, v))
     }
 }
 
@@ -238,9 +341,9 @@ impl<K: Hash + Eq + Clone, V> Logs for Logged<K, V> {
 
 /// What the journal has done in a session
 /// (docs/proposals/elaborator-state.md §4.8.7). Counters, which add up
-/// across sessions ([`JournalStats::add`]), except `held`, `bytes_held` and
-/// `distinct_keys`, which are what the logs hold when the statistics are
-/// read (`Elaborator::journal_stats`), and `peak_entries`, a maximum.
+/// across sessions ([`JournalStats::add`]), except `held`, `bytes_held`,
+/// `distinct_keys` and `open`, which are what the journal holds when the
+/// statistics are read (`Elaborator::journal_stats`), and `peak_entries`, a maximum.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct JournalStats {
     /// Log entries written.
@@ -255,6 +358,9 @@ pub struct JournalStats {
     pub bytes_held: usize,
     /// Keys the logs hold an entry for now.
     pub distinct_keys: usize,
+    /// Checkpoints open now: a language server's base and one before each
+    /// namespace it keeps checked, if each is released when done with.
+    pub open: usize,
     /// Rewinds, an abort's included.
     pub rewinds: usize,
     /// Entries undone by them: per rewind, `undone / rewinds`.
@@ -272,6 +378,7 @@ impl JournalStats {
             held,
             bytes_held,
             distinct_keys,
+            open,
             rewinds,
             undone,
             checkpoints,
@@ -282,6 +389,7 @@ impl JournalStats {
         self.held += held;
         self.bytes_held += bytes_held;
         self.distinct_keys += distinct_keys;
+        self.open += open;
         self.rewinds += rewinds;
         self.undone += undone;
         self.checkpoints += checkpoints;
@@ -439,6 +547,7 @@ impl<P> Journal<P> {
             held,
             bytes_held: logs.bytes(),
             distinct_keys: logs.distinct_keys(),
+            open: self.open.len(),
             ..self.stats
         }
     }

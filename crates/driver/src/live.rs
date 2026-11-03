@@ -506,6 +506,8 @@ impl LiveProject {
         let (diagnostics, outcome) = match checked {
             Ok(found) => found,
             Err(Cancelled) => {
+                // Rewound to it, and checked again from a new one.
+                self.session.release(mark);
                 self.plan.push_front(name);
                 return Err(Cancelled);
             }
@@ -694,10 +696,15 @@ impl LiveProject {
     }
 
     /// Keeps the first `keep` steps, rewinding the session to the mark
-    /// after them.
+    /// after them. That mark is released, and the later ones were dropped
+    /// by the rewind: the session holds a mark for each step kept and the
+    /// base, so its journal holds what they need and no more.
     fn rewind_to(&mut self, keep: usize) {
         if keep < self.steps.len() {
             self.session.rewind(&self.steps[keep].mark);
+            self.steps.truncate(keep + 1);
+            let step = self.steps.pop().expect("the step rewound to");
+            self.session.release(step.mark);
         } else if self.steps.is_empty() {
             // What a failed plan read.
             self.session.rewind(&self.base);

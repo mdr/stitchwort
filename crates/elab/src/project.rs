@@ -4,6 +4,7 @@
 //! which namespaces a namespace uses.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_syntax::ast::{Decl, Module};
@@ -208,25 +209,25 @@ impl Elaborator {
     /// Tells the elaborator which namespaces the project has (call before
     /// the pre-pass and before checking).
     pub fn set_project_namespaces(&mut self, names: impl IntoIterator<Item = String>) {
-        self.session.project_namespaces = names.into_iter().collect();
-        self.session.project_prefixes = self
-            .session
-            .project_namespaces
-            .iter()
-            .flat_map(|name| {
-                name.match_indices('.')
-                    .map(|(i, _)| name[..i].to_string())
-                    .chain(std::iter::once(name.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+        let namespaces: BTreeSet<String> = names.into_iter().collect();
+        self.session.project_prefixes = Arc::new(
+            (namespaces.iter())
+                .flat_map(|name| {
+                    name.match_indices('.')
+                        .map(|(i, _)| name[..i].to_string())
+                        .chain(std::iter::once(name.clone()))
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+        );
+        self.session.project_namespaces = Arc::new(namespaces);
     }
 
     /// What `import N (..)` brings from each project namespace (call after
     /// [`Self::set_project_namespaces`], before the pre-pass and checking).
     /// A namespace whose files didn't parse has no entry.
     pub fn set_project_names(&mut self, names: BTreeMap<String, BTreeSet<String>>) {
-        self.session.project_names = names;
+        self.session.project_names = Arc::new(names);
     }
 
     /// What the project pre-pass says `import N (..)` brings from namespace

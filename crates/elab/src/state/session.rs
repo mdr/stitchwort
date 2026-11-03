@@ -4,8 +4,10 @@
 //! the session counts.
 //!
 //! A rewind puts back the bookkeeping that later loads can change
-//! ([`Session::mark`], [`Session::rewind`]; copies at this point); the rest
-//! only grows or counts, and a rewind leaves it.
+//! ([`Session::mark`], [`Session::rewind`]); the rest only grows or counts,
+//! and a rewind leaves it. What the host sets whole is shared, so a mark
+//! keeps a pointer to it; the maps a load adds to are [`Logged`], put back
+//! by the journal ([`Session::logged`]); the rest is small and copied.
 
 use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,23 +18,25 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_syntax::FileId;
 
+use super::journal::{Logged, Logs};
 use crate::{cache, counterexample, library, project};
 
 #[derive(Default)]
 pub struct Session {
-    /// The project's namespaces (`project::set_project_namespaces`).
-    pub(crate) project_namespaces: BTreeSet<String>,
+    /// The project's namespaces (`project::set_project_namespaces`). Set
+    /// whole, never changed: shared with the marks.
+    pub(crate) project_namespaces: Arc<BTreeSet<String>>,
     /// Every prefix of a project namespace's name, the namespace included.
-    pub(crate) project_prefixes: BTreeSet<String>,
+    pub(crate) project_prefixes: Arc<BTreeSet<String>>,
     /// What `import N (..)` brings from each project namespace whose files
     /// parsed (`project::set_project_names`).
-    pub(crate) project_names: BTreeMap<String, BTreeSet<String>>,
+    pub(crate) project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
     /// Where `include` reads from, and where each source file is in it
     /// (`project::read_include`). Without them `include` is
     /// `E-INCLUDE-UNAVAILABLE`. The host sets it as it loads a project or
     /// a file on its own, so it is put back by a rewind.
     pub(crate) include_files: Option<Rc<dyn project::IncludeFiles>>,
-    pub(crate) include_locations: HashMap<FileId, String>,
+    pub(crate) include_locations: Logged<FileId, String>,
     /// The standard library's files, once the core is loaded
     /// (`library.rs`).
     pub(crate) library: Option<library::LibraryState>,
@@ -58,12 +62,13 @@ pub struct Session {
     /// For the check cache: each project namespace's sources, hashed by
     /// the host (`cache::Elaborator::set_namespace_sources`), and each
     /// namespace's key once worked out (the keys of its dependencies are
-    /// part of it).
-    pub(crate) namespace_sources: HashMap<String, cache::Key>,
-    pub(crate) namespace_keys: HashMap<String, cache::Key>,
-    /// The names such a replay declared (as failures) before it failed:
+    /// part of it). The sources are set whole, and shared with the marks.
+    pub(crate) namespace_sources: Arc<HashMap<String, cache::Key>>,
+    pub(crate) namespace_keys: Logged<String, cache::Key>,
+    /// The names a failed replay declared (as failures) before it failed:
     /// the namespace's first pass claims them again rather than finding
-    /// them taken (`cache`, `new_module_name`).
+    /// them taken (`cache`, `new_module_name`). One namespace's, emptied
+    /// as the next begins: a mark copies it.
     pub(crate) replayed_names: HashSet<String>,
     /// A hash of the whole standard library's text, for the keys of
     /// project namespaces. Computed once.
@@ -82,14 +87,12 @@ pub struct Session {
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
 /// can change.
 pub(crate) struct Mark {
-    project_namespaces: BTreeSet<String>,
-    project_prefixes: BTreeSet<String>,
-    project_names: BTreeMap<String, BTreeSet<String>>,
+    project_namespaces: Arc<BTreeSet<String>>,
+    project_prefixes: Arc<BTreeSet<String>>,
+    project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
     include_files: Option<Rc<dyn project::IncludeFiles>>,
-    include_locations: HashMap<FileId, String>,
     library: Option<library::LibraryState>,
-    namespace_sources: HashMap<String, cache::Key>,
-    namespace_keys: HashMap<String, cache::Key>,
+    namespace_sources: Arc<HashMap<String, cache::Key>>,
     replayed_names: HashSet<String>,
     owners: super::owners::Mark,
 }
@@ -101,14 +104,14 @@ impl Session {
             project_prefixes,
             project_names,
             include_files,
-            include_locations,
             library,
             namespace_sources,
-            namespace_keys,
             replayed_names,
             owners,
-            // Its own checkpoints (`rewind.rs`).
+            // Its own checkpoints (`rewind.rs`), and the maps it puts back.
             journal: _,
+            include_locations: _,
+            namespace_keys: _,
             // Set around the core's load, so `None` here.
             core_link_names: _,
             // Counted, never reused or taken back.
@@ -125,10 +128,8 @@ impl Session {
             project_prefixes: project_prefixes.clone(),
             project_names: project_names.clone(),
             include_files: include_files.clone(),
-            include_locations: include_locations.clone(),
             library: library.clone(),
             namespace_sources: namespace_sources.clone(),
-            namespace_keys: namespace_keys.clone(),
             replayed_names: replayed_names.clone(),
             owners: owners.mark(),
         }
@@ -140,13 +141,13 @@ impl Session {
             project_prefixes,
             project_names,
             include_files,
-            include_locations,
             library,
             namespace_sources,
-            namespace_keys,
             replayed_names,
             owners,
             journal: _,
+            include_locations: _,
+            namespace_keys: _,
             core_link_names: _,
             source_epoch: _,
             standalone_inputs: _,
@@ -160,12 +161,84 @@ impl Session {
         *project_prefixes = mark.project_prefixes.clone();
         *project_names = mark.project_names.clone();
         *include_files = mark.include_files.clone();
-        *include_locations = mark.include_locations.clone();
         *library = mark.library.clone();
         *namespace_sources = mark.namespace_sources.clone();
-        *namespace_keys = mark.namespace_keys.clone();
         *replayed_names = mark.replayed_names.clone();
         owners.rewind(&mark.owners);
+    }
+}
+
+/// Where [`Session`]'s logged maps' logs are.
+pub(crate) struct Positions {
+    include_locations: usize,
+    namespace_keys: usize,
+}
+
+/// The maps of a [`Session`] its journal puts back: split from it, as the
+/// journal is in the session too.
+pub(crate) struct SessionLogs<'a> {
+    include_locations: &'a mut Logged<FileId, String>,
+    namespace_keys: &'a mut Logged<String, cache::Key>,
+}
+
+impl Session {
+    /// The journal, and the session's maps it puts back.
+    pub(crate) fn logged(
+        &mut self,
+    ) -> (
+        &mut super::journal::Journal<crate::rewind::LogPositions>,
+        SessionLogs<'_>,
+    ) {
+        let Session {
+            journal,
+            include_locations,
+            namespace_keys,
+            ..
+        } = self;
+        (
+            journal,
+            SessionLogs {
+                include_locations,
+                namespace_keys,
+            },
+        )
+    }
+}
+
+impl Logs for SessionLogs<'_> {
+    type Positions = Positions;
+
+    fn positions(&self) -> Positions {
+        Positions {
+            include_locations: self.include_locations.position(),
+            namespace_keys: self.namespace_keys.position(),
+        }
+    }
+
+    fn undo_to(&mut self, at: &Positions) -> usize {
+        let Positions {
+            include_locations,
+            namespace_keys,
+        } = at;
+        self.include_locations.undo_to(include_locations)
+            + self.namespace_keys.undo_to(namespace_keys)
+    }
+
+    fn set_generation(&mut self, g: Option<u32>) {
+        self.include_locations.set_generation(g);
+        self.namespace_keys.set_generation(g);
+    }
+
+    fn entries(&self) -> usize {
+        self.include_locations.entries() + self.namespace_keys.entries()
+    }
+
+    fn bytes(&self) -> usize {
+        self.include_locations.bytes() + self.namespace_keys.bytes()
+    }
+
+    fn distinct_keys(&self) -> usize {
+        self.include_locations.distinct_keys() + self.namespace_keys.distinct_keys()
     }
 }
 

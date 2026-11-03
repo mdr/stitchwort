@@ -1840,9 +1840,9 @@ impl Elaborator {
         for (_, decl) in members {
             if let Decl::Data { name: n, .. } = decl
                 && let Ok(key) = self.declaration_key(n)
-                && let Some((global, _)) = self.scope.entries.get_mut(&key)
             {
-                *global = Global::Failed;
+                self.scope
+                    .set_global(&key, |global| *global = Global::Failed);
             }
         }
     }
@@ -2240,7 +2240,7 @@ impl Elaborator {
                 .with_label(other, "the declaration is here"));
             }
             self.scope.insert(&key, Global::Def(id), span, false);
-            self.tables.helper_keys.insert(key);
+            self.tables.helper_keys.add(key);
         }
         Ok(())
     }
@@ -2626,7 +2626,7 @@ impl Elaborator {
         // first, unless it opts out (D309). Theorems follow their functions'
         // order (D308) without the warning.
         let plain = !*theorem && !*instance && !*export && !*synonym;
-        if plain && !no_receiver && !self.tables.helper_keys.contains(&key) {
+        if plain && !no_receiver && !self.tables.helper_keys.contains_key(&key) {
             let cx = Ctx::new(self, *span);
             if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
                 self.unit.warnings.push(warning);

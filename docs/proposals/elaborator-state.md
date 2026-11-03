@@ -1137,6 +1137,88 @@ until step 8):
   (the review's example, F9) panics, as does one for an older unit's; and
   the tags after a rewind.
 
+#### 4.8.10 As built: the copied tables on the journal (step 6b, SW-1173)
+
+- **The scope.** `Scope`'s seven maps that outlive a module (`entries`,
+  `followers`, `namespaces`, `std_root`, `members`, `extensions`,
+  `extended`) are `Logged` (the sets are `LoggedSet<K> = Logged<K, ()>`),
+  and every field is private. `Scope` is the `Logs` of its seven; what a
+  mark copies of it (`scope::Mark`) is the current module's imports (as
+  `SavedImports`) and a load's flags (`loading`, `core_only`, `log`), all
+  small or empty between namespaces. `Scope` is no longer `Clone`. The
+  escapes of §4.8.5 became methods: `set_global` (`lib.rs`'s
+  `fail_data_names`, `module.rs`'s renumbering and `fail_unchecked_names`),
+  `remove` (`update_lemmas.rs`), and one the grep missed,
+  `drop_unconfirmed`'s `entries.retain` (`library.rs`), now
+  `remove_where`, a logged `Logged::retain`. Reads that bypassed the
+  out-of-the-way filter go through `stored`, `has` and `rows`.
+- **`instances`** is `Instances`, a `Logged` whose `insert` and `update`
+  assert that the unit current is the one that made `info.def` (and, for
+  an overwrite, the old row's), §4.8.4's second class; reads go through
+  `Deref` to the `Logged`, which gives no write. `validate_instance`'s
+  `get_mut` is an `update` (asserting the definition doesn't change), and
+  the replay inserts through it. **`helper_keys`** is a `LoggedSet`; its
+  seven `insert`s are `add`s. A unit test checks that an outer unit can't
+  change an instance a nested one made.
+- **The session's maps.** `include_locations` and `namespace_keys`, which
+  loads add to, are `Logged`. *Decided here:* the maps the host sets whole
+  and nothing changes afterwards (`project_namespaces`, `project_prefixes`,
+  `project_names`, `namespace_sources`) are `Arc`s that a mark shares,
+  O(1), rather than logged: logging a whole replacement would log every
+  row at each edit for nothing. `replayed_names` (one failed replay's early
+  names, emptied as each namespace begins) and `namespace_defs` (one row per
+  project namespace, compared whole by `auto.rs`) are still copied.
+- **`LoggedTables`** names navigation's, the scope's, `Tables`' two and the
+  session's two (`SessionLogs`, split from `Session` because the journal is
+  in it too); `Elaborator::with_journal` builds it for `mark`, `release`
+  and `journal_stats`.
+- **The cache keeps its copies until 6c.** `Tables::Mark` no longer holds
+  `instances` or `helper_keys`; the cache's `Before` takes `Tables::copies`
+  (`Copies`, two `Logged::copy`s: a clone of the map, not a rehash) beside
+  its copy of the scope's entries (`Scope::copy_entries`), and
+  `start_members` is `Scope::copy_members`. `encode_since` reads the
+  copies, so what an entry holds and its bytes are as before.
+- **Releasing marks.** `Elaborator::release` and `driver::Session::release`
+  close a mark's checkpoint; only the newest open one, as `Journal::release`
+  requires. `Session::cancellable` releases the mark it takes, cancelled
+  or not (so `f` mustn't leave one of its own open); the
+  `recheck_namespaces` hook releases its mark after rewinding to it;
+  `LiveProject::step` releases the step's mark when the step is cancelled
+  (it was rewound to, and the next step takes a new one), and
+  `LiveProject::rewind_to(keep)` rewinds to step `keep`'s mark, which the
+  rewind drops those after, and releases it. So a language server's
+  journal holds its base and one checkpoint per namespace kept, and its log
+  what those need; `JournalStats::open` (new) says how many are open.
+- **Not built:** §4.8.5's opt-in hash check of the tables after a rewind.
+  The differential tests compare the whole canonical dump with a fresh
+  session's, which every logged table is in, so it would add nothing to
+  them; rows have no interior mutability (`Global`, `Span`, `String`,
+  `Vec<String>`, `()`, `InstanceInfo`, `FileId`, `Key`).
+- **Tests added** (`crates/driver/tests/rewind.rs`, §4.8.6 item 2's
+  rewinding scenarios): `repeated_edits_of_an_early_namespace_rewind_exactly`
+  (a `LiveProject` of two example projects, one with extensions of an older
+  namespace's type and one with instances: the first namespace's file
+  edited, checked, edited back and checked five times, each compared with a
+  fresh session on the same text, with the open checkpoints and the log's
+  size the same after each edit back);
+  `a_language_servers_check_cancelled_at_each_namespace_rewinds` (a
+  `LiveProject` cancelled as each namespace begins, from a check cache
+  lookup, then finished: as fresh, no mark left open); and
+  `a_check_cancelled_at_each_use_of_the_cache_rewinds` (a project and a file
+  that loads library files, cancelled at each of their 90 uses of the cache:
+  nested library loads, namespace lookups and entry writes, then checked
+  again with the entries written before the cancellation: as fresh). The
+  model test also retains. Breaking the scope's undo of one table (the
+  followers) fails the first. `mark_and_rewind_cost_on_aoc` (ignored, run by
+  name) runs the measurement below without the rest of the full tier.
+- **Measured** (`mark_and_rewind_cost`, `aoc` with navigation, the same
+  test on the build before and after, load 3-9): a mark 1.04 → 0.26 ms, a
+  rewind to it 1.35 → 0.28 ms, ten marks 8.4-9.0 → 2.0-2.4 ms, and what a
+  mark holds (the resident set's growth over ten) 3.6-3.7 → 1.9-2.1 MB. The
+  rest is `Caches`' dot-call maps (15,089 rows in `dot_heads`), which no
+  step of this note moves onto the journal: they are written through
+  shared references (`RefCell`), so they need their own change (§9, F11).
+
 ### 4.9 Keeping parallel checking possible
 
 Parallel checking isn't planned (D2281). This section says what it would
@@ -1379,7 +1461,7 @@ orchestrator.
 | 4 | **`Caches`**, plus a test switch (`Options::clear_caches_per_declaration`, checked in `Elaborator::glued`) that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
 | 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first. *Done (SW-1171): §4.8.8, §4.8.9; `Owners` in `Session`, tagged at unit changes; marks are checkpoints; nothing releases one until 6b* | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
-| 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
+| 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s. *Done (SW-1173): §4.8.10; the host's whole-set maps shared (`Arc`) rather than logged; marks released by `LiveProject`, `cancellable` and the rewind test's hook; a mark on `aoc` 1.04 → 0.26 ms, 3.7 → 2.1 MB (the rest is the dot-call cache)* | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
 | 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
 | 8 | **The `Globals` split** (review step 9, its own design note): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
@@ -1496,6 +1578,15 @@ opt-in; step 6 as three lanes 6a-6c in that order.
 - **F10** (draft 2). `nav::Logged::mark` clears `touched`, which is
   O(capacity), so a mark costs more after one large namespace than
   before it (§4.8.1). Fixed by step 6a.
+- **F11** (step 6b). After 6b a language server's mark still copies
+  `Caches`' dot-call maps: 15,089 rows of `dot_heads` on `aoc`, about
+  2 MB and 0.2 ms a mark, now nearly all of a mark's cost. They are
+  written through `RefCell`s during elaboration, so `Logged` doesn't fit
+  as it is. They are caches (step 4's switch clears them with no change),
+  so a rewind could instead cut them (rows keyed by a source address or a
+  definition from after the mark) or empty them, at the cost of
+  recomputing dot calls after each edit; which is cheaper is a
+  measurement.
 
 ## 10. Response to the external review (draft 2)
 
@@ -1537,16 +1628,16 @@ by hand where a regex missed (`records` is dumped).
 | `globals` | `-CRED` | Kernel / Attempt | split (review step 9) | mixed: kernel env + metas + backend facts |
 | `tests` | `--RED` | Tables | grow | in `state::Tables`: `GrowVec` |
 | `sides_capture` | `--r--` | Decl | scratch |  |
-| `scope` | `--RED` | Tables | logged | copied per mark and per cached unit (Before) |
+| `scope` | `--RED` | Tables | logged | 6b: its seven maps `Logged` (the module's imports and a load's flags copied per mark); still copied per cached unit (Before) until 6c |
 | `namespace_root` | `--RE-` | Unit | swap |  |
-| `project_namespaces` | `--R--` | Session | set once | copied per mark; set by the host per project |
-| `project_prefixes` | `--R--` | Session | set once | copied per mark |
-| `project_names` | `--R--` | Session | set once | copied per mark |
+| `project_namespaces` | `--R--` | Session | set once | set by the host per project; 6b: an `Arc`, shared with the marks |
+| `project_prefixes` | `--R--` | Session | set once | 6b: shared with the marks |
+| `project_names` | `--R--` | Session | set once | 6b: shared with the marks |
 | `namespace_defs` | `--RED` | Tables | copied | in `state::Tables`, by hand: copied per mark; not in an entry (a namespace's replay sets its range) |
 | `prelude_defs` | `--R-D` | Tables | set once | in `state::Tables`, by hand: dumped, not encoded: set before any unit |
 | `file_mode` | `--R--` | Unit | swap |  |
 | `include_files` | `--RE-` | Session | host-provided | set by the host as it loads a project or a file on its own (`include_from`, `include_in_folder`), so it is not an option; copied per mark |
-| `include_locations` | `--RE-` | Session | logged |  |
+| `include_locations` | `--RE-` | Session | logged | 6b: `Logged` |
 | `next_include_location` | `--R--` | Unit | swap |  |
 | `obligations` | `UCr--` | Attempt | trail |  |
 | `row_metas` | `UCr--` | Attempt | trail |  |
@@ -1573,7 +1664,7 @@ by hand where a regex missed (`records` is dumped).
 | `no_propagation` | `--r--` | Decl | dynamic extent | a Cell counter set and reset around a call |
 | `bare_rows_pure` | `--r--` | Decl | dynamic extent |  |
 | `late_literals` | `--r--` | Decl | dynamic extent |  |
-| `dot_heads` | `--R--` | Caches | cache | in `state::Caches`; copied per mark; keyed by addresses within a source epoch |
+| `dot_heads` | `--R--` | Caches | cache | in `state::Caches`; copied per mark (6b: 15,089 rows on `aoc`, nearly all of a mark's 2 MB); keyed by addresses within a source epoch |
 | `source_epoch` | `--s--` | Session | counter | ignored by rewind (never reused) |
 | `dot_failed` | `--R--` | Caches | cache | in `state::Caches`; copied per mark; keyed by meta-state lengths: valid only while those identify a state |
 | `condition` | `--r--` | Decl | dynamic extent |  |
@@ -1602,7 +1693,7 @@ by hand where a regex missed (`records` is dumped).
 | `owner_unfolding` | `--r--` | Decl | dynamic extent |  |
 | `owner_helpers` | `--r--` | Decl | scratch |  |
 | `local_helpers` | `--R--` | Decl | scratch (per group) | empty at a mark (asserted) |
-| `helper_keys` | `--RED` | Tables | logged | in `state::Tables`, by hand until step 6: copied per mark and per cached unit |
+| `helper_keys` | `--RED` | Tables | logged | in `state::Tables`; 6b: a `LoggedSet`; still copied per cached unit until 6c |
 | `local_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `meta_names` | `UCr--` | Attempt | trail |  |
 | `operator_dictionaries` | `UCr--` | Attempt | meta-keyed |  |
@@ -1620,7 +1711,7 @@ by hand where a regex missed (`records` is dumped).
 | `total_rows_only` | `--r--` | Decl | dynamic extent |  |
 | `total_rows` | `--r--` | Tables | owned by DefId | in `state::Tables`: `OwnedBy`; F1, fixed in step 0 (SW-1140) |
 | `interfaces` | `--RED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
-| `instances` | `--RED` | Tables | logged | in `state::Tables`, by hand until step 6: copied per mark and per cached unit; an older row may change (valid flag) |
+| `instances` | `--RED` | Tables | logged | in `state::Tables`; 6b: `Instances`, `Logged`, a row owned by `info.def`'s unit (asserted); still copied per cached unit until 6c; an older row may change (valid flag), by its own unit only |
 | `data_owners` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
 | `instance_steps` | `-Cr--` | Attempt | budget, keyed by meta | reset with the metas; deliberately not refunded when an attempt is undone |
 | `instance_budget` | `--sE-` | Options | setting |  |
@@ -1630,12 +1721,12 @@ by hand where a regex missed (`records` is dumped).
 | `nav` | `--RED` | Presentation | logged (`state::Logged`) | its five maps on the session's journal since step 6a; its lists cut back by length |
 | `check_cache` | `--sE-` | Options | setting (host) |  |
 | `cache_stats` | `--sE-` | Session | statistic |  |
-| `namespace_sources` | `--RE-` | Session | logged | copied per mark |
-| `namespace_keys` | `--RE-` | Session | logged | copied per mark |
+| `namespace_sources` | `--RE-` | Session | set once | 6b: set whole by the host, so an `Arc` shared with the marks rather than logged |
+| `namespace_keys` | `--RE-` | Session | logged | 6b: `Logged` |
 | `namespace_capture` | `--rE-` | Unit | swap |  |
 | `skip_navigation_walk` | `--rE-` | Unit | swap |  |
 | `omega_for_auto` | `--R--` | Unit | swap | copied per mark. Cleared when a module starts and set after its loads. A nested library load starts with the outer unit's value and the outer's comes back with it (SW-1150); a mark keeps it. Typed-in expressions (`eval`, the REPL) see the last module's, or `false` before any |
-| `replayed_names` | `--RE-` | Session | logged | copied per mark |
+| `replayed_names` | `--RE-` | Session | copied | 6b: still copied per mark: one failed replay's early names, emptied as each namespace begins |
 | `owners` (step 6a) | | Session | per declaration | `Owners`: the unit that made each declaration and the current one; tags cut back and the current unit put back by a rewind (§4.8.9) |
 | `journal` (step 6a) | | Session | journal | the checkpoints of the logged tables; a mark is one (§4.8.8) |
 | `fail_replays_late` | `--sE-` | Options | test switch |  |
