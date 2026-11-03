@@ -1,5 +1,5 @@
 {
-  "next": 1145,
+  "next": 1146,
   "tickets": [
     {
       "id": 47,
@@ -4175,7 +4175,7 @@
       "labels": [
         "test"
       ],
-      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.",
+      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4316,6 +4316,20 @@
         "elab"
       ],
       "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1145,
+      "title": "Regression from SW-1136: std library paths in doc and search output are absolute",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Merge tier after 76d1ba29: cli doc the_json_contract, doc a_library_name_shows_header_doc_location_and_theorems, search what_closes_a_goal (snapshot) expect std/List/Toolkit.sw and get /Users/matt/repos/mdr/stitchwort/crates/elab/src/std/List/Toolkit.sw. Library files' logical paths (std/...) must stay the names shown everywhere (diagnostics, doc, search, check --index, hashes?); the absolute path only where a host needs the real file (the LSP's file: URI). Selector miss: recorded on SW-1134.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
