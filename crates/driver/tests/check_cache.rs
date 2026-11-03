@@ -1228,3 +1228,56 @@ fn a_replayed_container_keeps_its_generated_all() {
     assert!(!warm.contains("%Box%All"), "B generated its own All");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---- Tables the canonical dump and the entries lacked (SW-1135, SW-1140) --
+
+#[test]
+fn a_replayed_namespace_keeps_the_equations_it_asked_the_library_for() {
+    let dir = temp_project(
+        "equations-done",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\n\nimport Std (List)\n\ntheorem mapNil (f: Nat → Nat): List.map Nil f = Nil := List.map.eq1 f\n",
+            ),
+            ("src/B.sw", "namespace B\n\ndef three: Nat := 3\n"),
+        ],
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), false, None);
+    assert!(fresh.dump.contains("\naccepted true\n"), "{}", fresh.dump);
+    // `B` doesn't ask again, so only the entry can say that `A` did.
+    let warm = assert_replay_changes_nothing(&dir);
+    assert!(warm.contains("equations_done Std.List.map"), "{warm}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_replayed_function_keeps_needing_its_row_total() {
+    let dir = temp_project(
+        "total-rows",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\n\nimport Std (Fail)\nimport Std.Effect (Effects)\n\n\
+                 type Job (e: Effects): Type =\n  | MkJob (run: () → {Fail | e} Nat)\n\n\
+                 def runJob (job: Job e): {e} Nat := Fail.orElse 0 (Job.run job)\n\n\
+                 def viaJob (f: () → {Fail | e} Nat): {e} Nat := runJob (MkJob f)\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\n\nimport A (viaJob)\nimport Std (Fail)\n\n\
+                 def spin (n: Nat): {Fail, Partial} Nat := spin (n + 1)\n\n\
+                 def partialJob(): {Partial} Nat := viaJob (() => spin 0)\n",
+            ),
+        ],
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), false, None);
+    assert!(
+        fresh.dump.contains("takes only total callbacks"),
+        "the fresh run has the note:\n{}",
+        fresh.dump
+    );
+    let warm = assert_replay_changes_nothing(&dir);
+    assert!(warm.contains("takes only total callbacks"), "{warm}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

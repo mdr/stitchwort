@@ -70,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 21;
+pub const FORMAT: u32 = 22;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -153,6 +153,7 @@ pub(crate) struct Before {
     instances: HashMap<(DataId, DataId), (DefId, bool)>,
     helper_keys: HashSet<String>,
     equation_skips: usize,
+    equations_done: usize,
     /// The sizes of the tables keyed by data type (`by_data`).
     by_data: Vec<usize>,
     nav: Option<(usize, usize, usize)>,
@@ -319,6 +320,7 @@ impl Elaborator {
                 .collect(),
             helper_keys: self.helper_keys.clone(),
             equation_skips: self.equation_skips.len(),
+            equations_done: self.equations_done.len(),
             by_data: self.by_data().iter().map(|t| t.len()).collect(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -1674,6 +1676,21 @@ impl Elaborator {
             e.str(suffix);
             e.str(why);
         }
+        // The library definitions whose equations the unit made on demand.
+        e.w.usize(self.equations_done.len() - before.equations_done);
+        for key in &self.equations_done[before.equations_done..] {
+            e.str(key);
+        }
+        // The unit's own functions checked again with their rows total.
+        let rows = self.total_rows.borrow();
+        let mut total: Vec<(&DefId, &Span)> =
+            rows.iter().filter(|(id, _)| id.0 >= before.defs).collect();
+        total.sort_by_key(|(id, _)| id.0);
+        e.w.usize(total.len());
+        for (id, at) in total {
+            e.def(*id);
+            e.span(*at);
+        }
         // The extensions the namespace declares (a library file has none).
         let own = self.current_namespace().filter(|_| !unit.library);
         let mut extensions: Vec<(&String, &String)> = self
@@ -2027,6 +2044,8 @@ struct Tables {
     match_columns: Vec<(DefId, crate::lift::MatchColumns)>,
     helper_keys: Vec<String>,
     equation_skips: Vec<(DefId, String, String)>,
+    equations_done: Vec<String>,
+    total_rows: Vec<(DefId, Span)>,
     /// Extensions, and the keys they stand for.
     extensions: Vec<(String, String)>,
     tests: Vec<TestEntry>,
@@ -2934,6 +2953,8 @@ impl Elaborator {
         }
         self.helper_keys.extend(t.helper_keys);
         self.equation_skips.extend(t.equation_skips);
+        self.equations_done.extend(t.equations_done);
+        self.total_rows.get_mut().extend(t.total_rows);
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
         }
@@ -3027,6 +3048,8 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         match_columns: Vec::new(),
         helper_keys: Vec::new(),
         equation_skips: Vec::new(),
+        equations_done: Vec::new(),
+        total_rows: Vec::new(),
         extensions: Vec::new(),
         tests: Vec::new(),
         warnings: Vec::new(),
@@ -3256,6 +3279,14 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let n = b.count()?;
     for _ in 0..n {
         t.equation_skips.push((b.def()?, b.string()?, b.string()?));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.equations_done.push(b.string()?);
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.total_rows.push((b.def()?, b.span()?));
     }
     let n = b.count()?;
     for _ in 0..n {
