@@ -4085,7 +4085,7 @@
     {
       "id": 1128,
       "title": "Cache replay probably drops no_finite, no_decide and generated_alls (rewound but neither cache-encoded nor dumped)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
