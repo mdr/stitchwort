@@ -605,7 +605,10 @@ fn std_rel(uri: &str) -> String {
     if let Some(rel) = uri.strip_prefix("stitchwort-std:") {
         return rel.to_string();
     }
-    let dir = stitchwort_elab::std_text().dir.as_ref().expect("a directory");
+    let dir = stitchwort_elab::std_text()
+        .dir
+        .as_ref()
+        .expect("a directory");
     let path = lsp_types::Url::parse(uri).unwrap().to_file_path().unwrap();
     path.strip_prefix(dir)
         .unwrap_or_else(|_| panic!("{uri} isn't under {}", dir.display()))
