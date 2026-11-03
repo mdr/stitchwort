@@ -3945,7 +3945,7 @@
     {
       "id": 1118,
       "title": "Playground: evaluate a real editor component (CodeMirror 6), then goals panel, share a snippet by URL, inline diagnostics",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4175,7 +4175,7 @@
       "labels": [
         "test"
       ],
-      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).\n\nAlso (SW-1144): `task test:one -- hash_stability` runs nothing (name filter; the tests are named otherwise); briefs and docs/testing.md should say -E binary(hash_stability) (with EXAMPLES=). Check the docs and fix the wording.\n\nSecond miss (SW-1145, 076532d9): cli run std_dir_reads_the_library_from_disk asserted the absolute path; the selection had doc/search but not run. Same rule as above: path-naming changes select every test that prints paths, including cli run.",
+      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).\n\nAlso (SW-1144): `task test:one -- hash_stability` runs nothing (name filter; the tests are named otherwise); briefs and docs/testing.md should say -E binary(hash_stability) (with EXAMPLES=). Check the docs and fix the wording.\n\nSecond miss (SW-1145, 076532d9): cli run std_dir_reads_the_library_from_disk asserted the absolute path; the selection had doc/search but not run. Same rule as above: path-naming changes select every test that prints paths, including cli run.\n\nAlso (SW-1146 verification): the selection caught driver navigation references_of_a_project (snapshot with prelude line numbers) that the merge tier does not run; consider adding it to the merge profile (2 s). Rule: a change to core/ std files (or their order) selects snapshots that print <prelude> positions.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4337,7 +4337,7 @@
     {
       "id": 1146,
       "title": "Built-ins navigable: a std file documents each reserved name's signature (Quot, Quot.mk, Quot.lift, Quot.ind, Quot.sound, rfl, J, Partial)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
