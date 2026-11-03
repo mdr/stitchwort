@@ -15,7 +15,7 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, par_map, par_map_with, tier_sample};
+use stitchwort_driver::driver::{Session, Tier, par_map, par_map_with_at_most, tier, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::rewind::Mark;
 
@@ -57,6 +57,17 @@ fn examples_filter_takes_a_comma_separated_list() {
         matches("", "anything.sw"),
         "an empty filter keeps everything"
     );
+}
+
+/// How many workers a sweep uses. Each loads the whole library (seconds of
+/// CPU) to check a few milliseconds of examples, so in the merge tier and the
+/// lanes, with their quarter sample and every core already busy, two repeat
+/// the load least; the daily and full tiers check everything and use them all.
+fn workers() -> usize {
+    match tier() {
+        Tier::Merge | Tier::Lane => 2,
+        _ => usize::MAX,
+    }
 }
 
 /// A worker's eager session (every library file loaded, which takes a
@@ -135,8 +146,9 @@ fn examples() {
         files.extend(found.into_iter().map(|p| (dir, p)));
     }
     let files = share(files);
-    let checked = par_map_with(
+    let checked = par_map_with_at_most(
         STACK,
+        workers(),
         &files,
         eager_worker,
         |(session, mark), (dir, path)| {
@@ -273,19 +285,25 @@ fn projects() {
     if !filtering() {
         assert!(!dirs.is_empty());
     }
-    par_map_with(STACK, &dirs, eager_worker, |(session, mark), dir| {
-        let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        session.rewind(mark);
-        let (d, f) = (
-            session.elab.globals.datas.len(),
-            session.elab.globals.defs.len(),
-        );
-        let files = DiskFiles { root: dir.clone() };
-        if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
-            panic!("{name} doesn't load: {errors:#?}");
-        }
-        insta::assert_snapshot!(format!("project-{name}"), lines(session, d, f));
-    });
+    par_map_with_at_most(
+        STACK,
+        workers(),
+        &dirs,
+        eager_worker,
+        |(session, mark), dir| {
+            let name = dir.file_name().unwrap().to_string_lossy().to_string();
+            session.rewind(mark);
+            let (d, f) = (
+                session.elab.globals.datas.len(),
+                session.elab.globals.defs.len(),
+            );
+            let files = DiskFiles { root: dir.clone() };
+            if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
+                panic!("{name} doesn't load: {errors:#?}");
+            }
+            insta::assert_snapshot!(format!("project-{name}"), lines(session, d, f));
+        },
+    );
 }
 
 /// A project namespace imported as a qualifier (`import Shop (Spec)`, then

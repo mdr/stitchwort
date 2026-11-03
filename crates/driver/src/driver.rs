@@ -96,12 +96,27 @@ pub fn par_map_with<S, T: Sync, R: Send>(
     init: impl Fn() -> S + Sync,
     f: impl Fn(&mut S, &T) -> R + Sync,
 ) -> Vec<R> {
+    par_map_with_at_most(stack, usize::MAX, items, init, f)
+}
+
+/// [`par_map_with`] on at most `max_workers` threads: for a sweep whose
+/// `init` costs far more than an item (an eager session loads for seconds,
+/// a hash snapshot takes milliseconds), where each extra worker repeats the
+/// load and the merge tier's other tests already keep every core busy.
+#[doc(hidden)]
+pub fn par_map_with_at_most<S, T: Sync, R: Send>(
+    stack: usize,
+    max_workers: usize,
+    items: &[T],
+    init: impl Fn() -> S + Sync,
+    f: impl Fn(&mut S, &T) -> R + Sync,
+) -> Vec<R> {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
     let next = AtomicUsize::new(0);
     let results: Mutex<Vec<Option<std::thread::Result<R>>>> =
         Mutex::new((0..items.len()).map(|_| None).collect());
-    let workers = test_threads().min(items.len()).max(1);
+    let workers = test_threads().min(max_workers).min(items.len()).max(1);
     std::thread::scope(|scope| {
         for _ in 0..workers {
             std::thread::Builder::new()
