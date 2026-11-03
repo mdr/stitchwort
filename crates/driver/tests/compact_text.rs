@@ -102,7 +102,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
     session.elab.globals.builtins.disable_compact_text = false;
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.limits);
+    let _op = g.budget.operation(session.elab.options.limits);
     let value = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap();
     (term, value)
 }
@@ -111,7 +111,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
 /// list expanded (by the reference evaluator, not `chars`).
 fn normal(session: &Session, value: &Value) -> String {
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.limits);
+    let _op = g.budget.operation(session.elab.options.limits);
     let term = value::quote(g, 0, value).unwrap();
     format!("{:?}", reference::expand_term(g, &term))
 }
@@ -213,7 +213,7 @@ fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (_, xa) = value_of(session, &la, false);
     let (_, xb) = value_of(session, &lb, false);
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.limits);
+    let _op = g.budget.operation(session.elab.options.limits);
     let conv = |x: &Value, y: &Value| value::conv(g, 0, x, y).unwrap();
     let equal = a == b;
     assert_eq!(conv(&ca, &cb), equal, "{la} ~ {lb}, both compact");
@@ -355,7 +355,7 @@ fn medium_texts_mean_the_same_compact_as_a_copy() {
 
 fn medium_texts() {
     let mut session = session_with_helpers();
-    assert_eq!(session.elab.limits.stack, Limits::default().stack);
+    assert_eq!(session.elab.options.limits.stack, Limits::default().stack);
     let mut random = Random(11);
     for n in [5_000, 20_000] {
         let text: String = (0..n)
@@ -387,7 +387,7 @@ fn medium_texts() {
         // up in a type for the elaborator to finish.
         let call = |session: &Session, f: &str, args: &[&Value]| {
             let g = &session.elab.globals;
-            let _op = g.budget.operation(session.elab.limits);
+            let _op = g.budget.operation(session.elab.options.limits);
             let mut v = value::eval(g, &[], &Term::Def(def(g, f))).unwrap();
             for arg in args {
                 v = value::apply(g, v, (*arg).clone()).unwrap();
@@ -423,7 +423,7 @@ fn medium_texts() {
         let answer = |session: &Session, a: &Value, b: &Value| {
             let decision = call(session, "Text.decEq", &[a, b]);
             let g = &session.elab.globals;
-            let _op = g.budget.operation(session.elab.limits);
+            let _op = g.budget.operation(session.elab.options.limits);
             let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
             let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
             normal(session, &value::apply(g, to_bool, decision).unwrap())

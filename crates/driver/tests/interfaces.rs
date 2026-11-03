@@ -12,12 +12,12 @@ use stitchwort_driver::driver::Session;
 /// default): the error codes, and how often finding an instance waited.
 fn load(budget: Option<usize>, source: &str) -> (Vec<&'static str>, usize) {
     let mut session = Session::new();
-    session.elab.instance_budget = budget;
+    session.elab.options.instance_budget = budget;
     let codes = match session.load("test.sw", source) {
         Ok(_) => Vec::new(),
         Err(errors) => errors.iter().map(|e| e.code).collect(),
     };
-    (codes, session.elab.instance_waits.get())
+    (codes, session.elab.session.instance_waits.get())
 }
 
 const PRETTY: &str = "\

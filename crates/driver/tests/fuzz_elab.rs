@@ -539,12 +539,12 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
     let reached = parsed || module.namespace.is_some() || !module.decls.is_empty();
 
     let mut session = Session::for_stack(STACK);
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: WORK,
         ..Limits::for_stack(STACK)
     };
     // A timed counterexample search can differ between two runs.
-    session.elab.untimed_counterexamples = true;
+    session.elab.options.untimed_counterexamples = true;
     if let Some(dir) = cache {
         session.use_check_cache(dir);
     }

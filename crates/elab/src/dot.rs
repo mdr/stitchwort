@@ -2082,7 +2082,7 @@ fn call_key(cx: &Ctx, recv: &Expr, field: &AstName) -> CallKey {
         std::ptr::from_ref(recv) as usize,
         recv.span(),
         field.span,
-        cx.e.source_epoch.get(),
+        cx.e.session.source_epoch.get(),
     )
 }
 
@@ -2123,7 +2123,7 @@ mod tests {
         let cx = Ctx::from_parts(&e, vec![], vec![], vec![], recv.span());
         let before = call_key(&cx, &recv, &field);
         assert_eq!(before, call_key(&cx, &recv, &field));
-        e.source_epoch.set(e.source_epoch.get() + 1);
+        e.session.source_epoch.set(e.session.source_epoch.get() + 1);
         assert_ne!(before, call_key(&cx, &recv, &field));
     }
 }

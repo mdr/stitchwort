@@ -307,7 +307,7 @@ fn partial_forwarding_program() -> stitchwort_js::run::Program {
     };
     stitchwort_js::run::generate_program_with(
         &session.elab.globals,
-        session.elab.limits,
+        session.elab.options.limits,
         main.term(),
         options,
     )

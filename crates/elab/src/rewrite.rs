@@ -75,7 +75,7 @@ const SEARCH_BUDGET: u64 = 1_000_000;
 fn search_budget(cx: &Ctx) -> u64 {
     match cx.e.unit.loading_prelude {
         true => SEARCH_BUDGET,
-        false => cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET),
+        false => cx.e.options.rewrite_budget.unwrap_or(SEARCH_BUDGET),
     }
 }
 

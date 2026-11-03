@@ -6,17 +6,17 @@
 //! component exhaustively: a new field doesn't compile until it says what
 //! each mechanism does with it.
 //!
-//! The components planned (§4.1), of which [`Unit`], [`Decl`] and
-//! [`Attempt`] exist so far (§7 steps 1 and 2); the rest of the state is
-//! still fields of the `Elaborator` and of `Globals`:
+//! The components planned (§4.1), of which [`Options`], [`Session`],
+//! [`Unit`], [`Decl`] and [`Attempt`] exist so far (§7 steps 1 to 3); the
+//! rest of the state is still fields of the `Elaborator` and of `Globals`:
 //!
-//! - `Options`: settings given at construction, and the cache key;
+//! - [`Options`]: settings and test switches, and the cache key;
 //! - `Kernel`: the kernel's half of `Globals` (definitions, data types,
 //!   builtins);
 //! - `Tables`: what later units read (scope, records, instances, ...), each
 //!   table of one of four kinds that says how it is marked, rewound, encoded
 //!   and dumped;
-//! - `Session`: project and cache bookkeeping, statistics;
+//! - [`Session`]: project and cache bookkeeping, statistics;
 //! - [`Unit`]: the unit being elaborated, set aside whole while a library
 //!   file is loaded inside one;
 //! - [`Decl`]: per-declaration scratch, rebuilt by `Default`;
@@ -26,11 +26,17 @@
 
 mod attempt;
 mod decl;
+mod options;
+mod session;
 mod unit;
 
 pub(crate) use attempt::Attempt;
 pub(crate) use attempt::Mark as AttemptMark;
 pub(crate) use decl::Decl;
+pub use options::Options;
+pub(crate) use session::Mark as SessionMark;
+pub use session::Session;
+pub(crate) use session::Stats;
 pub(crate) use unit::Mark as UnitMark;
 pub(crate) use unit::Unit;
 

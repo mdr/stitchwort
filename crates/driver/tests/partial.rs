@@ -413,7 +413,7 @@ fn deep_non_tail_recursion_uses_heap_frames() {
 #[test]
 fn resource_limits_are_per_step_not_per_tick() {
     let mut session = load(&printing("countdown 20000", false));
-    session.elab.limits.work = 20_000;
+    session.elab.options.limits.work = 20_000;
     let (events, outcome) = run_traced(&mut session, &[], None);
     assert_eq!(outcome, Outcome::Finished);
     assert_eq!(ticks(&events), 20_000);
@@ -426,7 +426,7 @@ fn resource_limits_are_per_step_not_per_tick() {
          | Succ n => Succ (big n)\n\n\
          def main () : {{IO, Partial}} () := IO.print (Nat.toText (big 1000000 + immediate 1))\n"
     ));
-    session.elab.limits.work = 20_000;
+    session.elab.options.limits.work = 20_000;
     let main = session.main().unwrap();
     let mut trace = Vec::new();
     let result = session.run_main_with(

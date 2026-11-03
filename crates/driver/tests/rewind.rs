@@ -147,7 +147,7 @@ fn check_rewind_check(source: &Source, fresh: &str) {
 /// Each namespace of a project checked, rewound and checked again.
 fn recheck_each_namespace(source: &Source, fresh: &str) {
     let mut s = session();
-    s.elab.recheck_namespaces = true;
+    s.elab.options.recheck_namespaces = true;
     let result = check(&mut s, source);
     assert_same(
         source,

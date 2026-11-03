@@ -291,8 +291,8 @@ declare a kind, and why `Tables::dump` destructures `Tables`.
 | Where | What | Lifetime it really has | Proposed home |
 |---|---|---|---|
 | `unify.rs` thread-locals (7) | `POSTPONED`, `RIGID_DIVERGENCE`, `AWAITED_HELPERS`, `SOLVING_ARGUMENTS`, `LOSSY`, `PENDING`, `WAITING` | per attempt or the dynamic extent of a call | `Attempt` (`LOSSY` as a trail; the others as fields set by a guard) |
-| `unify::MET_UNFILLED` (atomic) | count over the process | per session statistic | `Session::stats` |
-| `queue.rs` (26 atomics) | postponement counters, read by tests and `STITCHWORT_TIMINGS` | per session statistic | `Session::stats` |
+| `unify::MET_UNFILLED` (atomic) | count over the process | per session statistic | `Session::stats.met_unfilled` (the `Unifier` holds `&Stats`) |
+| `queue.rs` (26 atomics) | postponement counters, read by tests and `STITCHWORT_TIMINGS` | per session statistic | `Session::stats` (`Elaborator::queue_counts()`); `STITCHWORT_TIMINGS` sums the sessions of the process as each `Stats` is dropped (`timings::add_queue_counts`) |
 | `kernel.rs` `RECORDING`, `REJECTIONS` | the kernel's refusals, for the fuzzer | per session, test only | a test hook on the session |
 | `timings.rs` `STACK`, `DECLS`, `ROWS`, `DECL_ROWS`, `START` | profiler | process | stays: it measures time spent, rewound work included (as documented) |
 | `core::reference` `EQUAL_CALLS`, `value.rs` `PENDING`, `RUNS` | evaluator scratch, test counter | dynamic extent of one evaluation | stays in core (no session meaning) |
@@ -349,18 +349,18 @@ lane that moves it, not a known bug):
 
 ```text
 Elaborator
-├── options: Options          settings, given at construction; cache_key()
+├── options: Options          settings and test switches, set before the first load; cache_key()
 ├── kernel:  Kernel           (Globals' Env half) defs, datas, builtins, registry, unfinished
 ├── tables:  Tables           checked tables later units read (scope, records, instances, ...)
-├── session: Session          project tables, cache bookkeeping, stats, counters
+├── session: Session          project tables, include files, cache bookkeeping, stats (Stats: the queue's and the unifier's counters)
 ├── unit:    Unit             module state, namespace root, imports, file mode, warnings
 ├── decl:    Decl             per-declaration scratch (Default)
-├── attempt: Attempt          MetaStore (Globals' meta half) + per-attempt tables + unify state
+├── attempt: Attempt          MetaStore (Globals' meta half) + per-attempt tables + unify state + instance_steps
 ├── caches:  Caches           derivable memo tables
 └── present: Presentation     nav recorder, goal snapshots, counterexample log
 ```
 
-Each component has private fields and lives in `elab/src/state/`. The
+Each component lives in `elab/src/state/`; its fields are `pub(crate)` (`Options`' are public, for hosts and tests). The
 mechanisms become methods with exhaustive destructuring:
 
 | Mechanism | Who implements it | Shape |
@@ -368,10 +368,10 @@ mechanisms become methods with exhaustive destructuring:
 | Undo an attempt | `Attempt::mark()` / `restore(m)` | trail lengths; `restore` destructures `Attempt` |
 | Per-declaration cleanup | `Decl`, `Attempt` | `*decl = Decl::default(); attempt.reset()`; nothing to list |
 | Nested library load | `Unit` | `let saved = mem::take(&mut self.unit); …; self.unit = saved` |
-| Rewind | `Kernel`, `Tables`, `Session`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them; `Unit`, `Decl`, `Attempt` are asserted empty (`assert_empty()`) at a mark and reset on rewind |
+| Rewind | `Kernel`, `Tables`, `Session`, `Unit`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them. A `Unit` mark keeps a copy of the fields that outlive a unit (the last module, the namespace root, warnings, file mode); `Session`'s copies the bookkeeping a later load can change and leaves its counters. `Decl` is asserted empty at a mark and reset on rewind; `Attempt` is reset. `Options` is left alone |
 | Encode / replay | `Tables` (and `Kernel` for declarations) | `Tables::encode(&self, since: &TablesMark, w)` destructures `Tables`; each field's kind does the work |
 | Dump | `Tables`, `Kernel`, `Presentation` | `dump(&self, out)` destructures each |
-| Cache key | `Options` | `cache_key()` destructures `Options` |
+| Cache key | `Options` | `cache_key()` destructures `Options` and gives the settings part of `Elaborator::modes()`; the rest of the key's text is the kernel's native switches and the navigation tag |
 
 The `Ctx<'e>` hub stays as it is: `cx.e.attempt.obligations` instead of
 `cx.e.obligations`. The `RefCell`s stay where code with `&Elaborator`
@@ -736,7 +736,7 @@ orchestrator.
 | 0 | **Close the known gaps first.** Reproduce and fix F1 (`total_rows`) and SW-1135 (`equations_done`) like SW-1128; add `equation_skips` to the dump (F2) | the instances | the SW-1128-style tests in `check_cache.rs`, `test:one` on each |
 | 1 | **`Attempt`.** Move the 18 per-attempt fields and `unify.rs`'s thread-locals into `state::Attempt`. `Snapshot` becomes `Attempt::mark`/`restore` with exhaustive destructuring; `clear_metas` becomes `Attempt::reset` | undo/cleanup lists; SW-1129's thread-locals | elab's `undo` unit tests, `postponement.rs`, `rewind.rs` |
 | 2 | **`Decl` and `Unit`.** Per-declaration scratch into `Decl` (reset by `Default`); per-unit fields into `Unit`, with `library::Context` replaced by a swap. Resolve the flagged fields' lifetimes as they move | per-declaration and nested-load lists | `std_library.rs`, `rewind.rs`, `namespaces.rs` |
-| 3 | **`Options` and `Session`.** Settings and test switches into `Options` with `cache_key()`; project and cache bookkeeping into `Session`; `queue.rs`'s counters and `MET_UNFILLED` into `Session::stats` (tests and `STITCHWORT_TIMINGS` read them from there) | SW-1129's globals | `postponement.rs` (reads the counters), `check_cache.rs` |
+| 3 | **`Options` and `Session`.** Settings and test switches into `Options` with `cache_key()`; project and cache bookkeeping into `Session`; `queue.rs`'s counters and `MET_UNFILLED` into `Session::stats`. `include_files` and `core_link_names` are set by the host after the session is built, so they go to `Session`, not `Options` | SW-1129's globals | `postponement.rs`, `check_cache.rs`, `rewind.rs` |
 | 4 | **`Caches`**, plus a test switch that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
 | 6 | **`Logged` for the copied tables.** `Scope`'s maps, `instances`, `helper_keys` and `Session`'s copied maps become undo-logged; `Mark` stops copying; `Before` stops copying `scope.entries`. Measure `LiveProject` memory on `aoc` before and after (F3) | mark memory and time | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs` |
@@ -825,7 +825,7 @@ by hand where a regex missed (`records` is dumped).
 | `namespace_defs` | `--RED` | Tables | grow (by namespace) |  |
 | `prelude_defs` | `--R-D` | Tables | set once | dumped, not encoded: set before any unit |
 | `file_mode` | `--R--` | Unit | swap |  |
-| `include_files` | `--RE-` | Options | setting | host-provided, rewound by copy |
+| `include_files` | `--RE-` | Session | host-provided | set by the host as it loads a project or a file on its own (`include_from`, `include_in_folder`), so it is not an option; copied per mark |
 | `include_locations` | `--RE-` | Session | logged |  |
 | `next_include_location` | `--R--` | Unit | swap |  |
 | `obligations` | `UCr--` | Attempt | trail |  |
@@ -835,19 +835,19 @@ by hand where a regex missed (`records` is dumped).
 | `awaiting_helpers` | `UCr--` | Attempt | trail |  |
 | `defaulted` | `UCr--` | Attempt | trail |  |
 | `defaulted_records` | `UCr--` | Attempt | trail |  |
-| `char_patterns` | `--r--` | Unit? | grows, keyed by span | **unclear**: only rewind empties it; grows over the session; an undone attempt keeps its rows |
-| `char_proofs` | `--r--` | Unit? | grows, keyed by span | **unclear**: as char_patterns |
+| `char_patterns` | `--r--` | Decl | scratch, keyed by span | kept across the attempts at a declaration; an undone attempt keeps its rows |
+| `char_proofs` | `--r--` | Decl | scratch, keyed by span | as `char_patterns` |
 | `loading_prelude` | `--RE-` | Unit | swap | read by 19 modules as a mode flag |
 | `rewrite_budget` | `--sE-` | Options | setting |  |
 | `library` | `--RE-` | Session | logged (load states) | copied per mark |
 | `library_tests` | `--sE-` | Options | setting |  |
-| `core_link_names` | `--s--` | Options | setting |  |
+| `core_link_names` | `--s--` | Session | dynamic extent | set by the host around the core's load and cleared after, so not an option; `None` at every mark |
 | `abilities` | `--RED` | Tables | grow |  |
 | `limits` | `--sE-` | Options | setting |  |
 | `numbers_as_succ` | `--sE-` | Options | setting |  |
 | `module` | `--RE-` | Unit | swap | copied per mark; ItemInfo per item of the unit |
 | `warnings` | `--RE-` | Unit | swap | copied per mark |
-| `lambda_warnings` | `U-r--` | Attempt | trail | also swapped by library loads |
+| `lambda_warnings` | `U-r--` | Attempt | trail | set aside beside the `Unit` by a library load |
 | `branch_errors` | `U-r--` | Attempt | trail |  |
 | `arm_reach` | `--r--` | Decl | scratch |  |
 | `no_propagation` | `--r--` | Decl | dynamic extent | a Cell counter set and reset around a call |
@@ -859,7 +859,7 @@ by hand where a regex missed (`records` is dumped).
 | `condition` | `--r--` | Decl | dynamic extent |  |
 | `app_expected` | `--r--` | Decl | dynamic extent |  |
 | `decreasing` | `--r--` | Decl | dynamic extent |  |
-| `recursion` | `--R--` | Decl | dynamic extent | copied per mark although empty between loads |
+| `recursion` | `--R--` | Decl | dynamic extent | empty at a mark (asserted) |
 | `records` | `--rED` | Tables | owned by DataId |  |
 | `no_eq` | `--rED` | Tables | owned by DataId |  |
 | `no_show` | `--rED` | Tables | owned by DataId |  |
@@ -869,19 +869,19 @@ by hand where a regex missed (`records` is dumped).
 | `generated_alls` | `--rED` | Tables | owned by DataId | SW-1128 (fixed) |
 | `drafts` | `UCr--` | Attempt | trail |  |
 | `standalone_inputs` | `--s--` | Session | counter | ignored by rewind |
-| `glue` | `--s--` | Options | setting |  |
+| `glue` | `--s--` | Options | setting | not in `cache_key()`: glued and unglued evaluation might give a library file different terms (unchecked) |
 | `arounds` | `--r--` | Decl | dynamic extent |  |
 | `lifted` | `--RED` | Tables | grow |  |
 | `match_columns` | `--rED` | Tables | owned by DefId |  |
-| `pending_run_bodies` | `--r--` | Decl? | queue across a group | **unclear**: drained when helpers are final; rewound by id |
+| `pending_run_bodies` | `--r--` | Decl | queue across a group | drained when helpers are final |
 | `owner` | `--r--` | Decl | dynamic extent |  |
 | `body_type` | `--r--` | Decl | dynamic extent |  |
 | `local_keys` | `U-r--` | Attempt | trail | cleared at 4 sites besides rewind |
 | `preadmitted` | `--r--` | Decl | scratch |  |
-| `signature_matches` | `--r--` | Decl? | per declaration key | **unclear**: kept between type and body; cleared on rewind, never encoded |
+| `signature_matches` | `--r--` | Decl | per declaration key | kept between type and body; never encoded |
 | `owner_unfolding` | `--r--` | Decl | dynamic extent |  |
 | `owner_helpers` | `--r--` | Decl | scratch |  |
-| `local_helpers` | `--R--` | Decl | scratch (per group) | copied per mark although empty between loads? |
+| `local_helpers` | `--R--` | Decl | scratch (per group) | empty at a mark (asserted) |
 | `helper_keys` | `--RED` | Tables | logged | copied per mark and per cached unit |
 | `local_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `meta_names` | `UCr--` | Attempt | trail |  |
@@ -902,7 +902,7 @@ by hand where a regex missed (`records` is dumped).
 | `interfaces` | `--RED` | Tables | owned by DataId |  |
 | `instances` | `--RED` | Tables | logged | copied per mark; an older row may change (valid flag) |
 | `data_owners` | `--rED` | Tables | owned by DataId |  |
-| `instance_steps` | `-Cr--` | Decl | budget | deliberately not undone |
+| `instance_steps` | `-Cr--` | Attempt | budget, keyed by meta | reset with the metas; deliberately not refunded when an attempt is undone |
 | `instance_budget` | `--sE-` | Options | setting |  |
 | `uniform_operators` | `--sE-` | Options | setting |  |
 | `instance_waits` | `--s--` | Session | statistic |  |
@@ -914,7 +914,7 @@ by hand where a regex missed (`records` is dumped).
 | `namespace_keys` | `--RE-` | Session | logged | copied per mark |
 | `namespace_capture` | `--rE-` | Unit | swap |  |
 | `skip_navigation_walk` | `--rE-` | Unit | swap |  |
-| `omega_for_auto` | `--s--` | Unit | swap | **unclear**: per module, but rewind ignores it as a setting |
+| `omega_for_auto` | `--s--` | Unit | per module | carried into and out of a nested library load, and not rewound: a library file's value is what the next module's code sees until it sets its own (SW-1150) |
 | `replayed_names` | `--RE-` | Session | logged | copied per mark |
 | `fail_replays_late` | `--sE-` | Options | test switch |  |
 | `recheck_namespaces` | `--s--` | Options | test switch |  |
@@ -923,8 +923,8 @@ by hand where a regex missed (`records` is dumped).
 | `counterexample_runner` | `--s--` | Options | setting (host) |  |
 | `no_counterexamples` | `--s--` | Options | test switch |  |
 | `untimed_counterexamples` | `--s--` | Options | setting |  |
-| `counterexample_log` | `--s--` | Session | log | grows forever; ignored by rewind |
-| `tuple_matches` | `--R--` | Tables? | grow | **unclear**: read only for termination errors; rewound, not cached |
+| `counterexample_log` | `--s--` | Session | log | grows forever; ignored by rewind; goes to `Presentation` in step 7 |
+| `tuple_matches` | `--R--` | Decl | scratch | read only for termination errors; empty at a mark |
 | `leaf_log` | `--r--` | Decl | scratch |  |
 | `arm_probe` | `--r--` | Decl | scratch |  |
 | `equation_skips` | `--rE-` | Tables | owned by DefId | encoded but **not dumped** |

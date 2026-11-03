@@ -135,7 +135,7 @@ pub fn format(source: &str) -> String {
 pub fn check_index(source: &str) -> String {
     let mut session = Session::navigable();
     session.elab.enable_expression_types();
-    session.elab.limits = session_limits();
+    session.elab.options.limits = session_limits();
     let loaded = session.load(FILE, source);
     let ok = loaded.is_ok();
     let mut reported = std::mem::take(&mut session.warnings);
@@ -651,7 +651,7 @@ fn load(source: &str) -> Result<Session, String> {
     #[cfg(test)]
     LOADS.with(|loads| loads.set(loads.get() + 1));
     let mut session = Session::new();
-    session.elab.limits = session_limits();
+    session.elab.options.limits = session_limits();
     match session.load(FILE, source) {
         Ok(_) => Ok(session),
         Err(diagnostics) => {
@@ -1238,7 +1238,7 @@ mod tests {
                       IO.print \"before\"\n  \
                       IO.print (Nat.toText (List.length (replicate 100000 1)))\n";
         let mut session = load(source).expect("it checks");
-        session.elab.limits.work = 100_000;
+        session.elab.options.limits.work = 100_000;
         let result = run_loaded(session, "", 1000, MAX_READS_PAST_END);
         assert!(
             result.starts_with(r#"{"ok":false,"errors":"[E-RESOURCE]"#),

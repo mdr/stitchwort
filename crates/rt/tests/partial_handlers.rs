@@ -62,7 +62,7 @@ fn run(source: &str, trace: bool) -> Run {
         let main = session.main().expect("`main` has the right type");
         let program = lower_main(
             &session.elab.globals,
-            session.elab.limits,
+            session.elab.options.limits,
             main.term(),
             main.row,
         )
@@ -74,7 +74,7 @@ fn run(source: &str, trace: bool) -> Run {
         let start = Instant::now();
         let (result, counts) = run_main_counting(
             &program,
-            Limits::from_core(session.elab.limits),
+            Limits::from_core(session.elab.options.limits),
             &Policy::default(),
             &mut "".as_bytes(),
             &mut output,

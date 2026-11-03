@@ -13,7 +13,7 @@ use stitchwort_driver::driver::Session;
 /// their dictionaries if `uniform`): the session.
 fn load(source: &str, uniform: bool) -> Session {
     let mut session = Session::new();
-    session.elab.uniform_operators = uniform;
+    session.elab.options.uniform_operators = uniform;
     if let Err(errors) = session.load("test.sw", source) {
         panic!("{errors:#?}");
     }
@@ -189,7 +189,7 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
     const STACK: usize = 16 * 1024 * 1024;
     let hashes = |uniform: bool| {
         let mut session = Session::for_stack(STACK);
-        session.elab.uniform_operators = uniform;
+        session.elab.options.uniform_operators = uniform;
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
         if let Err(errors) = session.load_project(&DiskFiles { root }, "aoc", &Target::Everything) {
             panic!("aoc doesn't load: {errors:#?}");

@@ -60,7 +60,7 @@ fn deep_recursion_runs_without_using_the_stack() {
 /// With fewer frames allowed, the same program has no result.
 fn with_few_frames() -> Session {
     let mut session = Session::new();
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         frames: 10_000,
         ..Limits::default()
     };
@@ -99,7 +99,7 @@ fn too_much_work_has_no_result() {
     session
         .load("test.sw", "test \"long\" := replicateHasLength 100\n")
         .expect("checks");
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 50,
         ..Limits::default()
     };
@@ -114,7 +114,7 @@ fn too_much_work_has_no_result() {
 fn printing_too_large_a_value_is_an_error() {
     let mut session = Session::new();
     session.load("size.sw", REPLICATE).expect("checks");
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         size: 100,
         ..Limits::default()
     };
@@ -140,7 +140,7 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
              opaque def big (n: Nat): List Nat := replicate 500 n\n",
         )
         .expect("checks");
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         size: 100,
         ..Limits::default()
     };
@@ -171,7 +171,7 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
 #[test]
 fn running_out_of_steps_names_the_definition_being_unfolded() {
     let mut session = Session::new();
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 5_000,
         ..Limits::default()
     };
@@ -245,7 +245,7 @@ fn running_out_at_any_point_only_ever_means_no_answer() {
     let mut finished = false;
     for work in tier_sample(limits, 4) {
         let mut session = Session::new();
-        session.elab.limits = Limits {
+        session.elab.options.limits = Limits {
             work,
             ..Limits::default()
         };
@@ -279,7 +279,7 @@ fn running_out_at_any_point_only_ever_means_no_answer() {
 #[test]
 fn running_out_leaves_nothing_behind() {
     let mut session = Session::new();
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 200,
         ..Limits::default()
     };
@@ -287,7 +287,7 @@ fn running_out_leaves_nothing_behind() {
     assert!(session.elab.globals.metas.borrow().is_empty());
     assert_eq!(session.elab.globals.budget.exhausted(), None);
     // The same session, with enough resources, checks a new file as usual.
-    session.elab.limits = Limits::default();
+    session.elab.options.limits = Limits::default();
     session
         .load(
             "second.sw",
@@ -570,7 +570,7 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
 #[test]
 fn running_out_of_steps_names_the_declaration_being_checked() {
     let mut session = Session::new();
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         work: 5_000,
         ..Limits::default()
     };
@@ -606,7 +606,7 @@ const SEARCH: &str = "import Std (List, Nat, Option)\n\n\
 fn a_match_reads_its_scrutinee_back_only_as_far_as_it_could_occur() {
     let mut session = Session::new();
     session.load("search.sw", SEARCH).expect("checks");
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         size: 1_000,
         ..Limits::default()
     };
@@ -625,7 +625,7 @@ fn a_match_reads_its_scrutinee_back_only_as_far_as_it_could_occur() {
 fn running_out_generalising_a_match_points_at_it() {
     let mut session = Session::new();
     session.load("search.sw", SEARCH).expect("checks");
-    session.elab.limits = Limits {
+    session.elab.options.limits = Limits {
         size: 1_000,
         ..Limits::default()
     };

@@ -712,7 +712,7 @@ impl Elaborator {
     /// isn't loaded, is a definition with a function type.
     pub(crate) fn pending_is_function(&self, written: &str, file: usize) -> bool {
         let (Some(lib), scope::Resolved::Found { key, .. }) =
-            (&self.library, self.resolve(written))
+            (&self.session.library, self.resolve(written))
         else {
             return false;
         };
@@ -741,7 +741,7 @@ impl Elaborator {
                 );
             }
         }
-        self.library = Some(LibraryState {
+        self.session.library = Some(LibraryState {
             index,
             state,
             stack: Vec::new(),
@@ -781,7 +781,7 @@ impl Elaborator {
         use stitchwort_core::registry::Builtin;
         use stitchwort_core::{DefId, Value};
         let g = &self.globals;
-        let _op = g.budget.operation(self.limits);
+        let _op = g.budget.operation(self.options.limits);
         let decidable = g.registry.data(Builtin::Decidable);
         let mut found = Vec::new();
         for id in self.prelude_defs..g.defs.len() {
@@ -806,18 +806,21 @@ impl Elaborator {
 
     /// Whether no library file is loading.
     pub(crate) fn library_stack_is_empty(&self) -> bool {
-        self.library.as_ref().is_none_or(|lib| lib.stack.is_empty())
+        self.session
+            .library
+            .as_ref()
+            .is_none_or(|lib| lib.stack.is_empty())
     }
 
     /// The library index, if there is one.
     pub(crate) fn library_index(&self) -> Option<Arc<LibraryIndex>> {
-        self.library.as_ref().map(|lib| lib.index.clone())
+        self.session.library.as_ref().map(|lib| lib.index.clone())
     }
 
     /// The paths of the library files loaded so far, in the order they
     /// loaded.
     pub fn loaded_library_files(&self) -> Vec<String> {
-        self.library.as_ref().map_or_else(Vec::new, |lib| {
+        self.session.library.as_ref().map_or_else(Vec::new, |lib| {
             lib.order
                 .iter()
                 .map(|&f| lib.index.files[f].path.clone())
@@ -916,7 +919,7 @@ impl Elaborator {
     /// dot calls can reach given what will be loaded), and what those need,
     /// in canonical order.
     pub(crate) fn load_needs(&mut self, needs: &Needs) -> Result<(), Vec<Diagnostic>> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let roots = lib
@@ -934,7 +937,7 @@ impl Elaborator {
     /// module's own needs, not on what happens to be loaded, so `auto`
     /// proves the same things however the module is reached.
     pub(crate) fn needs_reach_omega(&self, needs: &Needs) -> bool {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return false;
         };
         // A module that needs no files reaches none of omega's.
@@ -955,7 +958,7 @@ impl Elaborator {
         &mut self,
         needs: &BTreeSet<usize>,
     ) -> Result<(), Vec<Diagnostic>> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let index = lib.index.clone();
@@ -971,7 +974,7 @@ impl Elaborator {
     /// The error for a library file that uses files that aren't loaded: a
     /// file being loaded (a cycle), or one the dependency analysis missed.
     pub(crate) fn unloaded_needs(&self, needs: &BTreeSet<usize>) -> Vec<Diagnostic> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Vec::new();
         };
         let by = lib.stack.last().copied().unwrap_or(0);
@@ -995,7 +998,7 @@ impl Elaborator {
     /// Loads every library file, in canonical order: the test-only "eager
     /// `Std`" mode.
     pub fn load_all_libraries(&mut self) -> Result<(), Vec<Diagnostic>> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let all: BTreeSet<usize> = (1..lib.index.files.len()).collect();
@@ -1004,7 +1007,7 @@ impl Elaborator {
 
     /// Loads the files an expression typed in needs (`eval`, the REPL).
     pub fn prepare_expr(&mut self, expr: &Expr) -> Result<(), Diagnostic> {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return Ok(());
         };
         let index = lib.index.clone();
@@ -1018,7 +1021,11 @@ impl Elaborator {
     /// Checks one library file, as the prelude is checked, in the middle of
     /// whatever else is being elaborated.
     fn load_library_file(&mut self, f: usize) -> Result<(), Vec<Diagnostic>> {
-        let lib = self.library.as_mut().expect("a library is installed");
+        let lib = self
+            .session
+            .library
+            .as_mut()
+            .expect("a library is installed");
         let index = lib.index.clone();
         let file = &index.files[f];
         match lib.state[f] {
@@ -1052,14 +1059,22 @@ impl Elaborator {
             crate::timings::end(&self.globals, label);
         }
         if hit {
-            let lib = self.library.as_mut().expect("a library is installed");
+            let lib = self
+                .session
+                .library
+                .as_mut()
+                .expect("a library is installed");
             lib.state[f] = LoadState::Loaded;
             lib.order.push(f);
             self.drop_unconfirmed(f);
             return Ok(());
         }
         let before = cached.as_ref().map(|_| self.cache_before());
-        let lib = self.library.as_mut().expect("a library is installed");
+        let lib = self
+            .session
+            .library
+            .as_mut()
+            .expect("a library is installed");
         lib.state[f] = LoadState::Loading;
         lib.stack.push(f);
         // (The file's module sets `Globals::module` itself.)
@@ -1074,7 +1089,11 @@ impl Elaborator {
         let diagnostics = self.elaborate_namespace(None, &[unit], None);
         self.scope.loading = None;
         self.leave_nested_unit(saved);
-        let lib = self.library.as_mut().expect("a library is installed");
+        let lib = self
+            .session
+            .library
+            .as_mut()
+            .expect("a library is installed");
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
         lib.order.push(f);
@@ -1120,7 +1139,11 @@ impl Elaborator {
             self.globals.module = saved;
             return result;
         }
-        let lib = self.library.as_ref().expect("a library is installed");
+        let lib = self
+            .session
+            .library
+            .as_ref()
+            .expect("a library is installed");
         let index = lib.index.clone();
         let file = &index.files[f];
         // The core loaded before the library's names were there.
@@ -1192,7 +1215,7 @@ impl Elaborator {
     /// loaded: either the file is loading (a cycle), or the dependency
     /// analysis missed the reference.
     pub(crate) fn unloaded(&self, name: &stitchwort_syntax::ast::Name, file: usize) -> Diagnostic {
-        let Some(lib) = &self.library else {
+        let Some(lib) = &self.session.library else {
             return internal(format!(
                 "`{}` is in a library file that isn't loaded",
                 name.text

@@ -191,7 +191,7 @@ fn long_list_literals() {
 fn long_list_literals_with_a_small_guard() {
     isolated("long_list_literals_with_a_small_guard", || {
         let mut session = Session::new();
-        session.elab.limits = Limits {
+        session.elab.options.limits = Limits {
             stack: 256 * 1024,
             ..Limits::default()
         };

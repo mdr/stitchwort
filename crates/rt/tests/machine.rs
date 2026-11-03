@@ -46,14 +46,18 @@ fn machine(program: &Program, limits: Limits, input: &[u8]) -> Run {
 
 fn lowered(session: &Session, main: &Main, what: &str) -> Program {
     let g = &session.elab.globals;
-    lower_main(g, session.elab.limits, main.term(), main.row)
+    lower_main(g, session.elab.options.limits, main.term(), main.row)
         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"))
 }
 
 /// Runs `main` both ways with `input`: the same output, and the same end.
 fn same_both_ways(session: &Session, main: &Main, program: &Program, input: &[u8], what: &str) {
     let expected = reference(session, main, input);
-    let got = machine(program, Limits::from_core(session.elab.limits), input);
+    let got = machine(
+        program,
+        Limits::from_core(session.elab.options.limits),
+        input,
+    );
     assert_eq!(
         got,
         expected,
@@ -87,7 +91,7 @@ fn run_tests_where(
         .tests
         .iter()
         .filter(|t| t.library == library && (library || keep(t)));
-    let mut m = Machine::new(program, Limits::from_core(session.elab.limits));
+    let mut m = Machine::new(program, Limits::from_core(session.elab.options.limits));
     let true_ = program.shapes.true_;
     let mut ran = 0;
     for (decl, result) in decls.zip(results) {
@@ -130,7 +134,7 @@ fn everything(session: &Session, what: &str) -> Program {
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
         .collect();
-    lower_definitions(g, session.elab.limits, &ids)
+    lower_definitions(g, session.elab.options.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"))
 }
 
@@ -266,7 +270,7 @@ fn aoc_agrees() {
                 .main_named(&name, "aoc")
                 .unwrap_or_else(|e| panic!("{name}: {e:?}"));
             let program = lowered(&session, &main, &name);
-            let limits = Limits::from_core(session.elab.limits);
+            let limits = Limits::from_core(session.elab.options.limits);
             let input = std::fs::read(root().join(format!("aoc/inputs/{year}/day{day}.txt")))
                 .expect("the puzzle input");
             let start = std::time::Instant::now();
@@ -295,7 +299,11 @@ fn both_ways(source: &str, input: &[u8]) -> Run {
         let main = session.main().expect("main");
         let program = lowered(&session, &main, "test.sw");
         let expected = reference(&session, &main, input);
-        let got = machine(&program, Limits::from_core(session.elab.limits), input);
+        let got = machine(
+            &program,
+            Limits::from_core(session.elab.options.limits),
+            input,
+        );
         assert_eq!(got, expected, "the machine disagrees with `stitchwort run`");
         got
     })
@@ -971,13 +979,17 @@ def main(): {IO} () :=
 "#,
             )
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
-        session.elab.limits.work = 1_000_000;
-        session.elab.limits.frames = 10_000;
+        session.elab.options.limits.work = 1_000_000;
+        session.elab.options.limits.frames = 10_000;
         let main = session.main().expect("main");
         let program = lowered(&session, &main, "test.sw");
         for input in [&b"x"[..], b"xy"] {
             let expected = reference(&session, &main, input);
-            let got = machine(&program, Limits::from_core(session.elab.limits), input);
+            let got = machine(
+                &program,
+                Limits::from_core(session.elab.options.limits),
+                input,
+            );
             assert_eq!(got.0, "before\n");
             assert_eq!(got.0, expected.0);
             for run in [&got, &expected] {

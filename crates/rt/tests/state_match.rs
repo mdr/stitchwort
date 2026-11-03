@@ -125,9 +125,9 @@ fn resuming_inside_a_match_runs_as_a_loop() {
             .load("state-match.sw", PROGRAM)
             .unwrap_or_else(|e| panic!("state-match.sw doesn't check: {e:?}"));
         let g = &session.elab.globals;
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         for name in ["byState", "byPair", "nested", "opened"] {
-            let program = lower_global(g, session.elab.limits, def_named(&session, name))
+            let program = lower_global(g, session.elab.options.limits, def_named(&session, name))
                 .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
             let mut peaks = Vec::new();
             for n in [1_000u64, 100_000] {

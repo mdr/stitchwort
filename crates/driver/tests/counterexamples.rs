@@ -28,7 +28,7 @@ fn search(name: &str, fast: bool) -> (Vec<String>, Vec<SearchLog>) {
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
         if !fast {
-            session.elab.counterexample_runner = None;
+            session.elab.options.counterexample_runner = None;
         }
         let diagnostics = match session.load(&name, &text) {
             Ok(_) => session.warnings.clone(),
@@ -40,7 +40,7 @@ fn search(name: &str, fast: bool) -> (Vec<String>, Vec<SearchLog>) {
             .filter(|n| n.contains("this statement is false") || n.contains("internal error"))
             .cloned()
             .collect();
-        let log = session.elab.counterexample_log.borrow().clone();
+        let log = session.elab.session.counterexample_log.borrow().clone();
         (notes, log)
     })
 }

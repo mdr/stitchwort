@@ -742,7 +742,7 @@ impl LiveProject {
         }
         self.parsed
             .retain(|path, p| self.texts.get(path) == Some(&p.text));
-        let stack = self.session.elab.limits.stack;
+        let stack = self.session.elab.options.limits.stack;
         for (path, text) in &self.texts {
             if self.parsed.contains_key(path) {
                 continue;
@@ -781,7 +781,7 @@ fn parse_namespace(
         let display = format!("{project}/{path}");
         let id = session.sources.add(display.clone(), text.clone());
         session.elab.set_include_location(id, path.clone());
-        let (module, errors) = parse_module_recovering(id, text, session.elab.limits.stack);
+        let (module, errors) = parse_module_recovering(id, text, session.elab.options.limits.stack);
         ids.push(id);
         displays.push(display);
         modules.push(module);

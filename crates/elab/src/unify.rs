@@ -13,7 +13,7 @@ use stitchwort_core::value::{
 use stitchwort_core::{BigUint, DefId, Globals, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
 
-use crate::state::{Attempt, Scoped, ScopedCell};
+use crate::state::{Attempt, Scoped, ScopedCell, Stats};
 
 /// What the unifier works on: the metavariables, in `Globals`, and its own
 /// state, in the [`Attempt`]. Derefs to the `Globals`, so it is passed
@@ -22,6 +22,7 @@ use crate::state::{Attempt, Scoped, ScopedCell};
 pub(crate) struct Unifier<'a> {
     pub(crate) g: &'a Globals,
     pub(crate) attempt: &'a Attempt,
+    pub(crate) stats: &'a Stats,
 }
 
 impl std::ops::Deref for Unifier<'_> {
@@ -270,20 +271,9 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
     Ok(true)
 }
 
-/// Comparisons that failed at a pair one side of which is headed by an
-/// unfilled placeholder (stuck there, or put aside on it), over the process:
-/// the second half of the stage-6 trigger (docs/proposals/postponement.md
-/// §5.13).
-static MET_UNFILLED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// [`MET_UNFILLED`]'s count.
-pub(crate) fn met_unfilled() -> usize {
-    MET_UNFILLED.load(std::sync::atomic::Ordering::Relaxed)
-}
-
 /// Counts a failing pair, `a` against `b`, if one side's head is an unfilled
 /// placeholder, or a definition stuck on one.
-fn note_unfilled(g: &Globals, a: &Value, b: &Value) -> Result<()> {
+fn note_unfilled(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<()> {
     if g.unfilled_placeholders.borrow().is_empty() {
         return Ok(());
     }
@@ -306,7 +296,7 @@ fn note_unfilled(g: &Globals, a: &Value, b: &Value) -> Result<()> {
         })
     };
     if unfilled(a)? || unfilled(b)? {
-        MET_UNFILLED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Stats::bump(&g.stats.met_unfilled);
     }
     Ok(())
 }
@@ -2426,6 +2416,7 @@ mod tests {
     struct Fresh {
         g: Globals,
         attempt: Attempt,
+        stats: Stats,
     }
 
     impl Fresh {
@@ -2433,6 +2424,7 @@ mod tests {
             Unifier {
                 g: &self.g,
                 attempt: &self.attempt,
+                stats: &self.stats,
             }
         }
     }

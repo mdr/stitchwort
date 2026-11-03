@@ -235,7 +235,7 @@ fn extracted(source: &str) -> stitchwort_js::Output {
     session
         .load("boundary.sw", source)
         .unwrap_or_else(|e| panic!("{e:?}"));
-    stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+    stitchwort_js::generate(&session.elab.globals, session.elab.options.limits)
         .expect("extraction succeeds")
 }
 

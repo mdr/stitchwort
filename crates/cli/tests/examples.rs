@@ -127,7 +127,7 @@ fn examples(dir: &str) -> Vec<Example> {
 /// in time, so the rendering differed (the flaky
 /// `rejected_examples_fail_for_the_expected_reason`, 26 Oct 2026).
 fn untimed(mut session: Session) -> Session {
-    session.elab.untimed_counterexamples = true;
+    session.elab.options.untimed_counterexamples = true;
     session
 }
 

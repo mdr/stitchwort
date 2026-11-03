@@ -181,7 +181,7 @@ impl Session {
             })
             .collect();
         // The rewind test's hook: check it, rewind, check it again.
-        if self.elab.recheck_namespaces {
+        if self.elab.options.recheck_namespaces {
             let mark = self.mark();
             let _ = self
                 .elab
@@ -559,7 +559,7 @@ pub fn parse_file(session: &mut Session, project: &str, path: String, text: Stri
     let display = format!("{project}/{path}");
     let id = session.sources.add(display.clone(), text.clone());
     session.elab.set_include_location(id, path.clone());
-    let (module, errors) = parse_module_recovering(id, &text, session.elab.limits.stack);
+    let (module, errors) = parse_module_recovering(id, &text, session.elab.options.limits.stack);
     ParsedFile {
         path,
         display,

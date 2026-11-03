@@ -115,7 +115,7 @@ pub(crate) fn live_from(session: Session, main: Main) -> Result<LiveSession, Str
         .lower_fast(&main)
         .map_err(|error| failure(&rendered(&session, &[error.diagnostic(main.span)])))?;
     let limits = LiveLimits {
-        machine: stitchwort_rt::Limits::from_core(session.elab.limits),
+        machine: stitchwort_rt::Limits::from_core(session.elab.options.limits),
         max_output: Some(MAX_STRETCH_OUTPUT),
         scope: LimitScope::EachStretch,
     };

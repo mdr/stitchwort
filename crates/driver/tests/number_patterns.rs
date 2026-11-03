@@ -807,7 +807,7 @@ fn generated_matches_agree_with_the_rows_the_old_compilation_and_the_expansion()
         let text = generated.source(&name);
         let mut new = session_with(&text);
         let mut old = Session::new();
-        old.elab.numbers_as_succ = true;
+        old.elab.options.numbers_as_succ = true;
         load(&mut old, &text);
         let f = def(&new.elab.globals, &name);
         let f_old = def(&old.elab.globals, &name);

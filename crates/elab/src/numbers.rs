@@ -1560,7 +1560,7 @@ fn speculate(
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             snapshot.restore(cx);
-            crate::queue::note_leaf_uninferred();
+            crate::queue::note_leaf_uninferred(cx.e);
             Ok(Err(e))
         }
         Err(e) => Err(e),
@@ -1856,7 +1856,7 @@ fn operator(
                     Kind::Int | Kind::Float => builtin_data(cx, Builtin::Int)?,
                 };
                 crate::interfaces::instance_ready(cx.e, interface, head)
-                    && (cx.e.uniform_operators
+                    && (cx.e.options.uniform_operators
                         || crate::interfaces::local_dictionary(cx, interface)?)
             }
         };

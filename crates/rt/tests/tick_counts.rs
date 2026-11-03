@@ -78,7 +78,7 @@ fn fast(session: &mut Session, input: &str, limit: u64) -> (Ended, String) {
     let main = session.main().expect("`main` has the right type");
     let program = lower_main(
         &session.elab.globals,
-        session.elab.limits,
+        session.elab.options.limits,
         main.term(),
         main.row,
     )
@@ -86,7 +86,7 @@ fn fast(session: &mut Session, input: &str, limit: u64) -> (Ended, String) {
     let mut output = Vec::new();
     let result = run_main_with(
         &program,
-        Limits::from_core(session.elab.limits),
+        Limits::from_core(session.elab.options.limits),
         &Policy {
             max_ticks: Some(limit),
         },

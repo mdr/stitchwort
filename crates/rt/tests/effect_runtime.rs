@@ -51,7 +51,7 @@ struct Export {
 impl Export {
     fn new(session: &Session, name: &str) -> Export {
         let g = &session.elab.globals;
-        let program = lower_global(g, session.elab.limits, def_named(session, name))
+        let program = lower_global(g, session.elab.options.limits, def_named(session, name))
             .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
         Export { program }
     }
@@ -241,7 +241,7 @@ fn every_shape_runs_at_a_million_elements() {
     with_stack(STACK, || {
         let (session, _) = example("effect-runtime.sw");
         let n = 1_000_000;
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         let empty_row: &[(&str, Check)] = &[("emitted", Check::Plus(0))];
         for (name, how) in SHAPES.iter().chain(empty_row) {
             let export = Export::new(&session, name);
@@ -277,7 +277,7 @@ fn every_shape_runs_at_a_million_elements() {
 fn the_work_per_element_is_constant() {
     with_stack(STACK, || {
         let (session, _) = example("effect-runtime.sw");
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         for (name, how) in SHAPES {
             let export = Export::new(&session, name);
             let p = &export.program;
@@ -340,7 +340,7 @@ fn the_work_per_element_is_constant() {
 fn bind_of_done_is_a_direct_call() {
     with_stack(STACK, || {
         let (session, _) = example("effect-runtime.sw");
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         let export = Export::new(&session, "checked");
         let p = &export.program;
         let (result, c) = export.call(limits, vec![list(p, 100_000)]);
@@ -382,7 +382,7 @@ fn nat_list(p: &Program, xs: &[u64]) -> Value {
 fn state_handlers_run_as_a_loop_where_they_fit() {
     with_stack(STACK, || {
         let (session, _) = example("effect-state.sw");
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         let codes: &[u64] = &[0, 2, 3, 4, 5, 1, 0];
         // The export, its list argument, and the jumps it makes.
         let cases: &[(&str, &[u64], u64)] = &[
@@ -421,7 +421,7 @@ fn state_handlers_run_as_a_loop_where_they_fit() {
 fn routing_is_per_handler_crossed() {
     with_stack(STACK, || {
         let (session, _) = example("effect-runtime.sw");
-        let limits = Limits::from_core(session.elab.limits);
+        let limits = Limits::from_core(session.elab.options.limits);
         let export = Export::new(&session, "forwarded");
         let p = &export.program;
         for depth in [1u64, 10, 100] {
@@ -463,7 +463,7 @@ fn empty_row_non_tail_handlers_run_up_to_the_frame_limit() {
         let (session, _) = example("effect-runtime.sw");
         let limits = Limits {
             frames: 100_000,
-            ..Limits::from_core(session.elab.limits)
+            ..Limits::from_core(session.elab.options.limits)
         };
         for name in ["emitted", "searched"] {
             let export = Export::new(&session, name);
@@ -523,9 +523,9 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);
-                let program = lower_main(g, session.elab.limits, &entry, MainRow::Io)
+                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::Io)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
-                let mut m = Machine::new(&program, Limits::from_core(session.elab.limits));
+                let mut m = Machine::new(&program, Limits::from_core(session.elab.options.limits));
                 let got = m.entry().unwrap_or_else(|e| panic!("`{source}`: {e}"));
                 let Value::Data(_, f) = &got else {
                     panic!("`{source}`: {got:?}")
@@ -560,7 +560,7 @@ fn partial_forwarding() -> Program {
     let main = session.main().expect("a `main`");
     lower_main(
         &session.elab.globals,
-        session.elab.limits,
+        session.elab.options.limits,
         main.term(),
         main.row,
     )
@@ -697,7 +697,7 @@ fn io_operations_cross_translations_on_their_way_to_the_runner() {
             .unwrap_or_else(|e| panic!("crossing.sw doesn't check: {e:?}"));
         let main = session.main().expect("a `main`");
         let g = &session.elab.globals;
-        let limits = session.elab.limits;
+        let limits = session.elab.options.limits;
         // Type arguments are erased by the definitions' types, so any term
         // will do for them.
         let erased = || Term::Sort(stitchwort_core::Sort::Type(0));

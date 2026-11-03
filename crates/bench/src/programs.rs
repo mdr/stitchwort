@@ -309,7 +309,7 @@ fn rendered(session: &Session, diagnostics: &[Diagnostic]) -> String {
 /// and never at their time limit, which would make the counts depend on
 /// the machine's speed.
 fn untimed(mut session: Session) -> Session {
-    session.elab.untimed_counterexamples = true;
+    session.elab.options.untimed_counterexamples = true;
     session
 }
 

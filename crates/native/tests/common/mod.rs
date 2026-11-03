@@ -34,12 +34,12 @@ pub fn lowered_for(source: &str, stack: usize) -> (Program, Limits) {
     let main = session.main().expect("`main` has the right type");
     let program = lower_main(
         &session.elab.globals,
-        session.elab.limits,
+        session.elab.options.limits,
         main.term(),
         main.row,
     )
     .expect("lowers");
-    (program, Limits::from_core(session.elab.limits))
+    (program, Limits::from_core(session.elab.options.limits))
 }
 
 /// How a run ended: what it printed, and the error if any.

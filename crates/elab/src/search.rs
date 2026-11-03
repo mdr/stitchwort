@@ -928,8 +928,8 @@ impl Elaborator {
     /// elaborate, or that is a hole on its own (it would match everything).
     pub fn search_pattern(&mut self, expr: &Expr, holes: &[String]) -> Result<Vec<Pattern>> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.glue);
-        let saved = self.globals.budget.start(self.limits);
+        let was = self.globals.glue.replace(self.options.glue);
+        let saved = self.globals.budget.start(self.options.limits);
         let result = (|| -> Result<Vec<Pattern>> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -1074,7 +1074,7 @@ impl Elaborator {
     ) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.globals;
-        let was = g.glue.replace(self.glue);
+        let was = g.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.budget.attempt(ATTEMPT);
             let def = g.def(id);
@@ -1114,7 +1114,7 @@ impl Elaborator {
     pub fn use_pattern(&mut self, lemma: DefId, args: &[&Term], depth: usize) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.globals;
-        let was = g.glue.replace(self.glue);
+        let was = g.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.budget.attempt(ATTEMPT);
             let def = g.def(lemma);
@@ -1245,7 +1245,7 @@ impl Elaborator {
     /// written.
     pub fn type_index(&self, ty: &Term) -> Index {
         let g = &self.globals;
-        let was = g.glue.replace(self.glue);
+        let was = g.glue.replace(self.options.glue);
         let found = (|| {
             let _op = g.budget.attempt(ATTEMPT);
             let v = eval(g, &[], ty)?;
@@ -1379,7 +1379,7 @@ impl Elaborator {
             metas: g.metas.borrow().len().max(pattern.metas),
             trail: g.meta_trail.borrow().len(),
             frozen,
-            glue: g.glue.replace(self.glue),
+            glue: g.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let mode = opts.mode;

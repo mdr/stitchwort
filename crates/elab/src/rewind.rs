@@ -30,22 +30,23 @@
 //! (`state::Attempt`; after a cancelled check it may be half-full) and the
 //! declaration's scratch (`state::Decl`, empty at every mark, which
 //! asserts it). The unit's state (`state::Unit`) is put back as it was at
-//! the mark: a unit's module and namespace outlive it. Settings (limits, test switches, the check cache's store and
-//! its statistics) stay as they are: they say how to check, not what was
-//! checked.
+//! the mark: a unit's module and namespace outlive it. The project and cache
+//! bookkeeping a later load can change is put back too (`state::Session`);
+//! its counters and the settings (`state::Options`: limits, test switches,
+//! the check cache's store) stay as they are: they say how to check, not
+//! what was checked.
 //!
 //! [`Elaborator::rewind`] names every field of the elaborator, so a new
 //! field doesn't compile until it says how it rewinds; the differential test
 //! (`crates/driver/tests/rewind.rs`) catches a field that rewinds wrongly.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::GlobalsMark;
 use stitchwort_core::{DataId, DefId};
-use stitchwort_syntax::FileId;
 
-use crate::{Elaborator, cache, dot, interfaces, library, nav, project, scope};
+use crate::{Elaborator, dot, interfaces, nav, scope};
 
 /// A point an [`Elaborator`] can be rewound to ([`Elaborator::mark`]). It
 /// stays valid, and can be rewound to any number of times, until the
@@ -53,16 +54,11 @@ use crate::{Elaborator, cache, dot, interfaces, library, nav, project, scope};
 pub struct Mark {
     globals: GlobalsMark,
     unit: crate::state::UnitMark,
+    session: crate::state::SessionMark,
     tests: usize,
     scope: scope::Scope,
-    project_namespaces: BTreeSet<String>,
-    project_prefixes: BTreeSet<String>,
-    project_names: BTreeMap<String, BTreeSet<String>>,
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     prelude_defs: usize,
-    include_files: Option<std::rc::Rc<dyn project::IncludeFiles>>,
-    include_locations: HashMap<FileId, String>,
-    library: Option<library::LibraryState>,
     abilities: usize,
     dot_heads: HashMap<dot::CallKey, (dot::TyHead, DefId)>,
     dot_failed: HashSet<(dot::CallKey, usize, usize)>,
@@ -70,9 +66,6 @@ pub struct Mark {
     helper_keys: HashSet<String>,
     instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
     nav: Option<nav::NavMark>,
-    namespace_sources: HashMap<String, cache::Key>,
-    namespace_keys: HashMap<String, cache::Key>,
-    replayed_names: HashSet<String>,
     equations_done: usize,
 }
 
@@ -98,16 +91,11 @@ impl Elaborator {
         Mark {
             globals: self.globals.mark(),
             unit: self.unit.mark(),
+            session: self.session.mark(),
             tests: self.tests.len(),
             scope: self.scope.clone(),
-            project_namespaces: self.project_namespaces.clone(),
-            project_prefixes: self.project_prefixes.clone(),
-            project_names: self.project_names.clone(),
             namespace_defs: self.namespace_defs.clone(),
             prelude_defs: self.prelude_defs,
-            include_files: self.include_files.clone(),
-            include_locations: self.include_locations.clone(),
-            library: self.library.clone(),
             abilities: self.abilities.len(),
             dot_heads: self.dot_heads.borrow().clone(),
             dot_failed: self.dot_failed.borrow().clone(),
@@ -115,9 +103,6 @@ impl Elaborator {
             helper_keys: self.helper_keys.clone(),
             instances: self.instances.clone(),
             nav: self.nav.as_ref().map(|n| n.borrow_mut().mark()),
-            namespace_sources: self.namespace_sources.clone(),
-            namespace_keys: self.namespace_keys.clone(),
-            replayed_names: self.replayed_names.clone(),
             equations_done: self.equations_done.len(),
         }
     }
@@ -131,23 +116,15 @@ impl Elaborator {
             globals,
             tests,
             scope,
-            project_namespaces,
-            project_prefixes,
-            project_names,
             namespace_defs,
             prelude_defs,
-            include_files,
-            include_locations,
             attempt,
             decl,
             unit,
-            rewrite_budget: _,
-            library,
-            library_tests: _,
-            core_link_names: _,
+            // Settings: they say how to check, not what was checked.
+            options: _,
+            session,
             abilities,
-            limits: _,
-            numbers_as_succ: _,
             dot_heads,
             dot_failed,
             records,
@@ -157,8 +134,6 @@ impl Elaborator {
             no_finite,
             no_decide,
             generated_alls,
-            standalone_inputs: _,
-            glue: _,
             lifted,
             match_columns,
             helper_keys,
@@ -172,24 +147,7 @@ impl Elaborator {
             interfaces,
             instances,
             data_owners,
-            instance_budget: _,
-            uniform_operators: _,
-            instance_waits: _,
             nav,
-            check_cache: _,
-            cache_stats: _,
-            namespace_sources,
-            namespace_keys,
-            replayed_names,
-            fail_replays_late: _,
-            recheck_namespaces: _,
-            library_digest: _,
-            // Settings, and a log that only grows.
-            counterexample_runner: _,
-            no_counterexamples: _,
-            untimed_counterexamples: _,
-            counterexample_log: _,
-            source_epoch: _,
             equation_skips,
             equations_done,
         } = self;
@@ -200,17 +158,12 @@ impl Elaborator {
         globals.rewind(&mark.globals);
         tests.truncate(mark.tests);
         *scope = mark.scope.clone();
-        *project_namespaces = mark.project_namespaces.clone();
-        *project_prefixes = mark.project_prefixes.clone();
-        *project_names = mark.project_names.clone();
         *namespace_defs = mark.namespace_defs.clone();
         *prelude_defs = mark.prelude_defs;
-        *include_files = mark.include_files.clone();
-        *include_locations = mark.include_locations.clone();
         attempt.rewind();
         *decl = crate::state::Decl::default();
         unit.rewind(&mark.unit);
-        *library = mark.library.clone();
+        session.rewind(&mark.session);
         abilities.truncate(mark.abilities);
         *dot_heads.get_mut() = mark.dot_heads.clone();
         *dot_failed.get_mut() = mark.dot_failed.clone();
@@ -240,8 +193,5 @@ impl Elaborator {
         if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
             nav.get_mut().rewind(at_mark);
         }
-        *namespace_sources = mark.namespace_sources.clone();
-        *namespace_keys = mark.namespace_keys.clone();
-        *replayed_names = mark.replayed_names.clone();
     }
 }

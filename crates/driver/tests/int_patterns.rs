@@ -395,7 +395,7 @@ fn generated_int_matches_agree_with_the_rows_in_every_evaluator() {
         let text: String = all.iter().map(|(n, d)| d.source(n)).collect();
         load(&mut new, &text);
         let mut old = Session::new();
-        old.elab.numbers_as_succ = true;
+        old.elab.options.numbers_as_succ = true;
         let small: String = all
             .iter()
             .filter(|(_, d)| !d.big)

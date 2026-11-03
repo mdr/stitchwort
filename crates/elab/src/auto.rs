@@ -148,7 +148,9 @@ impl Elaborator {
                     match interfaces::attempt(&mut cx, &ob, interface, &arg)? {
                         Attempt::Solved => progress = true,
                         Attempt::Wait(why) => {
-                            self.instance_waits.set(self.instance_waits.get() + 1);
+                            self.session
+                                .instance_waits
+                                .set(self.session.instance_waits.get() + 1);
                             waiting.push((ob, why))
                         }
                     }

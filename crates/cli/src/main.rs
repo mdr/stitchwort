@@ -2753,7 +2753,7 @@ fn compile_native(
         report(&session.sources, &[err.diagnostic(main)]);
         ExitCode::from(2)
     })?;
-    let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     let image = stitchwort_rt::code::compile(&program);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: trace,

@@ -29,7 +29,7 @@ fn tables(source: &str) -> (Vec<u8>, usize, usize) {
     let main = session.main().expect("a `main`");
     let program = session.lower_fast(&main).expect("lowers");
     let image = code::compile(&program);
-    let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     (
         stitchwort_rt::linked::encode(&program, &image, &limits),
         program.globals.len(),

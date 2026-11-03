@@ -99,9 +99,10 @@ fn allocation_per_element() {
             let session = load(file);
             let g = &session.elab.globals;
             for name in names {
-                let program = lower_global(g, session.elab.limits, def_named(&session, name))
-                    .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
-                let limits = Limits::from_core(session.elab.limits);
+                let program =
+                    lower_global(g, session.elab.options.limits, def_named(&session, name))
+                        .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
+                let limits = Limits::from_core(session.elab.options.limits);
                 let s = &program.shapes;
                 let mut xs = Value::Tag(s.nil);
                 for i in (0..n).rev() {

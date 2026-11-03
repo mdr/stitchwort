@@ -238,6 +238,26 @@ fn ms(d: Duration) -> String {
     format!("{:.1}", d.as_secs_f64() * 1000.0)
 }
 
+/// The sessions' postponement queue counters (`state::Stats`), those of
+/// elaborators made while `STITCHWORT_TIMINGS` is set.
+static SESSION_STATS: Mutex<Vec<std::sync::Arc<crate::state::Stats>>> = Mutex::new(Vec::new());
+
+/// Counts `stats` in the report.
+pub(crate) fn register_stats(stats: std::sync::Arc<crate::state::Stats>) {
+    SESSION_STATS.lock().unwrap().push(stats);
+}
+
+/// Each counter's name, with its sum over the sessions.
+fn queue_counts() -> Vec<(&'static str, usize)> {
+    let mut total = crate::state::Stats::default().counts().to_vec();
+    for stats in SESSION_STATS.lock().unwrap().iter() {
+        for (sum, (_, n)) in total.iter_mut().zip(stats.counts()) {
+            sum.1 += n;
+        }
+    }
+    total
+}
+
 /// Prints the tables to stderr.
 pub fn report() {
     if !enabled() {
@@ -291,7 +311,8 @@ pub fn report() {
         ms(wall),
         ms(wall.saturating_sub(elab + kernel))
     );
-    let queue: Vec<String> = (crate::queue::counts().iter())
+    let queue: Vec<String> = queue_counts()
+        .into_iter()
         .map(|(name, n)| format!("{n} {name}"))
         .collect();
     eprintln!("postponement queue: {}", queue.join(", "));
