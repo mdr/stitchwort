@@ -3762,13 +3762,13 @@
     {
       "id": 1105,
       "title": "Bring the feature tour (web/guide) and the language guide (docs/guide) up to date with the language as it is",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "Matt, 3 Nov: update both with any new features. Describe the language as it is now, not its history; keep the docs balanced, not weighted toward recent changes. Tour last changed 27 Oct, guide 1 Nov.",
+      "body": "Matt, 3 Nov: update both with any new features; describe the language as it is now, not its history; keep the docs balanced. Merged 7cdf719a (lane 0303af79). Tour: fixed two false claims (functions have no parameter defaults; |> passes the last argument), new pages 18-parse and 24-induct (others renumbered to 19-29), doc comment on page 01. Guide: ch2 Documentation, ch3 or-patterns, ch4 Default values, ch7 mutual types and recursion through a container, ch10 induction that follows a function, opaque, audit; README summaries. guide test 3/3, web the_guide 1/1. Open balance points: ch10 grew most (~100 lines, three gaps); ch8's Parse section is the heaviest in the guide and could be trimmed. Model result: Sonnet, worked, 15 min (est. 75).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
