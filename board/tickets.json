@@ -1,5 +1,5 @@
 {
-  "next": 1135,
+  "next": 1136,
   "tickets": [
     {
       "id": 47,
@@ -4085,13 +4085,13 @@
     {
       "id": 1128,
       "title": "Cache replay probably drops no_finite, no_decide and generated_alls (rewound but neither cache-encoded nor dumped)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "Found by the architecture review (SW-1115, docs/research/architecture-review.md): these Elaborator fields are restored on rewind but not encoded in the check cache nor in the canonical dump, so a session loaded from the cache may elaborate differently from a fresh one, and the differential test (check_cache) can't see it because the dump has the same gap. Unconfirmed: reproduce first (a test that differs between fresh and cached), then fix and add them to the dump.\n\nD2252 (Matt, 3 Nov): yes. Started on Sonnet, expected 45 min. Orchestrator reading: the gap is in the cache entry (cache/mod.rs saves no_eq/no_show/no_ord but not these three) and in the dump; rewind is fine. Expected effects: missing why-not notes after replay; after replay a later namespace needing D.All generates a private %X%All instead of reusing D.All (different hashes, possibly proofs that match syntactically).",
+      "body": "Found by the architecture review (SW-1115, docs/research/architecture-review.md): these Elaborator fields are restored on rewind but not encoded in the check cache nor in the canonical dump, so a session loaded from the cache may elaborate differently from a fresh one, and the differential test (check_cache) can't see it because the dump has the same gap. Unconfirmed: reproduce first (a test that differs between fresh and cached), then fix and add them to the dump.\n\nD2252 (Matt, 3 Nov): yes. Started on Sonnet, expected 45 min. Orchestrator reading: the gap is in the cache entry (cache/mod.rs saves no_eq/no_show/no_ord but not these three) and in the dump; rewind is fine. Expected effects: missing why-not notes after replay; after replay a later namespace needing D.All generates a private %X%All instead of reusing D.All (different hashes, possibly proofs that match syntactically).\n\nFixed 1b8643f6, merged fdaebce4. Both effects reproduced (A replayed, B re-elaborated): the Finite and decision why-not notes were missing; B.Other got a private %A.Box%All (arity 3, not a theorem) instead of reusing A.Box.All. Fix: the three tables encoded/replayed with the other by-data tables (own unit only), in the dump, FORMAT 21. Tests: three in crates/driver/tests/check_cache.rs; check_cache binary 29/29 (306 s). Other suspects: equations_done (may be the same bug, untested), signature_matches (probably per unit). Model result: Sonnet, worked, 12 min (est. 45).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4176,6 +4176,20 @@
         "test"
       ],
       "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1135,
+      "title": "equations_done may be dropped by check-cache replay like SW-1128's tables",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-1128: Elaborator::equations_done (library/core definitions whose equations were made on demand; equations.rs ~4706) is rewound but neither cached nor dumped. If namespace A triggers equations for a library definition and A is replayed, a later re-elaborated namespace may redo them or see different definitions. Reproduce like the SW-1128 tests in check_cache.rs; also glance at signature_matches. Root cause is SW-1129-adjacent: state components (D2250).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
