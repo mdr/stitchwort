@@ -386,8 +386,8 @@ in `state/table.rs`:
 
 | Kind | Type | Invariant | Mark / rewind | Encode (delta since mark) | Fields today |
 |---|---|---|---|---|---|
-| Grows only, by load order | `GrowVec<T>` | push only | length / truncate | rows past the mark's length | `tests`, `abilities`, `lifted`, `equations_done`, `tuple_matches`, (`namespace_defs`) |
-| Owned by an id | `OwnedBy<Id, V>` | a row for id `i` is written only while the unit that declared `i` is elaborated: `insert` asserts `i >= unit_start` | id cut (`retain(i < mark)`) | rows with `i >= start`, ids written as path + hash | `records`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`, `generated_alls`, `interfaces`, `data_owners`, `match_columns`, `total_rows`, `equation_skips` |
+| Grows only, by load order | `GrowVec<T>` | push only | length / truncate | rows past the mark's length | `tests`, `abilities`, `lifted`, `equations_done`, `equation_skips` |
+| Owned by an id | `OwnedBy<Id, V>` | a row for id `i` is written only while the unit that declared `i` is elaborated: `insert` asserts `i >= unit_start` | id cut (`retain(i < mark)`) | rows with `i >= start`, ids written as path + hash | `records`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`, `generated_alls`, `interfaces`, `data_owners`, `match_columns`, `total_rows` |
 | Any row may change | `Logged<K, V>` | none | undo log (`nav::Logged`, generalised): O(1) mark, O(changes) rewind | rows changed since the mark: the log *is* the delta | `scope` (its maps), `instances`, `helper_keys` |
 | Derived | `Derived<T>` | correct if emptied at any time | cleared, or cut by id | never | `result_heads`, `performs`, `cong_candidates`, `decision_order`, `dot_heads`, `dot_failed` |
 
@@ -429,6 +429,86 @@ are encoded from the kind doesn't weaken the differential test.
 hide the exhaustive destructuring that is the point, and a proc macro would
 add a crate to the build (SW-1091 found none today). Plain structs, plain
 destructuring, generic kinds.
+
+**As built (step 5, SW-1165).** `state/table.rs` has `GrowVec<T>` and
+`OwnedBy<I, V>` and the trait, adapted to the codec as it is:
+
+```rust
+trait Table {
+    type Mark;
+    type Rows;                     // what an entry holds of it, read back
+    fn mark(&self, ids: Ids) -> Self::Mark;      // Ids: how many defs, datas
+    fn rewind(&mut self, m: &Self::Mark);
+    fn encode_since(&self, m: &Self::Mark, e: &mut Encoding) -> Result<(), String>;
+    fn decode(b: &mut Body) -> Read<Self::Rows>; // ids already mapped by `Body`
+    fn replay(&mut self, rows: Self::Rows);
+    fn dump(&self, name: &str, out: &mut String);
+}
+```
+
+Reading is split from replaying because a replay must change nothing until
+the whole entry has been read and the kernel has admitted its
+declarations. A row implements `Codec` (`encode`, `decode`; in
+`cache/rows.rs`) and `Dump` (in `cache/dump.rs`), separately. An `OwnedBy`
+id is a `DataId` or a `DefId` (written by `Encoding::data`/`def`, so by
+path and hash). `state/tables.rs` has `Tables`, its `Mark` (which is also
+the check cache's `Before` for the tables) and `Delta` (what an entry holds,
+read). `Tables::{begin_unit, mark, rewind, encode_since, replay, dump}`
+destructure `Tables`, and `decode` builds `Delta` whole. The entry format
+puts two parts that aren't tables in the middle of them: the side facts of
+the unit's declarations (fields' and parameters' defaults, update display,
+`js_repr`) after `records`, and the namespace's extensions before `tests`.
+So `encode_since` and `decode` take those two parts as closures, and the
+bytes are unchanged (no `FORMAT` bump). That was checked: every entry for
+`aoc`, the roguelike and six example projects, 382 in all, written by the
+build before the change and by the build after it, is byte for byte the
+same apart from the key and the checksum, which depend on the build's
+fingerprint. The earlier build's entries, given the new build's key, all
+load as hits.
+
+`OwnedBy::insert` (and `remove`, which `no_ord` uses) asserts that the id
+is at least the start of the unit being elaborated. `elaborate_namespace`
+sets that start, and a nested library load sets it for the library file
+and puts the outer unit's back. A mark keeps it. It holds for every test
+run (elab's lane, `check_cache`, `rewind`, `hash_stability`,
+`postponement`, `namespaces`) and for checks of `aoc` and the roguelike.
+`encode_since` still checks that no row for an older id was added, which
+replaces the cache's `by_data` comparison and now covers `match_columns`
+and `total_rows` too. That check only fails if the assertion has been
+bypassed, or if a unit's start isn't where its cache `Before` was taken.
+
+Differences from the sketch above:
+
+- `equation_skips` is a `GrowVec`, not `OwnedBy`. It has several rows per
+  definition, kept in order, and the entry always held "the rows pushed
+  since", so the format needed no change. A rewind now truncates it to its
+  length instead of keeping the rows for older definitions. A truncated
+  table is what a fresh session had at the mark; the two differ only if a
+  unit pushes a row for an older definition.
+- `generated_alls` is cut by its key, the data type, and no longer also by
+  its value, the `All` definition. The `All` is always defined in the
+  data type's own unit.
+- `tuple_matches` is in `Decl` (step 2), and `namespace_defs` isn't a
+  `GrowVec`: it is a map from each namespace to its range of definitions,
+  set when the namespace is done. It is in `Tables`, copied at a mark, and
+  not in an entry: a namespace's replay sets its range from the definitions
+  it admits. `prelude_defs` is in `Tables` too: set once, dumped, never in an
+  entry.
+- `instances` and `helper_keys` (`Logged`) are in `Tables` with
+  hand-written handling: copied at a mark, an entry holds the rows the copy
+  doesn't have, and the "an instance from before changed" check stays.
+  The `Before` of a cache entry now copies the whole `InstanceInfo` rather
+  than `(def, valid)`. That costs little, since instances are few, and the
+  comparison is still on `(def, valid)`. `scope` stays on the `Elaborator`
+  until step 6: its entry is written from `cache_before`'s operation log, in
+  the names section before the tables, and `Before` copies only its
+  `entries`.
+- No `Derived<T>`: none of Appendix A's `Derived` tables belongs in
+  `Tables`, and step 4 put all six in `Caches`.
+- The dump prints each table on its own, sorted by id for `OwnedBy`. Before,
+  the keyed tables' lines were sorted together. Two `GrowVec`s whose order
+  nothing reads, `equation_skips` and `equations_done`, are dumped sorted,
+  as they were before. A cached run may push their rows in another order.
 
 ### 4.3 Data structures: what each lifetime uses
 
@@ -815,15 +895,15 @@ by hand where a regex missed (`records` is dumped).
 | Field | Today (U C R E D) | Component | Kind | Note |
 |---|---|---|---|---|
 | `globals` | `-CRED` | Kernel / Attempt | split (review step 9) | mixed: kernel env + metas + backend facts |
-| `tests` | `--RED` | Tables | grow |  |
+| `tests` | `--RED` | Tables | grow | in `state::Tables`: `GrowVec` |
 | `sides_capture` | `--r--` | Decl | scratch |  |
 | `scope` | `--RED` | Tables | logged | copied per mark and per cached unit (Before) |
 | `namespace_root` | `--RE-` | Unit | swap |  |
 | `project_namespaces` | `--R--` | Session | set once | copied per mark; set by the host per project |
 | `project_prefixes` | `--R--` | Session | set once | copied per mark |
 | `project_names` | `--R--` | Session | set once | copied per mark |
-| `namespace_defs` | `--RED` | Tables | grow (by namespace) |  |
-| `prelude_defs` | `--R-D` | Tables | set once | dumped, not encoded: set before any unit |
+| `namespace_defs` | `--RED` | Tables | copied | in `state::Tables`, by hand: copied per mark; not in an entry (a namespace's replay sets its range) |
+| `prelude_defs` | `--R-D` | Tables | set once | in `state::Tables`, by hand: dumped, not encoded: set before any unit |
 | `file_mode` | `--R--` | Unit | swap |  |
 | `include_files` | `--RE-` | Session | host-provided | set by the host as it loads a project or a file on its own (`include_from`, `include_in_folder`), so it is not an option; copied per mark |
 | `include_locations` | `--RE-` | Session | logged |  |
@@ -842,7 +922,7 @@ by hand where a regex missed (`records` is dumped).
 | `library` | `--RE-` | Session | logged (load states) | copied per mark |
 | `library_tests` | `--sE-` | Options | setting |  |
 | `core_link_names` | `--s--` | Session | dynamic extent | set by the host around the core's load and cleared after, so not an option; `None` at every mark |
-| `abilities` | `--RED` | Tables | grow |  |
+| `abilities` | `--RED` | Tables | grow | in `state::Tables`: `GrowVec` |
 | `limits` | `--sE-` | Options | setting |  |
 | `numbers_as_succ` | `--sE-` | Options | setting |  |
 | `module` | `--RE-` | Unit | swap | copied per mark; ItemInfo per item of the unit |
@@ -860,19 +940,19 @@ by hand where a regex missed (`records` is dumped).
 | `app_expected` | `--r--` | Decl | dynamic extent |  |
 | `decreasing` | `--r--` | Decl | dynamic extent |  |
 | `recursion` | `--R--` | Decl | dynamic extent | empty at a mark (asserted) |
-| `records` | `--rED` | Tables | owned by DataId |  |
-| `no_eq` | `--rED` | Tables | owned by DataId |  |
-| `no_show` | `--rED` | Tables | owned by DataId |  |
-| `no_finite` | `--rED` | Tables | owned by DataId | SW-1128 (fixed) |
-| `no_decide` | `--rED` | Tables | owned by DataId | SW-1128 (fixed) |
-| `no_ord` | `--rED` | Tables | owned by DataId |  |
-| `generated_alls` | `--rED` | Tables | owned by DataId | SW-1128 (fixed) |
+| `records` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
+| `no_eq` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
+| `no_show` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
+| `no_finite` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy`; SW-1128 (fixed) |
+| `no_decide` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy`; SW-1128 (fixed) |
+| `no_ord` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` (also removes rows) |
+| `generated_alls` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy`, cut by its key only; SW-1128 (fixed) |
 | `drafts` | `UCr--` | Attempt | trail |  |
 | `standalone_inputs` | `--s--` | Session | counter | ignored by rewind |
 | `glue` | `--s--` | Options | setting | not in `cache_key()`: glued and unglued evaluation might give a library file different terms (unchecked) |
 | `arounds` | `--r--` | Decl | dynamic extent |  |
-| `lifted` | `--RED` | Tables | grow |  |
-| `match_columns` | `--rED` | Tables | owned by DefId |  |
+| `lifted` | `--RED` | Tables | grow | in `state::Tables`: `GrowVec` |
+| `match_columns` | `--rED` | Tables | owned by DefId | in `state::Tables`: `OwnedBy` |
 | `pending_run_bodies` | `--r--` | Decl | queue across a group | drained when helpers are final |
 | `owner` | `--r--` | Decl | dynamic extent |  |
 | `body_type` | `--r--` | Decl | dynamic extent |  |
@@ -882,7 +962,7 @@ by hand where a regex missed (`records` is dumped).
 | `owner_unfolding` | `--r--` | Decl | dynamic extent |  |
 | `owner_helpers` | `--r--` | Decl | scratch |  |
 | `local_helpers` | `--R--` | Decl | scratch (per group) | empty at a mark (asserted) |
-| `helper_keys` | `--RED` | Tables | logged | copied per mark and per cached unit |
+| `helper_keys` | `--RED` | Tables | logged | in `state::Tables`, by hand until step 6: copied per mark and per cached unit |
 | `local_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `meta_names` | `UCr--` | Attempt | trail |  |
 | `operator_dictionaries` | `UCr--` | Attempt | meta-keyed |  |
@@ -898,10 +978,10 @@ by hand where a regex missed (`records` is dumped).
 | `decision_order` | `--r--` | Caches | cache | in `state::Caches`; emptied by a rewind |
 | `performs` | `--r--` | Caches | cache (by DefId) | in `state::Caches`; cut to the remaining definitions by a rewind |
 | `total_rows_only` | `--r--` | Decl | dynamic extent |  |
-| `total_rows` | `--r--` | Tables | owned by DefId | **gap**: read by later units (check.rs note, nav hover) but neither encoded nor dumped |
-| `interfaces` | `--RED` | Tables | owned by DataId |  |
-| `instances` | `--RED` | Tables | logged | copied per mark; an older row may change (valid flag) |
-| `data_owners` | `--rED` | Tables | owned by DataId |  |
+| `total_rows` | `--r--` | Tables | owned by DefId | in `state::Tables`: `OwnedBy`; F1, fixed in step 0 (SW-1140) |
+| `interfaces` | `--RED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
+| `instances` | `--RED` | Tables | logged | in `state::Tables`, by hand until step 6: copied per mark and per cached unit; an older row may change (valid flag) |
+| `data_owners` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
 | `instance_steps` | `-Cr--` | Attempt | budget, keyed by meta | reset with the metas; deliberately not refunded when an attempt is undone |
 | `instance_budget` | `--sE-` | Options | setting |  |
 | `uniform_operators` | `--sE-` | Options | setting |  |
@@ -928,9 +1008,9 @@ by hand where a regex missed (`records` is dumped).
 | `tuple_matches` | `--R--` | Decl | scratch | read only for termination errors; empty at a mark |
 | `leaf_log` | `--r--` | Decl | scratch |  |
 | `arm_probe` | `--r--` | Decl | scratch |  |
-| `equation_skips` | `--rE-` | Tables | owned by DefId | encoded but **not dumped** |
+| `equation_skips` | `--rE-` | Tables | grow | in `state::Tables`: `GrowVec` (several rows per definition, in order) |
 | `local_asts` | `--r--` | Decl | scratch |  |
-| `equations_done` | `--R--` | Tables | grow | **gap** SW-1135: rewound, neither encoded nor dumped |
+| `equations_done` | `--R--` | Tables | grow | in `state::Tables`: `GrowVec`; SW-1135, fixed in step 0 |
 
 ## Appendix B: `Globals`' fields (`crates/core/src/globals.rs`)
 
