@@ -1,5 +1,5 @@
 {
-  "next": 1137,
+  "next": 1138,
   "tickets": [
     {
       "id": 47,
@@ -4204,6 +4204,20 @@
         "build"
       ],
       "body": "D2249 + D2256 (Matt, 3 Nov): take the .sw std library out of every build (no include_str! in elab), so a .sw edit compiles nothing; single-file distribution isn't a priority. Architecture review step 2 (docs/research/architecture-review.md); std_dir.rs (STITCHWORT_STD_DIR, --std-dir) already reads a directory.\nWork out and build: where each host finds std (installed binary: relative to the executable, e.g. ../share/stitchwort/std, laid out by the flake package; dev and tests: the checkout's crates/elab/src/std, including inside nix flake check's sandbox; the playground: fetched beside the wasm and passed in; the LSP's library navigation opens the real files), core/ file order (CORE_FILES needs a rebuild today), a hash of the std the binary was built for and what a mismatch does (core builtins are bound by identity), the fingerprint/cache keys (already key on the text read), and docs. Interacts with SW-1109 (std snapshot as a shipped data file). After SW-1091 (both change build config). Sonnet, with a short plan in the report before the bulk of the change.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1137,
+      "title": "Design note: the elaborator's state (lifetimes, persistent structures or not, and every workflow over it)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2250 (Matt, 3 Nov): the next structural priority. Matt: look into the options, persistent data structures or not, and how best to handle a complex piece of state like this with all the workflows we need. Architecture review issue 2 and step 8 (docs/research/architecture-review.md). Instances: SW-1128, SW-1135, SW-1129 (thread-locals and globals). Opus design note in docs/proposals/, no code; expected 90 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
