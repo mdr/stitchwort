@@ -3585,7 +3585,7 @@
     {
       "id": 1093,
       "title": "Profile two slow merge-tier tests (from SW-1090): hash_stability (186 CPU-s for 3 tests; one solo run showed 322 s user) and extract::generated_code_is_stable (docs say ~4 s, now 7 s solo). Find what dominates and whether it's a cheap fix",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
