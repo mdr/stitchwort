@@ -1,5 +1,5 @@
 {
-  "next": 1131,
+  "next": 1134,
   "tickets": [
     {
       "id": 47,
@@ -4001,13 +4001,13 @@
     {
       "id": 1122,
       "title": "Native layout probe reads uninitialised padding as an integer (probe_functions, crates/rt/src/native_abi.rs)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "Review §1.1: reads the first eight bytes of a Fun as u64 at ~lines 294 and 315; bytes 1-3 are padding. Undefined behaviour in a safety check. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "body": "Review §1.1: reads the first eight bytes of a Fun as u64 at ~lines 294 and 315; bytes 1-3 are padding. Undefined behaviour in a safety check. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.\n\nFixed 228a6e14, merged 2a91ef44 (Opus, 12 min for both, est. 60). Confirmed: the whole-word read in a const fails E0080 (uninitialised [0x1..0x4]). fun_key_at reads the tag byte and the u32 at offset 4 separately; little-endian checked. Miri also found pointers made from integers (no provenance): allocation() reads the pointer directly. Regression: a test-only const runs fun_key_at at compile time; native_abi::tests::the_layout_probe_passes passes under Miri (tree borrows too). No other instance. Model result: Opus, worked.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4015,13 +4015,13 @@
     {
       "id": 1123,
       "title": "Compiler/test fingerprint omits the fast runtime's source",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "Review §1.2: a rebuilt runtime can reuse results produced by older runtime code (traced through the fast test-cache lookup). From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "body": "Review §1.2: a rebuilt runtime can reuse results produced by older runtime code (traced through the fast test-cache lookup). From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.\n\nFixed c0e23071, merged 2a91ef44. STITCHWORT_FINGERPRINT (driver build.rs; test-result and check-cache keys) and SOURCE_FINGERPRINT hashed only syntax, core, elab, driver; confirmed an rt edit left it unchanged. Now every normal workspace dependency of driver, from the manifests (core, driver, elab, host, js, rt, syntax): Cargo.toml, build.rs, src .rs/.sw. Tests: the_fingerprint_covers_the_crate_graph (vs cargo metadata --no-deps --offline), a_crates_manifest_build_script_and_sources_are_hashed. Caches miss once after the merge; web/pkg counts as stale until rebuilt. Unchecked: the cargo metadata test inside nix flake checks sandbox. Model result: Opus, worked.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4120,6 +4120,48 @@
         "architecture"
       ],
       "body": "Found by SW-1115: backend-specific facts live in core's Globals. Move them out with the Globals split proposed in the review (kernel environment / elaborator metavariables / backend facts).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1131,
+      "title": "task test:miri: Miri on the native ABI tests with a pinned nightly from the flake overlay",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "From SW-1122: cargo miri test -p stitchwort-rt --lib native_abi::tests (and hole_tests), nightly from the flake's rust-overlay (scratchpad miri.nix has the expression); ~40 s once built; keep out of the merge tier. Pending Matt (D2253).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1132,
+      "title": "SOURCE_FINGERPRINT (web bundle staleness) doesn't cover crates/web/src",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-1123: changes to the web crate itself don't mark web/pkg stale.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1133,
+      "title": "rt's SW_RT_BUILD_HASH covers only rt/src (not syntax, core, or rt's Cargo.toml features)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-1123: check whether the encoded programs it guards depend on syntax/core or features; if so, derive its inputs from the crate graph like the driver fingerprint.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
