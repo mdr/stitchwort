@@ -300,6 +300,103 @@ fn a_file_on_its_own_as_you_type() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Inside a library document reached by navigation, the names it uses lead
+/// to their definitions (SW-1110).
+#[test]
+fn navigation_works_inside_a_library_document() {
+    let dir = temp_dir("inside_std");
+    let file = dir.join("inside.sw");
+    let text = "import Std (List)\n\ndef h: List Nat := List.filterMap [1] Some\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let library = client.at("textDocument/definition", &uri, 2, 22);
+    let std_uri = library["uri"].as_str().unwrap().to_string();
+    assert!(std_uri.starts_with("stitchwort-std:List/"), "{library}");
+    let source =
+        stitchwort_elab::std_source(std_uri.trim_start_matches("stitchwort-std:"), 64 << 20)
+            .unwrap();
+    client.open(&std_uri, &source);
+    // The recursive case of `filterMap` calls `List.consSome`.
+    let (line, text) = source
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.contains("List.consSome (f x)"))
+        .unwrap();
+    let col = text.find("List.consSome").unwrap() as u32;
+    let definition = client.at("textDocument/definition", &std_uri, line as u32, col + 6);
+    assert!(definition["uri"].as_str().is_some(), "{definition}");
+    let hover = client.at("textDocument/hover", &std_uri, line as u32, col + 6);
+    assert!(
+        hover["contents"]["value"]
+            .as_str()
+            .unwrap()
+            .contains("consSome"),
+        "{hover}"
+    );
+    let refs = client.at("textDocument/references", &std_uri, line as u32, col + 6);
+    assert!(refs.as_array().unwrap().len() >= 2, "{refs}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A library document still answers inside itself after the namespaces
+/// checked after the first one have been answered (SW-1110): the later
+/// answers leave out the library's references and must not replace the
+/// first answers' ones.
+#[test]
+fn library_navigation_survives_later_namespace_answers() {
+    let dir = temp_dir("later_std");
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    let first = "namespace First\n\ndef one: Nat := 1\n";
+    write("src/First/First.sw", first);
+    let second = "namespace Second\nimport Std (Set)\nimport First (one)\n\ndef h: Set Nat := Set.insert Set.empty one\n";
+    write("src/Second/Second.sw", second);
+    let first_uri = uri(&dir.join("src/First/First.sw"));
+    let second_uri = uri(&dir.join("src/Second/Second.sw"));
+    let mut client = Client::start();
+    client.open(&first_uri, first);
+    assert_eq!(client.diagnostics(&first_uri, 1), Vec::<Value>::new());
+    // `Second` is checked in the background, after `First`.
+    let got = client.diagnostics_within(&second_uri, 0, None, Duration::from_secs(120));
+    assert_eq!(got, Vec::<Value>::new());
+    let library = client.at("textDocument/definition", &second_uri, 4, 20);
+    let std_uri = library["uri"].as_str().unwrap().to_string();
+    assert_eq!(std_uri, "stitchwort-std:Set/Set.sw", "{library}");
+    let source = stitchwort_elab::std_source("Set/Set.sw", 64 << 20).unwrap();
+    client.open(&std_uri, &source);
+    // `Set.insert`'s body uses other library names.
+    let (line, text) = source
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.starts_with("def Set.insert"))
+        .unwrap();
+    let body = source.lines().nth(line + 1).unwrap_or(text);
+    let _ = body;
+    let mut answered = 0;
+    for (i, l) in source.lines().enumerate().skip(line).take(4) {
+        for w in l.split(|c: char| !(c.is_alphanumeric() || c == '.')) {
+            if w.starts_with("Map.") {
+                let col = l.find(w).unwrap() as u32 + 1;
+                let d = client.at("textDocument/definition", &std_uri, i as u32, col);
+                if d["uri"].is_string() {
+                    answered += 1;
+                }
+            }
+        }
+    }
+    assert!(answered > 0, "no name in Set.insert navigates");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Hover shows a declaration's doc after its type and kind: `--|` lines, or
 /// a plain `--` run until the sorting pass; from the text the check used, so
 /// an edit shows at once; and a library name's (docs/proposals/
