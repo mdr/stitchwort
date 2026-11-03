@@ -4533,7 +4533,7 @@
     {
       "id": 1160,
       "title": "BUG on main: driver named_arguments named_calls_keep_every_hash fails: E-ARITY J takes 3 arguments (examples/accept/char-pattern-proofs.sw and 13 more)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
