@@ -52,13 +52,13 @@ pub(crate) struct Unit {
     /// `auto` may prove what it can't decide by `omega` (`auto.rs`). Set by
     /// each module after its library files load.
     ///
-    /// Not set aside by a nested load, unlike the rest: a library file
-    /// loaded inside a unit leaves its own value behind, and equations made
-    /// on demand in a library file's scope see the outer unit's. A module
-    /// sets it after its own loads, so only what is elaborated after a load
-    /// and before the next module sees a library file's value (`eval` after
-    /// `prepare_expr`). Nor is it rewound. Both as before SW-1149, kept so
-    /// that the move changed nothing.
+    /// Cleared when a module starts, so a module that fails before its loads
+    /// finish doesn't keep the last one's. A nested load starts with the
+    /// outer unit's value and puts it back when it ends, so a library file's value never reaches what is elaborated
+    /// after it. The unit's own value outlives it, like its module: a name
+    /// typed in afterwards (`eval` after `prepare_expr`, the REPL) is
+    /// checked with the value of the last module, or the default (`false`)
+    /// before any, and a rewind mark keeps it (SW-1150).
     pub(crate) omega_for_auto: bool,
     /// The files `include` read in the namespace being elaborated, with a
     /// hash of their text, for its cache entry.
@@ -73,6 +73,7 @@ pub(crate) struct Mark {
     next_include_location: Option<String>,
     loading_prelude: bool,
     warnings: Vec<Diagnostic>,
+    omega_for_auto: bool,
 }
 
 impl Unit {
@@ -99,7 +100,7 @@ impl Unit {
             warnings: Vec::new(),
             namespace_capture: None,
             skip_navigation_walk: false,
-            // Carried in and out (see the field).
+            // Carried in (see the field).
             omega_for_auto: *omega_for_auto,
             include_trace: RefCell::default(),
         }
@@ -120,10 +121,9 @@ impl Unit {
             namespace_capture: _,
             skip_navigation_walk: _,
             include_trace: _,
-            // Carried out (see the field).
-            omega_for_auto,
+            // The outer unit's comes back with it (see the field).
+            omega_for_auto: _,
         } = std::mem::replace(self, outer);
-        self.omega_for_auto = omega_for_auto;
     }
 
     /// What a rewind mark keeps. Only between units: no namespace is being
@@ -138,8 +138,7 @@ impl Unit {
             warnings,
             namespace_capture,
             skip_navigation_walk,
-            // Not rewound (see the field).
-            omega_for_auto: _,
+            omega_for_auto,
             // Emptied by a rewind: a namespace empties it before it's read.
             include_trace: _,
         } = self;
@@ -154,6 +153,7 @@ impl Unit {
             next_include_location: next_include_location.clone(),
             loading_prelude: *loading_prelude,
             warnings: warnings.clone(),
+            omega_for_auto: *omega_for_auto,
         }
     }
 
@@ -168,7 +168,7 @@ impl Unit {
             warnings,
             namespace_capture,
             skip_navigation_walk,
-            omega_for_auto: _,
+            omega_for_auto,
             include_trace,
         } = self;
         *module = mark.module.clone();
@@ -177,6 +177,7 @@ impl Unit {
         *next_include_location = mark.next_include_location.clone();
         *loading_prelude = mark.loading_prelude;
         *warnings = mark.warnings.clone();
+        *omega_for_auto = mark.omega_for_auto;
         *namespace_capture = None;
         *skip_navigation_walk = false;
         include_trace.get_mut().clear();
