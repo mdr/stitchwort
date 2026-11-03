@@ -1,5 +1,5 @@
 {
-  "next": 1147,
+  "next": 1148,
   "tickets": [
     {
       "id": 47,
@@ -4175,7 +4175,7 @@
       "labels": [
         "test"
       ],
-      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).",
+      "body": "From the SW-1098 trial (D2255): the inventory stores 7.9 s for that lsp test but it takes ~195-238 s (two estimate misses); find why the inventory keeps the stale time (which JUnit file it comes from) and fix it. EXAMPLES= takes one substring, so a merge touching two examples can't select both: accept a comma-separated list in the hash_stability tests and test:selected, and update docs/test-selector.md. DeepSeek candidate.\n\nAlso (3 Nov, SW-1091 verification): a 997-test selection including cli run_js (node processes ~1.1 and 0.84 GB) plus bench baseline exceeded the merge cap (4 GB) and was cancelled. The estimator knows only time: teach docs/test-selector.md (and the inventory if cheap) about memory-heavy binaries (run_js, bench baseline), e.g. a rule to leave run_js to the daily tier unless crates/js changed, or put such tests in a nextest group with max-threads.\n\nFirst selector miss (3 Nov, SW-1136 merge 76d1ba29): a change to how std paths are produced broke cli doc and search output tests (paths absolute); the selection had std_library and lsp tests but not cli doc/search. Rule to add to docs/test-selector.md: a change to std_dir.rs, library loading or file naming selects every cli test that prints paths or spans (doc, search, check --index, diagnostics snapshots). Caught by the fixed tier, as designed (D2255: core/elab/driver changes run it).\n\nAlso (SW-1144): `task test:one -- hash_stability` runs nothing (name filter; the tests are named otherwise); briefs and docs/testing.md should say -E binary(hash_stability) (with EXAMPLES=). Check the docs and fix the wording.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4315,7 +4315,7 @@
       "labels": [
         "elab"
       ],
-      "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.",
+      "body": "D2261 (Matt, 3 Nov): proceed. docs/proposals/elaborator-state.md §7 step 1, §2.1, §4.1-4.3, Appendix A. Metavariables themselves stay in Globals until the Globals split (D2260). Opus, expected 120 min.\n\nDone 4110b96a, 8615295d (Opus, 28 min, est. 120); reviewed; waits for the SW-1145 verifier to merge. state/ module; Attempt holds the 18 per-attempt fields and the 7 unify.rs thread-locals (flags via Scoped/ScopedCell guards, restored on panic too); mark/restore/reset/rewind destructure exhaustively; Mark is Copy (13 integers); unify::Unifier { g, attempt } derefs to Globals; 126 call sites unchanged, ~230 field accesses rewritten. Preserved oddities documented: rigid_divergence survives undo/reset/rewind (F7); lossy not cleared by rewind; reset leaves local_keys, lambda_warnings, branch_errors. Tests: undo/unify/rows/queue units 77, postponement 12, rewind+check_cache 38, hash_stability 7, lane elab 131; clippy clean. Model result: Opus, worked, 28 min (est. 120).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4344,6 +4344,20 @@
         "lsp"
       ],
       "body": "D2262 (Matt, 3 Nov): go-to-definition and hover on a built-in (e.g. Quot in std/Map/Map.sw) lead to a standard file that documents its signature, even though the implementation isn't shown. Today the reserved names (elab lib.rs RESERVED) have no source location, so navigation does nothing. A test checks each documented signature against what the kernel/elaborator actually uses, so they can't drift. doc <name> should work too. Sonnet, expected 60 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1147,
+      "title": "Should rigid_divergence be restored when an attempt is undone? (state note F7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
