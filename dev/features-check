@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// Fails if the dev and test invocations of cargo compile any workspace crate
+// with more than one feature set (docs/testing.md, "Features"). It asks cargo
+// for each invocation's unit graph (`--unit-graph`, which needs the nightly
+// flag, so RUSTC_BOOTSTRAP=1; nothing is compiled) and compares the library
+// units of the workspace crates, features and dependencies' features
+// included. `-p stitchwort-syntax` and `-p stitchwort-fmt` alone are left
+// out: they build a leaf variant of `syntax` (the doc says so).
+"use strict";
+const { execFileSync } = require("child_process");
+const path = require("path");
+const crypto = require("crypto");
+
+const root = path.resolve(__dirname, "..");
+const pkgs = ["bench", "cli", "core", "driver", "elab", "host", "js", "native", "rt", "standalone", "web"];
+const invocations = [
+  ["build", "--release", "-p", "stitchwort-cli", "-p", "stitchwort-standalone", "--features", "stitchwort-cli/dev"],
+  ["test", "--release", "--workspace", "--no-run"],
+  ...pkgs.map((p) => ["test", "--release", "-p", `stitchwort-${p}`, "--no-run"]),
+];
+
+const variants = {}; // crate and target kind -> signature -> the invocations that have it
+for (const args of invocations) {
+  const out = execFileSync("cargo", [...args, "-Zunstable-options", "--unit-graph"], {
+    cwd: root,
+    env: { ...process.env, RUSTC_BOOTSTRAP: "1" },
+    maxBuffer: 1 << 28,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const units = JSON.parse(out).units;
+  const memo = new Map();
+  const sig = (i) => {
+    if (memo.has(i)) return memo.get(i);
+    const u = units[i];
+    const deps = u.dependencies
+      .map((d) => d.index)
+      .filter((j) => units[j].mode === "build" && units[j].target.kind[0] !== "custom-build")
+      .map(sig)
+      .sort();
+    const h = crypto.createHash("sha1").update(u.pkg_id + u.features.join(",") + deps.join("|")).digest("hex").slice(0, 8);
+    memo.set(i, h);
+    return h;
+  };
+  units.forEach((u, i) => {
+    if (u.mode !== "build" || !u.pkg_id.startsWith("path+file") || !u.target.kind.some((k) => k === "lib" || k === "bin")) return;
+    const name = `${u.pkg_id.split("#")[1].split("@")[0]} ${u.target.kind[0]}`;
+    const key = `${sig(i)} [${u.features.join(",")}]`;
+    ((variants[name] ??= {})[key] ??= new Set()).add(args.slice(0, 4).join(" "));
+  });
+}
+
+let bad = 0;
+for (const [name, sigs] of Object.entries(variants)) {
+  if (Object.keys(sigs).length > 1) {
+    bad++;
+    console.error(`${name} is compiled ${Object.keys(sigs).length} ways:`);
+    for (const [k, v] of Object.entries(sigs)) console.error(`  ${k}: ${[...v].join("; ")}`);
+  }
+}
+if (bad) process.exit(1);
+console.log(`one feature set across ${invocations.length} invocations, ${Object.keys(variants).length} crates`);

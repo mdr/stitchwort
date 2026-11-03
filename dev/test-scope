@@ -1,0 +1,221 @@
+#!/usr/bin/env node
+// Which cargo package selection a nextest run needs: `--workspace`, or `-p A
+// -p B` when its filtersets confine it to those packages. The test tasks use
+// it so that a run builds only the test binaries it can run (docs/testing.md,
+// "Features"). Usage:
+//
+//   dev/test-scope [--profile NAME] [--] [the nextest arguments]
+//
+// It reads the profile's `default-filter` from .config/nextest.toml (unless
+// `--ignore-default-filter` is among the arguments) and every `-E`/
+// `--filterset`, and prints the selection. The packages are an over-estimate,
+// never an under-estimate: `package(A) & binary(b)` gives the packages that
+// are both, `x - y` gives `x`'s, and anything it cannot place (`test(...)` or
+// `kind(...)` on their own, `deps(...)`, a negation, a name it doesn't know, no
+// filterset at all) gives `--workspace`. Because every dev and test build has
+// one feature set (crates/dev-features), the narrower selection compiles the
+// same library variants as `--workspace`, and only fewer test binaries.
+"use strict";
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+
+// ---- the workspace: package name -> its test, bin and lib names
+
+function workspace() {
+  const pkgs = {};
+  for (const d of fs.readdirSync(path.join(root, "crates"))) {
+    const dir = path.join(root, "crates", d);
+    const manifest = path.join(dir, "Cargo.toml");
+    if (!fs.existsSync(manifest)) continue;
+    const text = fs.readFileSync(manifest, "utf8");
+    const name = /^name\s*=\s*"([^"]+)"/m.exec(text)[1];
+    const binaries = new Set([name]);
+    const tests = path.join(dir, "tests");
+    if (fs.existsSync(tests)) {
+      for (const f of fs.readdirSync(tests)) {
+        if (f.endsWith(".rs")) binaries.add(f.slice(0, -3));
+        else if (fs.existsSync(path.join(tests, f, "main.rs"))) binaries.add(f);
+      }
+    }
+    for (const m of text.matchAll(/^\[\[(?:test|bin)\]\]\s*\nname\s*=\s*"([^"]+)"/gm)) {
+      binaries.add(m[1]);
+    }
+    if (fs.existsSync(path.join(dir, "src", "main.rs"))) binaries.add(name.replace(/^stitchwort-/, ""));
+    pkgs[name] = binaries;
+  }
+  return pkgs;
+}
+
+// ---- nextest matchers: `=x`, `~x`, `/re/`, `#glob`, or a plain name
+
+function matcher(arg) {
+  const a = arg.trim();
+  if (a.startsWith("=")) return (s) => s === a.slice(1);
+  if (a.startsWith("~")) return (s) => s.includes(a.slice(1));
+  if (a.startsWith("/") && a.endsWith("/") && a.length > 1) {
+    const re = new RegExp(a.slice(1, -1));
+    return (s) => re.test(s);
+  }
+  const glob = a.startsWith("#") ? a.slice(1) : a;
+  const re = new RegExp(
+    "^" + glob.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$",
+  );
+  return (s) => re.test(s);
+}
+
+// ---- the filterset language
+
+function tokenize(src) {
+  const out = [];
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i];
+    if (/\s/.test(c)) i++;
+    else if ("()&|+-!".includes(c)) out.push({ op: c }), i++;
+    else {
+      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
+      if (!m) throw new Error("unexpected " + src.slice(i, i + 10));
+      i += m[0].length;
+      if (["and", "or", "not"].includes(m[0])) out.push({ op: m[0] });
+      else {
+        // A predicate: name(argument). A regex argument may contain parens.
+        while (/\s/.test(src[i])) i++;
+        if (src[i] !== "(") {
+          out.push({ pred: m[0], arg: "" });
+          continue;
+        }
+        i++;
+        let j = i;
+        const arg = src.slice(i).trimStart();
+        if (arg.startsWith("/")) {
+          j = i + (src.slice(i).length - arg.length) + 1;
+          while (j < src.length && !(src[j] === "/" && src[j - 1] !== "\\")) j++;
+          j++;
+          while (src[j] !== ")") j++;
+        } else {
+          let depth = 1;
+          while (j < src.length) {
+            if (src[j] === "(") depth++;
+            if (src[j] === ")" && --depth === 0) break;
+            j++;
+          }
+        }
+        out.push({ pred: m[0], arg: src.slice(i, j) });
+        i = j + 1;
+      }
+    }
+  }
+  return out;
+}
+
+// A set of package names, or null for "any package".
+const union = (a, b) => (a === null || b === null ? null : new Set([...a, ...b]));
+const both = (a, b) => (a === null ? b : b === null ? a : new Set([...a].filter((x) => b.has(x))));
+
+function evaluate(src, pkgs) {
+  const toks = tokenize(src);
+  let p = 0;
+  const is = (op) => p < toks.length && toks[p].op === op;
+  function expr() {
+    let l = term();
+    for (;;) {
+      if (is("|") || is("+") || is("or")) (p++, (l = union(l, term())));
+      else if (is("-")) (p++, term(), l);
+      else return l;
+    }
+  }
+  function term() {
+    let l = unary();
+    while (is("&") || is("and")) (p++, (l = both(l, unary())));
+    return l;
+  }
+  function unary() {
+    if (is("!") || is("not")) {
+      p++;
+      unary();
+      return null;
+    }
+    return atom();
+  }
+  function atom() {
+    if (is("(")) {
+      p++;
+      const e = expr();
+      if (!is(")")) throw new Error("missing )");
+      p++;
+      return e;
+    }
+    const t = toks[p++];
+    if (!t || !t.pred) throw new Error("unexpected token");
+    if (t.pred === "package") {
+      const m = matcher(t.arg);
+      const found = Object.keys(pkgs).filter(m);
+      if (!found.length) throw new Error("no package " + t.arg);
+      return new Set(found);
+    }
+    if (t.pred === "binary") {
+      const m = matcher(t.arg);
+      const found = Object.keys(pkgs).filter((n) => [...pkgs[n]].some(m));
+      if (!found.length) throw new Error("no test binary " + t.arg);
+      return new Set(found);
+    }
+    return null;
+  }
+  const result = expr();
+  if (p !== toks.length) throw new Error("trailing input");
+  return result;
+}
+
+// ---- the profile's default filter
+
+function profileFilter(name) {
+  const text = fs.readFileSync(path.join(root, ".config", "nextest.toml"), "utf8");
+  const head = text.indexOf(`[profile.${name}]`);
+  if (head < 0) return null;
+  const rest = text.slice(head + 1);
+  const next = rest.search(/^\[/m);
+  const body = next < 0 ? rest : rest.slice(0, next);
+  const m = /^default-filter\s*=\s*(?:"""([\s\S]*?)"""|"((?:[^"\\]|\\.)*)")/m.exec(body);
+  if (!m) return null;
+  return m[1] !== undefined ? m[1] : JSON.parse(`"${m[2]}"`);
+}
+
+// ---- main
+
+function main() {
+  const args = process.argv.slice(2);
+  let profile = null;
+  let ignoreDefault = false;
+  const filters = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--profile") profile = args[++i];
+    else if (a.startsWith("--profile=")) profile = a.slice(10);
+    else if (a === "--ignore-default-filter") ignoreDefault = true;
+    else if (a === "-E" || a === "--filterset") filters.push(args[++i]);
+    else if (a.startsWith("--filterset=")) filters.push(a.slice(12));
+    else if (a.startsWith("-E") && a.length > 2) filters.push(a.slice(2));
+  }
+  const pkgs = workspace();
+  let scope = null;
+  try {
+    if (profile && !ignoreDefault) {
+      const f = profileFilter(profile);
+      if (f) scope = both(scope, evaluate(f, pkgs));
+    }
+    if (filters.length) {
+      let any = new Set();
+      for (const f of filters) any = union(any, evaluate(f, pkgs));
+      scope = both(scope, any);
+    }
+  } catch (e) {
+    process.stderr.write(`dev/test-scope: ${e.message}; building the whole workspace\n`);
+    scope = null;
+  }
+  if (scope === null || scope.size === 0) console.log("--workspace");
+  else console.log([...scope].sort().map((n) => `-p ${n}`).join(" "));
+}
+
+main();

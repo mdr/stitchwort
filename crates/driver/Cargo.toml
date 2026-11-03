@@ -25,7 +25,8 @@ insta.workspace = true
 # An independent implementation of integer division, for `tests/int.rs`.
 num-bigint.workspace = true
 num-traits.workspace = true
-stitchwort-core = { workspace = true, features = ["reference", "stack-check"] }
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
 # `cargo metadata`'s output, for the test of the fingerprint's crates.
 serde_json.workspace = true
 # The formatter, for `tests/fmt_hashes.rs`.

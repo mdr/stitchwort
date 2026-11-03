@@ -14,11 +14,9 @@ stitchwort-syntax.workspace = true
 stitchwort-driver.workspace = true
 blake3.workspace = true
 clap.workspace = true
-
-[dev-dependencies]
-# Panics when a session runs on a thread smaller than its limits assume
-# (docs/testing.md, "Stack").
-stitchwort-core = { workspace = true, features = ["stack-check"] }
+# The one feature set of every dev and test build (docs/testing.md, "Features"),
+# also for `task bench`, which runs the binary.
+stitchwort-dev-features.workspace = true
 
 [lints]
 workspace = true

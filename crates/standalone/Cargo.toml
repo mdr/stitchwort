@@ -28,9 +28,8 @@ nix.workspace = true
 cc = "1.8.0"
 
 [dev-dependencies]
-# Panics when a session runs on a thread smaller than its limits assume
-# (docs/testing.md, "Stack").
-stitchwort-core = { workspace = true, features = ["stack-check"] }
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
 # The tests of `aot` (src/aot/tests.rs) check and lower programs to check
 # manifests against.
 stitchwort-driver.workspace = true

@@ -33,14 +33,19 @@ vars:
   # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
   # CARGO_BUILD_TARGET, the musl target, which cargo puts in its own folder).
   SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
-  # The tests build `stitchwort` with native code, so that `build --native`
-  # is tested (crates/cli/tests/build.rs); the default binary leaves it out.
-  # The flake's test check passes the same.
-  TEST_FEATURES: '--features stitchwort-cli/native'
+  # The one feature set of every dev and test build (docs/testing.md,
+  # "Features"): native code, so that `build --native` is tested
+  # (crates/cli/tests/build.rs), and what crates/dev-features turns on. Test
+  # builds get it from the crates' dev-dependencies, whatever `-p` selects;
+  # a build of the CLI has to ask. The default (distributed) binary has none.
+  DEV_FEATURES: '--features stitchwort-cli/dev'
   # Every task that runs tests runs them under dev/memguard, which kills the
   # whole process tree when its memory passes the tier's cap, in GB
   # (docs/testing.md, "Memory"). STITCHWORT_MEM_CAP_GB overrides the cap (0
   # for none); STITCHWORT_MEM_REPORT=1 prints the peak at the end.
+  # Which packages a test run needs to build: `-p A -p B`, or `--workspace`
+  # (dev/test-scope; docs/testing.md, "Features").
+  SCOPE: '{{.ROOT_DIR}}/dev/test-scope'
   GUARD: '{{.ROOT_DIR}}/dev/memguard'
   MEM_CAP_LANE: 3
   # Merge: 2.5 to 3.1 GB measured (2 Nov 2026, SW-1076; killed twice at 3). One
@@ -64,18 +69,18 @@ tasks:
   build:
     desc: Build the release CLI with native code, and its runtime library, in target/release
     summary: |
-      Builds `stitchwort` (with `--features stitchwort-cli/native`, so
+      Builds `stitchwort` (with `--features stitchwort-cli/dev`, so
       `stitchwort build X --native` works) and `libstitchwort_standalone.a`,
       which `build --native` links against and looks for beside the
       executable. With CARGO_BUILD_TARGET set (Linux in the devShell) both
       are in target/<triple>/release.
     cmds:
-      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.TEST_FEATURES}}
+      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
 
   build:tests:
     desc: Build every release test binary, so the test tiers start at once
     cmds:
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-run
+      - cargo nextest run --release --workspace --no-run
 
   # ---------------------------------------------------------------- tests
 
@@ -98,7 +103,7 @@ tasks:
       STITCHWORT_TIER: lane
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_LANE}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile lane-{{.AREA}} {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_LANE}} -- cargo nextest run --release $({{.SCOPE}} --profile lane-{{.AREA}} -- {{.CLI_ARGS}}) --profile lane-{{.AREA}} {{.CLI_ARGS}}'
 
   test:one:
     desc: 'Tests whose names match a filter, at the daily sample (task test:one -- named_calls)'
@@ -108,7 +113,18 @@ tasks:
       (`task test:one -- -E 'binary(lsp)'`). Corpus sweeps take the daily
       sample; set STITCHWORT_TIER=lane for the smallest, full for all.
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
+
+  test:features:
+    desc: Fail if the dev and test cargo invocations compile any crate with more than one feature set (3 s, builds nothing)
+    summary: |
+      dev/features-check asks cargo for the unit graph of `task build`,
+      the workspace test build and each `-p` test build, and compares the
+      workspace crates' libraries, features and dependencies' included
+      (docs/testing.md, "Features"). Run it after adding a crate, a feature
+      or a dev-dependency.
+    cmds:
+      - '{{.ROOT_DIR}}/dev/features-check'
 
   test:lanes-nonempty:
     desc: Fail if any `lane-*` nextest profile selects no tests (lists only, runs nothing)
@@ -123,7 +139,7 @@ tasks:
       - |
         status=0; err=$(mktemp)
         for profile in $(grep -oE '^\[profile\.lane-[A-Za-z0-9_-]+\]' .config/nextest.toml | sed -E 's/^\[profile\.(.*)\]$/\1/'); do
-          if ! out=$(cargo nextest list --release --workspace {{.TEST_FEATURES}} --profile "$profile" --message-format json 2>"$err"); then
+          if ! out=$(cargo nextest list --release --workspace --profile "$profile" --message-format json 2>"$err"); then
             echo "FAIL: cargo nextest list failed for profile $profile" >&2; head -n 8 "$err" >&2
             status=1
             continue
@@ -147,7 +163,7 @@ tasks:
       STITCHWORT_TIER: merge
     cmds:
       - cargo fmt --check
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile merge {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
 
   test:inventory:
     desc: 'Build target/test-inventory.json: every test, its profiles and last known time (task test:inventory -- --junit PATH)'
@@ -207,7 +223,7 @@ tasks:
           log=$(mktemp)
           cargo test -p stitchwort-driver --test builtins >"$log" 2>&1 &
           pid=$!
-          cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}
+          cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
           status=$?
           wait "$pid" || { cat "$log"; status=1; }
           rm -f "$log"
@@ -227,7 +243,7 @@ tasks:
       # Two corpus sweeps run at once, each on a pool of 5 threads.
       STITCHWORT_TEST_THREADS: '5'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile full {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}'
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
 
   test:gate:
@@ -286,7 +302,7 @@ tasks:
       FUZZ_SEED: '{{.SEED}}'
       FUZZ_CORPUS: '{{.CORPUS}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
 
   fuzz:soundness:
     desc: 'Soundness fuzzer, release, a few minutes (task fuzz:soundness MUTANTS=600 VOID=400 SEED=0x2 CORPUS=aoc,rogue)'
@@ -301,7 +317,7 @@ tasks:
       SOUND_SEED: '{{.SEED}}'
       SOUND_CORPUS: '{{.CORPUS}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
 
   fuzz:syntax:
     desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000)'
@@ -309,7 +325,7 @@ tasks:
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-syntax) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(fuzz)'' {{.CLI_ARGS}}'
 
   fuzz:fmt:
     desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000)'
@@ -317,13 +333,13 @@ tasks:
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-fmt) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(fuzz)'' {{.CLI_ARGS}}'
 
   fuzz:kernel:
     desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'
     summary: Runs crates/core/tests/fuzz.rs, which reads no environment variables.
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-core) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(fuzz)'' {{.CLI_ARGS}}'
 
   # ------------------------------------------- snapshots and generated text
 
@@ -352,7 +368,7 @@ tasks:
     env:
       INSTA_UPDATE: always
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-fail-fast {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --no-fail-fast {{.CLI_ARGS}}'
       - git status --short -- '*.snap'
 
   guide:update:
@@ -390,7 +406,7 @@ tasks:
     vars:
       ROUNDS: '{{.ROUNDS | default "3"}}'
     cmds:
-      - cargo build --release -p stitchwort-cli --features native
+      - cargo build --release -p stitchwort-cli {{.DEV_FEATURES}}
       - bash bench/native/bench.sh {{.SW}} {{.ROUNDS}}
 
   # ------------------------------------------------- formatting and lints

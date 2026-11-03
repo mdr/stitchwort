@@ -3,6 +3,7 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Kind {
@@ -97,21 +98,40 @@ thread_local! {
     static TRACE: RefCell<Option<State>> = const { RefCell::new(None) };
 }
 
+/// How many threads are recording. The hooks sit on the machine's hottest
+/// paths, so while this is zero they cost a load and a branch, not a
+/// thread-local lookup.
+static RECORDING: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether any thread is recording.
+#[inline(always)]
+pub(super) fn recording() -> bool {
+    RECORDING.load(Ordering::Relaxed) != 0
+}
+
 /// Starts recording on this thread, forgetting any recording in progress.
 /// Start it before the program's values exist, so that every cell is seen
 /// from its allocation.
 pub fn start() {
-    TRACE.with(|t| *t.borrow_mut() = Some(State::default()));
+    let was = TRACE.with(|t| t.borrow_mut().replace(State::default()));
+    if was.is_none() {
+        RECORDING.fetch_add(1, Ordering::Relaxed);
+    }
 }
 
 /// Stops recording and returns the trace (empty if none was started).
 pub fn finish() -> Trace {
     let state = TRACE.with(|t| t.borrow_mut().take());
+    if state.is_some() {
+        RECORDING.fetch_sub(1, Ordering::Relaxed);
+    }
     Trace {
         events: state.map(|s| s.events).unwrap_or_default(),
     }
 }
 
+#[cold]
+#[inline(never)]
 pub(super) fn record(kind: Kind, address: *const u8, tag: u32, arity: usize) {
     let _ = TRACE.try_with(|t| {
         let mut t = t.borrow_mut();

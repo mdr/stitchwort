@@ -15,5 +15,9 @@ rustix.workspace = true
 # The stacks of native runs, mapped as address space (src/stack.rs).
 libc.workspace = true
 
+[dev-dependencies]
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
+
 [lints]
 workspace = true

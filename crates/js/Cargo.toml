@@ -10,5 +10,9 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-rt.workspace = true
 
+[dev-dependencies]
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
+
 [lints]
 workspace = true

@@ -11,5 +11,9 @@ stitchwort-core.workspace = true
 num-bigint.workspace = true
 blake3.workspace = true
 
+[dev-dependencies]
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
+
 [lints]
 workspace = true

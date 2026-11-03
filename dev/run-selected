@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the selector's choice (SW-1098): `task test:selected -- '<filterset>'`.
-# Same as test:merge (STITCHWORT_TIER=merge, memory guard, features, merge
+# Same as test:merge (STITCHWORT_TIER=merge, memory guard, merge
 # profile) but with the profile's own filter ignored, so the selection may
 # include tests the merge tier leaves out. Appends a line to
 # dev/selector-log.tsv: date, commit, estimated s, actual s, result, failed
@@ -15,8 +15,9 @@ est=${SELECTOR_ESTIMATE:-$(dev/test-inventory --estimate "$filter" | sed -n '1s/
 export STITCHWORT_TIER=merge
 out=$(mktemp)
 start=$(date +%s)
-"$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_MERGE:-4}" -- cargo nextest run --release --workspace \
-  --features stitchwort-cli/native --profile merge --ignore-default-filter -E "$filter" 2>&1 | tee "$out"
+"$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_MERGE:-4}" -- cargo nextest run --release \
+  $("$root/dev/test-scope" --profile merge --ignore-default-filter -E "$filter") \
+  --profile merge --ignore-default-filter -E "$filter" 2>&1 | tee "$out"
 status=${PIPESTATUS[0]}
 actual=$(( $(date +%s) - start ))
 failed=$(sed -E 's/\x1b\[[0-9;]*m//g' "$out" | grep -E '^\s+(FAIL|SIGABRT|SIGSEGV|TIMEOUT) ' | awk '{print $NF}' | sort -u | paste -sd, -)

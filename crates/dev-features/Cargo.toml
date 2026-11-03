@@ -1,0 +1,46 @@
+[package]
+name = "stitchwort-dev-features"
+description = "The one feature set of every dev and test build (docs/testing.md, \"Features\")"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Nothing here is code. A crate that depends on this one, as a
+# dev-dependency (or, for the CLI, through its `dev` feature), compiles the
+# crates below with the features listed, so every `cargo build` and `cargo
+# test` of the workspace compiles each crate once per profile, whatever `-p`
+# selects. Cargo unifies features per invocation, and only over what the
+# invocation builds; this is how a single-package invocation gets the same set
+# as `--workspace`. Distributed builds (the flake's package, the browser
+# bundle) don't depend on it and keep their own features.
+[dependencies]
+# The reference evaluator, for the differential tests; and the stack-limit
+# check.
+stitchwort-core = { workspace = true, features = ["reference", "stack-check"] }
+stitchwort-syntax = { workspace = true, features = ["stack-check"] }
+# The bring-up allocation trace (recorded only when a run asks for it).
+stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
+# Features that other crates in the workspace switch on in third-party crates
+# (cranelift and the CLI's and the tests' dependencies), so a build that selects
+# only some of the crates (`-p`) still has them. Without them the crates below,
+# and everything above them, compile again for each selection (`task
+# test:features` compares the selections).
+smallvec = { workspace = true, features = ["const_generics", "union"] }
+nix = { workspace = true, features = ["fs", "ioctl", "poll", "process", "signal", "term"] }
+rustix = { workspace = true, features = ["fs", "process", "termios"] }
+anstyle = { version = "1", default-features = true }
+cranelift-codegen = { version = "=0.136.2", features = ["x86", "arm64"] }
+object = { workspace = true, features = ["read_core", "macho", "elf", "write"] }
+memchr = { version = "2", features = ["alloc", "std"] }
+once_cell = { version = "1", features = ["alloc", "race", "std"] }
+bumpalo = { version = "3", features = ["allocator-api2"] }
+
+# The same for the crates that proc macros are built with, which cargo keeps
+# apart from the ones above.
+[build-dependencies]
+syn = { version = "3", features = ["full", "extra-traits", "visit", "visit-mut", "fold"] }
+proc-macro2 = "1"
+quote = "1"
+
+[lints]
+workspace = true

@@ -32,12 +32,18 @@ object = { workspace = true, features = ["write"] }
 # Native code through Cranelift (docs/proposals/native-compilation.md):
 # only with the `native` feature, which is off by default.
 stitchwort-native = { workspace = true, optional = true }
+# Only in dev and test builds (the `dev` feature below).
+stitchwort-dev-features = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 # `run --js` waiting for Node (docs/proposals/terminal-io.md §4.7).
 nix.workspace = true
 
 [features]
+# What every dev and test build of the CLI has (docs/testing.md, "Features"):
+# the native code, and the one feature set of the other crates. The tests turn
+# it on through the dev-dependency below; `task build` passes it.
+dev = ["native", "dep:stitchwort-dev-features"]
 # `stitchwort dev native-spike` (stage N0), and later `run --native`.
 native = ["dep:stitchwort-native"]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
@@ -45,9 +51,9 @@ native = ["dep:stitchwort-native"]
 alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
-# Panics when a session runs on a thread smaller than its limits assume
-# (docs/testing.md, "Stack").
-stitchwort-core = { workspace = true, features = ["stack-check"] }
+# Switches `dev` on for the test build (renamed, so that `--features stitchwort-cli/dev` names the feature, not
+# this dependency).
+cli-with-dev = { package = "stitchwort-cli", path = ".", features = ["dev"] }
 insta.workspace = true
 # Never used in code: depending on it builds the runtime library,
 # `libstitchwort_standalone.a`, beside the test binaries, where
