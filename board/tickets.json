@@ -1,5 +1,5 @@
 {
-  "next": 1138,
+  "next": 1139,
   "tickets": [
     {
       "id": 47,
@@ -4133,7 +4133,7 @@
       "labels": [
         "test"
       ],
-      "body": "From SW-1122: cargo miri test -p stitchwort-rt --lib native_abi::tests (and hole_tests), nightly from the flake's rust-overlay (scratchpad miri.nix has the expression); ~40 s once built; keep out of the merge tier. Pending Matt (D2253).",
+      "body": "From SW-1122: cargo miri test -p stitchwort-rt --lib native_abi::tests (and hole_tests), nightly from the flake's rust-overlay (scratchpad miri.nix has the expression); ~40 s once built; keep out of the merge tier. Pending Matt (D2253).\n\nD2253 (Matt, 3 Nov): yes; backlog. Out of the merge tier (by hand, or the daily tier).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4218,6 +4218,20 @@
         "design"
       ],
       "body": "D2250 (Matt, 3 Nov): the next structural priority. Matt: look into the options, persistent data structures or not, and how best to handle a complex piece of state like this with all the workflows we need. Architecture review issue 2 and step 8 (docs/research/architecture-review.md). Instances: SW-1128, SW-1135, SW-1129 (thread-locals and globals). Opus design note in docs/proposals/, no code; expected 90 min.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1138,
+      "title": "Split the build fingerprint into checker and runtime parts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "build"
+      ],
+      "body": "D2254 (Matt, 3 Nov): not now. A runtime-only change (rt, js, host) currently invalidates every check-cache entry along with test results. Revisit if cache misses after merges hurt (on 3 Nov the AoC cache held entries for 11 compiler builds, 574 MB).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
