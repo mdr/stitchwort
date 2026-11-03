@@ -181,19 +181,26 @@ default-filter = "binary(search_match) | binary(search_bench) | binary(search_at
 [test-groups]
 # crates/cli/tests/lsp.rs keeps one warm copy of the AoC project under
 # CARGO_TARGET_TMPDIR, deleted and rebuilt by whichever test gets there first
-# (a OnceLock per process under `cargo test`, but one per test here).
+# (a OnceLock per process under `cargo test`, but one per test here). Only the
+# tests that call its `aoc()` are in the group (the other `lsp` tests use
+# folders of their own, named by the process id): a new test that calls
+# `aoc()` must be added to the filter below.
 lsp-aoc-copy = { max-threads = 1 }
 
 # The corpus sweeps: tests that check every example, std file or AoC day (or a
 # tier's sample of them) on a pool of their own (`par_map`, up to
 # STITCHWORT_TEST_THREADS threads, each with a large stack and a session of its
-# own). One at a time, so that two sweeps' pools never hold memory together
-# (docs/testing.md, "Memory"). Any number of other tests run beside the one.
-corpus-sweeps = { max-threads = 1 }
+# own). Two at a time: one sweep alone leaves cores idle while its last items
+# run (the last 400 s of the daily tier ran on one to three cores). The daily
+# and full tiers run pools of 5 threads (STITCHWORT_TEST_THREADS, set by their
+# tasks and the flake), so two fit the 10 cores. Two sweeps held 3 GB at their
+# peak (SW-1104; docs/testing.md, "Memory"). Any number of other tests run
+# beside them.
+corpus-sweeps = { max-threads = 2 }
 
 # Overrides in the default profile apply to every profile.
 [[profile.default.overrides]]
-filter = "package(stitchwort-cli) & binary(lsp)"
+filter = "package(stitchwort-cli) & binary(lsp) & test(/^(aoc_navigation_matches_check_index|workspace_symbols_cover_namespaces_not_checked_yet|a_newer_edit_cancels_the_check_running)$/)"
 test-group = "lsp-aoc-copy"
 
 # resources' running_out_at_any_point_only_ever_means_no_answer was here for
@@ -229,3 +236,37 @@ filter = """
 | (package(stitchwort-cli) & binary(run_reference) & test(=examples_print_the_same_both_ways))
 """
 test-group = "corpus-sweeps"
+
+# ------------------------------------------------------------ test order
+#
+# Priority decides which ready test starts next (-100 to 100, higher first,
+# default 0), within a test group too: the longest tests start first, so that
+# they are not what is left running alone at the end. Times are from the daily
+# run of 2 Nov 2026 (SW-1104). Overrides in the default profile apply to every
+# profile.
+[[profile.default.overrides]]
+filter = """
+(package(stitchwort-cli) & binary(lsp) & test(/^(a_newer_edit_cancels_the_check_running|aoc_navigation_matches_check_index)$/))
+| (package(stitchwort-cli) & binary(aoc_answers) & test(=every_day_from_the_whole_projects_cache))
+| (package(stitchwort-driver) & binary(operators) & test(=primitive_and_uniform_lowering_agree_on_the_library_and_aoc))
+| (package(stitchwort-web) & test(=project::tests::every_aoc_day_checks_passes_its_tests_and_runs_on_its_example))
+"""
+priority = 100
+
+# The other tests of 40 s or more (daily run, loaded machine), the sweeps among
+# them.
+[[profile.default.overrides]]
+filter = """
+(package(stitchwort-driver) & binary(search_at_aoc) & test(=search_at_on_aoc_goals))
+| (package(stitchwort-driver) & binary(rewind) & test(=rewinding_changes_nothing_for_the_examples))
+| (package(stitchwort-driver) & binary(erasure) & test(=erasure_doesnt_change_what_examples_print_or_test))
+| (package(stitchwort-cli) & binary(examples) & test(/^(accepted|rejected)_examples_/))
+| (package(stitchwort-driver) & binary(check_cache) & test(=the_cache_changes_nothing_for_the_examples))
+| (package(stitchwort-driver) & binary(differential) & test(=the_evaluators_agree_on_the_prelude_and_every_example))
+| (package(stitchwort-driver) & binary(search_at_aoc) & test(=search_at_on_real_2021_goals))
+| (package(stitchwort-rt) & binary(effect_runtime) & test(=every_shape_runs_at_a_million_elements))
+| (package(stitchwort-cli) & binary(extract) & test(=the_declarations_type_check))
+| (package(stitchwort-driver) & binary(float) & test(=with_every_native_off_float_runs_out_of_budget))
+| (package(stitchwort-driver) & binary(number_patterns) & test(=every_number_case_in_the_examples_has_an_expansion_that_checks))
+"""
+priority = 50

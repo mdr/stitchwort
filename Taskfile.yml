@@ -182,10 +182,14 @@ tasks:
     summary: |
       Everything but the full tier's exhaustive runs, with corpus sweeps on a
       fixed sample: rustfmt, clippy, the `daily` nextest profile, the
-      doctests, and `builtins` in the debug profile. `task test:gate` runs
+      doctests, and `builtins` in the debug profile (run beside the nextest
+      profile). `task test:gate` runs
       the same in the Nix sandbox.
     env:
       STITCHWORT_TIER: daily
+      # Two corpus sweeps run at once (`corpus-sweeps` in
+      # .config/nextest.toml), each on a pool of 5 threads.
+      STITCHWORT_TEST_THREADS: '5'
       # The float tests fail, not skip, when web/pkg is missing or stale.
       STITCHWORT_REQUIRE_WASM: '1'
     cmds:
@@ -193,9 +197,22 @@ tasks:
       - cargo fmt --check
       - task: test:lanes-nonempty
       - cargo clippy --release --all-targets -- --deny warnings
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}'
+      # `builtins` in the debug profile loads the whole library twice in an
+      # unoptimised build, about 70 to 90 s of one core. It is built first
+      # (17 s; cargo takes a lock on the build folder), then runs beside
+      # nextest, one cap over both.
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test builtins --no-run'
+      - |
+        {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- bash -c '
+          log=$(mktemp)
+          cargo test -p stitchwort-driver --test builtins >"$log" 2>&1 &
+          pid=$!
+          cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}
+          status=$?
+          wait "$pid" || { cat "$log"; status=1; }
+          rm -f "$log"
+          exit "$status"'
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test builtins'
       - task: board:test
 
   test:full:
@@ -207,6 +224,8 @@ tasks:
       `task test:full:nix` is the same in the Nix sandbox.
     env:
       STITCHWORT_TIER: full
+      # Two corpus sweeps run at once, each on a pool of 5 threads.
+      STITCHWORT_TEST_THREADS: '5'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile full {{.CLI_ARGS}}'
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
