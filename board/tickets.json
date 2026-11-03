@@ -1,5 +1,5 @@
 {
-  "next": 1140,
+  "next": 1142,
   "tickets": [
     {
       "id": 47,
@@ -4246,6 +4246,34 @@
         "test"
       ],
       "body": "From SW-1091: dev/features-check (task test:features, ~3 s, builds nothing) catches a new dependency or feature that splits the build into variants again. Add to the merge tier (or test:selected's fixed core). Also: the -p syntax leaf variant (a no-op dependency would remove it at a small cost to lane-syntax).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1140,
+      "title": "total_rows probably dropped by check-cache replay (like SW-1128)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-1137 (F1): Elaborator::total_rows (D1215) is rewound but neither cache-encoded nor dumped, and later units read it (note at check.rs:2867, hover line at nav.rs:1097). Also F2: equation_skips is encoded but not in the canonical dump. Reproduce as SW-1128's tests in check_cache.rs. With SW-1135 this is step 0 of the state note (docs/proposals/elaborator-state.md).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1141,
+      "title": "Language server marks copy ~15 tables per namespace (207 marks on aoc): measure the memory",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1137 (F3): LiveProject keeps a full copy of scope, module, instances, library and about ten more tables in each namespace's mark; estimated several hundred MB on aoc, the same failure as SW-1052. Measure first. Also F5: aoc check --no-cache peaks at 1.59 GB against 162 MB in language-server.md.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
