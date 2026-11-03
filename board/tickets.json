@@ -4085,13 +4085,13 @@
     {
       "id": 1128,
       "title": "Cache replay probably drops no_finite, no_decide and generated_alls (rewound but neither cache-encoded nor dumped)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "Found by the architecture review (SW-1115, docs/research/architecture-review.md): these Elaborator fields are restored on rewind but not encoded in the check cache nor in the canonical dump, so a session loaded from the cache may elaborate differently from a fresh one, and the differential test (check_cache) can't see it because the dump has the same gap. Unconfirmed: reproduce first (a test that differs between fresh and cached), then fix and add them to the dump.",
+      "body": "Found by the architecture review (SW-1115, docs/research/architecture-review.md): these Elaborator fields are restored on rewind but not encoded in the check cache nor in the canonical dump, so a session loaded from the cache may elaborate differently from a fresh one, and the differential test (check_cache) can't see it because the dump has the same gap. Unconfirmed: reproduce first (a test that differs between fresh and cached), then fix and add them to the dump.\n\nD2252 (Matt, 3 Nov): yes. Started on Sonnet, expected 45 min. Orchestrator reading: the gap is in the cache entry (cache/mod.rs saves no_eq/no_show/no_ord but not these three) and in the dump; rewind is fine. Expected effects: missing why-not notes after replay; after replay a later namespace needing D.All generates a private %X%All instead of reusing D.All (different hashes, possibly proofs that match syntactically).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
