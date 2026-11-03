@@ -984,7 +984,7 @@ fn instantiate(
     depth: usize,
     as_written: bool,
 ) -> Result<Option<Term>> {
-    let g = cx.g();
+    let g = &cx.u();
     let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value.clone();
     let mut args = Vec::new();

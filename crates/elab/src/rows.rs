@@ -222,7 +222,7 @@ fn missing(cx: &Ctx, b: Builtin) -> stitchwort_syntax::Diagnostic {
 /// otherwise nothing changes.
 pub(crate) fn postpone(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<bool> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    match unify_postponing(cx.g(), cx.level(), found, expected)? {
+    match unify_postponing(&cx.u(), cx.level(), found, expected)? {
         Some(put_aside) if !put_aside.is_empty() => {
             let mut kept = cx.e.attempt.row_constraints.borrow_mut();
             for constraint in put_aside {
@@ -292,7 +292,7 @@ impl Elaborator {
                 }
             }
             let (a, b) = (fresh_a, fresh_b);
-            match unify_postponing(cx.g(), *level, &a, &b)? {
+            match unify_postponing(&cx.u(), *level, &a, &b)? {
                 Some(again) if again.is_empty() => progress = true,
                 Some(again) => {
                     for constraint in again {
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn a_data_type_makes_the_row_empty_and_the_results_are_compared() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let (meta, left) = comp_in(g, nat(g));
             assert!(unify(g, 0, &left, &nat(g)).unwrap());
             assert!(solved_with(g, meta, Builtin::RowEmpty));
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn a_function_type_a_sort_and_a_variable_make_the_row_empty() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let nat_id = g.registry.data(Builtin::Nat).expect("Nat");
             let nat_term = Rc::new(Term::Data(nat_id, Vec::new()));
             let function = eval(
@@ -637,7 +637,7 @@ mod tests {
     #[test]
     fn a_comp_over_abilities_gives_its_row() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let no_op = data(g, Builtin::NoOp, Vec::new());
             let ops = data(g, Builtin::Plus, vec![nat(g), no_op]);
             // Closed, so that it can be part of `?e`'s solution.
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn a_comp_over_no_abilities_is_data() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let no_op = data(g, Builtin::NoOp, Vec::new());
             let comp = data(g, Builtin::Comp, vec![no_op, Value::var(0), nat(g)]);
             // `?e := Empty`, so the result is compared with the whole `Comp`.
@@ -674,7 +674,7 @@ mod tests {
     #[test]
     fn a_partial_computation_never_fits_a_row_variable() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let delay = g.builtins.primitive_id(Primitive::Delay).expect("Delay");
             let partial = applied(Head::Def(delay), vec![nat(g)]);
             let (meta, left) = comp_in(g, nat(g));
@@ -691,7 +691,7 @@ mod tests {
     fn a_quotient_type_is_apart_and_a_stuck_lift_is_put_aside() {
         use stitchwort_core::QuotForm;
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let quotient = applied(Head::Quot(QuotForm::Type), vec![nat(g), Value::var(0)]);
             let (meta, left) = comp_in(g, quotient.clone());
             assert!(unify(g, 1, &left, &quotient).unwrap());
@@ -712,7 +712,7 @@ mod tests {
     #[test]
     fn a_type_stuck_on_an_unknown_is_put_aside() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             // `rowOp ?f`: a definition stuck on an unknown.
             let row_op = g.registry.def(Builtin::RowOp).expect("rowOp");
             let unknown = applied(Head::Meta(g.new_meta(span())), Vec::new());

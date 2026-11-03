@@ -274,7 +274,7 @@ pub(crate) fn await_helpers(
         return Ok(false);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    if crate::unify::unify_awaiting_helpers(cx.g(), cx.level(), found, expected, drafted)? {
+    if crate::unify::unify_awaiting_helpers(&cx.u(), cx.level(), found, expected, drafted)? {
         cx.e.attempt
             .awaiting_helpers
             .borrow_mut()

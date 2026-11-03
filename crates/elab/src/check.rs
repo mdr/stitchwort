@@ -377,6 +377,11 @@ impl<'e> Ctx<'e> {
         &self.e.globals
     }
 
+    /// The unifier, on this elaborator's metavariables and attempt.
+    pub(crate) fn u(&self) -> crate::unify::Unifier<'e> {
+        self.e.unifier()
+    }
+
     pub fn level(&self) -> usize {
         self.env.len()
     }
@@ -633,7 +638,7 @@ impl<'e> Ctx<'e> {
     /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
     /// of resources finding out.
     pub fn unify(&self, a: &Value, b: &Value) -> Result<bool> {
-        Ok(unify(self.g(), self.level(), a, b)?)
+        Ok(unify(&self.u(), self.level(), a, b)?)
     }
 
     /// Whether `a` and `b` are equal by computation, solving nothing, with

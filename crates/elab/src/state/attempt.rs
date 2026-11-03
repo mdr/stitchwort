@@ -8,13 +8,14 @@
 //! `undo::Snapshot` marks and restores them, and passes their lengths to
 //! [`Attempt::restore`] for the tables keyed by metavariable.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::{DefId, Globals, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::unify::{RowConstraint, Waiting};
 use crate::{auto, defaults, lift, numbers, queue, rows};
 
 #[derive(Default)]
@@ -98,6 +99,47 @@ pub(crate) struct Attempt {
     /// parameters, with the parameters' names, for messages. Cleared with
     /// the metavariables.
     pub(crate) parameter_metas: RefCell<HashMap<usize, String>>,
+
+    // The unifier's own state (`unify.rs`, through `unify::Unifier`).
+    /// While `unify::unify_postponing` runs: the row constraints it put
+    /// aside. Set and put back by a guard (`state::Scoped`), so not marked.
+    pub(crate) postponed: RefCell<Option<Vec<RowConstraint>>>,
+    /// Set when a computation whose divergence is a signature's variable
+    /// (`{e} a` for a bare `e`) met something it couldn't be compared with
+    /// as it stands: a body that then fails may check with `e` total
+    /// (docs/proposals/partial-stage-3.md §2.2, D1215). Taken before and
+    /// after each body ([`Attempt::take_rigid_divergence`], in
+    /// `Elaborator::group`).
+    ///
+    /// Not restored when an attempt is undone, nor emptied by
+    /// [`Attempt::reset`] or a rewind: a meeting anywhere in the body
+    /// counts, in an attempt that was undone too. That is how it behaved as
+    /// a thread-local; whether it is intended isn't recorded
+    /// (elaborator-state.md F7).
+    pub(crate) rigid_divergence: Cell<bool>,
+    /// While `unify::unify_awaiting_helpers` runs: the frozen metavariables
+    /// of the helpers not lifted yet, taken as equal to whatever they meet.
+    /// Set by a guard.
+    pub(crate) awaited_helpers: RefCell<Option<HashSet<usize>>>,
+    /// While `unify::unify_solving_arguments` runs. Set by a guard.
+    pub(crate) solving_arguments: Cell<bool>,
+    /// The solutions made while comparing two calls of a definition stuck
+    /// on an unknown by their arguments (`unify::unify_step`): each
+    /// metavariable and its place in `Globals::meta_trail`. Equal arguments
+    /// are enough for equal calls, not needed for them, so for a definition
+    /// that isn't injective such a solution is one of several. Only counted
+    /// (`unify::solved_lossily`, for `queue.rs`), never acted on. Cut at the
+    /// trail's length when solutions are taken back; not emptied by a
+    /// rewind (as when it was a thread-local: the next declaration's
+    /// [`Attempt::reset`] empties it).
+    pub(crate) lossy: RefCell<Vec<(usize, usize)>>,
+    /// While `unify::unify_waiting` runs: the unknowns the queue still has
+    /// to settle (`queue::pending`), on which a pair may wait. Set by a
+    /// guard.
+    pub(crate) pending: RefCell<HashSet<usize>>,
+    /// While `unify::unify_waiting` runs, outside any comparison nested in
+    /// it: the pairs set aside. Set by a guard.
+    pub(crate) waiting: RefCell<Option<Vec<Waiting>>>,
 }
 
 /// Where an [`Attempt`] was: lengths only, so taking one allocates nothing.
@@ -158,6 +200,17 @@ impl Attempt {
             local_defaults: _,
             proof_holes: _,
             parameter_metas: _,
+            // Cut at the trail's mark.
+            lossy: _,
+            // Not restored (see the field).
+            rigid_divergence: _,
+            // Each set and put back by a guard around one call, which an
+            // attempt is either inside or outside of whole.
+            postponed: _,
+            awaited_helpers: _,
+            solving_arguments: _,
+            pending: _,
+            waiting: _,
         } = self;
         Mark {
             obligations: obligations.borrow().len(),
@@ -198,7 +251,16 @@ impl Attempt {
             local_defaults,
             proof_holes,
             parameter_metas,
+            lossy,
+            // As in `mark`.
+            rigid_divergence: _,
+            postponed: _,
+            awaited_helpers: _,
+            solving_arguments: _,
+            pending: _,
+            waiting: _,
         } = self;
+        lossy.borrow_mut().retain(|(_, at)| *at < trail);
         local_metas.borrow_mut().retain(|m, _| *m < metas);
         operator_dictionaries.borrow_mut().retain(|m, _| *m < metas);
         local_dictionaries.borrow_mut().retain(|_, at| *at < trail);
@@ -247,10 +309,18 @@ impl Attempt {
             local_defaults,
             proof_holes,
             parameter_metas,
+            lossy,
             // Each emptied by the code that uses it, as the field says.
             local_keys: _,
             lambda_warnings: _,
             branch_errors: _,
+            rigid_divergence: _,
+            // Set only inside a call, by a guard.
+            postponed: _,
+            awaited_helpers: _,
+            solving_arguments: _,
+            pending: _,
+            waiting: _,
         } = self;
         proof_holes.borrow_mut().clear();
         parameter_metas.borrow_mut().clear();
@@ -267,6 +337,7 @@ impl Attempt {
         awaiting_helpers.borrow_mut().clear();
         defaulted.borrow_mut().clear();
         defaulted_records.borrow_mut().clear();
+        lossy.borrow_mut().clear();
     }
 
     /// Empties everything, for `Elaborator::rewind`.
@@ -290,6 +361,16 @@ impl Attempt {
             local_defaults,
             proof_holes,
             parameter_metas,
+            // Left as they are, as when they were thread-locals: see the
+            // fields.
+            lossy: _,
+            rigid_divergence: _,
+            // Set only inside a call, by a guard.
+            postponed: _,
+            awaited_helpers: _,
+            solving_arguments: _,
+            pending: _,
+            waiting: _,
         } = self;
         obligations.get_mut().clear();
         row_metas.get_mut().clear();
@@ -309,5 +390,23 @@ impl Attempt {
         local_defaults.get_mut().clear();
         proof_holes.get_mut().clear();
         parameter_metas.get_mut().clear();
+    }
+
+    /// Notes that a computation with a variable divergence couldn't be
+    /// compared or moved as it stands ([`Attempt::rigid_divergence`]).
+    pub(crate) fn note_rigid_divergence(&self) {
+        self.rigid_divergence.set(true);
+    }
+
+    /// Whether [`Attempt::note_rigid_divergence`] was called since the last
+    /// call of this, which clears it.
+    pub(crate) fn take_rigid_divergence(&self) -> bool {
+        self.rigid_divergence.replace(false)
+    }
+
+    /// Forgets what was noted in [`Attempt::lossy`] of the solutions from
+    /// place `len` of the trail on, as they are taken back.
+    pub(crate) fn forget_lossy_since(&self, len: usize) {
+        self.lossy.borrow_mut().retain(|(_, at)| *at < len);
     }
 }

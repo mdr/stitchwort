@@ -861,6 +861,14 @@ fn name(n: &ast::Name) -> Name {
 }
 
 impl Elaborator {
+    /// The unifier, on this elaborator's metavariables and attempt.
+    pub(crate) fn unifier(&self) -> unify::Unifier<'_> {
+        unify::Unifier {
+            g: &self.globals,
+            attempt: &self.attempt,
+        }
+    }
+
     pub fn new() -> Self {
         // Glued evaluation (docs/proposals/folded-calls.md) is on while
         // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
@@ -1262,7 +1270,6 @@ impl Elaborator {
         self.flush_goals();
         self.globals.clear_metas();
         self.attempt.reset();
-        crate::unify::forget_lossy_since(0);
         self.instance_steps.borrow_mut().clear();
     }
 
@@ -2715,7 +2722,7 @@ impl Elaborator {
             self.module.phase = Phase::Body;
             self.clear_metas();
             self.attempt.branch_errors.take();
-            crate::unify::take_rigid_divergence();
+            self.attempt.take_rigid_divergence();
             let mut checked =
                 self.in_body_of(*id, &ids, |e| e.lifted_body(*id, def_name, equations));
             // A body that moves a computation in its bare row `{e}` into a
@@ -2725,7 +2732,7 @@ impl Elaborator {
             // it couldn't be compared with while `e` may be partial. Only
             // those: any other failure would fail the same way again, so
             // isn't checked twice (SW-439).
-            if crate::unify::take_rigid_divergence()
+            if self.attempt.take_rigid_divergence()
                 && let Err(d) = &checked
                 && !undo::fatal(d)
             {

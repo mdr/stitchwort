@@ -611,7 +611,7 @@ fn fits_row(cx: &Ctx, level: usize, row: &Row, res_arg: &Value) -> Result<bool> 
 /// `PlusRes IO.res (rowRes e)` (`accept/adder.sw`). `level` variables are
 /// in scope ([`comp_parts_at`]).
 fn same_results(cx: &Ctx, level: usize, written: &Value, own: &Value) -> Result<Option<bool>> {
-    let g = cx.g();
+    let g = &cx.u();
     let unknown = |v: &Value| -> Result<bool> {
         let t = stitchwort_core::value::quote(g, level, v)?;
         Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
@@ -1122,7 +1122,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         }
         (Some(df), None) => {
             if !to.partial {
-                crate::unify::note_rigid_divergence();
+                cx.e.attempt.note_rigid_divergence();
                 return Err(divergent_in_total(cx));
             }
             let plain = from.without_div();
@@ -1141,7 +1141,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         }
         (Some(df), Some(dt)) => {
             if !cx.unify(&df, &dt)? {
-                crate::unify::note_rigid_divergence();
+                cx.e.attempt.note_rigid_divergence();
                 return Err(divergent_in_total(cx));
             }
             let (pf, pt) = (from.without_div(), to.without_div());

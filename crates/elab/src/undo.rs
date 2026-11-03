@@ -4,12 +4,14 @@
 //! solutions it made before failing. So anything that tries one way and,
 //! if it doesn't work, another, runs the first inside a transaction.
 //!
-//! The elaborator's inference state, all of it reachable from a [`Ctx`]:
+//! The elaborator's inference state, all of it reachable from a [`Ctx`].
+//! Most of it is in [`crate::state::Attempt`], whose `mark` and `restore`
+//! name every field; the rest is listed in [`Snapshot`]:
 //! - the metavariables (`Globals::metas`): their solutions are undone from
 //!   `Globals::meta_trail`, and those created since are dropped;
 //! - lifted helpers not yet resolved (`lift.rs`), and the local
 //!   definitions' keys met so far (`local.rs`);
-//! - pending auto obligations and defaulted-literal records (`Elaborator`);
+//! - pending auto obligations and defaulted-literal records;
 //! - the queued checks and the resumption log of their states
 //!   (`queue.rs`): an attempt undone takes back both the checks it queued
 //!   and the resumptions it made, with the terms they filled in;
@@ -17,7 +19,12 @@
 //!   (`nav.rs`), which may mention the metavariables dropped;
 //! - the open goals noted (`goals.rs`), and the `_`s noted as proofs, for
 //!   the same reason;
-//! - the local context and the current span.
+//! - the local context and the current span;
+//! - the unifier's note of solutions made by comparing arguments
+//!   (`Attempt::lossy`), cut with the trail. Its other state is set around
+//!   a single comparison by guards, which an attempt is wholly inside or
+//!   outside of, except `Attempt::rigid_divergence`, which an undone
+//!   attempt keeps (see the field).
 //!
 //! Warnings mostly aren't part of it: declaration-level code adds most of
 //! them (it needs `&mut Elaborator`, which a `Ctx` doesn't have), and those
@@ -120,7 +127,6 @@ impl Snapshot {
             g.print_labels
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
-            crate::unify::forget_lossy_since(self.trail);
         }
         cx.e.attempt
             .restore(self.attempt, g, self.metas, self.trail);
@@ -173,7 +179,7 @@ pub(crate) fn unify(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
 /// [`crate::unify::unify_solving_arguments`], undoing what it solved if it fails.
 pub(crate) fn unify_solving_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     Ok(transaction(cx, |cx| {
-        Ok(crate::unify::unify_solving_arguments(cx.g(), cx.level(), a, b)?.then_some(()))
+        Ok(crate::unify::unify_solving_arguments(&cx.u(), cx.level(), a, b)?.then_some(()))
     })?
     .is_some())
 }

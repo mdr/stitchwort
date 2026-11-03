@@ -891,7 +891,7 @@ pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
         return Ok(false);
     }
     Ok(crate::unify::on_pending_in(
-        cx.g(),
+        &cx.u(),
         cx.level(),
         v,
         &pending,
@@ -1059,7 +1059,7 @@ pub(crate) fn compare_waiting(
         return Ok(false);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+    match crate::unify::unify_waiting(&cx.u(), cx.level(), found, expected, &pending)? {
         Answer::Yes => Ok(true),
         Answer::No => {
             snapshot.restore(cx);
@@ -1149,7 +1149,7 @@ impl Check for Comparison {
         }
         let pending = pending(cx)?;
         let still =
-            match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+            match crate::unify::unify_waiting(&cx.u(), cx.level(), found, expected, &pending)? {
                 Answer::Yes => return Ok(Resumed::Holds),
                 Answer::No => return Err(self.failure.error(cx, found, expected)?),
                 Answer::Blocked(pairs) => pairs,
@@ -1416,7 +1416,7 @@ impl Elaborator {
     /// zonking writes it rather than the solution read back, which would
     /// write out what its calls unfold to (§5.10).
     fn fill(&self, cx: &mut Ctx, i: usize, item: &Item, term: &Term) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.unifier();
         debug_assert!(
             matches!(self.attempt.queue.state(i), State::Running),
             "only its own running item fills a placeholder (invariant 2)"
@@ -2505,7 +2505,7 @@ mod tests {
         assert!(cx.g().meta_solution(p).is_none());
         let pending = pending(&cx).unwrap();
         assert!(pending.contains(&p));
-        let answer = crate::unify::unify_waiting(cx.g(), 1, &a, &b, &pending).unwrap();
+        let answer = crate::unify::unify_waiting(&cx.u(), 1, &a, &b, &pending).unwrap();
         assert!(matches!(answer, Answer::Blocked(ref pairs) if pairs.len() == 1));
         assert!(cx.g().meta_solution(p).is_none());
         e.globals.solve_meta(blocker, ty(1));

@@ -28,3 +28,58 @@ mod attempt;
 
 pub(crate) use attempt::Attempt;
 pub(crate) use attempt::Mark as AttemptMark;
+
+use std::cell::{Cell, RefCell};
+
+/// A value put in a [`RefCell`] for the dynamic extent of a call: the
+/// previous value is put back when this is dropped, or by
+/// [`Scoped::finish`], which also gives the value the cell then held.
+pub(crate) struct Scoped<'a, T> {
+    cell: &'a RefCell<T>,
+    old: Option<T>,
+}
+
+impl<'a, T> Scoped<'a, T> {
+    pub(crate) fn set(cell: &'a RefCell<T>, value: T) -> Self {
+        let old = cell.replace(value);
+        Scoped {
+            cell,
+            old: Some(old),
+        }
+    }
+
+    /// Puts the previous value back, and gives the one the cell held.
+    pub(crate) fn finish(mut self) -> T {
+        let old = self.old.take().expect("put back only once");
+        self.cell.replace(old)
+    }
+}
+
+impl<T> Drop for Scoped<'_, T> {
+    fn drop(&mut self) {
+        if let Some(old) = self.old.take()
+            && let Ok(mut cell) = self.cell.try_borrow_mut()
+        {
+            *cell = old;
+        }
+    }
+}
+
+/// [`Scoped`] for a [`Cell`].
+pub(crate) struct ScopedCell<'a, T: Copy> {
+    cell: &'a Cell<T>,
+    old: T,
+}
+
+impl<'a, T: Copy> ScopedCell<'a, T> {
+    pub(crate) fn set(cell: &'a Cell<T>, value: T) -> Self {
+        let old = cell.replace(value);
+        ScopedCell { cell, old }
+    }
+}
+
+impl<T: Copy> Drop for ScopedCell<'_, T> {
+    fn drop(&mut self) {
+        self.cell.set(self.old);
+    }
+}

@@ -321,7 +321,7 @@ impl Elaborator {
 
     /// `value`, printed as a goal is, the goal's variables by their names.
     fn show_with_vars(&self, vars: &[(Name, usize)], value: &Value) -> Res<String> {
-        let g = &self.globals;
+        let g = &self.unifier();
         let mark = g.meta_trail.borrow().len();
         for (i, (_, m)) in vars.iter().enumerate() {
             g.solve_meta(*m, Value::var(i));
@@ -454,9 +454,9 @@ impl Elaborator {
     /// conclusion doesn't match): each a choice of hypotheses for its
     /// premises, those that fill more first.
     fn plans_for(&self, goal: &Goal, target: &Value, candidate: &Candidate) -> Vec<Plan> {
-        let g = &self.globals;
+        let g = &self.unifier();
         let _restore = Restore {
-            g,
+            g: *g,
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
@@ -513,7 +513,7 @@ impl Elaborator {
     /// Fills premises `k..` of `s`, each with every hypothesis that unifies
     /// with it, then left open; a plan at each end.
     fn fill_premises(&self, s: &mut Fill, k: usize) -> Res<()> {
-        let g = &self.globals;
+        let g = &self.unifier();
         if s.plans.len() >= MAX_PLANS || s.nodes >= MAX_NODES {
             return Ok(());
         }
@@ -743,9 +743,9 @@ impl Elaborator {
         backwards: bool,
         iff: Option<DataId>,
     ) -> Option<Plan> {
-        let g = &self.globals;
+        let g = &self.unifier();
         let _restore = Restore {
-            g,
+            g: *g,
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
@@ -800,12 +800,12 @@ impl Elaborator {
         iff: Option<DataId>,
         max: usize,
     ) -> Vec<RecursivePlan> {
-        let g = &self.globals;
+        let g = &self.unifier();
         let item = Item::Def(owner);
         let ty = g.def(owner).ty.clone();
         let span = item.span(g);
         let _restore = Restore {
-            g,
+            g: *g,
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
