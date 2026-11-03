@@ -340,6 +340,62 @@ fn navigation_works_inside_a_library_document() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The built-in names have no declaration of their own, and lead to
+/// `core/Builtins.sw`, which documents them (SW-1146).
+#[test]
+fn built_in_names_lead_to_the_file_that_documents_them() {
+    let dir = temp_dir("builtins");
+    let file = dir.join("builtins.sw");
+    let text = "type Q = { raw: Quot Nat (a b => a = b) }
+
+def mk (n: Nat): Quot Nat (a b => a = b) := Quot.mk n
+
+def same (n: Nat): n = n := rfl
+
+theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) rfl p
+";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let source = stitchwort_elab::std_source("core/Builtins.sw", 64 << 20).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    let mut missing: Vec<&str> = Vec::new();
+    for (line, needle, name, doc) in [
+        (0, "Quot", "Quot", "quotient of `a` by the relation"),
+        (2, "Quot.mk", "Quot.mk", "element of the quotient"),
+        (4, "rfl", "rfl", "value equals itself"),
+        (6, "J (", "J", "Transport along an equality"),
+    ] {
+        let col = lines[line].find(needle).unwrap() as u32;
+        let definition = client.at("textDocument/definition", &uri, line as u32, col);
+        let std_uri = definition["uri"].as_str().unwrap_or_default().to_string();
+        if std_uri.is_empty() {
+            missing.push(name);
+            continue;
+        }
+        assert_eq!(
+            std_rel(&std_uri),
+            "core/Builtins.sw",
+            "{name}: {definition}"
+        );
+        // It lands on the declaration of that name.
+        let at = definition["range"]["start"]["line"].as_u64().unwrap() as usize;
+        let declared = source.lines().nth(at).unwrap();
+        assert!(
+            declared.starts_with(&format!("def {name}:")),
+            "{name}: {declared}"
+        );
+        let hover = client.at("textDocument/hover", &uri, line as u32, col);
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(shown.contains(doc), "{name}: {hover}");
+    }
+    assert!(missing.is_empty(), "no definition for {missing:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A library document still answers inside itself after the namespaces
 /// checked after the first one have been answered (SW-1110): the later
 /// answers leave out the library's references and must not replace the

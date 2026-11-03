@@ -51,7 +51,7 @@ use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
-use crate::{Elaborator, Global, RESERVED, error, goals, interfaces};
+use crate::{Elaborator, Global, error, goals, interfaces};
 
 /// What a declaration of the module is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1098,7 +1098,7 @@ impl Elaborator {
     /// A name a module declaration claims: not built in, and not already
     /// taken (by an earlier module or earlier in this one).
     fn new_module_name(&self, key: &str, n: &ast::Name) -> crate::Result<()> {
-        if RESERVED.contains(&n.text.as_str()) {
+        if self.is_reserved(&n.text) {
             return Err(error(
                 "E-DUPLICATE",
                 n.span,

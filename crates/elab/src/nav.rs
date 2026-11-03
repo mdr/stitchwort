@@ -466,6 +466,20 @@ impl Elaborator {
         }
     }
 
+    /// A built-in name (`rfl`, `J`, `Quot`, …): its reference is to the
+    /// declaration `std/core/Builtins.sw` documents it with (SW-1146). It's
+    /// found by its key, not by scope: the library's names aren't all in
+    /// scope in a program, and these mean the built-in wherever they're written.
+    pub(crate) fn note_builtin(&self, name: &ast::Name) {
+        if self.nav.is_none() {
+            return;
+        }
+        let key = format!("{}.{}", crate::scope::STD, name.text);
+        if let Some((key, global, target)) = self.scope.entry(&key) {
+            self.note_found(name.span, key, global, target);
+        }
+    }
+
     /// `name`, written, resolved to a declaration.
     pub(crate) fn note_name(&self, name: &ast::Name) {
         if self.nav.is_none() {

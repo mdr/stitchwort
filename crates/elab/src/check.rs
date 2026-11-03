@@ -1761,6 +1761,12 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     if let Some(fields) = as_fields(cx, name) {
         return infer_app_with(cx, &fields, args, fill);
     }
+    // The built-ins have no declaration but `Builtins.sw`'s, which
+    // navigation is pointed to (SW-1146).
+    if matches!(name.text.as_str(), "rfl" | "J") || crate::quot::head_form(cx, &name.text).is_some()
+    {
+        cx.e.note_builtin(name);
+    }
     if let Some(form) = crate::quot::head_form(cx, &name.text) {
         return crate::quot::elaborate(cx, form, args, None);
     }
@@ -3886,6 +3892,7 @@ pub(crate) fn check_value(
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
+            cx.e.note_builtin(name);
             if crate::undo::unify(cx, a, b)?
                 || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
                 || refl_after_instances(cx, a, b)?
@@ -3900,6 +3907,7 @@ pub(crate) fn check_value(
             }
         }
         (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => {
+            cx.e.note_builtin(name);
             // The expected type is a placeholder its check hasn't filled (a
             // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
             // compared with it, which waits for it (stage 6).

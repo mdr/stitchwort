@@ -2,6 +2,7 @@
 # before it declare. `Imports` is first, and its imports cover them all.
 # One name per line, without `.sw`; every file of core/ must be listed.
 Imports
+Builtins
 Logic
 Data
 Equality

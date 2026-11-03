@@ -497,7 +497,7 @@ impl Scope {
 
     /// The key `key` as stored, and what it names. (Not a name the library
     /// file being loaded declares, which isn't declared until it is.)
-    fn entry(&self, key: &str) -> Option<(&str, Global, Span)> {
+    pub(crate) fn entry(&self, key: &str) -> Option<(&str, Global, Span)> {
         self.entries
             .get_key_value(key)
             .filter(|(_, (g, _))| !self.is_hidden(g))
