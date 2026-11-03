@@ -4351,7 +4351,7 @@
     {
       "id": 1147,
       "title": "Should rigid_divergence be restored when an attempt is undone? (state note F7)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4393,7 +4393,7 @@
     {
       "id": 1150,
       "title": "omega_for_auto leaks from the last loaded library file into eval and typed-in expressions",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
