@@ -4553,7 +4553,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From SW-1153.",
+      "body": "From SW-1153.\n\nD2282 (Matt, 3 Nov): not now (\"hard to understand the impact/benefit... maybe another time\"). If raised again, lead with a measured user-visible effect (which real programs check slower, by how much).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
