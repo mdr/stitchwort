@@ -48,12 +48,18 @@ fn load(session: &mut Session, text: &str) -> (FileId, Vec<Diagnostic>) {
     (file, diagnostics)
 }
 
-/// The options the tests search with: the defaults. (Until SW-1082 they left
-/// out `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
+/// The options the tests search with: the defaults, but with a deadline far
+/// longer than the 10 s one, so a busy machine's slowness can't truncate a
+/// report (SW-1168); what these tests check is which suggestions are found,
+/// not how fast. (Until SW-1082 they left out
+/// `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
 /// premise `cases` grew a value to 1.4 GB on; a tried proof's values are
 /// capped now.)
 fn options() -> AtOptions {
-    AtOptions::default()
+    AtOptions {
+        time: std::time::Duration::from_secs(120),
+        ..AtOptions::default()
+    }
 }
 
 /// What closes the goal on `line` of `text`.

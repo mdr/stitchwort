@@ -13,6 +13,12 @@ use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
+/// The deadline the `search --at` tests pass with `--time`: much longer than
+/// the 10 s default, so a busy machine's slowness can't empty or truncate a
+/// report. What these tests check is which answers a search finds, not how
+/// fast it finds them (SW-1168).
+const AT_TIME: &str = "120s";
+
 /// Runs `stitchwort search ARGS` in `cwd`: (exit code, stdout, stderr).
 fn search(cwd: &Path, args: &[&str]) -> (i32, String, String) {
     let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-cache");
@@ -413,10 +419,18 @@ theorem wrong (m: Nat): m + 1 = m := ?
 fn what_closes_a_goal() {
     let dir = folder("at");
     std::fs::write(dir.join("goals.sw"), GOALS).unwrap();
-    let (code, out, err) = search(&dir, &["--at", "goals.sw:3", "--limit", "2"]);
+    let (code, out, err) = search(
+        &dir,
+        &["--at", "goals.sw:3", "--limit", "2", "--time", AT_TIME],
+    );
     assert_eq!(code, 0, "{out}{err}");
     assert!(out.contains(" 1. Nat.addComm m n  [exact]"), "{out}");
-    let (code, report) = json(&dir, &["--at", "goals.sw", "--goal", "2", "--limit", "1"]);
+    let (code, report) = json(
+        &dir,
+        &[
+            "--at", "goals.sw", "--goal", "2", "--limit", "1", "--time", AT_TIME,
+        ],
+    );
     assert_eq!(code, 0, "{report}");
     assert_eq!(report["goal"]["line"], 5);
     assert_eq!(report["results"][0]["proof"], "Nat.leTrans a b c h1 h2");
@@ -425,7 +439,7 @@ fn what_closes_a_goal() {
     report["budget"]["checks"] = "(varies)".into();
     insta::assert_snapshot!(serde_json::to_string_pretty(&report).unwrap());
     // Nothing closes a false goal: 1. No goal there, or a query too: 2.
-    let (code, report) = json(&dir, &["--at", "goals.sw:7"]);
+    let (code, report) = json(&dir, &["--at", "goals.sw:7", "--time", AT_TIME]);
     assert_eq!(code, 1, "{report}");
     assert_eq!(report["total"]["closing"], 0);
     let (code, report) = json(&dir, &["--at", "goals.sw:4"]);
@@ -485,7 +499,10 @@ fn shop(name: &str) -> PathBuf {
 #[test]
 fn what_closes_a_goal_in_a_project() {
     let dir = shop("at-project");
-    let (code, out, err) = search(&dir, &["--at", "src/Shop/Proofs/Proofs.sw:7"]);
+    let (code, out, err) = search(
+        &dir,
+        &["--at", "src/Shop/Proofs/Proofs.sw:7", "--time", AT_TIME],
+    );
     assert_eq!(code, 0, "{out}{err}");
     assert!(out.contains("  ⊢ twice (a + b) = twice (b + a)"), "{out}");
     assert!(
@@ -511,6 +528,8 @@ fn what_closes_a_goal_in_a_project() {
             "1",
             "--limit",
             "2",
+            "--time",
+            AT_TIME,
         ],
     );
     assert_eq!(code, 0, "{report}");
