@@ -15,9 +15,12 @@
 //!
 //! The write permission is per thread: compile and finalize on one thread,
 //! and don't run compiled code on that thread in between. Code may run on any
-//! thread after `finalize`.
+//! thread after `finalize`. The provider records which thread it made
+//! writable, and panics rather than write from another (SW-1124: it is
+//! `Send`, since `JITModule` needs that, but the permission isn't).
 
 use std::io;
+use std::thread::{self, ThreadId};
 
 use cranelift_jit::{BranchProtection, JITMemoryKind, JITMemoryProvider, SystemMemoryProvider};
 use cranelift_module::ModuleResult;
@@ -44,14 +47,19 @@ pub struct MapJitMemoryProvider {
     used: usize,
     /// The code handed out since the last `finalize`.
     pending: Vec<(*mut u8, usize)>,
-    /// Whether this thread has MAP_JIT memory writable now.
-    writing: bool,
+    /// The thread this provider made MAP_JIT memory writable for, until
+    /// the next `finalize`, if any.
+    writing: Option<ThreadId>,
 }
 
 // SAFETY: the raw pointers are addresses of mappings this provider owns and
 // never frees (as cranelift-jit's own provider leaks its memory, so function
 // pointers stay valid); moving the provider to another thread moves nothing
-// they point to. `JITModule` requires `Send`.
+// they point to. The write permission, which is the thread's and doesn't
+// move, is tracked by `writing`: from any thread but the one it made
+// writable, `set_writing` panics before anything is written, so a moved
+// provider never writes through a thread that can't, nor leaves a
+// thread's permission to the wrong caller. `JITModule` requires `Send`.
 #[allow(unsafe_code)]
 unsafe impl Send for MapJitMemoryProvider {}
 
@@ -66,7 +74,7 @@ impl MapJitMemoryProvider {
             chunk_len: 0,
             used: 0,
             pending: Vec::new(),
-            writing: false,
+            writing: None,
         };
         provider.new_chunk(CHUNK)?;
         Ok(provider)
@@ -103,14 +111,26 @@ impl MapJitMemoryProvider {
         Ok(())
     }
 
+    /// Makes MAP_JIT memory writable (and not executable) for this thread,
+    /// or executable again. Panics if another thread has it writable: that
+    /// thread's permission can't be changed from here.
     #[allow(unsafe_code)]
     fn set_writing(&mut self, writing: bool) {
-        if self.writing != writing {
-            // SAFETY: only changes whether this thread may write (or
-            // execute) MAP_JIT memory; no compiled code runs on this thread
-            // while it's writable (the module's contract above).
-            unsafe { libc::pthread_jit_write_protect_np(if writing { 0 } else { 1 }) };
-            self.writing = writing;
+        let here = thread::current().id();
+        match self.writing {
+            Some(owner) if owner != here => panic!(
+                "MAP_JIT code memory made writable on one thread was used on another \
+                 (compile and finalize on one thread)"
+            ),
+            Some(_) if writing => {}
+            None if !writing => {}
+            _ => {
+                // SAFETY: only changes whether this thread may write (or
+                // execute) MAP_JIT memory; no compiled code runs on this
+                // thread while it's writable (the module's contract above).
+                unsafe { libc::pthread_jit_write_protect_np(if writing { 0 } else { 1 }) };
+                self.writing = writing.then_some(here);
+            }
         }
     }
 
@@ -155,5 +175,18 @@ impl JITMemoryProvider for MapJitMemoryProvider {
             unsafe { sys_icache_invalidate(start.cast(), len) };
         }
         Ok(())
+    }
+}
+
+impl Drop for MapJitMemoryProvider {
+    /// A compile that failed after writing code (the module dropped before
+    /// `finalize`) leaves this thread's MAP_JIT memory executable again, so
+    /// code compiled later runs on it. Dropped on another thread, it can't
+    /// reach the writer's permission; that thread then faults if it runs
+    /// MAP_JIT code (it never runs it silently writable).
+    fn drop(&mut self) {
+        if self.writing == Some(thread::current().id()) {
+            self.set_writing(false);
+        }
     }
 }

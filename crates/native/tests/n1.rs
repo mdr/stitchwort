@@ -8,7 +8,9 @@ mod common;
 
 use common::*;
 use stitchwort_driver::driver::with_stack;
-use stitchwort_rt::{Limits, alloc_trace};
+use stitchwort_native::n1::{Options, compile, stack_for};
+use stitchwort_rt::host::NoTerminal;
+use stitchwort_rt::{Limits, alloc_trace, run_main_native};
 
 #[test]
 fn the_benchmarks_agree_with_the_machine() {
@@ -353,5 +355,41 @@ def main(): {IO} () :=
         });
         assert!(least_steps > 20, "{least_steps}");
         assert!(least_frames > 5, "{least_frames}");
+    });
+}
+
+/// The compiled code owns the image its tables point into (SW-1124): with
+/// the program and every other handle on the image gone, and the freed
+/// memory reused, code that reads the constant pool (the big numbers, the
+/// texts) and the number tables (`shrink`'s cases) still runs as the
+/// machine does.
+#[test]
+fn the_code_keeps_its_image() {
+    with_stack(STACK, || {
+        let (program, limits) = lowered(BIG_NUMBERS);
+        let expected = on_machine(&program, limits);
+        let islands = {
+            let image = stitchwort_rt::code::compile(&program);
+            compile(&program, image, Options::default()).expect("compiles")
+        };
+        drop(program);
+        let churn: Vec<Vec<u64>> = (0..2000).map(|n| vec![u64::MAX; n % 64]).collect();
+        let stack = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)
+            .expect("fits the cap");
+        let mut output = Vec::new();
+        // SAFETY: near the top of a `with_stack` thread of `STACK` bytes.
+        #[allow(unsafe_code)]
+        let result = unsafe {
+            run_main_native(
+                Box::new(islands),
+                limits,
+                stack.min(STACK),
+                &mut "".as_bytes(),
+                &mut output,
+                &mut NoTerminal,
+            )
+        };
+        drop(churn);
+        assert_eq!(ended(output, result), expected);
     });
 }

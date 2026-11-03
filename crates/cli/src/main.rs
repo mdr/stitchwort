@@ -2727,12 +2727,10 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     }
 }
 
-/// `main` compiled for `run --native`: the program, its image, the code,
-/// and the stack the run reserves.
+/// `main` compiled for `run --native`: the code (with its image), and the
+/// stack the run reserves.
 #[cfg(feature = "native")]
 struct CompiledNative {
-    program: stitchwort_rt::Program,
-    image: stitchwort_rt::code::Image,
     islands: stitchwort_native::n1::Islands,
     limits: stitchwort_rt::Limits,
     stack: usize,
@@ -2758,7 +2756,7 @@ fn compile_native(
     let options = stitchwort_native::n1::Options {
         trace_refcounts: trace,
     };
-    let compiled = stitchwort_native::n1::compile(&program, &image, options).and_then(|islands| {
+    let compiled = stitchwort_native::n1::compile(&program, image, options).and_then(|islands| {
         let stack = stitchwort_native::n1::stack_for(
             limits.frames as u64,
             islands.max_frame,
@@ -2776,8 +2774,6 @@ fn compile_native(
         eprintln!("{}", islands.note());
     }
     Ok(CompiledNative {
-        program,
-        image,
         islands,
         limits,
         stack,
@@ -2808,23 +2804,19 @@ fn run_main_native(
     terminal: &mut dyn stitchwort_cli::run::Terminal,
 ) -> Result<(), stitchwort_cli::run::RunError> {
     let CompiledNative {
-        program,
-        image,
         islands,
         limits,
         stack,
     } = native;
     let executed_before = stitchwort_rt::machine::instructions_executed();
-    let result = stitchwort_rt::run_main_native(
-        &program,
-        image,
-        Box::new(islands),
-        limits,
-        stack,
-        input,
-        output,
-        terminal,
-    );
+    // SAFETY: `run --native` runs on a thread whose stack is
+    // `stitchwort_host::NATIVE_STACK` (`main`), with little of it used
+    // here, and `stack` is at most that: `n1::stack_for` caps it at
+    // `STACK_CAP`, the same size (`compile_native`'s assertion).
+    #[allow(unsafe_code)]
+    let result = unsafe {
+        stitchwort_rt::run_main_native(Box::new(islands), limits, stack, input, output, terminal)
+    };
     if verbose {
         eprintln!(
             "native: the machine executed {} instructions",

@@ -186,16 +186,20 @@ pub trait Executor {
     fn depth_report(&self) -> Option<String>;
 }
 
-/// Runs `program` as [`run_main_on`] does, as native code: `code`, every
-/// body `main` reaches compiled for `image` (its entry included), with the
-/// runner on a [`NativeExecutor`] (stage NO4 of
-/// docs/proposals/native-only.md) and the machine running nothing. The code
-/// runs on a stack of `stack_size` bytes (`native_abi::native_stack`: the
-/// caller's thread has that many). Flushes `output`.
-#[allow(clippy::too_many_arguments)]
-pub fn run_main_native(
-    program: &Program,
-    image: crate::code::Image,
+/// Runs a program as [`run_main_on`] does, as native code: `code`, every
+/// body `main` reaches (its entry included), with the outline of the
+/// program it was compiled from ([`crate::native_abi::Crossing::outline`]),
+/// with the runner on a [`NativeExecutor`] (stage NO4 of
+/// docs/proposals/native-only.md) and the machine running nothing: what
+/// `run --native` and an executable built with `--native` (stage NO6) run.
+/// The code runs on a stack of `stack_size` bytes
+/// (`native_abi::native_stack`). Flushes `output`.
+///
+/// # Safety
+/// As [`NativeExecutor::new`]: the calling thread has at least
+/// `stack_size - HOST_ROOM` bytes of stack below here.
+#[allow(unsafe_code)]
+pub unsafe fn run_main_native(
     code: Box<dyn NativeIslands>,
     limits: Limits,
     stack_size: usize,
@@ -203,25 +207,8 @@ pub fn run_main_native(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> Result<(), RunError> {
-    let executor = NativeExecutor::new(program, image, code, limits, stack_size);
-    run_native_on(executor, limits, input, output, terminal)
-}
-
-/// Runs the program `outline` describes as [`run_main_native`] does, as its
-/// native `code`, which owns the tables it reads: what an executable built
-/// with `--native` runs, with no program, image or machine (stage NO6 of
-/// docs/proposals/native-only.md). Flushes `output`.
-#[allow(clippy::too_many_arguments)]
-pub fn run_main_linked(
-    outline: crate::linked::Outline,
-    code: Box<dyn NativeIslands>,
-    limits: Limits,
-    stack_size: usize,
-    input: &mut impl BufRead,
-    output: &mut impl Write,
-    terminal: &mut dyn Terminal,
-) -> Result<(), RunError> {
-    let executor = NativeExecutor::from_outline(outline, code, limits, stack_size);
+    // SAFETY: the caller's contract.
+    let executor = unsafe { NativeExecutor::new(code, limits, stack_size) };
     run_native_on(executor, limits, input, output, terminal)
 }
 

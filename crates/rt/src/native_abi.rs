@@ -550,9 +550,13 @@ impl Numbering {
 /// shapes, the number tables' addresses, the operations, the caches); the
 /// pool and the number tables are the image's (`run --native`) or the
 /// executable's tables (`crate::linked::LinkedTables`), which must outlive
-/// it. The shapes are copied because they sit inside the `Program`, which
-/// moves: `run --native` read the copy left behind in a returned stack
-/// frame, which Linux overwrote (stage NO7 of docs/proposals/native-only.md).
+/// any code that reads them. The store only records their addresses and
+/// never reads through them itself, so making one is safe; the promise
+/// that they live is made where code is given the store,
+/// [`Crossing::new`]. The shapes are copied because they sit inside the
+/// `Program`, which moves: `run --native` read the copy left behind in a
+/// returned stack frame, which Linux overwrote (stage NO7 of
+/// docs/proposals/native-only.md).
 pub struct TableStore {
     tables: *mut Tables,
     shapes: *mut Shapes,
@@ -583,8 +587,8 @@ impl TableStore {
     /// The tables for compiled code whose constant pool is `pool`, whose
     /// number tables are `num_tables` and operations `ops` (both in
     /// [`Numbering`]'s order), with `n_caches` `Apply` sites. `pool` and
-    /// `num_tables` must outlive the store, and not move; `shapes` is
-    /// copied.
+    /// `num_tables` must outlive code that reads them through the store,
+    /// and not move ([`Crossing::new`]); `shapes` is copied.
     pub fn from_parts<'t>(
         shapes: &Shapes,
         pool: &[Value],
@@ -698,8 +702,14 @@ impl NativeRun<'_> {
 
 /// A program's compiled code, wherever it is (JIT-compiled memory, or
 /// linked into a standalone executable): what [`NativeExecutor`] runs.
+///
+/// Safe to implement: the only way to have a [`Crossing`] is the unsafe
+/// [`Crossing::new`], whose caller promises that what the crossing points
+/// into lives as long as it does. An implementation holds its crossing
+/// together with that storage (`stitchwort_native::n1::Islands` owns the
+/// image; a standalone executable's tables are in the process forever).
 pub trait NativeIslands {
-    /// The code's tables and the ways into it.
+    /// The code's tables, the ways into it, and the program it's for.
     fn crossing(&self) -> &Crossing;
 }
 
@@ -708,20 +718,20 @@ pub trait NativeIslands {
 /// The trampoline into the compiled entry body: `(context, result)`, in
 /// the host's C calling convention. It calls the body with the context's
 /// frames pending (its own included) and writes the result.
-pub type EnterTrampoline = extern "C" fn(*mut Context, *mut Value);
+pub type EnterTrampoline = unsafe extern "C" fn(*mut Context, *mut Value);
 
 /// A trampoline into an apply stub (`apply{n}`, one per number of
 /// arguments the runner passes): `(context, function value, arguments,
 /// result)`, in the host's C calling convention. The function value and
 /// the arguments are moved in; the stub counts the step and the frame as
 /// the machine's `apply` does, with the context's frames pending.
-pub type ApplyTrampoline = extern "C" fn(*mut Context, *mut Value, *mut Value, *mut Value);
+pub type ApplyTrampoline = unsafe extern "C" fn(*mut Context, *mut Value, *mut Value, *mut Value);
 
 /// The trampoline into the effect runtime's loop (`rt_loop`) for a runner
 /// that takes computations apart: `(context, computation, handler's word,
 /// result)`, in the host's C calling convention; the computation and the
 /// handler are moved in.
-pub type StepTrampoline = extern "C" fn(*mut Context, *mut Value, u64, *mut Value);
+pub type StepTrampoline = unsafe extern "C" fn(*mut Context, *mut Value, u64, *mut Value);
 
 /// What the host (the driver, the runner, the CLI) may have used above
 /// the crossing into native code.
@@ -776,6 +786,14 @@ pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize
 /// docs/proposals/native-only.md): the entry, an apply stub, and the
 /// effect runtime's loop. Shared by `run --native`'s JIT and a standalone
 /// executable's linked code, so the two can't drift.
+///
+/// It carries the [`Outline`] of the program the code was compiled from,
+/// so the runner can't be given code for one program and the outline of
+/// another: [`NativeExecutor::new`] takes the crossing's.
+///
+/// Its fields are private and it is made only by the unsafe
+/// [`Crossing::new`], so what [`Crossing::enter`] and the others call
+/// through is what that constructor's caller vouched for.
 pub struct Crossing {
     /// For each global: its code as a function value's, or null
     /// ([`Context::functions`]).
@@ -793,9 +811,11 @@ pub struct Crossing {
     tables: TableStore,
     /// A bound on the stack one counted frame uses: the widest body with
     /// the runtime's frames that may come with it.
-    pub max_frame: usize,
+    max_frame: usize,
     /// [`Context::resumes`].
     resumes: bool,
+    /// What the runtime knows of the program the code was compiled from.
+    outline: Outline,
 }
 
 /// Where a [`Crossing`]'s code is and what it's like: its tables, its
@@ -813,8 +833,23 @@ pub struct CrossingCode {
 }
 
 impl Crossing {
-    /// The crossing for `code`, with `tables`.
-    pub fn new(code: CrossingCode, tables: TableStore) -> Crossing {
+    /// The crossing for `code`, with `tables`, compiled from the program
+    /// `outline` describes.
+    ///
+    /// # Safety
+    /// - `code`'s trampolines are finished code of their kinds, and its
+    ///   `functions` and `lambdas` are null or finished code of the
+    ///   program's globals and lambdas, compiled against `tables` and
+    ///   `outline`'s program (its shapes, numbering and globals), with
+    ///   frames of at most `max_frame` bytes; `resumes` says whether it has
+    ///   the effect runtime's bodies.
+    /// - That code, and the pool and number tables `tables` points into,
+    ///   stay mapped, unchanged and in place for as long as the crossing
+    ///   exists. The caller upholds this by owning (or outliving) them
+    ///   alongside the crossing, and by not handing the crossing to code
+    ///   that could separate the two.
+    #[allow(unsafe_code)]
+    pub unsafe fn new(code: CrossingCode, tables: TableStore, outline: Outline) -> Crossing {
         let CrossingCode {
             functions,
             lambdas,
@@ -833,7 +868,18 @@ impl Crossing {
             tables,
             max_frame,
             resumes,
+            outline,
         }
+    }
+
+    /// A bound on the stack one counted frame uses.
+    pub fn max_frame(&self) -> usize {
+        self.max_frame
+    }
+
+    /// What the runtime knows of the program the code was compiled from.
+    pub fn outline(&self) -> &Outline {
+        &self.outline
     }
 
     /// The context for a call from the runtime, with `run`'s counters.
@@ -875,13 +921,19 @@ impl Crossing {
     /// (`run.frames` includes it): its value.
     ///
     /// # Safety
-    /// The tables and trampolines are those of finished code for this
-    /// program's image, which stays mapped.
+    /// `run` is for this crossing (its outline is [`Crossing::outline`]),
+    /// and its `stack_floor` leaves at least [`HELPER_ROOM`] and a frame
+    /// of the current thread's stack below it: what [`NativeExecutor`]
+    /// makes, under [`NativeExecutor::new`]'s contract. The code and
+    /// tables are valid by [`Crossing::new`]'s.
     #[allow(unsafe_code)]
     pub unsafe fn enter(&self, run: &mut NativeRun<'_>) -> Result<Value, ResourceError> {
         let mut context = self.context(run);
         let mut out = MaybeUninit::<Value>::uninit();
-        (self.enter)(&mut context, out.as_mut_ptr());
+        // SAFETY: finished entry code with live tables (`Crossing::new`'s
+        // contract), on a stack it can't run off (the caller's); the
+        // pointers are to locals.
+        unsafe { (self.enter)(&mut context, out.as_mut_ptr()) };
         // SAFETY: the entry wrote a whole value.
         unsafe { Crossing::finish(&context, out, run) }
     }
@@ -907,7 +959,9 @@ impl Crossing {
         let mut f = std::mem::ManuallyDrop::new(f);
         let mut args = std::mem::ManuallyDrop::new(args);
         let mut out = MaybeUninit::<Value>::uninit();
-        trampoline(&mut context, &mut *f, args.as_mut_ptr(), out.as_mut_ptr());
+        // SAFETY: as in `enter`; `f` and `args` are whole values the stub
+        // takes (moved: neither is dropped here).
+        unsafe { trampoline(&mut context, &mut *f, args.as_mut_ptr(), out.as_mut_ptr()) };
         // SAFETY: the stub took the function value and the arguments
         // (moved), so the vector gives back only its buffer; it wrote a
         // whole value to `out`.
@@ -940,7 +994,9 @@ impl Crossing {
         let mut c = std::mem::ManuallyDrop::new(c);
         let handler = Rc::into_raw(handler) as u64;
         let mut out = MaybeUninit::<Value>::uninit();
-        trampoline(&mut context, &mut *c, handler, out.as_mut_ptr());
+        // SAFETY: as in `enter`, with the effect runtime's loop, which
+        // takes `c` and the handler's count (moved).
+        unsafe { trampoline(&mut context, &mut *c, handler, out.as_mut_ptr()) };
         // SAFETY: the loop took the computation and the handler, and wrote
         // a whole value.
         unsafe { Crossing::finish(&context, out, run) }
@@ -958,11 +1014,15 @@ impl Crossing {
 ///
 /// It holds what the machine held between calls: the constants computed
 /// so far, the effect counts, and the steps of the stretch. What it knows
-/// of the program is its [`Outline`] (stage NO6): an executable built with
-/// `--native` has no program or image.
+/// of the program is its code's [`Outline`] (stage NO6,
+/// [`Crossing::outline`]): an executable built with `--native` has no
+/// program or image.
+///
+/// It isn't `Send` (its code isn't): the stack floor it fixes at the first
+/// crossing is the first caller's thread's.
 pub struct NativeExecutor {
-    outline: Outline,
-    /// The compiled code, owning (or outliving) what its tables point into.
+    /// The compiled code, which owns (or outlives) what its tables point
+    /// into, and the outline of its program.
     code: Box<dyn NativeIslands>,
     globals: Vec<Option<Value>>,
     counts: EffectCounts,
@@ -978,54 +1038,28 @@ pub struct NativeExecutor {
     deepest: Vec<(u32, usize)>,
 }
 
-/// Code compiled for an image, with the image its tables point into (its
-/// constants and number tables): `run --native`'s. The code is dropped
-/// first.
-struct WithImage {
-    code: Box<dyn NativeIslands>,
-    _image: Image,
-}
-
-impl NativeIslands for WithImage {
-    fn crossing(&self) -> &Crossing {
-        self.code.crossing()
-    }
-}
-
 impl NativeExecutor {
-    /// The executor for `program`, its compiled `image` and the `code`
-    /// compiled for that image, run on a stack of `stack_size` bytes (the
-    /// caller's thread has at least that many above where it calls from):
-    /// [`native_stack`] for `limits`, so that the frame counter fires first
-    /// and the stack-pointer check behind it never does.
-    pub fn new(
-        program: &Program,
-        image: Image,
-        code: Box<dyn NativeIslands>,
-        limits: Limits,
-        stack_size: usize,
-    ) -> NativeExecutor {
-        let outline = Outline::of(program, &image);
-        let code = Box::new(WithImage {
-            code,
-            _image: image,
-        });
-        NativeExecutor::from_outline(outline, code, limits, stack_size)
-    }
-
-    /// The executor for the program `outline` describes, and its `code`,
-    /// which owns what its tables point into: as [`NativeExecutor::new`],
-    /// for an executable built with `--native` (stage NO6 of
-    /// docs/proposals/native-only.md).
-    pub fn from_outline(
-        outline: Outline,
+    /// The executor for `code` (which says what program it's for), run on
+    /// a stack of `stack_size` bytes: [`native_stack`] for `limits`, so that
+    /// the frame counter fires first and the stack-pointer check behind it
+    /// never does.
+    ///
+    /// # Safety
+    /// The thread the executor is first called on has at least
+    /// `stack_size - HOST_ROOM` bytes of stack below where it calls from:
+    /// a thread whose stack is at least `stack_size` bytes, which has used
+    /// less than [`HOST_ROOM`] of it by then. Compiled code checks the
+    /// stack pointer only against the floor this implies; nothing checks
+    /// the claim, and code that ran past the thread's stack could step
+    /// over its guard page.
+    #[allow(unsafe_code)]
+    pub unsafe fn new(
         code: Box<dyn NativeIslands>,
         limits: Limits,
         stack_size: usize,
     ) -> NativeExecutor {
         NativeExecutor {
-            globals: vec![None; outline.globals.len()],
-            outline,
+            globals: vec![None; code.crossing().outline().globals.len()],
             code,
             counts: EffectCounts::default(),
             steps: 0,
@@ -1046,7 +1080,7 @@ impl NativeExecutor {
             let marker = 0u8;
             std::hint::black_box(&marker) as *const u8 as u64
         };
-        let floor = match floor_depth(self.stack_size, self.code.crossing().max_frame) {
+        let floor = match floor_depth(self.stack_size, self.code.crossing().max_frame()) {
             Some(depth) => here.saturating_sub(depth as u64),
             // No room for even one frame: every call stops.
             None => u64::MAX,
@@ -1068,8 +1102,9 @@ impl NativeExecutor {
         call: impl FnOnce(&Crossing, &mut NativeRun<'_>) -> Result<Value, ResourceError>,
     ) -> Result<Value, ResourceError> {
         let stack_floor = self.stack_floor();
+        let crossing = self.code.crossing();
         let mut run = NativeRun {
-            outline: &self.outline,
+            outline: crossing.outline(),
             globals: &mut self.globals,
             counts: &mut self.counts,
             steps: self.steps,
@@ -1082,7 +1117,7 @@ impl NativeExecutor {
             bodies: Vec::new(),
             stack_floor,
         };
-        let out = call(self.code.crossing(), &mut run);
+        let out = call(crossing, &mut run);
         self.steps = run.steps;
         if matches!(out, Err(ResourceError::Depth)) {
             // Out of frames (or, were the bound wrong, at the stack check
@@ -1120,8 +1155,8 @@ impl crate::run::Executor for NativeExecutor {
         if self.limits.frames == 0 {
             return Err(ResourceError::Depth);
         }
-        // SAFETY: the code is finished, for this program's image, which
-        // this executor keeps.
+        // SAFETY: `cross` makes the run for this crossing, with the floor
+        // `stack_floor` fixed under `NativeExecutor::new`'s contract.
         self.cross(1, |crossing, run| unsafe { crossing.enter(run) })
     }
 
@@ -1143,15 +1178,15 @@ impl crate::run::Executor for NativeExecutor {
     }
 
     fn shapes(&self) -> &Shapes {
-        &self.outline.shapes
+        &self.code.crossing().outline().shapes
     }
 
     fn main_row(&self) -> MainRow {
-        self.outline.main_row
+        self.code.crossing().outline().main_row
     }
 
     fn depth_report(&self) -> Option<String> {
-        self.outline.depth_report(&self.deepest)
+        self.code.crossing().outline().depth_report(&self.deepest)
     }
 }
 
