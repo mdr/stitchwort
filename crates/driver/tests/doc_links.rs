@@ -25,7 +25,7 @@ fn messages(text: &str) -> Vec<String> {
 /// keeps clean) and the core leaves none.
 #[test]
 fn the_library_has_no_broken_doc_links() {
-    let session = Session::eager();
+    let session = Session::eager_from_source();
     let found: Vec<_> = session
         .warnings
         .iter()

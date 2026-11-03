@@ -76,7 +76,7 @@ fn workers() -> usize {
 /// again for every example. The rewind tests check that rewinding gives
 /// exactly what a fresh session does.
 fn eager_worker() -> (Session, Mark) {
-    let session = Session::eager_for_stack(STACK);
+    let session = Session::eager_from_source_for_stack(STACK);
     let mark = session.mark();
     (session, mark)
 }
@@ -119,7 +119,7 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
 fn prelude() {
     // The snapshot is of the library this run reads (`STITCHWORT_STD_DIR`).
     eprintln!("hash_stability: {}", stitchwort_elab::std_text().mode());
-    let session = Session::eager();
+    let session = Session::eager_from_source();
     let text = lines(&session, 0, 0);
     let mut sorted: Vec<&str> = text.lines().collect();
     sorted.sort_by_key(|l| {
@@ -438,7 +438,7 @@ fn dump_on_this_thread() {
         return;
     };
     let project = std::env::var("HASH_DUMP_PROJECT").unwrap_or_else(|_| "aoc".to_string());
-    let mut session = Session::eager_for_stack(DUMP_STACK);
+    let mut session = Session::eager_from_source_for_stack(DUMP_STACK);
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .join(&project);

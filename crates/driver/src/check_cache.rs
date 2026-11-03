@@ -38,12 +38,20 @@ pub struct CheckCache {
     salt: [u8; 16],
     /// Whether this run has written yet (the first write sweeps).
     written: Cell<bool>,
+    /// How long entries of other builds are kept.
+    grace: Duration,
 }
 
 impl CheckCache {
     /// The check cache in the cache directory `cache_dir` (its `check/`
     /// folder, made if needed).
     pub fn at(cache_dir: &Path) -> CheckCache {
+        Self::with_grace(cache_dir, GRACE)
+    }
+
+    /// [`CheckCache::at`], keeping other builds' entries for `grace` only:
+    /// the tests' cache, where every build of the code is a new build.
+    pub fn with_grace(cache_dir: &Path, grace: Duration) -> CheckCache {
         let dir = cache_dir.join("check");
         let salt = salt(&dir);
         CheckCache {
@@ -55,6 +63,7 @@ impl CheckCache {
             ),
             salt,
             written: Cell::new(false),
+            grace,
         }
     }
 
@@ -89,7 +98,7 @@ impl CheckCache {
                         .and_then(|m| m.modified())
                         .ok()
                         .and_then(|t| now.duration_since(t).ok())
-                        .is_some_and(|age| age > GRACE));
+                        .is_some_and(|age| age > self.grace));
             if stale {
                 let _ = std::fs::remove_file(&path);
             }

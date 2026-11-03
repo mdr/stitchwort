@@ -133,7 +133,7 @@ fn library_files_do_not_form_a_cycle() {
 
 #[test]
 fn the_index_holds_exactly_the_names_an_eager_load_makes() {
-    let session = Session::eager();
+    let session = Session::eager_from_source();
     let index = standard_index();
     assert!(
         session.elab.pending_keys().is_empty(),
@@ -720,7 +720,7 @@ fn a_library_file_that_doesnt_check_is_reported_as_internal() {
 
 #[test]
 fn no_library_file_declares_a_decision_procedure() {
-    let session = Session::eager();
+    let session = Session::eager_from_source();
     // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
     // decides only equations between `Float`s, which no program can write
     // without loading std/Float/Float.sw, so `auto` still can't depend on
@@ -771,7 +771,7 @@ fn no_library_file_declares_a_decision_procedure() {
 
 #[test]
 fn every_builtin_is_bound_once_every_file_has_loaded() {
-    let session = Session::eager();
+    let session = Session::eager_from_source();
     session
         .elab
         .check_registry_complete()
@@ -923,7 +923,7 @@ fn assert_lazy_is_eager(sources: Vec<Source>) {
     // second or two) and rewinds it before each source: the rewind tests
     // check that this is exactly a fresh eager session.
     let eager_worker = || {
-        let eager = Session::eager_for_stack(STACK);
+        let eager = Session::eager_from_source_for_stack(STACK);
         let mark = eager.mark();
         (eager, mark)
     };
