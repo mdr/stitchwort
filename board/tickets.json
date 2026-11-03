@@ -4071,13 +4071,13 @@
     {
       "id": 1127,
       "title": "One-page PDF: the core crate (what it does, how it works, its data types)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "Matt, 3 Nov: a one-pager on crates/core: what it does, how it works, data types. Printable A4, like docs/architecture/crates.pdf.",
+      "body": "Matt, 3 Nov: a one-pager on crates/core. Merged: docs/architecture/core.typ, core-pipeline.dot, core-types.dot, core.pdf; build.sh builds it. Header placeholder commit fixed by the orchestrator (rebuilt with --input commit). Judgement calls: kernel/rules/support split read from module docs (registry as kernel, budget and hash as support). No GlobalId exists (DefId, DataId, HashKey). Verifier deferred with SW-1111 until SW-1115's build timings are done. Model result: Sonnet, worked (one placeholder), 5 min (est. 40).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
