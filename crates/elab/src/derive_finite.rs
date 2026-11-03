@@ -100,7 +100,7 @@ impl Elaborator {
         let Some(finite) = interfaces::finite(self) else {
             return Ok(());
         };
-        if self.loading_prelude || generated || self.declares_instance_of(finite) {
+        if self.unit.loading_prelude || generated || self.declares_instance_of(finite) {
             return Ok(());
         }
         let plan = match self.finite_plan(d, finite)? {

@@ -41,7 +41,7 @@ impl Elaborator {
             if unit.module.doc_links.is_empty() {
                 continue;
             }
-            let saved = self.module.file.replace(file);
+            let saved = self.unit.module.file.replace(file);
             for link in &unit.module.doc_links {
                 match self.link_meaning(&link.name, &unit.module.imports) {
                     Meaning::Found => {}
@@ -62,7 +62,7 @@ impl Elaborator {
                     Meaning::Missing => out.push(self.unresolved_link(link)),
                 }
             }
-            self.module.file = saved;
+            self.unit.module.file = saved;
         }
         out
     }
@@ -79,7 +79,7 @@ impl Elaborator {
             Resolved::Found { .. } | Resolved::Missing => {}
         }
         if self
-            .doc_link_target(name, self.module.namespace.as_deref(), imports)
+            .doc_link_target(name, self.unit.module.namespace.as_deref(), imports)
             .is_some()
         {
             Meaning::Found
@@ -106,7 +106,12 @@ impl Elaborator {
             let distance = edit_distance(candidate, written);
             (distance <= 2 && distance < written.chars().count()).then_some(distance)
         };
-        let own = self.module.namespace.as_deref().map(|ns| format!("{ns}."));
+        let own = self
+            .unit
+            .module
+            .namespace
+            .as_deref()
+            .map(|ns| format!("{ns}."));
         let mut best: Option<(usize, String)> = None;
         for key in self.scope.keys() {
             if key.contains('%') || short(key).is_empty() {

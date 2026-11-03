@@ -363,7 +363,7 @@ impl Session {
             }
             report
         };
-        session.elab.loading_prelude = true;
+        session.elab.set_loading_prelude(true);
         session.elab.library_tests = library_tests;
         let file = session.sources.add("<prelude>", prelude);
         // The library's files follow the core in the source map, in the
@@ -473,14 +473,14 @@ impl Session {
         // loads as a success, though.
         let (module, parse_errors) = parse_module_recovering(file, text, self.elab.limits.stack);
         let first_new_def = self.elab.globals.defs.len();
-        self.elab.file_mode = context;
+        self.elab.set_file_mode(context);
         let diagnostics =
             if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
                 Vec::new()
             } else {
                 self.elab.elaborate_module(&module)
             };
-        self.elab.file_mode = None;
+        self.elab.set_file_mode(None);
         if parse_errors.is_empty() {
             self.finish_load(first_new_def, diagnostics)?;
             Ok(file)

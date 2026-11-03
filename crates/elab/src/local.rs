@@ -69,7 +69,7 @@ fn signature(
 
 fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
     let e = cx.e;
-    let prefix = e.owner.borrow().join(".");
+    let prefix = e.decl.owner.borrow().join(".");
     if prefix.is_empty() {
         let (name, ..) = signature(&defs[0]);
         return Err(Diagnostic::error(
@@ -117,7 +117,7 @@ fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
             .iter()
             .find(|(k, _)| *k == key)
         {
-            let owner = crate::scope::display(&e.owner.borrow()[0]).to_string();
+            let owner = crate::scope::display(&e.decl.owner.borrow()[0]).to_string();
             return Err(Diagnostic::error(
                 "E-DUPLICATE",
                 format!("`{}` is already a local definition in `{owner}`", name.text),
@@ -209,6 +209,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
     let mut todo = Vec::new();
     for (m, &i) in members.iter().enumerate() {
         let found = e
+            .decl
             .preadmitted
             .borrow()
             .get(&keys[i])
@@ -289,12 +290,13 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
     for (i, ty, value, meta, _) in elaborated {
         let def = &defs[i];
         let (name, _, theorem, span) = signature(def);
-        e.owner.borrow_mut().push(name.text.clone());
+        e.decl.owner.borrow_mut().push(name.text.clone());
         let body = e.body_in(cx, value, Some(Rc::new(ty.clone())), name, &def.equations);
-        e.owner.borrow_mut().pop();
+        e.decl.owner.borrow_mut().pop();
         let body = body?;
         let whole = def.equations.last().map_or(span, |eq| span.to(eq.span()));
-        e.local_asts
+        e.decl
+            .local_asts
             .borrow_mut()
             .push((keys[i].clone(), (*def).clone()));
         e.attempt.drafts.borrow_mut().push(Draft {
@@ -591,7 +593,7 @@ impl Elaborator {
         let (_, resolved) = self.resolve_batch(owner, chosen, false)?;
         for (key, r) in keys.into_iter().zip(resolved) {
             if let Some(key) = key {
-                self.preadmitted.borrow_mut().insert(key, r);
+                self.decl.preadmitted.borrow_mut().insert(key, r);
             }
         }
         Ok((true, waiting))

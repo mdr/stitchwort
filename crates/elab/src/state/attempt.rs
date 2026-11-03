@@ -99,6 +99,12 @@ pub(crate) struct Attempt {
     /// parameters, with the parameters' names, for messages. Cleared with
     /// the metavariables.
     pub(crate) parameter_metas: RefCell<HashMap<usize, String>>,
+    /// The instance steps each obligation tree has taken so far (§5.5 step
+    /// 7), by its first metavariable. Not restored when an attempt is
+    /// undone: steps spent aren't refunded. Emptied with the metavariables
+    /// ([`Attempt::reset`]), whose numbers it is keyed by: so it lasts as
+    /// long as they do, which is less than a declaration (SW-1149).
+    pub(crate) instance_steps: RefCell<HashMap<usize, usize>>,
 
     // The unifier's own state (`unify.rs`, through `unify::Unifier`).
     /// While `unify::unify_postponing` runs: the row constraints it put
@@ -202,8 +208,9 @@ impl Attempt {
             parameter_metas: _,
             // Cut at the trail's mark.
             lossy: _,
-            // Not restored (see the field).
+            // Not restored (see the fields).
             rigid_divergence: _,
+            instance_steps: _,
             // Each set and put back by a guard around one call, which an
             // attempt is either inside or outside of whole.
             postponed: _,
@@ -254,6 +261,7 @@ impl Attempt {
             lossy,
             // As in `mark`.
             rigid_divergence: _,
+            instance_steps: _,
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
@@ -310,6 +318,7 @@ impl Attempt {
             proof_holes,
             parameter_metas,
             lossy,
+            instance_steps,
             // Each emptied by the code that uses it, as the field says.
             local_keys: _,
             lambda_warnings: _,
@@ -338,6 +347,7 @@ impl Attempt {
         defaulted.borrow_mut().clear();
         defaulted_records.borrow_mut().clear();
         lossy.borrow_mut().clear();
+        instance_steps.borrow_mut().clear();
     }
 
     /// Empties everything, for `Elaborator::rewind`.
@@ -361,6 +371,7 @@ impl Attempt {
             local_defaults,
             proof_holes,
             parameter_metas,
+            instance_steps,
             // Left as they are, as when they were thread-locals: see the
             // fields.
             lossy: _,
@@ -390,6 +401,7 @@ impl Attempt {
         local_defaults.get_mut().clear();
         proof_holes.get_mut().clear();
         parameter_metas.get_mut().clear();
+        instance_steps.get_mut().clear();
     }
 
     /// Notes that a computation with a variable divergence couldn't be

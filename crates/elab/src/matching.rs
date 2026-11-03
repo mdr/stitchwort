@@ -115,7 +115,7 @@ fn note_tuple_match(cx: &Ctx, scrutinees: &[Scrutinee], span: stitchwort_syntax:
     };
     names.push(last);
     let shown = format!("({})", names.join(", "));
-    let mut log = cx.e.tuple_matches.borrow_mut();
+    let mut log = cx.e.decl.tuple_matches.borrow_mut();
     if !log.iter().any(|(s, _, _)| *s == span) {
         log.push((span, shown, names));
     }

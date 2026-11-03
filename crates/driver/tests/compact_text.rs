@@ -1003,9 +1003,9 @@ fn a_changed_builtin_isnt_bound() {
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
     };
-    session.elab.loading_prelude = true;
+    session.elab.set_loading_prelude(true);
     load(&mut session, &changed);
-    session.elab.loading_prelude = false;
+    session.elab.set_loading_prelude(false);
     let g = &session.elab.globals;
     assert!(g.builtins.text.is_none());
     assert!(!chars::binding(g, data(g, "List"), data(g, "Char")).bound);

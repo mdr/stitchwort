@@ -183,11 +183,8 @@ impl LeafLog {
         self.path = saved.1;
     }
 
-    /// Forgets what was recorded, before a new top-level declaration.
-    pub(crate) fn clear(&mut self) {
-        self.leaves.clear();
-        self.path.clear();
-        self.root = None;
+    pub(crate) fn is_empty(&self) -> bool {
+        self.leaves.is_empty() && self.path.is_empty() && self.root.is_none()
     }
 }
 
@@ -206,10 +203,16 @@ pub(crate) struct ProbeState {
     found: Option<Probed>,
 }
 
+impl ProbeState {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.wanted.is_none() && self.found.is_none()
+    }
+}
+
 /// The probe [`PROBE`], checked at `span` against `expected`: records the
 /// context if it's the one wanted. Its term is never used.
 pub(crate) fn probe(cx: &mut Ctx, expected: &Value, span: Span) -> Term {
-    let mut state = cx.e.arm_probe.borrow_mut();
+    let mut state = cx.e.decl.arm_probe.borrow_mut();
     if state.wanted == Some(span) && state.found.is_none() {
         state.found = Some(Probed {
             saved: cx.save(),
@@ -1823,6 +1826,7 @@ impl Elaborator {
             return Ok(());
         }
         let leaves: Vec<Leaf> = self
+            .decl
             .leaf_log
             .borrow()
             .leaves
@@ -2145,7 +2149,7 @@ impl Elaborator {
         let nav = self.nav.take();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
-        *self.arm_probe.borrow_mut() = ProbeState {
+        *self.decl.arm_probe.borrow_mut() = ProbeState {
             wanted: Some(probe_span),
             found: None,
         };
@@ -2245,7 +2249,7 @@ impl Elaborator {
             .branch_errors
             .borrow_mut()
             .truncate(branch_errors);
-        let found = std::mem::take(&mut *self.arm_probe.borrow_mut()).found;
+        let found = std::mem::take(&mut *self.decl.arm_probe.borrow_mut()).found;
         self.clear_metas();
         match result {
             Ok(Some(())) => {}
@@ -2615,8 +2619,8 @@ impl Elaborator {
             stitchwort_core::check::set_unfolding(&mut self.globals, id, &all);
         }
         kernel::define_group(&mut self.globals, &[(id, proof)])?;
-        if let Some(item) = self.module.item {
-            self.module.def_items.insert(id, item);
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.def_items.insert(id, item);
         }
         let key = format!("{}.{suffix}", d.key);
         self.scope
@@ -3635,8 +3639,8 @@ impl Elaborator {
             stitchwort_core::check::set_unfolding(&mut self.globals, id, &[h]);
         }
         kernel::define_group(&mut self.globals, &[(id, he.proof.clone())])?;
-        if let Some(item) = self.module.item {
-            self.module.def_items.insert(id, item);
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.def_items.insert(id, item);
         }
         Ok(id)
     }
@@ -4657,7 +4661,7 @@ impl Elaborator {
         helpers: &[(String, DefId, Span)],
         decreasing: bool,
     ) -> Result<()> {
-        let asts = std::mem::take(&mut *self.local_asts.borrow_mut());
+        let asts = std::mem::take(&mut *self.decl.local_asts.borrow_mut());
         for (key, id, _) in helpers {
             let Some((_, def)) = asts.iter().find(|(k, _)| k == key) else {
                 continue;
@@ -4691,7 +4695,7 @@ impl Elaborator {
     /// equations, made eagerly, cost every run (+11% of a small program's
     /// steps). A program's own stay eager. Local definitions' too.
     pub(crate) fn defers_equations(&self) -> bool {
-        self.loading_prelude
+        self.unit.loading_prelude
     }
 
     /// Makes the equations of the library's and the core's definitions
@@ -4744,8 +4748,10 @@ impl Elaborator {
         {
             return Ok(());
         }
-        let saved_item = self.module.item.take();
-        let saved_leaves = std::mem::take(&mut self.leaf_log.borrow_mut().leaves);
+        let saved_item = self.unit.module.item.take();
+        // Made as a declaration of its own, whatever is being elaborated:
+        // from an empty `Decl`, and what it leaves there is dropped.
+        let outer = std::mem::take(&mut self.decl);
         let decreasing = matches!(
             signature,
             Decl::Signature {
@@ -4765,8 +4771,8 @@ impl Elaborator {
                 e.generate_equations_keyed(id, signature, equations, kind, Some(key))
             }
         });
-        self.leaf_log.borrow_mut().leaves = saved_leaves;
-        self.module.item = saved_item;
+        self.decl = outer;
+        self.unit.module.item = saved_item;
         result
     }
 
@@ -4839,8 +4845,8 @@ impl Elaborator {
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
         let drafts = self.attempt.drafts.borrow().len();
-        let logged = self.leaf_log.borrow().leaves.len();
-        let saved_root = self.leaf_log.borrow_mut().enter_root(root);
+        let logged = self.decl.leaf_log.borrow().leaves.len();
+        let saved_root = self.decl.leaf_log.borrow_mut().enter_root(root);
         let result = (|| -> Result<Option<()>> {
             let mut cx = Ctx::new(self, root);
             cx.bind_hidden("%P".into(), pred_ty.clone());
@@ -4918,7 +4924,7 @@ impl Elaborator {
         // the arm's leaf is found as before).
         self.attempt.drafts.borrow_mut().truncate(drafts);
         let leaves = {
-            let mut log = self.leaf_log.borrow_mut();
+            let mut log = self.decl.leaf_log.borrow_mut();
             log.leave_root(saved_root);
             let leaves: Vec<Leaf> = log.leaves[logged..]
                 .iter()

@@ -171,8 +171,8 @@ impl Elaborator {
             return body(self);
         }
         let set = kernel::transparency_set(&self.globals, id, ids)?;
-        *self.owner_unfolding.borrow_mut() = Some(unfolding.clone());
-        self.owner_helpers.borrow_mut().clear();
+        *self.decl.owner_unfolding.borrow_mut() = Some(unfolding.clone());
+        self.decl.owner_helpers.borrow_mut().clear();
         // A glued call keeps its unfolding for as long as the metavariable
         // epoch stands; a different set may unfold it differently.
         self.globals.metas_taken_back();
@@ -180,8 +180,8 @@ impl Elaborator {
         let result = body(self);
         drop(guard);
         self.globals.metas_taken_back();
-        *self.owner_unfolding.borrow_mut() = None;
-        let helpers = std::mem::take(&mut *self.owner_helpers.borrow_mut());
+        *self.decl.owner_unfolding.borrow_mut() = None;
+        let helpers = std::mem::take(&mut *self.decl.owner_helpers.borrow_mut());
         if result.is_ok() && !helpers.is_empty() {
             let mut list: Vec<DefId> = unfolding.to_vec();
             list.extend(helpers);
@@ -195,7 +195,7 @@ impl Elaborator {
     /// the owner's body may, so it must be opaque). `admitted` if it's
     /// admitted on its own, before the owner, which then unfolds it.
     pub(crate) fn opaque_helper(&mut self, id: DefId) {
-        let Some(unfolding) = self.owner_unfolding.borrow().clone() else {
+        let Some(unfolding) = self.decl.owner_unfolding.borrow().clone() else {
             return;
         };
         kernel::mark_opaque(&mut self.globals, id);
@@ -205,8 +205,8 @@ impl Elaborator {
     /// Helper `id` (made opaque by [`Self::opaque_helper`]) was admitted
     /// on its own: its owner unfolds it.
     pub(crate) fn opaque_helper_admitted(&mut self, id: DefId) {
-        if self.owner_unfolding.borrow().is_some() && self.globals.def(id).opaque {
-            self.owner_helpers.borrow_mut().push(id);
+        if self.decl.owner_unfolding.borrow().is_some() && self.globals.def(id).opaque {
+            self.decl.owner_helpers.borrow_mut().push(id);
         }
     }
 
@@ -282,9 +282,9 @@ impl Elaborator {
         kernel::set_unfolding(&mut self.globals, unfold, &[f]);
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
         kernel::define_group(&mut self.globals, &[(unfold, lams(&names, proof))])?;
-        if let Some(item) = self.module.item {
+        if let Some(item) = self.unit.module.item {
             for id in [copy, unfold] {
-                self.module.def_items.insert(id, item);
+                self.unit.module.def_items.insert(id, item);
             }
         }
         let unfold_key = format!("{key}.unfold");
@@ -468,11 +468,11 @@ impl Elaborator {
     /// Whether the declaration being checked may have an `unfolding` clause:
     /// it is a theorem or an `opaque def`. True if it isn't known.
     pub(crate) fn current_may_unfold(&self) -> bool {
-        let Some(item) = self.module.item else {
+        let Some(item) = self.unit.module.item else {
             return true;
         };
         let mut found = false;
-        for (id, owner) in &self.module.def_items {
+        for (id, owner) in &self.unit.module.def_items {
             let def = self.globals.def(*id);
             if *owner == item && !def.name.contains('%') {
                 if def.theorem || def.opaque {

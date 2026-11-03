@@ -1410,7 +1410,7 @@ fn in_scope_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<Option
         return None;
     };
     // Not the definition being checked: the plain call would be recursion.
-    let module = &cx.e.module;
+    let module = &cx.e.unit.module;
     if !rest.is_empty()
         || (module.item.is_some() && module.def_items.get(&f) == module.item.as_ref())
     {

@@ -285,7 +285,7 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(id), span, false);
             self.scope.mark_member(&key);
             // `Pair.fst` and `Pair.snd` are the compiler's.
-            if self.loading_prelude {
+            if self.unit.loading_prelude {
                 self.bind_builtin_def(id)?;
             }
             made.insert(field, id);

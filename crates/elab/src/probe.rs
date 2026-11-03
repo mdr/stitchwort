@@ -66,7 +66,14 @@ fn close(cx: &Ctx, term: &Term) -> Option<Term> {
 /// source).
 pub(crate) fn record_sides(cx: &Ctx, expr: &Expr, op: BinOp, a: &Term, b: &Term) {
     let Expr::Binary(_, x, y) = expr else { return };
-    if !cx.e.sides_capture.borrow().wanted.contains(&expr.span()) {
+    if !cx
+        .e
+        .decl
+        .sides_capture
+        .borrow()
+        .wanted
+        .contains(&expr.span())
+    {
         return;
     }
     let flipped = x.span().start > y.span().start;
@@ -78,7 +85,8 @@ pub(crate) fn record_sides(cx: &Ctx, expr: &Expr, op: BinOp, a: &Term, b: &Term)
     let (Some(left), Some(right)) = (close(cx, left), close(cx, right)) else {
         return;
     };
-    cx.e.sides_capture
+    cx.e.decl
+        .sides_capture
         .borrow_mut()
         .sides
         .insert(expr.span(), (op, left, right));
@@ -87,11 +95,19 @@ pub(crate) fn record_sides(cx: &Ctx, expr: &Expr, op: BinOp, a: &Term, b: &Term)
 /// If `expr` is an expression the test has a probe for, notes `term`, its
 /// value as a `Bool`.
 pub(crate) fn record_truth(cx: &Ctx, expr: &Expr, term: &Term) {
-    if !cx.e.sides_capture.borrow().wanted.contains(&expr.span()) {
+    if !cx
+        .e
+        .decl
+        .sides_capture
+        .borrow()
+        .wanted
+        .contains(&expr.span())
+    {
         return;
     }
     if let Some(term) = close(cx, term) {
-        cx.e.sides_capture
+        cx.e.decl
+            .sides_capture
             .borrow_mut()
             .truths
             .insert(expr.span(), term);

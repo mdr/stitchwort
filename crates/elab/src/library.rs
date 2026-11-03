@@ -40,6 +40,7 @@ use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, parse_mod
 use crate::module::{ModuleState, Ref, decl_refs, declared_names, expr_refs};
 use crate::project::{SourceUnit, grouped};
 use crate::scope::{self, Resolved};
+use crate::state::Unit;
 use crate::{Elaborator, Global};
 
 /// What a name the index promises is, as far as resolution cares.
@@ -175,7 +176,7 @@ impl LibraryIndex {
         // The names, from a scratch elaborator that reads declarations the
         // way loading them does.
         let mut scratch = Elaborator::new();
-        scratch.loading_prelude = true;
+        scratch.unit.loading_prelude = true;
         let mut owner: HashMap<String, usize> = HashMap::default();
         for f in 0..parsed.len() {
             let names = file_names(&scratch, &parsed[f])?;
@@ -687,15 +688,20 @@ pub(crate) struct LibraryState {
     pub core: scope::CoreExtent,
 }
 
-/// What a nested load sets aside and puts back.
-struct Context {
-    module: ModuleState,
-    namespace_root: String,
+/// What a nested load sets aside and puts back: the outer unit
+/// ([`Unit::nested`], [`Unit::leave`]), and the parts of its state that
+/// live elsewhere so far (docs/proposals/elaborator-state.md §7: the
+/// module's name moves with the `Globals` split, the imports with
+/// `Tables`).
+struct Outer {
+    unit: Unit,
     globals_module: stitchwort_core::Name,
     imports: scope::SavedImports,
-    file_mode: Option<crate::project::FileModeContext>,
-    loading_prelude: bool,
-    warnings: Vec<Diagnostic>,
+    /// The warnings noted where only a shared reference is at hand, which
+    /// are drained with [`Unit::warnings`]. In `Attempt`, for its undo
+    /// (`W-NO-EFFECT` found in an attempt undone is dropped); set aside
+    /// here because a nested load can come while a unit's warnings wait to
+    /// be drained.
     lambda_warnings: Vec<Diagnostic>,
 }
 
@@ -1056,17 +1062,8 @@ impl Elaborator {
         let lib = self.library.as_mut().expect("a library is installed");
         lib.state[f] = LoadState::Loading;
         lib.stack.push(f);
-        let saved = Context {
-            module: std::mem::take(&mut self.module),
-            namespace_root: std::mem::take(&mut self.namespace_root),
-            globals_module: self.globals.module.clone(),
-            imports: self.scope.take_imports(),
-            file_mode: self.file_mode.take(),
-            loading_prelude: self.loading_prelude,
-            warnings: std::mem::take(&mut self.warnings),
-            lambda_warnings: self.attempt.lambda_warnings.take(),
-        };
-        self.loading_prelude = true;
+        // (The file's module sets `Globals::module` itself.)
+        let saved = self.enter_nested_unit(self.globals.module.clone());
         self.scope.loading = Some(f);
         let name = format!("std/{}", file.path);
         let unit = SourceUnit {
@@ -1076,14 +1073,7 @@ impl Elaborator {
         };
         let diagnostics = self.elaborate_namespace(None, &[unit], None);
         self.scope.loading = None;
-        self.module = saved.module;
-        self.namespace_root = saved.namespace_root;
-        self.globals.module = saved.globals_module;
-        self.scope.restore_imports(saved.imports);
-        self.file_mode = saved.file_mode;
-        self.loading_prelude = saved.loading_prelude;
-        self.warnings = saved.warnings;
-        self.attempt.lambda_warnings.replace(saved.lambda_warnings);
+        self.leave_nested_unit(saved);
         let lib = self.library.as_mut().expect("a library is installed");
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
@@ -1138,17 +1128,8 @@ impl Elaborator {
             fresh: self.globals.defs.len(),
             ..lib.core
         });
-        let saved = Context {
-            module: std::mem::take(&mut self.module),
-            namespace_root: std::mem::take(&mut self.namespace_root),
-            globals_module: std::mem::replace(&mut self.globals.module, "Std".into()),
-            imports: self.scope.take_imports(),
-            file_mode: self.file_mode.take(),
-            loading_prelude: std::mem::replace(&mut self.loading_prelude, true),
-            warnings: std::mem::take(&mut self.warnings),
-            lambda_warnings: self.attempt.lambda_warnings.take(),
-        };
-        self.module = ModuleState {
+        let saved = self.enter_nested_unit("Std".into());
+        self.unit.module = ModuleState {
             files: vec![crate::module::FileInfo {
                 id: Some(file.id),
                 name: format!("std/{}", file.path),
@@ -1167,15 +1148,34 @@ impl Elaborator {
         let saved_core_only = std::mem::replace(&mut self.scope.core_only, core_only);
         let result = run(self);
         self.scope.core_only = saved_core_only;
-        self.module = saved.module;
-        self.namespace_root = saved.namespace_root;
-        self.globals.module = saved.globals_module;
-        self.scope.restore_imports(saved.imports);
-        self.file_mode = saved.file_mode;
-        self.loading_prelude = saved.loading_prelude;
-        self.warnings = saved.warnings;
-        self.attempt.lambda_warnings.replace(saved.lambda_warnings);
+        self.leave_nested_unit(saved);
         result
+    }
+
+    /// Sets the unit being elaborated aside for a library file's, with
+    /// `module` as `Globals::module`, until [`Self::leave_nested_unit`].
+    fn enter_nested_unit(&mut self, module: stitchwort_core::Name) -> Outer {
+        let inner = self.unit.nested();
+        Outer {
+            unit: std::mem::replace(&mut self.unit, inner),
+            globals_module: std::mem::replace(&mut self.globals.module, module),
+            imports: self.scope.take_imports(),
+            lambda_warnings: self.attempt.lambda_warnings.take(),
+        }
+    }
+
+    /// Back to the unit [`Self::enter_nested_unit`] set aside.
+    fn leave_nested_unit(&mut self, outer: Outer) {
+        let Outer {
+            unit,
+            globals_module,
+            imports,
+            lambda_warnings,
+        } = outer;
+        self.unit.leave(unit);
+        self.globals.module = globals_module;
+        self.scope.restore_imports(imports);
+        self.attempt.lambda_warnings.replace(lambda_warnings);
     }
 
     /// Removes the index's entries for file `f` that loading it didn't

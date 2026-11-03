@@ -228,7 +228,7 @@ impl Elaborator {
             .registry
             .data(stitchwort_core::registry::Builtin::Divergence)
         {
-            Some(_) if !self.total_rows_only.get() => auto.indexed_rows.len(),
+            Some(_) if !self.decl.total_rows_only.get() => auto.indexed_rows.len(),
             _ => 0,
         };
         Ok(auto.names.len() + indexed)
@@ -252,9 +252,9 @@ impl Elaborator {
     ) -> Result<FieldDefault> {
         let field_ty = ty.clone();
         let span = value.span();
-        self.module.phase = Phase::Body;
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.unit.module.phase = Phase::Body;
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         let shown = ast::Name {
             text: label.to_string(),
             span,
@@ -272,7 +272,7 @@ impl Elaborator {
             e.lift(&label, false)?;
             e.finish(&term, context.len())
         });
-        self.local_helpers.clear();
+        self.decl.local_helpers.clear();
         let body = body.map_err(|e| helper_error(of, e, earlier, later))?;
         let g = &self.globals;
         let n = context.len();
@@ -1430,7 +1430,8 @@ fn local_helper(
     }
     taken.reverse();
     let found =
-        cx.e.preadmitted
+        cx.e.decl
+            .preadmitted
             .borrow()
             .get(key)
             .map(|r| (r.id, r.captures.clone()));

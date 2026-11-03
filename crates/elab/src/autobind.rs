@@ -309,7 +309,7 @@ fn walk_at(
                     level: Level::Module,
                     key,
                     ..
-                } => (e.module.names.contains(key), false),
+                } => (e.unit.module.names.contains(key), false),
                 Resolved::Missing => (false, true),
                 _ => (false, false),
             };

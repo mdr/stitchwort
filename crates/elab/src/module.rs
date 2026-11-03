@@ -210,7 +210,7 @@ impl Elaborator {
     /// errors. Declarations may refer to each other in any order.
     pub fn elaborate_module(&mut self, module: &Module) -> Vec<Diagnostic> {
         let namespace = match &module.namespace {
-            Some(decl) if !self.loading_prelude => {
+            Some(decl) if !self.unit.loading_prelude => {
                 if let Err(d) = self.check_namespace_name(decl) {
                     return vec![d];
                 }
@@ -258,7 +258,7 @@ impl Elaborator {
             .or_else(|| files.first().map(|f| f.name.to_string()))
             .filter(|l| !l.is_empty())
             .unwrap_or_else(|| {
-                if self.loading_prelude {
+                if self.unit.loading_prelude {
                     "core"
                 } else {
                     "(file)"
@@ -284,24 +284,29 @@ impl Elaborator {
         self.cong_candidates.borrow_mut().clear();
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
-        if !self.loading_prelude
+        if !self.unit.loading_prelude
             && let Err(d) = stitchwort_core::registry::check_complete_core(&self.globals)
         {
             return vec![d];
         }
         match namespace {
-            Some(ns) if !self.loading_prelude => {
-                self.namespace_root = format!("{ns}.");
+            Some(ns) if !self.unit.loading_prelude => {
+                self.unit.namespace_root = format!("{ns}.");
                 self.globals.module = "".into();
             }
             _ => {
-                self.namespace_root = String::new();
-                self.globals.module = if self.loading_prelude { "Std" } else { "Main" }.into();
+                self.unit.namespace_root = String::new();
+                self.globals.module = if self.unit.loading_prelude {
+                    "Std"
+                } else {
+                    "Main"
+                }
+                .into();
             }
         }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let mut first_test = self.tests.len();
-        self.module = ModuleState {
+        self.unit.module = ModuleState {
             files: files
                 .iter()
                 .map(|f| FileInfo {
@@ -316,7 +321,7 @@ impl Elaborator {
             ..ModuleState::default()
         };
         self.scope.clear_imports();
-        if !std::mem::take(&mut self.skip_navigation_walk) {
+        if !std::mem::take(&mut self.unit.skip_navigation_walk) {
             self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         }
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
@@ -351,17 +356,17 @@ impl Elaborator {
                 return errors;
             }
             // Not the definitions and tests the files made.
-            self.module.first_def = self.globals.defs.len();
+            self.unit.module.first_def = self.globals.defs.len();
             first_test = self.tests.len();
-            self.module.first_test = first_test;
+            self.unit.module.first_test = first_test;
         }
         self.capture_after_needs();
         // After the loads: each library file loaded sets its own.
-        self.omega_for_auto = self.needs_reach_omega(&needs);
+        self.unit.omega_for_auto = self.needs_reach_omega(&needs);
         // The core and the library are written in an order that works,
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.
-        if !self.loading_prelude {
+        if !self.unit.loading_prelude {
             self.instance_edges(&items);
         }
         let order = self.components();
@@ -369,7 +374,7 @@ impl Elaborator {
         for component in order {
             // Each component is one operation, with its own resource limits.
             let saved = self.globals.budget.start(self.limits);
-            self.module.current = component.clone();
+            self.unit.module.current = component.clone();
             let before = diagnostics.len();
             let (defs_before, datas_before) = (self.globals.defs.len(), self.globals.datas.len());
             // Goals from before (an expression typed in) aren't this
@@ -397,12 +402,12 @@ impl Elaborator {
             let failed = !errors.is_empty()
                 || component
                     .iter()
-                    .any(|i| self.module.items[*i].status.failed());
+                    .any(|i| self.unit.module.items[*i].status.failed());
             // Unfinished, not wrong: the only errors stand for open goals
             // (`goals::UNFINISHED`), which aren't reported as errors (D636).
             let unfinished = !errors.is_empty() && errors.iter().all(|c| *c == goals::UNFINISHED);
             for &i in &component {
-                self.module.items[i].status = match (failed, unfinished) {
+                self.unit.module.items[i].status = match (failed, unfinished) {
                     (false, _) => Status::Checked,
                     (true, true) => Status::Unfinished,
                     (true, false) => Status::Failed,
@@ -457,7 +462,7 @@ impl Elaborator {
             }
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
-            if !self.module.ord_after_dec_eq.is_empty() {
+            if !self.unit.module.ord_after_dec_eq.is_empty() {
                 let saved = self.globals.budget.start(self.limits);
                 if let Err(d) = self.glued(|e| e.derive_pending_ord(&component)) {
                     diagnostics.push((position, d));
@@ -467,13 +472,13 @@ impl Elaborator {
             }
         }
         self.clear_metas();
-        self.module.current.clear();
-        self.module.item = None;
-        self.module.phase = Phase::Body;
+        self.unit.module.current.clear();
+        self.unit.module.item = None;
+        self.unit.module.phase = Phase::Body;
         if let (Some(ns), Some(_)) = (namespace, closure) {
             self.namespace_defs.insert(
                 ns.to_string(),
-                self.module.first_def..self.globals.defs.len(),
+                self.unit.module.first_def..self.globals.defs.len(),
             );
         }
         // Names that were never checked now just name failures.
@@ -481,6 +486,7 @@ impl Elaborator {
         // Tests run by file, then in source order, whatever order they were
         // checked in.
         let ranks: HashMap<FileId, usize> = self
+            .unit
             .module
             .files
             .iter()
@@ -509,7 +515,7 @@ impl Elaborator {
                 .scope
                 .wildcard_failed
                 .iter()
-                .filter_map(|i| self.module.files.get(*i).map(|f| f.id))
+                .filter_map(|i| self.unit.module.files.get(*i).map(|f| f.id))
                 .collect();
             diagnostics.retain(|d| {
                 d.code != "E-UNKNOWN-NAME"
@@ -575,7 +581,7 @@ impl Elaborator {
             return;
         };
         // The theorem's own definition, declared once its statement checked.
-        let Some(def) = (self.module.first_def..self.globals.defs.len())
+        let Some(def) = (self.unit.module.first_def..self.globals.defs.len())
             .rev()
             .map(DefId)
             .find(|id| {
@@ -632,7 +638,7 @@ impl Elaborator {
     fn while_checking_note(&self, component: &[usize]) -> String {
         let names: Vec<String> = component
             .iter()
-            .map(|i| format!("`{}`", self.module.items[*i].name))
+            .map(|i| format!("`{}`", self.unit.module.items[*i].name))
             .collect();
         format!("it happened while checking {}", names.join(", "))
     }
@@ -655,7 +661,7 @@ impl Elaborator {
         }
         let mut unfolded: Vec<String> = Vec::new();
         for i in component {
-            if let Some((Global::Def(id), _)) = self.named(&self.module.items[*i].name) {
+            if let Some((Global::Def(id), _)) = self.named(&self.unit.module.items[*i].name) {
                 for u in g.def(*id).unfolding.iter() {
                     let name = &g.def(*u).name;
                     if !name.contains('%') && !unfolded.contains(&format!("`{name}`")) {
@@ -688,7 +694,7 @@ impl Elaborator {
     fn mark_unfinished(&self, component: &[usize], defs: usize, datas: usize) {
         let g = &self.globals;
         let mut unfinished = g.unfinished.borrow_mut();
-        for (id, item) in &self.module.def_items {
+        for (id, item) in &self.unit.module.def_items {
             if component.contains(item) && g.def(*id).state() != State::Final {
                 unfinished.insert(HashKey::Def(*id));
             }
@@ -720,13 +726,13 @@ impl Elaborator {
     ) {
         let failed: Vec<(&Dep, &str)> = component
             .iter()
-            .flat_map(|i| &self.module.items[*i].deps)
+            .flat_map(|i| &self.unit.module.items[*i].deps)
             .filter(|d| {
                 d.speculative.is_none()
                     && !component.contains(&d.item)
-                    && self.module.items[d.item].status.failed()
+                    && self.unit.module.items[d.item].status.failed()
             })
-            .map(|d| (d, self.module.items[d.item].name.as_str()))
+            .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
         if failed.is_empty() || !self.globals.failed_mentioned.get() {
             return;
@@ -735,7 +741,7 @@ impl Elaborator {
         // all unfinished, so is this (D636).
         let errored = failed
             .iter()
-            .position(|(d, _)| self.module.items[d.item].status == Status::Failed);
+            .position(|(d, _)| self.unit.module.items[d.item].status == Status::Failed);
         for (_, d) in &mut diagnostics[before..] {
             if d.severity != Severity::Error
                 || d.code == "E-UNKNOWN-NAME"
@@ -805,7 +811,9 @@ impl Elaborator {
                 // The core's and the library files' tests run under the
                 // library test target (`library_tests`), and are skipped
                 // otherwise.
-                if self.loading_prelude && !self.library_tests && matches!(decl, Decl::Test { .. })
+                if self.unit.loading_prelude
+                    && !self.library_tests
+                    && matches!(decl, Decl::Test { .. })
                 {
                     continue;
                 }
@@ -841,7 +849,7 @@ impl Elaborator {
                 };
                 // Worked out once the names are registered.
                 let decides = false;
-                self.module.items.push(ItemInfo {
+                self.unit.module.items.push(ItemInfo {
                     name,
                     span,
                     position,
@@ -876,7 +884,7 @@ impl Elaborator {
             }
             for (index, item) in items.iter().enumerate() {
                 let main = declared_names(item.decl).0;
-                self.module.file = Some(self.module.items[index].file);
+                self.unit.module.file = Some(self.unit.module.items[index].file);
                 if main.as_ref().is_some_and(|m| m.text.contains('.')) == qualified
                     && let Err(d) = self.register(index, item.decl)
                 {
@@ -885,7 +893,7 @@ impl Elaborator {
                     if fatal {
                         left_out.insert(index);
                     } else {
-                        self.module.items[index].status = Status::Failed;
+                        self.unit.module.items[index].status = Status::Failed;
                     }
                 }
             }
@@ -901,7 +909,7 @@ impl Elaborator {
             let Some(main) = declared_names(item.decl).0 else {
                 continue;
             };
-            self.module.file = Some(self.module.items[index].file);
+            self.unit.module.file = Some(self.unit.module.items[index].file);
             let Some(target) = self.extension_target(&main) else {
                 continue;
             };
@@ -910,12 +918,12 @@ impl Elaborator {
                     Ok(key) => self.scope.add_extension(&key, &target),
                     Err(d) => {
                         diagnostics.push((item.position, d));
-                        self.module.items[index].status = Status::Failed;
+                        self.unit.module.items[index].status = Status::Failed;
                     }
                 },
                 Err(d) => {
                     diagnostics.push((item.position, d));
-                    self.module.items[index].status = Status::Failed;
+                    self.unit.module.items[index].status = Status::Failed;
                 }
             }
         }
@@ -923,19 +931,19 @@ impl Elaborator {
         // its head means here, not how it's spelt.
         let decidable = self.globals.registry.data(Builtin::Decidable);
         for (index, item) in items.iter().enumerate() {
-            self.module.file = Some(self.module.items[index].file);
+            self.unit.module.file = Some(self.unit.module.items[index].file);
             if let Decl::Signature {
                 ty, instance: true, ..
             } = item.decl
                 && let Some(head) = result_head(ty)
             {
-                self.module.items[index].decides = decidable.is_some()
+                self.unit.module.items[index].decides = decidable.is_some()
                     && matches!(self.named(&head.text), Some((Global::Data(d), _)) if Some(*d) == decidable);
             }
         }
         for (index, item) in items.iter().enumerate() {
             if let Decl::Signature { ty, .. } = item.decl {
-                self.module.items[index].function = is_function_type(ty);
+                self.unit.module.items[index].function = is_function_type(ty);
             }
         }
         for (index, item) in items.iter().enumerate() {
@@ -944,21 +952,21 @@ impl Elaborator {
             } = item.decl
                 && let Some(head) = result_head(ty)
             {
-                self.module.file = Some(self.module.items[index].file);
-                self.module.items[index].interface = self.named(&head.text).map(|(g, _)| *g);
-                self.module.items[index].head = instance_head(ty)
+                self.unit.module.file = Some(self.unit.module.items[index].file);
+                self.unit.module.items[index].interface = self.named(&head.text).map(|(g, _)| *g);
+                self.unit.module.items[index].head = instance_head(ty)
                     .and_then(|n| self.named(&n.text))
                     .map(|(g, _)| *g);
             }
         }
-        self.module.file = None;
+        self.unit.module.file = None;
         self.declare_parse_failed(files);
         diagnostics.extend(import_errors);
         // A declaration whose own name is taken is left out.
         if !left_out.is_empty() {
             let mut kept = Vec::new();
             let mut infos = Vec::new();
-            let old = std::mem::take(&mut self.module.items);
+            let old = std::mem::take(&mut self.unit.module.items);
             let mut renumber = HashMap::default();
             for (index, (item, info)) in items.into_iter().zip(old).enumerate() {
                 if !left_out.contains(&index) {
@@ -982,8 +990,8 @@ impl Elaborator {
                     }
                 }
             }
-            self.module.items = infos;
-            for key in &self.module.names {
+            self.unit.module.items = infos;
+            for key in &self.unit.module.names {
                 if let Some((Global::Unchecked(i), _)) = self.scope.entries.get_mut(key)
                     && let Some(&new) = renumber.get(i)
                 {
@@ -1012,7 +1020,7 @@ impl Elaborator {
                 if let Some(target) = self.extension_target(name) {
                     self.scope.add_extension(&key, &target);
                 }
-                self.module.names.insert(key);
+                self.unit.module.names.insert(key);
             }
         }
     }
@@ -1028,21 +1036,27 @@ impl Elaborator {
         errors: &mut Vec<(usize, Diagnostic)>,
     ) {
         for (file, unit) in files.iter().enumerate() {
-            self.module.file = Some(file);
+            self.unit.module.file = Some(file);
             let mut found = Vec::new();
             self.add_imports(&unit.module.imports, own, &mut found);
             errors.extend(found.into_iter().map(|d| (file_starts[file], d)));
         }
-        self.module.file = None;
+        self.unit.module.file = None;
     }
 
     /// The file whose imports name lookup uses: the one the item being
     /// elaborated is in, or the one being registered; file 0 when nothing is
     /// (so `eval`, the REPL and `main` see a single file's imports).
     pub(crate) fn current_file(&self) -> usize {
-        self.module
+        self.unit
+            .module
             .file
-            .or_else(|| self.module.item.map(|i| self.module.items[i].file))
+            .or_else(|| {
+                self.unit
+                    .module
+                    .item
+                    .map(|i| self.unit.module.items[i].file)
+            })
             .unwrap_or(0)
     }
 
@@ -1061,7 +1075,7 @@ impl Elaborator {
             .map_err(|d| Box::new((d, true)))?;
         self.scope
             .insert(&key, Global::Unchecked(index), main.span, false);
-        self.module.names.insert(key.clone());
+        self.unit.module.names.insert(key.clone());
         let mut result = Ok(());
         for (k, (member, follower)) in members.iter().enumerate() {
             let within = members[..k].iter().find(|(o, _)| o.text == member.text);
@@ -1083,7 +1097,7 @@ impl Elaborator {
                         member.span,
                         *follower,
                     );
-                    self.module.names.insert(member_key);
+                    self.unit.module.names.insert(member_key);
                 }
                 Err(d) => {
                     if result.is_ok() {
@@ -1138,9 +1152,9 @@ impl Elaborator {
         // generated with the nested types that hold `D` (`derive_induct.rs`).
         let mut alls: Vec<(usize, usize, Span)> = Vec::new();
         for (index, item) in items.iter().enumerate() {
-            self.module.file = Some(self.module.items[index].file);
+            self.unit.module.file = Some(self.unit.module.items[index].file);
             let mut deps = Vec::new();
-            let names = &self.module.names;
+            let names = &self.unit.module.names;
             let mut add = |r: Ref<'_>, in_header: bool| {
                 let (n, mut fields) = match r {
                     Ref::Name(n) => (n, Vec::new()),
@@ -1199,23 +1213,26 @@ impl Elaborator {
                 }
                 add(r, in_header);
             }
-            self.module.items[index].deps = deps;
+            self.unit.module.items[index].deps = deps;
         }
         for (index, d, span) in alls {
-            if self.module.items[d].kind != Kind::Data {
+            if self.unit.module.items[d].kind != Kind::Data {
                 continue;
             }
-            let holders: Vec<usize> = (0..self.module.items.len())
+            let holders: Vec<usize> = (0..self.unit.module.items.len())
                 .filter(|&x| {
                     x != d
                         && x != index
-                        && self.module.items[x].kind == Kind::Data
-                        && self.module.items[x].deps.iter().any(|dep| dep.item == d)
+                        && self.unit.module.items[x].kind == Kind::Data
+                        && self.unit.module.items[x]
+                            .deps
+                            .iter()
+                            .any(|dep| dep.item == d)
                 })
                 .collect();
-            let name = self.module.items[d].name.clone();
+            let name = self.unit.module.items[d].name.clone();
             for x in holders {
-                self.module.items[index].deps.push(Dep {
+                self.unit.module.items[index].deps.push(Dep {
                     item: x,
                     span,
                     in_header: false,
@@ -1225,7 +1242,7 @@ impl Elaborator {
                 });
             }
         }
-        self.module.file = None;
+        self.unit.module.file = None;
         if let Some(f) = own {
             needs.files.remove(&f);
         }
@@ -1249,9 +1266,9 @@ impl Elaborator {
             .registry
             .data(Builtin::Decidable)
             .map(Global::Data);
-        let instances: Vec<usize> = (0..self.module.items.len())
+        let instances: Vec<usize> = (0..self.unit.module.items.len())
             .filter(|i| {
-                let item = &self.module.items[*i];
+                let item = &self.unit.module.items[*i];
                 item.instance
                     && item.interface != decidable
                     && match item.interface {
@@ -1273,8 +1290,8 @@ impl Elaborator {
             if from == to || reached.contains(&from) {
                 return;
             }
-            let span = this.module.items[to].span;
-            this.module.items[from].deps.push(Dep {
+            let span = this.unit.module.items[to].span;
+            this.unit.module.items[from].deps.push(Dep {
                 item: to,
                 span,
                 in_header: false,
@@ -1289,11 +1306,11 @@ impl Elaborator {
             .iter()
             .copied()
             .filter(|&y| {
-                let item = &self.module.items[y];
+                let item = &self.unit.module.items[y];
                 dec_eq.is_some()
                     && item.interface == dec_eq
                     && matches!(item.head, Some(Global::Unchecked(_)))
-                    && !self.module.items.iter().any(|other| {
+                    && !self.unit.module.items.iter().any(|other| {
                         other.instance && other.interface == ord && other.head == item.head
                     })
             })
@@ -1301,16 +1318,16 @@ impl Elaborator {
         // Between instances: by the interfaces their declarations mention,
         // and their interfaces' superclasses.
         for &y in &instances {
-            let Some(wanted) = self.module.items[y].interface else {
+            let Some(wanted) = self.unit.module.items[y].interface else {
                 continue;
             };
             let reached = self.reachable(y);
             for &x in &instances {
-                if x == y || self.module.items[x].interface == Some(wanted) {
+                if x == y || self.unit.module.items[x].interface == Some(wanted) {
                     continue;
                 }
                 let mentions = self.mentions_global(x, &items[x], wanted)
-                    || self.is_super_of(self.module.items[x].interface, wanted, items)
+                    || self.is_super_of(self.unit.module.items[x].interface, wanted, items)
                     || derives_ord.contains(&y)
                         && ord.is_some_and(|ord| self.mentions_global(x, &items[x], ord));
                 if mentions {
@@ -1321,9 +1338,9 @@ impl Elaborator {
         // Everything else that may use one.
         for &y in &instances {
             let reached = self.reachable(y);
-            for x in 0..self.module.items.len() {
-                let kind = self.module.items[x].kind;
-                if self.module.items[x].instance || !matches!(kind, Kind::Def | Kind::Test) {
+            for x in 0..self.unit.module.items.len() {
+                let kind = self.unit.module.items[x].kind;
+                if self.unit.module.items[x].instance || !matches!(kind, Kind::Def | Kind::Test) {
                     continue;
                 }
                 add(self, &reached, x, y);
@@ -1341,7 +1358,7 @@ impl Elaborator {
             if !seen.insert(i) {
                 continue;
             }
-            pending.extend(self.module.items[i].deps.iter().map(|d| d.item));
+            pending.extend(self.unit.module.items[i].deps.iter().map(|d| d.item));
         }
         seen
     }
@@ -1349,7 +1366,7 @@ impl Elaborator {
     /// Whether `item`'s declaration names `wanted` (or something in its
     /// namespace).
     fn mentions_global(&mut self, index: usize, item: &Item, wanted: Global) -> bool {
-        self.module.file = Some(self.module.items[index].file);
+        self.unit.module.file = Some(self.unit.module.items[index].file);
         // A checked interface's methods are definitions in its namespace.
         let members = match wanted {
             Global::Data(d) => Some(format!("{}.", self.data_key(d))),
@@ -1367,7 +1384,7 @@ impl Elaborator {
                 break;
             }
         }
-        self.module.file = None;
+        self.unit.module.file = None;
         found
     }
 
@@ -1413,7 +1430,7 @@ impl Elaborator {
     /// Names that were declared but never checked now just name failures:
     /// the module's own.
     fn fail_unchecked_names(&mut self) {
-        for key in &self.module.names {
+        for key in &self.unit.module.names {
             if let Some((global, _)) = self.scope.entries.get_mut(key)
                 && let Global::Unchecked(_) = global
             {
@@ -1430,6 +1447,7 @@ impl Elaborator {
     /// §4.9.5. With one file, this is source order.)
     fn components(&mut self) -> Vec<Vec<usize>> {
         let edges: Vec<Vec<usize>> = self
+            .unit
             .module
             .items
             .iter()
@@ -1441,23 +1459,23 @@ impl Elaborator {
             })
             .collect();
         // Where each file's declarations start.
-        let mut file_start = vec![usize::MAX; self.module.files.len()];
-        for item in &self.module.items {
+        let mut file_start = vec![usize::MAX; self.unit.module.files.len()];
+        for item in &self.unit.module.items {
             file_start[item.file] = file_start[item.file].min(item.position);
         }
         let components = tarjan(&edges);
         for (c, members) in components.iter().enumerate() {
             for &i in members {
-                self.module.items[i].component = c;
+                self.unit.module.items[i].component = c;
             }
         }
         // Kahn's algorithm over the components.
         let mut waiting_on = vec![0usize; components.len()];
         let mut dependents: Vec<Vec<usize>> = vec![Vec::new(); components.len()];
         for (i, targets) in edges.iter().enumerate() {
-            let c = self.module.items[i].component;
+            let c = self.unit.module.items[i].component;
             for &j in targets {
-                let d = self.module.items[j].component;
+                let d = self.unit.module.items[j].component;
                 if d != c {
                     waiting_on[c] += 1;
                     dependents[d].push(c);
@@ -1468,7 +1486,7 @@ impl Elaborator {
             components[c]
                 .iter()
                 .map(|i| {
-                    let item = &self.module.items[*i];
+                    let item = &self.unit.module.items[*i];
                     (item.position - file_start[item.file], item.name.clone())
                 })
                 .min()
@@ -1481,7 +1499,7 @@ impl Elaborator {
         let mut order = Vec::new();
         while let Some(Reverse((_, c))) = ready.pop() {
             let mut members = components[c].clone();
-            members.sort_by_key(|i| self.module.items[*i].position);
+            members.sort_by_key(|i| self.unit.module.items[*i].position);
             order.push(members);
             for &d in &dependents[c] {
                 waiting_on[d] -= 1;
@@ -1503,21 +1521,21 @@ impl Elaborator {
         let first = &items[component[0]];
         if component
             .iter()
-            .any(|i| self.module.items[*i].status.failed())
+            .any(|i| self.unit.module.items[*i].status.failed())
         {
             // Already reported (a constructor or operation name taken).
             return;
         }
         let recursive = component.len() > 1
-            || self.module.items[component[0]]
+            || self.unit.module.items[component[0]]
                 .deps
                 .iter()
                 .any(|d| d.item == component[0]);
         let kinds: Vec<Kind> = component
             .iter()
-            .map(|i| self.module.items[*i].kind)
+            .map(|i| self.unit.module.items[*i].kind)
             .collect();
-        if recursive && component.iter().all(|i| self.module.items[*i].synonym) {
+        if recursive && component.iter().all(|i| self.unit.module.items[*i].synonym) {
             diagnostics.push((first.position, self.synonym_cycle(component)));
             return;
         }
@@ -1532,10 +1550,10 @@ impl Elaborator {
             let mut refused = false;
             for &i in component {
                 let mut reported = Vec::new();
-                for dep in self.module.items[i].deps.clone() {
+                for dep in self.unit.module.items[i].deps.clone() {
                     if dep.in_header
                         && dep.speculative.is_none()
-                        && self.module.in_current(dep.item)
+                        && self.unit.module.in_current(dep.item)
                         && !reported.contains(&dep.item)
                     {
                         reported.push(dep.item);
@@ -1565,16 +1583,16 @@ impl Elaborator {
             let mut refused = false;
             for &i in component {
                 let mut reported = Vec::new();
-                for dep in self.module.items[i].deps.clone() {
+                for dep in self.unit.module.items[i].deps.clone() {
                     // Once for each sibling, at its first use.
                     if dep.in_header
                         && dep.speculative.is_none()
-                        && self.module.in_current(dep.item)
+                        && self.unit.module.in_current(dep.item)
                         && !reported.contains(&dep.item)
                     {
                         reported.push(dep.item);
                         let d = if in_default(items[i].decl, dep.span) {
-                            let names = &self.module.items;
+                            let names = &self.unit.module.items;
                             default_uses(&names[i].name, &names[dep.item].name, dep.span)
                         } else {
                             self.mutual_signature(i, dep.item, dep.span)
@@ -1601,7 +1619,7 @@ impl Elaborator {
         }
         let index = component[0];
         let item = &items[index];
-        self.module.item = Some(index);
+        self.unit.module.item = Some(index);
         let result = match item.decl {
             decl @ Decl::Data { .. } => self.data(decl),
             decl @ Decl::Ability { .. } => self.ability(decl),
@@ -1617,7 +1635,7 @@ impl Elaborator {
             }
             Decl::Equation { .. } => unreachable!("equations go with signatures"),
         };
-        diagnostics.extend(self.warnings.drain(..).map(|w| (item.position, w)));
+        diagnostics.extend(self.unit.warnings.drain(..).map(|w| (item.position, w)));
         diagnostics.extend(
             self.attempt
                 .lambda_warnings
@@ -1632,10 +1650,10 @@ impl Elaborator {
 
     /// The full names of a component's declarations, for `STITCHWORT_TIMINGS`.
     fn component_label(&self, items: &[Item], component: &[usize]) -> String {
-        let prefix = if self.namespace_root.is_empty() {
+        let prefix = if self.unit.namespace_root.is_empty() {
             format!("{}.", self.globals.module)
         } else {
-            self.namespace_root.clone()
+            self.unit.namespace_root.clone()
         };
         let names: Vec<String> = component
             .iter()
@@ -1657,9 +1675,9 @@ impl Elaborator {
         let mut parent: HashMap<usize, usize> = HashMap::default();
         let mut queue = std::collections::VecDeque::from([from]);
         while let Some(i) = queue.pop_front() {
-            for dep in &self.module.items[i].deps {
+            for dep in &self.unit.module.items[i].deps {
                 let j = dep.item;
-                if !self.module.in_current(j) || parent.contains_key(&j) || j == from {
+                if !self.unit.module.in_current(j) || parent.contains_key(&j) || j == from {
                     continue;
                 }
                 parent.insert(j, i);
@@ -1684,7 +1702,7 @@ impl Elaborator {
 
     /// "`a` uses `b`, which uses `c`".
     fn describe_path(&self, path: &[usize]) -> String {
-        let quoted = |i: &usize| format!("`{}`", self.module.items[*i].name);
+        let quoted = |i: &usize| format!("`{}`", self.unit.module.items[*i].name);
         let mut out = quoted(&path[0]);
         for (k, i) in path[1..].iter().enumerate() {
             out.push_str(if k == 0 { " uses " } else { ", which uses " });
@@ -1696,13 +1714,13 @@ impl Elaborator {
     /// The error for a cycle among type synonyms: they stand for each other,
     /// so none of them has a type to stand for.
     fn synonym_cycle(&self, component: &[usize]) -> Diagnostic {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let first = component[0];
         let back = items[first]
             .deps
             .iter()
             .map(|d| d.item)
-            .find(|&j| j != first && self.module.in_current(j));
+            .find(|&j| j != first && self.unit.module.in_current(j));
         let cycle = match back {
             Some(back) => {
                 let mut cycle = vec![first];
@@ -1743,12 +1761,12 @@ impl Elaborator {
     /// The error for a cycle that mixes data types and definitions, or
     /// includes an ability.
     fn mixed_cycle(&self, component: &[usize]) -> Diagnostic {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let first = component[0];
         let back = items[first]
             .deps
             .iter()
-            .find(|d| d.item != first && self.module.in_current(d.item))
+            .find(|d| d.item != first && self.unit.module.in_current(d.item))
             .map_or(first, |d| d.item);
         let mut cycle = vec![first];
         cycle.extend(self.path_within(back, first));
@@ -1801,7 +1819,7 @@ impl Elaborator {
     /// Why a component may exist only because of dot notation: the first
     /// speculative reference between its members, as a note.
     fn speculative_note(&self, component: &[usize]) -> Option<String> {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         component.iter().find_map(|&i| {
             items[i].deps.iter().find_map(|d| {
                 let why = d.speculative.as_ref()?;
@@ -1819,7 +1837,7 @@ impl Elaborator {
     /// The error for a data type's header (of `item`) that mentions
     /// `other`, in the same group, at `span`.
     fn mutual_header(&self, item: usize, other: usize, span: Span) -> Diagnostic {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let (name, other_name) = (&items[item].name, &items[other].name);
         let path = self.path_within(other, item);
         let mut d = Diagnostic::error(
@@ -1850,7 +1868,7 @@ impl Elaborator {
     /// The error for a signature (of `item`) that mentions `other`, in the
     /// same group, at `span`.
     fn mutual_signature(&self, item: usize, other: usize, span: Span) -> Diagnostic {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let (name, other_name) = (&items[item].name, &items[other].name);
         if item == other {
             return Diagnostic::error(
@@ -1884,17 +1902,17 @@ impl Elaborator {
     /// The error for using `name`, which declaration `item` of this module
     /// declares, before it's checked.
     pub(crate) fn unchecked(&self, name: &ast::Name, item: usize) -> Diagnostic {
-        let info = &self.module.items[item];
+        let info = &self.unit.module.items[item];
         if info.status == Status::Failed {
             return failed_name(name);
         }
         if info.status == Status::Unfinished {
             return goals::uses_unfinished(Some(name.span));
         }
-        if self.module.in_current(item) {
-            let current = self.module.item.unwrap_or(item);
-            let owner = &self.module.items[current].name;
-            return match self.module.phase {
+        if self.unit.module.in_current(item) {
+            let current = self.unit.module.item.unwrap_or(item);
+            let owner = &self.unit.module.items[current].name;
+            return match self.unit.module.phase {
                 Phase::Signature => self.mutual_signature(current, item, name.span),
                 Phase::Header => Diagnostic::error(
                     "E-MUTUAL-SIGNATURE",
@@ -1939,10 +1957,10 @@ impl Elaborator {
     /// Notes for `E-AUTO-NONE`: decision procedures in this module that
     /// `auto` couldn't use where it's being elaborated, and why.
     pub(crate) fn auto_hints(&self) -> Vec<String> {
-        let Some(current) = self.module.item else {
+        let Some(current) = self.unit.module.item else {
             return Vec::new();
         };
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let here = &items[current];
         let mut hints = Vec::new();
         for (j, item) in items.iter().enumerate() {
@@ -1950,7 +1968,7 @@ impl Elaborator {
                 continue;
             }
             let name = &item.name;
-            if self.module.in_current(j) {
+            if self.unit.module.in_current(j) {
                 hints.push(format!(
                     "`{name}` is checked together with `{}` (they refer to each other), so it \
                      can't run while they're being checked: move the proof out of the cycle",
@@ -1967,7 +1985,7 @@ impl Elaborator {
                 hints.push(format!(
                     "`{name}` is in another file of `{namespace}` (`{}`): `auto` only uses \
                      decision procedures from the same file, above the use, so pass it explicitly",
-                    self.module.files[item.file].name
+                    self.unit.module.files[item.file].name
                 ));
             } else if item.position > here.position {
                 hints.push(format!(
@@ -1990,7 +2008,7 @@ impl Elaborator {
     /// Why `item`, which isn't checked, isn't: the chain of declarations it
     /// waits for.
     fn why_waiting(&self, item: usize) -> String {
-        let items = &self.module.items;
+        let items = &self.unit.module.items;
         let mut parent: HashMap<usize, usize> = HashMap::default();
         let mut queue = std::collections::VecDeque::from([item]);
         let mut end = None;
@@ -2001,7 +2019,7 @@ impl Elaborator {
                 .map(|d| d.item)
                 .filter(|j| *j != i && items[*j].status == Status::Waiting)
                 .collect();
-            if i != item && (waiting.is_empty() || self.module.in_current(i)) {
+            if i != item && (waiting.is_empty() || self.unit.module.in_current(i)) {
                 end = Some(i);
                 break;
             }
@@ -2023,11 +2041,12 @@ impl Elaborator {
         }
         path.reverse();
         let current = self
+            .unit
             .module
             .item
             .map(|c| items[c].name.clone())
             .unwrap_or_default();
-        if self.module.in_current(end) {
+        if self.unit.module.in_current(end) {
             format!(
                 "{}, so it's checked after `{current}`",
                 self.describe_path(&path)
@@ -2046,9 +2065,12 @@ impl Elaborator {
         if self.globals.def(id).body().is_none() {
             return false; // not finished checking (e.g. one being defined)
         }
-        match (self.module.def_items.get(&id), self.module.item) {
+        match (self.unit.module.def_items.get(&id), self.unit.module.item) {
             (Some(item), Some(current)) => {
-                let (item, current) = (&self.module.items[*item], &self.module.items[current]);
+                let (item, current) = (
+                    &self.unit.module.items[*item],
+                    &self.unit.module.items[current],
+                );
                 item.file == current.file && item.position < current.position
             }
             _ => true,
@@ -2190,7 +2212,7 @@ impl Elaborator {
     /// Whether the module's item `item`, not checked yet, is declared with a
     /// function type.
     pub(crate) fn item_is_function(&self, item: usize) -> bool {
-        self.module.items[item].function
+        self.unit.module.items[item].function
     }
 }
 

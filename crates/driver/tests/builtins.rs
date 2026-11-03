@@ -119,7 +119,7 @@ fn a_prelude_without_a_builtin_is_refused_before_user_code() {
         elab: stitchwort_elab::Elaborator::new(),
         warnings: Vec::new(),
     };
-    session.elab.loading_prelude = true;
+    session.elab.set_loading_prelude(true);
     session
         .load("<prelude>", &prelude)
         .expect("the prelude loads");

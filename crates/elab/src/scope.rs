@@ -346,7 +346,9 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
     }
 
     fn project_namespace(&self, first: &str) -> bool {
-        !self.0.loading_prelude && !self.0.root().is_empty() && self.0.scope.is_namespace(first)
+        !self.0.unit.loading_prelude
+            && !self.0.root().is_empty()
+            && self.0.scope.is_namespace(first)
     }
 
     fn own_declaration(&self, found: &Resolved<'e>) -> bool {
@@ -362,7 +364,7 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
     fn library_namespace(&self, first: &str) -> bool {
         // Elsewhere a library namespace is a qualifier only if it is
         // imported, which `imported_namespaces` finds.
-        self.0.loading_prelude && self.0.scope.is_namespace(&format!("{STD}.{first}"))
+        self.0.unit.loading_prelude && self.0.scope.is_namespace(&format!("{STD}.{first}"))
     }
 
     fn imported_namespaces(&self, first: &str) -> Vec<String> {
@@ -673,7 +675,8 @@ impl Elaborator {
     pub(crate) fn library_namespace(&self, first: &str, imports: bool) -> bool {
         let key = format!("Std.{first}");
         self.scope.is_namespace(&key)
-            && (self.loading_prelude || (imports && self.imported_namespaces(first).contains(&key)))
+            && (self.unit.loading_prelude
+                || (imports && self.imported_namespaces(first).contains(&key)))
     }
 
     /// The namespaces this file imports as items under the name `first`
@@ -710,10 +713,10 @@ impl Elaborator {
     /// `Day05.` for a program in namespace `Day05`, nothing for a program
     /// without a namespace line.
     pub(crate) fn root(&self) -> &str {
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             "Std."
         } else {
-            &self.namespace_root
+            &self.unit.namespace_root
         }
     }
 
@@ -721,7 +724,7 @@ impl Elaborator {
     /// as it's written in this module: without the module's root. For source
     /// the elaborator generates itself, which is read like the program's.
     pub(crate) fn relative_to_root(&self, name: &str) -> String {
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             name.to_string()
         } else {
             name.strip_prefix(self.root()).unwrap_or(name).to_string()
@@ -773,13 +776,15 @@ impl Elaborator {
     /// ([`Elaborator::is_internal`]) aren't found.
     pub(crate) fn resolve(&self, written: &str) -> Resolved<'_> {
         match self.resolve_any(written) {
-            Resolved::Found { global, .. } if !self.loading_prelude && self.is_internal(global) => {
+            Resolved::Found { global, .. }
+                if !self.unit.loading_prelude && self.is_internal(global) =>
+            {
                 Resolved::Missing
             }
             Resolved::Found { global, .. }
-                if !self.loading_prelude
+                if !self.unit.loading_prelude
                     && self.is_proof_only(global)
-                    && self.module.phase == crate::module::Phase::Body
+                    && self.unit.module.phase == crate::module::Phase::Body
                     && !matches!(self.body_erased(), Ok(Some(true))) =>
             {
                 Resolved::Missing
@@ -1040,12 +1045,12 @@ impl Elaborator {
                     if let Some((key, ..)) = self.scope.entry(x) {
                         found(key);
                     }
-                } else if self.loading_prelude
+                } else if self.unit.loading_prelude
                     && let Some(key) = self.scope.std_root.get(x)
                     && key.strip_prefix("Std.") == Some(x)
                 {
                     found(key);
-                } else if !self.loading_prelude
+                } else if !self.unit.loading_prelude
                     && let Some((key, ..)) = self.scope.entry(&format!("{root}{x}"))
                 {
                     found(key);
@@ -1102,7 +1107,7 @@ impl Elaborator {
             }
             // The default set, in a program: what `Std` declares at its
             // root, and its aliases.
-            Level::Default if !self.loading_prelude => {
+            Level::Default if !self.unit.loading_prelude => {
                 if let Some(key) = self.scope.std_root.get(x)
                     && PRELUDE.contains(&x)
                 {
@@ -1176,7 +1181,7 @@ impl Elaborator {
             ))
         };
         if first == STD {
-            if self.loading_prelude {
+            if self.unit.loading_prelude {
                 return Ok(written.clone());
             }
             return Err(refuse(STD));
@@ -1190,7 +1195,7 @@ impl Elaborator {
         // In a namespace, a declaration can't go in another's
         // (docs/proposals/multi-file.md §4.8, §11 P8), nor use its own
         // namespace's name as a qualifier.
-        if !self.loading_prelude && !root.is_empty() {
+        if !self.unit.loading_prelude && !root.is_empty() {
             let ns = self.current_namespace().unwrap_or("");
             match self.resolve_short(first, false) {
                 Resolved::Found { key, .. }
@@ -1246,7 +1251,7 @@ impl Elaborator {
             _ if self.library_namespace(first, true) => format!("Std.{first}"),
             _ => format!("{root}{first}"),
         };
-        if !self.loading_prelude && base.starts_with("Std.") {
+        if !self.unit.loading_prelude && base.starts_with("Std.") {
             return Err(refuse(&base));
         }
         Ok(format!("{base}.{rest}"))
@@ -1297,7 +1302,7 @@ impl Elaborator {
     /// extending-types.md §6): `T.f`'s key in `T`'s namespace. Such a
     /// declaration is an extension, declared in this file's namespace.
     pub(crate) fn extension_target(&self, name: &ast::Name) -> Option<String> {
-        if self.loading_prelude || self.root().is_empty() {
+        if self.unit.loading_prelude || self.root().is_empty() {
             return None;
         }
         let (first, rest) = name.text.split_once('.')?;
@@ -1366,7 +1371,7 @@ impl Elaborator {
     /// (imports aren't passed on). Two of those are ambiguous.
     pub(crate) fn visible_extension(&self, target: &str) -> Extension {
         let all = self.scope.extensions_of(target);
-        if all.is_empty() || self.loading_prelude {
+        if all.is_empty() || self.unit.loading_prelude {
             return Extension::Missing;
         }
         let own = self.current_namespace();
@@ -1691,7 +1696,7 @@ impl Elaborator {
     /// as suggestions.
     pub(crate) fn unknown(&self, name: &ast::Name) -> Diagnostic {
         if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)
-            && !self.loading_prelude
+            && !self.unit.loading_prelude
             && self.is_internal(global)
         {
             return Diagnostic::error(
@@ -1705,7 +1710,7 @@ impl Elaborator {
             );
         }
         if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)
-            && !self.loading_prelude
+            && !self.unit.loading_prelude
             && self.is_proof_only(global)
         {
             return Diagnostic::error(
@@ -1728,7 +1733,7 @@ impl Elaborator {
                  with a handler such as `Fail.toResult` or `Fail.orElse`",
             );
         }
-        if let Some(context) = &self.file_mode
+        if let Some(context) = &self.unit.file_mode
             && name.text.contains('.')
             && let Some(d) = context.diagnostic(&name.text, name.span)
         {
@@ -1740,7 +1745,7 @@ impl Elaborator {
         // and so does a prelude type's namespace beyond its own declaration
         // (D260).
         if let Some((first, _)) = name.text.split_once('.')
-            && !self.loading_prelude
+            && !self.unit.loading_prelude
             && first != STD
             && self.scope.is_namespace(&format!("Std.{first}"))
         {
@@ -1767,7 +1772,7 @@ impl Elaborator {
             };
         }
         // The name of something this file imports under another name.
-        if !self.loading_prelude
+        if !self.unit.loading_prelude
             && let Some(renamed) = self.scope.renamed.get(self.current_file())
         {
             let (first, rest) = match name.text.split_once('.') {
@@ -1789,7 +1794,7 @@ impl Elaborator {
             }
         }
         // A namespace imported as a qualifier names nothing on its own.
-        if !name.text.contains('.') && !self.loading_prelude {
+        if !name.text.contains('.') && !self.unit.loading_prelude {
             let imported = self.imported_namespaces(&name.text);
             if let Some(key) = imported.first() {
                 d = d.with_note(format!(
@@ -1802,7 +1807,7 @@ impl Elaborator {
         }
         // A project namespace written by its last name, not imported.
         if let Some((first, _)) = name.text.split_once('.')
-            && !self.loading_prelude
+            && !self.unit.loading_prelude
             && matches!(
                 qualifier(&CheckingLevels(self, true), first),
                 Qualifier::Missing
@@ -1847,7 +1852,7 @@ impl Elaborator {
         }
         // A library type outside the prelude (D266).
         if !name.text.contains('.')
-            && !self.loading_prelude
+            && !self.unit.loading_prelude
             && self.scope.is_std_root(&name.text)
             && !self.scope.is_prelude(&name.text)
         {
@@ -1912,7 +1917,7 @@ impl Elaborator {
             let namespace = match self.import_namespace(&import.path) {
                 Some(namespace) => namespace,
                 None if own => {
-                    if let Some(context) = &self.file_mode
+                    if let Some(context) = &self.unit.file_mode
                         && let Some(d) = context.diagnostic(&import.path.text, import.path.span)
                     {
                         diagnostics.push(d);
@@ -1932,7 +1937,7 @@ impl Elaborator {
                     // an import's path isn't read through another import.
                     let first = import.path.text.split('.').next().unwrap_or_default();
                     let example = import.items.first().map_or("..", |i| i.name.text.as_str());
-                    if !self.loading_prelude
+                    if !self.unit.loading_prelude
                         && first != STD
                         && self.scope.is_namespace(&format!("Std.{first}"))
                     {
@@ -1966,7 +1971,7 @@ impl Elaborator {
             };
             // The prelude's namespaces are all its own.
             let is_own =
-                self.loading_prelude || !(namespace == STD || namespace.starts_with("Std."));
+                self.unit.loading_prelude || !(namespace == STD || namespace.starts_with("Std."));
             if is_own != own {
                 // A library namespace imported as a qualifier was added
                 // before the module's qualified declarations: now that they
@@ -2079,7 +2084,7 @@ impl Elaborator {
         key: &str,
         diagnostics: &mut Vec<Diagnostic>,
     ) -> bool {
-        if self.loading_prelude || !CheckingLevels(self, true).own_namespace(&item.text) {
+        if self.unit.loading_prelude || !CheckingLevels(self, true).own_namespace(&item.text) {
             return false;
         }
         let own = format!("{}{}", self.root(), item.text);

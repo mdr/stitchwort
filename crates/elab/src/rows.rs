@@ -542,7 +542,7 @@ mod tests {
                 let module = stitchwort_syntax::parse_module(file, crate::prelude())
                     .expect("the core parses");
                 let mut e = Elaborator::new();
-                e.loading_prelude = true;
+                e.unit.loading_prelude = true;
                 let diagnostics = e.elaborate_module(&module);
                 assert!(
                     diagnostics

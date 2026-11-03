@@ -28,7 +28,7 @@ struct Unit {
 /// the resolver (dot notation: every function of that name).
 fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
     let mut scratch = Elaborator::new();
-    scratch.loading_prelude = true;
+    scratch.unit.loading_prelude = true;
     for (g, file) in index.files.iter().enumerate() {
         for name in &file.names {
             scratch.scope.insert(

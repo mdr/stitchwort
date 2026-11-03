@@ -391,7 +391,7 @@ fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Some(proof) = size_from_member(cx, goal)? {
         return Ok(Some(proof));
     }
-    if cx.e.omega_for_auto {
+    if cx.e.unit.omega_for_auto {
         return crate::omega::prove_for_auto(cx, goal, cx.span);
     }
     Ok(None)
@@ -780,7 +780,7 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     // Until the core has declared `DecEq`, every procedure is a candidate,
     // as before D163: the core's own uses of `==` come before it.
     let bootstrap = interfaces::dec_eq(cx.e).is_none();
-    let first_def = cx.e.module.first_def.min(g.defs.len());
+    let first_def = cx.e.unit.module.first_def.min(g.defs.len());
     let earlier = earlier_candidates(cx.e, first_def, bootstrap);
     let own = (first_def..g.defs.len()).rev().map(DefId);
     let mut found = Vec::new();
@@ -828,7 +828,7 @@ impl DecisionOrder {
         self.first_def == first_def
             && self.bootstrap == bootstrap
             && self.prelude_defs == e.prelude_defs
-            && self.closure == e.module.closure
+            && self.closure == e.unit.module.closure
             && self.namespace_defs == e.namespace_defs
     }
 }
@@ -841,7 +841,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         return order.candidates.clone();
     }
     let g = &e.globals;
-    let ordered: Vec<DefId> = match &e.module.closure {
+    let ordered: Vec<DefId> = match &e.unit.module.closure {
         None => (0..first_def).rev().map(DefId).collect(),
         Some(closure) => {
             let mut all = Vec::new();
@@ -880,7 +880,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
     *e.decision_order.borrow_mut() = Some(DecisionOrder {
         first_def,
         prelude_defs: e.prelude_defs,
-        closure: e.module.closure.clone(),
+        closure: e.unit.module.closure.clone(),
         namespace_defs: e.namespace_defs.clone(),
         bootstrap,
         candidates: candidates.clone(),
@@ -898,10 +898,10 @@ fn unrelated_hints(
     prop: &Value,
     depth: usize,
 ) -> Result<Diagnostic> {
-    let Some(closure) = cx.e.module.closure.clone() else {
+    let Some(closure) = cx.e.unit.module.closure.clone() else {
         return Ok(error);
     };
-    let current = cx.e.module.namespace.clone().unwrap_or_default();
+    let current = cx.e.unit.module.namespace.clone().unwrap_or_default();
     let mut error = error;
     let mut hints = 0;
     let namespaces: Vec<(String, std::ops::Range<usize>)> =

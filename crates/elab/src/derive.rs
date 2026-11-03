@@ -227,7 +227,7 @@ impl Elaborator {
         // source can't write: an ability's operations (`effects.rs`).
         let data = self.globals.data(d);
         let generated = !data.record && data.ctors.iter().any(|c| c.name.starts_with('%'));
-        if self.loading_prelude || generated || interfaces::dec_eq(self).is_none() {
+        if self.unit.loading_prelude || generated || interfaces::dec_eq(self).is_none() {
             return Ok(());
         }
         if self.declares_dec_eq() {
@@ -370,10 +370,10 @@ impl Elaborator {
     /// instance declared by its module, by the names in the module's
     /// instance declarations (§5.11).
     fn declares_dec_eq(&self) -> bool {
-        let (Some(item), Some(dec_eq)) = (self.module.item, interfaces::dec_eq(self)) else {
+        let (Some(item), Some(dec_eq)) = (self.unit.module.item, interfaces::dec_eq(self)) else {
             return false;
         };
-        self.module.items.iter().any(|i| {
+        self.unit.module.items.iter().any(|i| {
             i.instance
                 && i.interface == Some(Global::Data(dec_eq))
                 && i.head == Some(Global::Unchecked(item))

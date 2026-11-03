@@ -204,7 +204,7 @@ fn label_ops(cx: &Ctx, label: &Label) -> Value {
 fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
     if label.ability == REC {
         // `RecRes [A] B`.
-        let rec = cx.e.recursion.as_ref().expect("only while describing");
+        let rec = cx.e.decl.recursion.as_ref().expect("only while describing");
         let f = Value::Neutral(Head::Def(def(cx, Builtin::RecRes)?), Spine::new());
         let f =
             stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
@@ -420,7 +420,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
         return Ok(None);
     };
     // A description's private recursion signature, `Rec A`.
-    let rec = match cx.e.recursion {
+    let rec = match cx.e.decl.recursion {
         Some(_) => data(cx, Builtin::Rec).ok(),
         None => None,
     };
@@ -798,7 +798,8 @@ fn agree(cx: &mut Ctx, a: &Label, b: &Label) -> Result<()> {
                 // Requests for a different instance of the group: a call
                 // that changes its type parameters.
                 let names =
-                    cx.e.recursion
+                    cx.e.decl
+                        .recursion
                         .as_ref()
                         .map(|r| r.names.join("`, `"))
                         .unwrap_or_default();
@@ -974,7 +975,7 @@ fn show_row(cx: &Ctx, row: &Row) -> String {
 /// A recursive call of the partial group being described, used where
 /// nothing can answer its requests (docs/proposals/partial.md §7.3.4).
 pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
-    let names = match &cx.e.recursion {
+    let names = match &cx.e.decl.recursion {
         Some(rec) => rec.names.clone(),
         None => Vec::new(),
     };
@@ -2202,9 +2203,9 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
 /// in a pure context those may be plain calls, with the row settled by
 /// unification (`check::pure_first`).
 pub fn performs_only_in_bare_rows(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
-    let before = cx.e.bare_rows_pure.replace(true);
+    let before = cx.e.decl.bare_rows_pure.replace(true);
     let performs = may_perform_at(cx, expr, expected);
-    cx.e.bare_rows_pure.set(before);
+    cx.e.decl.bare_rows_pure.set(before);
     Ok(!performs?)
 }
 
@@ -2518,8 +2519,8 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
         id,
         explicit,
         cx.e.abilities.len(),
-        cx.e.recursion.is_some(),
-        cx.e.bare_rows_pure.get(),
+        cx.e.decl.recursion.is_some(),
+        cx.e.decl.bare_rows_pure.get(),
     );
     if let Some(&known) = cx.e.performs.borrow().get(&key) {
         return Ok(known);
@@ -2539,7 +2540,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
     let mut level = cx.level();
     loop {
         if let Some((row, _)) = comp_parts_at(cx, level, &ty)? {
-            return Ok(!(row.is_bare() && cx.e.bare_rows_pure.get()));
+            return Ok(!(row.is_bare() && cx.e.decl.bare_rows_pure.get()));
         }
         match force(g, ty)? {
             Value::Pi(_, icit, _, cod) => {
@@ -4881,7 +4882,7 @@ pub fn partial_mismatch(
 ) -> Result<Option<Diagnostic>> {
     // While describing a partial group: a recursive call where nothing can
     // answer it (its type mentions the group's private request type).
-    if let Some(rec) = &cx.e.recursion {
+    if let Some(rec) = &cx.e.decl.recursion {
         let req = rec.req_data;
         let mentions = |t: &Term| {
             t.subterms()

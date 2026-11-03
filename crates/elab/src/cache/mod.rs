@@ -422,7 +422,7 @@ impl Elaborator {
         namespace: Option<&str>,
         closure: Option<&[String]>,
     ) -> Option<(String, Key)> {
-        if !self.cache_usable() || self.loading_prelude || !self.library_stack_is_empty() {
+        if !self.cache_usable() || self.unit.loading_prelude || !self.library_stack_is_empty() {
             return None;
         }
         let (Some(ns), Some(closure)) = (namespace, closure) else {
@@ -486,13 +486,13 @@ impl Elaborator {
                     debug(&format!("{ns}: a miss after the replay began: {why}"));
                     self.cache_stats.late_misses += 1;
                     // Its files were walked already.
-                    self.skip_navigation_walk = true;
+                    self.unit.skip_navigation_walk = true;
                 }
             }
         }
         self.cache_stats.namespace_misses += 1;
-        self.include_trace.borrow_mut().clear();
-        self.namespace_capture = Some(Capture {
+        self.unit.include_trace.borrow_mut().clear();
+        self.unit.namespace_capture = Some(Capture {
             start_keys,
             start_members,
             early: None,
@@ -502,8 +502,8 @@ impl Elaborator {
         });
         let unfinished = self.globals.unfinished.borrow().len();
         let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
-        let capture = self.namespace_capture.take();
-        self.skip_navigation_walk = false;
+        let capture = self.unit.namespace_capture.take();
+        self.unit.skip_navigation_walk = false;
         // A namespace with open goals is unfinished, like one with errors:
         // checked again each time, so its goals are always fresh. So is one
         // with a declaration that uses an unfinished one (which reports
@@ -535,10 +535,10 @@ impl Elaborator {
     /// While a namespace that may be cached is elaborated: the names it has
     /// collected, before its library files load, and what it needs.
     pub(crate) fn capture_before_needs(&mut self, needs: &Needs) {
-        if self.loading_prelude {
+        if self.unit.loading_prelude {
             return;
         }
-        let Some(c) = &self.namespace_capture else {
+        let Some(c) = &self.unit.namespace_capture else {
             return;
         };
         if c.early.is_some() {
@@ -551,7 +551,7 @@ impl Elaborator {
             .filter(|k| !c.start_keys.contains(*k))
             .cloned()
             .collect();
-        let c = self.namespace_capture.as_mut().expect("checked above");
+        let c = self.unit.namespace_capture.as_mut().expect("checked above");
         c.early = Some(early);
         c.needs = Some(needs.clone());
     }
@@ -559,8 +559,9 @@ impl Elaborator {
     /// Then, once its library files have loaded: what its entry is worked
     /// out against.
     pub(crate) fn capture_after_needs(&mut self) {
-        if self.loading_prelude
+        if self.unit.loading_prelude
             || self
+                .unit
                 .namespace_capture
                 .as_ref()
                 .is_none_or(|c| c.before.is_some())
@@ -569,7 +570,7 @@ impl Elaborator {
         }
         let before = self.snapshot();
         let loaded = self.loaded_library_files().len();
-        let c = self.namespace_capture.as_mut().expect("checked above");
+        let c = self.unit.namespace_capture.as_mut().expect("checked above");
         c.before = Some(before);
         c.library_loaded = loaded;
     }
@@ -659,7 +660,7 @@ impl Elaborator {
                 .collect(),
             dots: needs.dots.iter().cloned().collect(),
             equations: needs.equations.iter().cloned().collect(),
-            includes: self.include_trace.borrow().clone(),
+            includes: self.unit.include_trace.borrow().clone(),
         };
         let unit = UnitOut {
             file_names: self.namespace_file_names(),
@@ -710,9 +711,9 @@ impl Elaborator {
         }
 
         // From here on, as `elaborate_namespace_untimed` does.
-        self.namespace_root = format!("{ns}.");
+        self.unit.namespace_root = format!("{ns}.");
         self.globals.module = "".into();
-        self.module = crate::module::ModuleState {
+        self.unit.module = crate::module::ModuleState {
             files: files
                 .iter()
                 .map(|f| crate::module::FileInfo {

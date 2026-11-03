@@ -185,7 +185,9 @@ fn a_built_in_name_is_documented_by_builtins_sw() {
         let report: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(report["header"], header, "{report}");
         assert!(
-            report["file"].as_str().is_some_and(|f| f.ends_with("core/Builtins.sw")),
+            report["file"]
+                .as_str()
+                .is_some_and(|f| f.ends_with("core/Builtins.sw")),
             "{report}"
         );
         assert!(!report["doc"].as_str().unwrap_or("").is_empty(), "{report}");

@@ -45,7 +45,7 @@ impl Elaborator {
     /// it can be generated and the module doesn't declare one.
     pub(crate) fn derive_record_ext(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
-        if self.loading_prelude
+        if self.unit.loading_prelude
             || data.sort == Sort::Prop
             || data.group.len() > 1
             || !data.indices.is_empty()
@@ -85,11 +85,11 @@ impl Elaborator {
 
     /// Whether the module declares `T.ext` for the item being checked.
     fn declares_ext(&self) -> bool {
-        let Some(item) = self.module.item else {
+        let Some(item) = self.unit.module.item else {
             return false;
         };
-        let wanted = format!("{}.ext", self.module.items[item].name);
-        self.module.items.iter().any(|i| i.name == wanted)
+        let wanted = format!("{}.ext", self.unit.module.items[item].name);
+        self.unit.module.items.iter().any(|i| i.name == wanted)
     }
 
     /// The signature and the equation of `T.ext`.

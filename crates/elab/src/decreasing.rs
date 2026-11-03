@@ -863,7 +863,7 @@ impl Elaborator {
             unreachable!("found as a signature with `decreasing`")
         };
         let mut out = Vec::new();
-        self.module.item = Some(item);
+        self.unit.module.item = Some(item);
         // Its user-written body becomes the transparent `f.%step`, which
         // can't unfold opaque definitions (docs/proposals/opaque-definitions.md
         // §6.4).
@@ -908,7 +908,7 @@ impl Elaborator {
             return out;
         }
         let result = self.signature(signature);
-        out.extend(self.warnings.drain(..).map(|w| (item, w)));
+        out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
         out.extend(
             self.attempt
                 .lambda_warnings
@@ -930,11 +930,11 @@ impl Elaborator {
             out.push((item, d));
             return out;
         }
-        self.module.phase = crate::module::Phase::Body;
-        self.local_helpers.clear();
-        self.preadmitted.borrow_mut().clear();
+        self.unit.module.phase = crate::module::Phase::Body;
+        self.decl.local_helpers.clear();
+        self.decl.preadmitted.borrow_mut().clear();
         let result = self.decreasing_definition(f, name, measure, *theorem, *span, equations);
-        *self.decreasing.borrow_mut() = None;
+        *self.decl.decreasing.borrow_mut() = None;
         out.extend(
             self.attempt
                 .lambda_warnings
@@ -942,10 +942,10 @@ impl Elaborator {
                 .into_iter()
                 .map(|w| (item, w)),
         );
-        out.extend(self.warnings.drain(..).map(|w| (item, w)));
+        out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
         match result {
             Ok(()) => {
-                let local_helpers = self.local_helpers.clone();
+                let local_helpers = self.decl.local_helpers.clone();
                 if let Err(d) = self.bind_local_helpers() {
                     out.push((item, d));
                 }
@@ -963,7 +963,6 @@ impl Elaborator {
             }
             Err(d) => out.push((item, d)),
         }
-        self.leaf_log.borrow_mut().clear();
         out
     }
 
@@ -1106,18 +1105,19 @@ impl Elaborator {
                 .insert(&unfold_key, Global::Def(unfold), def_name.span, false);
             self.helper_keys.insert(unfold_key);
         }
-        if let Some(item) = self.module.item {
+        if let Some(item) = self.unit.module.item {
             for id in made {
-                self.module.def_items.insert(id, item);
+                self.unit.module.def_items.insert(id, item);
             }
         }
         let used = self
+            .decl
             .decreasing
             .borrow()
             .as_ref()
             .is_some_and(|a| a.used.get());
         if !used {
-            self.warnings.push(
+            self.unit.warnings.push(
                 Diagnostic::warning(
                     "W-DECREASING-UNUSED",
                     format!(
@@ -1234,9 +1234,9 @@ impl Elaborator {
         let go = self.decreasing_go(&plan, step_id)?;
         let made = [step_id, go];
         self.decreasing_wrapper(&plan, go)?;
-        if let Some(item) = self.module.item {
+        if let Some(item) = self.unit.module.item {
             for id in made {
-                self.module.def_items.insert(id, item);
+                self.unit.module.def_items.insert(id, item);
             }
         }
         Ok(())
@@ -1246,7 +1246,7 @@ impl Elaborator {
     /// `Nat`.
     fn measure_term(&mut self, key: &str, header: &[Binder], measure: &Expr) -> Result<Term> {
         self.clear_metas();
-        *self.owner.borrow_mut() = vec![key.to_string()];
+        *self.decl.owner.borrow_mut() = vec![key.to_string()];
         let nat = self
             .globals
             .registry
@@ -1261,7 +1261,7 @@ impl Elaborator {
             let nat_ty = cx.eval(&Term::data(nat, Vec::new()))?;
             crate::queue::framed(&mut cx, |cx| check(cx, measure, &nat_ty), |_| MeasureFrame)
         })();
-        self.owner.borrow_mut().clear();
+        self.decl.owner.borrow_mut().clear();
         let term = term?;
         if !self.attempt.drafts.borrow().is_empty() {
             self.attempt.drafts.borrow_mut().clear();
@@ -1356,7 +1356,7 @@ impl Elaborator {
                 other => other.clone(),
             })
             .collect();
-        *self.decreasing.borrow_mut() = Some(Active {
+        *self.decl.decreasing.borrow_mut() = Some(Active {
             target: plan.f,
             used: Cell::new(false),
             measure: plan.measure.clone(),
@@ -2614,7 +2614,7 @@ impl Ctx<'_> {
     /// While a definition with `decreasing` is elaborated, a name that
     /// refers to it, in its body: the recursive call's stand-in, `%rec`.
     pub(crate) fn decreasing_call(&self, name: &str) -> Option<(Term, Value)> {
-        let target = self.e.decreasing.borrow().as_ref()?.target;
+        let target = self.e.decl.decreasing.borrow().as_ref()?.target;
         if self.lookup(name).is_some() {
             return None;
         }
@@ -2628,7 +2628,7 @@ impl Ctx<'_> {
     /// `%rec`, if definition `id` (or with `None`, the one whose body is
     /// being elaborated) is the definition with `decreasing` it stands for.
     pub(crate) fn decreasing_rec(&self, id: Option<DefId>) -> Option<(Term, Value)> {
-        let active = self.e.decreasing.borrow();
+        let active = self.e.decl.decreasing.borrow();
         let active = active.as_ref()?;
         if id.is_some_and(|id| id != active.target) {
             return None;
@@ -2648,7 +2648,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     if crate::undo::fatal(&error) {
         return error;
     }
-    let (measure, lexicographic, header) = match cx.e.decreasing.borrow().as_ref() {
+    let (measure, lexicographic, header) = match cx.e.decl.decreasing.borrow().as_ref() {
         Some(active) => (
             active.measure.clone(),
             active.second.is_some(),

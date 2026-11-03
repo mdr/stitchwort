@@ -73,7 +73,7 @@ const SEARCH_BUDGET: u64 = 1_000_000;
 /// not to the library's own rewrites, which always get the default (the
 /// library checks the same whatever program needed it).
 fn search_budget(cx: &Ctx) -> u64 {
-    match cx.e.loading_prelude {
+    match cx.e.unit.loading_prelude {
         true => SEARCH_BUDGET,
         false => cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET),
     }
@@ -436,10 +436,10 @@ impl Equation {
 fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equation> {
     let g = cx.g();
     let rule_metas = g.metas.borrow().len();
-    let outer = cx.e.hole_log.replace(Some(Vec::new()));
+    let outer = cx.e.decl.hole_log.replace(Some(Vec::new()));
     let queued = cx.e.attempt.queue.len();
     let inferred = infer(cx, &rule.proof).and_then(|(proof, ty)| insert(cx, proof, ty));
-    let logged = cx.e.hole_log.replace(outer).unwrap_or_default();
+    let logged = cx.e.decl.hole_log.replace(outer).unwrap_or_default();
     let (mut proof, mut ty) = inferred?;
     // What the rule itself left waiting (a record literal whose type only
     // its field names say) is settled first, defaults included, scoped to
