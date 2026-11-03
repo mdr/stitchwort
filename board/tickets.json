@@ -3644,14 +3644,14 @@
     {
       "id": 1097,
       "title": "OpenCode run hangs at startup, before any model request (2 of 4 starts on 2 Nov 2026, OpenCode 2.1.4): the run's server logs 'cli starting' and nothing more; when killed after 32 min it was in Project.resolve / FileSystem.resolve. The API answered a test prompt in 5 s; the same command in the same clone ran fine twice after. Suspects (unconfirmed): two servers starting at once (SW-1092's run was alive at the first hang), the long-lived 'opencode serve --service' sharing opencode.db, 2.1.4 (earlier runs were 2.1.1). Workaround: --print-logs and restart a run that logs nothing within 2 minutes (docs/workflow.md, D2217). Matt (D2217): bring this forward if it keeps happening; record each new hang here",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tooling",
         "bug"
       ],
-      "body": "\n\nHang 3, 23:17:46 (run a225c46a, SW-1102 in a new scratch clone scratch-sw-1102): same signature, server 92c3af4c logged 'cli starting' and nothing in 2 min. No other opencode run alive; 'opencode serve --service' (pid 48942, since ~17:36, ppid 1) was. Per D2217 the investigation is brought forward (started 23:21, Sonnet).\n\n\nResult (Sonnet, 2 Nov 23:41): cause found. With stdin not a terminal, opencode run waits for stdin EOF even with the prompt as an argument; an open pipe that never closes hangs it exactly as seen (server 'cli starting' then nothing). Repro: open pipe 2/2 hang; </dev/null 16/16 fine (reruns, fresh clones, production flags). Upstream anomalyco/opencode#59287 (open; triage says still on dev); 2.2.5 (nixpkgs-unstable) likely still hangs (fake-model test). Project.resolve stack was the idle server's startup fiber being cancelled. Not the serve --service process, not concurrency, not 2.1.4 (the wait is in v1 too, #38723). opencode comes from home.packages in ~/.config/nix-darwin/home/matt.nix:28. Workaround applied: </dev/null in CLAUDE.md and docs/workflow.md. Close after a few real runs start cleanly with it.\n\n\nD2228 (Matt, 3 Nov): close after 2-3 real DeepSeek runs start cleanly with </dev/null; the instruction is in CLAUDE.md and docs/workflow.md.\n\n\nClean start 1 with </dev/null: SW-1108, 3 Nov 10:58.\n\n\nRun 1 (SW-1108) completed normally in 10.5 min.\n\n\n3 Nov: second clean start with </dev/null (SW-1142, 15:43-15:53). One more closes it (D2228).",
+      "body": "\n\nHang 3, 23:17:46 (run a225c46a, SW-1102 in a new scratch clone scratch-sw-1102): same signature, server 92c3af4c logged 'cli starting' and nothing in 2 min. No other opencode run alive; 'opencode serve --service' (pid 48942, since ~17:36, ppid 1) was. Per D2217 the investigation is brought forward (started 23:21, Sonnet).\n\n\nResult (Sonnet, 2 Nov 23:41): cause found. With stdin not a terminal, opencode run waits for stdin EOF even with the prompt as an argument; an open pipe that never closes hangs it exactly as seen (server 'cli starting' then nothing). Repro: open pipe 2/2 hang; </dev/null 16/16 fine (reruns, fresh clones, production flags). Upstream anomalyco/opencode#59287 (open; triage says still on dev); 2.2.5 (nixpkgs-unstable) likely still hangs (fake-model test). Project.resolve stack was the idle server's startup fiber being cancelled. Not the serve --service process, not concurrency, not 2.1.4 (the wait is in v1 too, #38723). opencode comes from home.packages in ~/.config/nix-darwin/home/matt.nix:28. Workaround applied: </dev/null in CLAUDE.md and docs/workflow.md. Close after a few real runs start cleanly with it.\n\n\nD2228 (Matt, 3 Nov): close after 2-3 real DeepSeek runs start cleanly with </dev/null; the instruction is in CLAUDE.md and docs/workflow.md.\n\n\nClean start 1 with </dev/null: SW-1108, 3 Nov 10:58.\n\n\nRun 1 (SW-1108) completed normally in 10.5 min.\n\n\n3 Nov: second clean start with </dev/null (SW-1142, 15:43-15:53). One more closes it (D2228).\n\n3 Nov: third and fourth clean starts (SW-1148 and SW-1134, run side by side). Closed per D2228.",
       "created": "2026-11-02",
       "updated": "2026-11-03",
       "commits": []
@@ -4365,13 +4365,13 @@
     {
       "id": 1148,
       "title": "doc rfl / doc J print an import line (import Std (rfl)) though built-ins need no import",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "cli"
       ],
-      "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).\n\nD2264 (Matt, 3 Nov): start now.",
+      "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).\n\nD2264 (Matt, 3 Nov): start now.\n\nDone b940c50d, merged. import_line returns None for Std.<built-in> (elab builtin_docs::is_builtin, the one list). Test extended (Quot, Quot.mk, rfl; JSON import null, no text import). Orchestrator reran cli doc: 19/19. Note: prelude names such as Nat still show import Std (Nat), which is correct (they need importing). Model result: DeepSeek, worked, 9 min (est. 15).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
