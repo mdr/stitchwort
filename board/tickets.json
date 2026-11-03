@@ -1,5 +1,5 @@
 {
-  "next": 1152,
+  "next": 1153,
   "tickets": [
     {
       "id": 47,
@@ -4414,6 +4414,20 @@
         "test"
       ],
       "body": "D2265 (Matt, 3 Nov): backlog; keep the current process for now. Measured 3 Nov: selection costs ~3-5 min per merge (inventory build 2-4 min, partly shared with the merge tier; Haiku's choice 1-2 min). Most merges touch core/elab/driver, so the fixed tier ran too and the selection was mostly extra, though it twice ran tests the merge tier lacks (navigation snapshot, an lsp test). Options: (1) when the merge tier runs, select only tests outside the merge profile; (2) dev/select: a script that turns the diff + docs/test-selector.md's path rules + the inventory into a filter in seconds, flagging unusual cases for a model; skip the inventory rebuild when no test file changed.\n\nSmall items seen in the SW-1134 verification: dev/run-selected prints its folded line twice (double fold, harmless?); test:merge desc says under 90 s but takes ~110 s now.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1152,
+      "title": "Elaborator state step 3: state::Options (settings, cache_key()) and state::Session (project and cache bookkeeping, Stats with queue.rs's counters and MET_UNFILLED)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
