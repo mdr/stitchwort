@@ -4469,7 +4469,7 @@
       "labels": [
         "test"
       ],
-      "body": "From SW-1093, which fixed it for hash_stability (user 170 -> 45 s). doc is 311 test-s of the tier's ~2500. Also re-time the tier and fix the under-90-s claims in hash_stability.rs and the Taskfile.",
+      "body": "From SW-1093, which fixed it for hash_stability (user 170 -> 45 s). doc is 311 test-s of the tier's ~2500. Also re-time the tier and fix the under-90-s claims in hash_stability.rs and the Taskfile.\n\nD2267 (Matt, 3 Nov): hold until SW-1109 lands; then re-measure and drop it if loading std from the cache made it unnecessary.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
