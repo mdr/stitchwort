@@ -3861,13 +3861,13 @@
     {
       "id": 1112,
       "title": "One-page PDF: the crates, their dependencies and responsibilities",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "Matt, 3 Nov: a PDF one-pager with a diagram of the crates, their relationships and responsibilities. Source kept in the repo so it can be regenerated.",
+      "body": "Matt, 3 Nov: a PDF one-pager with a diagram of the crates, their relationships and responsibilities. Done on lane/SW-1112 (5cc0e13c, layout reworked daf3bc87 after Matt's feedback: diagram ~78% of the page, box text ~7.4 pt, side notes ~7.6 pt). docs/architecture/crates.{typ,dot,pdf}, dev/crate-graph (from cargo metadata; fails on a crate with no layer or responsibility), docs/architecture/build.sh. D2240 (Matt): fine as it is. Printed for Matt (Xerox B210). Merge after SW-1110's verifier. Possible follow-ups from the lane: name the kernel's files explicitly; regenerate when a workspace manifest changes. Model result: Sonnet, worked, ~6 min over two rounds (est. 40).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
