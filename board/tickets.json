@@ -1,5 +1,5 @@
 {
-  "next": 1151,
+  "next": 1152,
   "tickets": [
     {
       "id": 47,
@@ -4400,6 +4400,20 @@
         "elab"
       ],
       "body": "From SW-1149: Unit::omega_for_auto isn't set aside by a nested library load or rewound, so code run after a load and before the next module (eval after prepare_expr, the REPL) sees the last library file's value. Decide the intended value for typed-in expressions (probably the module's or the default), set it explicitly, test it. Also update docs/proposals/elaborator-state.md §4.1 and Appendix A for step 2's decisions (instance_steps in Attempt; Unit's mark keeps what outlives a unit; lambda_warnings).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1151,
+      "title": "Consider cheaper post-merge selection: only tests the merge tier lacks when it runs anyway; a script instead of Haiku",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "D2265 (Matt, 3 Nov): backlog; keep the current process for now. Measured 3 Nov: selection costs ~3-5 min per merge (inventory build 2-4 min, partly shared with the merge tier; Haiku's choice 1-2 min). Most merges touch core/elab/driver, so the fixed tier ran too and the selection was mostly extra, though it twice ran tests the merge tier lacks (navigation snapshot, an lsp test). Options: (1) when the merge tier runs, select only tests outside the merge profile; (2) dev/select: a script that turns the diff + docs/test-selector.md's path rules + the inventory into a filter in seconds, flagging unusual cases for a model; skip the inventory rebuild when no test file changed.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
