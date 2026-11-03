@@ -1,5 +1,5 @@
 {
-  "next": 1127,
+  "next": 1128,
   "tickets": [
     {
       "id": 47,
@@ -4064,6 +4064,20 @@
         "kernel"
       ],
       "body": "Review §1.5 and §3.3: a safe-Rust probe changed a final declaration's type and admitted a false theorem (not reachable from source). Route logical changes through admission; remove production availability of test-only bypasses. Touches the trust boundary: design note in docs/proposals/ and Matt's decisions before implementation. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1127,
+      "title": "One-page PDF: the core crate (what it does, how it works, its data types)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 3 Nov: a one-pager on crates/core: what it does, how it works, data types. Printable A4, like docs/architecture/crates.pdf.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
