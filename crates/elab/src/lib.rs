@@ -87,6 +87,7 @@ pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;
+pub use state::JournalStats;
 pub use std_dir::{
     CORE_ORDER, STD_DIR_VAR, StdText, load_std_text, std_text, use_std_bundle, use_std_dir,
 };
@@ -979,6 +980,7 @@ impl Elaborator {
     pub(crate) fn rewind_globals(&mut self, mark: &stitchwort_core::globals::GlobalsMark) {
         self.flush_navigation();
         self.globals.rewind(mark);
+        self.session.owners.truncate(self.ids());
     }
 
     pub(crate) fn clear_metas(&self) {
@@ -1772,7 +1774,9 @@ impl Elaborator {
         let mut group_interfaces = Vec::new();
         for (&(_, decl), d) in members.iter().zip(&ids) {
             kernel::mark_auto_params(&mut self.globals, *d, Self::data_auto_params(decl));
-            self.tables.data_owners.insert(*d, owner.clone());
+            self.tables
+                .data_owners
+                .insert(&self.session.owners, *d, owner.clone());
             if let Decl::Data {
                 interface: true, ..
             } = decl
@@ -2464,7 +2468,7 @@ impl Elaborator {
                         if checked.is_ok()
                             && let Some(at) = at
                         {
-                            self.tables.total_rows.insert(*id, at);
+                            self.tables.total_rows.insert(&self.session.owners, *id, at);
                         }
                     }
                     Ok(false) => {}

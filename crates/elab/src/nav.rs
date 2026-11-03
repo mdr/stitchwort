@@ -14,7 +14,7 @@
 
 use std::cell::RefCell;
 
-use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{FileId, Span};
@@ -22,6 +22,7 @@ use stitchwort_syntax::{FileId, Span};
 use crate::check::Ctx;
 use crate::library::PendingKind;
 use crate::scope::Resolved;
+use crate::state::{Logged, Logs};
 use crate::{Elaborator, Global};
 
 /// What the elaborator noted, and the walk found.
@@ -149,91 +150,10 @@ impl Recorder {
     }
 }
 
-/// A map of the [`Recorder`] that can be put back as it was at a mark
-/// ([`Recorder::mark`]) without a copy of it: what each change replaced is
-/// logged. A language server keeps a mark before each namespace it has
-/// checked, and a copy of the maps in each made them quadratic in the
-/// project (8 of the 13 GB of an editor session on the AoC project; SW-1052).
-/// Reads go through to the map itself.
-#[derive(Clone)]
-pub(crate) struct Logged<K, V> {
-    map: HashMap<K, V>,
-    /// Each change since the first mark, oldest first: its key, and the
-    /// value it replaced (`None`: there was none).
-    undo: Vec<(K, Option<V>)>,
-    /// The keys changed since the last mark (or rewind): only a key's first
-    /// change since then is logged, as rewinding to that mark or an earlier
-    /// one puts back the value from before it.
-    touched: HashSet<K>,
-    /// Whether a mark has been taken: changes before the first need no
-    /// undoing (a session without marks, such as `check --index`, logs
-    /// nothing).
-    logging: bool,
-}
-
-impl<K, V> Default for Logged<K, V> {
-    fn default() -> Self {
-        Logged {
-            map: HashMap::default(),
-            undo: Vec::new(),
-            touched: HashSet::default(),
-            logging: false,
-        }
-    }
-}
-
-impl<K: std::hash::Hash + Eq + Clone, V> Logged<K, V> {
-    pub(crate) fn insert(&mut self, key: K, value: V) {
-        let old = self.map.insert(key.clone(), value);
-        if self.logging && self.touched.insert(key.clone()) {
-            self.undo.push((key, old));
-        }
-    }
-
-    /// Inserts `value` unless `key` has one already.
-    pub(crate) fn insert_absent(&mut self, key: K, value: V) {
-        if !self.map.contains_key(&key) {
-            self.insert(key, value);
-        }
-    }
-
-    /// Where the map is now, to [`Self::rewind`] to.
-    fn mark(&mut self) -> usize {
-        self.logging = true;
-        self.touched.clear();
-        self.undo.len()
-    }
-
-    /// Takes back every change since `mark`, newest first.
-    fn rewind(&mut self, mark: usize) {
-        assert!(mark <= self.undo.len(), "a mark from after a rewind");
-        for (key, old) in self.undo.drain(mark..).rev() {
-            match old {
-                Some(value) => self.map.insert(key, value),
-                None => self.map.remove(&key),
-            };
-        }
-        self.touched.clear();
-    }
-}
-
-impl<K, V> std::ops::Deref for Logged<K, V> {
-    type Target = HashMap<K, V>;
-
-    fn deref(&self) -> &HashMap<K, V> {
-        &self.map
-    }
-}
-
 /// Where a [`Recorder`] was, to rewind it to ([`crate::rewind`]): the
-/// logged maps' and the lists' lengths (the lists only grow between
-/// marks).
+/// lists' lengths (the lists only grow between marks). Its maps are
+/// [`Logged`], put back by the session's journal ([`Recorder`]'s [`Logs`]).
 pub(crate) struct NavMark {
-    refs: usize,
-    local_types: usize,
-    field_spans: usize,
-    expr_types: usize,
-    call_defaults: usize,
     locals: usize,
     binders: usize,
     outline: usize,
@@ -242,14 +162,18 @@ pub(crate) struct NavMark {
     generated: usize,
 }
 
+/// Where each of a [`Recorder`]'s logged maps' log is.
+pub(crate) struct Positions {
+    refs: usize,
+    local_types: usize,
+    field_spans: usize,
+    expr_types: usize,
+    call_defaults: usize,
+}
+
 impl Recorder {
-    pub(crate) fn mark(&mut self) -> NavMark {
+    pub(crate) fn mark(&self) -> NavMark {
         NavMark {
-            refs: self.refs.mark(),
-            local_types: self.local_types.mark(),
-            field_spans: self.field_spans.mark(),
-            expr_types: self.expr_types.mark(),
-            call_defaults: self.call_defaults.mark(),
             locals: self.locals.len(),
             binders: self.binders.len(),
             outline: self.outline.len(),
@@ -259,12 +183,8 @@ impl Recorder {
         }
     }
 
+    /// Back to `mark`; the maps are put back by the journal first.
     pub(crate) fn rewind(&mut self, mark: &NavMark) {
-        self.refs.rewind(mark.refs);
-        self.local_types.rewind(mark.local_types);
-        self.field_spans.rewind(mark.field_spans);
-        self.expr_types.rewind(mark.expr_types);
-        self.call_defaults.rewind(mark.call_defaults);
         assert!(
             mark.locals <= self.locals.len()
                 && mark.binders <= self.binders.len()
@@ -277,6 +197,87 @@ impl Recorder {
         self.pending = mark.pending.clone();
         self.exprs = mark.exprs;
         self.generated = mark.generated;
+    }
+
+    /// The logged maps, with what each does in [`Logs`]'s methods.
+    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 5] {
+        let Recorder {
+            refs,
+            local_types,
+            field_spans,
+            expr_types,
+            call_defaults,
+            // Lists, cut back by `rewind`, or put back from the mark.
+            pending: _,
+            locals: _,
+            binders: _,
+            outline: _,
+            exprs: _,
+            generated: _,
+        } = self;
+        [refs, local_types, field_spans, expr_types, call_defaults]
+    }
+}
+
+/// A language server keeps a checkpoint before each namespace it has
+/// checked, and a copy of the maps in each made them quadratic in the
+/// project (8 of the 13 GB of an editor session on the AoC project;
+/// SW-1052): so they log what each change replaced.
+impl Logs for Recorder {
+    type Positions = Positions;
+
+    fn positions(&self) -> Positions {
+        Positions {
+            refs: self.refs.position(),
+            local_types: self.local_types.position(),
+            field_spans: self.field_spans.position(),
+            expr_types: self.expr_types.position(),
+            call_defaults: self.call_defaults.position(),
+        }
+    }
+
+    fn undo_to(&mut self, at: &Positions) -> usize {
+        let Positions {
+            refs,
+            local_types,
+            field_spans,
+            expr_types,
+            call_defaults,
+        } = at;
+        let [a, b, c, d, e] = self.logged();
+        a.undo_to(refs)
+            + b.undo_to(local_types)
+            + c.undo_to(field_spans)
+            + d.undo_to(expr_types)
+            + e.undo_to(call_defaults)
+    }
+
+    fn set_generation(&mut self, g: Option<u32>) {
+        self.logged().into_iter().for_each(|t| t.set_generation(g));
+    }
+
+    fn entries(&self) -> usize {
+        self.refs.entries()
+            + self.local_types.entries()
+            + self.field_spans.entries()
+            + self.expr_types.entries()
+            + self.call_defaults.entries()
+    }
+
+    fn bytes(&self) -> usize {
+        self.refs.bytes()
+            + self.local_types.bytes()
+            + self.field_spans.bytes()
+            + self.expr_types.bytes()
+            + self.call_defaults.bytes()
+    }
+
+    fn distinct_keys(&self) -> usize {
+        self.refs.distinct_keys()
+            + self.local_types.distinct_keys()
+            + self.field_spans.distinct_keys()
+            + self.expr_types.distinct_keys()
+            + self.call_defaults.distinct_keys()
     }
 }
 

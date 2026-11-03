@@ -238,7 +238,7 @@ impl Elaborator {
         closure: Option<&[String]>,
     ) -> Vec<Diagnostic> {
         // Its declarations' rows in the tables are its own to write.
-        self.tables.begin_unit(self.ids());
+        self.session.owners.begin(self.ids());
         // A project namespace may come from the check cache (`cache`).
         let cached = self.namespace_cache_key(namespace, closure);
         let run = |e: &mut Self| match (&cached, namespace, closure) {

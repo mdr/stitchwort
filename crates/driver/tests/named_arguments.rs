@@ -93,7 +93,7 @@ fn load_in(session: &mut Session, name: &str, text: &str) -> Result<Vec<(String,
 /// session without loading the library again (the rewind tests check that
 /// rewinding gives exactly what a fresh session does).
 fn eager_worker() -> (Session, Mark) {
-    let session = Session::eager_for_stack(STACK);
+    let mut session = Session::eager_for_stack(STACK);
     let mark = session.mark();
     (session, mark)
 }

@@ -752,7 +752,9 @@ impl Elaborator {
         };
         let id = self.define_all(st, e, owner, &member)?;
         if owner == e {
-            self.tables.generated_alls.insert(e, id);
+            self.tables
+                .generated_alls
+                .insert(&self.session.owners, e, id);
         }
         Ok(id)
     }

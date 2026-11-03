@@ -76,7 +76,7 @@ fn workers() -> usize {
 /// again for every example. The rewind tests check that rewinding gives
 /// exactly what a fresh session does.
 fn eager_worker() -> (Session, Mark) {
-    let session = Session::eager_from_source_for_stack(STACK);
+    let mut session = Session::eager_from_source_for_stack(STACK);
     let mark = session.mark();
     (session, mark)
 }

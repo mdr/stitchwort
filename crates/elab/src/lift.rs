@@ -763,9 +763,11 @@ impl Elaborator {
                     // An equation the alternatives don't use isn't taken.
                     let eqs: Vec<Option<usize>> = eqs.iter().map(|e| e.and_then(at)).collect();
                     if let Some(cols) = cols {
-                        self.tables
-                            .match_columns
-                            .insert(id, Rc::new(MatchColumns { cols, eqs }));
+                        self.tables.match_columns.insert(
+                            &self.session.owners,
+                            id,
+                            Rc::new(MatchColumns { cols, eqs }),
+                        );
                     }
                 }
                 members.push((i, id));

@@ -17,7 +17,9 @@
 //! - [`Tables`]: what later units read (records, instances, tests, ...),
 //!   each table of a kind that says how it is marked, rewound, encoded and
 //!   dumped ([`table`]); the scope joins them in step 6;
-//! - [`Session`]: project and cache bookkeeping, statistics;
+//! - [`Session`]: project and cache bookkeeping, statistics, which unit
+//!   made each declaration ([`owners`]) and the journal of the tables that
+//!   log their changes ([`journal`], §4.8);
 //! - [`Unit`]: the unit being elaborated, set aside whole while a library
 //!   file is loaded inside one;
 //! - [`Decl`]: per-declaration scratch, rebuilt by `Default`;
@@ -28,7 +30,9 @@
 mod attempt;
 mod caches;
 mod decl;
+mod journal;
 mod options;
+mod owners;
 mod session;
 mod table;
 mod tables;
@@ -39,7 +43,10 @@ pub(crate) use attempt::Mark as AttemptMark;
 pub(crate) use caches::Caches;
 pub(crate) use caches::Mark as CachesMark;
 pub(crate) use decl::Decl;
+pub use journal::JournalStats;
+pub(crate) use journal::{Checkpoint, Logged, Logs};
 pub use options::Options;
+pub(crate) use owners::UnitId;
 pub(crate) use session::Mark as SessionMark;
 pub use session::Session;
 pub(crate) use session::Stats;

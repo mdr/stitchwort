@@ -2400,6 +2400,10 @@ impl Elaborator {
             g.registry.forget_from(base_defs, base_datas);
             g.defs.truncate(base_defs);
             g.datas.truncate(base_datas);
+            self.session.owners.truncate(crate::state::Ids {
+                defs: base_defs,
+                datas: base_datas,
+            });
             g.hashes.borrow_mut().retain(|k, _| match k {
                 stitchwort_core::globals::HashKey::Def(id) => id.0 < base_defs,
                 stitchwort_core::globals::HashKey::Data(d) => d.0 < base_datas,
@@ -2689,7 +2693,7 @@ impl Elaborator {
     /// name.
     fn replay_tables(&mut self, t: Rest, early: &[(String, Span, bool)]) {
         // The abilities first: a name may be one.
-        self.tables.replay(t.tables);
+        self.tables.replay(t.tables, &self.session.owners);
         let ability = |e: &Elaborator, op_data: DataId| {
             e.tables
                 .abilities

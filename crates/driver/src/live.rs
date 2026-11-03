@@ -831,7 +831,7 @@ pub struct LiveFile {
 
 impl LiveFile {
     pub fn new(
-        session: Session,
+        mut session: Session,
         name: &str,
         text: String,
         include: Option<(Rc<dyn IncludeFiles>, String)>,

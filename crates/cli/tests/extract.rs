@@ -138,7 +138,7 @@ fn generated_code_is_stable() {
         STACK,
         &examples().paths(),
         || {
-            let session = Session::new();
+            let mut session = Session::new();
             let mark = session.mark();
             (session, mark)
         },

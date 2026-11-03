@@ -703,8 +703,8 @@ struct Outer {
     /// here because a nested load can come while a unit's warnings wait to
     /// be drained.
     lambda_warnings: Vec<Diagnostic>,
-    /// Where the outer unit's declarations start (`state::Tables`).
-    tables_start: crate::state::Ids,
+    /// The outer unit (`state::Session::owners`).
+    unit_id: crate::state::UnitId,
 }
 
 impl Elaborator {
@@ -1192,7 +1192,7 @@ impl Elaborator {
             globals_module: std::mem::replace(&mut self.globals.module, module),
             imports: self.scope.take_imports(),
             lambda_warnings: self.attempt.lambda_warnings.take(),
-            tables_start: self.tables.begin_unit(self.ids()),
+            unit_id: self.session.owners.enter(self.ids()),
         }
     }
 
@@ -1203,9 +1203,9 @@ impl Elaborator {
             globals_module,
             imports,
             lambda_warnings,
-            tables_start,
+            unit_id,
         } = outer;
-        self.tables.begin_unit(tables_start);
+        self.session.owners.leave(self.ids(), unit_id);
         self.unit.leave(unit);
         self.globals.module = globals_module;
         self.scope.restore_imports(imports);

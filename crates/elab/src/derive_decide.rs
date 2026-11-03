@@ -57,7 +57,7 @@ impl Elaborator {
                 "the type of its field `{}` mentions an earlier field",
                 fields[k].0
             );
-            self.tables.no_decide.insert(d, why);
+            self.tables.no_decide.insert(&self.session.owners, d, why);
             return Ok(());
         }
         // `T.%C%P%k`, the fields' types, unless made already.
@@ -75,9 +75,11 @@ impl Elaborator {
         // instance behind (which the check cache couldn't keep).
         self.clear_metas();
         if let Some(why) = self.undecidable_field(d)? {
-            self.tables
-                .no_decide
-                .insert(d, format!("deriving it failed: {why}"));
+            self.tables.no_decide.insert(
+                &self.session.owners,
+                d,
+                format!("deriving it failed: {why}"),
+            );
             return Ok(());
         }
         self.clear_metas();
@@ -88,9 +90,11 @@ impl Elaborator {
             Ok(()) => Ok(()),
             Err(e) if e.code == "E-RESOURCE" => Err(e),
             Err(e) => {
-                self.tables
-                    .no_decide
-                    .insert(d, format!("deriving it failed: {}", e.message));
+                self.tables.no_decide.insert(
+                    &self.session.owners,
+                    d,
+                    format!("deriving it failed: {}", e.message),
+                );
                 Ok(())
             }
         }

@@ -72,6 +72,11 @@ pub struct Session {
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,
+    /// Which unit made each declaration, and which is being elaborated
+    /// (docs/proposals/elaborator-state.md §4.8.4).
+    pub(crate) owners: super::owners::Owners,
+    /// The checkpoints of the tables that log their changes (§4.8.2).
+    pub(crate) journal: super::journal::Journal<crate::rewind::LogPositions>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -86,6 +91,7 @@ pub(crate) struct Mark {
     namespace_sources: HashMap<String, cache::Key>,
     namespace_keys: HashMap<String, cache::Key>,
     replayed_names: HashSet<String>,
+    owners: super::owners::Mark,
 }
 
 impl Session {
@@ -100,6 +106,9 @@ impl Session {
             namespace_sources,
             namespace_keys,
             replayed_names,
+            owners,
+            // Its own checkpoints (`rewind.rs`).
+            journal: _,
             // Set around the core's load, so `None` here.
             core_link_names: _,
             // Counted, never reused or taken back.
@@ -121,6 +130,7 @@ impl Session {
             namespace_sources: namespace_sources.clone(),
             namespace_keys: namespace_keys.clone(),
             replayed_names: replayed_names.clone(),
+            owners: owners.mark(),
         }
     }
 
@@ -135,6 +145,8 @@ impl Session {
             namespace_sources,
             namespace_keys,
             replayed_names,
+            owners,
+            journal: _,
             core_link_names: _,
             source_epoch: _,
             standalone_inputs: _,
@@ -153,6 +165,7 @@ impl Session {
         *namespace_sources = mark.namespace_sources.clone();
         *namespace_keys = mark.namespace_keys.clone();
         *replayed_names = mark.replayed_names.clone();
+        owners.rewind(&mark.owners);
     }
 }
 

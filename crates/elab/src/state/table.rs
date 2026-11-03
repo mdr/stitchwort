@@ -10,14 +10,15 @@
 //! - [`GrowVec`]: rows are only pushed, in load order. Marked by its length,
 //!   rewound by cutting back to it; an entry holds the rows pushed since.
 //! - [`OwnedBy`]: rows keyed by a declaration, each written only while the
-//!   unit that declared it is elaborated, which [`OwnedBy::insert`]
-//!   asserts. Rewound by dropping the rows of declarations made since; an
-//!   entry holds the rows of the unit's own declarations, and writing it
-//!   checks no older row was added.
+//!   unit that declared it is elaborated ([`super::owners`]), which
+//!   [`OwnedBy::insert`] and [`OwnedBy::remove`] assert. Rewound by
+//!   dropping the rows of declarations made since; an entry holds the rows
+//!   of the unit's own declarations.
 //!
-//! The note's other two kinds aren't types here: the tables any of whose
-//! rows may change (`Logged`, §7 step 6) are still copied at a mark, and
-//! the derived ones are [`super::Caches`].
+//! The note's other two kinds aren't here: the tables any of whose rows may
+//! change are [`super::journal::Logged`] (though `Tables`' own are still
+//! copied at a mark until §7 step 6b), and the derived ones are
+//! [`super::Caches`].
 
 use std::hash::Hash;
 use std::ops::Deref;
@@ -25,6 +26,7 @@ use std::ops::Deref;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DataId, DefId};
 
+use super::owners::{Owners, UnitId};
 use crate::cache::{Body, Encoding, Read};
 
 /// A row's bytes in a check cache entry: declarations by path and hash
@@ -60,8 +62,8 @@ pub(crate) trait Table {
     /// what was there before in a way an entry can't hold.
     fn encode_since(&self, m: &Self::Mark, e: &mut Encoding<'_>) -> Result<(), String>;
     fn decode(b: &mut Body<'_>) -> Read<Self::Rows>;
-    /// Adds an entry's rows, read back.
-    fn replay(&mut self, rows: Self::Rows);
+    /// Adds an entry's rows, read back, in the unit replaying it.
+    fn replay(&mut self, rows: Self::Rows, owners: &Owners);
     /// The whole table, one line per row, each starting with `name`.
     fn dump(&self, name: &str, out: &mut String);
 }
@@ -142,7 +144,7 @@ impl<T: Codec + Dump> Table for GrowVec<T> {
         (0..n).map(|_| T::decode(b)).collect()
     }
 
-    fn replay(&mut self, rows: Vec<T>) {
+    fn replay(&mut self, rows: Vec<T>, _: &Owners) {
         self.rows.extend(rows);
     }
 
@@ -158,6 +160,8 @@ pub(crate) trait Id: Copy + Eq + Hash + Codec + Dump {
     fn index(self) -> usize;
     /// The ids there are of this kind.
     fn count(ids: Ids) -> usize;
+    /// The unit that made it.
+    fn owner(self, owners: &Owners) -> UnitId;
 }
 
 impl Id for DataId {
@@ -166,6 +170,9 @@ impl Id for DataId {
     }
     fn count(ids: Ids) -> usize {
         ids.datas
+    }
+    fn owner(self, owners: &Owners) -> UnitId {
+        owners.of_data(self.0)
     }
 }
 
@@ -176,22 +183,21 @@ impl Id for DefId {
     fn count(ids: Ids) -> usize {
         ids.defs
     }
+    fn owner(self, owners: &Owners) -> UnitId {
+        owners.of_def(self.0)
+    }
 }
 
 /// A table keyed by declaration, whose rows only the declaring unit writes
 /// (see the module's comment).
 pub(crate) struct OwnedBy<I, V> {
     rows: HashMap<I, V>,
-    /// The first id of the unit being elaborated: rows below it are
-    /// another unit's.
-    floor: usize,
 }
 
 impl<I, V> Default for OwnedBy<I, V> {
     fn default() -> Self {
         OwnedBy {
             rows: HashMap::default(),
-            floor: 0,
         }
     }
 }
@@ -209,27 +215,20 @@ pub(crate) struct OwnedMark {
     cut: usize,
     /// How many rows there were (all below `cut`).
     rows: usize,
-    floor: usize,
 }
 
 impl<I: Id, V> OwnedBy<I, V> {
-    pub(crate) fn insert(&mut self, id: I, row: V) -> Option<V> {
-        self.owned(id);
+    /// Sets `id`'s row; `owners` say which unit is being elaborated, and
+    /// it must be the one that made `id`.
+    pub(crate) fn insert(&mut self, owners: &Owners, id: I, row: V) -> Option<V> {
+        owned(owners, id);
         self.rows.insert(id, row)
     }
 
-    pub(crate) fn remove(&mut self, id: &I) -> Option<V> {
-        self.owned(*id);
+    /// Removes `id`'s row, as [`OwnedBy::insert`].
+    pub(crate) fn remove(&mut self, owners: &Owners, id: &I) -> Option<V> {
+        owned(owners, *id);
         self.rows.remove(id)
-    }
-
-    fn owned(&self, id: I) {
-        assert!(
-            id.index() >= self.floor,
-            "a row for declaration {} written by a later unit (its first is {})",
-            id.index(),
-            self.floor,
-        );
     }
 
     /// The rows sorted by id.
@@ -248,13 +247,11 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
         OwnedMark {
             cut: I::count(ids),
             rows: self.rows.len(),
-            floor: self.floor,
         }
     }
 
     fn rewind(&mut self, m: &OwnedMark) {
         self.rows.retain(|id, _| id.index() < m.cut);
-        self.floor = m.floor;
     }
 
     fn encode_since(&self, m: &OwnedMark, e: &mut Encoding<'_>) -> Result<(), String> {
@@ -262,6 +259,15 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
             .sorted()
             .into_iter()
             .partition(|(id, _)| id.index() < m.cut);
+        // Only the unit that made a declaration writes its row, and a
+        // unit's entry is written against a mark taken once the library
+        // files it needs have loaded: no row below the cut is the unit's.
+        // (Still refused in a build without debug assertions.)
+        debug_assert_eq!(
+            old.len(),
+            m.rows,
+            "a row for an older declaration was added"
+        );
         if old.len() != m.rows {
             return Err("a row for an older declaration changed".to_string());
         }
@@ -278,9 +284,9 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
         (0..n).map(|_| Ok((I::decode(b)?, V::decode(b)?))).collect()
     }
 
-    fn replay(&mut self, rows: Vec<(I, V)>) {
+    fn replay(&mut self, rows: Vec<(I, V)>, owners: &Owners) {
         for (id, row) in rows {
-            self.insert(id, row);
+            self.insert(owners, id, row);
         }
     }
 
@@ -296,9 +302,70 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     }
 }
 
-impl<I: Id, V> OwnedBy<I, V> {
-    /// Says which ids the unit being elaborated starts at.
-    pub(crate) fn set_floor(&mut self, start: Ids) {
-        self.floor = I::count(start);
+fn owned<I: Id>(owners: &Owners, id: I) {
+    let (owner, current) = (id.owner(owners), owners.current());
+    assert!(
+        owner == current,
+        "a row for declaration {} written by unit {current:?}, not by its own, {owner:?}",
+        id.index(),
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ids(defs: usize, datas: usize) -> Ids {
+        Ids { defs, datas }
+    }
+
+    /// A unit can't write a row for a declaration of a unit nested in it,
+    /// even one made after the unit began (F9): the floor the tag replaced
+    /// allowed it.
+    #[test]
+    fn a_row_is_written_by_its_unit_only() {
+        let mut owners = Owners::default();
+        let mut t: OwnedBy<DataId, u32> = OwnedBy::default();
+        // Unit A begins with 100 data types, and a library file B loads
+        // inside it, declaring the 101st.
+        owners.begin(ids(0, 100));
+        let a = owners.enter(ids(0, 100));
+        t.insert(&owners, DataId(100), 1);
+        owners.leave(ids(0, 101), a);
+        // A overwriting B's row, or removing it, is refused.
+        let overwrite = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            t.insert(&owners, DataId(100), 2)
+        }));
+        assert!(overwrite.is_err());
+        let remove = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            t.remove(&owners, &DataId(100))
+        }));
+        assert!(remove.is_err());
+        assert_eq!(t.get(&DataId(100)), Some(&1));
+        // A's own, made after B, and an older unit's.
+        t.insert(&owners, DataId(101), 3);
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                t.insert(&owners, DataId(5), 4)
+            }))
+            .is_err()
+        );
+    }
+
+    /// The tags survive a rewind as they were at the mark, and declarations
+    /// made again after it belong to the unit current then.
+    #[test]
+    fn a_rewind_puts_the_owners_back() {
+        let mut owners = Owners::default();
+        let a = owners.begin(ids(3, 0));
+        let m = owners.mark();
+        let outer = owners.enter(ids(4, 0));
+        owners.leave(ids(6, 0), outer);
+        assert_ne!(owners.of_def(5), a);
+        owners.rewind(&m);
+        assert_eq!(owners.current(), a);
+        assert_eq!(owners.of_def(3), a);
+        assert_eq!(owners.of_def(5), a, "made again by A");
+        assert_ne!(owners.of_def(2), a);
     }
 }

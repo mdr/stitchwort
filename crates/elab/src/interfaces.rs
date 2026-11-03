@@ -337,6 +337,7 @@ impl Elaborator {
             self.scope.mark_member(&key);
         }
         self.tables.interfaces.insert(
+            &self.session.owners,
             d,
             InterfaceInfo {
                 dict,

@@ -491,6 +491,8 @@ before the library files it needs load inside it, and its `Before` after
 them. So the floor doesn't stop the namespace writing a row for one of
 those files' declarations, and the count check catches a new row there but
 not a changed one. §4.8.1 has the code path, and §4.8.4 replaces the floor.
+*(Step 6a.)* The floor is gone: `insert` and `remove` take the session's
+`Owners` and assert `owner(id) == current unit` (§4.8.9).
 
 Differences from the sketch above:
 
@@ -1029,6 +1031,112 @@ language-server.md §"As built"); edit latency p95 no worse than today's by
 more than 10%; command-line cold and warm checks no slower than 2% in CPU
 time.
 
+#### 4.8.8 As built: the journal (step 6a, SW-1171)
+
+`state/journal.rs` has `Logged<K, V>`, the `Logs` trait, `Journal<P>`,
+`Checkpoint`, `Transaction` and `JournalStats`, as §4.8.2 specifies, with
+these details decided in the lane:
+
+- **The journal is generic over its positions.** `Journal<P>` stores each
+  open checkpoint's positions, a `P`, and every operation takes the tables
+  as a `&mut impl Logs<Positions = P>`: positions, `undo_to`,
+  `set_generation`, and the counts for `JournalStats`. `rewind.rs`'s
+  `LoggedTables` names every logged table (in 6a, navigation's five maps,
+  while it is on) and `LogPositions` is its `P`; the model test uses one
+  `Logged` as its own `Logs`. 6b adds the scope's maps, `instances`,
+  `helper_keys` and `Session`'s copied maps to `LoggedTables`.
+- **A table holds a copy of the generation.** The journal sets it in every
+  table at each checkpoint, transaction and rewind (O(number of tables)),
+  so a write reads only its own table: no shared cell, no reference to the
+  journal (§4.9). `None` means nothing is open: nothing is logged, and the
+  logs are dropped when the stack empties.
+- **A restored row gets stamp 0**, which is never a generation. Starting a
+  generation at a rewind is therefore redundant (every key written since
+  the checkpoint is undone and restamped) but kept, as specified.
+- **Checks before changes.** Every operation checks its handle (`serial`
+  at `depth`), and `release` and `commit` that it is the newest, before
+  changing anything, so a refused use leaves the tables as they were. A
+  rewind or abort past an open `Transaction` panics ("commit or abort it
+  first"), as §4.8.2's cancellation rule requires.
+- **Write-sets.** `Journal::began_at(&Transaction)` gives the positions a
+  transaction began at, and `Logged::changed_since(at)` the keys logged
+  since, each with its oldest logged value (its value when the
+  transaction began). Segments by unit (§4.8.3) are not built: they belong
+  to 6c, with the entries made from them.
+- **`Elaborator::mark` takes `&mut self`** (and so does the driver's
+  `Session::mark`): a mark is a checkpoint, which changes the journal. Five
+  call sites needed `let mut`. A `Mark` holds its `Checkpoint`, so a
+  rewind to a mark that a rewind to an older one dropped panics, with or
+  without navigation (before, only navigation's maps and the driver's
+  count of sources caught some such uses).
+- **Nothing releases a mark yet.** In 6a a dropped `Mark` leaves its
+  checkpoint open until a rewind to an older one, as navigation's log was
+  kept before; a command-line check takes no marks, so it logs nothing.
+  6b makes `LiveProject` and `Session::cancellable` release theirs. The
+  journal's `release`, `begin`, `commit`, `abort` and the write-set are
+  used only by the tests until 6b and 6c (`#![cfg_attr(not(test),
+  allow(dead_code))]` on the module).
+- **`JournalStats`** (public, from `Elaborator::journal_stats`, summable by
+  `add`): `entries` (logged), `peak_entries`, `held`, `bytes_held` (the
+  logs' entries' own size), `distinct_keys` (counted when read),
+  `rewinds`, `undone` (per rewind: `undone / rewinds`), `checkpoints`,
+  `transactions`. Entries are counted at each journal operation from how
+  much the logs grew, since a write doesn't reach the journal. Not printed
+  by `STITCHWORT_TIMINGS` yet: SW-1172's harness reads them.
+
+The model test (`state/journal/tests.rs`, §4.8.6 item 1) runs 10,000
+seeded sequences of up to 50 steps (about 256,000 steps: 128,000 writes,
+26,000 checkpoints, 13,000 transactions, 11,500 rewinds of which 5,400
+repeat the last one, 10,000 releases, 2,800 commits, 2,700 aborts, 1,100
+uses of a dropped handle and 5,800 other refused uses) against a `BTreeMap`
+with a copy per open checkpoint, in 0.2 s in a release build. It checks the
+map after every step, that the logs are empty whenever nothing is open, and
+each transaction's write-set before it ends. Besides it: the review's
+`x = 0..3` sequence by name, a rewind past a transaction, nothing logged
+while nothing is open, and (debug builds) the dropped transaction's
+assertion. Changing the journal to not start a generation at a checkpoint,
+or a write to not log an overwritten row, fails all of them.
+
+#### 4.8.9 As built: ownership (step 6a, SW-1171)
+
+`state/owners.rs` has `UnitId` and `Owners`, in `Session` (not beside
+`defs`/`datas`: they are `Globals`' in `core`, and `Kernel` doesn't exist
+until step 8):
+
+- **Tags are filled in when the unit changes,** rather than pushed by
+  whatever makes a declaration (the kernel's two `push`es in `core`, the
+  cache's replay). `Owners::begin` (`elaborate_namespace`), `enter` and
+  `leave` (`enter_nested_unit`, `leave_nested_unit`) first tag the
+  declarations made since the last change as the outgoing unit's. An
+  untagged id is the current unit's. That gives each declaration the unit
+  that was current when it was made, which is the rule, without assuming
+  anything about the order ids are given out in, and without touching
+  `core`. A rewind cuts the tags to the mark's and puts its current unit
+  back (`Session`'s mark); `rewind_globals` and a failed admission in the
+  cache cut them to the declarations that remain, as their ids are given
+  out again.
+- **Units.** Unit 0 is the core and the prelude, and everything before the
+  first `elaborate_namespace`. Each `elaborate_namespace` (a project
+  namespace, a file, a library file) begins a new unit; a nested load
+  (`enter_nested_unit`: a library file, or `in_library_file`'s on-demand
+  equations) enters one and puts the outer one back after. So on-demand
+  equations are a unit of their own, as the floor treated them (§4.8.3's
+  "the segment of the library file that defines it" is for 6c's segments,
+  which would need the file's unit, looked up by file).
+- **`OwnedBy::insert(owners, id, row)`** and `remove` assert it (14 call
+  sites; the replay passes `&session.owners`). `Tables::begin_unit`, the
+  floor and `Tables`' `start` are gone.
+- **The encoder still partitions by the cut,** not by tag: an entry holds
+  the declarations from its `Before` on, so a row for an id below the cut
+  couldn't be replayed whoever owns it, and with the assertion no unit
+  writes another's. The count check is a `debug_assert_eq!` and still
+  refuses the entry in a build without debug assertions, which the tests
+  use (`--release`).
+- **Tests:** `OwnedBy`'s unit tests (`state/table.rs`): a unit writing,
+  overwriting or removing the row of a declaration of a unit nested in it
+  (the review's example, F9) panics, as does one for an older unit's; and
+  the tags after a rewind.
+
 ### 4.9 Keeping parallel checking possible
 
 Parallel checking isn't planned (D2281). This section says what it would
@@ -1270,7 +1378,7 @@ orchestrator.
 | 3 | **`Options` and `Session`.** Settings and test switches into `Options` with `cache_key()`; project and cache bookkeeping into `Session`; `queue.rs`'s counters and `MET_UNFILLED` into `Session::stats`. `include_files` and `core_link_names` are set by the host after the session is built, so they go to `Session`, not `Options` | SW-1129's globals | `postponement.rs`, `check_cache.rs`, `rewind.rs` |
 | 4 | **`Caches`**, plus a test switch (`Options::clear_caches_per_declaration`, checked in `Elaborator::glued`) that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
-| 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
+| 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first. *Done (SW-1171): §4.8.8, §4.8.9; `Owners` in `Session`, tagged at unit changes; marks are checkpoints; nothing releases one until 6b* | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
 | 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
 | 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
@@ -1519,7 +1627,7 @@ by hand where a regex missed (`records` is dumped).
 | `uniform_operators` | `--sE-` | Options | setting |  |
 | `instance_waits` | `--s--` | Session | statistic |  |
 | `in_instance_signature` | `--r--` | Decl | dynamic extent |  |
-| `nav` | `--RED` | Presentation | logged (nav::Logged) |  |
+| `nav` | `--RED` | Presentation | logged (`state::Logged`) | its five maps on the session's journal since step 6a; its lists cut back by length |
 | `check_cache` | `--sE-` | Options | setting (host) |  |
 | `cache_stats` | `--sE-` | Session | statistic |  |
 | `namespace_sources` | `--RE-` | Session | logged | copied per mark |
@@ -1528,6 +1636,8 @@ by hand where a regex missed (`records` is dumped).
 | `skip_navigation_walk` | `--rE-` | Unit | swap |  |
 | `omega_for_auto` | `--R--` | Unit | swap | copied per mark. Cleared when a module starts and set after its loads. A nested library load starts with the outer unit's value and the outer's comes back with it (SW-1150); a mark keeps it. Typed-in expressions (`eval`, the REPL) see the last module's, or `false` before any |
 | `replayed_names` | `--RE-` | Session | logged | copied per mark |
+| `owners` (step 6a) | | Session | per declaration | `Owners`: the unit that made each declaration and the current one; tags cut back and the current unit put back by a rewind (§4.8.9) |
+| `journal` (step 6a) | | Session | journal | the checkpoints of the logged tables; a mark is one (§4.8.8) |
 | `fail_replays_late` | `--sE-` | Options | test switch |  |
 | `recheck_namespaces` | `--s--` | Options | test switch |  |
 | `clear_caches_per_declaration` | `--s--` | Options | test switch | new in step 4: empties `Caches` in `Elaborator::glued`, before each declaration |

@@ -35,7 +35,7 @@ pub struct Cancelled;
 
 impl Session {
     /// Where the session is now. Only between loads, not during one.
-    pub fn mark(&self) -> Mark {
+    pub fn mark(&mut self) -> Mark {
         Mark {
             sources: self.sources.len(),
             warnings: self.warnings.len(),

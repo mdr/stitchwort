@@ -23,6 +23,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
+use super::owners::Owners;
 use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table};
 use crate::TestDecl;
 use crate::cache::{Body, Encoding, Read};
@@ -81,15 +82,11 @@ pub(crate) struct Tables {
     pub(crate) namespace_defs: BTreeMap<String, Range<usize>>,
     /// How many definitions the prelude made.
     pub(crate) prelude_defs: usize,
-    /// The first declarations of the unit being elaborated: rows of an
-    /// `OwnedBy` table for older ones are another unit's.
-    start: Ids,
 }
 
 /// Where [`Tables`] are: for a rewind, or for the rows a unit's check
 /// cache entry holds.
 pub(crate) struct Mark {
-    start: Ids,
     tests: usize,
     abilities: usize,
     lifted: usize,
@@ -143,48 +140,6 @@ impl Mark {
 }
 
 impl Tables {
-    /// Says that a unit whose first declarations are `start` is elaborated
-    /// from now on, and gives the start there was, to put back when a unit
-    /// nested in another is done.
-    pub(crate) fn begin_unit(&mut self, start: Ids) -> Ids {
-        let Tables {
-            records,
-            interfaces,
-            data_owners,
-            no_eq,
-            no_show,
-            no_ord,
-            no_finite,
-            no_decide,
-            generated_alls,
-            match_columns,
-            total_rows,
-            start: old,
-            // Not owned by a unit.
-            tests: _,
-            abilities: _,
-            lifted: _,
-            equation_skips: _,
-            equations_done: _,
-            instances: _,
-            helper_keys: _,
-            namespace_defs: _,
-            prelude_defs: _,
-        } = self;
-        records.set_floor(start);
-        interfaces.set_floor(start);
-        data_owners.set_floor(start);
-        no_eq.set_floor(start);
-        no_show.set_floor(start);
-        no_ord.set_floor(start);
-        no_finite.set_floor(start);
-        no_decide.set_floor(start);
-        generated_alls.set_floor(start);
-        match_columns.set_floor(start);
-        total_rows.set_floor(start);
-        std::mem::replace(old, start)
-    }
-
     /// Where the tables are, with `ids` declarations made so far.
     pub(crate) fn mark(&self, ids: Ids) -> Mark {
         let Tables {
@@ -208,10 +163,8 @@ impl Tables {
             helper_keys,
             namespace_defs,
             prelude_defs,
-            start,
         } = self;
         Mark {
-            start: *start,
             tests: tests.mark(ids),
             abilities: abilities.mark(ids),
             lifted: lifted.mark(ids),
@@ -258,9 +211,7 @@ impl Tables {
             helper_keys,
             namespace_defs,
             prelude_defs,
-            start,
         } = self;
-        *start = m.start;
         tests.rewind(&m.tests);
         abilities.rewind(&m.abilities);
         lifted.rewind(&m.lifted);
@@ -317,7 +268,6 @@ impl Tables {
             // Not in an entry (see the module's comment).
             namespace_defs: _,
             prelude_defs: _,
-            start: _,
         } = self;
         if instances.iter().any(|(k, v)| {
             m.instances
@@ -417,7 +367,7 @@ impl Tables {
     }
 
     /// Adds what an entry holds, read back.
-    pub(crate) fn replay(&mut self, d: Delta) {
+    pub(crate) fn replay(&mut self, d: Delta, owners: &Owners) {
         let Tables {
             tests,
             abilities,
@@ -440,7 +390,6 @@ impl Tables {
             // Set by the replay of a namespace (`replay_namespace`).
             namespace_defs: _,
             prelude_defs: _,
-            start: _,
         } = self;
         let Delta {
             tests: d_tests,
@@ -462,22 +411,22 @@ impl Tables {
             instances: d_instances,
             helper_keys: d_helper_keys,
         } = d;
-        tests.replay(d_tests);
-        abilities.replay(d_abilities);
-        lifted.replay(d_lifted);
-        equation_skips.replay(d_equation_skips);
-        equations_done.replay(d_equations_done);
-        records.replay(d_records);
-        interfaces.replay(d_interfaces);
-        data_owners.replay(d_data_owners);
-        no_eq.replay(d_no_eq);
-        no_show.replay(d_no_show);
-        no_ord.replay(d_no_ord);
-        no_finite.replay(d_no_finite);
-        no_decide.replay(d_no_decide);
-        generated_alls.replay(d_generated_alls);
-        match_columns.replay(d_match_columns);
-        total_rows.replay(d_total_rows);
+        tests.replay(d_tests, owners);
+        abilities.replay(d_abilities, owners);
+        lifted.replay(d_lifted, owners);
+        equation_skips.replay(d_equation_skips, owners);
+        equations_done.replay(d_equations_done, owners);
+        records.replay(d_records, owners);
+        interfaces.replay(d_interfaces, owners);
+        data_owners.replay(d_data_owners, owners);
+        no_eq.replay(d_no_eq, owners);
+        no_show.replay(d_no_show, owners);
+        no_ord.replay(d_no_ord, owners);
+        no_finite.replay(d_no_finite, owners);
+        no_decide.replay(d_no_decide, owners);
+        generated_alls.replay(d_generated_alls, owners);
+        match_columns.replay(d_match_columns, owners);
+        total_rows.replay(d_total_rows, owners);
         instances.extend(d_instances);
         helper_keys.extend(d_helper_keys);
     }
@@ -505,9 +454,6 @@ impl Tables {
             helper_keys,
             namespace_defs,
             prelude_defs,
-            // Where the unit being elaborated starts: not a fact about what
-            // was checked.
-            start: _,
         } = self;
         records.dump("record", out);
         interfaces.dump("interface", out);

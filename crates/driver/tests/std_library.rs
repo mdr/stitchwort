@@ -923,7 +923,7 @@ fn assert_lazy_is_eager(sources: Vec<Source>) {
     // second or two) and rewinds it before each source: the rewind tests
     // check that this is exactly a fresh eager session.
     let eager_worker = || {
-        let eager = Session::eager_from_source_for_stack(STACK);
+        let mut eager = Session::eager_from_source_for_stack(STACK);
         let mark = eager.mark();
         (eager, mark)
     };

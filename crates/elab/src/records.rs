@@ -46,7 +46,9 @@ impl Elaborator {
     /// derived.
     pub(crate) fn after_record(&mut self, d: DataId, interface: bool) -> Result<()> {
         let projections = self.projections(d, interface)?;
-        self.tables.records.insert(d, RecordInfo { projections });
+        self.tables
+            .records
+            .insert(&self.session.owners, d, RecordInfo { projections });
         if interface {
             let projections = self.tables.records[&d]
                 .projections
