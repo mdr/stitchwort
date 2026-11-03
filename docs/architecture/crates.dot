@@ -1,0 +1,65 @@
+digraph crates {
+  rankdir=TB; newrank=true; nodesep=0.18; ranksep=0.42; splines=true;
+  node [shape=plaintext fontname="Helvetica" fontsize=9];
+  edge [color="#555555" arrowsize=0.6 penwidth=1.1];
+  subgraph "cluster_iface" { label=<<B>INTERFACES</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    cli [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">cli</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"> </FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">The stitchwort command:<BR ALIGN="LEFT"/>run, check, test, build,<BR ALIGN="LEFT"/>search, doc, fmt, LSP<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 6.6k + 21.3k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="10" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    web [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">web</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Browser playground: the<BR ALIGN="LEFT"/>compiler as WebAssembly,<BR ALIGN="LEFT"/>JSON API<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 2.4k</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="6" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_orch" { label=<<B>ORCHESTRATION</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    driver [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">driver</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Sessions, projects, check<BR ALIGN="LEFT"/>cache, search, tests,<BR ALIGN="LEFT"/>diagnostics; shared by<BR ALIGN="LEFT"/>CLI and browser<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 12.6k + 28.6k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="14" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_back" { label=<<B>RUNTIME AND BACKENDS</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    host [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">host</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Terminal handling and<BR ALIGN="LEFT"/>the big-stack thread<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 497</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="3" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    rt [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">rt</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Fast untrusted runtime:<BR ALIGN="LEFT"/>erasure, IR, optimiser,<BR ALIGN="LEFT"/>bytecode machine, native ABI<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 18.1k + 5.0k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="17" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    js [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">js</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">JavaScript extraction<BR ALIGN="LEFT"/>and TypeScript boundary<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 8.7k</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="12" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    native [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">native</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"> </FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Cranelift: JIT for<BR ALIGN="LEFT"/>run --native, objects<BR ALIGN="LEFT"/>for build<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 6.5k + 2.6k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="10" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    standalone [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">standalone</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"> </FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Runtime a built exe links:<BR ALIGN="LEFT"/>C main, machine, host<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 617</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="3" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_elab" { label=<<B>ELABORATION</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    elab [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">elab</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Surface syntax to core terms:<BR ALIGN="LEFT"/>names, inference, patterns,<BR ALIGN="LEFT"/>derives; the .sw std library<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 99.5k · 28.2k .sw</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="40" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_kernel" { label=<<B>KERNEL</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    core [label=<<TABLE BORDER="1" COLOR="#b00020" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="#fff1f1"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">core</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#b00020"><B>TRUSTED KERNEL</B></FONT>  <FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Core terms, evaluator (NbE),<BR ALIGN="LEFT"/>kernel checker, termination<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 20.5k + 12.9k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="18" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_front" { label=<<B>FRONT END</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    syntax [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">syntax</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Lexer, parser, surface<BR ALIGN="LEFT"/>AST, spans, diagnostics<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 13.1k + 780 tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="15" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    fmt [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">fmt</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"><FONT COLOR="#1a5fb4">wasm</FONT></FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Source formatter; reparses<BR ALIGN="LEFT"/>its output to check it<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 1.6k + 562 tests · 1.6k .sw</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="5" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  subgraph "cluster_tool" { label=<<B>TOOLING</B>> labeljust=l labelloc=t fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" color="#cccccc" fillcolor="#f6f6f6" margin=7;
+    bench [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">bench</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"> </FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Recorded benchmarks:<BR ALIGN="LEFT"/>work, allocation, time<BR ALIGN="LEFT"/>against a baseline<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 1.5k + 339 tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="5" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+    partial_model [label=<<TABLE BORDER="1" COLOR="#444444" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" BGCOLOR="white"><TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">partial-model</FONT></B></TD><TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5"> </FONT></TD></TR><TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">Executable model of the<BR ALIGN="LEFT"/>Partial runtime proposal;<BR ALIGN="LEFT"/>driver tests only<BR ALIGN="LEFT"/></FONT></TD></TR><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">src 1.6k + 1.8k tests</FONT></TD><TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD WIDTH="5" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR></TABLE>>];
+  }
+  { rank=same; cli web bench; }
+  cli -> web [style=invis];
+  web -> bench [style=invis];
+  { rank=same; driver elab partial_model; }
+  driver -> elab [style=invis];
+  elab -> partial_model [style=invis];
+  { rank=same; standalone native js; }
+  standalone -> native [style=invis];
+  native -> js [style=invis];
+  { rank=same; host rt; }
+  host -> rt [style=invis];
+  { rank=same; fmt syntax core; }
+  fmt -> syntax [style=invis];
+  syntax -> core [style=invis];
+  bench -> driver;
+  cli -> driver;
+  cli -> fmt;
+  cli -> native [style=dashed color="#c05800" fontcolor="#c05800" fontsize=7 label="feature native"];
+  core -> syntax;
+  driver -> elab;
+  driver -> host;
+  driver -> js;
+  elab -> core;
+  fmt -> syntax;
+  host -> rt;
+  js -> rt;
+  native -> rt;
+  rt -> core;
+  standalone -> host;
+  web -> driver;
+  web -> fmt;
+  cli -> standalone [style=dotted color="#2a7f3f" arrowhead=odot];
+}

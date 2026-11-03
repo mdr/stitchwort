@@ -138,6 +138,8 @@ The architecture is recognizable and useful:
 | `host`, `cli`, `web` | Operating-system facilities and user interfaces | Host-specific code is mostly kept away from the language logic |
 | `fmt` | Formatting with validation | Particularly good example of a narrow, defensive component |
 
+A one-page diagram of the crates, their dependencies and sizes, regenerated from the workspace, is in [docs/architecture/crates.pdf](../architecture/crates.pdf).
+
 This is not a codebase that needs a new framework or a wholesale rewrite. The dependency direction is broadly appropriate, and the shared driver avoids independently reimplementing the compiler in each user interface. Native compilation is optional for the CLI and absent from the WebAssembly playground's dependency graph.
 
 There are imperfections: the core crate also contains printing, elaborator metavariables and a partial-program runner; the runtime crate contains much of the compiler's backend support. Crate names therefore should not be read as exact maps of the trusted computing base. These are manageable organizational issues, not proof that the broad split is wrong.
