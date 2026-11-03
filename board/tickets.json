@@ -1,5 +1,5 @@
 {
-  "next": 1148,
+  "next": 1149,
   "tickets": [
     {
       "id": 47,
@@ -4337,13 +4337,13 @@
     {
       "id": 1146,
       "title": "Built-ins navigable: a std file documents each reserved name's signature (Quot, Quot.mk, Quot.lift, Quot.ind, Quot.sound, rfl, J, Partial)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "D2262 (Matt, 3 Nov): go-to-definition and hover on a built-in (e.g. Quot in std/Map/Map.sw) lead to a standard file that documents its signature, even though the implementation isn't shown. Today the reserved names (elab lib.rs RESERVED) have no source location, so navigation does nothing. A test checks each documented signature against what the kernel/elaborator actually uses, so they can't drift. doc <name> should work too. Sonnet, expected 60 min.",
+      "body": "D2262 (Matt, 3 Nov): go-to-definition and hover on a built-in (e.g. Quot in std/Map/Map.sw) lead to a standard file that documents its signature, even though the implementation isn't shown. Today the reserved names (elab lib.rs RESERVED) have no source location, so navigation does nothing. A test checks each documented signature against what the kernel/elaborator actually uses, so they can't drift. doc <name> should work too. Sonnet, expected 60 min.\n\nDone 00bb1261, merged f835e14d after Opus review (orchestrator): std/core/Builtins.sw declares rfl, J, Quot, Quot.mk/lift/ind/sound with signatures and docs (bodyless def form, as Effect.Delay); builtin_docs.rs gives each the kernel form as body, abstracted over the signature, admitted by define_def (full kernel check), so drift fails the core load with E-BUILTIN. Uses still resolve to the built-in first; the definitions are aliases reached only by navigation (Std.Quot.sound is the axiom by definition, no new axiom). Review checked: de Bruijn indices in form() for J (base=Var1, p=Var0, motive Var4 under two binders), Quot arities, the reserved-name lift only while loading the prelude. Prelude snapshot +7 lines, no hash moved. Not covered: Partial (a row mode; no declaration form). Tests: 3 new (lsp, drift, doc); lane lsp, std; doc, navigation; hash_stability. Model result: Sonnet, worked, 45 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4358,6 +4358,20 @@
         "elab"
       ],
       "body": "From SW-1144: Attempt::rigid_divergence (was unify.rs RIGID_DIVERGENCE) survives an undone attempt, reset and rewind; it's taken before and after each body in Elaborator::group. Find what reads it and why (git log -S RIGID_DIVERGENCE), decide whether a flag set inside an undone attempt should count, write a test either way, and document the reason on the field. Orchestrator's call unless it changes what the language accepts.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1148,
+      "title": "doc rfl / doc J print an import line (import Std (rfl)) though built-ins need no import",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
