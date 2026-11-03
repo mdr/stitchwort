@@ -81,13 +81,13 @@ pub mod timings;
 pub use kernel::{
     record_rejections as record_kernel_rejections, take_rejections as take_kernel_rejections,
 };
-pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
+pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::GoalSnapshot;
 pub use rewind::Mark;
 pub use scope::edit_distance;
-pub use std_dir::{STD_DIR_VAR, StdText, std_text, use_std_dir};
+pub use std_dir::{CORE_ORDER, STD_DIR_VAR, StdText, std_text, use_std_bundle, use_std_dir};
 mod undo;
 mod unify;
 mod update_lemmas;
@@ -112,27 +112,8 @@ use stitchwort_syntax::{Diagnostic, Span, ast};
 use check::{Ctx, check, check_type, infer};
 use module::Phase;
 
-/// Defines [`EMBEDDED_PRELUDE`], the core as the build embeds it: the files
-/// of `std/core/`, in this order, joined as they are (checked as one module,
-/// so declarations are as they would be in one file); [`EMBEDDED_CORE_LAYOUT`],
-/// each file's path and length, which is how a position in the core is traced
-/// to its file; and [`CORE_FILES`], their names in order. The text is in the
-/// program once: a length is computed without keeping the text. What a
-/// process uses is [`prelude`] and [`core_layout`], which may be read from a
-/// directory instead ([`std_dir`]).
-macro_rules! core_files {
-    ($($name:literal),* $(,)?) => {
-        pub const EMBEDDED_PRELUDE: &str = concat!($(include_str!(concat!("std/core/", $name, ".sw"))),*);
-        pub const EMBEDDED_CORE_LAYOUT: &[(&str, usize)] = &[$((
-            concat!("core/", $name, ".sw"),
-            include_str!(concat!("std/core/", $name, ".sw")).len(),
-        )),*];
-        pub const CORE_FILES: &[&str] = &[$($name),*];
-    };
-}
-
 /// The core's text this process uses: the files of `std/core/`, joined
-/// (embedded, or read from `STITCHWORT_STD_DIR`; see [`std_dir`]).
+/// (see [`std_dir`] for where it is read from).
 pub fn prelude() -> &'static str {
     std_text().prelude
 }
@@ -147,36 +128,6 @@ pub fn core_layout() -> &'static [(&'static str, usize)] {
 pub fn library_files() -> &'static [(&'static str, &'static str)] {
     std_text().library
 }
-
-// Dependency order: each file uses only what the files before it declare.
-// `Imports` is first, and its imports cover them all. A test checks this
-// lists every file in `std/core/`.
-core_files!(
-    "Imports",
-    "Logic",
-    "Data",
-    "Equality",
-    "Decidable",
-    "Char",
-    "Division",
-    "ListOptionPair",
-    "Result",
-    "Ordering",
-    "Helpers",
-    "Finite",
-    "Text",
-    "Int",
-    "Effect",
-    "IO",
-    "DecEq",
-    "Compare",
-    "CompareData",
-    "Ord",
-    "OrdDerived",
-    "Show",
-    "Arith",
-    "AddMul",
-);
 
 /// The core's file that holds `offset` of [`prelude`]: its path (under
 /// `std/`), where it starts in [`prelude`], and its index in

@@ -22,6 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkg = process.env.PKG ?? join(here, "..", "pkg");
 const web = await import(join(pkg, "stitchwort_web.js"));
 web.initSync({ module: readFileSync(join(pkg, "stitchwort_web_bg.wasm")) });
+web.load_std(new Uint8Array(readFileSync(join(pkg, "std.bundle"))));
 
 const [command, file, expr] = process.argv.slice(2);
 if (command === "fingerprint") {

@@ -17,6 +17,9 @@
 // arrives, which a top-level `await` would delay.
 let bindings = null;
 let ready = null;
+// The standard library's files, fetched beside the WebAssembly (pkg/std.bundle,
+// with the worker's `?v=…`) and given to the compiler before its first use.
+let stdLoaded = null;
 
 // A live run (docs/proposals/playground-live-keys.md): the run stays here,
 // paused, between keys. Its requests, each answered with { id, out } after
@@ -60,6 +63,10 @@ self.onmessage = async ({ data }) => {
     const b = await bindings;
     ready ??= b.default({ module_or_path: data.module });
     await ready;
+    stdLoaded ??= fetch(`./pkg/std.bundle${self.location.search}`)
+      .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then((bytes) => b.load_std(new Uint8Array(bytes)));
+    await stdLoaded;
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
     if (data.action.startsWith("live-")) {
       self.postMessage({ id: data.id, out: liveRequest(b, data, sink) });

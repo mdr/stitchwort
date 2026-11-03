@@ -40,15 +40,11 @@ fn main() {
     let crates = fingerprint::source_crates(&root, "crates/driver");
     let mut sources = Vec::new();
     for dir in &crates {
-        // Only paths that exist: Cargo reruns the script every build for
-        // one that doesn't.
-        for watched in ["Cargo.toml", "build.rs", "src"] {
-            let path = root.join(dir).join(watched);
-            if path.exists() {
-                println!("cargo:rerun-if-changed={}", path.display());
-            }
-        }
+        // The files hashed, one by one: a directory is scanned whole, and
+        // the standard library's `.sw` files under `elab/src/std` must not
+        // rerun this script (nothing compiled depends on them).
         for file in fingerprint::source_files(&root, dir) {
+            println!("cargo:rerun-if-changed={}", root.join(&file).display());
             let text = std::fs::read(root.join(&file)).expect("a source file can be read");
             sources.push((file.to_string_lossy().into_owned(), text));
         }

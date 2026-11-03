@@ -541,6 +541,7 @@ tasks:
       - crates/**/build.rs
       - web/build.sh
       - web/bundle-projects.sh
+      - web/bundle-std.sh
       - web/write-version.sh
       - web/playground-worker.js
       - aoc/stitchwort.yaml
@@ -552,6 +553,7 @@ tasks:
     generates:
       - web/pkg/stitchwort_web_bg.wasm
       - web/pkg/stitchwort_web.js
+      - web/pkg/std.bundle
       - web/pkg/version.json
       - web/pkg/projects/aoc/manifest.json
       - web/pkg/projects/rogue/manifest.json

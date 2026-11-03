@@ -173,7 +173,7 @@ struct WorkspaceNav {
 impl WorkspaceNav {
     fn uri(&self, root: &Path, place: &Place) -> Option<Url> {
         match place {
-            Place::Library(std) => Url::parse(&format!("{STD_SCHEME}:{std}")).ok(),
+            Place::Library(std) => library_uri(std),
             Place::Program(path) if self.project => {
                 let mut full = root.to_path_buf();
                 full.extend(path.split('/'));
@@ -192,9 +192,36 @@ fn range([l1, c1, l2, c2]: [u32; 4]) -> lsp_types::Range {
     lsp_types::Range::new(Position::new(l1, c1), Position::new(l2, c2))
 }
 
-/// The library file a `stitchwort-std:` URI names (`List/Toolkit.sw`).
+/// The library file a `stitchwort-std:` URI names (`List/Toolkit.sw`), or a
+/// `file:` URI inside the directory the library was read from.
 fn std_path(uri: &Url) -> Option<String> {
-    (uri.scheme() == STD_SCHEME).then(|| uri.path().trim_start_matches('/').to_string())
+    if uri.scheme() == STD_SCHEME {
+        return Some(uri.path().trim_start_matches('/').to_string());
+    }
+    let dir = stitchwort_elab::std_text().dir.as_deref()?;
+    let relative = uri.to_file_path().ok()?.strip_prefix(dir).ok()?.to_owned();
+    let parts: Vec<&str> = relative.iter().filter_map(|c| c.to_str()).collect();
+    let path = parts.join("/");
+    // Only files the library has: the core's and the library's.
+    let stitchwort = stitchwort_elab::core_layout()
+        .iter()
+        .map(|(p, _)| *p)
+        .chain(stitchwort_elab::library_files().iter().map(|(p, _)| *p))
+        .any(|p| p == path);
+    stitchwort.then_some(path)
+}
+
+/// Where a library file is opened: its real file when the library was read
+/// from a directory, else a `stitchwort-std:` document the server serves.
+fn library_uri(std: &str) -> Option<Url> {
+    if let Some(dir) = stitchwort_elab::std_text().dir.as_deref() {
+        let mut full = dir.to_path_buf();
+        full.extend(std.split('/'));
+        if let Ok(uri) = Url::from_file_path(full) {
+            return Some(uri);
+        }
+    }
+    Url::parse(&format!("{STD_SCHEME}:{std}")).ok()
 }
 
 // ---- the main thread -----------------------------------------------------
@@ -342,8 +369,10 @@ impl Main<'_> {
     }
 
     fn notified(&self, n: Notification) {
+        // A file to check: not a library file, which is read-only here even
+        // when the editor opens the real file (`library_uri`).
         let path = |uri: &Url| {
-            (uri.scheme() == "file")
+            (uri.scheme() == "file" && std_path(uri).is_none())
                 .then(|| uri.to_file_path().ok())
                 .flatten()
         };
@@ -1844,6 +1873,15 @@ mod tests {
             ..Default::default()
         };
         let back = ws.uri(Path::new("/p"), &Place::Library("List/Toolkit.sw".into()));
-        assert_eq!(back.unwrap().as_str(), "stitchwort-std:List/Toolkit.sw");
+        let back = back.unwrap();
+        // The real file when the library was read from a directory.
+        match stitchwort_elab::std_text().dir.as_deref() {
+            Some(dir) => assert_eq!(
+                back.to_file_path().unwrap(),
+                dir.join("List").join("Toolkit.sw")
+            ),
+            None => assert_eq!(back.as_str(), "stitchwort-std:List/Toolkit.sw"),
+        }
+        assert_eq!(std_path(&back).as_deref(), Some("List/Toolkit.sw"));
     }
 }
