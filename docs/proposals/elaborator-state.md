@@ -1,7 +1,12 @@
 # Proposal: the elaborator's state, by lifetime
 
-**Status:** Draft 1, 3 November 2026 (SW-1137, D2250). A design note only:
-nothing is built until Matt has decided. Written at `b9627b79`. It builds
+**Status:** Draft 2, 3 November 2026 (SW-1137, D2250; revised for the
+external review by SW-1169, D2281). Steps 0-5 are built. Step 6 is specified
+in §4.8 and waits for Matt's decisions there (§8, D2283-D2287). §4.9 says
+what the design keeps open for parallel checking, and §10 answers the review
+([elaborator-state-review.md](../reviews/elaborator-state-review.md)) point
+by point. Draft 1 was written at `b9627b79`; draft 2's claims about the code
+were checked at `ed1d472c`. It builds
 on the architecture review's issue 2, §4 and step 8
 ([architecture-review.md](../research/architecture-review.md)). Claims about
 the code were checked by reading it. Measurements say what was run and where;
@@ -41,9 +46,11 @@ object, which no mechanism sees.
    are not stored as bare `HashMap`s. Each is one of four kinds:
    `GrowVec` (grows only, indexed by load order: marked by length),
    `OwnedBy<Id, V>` (rows written only by the unit that declares the id:
-   rewound by cutting at an id, encoded as the rows at or past the unit's
-   start, and the "an older row changed" check is built into the type),
-   `Logged<K, V>` (any row may change: an undo log like `nav::Logged`), and
+   rewound by cutting at an id, encoded as the rows of the unit's own
+   declarations, and the "an older row changed" check is built into the
+   type; draft 2 checks ownership by a unit tag per declaration, §4.8.4),
+   `Logged<K, V>` (any row may change: an undo log like `nav::Logged`,
+   whose log is also the index of what a cache entry holds, §4.8.3), and
    `Derived` (a cache: cleared, never encoded). A table states its kind
    once, where it is declared. The kind supplies mark, rewind, which rows to
    encode, and the dump of the whole table.
@@ -282,8 +289,8 @@ declare a kind, and why `Tables::dump` destructures `Tables`.
   that is a core-wide change), a fork per worker, and a merge of each
   worker's additions. The check cache's id-independent entry *is* a merge
   format: a worker's namespace could be replayed into the main session like
-  a cache hit. Nothing in this note blocks that, and the frozen base is
-  its prerequisite.
+  a cache hit. §4.9 lists what it would need and the constraints this
+  design adopts so as not to block it.
 - **Playground** (wasm worker). Single-threaded. It cancels by ending the
   worker. It needs only what the CLI needs, within a smaller memory budget.
 - **REPL / `eval`.** Expressions are elaborated after a file, against its
@@ -390,8 +397,8 @@ in `state/table.rs`:
 | Kind | Type | Invariant | Mark / rewind | Encode (delta since mark) | Fields today |
 |---|---|---|---|---|---|
 | Grows only, by load order | `GrowVec<T>` | push only | length / truncate | rows past the mark's length | `tests`, `abilities`, `lifted`, `equations_done`, `equation_skips` |
-| Owned by an id | `OwnedBy<Id, V>` | a row for id `i` is written only while the unit that declared `i` is elaborated: `insert` asserts `i >= unit_start` | id cut (`retain(i < mark)`) | rows with `i >= start`, ids written as path + hash | `records`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`, `generated_alls`, `interfaces`, `data_owners`, `match_columns`, `total_rows` |
-| Any row may change | `Logged<K, V>` | none | undo log (`nav::Logged`, generalised): O(1) mark, O(changes) rewind | rows changed since the mark: the log *is* the delta | `scope` (its maps), `instances`, `helper_keys` |
+| Owned by an id | `OwnedBy<Id, V>` | a row for id `i` is written only while the unit that declared `i` is elaborated: `insert` asserts it (draft 1: `i >= unit_start`; draft 2: `owner(i) == current unit`, §4.8.4) | id cut (`retain(i < mark)`) | the rows of the unit's own ids, written as path + hash | `records`, `no_eq`, `no_show`, `no_ord`, `no_finite`, `no_decide`, `generated_alls`, `interfaces`, `data_owners`, `match_columns`, `total_rows` |
+| Any row may change | `Logged<K, V>` | every write goes through its methods (§4.8.5) | undo log (`nav::Logged`, generalised): O(1) mark, O(changes) rewind (§4.8.2) | the log is an index of the keys the unit wrote; the entry holds each key's current value or its removal (§4.8.3) | `scope` (its maps), `instances`, `helper_keys` |
 | Derived | `Derived<T>` | correct if emptied at any time | cleared, or cut by id | never | `result_heads`, `performs`, `cong_candidates`, `decision_order`, `dot_heads`, `dot_failed` |
 
 A table that fits none of these implements the `Table` trait itself. The
@@ -479,6 +486,11 @@ run (elab's lane, `check_cache`, `rewind`, `hash_stability`,
 replaces the cache's `by_data` comparison and now covers `match_columns`
 and `total_rows` too. That check only fails if the assertion has been
 bypassed, or if a unit's start isn't where its cache `Before` was taken.
+*(Draft 2.)* The second case is real: a project namespace's floor is set
+before the library files it needs load inside it, and its `Before` after
+them. So the floor doesn't stop the namespace writing a row for one of
+those files' declarations, and the count check catches a new row there but
+not a changed one. §4.8.1 has the code path, and §4.8.4 replaces the floor.
 
 Differences from the sketch above:
 
@@ -526,11 +538,18 @@ Differences from the sketch above:
 
 **What changes at run time** (estimated from §5.2 and §2):
 
-- A check: no change in lookups. `Logged` adds one `HashSet` insert and one
-  `Vec` push per *first* write of a key after a mark. Outside a language
-  server no marks are taken and nothing is logged (as `nav::Logged` does
-  today). The `Before` copies of `scope.entries` per unit (§2.5) go, which
-  saves an estimated 0.1-0.3 s of a 69 s `aoc` check.
+- A check: no change in lookups. `Logged` adds one stamp comparison and,
+  for a key's first write in a segment, one `Vec` push (§4.8.2). A check
+  without the check cache (`--no-cache`, the playground) opens no
+  checkpoint and logs nothing. A check with the cache logs inside each
+  unit's transaction and drops the log when the transaction ends, so the
+  log never holds more than one unit's writes (§4.8.2's pruning rule;
+  draft 1 said nothing was logged outside a language server, which
+  contradicted using the log for cache entries). The `Before` copies of
+  `scope.entries` per unit (§2.5) go, and so do the namespace's copies of
+  the scope's key set and members (`start_keys`, `start_members`,
+  `cache/mod.rs:432-433`). That saves an estimated 0.1-0.3 s of a 69 s
+  `aoc` check, against the logging's cost; §4.8.7 measures both.
 - A language server: marks go from O(tables) (about 2 ms and megabytes
   each) to O(1). Rewind costs O(changes since the mark). The bench's
   version of this: 0.8-4 ms against 0.8-3 ms for putting a copy back.
@@ -572,6 +591,13 @@ comparison). For maps, the overlay is probed first and then the base. An
 overlay row can shadow a base row (inferred: the cache's check that an
 instance's `(def, valid)` didn't change suggests rows can change), which Lean's
 `SMap` forbids but we would allow: the overlay is always probed first.
+*(Draft 2.)* Reading the code, an instance's `valid` flag is set only by
+`validate_instance` (`interfaces.rs:590`), called from `after_definition`
+(`lib.rs:2771`) for the instance's own definition, so in its own unit.
+No later unit changes an older row of `instances` today, and the cache
+refuses an entry in which one did. So a frozen base could forbid shadowing,
+as `SMap` does, if §4.8.4's ownership check covers `instances` too. That is
+for the frozen base's own note.
 Forking is `Rc::clone` plus an empty overlay. Rewinding to the base is
 dropping the overlay. That replaces `LiveProject`'s base mark too, since the
 library is already loaded before it.
@@ -630,6 +656,428 @@ replay, which still admits every declaration and rebuilds every table
    approach. With table kinds, the serialiser is generic per kind, just as
    `encode_since` is. Its soundness story is the same as stage 3's trusted
    replay (D1660). It is a separate design note if SW-1109 wants it.
+
+### 4.8 Step 6, specified (draft 2)
+
+This section is what step 6's lanes implement. It answers the review's
+three blocking points (checkpoint lifecycle, which writes belong to which
+entry, ownership) and its two high ones (tests, measurements). Where it
+decides an implementation detail it says so; the end-state choices are
+D2283-D2287 in §8.
+
+#### 4.8.1 What the code does today
+
+**The ownership floor and the count check (review Q2).** For a project
+namespace A, in order:
+
+1. `elaborate_namespace` calls `tables.begin_unit(self.ids())`
+   (`module.rs:241`): every `OwnedBy` table's floor is the number of
+   declarations before A.
+2. `elaborate_namespace_untimed` collects A's names (`collect`), works out
+   what A needs, notes the early names (`capture_before_needs`), and loads
+   the library files A needs (`load_needs`, `module.rs:345`). Each file B
+   loads as a nested unit: `enter_nested_unit` sets the floor to the
+   declarations before B, and `leave_nested_unit` puts A's back
+   (`library.rs:1189`, `:1202`).
+3. Then `capture_after_needs` (`cache/mod.rs:526`) takes A's `Before`,
+   whose tables mark (`Tables::mark(self.ids())`) has each `OwnedBy`'s
+   `cut` at the number of declarations *after* the loads.
+4. A's entry is written by `encode_namespace`, which refuses it if any
+   library file loaded after step 3 (`cache/mod.rs:569`), and then by each
+   table's `encode_since`, which partitions rows by `id < cut` and refuses
+   if the number of old rows changed.
+
+So in the review's example (A starts at `DataId` 100, B declares 100, A
+then writes a row for 100):
+
+- The assertion doesn't fire: 100 is at least A's floor, 100. The review is
+  right.
+- If B wrote no row for 100 in that table, A's row is a new row below the
+  cut, the old rows number one more than at the mark, and the entry is
+  refused ("a row for an older declaration changed"). So the brief was
+  right that the count check catches *this* example; the review read the
+  cut as the floor, which the brief's excerpt didn't rule out.
+- If B did write a row for 100 and A overwrote it (`insert` on an existing
+  key), the count is unchanged and the entry is written without A's
+  change. A replay then differs from a fresh check. The review's second
+  point is right: the count isn't an independent safeguard against a
+  changed value. (`no_ord`'s `remove` followed by an `insert` is the same.)
+- Without the check cache (a language server's own namespaces when the
+  cache misses, `--no-cache`, the playground) nothing checks this at all.
+
+Does anything write such a row today? To find out, I moved the floor to
+the cut (after the loads) in a scratch build and printed each project
+namespace's ids at its start, before its loads and after them. Not
+committed; the patch was four lines in `module.rs`. On `aoc`
+(`check --no-cache`, 207 namespaces), 17 namespaces load library files
+inside them, no namespace makes a declaration before its loads, and the
+moved floor's assertion never fired. With the same build these passed:
+`namespaces.rs` (all), `check_cache.rs`'s `a_replayed_*`,
+`an_edit_re_elaborates_the_namespace_and_what_uses_it` and
+`different_targets_share_one_cache`, and `rewind.rs`'s
+`a_check_cancelled_part_way_rewinds` (35 tests). So declarations are
+contiguous per unit in practice, and the bug is latent, not live.
+
+**What A's entry holds of B's effects.** B gets its own entry if the
+cache is usable: `load_library_file` looks B up (`cache_lookup`), takes
+B's own `Before` (`cache_before`, `library.rs:1074`) and writes B's entry
+when it checks (`cache_after`). A's entry is worked out against a `Before`
+taken after B loaded, so it holds none of B's declarations, table rows or
+names. It holds B as a dependency: the library files A needs, by path
+(`PreOut::needs_files`), the equations it asked for (`needs.equations`),
+and the dot calls; A's replay loads those first (`cache/mod.rs:709`), from
+B's entry or by elaborating B. One exception: the members section
+(`NamesOut::members`) is the scope's members minus `start_members`, which
+is copied before the loads (`cache/mod.rs:433`, `:605`), so A's entry also
+lists B's members (constructors, fields, methods). The replay marks them
+again, which changes nothing because members are a set. Harmless, but it
+is a case of "what changed since the mark" standing in for "what this unit
+did", which is the review's point. Equations made on demand for a library
+definition (`ensure_equations_of`, `equations.rs:4724`) run as a nested
+unit too (`in_library_file`), before A's `Before`, and are named in A's
+entry rather than held by it.
+
+A library file never loads another inside itself: its needs load before
+it does, and one found missing is an error (`unloaded_needs`,
+`library.rs:978`). Its own on-demand equations of other files are made
+before its `Before` is taken (`library.rs:1041-1043`).
+
+So today's policy is *dependencies, not duplication*, and it rests on
+timing: every nested unit runs before the outer unit's `Before`, and an
+entry is refused if one ran after. Step 6 keeps the policy and replaces
+the timing assumption with an explicit tag (§4.8.3).
+
+**First-change tracking.** `nav::Logged` (`nav.rs:159`) keeps `touched:
+HashSet<K>` and clears it at every mark and rewind. hashbrown's `clear`
+walks every bucket to drop the keys (they are `String`s) and resets every
+control byte, so it is O(capacity), and capacity never shrinks. A mark is
+therefore O(the largest number of keys any one segment ever touched), not
+O(1). Amortised over the writes that filled the set it is O(1) per write,
+but a language server whose first unit wrote 20,000 keys pays for clearing
+a 20,000-key table at every later mark. Step 6 uses a stamp instead
+(§4.8.2), which makes a mark O(number of tables).
+
+#### 4.8.2 The journal and its checkpoints
+
+All the `Logged` tables of a session share one **journal**: one stack of
+open checkpoints and one generation counter. Each table keeps its own
+undo `Vec` (so its entries are typed); the journal only knows positions.
+Like today's `Mark`, a checkpoint's positions are a tuple built by
+destructuring `Tables` and `Session`, so a new `Logged` table can't be
+left out.
+
+```rust
+pub(crate) struct Journal {
+    open: Vec<Open>,        // open checkpoints, oldest first
+    next_serial: u64,       // never reused
+    generation: u32,        // a new segment starts when it changes
+    segments: Vec<Segment>, // (unit, positions) where each segment starts
+    stats: JournalStats,    // §4.8.7
+}
+struct Open { serial: u64, kind: Kind, at: Positions }
+enum Kind { Retained, Transaction }
+
+/// A language server's checkpoint: may be rewound to any number of times.
+pub(crate) struct Checkpoint { serial: u64, depth: u32 }   // not Clone
+/// A cache transaction (or any other short-lived one): must be ended.
+#[must_use] pub(crate) struct Transaction { serial: u64, depth: u32 }
+```
+
+`Logged<K, V>` stores `(V, u32)`: the value and the generation in which
+its key was last logged. A write logs `(key, old value)` when the stamp
+differs from the journal's generation, and sets the stamp. A key with no
+row is always logged (so a delete and a re-insert in one segment log twice,
+which is harmless: a rewind applies the log newest first, so the older
+entry wins). While no checkpoint is open, nothing is logged and the stamp
+isn't read. This replaces `touched` (§4.8.1); its cost is 4 bytes per row
+(about 120 KB for 30,000 scope rows, an estimate), and a mark is O(number
+of tables). *Implementation detail, decided here.*
+
+The operations:
+
+| Operation | Effect | Rule |
+|---|---|---|
+| `checkpoint() -> Checkpoint` | pushes `Open{Retained}`; turns logging on; new generation | a language server's base mark and its mark before each namespace |
+| `rewind(&Checkpoint)` | undoes every table back to its positions; drops every open checkpoint above it (they become invalid); new generation; the checkpoint itself stays open | panics if the checkpoint is invalid |
+| `release(Checkpoint)` | pops it | only the top one: a checkpoint below others is released by rewinding to an older one, which drops it |
+| `begin() -> Transaction` | pushes `Open{Transaction}`; turns logging on; new generation | one per unit whose entry may be written |
+| `commit(Transaction)` | pops it; the log entries stay, belonging to whatever is still open | only the top one; consumes it |
+| `abort(Transaction)` | `rewind` to it, then pops it | consumes it |
+
+**Invalid checkpoints are detected, not misused.** A handle holds its
+serial and its depth in the stack. Every use checks `open[depth].serial ==
+serial`, which is O(1); after a rewind to an older checkpoint the newer
+ones are gone from the stack, so their handles fail the check and panic
+with "a checkpoint used after a rewind to an older one". `LiveProject`
+already drops the `Step`s after the one it rewinds to; this turns a
+forgotten one into a failure instead of a wrong state. A `Transaction`
+dropped without `commit` or `abort` fails a debug assertion in its `Drop`.
+
+**Pruning: keep the history back to the oldest open checkpoint.** The log
+only exists while something is open. When the stack becomes empty (the
+last checkpoint released or the last transaction committed), every
+table's undo `Vec` and the segment list are cleared and logging stops. As
+the first checkpoint is always taken with an empty log, "everything in the
+log" and "everything since the oldest open checkpoint" are the same, so no
+other rule is needed. In a command-line check with the cache, each unit's
+transaction is the only thing open, so the log holds one unit's writes and
+is dropped when its entry is written: no whole-project history. In a
+language server, the base checkpoint stays open, so the log holds the
+writes since the library loaded, which is exactly what a rewind to the base
+needs. After an edit, rewinding to namespace `i` truncates the log to `i`'s
+positions, so the log's size depends on the project, not on the number of
+edits (§4.8.7 checks that it stabilises).
+
+**Cancellation.** A cancelled check returns through the unit's code as
+today. Its transaction is committed without writing an entry
+(`cache_after` and `elaborate_namespace_cached` already don't write when
+cancelled), and then `cancellable_at` rewinds to the retained checkpoint it
+took, which undoes the unit's writes. *Decided here:* commit, not abort,
+because the retained rewind that follows undoes it anyway and a transaction
+must be ended before an older checkpoint is rewound to.
+
+**What stays outside the journal.** `GrowVec` and `OwnedBy` keep their
+own marks (lengths and id cuts, §4.2): they don't log. `Kernel`'s `Vec`s
+and `Attempt`'s trail are unchanged. The journal is only for the tables
+copied today.
+
+#### 4.8.3 A cache entry is the write-set of its unit
+
+The review's main point: an undo log can restore a state perfectly and
+still not say which changes belong to an entry. So the log is used as an
+*index of keys*, and the unit is explicit.
+
+- **Segments.** The journal records a segment boundary, with the unit that
+  is current, at `begin`, at `enter_nested_unit` and at `leave_nested_unit`
+  (and starts a new generation there, so each segment logs each key it
+  writes). A unit is a `UnitId`, a counter in `Session` (§4.8.4). An
+  on-demand equation is made in the segment of the library file that
+  defines it (`in_library_file`), as today's floor treats it.
+- **A unit's write-set** is the set of keys logged in its own segments
+  since its transaction began. For a project namespace that is the segment
+  before its library loads (its early names) and the one after them; the
+  loads' segments belong to the files loaded.
+- **Encoding.** For each key in the write-set, the encoder reads the
+  value at the start of the unit's first segment that logged it (the
+  oldest log entry for it there) and the current value. Equal: nothing.
+  Absent then, present now: a new row. Present both, different: a changed
+  row. Present then, absent now: a removal. Each table's policy then says
+  what an entry may hold. The scope: new names (early and late, as now),
+  changed names (`NamesOut::changed`, as now), and a removed name refuses
+  the entry (as now, `cache/mod.rs:582`). `instances` and `helper_keys`:
+  new rows; a changed or removed older row refuses the entry (as now). Keys
+  are sorted as today, so entries stay byte for byte the same and `FORMAT`
+  doesn't change (checked as in step 5: every entry for `aoc`, the
+  roguelike and the example projects, written before and after).
+- **Nested loads.** B's segment is in B's write-set and not A's, wherever
+  it falls in A, so the refusal "a library file loaded part way through"
+  (`cache/mod.rs:569`) can go: a load after A's first declarations is
+  attributed correctly. *Recommendation: keep the refusal in step 6 anyway*
+  (it costs nothing), and drop it only when something needs mid-unit
+  loads. A's entry stops listing B's members.
+- **What this replaces.** `Before.scope` (a copy of `scope.entries`),
+  `start_keys` and `start_members` (`cache/mod.rs:432-433`),
+  `Mark.instances` and `Mark.helper_keys` (copies), and the scope's
+  `ScopeOp` log for library files' entries, *if* the library entry's
+  order of new names can be rebuilt from follower positions as the
+  namespace entry's is (`cache/mod.rs:590`). If it can't, `ScopeOp` stays,
+  as an ordered list next to the journal; the step 6 lane finds out by the
+  byte comparison above.
+
+#### 4.8.4 Ownership: a unit tag per declaration
+
+Two ways to make `OwnedBy`'s check sound (review Q2):
+
+| | Unit tag per declaration | Contiguous allocation |
+|---|---|---|
+| Rule | `owner(id) == current unit` on every `insert` and `remove` | the floor moves to the cut once the unit's needs have loaded, and nothing loads after that |
+| Data | `owners: GrowVec<UnitId>` for definitions and one for data types, pushed as each is made (in `Kernel`, beside `defs`/`datas`); rewound by length; a replayed declaration gets the replaying unit's tag | none |
+| Run-time cost | one indexed read per `OwnedBy` write; 4 bytes per declaration: about 60 KB for `aoc`'s 14,950 (estimate) | none |
+| What it relies on | nothing about order | an assertion in `load_library_file` that the current unit hasn't started its own part, and every future feature keeping to it (lazy loads, parallel workers that allocate their own ids) |
+| Encoding | the rows whose id the unit owns (a filter by tag in place of the cut); no other row can have been written, by the assertion | the rows at or past the cut |
+| Catches a changed older row | yes, at the write, with or without the cache | yes at the write once the floor is at the cut; the count check stays weak |
+
+Both are cheap. The probe in §4.8.1 shows contiguity holds today, so the
+second would work now. The tag is recommended (D2283) because it states
+the invariant directly, costs about 60 KB, makes the assertion meaningful
+in sessions without the cache, needs no rule about when loads may happen,
+and doesn't assume that ids are allocated in one sequence per unit, which a
+parallel design might not keep (§4.9). With the tag, the count check in
+`OwnedBy::encode_since` becomes a debug assertion.
+
+`UnitId` is a session counter, never written to an entry, so entries stay
+id-independent. The core and the prelude get a unit of their own.
+
+**Tables of another kind: shared keys.** `instances` is keyed by
+`(interface, head)`, two data types that can both belong to older units
+(an orphan instance), so its key says nothing about ownership. Its row's
+`def` does: the row is owned by `owner(info.def)`. It is a `Logged` table
+whose rows are each owned by a declaration in the value, and a later unit's
+write to an older row is refused at the write (assertion) as well as by the
+encoder. §4.5's note found no write of that kind today. `helper_keys` (a
+set of strings) and the scope's maps have no owner: any unit may add a
+name, and the scope legitimately changes older rows (a name's `Global`
+moves from `Unchecked` to `Def`, `module.rs:1010`, `:1449`, in the unit
+that declares it; extensions add to other namespaces' types). They are
+`Logged` with no ownership check, and the entry's policy (§4.8.3) is what
+limits them. So there are three classes: owned by the key (`OwnedBy`),
+owned by a declaration in the row (`instances`), and shared (`Logged`).
+
+#### 4.8.5 The mutation rule
+
+Every write to a `Logged` table goes through its methods (`insert`,
+`remove`, `update(key, |v| ..)` which logs the old value first). Nothing
+returns `&mut V`, `Deref` gives only `&HashMap`, and a row type has no
+interior mutability (no `Cell`, `RefCell` or `Rc<RefCell<_>>` in a row),
+so a shared reference can't change it either. Enforced by:
+
+- *Types.* The map is private to `Logged`; `Logged` implements `Deref` to
+  `&HashMap` only. `Scope`'s fields become private and its maps `Logged`,
+  so `pub entries` goes.
+- *Known escapes to remove in step 6* (found by grep at `ed1d472c`):
+  `scope.entries.get_mut` at `lib.rs:1839`, `module.rs:1010`,
+  `module.rs:1449`, `scope.entries.remove` at `update_lemmas.rs:94`,
+  `instances.get_mut` at `interfaces.rs:599`, and `helper_keys.insert` in
+  seven places (`decreasing.rs:1106`, `lib.rs:2239`, `opaque.rs:293`,
+  `update_lemmas.rs:89`, `equations.rs:2644`/`:2646`,
+  `equations/induct.rs:728`). Each becomes a method call; making the
+  fields private makes the compiler find any missed.
+- *Rows.* A `NoInteriorMutability` marker can't be checked by Rust's
+  types for arbitrary rows, so it is a review rule, written on `Logged`'s
+  doc comment, plus a debug check: under `debug_assertions`, `rewind`
+  compares a hash of each table's content after undoing with one taken at
+  the checkpoint (only for tests that opt in, `Options::check_rewinds`,
+  since hashing 30,000 rows per checkpoint is too slow to be on always).
+  *Implementation detail, decided here.*
+
+#### 4.8.6 Tests that accept step 6
+
+1. **A model-based test of `Logged` and the journal** (a unit test in
+   `state/`). A reference keeps a `HashMap` and, per open checkpoint, a
+   clone of it. A seeded generator (no new dependency: a small xorshift, as
+   other tests do) produces sequences of insert, overwrite, remove,
+   `checkpoint`, `begin`, `commit`, `abort`, `rewind` (to any open
+   checkpoint, including the same one several times running) and
+   `release`, plus uses of invalidated handles, which must panic
+   (`catch_unwind`). After each step the map equals the reference's, and
+   after each `commit` the write-set (§4.8.3) equals the keys whose values
+   differ between the reference's clone and its current map, plus any it
+   removed. It includes the review's sequence by name: `x = 0; a = mark;
+   x = 1; b = mark; x = 2; rewind b (x == 1); x = 3; rewind b (x == 1);
+   rewind a (x == 0)`. 10,000 sequences of up to 50 steps should run in
+   well under a second (estimate).
+2. **Differential scenarios** (`rewind.rs`, `check_cache.rs`, each a small
+   project made in a temporary folder, as `check_cache.rs` does):
+   - nested library loads with hits and misses: a namespace that needs a
+     library file, checked with a cache that has the file, one that hasn't,
+     and one whose entry for the file is corrupt;
+   - cancellation at several points: the existing
+     `a_check_cancelled_part_way_rewinds`, plus a cancel during a nested
+     library load and during an entry's encoding;
+   - repeated edits of an early namespace: edit, recheck, edit back,
+     recheck, five times, comparing with a fresh session each time (this is
+     the review's `rewind b` twice, at project scale);
+   - replay then depend: replay a namespace from its entry, then elaborate a
+     namespace that uses its names, instances and extensions, and compare
+     with a fresh check of both (the review's "is the state usable", not
+     only "is the dump equal");
+   - changes to older rows: a namespace that adds an extension to an older
+     namespace's type and moves a name from `Unchecked` to `Def`, replayed
+     and fresh.
+   - a replay that fails part way (`Miss::Late`) and then elaborates: the
+     existing `a_replay_that_fails_part_way_gives_the_same_result`, whose
+     write-set now spans the failed replay's writes and the elaboration's;
+   - kept: step 4's cleared-caches test.
+3. **The ownership assertion** gets one test that it fires: elaboration
+   code can't be made to write another unit's row from a test, so this is
+   a unit test of `OwnedBy` with two `UnitId`s.
+
+These run in each step 6 lane by name (`task test:one`), with
+`rewind.rs`'s `aoc` test once with `STITCHWORT_SLOW=1` if Matt approves, as
+the step list says.
+
+#### 4.8.7 Measurements that accept step 6
+
+Each measurement is taken before step 6 (on `main` when it starts) and
+after, on the same machine, with the load average written down (draft 1's
+benchmark ran at 20-37, which made some cells vary by 30%). CPU time is
+compared, not wall time, where other lanes are running.
+
+| What | How | Exists | To build |
+|---|---|---|---|
+| Language server memory after the first check, and after 100-500 edit and recheck cycles: RSS and the bytes the journal holds; does it stabilise | an edit loop over `LiveProject` (as `crates/cli/tests/lsp.rs`'s `latency_on_aoc` drives `serve`), printing RSS (`task_info` on macOS, `/proc/self/statm` on Linux) and `JournalStats` every 10 cycles | `latency_on_aoc` (ignored; six rounds of two edits, in process); `crates/bench/src/alloc.rs` (a counting allocator: live and peak heap bytes) | the loop: N cycles, edits chosen in an early, a middle and a late namespace; `JournalStats` |
+| Edit latency, median and p95, for an early, a middle and a late namespace | the same loop, timing `didChange` to `publishDiagnostics` | `latency_on_aoc` measures this for two namespaces | per-position percentiles |
+| Command-line cost: cold (no cache), cold with an empty cache folder (entry creation), warm (all hits), mixed (one middle namespace edited) | `stitchwort check` on `aoc`, user CPU from `time`, two runs each | the CLI, `STITCHWORT_TIMINGS=1` (per unit times, hits and misses) | nothing |
+| Journal statistics: entries, distinct keys, peak log length, bytes held, entries undone per rewind | counters in `Session::stats`, printed by `STITCHWORT_TIMINGS` | `Stats` (step 3) | `JournalStats` (summable, §4.9) |
+| Mark and rewind time on `aoc` | `rewind.rs`'s `mark_and_rewind_cost` | yes | nothing |
+
+**Budget (estimates).** An early edit makes the language server recheck
+nearly every namespace: about a minute each on `aoc` without hits, so the
+loop does 10 early, 100 middle and 300 late cycles rather than 500 of each,
+or runs the long loop on the roguelike and the short one on `aoc`. That is
+about 15-25 minutes per build, twice (before and after). The command-line
+runs are 4 modes x 2 runs x 2 builds of about 70-90 s for the cold ones and
+a few seconds for the warm, about 15 minutes. All in the background, none
+of it a test tier, and run once per build. It is more than a lane's usual
+two minutes, so it needs Matt's approval (D2287).
+
+**What counts as success** (proposed, D2287): the language server's RSS
+after 300 cycles within 10% of after the first check, and at least 100 MB
+below today's on `aoc` (draft 1 estimated several hundred MB in marks; the
+earlier `aoc` measured 348 MB against 165 MB for `check --index`,
+language-server.md §"As built"); edit latency p95 no worse than today's by
+more than 10%; command-line cold and warm checks no slower than 2% in CPU
+time.
+
+### 4.9 Keeping parallel checking possible
+
+Parallel checking isn't planned (D2281). This section says what it would
+need, so that step 6 and the steps after it don't make it harder.
+
+**What it would need.**
+
+- *Shared state that is `Send + Sync`.* Core terms and values are `Rc`:
+  166 occurrences of `Rc<` in 14 files of `crates/core/src` at
+  `ed1d472c`. The elaborator has 106 lines declaring or building a `Cell`
+  or `RefCell`. There are 8 `thread_local!`s (`timings.rs`, `kernel.rs`'s
+  rejection log, and `core`'s `reference.rs`, `term.rs` and four in
+  `value.rs`); `unify.rs`'s went into `Attempt` in step 1. Moving the
+  core to `Arc` costs an atomic increment per clone everywhere (not
+  measured), which is why §6 rules it out now.
+- *A frozen base per worker:* each worker starts from the library and the
+  namespaces it depends on, read-only and shared (§4.5 with `Arc`).
+- *Merging a worker's namespace as a cache hit:* the worker's result is an
+  id-independent entry, and the main session replays it (§2.5's format is
+  already a merge format).
+- *A deterministic merge order:* replays in the canonical namespace order,
+  whatever order the workers finish in, so that ids, hashes and
+  diagnostics are those of a sequential check.
+- *Per-worker `Caches`,* since they are derivable, and per-worker `Stats`
+  that sum into the session's.
+
+**The constraints this design adopts now.**
+
+1. Ownership doesn't assume contiguous ids: the unit tag (§4.8.4).
+2. A unit's delta is its write-set, id-independent (§4.8.3), so it is the
+   same thing whether it was made in this session or in a worker.
+3. A journal belongs to one session and has one writer. Nothing in it is
+   shared between sessions, and no table holds a reference into another
+   session's journal.
+4. No new `Rc`, `RefCell`, `Cell` or thread-local in `state/`: new state is
+   plain fields of a component, mutated through `&mut`. (The existing
+   `RefCell`s moved with their fields, §4.1; this rule stops new ones.)
+5. `Stats` and `JournalStats` are sums of counters with an `add`, so
+   per-worker values combine.
+
+These cost nothing measurable beyond the tag's 60 KB (estimate).
+
+**A cheaper first experiment** (future research ticket, not part of step
+6): check independent namespaces in separate *processes*, each replaying
+its imports from the check cache, and merge by replaying the entries they
+write. It needs no `Send`, uses the cache's existing format, and measures
+how much parallelism the namespace graph has before anyone touches `Rc`.
+`aoc`'s namespace graph would give the upper bound; that is the ticket's
+first measurement.
 
 ## 5. Options considered, with costs
 
@@ -822,7 +1270,9 @@ orchestrator.
 | 3 | **`Options` and `Session`.** Settings and test switches into `Options` with `cache_key()`; project and cache bookkeeping into `Session`; `queue.rs`'s counters and `MET_UNFILLED` into `Session::stats`. `include_files` and `core_link_names` are set by the host after the session is built, so they go to `Session`, not `Options` | SW-1129's globals | `postponement.rs`, `check_cache.rs`, `rewind.rs` |
 | 4 | **`Caches`**, plus a test switch (`Options::clear_caches_per_declaration`, checked in `Elaborator::glued`) that clears `Caches` before every declaration; the rewind test runs a sample with it | proves the caches are caches | `rewind.rs` with the switch, on its normal-tier sample |
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
-| 6 | **`Logged` for the copied tables.** `Scope`'s maps, `instances`, `helper_keys` and `Session`'s copied maps become undo-logged; `Mark` stops copying; `Before` stops copying `scope.entries`. Measure `LiveProject` memory on `aoc` before and after (F3) | mark memory and time | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs` |
+| 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
+| 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
+| 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
 | 8 | **The `Globals` split** (review step 9, its own design note): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
 | 9 | **Frozen base** (optional, after measuring): its own short design note with the fork's measured value | SW-1109, search's second session | per that note |
@@ -831,7 +1281,17 @@ Steps 1-4 are independent of each other once step 1's module skeleton
 (`state/`) exists, but they all edit `lib.rs`, so they run one after
 another (CLAUDE.md: lanes on the same area don't run side by side). Steps 5
 and 6 touch `cache/` and `rewind.rs` and also run one at a time.
-*Estimate:* steps 0-7 take about 8 lanes of 1-3 hours each.
+*Estimate:* steps 0-7 take about 8 lanes of 1-3 hours each; draft 2 makes
+step 6 three lanes (6a-6c, about 2-3 hours each, an estimate).
+
+*Draft 2 on the order.* Step 6 stays before the frozen base (step 9), as
+the review advised: the frozen base adds overlay lookups to hot code, and
+step 6 fixes the measured memory problem without changing how tables are
+read. Splitting step 6 into three is an implementation choice, made here:
+6a is small and fixes the latent ownership bug on its own, 6b changes
+rewinding only, and 6c changes the cache only, so each lane's differential
+test is about one mechanism. Nothing in step 6 depends on the `Globals`
+split (step 8).
 
 ## 8. Decisions for Matt
 
@@ -860,6 +1320,37 @@ and 6 touch `cache/` and `rewind.rs` and also run one at a time.
    restructuring, so that the refactor starts from a dump that covers every
    table. *Rec: yes.*
 
+Draft 2's open questions, for step 6 (answered 1-9 above are draft 1's):
+
+- **D2283: ownership by a unit tag per declaration** (§4.8.4), rather than
+  guaranteeing contiguous allocation and moving the floor to the cut. Both
+  work today (the probe in §4.8.1). The tag costs about 60 KB on `aoc` and
+  one indexed read per `OwnedBy` write (estimates); contiguity costs
+  nothing but becomes a rule every future feature must keep (no library
+  load once a unit has started its own part; one id sequence per unit),
+  and leaves the count check weak. *Rec: the tag.*
+- **D2284: the journal's lifecycle as specified** (§4.8.2): retained
+  checkpoints and transactions as two types over one journal; serials that
+  make an invalidated checkpoint panic; the log kept only while a
+  checkpoint is open, so a command-line check holds at most one unit's
+  writes; stamps per row instead of `touched`. *Rec: yes.*
+- **D2285: a cache entry is its unit's write-set** (§4.8.3): segments
+  tagged by unit; nested library loads stay dependencies (named by path,
+  replayed from their own entries), never duplicated in the outer entry;
+  the "a library file loaded part way through" refusal kept until
+  something needs mid-unit loads. *Rec: yes.*
+- **D2286: the parallel-readiness constraints** (§4.9) as rules for
+  `state/` code, with the separate-processes experiment filed as a
+  research ticket in the backlog, not scheduled. *Rec: yes.*
+- **D2287: step 6's measurements** (§4.8.7): about 30-40 minutes of
+  background runs before step 6 and the same after (an estimate), outside
+  the lanes' two-minute test budget, with the success criteria stated
+  there. *Rec: yes.*
+
+Decided here, as implementation details: stamps rather than a `touched`
+set; commit rather than abort on cancellation; the debug rewind-hash check
+opt-in; step 6 as three lanes 6a-6c in that order.
+
 ## 9. Findings worth filing
 
 - **F1.** `total_rows` (D1215's re-checked definitions) is rewound but
@@ -885,6 +1376,44 @@ and 6 touch `cache/` and `rewind.rs` and also run one at a time.
 - **F7.** `unify::RIGID_DIVERGENCE` survives an undone attempt within a
   body (it is reset only around the body, `lib.rs:2797`/`:2807`). It may be
   intended; decide and document it when step 1 moves it.
+
+- **F8** (draft 2). A namespace's entry lists the members (constructors,
+  fields, methods) of the library files loaded inside it, because
+  `start_members` is copied before the loads (`cache/mod.rs:433`, `:605`).
+  Harmless (members are a set); step 6c removes it.
+- **F9** (draft 2). `OwnedBy`'s floor doesn't stop a namespace writing a
+  row for a declaration of a library file loaded inside it, and the
+  encoder's count check misses an overwritten row (§4.8.1). Latent: no
+  such write on `aoc` or in the tests run. Fixed by step 6a.
+- **F10** (draft 2). `nav::Logged::mark` clears `touched`, which is
+  O(capacity), so a mark costs more after one large namespace than
+  before it (§4.8.1). Fixed by step 6a.
+
+## 10. Response to the external review (draft 2)
+
+The review ([elaborator-state-review.md](../reviews/elaborator-state-review.md))
+approved the architecture and step 6 on conditions. Each point:
+
+| Review point | Answer | Where |
+|---|---|---|
+| Q1.1: marks for language-server checkpoints, cache transactions and nested elaboration have different lifecycles; make them different concepts, and specify commit, discard and invalidation | Accepted. `Checkpoint` and `Transaction` over one journal; nested elaboration is a segment, not a checkpoint | §4.8.2 |
+| Q1.1: track validity, so a rewind to an earlier checkpoint invalidates later ones and keeps its target | Accepted, by serial and depth, checked in O(1); a stale handle panics | §4.8.2 |
+| Q1.2: keep history only back to the oldest usable checkpoint; a command-line check must not accumulate the whole project's log | Accepted. The log exists only while a checkpoint is open, so a CLI check holds one unit's writes at a time | §4.8.2, §4.3 |
+| Q1.3: clear `touched` after a rewind; test `x = 0..3` | Accepted. `nav::Logged` does clear it; the sequence is in the model test by name | §4.8.6 item 1 |
+| Q1.3: is clearing `touched` O(1)? | It isn't: O(capacity). Replaced by a generation stamp per row | §4.8.1, §4.8.2, F10 |
+| Q1.4: the log holds old values, not what to replay; use it as a write-set index | Accepted: the entry holds each key's current value or its removal, with a per-table policy | §4.8.3 |
+| Q1.4: nested loads' writes must not become the outer entry's | Accepted. Today they don't, by timing (§4.8.1), except members (F8). Step 6 attributes by segment tag | §4.8.1, §4.8.3 |
+| Q1.4: every write through the logging API; no `&mut` escapes or mutable objects behind `Rc` | Accepted. Twelve escapes found and listed; fields made private; no interior mutability in rows; an opt-in debug check | §4.8.5 |
+| Q2: the floor isn't an ownership invariant when units interleave | Accepted. Confirmed in the code, latent today | §4.8.1, F9 |
+| Q2: the count check wouldn't catch the example | Partly rejected: the cut is taken after the nested loads, so the example as written (a new row) *is* refused, which the brief didn't show. Accepted for an overwritten row, which isn't caught, and for sessions without the cache, which check nothing | §4.8.1 |
+| Q2: a unit tag, or guaranteed contiguous allocation | Accepted: the tag is recommended, with its cost; contiguity costed as the alternative | §4.8.4, D2283 |
+| Q2: tables like `instances` need a different classification | Accepted with change: `instances` is owned by the declaration in its row, not its key. But no later unit changes an older instance row today (the brief said one could; the code sets `valid` only in the instance's own unit) | §4.8.4, §4.5 |
+| Q3: step 6 before the frozen base; can the base really be immutable? | Accepted; the order is kept. The immutability question is left to the frozen base's note, with §4.5's finding that `instances` needn't shadow | §7, §4.5 |
+| Q4: model-based tests of `Logged`; differential scenarios (nested loads, cancellation, repeated early edits, replay then depend, changed rows); keep the cleared-caches test | Accepted, as acceptance criteria | §4.8.6 |
+| Q4: exhaustive destructuring doesn't make a classification correct | Accepted; nothing to change. Review of a diff asks "does a later unit read this?" (§4.4), and replay-then-depend tests usability | §4.4, §4.8.6 |
+| Q5: measure sustained language-server memory, edit latency, CLI overhead and log statistics, before and after | Accepted, with the tools that exist, what must be built, a budget and success criteria | §4.8.7, D2287 |
+| Q6: persistence possibly per table, after step 6 | Accepted. §8 decision 2 is "no dependency now"; a persistent map for one table stays an option if undo logging proves awkward for it, decided after step 6's measurements | §8 |
+| The `Globals` split is unfinished | Agreed; it is step 8 and doesn't block step 6 | §7 |
 
 ## Appendix A: the `Elaborator`'s fields
 
