@@ -94,18 +94,6 @@ mod tests {
             );
         }
     }
-
-    /// The enabled features are part of the hash (`CARGO_FEATURE_*`): a
-    /// feature can change the codec without changing a source file.
-    #[test]
-    fn the_build_hash_covers_enabled_features() {
-        let expected = if cfg!(feature = "alloc-trace") {
-            "alloc-trace"
-        } else {
-            ""
-        };
-        assert_eq!(env!("SW_RT_BUILD_FEATURES"), expected);
-    }
 }
 
 /// Why bytes aren't a program this runtime can run.

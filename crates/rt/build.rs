@@ -12,8 +12,10 @@
 //! ([`fingerprint::source_crates`]): core, syntax and the runtime. That
 //! invalidates more than it needs to, which is preferred to tracking which
 //! Rust code the bytes depend on, and covers a new dependency without a list
-//! here to update. The enabled features (`CARGO_FEATURE_*`) are hashed too: a
-//! feature can change the code without changing any source file.
+//! here to update. The enabled features are deliberately not hashed: the CLI
+//! and the standalone library may be built with different features, and none
+//! changes the format. A future feature that does change the format must be
+//! added to the hash.
 
 use std::path::PathBuf;
 
@@ -39,13 +41,6 @@ fn main() {
             files.push(file);
         }
     }
-    let mut features: Vec<(String, String)> = std::env::vars()
-        .filter(|(name, _)| name.starts_with("CARGO_FEATURE_"))
-        .collect();
-    features.sort();
-    for (name, _) in &features {
-        println!("cargo:rerun-if-env-changed={name}");
-    }
     let lock = std::fs::read(root.join("Cargo.lock")).ok();
     // FNV-1a over each field, with its length first so adjacent fields can't
     // run together.
@@ -68,11 +63,6 @@ fn main() {
         field(file.to_string_lossy().as_bytes());
         field(&std::fs::read(root.join(file)).unwrap_or_default());
     }
-    field(b"features");
-    for (name, value) in &features {
-        field(name.as_bytes());
-        field(value.as_bytes());
-    }
     println!("cargo:rustc-env=SW_RT_BUILD_HASH={hash}");
     println!("cargo:rustc-env=SW_RT_BUILD_CRATES={}", crates.join(","));
     println!(
@@ -80,17 +70,6 @@ fn main() {
         files
             .iter()
             .map(|f| f.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join(",")
-    );
-    println!(
-        "cargo:rustc-env=SW_RT_BUILD_FEATURES={}",
-        features
-            .iter()
-            .map(|(name, _)| name
-                .trim_start_matches("CARGO_FEATURE_")
-                .to_lowercase()
-                .replace('_', "-"))
             .collect::<Vec<_>>()
             .join(",")
     );
