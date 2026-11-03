@@ -1,5 +1,5 @@
 {
-  "next": 1149,
+  "next": 1150,
   "tickets": [
     {
       "id": 47,
@@ -4372,6 +4372,20 @@
         "cli"
       ],
       "body": "From SW-1146: driver/src/doc.rs import_line. Built-ins (Builtins.sw's names) should show no import line, or say they are always in scope. Also: Partial (a row mode) has no documentation target yet; consider a doc-only form later. DeepSeek candidate (the import line).",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1149,
+      "title": "Elaborator state, step 2: Decl and Unit components (per-declaration scratch reset by Default; per-unit fields; library::Context as a swap)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "docs/proposals/elaborator-state.md §7 step 2 (D2257, D2261 approved the migration). Opus, expected 120 min.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
