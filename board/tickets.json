@@ -1,5 +1,5 @@
 {
-  "next": 1163,
+  "next": 1164,
   "tickets": [
     {
       "id": 47,
@@ -4568,6 +4568,20 @@
         "perf"
       ],
       "body": "From SW-1153/1154 findings 2-4; reproducers in the orchestrator scratchpad r/ (vec*.sw, w*.sw). Continues SW-1106.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1163,
+      "title": "Decide the in-place reuse plan (docs/research/in-place-reuse.md, SW-1159): D2273-D2277, with fresh eyes, soon",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
