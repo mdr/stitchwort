@@ -837,7 +837,7 @@ impl DecisionOrder {
 
 /// `DecisionOrder::candidates` for the elaborator as it is now, remembered.
 fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[DefId]> {
-    if let Some(order) = &*e.decision_order.borrow()
+    if let Some(order) = &*e.caches.decision_order.borrow()
         && order.matches(e, first_def, bootstrap)
     {
         return order.candidates.clone();
@@ -879,7 +879,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
             def.instance || bootstrap || def.state() == State::Pending
         })
         .collect();
-    *e.decision_order.borrow_mut() = Some(DecisionOrder {
+    *e.caches.decision_order.borrow_mut() = Some(DecisionOrder {
         first_def,
         prelude_defs: e.prelude_defs,
         closure: e.unit.module.closure.clone(),
@@ -951,7 +951,7 @@ fn unrelated_hints(
 /// must be final (`auto_eligible`), so the answer never changes.
 fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
     let e = cx.e;
-    if let Some(Some(head)) = e.result_heads.borrow().get(id.0) {
+    if let Some(Some(head)) = e.caches.result_heads.borrow().get(id.0) {
         return Ok(*head);
     }
     let g = cx.g();
@@ -965,7 +965,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
         Value::Data(d, _) => Some(d),
         _ => None,
     };
-    let mut heads = e.result_heads.borrow_mut();
+    let mut heads = e.caches.result_heads.borrow_mut();
     if heads.len() <= id.0 {
         heads.resize(g.defs.len(), None);
     }

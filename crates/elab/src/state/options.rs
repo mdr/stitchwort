@@ -52,6 +52,10 @@ pub struct Options {
     /// to just before it, and checks it again (`rewind.rs`).
     #[doc(hidden)]
     pub recheck_namespaces: bool,
+    /// For the rewind test: every cache is emptied before every declaration
+    /// (`Caches::clear`), which must change nothing.
+    #[doc(hidden)]
+    pub clear_caches_per_declaration: bool,
     /// Runs counterexample searches on the fast runtime (the driver's);
     /// without one they run on the reference evaluator
     /// (`counterexample.rs`).
@@ -100,6 +104,8 @@ impl Options {
             fail_replays_late: _,
             // Drives the rewind test.
             recheck_namespaces: _,
+            // Caches only save work.
+            clear_caches_per_declaration: _,
             // Counterexample searches only run when a theorem fails, and
             // a library file's don't.
             counterexample_runner: _,

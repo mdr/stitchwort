@@ -1583,7 +1583,7 @@ pub(crate) fn prefix_form<'a>(
         }
     }
     let key = call_key(cx, recv, field);
-    let cached = cx.e.dot_heads.borrow().get(&key).copied();
+    let cached = cx.e.caches.dot_heads.borrow().get(&key).copied();
     let (owner, f) = if let Some(found) = cached {
         found
     } else {
@@ -1598,7 +1598,7 @@ pub(crate) fn prefix_form<'a>(
         snapshot.restore(cx);
         match found {
             Ok(found) => {
-                cx.e.dot_heads.borrow_mut().insert(key, found);
+                cx.e.caches.dot_heads.borrow_mut().insert(key, found);
                 found
             }
             Err(e) if crate::undo::fatal(&e) => return Err(e),
@@ -2094,12 +2094,12 @@ fn state(cx: &Ctx) -> (usize, usize) {
 
 fn mark_failed(cx: &Ctx, key: CallKey) {
     let (m, t) = state(cx);
-    cx.e.dot_failed.borrow_mut().insert((key, m, t));
+    cx.e.caches.dot_failed.borrow_mut().insert((key, m, t));
 }
 
 fn has_failed(cx: &Ctx, key: CallKey) -> bool {
     let (m, t) = state(cx);
-    cx.e.dot_failed.borrow().contains(&(key, m, t))
+    cx.e.caches.dot_failed.borrow().contains(&(key, m, t))
 }
 
 #[cfg(test)]

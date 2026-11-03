@@ -311,18 +311,9 @@ pub struct Elaborator {
     pub options: state::Options,
     /// Project and cache bookkeeping, and statistics (`state::Session`).
     pub session: state::Session,
+    /// Memo tables that can be emptied at any time (`state::Caches`).
+    pub(crate) caches: state::Caches,
     abilities: Vec<effects::AbilityInfo>,
-    /// What each receiver's dot call was found to call, by the receiver
-    /// expression and the field written after it: so a chain `x.f.g.h` finds
-    /// each head once instead of inferring the receiver again at every
-    /// level (`dot::prefix_form`).
-    pub(crate) dot_heads: RefCell<
-        stitchwort_core::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>,
-    >,
-    /// Dot calls whose prefix form failed, with the metavariable state it
-    /// failed in: not tried again until that changes (`dot::infer_call`).
-    pub(crate) dot_failed:
-        RefCell<stitchwort_core::collections::HashSet<(dot::CallKey, usize, usize)>>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
     /// Why `DecEq` isn't derived for a data type or record, for the note
@@ -353,27 +344,6 @@ pub struct Elaborator {
     /// The latest goals printed, as terms, by where their `?` is: what
     /// `search --at` searches (SW-989).
     pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
-    /// Each definition's congruence lemmas for `rewrite`
-    /// (`congruence::candidates`), with how many definitions there were
-    /// when they were looked up: a later declaration may add one.
-    pub(crate) cong_candidates: RefCell<HashMap<DefId, (usize, congruence::Candidates)>>,
-    /// For each definition, by `DefId`, once worked out: the data type its
-    /// result type is (after all its parameters), if it is one. The decision
-    /// search (`auto::decision_procedures`) reads it instead of evaluating
-    /// every definition's type each time. Only worked out for a final
-    /// definition, whose type, and everything it refers to, never changes;
-    /// definitions are only ever added, so an entry never goes stale.
-    pub(crate) result_heads: RefCell<Vec<Option<Option<DataId>>>>,
-    /// The candidates `auto::decision_procedures` tries after the current
-    /// module's own definitions, in order, once worked out, with what the
-    /// order was worked out from (`auto::DecisionOrder`). Forgotten on a
-    /// rewind, which can replace the definitions it lists.
-    pub(crate) decision_order: RefCell<Option<auto::DecisionOrder>>,
-    /// Whether a call of final definition `id` with `n` explicit arguments
-    /// reaches a computation type (`effects::def_performs_after`), once
-    /// worked out: asked for every call in every expression checked, and
-    /// fixed once the definition is, like `result_heads`.
-    pub(crate) performs: RefCell<HashMap<effects::PerformsKey, bool>>,
     /// The definitions checked again with their bare row variables total
     /// (D1215), with where the first check failed.
     pub total_rows: RefCell<HashMap<DefId, Span>>,
@@ -820,6 +790,9 @@ impl Elaborator {
     /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.decl = state::Decl::default();
+        if self.options.clear_caches_per_declaration {
+            self.caches.clear();
+        }
         let was = self.globals.glue.replace(self.options.glue);
         let out = f(self);
         self.globals.glue.set(was);

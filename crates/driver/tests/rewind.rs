@@ -157,6 +157,21 @@ fn recheck_each_namespace(source: &Source, fresh: &str) {
     );
 }
 
+/// A check with every cache emptied before every declaration
+/// (`Options::clear_caches_per_declaration`): the caches only save work, so
+/// the outcome is a fresh check's.
+fn check_with_cleared_caches(source: &Source, fresh: &str) {
+    let mut s = session();
+    s.elab.options.clear_caches_per_declaration = true;
+    let result = check(&mut s, source);
+    assert_same(
+        source,
+        "caches cleared before every declaration",
+        fresh,
+        &outcome(&s, &result),
+    );
+}
+
 /// A check cancelled at the start of its first operation: it says so,
 /// leaves the session as it was, and the next check is a fresh one's.
 fn cancel_then_check(source: &Source, fresh: &str) {
@@ -267,6 +282,16 @@ fn examples() -> Vec<Source> {
     sources.extend(tier_sample(projects, 4));
     sources.extend(goals);
     sources
+}
+
+/// The caches are caches: the examples' sample checked with them emptied
+/// before every declaration gives what a fresh check gives.
+#[test]
+fn emptying_the_caches_changes_nothing_for_the_examples() {
+    let sources = examples();
+    par_map(STACK, &sources, |source| {
+        check_with_cleared_caches(source, &fresh(source));
+    });
 }
 
 #[test]

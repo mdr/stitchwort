@@ -42,11 +42,11 @@
 
 use std::collections::BTreeMap;
 
+use stitchwort_core::DataId;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::GlobalsMark;
-use stitchwort_core::{DataId, DefId};
 
-use crate::{Elaborator, dot, interfaces, nav, scope};
+use crate::{Elaborator, interfaces, nav, scope};
 
 /// A point an [`Elaborator`] can be rewound to ([`Elaborator::mark`]). It
 /// stays valid, and can be rewound to any number of times, until the
@@ -60,8 +60,7 @@ pub struct Mark {
     namespace_defs: BTreeMap<String, std::ops::Range<usize>>,
     prelude_defs: usize,
     abilities: usize,
-    dot_heads: HashMap<dot::CallKey, (dot::TyHead, DefId)>,
-    dot_failed: HashSet<(dot::CallKey, usize, usize)>,
+    caches: crate::state::CachesMark,
     lifted: usize,
     helper_keys: HashSet<String>,
     instances: HashMap<(DataId, DataId), interfaces::InstanceInfo>,
@@ -97,8 +96,7 @@ impl Elaborator {
             namespace_defs: self.namespace_defs.clone(),
             prelude_defs: self.prelude_defs,
             abilities: self.abilities.len(),
-            dot_heads: self.dot_heads.borrow().clone(),
-            dot_failed: self.dot_failed.borrow().clone(),
+            caches: self.caches.mark(),
             lifted: self.lifted.len(),
             helper_keys: self.helper_keys.clone(),
             instances: self.instances.clone(),
@@ -125,8 +123,7 @@ impl Elaborator {
             options: _,
             session,
             abilities,
-            dot_heads,
-            dot_failed,
+            caches,
             records,
             no_eq,
             no_show,
@@ -139,10 +136,6 @@ impl Elaborator {
             helper_keys,
             goals,
             goal_snapshots,
-            cong_candidates,
-            result_heads,
-            decision_order,
-            performs,
             total_rows,
             interfaces,
             instances,
@@ -165,8 +158,7 @@ impl Elaborator {
         unit.rewind(&mark.unit);
         session.rewind(&mark.session);
         abilities.truncate(mark.abilities);
-        *dot_heads.get_mut() = mark.dot_heads.clone();
-        *dot_failed.get_mut() = mark.dot_failed.clone();
+        caches.rewind(&mark.caches, defs);
         records.retain(|d, _| d.0 < datas);
         no_eq.retain(|d, _| d.0 < datas);
         no_show.retain(|d, _| d.0 < datas);
@@ -182,12 +174,6 @@ impl Elaborator {
         *goals.get_mut() = Default::default();
         // Their terms may name what is forgotten.
         goal_snapshots.get_mut().clear();
-        cong_candidates.get_mut().clear();
-        result_heads.get_mut().truncate(defs);
-        // It may list definitions declared since the mark, whose numbers the
-        // next declarations reuse.
-        *decision_order.get_mut() = None;
-        performs.get_mut().retain(|(id, ..), _| id.0 < defs);
         total_rows.get_mut().retain(|id, _| id.0 < defs);
         *instances = mark.instances.clone();
         if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
