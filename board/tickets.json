@@ -1,5 +1,5 @@
 {
-  "next": 1153,
+  "next": 1155,
   "tickets": [
     {
       "id": 47,
@@ -3776,13 +3776,13 @@
     {
       "id": 1106,
       "title": "Checking a match re-evaluates every context value per branch (core::check::substitute_in), ~1.9 KB per input char",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "Found in SW-1096 (3 Nov): after the scrutinee fix, next.sw (Parse.next over 160,000 chars, the input bound by let input) still costs 395 MB at check time, ~1.9 KB per char. A sampled profile shows it in the match's case split: for every branch, core::check::substitute_in reads back and re-evaluates every value in the context, including the 160,000-element list. Core/kernel code: Opus lane, with a design note if the change is more than local.\n\nD2264 (Matt, 3 Nov): start now.",
+      "body": "Found in SW-1096 (3 Nov): after the scrutinee fix, next.sw (Parse.next over 160,000 chars, the input bound by let input) still costs 395 MB at check time, ~1.9 KB per char. A sampled profile shows it in the match's case split: for every branch, core::check::substitute_in reads back and re-evaluates every value in the context, including the 160,000-element list. Core/kernel code: Opus lane, with a design note if the change is more than local.\n\nD2264 (Matt, 3 Nov): start now.\n\nDone 20f98102 (Opus, 75 min, est. 60), reviewed by the orchestrator (Opus), merged. The cost was in the elaborator case splits calling core substitute_in, not the kernel itself. New Unchanged checker (check.rs): a context value is kept as it is when x does not occur in it, every variable carries the Apart facts the identity environment would give, and it has none of: metas, folded defs, quot forms, glued calls with gluing off, closures, NatAdd, Nat Zero/Succ ctors, resumptions, erased fields; else the old path. Soundness needs only the first condition; the rest keep values identical (hashes and terms unchanged; checked by a temporary old-vs-new comparison on every example and std). Shared sequences visited once, keyed by address (all borrowed and immutable for the call). Reproducer (Parse.next on 160k chars): 6.67M -> 0.17M steps, 391-399 MB -> 93 MB. Display difference: inside a branch, a hypothesis holding a glued call that steps at once shows as the call rather than its whole result (as outside the branch); orchestrator call, kept (it is the saving; terms and hashes unchanged). Tests: core 356 (incl. fuzz daily sample), hash_stability 7, cli examples 9; orchestrator reran core + prelude hash, 357.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4141,7 +4141,7 @@
     {
       "id": 1132,
       "title": "SOURCE_FINGERPRINT (web bundle staleness) doesn't cover crates/web/src",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4155,7 +4155,7 @@
     {
       "id": 1133,
       "title": "rt's SW_RT_BUILD_HASH covers only rt/src (not syntax, core, or rt's Cargo.toml features)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4428,6 +4428,34 @@
         "elab"
       ],
       "body": "docs/proposals/elaborator-state.md §7 step 3 (D2257). After SW-1144 (step 1) and SW-1149 (step 2). Also update the note's §4.1 and Appendix A for steps 2-3's decisions (from SW-1150's second half). Orchestrator's call (per decision-scope): Sonnet, est. 90 min; behaviour unchanged.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1153,
+      "title": "Kernel: a number case computes unneeded let values first (force_all in check_num_case?): kernel time grows with an unrelated let-bound list",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From SW-1106. def f (n : Nat) : Nat := let xs := List.replicate cost 'a'; match n with | 0 => List.length xs | 1 => 2 | _ => 1. Kernel 12 -> 120 ms, 550k -> 3.39M steps from 2,000 to 20,000 elements, with or without SW-1106. Suspect force_all in check_num_case; unconfirmed. Related: SW-1066.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1154,
+      "title": "unify_index::occurs reads back the whole value with quote to find free variables (the cost pattern SW-1106 removed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From SW-1106: occurs could walk the value as Unchanged does, without reading back. Measure first.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
