@@ -3,9 +3,9 @@
 #let commit = sys.inputs.at("commit", default: "unknown")
 #let day = sys.inputs.at("date", default: "")
 
-#set page(paper: "a4", flipped: true, margin: (x: 9mm, y: 8mm))
-#set text(size: 8.6pt, font: ("Helvetica", "Arial"))
-#set par(leading: 0.45em, spacing: 0.7em)
+#set page(paper: "a4", flipped: true, margin: 10mm)
+#set text(size: 7.6pt, font: ("Helvetica", "Arial"))
+#set par(leading: 0.38em, spacing: 0.5em)
 
 #let red = rgb("#b00020")
 #let blue = rgb("#1a5fb4")
@@ -24,10 +24,10 @@
 
 #grid(
   columns: (auto, 1fr),
-  column-gutter: 6mm,
-  image("crates.svg", height: 180mm),
+  column-gutter: 4mm,
+  image("crates.svg", width: 215mm),
   [
-    #text(weight: "bold", size: 9pt)[How to read it]
+    #text(weight: "bold", size: 8pt)[How to read it]
     #v(-1mm)
     - An arrow `A → B` means A depends on B. Layers run from the interfaces (top) down to the front end. Edges implied by a longer path are left out (`cli → core` is there through `driver`), so the picture shows structure, not every `use`.
     - #text(fill: orange)[Dashed orange]: optional dependency (the CLI's `native` feature).
@@ -38,7 +38,7 @@
     - Dev-dependencies are not drawn. They mostly point at `driver`, `core` and `rt`, for tests.
 
     #v(1mm)
-    #text(weight: "bold", size: 9pt)[Boundary facts]
+    #text(weight: "bold", size: 8pt)[Boundary facts]
     #v(-1mm)
     - `core` is the kernel and more: it also has the pretty-printer, a reference evaluator for differential tests (feature `reference`), erasure, content hashing, resource budgets, and `Term::Meta`, the elaborator's metavariable.
     - `rt` holds most of the backend: erasure, IR, optimiser, bytecode machine, native ABI. `js` and `native` build on it, and `host` and `standalone` run it.

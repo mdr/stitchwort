@@ -23,20 +23,20 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # crate -> (layer, responsibility lines)
 INFO = {
-    "syntax": ("front", ["Lexer, parser, surface AST,", "spans and diagnostics"]),
+    "syntax": ("front", ["Lexer, parser, surface", "AST, spans, diagnostics"]),
     "fmt": ("front", ["Source formatter; reparses", "its output to check it"]),
-    "core": ("kernel", ["Core terms, evaluator (NbE) and", "the kernel checker, termination"]),
-    "elab": ("elab", ["Surface syntax to core terms:", "names, inference, patterns,", "derives; holds the .sw std library"]),
-    "driver": ("orch", ["Sessions, projects, check cache,", "search, tests, diagnostics;", "shared by CLI and browser"]),
-    "rt": ("back", ["Fast untrusted runtime: erasure,", "IR, optimiser, bytecode machine,", "native ABI"]),
+    "core": ("kernel", ["Core terms, evaluator (NbE),", "kernel checker, termination"]),
+    "elab": ("elab", ["Surface syntax to core terms:", "names, inference, patterns,", "derives; the .sw std library"]),
+    "driver": ("orch", ["Sessions, projects, check", "cache, search, tests,", "diagnostics; shared by", "CLI and browser"]),
+    "rt": ("back", ["Fast untrusted runtime:", "erasure, IR, optimiser,", "bytecode machine, native ABI"]),
     "js": ("back", ["JavaScript extraction", "and TypeScript boundary"]),
-    "native": ("back", ["Cranelift: JIT for run --native,", "object files for build"]),
-    "host": ("back", ["Terminal handling and the", "big-stack thread for runs"]),
-    "standalone": ("back", ["Runtime a built executable", "links: C main, machine, host"]),
-    "cli": ("iface", ["The stitchwort command:", "run, check, test, build, search,", "doc, fmt, language server"]),
-    "web": ("iface", ["Browser playground: the", "compiler as WebAssembly, JSON API"]),
-    "bench": ("tool", ["Recorded benchmarks:", "work, allocation and time", "against a baseline"]),
-    "partial-model": ("tool", ["Executable model of the Partial", "runtime proposal; used by", "driver tests only"]),
+    "native": ("back", ["Cranelift: JIT for", "run --native, objects", "for build"]),
+    "host": ("back", ["Terminal handling and", "the big-stack thread"]),
+    "standalone": ("back", ["Runtime a built exe links:", "C main, machine, host"]),
+    "cli": ("iface", ["The stitchwort command:", "run, check, test, build,", "search, doc, fmt, LSP"]),
+    "web": ("iface", ["Browser playground: the", "compiler as WebAssembly,", "JSON API"]),
+    "bench": ("tool", ["Recorded benchmarks:", "work, allocation, time", "against a baseline"]),
+    "partial-model": ("tool", ["Executable model of the", "Partial runtime proposal;", "driver tests only"]),
 }
 LAYERS = [
     ("iface", "Interfaces"),
@@ -49,12 +49,11 @@ LAYERS = [
 ]
 # Rows of the picture, top to bottom; the order inside a row is left to right.
 ROWS = [
-    ["cli", "web", "bench", "partial-model"],
-    ["driver"],
-    ["standalone", "native", "js", "elab"],
+    ["cli", "web", "bench"],
+    ["driver", "elab", "partial-model"],
+    ["standalone", "native", "js"],
     ["host", "rt"],
-    ["core", "fmt"],
-    ["syntax"],
+    ["fmt", "syntax", "core"],
 ]
 # Not a Cargo edge: `stitchwort build` links the standalone static library.
 LINKED = [("cli", "standalone")]
@@ -129,22 +128,22 @@ def main():
     big = max(s[0] for s in sz.values())
 
     out = ['digraph crates {',
-           '  rankdir=TB; newrank=true; nodesep=0.22; ranksep=0.34; splines=true;',
+           '  rankdir=TB; newrank=true; nodesep=0.18; ranksep=0.42; splines=true;',
            '  node [shape=plaintext fontname="Helvetica" fontsize=9];',
            '  edge [color="#555555" arrowsize=0.6 penwidth=1.1];']
     for layer, title in LAYERS:
         members = [n for n in pk if INFO[n][0] == layer]
         if not members:
             continue
-        out.append(f'  subgraph "cluster_{layer}" {{ label=<<B>{title.upper()}</B>> labeljust=r labelloc=b '
-                   f'fontname="Helvetica" fontsize=8 fontcolor="#777777" style="rounded,filled" '
+        out.append(f'  subgraph "cluster_{layer}" {{ label=<<B>{title.upper()}</B>> labeljust=l labelloc=t '
+                   f'fontname="Helvetica" fontsize=9 fontcolor="#777777" style="rounded,filled" '
                    f'color="#cccccc" fillcolor="#f6f6f6" margin=7;')
         for n in members:
             src, tests, sw = sz[n]
-            bar = max(4, round(70 * math.sqrt(src / big)))
+            bar = max(3, round(40 * math.sqrt(src / big)))
             border, bg = ("#b00020", "#fff1f1") if n == "core" else ("#444444", "white")
-            sizetxt = f"src {k(src)}" + (f" + tests {k(tests)}" if tests >= 100 else "")
-            if sw >= 100:
+            sizetxt = f"src {k(src)}" + (f" + {k(tests)} tests" if tests >= 100 else "")
+            if sw >= 1000:
                 sizetxt += f" · {k(sw)} .sw"
             resp = "".join(f'<BR ALIGN="LEFT"/>{l}' for l in INFO[n][1])[len('<BR ALIGN="LEFT"/>'):]
             tags = []
@@ -152,15 +151,15 @@ def main():
                 tags.append('<FONT COLOR="#b00020"><B>TRUSTED KERNEL</B></FONT>')
             if n in wasm:
                 tags.append('<FONT COLOR="#1a5fb4">wasm</FONT>')
-            tagrow = f'<TR><TD ALIGN="RIGHT"><FONT POINT-SIZE="7">{"  ".join(tags)}</FONT></TD></TR>' if tags else ""
+            tagcell = f'<TD ALIGN="RIGHT"><FONT POINT-SIZE="7.5">{"  ".join(tags) or " "}</FONT></TD>'
             out.append(
                 f'    {n.replace("-", "_")} [label=<<TABLE BORDER="1" COLOR="{border}" CELLBORDER="0" '
-                f'CELLSPACING="0" CELLPADDING="2" BGCOLOR="{bg}">'
-                f'<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="11">{n}</FONT></B></TD></TR>{tagrow}'
-                f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="7.5">{resp}<BR ALIGN="LEFT"/></FONT></TD></TR>'
-                f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="7" COLOR="#555555">{sizetxt}</FONT></TD></TR>'
-                f'<TR><TD ALIGN="LEFT" HEIGHT="4"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0">'
-                f'<TR><TD WIDTH="{bar}" HEIGHT="4" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR>'
+                f'CELLSPACING="0" CELLPADDING="1" BGCOLOR="{bg}">'
+                f'<TR><TD ALIGN="LEFT"><B><FONT POINT-SIZE="12">{n}</FONT></B></TD>{tagcell}</TR>'
+                f'<TR><TD ALIGN="LEFT" COLSPAN="2"><FONT POINT-SIZE="8.5">{resp}<BR ALIGN="LEFT"/></FONT></TD></TR>'
+                f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="#555555">{sizetxt}</FONT></TD>'
+                f'<TD ALIGN="RIGHT"><TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0">'
+                f'<TR><TD WIDTH="{bar}" HEIGHT="5" FIXEDSIZE="TRUE" BGCOLOR="#4a7ab5"></TD></TR></TABLE></TD></TR>'
                 f'</TABLE>>];')
         out.append('  }')
     for row in ROWS:
