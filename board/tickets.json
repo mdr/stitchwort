@@ -4701,13 +4701,13 @@
     {
       "id": 1172,
       "title": "Step 6 measurements: build the LiveProject edit loop and JournalStats hooks (§4.8.7), take the before measurements on main",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "D2287 (Matt, 3 Nov): approved, ~30-40 min of background runs per build, success criteria in §4.8.7. Sonnet, est. 90 min.",
+      "body": "D2287 (Matt, 3 Nov): approved, ~30-40 min of background runs per build, success criteria in §4.8.7. Sonnet, est. 90 min.\n\nDone 3706f183, 1429a94e, 63288a38 (Sonnet), reviewed, merged; feature check and cli lsp tests pass (9). Harness: state_edit_loop (ignored, cli lsp.rs), mark_and_rewind_cost_alone (ignored, driver rewind.rs), dev/measure-state (task measure:state); results dev/measurements/state-step6-before.md. Before (load 34 -> 5): aoc server heap 363 MB after first check, 402-408 MB at cycles 200-410; rogue 319 -> 333 MB flat. RSS swung 0.6-2.35 GB with constant heap (unusable as the yardstick). aoc edit latency median: early ~0.8 s, middle 317 ms (p95 422), late 2.09 s (p95 6.4 s under load). CLI aoc: cold 58.5 s user / 1535 MB, empty cache 59.8 s, warm 2.9 s, mixed 3.07 s. Mark ~1.1 ms, rewind to mark ~1.4 ms, to start ~245 ms. Fix before the after run: the first-check wait (wait for each file's publishDiagnostics, timeout > 120 s); print JournalStats. Model result: Sonnet, worked (one harness bug: first check not timed), ~55 min + 31 min run (est. 90).\n",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
