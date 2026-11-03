@@ -1,5 +1,5 @@
 {
-  "next": 1111,
+  "next": 1112,
   "tickets": [
     {
       "id": 47,
@@ -3840,6 +3840,20 @@
         "lsp"
       ],
       "body": "Matt, 3 Nov, VS Code: navigating to a definition in Set.sw works, but inside Set.sw no definition can be navigated to (names referenced there). Client sends stitchwort-std: documents (editors/vscode/client.js documentSelector). Server: lookup()/locate() in crates/cli/src/lsp.rs answer a stitchwort-std: document from the first workspace whose files[Place::Library] has refs at that position. The only test (crates/cli/tests/lsp.rs ~279) hovers the definition's own position in the std document, not a reference inside it. Hypothesis (unverified): the workspace index records library declarations but not the references inside library bodies (or not when std comes from the prelude snapshot/check cache). Repro and fix with an LSP test of definition from a reference inside a std document.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1111,
+      "title": "Design note: editor (VS Code/LSP) and playground feature roadmap",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "D2237 (Matt, 3 Nov): yes; also consider what features would be useful in the playground (web/, crates/web, the WebAssembly compiler). A short note in docs/proposals/: what exists today in each; candidate features (from the orchestrator's list: live goals panel, case split / fill match / match induct skeletons, lemma search from a goal, rename, add/organise imports, extract/inline, inlay hints, semantic tokens, signature help, go to implementation, call hierarchy, doc links, Test Explorer, code lenses; plus playground-specific ones); what each needs from the checker; shared work between the LSP and the playground; a suggested order. Then tickets from it. Sonnet; after SW-1110 (same area).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
