@@ -1,5 +1,5 @@
 {
-  "next": 1103,
+  "next": 1104,
   "tickets": [
     {
       "id": 47,
@@ -3731,6 +3731,18 @@
       "body": "\n\nPilot done, on branch lane/SW-1102 (not merged, for Matt; review: git diff main...lane/SW-1102). 81 comment runs deleted (e.g. Guard, Lab, Spec.after, boolOfIff, walkUpTurn), 36 kept (file doc, parseLab, stateCount, patrol, trapPositions...), 2 shortened (Lab.ahead -> '`None` past the map's edge.'; Lab.loopsWith). Comment lines only; aoc checks, fmt clean. Borderline calls the model flagged: kept part1Correct/part2Correct docs (name the puzzle sentence), deleted the -- note pointing to Aoc.Common for turnRight, kept Sightlines/Simulates docs and test group labels. Model result: DeepSeek, worked, 3 min (est. 20), after one hung start (SW-1097).\n",
       "created": "2026-11-02",
       "updated": "2026-11-02",
+      "commits": []
+    },
+    {
+      "id": 1103,
+      "title": "Morning summary: overnight 2-3 Nov",
+      "status": "review",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Overnight 2-3 Nov 2026 (D2227). Everything is on local main, not pushed.\n\nMerged (each verified: selection + merge tier + audit):\n- SW-1099: the commenting rule (docs/syntax.md \"What to write\"): std comprehensive, application code parsimonious.\n- SW-1100 + SW-1045: doc --coverage a target only for Std.*; doc links resolve through the file's imports; W-DOC-LINK no longer cached.\n- SW-1074: equations for a match on several expressions (all 9 AoC skips now have equations; no AoC proof changed: none needed them). Opus review found the match columns were found by name (misfired on a variable named `s`); fixed by having the lifter record them. Cache FORMAT 20.\n\nFor you to judge (branches, not merged):\n- lane/SW-1101: std List docs pilot (54 definitions, 52 with checked examples).\n- lane/SW-1102: AoC 2024 day 6 comments pilot (81 restating comments deleted, 36 kept, 2 shortened). Review: git diff main...lane/SW-1102.\n- Open point from SW-1099: under the rule, should std theorems whose name and statement say everything still need a doc?\n\nFindings:\n- SW-1097 (OpenCode hang): cause found. opencode run waits for stdin EOF; an open pipe hangs it (upstream anomalyco/opencode#59287, open). Fixed with </dev/null, now in CLAUDE.md and docs/workflow.md.\n- SW-1096 (Parse memory): not the runtime. The checker fully evaluates a match scrutinee in main (matching::generalised_now -> normals) with the unfused core evaluator: 7.36 GB at check time for 1M ops vs 69.5 MB when the match is in a helper. SW-861/SW-738's memory comparisons measured the checker. Fix proposed, not started (D2229).\n- Selector trial (SW-1098): 2 of ~10 merges done, nothing missed; selections 94 s and 56 s. Gap: EXAMPLES takes one substring.\n- audit:touched on 2021 d16/d18, 2024 d12: 35 vacuity warnings, probably older (not checked).\n\nDaily tier, 23:54-00:15: 1956 / 1956 passed. 20.7 min wall (nextest 1057 s), against \"under 5 minutes\" in the Taskfile. Its timings are folded into the selector inventory: 1956 of 1969 tests now have a known time (was ~1070).\n\nOpen D questions:\n- D2228: close SW-1097 after 2-3 clean DeepSeek starts with </dev/null? [rec: yes]\n- D2229: SW-1096 fix as an Opus lane (skip evaluating a scrutinee that can't occur in the goal, memory regression test, Opus review)? [rec: yes]\n- D2230: the daily tier takes 20 min vs its \"under 5 minutes\": investigate (as SW-1092 did for merge) or restate the budget? [rec: investigate, Sonnet]\n",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
       "commits": []
     }
   ]
