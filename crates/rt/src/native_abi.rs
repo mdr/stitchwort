@@ -1267,13 +1267,22 @@ unsafe fn from_words(w0: u64, w1: u64, w2: u64) -> Value {
     }
 }
 
+// The `sw_*` functions are exported only outside this crate's own test
+// target: `cargo test -p stitchwort-rt --lib` links rt twice, once as the
+// test crate and once as the rlib that rt's dev-dependencies (driver, elab,
+// dev-features) use, so both copies would define every `#[no_mangle]` symbol
+// below. In the test build they keep their Rust definitions (tests can call
+// them, and their helpers stay used) but not the C names. Release binaries,
+// the standalone static library and other crates' test binaries are not
+// `cfg(test)` for rt, so they keep the exports.
+
 /// Drops the value held in three words (an owning one whose count may go
 /// to zero, or any value under the trace).
 ///
 /// # Safety
 /// The words are a value native code owns, and no longer uses.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract.
     drop(unsafe { from_words(w0, w1, w2) });
@@ -1285,7 +1294,7 @@ pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
 /// # Safety
 /// The words are a live value native code holds.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract; the value read from the words isn't
     // dropped, so only the clone's count remains.
@@ -1312,7 +1321,7 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// As [`sw_global`]; `regs` points at `n` initialised values, which native
 /// code doesn't use again.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_unwind(
     context: *mut Context,
     regs: *mut Value,
@@ -1346,7 +1355,7 @@ pub unsafe extern "C" fn sw_unwind(
 /// `regs` points at `n` initialised values, which native code doesn't use
 /// again.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
     for i in 0..n as usize {
         // SAFETY: within the values.
@@ -1360,7 +1369,7 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
 /// # Safety
 /// `fields` points at `n` values native code owns; `out` at space for one.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut Value) {
     // SAFETY: the caller's contract; the values are moved out (copied
     // bitwise into the new cell, which is then the only owner), and the
@@ -1388,7 +1397,7 @@ pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut
 /// whose every field has been moved out (and may still hold the moved
 /// value's words).
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract.
     let Value::Data(_, fields) = (unsafe { from_words(w0, w1, w2) }) else {
@@ -1413,7 +1422,7 @@ pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
 /// # Safety
 /// As [`sw_ctor`], and `token` points at a register.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_ctor_reuse(
     tag: u32,
     fields: *mut Value,
@@ -1454,7 +1463,7 @@ fn unique(cell: &Rc<[Value]>) -> bool {
 /// `regs` points at the frame's registers, which every index is within;
 /// `pairs` at `2 * n` indices.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_unpack(
     regs: *mut Value,
     src: u32,
@@ -1494,7 +1503,7 @@ pub unsafe extern "C" fn sw_unpack(
 /// # Safety
 /// `cell` is the address word of a unique cell of `n` fields.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
     let fields = (cell + RC_VALUE_AT as u64) as *mut Value;
     for i in 0..n as usize {
@@ -1508,7 +1517,7 @@ pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
 /// # Safety
 /// Both point at registers.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
     // SAFETY: the caller's contract.
     let v = match std::mem::take(unsafe { &mut *src }) {
@@ -1531,7 +1540,7 @@ pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
 /// tables; `args` points at `n` pointers to live values, `dst` at a
 /// register.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_prim(
     context: *const Context,
     op: u32,
@@ -1568,7 +1577,7 @@ unsafe fn shapes_and_op<'a>(context: *const Context, op: u32) -> (&'a Shapes, Pr
 /// # Safety
 /// As [`sw_prim`], without `dst`.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_test(
     context: *const Context,
     op: u32,
@@ -1592,7 +1601,7 @@ pub unsafe extern "C" fn sw_test(
 /// # Safety
 /// Both point at registers.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
     // SAFETY: the caller's contract.
     unsafe {
@@ -1610,7 +1619,7 @@ pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
 /// `context` is the running context and `table` a number table's number in
 /// its tables; `v` points at a register.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_num_switch(
     context: *const Context,
     table: u32,
@@ -1629,7 +1638,7 @@ pub unsafe extern "C" fn sw_num_switch(
 /// # Safety
 /// `context` is the running context; `out` points at space for a value.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Value) -> u64 {
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
@@ -1647,7 +1656,7 @@ pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Valu
 /// # Safety
 /// As [`sw_global`]; `v` points at a live value.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const Value) {
     // SAFETY: as for `sw_global`.
     let run = unsafe { &mut *(*context).run };
@@ -1731,7 +1740,7 @@ impl Default for ApplyCache {
 /// `context` is the running context; `f` points at a live value; `cache`
 /// at a live cache.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_apply_cached(
     context: *mut Context,
     f: *const Value,
@@ -1856,7 +1865,7 @@ pub const LOOP_CODE: u64 = 3;
 /// code owns; `plan` at an `ApplyPlan` header followed by room for its
 /// `cap` values.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_apply_prepare(
     context: *mut Context,
     _frames: u64,
@@ -2139,7 +2148,7 @@ pub fn into_word(f: Rc<Fun>) -> u64 {
 /// # Safety
 /// As [`sw_ctor`].
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: *mut Value) {
     // SAFETY: the caller's contract.
     let captures: Box<[Value]> = (0..n as usize)
@@ -2154,7 +2163,7 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
 /// # Safety
 /// As [`sw_global`] and [`sw_ctor`].
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_pap(
     context: *mut Context,
     g: u32,
@@ -2176,7 +2185,7 @@ pub unsafe extern "C" fn sw_pap(
 /// # Safety
 /// `v` points at a live value.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_int_negative(v: *const Value) -> u64 {
     // SAFETY: the caller's contract.
     match unsafe { &*v } {
@@ -2198,7 +2207,7 @@ pub const UNARY_TEXT_CHARS: u32 = 2;
 /// # Safety
 /// `context` is the running context; both point at registers.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_unary(
     context: *mut Context,
     op: u32,
@@ -2236,7 +2245,7 @@ pub unsafe extern "C" fn sw_unary(
 /// code owns (`c` is taken; `k` only if it returns 0); `out` at space for
 /// one.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_bind(
     context: *mut Context,
     c: *mut Value,
@@ -2270,7 +2279,7 @@ pub unsafe extern "C" fn sw_bind(
 /// `context` is the running context; `args` points at three values native
 /// code owns; `out` at space for one.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_eff_state(
     context: *mut Context,
     op: u32,
@@ -2302,7 +2311,7 @@ pub unsafe extern "C" fn sw_eff_state(
 /// `context` is the running context; `t` points at a `Text`; `out` at space
 /// for a value.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_text_last(
     context: *mut Context,
     t: *const Value,
@@ -2404,7 +2413,7 @@ unsafe fn resume_taken(word: u64) -> Rc<Resume> {
 /// `context` is the running context; `args` points at the op's values,
 /// which native code owns; `c` at space for one.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_eff_begin(
     context: *mut Context,
     op: u32,
@@ -2443,7 +2452,7 @@ pub unsafe extern "C" fn sw_eff_begin(
 /// values native code owns; `handler` is a handler's word native code owns;
 /// `out` at space for five values, `resume` for a word.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_eff_step(
     context: *mut Context,
     c: *mut Value,
@@ -2604,7 +2613,7 @@ pub unsafe extern "C" fn sw_eff_step(
 /// space for two values, `state` and `pending` for one each, `handler` and
 /// `jumped` for a word each.
 #[allow(unsafe_code, clippy::too_many_arguments)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_state_step(
     context: *mut Context,
     v: *mut Value,
@@ -2664,7 +2673,7 @@ pub unsafe extern "C" fn sw_state_step(
 /// at a value native code owns; `out` at space for five values, `handler`
 /// for a word.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_resume_begin(
     k: u64,
     y: *mut Value,
@@ -2733,7 +2742,7 @@ pub unsafe extern "C" fn sw_resume_begin(
 /// As [`sw_global`]; `handler` is a handler's word native code owns, and
 /// gives up.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_unwind_handler(context: *mut Context, handler: u64) {
     // SAFETY: the caller's contract.
     let (run, handler) = unsafe { (&mut *(*context).run, handler_taken(handler)) };
@@ -2762,7 +2771,7 @@ pub unsafe extern "C" fn sw_unwind_handler(context: *mut Context, handler: u64) 
 /// As [`sw_global`]; `resume` is a resumption's word native code owns, and
 /// gives up.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_unwind_resume(context: *mut Context, resume: u64) {
     // SAFETY: the caller's contract.
     let (run, resume) = unsafe { (&mut *(*context).run, resume_taken(resume)) };
@@ -2785,7 +2794,7 @@ pub unsafe extern "C" fn sw_unwind_resume(context: *mut Context, resume: u64) {
 /// As [`sw_global`]; `fun` is a function value's word native code owns,
 /// and gives up.
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_defer_fun(context: *mut Context, fun: u64) {
     // SAFETY: the caller's contract.
     unsafe {
@@ -2800,7 +2809,7 @@ pub unsafe extern "C" fn sw_defer_fun(context: *mut Context, fun: u64) {
 /// # Safety
 /// As [`sw_global`].
 #[allow(unsafe_code)]
-#[unsafe(no_mangle)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_drop_deferred(context: *mut Context) {
     // SAFETY: the caller's contract.
     let run = unsafe {
