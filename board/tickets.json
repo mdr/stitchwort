@@ -1,5 +1,5 @@
 {
-  "next": 1113,
+  "next": 1115,
   "tickets": [
     {
       "id": 47,
@@ -3832,14 +3832,14 @@
     {
       "id": 1110,
       "title": "LSP: go-to-definition doesn't work inside a library file (e.g. Set.sw) reached by navigation",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug",
         "lsp"
       ],
-      "body": "Matt, 3 Nov, VS Code: navigating to a definition in Set.sw works, but inside Set.sw no definition can be navigated to (names referenced there). Client sends stitchwort-std: documents (editors/vscode/client.js documentSelector). Server: lookup()/locate() in crates/cli/src/lsp.rs answer a stitchwort-std: document from the first workspace whose files[Place::Library] has refs at that position. The only test (crates/cli/tests/lsp.rs ~279) hovers the definition's own position in the std document, not a reference inside it. Hypothesis (unverified): the workspace index records library declarations but not the references inside library bodies (or not when std comes from the prelude snapshot/check cache). Repro and fix with an LSP test of definition from a reference inside a std document.",
+      "body": "Matt, 3 Nov, VS Code: in the AoC project, navigating from Day06.sw to a definition in Set.sw works, but nothing inside Set.sw navigates. Cause (Sonnet): a project's first answer carries the library files' full references; later answers (index_data_of with library = false) still held a few library references and published them, replacing the full set, so references inside library files stopped resolving once any later namespace was answered. Fix: LiveProject::answers() (crates/driver/src/live.rs) drops Place::Library entries from later answers. Tests: library_navigation_survives_later_namespace_answers (fails without the fix), navigation_works_inside_a_library_document. aoc_navigation_matches_check_index passed (358 s). Merged 31995a84, verifying. Matt to confirm in VS Code after a rebuild. Gaps found, filed separately: names in library test bodies; field projections on locals. Note: Matt's first report coincided with his server being suspended by the orchestrator (10:00-10:55). Model result: Sonnet, worked, ~55 min over two rounds (est. 45).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -3868,6 +3868,34 @@
         "docs"
       ],
       "body": "Matt, 3 Nov: a PDF one-pager with a diagram of the crates, their relationships and responsibilities. Source kept in the repo so it can be regenerated.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1113,
+      "title": "LSP: names inside library test bodies have no definition or hover",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found in SW-1110: library tests (test \"…\" := …) aren't elaborated on load, so names inside them in stitchwort-std: documents don't navigate.",
+      "created": "2026-11-03",
+      "updated": "2026-11-03",
+      "commits": []
+    },
+    {
+      "id": 1114,
+      "title": "LSP: field projections on locals (s.items, o.compare) don't navigate in library files",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found in SW-1110: projections such as s.items, o.compare, o.eq.decide in library files have no definition. Not checked whether program files share the gap.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
