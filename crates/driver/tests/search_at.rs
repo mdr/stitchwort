@@ -48,15 +48,12 @@ fn load(session: &mut Session, text: &str) -> (FileId, Vec<Diagnostic>) {
     (file, diagnostics)
 }
 
-/// The options the tests search with: the defaults, less
-/// `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
-/// premise `cases` takes about 1.2 GB and seconds to fail on, more than the
-/// lane tier's memory allows beside the other tests (SW-989).
+/// The options the tests search with: the defaults. (Until SW-1082 they left
+/// out `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
+/// premise `cases` grew a value to 1.4 GB on; a tried proof's values are
+/// capped now.)
 fn options() -> AtOptions {
-    AtOptions {
-        exclude: vec!["Std.Float.Theory.magUnitsLeReflect".to_string()],
-        ..AtOptions::default()
-    }
+    AtOptions::default()
 }
 
 /// What closes the goal on `line` of `text`.

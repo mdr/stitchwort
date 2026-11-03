@@ -519,6 +519,9 @@ fn name(n: &ast::Name) -> Name {
     n.text.as_str().into()
 }
 
+/// The nodes a value may grow to while a proof being tried is checked.
+const TRIED_PROOF_SIZE: u64 = 200_000;
+
 impl Elaborator {
     /// The unifier, on this elaborator's metavariables and attempt.
     pub(crate) fn unifier(&self) -> unify::Unifier<'_> {
@@ -775,6 +778,17 @@ impl Elaborator {
         self.glued(|e| e.infer_expr_glued(expr))
     }
 
+    /// The limits of one tried proof: the options', but no value larger
+    /// than [`TRIED_PROOF_SIZE`] nodes. A proof that fails by growing a value
+    /// (`cases` on `Float.Theory.magUnits a ≤ …`) does so up to the size
+    /// limit, 1.4 GB live, before it gives up (SW-1082). Not through
+    /// `options.limits`: those are part of the check cache's key.
+    fn proof_limits(&self) -> stitchwort_core::budget::Limits {
+        let mut limits = self.options.limits;
+        limits.size = limits.size.min(TRIED_PROOF_SIZE);
+        limits
+    }
+
     /// Checks a closed expression, a proof being tried by `stitchwort
     /// search --at` (SW-915 stage 2): if it has no `?`, it is elaborated and
     /// its type inferred by the kernel, as [`Elaborator::infer_expr`] does
@@ -782,7 +796,7 @@ impl Elaborator {
     /// a file's are ([`Checked::Goals`]), and nothing reaches the kernel.
     /// One operation, with its own resource limits.
     pub fn check_proof(&mut self, expr: &Expr) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.budget.start(self.proof_limits());
         let result = self.glued(|e| e.check_proof_glued(expr));
         self.globals.budget.restore(saved);
         self.clear_metas();
@@ -845,7 +859,7 @@ impl Elaborator {
         recursive: Option<&str>,
         body: &Expr,
     ) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.budget.start(self.proof_limits());
         let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, recursive, body));
         self.globals.budget.restore(saved);
         self.clear_metas();
