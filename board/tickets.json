@@ -4435,13 +4435,13 @@
     {
       "id": 1153,
       "title": "Kernel: a number case computes unneeded let values first (force_all in check_num_case?): kernel time grows with an unrelated let-bound list",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "From SW-1106. def f (n : Nat) : Nat := let xs := List.replicate cost 'a'; match n with | 0 => List.length xs | 1 => 2 | _ => 1. Kernel 12 -> 120 ms, 550k -> 3.39M steps from 2,000 to 20,000 elements, with or without SW-1106. Suspect force_all in check_num_case; unconfirmed. Related: SW-1066.",
+      "body": "From SW-1106. def f (n : Nat) : Nat := let xs := List.replicate cost 'a'; match n with | 0 => List.length xs | 1 => 2 | _ => 1. Kernel 12 -> 120 ms, 550k -> 3.39M steps from 2,000 to 20,000 elements, with or without SW-1106. Suspect force_all in check_num_case; unconfirmed. Related: SW-1066.\n\nD2269 (Matt, 3 Nov): start with SW-1154, Opus, est. 60 min, worktree SW-1153. Then SW-1109, state step 4, SW-1156 as slots free.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4449,7 +4449,7 @@
     {
       "id": 1154,
       "title": "unify_index::occurs reads back the whole value with quote to find free variables (the cost pattern SW-1106 removed)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
