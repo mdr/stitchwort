@@ -10,6 +10,8 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 num-bigint.workspace = true
 smallvec.workspace = true
+# The thread's real stack bounds, for a native run (`native_abi`).
+libc.workspace = true
 
 [build-dependencies]
 # `src/fingerprint.rs`'s hash, shared with the driver's build script.

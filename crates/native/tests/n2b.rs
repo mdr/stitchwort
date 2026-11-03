@@ -90,20 +90,14 @@ fn native_run(
     });
     let (islands, sized) = compiled.unwrap_or_else(|why| panic!("doesn't compile: {why:#?}"));
     let notes = vec![islands.note()];
-    // SAFETY: every caller calls this near the top of a `with_stack`
-    // thread whose stack is at least `stack` bytes, and `sized.min(stack)`
-    // is at most that.
-    #[allow(unsafe_code)]
-    let result = unsafe {
-        run_main_native(
-            Box::new(islands),
-            limits,
-            sized.min(stack),
-            &mut "".as_bytes(),
-            &mut output,
-            &mut NoTerminal,
-        )
-    };
+    let result = run_main_native(
+        Box::new(islands),
+        limits,
+        sized.min(stack),
+        &mut "".as_bytes(),
+        &mut output,
+        &mut NoTerminal,
+    );
     (output, result, notes)
 }
 
@@ -266,6 +260,33 @@ fn recursion_to_the_frame_limit_stops_at_the_counter() {
             assert_eq!(under.0.1, Err("out of frames".to_string()), "width {width}");
         });
     }
+}
+
+/// A run told it has more stack than its thread does is refused before any
+/// native code runs, rather than left to run off the end of the stack
+/// (SW-1157): the claim is checked against the thread's real stack.
+#[test]
+fn a_thread_with_less_stack_than_claimed_is_refused() {
+    let source = wide_recursion(12, 20_000);
+    let real = 256 * 1024 * 1024;
+    with_stack(real, move || {
+        let (program, limits) = lowered(&source, real);
+        let (_, notes) = native_on(&program, limits, false, real);
+        let bound = frame_bound(&notes);
+        // Sized for the default frame limit, which needs far more than
+        // `real`, and claimed in full.
+        let (output, result, notes) = native_run(&program, limits, false, 1024 * 1024 * 1024);
+        assert!(ran_natively(&notes), "{notes:#?}");
+        assert!(output.is_empty());
+        assert!(
+            matches!(
+                result,
+                Err(RunError::Resource(ResourceError::Depth) | RunError::Deep(_))
+            ),
+            "{result:?}"
+        );
+        assert!(bound > 0);
+    });
 }
 
 /// The stack-pointer check behind the frame counter (stage NO5 of
