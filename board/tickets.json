@@ -4477,13 +4477,13 @@
     {
       "id": 1156,
       "title": "Check cache key leaves out glue (STITCHWORT_GLUE): can an entry made with gluing on be served with it off?",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1152: Options::cache_key() leaves glue out. Check whether glued and unglued elaboration give different terms or tables for a library file; if so, add glue to the key (FORMAT bump) with a test.",
+      "body": "From SW-1152: Options::cache_key() leaves glue out. Check whether glued and unglued elaboration give different terms or tables for a library file; if so, add glue to the key (FORMAT bump) with a test.\n\nD2272 (Matt, 3 Nov): start. DeepSeek, est. 20 min, scratch-sw-1156. SW-1157 Sonnet (est. 45) alongside; state step 5 (Opus) after SW-1156 merges.",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4491,7 +4491,7 @@
     {
       "id": 1157,
       "title": "Native follow-ups from SW-1124: check real stack bounds at run time so NativeExecutor::new and run_main_native can be safe; are Cranelift stack probes on (frames larger than the guard page)?; make NativeRun crate-private so Crossing::enter/apply/step can be safe",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
