@@ -4365,7 +4365,7 @@
     {
       "id": 1148,
       "title": "doc rfl / doc J print an import line (import Std (rfl)) though built-ins need no import",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
