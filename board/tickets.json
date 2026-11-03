@@ -4141,13 +4141,13 @@
     {
       "id": 1132,
       "title": "SOURCE_FINGERPRINT (web bundle staleness) doesn't cover crates/web/src",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-1123: changes to the web crate itself don't mark web/pkg stale.\n\nD2266 (Matt, 3 Nov): start with SW-1133 on DeepSeek, est. 25 min, scratch-sw-1132. Then SW-1093 (Sonnet) and SW-1124 (Opus) as slots free.",
+      "body": "From SW-1123: changes to the web crate itself don't mark web/pkg stale.\n\nD2266 (Matt, 3 Nov): start with SW-1133 on DeepSeek, est. 25 min, scratch-sw-1132. Then SW-1093 (Sonnet) and SW-1124 (Opus) as slots free.\n\nDone 8cbdd2bc, merged: driver build.rs computes SOURCE_FINGERPRINT over crates/web s graph plus crates/fmt (STITCHWORT_FINGERPRINT unchanged in scope). Test the_source_fingerprint_covers_the_web_crate. Model result: DeepSeek, worked (with SW-1133, 20 min, est. 25).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
@@ -4155,13 +4155,13 @@
     {
       "id": 1133,
       "title": "rt's SW_RT_BUILD_HASH covers only rt/src (not syntax, core, or rt's Cargo.toml features)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-1123: check whether the encoded programs it guards depend on syntax/core or features; if so, derive its inputs from the crate graph like the driver fingerprint.",
+      "body": "From SW-1123: check whether the encoded programs it guards depend on syntax/core or features; if so, derive its inputs from the crate graph like the driver fingerprint.\n\nDone with SW-1132 (8cbdd2bc, 8f1b6c78, 5bca36e9), merged. The format does depend on core (wire tags are core::native::Native and core::partial::Primitive variants), so SW_RT_BUILD_HASH now covers the runtime crate graph (rt, core, syntax) and Cargo.lock, via driver fingerprint.rs (#[path]). Review fix: features deliberately not hashed (the CLI and libstitchwort_standalone.a may be built with different features; alloc-trace does not change the format); the comment says to add any future format-changing feature. Tests: 2 rt, cli build 22, orchestrator reran rt+driver fingerprint 11. Model result: DeepSeek, needed fixes (hashed Cargo features, which would reject a CLI/library pair built with different features), 20 min (est. 25).",
       "created": "2026-11-03",
       "updated": "2026-11-03",
       "commits": []
