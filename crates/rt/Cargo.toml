@@ -16,12 +16,8 @@ smallvec.workspace = true
 alloc-trace = []
 
 [dev-dependencies]
-# Panics when a session runs on a thread smaller than its limits assume
-# (docs/testing.md, "Stack").
-stitchwort-core = { workspace = true, features = ["stack-check"] }
-# The tests of the trace need the feature, which this switches on for the
-# test build only.
-stitchwort-rt = { path = ".", features = ["alloc-trace"] }
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
 stitchwort-driver.workspace = true
 stitchwort-elab.workspace = true
 insta.workspace = true

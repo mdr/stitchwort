@@ -140,7 +140,7 @@
             # The daily tier (docs/testing.md, "Tiers"): the `daily` profile
             # of `.config/nextest.toml`, and STITCHWORT_TIER for the corpus
             # sweeps. Every test runs, so one failure doesn't hide the others.
-            cargoNextestExtraArgs = "--no-fail-fast --profile daily --features stitchwort-cli/native";
+            cargoNextestExtraArgs = "--no-fail-fast --profile daily --features stitchwort-cli/dev";
             STITCHWORT_TIER = "daily";
             # The corpus sweeps go two at a time (`corpus-sweeps` in
             # `.config/nextest.toml`), each on a pool of 5 threads.
@@ -167,7 +167,7 @@
             nextestArgs
             // {
               pname = "stitchwort-full";
-              cargoNextestExtraArgs = "--no-fail-fast --profile full --features stitchwort-cli/native";
+              cargoNextestExtraArgs = "--no-fail-fast --profile full --features stitchwort-cli/dev";
               STITCHWORT_TIER = "full"; # every corpus sweep over the whole corpus
             }
           );
@@ -202,7 +202,7 @@
             // {
               inherit cargoArtifacts;
               # With the CLI's `native` feature, so its code is linted too.
-              cargoClippyExtraArgs = "--all-targets --features stitchwort-cli/native -- --deny warnings";
+              cargoClippyExtraArgs = "--all-targets --features stitchwort-cli/dev -- --deny warnings";
             }
           );
           fmt = craneLib.cargoFmt { inherit src; };

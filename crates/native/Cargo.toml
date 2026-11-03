@@ -24,13 +24,12 @@ cranelift-object = "=0.136.2"
 libc = "0.2.190"
 
 [dev-dependencies]
-# Panics when a session runs on a thread smaller than its limits assume
-# (docs/testing.md, "Stack").
-stitchwort-core = { workspace = true, features = ["stack-check"] }
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
 # The N1 tests check and lower programs from source, and compare allocation
 # traces.
 stitchwort-driver.workspace = true
-stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
+stitchwort-rt.workspace = true
 # N4 parses the effect examples' `-- run:` lines.
 stitchwort-syntax.workspace = true
 # The frame-size test compiles for x86-64 and arm64 whatever the host

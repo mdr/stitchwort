@@ -19,5 +19,9 @@ reference = []
 # runs on (`Budget::start`): on in the tests.
 stack-check = ["stitchwort-syntax/stack-check"]
 
+[dev-dependencies]
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
+
 [lints]
 workspace = true

@@ -23,7 +23,9 @@
 //!
 //! Without the feature, every hook is an empty `#[inline(always)]`
 //! function, so the compiled machine is the same as before; the release
-//! `stitchwort` binary is built without it. Why a feature and not
+//! `stitchwort` binary is built without it. With it, a hook is a load of the
+//! number of recording threads and a branch until a recording starts (the dev
+//! and test builds have the feature, docs/testing.md, "Features"). Why a feature and not
 //! `cfg(debug_assertions)`: the tests run in release mode, and a feature
 //! keeps the trace out of the shipped binary without losing it from
 //! optimised test runs.
@@ -44,12 +46,14 @@ pub const ENABLED: bool = cfg!(feature = "alloc-trace");
 #[inline(always)]
 pub(crate) fn alloc(tag: u32, fields: &Rc<[Value]>) {
     #[cfg(feature = "alloc-trace")]
-    enabled::record(
-        enabled::Kind::Alloc,
-        Rc::as_ptr(fields).cast(),
-        tag,
-        fields.len(),
-    );
+    if enabled::recording() {
+        enabled::record(
+            enabled::Kind::Alloc,
+            Rc::as_ptr(fields).cast(),
+            tag,
+            fields.len(),
+        );
+    }
     #[cfg(not(feature = "alloc-trace"))]
     let _ = (tag, fields);
 }
@@ -58,12 +62,14 @@ pub(crate) fn alloc(tag: u32, fields: &Rc<[Value]>) {
 #[inline(always)]
 pub(crate) fn reuse(tag: u32, fields: &Rc<[Value]>) {
     #[cfg(feature = "alloc-trace")]
-    enabled::record(
-        enabled::Kind::Reuse,
-        Rc::as_ptr(fields).cast(),
-        tag,
-        fields.len(),
-    );
+    if enabled::recording() {
+        enabled::record(
+            enabled::Kind::Reuse,
+            Rc::as_ptr(fields).cast(),
+            tag,
+            fields.len(),
+        );
+    }
     #[cfg(not(feature = "alloc-trace"))]
     let _ = (tag, fields);
 }
@@ -72,12 +78,14 @@ pub(crate) fn reuse(tag: u32, fields: &Rc<[Value]>) {
 #[inline(always)]
 pub(crate) fn inc(fields: &Rc<[Value]>) {
     #[cfg(feature = "alloc-trace")]
-    enabled::record(
-        enabled::Kind::Inc,
-        Rc::as_ptr(fields).cast(),
-        0,
-        fields.len(),
-    );
+    if enabled::recording() {
+        enabled::record(
+            enabled::Kind::Inc,
+            Rc::as_ptr(fields).cast(),
+            0,
+            fields.len(),
+        );
+    }
     #[cfg(not(feature = "alloc-trace"))]
     let _ = fields;
 }
@@ -87,7 +95,7 @@ pub(crate) fn inc(fields: &Rc<[Value]>) {
 #[inline(always)]
 pub(crate) fn dec(fields: &Rc<[Value]>, last: bool) {
     #[cfg(feature = "alloc-trace")]
-    {
+    if enabled::recording() {
         let at = Rc::as_ptr(fields).cast();
         enabled::record(enabled::Kind::Dec, at, 0, fields.len());
         if last {

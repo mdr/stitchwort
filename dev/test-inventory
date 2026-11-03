@@ -6,7 +6,7 @@
   dev/test-inventory --estimate 'FILTER'   (needs a built inventory)
   dev/test-inventory --profile-filter lane-std   (prints that profile's filterset)
 
-Lists every test nextest knows (release, workspace, stitchwort-cli/native),
+Lists every test nextest knows (release, workspace),
 which profiles (tiers and lane-* areas) include it, whether it is in the
 `corpus-sweeps` test group (those run one at a time), and its last known wall
 time. Writes target/test-inventory.json (not committed).
@@ -32,7 +32,7 @@ import xml.etree.ElementTree as ET
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGET = os.path.join(ROOT, "target")
 NEXTEST = ["cargo", "nextest"]
-BUILD = ["--release", "--workspace", "--features", "stitchwort-cli/native"]
+BUILD = ["--release", "--workspace"]
 TIERS = ("merge", "daily", "full")
 
 
