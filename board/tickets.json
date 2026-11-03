@@ -3776,7 +3776,7 @@
     {
       "id": 1106,
       "title": "Checking a match re-evaluates every context value per branch (core::check::substitute_in), ~1.9 KB per input char",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
