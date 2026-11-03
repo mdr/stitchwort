@@ -44,7 +44,7 @@ use crate::check::substitute;
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{Name, Sort, Term};
-use crate::value::{Head, Value, conv, eval, expand_step, force, quote};
+use crate::value::{Elim, Head, Value, conv, eval, expand_step, force, quote};
 
 /// The context unification refines: what each variable stands for and its
 /// type (both by level), other values to keep refined along with them (a
@@ -286,7 +286,17 @@ fn constructor(g: &Globals, d: crate::term::DataId, value: &Value) -> Option<(us
 
 /// Whether variable `y` occurs in `t`, or in the type of a variable of `t`,
 /// or, transitively, in the types of the variables those types mention.
+///
+/// The variables are those of the readback ([`quote`]), which unfolds every
+/// glued call: all of `List.length (List.replicate 20000 'a')`'s 20,000
+/// steps for an index that is that call. So [`may_occur`] looks first,
+/// without reading back, at a superset of those variables, and only if `y`
+/// is among them is anything read back, to decide as before (SW-1154).
+/// Either way the answer is the readback's.
 pub fn occurs(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
+    if !may_occur(g, scope, y, t)? {
+        return Ok(false);
+    }
     let level = scope.level();
     let mut seen = vec![false; level];
     let mut todo = free_levels(&quote(g, level, t)?, level);
@@ -300,6 +310,83 @@ pub fn occurs(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
         todo.extend(free_levels(&quote(g, level, &scope.types[v])?, level));
     }
     Ok(false)
+}
+
+/// [`occurs`], with each value's variables over-approximated by
+/// [`value_levels`]: `false` only where [`occurs`] is, since every
+/// variable [`occurs`] visits, this does too.
+fn may_occur(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
+    let level = scope.level();
+    let mut seen = vec![false; level];
+    let mut todo = Vec::new();
+    value_levels(g, level, t, &mut todo)?;
+    while let Some(v) = todo.pop() {
+        if v == y {
+            return Ok(true);
+        }
+        if v >= level || std::mem::replace(&mut seen[v], true) {
+            continue;
+        }
+        value_levels(g, level, &scope.types[v], &mut todo)?;
+    }
+    Ok(false)
+}
+
+/// Adds to `out` the levels of `value`'s variables, with `level` in scope:
+/// every free variable of `quote(value)`, perhaps with others.
+///
+/// It walks the value as it is stored. Readback is structural there (a
+/// variable is read back as itself; a type, constructor, sum, equation or
+/// stuck application as its parts), except at a glued call
+/// ([`Value::Call`]), read back as its unfolding: the call's definition,
+/// which is closed, applied to its arguments, so its variables are among
+/// theirs, and the walk takes the arguments instead. (`Succ` of a call is
+/// read back with the call unfolded, and is the same.) A closure
+/// ([`Value::Pi`], [`Value::Lam`]), a metavariable's application (whose
+/// solution readback substitutes) and a resumption (which readback
+/// refuses) are read back, and their variables taken exactly.
+fn value_levels(g: &Globals, level: usize, value: &Value, out: &mut Vec<usize>) -> Result<()> {
+    let mut todo: Vec<&Value> = vec![value];
+    while let Some(v) = todo.pop() {
+        let spine = match v {
+            Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => continue,
+            Value::Data(_, args) => {
+                todo.extend(args.iter());
+                continue;
+            }
+            Value::Ctor(_, _, fields) => {
+                todo.extend(fields.iter());
+                continue;
+            }
+            Value::NatAdd(_, base) => {
+                todo.push(base);
+                continue;
+            }
+            Value::Eq(ty, a, b) => {
+                todo.extend([&**ty, &**a, &**b]);
+                continue;
+            }
+            Value::Pi(..)
+            | Value::Lam(..)
+            | Value::Neutral(Head::Meta(_), _)
+            | Value::Resumption(_) => {
+                out.extend(free_levels(&quote(g, level, v)?, level));
+                continue;
+            }
+            Value::Neutral(Head::Var(l, _), spine) => {
+                out.push(*l);
+                spine
+            }
+            Value::Neutral(Head::Def(_) | Head::Quot(_), spine) | Value::Call(_, spine, _) => spine,
+        };
+        for elim in spine.iter() {
+            match elim {
+                Elim::App(arg, _) => todo.push(arg),
+                Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The levels of the free variables of `term`, with `level` variables in

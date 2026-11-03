@@ -245,3 +245,30 @@ fn literal_times_unknown_stays_folded() {
     assert_eq!(small, large);
     assert_eq!(small, huge);
 }
+
+/// SW-1153: a `match` with a `let`-bound list before it, whose arm returns
+/// the list's length. The arm's generated equation is proved by comparing
+/// `f.%match1 0 xs`, unfolded to `Succ (List.length …)`, with `List.length
+/// (List.replicate n 'a')`; comparing them as numbers forced every `Succ`,
+/// counting the whole list on both sides (1.7M steps for 20,000 elements),
+/// where unfolding the other side a step makes both `Succ` of the same call
+/// (`native::compare_lazily`). What's left grows a little with the list,
+/// outside that comparison, so this bounds the growth rather than asking
+/// for none.
+#[test]
+fn comparing_a_counted_list_counts_it_only_as_needed() {
+    let program = |n: usize| {
+        format!(
+            "import Std (List)\n\ndef f (n : Nat) : Nat :=\n  let xs := List.replicate {n} 'a'\n  \
+             match n with\n    | 0 => List.length xs\n    | 1 => 2\n    | _ => 1\n"
+        )
+    };
+    let small = measure(program(2_000));
+    let large = measure(program(20_000));
+    println!("length of a let-bound list: {small:?} / {large:?}");
+    let grew = large.steps - small.steps;
+    assert!(
+        grew < 50_000,
+        "checking took {grew} more steps for 18,000 more elements"
+    );
+}

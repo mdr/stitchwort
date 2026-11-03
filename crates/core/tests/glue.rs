@@ -241,3 +241,43 @@ fn a_call_that_matches_at_once_is_written_unfolded() {
     let written = folded(g, 1, &term);
     assert!(!mentions(&written, d.is_zero), "{written:?}");
 }
+
+/// SW-1154: the occurs check of index unification looks at a glued call's
+/// arguments, not its unfolding: `double 2000` mentions no variable, which
+/// its arguments show at once, where reading it back took 26,000 steps. Where the arguments mention the variable, the check reads back
+/// as before, and answers by the unfolding: `isZero (Succ y)` doesn't
+/// mention `y` once unfolded.
+#[test]
+fn the_occurs_check_looks_at_a_calls_arguments() {
+    use stitchwort_core::unify_index::{Scope, occurs};
+    let d = defs();
+    let g = &d.p.g;
+    let nat = eval(g, &[], &d.p.nat_ty()).unwrap();
+    let scope = Scope {
+        env: vec![Value::var(0)],
+        types: vec![nat],
+        extra: Vec::new(),
+        rigid: Vec::new(),
+    };
+    g.glue.set(true);
+    let big = d.p.num(2_000);
+    let closed = eval(g, &[], &app(Term::Def(d.double), [big])).unwrap();
+    assert!(matches!(closed, Value::Call(..)));
+    let before = g.budget.total_work();
+    let found = occurs(g, &scope, 0, &closed).unwrap();
+    let steps = g.budget.total_work() - before;
+    let env = [Value::var(0)];
+    let on_y = eval(g, &env, &app(Term::Def(d.double), [v(0)])).unwrap();
+    let succ_y = Term::ctor(d.p.nat, 1, vec![v(0)]);
+    let dropped = eval(g, &env, &app(Term::Def(d.is_zero), [succ_y])).unwrap();
+    assert!(matches!(dropped, Value::Call(..)));
+    let (on_y, dropped) = (
+        occurs(g, &scope, 0, &on_y).unwrap(),
+        occurs(g, &scope, 0, &dropped).unwrap(),
+    );
+    g.glue.set(false);
+    assert!(!found);
+    assert!(steps < 100, "the occurs check took {steps} steps");
+    assert!(on_y, "`double y` mentions `y`");
+    assert!(!dropped, "`isZero (Succ y)` is `0`");
+}
