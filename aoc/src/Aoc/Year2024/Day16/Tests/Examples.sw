@@ -130,5 +130,5 @@ test "parse" :=
 test "parse without a final line break" := (parsed "####\n#SE#\n####" |> .map (found => found.openTiles.size)) == Ok 2
 test "no start" := (parsed "####\n#.E#\n####\n" |> .map (found => ())) == Err "no S tile"
 test "two ends" := (parsed "#####\n#SEE#\n#####\n" |> .map (found => ())) == Err "more than one E tile"
-test "a bad tile" := (parsed "####\n#Sx#\n####\n" |> .map (found => ())) == Err "line 2, column 3: expected '#' or '.' or 'S' or 'E' or the end of the line, got 'x'"
+test "a bad tile" := (parsed "####\n#Sx#\n####\n" |> .map (found => ())) == Err "line 2, column 3: expected '#', '.', 'S', 'E' or the end of the line, got 'x'"
 test "a short row" := (parsed "####\n#SE\n####\n" |> .map (found => ())) == Err "line 2: expected 4 cells, as on the first line, got 3"

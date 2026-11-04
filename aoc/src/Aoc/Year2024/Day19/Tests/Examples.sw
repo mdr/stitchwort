@@ -60,6 +60,6 @@ test "counts beyond 64 bits" :=
 
 test "parse" := parsed exampleText == Ok example
 test "parse without a final line break" := parsed "r, wr\n\nrwr" == Ok (onsenOf ["r", "wr"] ["rwr"])
-test "a bad stripe" := parsed "r, x\n\nr\n" == Err "line 1, column 4: expected 'w' or 'u' or 'b' or 'r' or 'g', got 'x'"
+test "a bad stripe" := parsed "r, x\n\nr\n" == Err "line 1, column 4: expected 'w', 'u', 'b', 'r' or 'g', got 'x'"
 test "no blank line" := parsed "r, wr\nrwr\n" == Err "line 2, column 1: expected a blank line, got 'r'"
-test "no designs" := parsed "r, wr\n\n" == Err "line 3, column 1: expected 'w' or 'u' or 'b' or 'r' or 'g', got the end of the input"
+test "no designs" := parsed "r, wr\n\n" == Err "line 3, column 1: expected 'w', 'u', 'b', 'r' or 'g', got the end of the input"

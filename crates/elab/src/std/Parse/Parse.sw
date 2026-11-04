@@ -493,7 +493,7 @@ def Parse.looseRow (cell: () → {Parse} a): {Parse} List a :=
 
 --| Rows of cells, one row per line, as `grid`, but possibly no rows, and a
 --| row may have no cells: every line, empty or not, is a row. Never fails
---| at the start of a line; a bad cell is "expected '@' or '.' or the end of
+--| at the start of a line; a bad cell is "expected '@', '.' or the end of
 --| the line".
 def Parse.looseGrid (cell: () → {Parse} a): {Parse} List (List a) := Parse.many (() => Parse.looseRow cell)
 
@@ -672,13 +672,22 @@ def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput:
       else if char == '\t' then "a tab"
       else "'${char}'"
 
---| `failure` as one message: the parser's own messages, then "expected A or
---| B, got 'x'" with what was found in `chars` instead. `endOfInput` and
+--| The texts as an English list, with " or " before the last and ", "
+--| between the rest: `["a", "b", "c"]` is `"a, b or c"`. One text is
+--| unchanged, and two are joined with " or ".
+def Parse.joinOr: List Text → Text
+  | [] => ""
+  | [only] => only
+  | [first, second] => "${first} or ${second}"
+  | [first, ..rest] => "${first}, ${Parse.joinOr rest}"
+
+--| `failure` as one message: the parser's own messages, then "expected A,
+--| B or C, got 'x'" with what was found in `chars` instead. `endOfInput` and
 --| `lineBreak` name the end of `chars` and a line break in it.
 def Parse.Failure.describe (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
   let expectations := failure.expectations endOfInput
   let expectedPart :=
-    if expectations == [] then [] else ["expected ${Text.joinWith expectations " or "}, got ${failure.found chars endOfInput lineBreak}"]
+    if expectations == [] then [] else ["expected ${Parse.joinOr expectations}, got ${failure.found chars endOfInput lineBreak}"]
   match failure.messages ++ expectedPart with
     | [] => "the parser failed"
     | [only] => only
@@ -694,12 +703,26 @@ def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
     | Ok value => value
     | Err failure => Fail.fail (Parse.allMessage chars failure)
 
---| `parser`, then any line breaks; if there are none, a line break is
---| expected there too, for the message.
+--| Fails after the first line break from `start`, with a message of its own
+--| for `Parse.all`: a failure the parser's own attempt to go on got further
+--| than is reported instead.
+def Parse.extraBlankLine (start: Parse.Mark): {Parse} () :=
+  (Parse.reset start; Parse.newline(); Parse.note (Message "expected the end of the input, got a blank line"))
+  Empty.absurd Parse.stop()
+
+--| `parser`, then any line breaks at the end of the input; if there are none,
+--| a line break is expected there too, for the message. One line break is
+--| allowed before more input; a further one fails after it, as "got a blank
+--| line", unless the parser's own attempt to go on got further.
 def Parse.withFinalLineBreaks (parser: () → {Parse} a): {Parse} a :=
   let value := parser()
+  let start := Parse.mark()
   let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
-  if finalLineBreaks == [] then Parse.note (Expected "a line break") else ()
+  if finalLineBreaks == [] then Parse.note (Expected "a line break")
+  else if finalLineBreaks == ['\n'] then ()
+  else if finalLineBreaks == ['\r', '\n'] then ()
+  else if start.left == finalLineBreaks.length then ()
+  else Parse.extraBlankLine start
   value
 
 --| `Parse.all`'s message for `failure`.
@@ -988,7 +1011,11 @@ test "Parse: pick, error" := Parse.Tests.lineResult "X" (() => Parse.pick [("L",
 --| What was found is shown as long as the longest word expected.
 test "Parse: pick, error, longer words" :=
   Parse.Tests.lineResult "mul ( 1,2)" (() => Parse.pick [("mul(", 1), ("do()", 2), ("don't()", 3)]) ==
-    Err "column 1: expected 'mul(' or 'do()' or 'don't()', got 'mul ( 1'"
+    Err "column 1: expected 'mul(', 'do()' or 'don't()', got 'mul ( 1'"
+--| Three or more expectations are an English list.
+test "Parse: pick, error, three words" :=
+  Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2), ("S", 3)]) ==
+    Err "column 1: expected 'L', 'R' or 'S', got 'X'"
 --| The word a short look stops inside is shown whole.
 test "Parse: found, to the end of the word" :=
   Parse.Tests.lineError "ab OR cd" (() => Parse.text "ab: ") == "column 1: expected 'ab: ', got 'ab OR'"
@@ -1052,17 +1079,28 @@ test "Parse: sections" := Parse.Tests.allResult "1\n2\n\n3\n" (() => Parse.secti
 test "Parse: sections, no blank line" :=
   Parse.Tests.allResult "1,2\n3,4\n" (() => Parse.sections (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) ==
     Err "line 2, column 1: expected a blank line or the end of the input, got '3'"
+--| A second blank line is where the next section should start, not the end of
+--| the input after the line breaks.
+test "Parse: sections, two blank lines" :=
+  Parse.Tests.allResult "a\n\n\nb" (() => Parse.sections (() => Parse.lines (() => Parse.pick [("a", 1), ("b", 2)]))) ==
+    Err "line 3, column 1: expected 'a' or 'b', got the end of the line"
+--| Blank lines before more input that nothing else reads: the blank line is
+--| what is wrong.
+test "Parse: all, blank line before extra input" :=
+  Parse.Tests.allResult "1\n\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got a blank line"
+test "Parse: all, one line break before extra input" :=
+  Parse.Tests.allResult "1\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got 'f'"
 test "Parse: grid" :=
   Parse.Tests.allResult "@.\n.@\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [False, True]]
 test "Parse: grid, error" :=
   Parse.Tests.allResult "@.\n.x\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) ==
-    Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
+    Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
 test "Parse: looseGrid" :=
   Parse.Tests.allResult "@.\n\n.\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [], [False]]
 test "Parse: looseGrid, no rows" := Parse.Tests.allResult "" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok []
 test "Parse: looseGrid, error" :=
   Parse.Tests.allResult "@.\n.x\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) ==
-    Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
+    Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
 test "Parse: label" :=
   Parse.Tests.lineResult "X5" (() => Parse.label "a turn like L68" (() => Parse.pick [("L", 1), ("R", 2)])) ==
     Err "column 1: expected a turn like L68, got 'X'"
