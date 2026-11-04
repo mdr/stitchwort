@@ -1,5 +1,5 @@
 {
-  "next": 1293,
+  "next": 1294,
   "tickets": [
     {
       "id": 47,
@@ -6169,13 +6169,13 @@
     {
       "id": 1273,
       "title": "Std: bit lemmas (Nat.fromBitsAppend, fromBitsBelow, toBits round trip), Eq.subst with inferred motive, Decidable List.Sorted",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1273",
       "labels": [
         "std"
       ],
-      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' ranked items 1, 2, 4. (1) Nat.fromBitsAppend and Nat.fromBitsBelow from Day05/Proofs/Seat.sw into std (2021 day 16 carries an identical fromBitsBelow: switch it to std's), plus Nat.toBits with its round trip if natural. (2) Eq.subst: move a fact along an equation with the motive inferred (day 5 wrote J with an explicit motive three times after rewrite hit E-REWRITE-BUDGET). (3) A Decidable instance for List.Sorted, so the counterexample search can test sorted-list lemmas (today 'not applicable'). Then use them in day 5 and 2021 day 16 and delete the local copies.\n\nD2359 (Matt, 4 Nov): yes. Sonnet, with an Opus review; expected: 60 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.\n\nProgress (lane, 4 Nov): done in 4ba8957a4. Nat.toBits + round trips, Nat.fromBitsAppend/Below/Snoc, Eq.subst (motive explicit: inference needs higher-order unification), List.decSorted. Day 5 and 2021 day 16 switched; Day16 Proofs/Bits.sw deleted. hash_stability prelude snapshot: 18 added lines, no changes.",
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' ranked items 1, 2, 4. (1) Nat.fromBitsAppend and Nat.fromBitsBelow from Day05/Proofs/Seat.sw into std (2021 day 16 carries an identical fromBitsBelow: switch it to std's), plus Nat.toBits with its round trip if natural. (2) Eq.subst: move a fact along an equation with the motive inferred (day 5 wrote J with an explicit motive three times after rewrite hit E-REWRITE-BUDGET). (3) A Decidable instance for List.Sorted, so the counterexample search can test sorted-list lemmas (today 'not applicable'). Then use them in day 5 and 2021 day 16 and delete the local copies.\n\nD2359 (Matt, 4 Nov): yes. Sonnet, with an Opus review; expected: 60 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.\n\nProgress (lane, 4 Nov): done in 4ba8957a4. Nat.toBits + round trips, Nat.fromBitsAppend/Below/Snoc, Eq.subst (motive explicit: inference needs higher-order unification), List.decSorted. Day 5 and 2021 day 16 switched; Day16 Proofs/Bits.sw deleted. hash_stability prelude snapshot: 18 added lines, no changes.\n\nMerged c89abf39; verified: selection 598, audits of 2020/05 and 2021/16, merge tier 1066, full audit clean. Eq.subst takes its motive explicitly (no higher-order unification). Model result: Sonnet, worked, 22 min (est. 60).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6445,6 +6445,20 @@
         "design"
       ],
       "body": "D2368 (Matt, 4 Nov 2026): a match whose result is Option does NOT silently default missing cases to None; keep the exhaustiveness check, be explicit. But Matt wants Scala's partial-function vibe ('map with a partial function based on your match, emit things that don't match ... very high expressivity'): xs.collect { case ... => ... }. Orchestrator's sketch: (1) clause lambdas, a lambda written as match arms; (2) an explicitly marked partial form that desugars to a match whose arms are wrapped in Some with a final _ => None, so it fits List.filterMap / a new List.collect (a → Option b); partiality is opt-in and visible, so the exhaustiveness check stays everywhere else. Questions for the note: syntax (fits lambda-syntax.md's grammar, the | ambiguity in one-line matches), how it reads in pipelines, Option vs a dedicated PartialFn with isDefinedAt, guards, other uses (Map.collect, Parse alternatives, orElse chaining), what proofs see (it is an ordinary match; collect membership lemma), and survey of AoC sites that would use it.\nProgress (lane, 4 Nov 22:18): note written, docs/proposals/partial-lambdas.md (commit 3665220a1 on lane/SW-1292). Recommends design B: `match | …` clause lambdas (total), `match? | …` (arms wrapped in Some, rest None; for filterMap/findMap), `matches | …` (Boolean side, Scala's cond; rest False, body-less arm = True); guards `| p if c => e` as a later stage. Rejects C (partial by callee type) and D (PartialFn record). Decisions P1-P10 for Matt. Survey: 10 pipeline sites (5 need guards), 10 Option tables, 12 total clause lambdas, Boolean form 6 aoc + 13 std.\n\nMerged as a proposal; awaiting Matt's decisions P1–P10 (asked as D2370: accept the recommendations?). Model result: Opus, worked, 11 min (+ the cond addition) (est. 60).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1293,
+      "title": "search_at_on_real_2021_goals: six stale source strings from the Cons sweep",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "crates/driver/tests/search_at_aoc.rs, search_at_on_real_2021_goals fails on main: six cases' from/to strings still say 'Cons x rest' where the sources now say '[x, ..rest]' (sweep fb367c1bc, SW-1221): Day13/Proofs/Picture.sw '| Cons dot rest, spot, Inl same', Day18/Proofs/Leaves.sw '| Cons leaf rest => Eq.cong', Day16/Proofs/Answers.sw '| Cons _ rest => rewrite lengthEvaluateAll rest in rfl' (now line 80), Day14/Proofs/Pairs.sw 'pairsStep rules (Cons b rest) in rfl', Day12/Proofs/Rules.sw '| Cons x rest, Inl same' and '| Cons x rest, Inr later'. Update the strings to the current text; the test is not in the merge tier, which is why it wasn't caught. Also check search_at_on_aoc_goals' strings for the same.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
