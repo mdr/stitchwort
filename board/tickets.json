@@ -1,5 +1,5 @@
 {
-  "next": 1232,
+  "next": 1235,
   "tickets": [
     {
       "id": 47,
@@ -5570,6 +5570,48 @@
         "aoc"
       ],
       "body": "D2305 track (one day per lane; friction review with Matt after). Day 2's friction review done 4 Nov 2026 (D2330, D2331). Started 4 Nov 2026 on Opus, expected: 120 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1232,
+      "title": "Mark std functions @[tailrec] (tailrec note §6.3): pins List.lengthOnto, foldLeft, Nat.digitsAcc etc. as loops, so a regression is an error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "Follow-up to SW-1222. Mark the std loops and fix any that the checker (or the JS assertion) rejects.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1233,
+      "title": "@[tailrec] effectful-call location: label underlines the call's arguments (n in f n); the elaborator's bind needs a Loc on the computation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Follow-up to SW-1222. In tailrec.rs, Walk::note uses the arguments' span for calls inside Effect.bind because the call has no Loc of its own. Wrap the computation in a Loc where bind is built; check hashes and terms are unaffected.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1234,
+      "title": "Test @[tailrec] with polymorphic recursion (self-call at a different row) for the translate/translateD/mapSig rule",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Follow-up to SW-1222. tailrec.rs treats translate/translateD/mapSig as non-tail (label: converted to the effect row), untested against a real program. Find or build one; confirm the label, or whether such a call is really a tail call.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
