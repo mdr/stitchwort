@@ -33,6 +33,7 @@ mod decl;
 mod journal;
 mod options;
 mod owners;
+pub(crate) mod paths;
 mod presentation;
 mod session;
 mod table;

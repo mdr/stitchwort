@@ -9,7 +9,7 @@
 //! keeps a pointer to it; the maps a load adds to are [`Logged`], put back
 //! by the journal ([`Session::logged`]); the rest is small and copied.
 
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -78,6 +78,9 @@ pub struct Session {
     /// Which unit made each declaration, and which is being elaborated
     /// (docs/proposals/elaborator-state.md §4.8.4).
     pub(crate) owners: super::owners::Owners,
+    /// Which declaration has each path, for the check cache. Filled in
+    /// when read, cut by a rewind.
+    pub(crate) paths: RefCell<super::paths::DeclPaths>,
     /// The checkpoints of the tables that log their changes (§4.8.2).
     pub(crate) journal: super::journal::Journal<crate::rewind::LogPositions>,
 }
@@ -93,6 +96,7 @@ pub(crate) struct Mark {
     namespace_sources: Arc<HashMap<String, cache::Key>>,
     replayed_names: HashSet<String>,
     owners: super::owners::Mark,
+    paths: super::paths::Mark,
 }
 
 impl Session {
@@ -106,6 +110,7 @@ impl Session {
             namespace_sources,
             replayed_names,
             owners,
+            paths,
             // Its own checkpoints (`rewind.rs`), and the maps it puts back.
             journal: _,
             include_locations: _,
@@ -129,6 +134,7 @@ impl Session {
             namespace_sources: namespace_sources.clone(),
             replayed_names: replayed_names.clone(),
             owners: owners.mark(),
+            paths: paths.borrow().mark(),
         }
     }
 
@@ -142,6 +148,7 @@ impl Session {
             namespace_sources,
             replayed_names,
             owners,
+            paths,
             journal: _,
             include_locations: _,
             namespace_keys: _,
@@ -161,6 +168,7 @@ impl Session {
         *namespace_sources = mark.namespace_sources.clone();
         *replayed_names = mark.replayed_names.clone();
         owners.rewind(&mark.owners);
+        paths.get_mut().rewind(&mark.paths);
     }
 }
 
