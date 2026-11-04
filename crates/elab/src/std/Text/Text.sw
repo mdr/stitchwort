@@ -166,11 +166,12 @@ def Text.startsWithChars: List Char → List Char → Bool
   | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.startsWithChars ps ys else False
 
 --| The rest of `text` after `prefix`, or `None` if `text` doesn't start with it
---| ([`Text.stripPrefixAppend`]). The empty prefix gives `Some text`.
+--| ([`Text.stripPrefixAppend`], [`Text.stripPrefixSome`]). The empty prefix gives `Some text`.
 def Text.stripPrefix (text: Text) (prefix: Text): Option Text :=
   Text.stripPrefixChars prefix.toList text.toList |> .map Text.fromList
 
---| The text without its ending `suffix`, or `None` if it doesn't end with it.
+--| The text without its ending `suffix`, or `None` if it doesn't end with it
+--| ([`Text.stripSuffixSome`]).
 def Text.stripSuffix (text: Text) (suffix: Text): Option Text :=
   Text.stripPrefixChars suffix.toList.reverse text.toList.reverse |> .map (chars => chars.reverse |> Text.fromList)
 
@@ -231,6 +232,123 @@ theorem Text.stripPrefixCharsAppend (t: List Char): (p: List Char) →
 theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.append p t) p = Some t :=
   Eq.trans (Eq.cong (.map Text.fromList) (Text.stripPrefixCharsAppend (Text.toList t) (Text.toList p)))
     (Eq.cong Some (Text.fromToList t))
+
+--| Comparing characters with `Text.sameChar` is comparing them with `==`.
+--| Use it to read `Text.stripPrefixChars` and `Text.startsWithChars`, which
+--| compare by code, as if they used `==`.
+theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
+  match same: Text.sameChar c d with
+    | True => rewrite Char.ext c d (Nat.equalSound _ _ same) in Eq.sym (DecEq.refl d)
+    | False =>
+      match equal: c == d with
+        | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound c d equal, Text.sameCharRefl d at same in Eq.sym same))
+        | False => rfl
+
+--| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
+--| stripping `p` from `ys` leaves `rest`, `ys` is `p` followed by `rest`.
+theorem Text.stripPrefixCharsForward: (p: List Char) → (ys: List Char) → (rest: List Char) →
+    Text.stripPrefixChars p ys = Some rest → ys = List.append p rest
+  | [], ys, rest, h => Option.someInjective ys rest h
+  | [c, ..ps], [], rest, h => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+  | [c, ..ps], [y, ..ys], rest, h =>
+    match same: Text.sameChar c y with
+      | True =>
+        rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
+          Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys rest h)
+      | False => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+
+--| The characters after the prefix `p` are `rest` exactly when the list is
+--| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.
+theorem Text.stripPrefixCharsSome (p: List Char) (ys: List Char) (rest: List Char):
+    Text.stripPrefixChars p ys = Some rest ↔ ys = List.append p rest := {
+  forward = Text.stripPrefixCharsForward p ys rest,
+  backward = e => rewrite e in Text.stripPrefixCharsAppend rest p
+}
+
+--| Texts are equal exactly when their character lists are: `Text.fromList a == Text.fromList b`
+--| is `a == b`. Use it to move a `Bool` equation between a text and its characters.
+theorem Text.fromListEq (a: List Char) (b: List Char): (Text.fromList a == Text.fromList b) = (a == b) :=
+  match same: a == b with
+    | True => rewrite DecEq.sound a b same in DecEq.refl (Text.fromList b)
+    | False =>
+      match equal: Text.fromList a == Text.fromList b with
+        | True => Void.exfalso (DecEq.soundFalse a b same (Eq.cong Text.toList (DecEq.sound _ _ equal)))
+        | False => rfl
+
+--| `text` after `prefix` is `rest` exactly when `text` is `prefix` followed by
+--| `rest`: `text.stripPrefix prefix = Some rest ↔ text = Text.append prefix rest`.
+--| Use it to turn a `stripPrefix` result into an equation about the text, or the
+--| reverse. `Text.stripPrefixAppend` is its `backward` direction at
+--| `text = Text.append prefix rest`.
+--| Example: `(Text.stripPrefixSome "L68" "L" "68").backward rfl` proves
+--| `"L68".stripPrefix "L" = Some "68"`.
+theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stripPrefix text prefix = Some rest ↔ text = Text.append prefix rest := {
+  forward = h =>
+    match found: Text.stripPrefixChars (Text.toList prefix) (Text.toList text) with
+      | None => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+      | Some chars =>
+        Text.ext text (Text.append prefix rest)
+          (rewrite Text.stripPrefixCharsForward _ _ chars found, Eq.sym (Option.someInjective _ _ h) in rfl),
+  backward = e => rewrite e in Text.stripPrefixAppend prefix rest
+}
+
+--| `text` without its ending `suffix` is `rest` exactly when `text` is `rest`
+--| followed by `suffix`: `text.stripSuffix suffix = Some rest ↔ text = Text.append rest suffix`.
+--| Use it to turn a `stripSuffix` result into an equation about the text, or the
+--| reverse. Example: `(Text.stripSuffixSome "L68" "68" "L").backward rfl` proves
+--| `"L68".stripSuffix "68" = Some "L"`.
+theorem Text.stripSuffixSome (text: Text) (suffix: Text) (rest: Text): Text.stripSuffix text suffix = Some rest ↔ text = Text.append rest suffix := {
+  forward = h =>
+    match found: Text.stripPrefixChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text)) with
+      | None => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+      | Some chars =>
+        Text.ext text (Text.append rest suffix)
+          (Eq.trans (Eq.sym (List.reverseReverse (Text.toList text)))
+            (rewrite Text.stripPrefixCharsForward _ _ chars found, Eq.sym (Option.someInjective _ _ h), List.reverseAppend (List.reverse (Text.toList suffix)) chars, List.reverseReverse (Text.toList suffix) in rfl)),
+  backward = e =>
+    rewrite e, List.reverseAppend (Text.toList rest) (Text.toList suffix),
+      Text.stripPrefixCharsAppend (List.reverse (Text.toList rest)) (List.reverse (Text.toList suffix)),
+      List.reverseReverse (Text.toList rest), Text.fromToList rest in rfl
+}
+
+--| `stripPrefix` as a computation on the text: if the first `prefix.length`
+--| characters are `prefix`, the rest follows; otherwise there is no result.
+--| Use it when the other side of the proof is written with `take` and `drop`;
+--| [`Text.stripPrefixSome`] is the form for reasoning about the equation.
+theorem Text.stripPrefixTake (text: Text) (prefix: Text):
+    Text.stripPrefix text prefix = (if Text.take text (Text.length prefix) == prefix then Some (Text.drop text (Text.length prefix)) else None) :=
+  match same: Text.take text (Text.length prefix) == prefix with
+    | True =>
+      (Text.stripPrefixSome text prefix (Text.drop text (Text.length prefix))).backward
+        (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length prefix)))
+          (Eq.cong (front => Text.append front (Text.drop text (Text.length prefix))) (DecEq.sound _ _ same)))
+    | False =>
+      match found: Text.stripPrefix text prefix with
+        | None => rfl
+        | Some rest =>
+          Void.exfalso (DecEq.soundFalse _ _ same
+            (Text.ext _ _ (rewrite (Text.stripPrefixSome text prefix rest).forward found in List.takeAppendLength (Text.toList prefix) (Text.toList rest) _ rfl)))
+
+--| `stripSuffix` as a computation on the text: if the last `suffix.length`
+--| characters are `suffix`, the characters before them are the result;
+--| otherwise there is none. Use it when the other side of the proof is written
+--| with `take` and `drop`; [`Text.stripSuffixSome`] is the form for reasoning
+--| about the equation.
+theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
+    Text.stripSuffix text suffix
+      = (if Text.drop text (Text.length text - Text.length suffix) == suffix then Some (Text.take text (Text.length text - Text.length suffix)) else None) :=
+  match same: Text.drop text (Text.length text - Text.length suffix) == suffix with
+    | True =>
+      (Text.stripSuffixSome text suffix (Text.take text (Text.length text - Text.length suffix))).backward
+        (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length text - Text.length suffix)))
+          (Eq.cong (back => Text.append (Text.take text (Text.length text - Text.length suffix)) back) (DecEq.sound _ _ same)))
+    | False =>
+      match found: Text.stripSuffix text suffix with
+        | None => rfl
+        | Some rest =>
+          Void.exfalso (DecEq.soundFalse _ _ same
+            (rewrite (Text.stripSuffixSome text suffix rest).forward found in
+              Text.ext _ _ (List.dropAppendLength (Text.toList rest) (Text.toList suffix) _ (rewrite Text.lengthAppend rest suffix in omega))))
 
 theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) →
     Text.startsWithChars p (List.append p t) = True

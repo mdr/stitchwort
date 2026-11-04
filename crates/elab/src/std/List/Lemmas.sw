@@ -893,6 +893,16 @@ theorem List.reverseSnoc: (xs: List a) → (x: a) → List.reverse (List.append 
   | [y, ..rest], x =>
     rewrite List.reverseCons y (List.append rest [x]), List.reverseSnoc rest x, List.reverseCons y rest in rfl
 
+--| Reversing a list that is two lists joined reverses each and swaps them:
+--| `(xs ++ ys).reverse = ys.reverse ++ xs.reverse`.
+theorem List.reverseAppend: (xs: List a) → (ys: List a) → List.reverse (List.append xs ys) = List.append (List.reverse ys) (List.reverse xs)
+  | [], ys => Eq.sym (List.appendNil (List.reverse ys))
+  | [x, ..rest], ys =>
+    Eq.trans (List.reverseCons x (List.append rest ys))
+      (Eq.trans (Eq.cong (reversed => List.append reversed [x]) (List.reverseAppend rest ys))
+        (Eq.trans (List.appendAssoc (List.reverse ys) (List.reverse rest) [x])
+          (Eq.cong (tail => List.append (List.reverse ys) tail) (Eq.sym (List.reverseCons x rest)))))
+
 theorem List.lengthReverseOnto: (xs: List a) → (acc: List a) → List.length (List.reverseOnto xs acc) = List.length xs + List.length acc
   | [], acc => rfl
   | [x, ..rest], acc => Eq.trans (List.lengthReverseOnto rest [x, ..acc]) (Nat.addSucc (List.length rest) (List.length acc))
@@ -1174,6 +1184,11 @@ theorem List.distinctAppendApart: (xs: List a) → (ys: List a) → List.Distinc
 
 --| Two lists with the same head are equal only if their tails are.
 theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: [x, ..ys] = [x, ..zs]): ys = zs := Eq.cong (.drop 1) p
+
+--| Two equal non-empty lists have the same head: the complement of
+--| [`List.consInjective`], which gives the tails when the heads are the same.
+theorem List.consInjectiveHead (x: a) (y: a) (xs: List a) (ys: List a) (p: [x, ..xs] = [y, ..ys]): x = y :=
+  Eq.cong (list => (list.get 0).getOrElse x) p
 
 --| A list starting with x isn't among lists that all start with y, a
 --| different element.
@@ -1544,6 +1559,26 @@ theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains 
     List.anyTrueElim xs (member => member == x) (x ∈ xs) found (member isIn same => rewrite <- DecEq.sound member x same in isIn),
   backward = isIn => List.anyOfMem xs (member => member == x) x (DecEq.refl x) isIn
 }
+
+--| In a list without repeats, a value matches at most one element, and exactly
+--| one when it is a member: `xs.count (== v)` is 1 if `xs.contains v` and 0 if
+--| not. With [`List.lengthFilter`] this turns "the filter keeps exactly one"
+--| into `xs.contains v`, e.g. for a fixed list of allowed names. The `Distinct`
+--| argument for a literal list is `byDecision` (`import Std (byDecision)`);
+--| it is not filled in by `auto`.
+--| Example: `List.countEqDistinct "b" ["a", "b", "c"] byDecision` says
+--| `["a", "b", "c"].count (== "b") = Bool.toNat (["a", "b", "c"].contains "b")`.
+theorem List.countEqDistinct [auto eq: DecEq a] (v: a): (xs: List a) → List.Distinct xs → List.count xs (== v) = Bool.toNat (List.contains xs v)
+  | [], d => rfl
+  | [y, ..ys], Both notMem d =>
+    Eq.trans
+      (Eq.trans (List.countCons ys y (== v)) (Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)))
+      (match same: y == v with
+        | True =>
+          match later: List.contains ys v with
+            | True => Void.exfalso (notMem (rewrite DecEq.sound y v same in (List.memContains ys v).forward later))
+            | False => rfl
+        | False => rfl)
 
 --| What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q y = True) (h: List.find xs p = Some y): List.any xs q = True :=

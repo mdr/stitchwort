@@ -98,10 +98,22 @@ def Text.readDigits (acc: Nat): List Char → Option Nat
 --| must be one or more digits and nothing else: no sign, whitespace or
 --| separators. Leading zeros are allowed, so
 --| `Text.toNat (Nat.toText n) = Some n` ([`Text.toNatToText`]) but `"007"`
---| reads as 7.
+--| reads as 7. What it gives on any text is [`Text.toNatDigits`].
 def Text.toNat: Text → Option Nat
   | MkText [] => None
   | MkText [char, ..chars] => Text.readDigits 0 [char, ..chars]
+
+--| `Text.readDigits` reads every character as a digit or fails: after `acc`
+--| it gives the value of `acc` followed by the digits, `Some (foldLeft …)`,
+--| when all of `chars` are digits, and `None` otherwise. The loop behind
+--| [`Text.toNatDigits`].
+theorem Text.readDigitsValue: (acc: Nat) → (chars: List Char) →
+    Text.readDigits acc chars = (if chars.all (char => char.digitValue.isSome) then Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit)) else None)
+  | acc, [] => rfl
+  | acc, [char, ..rest] =>
+    match value: char.digitValue with
+      | None => rfl
+      | Some d => Text.readDigitsValue (acc * 10 + d) rest
 
 --| The integer a text spells: an optional `-`, then one or more ASCII digits,
 --| and nothing else. Leading zeros are fine and `"-0"` is `0`; `"-"`, `""` and
