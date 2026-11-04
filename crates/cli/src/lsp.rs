@@ -75,6 +75,10 @@ pub struct Options {
     pub search_delay: Duration,
     /// The most proof searches seen running at once, for a test.
     pub search_peak: Arc<std::sync::atomic::AtomicUsize>,
+    /// How many closing proofs a search looks for before it stops trying
+    /// candidates: a code action shows no more. A test sets one, so that a
+    /// search ends at its first, whatever the load.
+    pub search_wanted: usize,
 }
 
 impl Options {
@@ -87,6 +91,7 @@ impl Options {
             search_workers: 1,
             search_delay: Duration::ZERO,
             search_peak: Arc::default(),
+            search_wanted: 3,
         }
     }
 }
@@ -190,6 +195,7 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         to_checker,
         texts: Default::default(),
         stack: options.stack,
+        wanted: options.search_wanted,
         searches,
         to_searches,
         document_changes,
@@ -403,6 +409,8 @@ struct Main<'a> {
     texts: std::cell::RefCell<HashMap<Url, String>>,
     /// The stack of a thread that searches for what closes a goal.
     stack: usize,
+    /// How many closing proofs a search stops at (`Options::search_wanted`).
+    wanted: usize,
     searches: Arc<Searches>,
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
@@ -495,6 +503,7 @@ impl Main<'_> {
         };
         let versioned = self.document_changes.then_some(version);
         let stack = self.stack;
+        let search = action_options(self.wanted);
         let pending = Arc::new(PendingSearch {
             uri: uri.clone(),
             cancel: Arc::new(AtomicBool::new(false)),
@@ -507,9 +516,9 @@ impl Main<'_> {
             version,
             run: Box::new(move |cancel| match project {
                 Some((root, relative, open)) => project_closing_actions(
-                    stack, &uri, &root, &relative, open, range, versioned, cancel,
+                    stack, &uri, &root, &relative, open, range, versioned, cancel, &search,
                 ),
-                None => closing_actions(stack, &uri, &path, &text, range, versioned),
+                None => closing_actions(stack, &uri, &path, &text, range, versioned, &search),
             }),
         };
         if self.to_searches.send(job).is_err() {
@@ -1853,9 +1862,9 @@ fn closing_actions(
     text: &str,
     range: lsp_types::Range,
     versioned: Option<i32>,
+    options: &stitchwort_driver::search_at::AtOptions,
 ) -> serde_json::Value {
     use stitchwort_driver::search_at::{GoalAt, search_at_text};
-    let options = action_options();
     let at = GoalAt::Line(
         range.start.line as usize + 1,
         Some(range.start.character as usize + 1),
@@ -1868,16 +1877,18 @@ fn closing_actions(
         .parent()
         .map(|dir| dir.join(".stitchwort").join("cache"))
         .filter(|dir| dir.is_dir());
-    let Ok(report) = search_at_text(stack, name, text, at, &options, cache.as_deref()) else {
+    let Ok(report) = search_at_text(stack, name, text, at, options, cache.as_deref()) else {
         return serde_json::Value::Null;
     };
     actions_for(&report, uri, text, range, versioned)
 }
 
-/// Options for the code action's search: the top three, within 5 s.
-fn action_options() -> stitchwort_driver::search_at::AtOptions {
+/// Options for the code action's search: the top three, within 5 s, and
+/// no more candidates once `wanted` have closed the goal.
+fn action_options(wanted: usize) -> stitchwort_driver::search_at::AtOptions {
     stitchwort_driver::search_at::AtOptions {
         limit: 3,
+        stop_after_closing: Some(wanted),
         time: Duration::from_secs(5),
         ..Default::default()
     }
@@ -1898,6 +1909,7 @@ fn project_closing_actions(
     range: lsp_types::Range,
     versioned: Option<i32>,
     cancel: Arc<AtomicBool>,
+    options: &stitchwort_driver::search_at::AtOptions,
 ) -> serde_json::Value {
     use stitchwort_driver::search_at::{GoalAt, Overlay, ProjectGoal};
     let Some(text) = open.get(relative).cloned() else {
@@ -1926,7 +1938,7 @@ fn project_closing_actions(
     };
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
-    let found = session.search_at_project(&goal, &action_options());
+    let found = session.search_at_project(&goal, options);
     drop(session);
     match found {
         Ok(report) => actions_for(&report, uri, &text, range, versioned),
