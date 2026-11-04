@@ -6297,13 +6297,13 @@
     {
       "id": 1282,
       "title": "AoC 2020 day 5: a Pass type (wrapping the 10 bits) with Pass.seatId, used through the program, spec and proofs",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1282",
       "labels": [
         "aoc"
       ],
-      "body": "The problem: day 5 passes a pass around as a bare List Bool (pass(): {Parse} List Bool, seatId (pass: List Bool), solvePart1 (passes: List (List Bool))), so the reader has to work out what the list means. Matt, 4 Nov 2026: 'wrap list of bool with a pass record … add things like seat ID as a method … small domain models like this rather than passing the raw types around, for ease of comprehension'.\n\nThe change: a small domain type (a record or one-field wrapper, e.g. type Pass = { bits: List Bool } or { row: List Bool, column: List Bool } if that reads better) with the operations as Pass.* definitions used by dot notation (pass.seatId, and the row/column if natural); the parser returns Pass, the solvers take List Pass; the spec and proofs state their theorems about Pass. Keep the proofs' content; adjust statements and helpers.\n\nWhat it should do: Day05.sw reads in the puzzle's nouns; day 5 still checks, its 17 tests pass, its audit has 0 failures, and the answers stay 813 / 612. Before SW-1273 (it moves day 5's fromBits lemmas into std, same files).",
+      "body": "The problem: day 5 passes a pass around as a bare List Bool (pass(): {Parse} List Bool, seatId (pass: List Bool), solvePart1 (passes: List (List Bool))), so the reader has to work out what the list means. Matt, 4 Nov 2026: 'wrap list of bool with a pass record … add things like seat ID as a method … small domain models like this rather than passing the raw types around, for ease of comprehension'.\n\nThe change: a small domain type (a record or one-field wrapper, e.g. type Pass = { bits: List Bool } or { row: List Bool, column: List Bool } if that reads better) with the operations as Pass.* definitions used by dot notation (pass.seatId, and the row/column if natural); the parser returns Pass, the solvers take List Pass; the spec and proofs state their theorems about Pass. Keep the proofs' content; adjust statements and helpers.\n\nWhat it should do: Day05.sw reads in the puzzle's nouns; day 5 still checks, its 17 tests pass, its audit has 0 failures, and the answers stay 813 / 612. Before SW-1273 (it moves day 5's fromBits lemmas into std, same files).\n\nD2362 (Matt, 4 Nov 2026): yes: add List.maximumOf xs f and List.minimumOf xs f (Option b, the largest/smallest value of f; std has maxBy/minBy for the element) with lemmas tying each to (xs.map f).maximum / minimum, and full std docs; use them in day 5 (passes.maximumOf (.seatId)) and anywhere else in application code they fit ('no worries if not'). Opus, expected: 60 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
