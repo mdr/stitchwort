@@ -5474,17 +5474,19 @@
     {
       "id": 1225,
       "title": "Std: Parse.readsThen and Parse.readsDone (from docs/proposals/proofs-about-definitions/reads-then.sw); move AoC 2020 day 2 and 2021 day 16 parser proofs to them",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "D2340. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). Opus reviews. Day 2's proof should drop from 39 to 13 lines and 20.5 M to 12.9 M evaluation steps (measured in the note).\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n",
+      "body": "D2340. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). Opus reviews. Day 2's proof should drop from 39 to 13 lines and 20.5 M to 12.9 M evaluation steps (measured in the note).\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n\nProgress 4 Nov 2026: lemmas added to Std/Parse/Reads.sw; day 2 readsLine 12.9 M steps (was 20.5 M), day 16 readsHexDigit 53 K (was 89 K); both break when the program is broken; audits clean for Day02 and Std.Parse; tests pass. Ready for Opus review.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "e994ce52"
+      ]
     },
     {
       "id": 1226,
