@@ -115,7 +115,7 @@ def Warehouse.widen (warehouse: Warehouse): Warehouse := {
 
 --| The boxes covering `cell`.
 def Warehouse.boxesAt (warehouse: Warehouse) (cell: Cell): List Cell :=
-  [cell, cell.step Left] |> .filter (box => warehouse.boxes.contains box)
+  [cell, cell.step Left] |> .filter warehouse.boxes.contains
 
 --| The cells a box moves into when it moves `direction`, other than its own.
 def frontOf (box: Cell) (direction: Direction): List Cell :=
@@ -139,7 +139,7 @@ def Warehouse.moveWide (warehouse: Warehouse) (direction: Direction): Warehouse 
   let next := warehouse.robot.step direction
   match warehouse.gather direction Set.empty [next] (2 * warehouse.boxes.size + 1) with
     | Some group =>
-      let moved := group.map (box => box.step direction)
+      let moved := group.map (.step direction)
       { warehouse | boxes = warehouse.boxes.difference group |> .union moved, robot = next }
     | None => warehouse
 

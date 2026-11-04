@@ -98,7 +98,7 @@ def FreeSpace.add (free: FreeSpace) (span: Span): FreeSpace :=
   if span.length == 0 then free
   else free.alter span.length (starts => starts.getOrElse Set.empty |> .insert span.start |> Some)
 
-def FreeSpace.remove (free: FreeSpace) (span: Span): FreeSpace := free.adjust span.length (starts => starts.remove span.start)
+def FreeSpace.remove (free: FreeSpace) (span: Span): FreeSpace := free.adjust span.length (.remove span.start)
 
 def FreeSpace.of (spans: List Span): FreeSpace := spans.foldLeft Map.empty FreeSpace.add
 
@@ -106,8 +106,8 @@ def FreeSpace.of (spans: List Span): FreeSpace := spans.foldLeft Map.empty FreeS
 def FreeSpace.leftmostFit (free: FreeSpace) (length: Nat) (before: Nat): Option Span :=
   free.toList
     |> .filterMap (entry => if length <= entry.fst then entry.snd.min |> .map (start => ({ start, length = entry.fst }: Span)) else None)
-    |> .minBy (span => span.start)
-    |> .filter (span => span.start < before)
+    |> .minBy .start
+    |> .filter (.start < before)
 
 --| Moves `file` into the leftmost free span to its left that fits, if there
 --| is one: it takes the span's first blocks, and the rest of the span stays
@@ -122,10 +122,10 @@ def FreeSpace.moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
 
 --| Every file moved once, highest number first.
 def compactFiles (diskMap: List Nat): List File :=
-  let layout := layoutFrom 0 0 diskMap
+  let layout := layoutFrom (id := 0) (position := 0) diskMap
   layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) FreeSpace.moveFile |> .snd
 
 --| A file's part of the checksum: its blocks' positions times its number.
-def File.checksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (position => position * file.id)
+def File.checksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (* file.id)
 
 def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy .checksum

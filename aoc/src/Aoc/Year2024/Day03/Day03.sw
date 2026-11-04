@@ -24,7 +24,7 @@ type Instruction =
   | Dont
 
 --| A number of one to three digits.
-def shortNumber(): {Parse} Nat := natDigits 1 3
+def shortNumber(): {Parse} Nat := natDigits (atLeast := 1) (atMost := 3)
 
 --| "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
 def instruction(): {Parse} Instruction :=

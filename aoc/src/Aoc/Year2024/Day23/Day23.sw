@@ -58,10 +58,10 @@ def Links.setsWith (links: Links) (first: Computer): List (Set Computer) :=
 
 --| Every set of three different computers, each connected to the other two.
 def Links.setsOfThree (links: Links): Set (Set Computer) :=
-  links.keySet.toList.flatMap links.setsWith |> Set.fromList |> .filter (set => set.size == 3)
+  links.keySet.toList.flatMap links.setsWith |> Set.fromList |> .filter (.size == 3)
 
 --| Whether a computer's name starts with t, as the Chief Historian's does.
-def mightBeChiefs (set: Set Computer): Bool := set.any (computer => computer.startsWith "t")
+def mightBeChiefs (set: Set Computer): Bool := set.any (.startsWith "t")
 
 def solvePart1 (network: Network): Nat := network.links.setsOfThree |> .filter mightBeChiefs |> .size
 

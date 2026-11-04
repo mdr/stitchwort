@@ -59,7 +59,7 @@ type Outcome =
 --| A digit from 0 to 7.
 def threeBit(): {Parse} Nat :=
   let start := Parse.mark()
-  let value := natDigits 1 1
+  let value := natDigits (atLeast := 1) (atMost := 1)
   Parse.ensureAt start (value < 8) "expected a 3-bit number (0 to 7)"
   value
 
@@ -133,7 +133,7 @@ def Machine.step (machine: Machine) (program: List Nat): Step :=
   match program.get machine.pointer with
     | None => Halt
     | Some opcode =>
-      match program.get (machine.pointer + 1) |> .flatMap (operand => Instruction.decode opcode operand) with
+      match program.get (machine.pointer + 1) |> .flatMap (Instruction.decode opcode) with
         | Some instruction => machine.execute instruction
         | None => Fault
 

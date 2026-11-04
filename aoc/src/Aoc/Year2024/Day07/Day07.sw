@@ -67,7 +67,7 @@ def Equation.couldBeTrue (equation: Equation) (operators: List Operator): Bool :
 
 --| The sum of the test values of the equations that could be true.
 def calibrationResult (operators: List Operator) (equations: List Equation): Nat :=
-  equations.filter (.couldBeTrue operators) |> .sumBy (equation => equation.testValue)
+  equations.filter (.couldBeTrue operators) |> .sumBy .testValue
 
 def solvePart1 (equations: List Equation): Nat := calibrationResult [Add, Multiply] equations
 

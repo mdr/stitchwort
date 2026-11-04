@@ -72,7 +72,7 @@ def Machine.onlyPresses (machine: Machine) (nonzero: machine.determinant ≠ 0):
 def Machine.searchTokens (machine: Machine) (limit: Nat): Option Nat :=
   List.range (limit + 1)
     |> .flatMap (aPresses =>
-      List.range (limit + 1) |> .filter (bPresses => machine.wins aPresses bPresses) |> .map (bPresses => tokens aPresses bPresses))
+      List.range (limit + 1) |> .filter (machine.wins aPresses) |> .map (tokens aPresses))
     |> .minimum
 
 --| The fewest tokens that win with at most `limit` presses of each button.
