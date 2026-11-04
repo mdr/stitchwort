@@ -4935,14 +4935,14 @@
     {
       "id": 1188,
       "title": "Globals split 8c: the kernel is given each declaration's path; module moves to Unit",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min. Applies D2293.\n\n\n\nProgress (lane): done in ~15 min. Commit daa3bcd5 on lane/SW-1188. Kernel takes paths; module is Unit::module_path. Tested: core lane (173), hash_stability, pinned_hashes, namespaces, trusted, check_cache, std_library all pass; clippy clean.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min. Applies D2293.\n\n\n\nProgress (lane): done in ~15 min. Commit daa3bcd5 on lane/SW-1188. Kernel takes paths; module is Unit::module_path. Tested: core lane (173), hash_stability, pinned_hashes, namespaces, trusted, check_cache, std_library all pass; clippy clean.\n\n\nModel result: Sonnet, worked, 15 min (est. 90)\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": [
