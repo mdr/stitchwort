@@ -1,5 +1,5 @@
 {
-  "next": 1208,
+  "next": 1212,
   "tickets": [
     {
       "id": 47,
@@ -5219,6 +5219,66 @@
         "perf"
       ],
       "body": "SW-1201 review nit: Tarjan::new(count) with count = defs + datas, six arrays per audit_one call. Keep and reuse (or use maps keyed by node) for another small audit saving.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1208,
+      "title": "Std/prelude from AoC 2020 day 1: List.combinations k (with length and membership lemmas), membership lemmas for List.pairs of a Cons, Exists in the prelude",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1209,
+      "title": "Messages from AoC 2020 day 1: let f (y: Nat) parse error points at local def; E-REWRITE-NOTHING leads with 'already refined by the match'; goals list an arm's pattern variables before the hypotheses that mention them",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "diagnostics",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1210,
+      "title": "Counterexample search: satisfy hypotheses of the form f x = y / f x = Some y by computing y from generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings). From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1211,
+      "title": "AoC 2020 day 2 in Stitchwort",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
