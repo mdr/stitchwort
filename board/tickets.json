@@ -1,5 +1,5 @@
 {
-  "next": 1280,
+  "next": 1281,
   "tickets": [
     {
       "id": 47,
@@ -6260,6 +6260,21 @@
         "perf"
       ],
       "body": "The problem: checking `type Wide = WLeaf | WNode (kids: Vec Wide 2)` (a nested data type through a fixed-length vector) makes `stitchwort check` use about 28 GB in 8 s; the memory guard kills it at 2 GB. It is on main's binary too, so it predates nested-data stage 3.\n\nRepro: a file containing only `type Wide = WLeaf | WNode (kids: Vec Wide 2)` and `stitchwort check` on it.\n\nThe change: find which generated declaration (the induction principle or the All predicate for the nested occurrence under Vec) blows up, and either fix it or refuse the type with a clear error.\n\nWhat it should do: the type is accepted within normal memory, or refused with a message; no 28 GB spike.\n\nSource: the SW-704 log, 29 Oct entry (found while checking stage 3; recorded there as needing a ticket).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1280,
+      "title": "Editor: go to definition (and a document link) on an include path opens the file",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "editor"
+      ],
+      "body": "The problem: `include \"../../../../../inputs/2020/day05.txt\"` in a Tests/Input.sw can't be followed in the editor; you have to find the input file by hand. Matt, 4 Nov 2026: 'it'd be nice to be able to code nav to that input'.\n\nThe change: in the language server (crates/cli/src/lsp.rs, which already answers go-to-definition; no documentLink support yet), resolve an Expr::Include path the way the checker does (relative to the including file, inside the project folder; docs/syntax.md '`include`') and (1) answer textDocument/definition on the string with the file's start, (2) offer textDocument/documentLink for every include so the path is underlined and Cmd-click works. A missing or outside path gives no link (the diagnostic already says why).\n\nWhat it should do: Cmd-click or F12 on the path in aoc/src/Aoc/Year2020/Day05/Tests/Input.sw opens aoc/inputs/2020/day05.txt; an lsp test covers both requests.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
