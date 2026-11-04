@@ -6340,9 +6340,9 @@
     {
       "id": 1285,
       "title": "AoC domain types 2: shared Aoc.Common Point {x, y} and Line {from, to} (2021 days 5 and 13, 2025 day 9)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1285",
       "labels": [
         "aoc"
       ],
