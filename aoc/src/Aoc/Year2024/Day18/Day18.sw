@@ -23,7 +23,7 @@ import Std.Parse (nat, text)
 def main(): {IO, Fail} () :=
   let (size, fallen) := sizesFrom IO.args()
   let bytes := parseBytes IO.readAll()
-  IO.print "Part 1: ${solvePart1 size fallen bytes |> .orFail "the exit is cut off even before the first byte falls"}"
+  IO.print "Part 1: ${solvePart1 size fallen bytes |> .orFail "no path to the exit once the first ${fallen} bytes have fallen"}"
   let blocker := solvePart2 size bytes |> .orFail "no byte cuts the exit off"
   IO.print "Part 2: ${blocker.column},${blocker.row}"
 
