@@ -60,6 +60,9 @@ pub struct Options {
     /// The server only adds to it; a test holds a clone to see that a
     /// stale check was cancelled, rather than timing the answer.
     pub cancellations: Arc<std::sync::atomic::AtomicUsize>,
+    /// The journal's statistics (`JournalStats`) of the project checked last,
+    /// written after each check, for the measurements (`dev/measure-state`).
+    pub journal: Arc<std::sync::Mutex<stitchwort_elab::JournalStats>>,
 }
 
 impl Options {
@@ -68,6 +71,7 @@ impl Options {
             debounce: Duration::from_millis(100),
             stack,
             cancellations: Arc::default(),
+            journal: Arc::default(),
         }
     }
 }
@@ -1284,6 +1288,13 @@ impl Checker {
             Work::File(_) => key.display().to_string(),
         };
         trace(|| format!("{what}: {progress:?} in {:?}", started.elapsed()));
+        if let Work::Project(p) = work {
+            *self
+                .options
+                .journal
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = p.live.session.elab.journal_stats();
+        }
         if progress.is_err() {
             self.options
                 .cancellations
