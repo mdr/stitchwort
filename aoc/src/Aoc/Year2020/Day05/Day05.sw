@@ -17,8 +17,8 @@ import Std (Char, Fail, IO, List, Nat, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let passes := parsePasses IO.readAll()
-  IO.print "Part 1: ${solvePart1 passes |> .fold "no boarding passes" (id => "${id}")}"
-  IO.print "Part 2: ${solvePart2 passes |> .fold "no missing seat between two passes" (id => "${id}")}"
+  IO.print "Part 1: ${solvePart1 passes |> .orFail "no boarding passes"}"
+  IO.print "Part 2: ${solvePart2 passes |> .orFail "no missing seat between two passes"}"
 
 --| One letter, `True` for `upper`.
 def half (lower: Char) (upper: Char): {Parse} Bool :=
