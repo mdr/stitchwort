@@ -326,7 +326,7 @@ is unclear or mixed. Appendix B does the same for `Globals`. In summary:
 | `Unit` | 10 (+2 unclear) | the unit being elaborated | swapped on a nested library load; empty at marks | no |
 | `Decl` | 23 (+2 unclear) | one declaration (or group) | `Default` at each declaration; asserted empty at marks | no |
 | `Attempt` | 18 (+ 8 from `Globals`, + 7 thread-locals) | one declaration, with speculative sub-scopes | trail / lengths | no |
-| `Caches` | 6 (+ `Globals::hashes`) | any; derivable | the dot-call tables copied; the rest cut by id or emptied | never |
+| `Caches` | 6 (+ `Globals::hashes`) | any; derivable | cut by id or emptied (the dot-call tables copied until SW-1179) | never |
 | `Presentation` | 3 (`goals` stays with `Attempt`) | the session (nav, goals shown, logs) | `nav`'s lists by length, its maps on the journal; `goal_snapshots` emptied; the log left | nav only (dumped: nav) |
 
 **Fields flagged** (lifetime unclear or mixed; each is a question for the
@@ -378,7 +378,7 @@ mechanisms become methods with exhaustive destructuring:
 | Undo an attempt | `Attempt::mark()` / `restore(m)` | trail lengths; `restore` destructures `Attempt` |
 | Per-declaration cleanup | `Decl`, `Attempt` | `*decl = Decl::default(); attempt.reset()`; nothing to list |
 | Nested library load | `Unit` | `let saved = mem::take(&mut self.unit); …; self.unit = saved` |
-| Rewind | `Kernel`, `Tables`, `Session`, `Unit`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them. `Caches`' mark copies `dot_heads` and `dot_failed` (keyed by addresses within a source epoch); its rewind cuts `result_heads` and `performs` to the definitions that remain and empties `cong_candidates` and `decision_order`. A `Unit` mark keeps a copy of the fields that outlive a unit (the last module, the namespace root, warnings, file mode); `Session`'s copies the bookkeeping a later load can change and leaves its counters. `Decl` is asserted empty at a mark and reset on rewind; `Attempt` is reset. `Options` is left alone |
+| Rewind | `Kernel`, `Tables`, `Session`, `Unit`, `Presentation`, `Caches` | each `mark()`/`rewind(&m)`; `Elaborator::Mark` is a tuple of them. `Caches`' mark holds nothing; its rewind empties `dot_heads` and `dot_failed` (keyed by addresses within a source epoch; until SW-1179 a mark copied them), cuts `result_heads` and `performs` to the definitions that remain and empties `cong_candidates` and `decision_order`. A `Unit` mark keeps a copy of the fields that outlive a unit (the last module, the namespace root, warnings, file mode); `Session`'s copies the bookkeeping a later load can change and leaves its counters. `Decl` is asserted empty at a mark and reset on rewind; `Attempt` is reset. `Options` is left alone |
 | Encode / replay | `Tables` (and `Kernel` for declarations) | `Tables::encode(&self, since: &TablesMark, w)` destructures `Tables`; each field's kind does the work |
 | Dump | `Tables`, `Kernel`, `Presentation` | `dump(&self, out)` destructures each |
 | Cache key | `Options` | `cache_key()` destructures `Options` and gives the settings part of `Elaborator::modes()`; the rest of the key's text is the kernel's native switches and the navigation tag |
@@ -536,7 +536,7 @@ Differences from the sketch above:
 | `Tables` | four kinds (§4.2) | O(1) | rewinds are in stack order (§2.4); logs serve that with 7 MB where `imbl` holds 68 MB (§5.2) |
 | `Session` | small maps, `Logged` where copied today | O(1) | as above |
 | `Unit`, `Decl` | plain fields | none: empty at every mark | not marked |
-| `Caches` | `HashMap`/`Vec` | the two dot-call tables are copied; the rest are cut by id or emptied at a rewind | `Caches::mark` |
+| `Caches` | `HashMap`/`Vec` | cut by id or emptied at a rewind (the two dot-call tables were copied until SW-1179) | `Caches::rewind` |
 
 **What changes at run time** (estimated from §5.2 and §2):
 
@@ -1333,6 +1333,60 @@ until step 8):
   unit; no test makes a namespace change another's name, as nothing in the
   language does.
 - **Not done:** F11 (the dot-call caches): not trivial, as §9 says.
+  (Done since, by emptying them at a rewind: §4.8.12.)
+
+#### 4.8.12 As measured: step 6's regressions (SW-1179)
+
+SW-1177's after-measurements found the language server's heap on `aoc`
+195 MB higher than before step 6, a first check that left 1265 MB live,
+and the cold command-line check 4% slower. Measured again against the
+before build (`3706f183`, in a second checkout, the same day; numbers in
+`dev/measurements/state-step6-after-fix.md`):
+
+- **The +195 MB was the edit loop, not step 6.** `state_edit_loop`
+  samples while the server may still be checking in the background, so
+  its heap depends on how far that check got, and the before run's harness
+  didn't wait for the first check, which never finished there. With the
+  same harness (the fixed one) and the same plan on both builds, the heap
+  at cycles 10 and 20 is 360.3 MB before and 363.4 MB after. A new
+  in-process measurement (`crates/cli/tests/live_memory.rs`, ignored: a
+  `LiveProject` set up as the server's, in one thread, so the figures
+  don't depend on timing) gives, with the first check finished: 1420 MB
+  before and 1097 MB after with all 208 marks open; 364.7 and 373.0 MB
+  after an early edit (2 open). The server's own extra over the
+  `LiveProject` (1265 against 1097 MB after a whole first check, 558
+  against 373 MB after an early edit: about 170-185 MB both times) is, by
+  inference, the answers and navigation it keeps for every file once
+  every namespace has been checked; the before run never got there.
+- **The 322,334 entries and 208 checkpoints after the first check are the
+  design.** The server keeps a mark before each namespace, so the log
+  holds what a rewind to the oldest of them needs: 27 MB, until the first
+  edit rewinds most of it. Kept, as approved.
+- **The log never gave back its room** (`bytes_held` stayed at 27 MB): a
+  rewind drained the log and removed the map's rows but kept their
+  capacity. *Fixed:* a rewind that leaves a log or a map a quarter full or
+  less (and with room for over 1,024) shrinks it to twice what is left.
+  After an early edit 373.0 → 346.4 MB (`bytes_held` 27.0 → 0.39 MB), 18
+  MB below before; rechecks no slower (a late edit's 160 namespaces 5.3 →
+  5.2 s).
+- **What a mark still held was the dot-call caches** (F11, 2 MB a mark).
+  *Fixed* as §9 suggested: `Caches`' mark holds nothing, and a rewind
+  empties `dot_heads` and `dot_failed` (their keys are addresses that a
+  namespace checked again may reuse, which is why they were copied).
+  After the first check 1097 → 923 MB (before: 1420); after a late edit
+  checked to the end 927 → 872 MB (before: 1252). Recheck times are
+  unchanged (5.3 s for the late edit, 0.2-0.3 s for early ones), so the
+  entries lost are ones no later check would have hit.
+- **The cold command line isn't slower.** Alternating the two builds:
+  `--no-cache` 60.77 s before, 60.81 s after (+0.07%); with an empty cache
+  folder 62.23 and 61.95 s (-0.4%, with both fixes). SW-1177's +4%
+  compared runs hours apart: the before build now takes 60.8 s, not 58.5.
+  Loading the library with a cache logs 258,012 entries (each library
+  file's transaction), dropped at each commit, at no measurable cost.
+
+Unchanged: §4.8.2's rules (logs only while something is open, history
+back to the oldest open checkpoint, one journal per session), the cache's
+entries (a rewind writes none) and §4.9.
 
 ### 4.9 Keeping parallel checking possible
 
@@ -1701,7 +1755,7 @@ opt-in; step 6 as three lanes 6a-6c in that order.
   so a rewind could instead cut them (rows keyed by a source address or a
   definition from after the mark) or empty them, at the cost of
   recomputing dot calls after each edit; which is cheaper is a
-  measurement.
+  measurement. *Done (SW-1179): emptied at a rewind, which costs no measured time; §4.8.12.*
 
 ## 10. Response to the external review (draft 2)
 
@@ -1779,7 +1833,7 @@ by hand where a regex missed (`records` is dumped).
 | `no_propagation` | `--r--` | Decl | dynamic extent | a Cell counter set and reset around a call |
 | `bare_rows_pure` | `--r--` | Decl | dynamic extent |  |
 | `late_literals` | `--r--` | Decl | dynamic extent |  |
-| `dot_heads` | `--R--` | Caches | cache | in `state::Caches`; copied per mark (6b: 15,089 rows on `aoc`, nearly all of a mark's 2 MB); keyed by addresses within a source epoch |
+| `dot_heads` | `--R--` | Caches | cache | in `state::Caches`; copied per mark until SW-1179 (6b: 15,089 rows on `aoc`, nearly all of a mark's 2 MB), now emptied at a rewind (§4.8.12); keyed by addresses within a source epoch |
 | `source_epoch` | `--s--` | Session | counter | ignored by rewind (never reused) |
 | `dot_failed` | `--R--` | Caches | cache | in `state::Caches`; copied per mark; keyed by meta-state lengths: valid only while those identify a state |
 | `condition` | `--r--` | Decl | dynamic extent |  |
