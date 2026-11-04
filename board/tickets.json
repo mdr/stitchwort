@@ -5388,13 +5388,13 @@
     {
       "id": 1219,
       "title": "Error message: when matching fails because a name wasn't unfolded (e.g. Parse.readsBind against a named parser like Day02's line), say which name and how to proceed",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n",
+      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n\n\nNot merged (orchestrator, 4 Nov 2026): the note fires in a small repro but not usefully on the real readsLine case (it names Parse.Reads, not line, and the error lands at an inner argument), and it also fires on real type errors (unify-bool-argument). Branch lane/SW-1219 kept for SW-1218 to reuse or drop. Model result: Sonnet, needed fixes (target case not helped; the cause is a unification limit), 25 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
