@@ -1,0 +1,31 @@
+round 0 floor        cpu   0.23 wall   1.01 rc 0 load 119
+round 0 check        cpu   0.36 wall   1.39 rc 0 load 119
+round 0 check-index  cpu   3.93 wall  17.16 rc 0 load 128
+round 0 test         cpu   3.32 wall  15.20 rc 0 load 132
+round 0 run          cpu   1.53 wall   7.90 rc 0 load 132
+round 0 audit        cpu   4.69 wall  21.11 rc 0 load 136
+round 0 search       cpu   3.78 wall  12.68 rc 0 load 136
+round 1 floor        cpu   0.20 wall   0.40 rc 0 load 136
+round 1 check        cpu   0.32 wall   0.69 rc 0 load 136
+round 1 check-index  cpu   3.90 wall  13.60 rc 0 load 136
+round 1 test         cpu   3.39 wall  19.24 rc 0 load 146
+round 1 run          cpu   1.54 wall   8.98 rc 0 load 148
+round 1 audit        cpu   4.52 wall  22.91 rc 0 load 154
+round 1 search       cpu   3.81 wall  21.21 rc 0 load 156
+round 2 floor        cpu   0.22 wall   1.03 rc 0 load 156
+round 2 check        cpu   0.34 wall   1.59 rc 0 load 156
+round 2 check-index  cpu   3.85 wall  17.01 rc 0 load 155
+round 2 test         cpu   3.32 wall  14.55 rc 0 load 154
+round 2 run          cpu   1.57 wall   7.52 rc 0 load 156
+round 2 audit        cpu   4.73 wall  19.91 rc 0 load 156
+round 2 search       cpu   3.72 wall  12.45 rc 0 load 154
+
+| command | CPU median | wall median |
+|---|---:|---:|
+| floor | 0.22 s | 1.01 s |
+| check | 0.34 s | 1.39 s |
+| check-index | 3.90 s | 17.01 s |
+| test | 3.32 s | 15.20 s |
+| run | 1.54 s | 7.90 s |
+| audit | 4.69 s | 21.11 s |
+| search | 3.78 s | 12.68 s |

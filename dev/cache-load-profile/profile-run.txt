@@ -1,0 +1,85 @@
+total 1.949 s CPU (threadCPUDelta in us)
+
+-- inclusive --
+  1.934  99.2%  _pthread_start
+  1.934  99.2%  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+  1.934  99.2%  stitchwort::run
+  1.433  73.6%  <stitchwort_driver::driver::Session>::run_main_fast_on::<std::io::stdio::StdinLock, alloc::io::buffered::bufwriter::BufWriter<std::io::stdio::StdoutLock>>
+  1.432  73.5%  stitchwort_rt::run::run_main_on::<std::io::stdio::StdinLock, alloc::io::buffered::bufwriter::BufWriter<std::io::stdio::StdoutLock>>
+  1.431  73.4%  <stitchwort_rt::machine::Machine>::finish
+  1.431  73.4%  <stitchwort_rt::run::Runner<stitchwort_rt::machine::Machine>>::drive::<stitchwort_rt::run::Blocking<std::io::stdio::StdinLock>, alloc::io::buffered::bufwriter::
+  1.431  73.4%  <stitchwort_rt::run::Runner<stitchwort_rt::machine::Machine>>::apply_cont
+  1.431  73.4%  <stitchwort_rt::machine::Machine as stitchwort_rt::run::Executor>::call
+  1.431  73.4%  stitchwort_rt::machine::run
+  0.492  25.3%  stitchwort::load_main
+  0.233  12.0%  <stitchwort_rt::machine::State>::replace
+  0.222  11.4%  <stitchwort_driver::driver::Session>::for_stack
+  0.222  11.4%  <stitchwort_driver::driver::Session>::start
+  0.221  11.3%  <stitchwort_elab::Elaborator>::elaborate_namespace
+  0.213  10.9%  core::ptr::drop_glue::<stitchwort_rt::value::Value>
+  0.130   6.7%  stitchwort_syntax::parser::parse_module_recovering
+  0.119   6.1%  <stitchwort_driver::driver::Session>::load_analysis_for
+  0.113   5.8%  <stitchwort_elab::Elaborator>::elaborate_namespace_untimed
+  0.113   5.8%  <stitchwort_elab::Elaborator>::elaborate_module
+  0.112   5.7%  <std::sys::sync::once::queue::Once>::call
+  0.110   5.6%  stitchwort_driver::project::analyse
+  0.109   5.6%  <stitchwort_elab::Elaborator>::check_component
+  0.109   5.6%  <stitchwort_elab::library::LibraryIndex>::build
+  0.109   5.6%  <std::sync::once::Once>::call_once_force::<<std::sync::once_lock::OnceLock<core::result::Result<alloc::sync::Arc<stitchwort_elab::library::LibraryIndex>, alloc:
+  0.109   5.6%  <std::sync::once_lock::OnceLock<core::result::Result<alloc::sync::Arc<stitchwort_elab::library::LibraryIndex>, alloc::string::String>>>::initialize::<<std::sync
+  0.109   5.6%  <stitchwort_elab::library::LibraryIndex>::standard
+  0.108   5.5%  <stitchwort_driver::driver::Session>::check_in_order
+  0.108   5.5%  <stitchwort_driver::driver::Session>::check_project_namespace
+  0.107   5.5%  <stitchwort_elab::Elaborator>::elaborate_namespace_cached
+  0.105   5.4%  <stitchwort_elab::Elaborator>::load_needs
+  0.105   5.4%  <stitchwort_elab::Elaborator>::load_libraries
+  0.099   5.1%  <stitchwort_elab::Elaborator>::group
+  0.088   4.5%  <stitchwort_syntax::parser::Parser>::decl
+  0.081   4.2%  <stitchwort_syntax::parser::Parser>::definition
+  0.080   4.1%  <stitchwort_syntax::parser::Parser>::expr_inline
+  0.076   3.9%  <alloc::vec::Vec<stitchwort_rt::value::Value>>::resize
+  0.074   3.8%  <alloc::vec::Vec<stitchwort_driver::project::ParsedFile> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<stitchwort_driver::project::ParsedFile, core::
+  0.074   3.8%  <alloc::vec::into_iter::IntoIter<(alloc::string::String, alloc::string::String)> as core::iter::traits::iterator::Iterator>::fold::<(), core::iter::adapters::ma
+  0.074   3.8%  stitchwort_driver::project::parse_file
+
+-- self --
+  0.911  46.7%  stitchwort_rt::machine::run
+  0.176   9.0%  core::ptr::drop_glue::<stitchwort_rt::value::Value>
+  0.118   6.1%  <stitchwort_rt::machine::State>::replace
+  0.076   3.9%  <alloc::vec::Vec<stitchwort_rt::value::Value>>::resize
+  0.042   2.2%  _platform_memmove
+  0.034   1.8%  blake3_hash_many_neon
+  0.029   1.5%  __open
+  0.025   1.3%  stitchwort_rt::prims::eval
+  0.025   1.3%  mi_malloc_aligned
+  0.024   1.2%  <stitchwort_syntax::parser::Parser>::peek
+  0.023   1.2%  <stitchwort_rt::value::Fields as core::ops::drop::Drop>::drop
+  0.021   1.1%  mi_free
+  0.020   1.0%  stitchwort_syntax::lexer::lex_keeping
+  0.018   0.9%  stitchwort_core::value::run
+  0.018   0.9%  <alloc::rc::Rc<[stitchwort_rt::value::Value]>>::from_iter_exact::<core::iter::adapters::map::Map<core::slice::iter::Iter<u32>, stitchwort_rt::machine::run::{clo
+  0.017   0.9%  stitchwort_rt::prims::nat_add
+  0.016   0.8%  __open_nocancel
+  0.015   0.8%  stitchwort_elab::module::names_and_proofs
+  0.013   0.7%  stitchwort_rt::value::free
+  0.013   0.7%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  0.012   0.6%  mi_page_free_list_extend
+  0.011   0.5%  blake3::portable::compress_in_place
+  0.009   0.4%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  0.007   0.4%  stitchwort_core::value::quote_as
+  0.007   0.4%  _mi_malloc_generic
+  0.006   0.3%  <alloc::rc::Rc<[stitchwort_rt::value::Value]>>::drop_slow
+  0.006   0.3%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slice::iter::I
+  0.005   0.3%  <stitchwort_syntax::lexer::Tok as core::cmp::PartialEq>::eq
+  0.005   0.3%  alloc::fmt::format::format_inner
+  0.005   0.3%  <stitchwort_syntax::parser::Parser>::app
+  0.005   0.2%  <core::fmt::Formatter>::pad_integral::write_prefix
+  0.005   0.2%  madvise
+  0.005   0.2%  core::fmt::write
+  0.005   0.2%  stitchwort_core::term::take_children
+  0.004   0.2%  <hashbrown::raw::RawTable<(*const stitchwort_core::term::Term, ())>>::reserve_rehash::<hashbrown::map::make_hasher<*const stitchwort_core::term::Term, (), core:
+  0.004   0.2%  <stitchwort_syntax::parser::Parser>::atom
+  0.004   0.2%  <alloc::vec::Vec<alloc::string::String> as alloc::vec::spec_from_iter::SpecFromIter<alloc::string::String, core::iter::adapters::map::Map<core::iter::adapters::
+  0.004   0.2%  _mi_theap_realloc_zero
+  0.004   0.2%  <hashbrown::map::HashMap<*const stitchwort_core::term::Term, (), core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::insert
+  0.004   0.2%  <alloc::raw_vec::RawVecInner>::finish_grow
