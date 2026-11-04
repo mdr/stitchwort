@@ -5003,13 +5003,13 @@
     {
       "id": 1193,
       "title": "Warm CLI check after a one-namespace edit replays untouched namespaces: 3.8 s on aoc vs 0.5-1.7 s checking only the affected ones",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1170 finding 1 (dev/measurements/parallel-checking.md). A sequential fix would help the edit loop more than parallelism. Check whether a warm check must replay a cached namespace to report its diagnostics or build --index.",
+      "body": "SW-1170 finding 1 (dev/measurements/parallel-checking.md). A sequential fix would help the edit loop more than parallelism. Check whether a warm check must replay a cached namespace to report its diagnostics or build --index.\n\nD2300 (Matt, 4 Nov 2026): investigate and measure whether check can load only the namespaces it needs; fix only if the saving is real. Investigation lane now (no code change), Sonnet, expected: 45 min; the fix, if any, after 8b (SW-1187) merges.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
