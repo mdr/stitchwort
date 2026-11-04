@@ -3609,6 +3609,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let g = cx.g();
     let named = expected;
     let expected = force(&g, expected.clone())?;
+    crate::matching::check_clause_result(cx, expr, &expected)?;
     if cx.e.divergence_case_body() {
         let (term, found) = infer_unrun(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
