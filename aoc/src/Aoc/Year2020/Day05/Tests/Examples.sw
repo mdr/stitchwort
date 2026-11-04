@@ -6,7 +6,7 @@ import Std (Fail, List, Option, Result, Text)
 
 def parsed (input: Text): Result (List Pass) Text := Fail.toResult (() => parsePasses input)
 
-def ids (input: Text): Result (List Nat) Text := (parsed input).map (passes => passes.map (.seatId))
+def ids (input: Text): Result (List Nat) Text := (parsed input).map (passes => passes.map .seatId)
 
 test "example" := ids "FBFBBFFRLR" == Ok [357]
 test "the other examples" := ids "BFFFBBFRRR\nFFFBBBFRRR\nBBFFBBFRLL" == Ok [567, 119, 820]

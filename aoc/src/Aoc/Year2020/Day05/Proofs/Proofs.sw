@@ -7,7 +7,7 @@ import Aoc.Year2020.Day05 (..)
 import Aoc.Year2020.Day05.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Text, Void)
 
-theorem seatIdsWritten: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → seatIds lines = passes.map (.seatId)
+theorem seatIdsWritten: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → seatIds lines = passes.map .seatId
   | [], [], all => rfl
   | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest =>
     rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest in rfl
@@ -15,7 +15,7 @@ theorem seatIdsWritten: (lines: List (List Char)) → (passes: List Pass) → Li
   | [_, .._], [], impossible => Void.exfalso impossible
 
 theorem idsWritten (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
-    seatIds (input.lines.map Text.toList) = passes.map (.seatId) :=
+    seatIds (input.lines.map Text.toList) = passes.map .seatId :=
   seatIdsWritten _ passes (parseWritten input passes parsed)
 
 theorem part1Correct (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
@@ -85,7 +85,7 @@ theorem gapComplete: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat)
 theorem fromBitsBelow (bits: List Bool): Nat.fromBits bits < Nat.pow 2 bits.length := omega [Nat.fromBitsFlipped bits]
 
 --| "Every seat": no pass names a seat past the 128 × 8.
-theorem idsBelow: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → (id: Nat) → id ∈ passes.map (.seatId) → id < 128 * 8
+theorem idsBelow: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → (id: Nat) → id ∈ passes.map .seatId → id < 128 * 8
   | [], [], all, id, member => Void.exfalso member
   | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest, id, Inl first =>
     let below: Nat.fromBits (pass.row ++ pass.column) < Nat.pow 2 (pass.row.length + pass.column.length) :=
@@ -130,7 +130,7 @@ theorem gapYours (count: Nat) (ids: List Nat) (bound: (id: Nat) → id ∈ ids �
 theorem part2Sound (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes) (seat: Nat) (found: solvePart2 passes = Some seat):
     seat ∈ part2Answers (input.lines.map Text.toList) :=
   J (written same => seat ∈ (List.range (128 * 8)).filter (isYourSeat written))
-    (gapYours (128 * 8) (passes.map (.seatId)) (idsBelow (input.lines.map Text.toList) passes (parseWritten input passes parsed)) seat found)
+    (gapYours (128 * 8) (passes.map .seatId) (idsBelow (input.lines.map Text.toList) passes (parseWritten input passes parsed)) seat found)
     (Eq.sym (idsWritten input passes parsed))
 
 theorem yoursGap (count: Nat) (ids: List Nat) (seat: Nat) (candidate: seat ∈ (List.range count).filter (isYourSeat ids)): ∃ (found: Nat) => gap ids.sort = Some found :=
@@ -141,7 +141,7 @@ theorem yoursGap (count: Nat) (ids: List Nat) (seat: Nat) (candidate: seat ∈ (
 --| Part 2 finds a seat whenever one could be yours.
 theorem part2Complete (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes) (seat: Nat) (yours: seat ∈ part2Answers (input.lines.map Text.toList)):
     ∃ (found: Nat) => solvePart2 passes = Some found :=
-  yoursGap (128 * 8) (passes.map (.seatId)) seat
+  yoursGap (128 * 8) (passes.map .seatId) seat
     (J (written same => seat ∈ (List.range (128 * 8)).filter (isYourSeat written)) yours (idsWritten input passes parsed))
 
 theorem onlyAnswer (answers: List Nat) (seat: Nat) (result: Option Nat) (only: answers = [seat])

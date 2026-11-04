@@ -42,11 +42,11 @@ def pass(): {Parse} Pass :=
 
 def parsePasses (input: Text): {Fail} List Pass := Parse.eachLine input pass
 
-def solvePart1 (passes: List Pass): Option Nat := passes.maximumOf (.seatId)
+def solvePart1 (passes: List Pass): Option Nat := passes.maximumOf .seatId
 
 --| In a sorted list, the first number missing between two that are 2 apart.
 def gap: List Nat → Option Nat
   | [low, high, ..rest] => if high == low + 2 then Some (low + 1) else gap [high, ..rest]
   | _ => None
 
-def solvePart2 (passes: List Pass): Option Nat := (passes.map (.seatId)).sort |> gap
+def solvePart2 (passes: List Pass): Option Nat := passes.map .seatId |> .sort |> gap
