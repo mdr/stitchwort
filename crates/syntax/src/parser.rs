@@ -2172,6 +2172,22 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Equals) {
             return Err(self.def_equals().into());
         }
+        // `let f (y: Nat) …` is a local function, which a `let` can't bind:
+        // point at the local `def` form (docs/syntax.md "Local definitions").
+        if ty.is_none()
+            && let Pattern::Var(name) = &pattern
+            && self.peek() == Some(&Tok::LParen)
+            && !self.is_stop(self.pos)
+        {
+            let name = &name.text;
+            return Err(self
+                .unexpected("`:=`")
+                .with_note(format!(
+                    "a `let` binds a value; for a function write a local `def {name} (y: Nat) …: \
+                     T := …`, or `let {name} := (y: Nat) => …`"
+                ))
+                .into());
+        }
         self.expect(Tok::ColonEq, "`:=`")?;
         let outer = self.let_value.replace(start_index);
         let value = self.expr();

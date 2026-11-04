@@ -13,20 +13,21 @@ expression: json
           "type": "List Nat"
         },
         {
-          "name": "h",
-          "type": "Std.List.length xs = Succ k"
-        },
-        {
           "name": "k",
           "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "Std.List.length xs = Succ k"
         }
       ],
+      "lemma": "def describeGoal1 (xs: List Nat) (k: Nat) (h: Std.List.length xs = Succ k): Text := ?",
       "target": "Text"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nh: Std.List.length xs = Succ k\nk: Nat\n⊢ Text",
+        "message": "xs: List Nat\nk: Nat\nh: Std.List.length xs = Succ k\n⊢ Text",
         "range": [
           4,
           14,

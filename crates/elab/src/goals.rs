@@ -258,6 +258,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         });
     }
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
+    let context = dependency_order(&g, cx.level(), context);
     let prop = match force(&g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
@@ -342,6 +343,54 @@ fn drop_superseded(
         keep
     });
     before - context.len()
+}
+
+/// The context's entries in an order that shows a variable before a
+/// hypothesis whose type (or value) mentions it, keeping the context's own
+/// order elsewhere. A `match`'s equation is bound before the pattern
+/// variables it mentions, and a case split can refine a hypothesis with a
+/// later variable; either way, the goal must not read as if the variable
+/// were free in it. This is the order [`GoalSnapshot`] uses.
+fn dependency_order(g: &Ev, level: usize, context: Vec<Entry>) -> Vec<Entry> {
+    let known: Vec<usize> = context.iter().map(|e| e.level).collect();
+    let mut needs: Vec<Vec<usize>> = Vec::with_capacity(context.len());
+    for e in &context {
+        let mut need = match quote_shown(g, level, &e.ty)
+            .ok()
+            .and_then(|term| levels_in(&term, level))
+        {
+            Some(levels) => levels,
+            None => return context,
+        };
+        if let Some(value) = &e.value {
+            let Some(levels) = quote_shown(g, level, value)
+                .ok()
+                .and_then(|term| levels_in(&term, level))
+            else {
+                return context;
+            };
+            need.extend(levels);
+        }
+        need.retain(|l| *l != e.level && known.contains(l));
+        needs.push(need);
+    }
+    let mut slots: Vec<Option<Entry>> = context.into_iter().map(Some).collect();
+    let mut order = Vec::with_capacity(slots.len());
+    let mut placed: Vec<usize> = Vec::new();
+    while order.len() < slots.len() {
+        let Some(next) = (0..slots.len())
+            .find(|i| slots[*i].is_some() && needs[*i].iter().all(|l| placed.contains(l)))
+        else {
+            // Not well-founded (which a well-typed context isn't): keep
+            // what is left in its own order rather than lose it.
+            order.extend(slots.into_iter().flatten());
+            break;
+        };
+        let entry = slots[next].take().expect("chosen unfilled");
+        placed.push(entry.level);
+        order.push(entry);
+    }
+    order
 }
 
 /// The error a term with an open goal in it gives when it's finished

@@ -1,0 +1,53 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "rest",
+          "type": "List Nat"
+        },
+        {
+          "name": "h",
+          "type": "xs = [x, ..rest]"
+        }
+      ],
+      "lemma": "def sumRestOrZeroGoal1 (xs: List Nat) (x: Nat) (rest: List Nat) (h: xs = [x, ..rest]): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\nx: Nat\nrest: List Nat\nh: xs = [x, ..rest]\n⊢ Nat",
+        "range": [
+          6,
+          21,
+          6,
+          22
+        ]
+      }
+    ],
+    "message": "in `sumRestOrZero`",
+    "notes": [],
+    "range": [
+      6,
+      21,
+      6,
+      22
+    ],
+    "severity": "goal"
+  }
+]

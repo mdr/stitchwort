@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `:=`, but found `(`
+   ╭─[ reject/let-parameter-is-local-def.sw:7:11 ]
+   │
+ 7 │   let add (y: Nat): Nat := y + n
+   │           ┬  
+   │           ╰── expected `:=`, but found `(`
+   │ 
+   │ Note: a `let` binds a value; for a function write a local `def add (y: Nat) …: T := …`, or `let add := (y: Nat) => …`
+───╯

@@ -7,8 +7,8 @@ expression: output
     │
  15 │     | Cons next Nil => ?
     │                        ┬  
-    │                        ╰── all: next = True
-    │                            next: Bool
+    │                        ╰── next: Bool
+    │                            all: next = True
     │                            ⊢ next = True
 ────╯
 [GOAL] Goal: in `shown`
@@ -16,9 +16,9 @@ expression: output
     │
  16 │     | other => ?
     │                ┬  
-    │                ╰── all: (next✝ && allTrue [head✝, ..tail✝]) = True
-    │                    next✝: Bool
+    │                ╰── next✝: Bool
     │                    head✝: Bool
     │                    tail✝: List Bool
+    │                    all: (next✝ && allTrue [head✝, ..tail✝]) = True
     │                    ⊢ (next✝ && allTrue [head✝, ..tail✝]) = True
 ────╯
