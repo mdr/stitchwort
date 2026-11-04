@@ -5243,14 +5243,14 @@
     {
       "id": 1209,
       "title": "Messages from AoC 2020 day 1: let f (y: Nat) parse error points at local def; E-REWRITE-NOTHING leads with 'already refined by the match'; goals list an arm's pattern variables before the hypotheses that mention them",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": "scratch-sw-1209",
       "labels": [
         "diagnostics",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.",
+      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1209, expected: 75 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
