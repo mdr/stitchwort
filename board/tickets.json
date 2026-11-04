@@ -1,5 +1,5 @@
 {
-  "next": 1290,
+  "next": 1291,
   "tickets": [
     {
       "id": 47,
@@ -6403,6 +6403,20 @@
         "aoc"
       ],
       "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. Split into one lane per day when picked up; cheapest first (2021/04, 2025/09, 2024/13, 2021/14, 2024/19).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1290,
+      "title": "Parse.exactly n parser for exactly n repetitions; named arguments on Parse.repeat ranges",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1290",
+      "labels": [
+        "std"
+      ],
+      "body": "D2367 (Matt, 4 Nov 2026): yes. Every non-std use of Parse.repeat is 'exactly n' (repeat 7 7, repeat 3 3 in 2020 day 5; repeat 10 10, repeat 4 4 in 2021 day 8), which reads oddly. Add Parse.exactly n parser (defined as repeat n n) with Parse.readsExactly, use it wherever repeat has equal bounds (programs and proofs). Remaining range calls name their bounds: Parse.repeat (atLeast := 1) (atMost := 3) p. Matt: when a call passes several numbers or booleans, name them so the call site is clear without reading the definition.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
