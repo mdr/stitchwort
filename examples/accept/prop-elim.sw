@@ -8,11 +8,11 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inr (right: q)
 
 -- `And` has one constructor with only proof fields, so it may produce data.
-def pick (p: Prop) (q: Prop): p ∧ q → Nat
+def pick (p: Prop) (q: Prop): And p q → Nat
   | Both l r => 0
 
 -- Matching on `Or` to produce another proof is fine.
-theorem orComm (p: Prop) (q: Prop): p ∨ q → q ∨ p
+theorem orComm (p: Prop) (q: Prop): Or p q → Or q p
   | Inl h => Inr h
   | Inr h => Inl h
 
