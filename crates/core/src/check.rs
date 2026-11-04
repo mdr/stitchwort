@@ -1770,6 +1770,7 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
 pub fn declare_def(
     g: &mut Globals,
     name: &Name,
+    path: &Name,
     ty: &Term,
     theorem: bool,
     export: bool,
@@ -1803,7 +1804,7 @@ pub fn declare_def(
         )
         .with_note("remove `theorem` to make it an ordinary definition"));
     }
-    push_def(g, name, ty, theorem, export, span)
+    push_def(g, name, path, ty, theorem, export, span)
 }
 
 /// Adds a pending definition with the checked type `ty`, for
@@ -1812,16 +1813,16 @@ pub fn declare_def(
 fn push_def(
     g: &mut Globals,
     name: &Name,
+    path: &Name,
     ty: Term,
     theorem: bool,
     export: bool,
     span: Span,
 ) -> Result<DefId> {
     let ty_value = eval(g, &[], &ty)?;
-    let path = g.path(name);
     g.env.defs_mut().push(Def {
         name: name.clone(),
-        path,
+        path: path.clone(),
         ty,
         ty_value,
         body: None,
@@ -2074,11 +2075,12 @@ pub fn mark_auto_params(g: &mut Globals, id: DataId, auto: Vec<bool>) {
 pub fn declare_data(
     g: &mut Globals,
     name: Name,
+    path: Name,
     params: Vec<(Name, Term)>,
     sort: Sort,
     span: Span,
 ) -> Result<DataId> {
-    let ids = declare_data_group(g, params, sort, vec![(name, span)])?;
+    let ids = declare_data_group(g, params, sort, vec![(name, path, span)])?;
     Ok(ids[0])
 }
 
@@ -2094,11 +2096,11 @@ pub fn declare_data_group(
     g: &mut Globals,
     params: Vec<(Name, Term)>,
     sort: Sort,
-    members: Vec<(Name, Span)>,
+    members: Vec<(Name, Name, Span)>,
 ) -> Result<Vec<DataId>> {
     let members = members
         .into_iter()
-        .map(|(name, span)| (name, span, false))
+        .map(|(name, path, span)| (name, path, span, false))
         .collect();
     declare_data_group_as(g, params, sort, members)
 }
@@ -2111,12 +2113,13 @@ pub fn declare_data_group_as(
     g: &mut Globals,
     params: Vec<(Name, Term)>,
     sort: Sort,
-    members: Vec<(Name, Span, bool)>,
+    members: Vec<(Name, Name, Span, bool)>,
 ) -> Result<Vec<DataId>> {
     let members = members
         .into_iter()
-        .map(|(name, span, record)| DataDecl {
+        .map(|(name, path, span, record)| DataDecl {
             name,
+            path,
             span,
             record,
             indices: Vec::new(),
@@ -2128,6 +2131,8 @@ pub fn declare_data_group_as(
 /// A member of a data group, for [`declare_indexed_data_group`].
 pub struct DataDecl {
     pub name: Name,
+    /// Its full logical name (`Std.List`): hashed, since types are nominal.
+    pub path: Name,
     pub span: Span,
     /// Whether it's a record (see [`declare_data_group_as`]). A record can't
     /// have indices.
@@ -2235,12 +2240,12 @@ fn push_data_group(
         .collect();
     for DataDecl {
         name,
+        path,
         span,
         record,
         indices,
     } in members
     {
-        let path = g.path(&name);
         g.env.datas_mut().push(Data {
             name,
             path,
@@ -2611,6 +2616,7 @@ fn check_result_indices(
 pub fn admit_trusted_def(
     g: &mut Globals,
     name: &Name,
+    path: &Name,
     ty: &Term,
     theorem: bool,
     span: Span,
@@ -2627,7 +2633,7 @@ pub fn admit_trusted_def(
     if let Some(dep) = admissible(&cx, [ty], None)? {
         return Err(failed_dependency(&cx, name, &dep));
     }
-    push_def(g, name, ty.clone(), theorem, false, span)
+    push_def(g, name, path, ty.clone(), theorem, false, span)
 }
 
 /// Makes a group of definitions added by [`admit_trusted_def`] (or

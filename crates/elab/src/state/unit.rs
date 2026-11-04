@@ -12,6 +12,7 @@
 
 use std::cell::RefCell;
 
+use stitchwort_core::Name;
 use stitchwort_syntax::Diagnostic;
 
 use crate::{cache, module, project};
@@ -21,6 +22,12 @@ pub(crate) struct Unit {
     /// The module being elaborated, and what's being checked in it. Kept
     /// after the module is elaborated (`use_file_scope`, `eval`).
     pub(crate) module: module::ModuleState,
+    /// The logical name of the module whose declarations are being made
+    /// (`Std` for the prelude, `Main` for a program, empty for a project
+    /// namespace, whose names already start with it), which the kernel is
+    /// given as a prefix of each declaration's path ([`Unit::path`]). Kept
+    /// after the module is elaborated, with `module`.
+    pub(crate) module_path: Name,
     /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
     /// for a file without a namespace line. Kept after the module is
     /// elaborated, so names typed in afterwards (`eval`, the REPL, `main`)
@@ -68,6 +75,7 @@ pub(crate) struct Unit {
 /// What a rewind mark keeps of a [`Unit`]: the fields that outlive a unit.
 pub(crate) struct Mark {
     module: module::ModuleState,
+    module_path: Name,
     namespace_root: String,
     file_mode: Option<project::FileModeContext>,
     next_include_location: Option<String>,
@@ -77,10 +85,22 @@ pub(crate) struct Mark {
 }
 
 impl Unit {
+    /// The full logical name of a declaration named `name` in the module
+    /// being elaborated: what the kernel is given as its path, which is
+    /// hashed for a data type (types are nominal).
+    pub(crate) fn path(&self, name: &Name) -> Name {
+        if self.module_path.is_empty() {
+            name.clone()
+        } else {
+            format!("{}.{name}", self.module_path).into()
+        }
+    }
+
     /// The unit a library file loaded inside this one starts with.
     pub(crate) fn nested(&self) -> Unit {
         let Unit {
             module: _,
+            module_path: _,
             namespace_root: _,
             file_mode: _,
             next_include_location: _,
@@ -93,6 +113,8 @@ impl Unit {
         } = self;
         Unit {
             module: module::ModuleState::default(),
+            // A library file's own (`elaborate_namespace` sets it again).
+            module_path: "Std".into(),
             namespace_root: String::new(),
             file_mode: None,
             next_include_location: None,
@@ -113,6 +135,7 @@ impl Unit {
             // Dropped with the library file: what it reported was returned
             // by its load.
             module: _,
+            module_path: _,
             namespace_root: _,
             file_mode: _,
             next_include_location: _,
@@ -131,6 +154,7 @@ impl Unit {
     pub(crate) fn mark(&self) -> Mark {
         let Unit {
             module,
+            module_path,
             namespace_root,
             file_mode,
             next_include_location,
@@ -148,6 +172,7 @@ impl Unit {
         );
         Mark {
             module: module.clone(),
+            module_path: module_path.clone(),
             namespace_root: namespace_root.clone(),
             file_mode: file_mode.clone(),
             next_include_location: next_include_location.clone(),
@@ -161,6 +186,7 @@ impl Unit {
     pub(crate) fn rewind(&mut self, mark: &Mark) {
         let Unit {
             module,
+            module_path,
             namespace_root,
             file_mode,
             next_include_location,
@@ -172,6 +198,7 @@ impl Unit {
             include_trace,
         } = self;
         *module = mark.module.clone();
+        *module_path = mark.module_path.clone();
         *namespace_root = mark.namespace_root.clone();
         *file_mode = mark.file_mode.clone();
         *next_include_location = mark.next_include_location.clone();

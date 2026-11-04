@@ -1289,6 +1289,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &label,
             &ty,
             false,
@@ -1614,7 +1615,7 @@ impl Elaborator {
             ops: sigs.iter().map(|(op, ..)| op.text.clone()).collect(),
             order: (
                 !ability_key.starts_with("Std."),
-                self.globals
+                self.unit
                     .path(&scope::display(&ability_key).into())
                     .to_string(),
             ),
@@ -1804,14 +1805,18 @@ impl Elaborator {
                     span,
                     record,
                     ..
-                } => kernel::DataDecl {
-                    name: self
+                } => {
+                    let name: Name = self
                         .declaration_key(n)
-                        .map_or_else(|_| name(n), |k| scope::display(&k).into()),
-                    span: *span,
-                    record: *record,
-                    indices,
-                },
+                        .map_or_else(|_| name(n), |k| scope::display(&k).into());
+                    kernel::DataDecl {
+                        path: self.unit.path(&name),
+                        name,
+                        span: *span,
+                        record: *record,
+                        indices,
+                    }
+                }
                 _ => unreachable!(),
             })
             .collect();
@@ -2658,6 +2663,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &scope::display(&key).into(),
             &ty,
             *theorem,

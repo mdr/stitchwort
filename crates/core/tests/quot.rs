@@ -155,7 +155,7 @@ impl Fix {
 /// Declares and defines `name : ty = body`, returning the kernel's
 /// diagnostic if it refuses either.
 fn try_define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId, Diagnostic> {
-    let id = check::declare_def(g, &name.into(), &ty, false, false, span())?;
+    let id = check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())?;
     check::define_def(g, id, &body)?;
     Ok(id)
 }

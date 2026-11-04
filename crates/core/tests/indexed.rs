@@ -149,8 +149,16 @@ impl Fams {
         ty: Term,
         body: impl FnOnce(&Fams, DefId) -> Term,
     ) -> Result<DefId, &'static str> {
-        let id = check::declare_def(self.g(), &name.into(), &ty, false, false, span())
-            .map_err(|d| d.code)?;
+        let id = check::declare_def(
+            self.g(),
+            &name.into(),
+            &name.into(),
+            &ty,
+            false,
+            false,
+            span(),
+        )
+        .map_err(|d| d.code)?;
         let body = body(self, id);
         check::define_def(self.g(), id, &body).map_err(|d| d.code)?;
         Ok(id)
@@ -434,6 +442,7 @@ fn test_17_a_record_with_indices_is_malformed() {
     let nat = f.nat();
     let record = |indices| DataDecl {
         name: "R".into(),
+        path: "R".into(),
         span: span(),
         record: true,
         indices,
@@ -523,7 +532,16 @@ fn hashes_cover_indices_and_result_indices() {
 /// Defines `stuck: ty := body`, which must be refused with `E-INDEX-STUCK`:
 /// its label and notes.
 fn stuck(g: &mut Globals, ty: Term, body: Term) -> String {
-    let id = check::declare_def(g, &"stuck".into(), &ty, false, false, span()).unwrap();
+    let id = check::declare_def(
+        g,
+        &"stuck".into(),
+        &"stuck".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     let e = check::define_def(g, id, &body).unwrap_err();
     assert_eq!(
         e.code, "E-INDEX-STUCK",
@@ -1235,7 +1253,16 @@ fn test_20_a_refined_outer_hypothesis() {
     };
     // `h` where a `P m` is expected.
     let wrong = body(&f, v(2));
-    let id = check::declare_def(f.g(), &"wrong".into(), &ty, false, false, span()).unwrap();
+    let id = check::declare_def(
+        f.g(),
+        &"wrong".into(),
+        &"wrong".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     let error = check::define_def(f.g(), id, &wrong).unwrap_err();
     assert_eq!(error.code, "E-TYPE-MISMATCH");
     // The message shows `h`'s type quoted at the branch's depth: the
@@ -1408,7 +1435,16 @@ fn same_k_is_accepted() {
             lam("p", icase(0, same, vec![(vec![], Some(Term::Refl))])),
         ),
     );
-    let id = check::declare_def(f.g(), &"sameK".into(), &ty, true, false, span()).unwrap();
+    let id = check::declare_def(
+        f.g(),
+        &"sameK".into(),
+        &"sameK".into(),
+        &ty,
+        true,
+        false,
+        span(),
+    )
+    .unwrap();
     assert_eq!(code(check::define_def(f.g(), id, &body)), "ok");
 }
 

@@ -91,7 +91,7 @@ fn num_case(ix: usize, arms: Vec<(u64, Term)>, default: Term) -> Term {
 /// refer to itself as `Term::Def` of the returned id, the next one): the
 /// kernel's error code, or "ok".
 fn define(g: &mut Globals, ty: Term, body: impl FnOnce(DefId) -> Term) -> &'static str {
-    let id = match declare_def(g, &"t".into(), &ty, false, false, span()) {
+    let id = match declare_def(g, &"t".into(), &"t".into(), &ty, false, false, span()) {
         Ok(id) => id,
         Err(d) => return d.code,
     };
@@ -544,7 +544,16 @@ fn has_num_case(term: &Term) -> bool {
 fn define_expansion(g: &mut Globals, f: DefId) -> DefId {
     let def = g.def(f);
     let (ty, body) = (def.ty().clone(), expand(g, def.body().unwrap()));
-    let id = declare_def(g, &"expanded".into(), &ty, false, false, span()).unwrap();
+    let id = declare_def(
+        g,
+        &"expanded".into(),
+        &"expanded".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     if let Err(d) = define_def(g, id, &body) {
         panic!(
             "the expansion of `{}` doesn't check: {d:#?}",

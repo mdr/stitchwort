@@ -2506,9 +2506,16 @@ mod tests {
         let ty_term = Term::Sort(Sort::Type(0));
         let arrow = |a: Term, b: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b));
         let fn_ty = arrow(ty_term.clone(), arrow(ty_term.clone(), ty_term));
-        let id =
-            stitchwort_core::check::declare_def(g, &"first".into(), &fn_ty, false, false, span())
-                .expect("declared");
+        let id = stitchwort_core::check::declare_def(
+            g,
+            &"first".into(),
+            &"first".into(),
+            &fn_ty,
+            false,
+            false,
+            span(),
+        )
+        .expect("declared");
         let body = Term::Lam(
             "a".into(),
             Icit::Explicit,

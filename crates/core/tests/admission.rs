@@ -62,6 +62,7 @@ fn a_data_type_without_its_constructors_yet_is_not_empty() {
     let r = check::declare_def(
         &mut p.g,
         &"impossible".into(),
+        &"impossible".into(),
         &d_to_void,
         false,
         false,
@@ -115,7 +116,15 @@ fn a_failed_declaration_cannot_be_used() {
     // but it can never be defined.
     let f0 = app(Term::Def(f), [p.num(0)]);
     let reflexive = eq(None, f0.clone(), f0);
-    let t = check::declare_def(&mut p.g, &"t".into(), &reflexive, true, false, span());
+    let t = check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &reflexive,
+        true,
+        false,
+        span(),
+    );
     let t = t.expect("declared");
     assert_eq!(define_def(&mut p, t, Term::Refl), "E-FAILED-DEPENDENCY");
     assert_eq!(def_hash(&p.g, t).unwrap(), None);
@@ -155,25 +164,73 @@ fn a_definition_is_defined_only_once() {
 fn a_signature_cannot_refer_to_a_pending_declaration() {
     let mut p = Prelude::new();
     let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
-    let t = check::declare_def(&mut p.g, &"t".into(), &about(p.nat, f), true, false, span());
+    let t = check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &about(p.nat, f),
+        true,
+        false,
+        span(),
+    );
     assert_eq!(code(t), "E-MALFORMED");
     // Nor to a data type without its constructors.
     let d = data(&mut p.g, "D", vec![], Sort::Type(0));
     let ty = arrow(Term::Data(d, vec![]), p.nat_ty());
-    let r = check::declare_def(&mut p.g, &"u".into(), &ty, false, false, span());
+    let r = check::declare_def(
+        &mut p.g,
+        &"u".into(),
+        &"u".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    );
     assert_eq!(code(r), "E-MALFORMED");
     // Nor can data parameters.
     let params = vec![("x".into(), about(p.nat, f))];
-    let r = check::declare_data(&mut p.g, "E".into(), params, Sort::Type(0), span());
+    let r = check::declare_data(
+        &mut p.g,
+        "E".into(),
+        "E".into(),
+        params,
+        Sort::Type(0),
+        span(),
+    );
     assert_eq!(code(r), "E-MALFORMED");
     let params = vec![("x".into(), Term::Data(d, vec![]))];
-    let r = check::declare_data(&mut p.g, "E".into(), params, Sort::Type(0), span());
+    let r = check::declare_data(
+        &mut p.g,
+        "E".into(),
+        "E".into(),
+        params,
+        Sort::Type(0),
+        span(),
+    );
     assert_eq!(code(r), "E-MALFORMED");
     // Neighbour: once both are final, all of these are fine.
     check::define_def(&mut p.g, f, &lam("n", v(0))).unwrap();
     check::define_ctors(&mut p.g, d, vec![]).unwrap();
-    check::declare_def(&mut p.g, &"t".into(), &about(p.nat, f), true, false, span()).unwrap();
-    check::declare_def(&mut p.g, &"u".into(), &ty, false, false, span()).unwrap();
+    check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &about(p.nat, f),
+        true,
+        false,
+        span(),
+    )
+    .unwrap();
+    check::declare_def(
+        &mut p.g,
+        &"u".into(),
+        &"u".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -218,12 +275,28 @@ fn a_proof_cannot_refer_to_a_pending_declaration() {
         Rc::new(arrow(p.nat_ty(), zero_is_zero.clone())),
     );
     let proof = app(constant, [app(Term::Def(f), [p.num(0)])]);
-    let t = check::declare_def(&mut p.g, &"t".into(), &zero_is_zero, true, false, span());
+    let t = check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &zero_is_zero,
+        true,
+        false,
+        span(),
+    );
     let t = t.unwrap();
     assert_eq!(define_def(&mut p, t, proof.clone()), "E-MALFORMED");
     // Neighbour: once `f` is final.
     check::define_def(&mut p.g, f, &lam("n", v(0))).unwrap();
-    let t2 = check::declare_def(&mut p.g, &"t2".into(), &zero_is_zero, true, false, span());
+    let t2 = check::declare_def(
+        &mut p.g,
+        &"t2".into(),
+        &"t2".into(),
+        &zero_is_zero,
+        true,
+        false,
+        span(),
+    );
     assert_eq!(define_def(&mut p, t2.unwrap(), proof), "ok");
 }
 
@@ -302,7 +375,15 @@ fn running_out_of_resources_leaves_a_definition_failed() {
     let mut p = Prelude::new();
     // big : 30 + 30 = 60, by computation.
     let statement = eq(None, p.plus(p.num(30), p.num(30)), p.num(60));
-    let big = check::declare_def(&mut p.g, &"big".into(), &statement, true, false, span());
+    let big = check::declare_def(
+        &mut p.g,
+        &"big".into(),
+        &"big".into(),
+        &statement,
+        true,
+        false,
+        span(),
+    );
     let big = big.unwrap();
     let r = {
         let tiny = Limits {
@@ -329,11 +410,20 @@ fn references_to_declarations_that_do_not_exist_are_refused() {
     let missing_def = Term::Def(DefId(1000));
     let missing_data = Term::Data(DataId(1000), vec![]);
     for ty in [arrow(missing_data.clone(), p.nat_ty()), missing_def.clone()] {
-        let r = check::declare_def(&mut p.g, &"f".into(), &ty, false, false, span());
+        let r = check::declare_def(
+            &mut p.g,
+            &"f".into(),
+            &"f".into(),
+            &ty,
+            false,
+            false,
+            span(),
+        );
         assert_eq!(code(r), "E-MALFORMED");
     }
     let r = check::declare_data(
         &mut p.g,
+        "E".into(),
         "E".into(),
         vec![("x".into(), missing_data)],
         Sort::Type(0),

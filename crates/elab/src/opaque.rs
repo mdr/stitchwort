@@ -272,6 +272,7 @@ impl Elaborator {
         let copy = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &def_ty,
             false,
@@ -292,6 +293,7 @@ impl Elaborator {
         let unfold = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,

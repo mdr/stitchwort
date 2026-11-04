@@ -787,7 +787,7 @@ impl Elaborator {
 
         // From here on, as `elaborate_namespace_untimed` does.
         self.unit.namespace_root = format!("{ns}.");
-        self.globals.module = "".into();
+        self.unit.module_path = "".into();
         self.unit.module = crate::module::ModuleState {
             files: files
                 .iter()
@@ -2401,7 +2401,6 @@ impl Elaborator {
         let param_defaults: HashSet<DefId> = tables.param_default_helpers().collect();
         let base_defs = self.globals.env.defs().len();
         let base_datas = self.globals.env.datas().len();
-        let module = self.globals.module.clone();
         let result = self
             .submit(defs, datas, &param_defaults, base_defs, base_datas)
             .and_then(|()| {
@@ -2410,7 +2409,6 @@ impl Elaborator {
                 }
                 Ok(())
             });
-        self.globals.module = module;
         if let Err(why) = result {
             // Undo: nothing else refers to what was added yet.
             let g = &mut self.globals;
@@ -2625,17 +2623,20 @@ impl Elaborator {
             {
                 let gi = data_groups[next_data_group];
                 let first = &datas[j];
+                for &m in &groups[gi].members {
+                    module_of(&datas[m].name, &datas[m].path)?;
+                }
                 let members = groups[gi]
                     .members
                     .iter()
                     .map(|&m| kernel::DataDecl {
                         name: datas[m].name.clone(),
+                        path: datas[m].path.clone(),
                         span: datas[m].span,
                         record: datas[m].record,
                         indices: datas[m].indices.clone(),
                     })
                     .collect();
-                self.globals.module = module_of(&first.name, &first.path)?;
                 let (params, sort) = (first.params.clone(), first.sort);
                 let ids = self
                     .kernel_op(|g| kernel::admit_trusted_data_decls(g, params, sort, members))
@@ -2657,10 +2658,17 @@ impl Elaborator {
             }
             if next_def < defs.len() {
                 let def = &defs[next_def];
-                self.globals.module = module_of(&def.name, &def.path)?;
+                module_of(&def.name, &def.path)?;
                 let id = self
                     .kernel_op(|g| {
-                        kernel::admit_trusted_def(g, &def.name, &def.ty, def.theorem, def.span)
+                        kernel::admit_trusted_def(
+                            g,
+                            &def.name,
+                            &def.path,
+                            &def.ty,
+                            def.theorem,
+                            def.span,
+                        )
                     })
                     .map_err(refused)?;
                 if id.0 != base_defs + next_def || *self.globals.def(id).path() != def.path {
@@ -2785,8 +2793,8 @@ impl Elaborator {
 }
 
 /// The module a declaration was declared in, from its name and its path
-/// (`Std` for `List.length` at `Std.List.length`), so declaring it again
-/// gives the same path.
+/// (`Std` for `List.length` at `Std.List.length`): a path that isn't its
+/// name in a module is refused.
 fn module_of(name: &str, path: &str) -> Read<Name> {
     if path == name {
         return Ok("".into());

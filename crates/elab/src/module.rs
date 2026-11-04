@@ -299,11 +299,11 @@ impl Elaborator {
         match namespace {
             Some(ns) if !self.unit.loading_prelude => {
                 self.unit.namespace_root = format!("{ns}.");
-                self.globals.module = "".into();
+                self.unit.module_path = "".into();
             }
             _ => {
                 self.unit.namespace_root = String::new();
-                self.globals.module = if self.unit.loading_prelude {
+                self.unit.module_path = if self.unit.loading_prelude {
                     "Std"
                 } else {
                     "Main"
@@ -1699,7 +1699,7 @@ impl Elaborator {
     /// The full names of a component's declarations, for `STITCHWORT_TIMINGS`.
     fn component_label(&self, items: &[Item], component: &[usize]) -> String {
         let prefix = if self.unit.namespace_root.is_empty() {
-            format!("{}.", self.globals.module)
+            format!("{}.", self.unit.module_path)
         } else {
             self.unit.namespace_root.clone()
         };

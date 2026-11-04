@@ -1232,6 +1232,7 @@ impl Elaborator {
         let step_id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &step_name,
             &ty,
             true,
@@ -1333,6 +1334,7 @@ impl Elaborator {
         let step = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &scope::display(&step_key).into(),
             &ty,
             plan.theorem,
@@ -1467,6 +1469,7 @@ impl Elaborator {
         let go = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             plan.theorem,
@@ -1566,6 +1569,7 @@ impl Elaborator {
         let irrel = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,
@@ -1695,6 +1699,7 @@ impl Elaborator {
         let unfold = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,
@@ -1867,6 +1872,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,
@@ -2845,6 +2851,7 @@ impl Elaborator {
         let go = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             plan.theorem,
@@ -2948,6 +2955,7 @@ impl Elaborator {
         let irrel = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,

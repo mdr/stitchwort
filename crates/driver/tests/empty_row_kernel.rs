@@ -77,7 +77,8 @@ fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
     assert!(!conv(g, 0, &a, &b).unwrap());
 
     let f = Term::Def(def(g, "f"));
-    let bad = check::declare_def(g, &"bad".into(), &nat, false, false, span()).unwrap();
+    let bad =
+        check::declare_def(g, &"bad".into(), &"bad".into(), &nat, false, false, span()).unwrap();
     assert_eq!(code(check::define_def(g, bad, &f)), "E-TYPE-MISMATCH");
 
     let run = Term::app_icit(
@@ -89,12 +90,30 @@ fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
         f.clone(),
         Icit::Explicit,
     );
-    let good = check::declare_def(g, &"good".into(), &nat, false, false, span()).unwrap();
+    let good = check::declare_def(
+        g,
+        &"good".into(),
+        &"good".into(),
+        &nat,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     assert_eq!(code(check::define_def(g, good, &run)), "ok");
 
     // The other way round: a `Nat` isn't a `Comp NoOp NoRes Nat` either.
     let three = Term::Nat(Rc::new(3u32.into()));
-    let bad2 = check::declare_def(g, &"bad2".into(), &comp, false, false, span()).unwrap();
+    let bad2 = check::declare_def(
+        g,
+        &"bad2".into(),
+        &"bad2".into(),
+        &comp,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     assert_eq!(code(check::define_def(g, bad2, &three)), "E-TYPE-MISMATCH");
 }
 

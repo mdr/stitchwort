@@ -652,6 +652,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,
@@ -1288,6 +1289,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             true,
@@ -1903,7 +1905,16 @@ impl Tree<'_> {
         let name: Name = format!("{}.induct.%apart{}", self.d.display, self.discs.len() + 1).into();
         let span = self.d.rows[0].span;
         let e = &mut *self.e;
-        let id = kernel::declare_def(&mut e.globals, &e.tables, &name, &ty, false, false, span)?;
+        let id = kernel::declare_def(
+            &mut e.globals,
+            &e.tables,
+            &e.unit,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
         kernel::define_group(&mut e.globals, &e.tables, &[(id, lams(&names, tree))])?;
         self.discs.insert(key, id);
         self.made.push(id);

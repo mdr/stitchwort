@@ -127,6 +127,7 @@ impl Elaborator {
             let id = kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &scope::display(&key).into(),
                 &ty,
                 false,
