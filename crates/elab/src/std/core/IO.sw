@@ -34,8 +34,8 @@ ability IO where
 
 --| The first line of scripted input, if there is one.
 def IO.nextLine: List Text → Option Text
-  | Nil => None
-  | Cons line lines => Some line
+  | [] => None
+  | [line, ..lines] => Some line
 
 --| All of the scripted input, as [`IO.readAll`] gives it: each line followed by a
 --| line feed, as a real interpreter would read it.
@@ -53,7 +53,7 @@ def Char.utf8 (c: Char): List Nat :=
 --| All of the scripted input as [`IO.readBytes`] gives it, in one read: the
 --| UTF-8 of [`IO.restOf`], or `None` once no lines remain.
 def IO.bytesOf: List Text → Option (List Nat)
-  | Nil => None
+  | [] => None
   | ins => Some (List.concatMap (Text.toList (IO.restOf ins)) Char.utf8)
 
 --| [`IO.console`] under [`IO.simulate`]: no terminals, and the size isn't known.
@@ -74,17 +74,17 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with
-      | return x => ins out => MkPair (List.reverseOnto out Nil) x
+      | return x => ins out => MkPair (List.reverseOnto out []) x
       | IO.print t, k => ins out => k() ins (Cons t out)
       | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
-      | IO.readAll u, k => ins out => k (IO.restOf ins) Nil out
+      | IO.readAll u, k => ins out => k (IO.restOf ins) [] out
       | IO.console u, k => ins out => k IO.noConsole ins out
       | IO.keysMode on, k => ins out => k() ins out
-      | IO.readBytes u, k => ins out => k (IO.bytesOf ins) Nil out
+      | IO.readBytes u, k => ins out => k (IO.bytesOf ins) [] out
       | IO.write t, k => ins out => k() ins (Cons t out)
       | IO.randomSeed u, k => ins out => k seed ins out
-      | IO.args u, k => ins out => k Nil ins out
-  run input Nil
+      | IO.args u, k => ins out => k [] ins out
+  run input []
 
 --| `IO.simulateWith 0`: [`IO.randomSeed`] gives 0.
 def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a := IO.simulateWith 0 input prog

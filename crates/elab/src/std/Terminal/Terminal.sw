@@ -125,7 +125,7 @@ def Terminal.keysWithin (inputIsTerminal: Bool): Nat → List Nat → List (List
     let next := Terminal.nextKey inputIsTerminal Terminal.readFromList pending reads
     match next.key with
       | None => []
-      | Some key => Cons key (Terminal.keysWithin inputIsTerminal limit next.pending next.source)
+      | Some key => [key, ..Terminal.keysWithin inputIsTerminal limit next.pending next.source]
 
 --| One read from a list of reads: its first, then the rest.
 def Terminal.readFromList: List (List Nat) → Pair (Option (List Nat)) (List (List Nat))
@@ -228,7 +228,7 @@ test "reads: none" := Terminal.keysOfReads True [] == []
 --| `ESC [` then parameter bytes, one per read: after 16 more reads the key is
 --| cut off, and the reads after that are keys of their own.
 test "reads: a sequence that never ends stops after the reads allowed" :=
-  Terminal.keysOfReads False (Cons [27, 91] (List.replicate 20 [48])) == Cons Unknown (List.replicate 4 (Printable '0'))
+  Terminal.keysOfReads False [[27, 91], ..List.replicate 20 [48]] == [Unknown, ..List.replicate 4 (Printable '0')]
 
 -- `simulate`.
 

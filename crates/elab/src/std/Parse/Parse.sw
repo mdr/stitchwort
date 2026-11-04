@@ -111,8 +111,8 @@ def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, P
 --| The next character, if it passes the test, and the state after reading it.
 def Parse.State.next (state: Parse.State) (passes: Char → Bool): (Option Char, Parse.State) :=
   match state.at.rest with
-    | Cons char after => if passes char then (Some char, state.advance after 1) else (None, state)
-    | Nil => (None, state)
+    | [char, ..after] => if passes char then (Some char, state.advance after 1) else (None, state)
+    | [] => (None, state)
 
 --| Whether the characters come next, and the state after reading them if they do.
 def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.State) :=
@@ -134,8 +134,8 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
         k taken (state.advance after taken.length)
       | Parse.next passes, k => state =>
         match state.at.rest with
-          | Cons char after => if passes char then k (Some char) (state.advance after 1) else k None state
-          | Nil => k None state
+          | [char, ..after] => if passes char then k (Some char) (state.advance after 1) else k None state
+          | [] => k None state
       | Parse.literal chars, k => state =>
         match Text.stripPrefixChars chars state.at.rest with
           | Some after => k True (state.advance after chars.length)
@@ -220,7 +220,7 @@ def Parse.takeWhile (passes: Char → Bool): {Parse} Text := Parse.span passes |
 --| "expected `what`".
 def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text :=
   match Parse.span passes with
-    | Nil => Parse.expected what
+    | [] => Parse.expected what
     | chars => Text.fromList chars
 
 --| Whether a character is an ASCII digit, `0` to `9`.
@@ -232,7 +232,7 @@ def Parse.isSpace (char: Char): Bool := char == ' ' ∨ char == '\t'
 --| A whole number written in decimal digits, else "expected a number".
 def Parse.nat(): {Parse} Nat :=
   match Parse.span Parse.isDigit with
-    | Nil => Parse.expected "a number"
+    | [] => Parse.expected "a number"
     | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
 --| A whole number of `atLeast` to `atMost` decimal digits (at least one).
@@ -318,8 +318,8 @@ def Parse.pick (choices: List (Text, a)): {Parse} a :=
 
 --| Notes each word of `pick`'s choices as expected here.
 def Parse.noteWords: List (Text, a) → {Parse} ()
-  | Nil => ()
-  | Cons (word, value) rest =>
+  | [] => ()
+  | [(word, value), ..rest] =>
     Parse.note (Literal word)
     Parse.noteWords rest
 
@@ -659,8 +659,8 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
 def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
   let rest := chars.drop failure.offset
   match rest with
-    | Nil => endOfInput
-    | Cons char after =>
+    | [] => endOfInput
+    | [char, ..after] =>
       if char == '\n' ∨ char == '\r' then lineBreak
       else if failure.width > 1 then
         let head := rest.take failure.width |> .takeWhile (shownChar => shownChar ≠ '\n' ∧ shownChar ≠ '\r')
@@ -761,8 +761,8 @@ theorem Parse.runFromFatal (state: Parse.State) (message: Text) (k: Empty → {P
 theorem Parse.runFromNext (state: Parse.State) (passes: Char → Bool) (k: Option Char → {Parse} a):
     Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.next passes).snd (() => k (state.next passes).fst) :=
   match starts: state.at.rest with
-    | Nil => rfl
-    | Cons char after =>
+    | [] => rfl
+    | [char, ..after] =>
       match holds: passes char with
         | True => rfl
         | False => rfl
@@ -788,7 +788,7 @@ theorem Parse.runFromLiteralThere (state: Parse.State) (chars: List Char) (rest:
 --| `span` where the input starts with `taken`, all passing, and the character
 --| after them (if any) doesn't: it reads `taken`.
 theorem Parse.runFromSpanThere (state: Parse.State) (passes: Char → Bool) (taken: List Char) (rest: List Char) (k: List Char → {Parse} a)
-    (starts: state.at.rest = List.append taken rest) (all: List.all taken passes = True) (stops: List.takeWhile rest passes = Nil):
+    (starts: state.at.rest = List.append taken rest) (all: List.all taken passes = True) (stops: List.takeWhile rest passes = []):
     Parse.runFrom state (() => k (Parse.span passes)) = Parse.runFrom (state.advance rest taken.length) (() => k taken) :=
   rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops in rfl
 
@@ -818,13 +818,13 @@ theorem Parse.runFromCharThere (state: Parse.State) (expected: Char) (rest: List
 
 --| `nat` on a run of digits, followed by something else or nothing.
 theorem Parse.runFromNatThere (state: Parse.State) (digits: List Char) (rest: List Char) (k: Nat → {Parse} a)
-    (starts: state.at.rest = List.append digits rest) (some: digits ≠ Nil) (all: List.all digits Parse.isDigit = True)
-    (stops: List.takeWhile rest Parse.isDigit = Nil):
+    (starts: state.at.rest = List.append digits rest) (some: digits ≠ []) (all: List.all digits Parse.isDigit = True)
+    (stops: List.takeWhile rest Parse.isDigit = []):
     Parse.runFrom state (() => k (Parse.nat())) =
       Parse.runFrom (state.advance rest digits.length) (() => k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
   match digits with
-    | Nil => Void.exfalso (some rfl)
-    | Cons first others => rewrite starts, List.spanAppend Parse.isDigit (Cons first others) rest all stops in rfl
+    | [] => Void.exfalso (some rfl)
+    | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit (Cons first others) rest all stops in rfl
 
 theorem Parse.runFromEndThere (state: Parse.State) (k: () → {Parse} a) (atEnd: state.at.left = 0):
     Parse.runFrom state (() => k (Parse.end())) = Parse.runFrom state (() => k ()) :=

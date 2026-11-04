@@ -12,5 +12,5 @@ def List.unfold (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat)
     decreasing measure seed
 :=
   match e: step seed with
-    | None => Nil
-    | Some (MkPair v next) => Cons v (List.unfold next step measure shrinks [decreasing := shrinks seed next v e])
+    | None => []
+    | Some (MkPair v next) => [v, ..List.unfold next step measure shrinks [decreasing := shrinks seed next v e]]

@@ -126,7 +126,7 @@ def Int.compare: Int → Int → Ordering
 --| Decimal, with a `-` in front of a negative: `"-42"`. Never `"-0"`.
 def Int.toText: Int → Text
   | OfNat n => Nat.toText n
-  | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
+  | NegSucc n => MkText ['-', ..Text.toList (Nat.toText (Succ n))]
 
 --| `dividend / divisor`, Euclidean: the remainder it leaves is at least 0 and below `|divisor|`, so `-18 / 100` is `-1`.
 --| (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`.)

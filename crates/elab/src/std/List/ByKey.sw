@@ -101,7 +101,7 @@ theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List 
 
 --| `differenceBy` keeps nothing when every key of `xs` is a key of `ys`.
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
-    (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = Nil :=
+    (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = [] :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
     rewrite Decidable.toBoolOf (List.decMem (key x) (List.map ys key)) (covered x m) in rfl)
 
@@ -138,7 +138,7 @@ theorem List.appendNewBySelfExample (xs: List Nat): List.appendNewBy xs xs (n =>
 
 test "List.differenceBy" := [1, 12, 5].differenceBy [22] (n => n % 10) == [1, 5]
 test "List.differenceBy keeps repeats" := [1, 1, 2].differenceBy [2] (n => n) == [1, 1]
-test "List.differenceBy of nothing" := [1, 2].differenceBy Nil (n => n) == [1, 2] ∧ (Nil: List Nat).differenceBy [1] (n => n) == Nil
+test "List.differenceBy of nothing" := [1, 2].differenceBy [] (n => n) == [1, 2] ∧ ([]: List Nat).differenceBy [1] (n => n) == []
 test "List.appendNewBy" := [1, 12].appendNewBy [21, 3, 32] (n => n % 10) == [1, 12, 3]
 test "List.appendNewBy keeps repeats within a list" := [1, 1].appendNewBy [2, 2, 1] (n => n) == [1, 1, 2, 2]
 test "List.appendNewBy keeps the first list's item for a shared key" :=

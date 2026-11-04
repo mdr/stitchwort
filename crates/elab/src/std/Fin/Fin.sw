@@ -59,8 +59,8 @@ instance Fin.instOrd: Ord (Fin n) := Ord.byKey Fin.toNat Fin.toNatInjective
 
 --| Every position below n, in order: `Fin.all 3` is `[0, 1, 2]` as positions.
 def Fin.all: (n: Nat) → List (Fin n)
-  | Zero => Nil
-  | Succ n => Cons FZero (List.concatMap (Fin.all n) (i => [FSucc i]))
+  | Zero => []
+  | Succ n => [FZero, ..List.concatMap (Fin.all n) (i => [FSucc i])]
 
 theorem Fin.allComplete: (n: Nat) → (i: Fin n) → List.Mem i (Fin.all n)
   | Succ m, FZero => Inl rfl

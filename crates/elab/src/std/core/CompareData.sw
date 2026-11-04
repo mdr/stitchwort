@@ -8,26 +8,26 @@
 --| the first difference decides, and a list comes before its extensions.
 @[noReceiver]
 def List.compareLex (cmp: a → a → Ordering): List a → List a → Ordering
-  | Nil, Nil => Equal
-  | Nil, Cons y ys => Less
-  | Cons x xs, Nil => Greater
-  | Cons x xs, Cons y ys => Ordering.andThen (cmp x y) (List.compareLex cmp xs ys)
+  | [], [] => Equal
+  | [], [y, ..ys] => Less
+  | [x, ..xs], [] => Greater
+  | [x, ..xs], [y, ..ys] => Ordering.andThen (cmp x y) (List.compareLex cmp xs ys)
 
 theorem List.compareLexEqual (cmp: a → a → Ordering) (equal: (x: a) → (y: a) → cmp x y = Equal → x = y):
     (xs: List a) → (ys: List a) → List.compareLex cmp xs ys = Equal → xs = ys
-  | Nil, Nil, h => rfl
-  | Nil, Cons y ys, h => Void.exfalso (Ordering.lessNotEqual h)
-  | Cons x xs, Nil, h => Void.exfalso (Ordering.greaterNotEqual h)
-  | Cons x xs, Cons y ys, h =>
-    Eq.trans (Eq.cong (t => Cons t xs) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
+  | [], [], h => rfl
+  | [], [y, ..ys], h => Void.exfalso (Ordering.lessNotEqual h)
+  | [x, ..xs], [], h => Void.exfalso (Ordering.greaterNotEqual h)
+  | [x, ..xs], [y, ..ys], h =>
+    Eq.trans (Eq.cong (t => [t, ..xs]) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
       (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
 
 theorem List.compareLexFlip (cmp: a → a → Ordering) (flip: (x: a) → (y: a) → cmp y x = Ordering.flip (cmp x y)):
     (xs: List a) → (ys: List a) → List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys)
-  | Nil, Nil => rfl
-  | Nil, Cons y ys => rfl
-  | Cons x xs, Nil => rfl
-  | Cons x xs, Cons y ys =>
+  | [], [] => rfl
+  | [], [y, ..ys] => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] =>
     rewrite flip x y, List.compareLexFlip cmp flip xs ys in
       Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
 
@@ -35,12 +35,12 @@ theorem List.compareLexTrans (cmp: a → a → Ordering) (equal: (x: a) → (y: 
     (trans: (x: a) → (y: a) → (z: a) → cmp x y = Less → cmp y z = Less → cmp x z = Less):
     (xs: List a) → (ys: List a) → (zs: List a) →
     List.compareLex cmp xs ys = Less → List.compareLex cmp ys zs = Less → List.compareLex cmp xs zs = Less
-  | Nil, Nil, zs, h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
-  | Nil, Cons y ys, Nil, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Nil, Cons y ys, Cons z zs, h1, h2 => rfl
-  | Cons x xs, Nil, zs, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
-  | Cons x xs, Cons y ys, Nil, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
+  | [], [], zs, h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | [], [y, ..ys], [], h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | [], [y, ..ys], [z, ..zs], h1, h2 => rfl
+  | [x, ..xs], [], zs, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | [x, ..xs], [y, ..ys], [], h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | [x, ..xs], [y, ..ys], [z, ..zs], h1, h2 =>
     Ordering.andThenTrans (cmp x y) (cmp y z) (cmp x z)
       (List.compareLex cmp xs ys) (List.compareLex cmp ys zs) (List.compareLex cmp xs zs)
       (trans x y z)
@@ -128,10 +128,10 @@ theorem Char.compareTrans (x: Char) (y: Char) (z: Char) (h1: Char.compare x y = 
 --| [`Text.compare`] is lexicographic by characters: [`List.compareLex`] with
 --| [`Char.compare`], step for step. So its laws are the list's.
 theorem Text.compareCharsLex: (xs: List Char) → (ys: List Char) → Text.compareChars xs ys = List.compareLex Char.compare xs ys
-  | Nil, Nil => rfl
-  | Nil, Cons y ys => rfl
-  | Cons x xs, Nil => rfl
-  | Cons x xs, Cons y ys => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
+  | [], [] => rfl
+  | [], [y, ..ys] => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
 
 theorem Text.ext: (s: Text) → (t: Text) → Text.toList s = Text.toList t → s = t
   | MkText a, MkText b, h => Eq.cong MkText h

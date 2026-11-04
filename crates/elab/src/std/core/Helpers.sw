@@ -5,8 +5,8 @@
 
 --| `f` on each element, the results joined: what `List.flatMap` does, for the core.
 def List.concatMap: List a → (f: a → List b) → List b
-  | Nil, f => Nil
-  | Cons x xs, f => List.append (f x) (List.concatMap xs f)
+  | [], f => []
+  | [x, ..xs], f => List.append (f x) (List.concatMap xs f)
 
 -- Lemmas the rest of the prelude uses. (Sorting and the lemmas around it are
 -- the library file std/List/Sort.sw; these stay because the core, or a

@@ -42,38 +42,38 @@ def Show.fromText (f: a → Text): Show a := { toText = f, toSource = f }
 
 --| A character as it's written in a literal quoted with `quote`, then `rest`.
 def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
-  if Nat.equal (Char.toNat char) 92 then Cons '\\' (Cons '\\' rest)
-  else if Nat.equal (Char.toNat char) (Char.toNat quote) then Cons '\\' (Cons char rest)
-  else if Nat.equal (Char.toNat char) 10 then Cons '\\' (Cons 'n' rest)
-  else if Nat.equal (Char.toNat char) 9 then Cons '\\' (Cons 't' rest)
-  else if Nat.equal (Char.toNat char) 13 then Cons '\\' (Cons 'r' rest)
-  else Cons char rest
+  if Nat.equal (Char.toNat char) 92 then ['\\', '\\', ..rest]
+  else if Nat.equal (Char.toNat char) (Char.toNat quote) then ['\\', char, ..rest]
+  else if Nat.equal (Char.toNat char) 10 then ['\\', 'n', ..rest]
+  else if Nat.equal (Char.toNat char) 9 then ['\\', 't', ..rest]
+  else if Nat.equal (Char.toNat char) 13 then ['\\', 'r', ..rest]
+  else [char, ..rest]
 
 --| A character as it's written in a literal quoted with `quote`, when it's
 --| followed by `next`: a `$` before a `{` would start an interpolation, so it is escaped.
 def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char → List Char
-  | Nil => Show.escapeChar quote char rest
-  | Cons next _ =>
+  | [] => Show.escapeChar quote char rest
+  | [next, .._] =>
     if Nat.equal (Char.toNat char) 36 then
-      (if Nat.equal (Char.toNat next) 123 then Cons '\\' (Cons char rest) else Cons char rest)
+      (if Nat.equal (Char.toNat next) 123 then ['\\', char, ..rest] else [char, ..rest])
     else Show.escapeChar quote char rest
 
 --| Characters as they're written in a literal quoted with `quote`.
 def Show.escapeChars (quote: Char): List Char → List Char
-  | Nil => Nil
-  | Cons char chars => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
+  | [] => []
+  | [char, ..chars] => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
 
 --| `"tea"` with its quotes and escapes.
 def Show.quoteText (text: Text): Text :=
-  MkText (Cons '"' (List.append (Show.escapeChars '"' (Text.toList text)) (Cons '"' Nil)))
+  MkText ['"', ..List.append (Show.escapeChars '"' (Text.toList text)) ['"']]
 
 --| A character in quotes, escaped as in a literal: `'a'`.
-def Show.quoteChar (char: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' char (Cons '\'' Nil)))
+def Show.quoteChar (char: Char): Text := MkText ['\'', ..Show.escapeChar '\'' char ['\'']]
 
 --| Whether the characters include a space.
 def Show.hasSpace: List Char → Bool
-  | Nil => False
-  | Cons char chars => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
+  | [] => False
+  | [char, ..chars] => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
 
 --| Whether text starts like a bracketed or quoted thing, which reads as one
 --| piece: `[`, `(`, `"`, `'`. (`{` is not one: braces straight after a
@@ -88,8 +88,8 @@ def Show.startsBracketed (char: Char): Bool :=
 --| already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`,
 --| `Some ({ price = 3 })`).
 def Show.argOf (text: Text): List Char → Text
-  | Nil => text
-  | Cons char chars =>
+  | [] => text
+  | [char, ..chars] =>
     if Nat.equal (Char.toNat char) 45 then Text.append "(" (Text.append text ")")
     else if Nat.equal (Char.toNat char) 123 then Text.append "(" (Text.append text ")")
     else if Show.startsBracketed char then text
@@ -101,13 +101,13 @@ def Show.arg (text: Text): Text := Show.argOf text (Text.toList text)
 
 --| The elements through `f`, each after `, `.
 def Show.itemsAfter (f: a → Text): List a → Text
-  | Nil => ""
-  | Cons x xs => Text.append ", " (Text.append (f x) (Show.itemsAfter f xs))
+  | [] => ""
+  | [x, ..xs] => Text.append ", " (Text.append (f x) (Show.itemsAfter f xs))
 
 --| The elements through `f`, separated by `, `.
 def Show.items (f: a → Text): List a → Text
-  | Nil => ""
-  | Cons x xs => Text.append (f x) (Show.itemsAfter f xs)
+  | [] => ""
+  | [x, ..xs] => Text.append (f x) (Show.itemsAfter f xs)
 
 --| `[1, 2, 3]`, the elements through `f`.
 def Show.list (f: a → Text) (xs: List a): Text :=
