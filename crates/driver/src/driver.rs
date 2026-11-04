@@ -1153,8 +1153,8 @@ impl Cache {
         if matches!(outcome, Outcome::OutOfResources(_)) {
             return;
         }
-        let key = Self::key(hash, modes);
         if let Some(memory) = &self.memory {
+            let key = Self::key(hash, modes);
             let mut memory = memory.borrow_mut();
             memory.known.insert(key.clone(), outcome);
             memory.added.push((key, outcome));
