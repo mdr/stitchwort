@@ -26,9 +26,9 @@ expression: json
         "message": "next: Bool\nall: next = True\n⊢ next = True",
         "range": [
           14,
-          23,
+          16,
           14,
-          24
+          17
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       14,
-      23,
+      16,
       14,
-      24
+      17
     ],
     "severity": "goal"
   },

@@ -5422,7 +5422,7 @@
     {
       "id": 1221,
       "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-1221",
       "labels": [
