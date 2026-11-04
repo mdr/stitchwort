@@ -324,6 +324,21 @@ fn the_json_contract() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A pattern whose instance the elaborator unfolded (`Nat.decEq` for
+/// `Nat.instDecEq`) finds a lemma that takes its dictionary as an argument
+/// (`DecEq.refl`): the pattern is searched again with the dictionary a hole
+/// (SW-1217).
+#[test]
+fn a_concrete_instance_matches_an_instance_argument() {
+    let dir = folder("instance-argument");
+    let (code, report) = json(&dir, &["((?a: Nat) == ?a) = True", "--limit", "100"]);
+    assert_eq!(code, 0, "{report}");
+    let refl = result(&report, "Std.DecEq.refl");
+    assert_eq!(refl["relation"], "instance");
+    assert_eq!(refl["via"], serde_json::json!(["generic"]));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A result's summary (docs/proposals/documentation.md §5.2): the first
 /// sentence of its doc, on a line after the location in the text and as
 /// `summary` in the JSON, `null` without a doc. It is shown, never matched.
