@@ -4935,14 +4935,14 @@
     {
       "id": 1188,
       "title": "Globals split 8c: the kernel is given each declaration's path; module moves to Unit",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min. Applies D2293.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
