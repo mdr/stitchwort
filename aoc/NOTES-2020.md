@@ -1369,7 +1369,7 @@ Proved (`Aoc.Year2020.Day06.Proofs`):
 - `unionContains`, `intersectContains`: folding the people's sets by union
   (intersection) holds what the accumulator holds or some line has (and
   what every line has). `anyQuestion`: whatever a line has is a question.
-- `sizeCount`: a set of questions has as many members as there are of the
+- `sizeCount` (since SW-1298 std's `Set.sizeOfMembers`, with `Set.containsUnions` and `Set.containsFoldIntersect` replacing `unionContains` and the fold half of `intersectContains`): a set of questions has as many members as there are of the
   26 questions it holds (the set's key list and the filtered `questions` are
   both distinct with the same members, so they are a permutation).
 - `anyoneCount`, `everyoneCount`: a group's `anyone.size` (`everyone.size`)
@@ -1421,6 +1421,8 @@ lemma set. A side effect: blank lines before, between and after groups
 the fix below; and a `Parse.sections` reads theorem that speaks of the
 input's lines (as `eachLineReads` does) would let a day-4-style format
 parse reach a spec on text.
+
+Fixed in SW-1298: `Parse.SepBy` now says the first value is the one `spec` holds of the first read (`readsSepBy1` and `readsSection` carry it), so day 4's `parseWritten` covers the first passport and its first field too; `firstPassportWritten` states it for the first passport.
 
 ### 2. Set reasoning in std: the membership laws were there, the size and the folds weren't
 

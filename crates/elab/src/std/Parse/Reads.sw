@@ -769,10 +769,11 @@ theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) 
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
           rewrite same in Both (Witness firstRead (Witness restRead (Both split (Both holds each)))) (List.consNotNil first rest))
 
---| What `sepBy1 p separator` reads: `p`'s part, then a separator's and
---| `p`'s for each further value.
+--| What `sepBy1 p separator` reads: `p`'s part for the first value, then a
+--| separator's and `p`'s for each further value.
 def Parse.SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
-  ∃ (first: a) => ∃ (rest: List a) => values = [first, ..rest] ∧ Parse.Then spec (v => Parse.Each (Parse.Then separator (u => spec))) read rest
+  ∃ (first: a) => ∃ (rest: List a) => values = [first, ..rest] ∧
+    Parse.Then spec (v => afterFirst => rests => v = first ∧ Parse.Each (Parse.Then separator (u => spec)) afterFirst rests) read rest
 
 theorem Parse.readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (separatorSpec: List Char → () → Prop)
     (reads: Parse.Reads p spec) (readsSeparator: Parse.Reads separator separatorSpec):
@@ -795,7 +796,7 @@ theorem Parse.readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (
     (read values h =>
       match h with
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
-          Witness first (Witness rest (Both same (Witness firstRead (Witness restRead (Witness first (Both split (Both holds each))))))))
+          Witness first (Witness rest (Both same (Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Both rfl each)))))))))
 
 theorem Parse.readsSepBy (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (separatorSpec: List Char → () → Prop)
     (reads: Parse.Reads p spec) (readsSeparator: Parse.Reads separator separatorSpec):
@@ -1477,7 +1478,7 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
               Witness (firstRead ++ eachRead)
                 (Witness blankRead
                   (Both (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead in rfl)
-                    (Both (Witness first (Witness rest (Both same (Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds each)))))))) blank))))
+                    (Both (Witness first (Witness rest (Both same (Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds (Both rfl each))))))))) blank))))
 
 -- Recursion, counted repetition, numbers of so many digits, and matches
 -- among noise (SW-1002).

@@ -665,3 +665,43 @@ theorem Set.countAtMostSize [auto ord: Ord k] (at: Nat → k): (count: Nat) → 
       rewrite Set.containsRemoveOther s (at count) (at i) (same => omega [different i count (omega) (omega) same]) in members i (omega)
     let smaller := Set.countAtMostSize at count rest restMembers (i j below belowJ same => different i j (omega) (omega) same)
     omega [Set.sizeRemovePresent s (at count) (members count (omega)), Set.sizePositive s (at count) (members count (omega))]
+
+--| Folding a list of sets into `acc` by union holds what `acc` holds or some
+--| set in the list does.
+theorem Set.containsFoldUnion [auto ord: Ord k] (key: k): (ss: List (Set k)) → (acc: Set k) →
+    Set.contains (List.foldLeft ss acc Set.union) key = (Set.contains acc key ∨ List.any ss (s => Set.contains s key))
+  | [], acc => Eq.sym (Bool.orFalse (Set.contains acc key))
+  | [s, ..ss], acc =>
+    rewrite Set.containsFoldUnion key ss (Set.union acc s), Set.containsUnion acc key s in
+      Bool.orAssoc (Set.contains acc key) (Set.contains s key) (List.any ss (t => Set.contains t key))
+
+--| `Set.unions` of a list of sets holds what some set in the list holds.
+theorem Set.containsUnions [auto ord: Ord k] (ss: List (Set k)) (key: k):
+    Set.contains (Set.unions ss) key = List.any ss (s => Set.contains s key) :=
+  Set.containsFoldUnion key ss Set.empty
+
+--| Folding a list of sets into `acc` by intersection holds what `acc` holds
+--| and every set in the list does.
+theorem Set.containsFoldIntersect [auto ord: Ord k] (key: k): (ss: List (Set k)) → (acc: Set k) →
+    Set.contains (List.foldLeft ss acc Set.intersect) key = (Set.contains acc key ∧ List.all ss (s => Set.contains s key))
+  | [], acc => Eq.sym (Bool.andTrue (Set.contains acc key))
+  | [s, ..ss], acc =>
+    rewrite Set.containsFoldIntersect key ss (Set.intersect acc s), Set.containsIntersect acc key s in
+      Bool.andAssoc (Set.contains acc key) (Set.contains s key) (List.all ss (t => Set.contains t key))
+
+--| A set whose members are among the distinct keys of `universe`, and
+--| agree with `yes` there, has as many members as `universe` has keys that
+--| satisfy `yes`.
+theorem Set.sizeOfMembers [auto ord: Ord k] (set: Set k) (universe: List k) (yes: k → Bool) (distinct: List.Distinct universe)
+    (inside: (key: k) → Set.contains set key = True → List.contains universe key = True)
+    (agree: (key: k) → List.contains universe key = True → Set.contains set key = yes key): Set.size set = List.length (List.filter universe yes) :=
+  let same: List.Perm (Set.toList set) (List.filter universe yes) :=
+    List.permOfSameMembers (Set.toList set) (List.filter universe yes) (Map.keysDistinct set.items) (List.distinctFilter universe yes distinct)
+      (key member =>
+        let found := (Set.memToList set key).forward member
+        let known := inside key found
+        List.memFilterIntro universe yes key ((List.memContains universe key).forward known) (rewrite <- agree key known in found))
+      (key member =>
+        match List.memFilter universe yes key member with
+          | Both there held => (Set.memToList set key).backward (rewrite agree key ((List.memContains universe key).backward there) in held))
+  Eq.trans (Set.sizeToList set) (List.permLength (Set.toList set) (List.filter universe yes) same)

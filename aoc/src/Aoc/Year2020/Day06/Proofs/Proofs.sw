@@ -14,8 +14,8 @@ def GroupLines (lines: List (List Char)) (group: Group): Prop := List.All2 Perso
 theorem anyoneCount (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
     group.anyone.size = Spec.count Spec.anyone lines :=
   let agree: (question: Char) → group.anyone.contains question = Spec.anyone lines question :=
-    question => unionContains lines group.people written Set.empty question
-  sizeCount group.anyone (Spec.anyone lines)
+    question => Eq.trans (Set.containsUnions (group.people.map .answers) question) (anyAnswers lines group.people written question)
+  Set.sizeOfMembers group.anyone Spec.questions (Spec.anyone lines) questionsDistinct
     (question found => anyQuestion lines group.people written question (rewrite agree question at found in found))
     (question isQuestion => agree question)
 
@@ -23,7 +23,7 @@ theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLi
     group.everyone.size = Spec.count Spec.everyone lines :=
   let meet: (question: Char) → group.everyone.contains question = ((Set.fromList questions).contains question ∧ Spec.everyone lines question) :=
     question => intersectContains lines group.people written (Set.fromList questions) question
-  sizeCount group.everyone (Spec.everyone lines)
+  Set.sizeOfMembers group.everyone Spec.questions (Spec.everyone lines) questionsDistinct
     (question found =>
       let both := rewrite meet question at found in found
       rewrite containsFromList questions question at both in Bool.andLeft _ _ both)
