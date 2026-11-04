@@ -49,7 +49,7 @@ def part1 (buyers: List Nat): Nat := buyers.sumBy (buyer => Nat.iterate 2000 evo
 --| secret number").
 def secretNumbers: (count: Nat) → (secret: Nat) → List Nat
   | Zero, secret => [secret]
-  | Succ count, secret => Cons secret (secretNumbers count (evolve secret))
+  | Succ count, secret => [secret, ..secretNumbers count (evolve secret)]
 
 --| "the prices the buyer offers are just the ones digit of each of their
 --| secret numbers".
@@ -61,7 +61,7 @@ def offeredPrices (count: Nat) (buyer: Nat): List Nat := secretNumbers count buy
 --| no associated change").
 def sellsAt (sequence: Changes) (later: List Nat): Option Nat :=
   match later with
-    | Cons a (Cons b (Cons c (Cons d (Cons e rest)))) =>
+    | [a, b, c, d, e, ..rest] =>
       if
         ({ first = b.toInt - a.toInt, second = c.toInt - b.toInt, third = d.toInt - c.toInt, fourth = e.toInt - d.toInt }: Changes) ==
           sequence

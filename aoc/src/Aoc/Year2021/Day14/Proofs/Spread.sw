@@ -11,8 +11,8 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 
 --| A sum with a positive term has a member that gives it.
 theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < List.sumBy xs f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
-  | Nil, positive => Void.exfalso omega
-  | Cons x rest, positive =>
+  | [], positive => Void.exfalso omega
+  | [x, ..rest], positive =>
     match Nat.decLessThan 0 (f x) with
       | Yes h => Witness x (Both (Inl rfl) h)
       | No h =>
@@ -20,10 +20,10 @@ theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < List.sumBy xs f → �
           | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
-theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → ∃ (pair: (Char, Char)) => pair ∈ List.zipWithNext (Cons a rest) ∧ pair.snd = c
-  | Nil, member => Void.exfalso member
-  | Cons b more, Inl same => Witness (a, b) (Both (Inl rfl) same)
-  | Cons b more, Inr member =>
+theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → ∃ (pair: (Char, Char)) => pair ∈ List.zipWithNext [a, ..rest] ∧ pair.snd = c
+  | [], member => Void.exfalso member
+  | [b, ..more], Inl same => Witness (a, b) (Both (Inl rfl) same)
+  | [b, ..more], Inr member =>
     match memAfterFirst c b more member with
       | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
 
@@ -43,68 +43,68 @@ theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Repre
 
 --| The counts the program looks at, for a polymer starting with `first`.
 def programQuantities (first: Char) (counts: PairCounts): List Nat :=
-  Cons first (counts.keys.map Pair.snd) |> .distinct |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
+  [first, ..counts.keys.map Pair.snd] |> .distinct |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
 
 --| The puzzle's: each element's count, once per element.
 def puzzleQuantities (polymer: List Char): List Nat := polymer.distinct.map (quantity polymer)
 
-theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts (Cons first tail)) (v: Nat)
-    (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities (Cons first tail) :=
-  let candidates := List.distinct (Cons first (List.map (Map.keys counts) Pair.snd))
+theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
+    (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities [first, ..tail] :=
+  let candidates := List.distinct [first, ..List.map (Map.keys counts) Pair.snd]
   let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) v member
   match List.memMapElim (elementCount first counts) v candidates inMapped with
     | Witness c (Both _ same) =>
       let equal := elementCountQuantity first tail counts represents c
-      let counted: 0 < List.count (Cons first tail) (== c) := omega [equal, same, positive]
-      let inPolymer := List.memOfCountPositive c (Cons first tail) counted
-      let inDistinct := (List.memDistinct c (Cons first tail)).backward inPolymer
-      rewrite <- same, equal in List.memMap (List.distinct (Cons first tail)) c inDistinct (quantity (Cons first tail))
+      let counted: 0 < List.count [first, ..tail] (== c) := omega [equal, same, positive]
+      let inPolymer := List.memOfCountPositive c [first, ..tail] counted
+      let inDistinct := (List.memDistinct c [first, ..tail]).backward inPolymer
+      rewrite <- same, equal in List.memMap (List.distinct [first, ..tail]) c inDistinct (quantity [first, ..tail])
 
-theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts (Cons first tail)) (v: Nat)
-    (member: v ∈ puzzleQuantities (Cons first tail)): v ∈ programQuantities first counts :=
-  let polymer := Cons first tail
+theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
+    (member: v ∈ puzzleQuantities [first, ..tail]): v ∈ programQuantities first counts :=
+  let polymer := [first, ..tail]
   let keyEnds := List.map (Map.keys counts) Pair.snd
   match List.memMapElim (quantity polymer) v (List.distinct polymer) member with
     | Witness c (Both inDistinct same) =>
       let inPolymer := (List.memDistinct c polymer).forward inDistinct
-      let candidate: c ∈ Cons first keyEnds :=
+      let candidate: c ∈ [first, ..keyEnds] :=
         match inPolymer with
           | Inl isFirst => Inl isFirst
           | Inr inTail =>
             match memAfterFirst c first tail inTail with
               | Witness pair (Both inPairs ends) =>
                 Inr (rewrite <- ends in List.memMap (Map.keys counts) pair (pairCounted counts polymer represents pair inPairs) Pair.snd)
-      let inCandidates := (List.memDistinct c (Cons first keyEnds)).backward candidate
+      let inCandidates := (List.memDistinct c [first, ..keyEnds]).backward candidate
       let equal := elementCountQuantity first tail counts represents c
       let positive := List.countPositive polymer (== c) c inPolymer (DecEq.refl c)
-      List.memFilterIntro (List.map (List.distinct (Cons first keyEnds)) (elementCount first counts)) (quantity => 0 < quantity) v
-        (rewrite <- same, <- equal in List.memMap (List.distinct (Cons first keyEnds)) c inCandidates (elementCount first counts))
+      List.memFilterIntro (List.map (List.distinct [first, ..keyEnds]) (elementCount first counts)) (quantity => 0 < quantity) v
+        (rewrite <- same, <- equal in List.memMap (List.distinct [first, ..keyEnds]) c inCandidates (elementCount first counts))
         (cases)
 
 --| The program's answer from counts that stand for a polymer is the
 --| puzzle's answer for that polymer.
-theorem spreadCorrect (first: Char) (rest: List Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts (Cons first tail)):
-    spread (Cons first rest) counts = spreadOf (Cons first tail) :=
+theorem spreadCorrect (first: Char) (rest: List Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]):
+    spread [first, ..rest] counts = spreadOf [first, ..tail] :=
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
-  rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back,
-    List.minimumSameMembers (programQuantities first counts) (puzzleQuantities (Cons first tail)) into back in rfl
+  rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back,
+    List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back in rfl
 
 --| The answer is the puzzle's after any number of steps, if no two rules
 --| are for the same pair.
 theorem spreadAfterCorrect (steps: Nat) (manual: Manual) (one: OneRulePerPair manual.rules): spreadAfter steps manual = answer steps manual :=
   match manual with
-    | { template = Nil, rules } => rewrite stepsEmpty rules steps in rfl
-    | { template = Cons first rest, rules } =>
-      let start := { template = Cons first rest, rules }
-      let counts := Nat.iterate steps (stepCounts (ruleTable rules)) (countPairs (Cons first rest))
-      let represents := iterateRepresents start one steps (countPairs (Cons first rest)) (Cons first rest) (countPairsRepresents (Cons first rest))
+    | { template = [], rules } => rewrite stepsEmpty rules steps in rfl
+    | { template = [first, ..rest], rules } =>
+      let start := { template = [first, ..rest], rules }
+      let counts := Nat.iterate steps (stepCounts (ruleTable rules)) (countPairs [first, ..rest])
+      let represents := iterateRepresents start one steps (countPairs [first, ..rest]) [first, ..rest] (countPairsRepresents [first, ..rest])
       match stepsKeepFirst rules steps first rest with
         | Witness tail e =>
-          let ended: Represents counts (Cons first tail) := rewrite e at represents in represents
+          let ended: Represents counts [first, ..tail] := rewrite e at represents in represents
           calc spreadAfter steps start
-            _ = spread (Cons first rest) counts
-            _ = spreadOf (Cons first tail) := spreadCorrect first rest tail counts ended
+            _ = spread [first, ..rest] counts
+            _ = spreadOf [first, ..tail] := spreadCorrect first rest tail counts ended
             _ = answer steps start := Eq.sym (Eq.cong spreadOf e)
 
 --| Part 1 is the puzzle's answer after 10 steps, part 2 after 40, for every

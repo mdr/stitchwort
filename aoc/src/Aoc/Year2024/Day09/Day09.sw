@@ -31,9 +31,9 @@ def parseDiskMap (input: Text): {Fail} List Nat := Parse.all input diskMapLine
 --| A block holds `Some id`, a block of file `id`, or `None`, free space.
 --| The blocks of the disk map's files from number `id` on, left to right.
 def blocksFrom (id: Nat): List Nat → List (Option Nat)
-  | Nil => Nil
-  | Cons fileLength Nil => List.replicate fileLength (Some id)
-  | Cons fileLength (Cons freeLength rest) =>
+  | [] => []
+  | [fileLength] => List.replicate fileLength (Some id)
+  | [fileLength, freeLength, ..rest] =>
     List.replicate fileLength (Some id) ++ List.replicate freeLength None ++ blocksFrom (Succ id) rest
 
 --| The disk's blocks: "00...111...2...333.44.5555.6666.777.888899".
@@ -47,10 +47,10 @@ def fileBlocks (blocks: List (Option Nat)): List Nat := blocks.filterMap (block 
 --| free.
 def fillFront: (blocks: List (Option Nat)) → (moving: List Nat) → (count: Nat) → List (Option Nat)
   | blocks, moving, Zero => List.replicate blocks.length None
-  | Nil, moving, Succ count => Nil
-  | Cons (Some id) rest, moving, Succ count => Cons (Some id) (fillFront rest moving count)
-  | Cons None rest, Nil, Succ count => Cons None (fillFront rest Nil count)
-  | Cons None rest, Cons id moving, Succ count => Cons (Some id) (fillFront rest moving count)
+  | [], moving, Succ count => []
+  | [Some id, ..rest], moving, Succ count => [Some id, ..fillFront rest moving count]
+  | [None, ..rest], [], Succ count => [None, ..fillFront rest [] count]
+  | [None, ..rest], [id, ..moving], Succ count => [Some id, ..fillFront rest moving count]
 
 --| The disk after part 1: as many blocks as there are file blocks keep their
 --| files at the front, and the gaps among them take the last file blocks,
@@ -73,23 +73,23 @@ type File = { id: Nat, span: Span }
 --| The files and the free spans of the disk map, from file `id` at block
 --| `position` on.
 def layoutFrom (id: Nat) (position: Nat): List Nat → (List File, List Span)
-  | Nil => (Nil, Nil)
-  | Cons fileLength Nil => ([{ id, span = { start = position, length = fileLength } }], Nil)
-  | Cons fileLength (Cons freeLength rest) =>
+  | [] => ([], [])
+  | [fileLength] => ([{ id, span = { start = position, length = fileLength } }], [])
+  | [fileLength, freeLength, ..rest] =>
     let later := layoutFrom (Succ id) (position + fileLength + freeLength) rest
     (
-      Cons ({ id, span = { start = position, length = fileLength } }) later.fst,
-      Cons ({ start = position + fileLength, length = freeLength }) later.snd
+      [{ id, span = { start = position, length = fileLength } }, ..later.fst],
+      [{ start = position + fileLength, length = freeLength }, ..later.snd]
     )
 
 --| Free spans that touch, either side of a file of length 0, joined into one.
 def joinTouching (spans: List Span): List Span :=
-  spans.foldRight Nil (earlier joined =>
+  spans.foldRight [] (earlier joined =>
     match joined with
-      | Cons next rest =>
-        if earlier.start + earlier.length == next.start then Cons ({ start = earlier.start, length = earlier.length + next.length }) rest
-        else Cons earlier joined
-      | Nil => [earlier])
+      | [next, ..rest] =>
+        if earlier.start + earlier.length == next.start then [{ start = earlier.start, length = earlier.length + next.length }, ..rest]
+        else [earlier, ..joined]
+      | [] => [earlier])
 
 --| The free spans' starts, by length. Spans of length 0 are left out.
 def FreeSpace: Type := Map Nat (Set Nat)

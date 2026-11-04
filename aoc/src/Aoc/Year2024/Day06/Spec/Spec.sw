@@ -24,11 +24,11 @@ def Loops (lab: Lab): Prop := (steps: Nat) → after lab steps ≠ None
 --| Where the guard stands over her first `steps` steps from `guard`, in
 --| order, fewer if she leaves sooner.
 def route (lab: Lab) (guard: Option Guard): (steps: Nat) → List Position
-  | Zero => Nil
+  | Zero => []
   | Succ steps =>
     match guard with
-      | None => Nil
-      | Some here => Cons here.position (route lab (lab.step here) steps)
+      | None => []
+      | Some here => [here.position, ..route lab (lab.step here) steps]
 
 --| "How many distinct positions will the guard visit before leaving the
 --| mapped area?", given a number of steps by which she has left.

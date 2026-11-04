@@ -9,7 +9,7 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (Eq, List, Nat, Not, Option, Set, Void)
 
 --| Off the map, there is no route.
-theorem routeNone (lab: Lab): (steps: Nat) → route lab None steps = Nil
+theorem routeNone (lab: Lab): (steps: Nat) → route lab None steps = []
   | Zero => rfl
   | Succ steps => rfl
 

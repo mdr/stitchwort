@@ -11,7 +11,7 @@ import Std (Char, List, Nat, Text)
 
 --| Every column has a cell for every line, whatever the input.
 theorem columnsRectangular (lines: List Text) (c: Nat) (h: c < gridWidth lines):
-    List.length (List.getOr ((lines.map Text.toList).transposeFill ' ') c Nil) = lines.length :=
+    List.length (List.getOr ((lines.map Text.toList).transposeFill ' ') c []) = lines.length :=
   rewrite List.lengthColumnTransposeFill (lines.map Text.toList) ' ' c h in List.lengthMap lines Text.toList
 
 --| So the columns lose nothing: a grid with some width has columns that
@@ -33,7 +33,7 @@ theorem blocksKeepEveryColumn (lines: List Text):
 --| Why `parseNumber` is the right reading: a number written in decimal, with
 --| any spaces before and after it (its alignment in the problem), reads back
 --| as itself.
-theorem spacesNoDigits: (k: Nat) → List.filterMap (List.replicate k ' ') Char.digitValue = Nil
+theorem spacesNoDigits: (k: Nat) → List.filterMap (List.replicate k ' ') Char.digitValue = []
   | Zero => rfl
   | Succ k => spacesNoDigits k
 

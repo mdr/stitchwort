@@ -50,7 +50,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
     (source start member =>
       let (Both atEnd isZero) := endSource maze source start member
       let holds: maze.holds source = True := rewrite atEnd in endOpen
-      rewrite isZero in Both holds (Witness Nil (Witness source (Both rfl (Both atEnd rfl)))))
+      rewrite isZero in Both holds (Witness [] (Witness source (Both rfl (Both atEnd rfl)))))
     (state cost reaches previous weight edge =>
       let (Both holds onward) := reaches
       let before := And.right (edgeHolds maze True state previous weight edge)
@@ -59,7 +59,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
           Exists.elim rest (last parts =>
             let (Both ended (Both atEnd scored)) := parts
             Both (beforeHolds maze state holds previous weight before)
-              (Witness (Cons way moves)
+              (Witness [way, ..moves]
                 (Witness last
                   (Both (Eq.trans (finalCons maze previous way state (And.left both) moves) ended)
                     (Both atEnd (rewrite scoreCons way moves, scored, And.right both in omega)))))))))
@@ -69,8 +69,8 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
 theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
-  | reindeer, holds, Nil, last, ended => Witness Nil (Both (Eq.sym (Option.someInjective _ _ ended)) rfl)
-  | reindeer, holds, Cons way rest, last, ended =>
+  | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective _ _ ended)) rfl)
+  | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
@@ -82,7 +82,7 @@ theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer
                 (edgeOfMove maze True next nextHolds reindeer way.points (beforeComplete maze reindeer holds way next moved)))
               (omega [
                 Graph.costAppend path [(reindeer, way.points)],
-                Graph.costCons reindeer way.points Nil,
+                Graph.costCons reindeer way.points [],
                 Graph.costNil [s := Reindeer],
                 scoreCons way rest,
                 And.right both

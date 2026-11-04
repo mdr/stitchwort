@@ -16,16 +16,16 @@ theorem reducesToUnique (b: List Leaf): (start: List Leaf) → (a: List Leaf) �
     reducesToUnique b next2 a (rewrite same at rest1 in rest1) rest2
 
 def headValue: List Leaf → Nat
-  | Nil => 0
-  | Cons leaf _ => leaf.value
+  | [] => 0
+  | [leaf, .._] => leaf.value
 
 def headDepth: List Leaf → Nat
-  | Nil => 0
-  | Cons leaf _ => leaf.depth
+  | [] => 0
+  | [leaf, .._] => leaf.depth
 
 --| A number's first leaf is at least as deep as the number.
 theorem leavesHead (depth: Nat): (number: Number) → (rest: List Leaf) →
-    ∃ (first: Leaf) => ∃ (more: List Leaf) => leaves depth number ++ rest = Cons first more ∧ depth ≤ first.depth
+    ∃ (first: Leaf) => ∃ (more: List Leaf) => leaves depth number ++ rest = [first, ..more] ∧ depth ≤ first.depth
   | Regular value, rest => Witness ({ value, depth }) (Witness rest (Both rfl omega))
   | Pair left right, rest =>
     match leavesHead (depth + 1) left (leaves (depth + 1) right ++ rest) with
@@ -53,7 +53,7 @@ theorem leavesPrefix: (depth: Nat) → (x: Number) → (y: Number) → (rest1: L
     Both (rewrite And.left lefts, And.left rights in rfl) (And.right rights)
 
 theorem leavesInjective (x: Number) (y: Number) (same: leaves 0 x = leaves 0 y): x = y :=
-  And.left (leavesPrefix 0 x y Nil Nil (rewrite List.appendNil (leaves 0 x), List.appendNil (leaves 0 y) in same))
+  And.left (leavesPrefix 0 x y [] [] (rewrite List.appendNil (leaves 0 x), List.appendNil (leaves 0 y) in same))
 
 --| `x + y` is one number.
 theorem sumUnique (x: Number) (y: Number) (sum1: Number) (sum2: Number) (first: IsSum x y sum1) (second: IsSum x y sum2): sum1 = sum2 :=

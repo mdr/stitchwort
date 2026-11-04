@@ -49,9 +49,9 @@ def moved (aim: Position) (direction: Direction): Option Position :=
 --| button being aimed at by the robotic arm". None if the arm is ever aimed
 --| at a gap ("the robot will panic unrecoverably") or off the keypad.
 def operate (rows: List (List (Option k))) (aim: Position): List DirectionKey → Option (List k)
-  | Nil => Some Nil
-  | Cons Activate rest => keyAt rows aim |> .flatMap (key => operate rows aim rest |> .map (Cons key))
-  | Cons (Arrow direction) rest =>
+  | [] => Some []
+  | [Activate, ..rest] => keyAt rows aim |> .flatMap (key => operate rows aim rest |> .map (Cons key))
+  | [Arrow direction, ..rest] =>
     moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => operate rows next rest))
 
 --| The keys typed on the door when you press `presses`, with `robots` robots

@@ -13,7 +13,7 @@ import Std (Decidable, Eq, List, Nat)
 --| Just after the draw of `number`, a number isn't marked when it is first
 --| drawn later.
 theorem unmarkedAfter (drawn: List Nat) (number: Nat) (later: List Nat) (x: Nat):
-    not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ Cons number later) x) :=
+    not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ [number, ..later]) x) :=
   rewrite List.containsIndexOfAppend x later (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
 
 --| A false `p` adds nothing to `p ∨ b`.
@@ -42,19 +42,19 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.lengt
       Eq.sym (List.foldMinLt (turn => turn) (List.length drawn) (List.map (board ++ List.transpose board) lineTurn) (List.length (drawn ++ rest)))
 
 --| The draw at `List.length drawn` is the one after `drawn`.
-theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr (drawn ++ Cons number later) (List.length drawn) 0 = number
-  | Nil => rfl
-  | Cons first others => drawOn number later others
+theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr (drawn ++ [number, ..later]) (List.length drawn) 0 = number
+  | [] => rfl
+  | [first, ..others] => drawOn number later others
 
 --| The spec's score of a board that wins on the draw of `number`, at
 --| `List.length drawn`, is the program's.
 theorem scoreAt (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
-    finalScore (drawn ++ [number]) number board = score (drawn ++ Cons number later) (List.length drawn) board :=
+    finalScore (drawn ++ [number]) number board = score (drawn ++ [number, ..later]) (List.length drawn) board :=
   rewrite List.filterCongMem (List.concat board) _ _ (x inBoard => unmarkedAfter drawn number later x), drawOn number later drawn in rfl
 
 --| A board wins on the draw of `number` when its winning turn is no later.
 theorem winsAfterDraw (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
-    wins (drawn ++ [number]) board = (winningTurn (drawn ++ Cons number later) board < Succ (List.length drawn)) :=
+    wins (drawn ++ [number]) board = (winningTurn (drawn ++ [number, ..later]) board < Succ (List.length drawn)) :=
   rewrite winsBefore (drawn ++ [number]) later (omega [List.lengthSnoc drawn number]) board, List.appendAssoc drawn [number] later,
     List.lengthSnoc drawn number in rfl
 
@@ -70,9 +70,9 @@ theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) �
     play drawn (List.filter playing (board => List.length drawn ≤ winningTurn (drawn ++ rest) board)) rest
       = List.flatMap (List.rangeFrom (List.length rest) (List.length drawn))
         (turn => List.map (List.filter playing (board => winningTurn (drawn ++ rest) board == turn)) (score (drawn ++ rest) turn))
-  | Nil, drawn => rfl
-  | Cons number later, drawn =>
-    let turnOf := (board: Board) => winningTurn (drawn ++ Cons number later) board
+  | [], drawn => rfl
+  | [number, ..later], drawn =>
+    let turnOf := (board: Board) => winningTurn (drawn ++ [number, ..later]) board
     let wonNow :=
       Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) playing)
         (List.filterCongMem playing _ (board => turnOf board == List.length drawn)
@@ -84,7 +84,7 @@ theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) �
     let afterNow:
         play (drawn ++ [number]) (List.filter playing (board => Succ (List.length drawn) ≤ turnOf board)) later
           = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn)))
-            (turn => List.map (List.filter playing (board => turnOf board == turn)) (score (drawn ++ Cons number later) turn)) :=
+            (turn => List.map (List.filter playing (board => turnOf board == turn)) (score (drawn ++ [number, ..later]) turn)) :=
       rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
     rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later) in rfl
 

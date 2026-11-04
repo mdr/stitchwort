@@ -23,7 +23,7 @@ def Repaired (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wi
 theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wire)) (result: List (Wire, Wire))
     (found: (if isAdder gates bits then Some swaps else None) = Some result): Repaired bits budget gates swaps result :=
   match adder: isAdder gates bits with
-    | True => Witness Nil (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective swaps result found)) (Both (omega) adder))
+    | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective swaps result found)) (Both (omega) adder))
     | False => Void.exfalso (Option.noneNotSome result found)
 
 theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps: List (Wire, Wire)) → (result: List (Wire, Wire)) →
@@ -40,7 +40,7 @@ theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps
           | Witness fix fixed =>
             match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
               | Witness more (Both isResult (Both short adder)) =>
-                Witness (Cons fix more) (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
+                Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x

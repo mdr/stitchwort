@@ -16,7 +16,7 @@ def countedFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest:
     List Cheat :=
   match fromStart.get start with
     | Some before => start.diamond length |> .filter (savesFrom toEnd honest threshold start before) |> .map (end => ({ start, end }: Cheat))
-    | None => Nil
+    | None => []
 
 --| The cheats the program counts.
 def counted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat):
@@ -155,7 +155,7 @@ theorem countCheatsCorrect (racetrack: Racetrack) (startOnTrack: onTrack racetra
             })
             (lengthCounted racetrack racetrack.fromStart racetrack.toEnd honest length threshold)))
     | None =>
-      Witness Nil
+      Witness []
         (Both Trivial
           (Both
             (cheat => {

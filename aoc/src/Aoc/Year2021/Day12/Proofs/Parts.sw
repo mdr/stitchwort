@@ -40,20 +40,20 @@ theorem pathsCorrect (passages: List (Text, Text)) (promise: NoBigNeighbours pas
       rewrite <- same in
         Both
           (match rest with
-            | Nil => Void.exfalso (Option.noneNotSome "end" last)
-            | Cons z more => rewrite last in rfl)
+            | [] => Void.exfalso (Option.noneNotSome "end" last)
+            | [z, ..more] => rewrite last in rfl)
           (Both along within)),
   backward = both =>
     let (Both ends (Both along within)) := both
     match path with
-      | Nil => Void.exfalso (Bool.falseNotTrue ends)
-      | Cons first rest =>
+      | [] => Void.exfalso (Bool.falseNotTrue ends)
+      | [first, ..rest] =>
         let isStart: first = "start" := Option.someInjective first "start" (DecEq.sound (Some first) (Some "start") (Bool.andLeft _ _ ends))
-        let isLast := DecEq.sound (List.last (Cons first rest)) (Some "end") (Bool.andRight _ _ ends)
+        let isLast := DecEq.sound (List.last [first, ..rest]) (Some "end") (Bool.andRight _ _ ends)
         let last: rest.last = Some "end" :=
           match rest with
-            | Nil => Void.exfalso (DecEq.soundFalse "start" "end" rfl (rewrite <- isStart in Option.someInjective first "end" isLast))
-            | Cons z more => isLast
+            | [] => Void.exfalso (DecEq.soundFalse "start" "end" rfl (rewrite <- isStart in Option.someInjective first "end" isLast))
+            | [z, ..more] => isLast
         let completes: Completes passages twice ["start"] "start" rest := Both last (rewrite isStart at Both along within)
         let follows :=
           completesFollows passages promise (lookupNeighbours (neighbourTable passages)) (a b joined => (tableMem passages a b).backward joined) twice
@@ -83,10 +83,10 @@ theorem endsVisited (path: List Text) (ends: startToEnd path = True): 1 ≤ visi
   let isLast := DecEq.sound (List.last path) (Some "end") (Bool.andRight _ _ ends)
   Both
     (match path with
-      | Nil => Void.exfalso (Bool.falseNotTrue ends)
-      | Cons first rest =>
+      | [] => Void.exfalso (Bool.falseNotTrue ends)
+      | [first, ..rest] =>
         let isStart: first = "start" := Option.someInjective first "start" (DecEq.sound (Some first) (Some "start") (Bool.andLeft _ _ ends))
-        visitsMember "start" (Cons first rest) (Inl isStart))
+        visitsMember "start" [first, ..rest] (Inl isStart))
     (visitsMember "end" path (List.lastMem path "end" isLast))
 
 --| ...and part 2's, on a path from `start` to `end`, is `Within True`.

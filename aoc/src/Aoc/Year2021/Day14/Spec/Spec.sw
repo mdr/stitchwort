@@ -20,7 +20,7 @@ def between (rules: List Rule) (a: Char) (b: Char): List Char :=
 --| One step: between each element and the next, what that pair's rule
 --| inserts. Every pair is looked at in the polymer before the step.
 def step (rules: List Rule): List Char → List Char
-  | Cons a (Cons b rest) => Cons a (between rules a b ++ step rules (Cons b rest))
+  | [a, b, ..rest] => [a, ..between rules a b ++ step rules [b, ..rest]]
   | polymer => polymer
 
 --| The polymer after `steps` steps.

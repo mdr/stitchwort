@@ -12,7 +12,7 @@ import Std (List, Nat, Option)
 --| A number written in `width` bits, the most significant first: the last
 --| bit says whether it is odd, and the bits before it are its half.
 def bitsOf: Nat → Nat → List Bool
-  | 0, _ => Nil
+  | 0, _ => []
   | Succ width, n => bitsOf width (n / 2) ++ [n % 2 == 1]
 
 --| The puzzle's hexadecimal digits and their bits.
@@ -38,8 +38,8 @@ def hexDigitBits: Char → Option (List Bool)
 --| A transmission's bits: each character a hexadecimal digit, written as
 --| its four bits; none if a character isn't one.
 def transmissionBits: List Char → Option (List Bool)
-  | Nil => Some Nil
-  | Cons char rest =>
+  | [] => Some []
+  | [char, ..rest] =>
     match hexDigitBits char, transmissionBits rest with
       | Some bits, Some more => Some (bits ++ more)
       | _, _ => None
@@ -57,9 +57,9 @@ def typeId: Operation → Nat
 --| A literal's groups: each is four bits after a bit that is 1, except the
 --| last group's, which is 0.
 def groupBits: List Nat → List Bool
-  | Nil => Nil
-  | Cons group Nil => Cons False (bitsOf 4 group)
-  | Cons group rest => Cons True (bitsOf 4 group ++ groupBits rest)
+  | [] => []
+  | [group] => [False, ..bitsOf 4 group]
+  | [group, ..rest] => [True, ..bitsOf 4 group ++ groupBits rest]
 
 --| A packet's bits: its version in three bits, its type id in three bits (4
 --| for a literal), then a literal's groups; or an operator's length type id
@@ -68,35 +68,35 @@ def groupBits: List Nat → List Bool
 def encode: Packet → List Bool
   | Literal version groups => bitsOf 3 version ++ bitsOf 3 4 ++ groupBits groups
   | Operator version operation TotalLength subPackets =>
-    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ Cons False (bitsOf 15 (encodeAll subPackets).length ++ encodeAll subPackets)
+    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ [False, ..bitsOf 15 (encodeAll subPackets).length ++ encodeAll subPackets]
   | Operator version operation Count subPackets =>
-    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ Cons True (bitsOf 11 subPackets.length ++ encodeAll subPackets)
+    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ [True, ..bitsOf 11 subPackets.length ++ encodeAll subPackets]
 
 --| Packets one after another.
 def encodeAll: List Packet → List Bool
-  | Nil => Nil
-  | Cons packet rest => encode packet ++ encodeAll rest
+  | [] => []
+  | [packet, ..rest] => encode packet ++ encodeAll rest
 
 --| A packet whose numbers fit their fields: the version in three bits, at
 --| least one group, each in four bits, and the sub-packets' length or
 --| number in its 15 or 11 bits. Only these have the encoding above.
 def wellFormed: Packet → Bool
-  | Literal version groups => version < 8 && groups != Nil && groups.all (group => group < 16)
+  | Literal version groups => version < 8 && groups != [] && groups.all (group => group < 16)
   | Operator version _ TotalLength subPackets => version < 8 && (encodeAll subPackets).length < 32768 && allWellFormed subPackets
   | Operator version _ Count subPackets => version < 8 && subPackets.length < 2048 && allWellFormed subPackets
 
 def allWellFormed: List Packet → Bool
-  | Nil => True
-  | Cons packet rest => wellFormed packet && allWellFormed rest
+  | [] => True
+  | [packet, ..rest] => wellFormed packet && allWellFormed rest
 
 --| A packet and every packet inside it, at any depth.
 def packetsIn: Packet → List Packet
   | Literal version groups => [Literal version groups]
-  | Operator version operation lengthType subPackets => Cons (Operator version operation lengthType subPackets) (packetsInAll subPackets)
+  | Operator version operation lengthType subPackets => [Operator version operation lengthType subPackets, ..packetsInAll subPackets]
 
 def packetsInAll: List Packet → List Packet
-  | Nil => Nil
-  | Cons packet rest => packetsIn packet ++ packetsInAll rest
+  | [] => []
+  | [packet, ..rest] => packetsIn packet ++ packetsInAll rest
 
 def versionOf: Packet → Nat
   | Literal version _ => version
@@ -113,8 +113,8 @@ def promised: Packet → Bool
   | Operator _ operation _ subPackets => fitsOperation operation subPackets.length && allPromised subPackets
 
 def allPromised: List Packet → Bool
-  | Nil => True
-  | Cons packet rest => promised packet && allPromised rest
+  | [] => True
+  | [packet, ..rest] => promised packet && allPromised rest
 
 def fitsOperation: Operation → Nat → Bool
   | Minimum, count => 0 < count
@@ -133,8 +133,8 @@ type HasValue: Packet → Nat → Prop =
 
 --| Each packet's value, in order.
 type Values: List Packet → List Nat → Prop =
-  | NoValues: Values Nil Nil
-  | NextValue (first: HasValue packet value) (rest: Values packets values): Values (Cons packet packets) (Cons value values)
+  | NoValues: Values [] []
+  | NextValue (first: HasValue packet value) (rest: Values packets values): Values [packet, ..packets] [value, ..values]
 
 --| What each operator makes of its sub-packets' values: their sum, their
 --| product, their minimum or maximum (one of them, and no other below or

@@ -37,8 +37,8 @@ theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last
 --| the forwards search over them in order.
 theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List Nat) → (target: Nat) →
     canMake operators first target reversed = reaches operators first (== target) reversed.reverse
-  | Nil, target => DecEq.eqComm target first
-  | Cons last earlier, target =>
+  | [], target => DecEq.eqComm target first
+  | [last, ..earlier], target =>
     let before := canMakeReaches operators first earlier
     rewrite List.reverseCons last earlier, reachesAppend operators (== target) last earlier.reverse first,
       reachesAny operators operators (operator value => combine operator value last == target) earlier.reverse first
@@ -72,8 +72,8 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
 --| operators.
 theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
   match numbers: equation.numbers with
-    | Nil => rfl
-    | Cons first rest =>
+    | [] => rfl
+    | [first, ..rest] =>
       rewrite canMakeReaches operators first rest.reverse equation.testValue, List.reverseReverse rest
         in Eq.sym (combinationsReach operators (== equation.testValue) rest first)
 
@@ -91,17 +91,17 @@ theorem part2Correct (equations: List Equation): solvePart2 equations = part2 eq
 --| More operators reach at least as much.
 theorem reachesMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
     (wanted: Nat → Bool): (numbers: List Nat) → (start: Nat) → reaches fewer start wanted numbers = True → reaches more start wanted numbers = True
-  | Nil, start, found => found
-  | Cons number rest, start, found =>
-    List.anyTrueElim fewer _ (reaches more start wanted (Cons number rest) = True) found (operator has reached =>
+  | [], start, found => found
+  | [number, ..rest], start, found =>
+    List.anyTrueElim fewer _ (reaches more start wanted [number, ..rest] = True) found (operator has reached =>
       List.anyOfMem more _ operator (reachesMore fewer more included wanted rest (combine operator start number) reached) (included operator has))
 
 --| An equation that could be true with fewer operators could be with more.
 theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
     (equation: Equation): equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
   match numbers: equation.numbers with
-    | Nil => holds => holds
-    | Cons first rest =>
+    | [] => holds => holds
+    | [first, ..rest] =>
       rewrite canMakeReaches fewer first rest.reverse equation.testValue, canMakeReaches more first rest.reverse equation.testValue
         in reachesMore fewer more included (== equation.testValue) rest.reverse.reverse first
 

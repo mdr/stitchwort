@@ -69,23 +69,23 @@ theorem quietNotPrints (after: Machine) (other: Machine) (value: Nat) (same: Nex
 --| A halting run has one output.
 theorem haltsUnique (program: List Nat): (machine: Machine) → (first: List Nat) → (second: List Nat) →
     Halts program machine first → Halts program machine second → first = second
-  | machine, Nil, Nil, Stops _ stop, Stops _ alsoStop => rfl
-  | machine, Nil, second, Stops _ stop, Quiet _ after _ move rest =>
+  | machine, [], [], Stops _ stop, Stops _ alsoStop => rfl
+  | machine, [], second, Stops _ stop, Quiet _ after _ move rest =>
     Void.exfalso (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
-  | machine, Nil, Cons value output, Stops _ stop, Prints _ after _ _ move rest =>
+  | machine, [], [value, ..output], Stops _ stop, Prints _ after _ _ move rest =>
     Void.exfalso (haltNotNext after (Some value) (stepUnique program machine Halt (Next after (Some value)) stop move))
-  | machine, first, Nil, Quiet _ after _ move rest, Stops _ stop =>
+  | machine, first, [], Quiet _ after _ move rest, Stops _ stop =>
     Void.exfalso (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
   | machine, first, second, Quiet _ after _ move rest, Quiet _ other _ alsoMove alsoRest =>
     let same := Eq.cong (afterOf machine) (stepUnique program machine (Next after None) (Next other None) move alsoMove)
     haltsUnique program after first second rest (rewrite Eq.sym same at alsoRest)
-  | machine, first, Cons value output, Quiet _ after _ move rest, Prints _ other _ _ alsoMove alsoRest =>
+  | machine, first, [value, ..output], Quiet _ after _ move rest, Prints _ other _ _ alsoMove alsoRest =>
     Void.exfalso (quietNotPrints after other value (stepUnique program machine (Next after None) (Next other (Some value)) move alsoMove))
-  | machine, Cons value output, Nil, Prints _ after _ _ move rest, Stops _ stop =>
+  | machine, [value, ..output], [], Prints _ after _ _ move rest, Stops _ stop =>
     Void.exfalso (haltNotNext after (Some value) (stepUnique program machine Halt (Next after (Some value)) stop move))
-  | machine, Cons value output, second, Prints _ after _ _ move rest, Quiet _ other _ alsoMove alsoRest =>
+  | machine, [value, ..output], second, Prints _ after _ _ move rest, Quiet _ other _ alsoMove alsoRest =>
     Void.exfalso (quietNotPrints other after value (stepUnique program machine (Next other None) (Next after (Some value)) alsoMove move))
-  | machine, Cons value output, Cons otherValue otherOutput, Prints _ after _ _ move rest, Prints _ other _ _ alsoMove alsoRest =>
+  | machine, [value, ..output], [otherValue, ..otherOutput], Prints _ after _ _ move rest, Prints _ other _ _ alsoMove alsoRest =>
     let steps := stepUnique program machine (Next after (Some value)) (Next other (Some otherValue)) move alsoMove
     let sameAfter := Eq.cong (afterOf machine) steps
     let sameValue := Option.someInjective value otherValue (Eq.cong printedOf steps)

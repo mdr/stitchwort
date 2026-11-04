@@ -105,11 +105,11 @@ def readNumber (count: Nat) (bits: List Bool): Option (Nat, List Bool) :=
 --| A literal's groups: each is a bit saying whether another follows, then
 --| four bits.
 def readGroups: List Bool → Option (List Nat, List Bool)
-  | Cons more (Cons a (Cons b (Cons c (Cons d rest)))) =>
+  | [more, a, b, c, d, ..rest] =>
     let group := Nat.fromBits [a, b, c, d]
     if more then
       match readGroups rest with
-        | Some (groups, after) => Some (Cons group groups, after)
+        | Some (groups, after) => Some ([group, ..groups], after)
         | None => None
     else Some ([group], rest)
   | _ => None
@@ -123,12 +123,12 @@ type Wanted = | Packets (count: Nat) | Filling
 def nextWanted: Wanted → List Bool → Option Wanted
   | Packets 0, _ => None
   | Packets (Succ count), _ => Some (Packets count)
-  | Filling, Nil => None
-  | Filling, Cons _ _ => Some Filling
+  | Filling, [] => None
+  | Filling, [_, .._] => Some Filling
 
 --| Puts a packet in front of the ones read after it.
 def andThen (packet: Packet): Option (List Packet, List Bool) → Option (List Packet, List Bool)
-  | Some (packets, rest) => Some (Cons packet packets, rest)
+  | Some (packets, rest) => Some ([packet, ..packets], rest)
   | None => None
 
 --| Reads the packets wanted from the bits, and gives back the bits after
@@ -138,10 +138,10 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
     decreasing bits.length
 :=
   match nextWanted wanted bits with
-    | None => Some (Nil, bits)
+    | None => Some ([], bits)
     | Some later =>
       match bits with
-        | Cons v1 (Cons v2 (Cons v3 (Cons t1 (Cons t2 (Cons t3 rest))))) =>
+        | [v1, v2, v3, t1, t2, t3, ..rest] =>
           let version := Nat.fromBits [v1, v2, v3]
           match operationOf (Nat.fromBits [t1, t2, t3]) with
             | None =>
@@ -151,7 +151,7 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
                   if shorter: after.length < bits.length then andThen (Literal version groups) (readPackets later after) else None
             | Some operation =>
               match rest with
-                | Cons False fields =>
+                | [False, ..fields] =>
                   match readNumber 15 fields with
                     | None => None
                     | Some (length, after) =>
@@ -166,7 +166,7 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
                                   andThen (Operator version operation TotalLength subPackets) (readPackets later following)
                                 else None
                           else None
-                | Cons True fields =>
+                | [True, ..fields] =>
                   match readNumber 11 fields with
                     | None => None
                     | Some (count, after) =>
@@ -178,7 +178,7 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
                               andThen (Operator version operation Count subPackets) (readPackets later following)
                             else None
                       else None
-                | Nil => None
+                | [] => None
         | _ => None
 
 --| One packet, and the bits after it.
@@ -227,8 +227,8 @@ def badOperator: Packet → Option (Operation, Nat)
     if fitsArity subPackets.length (arity operation) then badOperatorIn subPackets else Some (operation, subPackets.length)
 
 def badOperatorIn: List Packet → Option (Operation, Nat)
-  | Nil => None
-  | Cons packet rest =>
+  | [] => None
+  | [packet, ..rest] =>
     match badOperator packet with
       | None => badOperatorIn rest
       | found => found
@@ -254,8 +254,8 @@ def versionSum: Packet → Nat
   | Operator version _ _ subPackets => version + versionSums subPackets
 
 def versionSums: List Packet → Nat
-  | Nil => 0
-  | Cons packet rest => versionSum packet + versionSums rest
+  | [] => 0
+  | [packet, ..rest] => versionSum packet + versionSums rest
 
 def solvePart1 (packet: Packet): Nat := versionSum packet
 
@@ -265,8 +265,8 @@ def evaluate: Packet → Nat
   | Operator _ operation _ subPackets => apply operation (evaluateAll subPackets)
 
 def evaluateAll: List Packet → List Nat
-  | Nil => Nil
-  | Cons packet rest => Cons (evaluate packet) (evaluateAll rest)
+  | [] => []
+  | [packet, ..rest] => [evaluate packet, ..evaluateAll rest]
 
 --| An operation on its sub-packets' values. A comparison looks at the first
 --| two.
@@ -276,9 +276,9 @@ def apply (operation: Operation) (values: List Nat): Nat :=
     | Product, values => values.product
     | Minimum, values => values.minimum.getOrElse 0
     | Maximum, values => values.maximum.getOrElse 0
-    | GreaterThan, Cons a (Cons b _) => if a > b then 1 else 0
-    | LessThan, Cons a (Cons b _) => if a < b then 1 else 0
-    | EqualTo, Cons a (Cons b _) => if a == b then 1 else 0
+    | GreaterThan, [a, b, .._] => if a > b then 1 else 0
+    | LessThan, [a, b, .._] => if a < b then 1 else 0
+    | EqualTo, [a, b, .._] => if a == b then 1 else 0
     | _, _ => 0
 
 def solvePart2 (packet: Packet): Nat := evaluate packet

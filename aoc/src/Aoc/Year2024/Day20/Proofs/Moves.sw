@@ -85,14 +85,14 @@ theorem edgeOnTrack (racetrack: Racetrack) (position: Position) (next: Position)
 --| After a first move, the rest of the race.
 theorem raceCons (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
     (moved: moveTo racetrack position direction = Some next) (rest: List Direction):
-    race racetrack position (Cons direction rest) = race racetrack next rest :=
+    race racetrack position [direction, ..rest] = race racetrack next rest :=
   rewrite moved in rfl
 
 --| Moves then more moves: the more moves from where the first left off.
 theorem raceAppend (racetrack: Racetrack) (more: List Direction): (position: Position) → (moves: List Direction) → (middle: Position) →
     race racetrack position moves = Some middle → race racetrack position (moves ++ more) = race racetrack middle more
-  | position, Nil, middle, ended => rewrite Option.someInjective _ _ ended in rfl
-  | position, Cons direction rest, middle, ended =>
+  | position, [], middle, ended => rewrite Option.someInjective _ _ ended in rfl
+  | position, [direction, ..rest], middle, ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome middle ended)
       | Some next => raceAppend racetrack more next rest middle ended
@@ -101,4 +101,4 @@ theorem raceAppend (racetrack: Racetrack) (more: List Direction): (position: Pos
 theorem raceSnoc (racetrack: Racetrack) (position: Position) (moves: List Direction) (middle: Position)
     (ended: race racetrack position moves = Some middle) (direction: Direction) (next: Position)
     (moved: moveTo racetrack middle direction = Some next): race racetrack position (moves ++ [direction]) = Some next :=
-  Eq.trans (raceAppend racetrack [direction] position moves middle ended) (raceCons racetrack middle direction next moved Nil)
+  Eq.trans (raceAppend racetrack [direction] position moves middle ended) (raceCons racetrack middle direction next moved [])

@@ -16,7 +16,7 @@ def PairAhead (before: List Nat) (rest: List Nat) (a: Nat) (b: Nat): Prop :=
 --| One step on: a pair ahead of `x` (`x` still to come) is ahead after `x`
 --| is passed, or has `x` second.
 theorem pairAheadStep (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: Nat)
-    (ahead: PairAhead before (Cons x rest) a b): ((a ∈ before) ∧ (b = x)) ∨ (PairAhead (Cons x before) rest a b) :=
+    (ahead: PairAhead before [x, ..rest] a b): ((a ∈ before) ∧ (b = x)) ∨ (PairAhead [x, ..before] rest a b) :=
   match ahead with
     | Inl (Both aBefore bIn) =>
       match bIn with
@@ -29,7 +29,7 @@ theorem pairAheadStep (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 
 --| And back: a pair ahead after `x` is passed was ahead before it.
 theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: Nat)
-    (ahead: PairAhead (Cons x before) rest a b): PairAhead before (Cons x rest) a b :=
+    (ahead: PairAhead [x, ..before] rest a b): PairAhead before [x, ..rest] a b :=
   match ahead with
     | Inl (Both (Inl xIs) bRest) => Inr ((List.memPairsCons a b x rest).backward (Inl (Both (Eq.sym xIs) bRest)))
     | Inl (Both (Inr aBefore) bRest) => Inl (Both aBefore (Inr bRest))
@@ -40,8 +40,8 @@ theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat) →
     (passed: (y: Nat) → Set.contains seen y = True → y ∈ before) → (rest: List Nat) → (a: Nat) → (b: Nat) →
     findPairAfter target seen rest = Some (a, b) → (PairAhead before rest a b) ∧ (a + b = target)
-  | seen, before, passed, Nil, a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
-  | seen, before, passed, Cons x rest, a, b, found =>
+  | seen, before, passed, [], a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
+  | seen, before, passed, [x, ..rest], a, b, found =>
     match c: (x <= target && Set.contains seen (target - x)) with
       | True =>
         let same := Option.someInjective _ _ found
@@ -51,9 +51,9 @@ theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat)
         let partner := Bool.andRight _ _ c
         Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
       | False =>
-        let passedNow: (y: Nat) → Set.contains (Set.insert seen x) y = True → y ∈ Cons x before := y contained =>
+        let passedNow: (y: Nat) → Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
           if h: y = x then Inl (Eq.sym h) else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
-        let after := findPairAfterSound target (Set.insert seen x) (Cons x before) passedNow rest a b found
+        let after := findPairAfterSound target (Set.insert seen x) [x, ..before] passedNow rest a b found
         Both (pairAheadBack before x rest a b after.left) after.right
 
 --| And it finds one if there is a pair ahead summing to the target, when
@@ -61,9 +61,9 @@ theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat)
 theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List Nat) →
     (remembered: (y: Nat) → y ∈ before → Set.contains seen y = True) → (rest: List Nat) → (a: Nat) → (b: Nat) →
     PairAhead before rest a b → a + b = target → findPairAfter target seen rest ≠ None
-  | seen, before, remembered, Nil, a, b, Inl (Both aIn bIn), sum, isNone => bIn
-  | seen, before, remembered, Nil, a, b, Inr inPairs, sum, isNone => inPairs
-  | seen, before, remembered, Cons x rest, a, b, ahead, sum, isNone =>
+  | seen, before, remembered, [], a, b, Inl (Both aIn bIn), sum, isNone => bIn
+  | seen, before, remembered, [], a, b, Inr inPairs, sum, isNone => inPairs
+  | seen, before, remembered, [x, ..rest], a, b, ahead, sum, isNone =>
     match c: (x <= target && Set.contains seen (target - x)) with
       | True => Option.someNotNone _ isNone
       | False =>
@@ -74,29 +74,29 @@ theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List N
             let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
             Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro _ _ fits partner)) c)
           | Inr aheadNow =>
-            let rememberedNow: (y: Nat) → y ∈ Cons x before → Set.contains (Set.insert seen x) y = True := y member =>
+            let rememberedNow: (y: Nat) → y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True := y member =>
               match member with
                 | Inl xIs => rewrite <- xIs in Set.containsInsert x seen
                 | Inr earlier => Set.containsInsertMono seen x y (remembered y earlier)
-            findPairAfterComplete target (Set.insert seen x) (Cons x before) rememberedNow rest a b aheadNow sum isNone
+            findPairAfterComplete target (Set.insert seen x) [x, ..before] rememberedNow rest a b aheadNow sum isNone
 
 --| What `findPair` finds are two entries, the earlier first, summing to the
 --| target.
 theorem findPairSound (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (found: findPair target entries = Some (a, b)):
     ((a, b) ∈ entries.pairs) ∧ (a + b = target) :=
-  let nothingSeen: (y: Nat) → Set.contains Set.empty y = True → y ∈ Nil := y contained => Void.exfalso (Bool.falseNotTrue contained)
-  match findPairAfterSound target Set.empty Nil nothingSeen entries a b found with
+  let nothingSeen: (y: Nat) → Set.contains Set.empty y = True → y ∈ [] := y contained => Void.exfalso (Bool.falseNotTrue contained)
+  match findPairAfterSound target Set.empty [] nothingSeen entries a b found with
     | Both (Inl (Both aNowhere bIn)) sum => Void.exfalso aNowhere
     | Both (Inr inPairs) sum => Both inPairs sum
 
 --| And it finds two whenever there are two.
 theorem findPairComplete (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (inPairs: (a, b) ∈ entries.pairs) (sum: a + b = target):
     findPair target entries ≠ None :=
-  findPairAfterComplete target Set.empty Nil (y nowhere => Void.exfalso nowhere) entries a b (Inr inPairs) sum
+  findPairAfterComplete target Set.empty [] (y nowhere => Void.exfalso nowhere) entries a b (Inr inPairs) sum
 
 --| When `findTriple` finds nothing, it finds nothing after the first entry,
 --| nor a pair after it making up the rest.
-theorem findTripleNoneCons (target: Nat) (x: Nat) (rest: List Nat) (none: findTriple target (Cons x rest) = None):
+theorem findTripleNoneCons (target: Nat) (x: Nat) (rest: List Nat) (none: findTriple target [x, ..rest] = None):
     (findTriple target rest = None) ∧ ((fits: x <= target) → findPair (target - x) rest = None) :=
   match c: x <= target with
     | True =>
@@ -113,9 +113,9 @@ theorem product3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].product = a * b * c := ri
 --| What `findTriple` finds are three entries, in order, summing to the target.
 theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
     findTriple target entries = Some (a, b, c) → ([a, b, c] ∈ entries.combinations 3) ∧ (a + b + c = target)
-  | Nil, a, b, c, found => Void.exfalso (Option.noneNotSome _ found)
-  | Cons x rest, a, b, c, found =>
-    let later: findTriple target rest = Some (a, b, c) → ([a, b, c] ∈ (Cons x rest).combinations 3) ∧ (a + b + c = target) := laterFound =>
+  | [], a, b, c, found => Void.exfalso (Option.noneNotSome _ found)
+  | [x, ..rest], a, b, c, found =>
+    let later: findTriple target rest = Some (a, b, c) → ([a, b, c] ∈ [x, ..rest].combinations 3) ∧ (a + b + c = target) := laterFound =>
       let after := findTripleSound target rest a b c laterFound
       Both ((List.memCombinationsCons a [b, c] x rest 2).backward (Inr after.left)) after.right
     match fits: x <= target with
@@ -137,8 +137,8 @@ theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: 
 --| And it finds three whenever there are three.
 theorem findTripleComplete (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
     [a, b, c] ∈ entries.combinations 3 → a + b + c = target → findTriple target entries ≠ None
-  | Nil, a, b, c, inTriples, sum, none => inTriples
-  | Cons x rest, a, b, c, inTriples, sum, none =>
+  | [], a, b, c, inTriples, sum, none => inTriples
+  | [x, ..rest], a, b, c, inTriples, sum, none =>
     let nothing := findTripleNoneCons target x rest none
     match (List.memCombinationsCons a [b, c] x rest 2).forward inTriples with
       | Inl (Both xIs inPairs) =>

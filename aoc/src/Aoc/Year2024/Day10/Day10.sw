@@ -59,7 +59,7 @@ def TopographicMap.uphill (map: TopographicMap) (position: Position): List Posit
 --| Where the trails from `position` end after `steps` more steps uphill: one
 --| entry per trail, so a 9 two trails reach is there twice.
 def TopographicMap.trailEnds (map: TopographicMap): (steps: Nat) → (position: Position) → List Position
-  | Zero, position => if map.heightAt position == Some 9 then [position] else Nil
+  | Zero, position => if map.heightAt position == Some 9 then [position] else []
   | Succ steps, position => map.uphill position |> .flatMap (map.trailEnds steps)
 
 --| The positions of height 0.

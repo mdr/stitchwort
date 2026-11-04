@@ -13,9 +13,9 @@ theorem readPacketSound (bits: List Bool) (packet: Packet) (rest: List Bool) (re
     bits = encode packet ++ rest ∧ wellFormed packet = True :=
   match e: readPackets (Packets 1) bits with
     | None => cases
-    | Some (Nil, _) => cases
-    | Some (Cons _ (Cons _ _), _) => cases
-    | Some (Cons first Nil, after) =>
+    | Some ([], _) => cases
+    | Some ([_, _, .._], _) => cases
+    | Some ([first], after) =>
       let parts := somePairInjective _ _ _ _ read
       let sound := readPacketsSound (Packets 1) bits [first] after e
       rewrite <- parts.left, <- parts.right in

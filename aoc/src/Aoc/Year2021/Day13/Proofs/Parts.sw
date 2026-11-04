@@ -10,14 +10,14 @@ import Std (Exists, List)
 --| after the folds, if the promise is kept...
 theorem foldsHold: (folds: List Fold) → (dots: List Dot) → (marked: Dot → Prop) → Holds dots marked → Promise folds marked →
     Holds (folds.foldLeft dots foldOnce) (AfterFolds folds marked)
-  | Nil, dots, marked, holds, promise, spot => holds spot
-  | Cons fold rest, dots, marked, holds, promise, spot =>
+  | [], dots, marked, holds, promise, spot => holds spot
+  | [fold, ..rest], dots, marked, holds, promise, spot =>
     foldsHold rest (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds promise.left) promise.right spot
 
 --| ...and lists each dot once, as every fold drops repeats.
 theorem foldsDistinct: (folds: List Fold) → (dots: List Dot) → List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
-  | Nil, dots, distinct => distinct
-  | Cons fold rest, dots, distinct => foldsDistinct rest (foldOnce dots fold) (List.distinctNoRepeats (dots.map (foldDot fold)))
+  | [], dots, distinct => distinct
+  | [fold, ..rest], dots, distinct => foldsDistinct rest (foldOnce dots fold) (List.distinctNoRepeats (dots.map (foldDot fold)))
 
 --| `foldAll` holds the dots after the folds, each once.
 theorem foldAllHolds (folds: List Fold) (dots: List Dot) (promise: Promise folds (Listed dots)): Holds (foldAll folds dots) (AfterFolds folds (Listed dots)) :=
@@ -29,8 +29,8 @@ theorem foldAllDistinct (folds: List Fold) (dots: List Dot): List.Distinct (fold
 --| The promise for every fold is the promise for the first.
 theorem promiseFirst (folds: List Fold) (marked: Dot → Prop) (promise: Promise folds marked): Promise (folds.take 1) marked :=
   match folds with
-    | Nil => Trivial
-    | Cons fold rest => Both promise.left Trivial
+    | [] => Trivial
+    | [fold, ..rest] => Both promise.left Trivial
 
 --| Part 1: the answer is the number of dots after the first fold (if there
 --| is no fold, of the dots listed).

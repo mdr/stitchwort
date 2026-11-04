@@ -13,11 +13,11 @@ theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
 --| In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
     sorted.count (score => score < sorted.getOr k 0) ≤ k
-  | Nil, s, k, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons x rest, s, Zero, h =>
+  | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | [x, ..rest], s, Zero, h =>
     let none := List.countNone rest (score => score < x) (y member => notBelow x y (List.sortedHeadLe Nat.leq Nat.leTrans x y rest s member))
     rewrite List.countCons rest x (score => score < x), notBelow x x (Nat.leRefl x), none in Nat.leRefl 0
-  | Cons x rest, Both _ s, Succ k, h =>
+  | [x, ..rest], Both _ s, Succ k, h =>
     let below := countBelowSorted rest s k h
     let one := Bool.toNatLeOne (x < rest.getOr k 0)
     rewrite List.countCons rest x (score => score < rest.getOr k 0) in omega
@@ -25,25 +25,25 @@ theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → 
 --| And at most length - 1 - k above it.
 theorem countAboveSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
     sorted.count (score => sorted.getOr k 0 < score) + k + 1 ≤ sorted.length
-  | Nil, s, k, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons x rest, s, Zero, h =>
+  | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | [x, ..rest], s, Zero, h =>
     let most := List.countLeLength rest (score => x < score)
     rewrite List.countCons rest x (score => x < score), notBelow x x (Nat.leRefl x) in omega
-  | Cons x rest, Both first s, Succ k, h =>
+  | [x, ..rest], Both first s, Succ k, h =>
     let above := countAboveSorted rest s k h
-    let atMost: x ≤ rest.getOr k 0 := List.sortedGetOrLe (Cons x rest) 0 (Both first s) 0 (Succ k) (omega) h
+    let atMost: x ≤ rest.getOr k 0 := List.sortedGetOrLe [x, ..rest] 0 (Both first s) 0 (Succ k) (omega) h
     rewrite List.countCons rest x (score => rest.getOr k 0 < score), notBelow x (rest.getOr k 0) atMost in omega
 
 --| The program's middle is a middle score of any nonempty list.
-theorem middleIsMiddle (scores: List Nat) (some: scores ≠ Nil): Middle scores (middle scores) :=
+theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (middle scores) :=
   let sorted := scores.sort
   let n := scores.length
   let k := n / 2
   let sameLength: sorted.length = n := List.sortLength scores
   let positive: 0 < n :=
     match scores with
-      | Nil => Void.exfalso (some rfl)
-      | Cons _ _ => rfl
+      | [] => Void.exfalso (some rfl)
+      | [_, .._] => rfl
   let split := Nat.divModEq n 2 (omega)
   let rest := Nat.modLess n 2 (omega)
   let inRange: k < sorted.length := omega
@@ -58,8 +58,8 @@ theorem middleIsMiddle (scores: List Nat) (some: scores ≠ Nil): Middle scores 
 
 --| The scores that aren't above `a` and those that are make up the list.
 theorem countSplit (a: Nat): (xs: List Nat) → xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length
-  | Nil => rfl
-  | Cons x rest =>
+  | [] => rfl
+  | [x, ..rest] =>
     let split := countSplit a rest
     rewrite List.countCons rest x (score => not (a < score)), List.countCons rest x (score => a < score) in
       match above: a < x with

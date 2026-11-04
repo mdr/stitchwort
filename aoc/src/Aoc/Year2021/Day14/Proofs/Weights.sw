@@ -14,11 +14,11 @@ def entriesWeight (entries: List (k, Nat)) (f: k → Nat): Nat := entries.sumBy 
 def weight (counts: Map k Nat [ord := o]) (f: k → Nat): Nat := entriesWeight (Map.toList counts) f
 
 theorem entriesWeightCons (key: k) (n: Nat) (rest: List (k, Nat)) (f: k → Nat):
-    entriesWeight (Cons (key, n) rest) f = n * f key + entriesWeight rest f :=
+    entriesWeight [(key, n), ..rest] f = n * f key + entriesWeight rest f :=
   List.sumByCons rest (key, n) (entry => entry.snd * f entry.fst)
 
 theorem weightAddAll (f: (Char, Char) → Nat): (counts: PairCounts) → (entries: List ((Char, Char), Nat)) →
     weight (addAll counts entries) f = weight counts f + entriesWeight entries f
-  | counts, Nil => rfl
-  | counts, Cons (key, n) rest =>
+  | counts, [] => rfl
+  | counts, [(key, n), ..rest] =>
     omega [weightAddAll f (Map.insertWith counts key n Nat.add) rest, Map.weightInsertWith counts key n f, entriesWeightCons key n rest f]

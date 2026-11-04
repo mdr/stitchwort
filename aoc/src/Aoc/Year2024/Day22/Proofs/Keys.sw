@@ -29,14 +29,14 @@ theorem memOfEq (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs
 
 --| What is in a suffix of a list is in the list.
 theorem memTails (x: a): (xs: List a) → (later: List a) → later ∈ xs.tails → x ∈ later → x ∈ xs
-  | Nil, later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
-  | Nil, later, Inr none, inLater => Void.exfalso none
-  | Cons first rest, later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
-  | Cons first rest, later, Inr deeper, inLater => Inr (memTails x rest later deeper inLater)
+  | [], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
+  | [], later, Inr none, inLater => Void.exfalso none
+  | [first, ..rest], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
+  | [first, ..rest], later, Inr deeper, inLater => Inr (memTails x rest later deeper inLater)
 
 theorem findMapAny (f: a → Option b) (found: b): (xs: List a) → xs.findMap f = Some found → List.Any (x => f x = Some found) xs
-  | Nil, some => Void.exfalso (Option.noneNotSome found some)
-  | Cons x rest, some =>
+  | [], some => Void.exfalso (Option.noneNotSome found some)
+  | [x, ..rest], some =>
     match here: f x with
       | Some value => Inl some
       | None => Inr (findMapAny f found rest some)
@@ -51,18 +51,18 @@ theorem sellsAtIn (possible: List Changes)
     (contains: (a: Nat) → (b: Nat) → (c: Nat) → (d: Nat) → (e: Nat) → a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
       ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) ∈ possible)
     (sequence: Changes) (price: Nat): (later: List Nat) → ((x: Nat) → x ∈ later → x < 10) → sellsAt sequence later = Some price → sequence ∈ possible
-  | Cons a (Cons b (Cons c (Cons d (Cons e rest)))), digits, sells =>
+  | [a, b, c, d, e, ..rest], digits, sells =>
     match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
       | True =>
         memOfEq possible (DecEq.sound _ sequence same)
           (contains a b c d e (digits a (Inl rfl)) (digits b (Inr (Inl rfl))) (digits c (Inr (Inr (Inl rfl)))) (digits d (Inr (Inr (Inr (Inl rfl)))))
             (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
       | False => Void.exfalso (Option.noneNotSome price sells)
-  | Nil, digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | Cons a Nil, digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | Cons a (Cons b Nil), digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | Cons a (Cons b (Cons c Nil)), digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | Cons a (Cons b (Cons c (Cons d Nil))), digits, sells => Void.exfalso (Option.noneNotSome price sells)
+  | [], digits, sells => Void.exfalso (Option.noneNotSome price sells)
+  | [a], digits, sells => Void.exfalso (Option.noneNotSome price sells)
+  | [a, b], digits, sells => Void.exfalso (Option.noneNotSome price sells)
+  | [a, b, c], digits, sells => Void.exfalso (Option.noneNotSome price sells)
+  | [a, b, c, d], digits, sells => Void.exfalso (Option.noneNotSome price sells)
 
 theorem pricesDigits (count: Nat) (buyer: Nat) (price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _ (price < 10) (secrets count buyer) (List.memMapAny (secrets count buyer) (% 10) price inPrices)
@@ -93,8 +93,8 @@ theorem mergeSides (holds: Prop) (value: Nat): (x: Option Nat) → (y: Option Na
 theorem totalsIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat): (buyers: List Nat) → (totals: Map Changes Nat) →
     ((key: Changes) → (value: Nat) → totals.get key = Some value → key ∈ possible) → (key: Changes) → (value: Nat) →
     (buyers.foldLeft totals (totals buyer => totals.unionWith (firstSales (prices count buyer)) Nat.add)).get key = Some value → key ∈ possible
-  | Nil, totals, inTotals, key, value, found => inTotals key value found
-  | Cons buyer rest, totals, inTotals, key, value, found =>
+  | [], totals, inTotals, key, value, found => inTotals key value found
+  | [buyer, ..rest], totals, inTotals, key, value, found =>
     let sales := firstSales (prices count buyer)
     totalsIn possible contains count rest (totals.unionWith sales Nat.add)
       (other total merged =>

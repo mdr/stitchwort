@@ -26,8 +26,8 @@ def touches (garden: Garden) (plot: Position) (other: Position): Bool := isOrtho
 
 --| `chain` leads from `from` to `to`, each plot touching the one before.
 def isChain (garden: Garden): (from: Position) → (chain: List Position) → (to: Position) → Bool
-  | from, Nil, to => from == to
-  | from, Cons next rest, to => touches garden from next && isChain garden next rest to
+  | from, [], to => from == to
+  | from, [next, ..rest], to => touches garden from next && isChain garden next rest to
 
 --| Plots in the same region: joined by a chain of touching plots.
 def Joined (garden: Garden) (plot: Position) (other: Position): Prop := Exists (List Position) (chain => isChain garden plot chain other = True)

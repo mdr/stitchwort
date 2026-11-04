@@ -30,10 +30,10 @@ def Tracks (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (s
 
 --| `rest`, after `cave`, finishes a path whose caves so far are `sofar`.
 def Completes (passages: List (Text, Text)) (twice: Bool) (sofar: List Text) (cave: Text) (rest: List Text): Prop :=
-  rest.last = Some "end" ∧ followsPassages passages (Cons cave rest) = True ∧ Within twice (sofar ++ rest)
+  rest.last = Some "end" ∧ followsPassages passages [cave, ..rest] = True ∧ Within twice (sofar ++ rest)
 
 theorem followsCons (passages: List (Text, Text)) (a: Text) (b: Text) (r: List Text):
-    followsPassages passages (Cons a (Cons b r)) = (connected passages a b && followsPassages passages (Cons b r)) := rfl
+    followsPassages passages [a, b, ..r] = (connected passages a b && followsPassages passages [b, ..r]) := rfl
 
 theorem startSmall: isBig "start" = False := rfl
 
@@ -53,12 +53,12 @@ theorem visitsOther (xs: List Text) (y: Text) (cave: Text) (ne: y ≠ cave): vis
   rewrite visitsSnoc xs y cave, differ y cave ne in omega
 
 theorem visitsMember (cave: Text): (xs: List Text) → cave ∈ xs → 1 ≤ visits xs cave
-  | Nil, member => Void.exfalso member
-  | Cons x rest, Inl same => rewrite same, DecEq.refl cave in omega
-  | Cons x rest, Inr later => omega [visitsMember cave rest later]
+  | [], member => Void.exfalso member
+  | [x, ..rest], Inl same => rewrite same, DecEq.refl cave in omega
+  | [x, ..rest], Inr later => omega [visitsMember cave rest later]
 
 --| A path on: what was so far, the next cave, then the rest.
-theorem appendStep (sofar: List Text) (y: Text) (more: List Text): sofar ++ Cons y more = (sofar ++ [y]) ++ more :=
+theorem appendStep (sofar: List Text) (y: Text) (more: List Text): sofar ++ [y, ..more] = (sofar ++ [y]) ++ more :=
   Eq.sym (List.appendAssoc sofar [y] more)
 
 theorem endNotStart: "end" ≠ "start" := same => DecEq.soundFalse "end" "start" rfl same
@@ -214,47 +214,47 @@ theorem finishWithin (passages: List (Text, Text)) (twice: Bool) (unvisited: Lis
 --| A path that goes on from `y` goes on from the cave before it.
 theorem completesCons (passages: List (Text, Text)) (twice: Bool) (sofar: List Text) (cave: Text) (y: Text) (more: List Text)
     (joined: connected passages cave y = True) (completes: Completes passages twice (sofar ++ [y]) y more):
-    Completes passages twice sofar cave (Cons y more) :=
+    Completes passages twice sofar cave [y, ..more] :=
   let (Both last (Both follows within)) := completes
   Both
     (match more with
-      | Nil => Void.exfalso (Option.noneNotSome "end" last)
-      | Cons z rest => last)
+      | [] => Void.exfalso (Option.noneNotSome "end" last)
+      | [z, ..rest] => last)
     (Both (rewrite followsCons passages cave y more, joined, follows in rfl) (rewrite appendStep sofar y more in within))
 
 --| A path from the cave before `y` that isn't at its end goes on from `y`.
 theorem completesSplit (passages: List (Text, Text)) (twice: Bool) (sofar: List Text) (cave: Text) (y: Text) (more: List Text)
-    (notEnd: y ≠ "end") (completes: Completes passages twice sofar cave (Cons y more)):
+    (notEnd: y ≠ "end") (completes: Completes passages twice sofar cave [y, ..more]):
     connected passages cave y = True ∧ Completes passages twice (sofar ++ [y]) y more :=
   let (Both last (Both follows within)) := completes
   let both := rewrite followsCons passages cave y more at follows
   Both (Bool.andLeft _ _ both)
     (Both
       (match more with
-        | Nil => Void.exfalso (notEnd (Option.someInjective y "end" last))
-        | Cons z rest => last)
+        | [] => Void.exfalso (notEnd (Option.someInjective y "end" last))
+        | [z, ..rest] => last)
       (Both (Bool.andRight _ _ both) (rewrite <- appendStep sofar y more in within)))
 
 --| Visits to the next cave, and to any cave, along the rest of a path.
-theorem visitsOnto (sofar: List Text) (y: Text) (more: List Text): visits (sofar ++ Cons y more) y = visits sofar y + 1 + visits more y :=
-  rewrite visitsAppend sofar (Cons y more) y in (rewrite DecEq.refl y in omega: visits sofar y + visits (Cons y more) y = visits sofar y + 1 + visits more y)
+theorem visitsOnto (sofar: List Text) (y: Text) (more: List Text): visits (sofar ++ [y, ..more]) y = visits sofar y + 1 + visits more y :=
+  rewrite visitsAppend sofar [y, ..more] y in (rewrite DecEq.refl y in omega: visits sofar y + visits [y, ..more] y = visits sofar y + 1 + visits more y)
 
 theorem visitsGrow (sofar: List Text) (rest: List Text) (c: Text): visits sofar c ≤ visits (sofar ++ rest) c :=
   rewrite visitsAppend sofar rest c in omega
 
 --| A path visits `end` only at its end...
 theorem endOnly (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (spare: Bool) (sofar: List Text) (cave: Text) (more: List Text)
-    (tracks: Tracks passages twice unvisited spare sofar) (completes: Completes passages twice sofar cave (Cons "end" more)): more = Nil :=
+    (tracks: Tracks passages twice unvisited spare sofar) (completes: Completes passages twice sofar cave ["end", ..more]): more = [] :=
   let (Both _ (Both _ (Both end _))) := tracks
   let (Both last (Both _ (Both _ (Both _ (Both _ endOnce))))) := completes
   let total := visitsOnto sofar "end" more
   match more with
-    | Nil => rfl
-    | Cons z rest => Void.exfalso (omega [visitsMember "end" (Cons z rest) (List.lastMem (Cons z rest) "end" last)])
+    | [] => rfl
+    | [z, ..rest] => Void.exfalso (omega [visitsMember "end" [z, ..rest] (List.lastMem [z, ..rest] "end" last)])
 
 --| ...and `start` only at its start...
 theorem startBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (spare: Bool) (sofar: List Text) (cave: Text) (more: List Text)
-    (tracks: Tracks passages twice unvisited spare sofar) (completes: Completes passages twice sofar cave (Cons "start" more)): Void :=
+    (tracks: Tracks passages twice unvisited spare sofar) (completes: Completes passages twice sofar cave ["start", ..more]): Void :=
   let (Both _ (Both start _)) := tracks
   let (Both _ (Both _ (Both _ (Both _ (Both startOnce _))))) := completes
   omega [visitsOnto sofar "start" more]
@@ -262,7 +262,7 @@ theorem startBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: Lis
 --| ...and a small cave visited before only if the spare visit is left.
 theorem smallBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (sofar: List Text) (cave: Text) (y: Text) (more: List Text)
     (small: isBig y = False) (notStart: y ≠ "start") (notEnd: y ≠ "end") (named: y ∈ caves passages) (stale: unvisited.contains y = False)
-    (tracks: Tracks passages twice unvisited False sofar) (completes: Completes passages twice sofar cave (Cons y more)): Void :=
+    (tracks: Tracks passages twice unvisited False sofar) (completes: Completes passages twice sofar cave [y, ..more]): Void :=
   let (Both unseen (Both _ (Both _ (Both _ (Both _ used))))) := tracks
   let (Both _ (Both _ (Both each (Both once _)))) := completes
   let seen: visits sofar y ≠ 0 := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
@@ -273,7 +273,7 @@ theorem smallBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: Lis
     | Inr some =>
       Exists.elim some (d both =>
         let (Both smallD twiceD) := both
-        let same := once d y smallD small (Nat.leTrans 2 (visits sofar d) _ twiceD (visitsGrow sofar (Cons y more) d)) (omega)
+        let same := once d y smallD small (Nat.leTrans 2 (visits sofar d) _ twiceD (visitsGrow sofar [y, ..more] d)) (omega)
         Void.exfalso (omega [rewrite same at twiceD, Bool.toNatLeOne twice]))
 
 --| Each route the steps allow finishes a path by the rules...
@@ -281,14 +281,14 @@ theorem followsCompletes (passages: List (Text, Text)) (next: Text → List Text
     (adjacent: (a: Text) → (b: Text) → b ∈ next a → connected passages a b = True) (twice: Bool):
     (rest: List Text) → (unvisited: List Text) → (spare: Bool) → (cave: Text) → (sofar: List Text) →
       Tracks passages twice unvisited spare sofar → Follows next unvisited spare cave rest → Completes passages twice sofar cave rest
-  | Nil, unvisited, spare, cave, sofar, tracks, follows => Void.exfalso follows
-  | Cons y more, unvisited, spare, cave, sofar, tracks, Both member after =>
+  | [], unvisited, spare, cave, sofar, tracks, follows => Void.exfalso follows
+  | [y, ..more], unvisited, spare, cave, sofar, tracks, Both member after =>
     let joined := adjacent cave y member
     let named := And.right (connectedNamed passages cave y joined)
     match isEnd: y == "end" with
       | True =>
         rewrite after, DecEq.sound y "end" isEnd in
-          Both rfl (Both (rewrite followsCons passages cave "end" Nil, (rewrite DecEq.sound y "end" isEnd at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
+          Both rfl (Both (rewrite followsCons passages cave "end" [], (rewrite DecEq.sound y "end" isEnd at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
       | False =>
         let notEnd := DecEq.soundFalse y "end" isEnd
         match isStart: y == "start" with
@@ -322,8 +322,8 @@ theorem completesFollows (passages: List (Text, Text)) (promise: NoBigNeighbours
     (adjacent: (a: Text) → (b: Text) → connected passages a b = True → b ∈ next a) (twice: Bool):
     (rest: List Text) → (unvisited: List Text) → (spare: Bool) → (cave: Text) → (sofar: List Text) →
       Tracks passages twice unvisited spare sofar → Completes passages twice sofar cave rest → Follows next unvisited spare cave rest
-  | Nil, unvisited, spare, cave, sofar, tracks, completes => Void.exfalso (Option.noneNotSome "end" (And.left completes))
-  | Cons y more, unvisited, spare, cave, sofar, tracks, completes =>
+  | [], unvisited, spare, cave, sofar, tracks, completes => Void.exfalso (Option.noneNotSome "end" (And.left completes))
+  | [y, ..more], unvisited, spare, cave, sofar, tracks, completes =>
     match isEnd: y == "end" with
       | True =>
         let atEnd := DecEq.sound y "end" isEnd

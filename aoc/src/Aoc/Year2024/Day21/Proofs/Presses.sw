@@ -10,8 +10,8 @@ import Std (Eq, List, Nat)
 --| The keys to press on the keypad driving a robot for it to press `keys`
 --| in turn, its arm first on `from`: the cheapest route to each, then A.
 def drivingKeys (keypad: Keypad k) (costs: Costs) (from: k): List k → List DirectionKey
-  | Nil => Nil
-  | Cons to rest => List.append (routeKeys (costs.cheapestRoute (keypad.routes from to))) (drivingKeys keypad costs to rest)
+  | [] => []
+  | [to, ..rest] => List.append (routeKeys (costs.cheapestRoute (keypad.routes from to))) (drivingKeys keypad costs to rest)
 
 --| Your presses for the keypad `level` keypads from yours to press `keys`.
 def yourPresses: (level: Nat) → List DirectionKey → List DirectionKey
@@ -30,8 +30,8 @@ theorem sequenceCostFrom (costs: Costs) (keys: List DirectionKey): costs.sequenc
 --| Each route's keys end with A, so the next route starts from it.
 theorem drivingKeysCost (keypad: Keypad k) (costs: Costs): (from: k) → (keys: List k) →
     costFrom costs Activate (drivingKeys keypad costs from keys) = costFrom (cheapestBetween keypad costs) from keys
-  | from, Nil => rfl
-  | from, Cons to rest =>
+  | from, [] => rfl
+  | from, [to, ..rest] =>
     let route := costs.cheapestRoute (keypad.routes from to)
     rewrite costFromAppend costs Activate (routeKeys route) (drivingKeys keypad costs to rest),
       lastFromAppendOne Activate (route.map Arrow) Activate,

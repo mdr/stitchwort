@@ -136,8 +136,8 @@ def Wire.xBit (wire: Wire): Option Nat :=
 
 --| The number with these bits, lowest first.
 def fromBits: List Bool → Nat
-  | Nil => 0
-  | Cons bit rest => bit.toNat + fromBits rest * 2
+  | [] => 0
+  | [bit, ..rest] => bit.toNat + fromBits rest * 2
 
 --| The bits on the z wires, lowest first, a missing z wire counting as 0,
 --| if every z wire has a value.
@@ -227,7 +227,7 @@ def checkFrom (gates: List Gate) (remaining: Nat) (bit: Nat) (carry: Wire): BitC
     | Succ fewer =>
       match checkFullAdder gates bit carry with
         | Passes next => checkFrom gates fewer (bit + 1) next
-        | Faulty fixes _ => Faulty fixes (Cons carry (Cons (Z bit) (bitOutputs gates bit carry)))
+        | Faulty fixes _ => Faulty fixes [carry, Z bit, ..bitOutputs gates bit carry]
 
 --| The verdict on a `bits`-bit adder: `Passes (Z bits)` if it is one.
 def checkAdder (gates: List Gate) (bits: Nat): BitCheck :=
@@ -236,7 +236,7 @@ def checkAdder (gates: List Gate) (bits: Nat): BitCheck :=
     | Succ higher =>
       match checkHalfAdder gates with
         | Passes carry => checkFrom gates higher 1 carry
-        | Faulty fixes _ => Faulty fixes (Cons (Z 0) ([outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].filterMap (found => found)))
+        | Faulty fixes _ => Faulty fixes [Z 0, ..[outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].filterMap (found => found)]
 
 --| The gates with the outputs `first` and `second` swapped.
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=

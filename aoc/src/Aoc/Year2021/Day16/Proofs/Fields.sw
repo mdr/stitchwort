@@ -44,19 +44,19 @@ theorem readNumberSome (width: Nat) (bits: List Bool) (n: Nat) (rest: List Bool)
         Both (rewrite <- parts.right, written in split.left) (rewrite <- parts.left in (rewrite split.right at (fromBitsBelow field)))
 
 --| A literal's groups, each below 16, are read back from their bits.
-theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ Nil → groups.all (group => group < 16) = True → readGroups (groupBits groups ++ rest) = Some (groups, rest)
-  | Nil, some, small => Void.exfalso (some rfl)
-  | Cons group Nil, some, small => rewrite fromBitsOf 4 group (omega [small]) in rfl
-  | Cons group (Cons next more), some, small =>
+theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ [] → groups.all (group => group < 16) = True → readGroups (groupBits groups ++ rest) = Some (groups, rest)
+  | [], some, small => Void.exfalso (some rfl)
+  | [group], some, small => rewrite fromBitsOf 4 group (omega [small]) in rfl
+  | [group, next, ..more], some, small =>
     let fits: group < 16 := omega [small]
-    let others: (Cons next more).all (group => group < 16) = True := Bool.andRight _ _ small
-    rewrite readGroupsBits rest (Cons next more) (u => cases) others, fromBitsOf 4 group fits in rfl
+    let others: [next, ..more].all (group => group < 16) = True := Bool.andRight _ _ small
+    rewrite readGroupsBits rest [next, ..more] (u => cases) others, fromBitsOf 4 group fits in rfl
 
 --| What `readGroups` reads is the spec's bits for the groups it gives,
 --| at least one, each below 16.
 theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List Bool) → readGroups bits = Some (groups, rest) →
-    bits = groupBits groups ++ rest ∧ groups ≠ Nil ∧ groups.all (group => group < 16) = True
-  | Cons more (Cons a (Cons b (Cons c (Cons d tail)))), groups, rest, read =>
+    bits = groupBits groups ++ rest ∧ groups ≠ [] ∧ groups.all (group => group < 16) = True
+  | [more, a, b, c, d, ..tail], groups, rest, read =>
     let written: bitsOf 4 (Nat.fromBits [a, b, c, d]) = [a, b, c, d] := bitsOfFromBits [a, b, c, d]
     let fits: Nat.fromBits [a, b, c, d] < 16 := fromBitsBelow [a, b, c, d]
     match more with
@@ -70,22 +70,22 @@ theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List
                 let group := Nat.fromBits [a, b, c, d]
                 let first: (group < 16) = True := omega [fits]
                 match gs with
-                  | Nil => Void.exfalso (some rfl)
-                  | Cons next more =>
-                    let regrouped: bitsOf 4 group ++ tail = (bitsOf 4 group ++ groupBits (Cons next more)) ++ after :=
-                      rewrite split in Eq.sym (List.appendAssoc (bitsOf 4 group) (groupBits (Cons next more)) after)
+                  | [] => Void.exfalso (some rfl)
+                  | [next, ..more] =>
+                    let regrouped: bitsOf 4 group ++ tail = (bitsOf 4 group ++ groupBits [next, ..more]) ++ after :=
+                      rewrite split in Eq.sym (List.appendAssoc (bitsOf 4 group) (groupBits [next, ..more]) after)
                     let same := Eq.trans (Eq.cong (bits => bits ++ tail) (Eq.sym written)) regrouped
-                    rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => Cons True bits) same) (Both (u => cases) (Bool.andIntro _ _ first small))
+                    rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => [True, ..bits]) same) (Both (u => cases) (Bool.andIntro _ _ first small))
       | False =>
         let parts := somePairInjective _ _ _ _ read
         let group := Nat.fromBits [a, b, c, d]
         let small: [group].all (x => x < 16) = True := omega [fits]
-        rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => Cons False (bits ++ tail)) (Eq.sym written)) (Both (u => cases) small)
-  | Nil, groups, rest, read => cases
-  | Cons _ Nil, groups, rest, read => cases
-  | Cons _ (Cons _ Nil), groups, rest, read => cases
-  | Cons _ (Cons _ (Cons _ Nil)), groups, rest, read => cases
-  | Cons _ (Cons _ (Cons _ (Cons _ Nil))), groups, rest, read => cases
+        rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => [False, ..bits ++ tail]) (Eq.sym written)) (Both (u => cases) small)
+  | [], groups, rest, read => cases
+  | [_], groups, rest, read => cases
+  | [_, _], groups, rest, read => cases
+  | [_, _, _], groups, rest, read => cases
+  | [_, _, _, _], groups, rest, read => cases
 
 --| Each operation is read back from its type id.
 theorem operationOfTypeId (operation: Operation): operationOf (typeId operation) = Some operation := cases

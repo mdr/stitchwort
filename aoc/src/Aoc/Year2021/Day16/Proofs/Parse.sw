@@ -42,8 +42,8 @@ theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => r
 --| transmission's.
 theorem digitsBits: (read: List Char) → (values: List Nat) →
     Parse.Each (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) read values → transmissionBits read = Some (bitsOfDigits values)
-  | read, Nil, none => rewrite none in rfl
-  | read, Cons value values, Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
+  | read, [], none => rewrite none in rfl
+  | read, [value, ..values], Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
     rewrite split, one, hexAgree char value found, digitsBits rest values others in rfl
 
 --| The digits `readDigits` reads are the input's, all hexadecimal.
@@ -84,8 +84,8 @@ theorem badOperatorNone: (packet: Packet) → badOperator packet = None → prom
       | False => cases
 
 theorem badOperatorInNone: (packets: List Packet) → badOperatorIn packets = None → allPromised packets = True
-  | Nil, none => rfl
-  | Cons packet rest, none =>
+  | [], none => rfl
+  | [packet, ..rest], none =>
     match b: badOperator packet with
       | None => Bool.andIntro _ _ (badOperatorNone packet b) (badOperatorInNone rest none)
       | Some _ => cases

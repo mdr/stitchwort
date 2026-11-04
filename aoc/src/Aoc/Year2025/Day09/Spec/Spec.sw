@@ -31,7 +31,7 @@ import Std (List, Nat)
 --| `answer` is the largest of the areas: none is larger, and it is one of
 --| them, or 0 if there are none.
 def Largest (areas: List Nat) (answer: Nat): Prop :=
-  ((other: Nat) → List.Mem other areas → other ≤ answer) ∧ ((List.Mem answer areas) ∨ ((areas = Nil) ∧ (answer = 0)))
+  ((other: Nat) → List.Mem other areas → other ≤ answer) ∧ ((List.Mem answer areas) ∨ ((areas = []) ∧ (answer = 0)))
 
 --| Every rectangle with two red tiles as opposite corners: each red tile
 --| with each later one.

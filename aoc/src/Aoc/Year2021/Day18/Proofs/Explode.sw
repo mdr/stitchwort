@@ -62,7 +62,7 @@ def Found (depth: Nat) (number: Number) (exploded: Explosion): Prop :=
     ((rest: List Leaf) → firstDeep (leaves depth number ++ rest) = Some ({ found | after = found.after ++ rest }))
       ∧ ((before: List Leaf) → (rest: List Leaf) →
         addToLast exploded.toLeft before ++ leaves depth exploded.number ++ addToFirst exploded.toRight rest
-          = addToLast found.left.value (before ++ found.before) ++ Cons ({ value = 0, depth = found.left.depth - 1 }) (addToFirst found.right.value (found.after ++ rest)))
+          = addToLast found.left.value (before ++ found.before) ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value (found.after ++ rest)])
 
 --| An explosion inside one part of a pair that isn't two regular numbers
 --| is one in the pair.
@@ -114,7 +114,7 @@ theorem explodeFound: (depth: Nat) → (number: Number) → (exploded: Explosion
     match deep: Nat.leq 4 depth with
       | True =>
         rewrite <- Option.someInjective _ exploded some in
-          Witness ({ before = Nil, left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = Nil })
+          Witness ({ before = [], left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = [] })
             (Both (rest => cases) (before rest => rewrite List.appendNil before in rfl))
       | False => Void.exfalso (Option.noneNotSome exploded some)
   | depth, Pair (Regular a) (Pair x y), exploded, some, fits =>
@@ -130,12 +130,12 @@ theorem explodeSome (number: Number) (exploded: Explosion) (some: explode 0 numb
     explodeLeaves (leaves 0 number) = Some (leaves 0 exploded.number) :=
   match explodeFound 0 number exploded some fits with
     | Witness found (Both finds equation) =>
-      let first := finds Nil
+      let first := finds []
       rewrite List.appendNil (leaves 0 number) at first in
-        rewrite first in Eq.cong Some (Eq.trans (Eq.sym (equation Nil Nil)) (List.appendNil (leaves 0 exploded.number)))
+        rewrite first in Eq.cong Some (Eq.trans (Eq.sym (equation [] [])) (List.appendNil (leaves 0 exploded.number)))
 
 theorem explodeNone (number: Number) (none: explode 0 number = None) (fits: height number ≤ 5):
     height number ≤ 4 ∧ explodeLeaves (leaves 0 number) = None :=
   let shallow := explodeNoneShallow 0 number none omega fits
-  let first := And.right shallow Nil
+  let first := And.right shallow []
   Both (And.left shallow) (rewrite List.appendNil (leaves 0 number) at first in rewrite first in rfl)

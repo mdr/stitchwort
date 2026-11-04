@@ -31,8 +31,8 @@ def combinations (operators: List Operator): Nat → List (List Operator)
 --| "cannot be rearranged".
 def couldPossiblyBeTrue (operators: List Operator) (equation: Equation): Bool :=
   match equation.numbers with
-    | Nil => False
-    | Cons first rest =>
+    | [] => False
+    | [first, ..rest] =>
       combinations operators rest.length |> .any (chosen => evaluate first (chosen.zip rest) == equation.testValue)
 
 --| "The total calibration result, which is the sum of the test values from

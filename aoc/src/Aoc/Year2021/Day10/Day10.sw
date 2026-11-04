@@ -62,12 +62,12 @@ type Scan = | Corrupted (illegal: Bracket) | Unclosed (open: List Bracket)
 
 --| Scans `tokens` with the brackets in `stack` open, innermost first.
 def scan (stack: List Bracket): List Token → Scan
-  | Nil => Unclosed stack
-  | Cons (Opener bracket) rest => scan (Cons bracket stack) rest
-  | Cons (Closer bracket) rest =>
+  | [] => Unclosed stack
+  | [Opener bracket, ..rest] => scan [bracket, ..stack] rest
+  | [Closer bracket, ..rest] =>
     match stack with
-      | Cons top below => if top == bracket then scan below rest else Corrupted bracket
-      | Nil => Corrupted bracket
+      | [top, ..below] => if top == bracket then scan below rest else Corrupted bracket
+      | [] => Corrupted bracket
 
 def syntaxPoints: Bracket → Nat
   | Round => 3
@@ -77,7 +77,7 @@ def syntaxPoints: Bracket → Nat
 
 --| A corrupted line's score, 0 for any other.
 def corruptionScore (line: List Token): Nat :=
-  match scan Nil line with
+  match scan [] line with
     | Corrupted illegal => syntaxPoints illegal
     | Unclosed _ => 0
 
@@ -95,9 +95,9 @@ def completionScore (closers: List Bracket): Nat := closers.foldLeft 0 (score br
 --| An incomplete line's completion score; `None` for a corrupted line, or
 --| a complete one.
 def autocompleteScore (line: List Token): Option Nat :=
-  match scan Nil line with
+  match scan [] line with
     | Corrupted _ => None
-    | Unclosed Nil => None
+    | Unclosed [] => None
     | Unclosed open => Some (completionScore open)
 
 --| The middle of the sorted scores (with an even number of them, the

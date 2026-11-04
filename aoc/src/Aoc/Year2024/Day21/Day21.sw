@@ -169,7 +169,7 @@ def Costs.yours: Costs := from to => 1
 
 --| Your presses to press `keys` in turn on a keypad whose arm aims at A.
 def Costs.sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
-  Cons Activate keys |> .zipWithNext |> .sumBy (((from, to)) => costs from to)
+  [Activate, ..keys] |> .zipWithNext |> .sumBy (((from, to)) => costs from to)
 
 --| The keys to press on the driving keypad to take a route and press the
 --| key at its end.
@@ -210,7 +210,7 @@ def robotCosts (robots: Nat): Costs := Nat.iterate robots Costs.next Costs.yours
 
 --| The fewest presses you need for the door's robot to type `code`.
 def Costs.shortestLength (costs: Costs) (code: Code): Nat :=
-  Cons Enter code
+  [Enter, ..code]
     |> .zipWithNext
     |> .sumBy (((from, to)) => costs.cheapestCost (Keypad.numeric.routes from to))
 

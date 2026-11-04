@@ -140,8 +140,8 @@ def Point.origin: Point := { x = 0, y = 0, z = 0 }
 --| The pair that leaves one circuit, joining the pairs in order from the
 --| circuits given.
 def Circuits.lastJoin (circuits: Circuits): List Connection → Option (Nat, Nat)
-  | Nil => None
-  | Cons connection rest =>
+  | [] => None
+  | [connection, ..rest] =>
     let joined := circuits.connect connection
     if circuits.count > 1 ∧ joined.count == 1 then Some (connection.first, connection.second)
     else joined.lastJoin rest

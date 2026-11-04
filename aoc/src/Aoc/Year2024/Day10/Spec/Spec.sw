@@ -28,7 +28,7 @@ def isHikingTrail (map: TopographicMap) (path: List Position): Bool :=
 --| Every list of `count` positions on the map, repeats allowed, each list
 --| once.
 def pathsOf (map: TopographicMap): (count: Nat) → List (List Position)
-  | Zero => [Nil]
+  | Zero => [[]]
   | Succ count => map.positions |> .flatMap (position => pathsOf map count |> .map (Cons position))
 
 --| The trails beginning at `start`: `start` and nine more positions, since a

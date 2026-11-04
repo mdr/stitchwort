@@ -128,10 +128,10 @@ def directionIndex: Direction → Nat
 --| A direction whose index none of `others` has isn't one of them.
 theorem notMemDirections (direction: Direction): (others: List Direction) →
     others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
-  | Nil, differ, member => member
-  | Cons other rest, differ, Inl same =>
+  | [], differ, member => member
+  | [other, ..rest], differ, Inl same =>
     Decidable.toBoolSound _ (Bool.andLeft _ _ differ) (rewrite same in rfl)
-  | Cons other rest, differ, Inr later => notMemDirections direction rest (Bool.andRight _ _ differ) later
+  | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight _ _ differ) later
 
 --| ...and there are at most four.
 theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := lengthFilterMapLe position.step directions
@@ -139,14 +139,14 @@ theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4
 --| A list whose keys are distinct is.
 -- (A general list lemma: a std candidate.)
 theorem distinctOfMap (key: a → k): (xs: List a) → List.Distinct (xs.map key) → List.Distinct xs
-  | Nil, distinct => Trivial
-  | Cons x rest, (Both fresh distinct) => Both (member => fresh (List.memMap rest x member key)) (distinctOfMap key rest distinct)
+  | [], distinct => Trivial
+  | [x, ..rest], (Both fresh distinct) => Both (member => fresh (List.memMap rest x member key)) (distinctOfMap key rest distinct)
 
 --| `filterMap` keeps at most every element.
 -- (A std candidate.)
 theorem lengthFilterMapLe (f: a → Option b): (xs: List a) → (xs.filterMap f).length ≤ xs.length
-  | Nil => rfl
-  | Cons x rest =>
+  | [] => rfl
+  | [x, ..rest] =>
     let shorter := lengthFilterMapLe f rest
     match f x with
       | None => omega
@@ -243,5 +243,5 @@ theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
 
 --| Threes added up over a list.
 theorem sumByThree: (xs: List a) → xs.sumBy (x => 3) = 3 * xs.length
-  | Nil => omega
-  | Cons x rest => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega
+  | [] => omega
+  | [x, ..rest] => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega

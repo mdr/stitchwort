@@ -79,14 +79,14 @@ theorem part2Correct (instructions: List Instruction): solvePart2 instructions =
 --| With `mul` enabled and no `don't()` to come, the fold adds every result.
 theorem foldWithoutDont: (instructions: List Instruction) → (total: Nat) → instructions.any isDont = False →
     List.foldLeft instructions ({ enabled = True, total }: Tally) Tally.step = { enabled = True, total = total + instructions.sumBy Instruction.result }
-  | Nil, total, noDont => rewrite Nat.addZero total in rfl
-  | Cons (Mul left right) rest, total, noDont =>
+  | [], total, noDont => rewrite Nat.addZero total in rfl
+  | [Mul left right, ..rest], total, noDont =>
     rewrite foldWithoutDont rest (total + left * right) noDont, List.sumByCons rest (Mul left right) Instruction.result,
       Nat.addAssoc total (left * right) (rest.sumBy Instruction.result) in
       rfl
-  | Cons Do rest, total, noDont =>
+  | [Do, ..rest], total, noDont =>
     rewrite foldWithoutDont rest total noDont, List.sumByCons rest Do Instruction.result in rfl
-  | Cons Dont rest, total, noDont => Void.exfalso (Bool.trueNotFalse noDont)
+  | [Dont, ..rest], total, noDont => Void.exfalso (Bool.trueNotFalse noDont)
 
 --| Without a `don't()`, part 2 is part 1.
 theorem part2WithoutDont (instructions: List Instruction) (noDont: instructions.any isDont = False):
@@ -105,8 +105,8 @@ theorem stepAtMost (tally: Tally): (instruction: Instruction) → (Tally.step ta
 --| The fold adds at most every result.
 theorem foldAtMost: (instructions: List Instruction) → (tally: Tally) →
     (List.foldLeft instructions tally Tally.step).total ≤ tally.total + instructions.sumBy Instruction.result
-  | Nil, tally => cases
-  | Cons instruction rest, tally =>
+  | [], tally => cases
+  | [instruction, ..rest], tally =>
     let afterRest := foldAtMost rest (Tally.step tally instruction)
     let afterFirst := stepAtMost tally instruction
     rewrite List.sumByCons rest instruction Instruction.result in omega

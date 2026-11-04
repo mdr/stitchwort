@@ -42,19 +42,19 @@ def Report.isSafe (report: Report): Bool :=
 --| only its two levels can be the one to take out: there, check the rest
 --| without each of them, and stop.
 def passesDampened (ok: Nat → Nat → Bool): List Nat → Bool
-  | Nil => True
-  | Cons level Nil => True
-  | Cons level (Cons next rest) =>
+  | [] => True
+  | [level] => True
+  | [level, next, ..rest] =>
     if ok level next then passesDampenedAfter ok level next rest
-    else (Cons level rest).chain ok || (Cons next rest).chain ok
+    else [level, ..rest].chain ok || [next, ..rest].chain ok
 
 --| The same, after a good step from `before` to `level`. Taking out `level`
 --| makes a step from `before` to `next`.
 def passesDampenedAfter (ok: Nat → Nat → Bool) (before: Nat) (level: Nat): List Nat → Bool
-  | Nil => True
-  | Cons next rest =>
+  | [] => True
+  | [next, ..rest] =>
     if ok level next then passesDampenedAfter ok level next rest
-    else (Cons level rest).chain ok || (ok before next && (Cons next rest).chain ok)
+    else [level, ..rest].chain ok || (ok before next && [next, ..rest].chain ok)
 
 --| Safe as it is, or once one level is taken out.
 def Report.isSafeWithDampener (report: Report): Bool :=

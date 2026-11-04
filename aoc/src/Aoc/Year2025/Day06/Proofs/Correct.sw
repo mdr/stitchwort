@@ -29,16 +29,16 @@ theorem columnsAre (lines: List Text):
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → List.length (List.getOr (List.map lines Text.toList) r Nil) ≤ w) → blank lines w = True
-  | Nil, h => rfl
-  | Cons l rest, h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
+theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → List.length (List.getOr (List.map lines Text.toList) r []) ≤ w) → blank lines w = True
+  | [], h => rfl
+  | [l, ..rest], h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
 
 --| One problem's block of columns, as the program reads it, against the
 --| spec's reading of the same cells. `Cons c cs` are the problem's columns.
 theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
-    (Problem.parse ((Cons c cs).map (column lines))).rowNumbers = lines.init.map (line => parseNumber ((Cons c cs).map (charAt line))) :=
-  rewrite List.transposeGrid cs c lines (x line => charAt line x), List.initMap lines (line => (Cons c cs).map (charAt line)) in
-    List.mapMap lines.init parseNumber (line => (Cons c cs).map (charAt line))
+    (Problem.parse ([c, ..cs].map (column lines))).rowNumbers = lines.init.map (line => parseNumber ([c, ..cs].map (charAt line))) :=
+  rewrite List.transposeGrid cs c lines (x line => charAt line x), List.initMap lines (line => [c, ..cs].map (charAt line)) in
+    List.mapMap lines.init parseNumber (line => [c, ..cs].map (charAt line))
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
     (Problem.parse (cs.map (column lines))).columnNumbers = cs.map (c => parseNumber (column lines.init c)) :=
@@ -66,7 +66,7 @@ theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines l
   omega
 
 --| The columns of a problem start with its first.
-theorem problemColumns (lo: Nat) (hi: Nat) (h: lo < hi): List.rangeFrom (hi - lo) lo = Cons lo (List.rangeFrom (hi - Succ lo) (Succ lo)) :=
+theorem problemColumns (lo: Nat) (hi: Nat) (h: lo < hi): List.rangeFrom (hi - lo) lo = [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)] :=
   rewrite (omega: hi - lo = Succ (hi - Succ lo))
 
 --| What the program adds up for one block, part 1 and part 2.
@@ -84,7 +84,7 @@ theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat):
   | False, h => rfl
   | True, h =>
     rewrite problemColumns lo hi (problemWide lines lo hi h),
-      blockOperator lines (Cons lo (List.rangeFrom (hi - Succ lo) (Succ lo))),
+      blockOperator lines [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)],
       blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
 
 theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):

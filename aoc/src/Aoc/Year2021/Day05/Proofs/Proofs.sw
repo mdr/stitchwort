@@ -36,8 +36,8 @@ theorem straightLines (lines: List Line): lines.filter Line.isStraight = lines.f
 --| ... and each of them is horizontal or vertical.
 theorem straightShapes: (lines: List Line) →
     (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True
-  | Nil => rfl
-  | Cons line rest =>
+  | [] => rfl
+  | [line, ..rest] =>
     match e: Line.isStraight line with
       | True => rewrite straightShapes rest in rewrite e in rfl
       | False => straightShapes rest
