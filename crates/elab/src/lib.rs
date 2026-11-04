@@ -1023,7 +1023,9 @@ impl Elaborator {
     pub(crate) fn rewind_globals(&mut self, mark: &stitchwort_core::globals::GlobalsMark) {
         self.flush_navigation();
         self.globals.rewind(mark);
-        self.session.owners.truncate(self.ids());
+        let ids = self.ids();
+        self.session.owners.truncate(ids);
+        self.session.paths.get_mut().truncate(ids);
     }
 
     pub(crate) fn clear_metas(&self) {

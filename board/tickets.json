@@ -5141,16 +5141,18 @@
     {
       "id": 1202,
       "title": "Cache decode repeats work per namespace: name->id map rebuilt 207 times (quadratic, ~0.13 s) and dependency hashes recomputed (~0.13 s)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.\n\nD2303 (Matt, 4 Nov 2026): do it; cache format bumps are fine, aim for the best end state. Sonnet, expected: 60 min.\n",
+      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.\n\nD2303 (Matt, 4 Nov 2026): do it; cache format bumps are fine, aim for the best end state. Sonnet, expected: 60 min.\n\nLane notes (Sonnet, 4 Nov 2026): done in about 55 min, commit on lane/SW-1202. `state/paths.rs` (DeclPaths, in Session, filled lazily, cut by rewind and by a refused replay); entries carry each own declaration's content hash, seeded into the hash cache on admission (FORMAT 24). Encode uses the same index. Whole-project saving on aoc is 0.1-0.3 s CPU, within noise on the loaded machine. Targeted tests pass (check_cache, rewind, namespaces, hash_stability, pinned_hashes).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "3ab2aa0e"
+      ]
     },
     {
       "id": 1203,
