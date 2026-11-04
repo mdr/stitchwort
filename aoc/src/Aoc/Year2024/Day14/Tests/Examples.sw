@@ -231,4 +231,4 @@ test "the space from the arguments" :=
 
 test "main on the example" := ran (example.lines) == MkPair ["Part 1: 12", "Part 2: 1"] (Ok True)
 test "main with a robot outside the space" := ran ["p=0,0 v=1,1", "p=11,0 v=1,1"] == MkPair [] (Err "line 2: the robot starts outside the space")
-test "main with no picture" := ran (generatedCrowded.lines) == MkPair ["Part 1: 3564", "Part 2: none"] (Ok True)
+test "main with no picture" := ran (generatedCrowded.lines) == MkPair ["Part 1: 3564"] (Err "no second shows a picture")

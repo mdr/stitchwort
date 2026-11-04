@@ -28,12 +28,8 @@ import Std.Parse (char, nat)
 
 def main(): {IO, Fail} () :=
   let numbers := parseNumbers IO.readAll()
-  match solvePart1 numbers with
-    | Some magnitude => IO.print "Part 1: ${magnitude}"
-    | None => IO.print "Part 1: no answer"
-  match solvePart2 numbers with
-    | Some magnitude => IO.print "Part 2: ${magnitude}"
-    | None => IO.print "Part 2: no answer"
+  IO.print "Part 1: ${solvePart1 numbers |> .orFail "no numbers to add"}"
+  IO.print "Part 2: ${solvePart2 numbers |> .orFail "fewer than two numbers"}"
 
 type Number =
   | Regular (value: Nat)

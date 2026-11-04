@@ -25,7 +25,7 @@ import Std.Parse (digit)
 def main(): {IO, Fail} () :=
   let levels := parseLevels IO.readAll()
   IO.print "Part 1: ${solvePart1 levels}"
-  IO.print "Part 2: ${describe (solvePart2 levels)}"
+  IO.print "Part 2: ${solvePart2 levels |> .orFail "no step within ${syncLimit} has every octopus flash"}"
 
 --| One row of digits per line, every row as long as the first.
 def parseLevels (input: Text): {Fail} List (List Nat) := numbers (parseGrid input digit)
@@ -88,8 +88,3 @@ def firstSync (levels: List (List Nat)) (number: Nat): (steps: Nat) → Option N
     if (cells next).all (((_, level)) => level == 0) then Some number else firstSync next (Succ number) more
 
 def solvePart2 (levels: List (List Nat)): Option Nat := firstSync levels 1 syncLimit
-
-def describe (answer: Option Nat): Text :=
-  match answer with
-    | Some number => "${number}"
-    | None => "no step within ${syncLimit} has every octopus flash"

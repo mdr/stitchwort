@@ -37,7 +37,7 @@ def Cell.count: Cell → Nat
 type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
 def main(): {IO, Fail} () :=
-  let grid := (parseGrid IO.readAllLines()).orFail
+  let grid := parseGrid IO.readAllLines() |> .orFail
   IO.print "Part 1: ${solvePart1 grid}"
   IO.print "Part 2: ${solvePart2 grid}"
 

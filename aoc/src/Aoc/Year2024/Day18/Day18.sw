@@ -23,8 +23,9 @@ import Std.Parse (nat, text)
 def main(): {IO, Fail} () :=
   let (size, fallen) := sizesFrom IO.args()
   let bytes := parseBytes IO.readAll()
-  IO.print "Part 1: ${solvePart1 size fallen bytes |> .fold "none" Nat.toText}"
-  IO.print "Part 2: ${solvePart2 size bytes |> .fold "none" (byte => "${byte.column},${byte.row}")}"
+  IO.print "Part 1: ${solvePart1 size fallen bytes |> .orFail "the exit is cut off even before the first byte falls"}"
+  let blocker := solvePart2 size bytes |> .orFail "no byte cuts the exit off"
+  IO.print "Part 2: ${blocker.column},${blocker.row}"
 
 def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
   let usage := "expected no arguments, or a size and a number of bytes, such as `7 12`"

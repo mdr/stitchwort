@@ -27,7 +27,7 @@ import Std.Parse (label, many1, pick)
 def main(): {IO, Fail} () :=
   let numbers := parseReport IO.readAll()
   IO.print "Part 1: ${solvePart1 numbers}"
-  IO.print "Part 2: ${Fail.need (solvePart2 numbers) "the filtering didn't end with one number"}"
+  IO.print "Part 2: ${solvePart2 numbers |> .orFail "the filtering didn't end with one number"}"
 
 --| A number is its bits, the most significant first; `True` is a 1.
 type Bits = List Bool

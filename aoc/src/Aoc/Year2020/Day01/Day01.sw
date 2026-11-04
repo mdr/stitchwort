@@ -21,8 +21,8 @@ import Std.Parse (nat, token)
 
 def main(): {IO, Fail} () :=
   let entries := parseEntries IO.readAll()
-  IO.print "Part 1: ${(solvePart1 entries).orFail "no two entries sum to 2020"}"
-  IO.print "Part 2: ${(solvePart2 entries).orFail "no three entries sum to 2020"}"
+  IO.print "Part 1: ${solvePart1 entries |> .orFail "no two entries sum to 2020"}"
+  IO.print "Part 2: ${solvePart2 entries |> .orFail "no three entries sum to 2020"}"
 
 --| One entry per line, spaces around it allowed. Anything else fails, naming
 --| the line and column.

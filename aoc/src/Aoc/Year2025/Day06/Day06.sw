@@ -25,7 +25,7 @@ namespace Aoc.Year2025.Day06
 import Std (Char, Fail, IO, Nat, Text)
 
 def main(): {IO, Fail} () :=
-  let problems := (checkWorksheet IO.readAllLines()).orFail
+  let problems := checkWorksheet IO.readAllLines() |> .orFail
   IO.print "Part 1: ${solvePart1 problems}"
   IO.print "Part 2: ${solvePart2 problems}"
 

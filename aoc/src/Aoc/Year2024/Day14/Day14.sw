@@ -36,7 +36,7 @@ def solveIn (space: Space): {IO, Fail} () :=
   robots.withIndex
     |> .map (((line, robot)) => Fail.ensure (space.contains robot.position) "line ${line + 1}: the robot starts outside the space")
   IO.print "Part 1: ${solvePart1 space robots}"
-  IO.print "Part 2: ${solvePart2 space robots |> .fold "none" Nat.toText}"
+  IO.print "Part 2: ${solvePart2 space robots |> .orFail "no second shows a picture"}"
 
 --| Where a robot is, and its velocity: tiles moved per second.
 type Robot = { position: Position, velocity: Offset }

@@ -16,8 +16,8 @@ import Std.Parse (label, lines, pick, section, takeWhile1, text)
 
 def main(): {IO, Fail} () :=
   let device := parseDevice IO.readAll()
-  IO.print "Part 1: ${solvePart1 device |> .fold "none: a wire starting with z gets no value" (number => "${number}")}"
-  IO.print "Part 2: ${solvePart2 device |> .getOrElse "the repair search found no four swaps that make an adder"}"
+  IO.print "Part 1: ${solvePart1 device |> .orFail "a wire starting with z gets no value"}"
+  IO.print "Part 2: ${solvePart2 device |> .orFail "the repair search found no four swaps that make an adder"}"
 
 --| A wire: bit `bit` of the first number (x), the second (y) or the result
 --| (z), or any other.

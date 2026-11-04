@@ -15,11 +15,7 @@ import Std.Parse (blankLine, char, natDigits, newline, nat, sepBy1, text)
 def main(): {IO, Fail} () :=
   let debugger := parseDebugger IO.readAll()
   IO.print "Part 1: ${solvePart1 debugger}"
-  let lowest :=
-    match solvePart2 debugger with
-      | Some a => "${a}"
-      | None => "none: no initial value of A outputs the program"
-  IO.print "Part 2: ${lowest}"
+  IO.print "Part 2: ${solvePart2 debugger |> .orFail "no initial value of A outputs the program"}"
 
 type Registers = { a: Nat, b: Nat, c: Nat }
 

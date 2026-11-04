@@ -24,8 +24,8 @@ import Std.Parse (blankLine, char, lines, many1, nat, sections, sepBy1, token)
 
 def main(): {IO, Fail} () :=
   let game := parseGame IO.readAll()
-  IO.print "Part 1: ${Fail.need (solvePart1 game) "no board wins"}"
-  IO.print "Part 2: ${Fail.need (solvePart2 game) "no board wins"}"
+  IO.print "Part 1: ${solvePart1 game |> .orFail "no board wins"}"
+  IO.print "Part 2: ${solvePart2 game |> .orFail "no board wins"}"
 
 --| A board is its rows of numbers.
 type Board = List (List Nat)
