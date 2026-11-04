@@ -1,5 +1,5 @@
 {
-  "next": 1239,
+  "next": 1243,
   "tickets": [
     {
       "id": 47,
@@ -5462,13 +5462,13 @@
     {
       "id": 1224,
       "title": "Flaky under load: lsp a_code_action_edit_names_its_document_version_when_the_client_can_use_it failed at 61.8 s (load average ~120) after the 8e merge, passed alone in 16.4 s; find what it waits for and whether 16 s is expected",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.\n\nStarted 4 Nov 2026 on Sonnet, expected: 45 min.\n\n\nProgress (lane): cause = the search elaborated the whole std library cold (the test's temp folder has no .stitchwort/cache; ~9 s) then tried every candidate within a 5 s wall-clock budget (one candidate, Std.Map.indexByKey, takes ~4 s to check). Fix: AtOptions.stop_after_closing + Options.search_wanted (3 in use); the three searching lsp tests set 1 and symlink a shared cache under CARGO_TARGET_TMPDIR. 16 s -> ~2 s warm (cold first run on a build still ~10-30 s). Not changed: aoc_navigation_matches_check_index and a_newer_edit_cancels_the_check_running took 240-350 s in the same run; library_navigation_survives_later_namespace_answers 50 s.\n",
+      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.\n\nStarted 4 Nov 2026 on Sonnet, expected: 45 min.\n\n\nProgress (lane): cause = the search elaborated the whole std library cold (the test's temp folder has no .stitchwort/cache; ~9 s) then tried every candidate within a 5 s wall-clock budget (one candidate, Std.Map.indexByKey, takes ~4 s to check). Fix: AtOptions.stop_after_closing + Options.search_wanted (3 in use); the three searching lsp tests set 1 and symlink a shared cache under CARGO_TARGET_TMPDIR. 16 s -> ~2 s warm (cold first run on a build still ~10-30 s). Not changed: aoc_navigation_matches_check_index and a_newer_edit_cancels_the_check_running took 240-350 s in the same run; library_navigation_survives_later_namespace_answers 50 s.\n\n\nMerged. Model result: Sonnet, worked, 35 min (est. 45).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": [
@@ -5672,6 +5672,64 @@
         "design"
       ],
       "body": "Matt, 4 Nov 2026: 'I think it might be interesting to consider a total modular operator. Add it to the backlog as something to consider. We would want to do a design review of simple languages in the space.' From AoC 2020 day 3 friction item 1 (aoc/NOTES-2020.md). Migration cost (hashes, sweeps) doesn't count; judge by end state. Survey: Lean 4, Idris 2, Agda, Rocq, F*, Dafny, Liquid Haskell, Koka, Gleam, Elm, Roc, Lean's x/0 = 0 convention and its effect on lemmas.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1239,
+      "title": "Search ranks Std.Map.indexByKey _ (n+m) (Nat.add m) n ? among the first candidates for m + n = n + m, and checking it takes about 4 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search",
+        "performance"
+      ],
+      "body": "Found by SW-1224, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1240,
+      "title": "Search deadline overshoots: --time 5s ran checks for 10.8 s; the per-check budget isn't enforced strictly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "Found by SW-1224, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1241,
+      "title": "LSP code action in a folder with no .stitchwort/cache elaborates the whole standard library per request (~9 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp",
+        "performance"
+      ],
+      "body": "Found by SW-1224, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1242,
+      "title": "Slow LSP tests under load: aoc_navigation_matches_check_index (240-343 s), a_newer_edit_cancels_the_check_running (267-347 s), library_navigation_survives_later_namespace_answers (~50 s); time on an idle machine and find what they wait on",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Found by SW-1224, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
