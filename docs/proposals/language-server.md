@@ -742,6 +742,7 @@ and exactly these capabilities:
 {
   "textDocumentSync": { "openClose": true, "change": 1, "save": { "includeText": true } },
   "definitionProvider": true,
+  "documentLinkProvider": true,
   "hoverProvider": true,
   "referencesProvider": true,
   "documentSymbolProvider": true,
@@ -762,7 +763,8 @@ pause before a check starts. The default is 100 ms; the tests use 0.
 | `textDocument/didSave` | Records the saved text as the file's text on disk. This only decides when the check cache may be written. |
 | `workspace/didChangeWatchedFiles` | Reads the file from disk again, unless it's open. The server doesn't register for this notification itself; a client may send it. |
 | `textDocument/publishDiagnostics` (sent) | With the document's `version` for open files, and none for others. Sent for a file when its diagnostics change, or when the version they're for changes. `code` is the error code (`E-TYPE-MISMATCH`), `source` is `stitchwort`. The message is the main text, then the first label and the notes (`Note: …`), one per line, as the extension showed them. Other labels are `relatedInformation`. Diagnostics with no place go on the project's `stitchwort.yaml`. |
-| `textDocument/definition` | One `Location`, or `null`. |
+| `textDocument/definition` | One `Location`, or `null`. On an `include "path"` string, the included file's start. |
+| `textDocument/documentLink` | One link per `include`, over its string literal, to the included file; none for a path that is missing or outside the project folder. |
 | `textDocument/hover` | Markdown: the type in a `stitchwort` code block, then the kind and the full name (``def `Aoc.Year2025.Day01.parseTurns` ``, `local` for a local). The range is the name's. |
 | `textDocument/references` | Every use in the project, sorted by file and position, plus the declaration if `includeDeclaration`. |
 | `textDocument/documentSymbol` | `DocumentSymbol`s nested by container (a type's constructors and fields under it). `detail` is the type, or the kind when there's no type. |

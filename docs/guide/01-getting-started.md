@@ -146,7 +146,7 @@ Its tabs check the code, run its tests, evaluate an expression, show the generat
 
 - errors and warnings as you type, for single files and whole projects;
 - hover: a name's type, full name and doc comment, or the type of the selected expression;
-- go to definition and find references, including into the standard library, whose files open read-only;
+- go to definition and find references, including into the standard library, whose files open read-only; an `include "path"` string is a link that opens the included file;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);
 - formatting (Format Document and Format Selection);

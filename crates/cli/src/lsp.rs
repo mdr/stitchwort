@@ -26,10 +26,10 @@ use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::{
-    DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse,
-    GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent, MarkupKind,
-    NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, Url,
-    WorkspaceSymbolResponse, notification, request,
+    DiagnosticRelatedInformation, DiagnosticSeverity, DocumentLink, DocumentSymbol,
+    DocumentSymbolResponse, GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent,
+    MarkupKind, NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind,
+    Url, WorkspaceSymbolResponse, notification, request,
 };
 use stitchwort_core::collections::HashMap;
 use stitchwort_driver::at as pos;
@@ -111,6 +111,7 @@ pub fn capabilities() -> serde_json::Value {
             "save": { "includeText": true }
         },
         "definitionProvider": true,
+        "documentLinkProvider": true,
         "hoverProvider": true,
         "completionProvider": { "triggerCharacters": ["(", "["] },
         "selectionRangeProvider": true,
@@ -825,6 +826,14 @@ impl Main<'_> {
         Some(items)
     }
 
+    /// The text of a document: the editor's, or the file's on disk.
+    fn text(&self, uri: &Url) -> Option<String> {
+        if let Some(text) = self.texts.borrow().get(uri).cloned() {
+            return Some(text);
+        }
+        std::fs::read_to_string(uri.to_file_path().ok()?).ok()
+    }
+
     fn answer(&self, request: Request) -> Response {
         let id = request.id.clone();
         let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
@@ -832,10 +841,22 @@ impl Main<'_> {
             request::GotoDefinition::METHOD => parse::<lsp_types::GotoDefinitionParams>(&request)
                 .map(|p| {
                     let at = p.text_document_position_params;
-                    let found = lookup(&nav, &at.text_document.uri, at.position);
-                    let location = found.and_then(|(root, ws, r)| ws.location(root, &r.target));
+                    let uri = &at.text_document.uri;
+                    let include = self
+                        .text(uri)
+                        .and_then(|text| include_definition(&nav, uri, &text, at.position));
+                    let found = lookup(&nav, uri, at.position);
+                    let location = include
+                        .or_else(|| found.and_then(|(root, ws, r)| ws.location(root, &r.target)));
                     serde_json::to_value(location.map(GotoDefinitionResponse::Scalar))
                 }),
+            request::DocumentLinkRequest::METHOD => {
+                parse::<lsp_types::DocumentLinkParams>(&request).map(|p| {
+                    let uri = p.text_document.uri;
+                    let text = self.text(&uri);
+                    serde_json::to_value(document_links(&nav, &uri, text.as_deref()))
+                })
+            }
             request::HoverRequest::METHOD => parse::<lsp_types::HoverParams>(&request).map(|p| {
                 let at = p.text_document_position_params;
                 // rust-analyzer's extension: a `range` beside the position,
@@ -1042,6 +1063,12 @@ fn locate<'n>(nav: &'n Nav, uri: &Url) -> Option<(&'n Path, &'n WorkspaceNav, Pl
             .find(|(_, ws)| ws.files.get(&place).is_some_and(|f| !f.refs.is_empty()))
             .map(|(root, ws)| (root.as_path(), ws, place));
     }
+    let (root, ws, place) = program_at(nav, uri)?;
+    ws.files.contains_key(&place).then_some((root, ws, place))
+}
+
+/// The workspace holding the program file `uri`, checked or not.
+fn program_at<'n>(nav: &'n Nav, uri: &Url) -> Option<(&'n Path, &'n WorkspaceNav, Place)> {
     let path = uri.to_file_path().ok()?;
     nav.workspaces.iter().find_map(|(root, ws)| {
         let place = if ws.project {
@@ -1053,9 +1080,7 @@ fn locate<'n>(nav: &'n Nav, uri: &Url) -> Option<(&'n Path, &'n WorkspaceNav, Pl
         } else {
             return None;
         };
-        ws.files
-            .contains_key(&place)
-            .then_some((root.as_path(), ws, place))
+        Some((root.as_path(), ws, place))
     })
 }
 
@@ -1077,6 +1102,82 @@ fn lookup<'n>(
     let file = ws.files.get(&place)?;
     let r = pos::reference_at(file, &place, at.line, at.character)?;
     Some((root, ws, r))
+}
+
+/// The `include`s in `text`: the path written and the span of its string,
+/// quotes included.
+fn includes(text: &str) -> Vec<(String, stitchwort_syntax::Span)> {
+    let file = SourceMap::new().add("include.sw", text);
+    let Ok(tokens) = stitchwort_syntax::lex(file, text) else {
+        return Vec::new();
+    };
+    tokens
+        .windows(2)
+        .filter(|pair| pair[0].tok == stitchwort_syntax::Tok::KwInclude)
+        .filter_map(|pair| match &pair[1].tok {
+            stitchwort_syntax::Tok::Str(path) => Some((path.clone(), pair[1].span)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Where an `include` in the program file `place` of workspace `root`
+/// points: the file's URI, if the path stays inside the include root and
+/// the file can be read, as the checker requires.
+fn include_target(root: &Path, project: bool, place: &Place, path: &str) -> Option<Url> {
+    let (from, folder): (&str, &Path) = match place {
+        Place::Program(from) if project => (from, root),
+        Place::Program(from) => (
+            Path::new(from).file_name().and_then(|n| n.to_str())?,
+            Path::new(from).parent()?,
+        ),
+        Place::Library(_) => return None,
+    };
+    let full = stitchwort_elab::project::resolve_include(from, path)?;
+    let files = DiskFiles {
+        root: folder.to_path_buf(),
+    };
+    stitchwort_elab::project::IncludeFiles::read(&files, &full).ok()?;
+    Url::from_file_path(folder.join(full)).ok()
+}
+
+/// The document links for the `include`s in `text`.
+fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink> {
+    let Some(text) = text else {
+        return Vec::new();
+    };
+    let Some((root, ws, place)) = program_at(nav, uri) else {
+        return Vec::new();
+    };
+    includes(text)
+        .into_iter()
+        .filter_map(|(path, span)| {
+            let target = include_target(root, ws.project, &place, &path)?;
+            Some(DocumentLink {
+                range: lsp_types::Range::new(
+                    position_at(text, span.start as usize),
+                    position_at(text, span.end as usize),
+                ),
+                target: Some(target),
+                tooltip: None,
+                data: None,
+            })
+        })
+        .collect()
+}
+
+/// The definition of an `include` string at `at`: the included file's start.
+fn include_definition(nav: &Nav, uri: &Url, text: &str, at: Position) -> Option<Location> {
+    let (root, ws, place) = program_at(nav, uri)?;
+    let offset = offset_at(text, at);
+    let (path, _) = includes(text)
+        .into_iter()
+        .find(|(_, span)| span.start as usize <= offset && offset < span.end as usize)?;
+    let target = include_target(root, ws.project, &place, &path)?;
+    Some(Location::new(
+        target,
+        lsp_types::Range::new(Position::new(0, 0), Position::new(0, 0)),
+    ))
 }
 
 /// The identifier the position is in or at the end of, as a range.

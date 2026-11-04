@@ -59,6 +59,7 @@ impl Client {
         assert_eq!(caps["textDocumentSync"]["change"], 1, "{reply}");
         for p in [
             "definitionProvider",
+            "documentLinkProvider",
             "hoverProvider",
             "referencesProvider",
             "documentSymbolProvider",
@@ -344,6 +345,88 @@ fn a_file_on_its_own_as_you_type() {
         back["contents"]["value"].as_str().unwrap().contains("Nat"),
         "{back}"
     );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `include "data/input.txt"` in a project's file: go to definition on the
+/// string opens the included file, and the string is a document link there
+/// (SW-1280).
+#[test]
+fn an_include_goes_to_its_file_and_is_a_link() {
+    let dir = temp_dir("include");
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the include test\n");
+    let text = "namespace Data\n\ndef input: Text := include \"data/input.txt\"\n";
+    write("src/Data/Data.sw", text);
+    write("src/Data/data/input.txt", "1 2 3\n");
+    let target = uri(&dir.join("src/Data/data/input.txt"));
+    let uri = uri(&dir.join("src/Data/Data.sw"));
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+
+    let line = 2;
+    let quote = text.lines().nth(line).unwrap().find("\"data").unwrap() as u32;
+    let definition = client.at("textDocument/definition", &uri, line as u32, quote + 1);
+    assert_eq!(
+        definition,
+        json!({
+            "uri": target,
+            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 0}}
+        }),
+        "{definition}"
+    );
+
+    let links = client.request(
+        "textDocument/documentLink",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let links = links.as_array().unwrap();
+    assert_eq!(links.len(), 1, "{links:?}");
+    let end = quote + "\"data/input.txt\"".len() as u32;
+    assert_eq!(
+        links[0]["range"],
+        json!({"start": {"line": line, "character": quote}, "end": {"line": line, "character": end}}),
+        "{links:?}"
+    );
+    assert_eq!(links[0]["target"], target, "{links:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// An `include` whose file is missing has no link and no definition; the
+/// diagnostic says why (SW-1280).
+#[test]
+fn a_missing_include_has_no_link_or_definition() {
+    let dir = temp_dir("include-missing");
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the missing include test\n");
+    let text = "namespace Data\n\ndef input: Text := include \"data/missing.txt\"\n";
+    write("src/Data/Data.sw", text);
+    let uri = uri(&dir.join("src/Data/Data.sw"));
+    let mut client = Client::start();
+    client.open(&uri, text);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(codes(&found), ["E-INCLUDE-MISSING"], "{found:?}");
+
+    let line = 2;
+    let quote = text.lines().nth(line).unwrap().find("\"data").unwrap() as u32;
+    let definition = client.at("textDocument/definition", &uri, line as u32, quote + 1);
+    assert!(definition.is_null(), "{definition}");
+    let links = client.request(
+        "textDocument/documentLink",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    assert_eq!(links, json!([]), "{links}");
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

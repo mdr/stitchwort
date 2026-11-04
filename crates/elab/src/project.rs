@@ -52,6 +52,27 @@ pub trait IncludeFiles {
     fn read(&self, path: &str) -> std::io::Result<String>;
 }
 
+/// The path an `include` written in the file at `from` names, relative to
+/// the include root, or `None` if it leaves the root. `from` is that file's
+/// own path in the root, so the path is relative to its folder.
+pub fn resolve_include(from: &str, path: &str) -> Option<String> {
+    if path.starts_with('/') || path.contains('\\') {
+        return None;
+    }
+    let mut parts: Vec<&str> = from.split('/').collect();
+    parts.pop();
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            part => parts.push(part),
+        }
+    }
+    Some(parts.join("/"))
+}
+
 impl Elaborator {
     /// Lets `include` read from `files`.
     pub fn set_include_files(&mut self, files: std::rc::Rc<dyn IncludeFiles>) {
@@ -89,8 +110,6 @@ impl Elaborator {
         ) else {
             return Err(unavailable());
         };
-        let mut parts: Vec<&str> = from.split('/').collect();
-        parts.pop();
         let outside = || {
             Diagnostic::error(
                 "E-INCLUDE-OUTSIDE",
@@ -102,21 +121,9 @@ impl Elaborator {
                  the file's folder); the path is relative to the file that includes it",
             )
         };
-        if path.starts_with('/') || path.contains('\\') {
+        let Some(full) = resolve_include(from, path) else {
             return Err(outside());
-        }
-        for part in path.split('/') {
-            match part {
-                "" | "." => {}
-                ".." => {
-                    if parts.pop().is_none() {
-                        return Err(outside());
-                    }
-                }
-                part => parts.push(part),
-            }
-        }
-        let full = parts.join("/");
+        };
         let read = files.read(&full);
         if let Ok(text) = &read {
             // For the check cache: an entry is only good while the files
