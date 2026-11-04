@@ -51,6 +51,10 @@ pub struct AtOptions {
     /// The induction hypothesis and the goal's hypotheses are offered
     /// regardless.
     pub within: Vec<String>,
+    /// Stop trying candidates once this many have closed the goal (rather
+    /// than only applying to it): for the code action, which shows no more
+    /// than that. None: try them all.
+    pub stop_after_closing: Option<usize>,
 }
 
 impl Default for AtOptions {
@@ -62,6 +66,7 @@ impl Default for AtOptions {
             all: false,
             exclude: Vec::new(),
             within: Vec::new(),
+            stop_after_closing: None,
         }
     }
 }
@@ -758,6 +763,15 @@ impl Session {
             }
         }
         'hits: for (order, (hit, plans)) in closing.plans.iter().enumerate() {
+            if let Some(wanted) = options.stop_after_closing
+                && results
+                    .iter()
+                    .filter(|(s, _)| s.class != "applicable")
+                    .count()
+                    >= wanted
+            {
+                break;
+            }
             let rank = ranks.iter().position(|i| *i == hit.item).unwrap_or(0) + 1;
             let mut best: Option<Suggestion> = None;
             for plan in plans {

@@ -655,6 +655,7 @@ fn run(cli: Cli) -> ExitCode {
                     all,
                     exclude: Vec::new(),
                     within,
+                    stop_after_closing: None,
                 };
                 return search_at(
                     &at,

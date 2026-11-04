@@ -207,6 +207,19 @@ fn temp_dir(name: &str) -> PathBuf {
     dir.canonicalize().unwrap()
 }
 
+/// Gives `dir` the check cache that the tests share (`.stitchwort/cache`,
+/// where the server looks), so that a proof search replays the standard
+/// library from it rather than elaborating all of it: seconds saved, and
+/// not dependent on the load. The first run of the tests on a build fills it.
+fn use_shared_cache(dir: &Path) {
+    let shared = Path::new(env!("CARGO_TARGET_TMPDIR")).join("lsp-check-cache");
+    std::fs::create_dir_all(&shared).unwrap();
+    let stitchwort = dir.join(".stitchwort");
+    std::fs::create_dir_all(&stitchwort).unwrap();
+    std::fs::write(stitchwort.join(".gitignore"), "*\n").unwrap();
+    std::os::unix::fs::symlink(&shared, stitchwort.join("cache")).unwrap();
+}
+
 fn uri(path: &Path) -> String {
     lsp_types::Url::from_file_path(path).unwrap().to_string()
 }
@@ -2075,11 +2088,12 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
 #[test]
 fn a_code_action_at_a_goal_offers_what_closes_it() {
     let dir = temp_dir("code-action");
+    use_shared_cache(&dir);
     let file = dir.join("swap.sw");
     let text = "import Std (Nat)\n\ntheorem swap (m: Nat) (n: Nat): m + n = n + m := ?\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
-    let mut client = Client::start();
+    let mut client = Client::start_with(first_proof_only());
     client.open(&uri, text);
     client.diagnostics(&uri, 1);
     let actions = |client: &mut Client, line: u32, character: u32| {
@@ -2117,6 +2131,7 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
 #[test]
 fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
     let dir = temp_dir("code-action-project");
+    use_shared_cache(&dir);
     let write = |path: &str, text: &str| {
         let file = dir.join(path);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -2140,7 +2155,7 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
     let uri = uri(&file);
     let text =
         format!("{saved}\ntheorem swapped (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := ?\n");
-    let mut client = Client::start();
+    let mut client = Client::start_with(first_proof_only());
     client.open(&uri, &text);
     let published = client.diagnostics(&uri, 1);
     assert_eq!(published.len(), 1, "{published:?}");
@@ -2378,16 +2393,26 @@ fn swap_action(client: &mut Client, uri: &str) -> RequestId {
     )
 }
 
+/// Options for a test that reads one closing proof: the search stops at
+/// the first, rather than trying every candidate within a wall-clock budget
+/// (one candidate takes seconds to check, more under load).
+fn first_proof_only() -> Options {
+    let mut options = Options::new(STACK);
+    options.search_wanted = 1;
+    options
+}
+
 /// A client that applies versioned edits gets `documentChanges` naming the
 /// version the search read; one that doesn't gets plain `changes`.
 #[test]
 fn a_code_action_edit_names_its_document_version_when_the_client_can_use_it() {
     let dir = temp_dir("action-versioned");
+    use_shared_cache(&dir);
     let file = dir.join("swap.sw");
     std::fs::write(&file, SWAP).unwrap();
     let uri = uri(&file);
     let caps = json!({"workspace": {"workspaceEdit": {"documentChanges": true}}});
-    let mut client = Client::start_with_capabilities(Options::new(STACK), caps);
+    let mut client = Client::start_with_capabilities(first_proof_only(), caps);
     client.open(&uri, SWAP);
     client.diagnostics(&uri, 1);
     let id = swap_action(&mut client, &uri);
