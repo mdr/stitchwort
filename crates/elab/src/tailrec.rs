@@ -182,6 +182,8 @@ struct Walk<'a> {
     cur: Span,
     errors: Vec<(Span, Why)>,
     mutual_calls: Vec<(Span, String)>,
+    /// The term was nested too deeply to walk.
+    failed: Option<Diagnostic>,
 }
 
 impl Elaborator {
@@ -221,6 +223,7 @@ impl Elaborator {
             cur: def.span(),
             errors: Vec::new(),
             mutual_calls: Vec::new(),
+            failed: None,
         };
         walk.visit(unit, &Pos::Tail);
         walk.finish(def.span())
@@ -292,6 +295,9 @@ fn spine(t: &Term) -> (&Term, Vec<(&Term, bool)>) {
 
 impl Walk<'_> {
     fn finish(self, def_span: Span) -> Result<()> {
+        if let Some(d) = self.failed {
+            return Err(d);
+        }
         if !self.mutual_calls.is_empty() {
             let mut d = Diagnostic::error(
                 "E-TAILREC",
@@ -459,6 +465,13 @@ impl Walk<'_> {
     }
 
     fn walk(&mut self, t: &Term, pos: &Pos, depth: usize) {
+        if self.failed.is_some() {
+            return;
+        }
+        if let Err(d) = self.g.machine.budget.nesting("tail-call checker") {
+            self.failed = Some(d.into());
+            return;
+        }
         match t {
             Term::Loc(span, inner) => {
                 let saved = self.cur;
