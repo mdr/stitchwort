@@ -1,5 +1,5 @@
 {
-  "next": 1186,
+  "next": 1192,
   "tickets": [
     {
       "id": 47,
@@ -4890,6 +4890,96 @@
         "test"
       ],
       "body": "SW-1182: a silently skipped kernel refusal (E-TYPE-MISMATCH, 'type mismatch') was matched by an unrelated user error with the same message, so the oracle fired on a case that wasn't a user-visible bug. Compare code, message and labels instead. Also: per-alternative check would let catch-all branches of generalising matches keep their equations (small loss today).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1186,
+      "title": "Globals split 8a: read views; Env inside Globals with private fields; test bypasses behind test-bypass",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1187,
+      "title": "Globals split 8b: the elaborator's facts (js, defaults, param_defaults, update_shown, unfinished) out of Env into Tables",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1188,
+      "title": "Globals split 8c: the kernel is given each declaration's path; module moves to Unit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1189,
+      "title": "Globals split 8d: core::Machine (budget, glue, transparency, erasure, apart_sets) and EvalCaches; failed_mentioned into Decl",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1190,
+      "title": "Globals split 8e: Ev context with &dyn Metas; admission with NoMetas and kernel modes; meta store into Attempt; Globals deleted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1191,
+      "title": "Globals split 8f: the meta store's mark/restore destructure it; queue mirrors become views (G2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "core"
+      ],
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
