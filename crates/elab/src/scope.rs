@@ -58,6 +58,7 @@ pub const PRELUDE: &[&str] = &[
     "Not",
     "And",
     "Or",
+    "Exists",
     "Decidable",
     "Option",
     "Result",
