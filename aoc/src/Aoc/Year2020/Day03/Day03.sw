@@ -38,8 +38,7 @@ def parseMap (input: Text): {Fail} Grid Square := parseGrid input square
 type Slope = { right: Nat, down: Nat }
 
 --| The trees at each step on `slope` from the top left, the first step's
---| square onwards, until a step goes past the bottom. A map has a column
---| (`Grid.widthNonZero`), which `%` finds in scope.
+--| square onwards, until a step goes past the bottom.
 def treesOn (map: Grid Square) (slope: Slope): Nat :=
   let nonZero := map.widthNonZero
   let find := map.lookupOr Open
