@@ -5316,14 +5316,14 @@
     {
       "id": 1214,
       "title": "Design note: list-building syntax, [x, ..xs] spread in list expressions (symmetric with list patterns) rather than an infix ::",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "syntax"
       ],
-      "body": "D2309 (Matt, 4 Nov 2026): yes, likes the spread; write the design note. Today: list patterns have [x, ..rest]; expressions have no spread and no :: (docs/syntax.md). Opus, expected: 60 min.",
+      "body": "D2309 (Matt, 4 Nov 2026): yes, likes the spread; write the design note. Today: list patterns have [x, ..rest]; expressions have no spread and no :: (docs/syntax.md). Opus, expected: 60 min.\n\nProgress (Opus, 4 Nov 2026): wrote docs/proposals/list-spread.md. Recommends [a, b, ..xs], .. last and once, goals print open Cons chains as [a, ..xs], no :: or :, no sweep. Decisions D2320-D2324. Implementation: one Sonnet lane, about 2 h. Merged. Model result: Opus, worked, 7 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
