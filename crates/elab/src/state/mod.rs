@@ -34,6 +34,7 @@ mod journal;
 mod metas;
 mod options;
 mod owners;
+pub(crate) mod paths;
 mod presentation;
 mod session;
 mod table;

@@ -22,6 +22,7 @@ use stitchwort_core::value::force;
 use stitchwort_core::{DefId, Ev, Value};
 use stitchwort_elab::counterexample::Budget;
 
+use crate::axioms::AxiomWalk;
 use crate::counterexample::{TheoremSearch, Verdict};
 use crate::driver::Session;
 
@@ -144,13 +145,20 @@ pub fn unknown_axioms<'a>(allowed: impl IntoIterator<Item = &'a String>) -> Vec<
 impl Session {
     /// Audits each of `theorems` (as [`theorems`] gives them).
     pub fn audit(&mut self, theorems: &[(DefId, String)], options: &Options) -> Vec<TheoremAudit> {
+        let mut walk = AxiomWalk::new();
         theorems
             .iter()
-            .map(|(id, name)| self.audit_one(*id, name, options))
+            .map(|(id, name)| self.audit_one(*id, name, options, &mut walk))
             .collect()
     }
 
-    fn audit_one(&mut self, id: DefId, name: &str, options: &Options) -> TheoremAudit {
+    fn audit_one(
+        &mut self,
+        id: DefId,
+        name: &str,
+        options: &Options,
+        walk: &mut AxiomWalk,
+    ) -> TheoremAudit {
         let g = &self.elab.ev();
         let status = match g.def(id).state() {
             State::Final => Status::Checked,
@@ -185,7 +193,7 @@ impl Session {
             }
             Status::Checked => {}
         }
-        audit.axioms = crate::axioms::axioms(g, id).into_iter().collect();
+        audit.axioms = walk.axioms(g, id).into_iter().collect();
         let refused: Vec<&str> = (audit.axioms.iter().copied())
             .filter(|a| !options.allowed.contains(*a))
             .collect();

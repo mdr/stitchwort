@@ -1,5 +1,5 @@
 {
-  "next": 1206,
+  "next": 1224,
   "tickets": [
     {
       "id": 47,
@@ -3921,15 +3921,15 @@
     {
       "id": 1116,
       "title": "Editor foundation: position-based answers (goal at cursor, hover, signature, quick fixes) in crates/driver, shared by the LSP and the playground; elaborator probe for expected type and locals at a cursor",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2304 (Matt, 4 Nov 2026): keep in next; may pick up soon.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4969,14 +4969,14 @@
     {
       "id": 1190,
       "title": "Globals split 8e: Ev context with &dyn Metas; admission with NoMetas and kernel modes; meta store into Attempt; Globals deleted",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Opus (the trust boundary), expected: 180 min (8e-1 then 8e-2 as separate commits). Applies D2291, D2294.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Opus (the trust boundary), expected: 180 min (8e-1 then 8e-2 as separate commits). Applies D2291, D2294.\n\n\nProgress (lane, 4 Nov 2026): 8e-1 d3e2440d (Ev, mechanical sweep); 8e-2 2bd54e18 (core::Kernel = Globals less the store and the hints; admission in `in_kernel_modes`; `MetaStore` in `Attempt`; `Shown` on the Elaborator; Globals, PrintHints, FailedMention deleted). New tests for G5 (elab `kernel::tests`) and G1 (core `opaque.rs`). Tests: test:lane AREA=core 174/174; elab undo + kernel tests + postponement/rewind/check_cache/hash_stability 75/75; fuzz_elab FUZZ_CASES=200 passed. aoc `--no-cache`: 652.8G → 651.9G instructions, peak footprint 1.568 → 1.564 GB. Deviation from the note: admission takes `&mut Kernel` (env, machine, caches), not `(&mut Env, &Machine)`; see §6 as-built. ~115 min of 180.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5127,13 +5127,13 @@
     {
       "id": 1201,
       "title": "audit: memoise the axiom walk across theorems (35% of audit --no-search on aoc, ~1.6 s of 4.7 s)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.\n\nD2303 (Matt, 4 Nov 2026): do it. DeepSeek in scratch clone scratch-sw-1201, expected: 45 min.\n",
+      "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.\n\nD2303 (Matt, 4 Nov 2026): do it. DeepSeek in scratch clone scratch-sw-1201, expected: 45 min.\n\n\nMeasured (DeepSeek, warm, one run each): aoc audit --no-search 5.73 -> 3.68 s CPU, output identical. Model result: DeepSeek, worked, 31 min (est. 45). Nit filed: Tarjan arrays sized to the whole environment are allocated per theorem.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5141,16 +5141,18 @@
     {
       "id": 1202,
       "title": "Cache decode repeats work per namespace: name->id map rebuilt 207 times (quadratic, ~0.13 s) and dependency hashes recomputed (~0.13 s)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.\n\nD2303 (Matt, 4 Nov 2026): do it; cache format bumps are fine, aim for the best end state. Sonnet, expected: 60 min.\n",
+      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.\n\nD2303 (Matt, 4 Nov 2026): do it; cache format bumps are fine, aim for the best end state. Sonnet, expected: 60 min.\n\nLane notes (Sonnet, 4 Nov 2026): done in about 55 min, commit on lane/SW-1202. `state/paths.rs` (DeclPaths, in Session, filled lazily, cut by rewind and by a refused replay); entries carry each own declaration's content hash, seeded into the hash cache on admission (FORMAT 24). Encode uses the same index. Whole-project saving on aoc is 0.1-0.3 s CPU, within noise on the loaded machine. Targeted tests pass (check_cache, rewind, namespaces, hash_stability, pinned_hashes).\n\n\nMerged. Saving 0.0-0.37 s CPU per whole load (7 of 8 pairings ahead, load 25-96). Model result: Sonnet, worked, 54 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "3ab2aa0e"
+      ]
     },
     {
       "id": 1203,
@@ -5190,6 +5192,265 @@
         "perf"
       ],
       "body": "SW-1199 finding 6; not investigated.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1206,
+      "title": "AoC 2020 day 1 in Stitchwort (spec, solution, proof where natural, input test, NOTES-2020.md)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "lane/SW-1206",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\nDone 4 Nov 2026 (lane/SW-1206, 8a5e5089, about 20 min of the 120 estimated). Answers: example 514579 / 241861950, input 1016619 / 218767230, all matching Matt's Scala. Both parts proved sound and complete against a brute-force spec (`part1Correct`, `part2Correct` when the answer is unique). Audit: 29 theorems, 0 failed, 2 warnings (narrow hypotheses `solvePart1 entries = Some answer`, not vacuous). Tests: 14 aoc tests pass; aoc_answers `year2020_day01` added and passing. Friction notes in aoc/NOTES-2020.md (ranked list at the end).\n\n\nMerged. Answers match the Scala (1016619, 218767230); both parts proved against the brute-force spec. 20 min (est. 120). Friction review with Matt pending before day 2.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1207,
+      "title": "AxiomWalk allocates Tarjan arrays sized to the whole environment for every theorem; keep them in the walk",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1201 review nit: Tarjan::new(count) with count = defs + datas, six arrays per audit_one call. Keep and reuse (or use maps keyed by node) for another small audit saving.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1208,
+      "title": "Std/prelude from AoC 2020 day 1: List.combinations k (with length and membership lemmas), membership lemmas for List.pairs of a Cons, Exists in the prelude",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.\n\n\nProgress (lane): done, commit fbfa2fd4 on lane/SW-1208. Added List.combinations (xs k), memCombinations/combinationsMem/memCombinationsCons/One/Two, lengthCombinationsCons (no Nat.choose in std, so no binomial), List.memMapPair, List.memPairsCons; Exists in scope.rs PRELUDE; Day01 spec uses combinations 3 and proofs shortened. Prelude hash snapshot gains only new entries; new example exists-in-prelude.\n\n\nMerged. Model result: Sonnet, worked, 28 min (est. 90).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1209,
+      "title": "Messages from AoC 2020 day 1: let f (y: Nat) parse error points at local def; E-REWRITE-NOTHING leads with 'already refined by the match'; goals list an arm's pattern variables before the hypotheses that mention them",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "diagnostics",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1210,
+      "title": "Counterexample search: satisfy hypotheses of the form f x = y / f x = Some y by computing y from generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit",
+        "aoc"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings). From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1211,
+      "title": "AoC 2020 day 2 in Stitchwort",
+      "status": "done",
+      "agent": "Opus",
+      "where": "lane/SW-1211 (.claude/worktrees/SW-1211)",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\n\nProgress (lane, 4 Nov 2026): done on lane/SW-1211, commit ed7f733d. Answers 603 / 404 (example 2 / 1), matching Matt's Scala (sbt) and awk. Proved: both checks = spec for every entry (validByCountSpec, validByPositionSpec, letterAtSpec), both answers = spec for every list (part1Correct, part2Correct), parser soundness (parseWritten: each line is its entry written out). Not proved: parser completeness. Audit (task audit:touched): 13 theorems, 0 failed, 0 warnings. Breaking the program (low < times; 0-based get; text \":\") fails the proofs. Tests: stitchwort test (17 passed), task test:one -- year2020_day02 (passed). Friction in aoc/NOTES-2020.md \"Day 2\" (top: named parser must be restated for Parse.readsBind; Text lacks count/get/any/all; search misses DecEq.refl at Nat). Clippy not run (only a two-line edit to aoc_answers.rs; rustfmt --check clean). Took about 25 min by `date` (the machine's load was over 100, the test:one build took 8 min).\n\n\nMerged. Answers match the Scala (603, 404); both parts proved equal to the spec for every list; parser shown to read the format (not that every well-formed line parses). Friction review with Matt pending before day 3.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1212,
+      "title": "fmt drops the parentheses around a type after an ability row ({Fail} List Nat); docs/syntax.md examples and the library/aoc/examples reformatted to match",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "fmt"
+      ],
+      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1213,
+      "title": "Design note: a checked @[tailrec] attribute (error naming any recursive call not in tail position); what each backend (JS, interpreter, native) does with tail calls; performance as well as stack safety",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n\n4 Nov 2026 (lane, Opus): note written, docs/proposals/tailrec.md, commit eb7b028e on lane/SW-1213. Measured (user CPU, loaded machine): loops vs non-tail recursion 1.1-1.2x faster on run, 3.4-14x on --native, 2.8x on JS; JS non-tail recursion overflows at 6,000-8,000 deep. Machine and native already eliminate every tail call; JS loops self-calls and inlined forms. Recommendation: add it (one Sonnet lane, half a day to a day). Decisions D2310-D2315 in the note §7. Moved to review.\n\n\nMerged: docs/proposals/tailrec.md. Recommends @[tailrec] (one Sonnet lane, half a day to a day). Decisions D2310-D2315. Model result: Opus, worked, 20 min (est. 90).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1214,
+      "title": "Design note: list-building syntax, [x, ..xs] spread in list expressions (symmetric with list patterns) rather than an infix ::",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "syntax"
+      ],
+      "body": "D2309 (Matt, 4 Nov 2026): yes, likes the spread; write the design note. Today: list patterns have [x, ..rest]; expressions have no spread and no :: (docs/syntax.md). Opus, expected: 60 min.\n\nProgress (Opus, 4 Nov 2026): wrote docs/proposals/list-spread.md. Recommends [a, b, ..xs], .. last and once, goals print open Cons chains as [a, ..xs], no :: or :, no sweep. Decisions D2320-D2324. Implementation: one Sonnet lane, about 2 h. Merged. Model result: Opus, worked, 7 min (est. 60).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1215,
+      "title": "Std: Nat.choose and length (xs.combinations k) = choose (length xs) k; a Cons head injectivity lemma (List.consInjective covers only the tail)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "SW-1208 findings.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1216,
+      "title": "Sweep: rewrite prefix connectives (And/Or/Not/Iff, Not (x = y)) as operators (∧ ∨ ¬ ↔ ≠) across std, aoc, games and examples",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "cleanup"
+      ],
+      "body": "Matt, 4 Nov 2026: standing rule (proving guide 'Writing statements', CLAUDE.md) and sweep existing code to favour the shorthand. About 950 sites (Or ( 306, And ( 283, Not ( 278, Iff ( 78). Same terms, so the check is that no hash changes: hash_stability/pinned_hashes snapshots unchanged, audit unchanged. Leave Or.elim/And.left etc. and partial applications (e.g. a bare Or passed as a function) alone; mind precedence (add parentheses where needed). After SW-1212 (fmt drops row parentheses) so the two repo-wide edits don't collide.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1217,
+      "title": "Day 2 friction: Text.count/get/any/all with a lemma each; search finds generic DecEq.refl from a concrete ((?a: Nat) == ?a) = True; W-LAMBDA-SHADOW not for a function taking no arguments",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-1217",
+      "labels": [
+        "aoc-friction"
+      ],
+      "body": "D2330 (Matt, 4 Nov 2026): yes. From aoc/NOTES-2020.md day 2 items 2-4. Starts at the next free slot, ahead of SW-1209/SW-1212.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1217, expected: 60 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1218,
+      "title": "Design note + investigation: proofs about named definitions (parser proofs copy the parser's body for Parse.readsBind); why readsLine takes 4.6 s to check",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "proofs"
+      ],
+      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1219,
+      "title": "Error message: when matching fails because a name wasn't unfolded (e.g. Parse.readsBind against a named parser like Day02's line), say which name and how to proceed",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1220,
+      "title": "List spread: [a, ..xs, b, ..ys] in expressions (.. anywhere; non-final means ++), goals print open Cons chains as [a, ..xs], patterns .. last only, no ::; per docs/proposals/list-spread.md and D2325",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).\n\nD2325 (Matt, 4 Nov 2026), revising D2321: allow .. in any position in list expressions with the obvious meaning ([..xs, y] = xs ++ [y], [..xs, ..ys] = xs ++ ys, [a, ..xs, b] = Cons a (xs ++ [b])); a final spread stays a plain Cons chain; goals print ++ as ++. Patterns stay .. last only for now (a pattern [..init, last] gets an error explaining why). Update docs/proposals/list-spread.md to match. Estimate now about 2.5 h.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1221,
+      "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "cleanup"
+      ],
+      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1222,
+      "title": "@[tailrec]: checked attribute (E-TAILREC naming the non-tail call and what waits on it), on definitions, exports and local defs; true tail calls only; mutual recursion 'not covered yet'; effectful code same rule; JS fails loudly if it can't loop a marked definition; per docs/proposals/tailrec.md",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "D2310-D2314 (Matt, 4 Nov 2026): accepted as recommended. One Sonnet lane, half a day to a day (note's estimate). First check (note's risk): effectful recursive calls may be wrapped in row conversions and wrongly look non-tail; test on the effects examples early. Opus reviews (touches elaboration).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1223,
+      "title": "Editor hint for recursive functions: 'runs as a loop' or 'a frame per call (line N, under +)', no warning",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "D2315 (Matt, 4 Nov 2026): yes, after the @[tailrec] lane.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

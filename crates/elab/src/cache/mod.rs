@@ -50,6 +50,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::Kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::{Ctor, State};
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::native::Native;
@@ -69,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 23;
+pub const FORMAT: u32 = 24;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -854,8 +855,7 @@ struct Out<'g> {
     deps: Vec<Dep>,
     /// How many final definitions and data types have each path: only a
     /// path that names one declaration can be a reference.
-    def_paths: HashMap<&'g str, usize>,
-    data_paths: HashMap<&'g str, usize>,
+    paths: std::cell::Ref<'g, crate::state::paths::DeclPaths>,
     /// The files a span may be in, by id, with their names in an entry
     /// (`file_names`); the ones used so far, in the entry's file table.
     names: HashMap<FileId, String>,
@@ -891,7 +891,7 @@ impl Refs for Out<'_> {
                 ContentHash([0; 32])
             }
         };
-        if self.def_paths.get(&**def.path()) != Some(&1) {
+        if self.paths.unique_def(def.path()).is_none() {
             self.fail(format!("`{}` names more than one definition", def.path()));
         }
         let i = self.deps.len();
@@ -917,7 +917,7 @@ impl Refs for Out<'_> {
                 ContentHash([0; 32])
             }
         };
-        if self.data_paths.get(&**data.path()) != Some(&1) {
+        if self.paths.unique_data(data.path()).is_none() {
             self.fail(format!("`{}` names more than one data type", data.path()));
         }
         let i = self.deps.len();
@@ -962,6 +962,17 @@ impl Encoding<'_> {
     /// How many rows follow.
     pub(crate) fn count(&mut self, n: usize) {
         self.w.usize(n);
+    }
+
+    /// A declaration's content hash, if it has one.
+    fn hash(&mut self, hash: stitchwort_core::budget::Result<Option<ContentHash>>) {
+        match hash {
+            Ok(Some(h)) => {
+                self.w.bool(true);
+                self.w.raw(&h.0);
+            }
+            _ => self.w.bool(false),
+        }
     }
 
     pub(crate) fn str(&mut self, s: &str) {
@@ -1319,14 +1330,8 @@ impl Elaborator {
             return Err("a library test was kept".to_string());
         }
 
-        let mut def_paths: HashMap<&str, usize> = HashMap::default();
-        for def in g.env.defs() {
-            *def_paths.entry(def.path()).or_default() += 1;
-        }
-        let mut data_paths: HashMap<&str, usize> = HashMap::default();
-        for data in g.env.datas() {
-            *data_paths.entry(data.path()).or_default() += 1;
-        }
+        self.session.paths.borrow_mut().sync(g.env);
+        let paths = self.session.paths.borrow();
         // Each `unfolding` entry is written as a reference term. The term
         // writer knows a term by its address, so these live as long as the
         // encoding: a temporary would share its address with the next.
@@ -1342,8 +1347,7 @@ impl Elaborator {
                 ext_defs: HashMap::default(),
                 ext_datas: HashMap::default(),
                 deps: Vec::new(),
-                def_paths,
-                data_paths,
+                paths,
                 names: unit.file_names.clone(),
                 files: Vec::new(),
                 file_ids: HashMap::default(),
@@ -1440,6 +1444,7 @@ impl Elaborator {
             if let Some(run) = def.own_run_body() {
                 e.term(run);
             }
+            e.hash(def_hash(g, id));
         }
         e.w.usize(datas.len());
         for d in datas.clone().map(DataId) {
@@ -1502,6 +1507,7 @@ impl Elaborator {
             e.w.usize(data.defs_before() - before.defs);
             e.w.usize(data.datas_before() - before.datas);
             e.span(data.span());
+            e.hash(data_hash(g, d));
         }
         // The built-ins bound: replay binds them again the same way, and
         // checks it got these.
@@ -1810,6 +1816,8 @@ struct DefEntry {
     body: Term,
     group: Vec<usize>,
     run_body: Option<Term>,
+    /// Its content hash when the entry was written.
+    hash: Option<ContentHash>,
 }
 
 /// A constructor, read.
@@ -1836,6 +1844,8 @@ struct DataEntry {
     defs_before: usize,
     datas_before: usize,
     span: Span,
+    /// Its content hash when the entry was written.
+    hash: Option<ContentHash>,
 }
 
 /// A global, read: an ability by its operations' data type, which is
@@ -1886,6 +1896,15 @@ pub(crate) struct Body<'a> {
 }
 
 impl Body<'_> {
+    /// A declaration's content hash, if it was written with one.
+    fn hash(&mut self) -> Read<Option<ContentHash>> {
+        Ok(if self.r.bool()? {
+            Some(ContentHash(self.r.array::<32>()?))
+        } else {
+            None
+        })
+    }
+
     pub(crate) fn str(&mut self) -> Read<Name> {
         self.terms.name(&mut self.r)
     }
@@ -1994,11 +2013,6 @@ impl Body<'_> {
             })
             .collect()
     }
-}
-
-/// Finds a declaration by its path, if exactly one has it.
-fn unique<T: Copy>(map: &HashMap<&str, Option<T>>, path: &str) -> Option<T> {
-    map.get(path).copied().flatten()
 }
 
 /// What a namespace's replay reads before the rest of its entry (empty for
@@ -2132,29 +2146,17 @@ impl Elaborator {
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
-        let mut def_paths: HashMap<&str, Option<DefId>> = HashMap::default();
-        for (i, def) in g.env.defs().iter().enumerate() {
-            def_paths
-                .entry(def.path())
-                .and_modify(|e| *e = None)
-                .or_insert(Some(DefId(i)));
-        }
-        let mut data_paths: HashMap<&str, Option<DataId>> = HashMap::default();
-        for (i, data) in g.env.datas().iter().enumerate() {
-            data_paths
-                .entry(data.path())
-                .and_modify(|e| *e = None)
-                .or_insert(Some(DataId(i)));
-        }
+        self.session.paths.borrow_mut().sync(g.env);
+        let paths = self.session.paths.borrow();
         let mut ext_defs = vec![DefId(usize::MAX); deps.len()];
         let mut ext_datas = vec![DataId(usize::MAX); deps.len()];
         for (i, (kind, path, hash)) in deps.iter().enumerate() {
             let found = match kind {
-                0 => unique(&def_paths, path).and_then(|id| {
+                0 => paths.unique_def(path).map(DefId).and_then(|id| {
                     ext_defs[i] = id;
                     def_hash(g, id).ok().flatten()
                 }),
-                1 => unique(&data_paths, path).and_then(|id| {
+                1 => paths.unique_data(path).map(DataId).and_then(|id| {
                     ext_datas[i] = id;
                     data_hash(g, id).ok().flatten()
                 }),
@@ -2224,6 +2226,7 @@ impl Elaborator {
                 } else {
                     None
                 },
+                hash: body.hash()?,
             });
         }
         let n_defs = defs.len();
@@ -2271,6 +2274,7 @@ impl Elaborator {
                 defs_before: body.r.usize()?,
                 datas_before: body.r.usize()?,
                 span: body.span()?,
+                hash: body.hash()?,
             });
         }
         let n_datas = datas.len();
@@ -2414,11 +2418,28 @@ impl Elaborator {
             // Undo: nothing else refers to what was added yet.
             let g = &mut self.kernel;
             g.forget_declarations_from(base_defs, base_datas);
-            self.session.owners.truncate(crate::state::Ids {
+            let ids = crate::state::Ids {
                 defs: base_defs,
                 datas: base_datas,
-            });
+            };
+            self.session.owners.truncate(ids);
+            self.session.paths.get_mut().truncate(ids);
             return Err(why);
+        }
+        // What the entry says the declarations hash to: the next entries
+        // that name them are checked against these rather than hashing the
+        // terms again. An entry is sealed (`open`), and one that lies about
+        // a hash makes the entries written against the true one miss.
+        let mut hashes = self.kernel.caches.hashes.borrow_mut();
+        for (i, def) in defs.iter().enumerate() {
+            if let Some(h) = def.hash {
+                hashes.insert(HashKey::Def(DefId(base_defs + i)), h);
+            }
+        }
+        for (i, data) in datas.iter().enumerate() {
+            if let Some(h) = data.hash {
+                hashes.insert(HashKey::Data(DataId(base_datas + i)), h);
+            }
         }
         Ok(())
     }

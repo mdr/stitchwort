@@ -1074,7 +1074,9 @@ impl Elaborator {
         self.flush_navigation();
         self.kernel.rewind(mark);
         self.attempt.store.clear_metas();
-        self.session.owners.truncate(self.ids());
+        let ids = self.ids();
+        self.session.owners.truncate(ids);
+        self.session.paths.get_mut().truncate(ids);
     }
 
     pub(crate) fn clear_metas(&self) {

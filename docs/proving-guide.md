@@ -57,6 +57,16 @@ These aren't style. A lane that breaks one has to say so in its report.
    `last < target` makes `canMakeReaches` fail with a counterexample").
    Put the program back afterwards.
 
+### Writing statements (Matt, 4 Nov 2026)
+
+Statements are read by people deciding what was proved, so write them as
+statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
+`¬p`, `a ↔ b`, `x ≠ y`, `(x: T) → p`, `∃ (x: T) => p`, rather than
+`And a b`, `Or a b`, `Not p`, `Iff a b`, `Not (x = y)` or `Exists (x => p)`.
+They are the same terms (same hashes), so proofs that take them apart with
+`Inl`, `Both` and so on don't change. Write an ability row's result type
+without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
+
 ## 2. Workflow
 
 1. **State it with `?` first, and read the goal.** Write the statement with
