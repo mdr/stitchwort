@@ -1331,37 +1331,41 @@ agree.
 The domain types are the puzzle's nouns: a `Person` has the `Set Char` of
 the questions they answered "yes" to, a `Group` its `people`, with
 `Group.anyone` (the union) and `Group.everyone` (the intersection, from the
-set of all 26 questions, so no empty-group case):
+set of all 26 questions, so no empty-group case). The parser reads every
+line (`Parse.eachLine`, as day 5) as a person's or blank (`Option Person`),
+and the groups are what lies between the blank lines (`List.splitBy`):
 
 ```stitchwort
-type Person = { answers: Set Char }
-type Group = { people: List Person }
+def line(): {Parse} (Option Person) := Parse.oneOf [answers, blank]
 
-def Group.anyone (group: Group): Set Char := Set.unions (group.people.map (.answers))
+def groupsOf (lines: List (Option Person)): List Group :=
+  (lines.splitBy .isNone).map (people => { people = people.filterMap (answers => answers) })
 
-def Group.everyone (group: Group): Set Char :=
-  group.people.foldLeft (Set.fromList questions) (common person => common.intersect person.answers)
+def Group.anyone (group: Group): Set Char := Set.unions (group.people.map .answers)
 
-def solvePart1 (groups: List Group): Nat := groups.sumBy (group => group.anyone.size)
+def solvePart1 (groups: List Group): Nat := groups.sumBy (.anyone.size)
 ```
 
-It printed the right answers on the first run and 11 of the 15 tests passed
-the first time; the four that didn't were my guesses at the parser's
-messages (items below). The spec (`Spec/Spec.sw`) is the puzzle in its own
-terms, on a group as the lines its people wrote (`List (List Char)`):
-`anyone group question` is "some line has the letter", `everyone` "every
-line has it", `count yes group` is the number of the 26 `questions` for
-which `yes` holds, and the answers are the sums of those over the groups.
-The spec test splits the input at blank lines with `List.splitBy` and gets
-(6630, 3437).
+It printed the right answers on the first run. The spec (`Spec/Spec.sw`)
+is the puzzle in its own terms, on the input text: `groupsOf input` splits
+`input.lines` at the blank lines (nothing but spaces and tabs) into groups
+of lines; `anyone group question` is "some line has the letter", `everyone`
+"every line has it", `count yes group` is the number of the 26 `questions`
+for which `yes` holds, and `part1Answer input` / `part2Answer input` are
+the sums of those over the groups. The spec test gives (6630, 3437) on the
+input.
 
 Proved (`Aoc.Year2020.Day06.Proofs`):
 
-- `parseWritten`: if `parseGroups` reads the input, it is the groups
-  written out: groups separated by blank lines (`Parse.BlankLine`), people
-  by line breaks, then any final line breaks. `readsPerson`: each person's
-  line is at least one letter, all questions, and the person's answer set
-  has exactly the line's letters (`PersonWritten`).
+- `parseWritten`: if `parseLines` reads `input`, each line of it is a
+  person's or blank (`LineWritten`): a person's has at least one letter,
+  all questions, and the person's answer set has exactly the line's
+  letters.
+- `splitByRel` (Split.sw, general): `List.splitBy` on two lists whose
+  elements correspond and agree on which are separators gives corresponding
+  groups. With `blankAgrees` (the spec's blank line is the parser's) and
+  `groupLines`, the parser's groups are the spec's `groupsOf input`, line
+  by line (`groupsWritten`).
 - `unionContains`, `intersectContains`: folding the people's sets by union
   (intersection) holds what the accumulator holds or some line has (and
   what every line has). `anyQuestion`: whatever a line has is a question.
@@ -1370,55 +1374,53 @@ Proved (`Aoc.Year2020.Day06.Proofs`):
   both distinct with the same members, so they are a permutation).
 - `anyoneCount`, `everyoneCount`: a group's `anyone.size` (`everyone.size`)
   is the spec's `count anyone` (`count everyone`) of its lines.
-- `part1Correct`, `part2Correct`: for any groups and any lines they were
-  written as, the program's sum is the spec's. `correct`: for every input
-  the parser reads, there are such lines.
+- `part1Correct`, `part2Correct`: for every input the parser reads,
+  `solvePart1 groups = Spec.part1Answer input` and likewise part 2.
 
 Not proved: that every well-formed input parses (`Parse.Reads` is
-soundness only, as on days 2 to 5). `correct` says the lines exist and
-each group's lines are those its `PersonWritten` fixes; `parseWritten`
-says the input is the same groups written out, but the two aren't joined
-in one statement (the `reads` that `sepByReads` extracts are those of
-`parseWritten`'s `SepBy`, not stated to be). The spec doesn't split the
-input text at blank lines itself (the tests do, with `List.splitBy`).
+soundness only, as on days 2 to 5). The spec's blank line is the parser's
+(spaces and tabs only); an input with other whitespace on a "blank" line
+fails to parse (a test), so nothing is claimed for it.
 
 Breaking the program made the proofs fail: `common.union` for
 `common.intersect` in `Group.everyone` fails `everyoneCount` at
-`intersectContains` (E-TYPE-MISMATCH, naming both folds); `Parse.many` for
-`Parse.many1` in `person` fails `readsPerson` at the `List.appendNil`
-rewrite, with the hole message of day 5 item 5 (the spec is an unsolved
-`?14 …`), not the missing `nonEmpty`.
+`intersectContains` (E-TYPE-MISMATCH, naming both folds); `splitBy (line =>
+False)` for `splitBy .isNone` fails `groupsWritten` at `groupLines`.
 
 ### 1. `Parse.SepBy` doesn't tie the first value to the first read
 
-The proof of `parseWritten` needs each person's answer set to match their
-line, and a group's people to be the lines read. With std's
-`Parse.readsLines`/`Parse.readsSections`, `Parse.SepBy` is
+My first version parsed with `Parse.sections group` over `Parse.lines
+person`, as day 4. Its format theorem rests on `Parse.SepBy`, which is
 
 ```stitchwort
 def Parse.SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
   ∃ (first: a) => ∃ (rest: List a) => values = [first, ..rest] ∧ Parse.Then spec (v => Parse.Each (Parse.Then separator (u => spec))) read rest
 ```
 
-where `Parse.Then`'s own first value is existential and `v` is ignored, so
-the `first` of `values = [first, ..rest]` is not the value `spec` holds of
-the first read. This checks:
+where `Parse.Then`'s first value is existential and `v` is ignored, so the
+`first` of `values = [first, ..rest]` is not the value `spec` holds of the
+first read. This checks:
 
 ```stitchwort
 theorem weak: Parse.SepBy (read value => read = ['a'] ∧ value = 1) (read u => read = []) ['a'] [2] :=
   Witness 2 (Witness [] (Both rfl (Witness ['a'] (Witness [] (Witness 1 (Both rfl (Both (Both rfl rfl) rfl)))))))
 ```
 
-So everything stated with `Parse.SepBy` says nothing about the first
-value: day 4's `parseWritten` (first passport), day 5's `parseWritten`
-reads lines through `eachLineReads` and is not affected, and here the first
-person and first group. I found it when `sepByReads` couldn't be proved.
-The workaround is a local `SepBy` that ties them and a copy of
-`readsSepBy1`'s proof for it (`Proofs/Parse.sw`, 20 lines; its final
-weakening has the same facts, so only the statement changes). Fix in std:
-make the `Then` carry the value (`next` the rest of `values`, not ignore
-`v`), then day 4's use of `SepBy`'s destructuring changes by one pattern.
-This one weakens every format theorem in AoC and should be fixed early.
+So every format theorem stated with `Parse.SepBy` (day 4's `parseWritten`,
+for the first passport and the first field) says nothing about the first
+element. I found it when `sepByReads` couldn't be proved, worked around it
+with a local `SepBy` and a copy of `readsSepBy1`'s proof, and then dropped
+both: tying the parse to the input text meant relating `Text.lines` to the
+parser's reads (no lemmas about `Text.lines` in std, and the final
+`ending` of `Parse.allReads` may be any run of `\n` and `\r`, so a stray `\r`
+would join a line), so I changed the program to parse each line with
+`Parse.eachLine` (whose `eachLineReads` gives the lines directly) and
+split the groups at the blank lines with `List.splitBy`, which has a
+lemma set. A side effect: blank lines before, between and after groups
+(several in a row) are accepted. The lesson for std: `Parse.SepBy` needs
+the fix below; and a `Parse.sections` reads theorem that speaks of the
+input's lines (as `eachLineReads` does) would let a day-4-style format
+parse reach a spec on text.
 
 ### 2. Set reasoning in std: the membership laws were there, the size and the folds weren't
 
@@ -1455,27 +1457,21 @@ the proofs mixed them (`isQuestion` from the program against
 
 `questionsDistinct: List.Distinct Spec.questions := byDecision` took 324 ms
 elab and 71 ms kernel, 2.5 million steps, a 36,800-node term
-(`STITCHWORT_TIMINGS=1`): more than every other declaration but `correct`
-(396 ms, 7 million steps, 50,000 nodes, which only assembles the pieces).
+(`STITCHWORT_TIMINGS=1`): more than almost every other declaration
+(the end-to-end theorem, which only assembles the pieces).
 That is `decDistinct` comparing each of 26 letters with those after it
 through `Char`'s `DecEq`. `List.allDistinctCorrect` (the `Ord`-based test
 in `List/Distinct.sw`) would be cheaper; not tried.
 
 ### 5. Smaller things
 
-- **No error message was needed to be wrong about.** The four tests that
-  failed first were my guesses at messages: `ab\nA` reads "expected a
-  question, 'a' to 'z', a blank line or the end of the input, got 'A'" at
-  line 2; a blank first line or a second blank line gives "got the end of
-  the line" (not "a line break" or "a blank line"); `ab cd` gives
-  "expected a question, 'a' to 'z', the end of the line or a blank line,
-  got ' '". The first and last are right; "got the end of the line" for
-  `ab\n\n\nac` at line 3 doesn't say that the problem is a second blank
-  line. Today's "blank line before this line" message (`Parse.sectionLine`)
-  isn't reached: groups are `Parse.lines person` inside `Parse.sections`,
-  not `Parse.section`, whose messages are for the non-last sections of a
-  mixed input. For a list of the same kind of group, a `sections` message
-  "expected a person or a blank line" might fit better.
+- **A second blank line is no longer an error.** With the parser reading
+  each line as a person's or blank, `ab\n\n\nac` and a blank first line
+  parse (the first version said "got the end of the line" at line 3, which
+  didn't name the cause). `ab\nA` is now "line 2, column 1: expected a
+  question, 'a' to 'z' or the end of the line, got 'A'" (the end of the
+  line because a blank line is also a line). The `sections` messages of
+  today ("a blank line before this line") weren't reached either way.
 - **`rewrite <- rule` failed on the direction.** I wrote `rewrite <- meet
   question in found` where `found` had the left side; the error was
   `E-REWRITE-NOTHING` with six notes, two of them (5 and 6) about hidden
@@ -1484,9 +1480,10 @@ in `List/Distinct.sw`) would be cheaper; not tried.
   without `<-`") was the one needed; it was last.
 - **The `Parse.Reads` proof was short.** `readsPerson` is a `readsThen` of
   `readsMany1`/`readsSatisfy` and one lemma on the result (`eachLetters`,
-  `Each` of single letters is the letters), `readsGroup` is
-  `readsSepBy1` on it. 93 lines with the `SepBy` workaround, and `parseWritten`
-  and the person/group readers checked on the first try.
+  `Each` of single letters is the letters); `readsLine` is `readsOneOf`
+  over two `readsThen` chains. `Parse.sw` is 56 lines and checked on the
+  first try; `Proofs.sw` needed about six edits (imports, a `match` that
+  already replaced its scrutinee, `NonSep` computing past the head).
 - **Domain types.** `Person`/`Group` with `Group.anyone`/`everyone` as
   methods read as the puzzle does and made the spec relation
   (`GroupLines lines group`) a one-line `List.All2`; I didn't need a
@@ -1498,26 +1495,27 @@ in `List/Distinct.sw`) would be cheaper; not tried.
   (`sumCounts`) over any per-group count, as day 5's `onlyAnswer` was over
   any answers. `List.splitBy` was in std and I wrote `groupsOf` by hand
   first; it replaced a `foldRight` with a `match` in the test.
-- **Audit.** 23 theorems, 0 failed, 0 warnings: no vacuity warning on
+- **Audit.** 36 theorems, 0 failed, 0 warnings: no vacuity warning on
   generated equations this time (no spec equation with a 10-letter guard).
 
 ### Size and time
 
-54 lines of program, 27 of spec, 221 of proofs, 54 of tests (+1 answer test
-in `aoc_answers.rs`). About 25 minutes by the clock from reading the puzzle
-to the proofs checking (21:51 to 22:00, with a 2-minute CLI build and the
-`SepBy` detour, item 1: about 4 minutes of that), then 10 minutes on the
-spec test, the break checks and these notes. `Parse.sw` and `Sets.sw` checked
-on the first try; `Proofs.sw` needed two edits.
+69 lines of program, 33 of spec, 267 of proofs (Parse 56, Sets 61, Split
+39, Proofs 110), 52 of tests (+1 answer test in `aoc_answers.rs`). The first
+version took about 25 minutes by the clock from reading the puzzle to the
+proofs checking, plus 10 on the spec test, break checks and notes; the
+review's change (the headline theorem about the input) took about 35 more,
+of which the `splitBy` lemmas (`Split.sw`, 39 lines) and the rework of the
+parser were most.
 
 CPU time (load average about 50):
 
 | command | time |
 | --- | --- |
-| `stitchwort check --no-cache Aoc.Year2020.Day06.Proofs` | 6.2 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day06.Proofs` | 6.9 s user |
 | `stitchwort check --no-cache Aoc.Year2020.Day06` | 2.5 s user |
 | `stitchwort test --no-cache Aoc.Year2020.Day06` (17 tests) | 7.4 s user |
-| `task audit:touched -- Aoc.Year2020.Day06` (23 theorems) | 2.2 s user |
+| `task audit:touched -- Aoc.Year2020.Day06` (36 theorems) | 2.2 s user |
 | `stitchwort run Aoc.Year2020.Day06.main` on the input | 0.7 s user |
 | `task test:one -- year2020_day06` | 7.3 s wall |
 
@@ -1532,8 +1530,9 @@ CPU time (load average about 50):
 3. `List.Distinct` of 26 letters by `byDecision` is a 36,800-node proof
    (item 4). Performance; small (use `allDistinctCorrect`, or a lemma on
    `Char`).
-4. A `sections` message for a second blank line says "got the end of the
-   line" (item 5). Error message; small.
-5. `rewrite <- …` mistakes bury the useful note under hidden-`match` notes
+4. `rewrite <- …` mistakes bury the useful note under hidden-`match` notes
    (item 5). Error message; small.
-6. `Bool.andAssoc` (item 2). Missing library; trivial.
+5. `Bool.andAssoc` (item 2). Missing library; trivial.
+6. No lemmas about `Text.lines` (and `Parse.allReads` leaves the ending any
+   run of `\n`/`\r`), so a `Parse.sections` parse can't be joined to a spec
+   on the input text (item 1). Missing library; medium.

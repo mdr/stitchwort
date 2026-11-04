@@ -1,11 +1,12 @@
 --| Day 6 proved: on any input the parser reads, each group's `anyone` and
---| `everyone` sets hold the questions the puzzle counts (Sets.sw), so both
---| parts are the puzzle's sums.
+--| `everyone` sets hold the questions the puzzle counts (Sets.sw), and the
+--| groups are those the spec splits the input's lines into (Split.sw), so
+--| both parts are the spec's sums over the input.
 
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Aoc.Year2020.Day06 (Spec)
-import Std (Bool, Char, Eq, Exists, Fail, List, Nat, Parse, Result, Set, Text, Void)
+import Std (Bool, Char, DecEq, Eq, Option, Exists, Fail, List, Nat, Parse, Result, Set, Text, Void)
 
 --| A group as the lines its people wrote.
 def GroupLines (lines: List (List Char)) (group: Group): Prop := List.All2 PersonWritten lines group.people
@@ -38,30 +39,72 @@ theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each:
   | [], [_, .._], impossible => Void.exfalso impossible
   | [_, .._], [], impossible => Void.exfalso impossible
 
-theorem part1Correct (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
-    solvePart1 groups = Spec.part1Answer lineGroups :=
-  sumCounts (group => group.anyone.size) (Spec.count Spec.anyone) anyoneCount lineGroups groups written
+theorem part1Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
+    solvePart1 groups = lineGroups.sumBy (Spec.count Spec.anyone) :=
+  sumCounts (.anyone.size) (Spec.count Spec.anyone) anyoneCount lineGroups groups written
 
-theorem part2Correct (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
-    solvePart2 groups = Spec.part2Answer lineGroups :=
-  sumCounts (group => group.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
+theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
+    solvePart2 groups = lineGroups.sumBy (Spec.count Spec.everyone) :=
+  sumCounts (.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
-theorem groupLines: (reads: List (List Char)) → (groups: List Group) → List.All2 GroupWritten reads groups → ∃ (lineGroups: List (List (List Char))) => List.All2 GroupLines lineGroups groups
-  | [], [], all => Witness [] ()
-  | [read, ..reads], [group, ..groups], Both written rest =>
-    match sepByReads PersonWritten (line u => Parse.LineBreak line) read group.people written, groupLines reads groups rest with
-      | Witness lines linesWritten, Witness lineGroups all => Witness [lines, ..lineGroups] (Both linesWritten all)
-  | [], [_, .._], impossible => Void.exfalso impossible
-  | [_, .._], [], impossible => Void.exfalso impossible
+theorem spaceNotQuestion (char: Char) (space: (char == ' ' ∨ char == '\t') = True) (question: isQuestion char = True): Void :=
+  Bool.orElim (char == ' ') (char == '\t') Void space
+    (isSpace => Bool.falseNotTrue (rewrite DecEq.sound char ' ' isSpace at question in question))
+    (isTab => Bool.falseNotTrue (rewrite DecEq.sound char '\t' isTab at question in question))
 
---| When `parseGroups` reads `input` (`parseWritten` says how the input is
---| those groups written out), both parts are the puzzle's sums over the
---| groups' lines.
-theorem correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (lineGroups: List (List (List Char))) => List.All2 GroupLines lineGroups groups ∧ solvePart1 groups = Spec.part1Answer lineGroups ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
-  match parseWritten input groups parsed with
-    | Witness read (Witness ending (Both split (Both separated endings))) =>
-      match sepByReads GroupWritten (blank u => Parse.BlankLine blank) read groups separated with
-        | Witness reads all =>
-          match groupLines reads groups all with
-            | Witness lineGroups written => Witness lineGroups (Both written (Both (part1Correct lineGroups groups written) (part2Correct lineGroups groups written)))
+--| A line is blank for the spec exactly when the parser read it as blank.
+theorem blankAgrees (read: List Char) (line: Option Person) (written: LineWritten read line): Spec.blank read = line.isNone :=
+  match line with
+    | None => written
+    | Some person =>
+      match read with
+        | [] => Void.exfalso (And.left written rfl)
+        | [char, ..rest] =>
+          match space: char == ' ' ∨ char == '\t' with
+            | True => Void.exfalso (spaceNotQuestion char space (Bool.andLeft _ _ (And.left (And.right written))))
+            | False => rfl
+
+theorem peopleLines: (lines: List (List Char)) → (lineGroup: List (Option Person)) → List.All2 LineWritten lines lineGroup → List.NonSep Option.isNone lineGroup →
+    List.All2 PersonWritten lines (lineGroup.filterMap (answers => answers))
+  | [], [], all, nonBlank => ()
+  | [line, ..lines], [Some person, ..rest], Both written more, nonBlank => Both written (peopleLines lines rest more nonBlank)
+  | [line, ..lines], [None, ..rest], Both written more, nonBlank => Void.exfalso (Bool.falseNotTrue nonBlank)
+  | [], [_, .._], impossible, nonBlank => Void.exfalso impossible
+  | [_, .._], [], impossible, nonBlank => Void.exfalso impossible
+
+--| Between blank lines, the lines are people's.
+theorem groupLines: (lineGroups: List (List (List Char))) → (groups: List (List (Option Person))) → List.All2 (List.All2 LineWritten) lineGroups groups →
+    List.Groups Option.isNone groups → List.All2 GroupLines lineGroups (groups.map (people => { people = people.filterMap (answers => answers) }))
+  | [], [], all, nonBlank => ()
+  | [lines, ..lineGroups], [group, ..groups], Both written rest, Both (Both nonEmpty nonBlankGroup) nonBlankRest =>
+    Both (peopleLines lines group written nonBlankGroup) (groupLines lineGroups groups rest nonBlankRest)
+  | [], [_, .._], impossible, nonBlank => Void.exfalso impossible
+  | [_, .._], [], impossible, nonBlank => Void.exfalso impossible
+
+--| Part 1, for every input the parser reads, is the spec's sum over the
+--| groups of lines of the input.
+theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups): solvePart1 groups = Spec.part1Answer input :=
+  match linesOf input groups parsed with
+    | Witness values (Both same written) => rewrite same in part1Lines _ _ (groupsWritten input values written)
+
+theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups): solvePart2 groups = Spec.part2Answer input :=
+  match linesOf input groups parsed with
+    | Witness values (Both same written) => rewrite same in part2Lines _ _ (groupsWritten input values written)
+
+theorem linesOf (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+    ∃ (values: List (Option Person)) => groups = groupsOf values ∧ Fail.toResult (() => parseLines input) = Ok values :=
+  match read: Fail.toResult (() => parseLines input) with
+    | Ok values =>
+      let split := rewrite Fail.toResultThen (() => parseLines input) groupsOf, read at parsed in parsed
+      Witness values (Both (Eq.sym (Result.okInjective _ _ split)) rfl)
+    | Err message =>
+      let split := rewrite Fail.toResultThen (() => parseLines input) groupsOf, read at parsed in parsed
+      Void.exfalso (Result.errNotOk _ groups split)
+
+--| The groups of lines the spec reads from the input are those the parser
+--| read the groups from.
+theorem groupsWritten (input: Text) (values: List (Option Person)) (parsed: Fail.toResult (() => parseLines input) = Ok values):
+    List.All2 GroupLines (Spec.groupsOf input) (groupsOf values) :=
+  groupLines _ _
+    (splitByRel LineWritten Spec.blank Option.isNone blankAgrees _ _ (parseWritten input values parsed))
+    (List.splitByGroups values Option.isNone)

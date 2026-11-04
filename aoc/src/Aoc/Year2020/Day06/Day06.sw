@@ -15,7 +15,7 @@
 --| checks neither.
 
 namespace Aoc.Year2020.Day06
-import Std (Char, Fail, IO, List, Nat, Parse, Set, Text)
+import Std (Char, Fail, IO, List, Nat, Option, Parse, Set, Text)
 
 def main(): {IO, Fail} () :=
   let groups := parseGroups IO.readAll()
@@ -38,17 +38,32 @@ def person(): {Parse} Person :=
 --| The people travelling together, a line each.
 type Group = { people: List Person }
 
-def group(): {Parse} Group := { people = Parse.lines person }
+--| One line of the input: a person's answers, or `None` for a blank line.
+def line(): {Parse} Option Person := Parse.oneOf [answers, blank]
 
-def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse.sections group)
+def answers(): {Parse} Option Person :=
+  let answered := person()
+  Some answered
+
+def blank(): {Parse} Option Person :=
+  Parse.spaces()
+  None
+
+def parseLines (input: Text): {Fail} List (Option Person) := Parse.eachLine input line
+
+--| The people between blank lines.
+def groupsOf (lines: List (Option Person)): List Group :=
+  (lines.splitBy .isNone).map (people => { people = people.filterMap (answers => answers) })
+
+def parseGroups (input: Text): {Fail} List Group := groupsOf (parseLines input)
 
 --| The questions anyone in the group answered "yes" to.
-def Group.anyone (group: Group): Set Char := Set.unions (group.people.map (.answers))
+def Group.anyone (group: Group): Set Char := Set.unions (group.people.map .answers)
 
 --| The questions everyone in the group answered "yes" to.
 def Group.everyone (group: Group): Set Char :=
   group.people.foldLeft (Set.fromList questions) (common person => common.intersect person.answers)
 
-def solvePart1 (groups: List Group): Nat := groups.sumBy (group => group.anyone.size)
+def solvePart1 (groups: List Group): Nat := groups.sumBy (.anyone.size)
 
-def solvePart2 (groups: List Group): Nat := groups.sumBy (group => group.everyone.size)
+def solvePart2 (groups: List Group): Nat := groups.sumBy (.everyone.size)

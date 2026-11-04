@@ -1,63 +1,17 @@
---| The parser reads exactly the puzzle's format: groups separated by blank
---| lines, a person on each line of a group, each person's line the letters
---| `a` to `z` of the questions they answered "yes" to. If `parseGroups`
---| reads `input` as `groups`, the input is the groups written out, and
---| each person's set of answers has exactly the letters of their line.
+--| The parser reads exactly the puzzle's format: each line of the input is a
+--| person's, the letters `a` to `z` of the questions they answered "yes"
+--| to, or blank (groups are what lies between the blank lines). If it reads
+--| `input`, each non-blank line gives a person whose set of answers has
+--| exactly the line's letters.
 
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
-import Std (Bool, Char, Eq, Exists, Fail, List, Parse, Result, Set, Text)
-
---| What `sepBy1` read: `Parse.SepBy` without the `first` of its statement,
---| which `Parse.SepBy` leaves unrelated to the value the first read gave.
-def SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
-  ∃ (first: a) => ∃ (rest: List a) => ∃ (firstRead: List Char) => ∃ (restRead: List Char) =>
-    values = [first, ..rest] ∧ read = firstRead ++ restRead ∧ spec firstRead first ∧ Parse.Each (Parse.Then separator (u => spec)) restRead rest
-
-theorem readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (separatorSpec: List Char → () → Prop)
-    (reads: Parse.Reads p spec) (readsSeparator: Parse.Reads separator separatorSpec): Parse.Reads (() => Parse.sepBy1 p separator) (SepBy spec separatorSpec) :=
-  Parse.readsWeaken _ _ _
-    (Parse.readsBind p
-      (first =>
-        Cons first (Parse.many (() =>
-          separator()
-          p())))
-      spec (first read values => ∃ (rest: List a) => Parse.Each (Parse.Then separatorSpec (u => spec)) read rest ∧ values = Cons first rest) reads
-      (first =>
-        Parse.readsMap
-          (() =>
-            Parse.many (() =>
-              separator()
-              p()))
-          (Cons first) _
-          (Parse.readsMany _ _ (Parse.readsBind separator (u => p()) separatorSpec (u => spec) readsSeparator (u => reads)))))
-    (read values h =>
-      match h with
-        | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
-          Witness first (Witness rest (Witness firstRead (Witness restRead (Both same (Both split (Both holds each)))))))
-
-theorem eachSeparated (spec: List Char → a → Prop) (separator: List Char → () → Prop):
-    (read: List Char) → (values: List a) → Parse.Each (Parse.Then separator (u => spec)) read values → ∃ (reads: List (List Char)) => List.All2 spec reads values
-  | read, [], each => Witness [] ()
-  | read, [value, ..rest], Witness first (Witness after (Both split (Both (Witness separatorRead (Witness valueRead (Witness u (Both same (Both sep valid))))) more))) =>
-    match eachSeparated spec separator after rest more with
-      | Witness reads all => Witness [valueRead, ..reads] (Both valid all)
-
---| One read per value.
-theorem sepByReads (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a) (h: SepBy spec separator read values):
-    ∃ (reads: List (List Char)) => List.All2 spec reads values :=
-  match h with
-    | Witness first (Witness rest (Witness firstRead (Witness restRead (Both same (Both split (Both valid each)))))) =>
-      match eachSeparated spec separator restRead rest each with
-        | Witness reads all => rewrite same in Witness [firstRead, ..reads] (Both valid all)
+import Std (Bool, Char, Eq, Fail, List, Option, Parse, Result, Set, Text)
 
 --| A person's line: at least one letter, all questions, and the person's
 --| answers hold those letters and no others.
 def PersonWritten (read: List Char) (person: Person): Prop :=
   read ≠ [] ∧ read.all isQuestion = True ∧ ((question: Char) → person.answers.contains question = read.contains question)
-
---| A group's lines.
-def GroupWritten (read: List Char) (group: Group): Prop := SepBy PersonWritten (line u => Parse.LineBreak line) read group.people
 
 theorem eachLetters: (read: List Char) → (letters: List Char) → Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters →
     read = letters ∧ letters.all isQuestion = True
@@ -80,14 +34,23 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
             (rewrite List.appendNil lettersRead, same in
               Both (nonEmpty) (Both questions (question => containsFromList letters question))))
 
-theorem readsGroup: Parse.Reads group GroupWritten :=
-  Parse.readsThen (() => Parse.lines person) _ _ _ (readsSepBy1 person Parse.newline _ _ readsPerson Parse.readsNewline) (peopleRead people written =>
-    Parse.readsDone ({ people }: Group) _ (rewrite List.appendNil peopleRead in written))
+--| A line: a person's, or nothing but spaces and tabs.
+def LineWritten (read: List Char): Option Person → Prop
+  | Some person => PersonWritten read person
+  | None => read.all Parse.isSpace = True
 
---| If `parseGroups` reads `input` as `groups`, the input is `groups` written out: the
---| groups' lines with a blank line between groups, then any line breaks.
-theorem parseWritten (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ SepBy GroupWritten (blank u => Parse.BlankLine blank) read groups
-        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
-  Parse.allReads input (() => Parse.sections group) _ groups parsed (readsSepBy1 group Parse.blankLine _ _ readsGroup Parse.readsBlankLine)
+theorem readsAnswers: Parse.Reads answers LineWritten :=
+  Parse.readsThen (() => person()) _ _ _ readsPerson (read person written =>
+    Parse.readsDone (Some person) _ (rewrite List.appendNil read in written))
+
+theorem readsBlank: Parse.Reads blank LineWritten :=
+  Parse.readsThen Parse.spaces _ _ _ Parse.readsSpaces (read u spaces =>
+    Parse.readsDone (None: Option Person) _ (rewrite List.appendNil read in spaces))
+
+theorem readsLine: Parse.Reads line LineWritten := Parse.readsOneOf LineWritten [answers, blank] (Both readsAnswers (Both readsBlank ()))
+
+--| If `parseLines` reads `input`, each of its lines is a person's, or
+--| blank.
+theorem parseWritten (input: Text) (values: List (Option Person)) (parsed: Fail.toResult (() => parseLines input) = Ok values):
+    List.All2 LineWritten (input.lines.map Text.toList) values :=
+  Parse.eachLineReads input line LineWritten values parsed readsLine

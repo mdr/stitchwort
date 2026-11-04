@@ -14,7 +14,7 @@ theorem andAssoc: (a: Bool) → (b: Bool) → (c: Bool) → ((a ∧ b) ∧ c) = 
 --| Folding in the people's answers by union holds what the accumulator
 --| holds, or what some line has.
 theorem unionContains: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (acc: Set Char) → (question: Char) →
-    (List.foldLeft (people.map (.answers)) acc Set.union).contains question = (acc.contains question ∨ lines.any (line => line.contains question))
+    (List.foldLeft (people.map .answers) acc Set.union).contains question = (acc.contains question ∨ lines.any (line => line.contains question))
   | [], [], all, acc, question => Eq.sym (Bool.orFalse (acc.contains question))
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, acc, question =>
     rewrite unionContains lines people rest (Set.union acc person.answers) question, Set.containsUnion acc question person.answers, same question in

@@ -2,7 +2,7 @@
 --| wrote. The proofs (Proofs/) show the program's sums are these.
 
 namespace Aoc.Year2020.Day06.Spec
-import Std (Bool, Char, List, Nat)
+import Std (Bool, Char, List, Nat, Text)
 
 --| "The form asks a series of 26 yes-or-no questions marked a through z."
 def questions: List Char := "abcdefghijklmnopqrstuvwxyz".toList
@@ -18,10 +18,16 @@ def everyone (group: List (List Char)) (question: Char): Bool := group.all (line
 --| "Count the number of questions to which" `yes` holds, for one group.
 def count (yes: List (List Char) → Char → Bool) (group: List (List Char)): Nat := (questions.filter (yes group)).length
 
+--| "Groups are separated by blank lines": a line with nothing but spaces
+--| and tabs. The groups of the input, each its people's lines.
+def blank (line: List Char): Bool := line.all (char => char == ' ' ∨ char == '\t')
+
+def groupsOf (input: Text): List (List (List Char)) := (input.lines.map Text.toList).splitBy blank
+
 --| "For each group, count the number of questions to which anyone answered
 --| 'yes'. What is the sum of those counts?"
-def part1Answer (groups: List (List (List Char))): Nat := groups.sumBy (count anyone)
+def part1Answer (input: Text): Nat := (groupsOf input).sumBy (count anyone)
 
 --| "For each group, count the number of questions to which everyone
 --| answered 'yes'. What is the sum of those counts?"
-def part2Answer (groups: List (List (List Char))): Nat := groups.sumBy (count everyone)
+def part2Answer (input: Text): Nat := (groupsOf input).sumBy (count everyone)
