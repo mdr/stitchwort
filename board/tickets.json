@@ -1,5 +1,5 @@
 {
-  "next": 1220,
+  "next": 1222,
   "tickets": [
     {
       "id": 47,
@@ -5395,6 +5395,34 @@
         "diagnostics"
       ],
       "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1220,
+      "title": "List spread: [a, b, ..xs] in expressions (.. last, once), goals print open Cons chains as [a, ..xs], no ::; per docs/proposals/list-spread.md",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1221,
+      "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "cleanup"
+      ],
+      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
