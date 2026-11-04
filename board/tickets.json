@@ -1,5 +1,5 @@
 {
-  "next": 1212,
+  "next": 1213,
   "tickets": [
     {
       "id": 47,
@@ -5273,14 +5273,28 @@
     {
       "id": 1211,
       "title": "AoC 2020 day 2 in Stitchwort",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.",
+      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1212,
+      "title": "fmt drops the parentheses around a type after an ability row ({Fail} List Nat); docs/syntax.md examples and the library/aoc/examples reformatted to match",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "fmt"
+      ],
+      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
