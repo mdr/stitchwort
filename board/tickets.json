@@ -1,5 +1,5 @@
 {
-  "next": 1284,
+  "next": 1290,
   "tickets": [
     {
       "id": 47,
@@ -6311,14 +6311,98 @@
     {
       "id": 1283,
       "title": "Survey AoC solutions for raw data that should be a domain type (puzzle's language, methods on it)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "read-only survey",
       "labels": [
         "aoc",
         "design"
       ],
-      "body": "The problem: many AoC solutions pass raw structures around (List Bool, List Nat, Pair Nat Nat, List (List Char), tuples) where the puzzle has a noun (a pass, a seat, a cave, a bag rule). The reader has to reconstruct the meaning, and there's no natural home for helper methods. Matt, 4 Nov 2026, generalising day 5's Pass (SW-1282): 'review all of our Advent of Code solutions and see what might be candidates for promoting raw data structures into … a domain object with more significant meaning for that domain … talking about things in the puzzle's language rather than lists of bools or nats … helps make the code more understandable, but possibly also serves as a nice type on which to put helper methods.'\n\nThe change: a read-only survey of aoc/src (2020, 2021, 2024, 2025 and Aoc.Common) listing candidates: for each, the raw type and where it flows (program, spec, proofs), the proposed domain type and its methods, a before/after sketch of a few lines, the expected benefit (readability, helper methods, proofs stated in puzzle terms), and the cost/risk (proof churn). Rank them; group shared shapes that belong in Aoc.Common.\n\nWhat it should do: a ranked list Matt can pick from; each picked candidate becomes its own refactor lane (as SW-1282 did for day 5).\n\nRule added to CLAUDE.md the same day (lane agents: domain types in application code).",
+      "body": "The problem: many AoC solutions pass raw structures around (List Bool, List Nat, Pair Nat Nat, List (List Char), tuples) where the puzzle has a noun (a pass, a seat, a cave, a bag rule). The reader has to reconstruct the meaning, and there's no natural home for helper methods. Matt, 4 Nov 2026, generalising day 5's Pass (SW-1282): 'review all of our Advent of Code solutions and see what might be candidates for promoting raw data structures into … a domain object with more significant meaning for that domain … talking about things in the puzzle's language rather than lists of bools or nats … helps make the code more understandable, but possibly also serves as a nice type on which to put helper methods.'\n\nThe change: a read-only survey of aoc/src (2020, 2021, 2024, 2025 and Aoc.Common) listing candidates: for each, the raw type and where it flows (program, spec, proofs), the proposed domain type and its methods, a before/after sketch of a few lines, the expected benefit (readability, helper methods, proofs stated in puzzle terms), and the cost/risk (proof churn). Rank them; group shared shapes that belong in Aoc.Common.\n\nWhat it should do: a ranked list Matt can pick from; each picked candidate becomes its own refactor lane (as SW-1282 did for day 5).\n\nRule added to CLAUDE.md the same day (lane agents: domain types in application code).\n\nDone (Sonnet, ~5 min, est. 60): docs/research/aoc-domain-types.md: 30 candidates (6 high, 11 medium, 13 low), 5 shared shapes, 26 days fine as they are. D2363 recorded on the follow-up tickets.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1284,
+      "title": "AoC domain types 1: shared Aoc.Common Bits (2021 day 3 first, then 2021 day 16, 2024 day 24; 2020 day 5's Pass as the model)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). See the survey's 'Shared Bits' entry: Nat.fromBits, mostCommon, afterBit as methods.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1285,
+      "title": "AoC domain types 2: shared Aoc.Common Point {x, y} and Segment (2021 days 5 and 13, 2025 day 9)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). See the survey's 'Shared Point' entry.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1286,
+      "title": "AoC domain types 3: 2021 day 12 Cave, Passage, Route (isBig, neighbours, visits as methods)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). 61 theorems; large.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1287,
+      "title": "AoC domain types 4: 2021 day 11 octopuses on Aoc.Common Grid",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). 44 theorems.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1288,
+      "title": "AoC domain types 5: 2024 day 12 Region (area, perimeter, sides as methods)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). 86 theorems; the spec gets much clearer.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1289,
+      "title": "AoC domain types 6: the survey's remaining medium candidates (2024/09 Block and DiskMap, grid-wrapper normalisation, 2021/04 Board, 2024/23 Computer, 2025/09 Rectangle, …)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Opus (proof statements change). Split into one lane per day when picked up; cheapest first (2021/04, 2025/09, 2024/13, 2021/14, 2024/19).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
