@@ -6452,9 +6452,9 @@
     {
       "id": 1293,
       "title": "search_at_on_real_2021_goals: six stale source strings from the Cons sweep",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1293",
       "labels": [
         "tests"
       ],
