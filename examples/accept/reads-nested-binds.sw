@@ -2,13 +2,13 @@
 -- one before it, with `_` for every parser and spec (SW-1226, D2342). Each
 -- `readsBind`'s conclusion is about its `_`s, and its last argument is a
 -- lambda whose type has unknowns only that conclusion fixes. Checked in
--- place first, such a lambda fails, and is checked again once the
--- conclusion has been compared with the goal; when every nested lambda went
--- through both checks in both, the work doubled at each level (about 240
--- million evaluation steps here, half a minute). Now the checks in place
--- below the first such level are checked once, and this takes about a
--- million. The steps are opaque, so `_` can be solved for each step's
--- parser (proofs-about-definitions.md §2.3).
+-- place first, such a lambda failed, and was checked again once the
+-- conclusion had been compared with the goal; with every nested lambda
+-- going through both checks, the work doubled at each level (about 240
+-- million evaluation steps here, half a minute). Now the conclusion is
+-- compared with the goal first, each lambda is checked once, and this takes
+-- about a quarter of a million. The steps are opaque, so `_` can be solved
+-- for each step's parser (proofs-about-definitions.md §2.3).
 import Std (Char, Parse)
 
 opaque def nat(): {Parse} Nat := Parse.nat()

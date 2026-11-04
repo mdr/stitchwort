@@ -2329,10 +2329,6 @@ fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
     }
 }
 
-/// `Decl::single_check` inside a lambda's check in place whose
-/// application is in `Decl::limited_tries`: the address of no argument.
-const IN_A_LIMITED_TRY: usize = 1;
-
 /// [`apply_args_with`], keeping the error of the first argument that failed
 /// in place and was kept for after the expected type.
 fn apply_args_postponing(
@@ -2360,13 +2356,6 @@ fn apply_args_postponing(
         }
         _ => None,
     };
-    // A lemma whose conclusion is about `_`s (`by_holes`, D2342).
-    let marked = |key: usize| {
-        args.iter()
-            .any(|a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == key))
-    };
-    let single_check = marked(cx.e.decl.single_check.get());
-    let limited_tries = expecting.is_some() && marked(cx.e.decl.limited_tries.get());
     let mut after_expected = Vec::new();
     // Proof searches, checked once the rest of the call has said what
     // their goals are (rule 1 of stage 7).
@@ -2389,7 +2378,6 @@ fn apply_args_postponing(
                 // later parameter's type mentions it: a proof found from
                 // its goal (postponement.md §5.11, kept).
                 let late_able = expecting.is_some()
-                    && !single_check
                     && only_lambdas_depend_on_it(&cod.body, &[])
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
                 if !late_able {
@@ -2399,12 +2387,7 @@ fn apply_args_postponing(
                     continue;
                 }
                 let snapshot = crate::undo::Snapshot::take(cx);
-                let outer = limited_tries.then(|| cx.e.decl.single_check.replace(IN_A_LIMITED_TRY));
-                let in_place = check_arg(cx, &term, value, &dom);
-                if let Some(outer) = outer {
-                    cx.e.decl.single_check.set(outer);
-                }
-                match in_place {
+                match check_arg(cx, &term, value, &dom) {
                     Ok(value) => {
                         ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                         term = Term::app(term, value);
@@ -4608,30 +4591,11 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
         let call = crate::pipe::as_call((**value).clone(), f);
         return fallback_named(cx, &call, expected, named);
     }
-    let mut holes_failed = false;
-    if cx.e.decl.no_propagation.get() == 0 {
-        match propagate(cx, expr, expected, named)? {
-            Propagated::Done(found) => return found,
-            Propagated::HolesFailed => holes_failed = true,
-            Propagated::No => {}
-        }
+    if cx.e.decl.no_propagation.get() == 0
+        && let Some(found) = propagate(cx, expr, expected, named)?
+    {
+        return found;
     }
-    if !holes_failed {
-        return ordinary(cx, expr, expected, named);
-    }
-    // Elaborated as before, with every check in place in it unlimited: its
-    // message is the one it had.
-    let off = &cx.e.decl.unlimited;
-    off.set(off.get() + 1);
-    let result = ordinary(cx, expr, expected, named);
-    let off = &cx.e.decl.unlimited;
-    off.set(off.get() - 1);
-    result
-}
-
-/// [`fallback_named`] once its result type isn't compared first: the
-/// application is elaborated, and its type then compared with `expected`.
-fn ordinary(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     let (term, found) = infer_expecting(cx, expr, expected)?;
     let (term, found) = insert(cx, term, found)?;
     name_unknown(cx, &found, named)?;
@@ -5140,54 +5104,100 @@ pub(crate) fn ordered_args<'a>(
     })
 }
 
-fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Propagated> {
+fn propagate(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Option<Result<Term>>> {
     if matches!(
         force(&cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
-        return Ok(Propagated::No);
+        return Ok(None);
     }
     let (head, mut args) = spine(expr);
     if args.is_empty() && !matches!(head, Expr::Field(..)) {
-        return Ok(Propagated::No);
+        return Ok(None);
     }
     let dotted;
     let (head, args) = if let Expr::Field(recv, field) = head {
         // `recv.f a` is `T.f … recv …` (SW-129).
         let Some((head, full)) = crate::dot::prefix_form(cx, recv, field, &args)? else {
-            return Ok(Propagated::No);
+            return Ok(None);
         };
         dotted = full;
         (head, &dotted)
     } else {
         let Some(head) = known_head(cx, head) else {
-            return Ok(Propagated::No);
+            return Ok(None);
         };
         // A call that fills defaults is elaborated the ordinary way.
         if crate::defaults::of_head(cx, &head.0).is_some() {
-            return Ok(Propagated::No);
+            return Ok(None);
         }
         // Named arguments in their places; a call with a parameter left
         // out (a function) or arguments that don't match is elaborated
         // the ordinary way.
         if crate::named::any(&args) {
             let Some(ordered) = ordered_args(cx, &head.1, &args)? else {
-                return Ok(Propagated::No);
+                return Ok(None);
             };
             args = ordered;
         }
         (head, &args)
     };
-    let snapshot = crate::undo::Snapshot::take(cx);
-    let mut mentioned = Vec::new();
-    // Only asked of a call that `by_holes` could be for.
-    let wanted = (args.iter()).any(|a| matches!(a, Arg::Explicit(Expr::Hole(_))))
-        && (args.iter()).any(|a| matches!(a, Arg::Explicit(Expr::Lam(..))));
-    let Some((written, mut supply, doms)) =
-        written_result(cx, &head.1, args, wanted.then_some(&mut mentioned))?
-    else {
+    let mut snapshot = crate::undo::Snapshot::take(cx);
+    let mut found = written_result(cx, &head.1, args, false)?;
+    // A result type that depends only on arguments written `_` (a lemma's
+    // conclusion, as `Parse.readsBind _ _ _ _ reads (x => …)`'s): the
+    // unknowns the `_`s get stand for them, so the conclusion is compared
+    // with the goal before the arguments are checked, and a lambda among
+    // them is checked once, against a known type. Checked first, it would
+    // be checked in place, fail, and be checked again after the
+    // comparison, and so would every lambda nested in it: twice the work
+    // at every level (proofs-about-definitions.md §1.2, D2342).
+    let by_holes = found.is_none()
+        && cx.e.decl.no_hole_propagation.get() == 0
+        && args
+            .iter()
+            .any(|a| matches!(a, Arg::Explicit(Expr::Hole(_))));
+    if by_holes {
         snapshot.restore(cx);
-        return by_holes(cx, expr, expected, named, args, &mentioned);
+        snapshot = crate::undo::Snapshot::take(cx);
+        found = written_result(cx, &head.1, args, true)?;
+    }
+    let Some((written, mut supply, doms, checked)) = found else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
+    // The arguments written `_`, with the unknowns they got.
+    let pipes: Vec<(usize, Piped)> = (checked.into_iter())
+        .map(|(i, term)| {
+            let span = match args[i] {
+                Arg::Explicit(hole) => hole.span(),
+                _ => unreachable!("only arguments written `_` are checked first"),
+            };
+            let piped = Piped {
+                term,
+                ty: doms[i].clone(),
+                span,
+                dot: false,
+            };
+            (i, piped)
+        })
+        .collect();
+    let with_holes: Vec<Arg>;
+    let args: &[Arg] = if pipes.is_empty() {
+        args
+    } else {
+        with_holes = (args.iter().enumerate())
+            .map(|(i, arg)| match pipes.iter().find(|(at, _)| *at == i) {
+                Some((_, piped)) => Arg::Piped(piped),
+                None => *arg,
+            })
+            .collect();
+        &with_holes
     };
     // A result in a bare row not known yet (`List.map`'s `{e} (List b)`):
     // its value type is compared, and the row is left to the arguments, so a
@@ -5195,9 +5205,20 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Resu
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     name_unknown(cx, &written, named)?;
-    if !cx.unify(&written, expected)? {
+    // By `_`s, as the comparison after a lambda put off is
+    // (`apply_args_postponing`): if the plain comparison fails, the
+    // unknowns may be solved from the arguments of two calls of the same
+    // definition (`Reads (() => bind (?p ()) ?j) …` against `Reads (() =>
+    // j x) …`), which only their arguments can say.
+    let matched = if by_holes {
+        crate::undo::unify(cx, &written, expected)?
+            || crate::undo::unify_solving_arguments(cx, &written, expected)?
+    } else {
+        cx.unify(&written, expected)?
+    };
+    if !matched {
         snapshot.restore(cx);
-        return Ok(Propagated::No);
+        return Ok(None);
     }
     // A variable passed where that unknown is expected (`counts` in `same
     // counts`) gets the name too: checked against the unknown's solution, it
@@ -5228,104 +5249,45 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Resu
         compare(cx, term, &found, expected)
     })();
     match result {
-        Ok(term) => Ok(Propagated::Done(Ok(term))),
+        Ok(term) => Ok(Some(Ok(term))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(propagated) => {
             snapshot.restore(cx);
-            let off = &cx.e.decl.no_propagation;
+            // Elaborated again as it would have been without this
+            // propagation. After one by `_`s, the applications inside still
+            // use their expected types, all but those by `_`s, so what was
+            // accepted before still is, and a failure isn't tried twice at
+            // every level.
+            let off = if by_holes {
+                &cx.e.decl.no_hole_propagation
+            } else {
+                &cx.e.decl.no_propagation
+            };
             off.set(off.get() + 1);
             let old = (|| {
                 let (term, found) = infer(cx, expr)?;
                 let (term, found) = insert(cx, term, found)?;
                 compare(cx, term, &found, expected)
             })();
-            let off = &cx.e.decl.no_propagation;
+            let off = if by_holes {
+                &cx.e.decl.no_hole_propagation
+            } else {
+                &cx.e.decl.no_propagation
+            };
             off.set(off.get() - 1);
             // Both fail inside the same argument: the first knew what the
             // argument must prove, where the second only had unknowns (a
             // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
             // against a goal of `?p ?x = False`, SW-931).
-            Ok(Propagated::Done(match old {
+            match old {
                 Err(old)
                     if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) =>
                 {
-                    Err(propagated)
+                    Ok(Some(Err(propagated)))
                 }
-                old => old,
-            }))
+                old => Ok(Some(old)),
+            }
         }
-    }
-}
-
-/// What [`propagate`] did.
-enum Propagated {
-    /// It didn't apply, and nothing has changed.
-    No,
-    /// It applied: the application's term, or the error to report.
-    Done(Result<Term>),
-    /// It applied by [`by_holes`] and failed: nothing has changed, and the
-    /// application is to be elaborated as before.
-    HolesFailed,
-}
-
-/// [`propagate`] for an application whose result type depends only on
-/// arguments written `_`, with a lambda among them: a lemma's conclusion,
-/// as in `readsBind _ _ _ _ reads (x => readsBind _ _ _ _ …)` (D2342).
-///
-/// The old way, a lambda whose type has unknowns is checked in place, and
-/// if that fails, checked again once the conclusion has been compared with
-/// the goal. Where only the conclusion fixes those unknowns, it fails, and
-/// a lambda nested in it goes through both checks in each, so the work
-/// doubles at every level of nesting (proofs-about-definitions.md §1.2).
-/// So such an application's checks in place are limited (`limited_tries`):
-/// in them, such applications check their lambdas once, in place, with no
-/// second check (`single_check`). A failed check in place then fails at
-/// once below the first such level, and only the second check goes deeper.
-/// Where the check in place works unlimited, it works limited too, the same
-/// way, so the terms are the ones they were. If the application fails, it
-/// is elaborated again as before, with nothing limited in it, unless
-/// nothing was limited the first time.
-fn by_holes(
-    cx: &mut Ctx,
-    expr: &Expr,
-    expected: &Value,
-    named: &Value,
-    args: &[Arg],
-    mentioned: &[usize],
-) -> Result<Propagated> {
-    if mentioned.is_empty()
-        || cx.e.decl.unlimited.get() != 0
-        || !(mentioned.iter()).all(|&at| matches!(args[at], Arg::Explicit(Expr::Hole(_))))
-    {
-        return Ok(Propagated::No);
-    }
-    let Some(Arg::Explicit(last)) = spine(expr).1.last().copied() else {
-        return Ok(Propagated::No);
-    };
-    let key = std::ptr::from_ref(last) as usize;
-    if cx.e.decl.single_check.get() != 0 {
-        // In a limited check in place: its failure is that check's.
-        let singles = &cx.e.decl.single_checks;
-        singles.set(singles.get() + 1);
-        let outer = cx.e.decl.single_check.replace(key);
-        let result = ordinary(cx, expr, expected, named);
-        cx.e.decl.single_check.set(outer);
-        return Ok(Propagated::Done(result));
-    }
-    let snapshot = crate::undo::Snapshot::take(cx);
-    let singles = cx.e.decl.single_checks.get();
-    let outer = cx.e.decl.limited_tries.replace(key);
-    let result = ordinary(cx, expr, expected, named);
-    cx.e.decl.limited_tries.set(outer);
-    match result {
-        Ok(term) => Ok(Propagated::Done(Ok(term))),
-        Err(e) if crate::undo::fatal(&e) => Err(e),
-        Err(_) if cx.e.decl.single_checks.get() != singles => {
-            snapshot.restore(cx);
-            Ok(Propagated::HolesFailed)
-        }
-        // Nothing was limited: it went as before.
-        Err(e) => Ok(Propagated::Done(Err(e))),
     }
 }
 
@@ -5382,7 +5344,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply, _)) = written_result(cx, &head.1, args, None)? else {
+    let Some((written, mut supply, ..)) = written_result(cx, &head.1, args, false)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -5595,21 +5557,25 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
 /// known, or an auto parameter is met after an argument (its proposition
 /// could mention it) or in the result.
 ///
-/// When the type mentions them, `mentioned`, if given, gets the places in
-/// `args` of those it mentions ([`by_holes`]).
+/// With `holes`, an argument written `_` whose parameter type doesn't
+/// mention the arguments before it is checked here, as it would be in its
+/// place, and the type depends on the unknown it gets rather than on a fresh
+/// variable; each such argument's place and term are returned
+/// (proofs-about-definitions.md §5, option B).
 fn written_result(
     cx: &mut Ctx,
     ty: &Value,
     args: &[Arg],
-    mentioned: Option<&mut Vec<usize>>,
-) -> Result<Option<(Value, Supply, Vec<Value>)>> {
+    holes: bool,
+) -> Result<Option<WrittenResult>> {
     let g = cx.g();
     let base = cx.level();
     let mut ty = ty.clone();
     let mut supply = Supply::new();
     let mut doms = Vec::new();
+    let mut checked = Vec::new();
     let mut written = 0;
-    for arg in args {
+    for (i, arg) in args.iter().enumerate() {
         let stop = |x: &Name, icit: Icit| match arg {
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
             Arg::NamedExplicit(..) => icit == Icit::Explicit,
@@ -5624,7 +5590,16 @@ fn written_result(
             return Ok(None);
         }
         doms.push((*dom).clone());
-        ty = cod.apply(&g, Value::var(base + written))?;
+        if let (true, Arg::Explicit(hole @ Expr::Hole(_))) = (holes, arg)
+            && !mentions_any(&g, base + written, &dom, written)?
+        {
+            let term = check(cx, hole, &dom)?;
+            let value = cx.eval(&term)?;
+            checked.push((i, term));
+            ty = cod.apply(&g, value)?;
+        } else {
+            ty = cod.apply(&g, Value::var(base + written))?;
+        }
         written += 1;
     }
     if implicits(cx, &mut ty, &mut supply, written, |_, _| false)?.is_none() {
@@ -5643,16 +5618,23 @@ fn written_result(
             _ => break,
         }
     }
-    // Calls stay folded: reading back their unfoldings can be costly, and a
-    // call mentions every variable its unfolding does.
-    let term = stitchwort_core::value::quote_folded(&g, base + written, &ty)?;
-    if (0..written).any(|i| term.mentions(i)) {
-        if let Some(mentioned) = mentioned {
-            mentioned.extend((0..written).filter(|&at| term.mentions(written - 1 - at)));
-        }
+    if mentions_any(&g, base + written, &ty, written)? {
         return Ok(None);
     }
-    Ok(Some((ty, supply, doms)))
+    Ok(Some((ty, supply, doms, checked)))
+}
+
+/// [`written_result`]'s answer: the result type, the implicit arguments, the
+/// parameter types of `args`, and the arguments written `_` checked already.
+type WrittenResult = (Value, Supply, Vec<Value>, Vec<(usize, Term)>);
+
+/// Whether `ty`, at `level`, mentions any of the `count` variables just
+/// below it.
+fn mentions_any(g: &Ev, level: usize, ty: &Value, count: usize) -> Result<bool> {
+    // Calls stay folded: reading back their unfoldings can be costly, and a
+    // call mentions every variable its unfolding does.
+    let term = stitchwort_core::value::quote_folded(g, level, ty)?;
+    Ok((0..count).any(|i| term.mentions(i)))
 }
 
 /// Gives the implicit parameters at the front of `ty` metavariables, added

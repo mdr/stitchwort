@@ -44,22 +44,11 @@ pub(crate) struct Decl {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     pub(crate) no_propagation: Cell<usize>,
-    /// While an application whose result type depends only on arguments
-    /// written `_` is elaborated (`check::by_holes`, D2342): the address
-    /// of its last argument (as `app_expected`'s key), or 0. Its lambdas'
-    /// checks in place are limited: in them, such applications check their
-    /// lambdas once, with no second check after their expected type.
-    pub(crate) limited_tries: Cell<usize>,
-    /// In such a limited check: the address of the last argument of the
-    /// application inside it elaborated with a single check, or
-    /// `check::IN_A_LIMITED_TRY` between them; otherwise 0.
-    pub(crate) single_check: Cell<usize>,
-    /// How many applications were elaborated with a single check (only
-    /// compared, so never reset).
-    pub(crate) single_checks: Cell<usize>,
-    /// Above zero while such an application is elaborated again after
-    /// failing, as before, with nothing limited in it.
-    pub(crate) unlimited: Cell<usize>,
+    /// Above zero while an application whose result type depends on
+    /// arguments written `_` is elaborated again after comparing that type
+    /// with its expected type first failed: no application inside is
+    /// compared that way (`check::propagate`, D2342).
+    pub(crate) no_hole_propagation: Cell<usize>,
     /// Set while asking whether an expression in a pure context performs
     /// anything besides calls whose result is in a bare row (`{e} b`, as
     /// `List.map`'s): those are elaborated as plain calls first, and the row
@@ -193,10 +182,7 @@ impl Decl {
             sides_capture,
             arm_reach,
             no_propagation,
-            limited_tries,
-            single_check,
-            single_checks: _,
-            unlimited,
+            no_hole_propagation,
             bare_rows_pure,
             late_literals,
             condition,
@@ -226,9 +212,7 @@ impl Decl {
             ("sides_capture", sides_capture.borrow().is_empty()),
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
-            ("limited_tries", limited_tries.get() == 0),
-            ("single_check", single_check.get() == 0),
-            ("unlimited", unlimited.get() == 0),
+            ("no_hole_propagation", no_hole_propagation.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
