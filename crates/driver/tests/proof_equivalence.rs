@@ -273,17 +273,15 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
         assert!(glued[i][i], "{} against itself", name(i));
         for j in 0..terms.len() {
             assert_eq!(glued[i][j], glued[j][i], "{} and {}", name(i), name(j));
-            if glued[i][j] {
-                for k in 0..terms.len() {
-                    assert_eq!(
-                        glued[i][k],
-                        glued[j][k],
-                        "{} = {}, but against {} they differ",
-                        name(i),
-                        name(j),
-                        name(k)
-                    );
-                }
+            if glued[i][j]
+                && let Some(k) = (0..terms.len()).find(|&k| glued[i][k] != glued[j][k])
+            {
+                panic!(
+                    "{} = {}, but against {} they differ",
+                    name(i),
+                    name(j),
+                    name(k)
+                );
             }
         }
     }
