@@ -18,9 +18,9 @@ def FieldBreak (read: List Char) (u: ()): Prop := read = [' '] ∨ Parse.LineBre
 def PassportWritten (read: List Char) (passport: Passport): Prop := Parse.SepBy FieldWritten FieldBreak read passport.fields
 
 theorem readsField: Parse.Reads field FieldWritten :=
-  Parse.readsThen (() => Parse.pick (keys.map (key => (key.code, key)))) _ _ _ (Parse.readsPickBy keys Key.code) (keyRead key (Both member keyIs) =>
-    Parse.readsThen (() => Parse.char ':') _ _ _ (Parse.readsChar ':') (colonRead u colon =>
-      Parse.readsThen (() => Parse.takeWhile1 "a value" isValueChar) _ _ _ (Parse.readsTakeWhile1 "a value" isValueChar) (valueRead value (Both nonEmpty (Both chars made)) =>
+  Parse.readsThen _ _ _ _ (Parse.readsPickBy keys Key.code) (keyRead key (Both member keyIs) =>
+    Parse.readsThen _ _ _ _ (Parse.readsChar ':') (colonRead u colon =>
+      Parse.readsThen _ _ _ _ (Parse.readsTakeWhile1 "a value" isValueChar) (valueRead value (Both nonEmpty (Both chars made)) =>
         Parse.readsDone { key, value } _
           (rewrite made in Both (rewrite keyIs, colon, List.appendNil valueRead in rfl) (Both nonEmpty chars)))))
 
@@ -30,7 +30,7 @@ theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
       (Both (Parse.readsWeaken _ _ _ Parse.readsNewline (read u breaks => Inr breaks)) ()))
 
 theorem readsPassport: Parse.Reads passport PassportWritten :=
-  Parse.readsThen (() => Parse.sepBy1 field fieldBreak) _ _ _ (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
+  Parse.readsThen _ _ _ _ (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
     Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead in written))
 
 theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):

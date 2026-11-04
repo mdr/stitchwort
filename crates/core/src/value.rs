@@ -567,7 +567,7 @@ pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
 
 /// Glued call `id spine` unfolded one step: its case tree run, the calls in
 /// what it returns kept as calls rather than forced.
-fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
+pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
     let start = unfold_now(g, id, spine, false)?;
     run(g, start)
 }

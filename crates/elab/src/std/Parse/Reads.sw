@@ -384,12 +384,12 @@ theorem Parse.readsSatisfy (what: Text) (passes: Char → Bool): Parse.Reads (()
 --| with no `match` to take the facts apart. A parser of two steps, `a`, then `b`:
 --|
 --|   theorem readsPair: Parse.Reads pair Written :=
---|     Parse.readsThen a _ _ _ readsA (aRead x aFacts =>
---|       Parse.readsThen b _ _ _ readsB (bRead y bFacts =>
+--|     Parse.readsThen _ _ _ _ readsA (aRead x aFacts =>
+--|       Parse.readsThen _ _ _ _ readsB (bRead y bFacts =>
 --|         Parse.readsDone { x, y } _ (…Written (aRead ++ bRead ++ []) { x, y }…)))
 --|
---| Each step names its parser (`Parse.nat`, `() => Parse.char '-'`): `_` cannot
---| stand for it yet.
+--| `p` and `j` can be left as `_` when the parser is named (`pair`): checking
+--| unfolds it a step to `a`, then the rest, and reads them off.
 theorem Parse.readsThen (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (spec: List Char → b → Prop)
     (readsFirst: Parse.Reads p first)
     (rest: (firstRead: List Char) → (v: a) → first firstRead v → Parse.Reads (() => j v) (read w => spec (firstRead ++ read) w)):

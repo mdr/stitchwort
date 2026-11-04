@@ -9,7 +9,7 @@ use stitchwort_core::value::{
     Closure, Elim, Head, Mode, Relation, Spine, apply_icit, call_args, conv, eval, expand_step,
     force, force_solved, is_folded, matches_at_once, opens_by_tree, proof_field, proof_param,
     quote, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
-    underapplied, unfold_folded,
+    underapplied, unfold_folded, unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1071,6 +1071,9 @@ fn unify_step(
     {
         return Ok(true);
     }
+    if one_step_apart(g, level, a, b)? {
+        return Ok(true);
+    }
     if meta_against_call(g, level, a, b)? {
         return Ok(true);
     }
@@ -1379,6 +1382,85 @@ fn unify_step(
         }
         _ => push_eta(&g.ev, level, &a, &b, work)?,
     })
+}
+
+/// Lazy delta, aimed narrowly (docs/proposals/proofs-about-definitions.md
+/// §5 A, D2341): a call of one definition with an unknown for a whole
+/// argument, `Effect.bind (?p ()) ?j`, against a call of another, `line ()`,
+/// is equal to it if unfolding the other a step at a time, to its body with
+/// its own calls still folded, reaches a call of the first definition whose
+/// arguments unify with these. What that solves is kept, unlike for two
+/// calls of one definition compared in [`unify_step`]'s first rule: the
+/// unknown blocks the first call's computation while the other's goes on,
+/// so comparing their unfoldings can't solve it.
+///
+/// Only the side with no such unknown is unfolded, at most
+/// [`UNFOLD_STEPS`] times. `false`, with nothing solved, if the heads don't
+/// meet or the arguments don't unify, and the caller compares the two as
+/// before. A call whose unknowns are deeper, `List.sum [?x, ..?xs]`, can
+/// take a step itself, so the unfoldings are compared as before: solving
+/// from arguments there can choose another solution than they would.
+fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
+        return Ok(false);
+    };
+    if i1 == i2 || !g.machine.glue.get() {
+        return Ok(false);
+    }
+    let (head, spine, mut other) = match (unknown_argument(g, s1)?, unknown_argument(g, s2)?) {
+        (true, false) => (*i1, s1, b.clone()),
+        (false, true) => (*i2, s2, a.clone()),
+        _ => return Ok(false),
+    };
+    if same_outer_layer(&force(g, a.clone())?, &force(g, b.clone())?) {
+        return Ok(false);
+    }
+    for _ in 0..UNFOLD_STEPS {
+        let Value::Call(id, args, _) = &other else {
+            return Ok(false);
+        };
+        other = unfold_once(g, *id, args.clone())?;
+        if let Value::Call(id, args, _) = &other
+            && *id == head
+        {
+            return same_arguments(g, level, head, spine, args);
+        }
+    }
+    Ok(false)
+}
+
+/// How many one-step unfoldings [`one_step_apart`] takes before giving up.
+const UNFOLD_STEPS: usize = 4;
+
+/// Whether two forced values have the same outermost layer, or one is an
+/// unknown: then comparing them as they are takes a step (by their spines,
+/// fields or bodies, or by solving the unknown), and [`one_step_apart`]
+/// leaves them to that. `List.sum ?xs` and `aimedDepth b rest` both
+/// compute to a `List.foldLeft` stuck on its list, whose spines solve
+/// `?xs`; `Effect.bind (?p ()) ?j` is stuck on `?p ()` where `line ()`
+/// computes further.
+fn same_outer_layer(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Neutral(Head::Meta(_), _), _) | (_, Value::Neutral(Head::Meta(_), _)) => true,
+        (Value::Neutral(h1, _), Value::Neutral(h2, _)) => h1 == h2,
+        (Value::Ctor(d1, c1, _), Value::Ctor(d2, c2, _)) => d1 == d2 && c1 == c2,
+        (Value::Data(d1, _), Value::Data(d2, _)) => d1 == d2,
+        _ => std::mem::discriminant(a) == std::mem::discriminant(b),
+    }
+}
+
+/// Whether some argument in `spine` is, once solutions are put in, an
+/// unknown that can still be solved, or one applied: `?p ()`, `?j`.
+fn unknown_argument(g: &Unifier<'_>, spine: &[Elim]) -> Result<bool> {
+    for elim in spine {
+        if let Elim::App(arg, _) = elim
+            && let Value::Neutral(Head::Meta(m), _) = force_solved(g, arg.clone())?
+            && !frozen(g, m)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether the spines of two calls of definition `head` unify, element by
