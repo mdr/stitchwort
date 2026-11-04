@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/proof-irrelevance-27-one-branch-trees.sw:18:53 ]
+    │
+ 18 │ theorem t27 (t: Tok) (t2: Tok): tokA t = tokB t2 := rfl
+    │                                                     ─┬─  
+    │                                                      ╰─── `tokA t` and `tokB t2` aren't equal
+    │ 
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

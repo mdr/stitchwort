@@ -218,6 +218,35 @@ mod tests {
         assert_eq!(cx.metas().metas.borrow().len(), 1);
     }
 
+    /// Test 16 (docs/proposals/proof-irrelevance.md §7.4): `MkT ?p 1`
+    /// against `MkT q 2`, field 0 a proof, solves the whole proof `?p := q`
+    /// and then fails at field 1. Bare unification keeps the solution; the
+    /// transaction takes it back.
+    #[test]
+    fn a_proof_solved_before_a_failure_is_undone() {
+        let mut e = Elaborator::new();
+        let p = crate::unify::proof_fixture::build(&mut e.kernel);
+        let mut cx = Ctx::new(&e, span());
+        let n = |k: usize| {
+            (0..k).fold(Value::Ctor(p.n, 0, Vec::new().into()), |v, _| {
+                Value::Ctor(p.n, 1, [v].into())
+            })
+        };
+        let proof = Value::Ctor(p.q, 0, [n(0)].into());
+        let (m, m_value) = meta(&cx, &[]);
+        let mk_t = |h: Value, k: usize| Value::Ctor(p.t, 0, [h, n(k)].into());
+        let (lhs, rhs) = (mk_t(m_value, 1), mk_t(proof.clone(), 2));
+        let before = Snapshot::take(&cx);
+        assert!(!cx.unify(&lhs, &rhs).unwrap());
+        assert!(solved(&cx, m));
+        before.restore(&mut cx);
+        assert!(!unify(&mut cx, &lhs, &rhs).unwrap());
+        assert!(!solved(&cx, m));
+        // Paired: with the data fields equal, `?p := q`.
+        assert!(unify(&mut cx, &lhs, &mk_t(proof, 1)).unwrap());
+        assert!(solved(&cx, m));
+    }
+
     #[test]
     fn metavariables_made_by_pruning_are_dropped() {
         let e = Elaborator::new();

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/proof-irrelevance-01-type-field.sw:9:41 ]
+   │
+ 9 │ theorem t1: MkTBox Nat = MkTBox Bool := rfl
+   │                                         ─┬─  
+   │                                          ╰─── `MkTBox Nat` and `MkTBox Bool` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯
