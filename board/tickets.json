@@ -5245,14 +5245,14 @@
     {
       "id": 1209,
       "title": "Messages from AoC 2020 day 1: let f (y: Nat) parse error points at local def; E-REWRITE-NOTHING leads with 'already refined by the match'; goals list an arm's pattern variables before the hypotheses that mention them",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "scratch-sw-1209",
       "labels": [
         "diagnostics",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1209, expected: 75 min.\n",
+      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1209, expected: 75 min.\n\n\nDone in scratch-sw-1209; reviewed; merges after the 8f verifier. Model result: DeepSeek, worked, about 45 min (est. 75).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5290,13 +5290,13 @@
     {
       "id": 1212,
       "title": "fmt drops the parentheses around a type after an ability row ({Fail} List Nat); docs/syntax.md examples and the library/aoc/examples reformatted to match",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": "scratch-sw-1212",
       "labels": [
         "fmt"
       ],
-      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).",
+      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1212 (formatter, golden tests and docs only; the repo-wide reformat is a later step), expected: 60 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
