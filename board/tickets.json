@@ -6438,13 +6438,13 @@
     {
       "id": 1292,
       "title": "Design note: Scala-style partial-function lambdas (collect) in Stitchwort",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2368 (Matt, 4 Nov 2026): a match whose result is Option does NOT silently default missing cases to None; keep the exhaustiveness check, be explicit. But Matt wants Scala's partial-function vibe ('map with a partial function based on your match, emit things that don't match ... very high expressivity'): xs.collect { case ... => ... }. Orchestrator's sketch: (1) clause lambdas, a lambda written as match arms; (2) an explicitly marked partial form that desugars to a match whose arms are wrapped in Some with a final _ => None, so it fits List.filterMap / a new List.collect (a → Option b); partiality is opt-in and visible, so the exhaustiveness check stays everywhere else. Questions for the note: syntax (fits lambda-syntax.md's grammar, the | ambiguity in one-line matches), how it reads in pipelines, Option vs a dedicated PartialFn with isDefinedAt, guards, other uses (Map.collect, Parse alternatives, orElse chaining), what proofs see (it is an ordinary match; collect membership lemma), and survey of AoC sites that would use it.",
+      "body": "D2368 (Matt, 4 Nov 2026): a match whose result is Option does NOT silently default missing cases to None; keep the exhaustiveness check, be explicit. But Matt wants Scala's partial-function vibe ('map with a partial function based on your match, emit things that don't match ... very high expressivity'): xs.collect { case ... => ... }. Orchestrator's sketch: (1) clause lambdas, a lambda written as match arms; (2) an explicitly marked partial form that desugars to a match whose arms are wrapped in Some with a final _ => None, so it fits List.filterMap / a new List.collect (a → Option b); partiality is opt-in and visible, so the exhaustiveness check stays everywhere else. Questions for the note: syntax (fits lambda-syntax.md's grammar, the | ambiguity in one-line matches), how it reads in pipelines, Option vs a dedicated PartialFn with isDefinedAt, guards, other uses (Map.collect, Parse alternatives, orElse chaining), what proofs see (it is an ordinary match; collect membership lemma), and survey of AoC sites that would use it.\nProgress (lane, 4 Nov 22:18): note written, docs/proposals/partial-lambdas.md (commit 3665220a1 on lane/SW-1292). Recommends design B: `match | …` clause lambdas (total), `match? | …` (arms wrapped in Some, rest None; for filterMap/findMap), `matches | …` (Boolean side, Scala's cond; rest False, body-less arm = True); guards `| p if c => e` as a later stage. Rejects C (partial by callee type) and D (PartialFn record). Decisions P1-P10 for Matt. Survey: 10 pipeline sites (5 need guards), 10 Option tables, 12 total clause lambdas, Boolean form 6 aoc + 13 std.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
