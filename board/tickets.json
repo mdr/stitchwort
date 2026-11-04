@@ -1,5 +1,5 @@
 {
-  "next": 1193,
+  "next": 1196,
   "tickets": [
     {
       "id": 47,
@@ -4673,13 +4673,13 @@
     {
       "id": 1170,
       "title": "Research: parallel checking as separate processes: run independent namespaces as separate check processes, each replaying its imports from the check cache; measure aoc's import-graph critical path and the speedup (elaborator-state.md §4.9)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "research"
       ],
-      "body": "D2286 (Matt, 3 Nov). Backlog; no Send/Sync change needed. Measure first: the critical path of aoc's namespace graph, then a prototype scheduler.\n\nD2296 (Matt, 4 Nov 2026): investigate how helpful parallel checking might be; if promising, work on it, if modest or negligible, deprioritise. Opus, expected: 120 min.\n",
+      "body": "D2286 (Matt, 3 Nov). Backlog; no Send/Sync change needed. Measure first: the critical path of aoc's namespace graph, then a prototype scheduler.\n\nD2296 (Matt, 4 Nov 2026): investigate how helpful parallel checking might be; if promising, work on it, if modest or negligible, deprioritise. Opus, expected: 120 min.\n\n\nProgress (Opus lane, 4 Nov 2026, 08:35-09:30, lane/SW-1170 at 41ae9aba): dev/measurements/parallel-checking.md. aoc cold full check: 67 s of work, critical path 11.5 s, so at most 5.9x on 8+ cores; process per namespace about 3.4x on 10 cores (per day group 4.0x) at 1.6-2.7x the CPU (about 0.45 s per process: core, parsing the project, replaying imports); prototype (dev/parallel-check/sched.py, 8 processes) matched the model's CPU, wall 29.7 s vs 73-108 s sequential under load 30. Typical edits (one Proofs/Tests namespace): no gain. rogue: at most 1.76x. Recommendation: deprioritise; cheapest first step if wanted is `check --jobs N` per day group. Side finding: warm CLI `check` after a leaf edit spends 3.8 s replaying untouched namespaces vs 0.5-1.7 s for just the affected ones.\n\n\nResult (dev/measurements/parallel-checking.md): aoc cold 67.4 s work, 11.5 s critical path, ceiling 5.9x; process-per-namespace ~3.4x at 1.6-2.7x the CPU; typical edit no gain (one namespace re-checked). Lane recommends deprioritising; cheapest step if wanted: check --jobs N per day group (~4x cold, a day or two). Model result: Opus, worked, 55 min (est. 120). Decision pending (D2299).\n",
       "created": "2026-11-03",
       "updated": "2026-11-04",
       "commits": []
@@ -4996,6 +4996,48 @@
         "perf"
       ],
       "body": "From SW-1181's LSP investigation, 4 Nov 2026. One-off ~60 ms on the first recheck only; low impact. Look at it if editor latency work comes up.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1193,
+      "title": "Warm CLI check after a one-namespace edit replays untouched namespaces: 3.8 s on aoc vs 0.5-1.7 s checking only the affected ones",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1170 finding 1 (dev/measurements/parallel-checking.md). A sequential fix would help the edit loop more than parallelism. Check whether a warm check must replay a cached namespace to report its diagnostics or build --index.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1194,
+      "title": "Every stitchwort process re-elaborates the core and parses the whole project (~0.3 s CPU)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1170 finding 2. Adds up for tools and tests that start the CLI many times.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1195,
+      "title": "Six aoc Proofs namespaces are 59% of a cold check (Day16, Day06, Day13, Day22 mostly kernel 6.4 s, Day23, Day08)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1170 finding 3. Speeding them shortens the sequential check and any parallel critical path.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
