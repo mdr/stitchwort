@@ -4952,14 +4952,14 @@
     {
       "id": 1189,
       "title": "Globals split 8d: core::Machine (budget, glue, transparency, erasure, apart_sets) and EvalCaches; failed_mentioned into Decl",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n\n\nProgress (Sonnet, 4 Nov 2026): Machine, EvalCaches and Decl::failed_mentioned in place; workspace checks clean; targeted tests below.\nDone at 10d8bb82: tests core lane 173 pass; rewind, resources, hash_stability, check_cache, erasure pass (97 tests); clippy clean. Model result: Sonnet, worked, ~100 min (est. 120).\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n\n\nProgress (Sonnet, 4 Nov 2026): Machine, EvalCaches and Decl::failed_mentioned in place; workspace checks clean; targeted tests below.\nDone at 10d8bb82: tests core lane 173 pass; rewind, resources, hash_stability, check_cache, erasure pass (97 tests); clippy clean. Model result: Sonnet, worked, ~100 min (est. 120).\n\n\nModel result: Sonnet, worked, 26 min (est. 120). Orchestrator checked every glue setter restores the mode on all paths (closures or drop guards), so dropping glue from the mark changes nothing.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": [
