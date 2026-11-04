@@ -1,8 +1,9 @@
 # Proposal: a checked `@[tailrec]` attribute
 
 **Status:** draft 1, 4 November 2026. Ticket SW-1213, from D2308 (Matt: "do a
-bit of a design note and see if this is worth adding"). Nothing is built.
+bit of a design note and see if this is worth adding"). Built in SW-1222 (below).
 Written against commit `12f25310`. Decisions D2310 to D2315 are at the end.
+**Built 4 November 2026 (SW-1222)** as decided (D2310 to D2314, as recommended here): `crates/elab/src/tailrec.rs`; the surface is in docs/syntax.md, "Attributes". D2315 (the editor hint) is a separate ticket.
 
 Claims about Stitchwort's code are **[checked]** (read in the source at that
 commit). Timings are **[measured]** (run while writing this, described in §1.4) or

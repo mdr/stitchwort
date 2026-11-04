@@ -1,0 +1,4 @@
+# `@[tailrec]` definitions in a namespace that is replayed from the check
+# cache keep the mark (a flag of the definition the JavaScript generator
+# reads), the local `go` included.
+sources: [src]

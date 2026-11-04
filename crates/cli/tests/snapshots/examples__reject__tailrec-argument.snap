@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `biggest` is marked @[tailrec], but a recursive call isn't in tail position
+   ╭─[ reject/tailrec-argument.sw:8:29 ]
+   │
+ 8 │   | [x, ..xs] => Nat.max x (biggest xs)
+   │                             ─────┬────  
+   │                                  ╰────── its result is passed to `Nat.max`, which runs after it returns
+   │ 
+   │ Note 1: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+   │ 
+   │ Note 2: to use the result, carry it along in an extra parameter (an accumulator) that the call updates
+───╯

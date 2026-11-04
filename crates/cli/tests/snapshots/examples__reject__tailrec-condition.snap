@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `f` is marked @[tailrec], but a recursive call isn't in tail position
+   ╭─[ reject/tailrec-condition.sw:8:18 ]
+   │
+ 8 │   | Succ n => if f n == 0 then 1 else 2
+   │                  ─┬─  
+   │                   ╰─── its result is used by the expression around it, which runs after it returns
+   │ 
+   │ Note: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+───╯

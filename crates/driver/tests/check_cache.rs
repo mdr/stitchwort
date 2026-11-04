@@ -386,6 +386,20 @@ fn the_cache_replays_parameter_defaults() {
     assert!(warm.dump.contains(" ParamDefaults {"));
 }
 
+/// `@[tailrec]` is a flag of the definition, kept in the entry: a namespace
+/// loaded from the cache has it on the definition, local `go` included (the
+/// dump lists it, so the warm dump must equal the fresh one).
+#[test]
+fn the_cache_replays_tailrec() {
+    let project = Source::Project(
+        "tailrec-namespace".into(),
+        examples_dir().join("projects/accept/tailrec-namespace"),
+    );
+    assert_cache_changes_nothing(&project, false);
+    let fresh = run(&project, false, None);
+    assert!(fresh.dump.contains(" tailrec true "), "{}", fresh.dump);
+}
+
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
     if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {

@@ -91,6 +91,7 @@ pub use state::JournalStats;
 pub use std_dir::{
     CORE_ORDER, STD_DIR_VAR, StdText, load_std_text, std_text, use_std_bundle, use_std_dir,
 };
+mod tailrec;
 mod undo;
 mod unify;
 mod update_lemmas;
@@ -2355,6 +2356,9 @@ impl Elaborator {
             }
             self.scope.insert(&key, Global::Def(id), span, false);
             self.tables.helper_keys.add(key);
+            if self.kernel.def(id).tailrec() {
+                self.check_tailrec(id)?;
+            }
         }
         Ok(())
     }
@@ -2710,7 +2714,22 @@ impl Elaborator {
                  function without them that calls this one",
             ));
         }
-        let no_receiver = self.definition_attributes(signature)?;
+        let attributes = self.definition_attributes(signature)?;
+        let no_receiver = attributes.no_receiver;
+        if let Some(span) = attributes.tailrec
+            && mentions_ability(ty, "Partial")
+        {
+            return Err(Diagnostic::error(
+                "E-ATTRIBUTE",
+                "`tailrec` can't be used on a partial definition yet",
+            )
+            .with_label(span, "on a definition with `{Partial}` in its type")
+            .with_note(
+                "a partial definition is run by its own machine, which loops its tail calls \
+                 already (docs/proposals/partial.md); @[tailrec] checks terms of a different \
+                 shape, which it doesn't cover yet",
+            ));
+        }
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.unit.module.phase = Phase::Signature;
@@ -2729,6 +2748,9 @@ impl Elaborator {
         .map_err(|d| notes.iter().fold(d, |d, n| d.with_note(n.clone())))?;
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
+        }
+        if attributes.tailrec.is_some() {
+            kernel::mark_tailrec(&mut self.kernel, id);
         }
         self.mark_opaque_signature(signature, id);
         // A dictionary keeps its name in what uses it (stage 1, item 13).
@@ -2889,6 +2911,9 @@ impl Elaborator {
         };
         if *instance {
             self.validate_instance(id)?;
+        }
+        if self.kernel.def(id).tailrec() {
+            self.check_tailrec(id)?;
         }
         if self.unit.loading_prelude {
             self.bind_builtin_def(id)?;

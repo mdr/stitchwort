@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-ATTRIBUTE] Error: attributes can't be written here
-   ╭─[ reject/attribute-on-local-def.sw:3:3 ]
+[E-ATTRIBUTE] Error: `js.name` can't be used on a local definition
+   ╭─[ reject/attribute-on-local-def.sw:3:5 ]
    │
  3 │   @[js.name "loop"] def go (k: Nat): Nat := k
-   │   ┬  
-   │   ╰── expected an expression
+   │     ───────┬──────  
+   │            ╰──────── on a local definition
    │ 
-   │ Note: attributes go before a data type's `type`, after a constructor's `|`, or before a field's name: `@[js.tag "type"]`, `| @[js.name "CIRCLE"] Circle`, `(@[js.name "center_x"] centerX: Nat)`
+   │ Note: `js.name` applies to a constructor or a field: a constructor's tag value, or a field's key, in JS (without it, the Stitchwort name, with each `'` as `$`)
 ───╯

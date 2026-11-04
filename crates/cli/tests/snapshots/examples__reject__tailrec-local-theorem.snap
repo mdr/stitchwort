@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `tailrec` can't be used on a local theorem
+   ╭─[ reject/tailrec-local-theorem.sw:5:5 ]
+   │
+ 5 │   @[tailrec]
+   │     ───┬───  
+   │        ╰───── on a local theorem
+   │ 
+   │ Note: `tailrec` applies to a definition or an exported definition or a local definition: every recursive call of the definition is a tail call, so it runs as a loop (constant frames) on every backend; a call that isn't one is `E-TAILREC`
+───╯

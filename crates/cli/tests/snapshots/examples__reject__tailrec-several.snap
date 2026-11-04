@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `f` is marked @[tailrec], but 2 recursive calls aren't in tail position
+   ╭─[ reject/tailrec-several.sw:8:18 ]
+   │
+ 8 │   | [x, ..xs] => f xs + Nat.max x (f xs)
+   │                  ──┬─              ──┬─  
+   │                    ╰───────────────────── its result is an operand of `+`, which runs after it returns
+   │                                      │   
+   │                                      ╰─── its result is passed to `Nat.max`, which runs after it returns
+   │ 
+   │ Note 1: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+   │ 
+   │ Note 2: to use the result, carry it along in an extra parameter (an accumulator) that the call updates
+───╯

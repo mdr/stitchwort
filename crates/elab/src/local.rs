@@ -289,6 +289,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
     for (i, ty, value, meta, _) in elaborated {
         let def = &defs[i];
         let (name, _, theorem, span) = signature(def);
+        let tailrec = e.local_attributes(&def.signature)?.is_some();
         e.decl.owner.borrow_mut().push(name.text.clone());
         let body = e.body_in(cx, value, Some(Rc::new(ty.clone())), name, &def.equations);
         e.decl.owner.borrow_mut().pop();
@@ -316,6 +317,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
                 name: name.text.clone(),
                 theorem,
                 whole,
+                tailrec,
             }),
             update: None,
             motive_later: false,
@@ -464,6 +466,7 @@ pub(crate) fn draft(
             name: name.to_string(),
             theorem: false,
             whole: span,
+            tailrec: false,
         }),
         update: None,
         motive_later: false,

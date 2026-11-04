@@ -124,6 +124,8 @@ pub(crate) struct LocalDraft {
     /// The whole definition, from `def` to its last arm: a `match` inside is
     /// numbered within it (`owner.go.%match1`).
     pub whole: Span,
+    /// Written `@[tailrec]` (docs/proposals/tailrec.md).
+    pub tailrec: bool,
 }
 
 /// What resolving a batch gives: the helpers to admit with the owner, and
@@ -710,6 +712,9 @@ impl Elaborator {
                     self.parts(d, &ordered[i], &|_| false, false)?
                 };
                 let id = self.declare_helper(d, &keys[i], &ty)?;
+                if d.local.as_ref().is_some_and(|l| l.tailrec) {
+                    kernel::mark_tailrec(&mut self.kernel, id);
+                }
                 // Opaque with its owner's `unfolding` clause, if it has one
                 // (`opaque.rs`).
                 self.opaque_helper(id);
