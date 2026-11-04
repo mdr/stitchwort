@@ -2102,7 +2102,7 @@ fn context_at_answers_anywhere_in_an_expression() {
             json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
         )
     };
-    let found = context_at(&mut client, 5, 13);
+    let found = context_at(&mut client, 5, 18);
     assert_eq!(found["type"], "Nat", "{found:?}");
     let names: Vec<&str> = (found["locals"].as_array().expect("locals").iter())
         .map(|l| l["name"].as_str().unwrap())
