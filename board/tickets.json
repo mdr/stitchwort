@@ -6326,9 +6326,9 @@
     {
       "id": 1284,
       "title": "AoC domain types 1: shared Aoc.Common Bits (2021 day 3 first, then 2021 day 16, 2024 day 24; 2020 day 5's Pass as the model)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1284",
       "labels": [
         "aoc"
       ],
