@@ -271,6 +271,12 @@ impl<K: Hash + Eq + Clone, V: Clone> Logged<K, V> {
     }
 }
 
+/// Whether a log or map with room for `capacity` holding `len` has much
+/// more room than it uses: a quarter or less used, and not small.
+fn roomy(capacity: usize, len: usize) -> bool {
+    capacity > 1024 && len < capacity / 4
+}
+
 /// A set whose changes can be undone, as [`Logged`].
 pub(crate) type LoggedSet<K> = Logged<K, ()>;
 
@@ -300,6 +306,16 @@ impl<K: Hash + Eq + Clone, V> Logs for Logged<K, V> {
                 Some(value) => self.map.insert(key, (value, 0)),
                 None => self.map.remove(&key),
             };
+        }
+        // A language server's first check grows the log and the map to the
+        // whole project, and its first edit rewinds most of that: give the
+        // room back (SW-1179), keeping twice what is left so that a recheck
+        // doesn't regrow it a doubling at a time.
+        if roomy(self.undo.capacity(), self.undo.len()) {
+            self.undo.shrink_to(2 * self.undo.len());
+        }
+        if roomy(self.map.capacity(), self.map.len()) {
+            self.map.shrink_to(2 * self.map.len());
         }
         undone
     }

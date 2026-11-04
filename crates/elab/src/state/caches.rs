@@ -5,10 +5,13 @@
 //! An entry may be wrong only in being missing.
 //!
 //! None is encoded for the check cache or dumped. A rewind keeps each as
-//! far as its entries stay true: the two dot-call tables are put back as
-//! they were at the mark (their keys are addresses within a source epoch),
-//! the tables by definition are cut to the definitions that remain, and the
-//! rest are emptied. `Globals::hashes` (content hashes) is a cache too, but
+//! far as its entries stay true: the tables by definition are cut to the
+//! definitions that remain, and the rest are emptied, the two dot-call
+//! tables included. Their keys are addresses within a source epoch, which
+//! a namespace checked again after the rewind may reuse, so a mark would
+//! have to copy them (2 MB a mark on the AoC project, 15,000 rows: most of
+//! what a language server's mark cost, elaborator-state.md §9 F11); the
+//! namespaces checked again fill them again, at no measured cost (SW-1179). `Globals::hashes` (content hashes) is a cache too, but
 //! lives in `core` until the `Globals` split (step 8).
 
 use std::cell::RefCell;
@@ -51,12 +54,9 @@ pub(crate) struct Caches {
     pub(crate) performs: RefCell<HashMap<effects::PerformsKey, bool>>,
 }
 
-/// What a rewind mark keeps of [`Caches`]: the tables whose keys don't
-/// identify a definition.
-pub(crate) struct Mark {
-    dot_heads: HashMap<dot::CallKey, (dot::TyHead, DefId)>,
-    dot_failed: HashSet<(dot::CallKey, usize, usize)>,
-}
+/// What a rewind mark keeps of [`Caches`]: nothing (see the module's
+/// comment).
+pub(crate) struct Mark;
 
 impl Caches {
     /// Empties every cache. The elaborator gives the same results.
@@ -78,24 +78,13 @@ impl Caches {
     }
 
     pub(crate) fn mark(&self) -> Mark {
-        let Caches {
-            dot_heads,
-            dot_failed,
-            // Cut by definition at a rewind, or emptied.
-            cong_candidates: _,
-            result_heads: _,
-            decision_order: _,
-            performs: _,
-        } = self;
-        Mark {
-            dot_heads: dot_heads.borrow().clone(),
-            dot_failed: dot_failed.borrow().clone(),
-        }
+        Mark
     }
 
     /// Puts the caches back to a mark taken when there were `defs`
-    /// definitions in the world that remains.
-    pub(crate) fn rewind(&mut self, mark: &Mark, defs: usize) {
+    /// definitions in the world that remains: what may no longer be true
+    /// goes.
+    pub(crate) fn rewind(&mut self, _: &Mark, defs: usize) {
         let Caches {
             dot_heads,
             dot_failed,
@@ -104,8 +93,9 @@ impl Caches {
             decision_order,
             performs,
         } = self;
-        *dot_heads.get_mut() = mark.dot_heads.clone();
-        *dot_failed.get_mut() = mark.dot_failed.clone();
+        // Their keys' addresses may be reused by what is checked next.
+        dot_heads.get_mut().clear();
+        dot_failed.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         // It may list definitions declared since the mark, whose numbers the

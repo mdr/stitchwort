@@ -78,6 +78,43 @@ fn nothing_is_logged_while_nothing_is_open() {
     assert_eq!((s.entries, s.transactions, s.held), (2, 1, 0));
 }
 
+/// A rewind that undoes most of a large log gives back the room the log and
+/// the map grew to (a language server's first edit after its first check),
+/// and what remains is as it was.
+#[test]
+fn a_rewind_gives_back_the_room() {
+    let mut j = J::default();
+    let mut t: Logged<u32, u32> = Logged::default();
+    let c = j.checkpoint(&mut t);
+    t.insert(0, 0);
+    t.insert(1, 1);
+    let kept = j.checkpoint(&mut t);
+    for k in 2..100_000 {
+        t.insert(k, k);
+    }
+    t.insert(0, 7);
+    let grown = (t.undo.capacity(), t.map.capacity());
+    j.rewind(&kept, &mut t);
+    let rows: BTreeMap<u32, u32> = t.iter().map(|(k, v)| (*k, *v)).collect();
+    assert_eq!(rows, BTreeMap::from([(0, 0), (1, 1)]));
+    assert!(
+        t.undo.capacity() < grown.0 / 100,
+        "{} of {}",
+        t.undo.capacity(),
+        grown.0
+    );
+    assert!(
+        t.map.capacity() < grown.1 / 100,
+        "{} of {}",
+        t.map.capacity(),
+        grown.1
+    );
+    // The log still takes the rows back to the older checkpoint.
+    j.rewind(&c, &mut t);
+    assert!(t.is_empty());
+    j.release(c, &mut t);
+}
+
 /// A rewind past an open transaction panics and changes nothing.
 #[test]
 fn a_rewind_past_a_transaction_panics() {

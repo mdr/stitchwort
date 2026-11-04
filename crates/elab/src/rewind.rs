@@ -29,10 +29,11 @@
 //!   mark on the AoC project).
 //! - **What is left** is copied: the module state and its imports, the
 //!   library files' states, the ranges of the project's namespaces, all
-//!   small between namespaces, and the dot-call caches (`state::Caches`),
-//!   which aren't (2 MB a mark on the AoC project, nearly all a mark now
-//!   costs). What the host sets whole (the project's namespaces and their
-//!   names, their sources' keys) is shared with the mark.
+//!   small between namespaces. What the host sets whole (the project's
+//!   namespaces and their names, their sources' keys) is shared with the
+//!   mark. The caches (`state::Caches`) are cut or emptied, the dot-call
+//!   ones included: copying those cost 2 MB a mark on the AoC project
+//!   (SW-1179).
 //!
 //! A mark that is no longer wanted is released ([`Elaborator::release`]),
 //! newest first, or dropped by rewinding to an older one; one only dropped
