@@ -541,3 +541,52 @@ fn update_lemmas() {
         "{found}"
     );
 }
+
+/// An implicitly bound variable of a signature (`o` in `Map k v [ord := o]`)
+/// is a local variable of its body, so a projection on it navigates
+/// (SW-1114): the first use is its binder, and a name that is a declaration
+/// is not taken for one.
+#[test]
+fn implicitly_bound_variables_are_locals() {
+    let mut session = Session::navigable();
+    let source = "import Std (Map)\n\ndef eqOf (m: Map k v [ord := o]) (x y: k): Decidable (x = y) := o.eq.decide x y\n";
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let first = source.find("[ord := o]").unwrap() + "[ord := ".len();
+    let body = source.find("o.eq").unwrap();
+    let at = |offset: usize| {
+        index.refs.iter().find(|r| {
+            r.span.file.index() == session.elab.std_file_count() && r.span.start as usize == offset
+        })
+    };
+    let used = at(body).expect("a reference at `o` in the body");
+    assert!(
+        matches!(&used.target, NavTarget::Binder { name, span } if name == "o" && span.start as usize == first),
+        "the binder is the first use"
+    );
+    // The projection after it is a reference too.
+    assert!(at(body + 2).is_some(), "no reference at `.eq`");
+}
+
+/// A lowercase name in a signature that is a declaration's is that
+/// declaration, not an implicitly bound variable (SW-1114).
+#[test]
+fn a_declared_lowercase_name_in_a_signature_is_not_a_variable() {
+    let mut session = Session::navigable();
+    let source = "def word: Type := Nat\n\ndef g (w: word): Nat := 0\n";
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let at = source.rfind("word").unwrap();
+    let found: Vec<_> = index
+        .refs
+        .iter()
+        .filter(|r| {
+            r.span.file.index() == session.elab.std_file_count() && r.span.start as usize == at
+        })
+        .collect();
+    assert!(
+        matches!(found.as_slice(), [r] if matches!(r.target, NavTarget::Symbol(_))),
+        "{} references at `word`, not one to the declaration",
+        found.len()
+    );
+}

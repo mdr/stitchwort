@@ -831,7 +831,20 @@ impl Elaborator {
                 defaults: nav.call_defaults.get(at).cloned(),
             });
         }
+        // A name taken for an implicitly bound variable (`implicit_guesses`)
+        // that is a declaration's: its binder is its own first use, and a
+        // reference to the declaration is noted there.
+        let guesses: stitchwort_core::collections::HashSet<Span> = nav
+            .locals
+            .iter()
+            .filter(|l| l.binder == l.span && nav.refs.contains_key(&l.span))
+            .map(|l| l.span)
+            .filter(|span| nav.binders.iter().any(|b| b.span == *span))
+            .collect();
         for local in &nav.locals {
+            if guesses.contains(&local.span) {
+                continue;
+            }
             refs.push(NavRef {
                 span: local.span,
                 dot: None,
@@ -932,6 +945,9 @@ impl Elaborator {
         }
         // A local variable's binder refers to itself (a record field is a declaration, above).
         for binder in &nav.binders {
+            if guesses.contains(&binder.span) {
+                continue;
+            }
             if !taken.insert((binder.span.file, binder.span.start)) {
                 continue;
             }
@@ -1382,7 +1398,9 @@ impl Walk<'_> {
 
     /// A signature and its equations.
     fn signature(&mut self, ty: &Expr, equations: &[Decl]) {
-        let mut work = vec![Work::Expr(ty)];
+        let guesses = implicit_guesses(ty);
+        let mut work: Vec<Work> = guesses.iter().map(|n| Work::Bind(n)).collect();
+        work.push(Work::Expr(ty));
         let binders = body_binders(ty, equations);
         for eq in equations {
             let Decl::Equation { patterns, rhs, .. } = eq else {
@@ -1398,6 +1416,7 @@ impl Walk<'_> {
             work.extend(vars.into_iter().map(Work::Unbind));
             work.extend(binders.iter().map(|n| Work::Unbind(&n.text)));
         }
+        work.extend(guesses.iter().map(|n| Work::Unbind(&n.text)));
         self.run(work);
     }
 
@@ -1720,6 +1739,25 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         | Pattern::Char(..)
         | Pattern::Nil(_) => {}
     }
+}
+
+/// The names a signature uses without binding them, that may be bound
+/// implicitly (`k` in `List k`, `o` in `Map k v [ord := o]`): lowercase and
+/// unqualified, each at its first use. Whether a name is one is for the
+/// elaborator to say, which notes a reference where it isn't (a
+/// declaration's name).
+fn implicit_guesses(ty: &Expr) -> Vec<&ast::Name> {
+    let mut out: Vec<&ast::Name> = Vec::new();
+    for r in crate::module::free_names_of(ty) {
+        if let crate::module::Ref::Name(n) = r
+            && !n.text.contains('.')
+            && n.text.starts_with(|c: char| c.is_lowercase())
+            && !out.iter().any(|o| o.text == n.text)
+        {
+            out.push(n);
+        }
+    }
+    out
 }
 
 /// The names a definition's equations can use for its parameters named in

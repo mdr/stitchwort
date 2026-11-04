@@ -3875,30 +3875,34 @@
     {
       "id": 1113,
       "title": "LSP: names inside library test bodies have no definition or hover",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "Found in SW-1110: library tests (test \"…\" := …) aren't elaborated on load, so names inside them in stitchwort-std: documents don't navigate.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n",
+      "body": "Found in SW-1110: library tests (test \"…\" := …) aren't elaborated on load, so names inside them in stitchwort-std: documents don't navigate.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n\nLane result (Sonnet, 4 Nov): cause: library `test` items are skipped on load (module.rs `collect`), so nothing noted references in them. Fix: with navigation on, collect stashes the free names of each skipped test (`ModuleState::test_names`); after the module is checked they are noted with `note_name` (so they resolve to real globals). Dot calls on locals in test bodies (`xs.length`) are not covered (they need the receiver's type). No cost without navigation; with it, one free-names walk per library test (no measurable change in `check --index` on a Set/Map program, 2.3-2.5 s either way). Test: lsp `names_in_library_tests_navigate`.\n",
       "created": "2026-11-03",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "aabf9fc4"
+      ]
     },
     {
       "id": 1114,
       "title": "LSP: field projections on locals (s.items, o.compare) don't navigate in library files",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "Found in SW-1110: projections such as s.items, o.compare, o.eq.decide in library files have no definition. Not checked whether program files share the gap.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n",
+      "body": "Found in SW-1110: projections such as s.items, o.compare, o.eq.decide in library files have no definition. Not checked whether program files share the gap.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n\nLane result (Sonnet, 4 Nov): the projection `.items`/`.compare`/`.eq`/`.decide` already had references in library files; what was missing was the receiver `o`: a variable bound implicitly by a signature (`[ord := o]` in `Map k v [ord := o]`, also `k`, `v`) had no binder in the navigation walk, so neither it nor its uses navigated. Program files had the same gap. Fix (nav.rs `implicit_guesses`): the walk binds each unbound, lowercase, unqualified name of a signature at its first use; where a declaration is named (lowercase global), the elaborator's reference at that span wins in the index. Tests: lsp `projections_on_locals_navigate_in_library_documents`; driver `implicitly_bound_variables_are_locals`, `a_declared_lowercase_name_in_a_signature_is_not_a_variable`.\n",
       "created": "2026-11-03",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "aabf9fc4"
+      ]
     },
     {
       "id": 1115,
