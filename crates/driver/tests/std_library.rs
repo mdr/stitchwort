@@ -736,13 +736,17 @@ fn no_library_file_declares_a_decision_procedure() {
     // what `x <= y` and `x < y` on `Float` are, declared beside them. And
     // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
     // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
-    // declared beside it in std/Nat/Arith.sw.
+    // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
+    // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
+    // `List.LeHead`, declared beside them in std/List/Sort.sw.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
             "Std.Nat.decPowSuccNotZero",
             "Std.List.decMem",
             "Std.List.decDistinct",
+            "Std.List.decLeHead",
+            "Std.List.decSorted",
             "Std.Float.decEqFrom",
             "Std.Float.decEq",
             "Std.Float.decLessEq",
