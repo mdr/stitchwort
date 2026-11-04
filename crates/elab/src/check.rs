@@ -5338,21 +5338,41 @@ fn shadow_note(d: Diagnostic, shadowed: Option<&(AstName, AstName)>) -> Diagnost
 /// declared with a function type.
 fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
     let g = cx.g();
-    let is_pi =
-        |ty: &Value| -> Result<bool> { Ok(matches!(force(&g, ty.clone())?, Value::Pi(..))) };
+    let takes_argument = |ty: &Value| -> Result<bool> { takes_lambda_argument(&g, ty) };
     if let Some((_, ty)) = cx.local(name)? {
-        return is_pi(&ty);
+        return takes_argument(&ty);
     }
     if let Some(level) = cx.lookup(name) {
-        return is_pi(&cx.types[level]);
+        return takes_argument(&cx.types[level]);
     }
     match cx.e.named(name) {
-        Some((Global::Def(id), _)) => is_pi(g.def(*id).ty_value()),
+        Some((Global::Def(id), _)) => takes_argument(g.def(*id).ty_value()),
         Some((Global::Op(..), _)) => Ok(true),
         Some((Global::Unchecked(item), _)) => Ok(cx.e.item_is_function(*item)),
         // A library name whose file isn't loaded: the index knows its type's shape.
         Some((Global::Pending(file, _), _)) => Ok(cx.e.pending_is_function(name, *file)),
         _ => Ok(false),
+    }
+}
+
+/// Whether `ty` is a function that has an explicit argument a lambda could
+/// take: after its implicit and `auto` arguments, a first argument that
+/// isn't `()` (`def entry(): T` takes none, so `entry x => …` can't mean
+/// `entry (x => …)`).
+fn takes_lambda_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
+    let mut ty = force(g, ty.clone())?;
+    loop {
+        match ty {
+            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod) => {
+                // A stand-in for the binder: only the shape of the rest matters.
+                ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
+            }
+            Value::Pi(_, Icit::Explicit, dom, _) => {
+                return Ok(!matches!(force(g, (*dom).clone())?, Value::Data(d, _)
+                    if &**g.data(d).path() == "Std.Builtin.UnitType"));
+            }
+            _ => return Ok(false),
+        }
     }
 }
 

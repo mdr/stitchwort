@@ -2239,15 +2239,21 @@ pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name,
 }
 
 /// The name at the head of a signature's result, after its parameters.
-/// Whether a written type is a function type (after any implicit parameters).
+/// Whether a written type is a function type with an explicit argument a
+/// lambda could take (after any implicit parameters): `def entry(): T`
+/// takes none, so `W-LAMBDA-SHADOW` doesn't ask about it.
 pub(crate) fn is_function_type(ty: &Expr) -> bool {
     let mut ty = ty;
     loop {
         match ty {
-            Expr::Arrow(..) => return true,
-            Expr::Pi {
-                implicit: false, ..
-            } => return true,
+            Expr::Arrow(dom, _)
+            | Expr::Pi {
+                dom,
+                implicit: false,
+                ..
+            } => {
+                return !matches!(**dom, Expr::Unit(_));
+            }
             Expr::Pi { cod, .. } => ty = cod,
             _ => return false,
         }

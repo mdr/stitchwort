@@ -116,6 +116,9 @@ fn no_warning_otherwise() {
         "def f : Nat -> Nat -> Nat := _ x => x\n",
         // A top-level value that isn't a function.
         "def r : Nat := 3\n\ndef f : Nat -> Nat -> Nat := r x => r + x\n",
+        // A function with no explicit arguments: `entry x => …` can't mean
+        // `entry (x => …)`.
+        "def entry (): Nat := 1\n\ndef f : Nat -> Nat -> Nat := entry x => x\n",
         // A local variable that isn't a function.
         "def g (n: Nat) : Nat -> Nat -> Nat := n y => n + y\n",
         // A bracketed argument lambda, as the note advises.
