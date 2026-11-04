@@ -1,5 +1,5 @@
 {
-  "next": 1281,
+  "next": 1282,
   "tickets": [
     {
       "id": 47,
@@ -6275,6 +6275,21 @@
         "editor"
       ],
       "body": "The problem: `include \"../../../../../inputs/2020/day05.txt\"` in a Tests/Input.sw can't be followed in the editor; you have to find the input file by hand. Matt, 4 Nov 2026: 'it'd be nice to be able to code nav to that input'.\n\nThe change: in the language server (crates/cli/src/lsp.rs, which already answers go-to-definition; no documentLink support yet), resolve an Expr::Include path the way the checker does (relative to the including file, inside the project folder; docs/syntax.md '`include`') and (1) answer textDocument/definition on the string with the file's start, (2) offer textDocument/documentLink for every include so the path is underlined and Cmd-click works. A missing or outside path gives no link (the diagnostic already says why).\n\nWhat it should do: Cmd-click or F12 on the path in aoc/src/Aoc/Year2020/Day05/Tests/Input.sw opens aoc/inputs/2020/day05.txt; an lsp test covers both requests.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1281,
+      "title": "Test that the VS Code grammar and the playground highlight every lexer keyword",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "tests"
+      ],
+      "body": "The problem: the keyword lists in editors/vscode/syntaxes/stitchwort.tmLanguage.json and web/index.html (KEYWORDS) are hand-copied from crates/syntax/src/lexer.rs; include was missing from both until 4 Nov 2026 (Matt noticed it coloured like a function). The change: a test (e.g. in crates/syntax or editors/vscode/test/grammar.test.js) that reads the lexer's keyword table and checks both lists contain every keyword. What it should do: adding a keyword to the lexer without the highlighters fails a test. DeepSeek candidate.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
