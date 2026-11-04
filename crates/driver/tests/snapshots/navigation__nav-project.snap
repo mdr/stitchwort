@@ -25,19 +25,19 @@ Nav.sw:12:22 side -> local side Nav.sw:12:14 : Nat
 Nav.sw:12:29 side -> local side Nav.sw:12:14 : Nat
 Nav.sw:14:5 total -> Nav.total [def] Nav.sw:14:5 : List Nat → Nat
 Nav.sw:14:12 xs -> local xs Nav.sw:14:12 : 
-Nav.sw:14:16 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:14:16 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:14:21 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:14:27 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:15:7 go -> local go Nav.sw:15:7 : 
 Nav.sw:15:11 acc -> local acc Nav.sw:15:11 : 
 Nav.sw:15:16 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:15:22 ys -> local ys Nav.sw:15:22 : 
-Nav.sw:15:26 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:15:26 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:15:31 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:15:37 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:16:11 ys -> local ys Nav.sw:15:22 : List Nat
 Nav.sw:17:15 acc -> local acc Nav.sw:15:11 : Nat
-Nav.sw:18:9 Cons -> Std.List.Cons [ctor] <prelude>:236:5 : [a: Type] → a → List a → List a
+Nav.sw:18:9 Cons -> Std.List.Cons [ctor] <prelude>:238:5 : [a: Type] → a → List a → List a
 Nav.sw:18:14 y -> local y Nav.sw:18:14 : 
 Nav.sw:18:16 rest -> local rest Nav.sw:18:16 : 
 Nav.sw:18:24 go -> local go Nav.sw:15:7 : Nat → List Nat → Nat
@@ -50,9 +50,9 @@ Nav.sw:20:6 start -> local start Nav.sw:19:7 : Nat
 Nav.sw:20:12 xs -> local xs Nav.sw:14:12 : List Nat
 Nav.sw:22:5 doubled -> Nav.doubled [def] Nav.sw:22:5 : List Nat → List Nat
 Nav.sw:22:14 xs -> local xs Nav.sw:22:14 : 
-Nav.sw:22:18 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:22:18 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:22:23 Nat -> Std.Nat [data] <prelude>:175:6 : Type
-Nav.sw:22:29 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:22:29 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:22:34 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:22:41 xs -> local xs Nav.sw:22:14 : List Nat
 Nav.sw:22:44 map -> Std.List.map [def] Toolkit.sw:30:5 : [a: Type] → [e: Effect.Effects] → [div: Effect.Divergence] → [b: Type] → List a → (a → {e} b) → {e} List b
@@ -61,9 +61,9 @@ Nav.sw:22:54 n -> local n Nav.sw:22:49 : Nat
 Nav.sw:22:58 n -> local n Nav.sw:22:49 : Nat
 Nav.sw:24:5 piped -> Nav.piped [def] Nav.sw:24:5 : List Nat → List Nat
 Nav.sw:24:12 xs -> local xs Nav.sw:24:12 : 
-Nav.sw:24:16 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:24:16 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:24:21 Nat -> Std.Nat [data] <prelude>:175:6 : Type
-Nav.sw:24:27 List -> Std.List [data] <prelude>:234:6 : Type → Type
+Nav.sw:24:27 List -> Std.List [data] <prelude>:236:6 : Type → Type
 Nav.sw:24:32 Nat -> Std.Nat [data] <prelude>:175:6 : Type
 Nav.sw:24:39 xs -> local xs Nav.sw:24:12 : List Nat
 Nav.sw:24:46 map -> Std.List.map [def] Toolkit.sw:30:5 : [a: Type] → [e: Effect.Effects] → [div: Effect.Divergence] → [b: Type] → List a → (a → {e} b) → {e} List b

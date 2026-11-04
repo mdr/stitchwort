@@ -5587,13 +5587,13 @@
     {
       "id": 1232,
       "title": "Mark std functions @[tailrec] (tailrec note §6.3): pins List.lengthOnto, foldLeft, Nat.digitsAcc etc. as loops, so a regression is an error",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1232",
       "labels": [
         "language"
       ],
-      "body": "Follow-up to SW-1222. Mark the std loops and fix any that the checker (or the JS assertion) rejects.\n\nQueued by Matt, 4 Nov 2026. DeepSeek (mechanical: mark the loops, fix rejections; review line by line), next free slot.",
+      "body": "Follow-up to SW-1222. Mark the std loops and fix any that the checker (or the JS assertion) rejects.\n\nQueued by Matt, 4 Nov 2026. DeepSeek (mechanical: mark the loops, fix rejections; review line by line), next free slot.\n\nMerged c6eb58f1 (89 definitions marked; 2 Prop-valued predicates unmarked in review; 15 rejected candidates are list builders, not loops). Verified: selection 616 pass, audit clean; merge tier caught 3 stale std line numbers (doc tests, nav-project snapshot) moved by the attribute lines, fixed in the follow-up commit. Model result: DeepSeek, worked (review removed 2 marks), ~16 min (est. 60).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
