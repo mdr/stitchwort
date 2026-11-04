@@ -1036,3 +1036,281 @@ well under a second to about 3.5 s that either alone pays (day 2's
 9. The first `stitchwort search` in a new worktree took over two minutes of
    wall clock (item 7). Performance; unknown size, worth timing on an idle
    machine.
+
+## Day 5: Binary Boarding
+
+Boarding passes, ten letters each: the first seven halve the plane's 128
+rows (`F` keeps the front half, `B` the back), the last three its 8
+columns (`L`, `R`), until one seat is left; its ID is row × 8 + column.
+Part 1 is the highest ID on a pass; part 2 is your seat, the one ID not on
+a pass whose neighbours either side are. Answers on Matt's input (807
+passes): 813 and 612; the examples give 357, 567, 119 and 820. Both
+answers, and the first example's 357, match Matt's Scala (`sbt "runMain
+aoc.day5.Day5"`, run on a copy of his repository).
+
+The program reads a pass as one 10-bit binary number, `B` and `R` for 1,
+with `Nat.fromBits` from std; part 2 sorts the IDs and takes the first gap
+of two:
+
+```stitchwort
+def half (lower: Char) (upper: Char): {Parse} Bool :=
+  Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper) == upper
+
+def pass(): {Parse} List Bool :=
+  let row := Parse.repeat 7 7 frontBack
+  let column := Parse.repeat 3 3 leftRight
+  row ++ column
+
+def seatId (pass: List Bool): Nat := Nat.fromBits pass
+
+def gap: List Nat → Option Nat
+  | [low, high, ..rest] => if high == low + 2 then Some (low + 1) else gap [high, ..rest]
+  | _ => None
+```
+
+It printed the right answers on the first run, and 16 of the 17 tests
+passed the first time (the one that didn't was my line count: the input
+has no final line break). The spec (`Spec/Spec.sw`) is the puzzle's
+procedure on the letters as written: a `Region` is "rows 0 through 127" as
+`first` and `last`, `lowerHalf` and `upperHalf` keep a half, `narrow`
+halves letter by letter (any letter but the two is no pass), and
+`Region.only` is "until you're left with exactly one row". A pass is 10
+letters, the row from the first 7 and the column from the last 3. Part 1 is
+the `maximum` of the IDs; part 2 is every ID of the 128 × 8 seats that
+isn't on a pass while the IDs either side are (`part2Answers`), and the
+spec test checks that on the input that is exactly `[612]`.
+
+Proved (`Aoc.Year2020.Day05.Proofs`):
+
+- `narrowBits`: halving a region of 2^n rows by n letters ends at its first
+  row plus the number the letters spell in binary, for any two different
+  letters and any region of that size. `seatIdSpec`: so a pass of 7 row
+  bits and 3 column bits, written out, is the spec's seat, and its seat ID
+  is `Nat.fromBits` of all ten bits (`fromBitsAppend`: row × 2^3 + column).
+- `parseWritten`: if `parsePasses` reads the input, each line is its pass
+  written out, 7 letters `F`/`B` then 3 `L`/`R`, one per bit.
+  `idsWritten`: the spec's seat IDs of the lines are the program's.
+- `part1Correct`: part 1 is the spec's highest seat ID, for every input
+  the parser reads.
+- `gapSound`, `gapComplete`: on a sorted list, `gap` finds only numbers
+  missing with both neighbours present, and finds one whenever there is
+  one. `part2Sound`: part 2's answer could be your seat;
+  `part2Complete`: part 2 finds a seat whenever one could be yours;
+  `part2Correct`: when exactly one seat could be yours (the puzzle's
+  promise), part 2 is it.
+
+Not proved: that every well-formed input parses (`Parse.Reads` is
+soundness only, as on days 2 to 4). `part2Correct` takes the puzzle's
+promise as a hypothesis, `part2Answers … = [seat]`; it holds on the input
+by a test, not by a proof. Without it the puzzle has no single answer:
+`part2Sound` and `part2Complete` say what part 2 does then.
+
+Breaking the program made the proofs fail: `Some low` for `Some (low + 1)`
+in `gap` fails `gapSound` and `gapComplete` (a type mismatch and `E-REFL`);
+`high == low + 3` fails the same two, structurally, since the proofs
+match on that comparison; `== lower` in `half` fails `readsHalf`, at the
+parser it restates; `Parse.repeat 6 7` for the row fails `readsPass`, with
+a message that hides why (item 5). The counterexample search found none of
+these (item 4).
+
+48 lines of program, 67 of spec, 248 of proofs, 47 of tests. About 20
+minutes from reading the puzzle to the proofs checking, by the clock
+(20:28 to 20:46, counting a 1-minute CLI build), then 10 minutes on check
+speed (item 3). Most proofs checked on the first try: `narrowBits`, the
+seat, the parser and `gapSound` each needed at most two edits.
+
+### 1. std's bits were there and right; the missing two lemmas are already duplicated
+
+`Nat.fromBits` (most significant first) with `Nat.fromBitsCons`,
+`Nat.fromBitsFrom` and `Nat.fromBitsFlipped` were exactly what the proofs
+needed: `narrowBits` is an induction that closes each step with `omega
+[Nat.fromBitsCons bit rest]`, 13 lines. Two lemmas were missing:
+
+```stitchwort
+theorem fromBitsAppend (high: List Bool) (low: List Bool): Nat.fromBits (high ++ low) = Nat.fromBits high * Nat.pow 2 low.length + Nat.fromBits low :=
+  Eq.trans (List.foldLeftAppend high 0 low (acc bit => acc * 2 + Bool.toNat bit)) (Nat.fromBitsFrom (Nat.fromBits high) low)
+
+theorem fromBitsBelow (bits: List Bool): Nat.fromBits bits < Nat.pow 2 bits.length := omega [Nat.fromBitsFlipped bits]
+```
+
+`stitchwort search 'Nat.fromBits (_ ++ _) = _'` then showed that 2021 day
+16 has `fromBitsSnoc` (the one-bit case of `fromBitsAppend`) and a
+`fromBitsBelow` identical to this one, character for character, and its own
+`bitsOf`/`fromBitsOf` the other way; 2024 day 24 defines its own `fromBits`,
+least significant first. All are std candidates: `Nat.fromBitsAppend`,
+`Nat.fromBitsBelow`, and a `Nat.toBits width n` with its round trip. Std
+has nothing linking `fromBits` to `testBit`; this day didn't need it.
+
+### 2. Moving a fact along an equation: `rewrite` ran out of budget, and std has no `Eq.subst`
+
+`part2Sound` has a membership in the spec's candidates, `seat ∈
+part2Answers lines`, and `idsWritten: seatIds lines = passes.map seatId`.
+`rewrite idsWritten input passes parsed in …` failed:
+
+```
+[E-REWRITE-BUDGET] Error: `rewrite` couldn't decide whether a part of the goal is the rule's left side
+ 122 │       rewrite idsWritten input passes parsed in
+     │ Note 1: the part of the goal, as it computes: `List.filterMap (List.map (Text.linesFrom [] [] (Text.toList input)) Text.toList) (pass => Option.map (if Std.Decidable.toBool (Nat.decEq … 10) then (match …) (…, …) else None) Seat.id)`
+     │ Note 2: the rule's left side: `seatIds (List.map (Text.lines input) Text.toList)`
+     │ Note 5: state the step with `calc`, or rewrite with a more specific equation
+```
+
+The goal had unfolded `seatIds` and `Text.lines`, so the left side was no
+longer there to find, and comparing the unfolded forms ran out. `calc`
+doesn't fit a membership. What worked was the eliminator by hand, with the
+motive written out:
+
+```stitchwort
+J (written same => seat ∈ (List.range (128 * 8)).filter (isYourSeat written)) (…) (Eq.sym (idsWritten input passes parsed))
+```
+
+(three times, in `part2Sound`, `part2Complete` and `part2Correct`). Std has
+`Eq.cong`, `Eq.sym` and `Eq.trans`, nothing like Lean's `▸` or
+`Eq.subst`/`Eq.mp`. An `Eq.subst (motive) (h) (proof)` with the motive
+inferred from the expected type, or a `rewrite` that matched the rule's
+left side as written before unfolding it, would have done it in one line;
+the note could also suggest it.
+
+Twice I wrote `rewrite only at (sound found made) in …`, which is
+`E-REWRITE-TARGET` ("needs a local name after `at`"), with a clear note
+to `let` it first.
+
+### 3. A concrete `128 * 8` made proofs slow, and a smaller lemma for any count fixed it
+
+The first full version took 7.7 s to check cold. `STITCHWORT_TIMINGS=1`
+showed it at once:
+
+```
+declaration                                 elab ms   kernel ms         steps       nodes
+Aoc.Year2020.Day05.Proofs.part2Sound         1707.9      1241.9      55040922      507691
+Aoc.Year2020.Day05.Proofs.part2Correct       1152.5        18.7      26532660         853
+Aoc.Year2020.Day05.Proofs.part2Complete       396.6        10.0       9409056         668
+```
+
+`part2Sound`'s term had half a million nodes. Moving its argument into a
+lemma, `gapYours`, still with `128 * 8`, brought it to 98,647 nodes, and
+making that lemma take any `count` made it vanish from the list; the same
+for `part2Complete` (`yoursGap`) and `part2Correct` (`onlyAnswer`, about
+any list of answers). The cold check went from 7.7 s to 3.2 s, of which
+about 3 s is the parser proofs' std. What in the term was so large wasn't
+established (`STITCHWORT_TIMINGS` names the declaration, not the part);
+replacing parts with `?` doesn't help, as a declaration with a `?` never
+reaches the kernel, so its numbers drop for that reason alone. The
+guide's §2 item 3 ("a lemma over any …, then instantiated") was the right
+remedy; a hint naming the large subterm would have saved the bisecting.
+
+### 4. The counterexample search can't look at `gap`: `List.Sorted` isn't decidable
+
+`gapSound` and `gapComplete` take `List.Sorted Nat.leq ids`, and the search
+says "not applicable: nothing decides `Std.List.Sorted Std.Nat.leq ids`".
+So breaking `gap` (`Some low` for `Some (low + 1)`) was caught by the proofs
+only, and since the proofs follow `gap`'s shape, by a type mismatch at a
+`match`, not by a counterexample. The end-to-end theorems are "not
+applicable: the statement's normal form has more than 100000 nodes" (the
+1024 seats). A `Decidable` instance for `List.Sorted le` with a `Bool` `le`
+(it is a `LeHead` chain) would let the search test every sorted-list lemma
+in std and AoC.
+
+### 5. Smaller things
+
+- **`Some { row, column }` is the constructor's own fields.** In the spec,
+  `| (Some row, Some column) => Some { row, column }` is `E-UNKNOWN-FIELD`
+  "`Some` has no field `row`", with a note saying exactly what to write,
+  `Some ({ … })`. Clear, but it bit twice (spec and test), and the reading
+  "`Some` applied to a record literal" is the only one that typechecks
+  here.
+- **Impossible `All2` arms must be written.** `seatIdsWritten` matches on
+  two lists and their `List.All2`; the cases with one list empty and the
+  other not have `Void` as the third argument's type, but are still
+  `E-NONEXHAUSTIVE` ("no arm matches 2 patterns"), so each lemma over
+  `All2` gets two `| [], [_, .._], impossible => Void.exfalso impossible`
+  arms. The coverage check could accept them as missing when the type
+  computes to `Void`.
+- **`omega` won't prove a non-arithmetic goal from contradictory facts.**
+  With `seat + 1 = low` and `low ≤ seat - 1` in scope, `omega` for the goal
+  `Succ seat ∈ rest` is "unsupported structure: this goal isn't linear
+  arithmetic"; `Void.exfalso (omega)` works. Lean's `omega` proves any goal
+  when the facts contradict; at least the note could suggest this.
+- **The audit's one warning is on a generated equation again.**
+  `Spec.seat.eq.ifTrue.alt1` is "no input made the hypotheses true (0 of
+  10000 cases)": random lists of characters are never 10 letters of `F`,
+  `B`, `L` and `R`. It isn't vacuous (the example is such a pass). Day 4's
+  SW-1261 (generated equations out of the vacuity check) would remove it;
+  it is the only warning.
+- **The first `stitchwort search` in this worktree took 84 s of wall clock**
+  (65 s user) and found nothing in std for `((?a && ?b) = True) ↔ _`; later
+  searches took 3 s. That is day 4's SW-1267 again. Grepping
+  `crates/elab/src/std` found `Bool.andLeft`, `Bool.andRight` and
+  `Bool.notTrue`, which `yourSeatMembers` used.
+- **A parser proof that needed no restating.** `readsHalf` restates
+  `half`'s `satisfy`, interpolated message and all, and it matched;
+  `Parse.readsRepeat` gave the 7 and 3 lengths directly, and `readsPass`
+  is one `readsThen` chain. The whole parser proof is 45 lines and checked
+  on the first try. `Parse.repeat 7 7` reads oddly for "exactly 7"; a
+  `Parse.count 7` would read as the puzzle does.
+- **A wrong length in the parser is reported as an unsolved spec.** With
+  `Parse.repeat 6 7 frontBack` (so a row can be 6 letters), `readsPass`
+  fails at the `rfl` that starts the witness:
+
+  ```
+  [E-TYPE-MISMATCH] Error: type mismatch
+   39 │         (Witness row (Witness column (Both rfl (Both (omega) (Both (omega)
+      │                                            ╰─── `rfl` proves an equation, but the expected type is `?25 rowRead row rowEach rowLeast rowMost columnRead column columnEach columnLeast columnMost`
+  ```
+
+  The real failure is the `omega` two steps on (`row.length = 7` from `6 ≤
+  row.length ≤ 7`). `readsThen`'s spec is a `_` solved from the last step,
+  and that step failing left it unsolved, so the first error is about the
+  hole. Reporting the `omega`, or saying the expected type is an unsolved
+  spec, would point at the cause.
+- **Day 4's tickets.** SW-1260's text lemmas weren't needed (no text
+  values here); SW-1261 would have removed the one audit warning; SW-1267
+  is the slow first search above. Nothing from day 4's `cases` items
+  (SW-1263, SW-1264) came up: the one `cases` here closed at once.
+
+### Size and time
+
+CPU time (load average about 33):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day05.Proofs` | 3.3 s user |
+| the same, first version (item 3) | 7.7 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day05` | 1.1 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day05` (17 tests) | 3.4 s user |
+| `stitchwort check --counterexamples Aoc.Year2020.Day05.Proofs` | 2.2 s user |
+| `task audit:touched -- Aoc.Year2020.Day05` (46 theorems) | 3.3 s user |
+| `stitchwort run Aoc.Year2020.Day05.main` on the input | 0.4 s user |
+| the first `stitchwort search` in the worktree | 65 s user, 84 s wall |
+
+### Ranked
+
+1. Std lacks `Nat.fromBitsAppend` and `Nat.fromBitsBelow` (and a
+   `toBits` with its round trip), and two AoC days already carry copies
+   (item 1). Missing library; small (move them, under an hour).
+2. Moving a fact along an equation needs `J` by hand: `rewrite` hit its
+   budget on a goal that had unfolded the rule's left side, and std has no
+   `Eq.subst` (item 2). Missing library (`Eq.subst` with an inferred
+   motive), small; `rewrite` matching before unfolding, medium.
+3. A concrete `128 * 8` in a proof's context gave a 500,000-node term and
+   2.9 s of checking, cured by a lemma over any count (item 3).
+   Performance; unknown size (find what was large); a timings note naming
+   the large subterm, medium.
+4. The counterexample search can't test anything about sorted lists, as
+   `List.Sorted` isn't decidable (item 4). Missing library (a `Decidable`
+   instance); small.
+5. The first `stitchwort search` in a fresh worktree took 84 s wall (item
+   5), as on day 4. Performance; SW-1267.
+6. A false vacuity warning on a generated equation (item 5), as on day 4.
+   SW-1261.
+7. Impossible `All2` arms have to be written out (item 5). Missing feature
+   (coverage sees `Void`-typed arguments); medium.
+8. `omega` doesn't prove a non-arithmetic goal from contradictory facts
+   (item 5). Missing feature, small; or a note suggesting `Void.exfalso
+   (omega)`, smaller.
+9. A wrong count in a `readsThen` chain is reported as `rfl` against an
+   unsolved `?25 …` rather than the `omega` that fails (item 5). Error
+   message; medium (needs a repro).
+10. `Some { … }` is read as `Some`'s own fields (item 5). Error message
+   already good; small, if a record literal could be tried when the
+   constructor's fields don't match.
