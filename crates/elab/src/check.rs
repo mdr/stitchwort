@@ -977,14 +977,21 @@ impl<'e> Ctx<'e> {
                  `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
                  same statement aren't interchangeable)",
             )
-        } else if expected_shown == found_shown {
-            let d = match self.first_difference_note(expected, found) {
-                Some(note) => d.with_note(note),
-                None => d,
-            };
-            self.with_alike_updates_note(d, &[expected, found])
         } else {
-            d
+            // The printed sides may hide where they differ: the same text,
+            // or parts shown as `…`.
+            let unclear = expected_shown == found_shown
+                || expected_shown.contains('…')
+                || found_shown.contains('…');
+            let d = match unclear.then(|| self.first_difference_note(expected, found)) {
+                Some(Some(note)) => d.with_note(note),
+                _ => d,
+            };
+            if expected_shown == found_shown {
+                self.with_alike_updates_note(d, &[expected, found])
+            } else {
+                d
+            }
         };
         let d = match crate::data_auto::auto_mismatch_note(self, expected, found) {
             Some(note) => d.with_note(note),
