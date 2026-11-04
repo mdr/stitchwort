@@ -1995,6 +1995,33 @@ theorem List.memPairs (p: (a, a)): (xs: List a) → p ∈ List.pairs xs → And 
         match List.memPairs p xs later with
           | Both one other => Both (Inr one) (Inr other)
 
+--| A pair in a list mapped to pairs with a fixed first part: that part, and a member of the list.
+theorem List.memMapPair (c: a) (u: a) (v: b) (xs: List b): Iff ((u, v) ∈ List.map xs (y => (c, y))) (And (u = c) (v ∈ xs)) :=
+  {
+    forward = m =>
+      Exists.elim (List.memMapElim (y => (c, y)) (u, v) xs m) (y both =>
+        Both (Eq.sym (Pair.mkInjectiveFst _ _ _ _ (And.right both)))
+          (rewrite <- Pair.mkInjectiveSnd _ _ _ _ (And.right both) in And.left both)),
+    backward = both => rewrite And.left both in List.memMap xs v (And.right both) (y => (c, y))
+  }
+
+--| Taking apart a pair of `List.pairs (Cons x rest)`: `x` with a later element, or a pair of `rest`.
+--| (Each way round, so a proof can use it both to take a pair apart and to put one together.)
+theorem List.memPairsCons (u: a) (v: a) (x: a) (rest: List a):
+    Iff ((u, v) ∈ List.pairs (Cons x rest)) (Or (And (u = x) (v ∈ rest)) ((u, v) ∈ List.pairs rest)) :=
+  {
+    forward = m =>
+      match List.memAppend (u, v) (List.map rest (y => (x, y))) (List.pairs rest) m with
+        | Inl inMap => Inl ((List.memMapPair x u v rest).forward inMap)
+        | Inr inRest => Inr inRest,
+    backward = h =>
+      match h with
+        | Inl both => List.memAppendLeft (u, v) (List.map rest (y => (x, y))) (List.pairs rest) ((List.memMapPair x u v rest).backward both)
+        | Inr inRest => List.memAppendRight (u, v) (List.map rest (y => (x, y))) (List.pairs rest) inRest
+  }
+
+theorem List.memPairsConsExample: (1, 3) ∈ List.pairs [1, 2, 3] := (List.memPairsCons 1 3 1 [2, 3]).backward (Inl (Both rfl (Inr (Inl rfl))))
+
 --| The last element, if there is one, is an element.
 theorem List.lastMem: (xs: List a) → (x: a) → List.last xs = Some x → x ∈ xs
   | Nil, x, h => Void.exfalso (Option.noneNotSome x h)

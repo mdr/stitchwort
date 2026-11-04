@@ -767,6 +767,25 @@ test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 
 test "List.contains" := [1, 2, 3].contains 2 ∧ ¬([1, 2, 3].contains 4) ∧ ¬((Nil: List Nat).contains 1)
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] ∧ (Nil: List Nat).pairs == Nil ∧ [1].pairs == (Nil: List (Pair Nat Nat))
 test "List.pairs count" := List.length (List.range 10).pairs == 45
+
+--| Every choice of `k` elements, in the order they come: `[1, 2, 3, 4].combinations 3`
+--| is `[[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]]`. Like [`List.pairs`], it
+--| chooses by position: equal elements at different places are different
+--| choices. `xs.combinations 2` is `xs.pairs` as lists of two, and
+--| `xs.combinations 0` is `[[]]`. A choice is a subsequence of `xs` of length
+--| `k`, and every such subsequence is a choice ([`List.memCombinations`],
+--| [`List.combinationsMem`]).
+def List.combinations: List a → Nat → List (List a)
+  | xs, Zero => [Nil]
+  | Nil, Succ k => Nil
+  | Cons x xs, Succ k => List.append (List.map (List.combinations xs k) (ys => Cons x ys)) (List.combinations xs (Succ k))
+
+test "List.combinations" := [1, 2, 3, 4].combinations 3 == [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]]
+test "List.combinations of one and all" := [1, 2, 3].combinations 1 == [[1], [2], [3]] ∧ [1, 2, 3].combinations 3 == [[1, 2, 3]]
+test "List.combinations of none, and more than there are" := [1, 2, 3].combinations 0 == [Nil] ∧ (Nil: List Nat).combinations 0 == [Nil] ∧ [1, 2].combinations 3 == Nil ∧ (Nil: List Nat).combinations 1 == Nil
+test "List.combinations chooses by position" := [7, 7, 7].combinations 2 == [[7, 7], [7, 7], [7, 7]]
+test "List.combinations 2 agrees with pairs" := [1, 2, 3, 4].combinations 2 == [1, 2, 3, 4].pairs.map (p => [p.fst, p.snd])
+test "List.combinations count" := List.length ((List.range 10).combinations 4) == 210
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] ∧ [1].cross (Nil: List Nat) == Nil
 
 --| Callbacks that agree on the list's elements (not everywhere, as for

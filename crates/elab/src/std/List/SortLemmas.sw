@@ -1136,6 +1136,98 @@ theorem List.subsequenceTrans: (xs: List a) → (ys: List a) → (zs: List a) �
     Inl (Both (Eq.trans e1 e2) (List.subsequenceTrans xs ys zs h1 h2))
   | Cons x xs, Cons y ys, Cons z zs, Inr h1, Inl (Both e2 h2) => Inr (List.subsequenceTrans (Cons x xs) ys zs h1 h2)
 
+--| Every subsequence of `xs` is one of its combinations of its own length.
+theorem List.combinationsMemLength: (xs: List a) → (ys: List a) → List.Subsequence ys xs → ys ∈ List.combinations xs (List.length ys)
+  | Nil, Nil, h => Inl rfl
+  | Nil, Cons y ys, h => Void.exfalso h
+  | Cons x xs, Nil, h => Inl rfl
+  | Cons x xs, Cons y ys, Inl (Both e h) =>
+    List.memAppendLeft (Cons y ys) (List.map (List.combinations xs (List.length ys)) (zs => Cons x zs)) (List.combinations xs (Succ (List.length ys)))
+      (rewrite e in List.memMap (List.combinations xs (List.length ys)) ys (List.combinationsMemLength xs ys h) (zs => Cons x zs))
+  | Cons x xs, Cons y ys, Inr h =>
+    List.memAppendRight (Cons y ys) (List.map (List.combinations xs (List.length ys)) (zs => Cons x zs)) (List.combinations xs (Succ (List.length ys)))
+      (List.combinationsMemLength xs (Cons y ys) h)
+
+--| A subsequence of `xs` of length `k` is one of its combinations of `k`.
+theorem List.combinationsMem (xs: List a) (ys: List a) (k: Nat) (sub: List.Subsequence ys xs) (len: List.length ys = k): ys ∈ List.combinations xs k :=
+  rewrite <- len in List.combinationsMemLength xs ys sub
+
+--| A combination of `k` elements of `xs` has `k` elements and is a subsequence of `xs`.
+theorem List.memCombinations: (xs: List a) → (k: Nat) → (ys: List a) → ys ∈ List.combinations xs k → And (List.length ys = k) (List.Subsequence ys xs)
+  | xs, Zero, ys, Inl e => rewrite <- e in Both rfl Trivial
+  | xs, Zero, ys, Inr m => Void.exfalso m
+  | Nil, Succ k, ys, m => Void.exfalso m
+  | Cons x xs, Succ k, ys, m =>
+    match List.memAppend ys (List.map (List.combinations xs k) (zs => Cons x zs)) (List.combinations xs (Succ k)) m with
+      | Inl inMap =>
+        Exists.elim (List.memMapElim (zs => Cons x zs) ys (List.combinations xs k) inMap) (zs both =>
+          match List.memCombinations xs k zs (And.left both) with
+            | Both len sub => rewrite <- And.right both in Both (Eq.cong Succ len) (Inl (Both rfl sub)))
+      | Inr inRest =>
+        match List.memCombinations xs (Succ k) ys inRest with
+          | Both len sub => Both len (List.subsequenceCons x ys xs sub)
+
+--| Taking apart a choice from `Cons x rest`: it starts with `x` and continues with a choice
+--| from `rest` of one fewer, or it is a choice from `rest`. (Each way round.)
+theorem List.memCombinationsCons (y: a) (zs: List a) (x: a) (rest: List a) (k: Nat):
+    Iff (Cons y zs ∈ List.combinations (Cons x rest) (Succ k))
+      (Or (And (y = x) (zs ∈ List.combinations rest k)) (Cons y zs ∈ List.combinations rest (Succ k))) :=
+  {
+    forward = m =>
+      match List.memAppend (Cons y zs) (List.map (List.combinations rest k) (ws => Cons x ws)) (List.combinations rest (Succ k)) m with
+        | Inl inMap =>
+          Exists.elim (List.memMapElim (ws => Cons x ws) (Cons y zs) (List.combinations rest k) inMap) (ws both =>
+            let made := And.right both
+            let headIs: x = y := Option.someInjective _ _ (Eq.cong List.head made)
+            let tailIs: ws = zs := Eq.cong (.drop 1) made
+            Inl (Both (Eq.sym headIs) (rewrite <- tailIs in And.left both)))
+        | Inr inRest => Inr inRest,
+    backward = h =>
+      match h with
+        | Inl both =>
+          List.memAppendLeft (Cons y zs) (List.map (List.combinations rest k) (ws => Cons x ws)) (List.combinations rest (Succ k))
+            (rewrite And.left both in List.memMap (List.combinations rest k) zs (And.right both) (ws => Cons x ws))
+        | Inr inRest => List.memAppendRight (Cons y zs) (List.map (List.combinations rest k) (ws => Cons x ws)) (List.combinations rest (Succ k)) inRest
+  }
+
+--| The choices of one element are the elements.
+theorem List.memCombinationsOne (v: a): (xs: List a) → Iff ([v] ∈ List.combinations xs 1) (v ∈ xs)
+  | Nil => { forward = m => m, backward = m => m }
+  | Cons x rest =>
+    {
+      forward = m =>
+        match (List.memCombinationsCons v Nil x rest 0).forward m with
+          | Inl both => Inl (Eq.sym (And.left both))
+          | Inr later => Inr ((List.memCombinationsOne v rest).forward later),
+      backward = m =>
+        (List.memCombinationsCons v Nil x rest 0).backward
+          (match m with
+            | Inl e => Inl (Both (Eq.sym e) (Inl rfl))
+            | Inr later => Inr ((List.memCombinationsOne v rest).backward later))
+    }
+
+--| The choices of two elements are the pairs.
+theorem List.memCombinationsTwo (u: a) (v: a): (xs: List a) → Iff ([u, v] ∈ List.combinations xs 2) ((u, v) ∈ List.pairs xs)
+  | Nil => { forward = m => m, backward = m => m }
+  | Cons x rest => {
+    forward = m =>
+      (List.memPairsCons u v x rest).backward
+        (match (List.memCombinationsCons u [v] x rest 1).forward m with
+          | Inl both => Inl (Both (And.left both) ((List.memCombinationsOne v rest).forward (And.right both)))
+          | Inr later => Inr ((List.memCombinationsTwo u v rest).forward later)),
+    backward = m =>
+      (List.memCombinationsCons u [v] x rest 1).backward
+        (match (List.memPairsCons u v x rest).forward m with
+          | Inl both => Inl (Both (And.left both) ((List.memCombinationsOne v rest).backward (And.right both)))
+          | Inr later => Inr ((List.memCombinationsTwo u v rest).backward later))
+  }
+
+--| The count of combinations, one element at a time (Pascal's rule): those with the first element, and those without.
+theorem List.lengthCombinationsCons (x: a) (xs: List a) (k: Nat):
+    List.length (List.combinations (Cons x xs) (Succ k)) = List.length (List.combinations xs k) + List.length (List.combinations xs (Succ k)) :=
+  rewrite List.lengthAppend (List.map (List.combinations xs k) (zs => Cons x zs)) (List.combinations xs (Succ k)),
+    List.lengthMap (List.combinations xs k) (zs => Cons x zs) in rfl
+
 theorem List.mergeCount: (xs: List a) → (ys: List a) → (le: a → a → Bool) → (p: a → Bool) →
     List.occurrences (List.merge le xs ys) p = List.occurrences xs p + List.occurrences ys p
   | Nil, ys, le, p => rfl
