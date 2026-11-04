@@ -43,19 +43,24 @@ theorem hairColorSpec (value: Text): Key.valid HairColor value = hairColor value
 theorem eyeColorSpec (value: Text): Key.valid EyeColor value = eyeColor value :=
   rewrite List.lengthFilter eyeColors (== value), List.countEqDistinct value eyeColors byDecision in cases
 
+theorem lastIs (chars: List Char) (unit: List Char):
+    (Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length (Text.fromList unit)) == Text.fromList unit) = (chars.drop (chars.length - unit.length) == unit) :=
+  Text.fromListEq _ _
+
 theorem heightChars (chars: List Char): heightValid (Text.fromList chars) = height (Text.fromList chars) :=
   rewrite Text.stripSuffixDrop (Text.fromList chars) "cm" in
     match cm: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "cm") == "cm" with
       | True =>
-        rewrite DecEq.sound _ _ (Eq.trans (Eq.sym (Text.beqFromList (chars.drop (chars.length - 2)) ['c', 'm'])) cm), betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
+        let isCm := Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm;
+        rewrite DecEq.sound _ _ isCm, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
       | False =>
         rewrite Text.stripSuffixDrop (Text.fromList chars) "in" in
         match inches: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "in") == "in" with
           | True =>
-            rewrite DecEq.sound _ _ (Eq.trans (Eq.sym (Text.beqFromList (chars.drop (chars.length - 2)) ['i', 'n'])) inches), betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
+            let isIn := Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches;
+            rewrite DecEq.sound _ _ isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
           | False =>
-            rewrite Eq.trans (Eq.sym (Text.beqFromList (chars.drop (chars.length - 2)) ['c', 'm'])) cm,
-              Eq.trans (Eq.sym (Text.beqFromList (chars.drop (chars.length - 2)) ['i', 'n'])) inches in cases
+            rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm, Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in cases
 
 theorem heightSpec (value: Text): Key.valid Height value = height value :=
   match value with

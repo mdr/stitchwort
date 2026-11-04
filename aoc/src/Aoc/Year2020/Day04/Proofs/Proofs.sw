@@ -5,7 +5,7 @@
 namespace Aoc.Year2020.Day04.Proofs
 import Aoc.Year2020.Day04 (..)
 import Aoc.Year2020.Day04.Spec (..)
-import Std (Bool, DecEq, Eq, Finite, List, Text, byDecision)
+import Std (Bool, DecEq, Eq, Finite, List, Text)
 
 --| No two keys are written alike.
 theorem codeEq (a: Key) (b: Key): (a.code == b.code) = (a == b) :=

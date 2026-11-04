@@ -166,11 +166,12 @@ def Text.startsWithChars: List Char → List Char → Bool
   | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.startsWithChars ps ys else False
 
 --| The rest of `text` after `prefix`, or `None` if `text` doesn't start with it
---| ([`Text.stripPrefixAppend`]). The empty prefix gives `Some text`.
+--| ([`Text.stripPrefixAppend`], [`Text.stripPrefixSome`]). The empty prefix gives `Some text`.
 def Text.stripPrefix (text: Text) (prefix: Text): Option Text :=
   Text.stripPrefixChars prefix.toList text.toList |> .map Text.fromList
 
---| The text without its ending `suffix`, or `None` if it doesn't end with it.
+--| The text without its ending `suffix`, or `None` if it doesn't end with it
+--| ([`Text.stripSuffixSome`]).
 def Text.stripSuffix (text: Text) (suffix: Text): Option Text :=
   Text.stripPrefixChars suffix.toList.reverse text.toList.reverse |> .map (chars => chars.reverse |> Text.fromList)
 
@@ -266,7 +267,7 @@ theorem Text.stripPrefixCharsSome (p: List Char) (ys: List Char) (rest: List Cha
 
 --| Texts are equal exactly when their character lists are: `Text.fromList a == Text.fromList b`
 --| is `a == b`. Use it to move a `Bool` equation between a text and its characters.
-theorem Text.beqFromList (a: List Char) (b: List Char): (Text.fromList a == Text.fromList b) = (a == b) :=
+theorem Text.fromListEq (a: List Char) (b: List Char): (Text.fromList a == Text.fromList b) = (a == b) :=
   match same: a == b with
     | True => rewrite DecEq.sound a b same in DecEq.refl (Text.fromList b)
     | False =>
@@ -279,6 +280,8 @@ theorem Text.beqFromList (a: List Char) (b: List Char): (Text.fromList a == Text
 --| Use it to turn a `stripPrefix` result into an equation about the text, or the
 --| reverse. `Text.stripPrefixAppend` is its `backward` direction at
 --| `text = Text.append prefix rest`.
+--| Example: `(Text.stripPrefixSome "L68" "L" "68").backward rfl` proves
+--| `"L68".stripPrefix "L" = Some "68"`.
 theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stripPrefix text prefix = Some rest ↔ text = Text.append prefix rest := {
   forward = h =>
     match found: Text.stripPrefixChars (Text.toList prefix) (Text.toList text) with
@@ -292,7 +295,8 @@ theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stri
 --| `text` without its ending `suffix` is `rest` exactly when `text` is `rest`
 --| followed by `suffix`: `text.stripSuffix suffix = Some rest ↔ text = Text.append rest suffix`.
 --| Use it to turn a `stripSuffix` result into an equation about the text, or the
---| reverse; `"L68".stripSuffix "68" = Some "L"` is the case `"L68" = "L" ++ "68"`.
+--| reverse. Example: `(Text.stripSuffixSome "L68" "68" "L").backward rfl` proves
+--| `"L68".stripSuffix "68" = Some "L"`.
 theorem Text.stripSuffixSome (text: Text) (suffix: Text) (rest: Text): Text.stripSuffix text suffix = Some rest ↔ text = Text.append rest suffix := {
   forward = h =>
     match found: Text.stripPrefixChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text)) with

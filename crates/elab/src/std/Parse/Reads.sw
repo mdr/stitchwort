@@ -331,17 +331,6 @@ theorem Parse.readsNext (passes: Char → Bool): Parse.Reads (() => Parse.next p
             let atSame: state.at = after := Pair.mkInjectiveSnd _ _ _ _ same
             Witness [] (rewrite <- valueSame, <- atSame, e in Both rfl (Both honest rfl))
 
---| `stripPrefixChars` finds what follows the prefix.
-theorem Parse.stripPrefixSome: (prefix: List Char) → (chars: List Char) → (rest: List Char) → Text.stripPrefixChars prefix chars = Some rest →
-    chars = prefix ++ rest
-  | [], chars, rest, h => Option.someInjective _ _ h
-  | [p, ..ps], [], rest, h => Void.exfalso (Option.noneNotSome _ h)
-  | [p, ..ps], [c, ..cs], rest, h =>
-    match same: Text.sameChar p c with
-      | True =>
-        rewrite Char.ext p c (Nat.equalSound (Char.toNat p) (Char.toNat c) same), Parse.stripPrefixSome ps cs rest h in rfl
-      | False => Void.exfalso (Option.noneNotSome _ h)
-
 --| `literal` reads its characters if it gives `True`, nothing if `False`.
 theorem Parse.readsLiteral (chars: List Char): Parse.Reads (() => Parse.literal chars) (read found => read = (if found then chars else [])) :=
   state value after honest h =>
@@ -350,7 +339,7 @@ theorem Parse.readsLiteral (chars: List Char): Parse.Reads (() => Parse.literal 
         let same := Result.okInjective _ _ h
         let valueSame: True = value := Pair.mkInjectiveFst _ _ _ _ same
         let atSame: (state.advance rest chars.length).at = after := Pair.mkInjectiveSnd _ _ _ _ same
-        let starts := Parse.stripPrefixSome chars state.at.rest rest e
+        let starts := Text.stripPrefixCharsForward chars state.at.rest rest e
         let lengths: state.at.rest.length = chars.length + rest.length := rewrite starts in List.lengthAppend chars rest
         Witness chars (rewrite <- valueSame, <- atSame in Both starts (Both (omega [honest, lengths]) rfl))
       | None =>
@@ -496,7 +485,7 @@ theorem Text.toNatDigits (chars: List Char):
     Text.toNat (Text.fromList chars) = (if chars ≠ [] ∧ chars.all Parse.isDigit then Some (Parse.digitsValue chars) else None) :=
   match chars with
     | [] => rfl
-    | [char, ..rest] => Text.readDigitsAll 0 [char, ..rest]
+    | [char, ..rest] => Text.readDigitsValue 0 [char, ..rest]
 
 theorem Parse.readsNeed (found: Option a) (message: Text): Parse.Reads (() => Parse.need found message) (read value => read = [] ∧ found = Some value) :=
   match found with
