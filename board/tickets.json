@@ -4969,14 +4969,14 @@
     {
       "id": 1190,
       "title": "Globals split 8e: Ev context with &dyn Metas; admission with NoMetas and kernel modes; meta store into Attempt; Globals deleted",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Opus (the trust boundary), expected: 180 min (8e-1 then 8e-2 as separate commits). Applies D2291, D2294.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Opus (the trust boundary), expected: 180 min (8e-1 then 8e-2 as separate commits). Applies D2291, D2294.\n\n\nProgress (lane, 4 Nov 2026): 8e-1 d3e2440d (Ev, mechanical sweep); 8e-2 2bd54e18 (core::Kernel = Globals less the store and the hints; admission in `in_kernel_modes`; `MetaStore` in `Attempt`; `Shown` on the Elaborator; Globals, PrintHints, FailedMention deleted). New tests for G5 (elab `kernel::tests`) and G1 (core `opaque.rs`). Tests: test:lane AREA=core 174/174; elab undo + kernel tests + postponement/rewind/check_cache/hash_stability 75/75; fuzz_elab FUZZ_CASES=200 passed. aoc `--no-cache`: 652.8G → 651.9G instructions, peak footprint 1.568 → 1.564 GB. Deviation from the note: admission takes `&mut Kernel` (env, machine, caches), not `(&mut Env, &Machine)`; see §6 as-built. ~115 min of 180.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
