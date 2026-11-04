@@ -3,7 +3,7 @@
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
-import Aoc.Year2021.Day16.Spec (allWellFormed, bitsOf, encode, encodeAll, groupBits, typeId, wellFormed)
+import Aoc.Year2021.Day16.Spec (allWellFormed, encode, encodeAll, groupBits, typeId, wellFormed)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Option, Pair, Void)
 
 --| What was wanted was read: that many packets, or packets up to the end
@@ -62,7 +62,7 @@ theorem operationOfNone (n: Nat) (small: n < 8) (none: operationOf n = None): n 
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
 --| Three bits read as a number are that number in three bits.
-theorem threeBits (a: Bool) (b: Bool) (c: Bool): [a, b, c] = bitsOf 3 (Nat.fromBits [a, b, c]) := Eq.sym (bitsOfFromBits [a, b, c])
+theorem threeBits (a: Bool) (b: Bool) (c: Bool): [a, b, c] = Nat.toBits 3 (Nat.fromBits [a, b, c]) := Eq.sym (Nat.toBitsFromBits [a, b, c])
 
 theorem appendCong3 (a1: List Bool) (a2: List Bool) (b1: List Bool) (b2: List Bool) (c1: List Bool) (c2: List Bool) (ea: a1 = a2) (eb: b1 = b2) (ec: c1 = c2):
     a1 ++ (b1 ++ c1) = a2 ++ (b2 ++ c2) :=
@@ -70,7 +70,7 @@ theorem appendCong3 (a1: List Bool) (a2: List Bool) (b1: List Bool) (b2: List Bo
 
 --| A literal's bits, then more.
 theorem literalThen (version: Nat) (groups: List Nat) (after: List Bool):
-    encode (Literal version groups) ++ after = bitsOf 3 version ++ (bitsOf 3 4 ++ (groupBits groups ++ after)) :=
+    encode (Literal version groups) ++ after = Nat.toBits 3 version ++ (Nat.toBits 3 4 ++ (groupBits groups ++ after)) :=
   rfl
 
 theorem consAppendCong (bit: Bool) (a1: List Bool) (a2: List Bool) (b1: List Bool) (b2: List Bool) (ea: a1 = a2) (eb: b1 = b2): [bit, ..a1 ++ b1] = [bit, ..a2 ++ b2] :=
@@ -79,17 +79,17 @@ theorem consAppendCong (bit: Bool) (a1: List Bool) (a2: List Bool) (b1: List Boo
 --| An operator's bits, then more.
 theorem totalThen (version: Nat) (operation: Operation) (subPackets: List Packet) (after: List Bool):
     encode (Operator version operation TotalLength subPackets) ++ after =
-      bitsOf 3 version ++ (bitsOf 3 (typeId operation) ++ [False, ..bitsOf 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ after)]) :=
+      Nat.toBits 3 version ++ (Nat.toBits 3 (typeId operation) ++ [False, ..Nat.toBits 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ after)]) :=
   rfl
 
 theorem countThen (version: Nat) (operation: Operation) (subPackets: List Packet) (after: List Bool):
     encode (Operator version operation Count subPackets) ++ after =
-      bitsOf 3 version ++ (bitsOf 3 (typeId operation) ++ [True, ..bitsOf 11 subPackets.length ++ (encodeAll subPackets ++ after)]) :=
+      Nat.toBits 3 version ++ (Nat.toBits 3 (typeId operation) ++ [True, ..Nat.toBits 11 subPackets.length ++ (encodeAll subPackets ++ after)]) :=
   rfl
 
 --| An operator's fields: a bit, a number field, then the sub-packets
 --| and what follows.
--- (Stated for any field, so that no `bitsOf` is computed while
+-- (Stated for any field, so that no `Nat.toBits` is computed while
 -- rewriting.)
 theorem fieldsCong (bit: Bool) (fields: List Bool) (after: List Bool) (inside: List Bool) (following: List Bool) (field: List Bool) (field2: List Bool)
     (sub: List Bool) (read: fields = field ++ after) (split: after = inside ++ following) (exact: inside = sub) (same: field = field2):
@@ -131,14 +131,14 @@ theorem readPacketsSound (wanted: Wanted) (bits: List Bool) (packets: List Packe
                           let groupsRead := readGroupsSome rest6 groups after g
                           let laterRead := readPacketsSound later after more left r [decreasing := shorter]
                           let version := Nat.fromBits [v1, v2, v3]
-                          let literal: [t1, t2, t3] = bitsOf 3 4 := rewrite threeBits t1 t2 t3, operationOfNone _ (fromBitsBelow [t1, t2, t3]) o in rfl
+                          let literal: [t1, t2, t3] = Nat.toBits 3 4 := rewrite threeBits t1 t2 t3, operationOfNone _ (Nat.fromBitsBelow [t1, t2, t3]) o in rfl
                           let here: [v1, v2, v3, t1, t2, t3, ..rest6] = encode (Literal version groups) ++ after :=
                             Eq.trans (appendCong3 _ _ _ _ _ _ (threeBits v1 v2 v3) literal groupsRead.left) (Eq.sym (literalThen version groups after))
-                          let formed := literalWellFormed version groups (fromBitsBelow [v1, v2, v3]) groupsRead.right.left groupsRead.right.right
+                          let formed := literalWellFormed version groups (Nat.fromBitsBelow [v1, v2, v3]) groupsRead.right.left groupsRead.right.right
                           finishStep wanted later _ after left rest (Literal version groups) more packets parts n here formed laterRead
             | Some operation =>
               let version := Nat.fromBits [v1, v2, v3]
-              let typeBits: [t1, t2, t3] = bitsOf 3 (typeId operation) := rewrite threeBits t1 t2 t3, operationOfSome _ operation o in rfl
+              let typeBits: [t1, t2, t3] = Nat.toBits 3 (typeId operation) := rewrite threeBits t1 t2 t3, operationOfSome _ operation o in rfl
               match rest6 with
                 | [] => cases
                 | [False, ..fields] =>
@@ -168,14 +168,14 @@ theorem readPacketsSound (wanted: Wanted) (bits: List Bool) (packets: List Packe
                                           let emptiedNil: emptied = [] := insideRead.right.right
                                           let exact: inside = encodeAll subPackets := Eq.trans insideRead.left (rewrite emptiedNil in List.appendNil (encodeAll subPackets))
                                           let lengthEq: (encodeAll subPackets).length = length := rewrite <- exact in split.right
-                                          let fieldsEq: [False, ..fields] = [False, ..bitsOf 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ following)] :=
-                                            fieldsCong False fields after inside following (bitsOf 15 length) (bitsOf 15 (encodeAll subPackets).length) (encodeAll subPackets) lengthRead.left split.left exact
-                                              (Eq.cong (bitsOf 15) (Eq.sym lengthEq))
+                                          let fieldsEq: [False, ..fields] = [False, ..Nat.toBits 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ following)] :=
+                                            fieldsCong False fields after inside following (Nat.toBits 15 length) (Nat.toBits 15 (encodeAll subPackets).length) (encodeAll subPackets) lengthRead.left split.left exact
+                                              (Eq.cong (Nat.toBits 15) (Eq.sym lengthEq))
                                           let packet := Operator version operation TotalLength subPackets
                                           let here: [v1, v2, v3, t1, t2, t3, False, ..fields] = encode packet ++ following :=
-                                            Eq.trans (appendCong3 [v1, v2, v3] (bitsOf 3 version) [t1, t2, t3] (bitsOf 3 (typeId operation)) [False, ..fields] [False, ..bitsOf 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ following)] (threeBits v1 v2 v3) typeBits fieldsEq)
+                                            Eq.trans (appendCong3 [v1, v2, v3] (Nat.toBits 3 version) [t1, t2, t3] (Nat.toBits 3 (typeId operation)) [False, ..fields] [False, ..Nat.toBits 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ following)] (threeBits v1 v2 v3) typeBits fieldsEq)
                                               (Eq.sym (totalThen version operation subPackets following))
-                                          let formed := totalWellFormed version operation subPackets (fromBitsBelow [v1, v2, v3]) (rewrite lengthEq in lengthRead.right) insideRead.right.left
+                                          let formed := totalWellFormed version operation subPackets (Nat.fromBitsBelow [v1, v2, v3]) (rewrite lengthEq in lengthRead.right) insideRead.right.left
                                           finishStep wanted later _ following left rest packet more packets parts n here formed laterRead
                 | [True, ..fields] =>
                   match l: readNumber 11 fields with
@@ -198,14 +198,14 @@ theorem readPacketsSound (wanted: Wanted) (bits: List Bool) (packets: List Packe
                                       let subsRead := readPacketsSound (Packets count) after subPackets following i [decreasing := shorter]
                                       let laterRead := readPacketsSound later following more left r [decreasing := shorterAfter]
                                       let counted: subPackets.length = count := subsRead.right.right
-                                      let fieldsEq: [True, ..fields] = [True, ..bitsOf 11 subPackets.length ++ (encodeAll subPackets ++ following)] :=
-                                        fieldsCong True fields after (encodeAll subPackets) following (bitsOf 11 count) (bitsOf 11 subPackets.length) (encodeAll subPackets) countRead.left subsRead.left rfl
-                                          (Eq.cong (bitsOf 11) (Eq.sym counted))
+                                      let fieldsEq: [True, ..fields] = [True, ..Nat.toBits 11 subPackets.length ++ (encodeAll subPackets ++ following)] :=
+                                        fieldsCong True fields after (encodeAll subPackets) following (Nat.toBits 11 count) (Nat.toBits 11 subPackets.length) (encodeAll subPackets) countRead.left subsRead.left rfl
+                                          (Eq.cong (Nat.toBits 11) (Eq.sym counted))
                                       let packet := Operator version operation Count subPackets
                                       let here: [v1, v2, v3, t1, t2, t3, True, ..fields] = encode packet ++ following :=
-                                        Eq.trans (appendCong3 [v1, v2, v3] (bitsOf 3 version) [t1, t2, t3] (bitsOf 3 (typeId operation)) [True, ..fields] [True, ..bitsOf 11 subPackets.length ++ (encodeAll subPackets ++ following)] (threeBits v1 v2 v3) typeBits fieldsEq)
+                                        Eq.trans (appendCong3 [v1, v2, v3] (Nat.toBits 3 version) [t1, t2, t3] (Nat.toBits 3 (typeId operation)) [True, ..fields] [True, ..Nat.toBits 11 subPackets.length ++ (encodeAll subPackets ++ following)] (threeBits v1 v2 v3) typeBits fieldsEq)
                                           (Eq.sym (countThen version operation subPackets following))
-                                      let formed := countWellFormed version operation subPackets (fromBitsBelow [v1, v2, v3]) (rewrite counted in countRead.right) subsRead.right.left
+                                      let formed := countWellFormed version operation subPackets (Nat.fromBitsBelow [v1, v2, v3]) (rewrite counted in countRead.right) subsRead.right.left
                                       finishStep wanted later _ following left rest packet more packets parts n here formed laterRead
         | [] => cases
         | [_] => cases

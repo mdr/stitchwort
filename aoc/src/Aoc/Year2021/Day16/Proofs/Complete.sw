@@ -3,7 +3,7 @@
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
-import Aoc.Year2021.Day16.Spec (allWellFormed, bitsOf, encode, encodeAll, groupBits, typeId, wellFormed)
+import Aoc.Year2021.Day16.Spec (allWellFormed, encode, encodeAll, groupBits, typeId, wellFormed)
 import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
 
 --| One step of the decoder on a literal's header, its groups read.
@@ -54,7 +54,7 @@ theorem countStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool)
 theorem typeIdSmall (operation: Operation): typeId operation < 8 := cases
 
 --| An operation's type id, in its three bits, is read back as it.
-theorem operationReadBack (operation: Operation): operationOf (Nat.fromBits (bitsOf 3 (typeId operation))) = Some operation := cases
+theorem operationReadBack (operation: Operation): operationOf (Nat.fromBits (Nat.toBits 3 (typeId operation))) = Some operation := cases
 
 --| A packet's bits aren't empty, so when filling bits, another is wanted.
 theorem fillingNext (rest: List Bool): (packet: Packet) → nextWanted Filling (encode packet ++ rest) = Some Filling
@@ -72,7 +72,7 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
     let some: groups ≠ [] := Decidable.toBoolSound _ (Bool.andLeft _ _ others)
     let length := List.lengthAppend (groupBits groups) more
     literalStep wanted later (version / 2 / 2 % 2 == 1) (version / 2 % 2 == 1) (version % 2 == 1) (groupBits groups ++ more) version groups more next
-      (fromBitsOf 3 version small) (readGroupsBits more groups some (Bool.andRight _ _ others)) (omega [length])
+      (Nat.fromBitsToBits 3 version small) (readGroupsBits more groups some (Bool.andRight _ _ others)) (omega [length])
   | Operator version operation TotalLength subPackets, formed, next =>
     let small: version < Nat.pow 2 3 := omega [Bool.andLeft _ _ formed]
     let others := Bool.andRight _ _ formed
@@ -81,8 +81,8 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
     let length := List.lengthAppend (encodeAll subPackets) more
     let id := typeId operation
     totalStep wanted later (version / 2 / 2 % 2 == 1) (version / 2 % 2 == 1) (version % 2 == 1) (id / 2 / 2 % 2 == 1) (id / 2 % 2 == 1) (id % 2 == 1)
-      (bitsOf 15 total ++ (encodeAll subPackets ++ more)) version operation total (encodeAll subPackets ++ more) (encodeAll subPackets) more subPackets next
-      (fromBitsOf 3 version small) (operationReadBack operation) (readNumberBits 15 total (encodeAll subPackets ++ more) fits)
+      (Nat.toBits 15 total ++ (encodeAll subPackets ++ more)) version operation total (encodeAll subPackets ++ more) (encodeAll subPackets) more subPackets next
+      (Nat.fromBitsToBits 3 version small) (operationReadBack operation) (readNumberBits 15 total (encodeAll subPackets ++ more) fits)
       (splitFieldAppend (encodeAll subPackets) more total rfl) (omega [length]) (fillComplete subPackets (Bool.andRight _ _ others)) (omega [length])
   | Operator version operation Count subPackets, formed, next =>
     let small: version < Nat.pow 2 3 := omega [Bool.andLeft _ _ formed]
@@ -92,8 +92,8 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
     let length := List.lengthAppend (encodeAll subPackets) more
     let id := typeId operation
     countStep wanted later (version / 2 / 2 % 2 == 1) (version / 2 % 2 == 1) (version % 2 == 1) (id / 2 / 2 % 2 == 1) (id / 2 % 2 == 1) (id % 2 == 1)
-      (bitsOf 11 count ++ (encodeAll subPackets ++ more)) version operation count (encodeAll subPackets ++ more) more subPackets next
-      (fromBitsOf 3 version small) (operationReadBack operation) (readNumberBits 11 count (encodeAll subPackets ++ more) fits)
+      (Nat.toBits 11 count ++ (encodeAll subPackets ++ more)) version operation count (encodeAll subPackets ++ more) more subPackets next
+      (Nat.fromBitsToBits 3 version small) (operationReadBack operation) (readNumberBits 11 count (encodeAll subPackets ++ more) fits)
       (omega [length]) (countComplete subPackets (Bool.andRight _ _ others) more) (omega [length])
 
 --| Reading as many packets as there are reads them all back.

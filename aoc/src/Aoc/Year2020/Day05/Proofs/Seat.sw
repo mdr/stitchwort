@@ -30,9 +30,6 @@ theorem narrowBits (lower: Char) (upper: Char) (differ: (upper == lower) = False
 --| A pass's letters.
 def written (pass: Pass): List Char := pass.row.map (letter 'F' 'B') ++ pass.column.map (letter 'L' 'R')
 
-theorem fromBitsAppend (high: List Bool) (low: List Bool): Nat.fromBits (high ++ low) = Nat.fromBits high * Nat.pow 2 low.length + Nat.fromBits low :=
-  Eq.trans (List.foldLeftAppend high 0 low (acc bit => acc * 2 + Bool.toNat bit)) (Nat.fromBitsFrom (Nat.fromBits high) low)
-
 theorem seatIdSpec (pass: Pass) (rows: pass.row.length = 7) (columns: pass.column.length = 3):
     (seat (written pass)).map Seat.id = Some pass.seatId :=
   let rowLetters: (pass.row.map (letter 'F' 'B')).length = 7 := rewrite List.lengthMap pass.row (letter 'F' 'B') in rows
@@ -40,4 +37,4 @@ theorem seatIdSpec (pass: Pass) (rows: pass.row.length = 7) (columns: pass.colum
   rewrite List.lengthAppend (pass.row.map (letter 'F' 'B')) (pass.column.map (letter 'L' 'R')), rowLetters, columnLetters in
     rewrite List.takeAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters, List.dropAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters in
       rewrite narrowBits 'F' 'B' rfl pass.row 0 127 (rewrite rows in rfl), narrowBits 'L' 'R' rfl pass.column 0 7 (rewrite columns in rfl) in
-        rewrite fromBitsAppend pass.row pass.column, columns in rfl
+        rewrite Nat.fromBitsAppend pass.row pass.column, columns in rfl
