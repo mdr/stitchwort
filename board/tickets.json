@@ -1,5 +1,5 @@
 {
-  "next": 1192,
+  "next": 1193,
   "tickets": [
     {
       "id": 47,
@@ -4057,15 +4057,15 @@
     {
       "id": 1126,
       "title": "Kernel environment mutable outside kernel admission: make final logical declarations read-only outside the kernel (design note first)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "Review §1.5 and §3.3: a safe-Rust probe changed a final declaration's type and admitted a false theorem (not reachable from source). Route logical changes through admission; remove production availability of test-only bypasses. Touches the trust boundary: design note in docs/proposals/ and Matt's decisions before implementation. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "body": "Superseded by the Globals split (docs/proposals/globals-split.md, D2290): lane 8a (SW-1186) makes Env private to core with admission the only writer.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4113,15 +4113,15 @@
     {
       "id": 1130,
       "title": "Backend facts in the kernel crate: Data::js and Globals::erasure",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "architecture"
       ],
-      "body": "Found by SW-1115: backend-specific facts live in core's Globals. Move them out with the Globals split proposed in the review (kernel environment / elaborator metavariables / backend facts).",
+      "body": "Superseded by the Globals split (D2290): Data::js moves out in 8b (SW-1187), erasure mode into core::Machine in 8d (SW-1189) and admission fixes its own modes (D2294, 8e).",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4673,15 +4673,15 @@
     {
       "id": 1170,
       "title": "Research: parallel checking as separate processes: run independent namespaces as separate check processes, each replaying its imports from the check cache; measure aoc's import-graph critical path and the speedup (elaborator-state.md §4.9)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "research"
       ],
-      "body": "D2286 (Matt, 3 Nov). Backlog; no Send/Sync change needed. Measure first: the critical path of aoc's namespace graph, then a prototype scheduler.",
+      "body": "D2286 (Matt, 3 Nov). Backlog; no Send/Sync change needed. Measure first: the critical path of aoc's namespace graph, then a prototype scheduler.\n\nD2296 (Matt, 4 Nov 2026): investigate how helpful parallel checking might be; if promising, work on it, if modest or negligible, deprioritise. Opus, expected: 120 min.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4980,6 +4980,20 @@
         "core"
       ],
       "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1192,
+      "title": "LSP: the first Aoc.Common check after the opening check took 66 ms on main vs 4.8 ms at 3706f183 (later checks ~4 ms on both); one run, possibly step 6",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1181's LSP investigation, 4 Nov 2026. One-off ~60 ms on the first recheck only; low impact. Look at it if editor latency work comes up.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
