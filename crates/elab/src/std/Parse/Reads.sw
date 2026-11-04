@@ -487,6 +487,17 @@ def Parse.digitsValue (digits: List Char): Nat := digits.map (digit => digit.dig
 theorem Parse.readsNat: Parse.Reads Parse.nat (read n => read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
   Parse.readsSpanNonEmpty Parse.isDigit "a number" Parse.digitsValue
 
+--| What `Text.toNat` reads: a text of one or more ASCII digits is
+--| `Some (Parse.digitsValue chars)`, and any other text is `None`. The
+--| digits are those `Parse.nat` reads ([`Parse.readsNat`]).
+--| For example `Text.toNat (Text.fromList chars)` is `Some` exactly when
+--| `chars ≠ [] ∧ chars.all Parse.isDigit`.
+theorem Text.toNatDigits (chars: List Char):
+    Text.toNat (Text.fromList chars) = (if chars ≠ [] ∧ chars.all Parse.isDigit then Some (Parse.digitsValue chars) else None) :=
+  match chars with
+    | [] => rfl
+    | [char, ..rest] => Text.readDigitsAll 0 [char, ..rest]
+
 theorem Parse.readsNeed (found: Option a) (message: Text): Parse.Reads (() => Parse.need found message) (read value => read = [] ∧ found = Some value) :=
   match found with
     | Some v => Parse.readsWeaken _ _ _ (Parse.readsPure v) (read value both => Both (And.left both) (Eq.cong Some (Eq.sym (And.right both))))
