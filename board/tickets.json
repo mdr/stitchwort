@@ -5462,16 +5462,18 @@
     {
       "id": 1224,
       "title": "Flaky under load: lsp a_code_action_edit_names_its_document_version_when_the_client_can_use_it failed at 61.8 s (load average ~120) after the 8e merge, passed alone in 16.4 s; find what it waits for and whether 16 s is expected",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.\n\nStarted 4 Nov 2026 on Sonnet, expected: 45 min.\n",
+      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.\n\nStarted 4 Nov 2026 on Sonnet, expected: 45 min.\n\n\nProgress (lane): cause = the search elaborated the whole std library cold (the test's temp folder has no .stitchwort/cache; ~9 s) then tried every candidate within a 5 s wall-clock budget (one candidate, Std.Map.indexByKey, takes ~4 s to check). Fix: AtOptions.stop_after_closing + Options.search_wanted (3 in use); the three searching lsp tests set 1 and symlink a shared cache under CARGO_TARGET_TMPDIR. 16 s -> ~2 s warm (cold first run on a build still ~10-30 s). Not changed: aoc_navigation_matches_check_index and a_newer_edit_cancels_the_check_running took 240-350 s in the same run; library_navigation_survives_later_namespace_answers 50 s.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "90b1cc63"
+      ]
     },
     {
       "id": 1225,
