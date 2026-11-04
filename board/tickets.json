@@ -1,5 +1,5 @@
 {
-  "next": 1268,
+  "next": 1269,
   "tickets": [
     {
       "id": 47,
@@ -5643,9 +5643,9 @@
     {
       "id": 1236,
       "title": "Type mismatch errors show the first difference between the two sides, instead of hiding it behind …",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-1236",
       "labels": [
         "diagnostics"
       ],
@@ -5984,9 +5984,9 @@
     {
       "id": 1260,
       "title": "Std: lemmas for Text.toNat, Text.stripSuffix (sameChar bridge), List contains-on-distinct, heads of equal lists",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1260",
       "labels": [
         "std"
       ],
@@ -6089,6 +6089,21 @@
         "performance"
       ],
       "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 9). 'List.filter (List.map _ _) _ = _' took >2 min wall clock the first time, 3.4 s user the second, under load average ~70. Time it on an idle machine first; likely a cold index or cache build.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1268,
+      "title": "[Opus] Independent review of the proof-irrelevance note, draft 4, before stage 1 (D2355)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1268",
+      "labels": [
+        "kernel",
+        "design"
+      ],
+      "body": "D2355: an independent Opus review of docs/proposals/proof-irrelevance.md (draft 4, SW-1250) before SW-93 stage 1 starts. Reviewer gets the note and the code, not the orchestrator's conclusions. Expected: 60 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
