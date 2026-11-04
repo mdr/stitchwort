@@ -63,7 +63,7 @@ theorem same (n: Nat): (n + 0) = (n + 0) := match n + 0 with
   | Succ m => rfl
 
 -- Variable scrutinee with a dependent hypothesis, lifted.
-def pred (n: Nat) (q: Not (n = 0)): Nat := 0 + match n with
+def pred (n: Nat) (q: n ≠ 0): Nat := 0 + match n with
   | Zero => Void.absurd (q rfl)
   | Succ m => m
 

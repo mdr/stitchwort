@@ -58,7 +58,7 @@ test "chains" := List.map [1, 2, 3, 4, 5, 6] chains == [1, 2, 2, 4, 2, 6]
 -- The membership facts on their own.
 theorem fourInRange: List.Mem 4 (List.between 2 6) := Inr (Inr (Inl rfl))
 
-theorem betweenBounds (x: Nat) (h: List.Mem x (List.between 2 6)): And (2 ≤ x) (x ≤ 6) := List.memBetween h
+theorem betweenBounds (x: Nat) (h: List.Mem x (List.between 2 6)): (2 ≤ x) ∧ (x ≤ 6) := List.memBetween h
 
 test "sum" := List.sumBy (List.attach [1, 2, 3]) (e => e.value) == 6
 

@@ -12,7 +12,7 @@ def startTimes (start: Float): List Track → List Float
 
 def NoNegativeDurations: List Track → Prop
   | Nil => Unit
-  | Cons track rest => And (0.0 <= track.duration) (NoNegativeDurations rest)
+  | Cons track rest => (0.0 <= track.duration) ∧ (NoNegativeDurations rest)
 
 theorem nextStartNotEarlier (start: Float) (duration: Float) (nonNegative: 0.0 <= duration):
     (rest: List Track) → List.LeHead Float.leq start (startTimes (start + duration) rest)

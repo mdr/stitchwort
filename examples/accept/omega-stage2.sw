@@ -40,7 +40,7 @@ theorem minAddMax (a: Nat) (b: Nat): Nat.min a b + Nat.max a b = a + b := omega
 theorem maxOfLe (a: Nat) (b: Nat) (h: a ≤ b): Nat.max a b = b := omega
 
 -- `a != b` facts, written any of these ways, split into `a < b` or `b < a`.
-theorem notEq (x: Nat) (y: Nat) (h: Not (x = y)) (h2: x ≤ y): x < y := omega
+theorem notEq (x: Nat) (y: Nat) (h: x ≠ y) (h2: x ≤ y): x < y := omega
 
 theorem neq (x: Nat) (y: Nat) (h: x ≠ y) (h2: x ≤ y): x < y := omega
 

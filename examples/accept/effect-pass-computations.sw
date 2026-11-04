@@ -42,7 +42,7 @@ def labelledDone: Labelled → Prop
 
 def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | Nil => Unit
-  | Cons first rest => And (IsDone first) (allDone rest)
+  | Cons first rest => (IsDone first) ∧ (allDone rest)
 
 def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | (label, inner) => IsDone inner

@@ -9,7 +9,7 @@ def half: Nat → Nat
   | Succ Zero => 0
   | Succ (Succ n) => Succ (half n)
 
-theorem halfBounds: (n: Nat) → And (half n + half n ≤ n) (n ≤ half n + half n + 1)
+theorem halfBounds: (n: Nat) → (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)
   | Zero => Both rfl rfl
   | Succ Zero => Both rfl rfl
   | Succ (Succ n) =>
@@ -33,13 +33,13 @@ theorem firstBlockedSplit (blocked: Nat → Bool) (low: Nat) (high: Nat) (apart:
     Decidable.elimEq _ _ _ _ (isApart => rfl) (notApart => Void.exfalso (notApart apart))
 
 -- `_` skips a field, and a lambda's parameter can be taken apart too.
-def lowerHalf (n: Nat) (bounds: And (half n + half n ≤ n) (n ≤ half n + half n + 1)): Nat :=
+def lowerHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): Nat :=
   let (Both _ above) := bounds
   half n
 
-def withBounds: (n: Nat) → And (half n + half n ≤ n) (n ≤ half n + half n + 1) → Nat :=
+def withBounds: (n: Nat) → (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) → Nat :=
   n => (Both below _) => half n
 
-theorem lowerHalfIsHalf (n: Nat) (bounds: And (half n + half n ≤ n) (n ≤ half n + half n + 1)): lowerHalf n bounds = half n := rfl
+theorem lowerHalfIsHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): lowerHalf n bounds = half n := rfl
 
-theorem withBoundsIsHalf (n: Nat) (bounds: And (half n + half n ≤ n) (n ≤ half n + half n + 1)): withBounds n bounds = half n := rfl
+theorem withBoundsIsHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): withBounds n bounds = half n := rfl

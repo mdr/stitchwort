@@ -4,7 +4,7 @@
 
 import Std (List, Nat, byDecision)
 
-type Small (n: Nat): Prop = { below: n < 10, notZero: Not (n = 0) }
+type Small (n: Nat): Prop = { below: n < 10, notZero: n ≠ 0 }
 
 theorem threeSmall: Small 3 := byDecision
 

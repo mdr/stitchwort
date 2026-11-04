@@ -17,7 +17,7 @@ theorem inKeys: K1 ∈ keys := cases
 
 -- `Decidable.or` decides left to right: a left side that decides `Yes` is
 -- enough, with the right side stuck on `flag`.
-theorem leftYes (flag: Bool): Or (K1 ∈ keys) (flag = True) := cases
+theorem leftYes (flag: Bool): (K1 ∈ keys) ∨ (flag = True) := cases
 
 -- A leaf closed only by deciding, after a split: `pick b` is stuck on `b`,
 -- and in each case the membership decides.

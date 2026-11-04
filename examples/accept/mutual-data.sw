@@ -62,7 +62,7 @@ theorem sizeMapForest (f: Nat → Nat): (ts: Forest) →
       (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
-theorem sizeNotZero: (t: Tree) → Not (size t = 0)
+theorem sizeNotZero: (t: Tree) → size t ≠ 0
   | Node n kids, a1 => Nat.succNotZero (sizeForest kids) a1
 
 -- Even and odd numbers, as data: each is the successor of the other kind.

@@ -18,7 +18,7 @@ theorem notInEmpty (x: Nat): x !in Nil := none => none
 
 theorem notInEmptyUnicode (x: Nat): x ∉ Nil := none => none
 
-theorem notInIsNot (x: Nat) (xs: List Nat) (h: Not (List.Mem x xs)): x ∉ xs := h
+theorem notInIsNot (x: Nat) (xs: List Nat) (h: ¬(List.Mem x xs)): x ∉ xs := h
 
 -- Same precedence as `=`: `&&`, `||` and `->` need no brackets around it.
 theorem bothIn (x: Nat) (y: Nat) (xs: List Nat) (hx: x in xs) (hy: y ∈ xs): x in xs && y ∈ xs ∧ x = x :=

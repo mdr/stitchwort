@@ -18,7 +18,7 @@ theorem negativeFactor (x: Int) (h: -2 * x ≤ 4): -2 ≤ x := omega
 theorem notHalf (x: Int) (h: 2 * x = 1): Void := omega
 
 -- `Not`, `≠` and the comparisons' `False`.
-theorem notLe (x: Int) (y: Int) (h: Not (x ≤ y)): y < x := omega
+theorem notLe (x: Int) (y: Int) (h: ¬(x ≤ y)): y < x := omega
 
 theorem neLe (x: Int) (y: Int) (h: x ≠ y) (h2: x ≤ y): x < y := omega
 

@@ -16,9 +16,9 @@ theorem enterIn: Enter ∈ keys := byDecision
 
 theorem twoTwos: 2 + 2 < 5 := byDecision
 
-theorem notThree: Not (Digit1 = Digit2) := byDecision
+theorem notThree: Digit1 ≠ Digit2 := byDecision
 
-theorem either: Or (Digit2 ∈ keys) (3 = 4) := byDecision
+theorem either: (Digit2 ∈ keys) ∨ (3 = 4) := byDecision
 
 -- Every key, closed by deciding each case once `cases` has split it.
 theorem everyKey (key: Key): key ∈ keys := cases

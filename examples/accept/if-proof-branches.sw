@@ -5,10 +5,10 @@
 
 import Std (List, Nat, Void)
 
-theorem split (m: Nat) (n: Nat): Or (m < n) (n <= m) := if h: m < n then Inl h else Inr omega
+theorem split (m: Nat) (n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h else Inr omega
 
 -- Nested, each branch with its own proof.
-theorem trichotomy (m: Nat) (n: Nat): Or (m < n) (Or (m = n) (n < m)) :=
+theorem trichotomy (m: Nat) (n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
   if lt: m < n then Inl lt else if eq: m = n then Inr (Inl eq) else Inr (Inr omega)
 
 -- With no binder, on a `Bool` or a decided proposition: the branches don't

@@ -48,4 +48,4 @@ theorem descendingEq (a: Nat) (b: Nat) (c: Nat) (h1: a = b) (h2: c < b): a > c :
     _ > c := h2
 
 -- `!` is `not`: where a proposition is expected it's `Not`.
-theorem notGreater (a: Nat) (b: Nat) (h: ¬(a > b)): Not (b < a) := h
+theorem notGreater (a: Nat) (b: Nat) (h: ¬(a > b)): ¬(b < a) := h

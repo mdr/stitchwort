@@ -8,7 +8,7 @@ def half (n: Nat): Option Nat := match n with | Zero => None | Succ k => Some k
 
 def Small (n: Nat): Option Nat → Prop
   | None => Unit
-  | Some k => And (k < n) Unit
+  | Some k => (k < n) ∧ Unit
 
 theorem halfSmall (n: Nat): Small n (half n) :=
   match n with | Zero => Trivial | Succ k => Both (Nat.leRefl (Succ k)) Trivial

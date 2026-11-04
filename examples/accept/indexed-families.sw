@@ -111,7 +111,7 @@ type Even: Nat → Prop =
   | EvenZero: Even 0
   | EvenTwo (h: Even n): Even (Succ (Succ n))
 
-theorem notEvenOne: Not (Even 1)
+theorem notEvenOne: ¬(Even 1)
   | ()
 
 theorem evenInv: Even (Succ (Succ n)) → Even n
@@ -132,7 +132,7 @@ type EvenM: Nat → Prop =
 type OddM: Nat → Prop =
   | OddMSucc (h: EvenM n): OddM (Succ n)
 
-theorem notOddZero: Not (OddM 0)
+theorem notOddZero: ¬(OddM 0)
   | ()
 
 -- Axiom K: matching deletes the equation `x = x`.

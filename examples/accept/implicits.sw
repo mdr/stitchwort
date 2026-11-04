@@ -20,7 +20,7 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
 
-theorem orComm: Or p q → Or q p
+theorem orComm: p ∨ q → q ∨ p
   | Inl h => Inr h
   | Inr h => Inl h
 
