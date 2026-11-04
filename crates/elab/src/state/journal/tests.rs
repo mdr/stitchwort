@@ -42,18 +42,15 @@ fn the_reviewers_sequence() {
     assert_eq!(t.entries(), 0);
 }
 
-/// A set's additions and a copy: a copy is what the rows were, whatever is
-/// done after it, and is put back by nothing.
+/// A set's additions and removals.
 #[test]
-fn a_set_and_a_copy() {
+fn a_set() {
     let (mut j, mut t) = (Journal::<usize>::default(), LoggedSet::<u8>::default());
     assert!(t.add(1));
     let c = j.checkpoint(&mut t);
-    let copy = t.copy();
     assert!(!t.add(1));
     assert!(t.add(2));
     assert!(t.remove(&1));
-    assert!(copy.contains_key(&1) && !copy.contains_key(&2));
     assert_eq!(t.entries(), 2, "the addition and the removal logged");
     j.rewind(&c, &mut t);
     assert!(t.contains_key(&1) && !t.contains_key(&2));
@@ -95,6 +92,61 @@ fn a_rewind_past_a_transaction_panics() {
     assert_eq!(t.get(&1), Some(&1));
     j.rewind(&c, &mut t);
     assert!(t.is_empty());
+}
+
+/// Segments by unit (§4.8.3): a unit's write-set is what its own segments
+/// logged, each key with its value where the first of them logged it,
+/// whatever the units nested in it did; after a rewind the log goes on in
+/// the unit the checkpoint was taken in.
+#[test]
+fn a_units_write_set_is_its_own_segments() {
+    use super::super::owners::Owners;
+    use super::super::table::Ids;
+    let ids = Ids { defs: 0, datas: 0 };
+    let (mut j, mut t, mut owners) = (J::default(), Table::default(), Owners::default());
+    t.insert(9, 0);
+    let a = owners.begin(ids);
+    j.set_unit(a, &mut t);
+    let tr = j.begin(&mut t);
+    t.insert(1, 1);
+    t.insert(9, 1);
+    let outer = owners.enter(ids);
+    let b = owners.current();
+    j.set_unit(b, &mut t);
+    t.insert(2, 2);
+    t.insert(9, 2);
+    owners.leave(ids, outer);
+    j.set_unit(a, &mut t);
+    t.insert(3, 3);
+    t.insert(2, 4);
+    let write_set = |j: &J, t: &Table, unit: UnitId| {
+        let parts: Vec<(usize, Option<usize>)> = (j.segments_since(&tr, |u| u == unit))
+            .into_iter()
+            .map(|(at, end)| (*at, end.copied()))
+            .collect();
+        let mut keys: Vec<(u8, Option<u32>)> = (t.changed_in(&parts).into_iter())
+            .map(|(k, v)| (*k, v.copied()))
+            .collect();
+        keys.sort();
+        keys
+    };
+    let a_writes = vec![(1, None), (2, Some(2)), (3, None), (9, Some(0))];
+    assert_eq!(write_set(&j, &t, a), a_writes);
+    assert_eq!(write_set(&j, &t, b), vec![(2, None), (9, Some(1))]);
+    // A checkpoint in `a`'s unit, then `b`'s again, rewound.
+    let c = j.checkpoint(&mut t);
+    j.set_unit(b, &mut t);
+    t.insert(6, 6);
+    j.rewind(&c, &mut t);
+    t.insert(5, 5);
+    let mut with_5 = a_writes.clone();
+    with_5.push((5, None));
+    with_5.sort();
+    assert_eq!(write_set(&j, &t, a), with_5);
+    assert_eq!(write_set(&j, &t, b), vec![(2, None), (9, Some(1))]);
+    j.release(c, &mut t);
+    j.commit(tr, &mut t);
+    assert_eq!((j.segments(), t.entries()), (0, 0), "dropped with the logs");
 }
 
 #[cfg(debug_assertions)]

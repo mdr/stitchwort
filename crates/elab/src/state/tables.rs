@@ -11,8 +11,8 @@
 //! checkpoint puts them back from their logs ([`Tables::logged`]). An
 //! instance's row belongs to the unit of its definition, which alone may
 //! write it ([`Instances`], §4.8.4); any unit may add a helper's key. A
-//! check cache entry holds the rows a copy taken before the unit hasn't
-//! ([`Copies`]), until entries are made from write-sets (§4.8.3, step 6c).
+//! check cache entry holds the new rows of the unit's write-set
+//! ([`Writes`], §4.8.3).
 //! `namespace_defs` and `prelude_defs` aren't in an entry: the replay of a
 //! namespace sets its range from the definitions it admits, and the
 //! prelude is never cached. A mark copies them (one row per project
@@ -25,7 +25,7 @@ use std::rc::Rc;
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
-use super::journal::{Copied, Logged, LoggedSet, Logs};
+use super::journal::{Logged, LoggedSet, Logs};
 use super::owners::Owners;
 use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table, owned};
 use crate::TestDecl;
@@ -233,7 +233,8 @@ impl Tables {
         *prelude_defs = m.prelude_defs;
     }
 
-    /// Writes what the unit being encoded added since `m`, in the entry
+    /// Writes what the unit being encoded added since `m`, and the new rows
+    /// of its write-set `writes` of the logged tables, in the entry
     /// format's order (`cache::FORMAT`), which puts two parts that aren't
     /// tables between them: `kernel`, the side facts of the unit's
     /// declarations (after the records), and `extensions`, the extensions
@@ -241,7 +242,7 @@ impl Tables {
     pub(crate) fn encode_since(
         &self,
         m: &Mark,
-        copies: &Copies,
+        writes: &Writes<'_>,
         e: &mut Encoding<'_>,
         kernel: impl FnOnce(&mut Encoding<'_>),
         extensions: impl FnOnce(&mut Encoding<'_>),
@@ -269,21 +270,30 @@ impl Tables {
             namespace_defs: _,
             prelude_defs: _,
         } = self;
-        if instances.iter().any(|(k, v)| {
-            copies
-                .instances
-                .get(k)
-                .is_some_and(|old| (old.def, old.valid) != (v.def, v.valid))
-        }) {
-            return Err("an instance from before changed".to_string());
+        // A unit adds instances; one that changed or removed an older one
+        // (which [`Instances`] stops) can't be cached.
+        let mut new: Vec<(&(DataId, DataId), &InstanceInfo)> = Vec::new();
+        for &(k, old) in &writes.instances {
+            match (old, instances.get(k)) {
+                (None, Some(now)) => new.push((k, now)),
+                (None, None) => {}
+                (Some(old), Some(now)) if (old.def, old.valid) == (now.def, now.valid) => {}
+                (Some(_), _) => return Err("an instance from before changed".to_string()),
+            }
+        }
+        let mut helpers: Vec<&String> = Vec::new();
+        for &(k, old) in &writes.helper_keys {
+            match (old, helper_keys.contains_key(k)) {
+                (None, true) => helpers.push(k),
+                (None, false) | (Some(()), true) => {}
+                (Some(()), false) => {
+                    return Err("a helper's key from before was removed".to_string());
+                }
+            }
         }
         records.encode_since(&m.records, e)?;
         kernel(e);
         interfaces.encode_since(&m.interfaces, e)?;
-        let mut new: Vec<(&(DataId, DataId), &InstanceInfo)> = instances
-            .iter()
-            .filter(|(k, _)| !copies.instances.contains_key(*k))
-            .collect();
         new.sort_by_key(|(k, _)| (k.0.0, k.1.0));
         e.count(new.len());
         for (k, info) in new {
@@ -300,9 +310,6 @@ impl Tables {
         abilities.encode_since(&m.abilities, e)?;
         lifted.encode_since(&m.lifted, e)?;
         match_columns.encode_since(&m.match_columns, e)?;
-        let mut helpers: Vec<&String> = (helper_keys.keys())
-            .filter(|k| !copies.helper_keys.contains_key(*k))
-            .collect();
         helpers.sort();
         e.count(helpers.len());
         for k in helpers {
@@ -503,13 +510,16 @@ impl Tables {
     }
 }
 
-/// What the check cache compares a unit's instances and helpers' keys with:
-/// copies taken before it (`cache::Before`), until its entries are made
-/// from write-sets (§4.8.3, step 6c).
-pub(crate) struct Copies {
-    instances: Copied<(DataId, DataId), InstanceInfo>,
-    helper_keys: Copied<String, ()>,
+/// A unit's write-set of [`Tables`]' logged tables (§4.8.3): each key its
+/// segments logged, with its value before ([`Logged::changed_in`]).
+pub(crate) struct Writes<'a> {
+    instances: Vec<(&'a (DataId, DataId), Option<&'a InstanceInfo>)>,
+    helper_keys: Vec<(&'a String, Option<&'a ()>)>,
 }
+
+/// Parts of a table's log, `(start, end)` (`None`: to its end), as
+/// [`Logged::changed_in`] takes them.
+pub(crate) type Parts = Vec<(usize, Option<usize>)>;
 
 /// Where [`Tables`]' logged tables' logs are.
 pub(crate) struct Positions {
@@ -518,10 +528,12 @@ pub(crate) struct Positions {
 }
 
 impl Tables {
-    pub(crate) fn copies(&self) -> Copies {
-        Copies {
-            instances: self.instances.rows.copy(),
-            helper_keys: self.helper_keys.copy(),
+    /// The write-set of the logged tables in these parts of their logs,
+    /// as each table's positions pick from them.
+    pub(crate) fn writes(&self, parts: impl Fn(fn(&Positions) -> usize) -> Parts) -> Writes<'_> {
+        Writes {
+            instances: self.instances.rows.changed_in(&parts(|p| p.instances)),
+            helper_keys: self.helper_keys.changed_in(&parts(|p| p.helper_keys)),
         }
     }
 

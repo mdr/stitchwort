@@ -28,7 +28,7 @@ use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_syntax::ast::{self, Import};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::state::{Copied, Logged, LoggedSet, Logs};
+use crate::state::{Logged, LoggedSet, Logs, Parts};
 use crate::{Elaborator, Global, Result, error};
 
 /// The library's root.
@@ -572,22 +572,14 @@ impl Scope {
         PRELUDE.contains(&x) && self.std_root.contains_key(x)
     }
 
-    /// Records that `key` belongs to its type's own declaration (a record
-    /// field, an interface method), like a constructor.
-    /// The members marked so far (for the check cache).
-    pub(crate) fn members(&self) -> impl Iterator<Item = &String> {
-        self.members.keys()
-    }
-
-    /// A copy of the members, to compare with later (for the check cache).
-    pub(crate) fn copy_members(&self) -> Copied<String, ()> {
-        self.members.copy()
-    }
-
-    /// A copy of every declaration's row, to compare with later (for the
-    /// check cache).
-    pub(crate) fn copy_entries(&self) -> Copied<String, (Global, Span)> {
-        self.entries.copy()
+    /// A unit's write-set of the declarations' rows and of the members, in
+    /// these parts of their logs, as each table's positions pick from them
+    /// (for the check cache, §4.8.3): each key logged, with its row before.
+    pub(crate) fn writes(&self, parts: impl Fn(fn(&Positions) -> usize) -> Parts) -> Writes<'_> {
+        Writes {
+            entries: self.entries.changed_in(&parts(|p| p.0[0])),
+            members: self.members.changed_in(&parts(|p| p.0[4])),
+        }
     }
 
     /// `key`'s row as stored, even if it is out of the way
@@ -631,6 +623,8 @@ impl Scope {
             .and_then(|keys| keys.iter().position(|k| k == key))
     }
 
+    /// Records that `key` belongs to its type's own declaration (a record
+    /// field, an interface method), like a constructor.
     pub(crate) fn mark_member(&mut self, key: &str) {
         if let Some(log) = &mut self.log {
             log.push(ScopeOp::Member(key.to_string()));
@@ -738,8 +732,15 @@ pub(crate) struct Mark {
     log: Option<Vec<ScopeOp>>,
 }
 
-/// Where each of a [`Scope`]'s logged tables' log is.
+/// Where each of a [`Scope`]'s logged tables' log is, in
+/// [`Scope::logged`]'s order.
 pub(crate) struct Positions([usize; 7]);
+
+/// A unit's write-set of a [`Scope`] ([`Scope::writes`]).
+pub(crate) struct Writes<'a> {
+    pub(crate) entries: Vec<(&'a String, Option<&'a (Global, Span)>)>,
+    pub(crate) members: Vec<(&'a String, Option<&'a ()>)>,
+}
 
 impl Scope {
     pub(crate) fn mark(&self) -> Mark {

@@ -36,16 +36,27 @@
 //! One journal per session, with one writer: nothing in it is shared
 //! (§4.9).
 //!
+//! **Segments by unit** (§4.8.3). While something is open, the journal
+//! notes where the logs were each time the unit being elaborated changes
+//! ([`Journal::set_unit`]: a project namespace or a file begins, a nested
+//! load enters or leaves) and at each checkpoint and transaction, with the
+//! unit then current, and starts a new generation there, so that each
+//! segment logs every key it writes. A unit's write-set since a
+//! transaction began is what its own segments logged
+//! ([`Journal::segments_since`], [`Logged::changed_in`]): a check cache
+//! entry is made from it, and a library file loaded in the middle of a
+//! namespace is in its own write-set, not the namespace's.
+//!
 //! Step 6a of the note's migration (§7) built this and put navigation's
 //! maps on it; 6b put the scope's, the instances, the helpers' keys and
-//! the session's maps on it, and releases a language server's marks.
-//! Transactions and write-sets are for the cache entries 6c makes from
-//! write-sets; until then only the tests use them.
-#![cfg_attr(not(test), allow(dead_code))]
+//! the session's maps on it, and releases a language server's marks; 6c
+//! made the check cache's entries from write-sets.
 
 use std::hash::Hash;
 
 use stitchwort_core::collections::{HashMap, HashSet};
+
+use super::owners::UnitId;
 
 /// A generation of the journal: a row whose key has been logged in the
 /// current one isn't logged again. 0 is never current.
@@ -188,22 +199,13 @@ impl<K: Hash + Eq + Clone, V> Logged<K, V> {
         self.map.contains_key(key)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
     pub(crate) fn keys(&self) -> impl Iterator<Item = &K> {
         self.map.keys()
-    }
-
-    /// A copy of the rows as they are now, to compare with later (the check
-    /// cache's, until its entries are made from write-sets, §4.8.3). As
-    /// cheap as cloning the map: nothing is hashed again.
-    pub(crate) fn copy(&self) -> Copied<K, V>
-    where
-        V: Clone,
-    {
-        Copied(self.map.clone())
     }
 
     /// The rows, in no particular order.
@@ -224,10 +226,19 @@ impl<K: Hash + Eq + Clone, V> Logged<K, V> {
     /// value there (`None`: it had no row): the write-set since a
     /// checkpoint or transaction (§4.8.3). A key may be written and put
     /// back as it was, so a caller compares the value with the current one.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn changed_since(&self, at: usize) -> Vec<(&K, Option<&V>)> {
+        self.changed_in(&[(at, None)])
+    }
+
+    /// The keys changed in these parts of the log, each `(start, end)` (to
+    /// the end of the log for `None`), oldest first: each key once, with
+    /// its value where the first part that logged it starts. A unit's
+    /// write-set, from its segments ([`Journal::segments_since`]).
+    pub(crate) fn changed_in(&self, parts: &[(usize, Option<usize>)]) -> Vec<(&K, Option<&V>)> {
         let mut seen: HashSet<&K> = HashSet::default();
-        self.undo[at..]
-            .iter()
+        (parts.iter())
+            .flat_map(|&(start, end)| &self.undo[start..end.unwrap_or(self.undo.len())])
             .filter(|(k, _)| seen.insert(k))
             .map(|(k, old)| (k, old.as_ref()))
             .collect()
@@ -271,31 +282,6 @@ impl<K: Hash + Eq + Clone> Logged<K, ()> {
         }
         self.insert(key, ());
         true
-    }
-}
-
-/// A copy of a [`Logged`] table's rows ([`Logged::copy`]), read-only.
-pub(crate) struct Copied<K, V>(HashMap<K, (V, Generation)>);
-
-impl<K: Hash + Eq, V> Copied<K, V> {
-    pub(crate) fn get<Q>(&self, key: &Q) -> Option<&V>
-    where
-        K: std::borrow::Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
-    {
-        self.0.get(key).map(|(v, _)| v)
-    }
-
-    pub(crate) fn contains_key<Q>(&self, key: &Q) -> bool
-    where
-        K: std::borrow::Borrow<Q>,
-        Q: Hash + Eq + ?Sized,
-    {
-        self.0.contains_key(key)
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&K, &V)> {
-        self.0.iter().map(|(k, (v, _))| (k, v))
     }
 }
 
@@ -407,6 +393,14 @@ struct Open<P> {
     serial: u64,
     kind: Kind,
     at: P,
+    /// The segment it began, in [`Journal`]'s `segments`.
+    segment: usize,
+}
+
+/// Where the logs were when a unit's part of the work began, and the unit.
+struct Segment<P> {
+    unit: UnitId,
+    at: P,
 }
 
 /// The open checkpoints of a session's [`Logged`] tables, whose positions
@@ -422,6 +416,10 @@ pub(crate) struct Journal<P> {
     /// gained since is what was logged in between.
     last_entries: usize,
     stats: JournalStats,
+    /// The unit being elaborated (as `Owners` says).
+    unit: UnitId,
+    /// While something is open: where each unit's part began, oldest first.
+    segments: Vec<Segment<P>>,
 }
 
 impl<P> Default for Journal<P> {
@@ -432,6 +430,8 @@ impl<P> Default for Journal<P> {
             generation: 0,
             last_entries: 0,
             stats: JournalStats::default(),
+            unit: UnitId::default(),
+            segments: Vec::new(),
         }
     }
 }
@@ -519,6 +519,7 @@ impl<P> Journal<P> {
 
     /// Ends `t`, undoing its changes: the checkpoints opened after it are
     /// dropped. Panics if a transaction is open after it.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn abort<L: Logs<Positions = P>>(&mut self, mut t: Transaction, logs: &mut L) {
         t.ended = true;
         self.check(t.serial, t.depth);
@@ -528,9 +529,54 @@ impl<P> Journal<P> {
 
     /// Where the tables were when `t` began: what its write-set is read
     /// from ([`Logged::changed_since`]).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn began_at(&self, t: &Transaction) -> &P {
         self.check(t.serial, t.depth);
         &self.open[t.depth].at
+    }
+
+    /// `unit` is now the one being elaborated: while something is open, a
+    /// new segment begins (§4.8.3).
+    pub(crate) fn set_unit<L: Logs<Positions = P>>(&mut self, unit: UnitId, logs: &mut L) {
+        self.unit = unit;
+        if self.is_open() {
+            self.sample(logs);
+            self.segments.push(Segment {
+                unit,
+                at: logs.positions(),
+            });
+            self.new_generation(logs);
+        }
+    }
+
+    /// The parts of the logs written since `t` began while a unit `own`
+    /// picks was being elaborated: each segment's start, and the next one's
+    /// (`None`: the logs' end). What its write-set is read from
+    /// ([`Logged::changed_in`]).
+    pub(crate) fn segments_since(
+        &self,
+        t: &Transaction,
+        own: impl Fn(UnitId) -> bool,
+    ) -> Vec<(&P, Option<&P>)> {
+        self.check(t.serial, t.depth);
+        let first = self.open[t.depth].segment;
+        let segments = &self.segments[first..];
+        (segments.iter().enumerate())
+            .filter(|(_, s)| own(s.unit))
+            .map(|(i, s)| (&s.at, segments.get(i + 1).map(|n| &n.at)))
+            .collect()
+    }
+
+    /// How many segments there are: [`Journal::units_from`] the next.
+    pub(crate) fn segments(&self) -> usize {
+        self.segments.len()
+    }
+
+    /// The units of the segments from the `n`th on.
+    pub(crate) fn units_from(&self, n: usize) -> impl Iterator<Item = UnitId> + '_ {
+        self.segments[n.min(self.segments.len())..]
+            .iter()
+            .map(|s| s.unit)
     }
 
     /// Whether anything is open, so that the tables log.
@@ -568,6 +614,11 @@ impl<P> Journal<P> {
             serial,
             kind,
             at: logs.positions(),
+            segment: self.segments.len(),
+        });
+        self.segments.push(Segment {
+            unit: self.unit,
+            at: logs.positions(),
         });
         self.new_generation(logs);
         (serial, depth)
@@ -584,6 +635,10 @@ impl<P> Journal<P> {
         self.sample(logs);
         self.open.truncate(depth + 1);
         let undone = logs.undo_to(&self.open[depth].at);
+        // The checkpoint's own segment goes on, in the unit it was taken in.
+        let segment = self.open[depth].segment;
+        self.segments.truncate(segment + 1);
+        self.unit = self.segments[segment].unit;
         self.stats.rewinds += 1;
         self.stats.undone += undone;
         self.last_entries = logs.entries();
@@ -596,6 +651,7 @@ impl<P> Journal<P> {
         if self.open.is_empty() {
             logs.set_generation(None);
             self.last_entries = 0;
+            self.segments = Vec::new();
         }
     }
 
