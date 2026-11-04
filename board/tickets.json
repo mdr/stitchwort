@@ -1,5 +1,5 @@
 {
-  "next": 1252,
+  "next": 1255,
   "tickets": [
     {
       "id": 47,
@@ -5842,14 +5842,14 @@
     {
       "id": 1250,
       "title": "Proof irrelevance note, draft 4: masks only on proof arguments a definition never computes on (D2349); correct §6's transitivity claim for glued calls; cite Carneiro's ideal-vs-algorithmic split (Lemma 3.4) for §5.6",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "kernel",
         "design"
       ],
-      "body": "D2350 (Matt, 4 Nov 2026). Before SW-93. Started 4 Nov 2026 on Opus, expected: 60 min.",
+      "body": "D2350 (Matt, 4 Nov 2026). Before SW-93. Started 4 Nov 2026 on Opus, expected: 60 min.\n\nProgress (Opus lane, 4 Nov 2026, 17:54-18:15): draft 4 written and committed on lane/SW-1250 (25a2d990). Design: masks on definitions only for inert proof parameters (gfp per group, computed at admit_group); the glued/folded/partial-application shortcuts compare arguments in a \"shortcut mode\" (inert masks on, constructor field masks off; CallMemo keyed by mode), which §7.10 argues makes gluing a pure optimisation. Finding: constructor masks alone break the shortcut (`Box.unbox (MkBox p)` vs `(MkBox q)`), so D2349 isn't enough without D2352. Open: D2352 (shortcut compares proof fields), D2353 (a case with no possible branch isn't computing; needed for Int.modNat/§2.1, Fin.ofNatLt/D2180), D2354 (storing in a constructor field isn't an inert use), D2355 (focused review of §7.3/§7.10). Only .sw checks of today's behaviour run (release CLI at f3769d45); no test suites.\n\n\nMerged 4 Nov 2026. Open: D2352-D2355.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5864,6 +5864,48 @@
         "std"
       ],
       "body": "Matt, 4 Nov 2026: finds the order unintuitive. Today: `def List.rangeFrom: Nat → Nat → List Nat`, `List.rangeFrom 3 5` is `[5, 6, 7]` (crates/elab/src/std/List/Toolkit.sw:227). Count first because `List.range n = List.rangeFrom n 0` and recursion is on the count. Uses across std, aoc, games, examples: see grep -w rangeFrom. Migration cost doesn't count (hashes, sweep); judge by the end state, including how lemmas like List.lengthRangeFrom and List.mapRangeShift read.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1252,
+      "title": "Kernel: set_shortcuts_disabled doesn't turn off the folded-by-name shortcut (value.rs ~2432), so shortcuts-off differential tests only half-cover the shortcuts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1253,
+      "title": "After proof irrelevance stage 1: check whether Bool.canonicalTrue (D731, used by Float.make) is still needed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1254,
+      "title": "stitchwort doc / hover: show which proof parameters a definition ignores (inert, proof-irrelevance draft 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
