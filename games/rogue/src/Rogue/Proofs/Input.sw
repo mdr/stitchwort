@@ -71,7 +71,7 @@ theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar cha
 --| And no other key at all: a key that is a command is an arrow, or one of
 --| those printable keys.
 theorem onlyCommandKeys (key: Key) (command: Command) (found: commandOf key = Some command):
-    Or (exists (direction: Direction) => key = arrow direction) (exists (char: Char) => And (key = Printable char) (char ∈ commandKeys)) :=
+    (exists (direction: Direction) => key = arrow direction) ∨ (exists (char: Char) => (key = Printable char) ∧ (char ∈ commandKeys)) :=
   match key with
     | Up => Inl (Witness North rfl)
     | Down => Inl (Witness South rfl)

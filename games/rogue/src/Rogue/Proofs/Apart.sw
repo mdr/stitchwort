@@ -25,20 +25,20 @@ theorem memAppendRight (x: a) (ys: List a): (xs: List a) → List.Mem x ys → L
 
 --| One element of a list with no repeats replaced by one not among the others.
 theorem distinctSwap (x: a) (y: a) (after: List a): (before: List a) →
-    List.Distinct (before ++ Cons x after) → Not (List.Mem y (before ++ after)) → List.Distinct (before ++ Cons y after)
+    List.Distinct (before ++ Cons x after) → ¬(List.Mem y (before ++ after)) → List.Distinct (before ++ Cons y after)
   | [], Both notMem rest, fresh => Both fresh rest
   | Cons first others, Both notMem rest, fresh =>
-    let away: Not (List.Mem first (others ++ Cons y after)) := inside =>
+    let away: ¬(List.Mem first (others ++ Cons y after)) := inside =>
       match List.memAppend first others (Cons y after) inside with
         | Inl early => notMem (memAppendLeft first (Cons x after) others early)
         | Inr (Inl same) => fresh (Inl (Eq.sym same))
         | Inr (Inr late) => notMem (memAppendRight first (Cons x after) others (Inr late))
     Both away (distinctSwap x y after others rest (inside => fresh (Inr inside)))
 
-theorem distinctSnoc (y: a): (xs: List a) → List.Distinct xs → Not (List.Mem y xs) → List.Distinct (xs ++ [y])
+theorem distinctSnoc (y: a): (xs: List a) → List.Distinct xs → ¬(List.Mem y xs) → List.Distinct (xs ++ [y])
   | [], none, fresh => Both (inside => inside) Trivial
   | Cons first rest, Both notMem others, fresh =>
-    let away: Not (List.Mem first (rest ++ [y])) := inside =>
+    let away: ¬(List.Mem first (rest ++ [y])) := inside =>
       match List.memAppend first rest [y] inside with
         | Inl early => notMem early
         | Inr (Inl same) => fresh (Inl (Eq.sym same))
@@ -46,7 +46,7 @@ theorem distinctSnoc (y: a): (xs: List a) → List.Distinct xs → Not (List.Mem
     Both away (distinctSnoc y rest others (inside => fresh (Inr inside)))
 
 --| A cell with no monster on it isn't among their positions.
-theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterAt position monsters = None → Not (List.Mem position (positions monsters))
+theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
   | [], vacant, inside => inside
   | Cons monster others, vacant, inside =>
     match same: monster.position == position with
@@ -174,6 +174,6 @@ theorem monsterAtOwnCell (found: Monster): (monsters: List Monster) → Apart mo
   | [], apart, inside => Void.exfalso inside
   | Cons monster others, Both notMem rest, Inl same => rewrite same, DecEq.refl found.position in rfl
   | Cons monster others, Both notMem rest, Inr later =>
-    let elsewhere: Not (monster.position = found.position) := same =>
+    let elsewhere: monster.position ≠ found.position := same =>
       notMem (rewrite same in List.memMap others found later (monster => monster.position))
     rewrite Decidable.toBoolOfNot (DecEq.decide monster.position found.position) elsewhere in monsterAtOwnCell found others rest later
