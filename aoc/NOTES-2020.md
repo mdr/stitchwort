@@ -251,3 +251,224 @@ minutes from reading the puzzle to the proofs checking.
    them (item 6). Bug in goal display; small.
 7. `Exists` isn't in the prelude beside `And` and `Or` (item 4). Missing
    feature; small (a prelude entry).
+
+## Day 2: Password Philosophy
+
+A password database, one entry per line: `1-3 a: abcde`. Part 1 reads the
+policy as the fewest and most times the letter may appear in the password,
+part 2 as two positions counting from 1, exactly one of which must hold the
+letter; each counts the passwords that keep their policy. Answers on Matt's
+input: 603 and 404; the example gives 2 and 1. All four match Matt's Scala
+(`sbt "runMain aoc.day2.Day2"`, run on a copy of his repository), and an
+`awk` one-liner over the input agrees.
+
+The program is a parser and two checks on a record:
+
+```stitchwort
+type Entry = { low: Nat, high: Nat, letter: Char, password: Text }
+
+def line(): {Parse} Entry :=
+  let low := nat()
+  char '-'
+  let high := nat()
+  char ' '
+  let letter := satisfy "a lowercase letter" Char.isAsciiLowercase
+  text ": "
+  let password := takeWhile1 "a password" Char.isAsciiLowercase
+  { low, high, letter, password }
+
+def Entry.letterAt (entry: Entry) (position: Nat): Bool :=
+  match position with
+    | Zero => False
+    | Succ index => entry.password.toList.get index == Some entry.letter
+
+def Entry.validByPosition (entry: Entry): Bool := entry.letterAt entry.low != entry.letterAt entry.high
+```
+
+It ran right the first time, and so did all 17 tests, including three
+guessed parse errors (`"line 1, column 8: expected a password, got the end of
+the line"`). The spec (`Spec/Spec.sw`) says each policy in the puzzle's
+words: part 1 counts with `filter` and `length` where the program uses
+`List.count`; part 2 numbers the characters from 1 with `List.withIndexFrom
+1` and asks whether `[low, high].filter (holdsLetter entry)` has exactly one
+element, where the program indexes with `get (position - 1)` and compares
+two `Bool`s.
+
+Here the program is close to the spec, so the theorems are about what could
+go wrong: counting from 1, "exactly one", and the parser. Proved
+(`Aoc.Year2020.Day02.Proofs`):
+
+- `validByCountSpec`, `validByPositionSpec`: each check is the spec's, for
+  every entry, including positions 0 and past the end of the password and
+  `low = high` (which the spec's `[low, high]` counts twice, so never
+  "exactly one", as the program's `!=` says).
+- `part1Correct`, `part2Correct`: so the answers are the spec's, for every
+  list of entries.
+- `letterAtSpec`: indexing from 1 by `get` is the spec's numbered
+  characters (from `holdsGet` and `holdsNothingBefore`, inductions over the
+  password with the start of the numbering general).
+- `parseWritten`: if `parseEntries` reads the input as `entries`, there is
+  one entry per line, and each line is its entry written out: digits whose
+  value is `low`, `-`, digits for `high`, a space, the letter (lowercase), `:
+  `, and the password (one or more lowercase letters). Nothing is dropped,
+  added or changed. Digits rather than `Nat.toText`, since `01-3 a: abc`
+  parses too.
+
+Not proved: that every well-formed line parses (std's `Parse.Reads` is
+soundness only). 59 lines of program, 27 of spec, 114 of proofs, 57 of
+tests. Breaking the program made the proofs fail: `entry.low < times` fails
+`validByCountSpec` with the counterexample `{ low = 0, high = 0, letter =
+'a', password = "" }`; `get (Succ index)` (counting from 0) fails
+`letterAtSpec`, `validByPositionSpec` and `part2Correct`, with
+counterexamples; `text ":"` fails `readsLine`.
+
+### 1. A named parser has to be restated in its proof
+
+The proof that `line` reads `Written` text chains std's lemmas with
+`Parse.readsBind`, one per step. Inside the chain every parser and
+continuation is inferred from the expected type, but not at the top, where
+the expected type is `Parse.Reads line Written`:
+
+```stitchwort
+theorem readsLine: Parse.Reads line Written :=
+  Parse.readsWeaken line _ _
+    (Parse.readsBind _ _ _ _ Parse.readsNat (low => …
+```
+
+```
+[E-TYPE-MISMATCH] Error: type mismatch
+ 29 │       _ _ Parse.readsNat (low =>
+    │           ╰──────── expected `(state: Parse.State) → (value: Nat) → (after: Parse.Mark) → state.at.left = List.length state.at.rest → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads Parse.nat (read n => …)`
+```
+
+Unifying `line` with `() => ?j (?p())` needs `line` unfolded, and it isn't.
+The fix is to write the continuation out, the parser's body less its first
+line, eight lines copied from the program:
+
+```stitchwort
+    (Parse.readsBind Parse.nat
+      (low =>
+        Parse.char '-'
+        let high := Parse.nat()
+        …
+        { low, high, letter, password })
+      _ _ Parse.readsNat (low =>
+      Parse.readsBind _ _ _ _ (Parse.readsChar '-') (u1 =>
+      …
+```
+
+Without `line` as `readsWeaken`'s first argument it fails the same way, one
+level up (`Parse.Reads ?1 Written`). Two costs: the program's text is in the
+proof, so changing the parser breaks the proof with a type mismatch at the
+copy, not at what became false (`text ":"` did exactly that); and the
+message shows both sides as unfolded `Reads` with `…`, never saying that the
+named parser is what didn't unfold. Day 16 of 2021 copies its parser the
+same way. Unfolding a definition's body when a higher-order pattern
+(`() => ?j (?p())`) meets its name would remove it; failing that, a note on
+the mismatch ("`line` would have to be unfolded: give `readsBind` the parser
+and its continuation").
+
+Once past that, the rest went better than expected: the chain inferred
+every spec, and the proof that the nested `Parse.Then` is `Written`, seven
+levels of `Witness` taken apart and one `rewrite` of all the splits, checked
+the first time.
+
+### 2. `Text` has no `count` or `get`
+
+Both checks go through the characters:
+
+```stitchwort
+  let times := entry.password.toList.count (== entry.letter)
+  …
+    | Succ index => entry.password.toList.get index == Some entry.letter
+```
+
+Scala's `password.count(_ == c)` and `password(i)` work on the string. std's
+`Text` has `length`, `take`, `drop`, `contains` and the splitters, but not
+`count`, `get` (or `charAt`), `any`, `all` or `filter`, so any day that looks
+at characters writes `.toList` first. Cheap at run time and harmless in
+proofs (`Text.toList (Text.fromList cs)` computes), but it reads as
+plumbing. `Text.count`, `Text.get` and `Text.any`/`Text.all`, defined
+through `toList` with a lemma each saying so, would cover it.
+
+### 3. Searching for `(a == a) = True` at `Nat` misses `DecEq.refl`
+
+Looking for the lemma that `start == start` is `True`:
+
+```
+$ stitchwort search '((?a: Nat) == ?a) = True'
+ 1. Aoc.Year2025.Day07.Proofs.natEqSelf  theorem · instance · conclusion
+ 2. Aoc.Common.Proofs.equalOf  theorem · instance · conclusion
+ 3. Aoc.Year2024.Day12.Proofs.eqTrue  theorem · instance · conclusion
+```
+
+and `Std.DecEq.refl` isn't among the 34 lines at all; `stitchwort search '(x
+== x) = True'` ranks it first. At `Nat` the pattern's `==` is
+`Nat.decEq`, and `DecEq.refl`'s is the instance argument, which the search
+doesn't fill in. Three projects' local copies suggest the others missed it
+the same way. (In the end `cases` closed the goal without it.)
+
+### 4. Smaller things
+
+- **`cases` did the Boolean bookkeeping.** `exactlyOne (p: Nat → Bool) (x:
+  Nat) (y: Nat): ((p x != p y): Bool) = (([x, y].filter p).length == 1) :=
+  cases` split on `p x` and `p y` and closed all four; `holdsGet`'s cases
+  closed `(start == start && c == letter || …) = (Some c == Some letter)` and
+  `start == start + index + 1` being `False` without a lemma.
+- **`!=` in a statement is the proposition.** I first wrote `(p x != p y) =
+  (…)`; the `E-NOT-A-TYPE` says exactly what to write
+  (`((x != y): Bool)`). Good message; a small trap all the same, since in the
+  program the same `!=` is the `Bool`.
+- **A parser named `entry` made every `entry =>` warn.** With the parser
+  first called `entry`, `List.countCongMem entries _ _ (entry m => …)` in the
+  proofs gave `W-LAMBDA-SHADOW` ("hides the function
+  `Aoc.Year2020.Day02.entry`"), through the `import Aoc.Year2020.Day02 (..)`.
+  I renamed the parser `line`. The warning is aimed at `entry m => …` meant
+  as `entry (m => …)`, which can't be meant when `entry` takes no arguments.
+- **No `Nat.ltSuccSelf` or `Nat.zeroLtSucc`.** I guessed both names; the
+  `E-UNKNOWN-NAME` suggested `leqSuccSelf` and `zeroNotSucc`. `omega` was the
+  answer for each, as the proving guide says.
+- **Weak evidence again.** `holdsGet` takes `position = start + index`, and
+  the counterexample search gives it "weak evidence" (hypotheses true only
+  up to size 9); the same shape as day 1's item 5, a variable defined by an
+  equation, which the generator could compute instead of guessing.
+- **The parser proof is most of the check.** `stitchwort check --no-cache
+  Aoc.Year2020.Day02.Proofs` takes 5.8 s user, 4.6 s of it `readsLine`
+  (1.2 s without `Parse.sw`): seven `readsBind`s on a seven-step parser.
+- **Row types without brackets.** `def parseEntries (input: Text): {Fail}
+  List Entry` (D2307) reads well, and `stitchwort fmt` leaves it alone.
+
+### Size and time
+
+CPU time (load average over 100, so wall-clock times meant nothing):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day02.Proofs` | 5.8 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day02` | 1.2 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day02` (17 tests) | 5.7 s user |
+| `stitchwort audit Aoc.Year2020.Day02` (13 theorems) | 1.2 s user |
+| `stitchwort run Aoc.Year2020.Day02.main` on the input | 0.4 s user |
+
+About 15 minutes in all, from reading the puzzle to the proofs checking,
+besides a 3-minute build of the CLI.
+
+### Ranked
+
+1. A proof about a named parser has to restate its body for
+   `Parse.readsBind` (item 1), so parser proofs copy the program and break
+   at the copy. Missing feature (unfold a definition when a higher-order
+   pattern meets it), medium; or an error message, small: say which name
+   didn't unfold and what to pass.
+2. `Text` has no `count`, `get`, `any`, `all` (item 2). Missing library;
+   small (four definitions through `toList`, a lemma each, an hour).
+3. `stitchwort search` at `Nat` misses the generic `DecEq.refl` (item 3),
+   and projects grow copies of it. Bug in search; small to medium (match a
+   concrete `decEq` against an instance argument).
+4. `W-LAMBDA-SHADOW` fires for a function that takes no arguments, through
+   an `(..)` import (item 4). Error message; small (warn only when the
+   shadowed function could take the lambda).
+5. The counterexample search guesses equation-defined variables (item 4,
+   and day 1's item 5). Missing feature; medium, as on day 1.
+6. `readsLine` is 4.6 s of a 5.8 s check (item 4). Performance; unknown
+   size, worth a profile before the bigger parsers of later days.
