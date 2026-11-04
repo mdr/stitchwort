@@ -1,5 +1,5 @@
 {
-  "next": 1270,
+  "next": 1272,
   "tickets": [
     {
       "id": 47,
@@ -6118,6 +6118,34 @@
         "aoc"
       ],
       "body": "D2305 track. Day 4 friction review done 4 Nov 2026 (D2356, D2357; tickets SW-1260 to SW-1267). Started 4 Nov 2026 on Opus, expected: 120 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1270,
+      "title": "rewrite … at h misses Text.take/Text.drop terms visible in the hypothesis (search sees only the computed form)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "body": "From SW-1260 (day 4 rewrite onto std lemmas): rewrite h at split failed on Text.take/Text.drop terms plainly written in the hypothesis, because the rewrite search looks at the computed form; worked around with Eq.cong. At least the error could say the term was there before computing.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1271,
+      "title": "Std: characterisation lemmas for Text.splitOn, startsWith, endsWith",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1260: stripPrefix/stripSuffix now have ↔ characterisations (stripPrefixSome, stripSuffixSome); splitOn, startsWith and endsWith have none yet. Natural follow-up when an AoC day needs them.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
