@@ -23,6 +23,19 @@ pub enum Target {
     Subtrees(Vec<String>),
 }
 
+/// What the command loading a project does with it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Load {
+    /// Uses what it loads (runs it, searches it, indexes it, ...): every
+    /// namespace the target needs is loaded.
+    Everything,
+    /// Only reports the diagnostics (a plain `check`): a namespace whose
+    /// cache entry fits and that nothing being checked again needs is
+    /// reported from its entry without being loaded (SW-1193).
+    /// `STITCHWORT_SKIP_UNNEEDED=0` turns this off.
+    Diagnostics,
+}
+
 /// What loading a project checked.
 pub struct Loaded {
     pub project: String,
@@ -41,8 +54,20 @@ impl Session {
         files: Vec<(String, String)>,
         target: &Target,
     ) -> Result<Loaded, Vec<Diagnostic>> {
+        self.load_project_sources_for(project, files, target, Load::Everything)
+    }
+
+    /// [`Session::load_project_sources`], for a command that does `load`
+    /// with the result.
+    pub fn load_project_sources_for(
+        &mut self,
+        project: &str,
+        files: Vec<(String, String)>,
+        target: &Target,
+        load: Load,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
         let analysis = analyse(self, project, files);
-        self.load_analysis(project, analysis, target)
+        self.load_analysis_for(project, analysis, target, load)
     }
 
     /// [`Session::load_project_sources`], from the files already read
@@ -52,6 +77,18 @@ impl Session {
         project: &str,
         analysis: Analysis,
         target: &Target,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
+        self.load_analysis_for(project, analysis, target, Load::Everything)
+    }
+
+    /// [`Session::load_analysis`], for a command that does `load` with the
+    /// result.
+    pub fn load_analysis_for(
+        &mut self,
+        project: &str,
+        analysis: Analysis,
+        target: &Target,
+        load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
         if !analysis.diagnostics.is_empty() {
             return Err(analysis.diagnostics);
@@ -103,15 +140,37 @@ impl Session {
             let sources = self.namespace_sources(project, &analysis);
             self.elab.set_namespace_sources(sources);
         }
-        let mut diagnostics: Vec<Diagnostic> = Vec::new();
-        let mut outcomes: BTreeMap<&str, NamespaceOutcome> = BTreeMap::new();
-        for name in &order {
-            let ns = analysis.namespace(name).expect("a namespace");
-            let (found, outcome) =
-                self.check_project_namespace(&analysis, &order, ns, &|m| outcomes.get(m).copied());
-            outcomes.insert(name, outcome);
-            diagnostics.extend(found);
-        }
+        let skipped = if load == Load::Diagnostics
+            && skip_unneeded_enabled()
+            && self.elab.uses_check_cache()
+            && !self.elab.options.recheck_namespaces
+        {
+            self.plan_skips(&analysis, &order)
+        } else {
+            BTreeMap::new()
+        };
+        let diagnostics = if skipped.is_empty() {
+            self.check_in_order(&analysis, &order, &skipped)
+                .expect("nothing is left out")
+        } else {
+            let mark = self.mark();
+            match self.check_in_order(&analysis, &order, &skipped) {
+                Some(found) => {
+                    self.release(mark);
+                    for name in order.iter().filter(|n| skipped.contains_key(*n)) {
+                        self.elab.count_skipped_namespace(name);
+                    }
+                    found
+                }
+                None => {
+                    self.rewind(&mark);
+                    self.release(mark);
+                    self.elab.note_skipping_undone();
+                    self.check_in_order(&analysis, &order, &BTreeMap::new())
+                        .expect("nothing is left out")
+                }
+            }
+        };
         self.elab.leave_namespace();
         if diagnostics.iter().any(|d| d.severity == Severity::Error) {
             return Err(diagnostics);
@@ -121,6 +180,90 @@ impl Session {
             project: project.to_string(),
             checked: order,
         })
+    }
+
+    /// Checks the namespaces of `order` in that order, but reports those in
+    /// `skipped` from their entries (the warnings given) without loading
+    /// them; their diagnostics, in order. `None`, having stopped, if a
+    /// namespace after one left out has an error or a goal: what those
+    /// report can depend on every namespace loaded before (`E-UNKNOWN-FIELD`
+    /// names the namespace that would add a missing function), so the
+    /// caller checks them all again, loading everything.
+    fn check_in_order(
+        &mut self,
+        analysis: &Analysis,
+        order: &[String],
+        skipped: &BTreeMap<String, Vec<Diagnostic>>,
+    ) -> Option<Vec<Diagnostic>> {
+        let mut diagnostics: Vec<Diagnostic> = Vec::new();
+        let mut outcomes: BTreeMap<&str, NamespaceOutcome> = BTreeMap::new();
+        let mut left_out = false;
+        for name in order {
+            if let Some(warnings) = skipped.get(name) {
+                left_out = true;
+                outcomes.insert(name, NamespaceOutcome::Checked);
+                diagnostics.extend(warnings.iter().cloned());
+                continue;
+            }
+            let ns = analysis.namespace(name).expect("a namespace");
+            let (found, outcome) =
+                self.check_project_namespace(analysis, order, ns, &|m| outcomes.get(m).copied());
+            // (Not checked because a namespace it uses failed: that says
+            // only which.)
+            if left_out
+                && outcome != NamespaceOutcome::Skipped
+                && (found.iter()).any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
+            {
+                return None;
+            }
+            outcomes.insert(name, outcome);
+            diagnostics.extend(found);
+        }
+        Some(diagnostics)
+    }
+
+    /// The namespaces of `order` (canonical, closed under dependencies) a
+    /// plain `check` can report from their cache entries without loading
+    /// them, with the warnings each reports. One is left out if its entry
+    /// fits ([`stitchwort_elab::Elaborator::plan_namespace`]) and nothing
+    /// that is loaded needs it. Loaded: the misses; the namespaces with
+    /// syntax errors or doc links, whose diagnostics aren't all in the
+    /// entry; the namespaces that use a miss or one with syntax errors
+    /// (which may fail, and so block them); and everything those use.
+    fn plan_skips(
+        &mut self,
+        analysis: &Analysis,
+        order: &[String],
+    ) -> BTreeMap<String, Vec<Diagnostic>> {
+        let mut fits: BTreeMap<String, Vec<Diagnostic>> = BTreeMap::new();
+        // Those that may not be checked the way their entry says.
+        let mut uncertain: BTreeSet<&str> = BTreeSet::new();
+        let mut loaded: Vec<String> = Vec::new();
+        for name in order {
+            let ns = analysis.namespace(name).expect("a namespace");
+            let planned = self
+                .elab
+                .plan_namespace(name, &dependencies(analysis, name));
+            let certain = ns.parse_errors.is_empty()
+                && !ns
+                    .edges
+                    .iter()
+                    .any(|e| uncertain.contains(e.target.as_str()));
+            match planned {
+                Some(warnings) if certain && ns.modules.iter().all(|m| m.doc_links.is_empty()) => {
+                    fits.insert(name.clone(), warnings);
+                }
+                Some(_) if certain => loaded.push(name.clone()),
+                _ => {
+                    uncertain.insert(name);
+                    loaded.push(name.clone());
+                }
+            }
+        }
+        for needed in closure(analysis, &loaded) {
+            fits.remove(&needed);
+        }
+        fits
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses
@@ -159,12 +302,7 @@ impl Session {
                 .with_label(edge.span, format!("`{name}` uses `{m}` here"));
             return (vec![d], NamespaceOutcome::Skipped);
         }
-        let deps: BTreeSet<String> = closure(analysis, std::slice::from_ref(name))
-            .into_iter()
-            .filter(|n| n != name)
-            .collect();
-        let dependencies =
-            canonical_order(analysis, &deps).expect("a part of an acyclic closure is acyclic");
+        let dependencies = dependencies(analysis, name);
         let names: Vec<String> = ns
             .files
             .iter()
@@ -776,6 +914,22 @@ fn clashes(namespaces: &[Namespace]) -> Vec<Diagnostic> {
     out
 }
 
+/// The namespaces `name` uses, directly or not, in canonical order.
+fn dependencies(analysis: &Analysis, name: &str) -> Vec<String> {
+    let deps: BTreeSet<String> = closure(analysis, &[name.to_string()])
+        .into_iter()
+        .filter(|n| n != name)
+        .collect();
+    canonical_order(analysis, &deps).expect("a part of an acyclic closure is acyclic")
+}
+
+/// Whether a plain `check` may leave out the namespaces it doesn't need
+/// ([`Load::Diagnostics`]): unless `STITCHWORT_SKIP_UNNEEDED` is `0`, to
+/// compare with loading everything.
+fn skip_unneeded_enabled() -> bool {
+    std::env::var_os("STITCHWORT_SKIP_UNNEEDED").is_none_or(|v| v != "0")
+}
+
 /// `roots` and every namespace they use, directly or not, by name.
 pub fn closure(analysis: &Analysis, roots: &[String]) -> Vec<String> {
     let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -1374,6 +1528,22 @@ impl Session {
         }
         let sources = project_sources(files, project, &mut self.sources)?;
         self.load_project_sources(project, sources, target)
+    }
+
+    /// [`Session::load_project`], for a command that does `load` with the
+    /// result.
+    pub fn load_project_for(
+        &mut self,
+        files: &dyn Files,
+        project: &str,
+        target: &Target,
+        load: Load,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
+        if let Some(include) = files.include_files() {
+            self.include_from(include);
+        }
+        let sources = project_sources(files, project, &mut self.sources)?;
+        self.load_project_sources_for(project, sources, target, load)
     }
 }
 

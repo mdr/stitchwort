@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """SW-1193: a warm `stitchwort check` of aoc after one edit, today against
-STITCHWORT_SKIP_UNNEEDED=1 (the prototype). Usage:
+the new binary (prototype then, the built change now: on by default). Usage:
 
     measure.py BASE_BINARY PROTO_BINARY AOC_DIR [RUNS]
 
