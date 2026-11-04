@@ -635,6 +635,24 @@ def List.minBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
     | [] => None
     | [x, ..ys] => Some (List.foldLeft ys x (best y => List.minByStep f best y))
 
+--| The largest value of `f` over the elements, or `None` for an empty list:
+--| `[(1, "a"), (3, "b"), (2, "c")].maximumOf Pair.fst` is `Some 3`. Where
+--| `List.maxBy` returns the element whose key is largest, this returns the
+--| key itself; it is `(xs.map f).maximum` ([`List.maximumOfMap`]), so the
+--| `List.maximum` lemmas apply to it.
+def List.maximumOf [auto ord: Ord b] (xs: List a) (f: a → b): Option b := List.maximum (List.map xs f)
+
+theorem List.maximumOfMap [auto ord: Ord b] (xs: List a) (f: a → b): List.maximumOf xs f = List.maximum (List.map xs f) := rfl
+
+--| The smallest value of `f` over the elements, or `None` for an empty list:
+--| `[(1, "a"), (3, "b"), (2, "c")].minimumOf Pair.fst` is `Some 1`. Where
+--| `List.minBy` returns the element whose key is smallest, this returns the
+--| key itself; it is `(xs.map f).minimum` ([`List.minimumOfMap`]), so the
+--| `List.minimum` lemmas apply to it.
+def List.minimumOf [auto ord: Ord b] (xs: List a) (f: a → b): Option b := List.minimum (List.map xs f)
+
+theorem List.minimumOfMap [auto ord: Ord b] (xs: List a) (f: a → b): List.minimumOf xs f = List.minimum (List.map xs f) := rfl
+
 --| The longest prefix of elements satisfying `p`. `p` may perform abilities:
 --| it runs in list order and isn't called after the first element that fails
 --| it.
@@ -765,6 +783,9 @@ def List.pairs: List a → List (Pair a a)
 test "List.maxBy" := [MkPair 2 "bb", MkPair 1 "a", MkPair 3 "ccc"].maxBy Pair.fst == Some (MkPair 3 "ccc") ∧ ([]: List Nat).maxBy (x => x) == None
 test "List.maxBy first wins a tie" := [MkPair 1 "a", MkPair 3 "b", MkPair 3 "c"].maxBy Pair.fst == Some (MkPair 3 "b")
 test "List.minBy first wins a tie" := [MkPair 3 "z", MkPair 1 "a", MkPair 1 "b"].minBy Pair.fst == Some (MkPair 1 "a") ∧ ([]: List Nat).minBy (x => x) == None
+test "List.maximumOf" := [2, 9, 4].maximumOf (n => n % 5) == Some 4 ∧ ([]: List Nat).maximumOf (n => n) == None
+test "List.minimumOf" := [7, 9, 4].minimumOf (n => n % 5) == Some 2 ∧ ([]: List Nat).minimumOf (n => n) == None
+test "List.maximumOf gives the key, not the element" := [MkPair 1 "a", MkPair 3 "b", MkPair 2 "c"].maximumOf Pair.fst == Some 3
 test "List.takeWhile and dropWhile" := [1, 2, 5, 1].takeWhile (x => Nat.leq x 2) == [1, 2] ∧ [1, 2, 5, 1].dropWhile (x => Nat.leq x 2) == [5, 1]
 test "List.takeWhile all and none" := [1, 2].takeWhile (x => Nat.leq x 8) == [1, 2] ∧ [1, 2].dropWhile (x => Nat.leq x 8) == [] ∧ [4].takeWhile (x => Nat.leq x 2) == []
 test "List.span" := List.span [1, 2, 5, 1] (x => Nat.leq x 2) == MkPair [1, 2] [5, 1] ∧ List.span ([]: List Nat) (x => Nat.leq x 2) == MkPair [] []

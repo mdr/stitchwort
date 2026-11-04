@@ -111,6 +111,6 @@ def triangle: Nat → Nat
 --| `dy`, then `dy - 1`, …, then 1; thrown flat or down, it never rises.
 def peak (velocity: Velocity): Nat := triangle (Int.toNat velocity.dy)
 
-def solvePart1 (target: Target): Option Nat := hitting target |> .map peak |> .maximum
+def solvePart1 (target: Target): Option Nat := (hitting target).maximumOf peak
 
 def solvePart2 (target: Target): Nat := (hitting target).length
