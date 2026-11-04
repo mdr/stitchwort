@@ -5373,14 +5373,14 @@
     {
       "id": 1218,
       "title": "Design note + investigation: proofs about named definitions (parser proofs copy the parser's body for Parse.readsBind); why readsLine takes 4.6 s to check",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "proofs"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.",
+      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
