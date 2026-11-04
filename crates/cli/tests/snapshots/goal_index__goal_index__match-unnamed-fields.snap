@@ -9,20 +9,21 @@ expression: json
     "goal": {
       "hypotheses": [
         {
-          "name": "all",
-          "type": "next = True"
-        },
-        {
           "name": "next",
           "type": "Bool"
+        },
+        {
+          "name": "all",
+          "type": "next = True"
         }
       ],
+      "lemma": "theorem shownGoal1 (next: Bool) (all: next = True): next = True := ?",
       "target": "next = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "all: next = True\nnext: Bool\n⊢ next = True",
+        "message": "next: Bool\nall: next = True\n⊢ next = True",
         "range": [
           14,
           23,
@@ -47,10 +48,6 @@ expression: json
     "goal": {
       "hypotheses": [
         {
-          "name": "all",
-          "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
-        },
-        {
           "name": "next✝",
           "type": "Bool"
         },
@@ -61,6 +58,10 @@ expression: json
         {
           "name": "tail✝",
           "type": "List Bool"
+        },
+        {
+          "name": "all",
+          "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
         }
       ],
       "target": "(next✝ && allTrue [head✝, ..tail✝]) = True"
@@ -68,7 +69,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "all: (next✝ && allTrue [head✝, ..tail✝]) = True\nnext✝: Bool\nhead✝: Bool\ntail✝: List Bool\n⊢ (next✝ && allTrue [head✝, ..tail✝]) = True",
+        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
           15,
           15,

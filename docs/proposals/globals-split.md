@@ -441,7 +441,7 @@ Every step that generates or admits kernel terms is reviewed by Opus
 | 8c | (done) **`module` out.** `declare_def` and `declare_*data_group*` take the declaration's path; `module` into `Unit`; `library::Context`'s swap of it goes | the kernel stops reading unit state | `hash_stability`, `pinned_hashes` (hashes unchanged), `namespaces.rs`, `std_library.rs` |
 | 8d | (done) **`Machine` and the caches.** `budget`, `glue`, `transparent`, erasure mode, `apart_sets` into `core::Machine`; `hashes` and erasure's per-definition cache into a core `EvalCaches`; `failed_mentioned` into `Decl`. `Globals` is now `{ env, machine, caches, metas.. }` | `GlobalsMark` keeps only lengths; modes have one home | `rewind.rs`, `resources.rs`, `test:lane AREA=core`, core's `glue.rs` |
 | 8e | **`Ev` and `Metas`.** Core's evaluator, printer and checker take `&Ev` instead of `&Globals`. Admission takes `(&mut Env, &Machine)` and builds `Ev` with `NoMetas` and kernel modes. The 9 meta fields move into `Attempt` as `MetaStore: Metas`, and `Globals` is deleted. Two lanes if the diff is too large: 8e-1 introduces `Ev` with all fields still borrowed from `Globals`, a mechanical sweep; 8e-2 moves the store | the trust boundary (§3.6, §4); undo and reset destructure the store; the erasure gap | the new kernel test (a solved metavariable submitted is refused); elab's `undo` unit tests; `postponement.rs`, `rewind.rs`, `check_cache.rs`, `fuzz_elab.rs`'s rejection checks; `STITCHWORT_TIMINGS` on aoc before and after (a background run of about a minute each, an estimate) |
-| 8f | **The meta store's own mechanisms.** `Attempt::mark`/`restore` destructure `MetaStore`; the three queue mirrors become views of the queue, or are restored by it, whichever its lane finds simpler | undo completeness for the store (see finding G2) | `undo` unit tests, `postponement.rs`, a new test per mirror |
+| 8f | (done) **The meta store's own mechanisms.** `Attempt::mark`/`restore` destructure `MetaStore`; the three queue mirrors become views of the queue, or are restored by it, whichever its lane finds simpler | undo completeness for the store (see finding G2) | `undo` unit tests, `postponement.rs`, a new test per mirror |
 
 *As built (SW-1188, step 8c).* `Globals::module` and `Globals::path` are
 gone. `declare_def`, `admit_trusted_def` take the declaration's `path`
@@ -511,7 +511,7 @@ elab's `Unifier` is `{ ev, store, attempt, stats }` and derefs to its `Ev`.
   and `restore` carry a `MetasMark`; `MetaStore::restore` and `clear_metas`
   destructure the store, so a new field doesn't compile until it says how
   it is undone. The queue's three mirrors are still put back by the queue's
-  own restore (G2 unchanged). `Snapshot` lost its separate `metas`/`trail`.
+  own restore (G2 unchanged; closed by 8f below). `Snapshot` lost its separate `metas`/`trail`.
 - `Metas::epoch` is the store's `meta_epoch`, from 1; `NoMetas` says 0. A
   kept unfolding (`Unfolding::get`) from epoch 0 is used at any epoch: a
   value computed with no metavariables can't have used a solution, so an
@@ -529,6 +529,16 @@ elab's `Unifier` is `{ ev, store, attempt, stats }` and derefs to its `Ev`.
   ones admission refuses anyway.
 - G3 is gone with the field. G5's test is elab's
   `kernel::tests::admission_refuses_a_solved_metavariable`.
+
+*As built (SW-1191, step 8f).* The three queue mirrors are kept in one
+`QueueMirrors` (`state/metas.rs`, the store's `mirrors`), with private
+fields and `set`/`filling`/`forget`/`clear` that destructure it, so a new
+table has to say how it is written, forgotten and emptied. They stayed
+restored by the queue (`Queue::restore` forgets dropped items and syncs
+each whose state went back: simpler than a view, which the unifier's
+hot `is_unfilled` lookup wants as a set). The G2 tests found no leak
+before any change (see G2). `frozen_metas` is now cut to a marked length
+rather than by metavariable number.
 
 **Order** (an implementation decision, made here). 8a-8f run one at a
 time: every one edits core and its callers. 8a can start any time after
@@ -624,6 +634,16 @@ rather than becoming eager (§7), and how 8f handles the queue mirrors.
   Whether that can happen in an attempt that is then undone isn't checked.
   The three queue mirrors are restored only as far as the queue resyncs
   them. Worth a test before 8f.
+  **Closed by 8f.** The tests (`queue.rs`, `an_undone_attempt_restores_*`)
+  found no leak in the three mirrors before any change: an attempt that
+  queued an item, resumed an older one to done and another to wait again,
+  then failed, left each table as it was. `frozen_metas` was the one
+  hand-cut table that could keep an older metavariable's freeze; it is now
+  cut to its marked length (`an_undone_attempt_thaws_what_it_froze`). The
+  `lifted_calls` entries for older metavariables are the queue's fills,
+  taken back by its log (and `specialise_fills` runs after the last
+  attempt).
+
 - **G3. The doc of `Globals::metas` is wrong** ("Empty whenever the kernel
   runs"; see §2.2). A doc fix, or it is gone with 8e.
 - **G4. elaborator-state.md Appendix B is wrong about `erasure`,

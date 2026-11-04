@@ -181,7 +181,7 @@ fn pending(g: &Unifier<'_>, m: usize) -> bool {
 /// placeholder (invariant 2); a comparison that meets one waits for it
 /// ([`unify_waiting`]) or fails.
 fn frozen(g: &Unifier<'_>, m: usize) -> bool {
-    g.store.meta_frozen(m) || g.store.unfilled_placeholders.borrow().contains(&m)
+    g.store.meta_frozen(m) || g.store.mirrors.is_unfilled(m)
 }
 
 /// If `m` is the placeholder of a number literal `k` waiting for its type
@@ -193,10 +193,10 @@ fn frozen(g: &Unifier<'_>, m: usize) -> bool {
 /// type is exactly `other`.
 fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Value, Value)> {
     // Only while it is frozen: its own fill solves it as any unknown.
-    if !g.store.unfilled_placeholders.borrow().contains(&m) {
+    if !g.store.mirrors.is_unfilled(m) {
         return None;
     }
-    let (k, waits_on) = g.store.waiting_literals.borrow().get(&m).cloned()?;
+    let (k, waits_on) = g.store.mirrors.literal(m)?;
     let reg = &g.env.registry();
     let ty = match other {
         Value::Nat(n) if **n == *k => Value::Data(
@@ -276,10 +276,10 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
 /// Counts a failing pair, `a` against `b`, if one side's head is an unfilled
 /// placeholder, or a definition stuck on one.
 fn note_unfilled(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<()> {
-    if g.store.unfilled_placeholders.borrow().is_empty() {
+    if !g.store.mirrors.any_unfilled() {
         return Ok(());
     }
-    let is_unfilled = |m: usize| g.store.unfilled_placeholders.borrow().contains(&m);
+    let is_unfilled = |m: usize| g.store.mirrors.is_unfilled(m);
     let unfilled = |v: &Value| -> Result<bool> {
         Ok(match force(g, v.clone())? {
             Value::Neutral(Head::Meta(m), _) => is_unfilled(m),
@@ -3202,7 +3202,7 @@ mod tests {
         let g = &fresh.unifier();
         let (p, placeholder) = meta(g, &[]);
         let (x, unknown) = meta(g, &[]);
-        g.store.unfilled_placeholders.borrow_mut().insert(p);
+        g.store.mirrors.set(p, None, None);
         let a = eq(placeholder.clone(), unknown);
         let b = eq(ty(), ty());
         assert!(
@@ -3230,8 +3230,8 @@ mod tests {
         let g = &fresh.unifier();
         let (p, placeholder) = meta(g, &[]);
         let (q, other) = meta(g, &[]);
-        g.store.unfilled_placeholders.borrow_mut().insert(p);
-        g.store.unfilled_placeholders.borrow_mut().insert(q);
+        g.store.mirrors.set(p, None, None);
+        g.store.mirrors.set(q, None, None);
         let pending = pending_of(&[p]);
         // Type 0 against Type 1: rigid.
         let rigid = unify_waiting(g, 0, &ty(), &Value::Sort(Sort::Type(1)), &pending).unwrap();
@@ -3263,7 +3263,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = &fresh.unifier();
         let (p, placeholder) = meta(g, &[]);
-        g.store.unfilled_placeholders.borrow_mut().insert(p);
+        g.store.mirrors.set(p, None, None);
         let waiting = Scoped::set(&g.attempt.waiting, Some(Vec::new()));
         let pending = Scoped::set(&g.attempt.pending, pending_of(&[p]));
         assert!(!unify(g, 0, &placeholder, &ty()).unwrap());

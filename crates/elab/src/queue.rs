@@ -61,7 +61,7 @@
 //!   it would have inline; what an item queues while it is resumed keeps the
 //!   item's frames;
 //! - an unfilled placeholder prints as the source its check stands for
-//!   ([`Check::display`], `MetaStore::placeholder_syntax`), not as `?N`.
+//!   ([`Check::display`], `QueueMirrors::syntax`), not as `?N`.
 //!
 //! The queue's invariants (§5.1), and how each is kept here:
 //! 1. *One placeholder, one occurrence*: [`queue`] makes a fresh unknown
@@ -69,7 +69,7 @@
 //!    placeholders the restore drops too.
 //! 2. *Only its item fills a placeholder*: only [`Elaborator::fill`],
 //!    while the item runs. Until then the placeholder is frozen
-//!    (`MetaStore::unfilled_placeholders`, D2016's end state): unification
+//!    (`QueueMirrors::unfilled`, D2016's end state): unification
 //!    never solves it, and a comparison that meets it waits or fails. If
 //!    anything else solved it first, the item's term must agree with that
 //!    solution; zonking writes the item's term either way.
@@ -195,7 +195,7 @@ pub(crate) fn waiting_literal(e: &Elaborator, term: &Term) -> bool {
     let Term::Meta(m) = term.strip_loc().spine().0 else {
         return false;
     };
-    e.attempt.store.waiting_literals.borrow().contains_key(m)
+    e.attempt.store.mirrors.is_literal(*m)
 }
 
 /// What a resumed check gives.
@@ -393,7 +393,7 @@ impl Queue {
     }
 
     /// Tells the unifier which placeholders aren't filled yet
-    /// (`MetaStore::unfilled_placeholders`): they are frozen until filled
+    /// (`QueueMirrors::unfilled`): they are frozen until filled
     /// (D2016), and a comparison that fails at one is counted
     /// (`Stats::met_unfilled`).
     fn sync_item(&self, g: &crate::state::MetaStore, i: usize) {
@@ -402,32 +402,16 @@ impl Queue {
             Self::forget(g, item.meta);
             return;
         }
-        g.unfilled_placeholders.borrow_mut().insert(item.meta);
-        match &item.display {
-            Some(display) => {
-                g.placeholder_syntax
-                    .borrow_mut()
-                    .insert(item.meta, display.clone());
-            }
-            None => {
-                g.placeholder_syntax.borrow_mut().remove(&item.meta);
-            }
-        }
-        match item.check.literal() {
-            Some(k) => {
-                (g.waiting_literals.borrow_mut()).insert(item.meta, (k, item.ty.clone()));
-            }
-            None => {
-                g.waiting_literals.borrow_mut().remove(&item.meta);
-            }
-        }
+        g.mirrors.set(
+            item.meta,
+            item.display.clone(),
+            item.check.literal().map(|k| (k, item.ty.clone())),
+        );
     }
 
     /// Takes placeholder `m` out of the tables [`Queue::sync_item`] keeps.
     fn forget(g: &crate::state::MetaStore, m: usize) {
-        g.unfilled_placeholders.borrow_mut().remove(&m);
-        g.placeholder_syntax.borrow_mut().remove(&m);
-        g.waiting_literals.borrow_mut().remove(&m);
+        g.mirrors.forget(m);
     }
 
     fn item(&self, i: usize) -> Rc<Item> {
@@ -1438,10 +1422,7 @@ impl Elaborator {
         if let (Term::Meta(_), Term::Nat(k)) = (&item.placeholder, term)
             && g.store.metas.borrow()[item.meta].solution.is_none()
         {
-            g.store
-                .unfilled_placeholders
-                .borrow_mut()
-                .remove(&item.meta);
+            g.store.mirrors.filling(item.meta);
             g.store.solve_meta(item.meta, Value::Nat(k.clone()));
             (g.store.lifted_calls.borrow_mut()).insert(item.meta, (0, Rc::new(term.clone())));
             return Ok(());
@@ -1454,10 +1435,7 @@ impl Elaborator {
         }
         let value = cx.eval(term)?;
         let placeholder = cx.eval(&item.placeholder)?;
-        g.store
-            .unfilled_placeholders
-            .borrow_mut()
-            .remove(&item.meta);
+        g.store.mirrors.filling(item.meta);
         if !cx.unify(&placeholder, &value)? {
             count(&cx.e.session.stats.disagreed);
             return Err(cx.mismatch(&placeholder, &value));
@@ -1904,9 +1882,21 @@ mod tests {
         /// What it waits on next, the first time it is resumed (a `.field`
         /// meeting another unknown at a later step of its view).
         then: RefCell<Option<Value>>,
+        /// Whether it is a number literal (`Check::literal`).
+        literal: bool,
+        /// Its placeholder's source text (`Check::display`).
+        shown: Option<&'static str>,
     }
 
     impl Check for Probe {
+        fn literal(&self) -> Option<Rc<num_bigint::BigUint>> {
+            self.literal.then(|| Rc::new(7u32.into()))
+        }
+
+        fn display(&self, _cx: &Ctx) -> Option<String> {
+            self.shown.map(String::from)
+        }
+
         fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
             self.log.borrow_mut().push(format!("resumed {}", self.name));
             if let Some(inner) = &self.inner {
@@ -1944,6 +1934,8 @@ mod tests {
             default: None,
             nested: false,
             then: RefCell::new(None),
+            literal: false,
+            shown: None,
         }
     }
 
@@ -3028,15 +3020,75 @@ mod tests {
         assert_eq!(shown(&cx), "p.row");
         e.attempt.store.solve_meta(blocker, data(&e, "P"));
         assert!(e.resume_from(0).unwrap());
-        assert!(e.attempt.store.placeholder_syntax.borrow().is_empty());
+        assert!(e.attempt.store.mirrors.keys()[1].is_empty());
         assert_eq!(shown(&cx), "p.row");
         // Taken back with its item.
         let before = Snapshot::take(&cx);
         let (_, other) = unknown(&cx);
         cx.bind("q", other);
         crate::check::infer(&mut cx, &expression("q.row")).unwrap();
-        assert_eq!(e.attempt.store.placeholder_syntax.borrow().len(), 1);
+        assert_eq!(e.attempt.store.mirrors.keys()[1].len(), 1);
         before.restore(&mut cx);
-        assert!(e.attempt.store.placeholder_syntax.borrow().is_empty());
+        assert!(e.attempt.store.mirrors.keys()[1].is_empty());
+    }
+    fn mirrors(e: &Elaborator) -> [Vec<usize>; 3] {
+        e.attempt.store.mirrors.keys()
+    }
+
+    /// An attempt that queues a new item (made by `make`), resumes the
+    /// older one to done, and resumes another to wait again, then fails:
+    /// the mirrors are as they were. Returns them before, inside the
+    /// attempt and after.
+    fn mirrors_over_an_undone_attempt(make: impl Fn(&mut Probe)) -> [[Vec<usize>; 3]; 3] {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (blocker, needs) = unknown(&cx);
+        let (other, other_needs) = unknown(&cx);
+        let mut older = probe("older", &log, anything());
+        make(&mut older);
+        push(&cx, older, needs);
+        let mut again = probe("again", &log, anything());
+        make(&mut again);
+        *again.then.borrow_mut() = Some(other_needs.clone());
+        push(&cx, again, other_needs);
+        let before = mirrors(&e);
+        let attempt = Snapshot::take(&cx);
+        // Queued inside the attempt.
+        let (_, fresh) = unknown(&cx);
+        let mut new = probe("new", &log, anything());
+        make(&mut new);
+        push(&cx, new, fresh);
+        // Resumed to done, and resumed to wait on something else.
+        e.attempt.store.solve_meta(blocker, ty(1));
+        e.attempt.store.solve_meta(other, ty(1));
+        assert!(e.resume_from(0).unwrap());
+        let inside = mirrors(&e);
+        attempt.restore(&mut cx);
+        [before, inside, mirrors(&e)]
+    }
+
+    #[test]
+    fn an_undone_attempt_restores_the_unfilled_placeholders() {
+        let [before, inside, after] = mirrors_over_an_undone_attempt(|_| {});
+        assert_eq!(before[0].len(), 2);
+        assert_ne!(inside[0], before[0]);
+        assert_eq!(after[0], before[0]);
+    }
+
+    #[test]
+    fn an_undone_attempt_restores_the_placeholder_syntax() {
+        let [before, inside, after] = mirrors_over_an_undone_attempt(|p| p.shown = Some("x.row"));
+        assert_eq!(before[1].len(), 2);
+        assert_ne!(inside[1], before[1]);
+        assert_eq!(after[1], before[1]);
+    }
+
+    #[test]
+    fn an_undone_attempt_restores_the_waiting_literals() {
+        let [before, inside, after] = mirrors_over_an_undone_attempt(|p| p.literal = true);
+        assert_eq!(before[2].len(), 2);
+        assert_ne!(inside[2], before[2]);
+        assert_eq!(after[2], before[2]);
     }
 }

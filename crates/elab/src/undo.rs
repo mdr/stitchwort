@@ -316,4 +316,20 @@ mod tests {
         assert!(found.is_none());
         assert!(!solved(&cx, b));
     }
+
+    /// G2: a metavariable frozen inside an attempt is thawed when the
+    /// attempt is undone, even an older one.
+    #[test]
+    fn an_undone_attempt_thaws_what_it_froze() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        let (older, _) = meta(&cx, &[]);
+        let before = Snapshot::take(&cx);
+        let (newer, _) = meta(&cx, &[]);
+        cx.metas().freeze_meta(older);
+        cx.metas().freeze_meta(newer);
+        before.restore(&mut cx);
+        assert!(!cx.metas().meta_frozen(older));
+        assert!(cx.metas().frozen_metas.borrow().is_empty());
+    }
 }

@@ -3513,10 +3513,10 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
         Rc::new(Term::Sort(Sort::Type(0))),
         nat_ty(),
     );
-    let k = declare_def(g, &"k".into(), &"k".into(), &k_ty, false, false, span).unwrap();
+    let k = declare_def(g, &"k".into(), &"Main.k".into(), &k_ty, false, false, span).unwrap();
     // f : Nat -> Nat;  f n = n + 1
     let f_ty = Term::Pi("n".into(), Icit::Explicit, nat_ty(), nat_ty());
-    let f = declare_def(g, &"f".into(), &"f".into(), &f_ty, false, false, span).unwrap();
+    let f = declare_def(g, &"f".into(), &"Main.f".into(), &f_ty, false, false, span).unwrap();
     let k_body = Term::Lam(
         "a".into(),
         Icit::Implicit,
@@ -3529,7 +3529,16 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
     );
     define_group(g, &[(k, k_body), (f, f_body)]).unwrap();
     // export useK : Nat -> Nat;  useK n = n + k [Nat]
-    let use_k = declare_def(g, &"useK".into(), &"useK".into(), &f_ty, false, true, span).unwrap();
+    let use_k = declare_def(
+        g,
+        &"useK".into(),
+        &"Main.useK".into(),
+        &f_ty,
+        false,
+        true,
+        span,
+    )
+    .unwrap();
     let k_nat = Term::App(
         Rc::new(Term::Def(k)),
         Rc::new(Term::Data(nat, Vec::new())),

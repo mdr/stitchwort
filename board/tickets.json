@@ -1,5 +1,5 @@
 {
-  "next": 1225,
+  "next": 1232,
   "tickets": [
     {
       "id": 47,
@@ -4984,17 +4984,19 @@
     {
       "id": 1191,
       "title": "Globals split 8f: the meta store's mark/restore destructure it; queue mirrors become views (G2)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n\n\nProgress (lane): G2 tests found no mirror leak before the change. Mirrors now one QueueMirrors in the store (private fields); frozen_metas cut to a mark. Tests: new queue/undo tests, postponement/rewind/check_cache (61 pass), undo (10 pass). Commit 3ebd7f2f.\n\n\nMerged. Model result: Sonnet, worked, 23 min (est. 90). Globals split (D2290) complete.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "3ebd7f2f"
+      ]
     },
     {
       "id": 1192,
@@ -5243,14 +5245,14 @@
     {
       "id": 1209,
       "title": "Messages from AoC 2020 day 1: let f (y: Nat) parse error points at local def; E-REWRITE-NOTHING leads with 'already refined by the match'; goals list an arm's pattern variables before the hypotheses that mention them",
-      "status": "next",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
         "diagnostics",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.",
+      "body": "D2306 (Matt, 4 Nov 2026), lane B from aoc/NOTES-2020.md day 1 items 3 and 6. DeepSeek when a slot frees.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1209, expected: 75 min.\n\n\nDone in scratch-sw-1209; reviewed; merges after the 8f verifier. Model result: DeepSeek, worked, about 45 min (est. 75).\n\n\nMerged.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5288,13 +5290,13 @@
     {
       "id": 1212,
       "title": "fmt drops the parentheses around a type after an ability row ({Fail} List Nat); docs/syntax.md examples and the library/aoc/examples reformatted to match",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": "scratch-sw-1212",
       "labels": [
         "fmt"
       ],
-      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).",
+      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1212 (formatter, golden tests and docs only; the repo-wide reformat is a later step), expected: 60 min.\n\n\nFirst run done (fc770eef in scratch-sw-1212): formatter change, golden test, docs. Orchestrator review: keep parentheses around a function type after a row ({e} (A -> B) stays), for readability; the rest is good. Can only merge together with the repo-wide reformat (62 files), since the sources-are-formatted test fails otherwise; that second run waits for SW-1225 to merge, then rebases, reformats and merges in one go. Model result so far: DeepSeek, worked, about 35 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5373,14 +5375,14 @@
     {
       "id": 1218,
       "title": "Design note + investigation: proofs about named definitions (parser proofs copy the parser's body for Parse.readsBind); why readsLine takes 4.6 s to check",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "proofs"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
+      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\n\nDone 4 Nov 2026 (about 65 min): docs/proposals/proofs-about-definitions.md, with reads-then.sw, opaque-steps.sw and bench.py beside it (all check). Findings: time grows about 2.7x per parser step (8 steps: 73 M evaluation steps; readsLine 20.5 M), from two elaborator causes: comparing unfolded handler runs bind by bind with no memo, and nested lambdas checked in place then again (2^n). `_` fails because the unifier never unfolds `line` one step to `Effect.bind (nat ()) k`; with std's leaf parsers opaque every `_` solves (measured). Decisions D2340-D2345 in §7: std readsThen now (yes), compare conclusion first when it depends only on `_` (yes, first), lazy delta (yes, after), call-pair memo (later), drop SW-1219 (drop), completeness direction (backlog).\n\n\nMerged: docs/proposals/proofs-about-definitions.md. Checking time grows about 2.7x per parser step (evaluation steps measured: 0.2 M at 2 steps, 73 M at 8); causes in the elaborator (unmemoised bind comparison; re-checking nested proofs). Decisions D2340-D2345. Model result: Opus, worked, 60 min (est. 120).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5388,13 +5390,13 @@
     {
       "id": 1219,
       "title": "Error message: when matching fails because a name wasn't unfolded (e.g. Parse.readsBind against a named parser like Day02's line), say which name and how to proceed",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n\n\nNot merged (orchestrator, 4 Nov 2026): the note fires in a small repro but not usefully on the real readsLine case (it names Parse.Reads, not line, and the error lands at an inner argument), and it also fires on real type errors (unify-bool-argument). Branch lane/SW-1219 kept for SW-1218 to reuse or drop. Model result: Sonnet, needed fixes (target case not helped; the cause is a unification limit), 25 min (est. 60).\n",
+      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n\n\nNot merged (orchestrator, 4 Nov 2026): the note fires in a small repro but not usefully on the real readsLine case (it names Parse.Reads, not line, and the error lands at an inner argument), and it also fires on real type errors (unify-bool-argument). Branch lane/SW-1219 kept for SW-1218 to reuse or drop. Model result: Sonnet, needed fixes (target case not helped; the cause is a unification limit), 25 min (est. 60).\n\n\nDropped (D2344, Matt, 4 Nov 2026). examples/reject/not-unfolded-argument.sw kept for the unifier lane (copied into its ticket notes).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5467,6 +5469,109 @@
         "tests"
       ],
       "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1225,
+      "title": "Std: Parse.readsThen and Parse.readsDone (from docs/proposals/proofs-about-definitions/reads-then.sw); move AoC 2020 day 2 and 2021 day 16 parser proofs to them",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std",
+        "proofs"
+      ],
+      "body": "D2340. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). Opus reviews. Day 2's proof should drop from 39 to 13 lines and 20.5 M to 12.9 M evaluation steps (measured in the note).\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n\nProgress 4 Nov 2026: lemmas added to Std/Parse/Reads.sw; day 2 readsLine 12.9 M steps (was 20.5 M), day 16 readsHexDigit 53 K (was 89 K); both break when the program is broken; audits clean for Day02 and Std.Parse; tests pass. Ready for Opus review.\n\n\nMerged. Day 2 readsLine 39 -> 13 lines, 20.5 M -> 12.9 M evaluation steps. Model result: Sonnet, worked, 60 min (est. 90).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": [
+        "e994ce52"
+      ]
+    },
+    {
+      "id": 1226,
+      "title": "Elaborator: when a lemma's arguments depend only on _, compare its conclusion with the goal before checking its proof arguments (removes the doubling re-checks)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab",
+        "performance"
+      ],
+      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1227,
+      "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab",
+        "unify"
+      ],
+      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1228,
+      "title": "Unifier: memoise compared call pairs within one comparison, only if a profile still shows the Effect.bind comparison path after D2342 and D2341",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "D2343. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1229,
+      "title": "Design note: completeness of parsers (well-formed text parses), after one-step unfolding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2345. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1230,
+      "title": "Fix: extract test names its kernel-built group with bare paths since SW-1188",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1230",
+      "labels": [
+        "bug"
+      ],
+      "body": "`a_group_member_with_only_erased_parameters_is_a_thunk` (crates/cli/tests/extract.rs) failed in SW-1220's post-merge check: output.js had `const $k = () => ...`, not `const $Main$dk = () => ...`. The thunk itself was right; only its name changed.\n\nCause: daa3bcd5 (SW-1188, Globals split 8c) moved path qualification out of the kernel (`push_def` no longer calls `g.path(name)`), and updated this test to pass bare paths (`k`, `f`, `useK`) where the kernel used to make `Main.k` etc. Not bc57c4e8 (8e) or eb553dbb (SW-1220). Earlier verifiers didn't run binary(extract).\n\nFix (lane/SW-1230, 9b866ea6): the test passes `Main.k`, `Main.f`, `Main.useK`, as the elaborator would. Test-only; no kernel change.\n\nExpected: 60 min. Started 14:52.\n\n\nMerged. Model result: Opus, worked, 7 min (est. 60).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1231,
+      "title": "AoC 2020 day 3 in Stitchwort: spec, solution, proofs, input test, friction notes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2305 track (one day per lane; friction review with Matt after). Day 2's friction review done 4 Nov 2026 (D2330, D2331). Started 4 Nov 2026 on Opus, expected: 120 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

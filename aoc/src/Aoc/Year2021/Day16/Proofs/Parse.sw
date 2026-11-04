@@ -32,13 +32,11 @@ theorem hexAgree (char: Char) (value: Nat) (h: hexValue char = Some value): hexD
 
 --| `hexDigit` reads one hexadecimal digit and gives its value.
 theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) :=
-  Parse.readsWeaken _ _ _
-    (Parse.readsBind (() => Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome))
-      (char => Parse.need (hexValue char) "expected a hexadecimal digit") _ _ (Parse.readsSatisfy _ _) (char => Parse.readsNeed _ _))
-    (read value h =>
-      match h with
-        | Witness charRead (Witness needRead (Witness char (Both split (Both (Both one passes) (Both none found))))) =>
-          Witness char (Both (rewrite split, none, List.appendNil charRead in one) found))
+  Parse.readsThen (() => Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome)) _ _ _
+    (Parse.readsSatisfy _ _)
+    (charRead char (Both one passes) =>
+      Parse.readsWeaken _ _ _ (Parse.readsNeed (hexValue char) _) (read value (Both none found) =>
+        Witness char (Both (rewrite one, none in rfl) found)))
 
 --| Hexadecimal digits read one after another: their bits are the
 --| transmission's.

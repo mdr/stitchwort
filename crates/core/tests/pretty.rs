@@ -27,9 +27,9 @@ fn prints_numbers_and_lists_as_literals() {
     };
     assert_eq!(show(&p, &[], &list(vec![p.num(1), p.num(2)])), "[1, 2]");
     assert_eq!(show(&p, &[], &list(vec![])), "[]");
-    // Not a literal when the end isn't a constructor.
+    // An open chain, when the end isn't a constructor, prints with a spread.
     let open = Term::ctor(p.list, 1, vec![p.num(1), v(0)]);
-    assert_eq!(show(&p, &["xs"], &open), "Cons 1 xs");
+    assert_eq!(show(&p, &["xs"], &open), "[1, ..xs]");
     let succ_of_var = Term::ctor(p.nat, 1, vec![v(0)]);
     assert_eq!(show(&p, &["n"], &succ_of_var), "Succ n");
 }

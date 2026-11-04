@@ -388,6 +388,40 @@ theorem Parse.readsSatisfy (what: Text) (passes: Char → Bool): Parse.Reads (()
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both holds (Both none same))))) =>
           rewrite split, none, List.appendNil firstRead in (rewrite same at holds in holds))
 
+--| `p`, then `j` of its value, read as `spec` says: for each part `p` can read
+--| and value it gives, `j` reads a rest that, after that part, `spec` holds of.
+--| Unlike [`Parse.readsBind`], the spec comes from the statement, so each step's
+--| facts arrive as named parameters and the last step states the obligation once,
+--| with no `match` to take the facts apart. A parser of two steps, `a`, then `b`:
+--|
+--|   theorem readsPair: Parse.Reads pair Written :=
+--|     Parse.readsThen a _ _ _ readsA (aRead x aFacts =>
+--|       Parse.readsThen b _ _ _ readsB (bRead y bFacts =>
+--|         Parse.readsDone { x, y } _ (…Written (aRead ++ bRead ++ []) { x, y }…)))
+--|
+--| Each step names its parser (`Parse.nat`, `() => Parse.char '-'`): `_` cannot
+--| stand for it yet.
+theorem Parse.readsThen (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (spec: List Char → b → Prop)
+    (readsFirst: Parse.Reads p first)
+    (rest: (firstRead: List Char) → (v: a) → first firstRead v → Parse.Reads (() => j v) (read w => spec (firstRead ++ read) w)):
+    Parse.Reads (() => j (p())) spec :=
+  state value after honest h =>
+    match Parse.runFromThenOk2 p state j _ _ h with
+      | Witness v (Witness middle (Both ran restRun)) =>
+        match readsFirst state v middle.at honest ran with
+          | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
+            match rest firstRead v holds1 middle value after honest1 restRun with
+              | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
+                Witness (firstRead ++ nextRead)
+                  (Both (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl) (Both honest2 holds2))
+
+--| A value, read as `spec` says when `spec` holds of nothing read and it: the
+--| last step of a [`Parse.readsThen`] chain.
+theorem Parse.readsDone (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
+  Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h =>
+    match h with
+      | Both none same => rewrite none, same in holds)
+
 --| A pure function of what `first` gave: what `first` read.
 theorem Parse.readsMap (p: () → {Parse} a) (f: a → b) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => f (p())) (read value => ∃ (v: a) => spec read v ∧ value = f v) :=
