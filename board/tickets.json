@@ -1,5 +1,5 @@
 {
-  "next": 1273,
+  "next": 1279,
   "tickets": [
     {
       "id": 47,
@@ -69,7 +69,7 @@
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 5, 688de314c; D1′ with D2349, D2352-D2354, D1980). Opus. After SW-1226, before SW-1227 (D2348).\n\nOrder (one branch, commits per step, §9):\n0. D1980 (§7.11): E-PROP-ELIM refuses a proposition whose constructor field mentions itself. Measure first (std builds, examples/ pass, `stitchwort check` on aoc/ and games/rogue: no E-PROP-ELIM); stop and report if anything relies on it. Test 26.\n1. Marks: Def::inert_params (length = arity) and data proof_params, computed in install_group / declare_data on both checked and trusted paths (no check-cache format change); std listing; reference validator; native test (§7.3).\n2. conv skips with J and arity boundaries; same_stuck_trees: all-impossible cases equal without comparing scrutinees; reference conv (§7.2).\n3. Shortcut mode at K1-K4, CallMemo and TreeMemo keyed by mode, reference R1-R3 and EQUAL_CALLS (§7.2 table).\n4. Unifier (§7.5): masks with the whole-metavariable rule via solve; mode at U1-U5.\n5. Tests §8: 1-30 + 11b, unit tests, enumerated equivalence/gluing test, three-way runs (17-19, 24, 25, 27), mutations (temporary edits, results recorded here).\n6. Docs: docs/core.md (rule, glued calls, precondition, D1981), DESIGN §6, doc comments (§7.4), unify_index.rs:184 comment, mutual-recursion.md §6.7.\n\nDone when: all §8 tests pass and the three-way runs agree; each listed mutation fails its named tests (recorded here); sameMod (§2.1) and handBuilt (§2.2) check by rfl; std inert listing matches §7.3's table or differences are explained here; reference validator passes over std and test programs; bench: nothing >10% slower, anything >5% explained; hash snapshots unchanged or each change explained; merge tier green; daily-tier run (ask Matt first, D2348) green, including the STITCHWORT_GLUE=0 corpus run.\n\nExpected: 480 min (step 0 ~45; marks+analysis ~120; skips+modes ~150; unifier ~60; tests ~90; docs ~15). Checkpoint report after step 0 and after step 3.\n\n(Draft 3's body and the dialExt example were replaced 4 Nov by SW-1268's draft 5; dialExt no longer exists in aoc/.)\n\nWARNING, read before starting (Matt, 30 Oct 2026; from the kernel research register, docs/research/kernel.md §5.1, read in full texts): the recursive-proposition trap. If a proposition can be eliminated into data AND holds a proof of itself in a field, definitional proof irrelevance makes conversion undecidable: any proof X can be unfolded once more, X ≡ MkLoop (Loop.inv X), with no bound on how many unfoldings conversion must try (Gilbert et al. POPL19 §2.3; Abel & Coquand; Lean answered with lean4#13851/#14977). Stitchwort accepts such a type TODAY: E-PROP-ELIM (crates/core/src/check.rs:915-929) lets a single-constructor Prop whose fields are all Prop eliminate into data, without asking whether a field mentions the type itself. Checked by the orchestrator on 30 Oct with main's binary: `type Loop: Prop = | MkLoop (next: Loop)` with `def steps (l: Loop): Nat := match l with | MkLoop n => Succ (steps n)` checks. It is harmless now (no definitional irrelevance yet), but becomes the trap once D1′ masks proof positions. proof-irrelevance.md §5.1 currently defends Loop by making D1′ deliberately incomplete; the register recommends closing the hole instead: add a condition to E-PROP-ELIM that no constructor field mentions the type itself (Lean's rule), after measuring that nothing in std, examples, AoC or rogue relies on it (register ticket T2; decision D1980, open). Do this BEFORE or AS PART OF stage 1, with Loop/steps as a must-reject test.\n\n\nD1980 (Matt, 30 Oct 2026): yes, refuse eliminating a self-referential proposition into data (the warning above), but as part of THIS ticket's work, not before it: when SW-93 starts, measure first that nothing in std, examples, AoC or rogue eliminates such a proposition into data, then add the E-PROP-ELIM condition with Loop/steps as a must-reject test.\nReminder (D1981, Matt, 30 Oct): record eta interacts with this ticket. Once proofs are irrelevant, a record whose fields are all proofs behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26, Rocq requires a relevant field). If record eta (SW-55/SW-789) exists or lands after this, it must be limited to records with at least one field that isn't a proof.\n\n\nD2348 (Matt, 4 Nov 2026): yes, schedule as designed (docs/proposals/proof-irrelevance.md, D1-prime, decided 19 Oct). Opus. After SW-1226 merges, before SW-1227 (both touch the unifier). Merge tier plus a daily-tier run (ask Matt first). Then revisit D2180: if h: equations for any condition.\n\n\nD2349 (Matt, 4 Nov 2026): restrict masks at definitions' arguments to proof parameters the definition never computes on (no case, J or Quot.ind on it, only passed to other masked positions); constructor fields masked as before. Reason: glued calls (SW-257, after draft 3) compare same-head calls argument-first, so unrestricted masks reintroduce Carneiro's non-transitivity (steps l 0 / cast rfl x) and make gluing change what is accepted. D2350: draft 4 of the note first (SW-1250).\n\n\nDecided by the orchestrator, delegated by Matt (4 Nov 2026: \"above my pay grade - can you make good decisions?\"), per note draft 4: D2352 yes (shortcut mode: inert arguments skipped, constructor proof fields compared); D2353 yes (an impossible case, as in Void.absurd, is not computing); D2354 yes (storing a proof parameter in a constructor field makes it non-inert); D2355 yes (independent Opus review of the new parts of 5.1, 5.7, 7.1-7.3, 7.10 before stage 1; to start when Matt lifts the hold on new lanes). Order: review, then SW-93 stage 1 on Opus.\n\n\n\nHistory: Matt (19 Oct): on hold, multi-file first (done: SW-89, SW-106); D240 (21 Oct): backlog; D2348 (4 Nov): scheduled.",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 5, 688de314c; D1′ with D2349, D2352-D2354, D1980). Opus. After SW-1226, before SW-1227 (D2348).\n\nOrder (one branch, commits per step, §9):\n0. D1980 (§7.11): E-PROP-ELIM refuses a proposition whose constructor field mentions itself. Measure first (std builds, examples/ pass, `stitchwort check` on aoc/ and games/rogue: no E-PROP-ELIM); stop and report if anything relies on it. Test 26.\n1. Marks: Def::inert_params (length = arity) and data proof_params, computed in install_group / declare_data on both checked and trusted paths (no check-cache format change); std listing; reference validator; native test (§7.3).\n2. conv skips with J and arity boundaries; same_stuck_trees: all-impossible cases equal without comparing scrutinees; reference conv (§7.2).\n3. Shortcut mode at K1-K4, CallMemo and TreeMemo keyed by mode, reference R1-R3 and EQUAL_CALLS (§7.2 table).\n4. Unifier (§7.5): masks with the whole-metavariable rule via solve; mode at U1-U5.\n5. Tests §8: 1-30 + 11b, unit tests, enumerated equivalence/gluing test, three-way runs (17-19, 24, 25, 27), mutations (temporary edits, results recorded here).\n6. Docs: docs/core.md (rule, glued calls, precondition, D1981), DESIGN §6, doc comments (§7.4), unify_index.rs:184 comment, mutual-recursion.md §6.7.\n\nDone when: all §8 tests pass and the three-way runs agree; each listed mutation fails its named tests (recorded here); sameMod (§2.1) and handBuilt (§2.2) check by rfl; std inert listing matches §7.3's table or differences are explained here; reference validator passes over std and test programs; bench: nothing >10% slower, anything >5% explained; hash snapshots unchanged or each change explained; merge tier green; daily-tier run (ask Matt first, D2348) green, including the STITCHWORT_GLUE=0 corpus run.\n\nExpected: 480 min (step 0 ~45; marks+analysis ~120; skips+modes ~150; unifier ~60; tests ~90; docs ~15). Checkpoint report after step 0 and after step 3.\n\n(Draft 3's body and the dialExt example were replaced 4 Nov by SW-1268's draft 5; dialExt no longer exists in aoc/.)\n\nWARNING, read before starting (Matt, 30 Oct 2026; from the kernel research register, docs/research/kernel.md §5.1, read in full texts): the recursive-proposition trap. If a proposition can be eliminated into data AND holds a proof of itself in a field, definitional proof irrelevance makes conversion undecidable: any proof X can be unfolded once more, X ≡ MkLoop (Loop.inv X), with no bound on how many unfoldings conversion must try (Gilbert et al. POPL19 §2.3; Abel & Coquand; Lean answered with lean4#13851/#14977). Stitchwort accepts such a type TODAY: E-PROP-ELIM (crates/core/src/check.rs:915-929) lets a single-constructor Prop whose fields are all Prop eliminate into data, without asking whether a field mentions the type itself. Checked by the orchestrator on 30 Oct with main's binary: `type Loop: Prop = | MkLoop (next: Loop)` with `def steps (l: Loop): Nat := match l with | MkLoop n => Succ (steps n)` checks. It is harmless now (no definitional irrelevance yet), but becomes the trap once D1′ masks proof positions. proof-irrelevance.md §5.1 currently defends Loop by making D1′ deliberately incomplete; the register recommends closing the hole instead: add a condition to E-PROP-ELIM that no constructor field mentions the type itself (Lean's rule), after measuring that nothing in std, examples, AoC or rogue relies on it (register ticket T2; decision D1980, open). Do this BEFORE or AS PART OF stage 1, with Loop/steps as a must-reject test.\n\n\nD1980 (Matt, 30 Oct 2026): yes, refuse eliminating a self-referential proposition into data (the warning above), but as part of THIS ticket's work, not before it: when SW-93 starts, measure first that nothing in std, examples, AoC or rogue eliminates such a proposition into data, then add the E-PROP-ELIM condition with Loop/steps as a must-reject test.\nReminder (D1981, Matt, 30 Oct): record eta interacts with this ticket. Once proofs are irrelevant, a record whose fields are all proofs behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26, Rocq requires a relevant field). If record eta (SW-55/SW-789) exists or lands after this, it must be limited to records with at least one field that isn't a proof.\n\n\nD2348 (Matt, 4 Nov 2026): yes, schedule as designed (docs/proposals/proof-irrelevance.md, D1-prime, decided 19 Oct). Opus. After SW-1226 merges, before SW-1227 (both touch the unifier). Merge tier plus a daily-tier run (ask Matt first). Then revisit D2180: if h: equations for any condition.\n\n\nD2349 (Matt, 4 Nov 2026): restrict masks at definitions' arguments to proof parameters the definition never computes on (no case, J or Quot.ind on it, only passed to other masked positions); constructor fields masked as before. Reason: glued calls (SW-257, after draft 3) compare same-head calls argument-first, so unrestricted masks reintroduce Carneiro's non-transitivity (steps l 0 / cast rfl x) and make gluing change what is accepted. D2350: draft 4 of the note first (SW-1250).\n\n\nDecided by the orchestrator, delegated by Matt (4 Nov 2026: \"above my pay grade - can you make good decisions?\"), per note draft 4: D2352 yes (shortcut mode: inert arguments skipped, constructor proof fields compared); D2353 yes (an impossible case, as in Void.absurd, is not computing); D2354 yes (storing a proof parameter in a constructor field makes it non-inert); D2355 yes (independent Opus review of the new parts of 5.1, 5.7, 7.1-7.3, 7.10 before stage 1; to start when Matt lifts the hold on new lanes). Order: review, then SW-93 stage 1 on Opus.\n\n\n\nHistory: Matt (19 Oct): on hold, multi-file first (done: SW-89, SW-106); D240 (21 Oct): backlog; D2348 (4 Nov): scheduled.\n\nProgress (lane, 4 Nov 2026): started 20:46. Step 0 (D1980) done 20:58, commit f73337569 on lane/SW-93: E-PROP-ELIM refuses a proposition whose constructor field mentions itself; test 26 (examples/soundness/self-referential-prop-elim.sw) plus accepted partner (examples/accept/self-referential-prop.sw: Loop.inv, Loop → Void, tokNat). Measurement: nothing relies on it. std builds; all 1360 example files plus example projects checked, E-PROP-ELIM only in the 10 files that declare it; aoc (223 namespaces) and games/rogue check clean. Tests: test:lane AREA=core 174/174, examples NAME=self-referential 10/10. Checkpoint A: waiting to be resumed.\n",
       "created": "2026-10-19",
       "updated": "2026-11-04",
       "commits": []
@@ -6160,6 +6160,90 @@
         "diagnostics"
       ],
       "body": "From SW-1236's check on day 3 (treesOn with <= for <): the first-difference note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`'. The user wrote <=; the printer shows its unfolding. Resugar Succ a < b as a <= b in messages (or keep <= folded until needed).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1273,
+      "title": "Std: bit lemmas (Nat.fromBitsAppend, fromBitsBelow, toBits round trip), Eq.subst with inferred motive, Decidable List.Sorted",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' ranked items 1, 2, 4. (1) Nat.fromBitsAppend and Nat.fromBitsBelow from Day05/Proofs/Seat.sw into std (2021 day 16 carries an identical fromBitsBelow: switch it to std's), plus Nat.toBits with its round trip if natural. (2) Eq.subst: move a fact along an equation with the motive inferred (day 5 wrote J with an explicit motive three times after rewrite hit E-REWRITE-BUDGET). (3) A Decidable instance for List.Sorted, so the counterexample search can test sorted-list lemmas (today 'not applicable'). Then use them in day 5 and 2021 day 16 and delete the local copies.\n\nD2359 (Matt, 4 Nov): yes. Sonnet, with an Opus review; expected: 60 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1274,
+      "title": "A literal 128 * 8 in a proof's context built a 500,000-node term (2.9 s); find what was large",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 3 (ranked 3). part2Sound with a concrete 128 * 8 took 2.9 s of checking for a ~500,000-node term; a lemma over any count cut the cold check from 7.7 s to 3.2 s. Find which subterm was large (probably a literal unfolded to Succ chains or a list of 1024 seats evaluated), and fix it or have timings name the large subterm.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1275,
+      "title": "Coverage: arms whose argument type is Void (impossible List.All2 cases) must still be written",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 5 (ranked 7). Two lemmas over List.All2 each needed two arms for cases whose type is Void. Coverage could see Void-typed (empty) arguments and not ask for those arms.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1276,
+      "title": "omega doesn't prove a non-arithmetic goal from contradictory facts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 5 (ranked 8). With contradictory arithmetic facts, omega refuses a goal that isn't arithmetic; Void.exfalso (omega) works. Either let omega close any goal when its facts contradict, or a note suggesting Void.exfalso (omega).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1277,
+      "title": "Wrong count in a readsThen chain is reported as rfl against an unsolved ?25 …, not at the omega that fails",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 5 (ranked 9). Changing Parse.repeat 6 7 in day 5 failed readsPass with a misleading message: rfl against an unsolved metavariable instead of the failing omega. Needs a minimal repro.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1278,
+      "title": "AoC 2020 day 6 in Stitchwort: spec, solution, proofs, input test, friction notes",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
