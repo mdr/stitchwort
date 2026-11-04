@@ -63,6 +63,7 @@ Solutions with proofs are in [`aoc/`](aoc/), one project for every year:
 2025 in `Aoc.Year2025` (notes in [docs/aoc-2025.md](docs/aoc-2025.md)),
 2024 in `Aoc.Year2024` (notes in [aoc/NOTES-2024.md](aoc/NOTES-2024.md)),
 2021 in `Aoc.Year2021` (notes in [aoc/NOTES-2021.md](aoc/NOTES-2021.md)),
+2020 in `Aoc.Year2020` (notes in [aoc/NOTES-2020.md](aoc/NOTES-2020.md)),
 and helpers they share in `Aoc.Common`. Each day is a namespace, such as
 `Aoc.Year2025.Day01`, in a folder of the same name. The puzzle inputs are in
 `aoc/inputs/YYYY/dayNN.txt`; run a day with

@@ -1,0 +1,208 @@
+--| Day 1 proved, for every list of entries: what the program finds are
+--| entries summing to 2020, and it finds some whenever there are any. So its
+--| answer is one of the puzzle's (Spec/), and the puzzle's when that is unique.
+
+namespace Aoc.Year2020.Day01.Proofs
+import Aoc.Year2020.Day01 (..)
+import Aoc.Year2020.Day01.Spec (..)
+import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Pair, Set, Void)
+
+--| A pair still possible partway through `findPairAfter`: `a` was passed (it
+--| is in `before`) and `b` is still to come, or both are still to come, `a`
+--| first.
+def PairAhead (before: List Nat) (rest: List Nat) (a: Nat) (b: Nat): Prop :=
+  Or (And (a ∈ before) (b ∈ rest)) ((a, b) ∈ rest.pairs)
+
+--| One step on: a pair ahead of `x` (`x` still to come) is ahead after `x`
+--| is passed, or has `x` second.
+theorem pairAheadStep (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: Nat)
+    (ahead: PairAhead before (Cons x rest) a b): Or (And (a ∈ before) (b = x)) (PairAhead (Cons x before) rest a b) :=
+  match ahead with
+    | Inl (Both aBefore bIn) =>
+      match bIn with
+        | Inl xIs => Inl (Both aBefore (Eq.sym xIs))
+        | Inr bRest => Inr (Inl (Both (Inr aBefore) bRest))
+    | Inr inPairs =>
+      match List.memAppend (a, b) (List.map rest (y => (x, y))) (List.pairs rest) inPairs with
+        | Inl inMap =>
+          match List.memMapElim (y => (x, y)) (a, b) rest inMap with
+            | Witness y (Both yIn made) =>
+              let xIs: x = a := Pair.mkInjectiveFst _ _ _ _ made
+              let yIs: y = b := Pair.mkInjectiveSnd _ _ _ _ made
+              Inr (Inl (Both (Inl xIs) (rewrite <- yIs in yIn)))
+        | Inr inRest => Inr (Inr inRest)
+
+--| And back: a pair ahead after `x` is passed was ahead before it.
+theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: Nat)
+    (ahead: PairAhead (Cons x before) rest a b): PairAhead before (Cons x rest) a b :=
+  match ahead with
+    | Inl (Both (Inl xIs) bRest) => Inr (rewrite <- xIs in List.memAppendLeft (x, b) _ _ (List.memMap rest b bRest (y => (x, y))))
+    | Inl (Both (Inr aBefore) bRest) => Inl (Both aBefore (Inr bRest))
+    | Inr inRest => Inr (List.memAppendRight (a, b) _ _ inRest)
+
+--| What `findPairAfter` finds is a pair ahead summing to the target, when
+--| everything in `seen` was passed.
+theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat) →
+    (passed: (y: Nat) → Set.contains seen y = True → y ∈ before) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+    findPairAfter target seen rest = Some (a, b) → And (PairAhead before rest a b) (a + b = target)
+  | seen, before, passed, Nil, a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
+  | seen, before, passed, Cons x rest, a, b, found =>
+    match c: (x <= target && Set.contains seen (target - x)) with
+      | True =>
+        let same := Option.someInjective _ _ found
+        let aIs: target - x = a := Pair.mkInjectiveFst _ _ _ _ same
+        let bIs: x = b := Pair.mkInjectiveSnd _ _ _ _ same
+        let fits: x <= target := Bool.andLeft _ _ c
+        let partner := Bool.andRight _ _ c
+        Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
+      | False =>
+        let passedNow: (y: Nat) → Set.contains (Set.insert seen x) y = True → y ∈ Cons x before := y contained =>
+          if h: y = x then Inl (Eq.sym h) else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
+        let after := findPairAfterSound target (Set.insert seen x) (Cons x before) passedNow rest a b found
+        Both (pairAheadBack before x rest a b after.left) after.right
+
+--| And it finds one if there is a pair ahead summing to the target, when
+--| everything passed is in `seen`.
+theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List Nat) →
+    (remembered: (y: Nat) → y ∈ before → Set.contains seen y = True) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+    PairAhead before rest a b → a + b = target → Not (findPairAfter target seen rest = None)
+  | seen, before, remembered, Nil, a, b, Inl (Both aIn bIn), sum, isNone => bIn
+  | seen, before, remembered, Nil, a, b, Inr inPairs, sum, isNone => inPairs
+  | seen, before, remembered, Cons x rest, a, b, ahead, sum, isNone =>
+    match c: (x <= target && Set.contains seen (target - x)) with
+      | True => Option.someNotNone _ isNone
+      | False =>
+        match pairAheadStep before x rest a b ahead with
+          | Inl (Both aBefore bIs) =>
+            let fits: x <= target := omega
+            let aIs: target - x = a := omega
+            let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
+            Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro _ _ fits partner)) c)
+          | Inr aheadNow =>
+            let rememberedNow: (y: Nat) → y ∈ Cons x before → Set.contains (Set.insert seen x) y = True := y member =>
+              match member with
+                | Inl xIs => rewrite <- xIs in Set.containsInsert x seen
+                | Inr earlier => Set.containsInsertMono seen x y (remembered y earlier)
+            findPairAfterComplete target (Set.insert seen x) (Cons x before) rememberedNow rest a b aheadNow sum isNone
+
+--| What `findPair` finds are two entries, the earlier first, summing to the
+--| target.
+theorem findPairSound (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (found: findPair target entries = Some (a, b)):
+    And ((a, b) ∈ entries.pairs) (a + b = target) :=
+  let nothingSeen: (y: Nat) → Set.contains Set.empty y = True → y ∈ Nil := y contained => Void.exfalso (Bool.falseNotTrue contained)
+  match findPairAfterSound target Set.empty Nil nothingSeen entries a b found with
+    | Both (Inl (Both aNowhere bIn)) sum => Void.exfalso aNowhere
+    | Both (Inr inPairs) sum => Both inPairs sum
+
+--| And it finds two whenever there are two.
+theorem findPairComplete (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (inPairs: (a, b) ∈ entries.pairs) (sum: a + b = target):
+    Not (findPair target entries = None) :=
+  findPairAfterComplete target Set.empty Nil (y nowhere => Void.exfalso nowhere) entries a b (Inr inPairs) sum
+
+--| When `findTriple` finds nothing, it finds nothing after the first entry,
+--| nor a pair after it making up the rest.
+theorem findTripleNoneCons (target: Nat) (x: Nat) (rest: List Nat) (none: findTriple target (Cons x rest) = None):
+    And (findTriple target rest = None) ((fits: x <= target) → findPair (target - x) rest = None) :=
+  match c: x <= target with
+    | True =>
+      match pair: findPair (target - x) rest with
+        | Some (p, q) => Void.exfalso (Option.someNotNone _ none)
+        | None => Both none (fits => rfl)
+    | False => Both none (fits => Void.exfalso (Bool.falseNotTrue fits))
+
+--| What `findTriple` finds are three entries, in order, summing to the target.
+theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
+    findTriple target entries = Some (a, b, c) → And ((a, b, c) ∈ triples entries) (a + b + c = target)
+  | Nil, a, b, c, found => Void.exfalso (Option.noneNotSome _ found)
+  | Cons x rest, a, b, c, found =>
+    let later: findTriple target rest = Some (a, b, c) → And ((a, b, c) ∈ triples (Cons x rest)) (a + b + c = target) := laterFound =>
+      let after := findTripleSound target rest a b c laterFound
+      Both (List.memAppendRight (a, b, c) _ _ after.left) after.right
+    match fits: x <= target with
+      | True =>
+        match pair: findPair (target - x) rest with
+          | Some (p, q) =>
+            let same := Option.someInjective _ _ found
+            let xIs: x = a := Pair.mkInjectiveFst _ _ _ _ same
+            let pq := Pair.mkInjectiveSnd _ _ _ _ same
+            let pIs: p = b := Pair.mkInjectiveFst _ _ _ _ pq
+            let qIs: q = c := Pair.mkInjectiveSnd _ _ _ _ pq
+            let sound := findPairSound (target - x) rest p q pair
+            Both
+              (rewrite <- xIs, <- pIs, <- qIs in List.memAppendLeft (x, p, q) _ _ (List.memMap rest.pairs (p, q) sound.left (((y, z)) => (x, y, z))))
+              omega
+          | None => later found
+      | False => later found
+
+--| And it finds three whenever there are three.
+theorem findTripleComplete (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
+    (a, b, c) ∈ triples entries → a + b + c = target → Not (findTriple target entries = None)
+  | Nil, a, b, c, inTriples, sum, none => inTriples
+  | Cons x rest, a, b, c, inTriples, sum, none =>
+    let nothing := findTripleNoneCons target x rest none
+    match List.memAppend (a, b, c) _ _ inTriples with
+      | Inl first =>
+        match List.memMapElim (((y, z)) => (x, y, z)) (a, b, c) rest.pairs first with
+          | Witness (p, q) (Both inPairs made) =>
+            let xIs: x = a := Pair.mkInjectiveFst _ _ _ _ made
+            let pq := Pair.mkInjectiveSnd _ _ _ _ made
+            let pIs: p = b := Pair.mkInjectiveFst _ _ _ _ pq
+            let qIs: q = c := Pair.mkInjectiveSnd _ _ _ _ pq
+            findPairComplete (target - x) rest p q inPairs omega (nothing.right omega)
+      | Inr later => findTripleComplete target rest a b c later sum nothing.left
+
+--| An answer that is sound and complete is the only answer, when there is
+--| exactly one.
+theorem onlyAnswer (answers: List Nat): (found: Option Nat) → (sound: (x: Nat) → found = Some x → x ∈ answers) →
+    (complete: (x: Nat) → x ∈ answers → Not (found = None)) → (answer: Nat) → answer ∈ answers →
+    ((other: Nat) → other ∈ answers → other = answer) → found = Some answer
+  | Some x, sound, complete, answer, isAnswer, only => rewrite only x (sound x rfl) in rfl
+  | None, sound, complete, answer, isAnswer, only => Void.exfalso (complete answer isAnswer rfl)
+
+--| Part 1's answer is one of the puzzle's.
+theorem part1Sound (entries: List Nat) (answer: Nat) (found: solvePart1 entries = Some answer): answer ∈ part1Answers entries :=
+  match pair: findPair 2020 entries with
+    | Some (a, b) =>
+      let sound := findPairSound 2020 entries a b pair
+      rewrite <- Option.someInjective _ _ found in
+        List.memMap _ (a, b) (List.memFilterIntro _ _ (a, b) sound.left (rewrite sound.right in rfl)) (((a, b)) => a * b)
+    | None => Void.exfalso (Option.noneNotSome _ found)
+
+--| Part 1 has an answer whenever the puzzle has one.
+theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries): Not (solvePart1 entries = None) :=
+  match List.memMapElim (((a, b)) => a * b) answer _ isAnswer with
+    | Witness (a, b) (Both chosen made) =>
+      let kept := List.memFilter _ _ (a, b) chosen
+      none =>
+        match pair: findPair 2020 entries with
+          | Some found => Option.someNotNone _ none
+          | None => findPairComplete 2020 entries a b kept.left (DecEq.sound (a + b) 2020 kept.right) pair
+
+--| So part 1 is the puzzle's answer, when there is exactly one.
+theorem part1Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries)
+    (only: (other: Nat) → other ∈ part1Answers entries → other = answer): solvePart1 entries = Some answer :=
+  onlyAnswer (part1Answers entries) (solvePart1 entries) (part1Sound entries) (part1Complete entries) answer isAnswer only
+
+--| Part 2's answer is one of the puzzle's.
+theorem part2Sound (entries: List Nat) (answer: Nat) (found: solvePart2 entries = Some answer): answer ∈ part2Answers entries :=
+  match triple: findTriple 2020 entries with
+    | Some (a, b, c) =>
+      let sound := findTripleSound 2020 entries a b c triple
+      rewrite <- Option.someInjective _ _ found in
+        List.memMap _ (a, b, c) (List.memFilterIntro _ _ (a, b, c) sound.left (rewrite sound.right in rfl)) (((a, b, c)) => a * b * c)
+    | None => Void.exfalso (Option.noneNotSome _ found)
+
+--| Part 2 has an answer whenever the puzzle has one.
+theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part2Answers entries): Not (solvePart2 entries = None) :=
+  match List.memMapElim (((a, b, c)) => a * b * c) answer _ isAnswer with
+    | Witness (a, b, c) (Both chosen made) =>
+      let kept := List.memFilter _ _ (a, b, c) chosen
+      none =>
+        match triple: findTriple 2020 entries with
+          | Some found => Option.someNotNone _ none
+          | None => findTripleComplete 2020 entries a b c kept.left (DecEq.sound (a + b + c) 2020 kept.right) triple
+
+--| So part 2 is the puzzle's answer, when there is exactly one.
+theorem part2Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part2Answers entries)
+    (only: (other: Nat) → other ∈ part2Answers entries → other = answer): solvePart2 entries = Some answer :=
+  onlyAnswer (part2Answers entries) (solvePart2 entries) (part2Sound entries) (part2Complete entries) answer isAnswer only

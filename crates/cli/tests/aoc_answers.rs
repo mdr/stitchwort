@@ -16,6 +16,7 @@ static SPAWN: Mutex<()> = Mutex::new(());
 
 /// Each day's answers: the year, the day, part 1 and part 2.
 const ANSWERS: &[(&str, &str, &str, &str)] = &[
+    ("2020", "01", "1016619", "218767230"),
     ("2021", "01", "1616", "1645"),
     ("2021", "02", "1635930", "1781819478"),
     ("2021", "03", "4191876", "3414905"),
@@ -120,6 +121,11 @@ fn check_with(year: &str, day: &str, cache: &[&str]) {
 
 fn check(year: &str, day: &str) {
     check_with(year, day, &["--no-cache"]);
+}
+
+#[test]
+fn year2020_day01() {
+    check("2020", "01");
 }
 
 #[test]
