@@ -1,5 +1,5 @@
 {
-  "next": 1259,
+  "next": 1260,
   "tickets": [
     {
       "id": 47,
@@ -5963,6 +5963,20 @@
         "std"
       ],
       "body": "Matt, 4 Nov 2026, from SW-1251 (List.rangeFrom count start). A signature written as a type (`def List.rangeFrom: Nat → Nat → List Nat` with match arms) leaves parameters unnamed, so `List.rangeFrom (count := n) (start := 1)` is impossible and the signature doesn't say which Nat is which. Naming them in the type keeps the match arms unchanged: `def List.rangeFrom: (count: Nat) → (start: Nat) → List Nat` (checked 4 Nov: named arguments then work in either order; positional calls unchanged). Rough count by grep: about 71 defs and 284 theorems in std have at least one unnamed explicit parameter. Scope: defs first (theorems: names help hover and named use too, judge which). Also check that existing named parameters reveal meaning (`n`, `i`, `x` where a role name says more). Hash changes don't count. Comment style: std's full API docs (D2351). SW-1251 (rangeFrom's order) can be folded in. Probably a mechanical lane (DeepSeek) from a name-choosing pass by a stronger model, or Sonnet end to end.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1259,
+      "title": "Std scope: is PrefixSums (a 2D summed-area table, crates/elab/src/std/PrefixSums) standard-library material? Its only user is AoC 2025 day 9; consider moving it to aoc/src/Aoc/Common, and review std's other top-level modules against a written rule for what belongs in std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 4 Nov 2026: \"PrefixSums is in stdlib, I dunno if that's stdlib material.\" Added to std by SW-13 (24 Oct 2026, AoC 2025 day 9) with BlockSum.sw (its correctness proof). Only users: aoc/src/Aoc/Year2025/Day09 (program, Proofs/Floor.sw, tests). Other std modules worth the same question: Graph, Random, Terminal, Omega (tactic support?), Finite, Ring. Output: a short rule for what belongs in std (general, widely reusable, part of the language's story) vs a project library (aoc Common, games), then moves. Migration cost doesn't count.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
