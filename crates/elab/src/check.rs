@@ -5166,10 +5166,57 @@ fn propagate(
         }
         (head, &args)
     };
-    let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply, doms)) = written_result(cx, &head.1, args)? else {
+    let mut snapshot = crate::undo::Snapshot::take(cx);
+    let mut found = written_result(cx, &head.1, args, false)?;
+    // A result type that depends only on arguments written `_` (a lemma's
+    // conclusion, as `Parse.readsBind _ _ _ _ reads (x => …)`'s): the
+    // unknowns the `_`s get stand for them, so the conclusion is compared
+    // with the goal before the arguments are checked, and a lambda among
+    // them is checked once, against a known type. Checked first, it would
+    // be checked in place, fail, and be checked again after the
+    // comparison, and so would every lambda nested in it: twice the work
+    // at every level (proofs-about-definitions.md §1.2, D2342).
+    let by_holes = found.is_none()
+        && cx.e.decl.no_hole_propagation.get() == 0
+        && args
+            .iter()
+            .any(|a| matches!(a, Arg::Explicit(Expr::Hole(_))));
+    if by_holes {
+        snapshot.restore(cx);
+        snapshot = crate::undo::Snapshot::take(cx);
+        found = written_result(cx, &head.1, args, true)?;
+    }
+    let Some((written, mut supply, doms, checked)) = found else {
         snapshot.restore(cx);
         return Ok(None);
+    };
+    // The arguments written `_`, with the unknowns they got.
+    let pipes: Vec<(usize, Piped)> = (checked.into_iter())
+        .map(|(i, term)| {
+            let span = match args[i] {
+                Arg::Explicit(hole) => hole.span(),
+                _ => unreachable!("only arguments written `_` are checked first"),
+            };
+            let piped = Piped {
+                term,
+                ty: doms[i].clone(),
+                span,
+                dot: false,
+            };
+            (i, piped)
+        })
+        .collect();
+    let with_holes: Vec<Arg>;
+    let args: &[Arg] = if pipes.is_empty() {
+        args
+    } else {
+        with_holes = (args.iter().enumerate())
+            .map(|(i, arg)| match pipes.iter().find(|(at, _)| *at == i) {
+                Some((_, piped)) => Arg::Piped(piped),
+                None => *arg,
+            })
+            .collect();
+        &with_holes
     };
     // A result in a bare row not known yet (`List.map`'s `{e} (List b)`):
     // its value type is compared, and the row is left to the arguments, so a
@@ -5177,7 +5224,18 @@ fn propagate(
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     name_unknown(cx, &written, named)?;
-    if !cx.unify(&written, expected)? {
+    // By `_`s, as the comparison after a lambda put off is
+    // (`apply_args_postponing`): if the plain comparison fails, the
+    // unknowns may be solved from the arguments of two calls of the same
+    // definition (`Reads (() => bind (?p ()) ?j) …` against `Reads (() =>
+    // j x) …`), which only their arguments can say.
+    let matched = if by_holes {
+        crate::undo::unify(cx, &written, expected)?
+            || crate::undo::unify_solving_arguments(cx, &written, expected)?
+    } else {
+        cx.unify(&written, expected)?
+    };
+    if !matched {
         snapshot.restore(cx);
         return Ok(None);
     }
@@ -5214,14 +5272,27 @@ fn propagate(
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(propagated) => {
             snapshot.restore(cx);
-            let off = &cx.e.decl.no_propagation;
+            // Elaborated again as it would have been without this
+            // propagation. After one by `_`s, the applications inside still
+            // use their expected types, all but those by `_`s, so what was
+            // accepted before still is, and a failure isn't tried twice at
+            // every level.
+            let off = if by_holes {
+                &cx.e.decl.no_hole_propagation
+            } else {
+                &cx.e.decl.no_propagation
+            };
             off.set(off.get() + 1);
             let old = (|| {
                 let (term, found) = infer(cx, expr)?;
                 let (term, found) = insert(cx, term, found)?;
                 compare(cx, term, &found, expected)
             })();
-            let off = &cx.e.decl.no_propagation;
+            let off = if by_holes {
+                &cx.e.decl.no_hole_propagation
+            } else {
+                &cx.e.decl.no_propagation
+            };
             off.set(off.get() - 1);
             // Both fail inside the same argument: the first knew what the
             // argument must prove, where the second only had unknowns (a
@@ -5292,7 +5363,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply, _)) = written_result(cx, &head.1, args)? else {
+    let Some((written, mut supply, ..)) = written_result(cx, &head.1, args, false)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -5504,18 +5575,26 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
 /// mentions those variables (it depends on the arguments' values), or isn't
 /// known, or an auto parameter is met after an argument (its proposition
 /// could mention it) or in the result.
+///
+/// With `holes`, an argument written `_` whose parameter type doesn't
+/// mention the arguments before it is checked here, as it would be in its
+/// place, and the type depends on the unknown it gets rather than on a fresh
+/// variable; each such argument's place and term are returned
+/// (proofs-about-definitions.md §5, option B).
 fn written_result(
     cx: &mut Ctx,
     ty: &Value,
     args: &[Arg],
-) -> Result<Option<(Value, Supply, Vec<Value>)>> {
+    holes: bool,
+) -> Result<Option<WrittenResult>> {
     let g = cx.g();
     let base = cx.level();
     let mut ty = ty.clone();
     let mut supply = Supply::new();
     let mut doms = Vec::new();
+    let mut checked = Vec::new();
     let mut written = 0;
-    for arg in args {
+    for (i, arg) in args.iter().enumerate() {
         let stop = |x: &Name, icit: Icit| match arg {
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
             Arg::NamedExplicit(..) => icit == Icit::Explicit,
@@ -5530,7 +5609,16 @@ fn written_result(
             return Ok(None);
         }
         doms.push((*dom).clone());
-        ty = cod.apply(&g, Value::var(base + written))?;
+        if let (true, Arg::Explicit(hole @ Expr::Hole(_))) = (holes, arg)
+            && !mentions_any(&g, base + written, &dom, written)?
+        {
+            let term = check(cx, hole, &dom)?;
+            let value = cx.eval(&term)?;
+            checked.push((i, term));
+            ty = cod.apply(&g, value)?;
+        } else {
+            ty = cod.apply(&g, Value::var(base + written))?;
+        }
         written += 1;
     }
     if implicits(cx, &mut ty, &mut supply, written, |_, _| false)?.is_none() {
@@ -5549,13 +5637,23 @@ fn written_result(
             _ => break,
         }
     }
-    // Calls stay folded: reading back their unfoldings can be costly, and a
-    // call mentions every variable its unfolding does.
-    let term = stitchwort_core::value::quote_folded(&g, base + written, &ty)?;
-    if (0..written).any(|i| term.mentions(i)) {
+    if mentions_any(&g, base + written, &ty, written)? {
         return Ok(None);
     }
-    Ok(Some((ty, supply, doms)))
+    Ok(Some((ty, supply, doms, checked)))
+}
+
+/// [`written_result`]'s answer: the result type, the implicit arguments, the
+/// parameter types of `args`, and the arguments written `_` checked already.
+type WrittenResult = (Value, Supply, Vec<Value>, Vec<(usize, Term)>);
+
+/// Whether `ty`, at `level`, mentions any of the `count` variables just
+/// below it.
+fn mentions_any(g: &Ev, level: usize, ty: &Value, count: usize) -> Result<bool> {
+    // Calls stay folded: reading back their unfoldings can be costly, and a
+    // call mentions every variable its unfolding does.
+    let term = stitchwort_core::value::quote_folded(g, level, ty)?;
+    Ok((0..count).any(|i| term.mentions(i)))
 }
 
 /// Gives the implicit parameters at the front of `ty` metavariables, added

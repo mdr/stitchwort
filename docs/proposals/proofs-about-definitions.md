@@ -515,3 +515,87 @@ and it helps every proof that compares large unfolded computations.
   the unifier changes.
 - The survey's [remembered] rows: I checked only Lean's lazy delta and
   `mvcgen` pages for this note.
+
+## As built: D2342 (SW-1226, 4 November 2026)
+
+**What changed** (`crates/elab/src/check.rs`: `propagate` and
+`written_result`; one cell in `state/decl.rs`). §5 B as written. When
+`propagate` finds an application's result type mentions some of its
+arguments, and some argument is written `_`, it tries again with each `_`
+whose parameter type doesn't mention earlier arguments checked first, as an
+unknown, and the result type taken with those unknowns in it. If that
+result type mentions no other argument, it is compared with the goal before
+any argument is checked (`unify`, then `unify_solving_arguments`, as the
+comparison after a lambda put off is), and the arguments are then checked
+against known types: `Parse.readsBind _ _ _ _ reads (x => …)` checks its
+lambda once. If the comparison or an argument fails, the application is
+elaborated again the old way, with no application inside it propagated by
+`_`s (`no_hole_propagation`), so a failure isn't tried twice at every
+level, and the message is the better of the two, as `propagate` already
+chose (`in_same_argument`).
+
+A first version kept every hash: inside a lemma's lambda, a nested lemma
+checked its lambdas once in place and not again after its conclusion
+(`limited_tries`, three cells). It was slower on the opaque proofs (16
+steps 1.82 M against 0.38 M here) and more machinery. Hashes are derived,
+so the literal B replaced it (Matt's rule: migration cost never counts).
+
+**Measured** (evaluation steps, `STITCHWORT_TIMINGS=decls`, built by `task
+build`; before = `main` at 6c14ed72). `copy N` is `bench.py N copy` (the
+body copied as the outer `j`). `opaque N` is the same parser with opaque
+`nat` and `char` leaves and `_` for every parser and spec, as in
+`opaque-steps.sw`; the 12-step one is now
+`examples/accept/reads-nested-binds.sw`.
+
+| proof | before | after |
+|---|---|---|
+| copy 2 | 0.20 M | 0.14 M |
+| copy 4 | 1.37 M | 0.93 M |
+| copy 6 | 9.03 M | 7.84 M |
+| copy 8 | 73.1 M | 70.8 M |
+| copy 10 | 651 M | 647 M |
+| copy 12, 16 | not run (over 3 min) | not run |
+| opaque 2 | 0.12 M | 0.034 M |
+| opaque 4 | 0.59 M | 0.059 M |
+| opaque 6 | 2.68 M | 0.091 M |
+| opaque 8 | 12.1 M | 0.13 M |
+| opaque 10 | 54.0 M | 0.18 M |
+| opaque 12 | 240 M | 0.24 M |
+| opaque 16 | not run (hours) | 0.38 M |
+| `opaque-steps.sw` `readsLine` | 7.98 M | 2.32 M |
+| `reads-then.sw` `readsLine` | 12.90 M | 13.07 M |
+| Day 2 `readsLine` (readsBind form) | 20.47 M | 18.80 M |
+
+The doubling is gone: the opaque proofs now grow by about 35 K per step.
+The copy-shaped proofs, Day 2's included, barely move. Their cost is the
+first cause in §1.2, comparing two handler runs `bind` by `bind`, which
+triples per step and isn't touched here. §0's estimate for B (8 steps
+under 1 M) assumed the retry was most of their cost, and it isn't. That
+part is D2343 (a memo of compared call pairs) or D2341 (lazy delta, after
+which `_` for `j` works and the proofs take the opaque shape, which is now
+linear).
+
+All of aoc (`check --no-cache`, one run each, std included): the
+evaluation steps summed over its 8,786 declarations went from 1,203.1 M to
+1,195.6 M. 140 declarations take fewer, 301 more, nearly all by little.
+The largest: `Day08.Proofs.decodeDrawn` (2021) 21.6 M to 17.0 M,
+`Std.Parse.readsLooseRow` 2.56 M to 0.64 M, Day 2's `readsLine` 20.5 M to
+18.8 M, `Std.Parse.readsNatDigits` 1.75 M to 0.66 M; the one large rise is
+`Day06.Proofs.keepsTrapsAt` (2024), 32.9 M to 39.5 M, then
+`Day08.Proofs.scoreDrawn` (2021) 3.17 M to 3.64 M. Instructions retired
+(`/usr/bin/time -l`, both built by `task build`): 695.5 G before, 693.0 G
+after (the noise between runs is about 0.6%).
+
+**Behaviour otherwise.** The `_`s are now solved from the goal rather than
+from the arguments: convertible terms of another shape, so content hashes
+moved, 106 std declarations' (roots such as `readsSpanNonEmpty` and
+`Nat.partitionPointBounds`) and two examples' (`let-proof-pattern-unfold`,
+`reads-nested-binds`). No message changed: `check` on every file in
+`examples/accept`, `reject`, `goals` and `soundness` (1,274) prints the
+same before and after. std, aoc and `games/rogue` check, and the audits of
+2020 Day 2, 2021 Days 8 and 16 and 2024 Day 6 match.
+
+**Not done.** Other arguments that are checked again after a failed check
+in place (a proof term such as `snocStep moved`, a lambda with typed
+parameters) still go through both checks when their application's
+conclusion isn't about `_`s. Nothing measured needs them.

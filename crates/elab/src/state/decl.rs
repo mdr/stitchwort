@@ -44,6 +44,11 @@ pub(crate) struct Decl {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     pub(crate) no_propagation: Cell<usize>,
+    /// Above zero while an application whose result type depends on
+    /// arguments written `_` is elaborated again after comparing that type
+    /// with its expected type first failed: no application inside is
+    /// compared that way (`check::propagate`, D2342).
+    pub(crate) no_hole_propagation: Cell<usize>,
     /// Set while asking whether an expression in a pure context performs
     /// anything besides calls whose result is in a bare row (`{e} b`, as
     /// `List.map`'s): those are elaborated as plain calls first, and the row
@@ -177,6 +182,7 @@ impl Decl {
             sides_capture,
             arm_reach,
             no_propagation,
+            no_hole_propagation,
             bare_rows_pure,
             late_literals,
             condition,
@@ -206,6 +212,7 @@ impl Decl {
             ("sides_capture", sides_capture.borrow().is_empty()),
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
+            ("no_hole_propagation", no_hole_propagation.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
