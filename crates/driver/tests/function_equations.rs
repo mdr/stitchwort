@@ -1089,3 +1089,44 @@ fn a_projects_equations() {
         .join()
         .unwrap();
 }
+
+/// SW-1182: a lifted `match h: e` that generalises `e` in the goal has
+/// alternatives whose right sides have the type at their pattern (`Yes rfl:
+/// Decidable (0 = 0)`), not at `e`, so its branch equations are skipped with
+/// the reason; they were stated ill-typed and refused by the kernel. One
+/// whose result type doesn't mention `e` still gets its equations.
+#[test]
+fn a_generalising_matchs_branches_are_skipped_not_refused() {
+    let source = r#"
+import List (length)
+import Std (Bool, Eq, Nat)
+
+def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
+  | Zero => Yes rfl
+  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+
+def keep (p: Prop): p → Bool
+  | _ => True
+
+def usesH (xs: List Nat): Bool := match h: xs.length with
+  | Zero => keep (xs.length = 0) h
+  | Succ k => keep (xs.length = Succ k) h
+"#;
+    with_source(source.to_string(), |s| {
+        let g = &s.elab.globals;
+        let refused: Vec<String> = (s.elab.equation_skips().iter())
+            .filter(|(_, _, why)| why.contains("kernel refused"))
+            .map(|(id, suffix, why)| format!("{}.{suffix}: {why}", g.defs[id.0].name))
+            .collect();
+        assert!(refused.is_empty(), "{refused:#?}");
+        for name in ["lenZero.eq.zero", "lenZero.eq.succ"] {
+            assert!(
+                skipped(s, name).contains("result type mentions what it matches"),
+                "{name}: {}",
+                skipped(s, name)
+            );
+        }
+        generated(s, "usesH.eq.zero");
+        generated(s, "usesH.eq.succ");
+    });
+}

@@ -3472,7 +3472,7 @@ impl Elaborator {
         if !def.name.contains(".%match") {
             return skip("its `match` isn't a call of a lifted `match`'s helper here");
         }
-        let (hb, _) = split_pis(&def.ty, Some(def.arity));
+        let (hb, cod) = split_pis(&def.ty, Some(def.arity));
         if hb.len() != def.arity || args.len() != def.arity {
             return skip("its `match`'s helper isn't called with all its parameters");
         }
@@ -3511,6 +3511,18 @@ impl Elaborator {
                     });
                 }
             }
+        }
+        // A generalising `match` (`match h: xs.length with | Zero => Yes
+        // rfl`, SW-1182): an alternative's result has the type at its
+        // pattern, the call's at the expression, so `f lhs = result` isn't
+        // well-typed.
+        let mut matched = cols.iter().copied().chain(eq);
+        if matched.any(|p| cod.mentions(def.arity - 1 - p)) {
+            return skip(
+                "its `match`'s result type mentions what it matches (the `match` generalises it \
+                 in the goal), so an alternative's right side has another type than the call's, \
+                 which stage 1b doesn't transport (§4, item 4)",
+            );
         }
         Ok(Call { cols, eq })
     }
