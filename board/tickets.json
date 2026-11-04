@@ -6424,13 +6424,13 @@
     {
       "id": 1291,
       "title": "Audit AoC code for bracket-heavy expressions that read better as dot/pipe chains",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 4 Nov 2026: day 5's 'passes.map .seatId |> .sort |> gap' (was '(passes.map (.seatId)).sort |> gap') is the style he likes: minimise bracketing by chaining forward with dots and pipes, not always but where it reads more naturally. Audit all AoC programs (not proofs, at first): find nested-bracket expressions that read better as forward chains, and positional runs of numbers/booleans that would be clearer as named arguments (D2367). Survey first (a list with before/after per site and a rewrite-or-leave verdict), then a mechanical rewrite lane. Proofs that unfold a rewritten definition must still check; |> is plain application, so the terms usually don't change.\n\nAlso (Matt, 4 Nov): main's printing an Option answer with .fold \"none\" (…) is ugly; since main has {Fail}, use `answer |> .orFail \"<what's missing, in the puzzle's words>\"` as day 5 now does. Sites: 2024 days 14, 18 (both parts), 24.",
+      "body": "Matt, 4 Nov 2026: day 5's 'passes.map .seatId |> .sort |> gap' (was '(passes.map (.seatId)).sort |> gap') is the style he likes: minimise bracketing by chaining forward with dots and pipes, not always but where it reads more naturally. Audit all AoC programs (not proofs, at first): find nested-bracket expressions that read better as forward chains, and positional runs of numbers/booleans that would be clearer as named arguments (D2367). Survey first (a list with before/after per site and a rewrite-or-leave verdict), then a mechanical rewrite lane. Proofs that unfold a rewritten definition must still check; |> is plain application, so the terms usually don't change.\n\nAlso (Matt, 4 Nov): main's printing an Option answer with .fold \"none\" (…) is ugly; since main has {Fail}, use `answer |> .orFail \"<what's missing, in the puzzle's words>\"` as day 5 now does. Sites: 2024 days 14, 18 (both parts), 24.\n\n\nStage 1 (survey), Sonnet lane, 4 Nov 2026: docs/research/aoc-chaining-survey.md on branch lane/SW-1291. 147 sites: 73 rewrite, 33 optional, 41 leave; every rewrite/optional `after` was applied and checked with `stitchwort check` (day, Proofs, Tests namespaces). Stage 2 plan in the note: 4 batches (Sonnet for `main` changes and the Day14 test, DeepSeek for the rest), about 115 lane-minutes. Decisions for Matt: include the 33 optional sites; None as a failure for 2021 days 17/18 and 2025 day 8. Findings: std lacks id/uncurry; arrow-typed std defs (Nat.iterate, List.rangeFrom) can't take named arguments; |> can't feed a last argument.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
