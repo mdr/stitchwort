@@ -69,11 +69,10 @@ test "a passport parsed" :=
   parsed "hcl:#ae17e1 iyr:2013\neyr:2024" == Ok [{ fields = [{ key = HairColor, value = "#ae17e1" }, { key = IssueYear, value = "2013" }, { key = ExpirationYear, value = "2024" }] }]
 test "line breaks at the end" := (parsed "cid:1\n\ncid:2\n").map List.length == Ok 2
 test "an unknown key" :=
-  parsed "byr:1937 abc:1" == Err "line 1, column 10: expected 'byr' or 'iyr' or 'eyr' or 'hgt' or 'hcl' or 'ecl' or 'pid' or 'cid', got 'abc'"
+  parsed "byr:1937 abc:1" == Err "line 1, column 10: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got 'abc'"
 test "an empty value" := parsed "byr: iyr:2017" == Err "line 1, column 5: expected a value, got ' '"
--- The extra blank line is line 3, but the line breaks are taken as the
--- input's last.
-test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 4, column 1: expected the end of the input, got 'c'"
+-- The extra blank line is line 3, where the next passport should start.
+test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
 
 test "byr" := Key.valid BirthYear "2002" ∧ not (Key.valid BirthYear "2003")
 test "hgt" := Key.valid Height "60in" ∧ Key.valid Height "190cm" ∧ not (Key.valid Height "190in") ∧ not (Key.valid Height "190")

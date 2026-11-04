@@ -59,7 +59,7 @@ def cells(): {Parse} List (List Cell) := Parse.grid (() => pick [("@", Roll), ("
 
 test "grid" := toResult (() => Parse.all "@.\n.@\n" cells) == Ok [[Roll, Floor], [Floor, Roll]]
 test "a bad grid" := toResult (() => Parse.all "@.\n.x\n" cells) ==
-  Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
+  Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
 
 -- Choice backs up: "move 3" and "mark" share their first letters.
 type Command =

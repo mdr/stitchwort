@@ -231,7 +231,7 @@ test "parse the positions" :=
   parsed "#@O.\n\n<\n" |> .map (document => (document.warehouse.robot, boxesOf document.warehouse)) == Ok (at 0 1, [at 0 2])
 test "no robot" := parsed "#.O.\n\n<\n" == Err "expected a robot (@) on the map, found none"
 test "two robots" := parsed "@.@.\n\n<\n" == Err "expected one robot (@) on the map, found several"
-test "a bad tile" := parsed "#@x.\n\n<\n" == Err "line 1, column 3: expected '#' or 'O' or '@' or '.' or a line break or a blank line, got 'x'"
-test "a bad move" := parsed "#@.\n\n<x\n" == Err "line 3, column 2: expected '^' or 'v' or '<' or '>' or the end of the line, got 'x'"
+test "a bad tile" := parsed "#@x.\n\n<\n" == Err "line 1, column 3: expected '#', 'O', '@', '.', a line break or a blank line, got 'x'"
+test "a bad move" := parsed "#@.\n\n<x\n" == Err "line 3, column 2: expected '^', 'v', '<', '>' or the end of the line, got 'x'"
 test "no moves" :=
-  parsed "#@.\n" == Err "line 2, column 1: expected '#' or 'O' or '@' or '.' or a blank line, got the end of the input"
+  parsed "#@.\n" == Err "line 2, column 1: expected '#', 'O', '@', '.' or a blank line, got the end of the input"

@@ -976,30 +976,75 @@ theorem Parse.lineEnding (ending: List Char): (found: Option ()) → Parse.Maybe
   | None, none => Inl none
   | Some u, breaks => Inr breaks
 
---| `all input p` succeeded: `p` read all of `input` but final line breaks.
-theorem Parse.allReads (input: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a)
-    (h: Fail.toResult (() => Parse.all input p) = Ok value) (reads: Parse.Reads p spec):
-    ∃ (read: List Char) => ∃ (ending: List Char) => input.toList = read ++ ending ∧ spec read value ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
-  let readsAll :=
-    Parse.readsBind p
-      (value =>
+--| `withFinalLineBreaks (() => v)` reads final line breaks, and gives `v`.
+theorem Parse.readsFinalLineBreaks (v: a):
+    Parse.Reads (() => Parse.withFinalLineBreaks (() => v))
+      (read w => read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v) :=
+  Parse.readsWeaken _ _ _
+    (Parse.readsBind (() => Parse.mark())
+      (start =>
         let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
-        if finalLineBreaks == [] then Parse.note (Expected "a line break") else ()
-        value)
-      spec (v read w => read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v) reads
-      (v =>
+        if finalLineBreaks == [] then Parse.note (Expected "a line break")
+        else if finalLineBreaks == ['\n'] then ()
+        else if finalLineBreaks == ['\r', '\n'] then ()
+        else if start.left == finalLineBreaks.length then ()
+        else (Parse.reset start; Parse.expected "the end")
+        v)
+      (read m => read = []) (start read w => read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v)
+      Parse.readsMark
+      (start =>
         Parse.readsWeaken _ _ _
           (Parse.readsBind (() => Parse.span (char => char == '\n' ∨ char == '\r'))
             (breaks =>
-              if breaks == [] then Parse.note (Expected "a line break") else ()
+              if breaks == [] then Parse.note (Expected "a line break")
+              else if breaks == ['\n'] then ()
+              else if breaks == ['\r', '\n'] then ()
+              else if start.left == breaks.length then ()
+              else (Parse.reset start; Parse.expected "the end")
               v)
             _ (breaks read w => read = [] ∧ w = v) (Parse.readsSpan _)
             (breaks =>
               Parse.readsWeaken _ _ _
-                (Parse.readsBind (() => if breaks == [] then Parse.note (Expected "a line break") else ()) (u => v) (read u => read = [])
+                (Parse.readsBind
+                  (() =>
+                    if breaks == [] then Parse.note (Expected "a line break")
+                    else if breaks == ['\n'] then ()
+                    else if breaks == ['\r', '\n'] then ()
+                    else if start.left == breaks.length then ()
+                    else (Parse.reset start; Parse.expected "the end"))
+                  (u => v)
+                  (read u => read = [])
                   (u read w => read = [] ∧ w = v)
-                  (Parse.readsIf _ (() => Parse.note (Expected "a line break")) (() => ()) _ (Parse.readsNote (Expected "a line break"))
-                    (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u both => And.left both)))
+                  (Parse.readsIf (breaks == [])
+                    (() => Parse.note (Expected "a line break"))
+                    (() =>
+                      if breaks == ['\n'] then ()
+                      else if breaks == ['\r', '\n'] then ()
+                      else if start.left == breaks.length then ()
+                      else (Parse.reset start; Parse.expected "the end"))
+                    (read u => read = [])
+                    (Parse.readsNote (Expected "a line break"))
+                    (Parse.readsIf (breaks == ['\n'])
+                      (() => ())
+                      (() =>
+                        if breaks == ['\r', '\n'] then ()
+                        else if start.left == breaks.length then ()
+                        else (Parse.reset start; Parse.expected "the end"))
+                      (read u => read = [])
+                      (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
+                      (Parse.readsIf (breaks == ['\r', '\n'])
+                        (() => ())
+                        (() =>
+                          if start.left == breaks.length then ()
+                          else (Parse.reset start; Parse.expected "the end"))
+                        (read u => read = [])
+                        (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
+                        (Parse.readsIf (start.left == breaks.length)
+                          (() => ())
+                          (() => (Parse.reset start; Parse.expected "the end"))
+                          (read u => read = [])
+                          (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
+                          (state value after honest h => Void.exfalso (Result.errNotOk _ _ h))))))
                   (u => Parse.readsPure v))
                 (read w h =>
                   match h with
@@ -1008,7 +1053,21 @@ theorem Parse.allReads (input: Text) (p: () → {Parse} a) (spec: List Char → 
           (read w h =>
             match h with
               | Witness firstRead (Witness nextRead (Witness breaks (Both split (Both (Both taken all) (Both none same))))) =>
-                Both (rewrite split, none, List.appendNil firstRead, taken in all) same))
+                Both (rewrite split, none, List.appendNil firstRead, taken in all) same)))
+    (read w h =>
+      match h with
+        | Witness firstRead (Witness nextRead (Witness m (Both split (Both none holds)))) =>
+          rewrite split, none in holds)
+
+--| `all input p` succeeded: `p` read all of `input` but final line breaks.
+theorem Parse.allReads (input: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a)
+    (h: Fail.toResult (() => Parse.all input p) = Ok value) (reads: Parse.Reads p spec):
+    ∃ (read: List Char) => ∃ (ending: List Char) => input.toList = read ++ ending ∧ spec read value ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
+  let readsAll :=
+    Parse.readsBind p
+      (value => Parse.withFinalLineBreaks (() => value))
+      spec (v read w => read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v) reads
+      Parse.readsFinalLineBreaks
   match Parse.wholeReads input.toList (() => Parse.withFinalLineBreaks p) _ value readsAll
     (Parse.runnerOk input.toList (() => Parse.withFinalLineBreaks p) (Parse.allMessage input.toList) value h) with
     | Witness read (Witness ending (Witness v (Both split (Both holds (Both all same))))) =>

@@ -90,4 +90,4 @@ test "parse" :=
 test "parse without a final line break" := (parsed "#S.E#" |> .map (track => track.end)) == Ok (at 0 3)
 test "no S" := (parsed "#..E#\n" |> .map (track => ())) == Err "no S tile"
 test "two Es" := (parsed "#SEE#\n" |> .map (track => ())) == Err "more than one E tile"
-test "an unknown tile" := (parsed "#S.x#\n" |> .map (track => ())) == Err "line 1, column 4: expected '#' or '.' or 'S' or 'E' or the end of the line, got 'x'"
+test "an unknown tile" := (parsed "#S.x#\n" |> .map (track => ())) == Err "line 1, column 4: expected '#', '.', 'S', 'E' or the end of the line, got 'x'"
