@@ -147,7 +147,7 @@ def Grid.Rectangle (grid: Grid a): Prop := (row: List a) → row ∈ grid.rows �
 
 --| `Rectangle`, as a `Bool` that can be computed and searched
 --| (`Aoc.Common.Proofs.isRectangleIff`).
-def Grid.isRectangle (grid: Grid a): Bool := grid.rows.all (row => row.length == grid.width)
+def Grid.isRectangle (grid: Grid a): Bool := grid.rows.all (.length == grid.width)
 
 --| The cell at `position`; `None` off the grid. O(row + column): for many
 --| lookups, `lookup`.
@@ -181,14 +181,14 @@ def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=
 --| `find position` takes O(log n). (`lookupAt` says it is `at`.)
 def Grid.lookup (grid: Grid a): Position → Option a :=
   let table := grid.rows.map (row => row.map Some |> Map.byPosition) |> Map.byPosition
-  position => (table.getOr position.row Map.empty).getOr position.column None
+  position => table.getOr position.row Map.empty |> .getOr position.column None
 
 --| The same with `fallback` off the grid, for the inner loops of searches:
 --| no `Option` to take apart. (`lookupOrAt` says it is `at` or
 --| `fallback`.)
 def Grid.lookupOr (grid: Grid a) (fallback: a): Position → a :=
   let table := grid.rows.map Map.byPosition |> Map.byPosition
-  position => (table.getOr position.row Map.empty).getOr position.column fallback
+  position => table.getOr position.row Map.empty |> .getOr position.column fallback
 
 -- Parsing
 
