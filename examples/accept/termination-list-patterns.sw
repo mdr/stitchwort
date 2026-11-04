@@ -16,7 +16,7 @@ def firstSome: List (() → Option a) → Option a
       | None => firstSome ps
 
 -- Effectful: the scrutinee itself may abort.
-def firstOk: List (() → {Abort} (Option a)) → {Abort} a
+def firstOk: List (() → {Abort} Option a) → {Abort} a
   | [] => Abort.abort()
   | [p] => Abort.need (p())
   | [p, ..ps] =>

@@ -11,7 +11,7 @@ def collatzSteps (n: Nat): {Partial} Nat :=
 
 def isQuick (n: Nat): {Partial} Bool := Nat.leq (collatzSteps n) 9
 
-def quickOnes (numbers: List Nat): {Partial} (List Nat) := List.filter numbers isQuick
+def quickOnes (numbers: List Nat): {Partial} List Nat := List.filter numbers isQuick
 
 def evens (numbers: List Nat): List Nat := List.filter numbers (n => n % 2 == 0)
 

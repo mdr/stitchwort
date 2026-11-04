@@ -111,4 +111,4 @@ def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat 
 
 --| Ranges separated by commas. Spaces and a final line break are allowed;
 --| anything else fails, naming the column.
-def parseRanges (input: Text): {Fail} (List Range) := Parse.all input (() => sepBy1 range (() => char ','))
+def parseRanges (input: Text): {Fail} List Range := Parse.all input (() => sepBy1 range (() => char ','))

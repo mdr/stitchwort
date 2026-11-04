@@ -19,7 +19,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 stones}"
 
 --| The numbers on the stones, left to right, separated by spaces.
-def parseStones (input: Text): {Fail} (List Nat) := Parse.all input (() => sepBy1 nat spaces1)
+def parseStones (input: Text): {Fail} List Nat := Parse.all input (() => sepBy1 nat spaces1)
 
 --| What one stone becomes after a blink, left to right.
 def changeStone (stone: Nat): List Nat :=

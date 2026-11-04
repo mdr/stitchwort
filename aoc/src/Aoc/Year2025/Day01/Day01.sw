@@ -23,7 +23,7 @@ def main(): {IO, Fail} () :=
 
 --| One turn per line. Spaces around a turn are allowed; anything else fails,
 --| naming the line and column.
-def parseTurns (input: Text): {Fail} (List Turn) := Parse.eachLine input turn
+def parseTurns (input: Text): {Fail} List Turn := Parse.eachLine input turn
 
 def solvePart1 (turns: List Turn): Nat := zerosLandedOn turns Dial.start
 

@@ -55,7 +55,7 @@ def parseLab (lines: List Text): {Fail} Lab :=
     | [] => Fail.fail "expected a guard (^) on the map, found none"
     | _ => Fail.fail "expected one guard (^) on the map, found several"
 
-def parseRow (width: Nat) (line: Text): {Fail} (List Cell) :=
+def parseRow (width: Nat) (line: Text): {Fail} List Cell :=
   Fail.ensure (line.length == width) "expected ${width} characters, as on the first line, got ${line.length}"
   line.toList.map parseCell
 

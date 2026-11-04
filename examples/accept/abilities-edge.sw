@@ -69,7 +69,7 @@ def loud (n: Nat): {Log} Nat :=
   say n
   n
 
-def shapes(): {Log} (List Nat) := [(loud 1: Nat), idNat [a := Nat] (loud 2), List.length [loud 3]]
+def shapes(): {Log} List Nat := [(loud 1: Nat), idNat [a := Nat] (loud 2), List.length [loud 3]]
 
 test "list, annotation, named argument" :=
   let r := collect shapes
@@ -144,7 +144,7 @@ test "a pure let under a row variable" := fstOf (runState 9 (u => peek())) == 9
 
 -- A handler inside a function with other abilities: what it doesn't handle
 -- (`say`) goes out to the function's own row.
-def choicesLogged(): {Log} (List Nat) :=
+def choicesLogged(): {Log} List Nat :=
   allResults (v =>
     say 1
     if choose() then 10 else 20)
@@ -175,7 +175,7 @@ def chooseAndSay(): {Choose, Log} Nat :=
   say 5
   if choose() then 1 else 2
 
-def handledHere(): {Log} (List Nat) :=
+def handledHere(): {Log} List Nat :=
   handle chooseAndSay() with
     | return x => [x]
     | choose _, k => List.append (k True) (k False)

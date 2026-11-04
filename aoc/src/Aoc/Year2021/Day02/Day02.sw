@@ -35,7 +35,7 @@ type Command =
 
 --| One command per line. Spaces around a command are allowed; anything else
 --| fails, naming the line and column.
-def parseCommands (input: Text): {Fail} (List Command) := Parse.eachLine input command
+def parseCommands (input: Text): {Fail} List Command := Parse.eachLine input command
 
 --| "forward 5" is `Forward 5`.
 def command(): {Parse} Command :=

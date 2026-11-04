@@ -34,7 +34,7 @@ def equationLine(): {Parse} Equation :=
   { testValue, numbers }
 
 --| One equation per line. A failure names the line and column.
-def parseEquations (input: Text): {Fail} (List Equation) := Parse.eachLine input equationLine
+def parseEquations (input: Text): {Fail} List Equation := Parse.eachLine input equationLine
 
 --| 10 to the power of the number of digits of `number`: what concatenating
 --| `number` onto the right multiplies the left side by.

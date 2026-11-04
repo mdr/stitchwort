@@ -58,15 +58,15 @@ def addSeen (total: Nat) (x: Nat): {Trace} Nat :=
   visit x
   total + x
 
-def pushSeen (x: Nat) (rest: List Nat): {Trace} (List Nat) :=
+def pushSeen (x: Nat) (rest: List Nat): {Trace} List Nat :=
   visit x
   Cons x rest
 
-def tenfoldIfBig (x: Nat): {Trace} (Option Nat) :=
+def tenfoldIfBig (x: Nat): {Trace} Option Nat :=
   visit x
   if Nat.leq 5 x then Some (x * 10) else None
 
-def twiceSeen (x: Nat): {Trace} (List Nat) :=
+def twiceSeen (x: Nat): {Trace} List Nat :=
   visit x
   [x, x]
 

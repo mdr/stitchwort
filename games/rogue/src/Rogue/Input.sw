@@ -31,7 +31,7 @@ def commandOfChar (char: Char): Option Command :=
 
 --| The next key's command: `None` for a key that isn't one (`Unknown`
 --| included), and `Quit` at the end of the input.
-def nextCommand(): {Terminal} (Option Command) :=
+def nextCommand(): {Terminal} Option Command :=
   match Terminal.readKey() with
     | None => Some Quit
     | Some key => commandOf key

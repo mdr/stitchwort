@@ -26,7 +26,7 @@ def main(): {IO, Fail} () :=
 type TopographicMap = { rows: List (List (Option Nat)) }
 
 --| One tile: a height, or `.`.
-def tile(): {Parse} (Option Nat) :=
+def tile(): {Parse} Option Nat :=
   Parse.oneOf [
     () => Some digit().toNat,
     () =>

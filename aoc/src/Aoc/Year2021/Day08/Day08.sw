@@ -151,9 +151,9 @@ def patternParse(): {Parse} Pattern := takeWhile1 "a letter from a to g" (c => '
 
 --| One display per line. A display whose digits don't give a wiring that
 --| shows them fails, naming it.
-def parseEntries (input: Text): {Fail} (List Entry) := checkWired (Parse.eachLine input Entry.parse)
+def parseEntries (input: Text): {Fail} List Entry := checkWired (Parse.eachLine input Entry.parse)
 
-def checkWired (entries: List Entry): {Fail} (List Entry) :=
+def checkWired (entries: List Entry): {Fail} List Entry :=
   match firstUnwired entries with
     | Some (index, _) => Fail.fail "line ${index + 1}: no wiring found that shows the ten digits"
     | None => entries

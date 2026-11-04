@@ -35,7 +35,7 @@ type Bits = List Bool
 --| One number per line. A line that isn't all 0s and 1s fails, naming the
 --| line and column, and so does a number with a different number of bits
 --| from the first.
-def parseReport (input: Text): {Fail} (List Bits) :=
+def parseReport (input: Text): {Fail} List Bits :=
   let numbers := Parse.eachLine input (() => many1 bit)
   let width := (numbers.headOr []).length
   match numbers.withIndex.find (((_, number)) => number.length != width) with

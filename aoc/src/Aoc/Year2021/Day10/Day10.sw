@@ -48,7 +48,7 @@ def allTokens: List Token :=
 --| One token per character, one line per line; any other character fails.
 --| Each token is read as its own character, so the parser reads exactly
 --| the input (`parseReadsLines` in Proofs/Parse.sw).
-def parseLines (input: Text): {Fail} (List (List Token)) := Parse.eachLine input (() => Parse.many token)
+def parseLines (input: Text): {Fail} List (List Token) := Parse.eachLine input (() => Parse.many token)
 
 def token(): {Parse} Token := Parse.label "a bracket" bracket
 

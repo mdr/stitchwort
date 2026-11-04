@@ -35,7 +35,7 @@ type Tile = { x: Nat, y: Nat }
 
 --| One red tile per line, in the order the loop joins them. Spaces around a
 --| number are allowed; anything else fails, naming the line and column.
-def parseTiles (input: Text): {Fail} (List Tile) := Parse.eachLine input redTile
+def parseTiles (input: Text): {Fail} List Tile := Parse.eachLine input redTile
 
 --| "7,1" is `{ x = 7, y = 1 }`.
 def redTile(): {Parse} Tile :=

@@ -64,7 +64,7 @@ def manifoldError (lines: List Text): Option Text :=
     | Err message => Some message
 
 --| Lines of . ^ and S, of any lengths.
-def manifoldCells(): {Parse} (List (List ())) := looseGrid (() => pick [(".", ()), ("^", ()), ("S", ())])
+def manifoldCells(): {Parse} List (List ()) := looseGrid (() => pick [(".", ()), ("^", ()), ("S", ())])
 
 --| Each step that finds nothing gives up, which makes the result `None`.
 def parseManifold (lines: List Text): {Abort} Manifold :=

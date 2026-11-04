@@ -46,7 +46,7 @@ def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst point
 
 --| One box per line. Spaces around a number are allowed; anything else fails,
 --| naming the line and column.
-def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
+def parsePoints (input: Text): {Fail} List Point := Parse.eachLine input point
 
 --| "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
 def point(): {Parse} Point :=

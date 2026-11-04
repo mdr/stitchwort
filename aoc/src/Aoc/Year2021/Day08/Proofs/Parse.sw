@@ -27,7 +27,7 @@ theorem parsedDecode (input: Text) (entries: List Entry) (parsed: Fail.toResult 
   wiredDecodes entry (List.allMember Entry.wired entries (checkedWired _ entries parsed) entry m)
 
 --| Whatever reads the entries, `checkWired` passes on only wired ones.
-theorem checkedWired (read: () → {Fail} (List Entry)) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
+theorem checkedWired (read: () → {Fail} List Entry) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
     entries.all Entry.wired = True :=
   let split := rewrite Fail.toResultThen read checkWired at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkWired x)) entries split

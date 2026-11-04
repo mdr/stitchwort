@@ -24,7 +24,7 @@ type Antenna = { frequency: Char, position: Position }
 type City = { height: Nat, width: Nat, antennas: List Antenna }
 
 --| One character of the map: `.` is empty, a letter or digit an antenna.
-def cell(): {Parse} (Option Char) :=
+def cell(): {Parse} Option Char :=
   let char := Parse.satisfy "'.', a letter or a digit" (char => char == '.' || char.isAsciiAlphanumeric)
   if char == '.' then None else Some char
 

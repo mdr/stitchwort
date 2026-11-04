@@ -18,7 +18,7 @@ def inSum (n: Nat): {IO} Nat := 1 + (Box.wrap n).say
 
 def chain (w: Text): {Abort} Nat := w.toNat.orAbort
 def chainInSum (w: Text): {Abort} Nat := 1 + w.toNat.orAbort
-def chainInPair (w: Text): {Abort} (Pair Nat Nat) := (1, w.toNat.orAbort)
+def chainInPair (w: Text): {Abort} Pair Nat Nat := (1, w.toNat.orAbort)
 
 test "as an argument" := IO.simulate [] (() => asArgument { v = 4 }) == (["hi"], 5)
 test "after a call" := IO.simulate [] (() => afterCall 4) == (["hi"], 4)

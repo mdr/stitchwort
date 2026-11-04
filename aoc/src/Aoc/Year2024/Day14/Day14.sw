@@ -60,7 +60,7 @@ def robotLine(): {Parse} Robot :=
   { position = { row, column }, velocity = { rows, columns } }
 
 --| One robot per line.
-def parseRobots (input: Text): {Fail} (List Robot) := Parse.eachLine input robotLine
+def parseRobots (input: Text): {Fail} List Robot := Parse.eachLine input robotLine
 
 --| Whether a tile is inside the space.
 def Space.contains (space: Space) (position: Position): Bool := position.within space.height space.width

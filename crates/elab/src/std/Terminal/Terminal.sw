@@ -234,7 +234,7 @@ test "reads: a sequence that never ends stops after the reads allowed" :=
 
 --| Draws a frame per key until `q` or the keys run out (at most 10), and
 --| gives the keys it read.
-def Terminal.echoKeys: Nat → List Key → {Terminal} (List Key)
+def Terminal.echoKeys: Nat → List Key → {Terminal} List Key
   | 0, seen => List.reverse seen
   | Succ limit, seen =>
     Terminal.draw ["${List.length seen} keys"]

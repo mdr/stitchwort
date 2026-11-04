@@ -20,7 +20,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 buyers}"
 
 --| Each buyer's initial secret number, one per line.
-def parseBuyers (input: Text): {Fail} (List Nat) := Parse.eachLine input nat
+def parseBuyers (input: Text): {Fail} List Nat := Parse.eachLine input nat
 
 --| Secret numbers are pruned to below this: 2 to the power 24.
 def modulus: Nat := 16777216

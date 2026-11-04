@@ -34,7 +34,7 @@ def instruction(): {Parse} Instruction :=
   ]
 
 --| Every instruction in the memory, in order; everything else is noise.
-def parseInstructions (memory: Text): {Fail} (List Instruction) := Parse.all memory (() => findAll instruction)
+def parseInstructions (memory: Text): {Fail} List Instruction := Parse.all memory (() => findAll instruction)
 
 --| What a `mul` adds; `do()` and `don't()` add nothing.
 def Instruction.result: Instruction → Nat

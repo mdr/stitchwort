@@ -23,10 +23,10 @@ def main(): {IO, Fail} () :=
 
 --| The disk map's digits: a file's length, the free space after it, the next
 --| file's length, and so on, ending with either.
-def diskMapLine(): {Parse} (List Nat) := many1 (() => digit().toNat)
+def diskMapLine(): {Parse} List Nat := many1 (() => digit().toNat)
 
 --| One line of digits.
-def parseDiskMap (input: Text): {Fail} (List Nat) := Parse.all input diskMapLine
+def parseDiskMap (input: Text): {Fail} List Nat := Parse.all input diskMapLine
 
 --| A block holds `Some id`, a block of file `id`, or `None`, free space.
 --| The blocks of the disk map's files from number `id` on, left to right.
