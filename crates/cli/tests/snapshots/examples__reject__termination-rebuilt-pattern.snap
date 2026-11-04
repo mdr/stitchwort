@@ -7,7 +7,7 @@ expression: output
    │
  9 │   | Cons x (Cons y more) => check x y && everyPair check (Cons y (Cons x more))
    │                                          ──────────────────┬─────────────────  
-   │                                                            ╰─────────────────── this recursive call might not terminate: the 2nd argument, `Cons y (Cons x more)`, isn't seen as smaller than `levels`
+   │                                                            ╰─────────────────── this recursive call might not terminate: the 2nd argument, `[y, x, ..more]`, isn't seen as smaller than `levels`
    │ 
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │ 

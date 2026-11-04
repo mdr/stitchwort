@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a list after `..`, as in `[x, ..xs]`
+   ╭─[ reject/list-spread-empty.sw:3:26 ]
+   │
+ 3 │ def f: List Nat := [1, ..]
+   │                          ┬  
+   │                          ╰── expected a list after `..`, as in `[x, ..xs]`
+───╯

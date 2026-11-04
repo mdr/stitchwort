@@ -48,7 +48,7 @@ expression: json
       "hypotheses": [
         {
           "name": "all",
-          "type": "(next✝ && allTrue (Cons head✝ tail✝)) = True"
+          "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
         },
         {
           "name": "next✝",
@@ -63,12 +63,12 @@ expression: json
           "type": "List Bool"
         }
       ],
-      "target": "(next✝ && allTrue (Cons head✝ tail✝)) = True"
+      "target": "(next✝ && allTrue [head✝, ..tail✝]) = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "all: (next✝ && allTrue (Cons head✝ tail✝)) = True\nnext✝: Bool\nhead✝: Bool\ntail✝: List Bool\n⊢ (next✝ && allTrue (Cons head✝ tail✝)) = True",
+        "message": "all: (next✝ && allTrue [head✝, ..tail✝]) = True\nnext✝: Bool\nhead✝: Bool\ntail✝: List Bool\n⊢ (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
           15,
           15,

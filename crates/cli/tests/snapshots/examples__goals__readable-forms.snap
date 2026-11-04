@@ -9,13 +9,13 @@ expression: output
     │                                                                            ┬  
     │                                                                            ╰── y: Nat
     │                                                                                ys: List Nat
-    │                                                                                h: y ∈ Cons y ys
+    │                                                                                h: y ∈ [y, ..ys]
     │                                                                                ⊢ y ∈ ys
     │ 
     │ Note: this statement is false; a counterexample:
     │         y = 0
     │         ys = []
-    │       `y ∈ Cons y ys` holds
+    │       `y ∈ [y, ..ys]` holds
     │       `y ∈ ys` is false
 ────╯
 [GOAL] Goal: in `keysLess`
@@ -37,7 +37,7 @@ expression: output
     │                                                                                ╰── f: List Leaf → Nat
     │                                                                                    leaf: Leaf
     │                                                                                    rest: List Leaf
-    │                                                                                    ⊢ f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest
+    │                                                                                    ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
 ────╯
 [GOAL] Goal: in `rewritten`
     ╭─[ goals/readable-forms.sw:23:87 ]

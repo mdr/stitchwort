@@ -770,6 +770,16 @@ impl<'g> Printer<'g> {
                 if let Some(chars) = char_list(self.g, term) {
                     return (show_chars(&chars), Prec::Atom);
                 }
+                // An open chain, `Cons a (Cons b xs)`, as `[a, b, ..xs]`
+                // (docs/proposals/list-spread.md).
+                if let Some((items, tail)) = open_list(self.g, term) {
+                    let mut shown: Vec<String> = items
+                        .iter()
+                        .map(|t| self.print(names, t, Prec::Arrow))
+                        .collect();
+                    shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
+                    return (format!("[{}]", shown.join(", ")), Prec::Atom);
+                }
                 // Braces right after a constructor name its fields, so a
                 // record given to one is in brackets: `Cons ({ x = 1 })
                 // rest`, not `Cons { x = 1 } rest` (SW-1000).
@@ -2646,6 +2656,24 @@ fn list_literal<'t>(g: &Ev, term: &'t Term) -> Option<Vec<&'t Term>> {
                 term = args[1].strip_loc();
             }
             _ => return None,
+        }
+    }
+}
+
+/// `Cons a (Cons b xs)` as the items `a`, `b` and the tail `xs`, where the
+/// chain ends in something other than `Nil`.
+fn open_list<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<&'t Term>, &'t Term)> {
+    let mut items = Vec::new();
+    let mut term = term.strip_loc();
+    loop {
+        match term {
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) && args.len() == 2 => {
+                items.push(&*args[0]);
+                term = args[1].strip_loc();
+            }
+            _ if items.is_empty() => return None,
+            Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return None,
+            _ => return Some((items, term)),
         }
     }
 }

@@ -625,6 +625,7 @@ pub(crate) fn syntax(expr: &Expr) -> String {
             format!("({})", syntax(body))
         }
         Expr::Tuple(a, b, _) => format!("({}, {})", syntax(a), syntax(b)),
+        Expr::Spread(list, _) => format!("..{}", syntax(list)),
         Expr::List(items, _) => {
             let items: Vec<String> = items.iter().map(syntax).collect();
             format!("[{}]", items.join(", "))

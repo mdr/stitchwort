@@ -2180,7 +2180,13 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
             Some(Value::Data(d, params))
                 if Ok(*d) == data(cx, Builtin::List) && params.len() == 1 =>
             {
-                Some(vec![is_comp_type(cx, &params[0])?; items.len()])
+                let elem = is_comp_type(cx, &params[0])?;
+                // A spread is a list, never a computation to pass.
+                Some(
+                    (items.iter())
+                        .map(|item| elem && !matches!(item, Expr::Spread(..)))
+                        .collect(),
+                )
             }
             _ => None,
         },
@@ -2301,6 +2307,7 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             ..
         } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
         Expr::List(items, _) => parts(&items.iter().collect::<Vec<_>>())?,
+        Expr::Spread(list, _) => may_perform(cx, list)?,
         Expr::Record { base, fields, .. } => {
             any(&mut base.iter().map(|b| &**b))?
                 || parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
@@ -4160,7 +4167,12 @@ fn comp_compound(
         Expr::List(items, span) => {
             let mut pure = Vec::new();
             for (i, item) in items.iter().enumerate() {
-                pure.push(part(cx, i, item, &mut bound)?);
+                pure.push(match item {
+                    Expr::Spread(list, at) => {
+                        Expr::Spread(Box::new(part(cx, i, list, &mut bound)?), *at)
+                    }
+                    _ => part(cx, i, item, &mut bound)?,
+                });
             }
             Expr::List(pure, *span)
         }

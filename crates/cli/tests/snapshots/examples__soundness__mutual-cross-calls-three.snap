@@ -15,7 +15,7 @@ expression: output
     │ 
  11 │ def h (xs: List Nat): Void := f (Cons 1 xs)
     │                               ──────┬─────  
-    │                                     ╰─────── then this call to `f`: `f`'s 1st argument, `Cons 1 xs`, isn't seen as smaller than any of `h`'s arguments
+    │                                     ╰─────── then this call to `f`: `f`'s 1st argument, `[1, ..xs]`, isn't seen as smaller than any of `h`'s arguments
     │ 
     │ Note 1: going round `f` → `g` → `h` → `f`, over and over, no argument is known to get smaller
     │ 

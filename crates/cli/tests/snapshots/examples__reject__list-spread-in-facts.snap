@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a list of facts can't have a `..` spread
+   ╭─[ reject/list-spread-in-facts.sw:3:57 ]
+   │
+ 3 │ theorem t (xs: List Nat) (h: 1 < 2): 0 < 2 := omega [h, ..xs]
+   │                                                         ──┬─  
+   │                                                           ╰─── a list of facts can't have a `..` spread
+   │ 
+   │ Note: this list is the facts to use, one term each; `..` builds a list value
+───╯

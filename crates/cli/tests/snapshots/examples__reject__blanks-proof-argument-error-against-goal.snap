@@ -16,7 +16,7 @@ expression: output
     │           rest = []
     │         `x = 0` holds
     │         `zeros rest = []` holds
-    │         `zeros (Cons x rest) = []` is false:
+    │         `zeros [x, ..rest] = []` is false:
     │           left:  [0]
     │           right: []
     │           first difference at [0]: right ends, left has 0 (left has 1 element, right has 0 elements)

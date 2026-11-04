@@ -1,15 +1,22 @@
 # Building lists with `[x, ..xs]` (SW-1214)
 
-**Status:** design note, 4 November 2026. Not built. Matt chose the
+**Status:** design note, 4 November 2026. Built in SW-1220. Matt chose the
 direction (D2309: a `..` spread in list expressions, the same as list
 patterns' rest, rather than an infix cons). The decisions are D2320 to
-D2324 (§8).
+D2325 (§8). **D2325 revised D2321 and is what was built:** `..` may come in
+any position and any number of times in list expressions (the note below
+originally argued to refuse that; §2 "Only last" is kept as the argument
+that was set aside, and the sections it touches say what is built).
 
 In short: `[a, b, ..xs]` in an expression means `Cons a (Cons b xs)`, the
-same as the pattern `[a, b, ..xs]` already matches. `..` comes last and
-only once, as in patterns. Goals print a `Cons` chain that ends in
-something other than `[]` the same way. There is no `::` or `:`. Nothing
-changes in the kernel: the spread is another way to write `Cons`.
+same as the pattern `[a, b, ..xs]` already matches. In expressions `..` may
+come anywhere, any number of times: `[..xs, y]` is `xs ++ [y]`,
+`[..xs, ..ys]` is `xs ++ ys`, `[a, ..xs, b, ..ys]` is `Cons a (xs ++ Cons b ys)`.
+A final spread is a plain `Cons` chain (no `++ []`), and `[..xs]` is `xs`.
+Patterns stay `..` last and once. Goals print a `Cons` chain that ends in
+something other than `[]` as `[a, b, ..xs]`; `++` stays `++`. There is no
+`::` or `:`. Nothing changes in the kernel: the spread is `Cons` and the
+library's `List.append`.
 
 ## 1. The problem
 
@@ -80,16 +87,25 @@ it: a user's own `Cons` doesn't change it).
 
 - `tail` is any expression, up to the `]`: `[x, ..f y z]` is
   `Cons x (f y z)`, and `[x, ..ys ++ zs]` is `Cons x (ys ++ zs)`.
-- `..` is last and appears once, as in patterns.
+- `..` may come in any position, any number of times (D2325); in patterns
+  it stays last and once. A spread that isn't last is a call of the
+  library's `List.append` (by identity): `[..xs, y]` is `xs ++ [y]`,
+  `[..xs, ..ys]` is `xs ++ ys`, and `[a, ..xs, b, ..ys]` is
+  `Cons a (xs ++ Cons b ys)`. A final spread is the plain `Cons` chain with
+  no `++ []`.
 - `[..xs]` is `xs`, as the pattern `[..p]` is `p`. It is allowed, for the
   symmetry, with no warning; nobody needs to write it, and the formatter
   leaves it alone.
-- The elements and the tail are evaluated left to right, the tail last, as
-  the arguments of `Cons e₁ (…)` are.
+- Elements and spreads are evaluated left to right as written.
 - The type is `List a` where every element is an `a` and the tail is a
   `List a`.
 
-**Only last, for good (D2321).** `[..xs, y]` and `[..xs, ..ys]` could mean
+**Only last (D2321, set aside by D2325).** The argument below was the
+note's recommendation; Matt chose to allow the other positions, accepting
+the costs it lists (a spread that isn't last is an `append`, which is
+stuck on an unknown list and copies the first one). It stays as the record
+of those costs, and of why patterns still take `..` last only (an error
+says so). `[..xs, y]` and `[..xs, ..ys]` could mean
 `xs ++ [y]` and `xs ++ ys`, as in JavaScript and Python. The proposal is not
 to allow them, now or later:
 
@@ -110,7 +126,7 @@ to allow them, now or later:
   `[..moves, way]` would mean either printing `append` in that form (which
   hides the stuck call) or two spellings of one term in the same goal.
 
-The error for a spread anywhere but last says what to write instead (§4.6).
+(Built differently: no error for those spreads, §4.6.)
 
 **Printing (D2322).** Goals, hovers and messages print a closed `Cons`
 chain as `[1, 2, 3]` already (`list_literal` in `crates/core/src/pretty.rs`),
@@ -201,12 +217,15 @@ and `omega [..]` (parsed through `list_expr`), refuse a spread with an
 
 ### 4.2 The elaborator's list-literal path
 
-`check` on `Expr::List` against `List a` (`crates/elab/src/check.rs`, the
-arm that builds the `Cons` chain) checks the items against `a` as now, then
-the tail against `List a`, and starts the chain from the tail's term instead
-of `Nil`. Long literals are cut into chunks joined by `append` (SW-62); the
-tail goes at the end of the last chunk, so the term is the same as the
-hand-written `Cons` chain whenever it is short enough to be one.
+The parser makes a spread an `Expr::Spread` item inside `Expr::List` (not
+a new arity: every walker handles the one extra node). `check` on
+`Expr::List` against `List a` (`crates/elab/src/check.rs`) checks the items
+against `a` and each spread against `List a`, in order, then builds the term
+from the right: a run of items is a `Cons` chain ending in what follows it
+(`Nil` at the end); a final spread is that term itself; a spread with
+something after it is `append xs rest`. Long runs are cut into chunks joined
+by `append` (SW-62) as before, so the term is the same as the hand-written
+`Cons` chain whenever there is no non-final spread.
 
 Against a type that isn't `List`, the literal falls back to inferring as
 now (`fallback_named`), and `infer` makes a fresh element type as now.
@@ -236,13 +255,14 @@ change.
 
 ### 4.6 Error messages
 
-- `[..xs, y]`, `[x, ..xs, y]` or `[..xs, ..ys]`: `E-PARSE` at the item
-  after the spread: "a `..` tail must be the last item" (the pattern
-  parser's words), with a note: "`[x, ..xs]` puts `x` in front of `xs`; to
-  add at the end, write `xs ++ [y]` (it copies `xs`)", and for two spreads,
-  "to join two lists, write `xs ++ ys`".
-- `[x, ..]` with nothing after `..`: "a list after `..`". (In a pattern,
-  `.._` is the way to ignore the rest; an expression has no such form.)
+- (Built, D2325) `[..xs, y]`, `[x, ..xs, y]` and `[..xs, ..ys]` are not
+  errors. In a *pattern*, a `..` that isn't last is `E-PARSE` "a `..` tail
+  must be the last item of a list pattern", with a note that patterns take
+  `..` only last and to reach the end of a list use `List.last` or
+  `List.reverse`, or write a recursive function.
+- `[x, ..]` with nothing after `..`: `E-PARSE`, "expected a list after
+  `..`, as in `[x, ..xs]`". (In a pattern, `.._` is the way to ignore the
+  rest; an expression has no such form.)
 - A tail that isn't a list, `[x, ..y]` with `y: Nat` (probably meaning
   `[x, y]`): `E-TYPE-MISMATCH` at `y`, with a note: "after `..` comes the
   rest of the list, a `List Nat`; to add `y` as one more element, write
@@ -250,9 +270,10 @@ change.
 - An element that is a list where the tail was meant, `[x, xs]`, is already
   a mismatch at `xs`; the note can suggest `..xs` when `xs` has the list's
   type, the mirror of the one above.
-- `x :: xs` and `x : xs` today give the parser's general errors. Since
-  people from other languages will try them, a note on `::` saying "write
-  `[x, ..xs]`" is worth adding (patterns and expressions both).
+- `x :: xs` gives the parser's general error with a note (built, D2323):
+  "there is no `::` for a list: write `[x, ..xs]` to put `x` in front of
+  `xs`, in an expression and in a pattern alike". (`x : xs` is a type
+  annotation, so it gets the annotation errors.)
 
 ### 4.7 The formatter
 
@@ -309,7 +330,7 @@ existing output.
 
 ## 6. What isn't proposed
 
-- A spread anywhere but last, or more than one (D2321).
+- A spread in a pattern anywhere but last, or more than one.
 - An infix cons, `::` or `:` (D2323).
 - Rewriting existing code (D2324).
 - A spread for `Vec`, or in tuples and records (records have
@@ -329,7 +350,7 @@ These are details, decided in this note rather than asked:
 | ID | Question | Recommendation |
 |---|---|---|
 | D2320 | **The spread.** Building a list from a few elements in front of another list needs nested `Cons` (`Cons a (Cons b xs)`), unlike patterns, which have `[a, b, ..xs]`. Allow `[a, b, ..xs]` in expressions too, meaning that `Cons` chain, with `..` last and once and any expression after it? | [Yes] |
-| D2321 | **Only at the end.** `[..xs, y]` and `[..xs, ..ys]` could mean `xs ++ [y]` and `xs ++ ys`, as in JavaScript and Python. Refuse them, now and later, with an error that suggests `++`, because appending copies the list, doesn't compute in proofs the way `Cons` does, and has no matching pattern? | [Yes, last only, as Gleam] |
+| D2321 (revised by D2325: `..` allowed anywhere, any number of times, in expressions; patterns last only) | **Only at the end.** `[..xs, y]` and `[..xs, ..ys]` could mean `xs ++ [y]` and `xs ++ ys`, as in JavaScript and Python. Refuse them, now and later, with an error that suggests `++`, because appending copies the list, doesn't compute in proofs the way `Cons` does, and has no matching pattern? | [Yes, last only, as Gleam] |
 | D2322 | **Printing.** Goals and messages print an open list as `Cons a (Cons b xs)`. Print it as `[a, b, ..xs]` instead (a single `Cons x xs` as `[x, ..xs]`), so goals read as source would be written? About 32 snapshot files change. | [Yes] |
 | D2323 | **No infix cons.** Not add `x :: xs` (or `x : xs`, which clashes with type annotations) for building or matching, so each list shape has one spelling? A note on `::` errors points to `[x, ..xs]`. | [Yes, none] |
 | D2324 | **Existing code.** Leave the 1,177 lines that build lists with `Cons` as they are (no sweep, no formatter rewrite), use the spread in new code and in the docs, and rewrite old code only when it's being edited anyway? | [Yes; a later lint for long chains if they keep appearing] |

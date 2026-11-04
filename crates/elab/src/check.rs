@@ -1691,6 +1691,11 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             }
         }
         Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
+        Expr::Spread(..) => Err(cx.error(
+            "E-PARSE",
+            "a `..` spread outside a list",
+            "`..xs` joins a list into a list literal: write `[x, ..xs]`",
+        )),
         Expr::List(..) => {
             let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
@@ -3558,6 +3563,12 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     })
 }
 
+/// A piece of a list literal: a run of items, or one `..xs`.
+enum ListPart {
+    Items(Vec<Term>),
+    Spread(Term),
+}
+
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if let Expr::Var(name) = expr
         && name.text == crate::equations::PROBE
@@ -3957,10 +3968,31 @@ pub(crate) fn check_value(
             }
             let elem = params[0].clone();
             // In order: a number literal in an item waits while the element
-            // type is unknown (K4), so a later item can still say it.
-            let terms = (items.iter())
-                .map(|item| check(cx, item, &elem))
-                .collect::<Result<Vec<_>>>()?;
+            // type is unknown (K4), so a later item can still say it. A
+            // `..xs` item is a list of the same type (docs/proposals/
+            // list-spread.md).
+            let mut parts: Vec<ListPart> = Vec::new();
+            for item in items {
+                if let Expr::Spread(list_expr, _) = item {
+                    let term = check(cx, list_expr, &expected).map_err(|mut e| {
+                        if e.code == "E-TYPE-MISMATCH" {
+                            e = e.with_note(format!(
+                                "after `..` comes a list, a `{}`; to add an item to the list, \
+                                 write it without the `..`",
+                                cx.show(&expected)
+                            ));
+                        }
+                        e
+                    })?;
+                    parts.push(ListPart::Spread(term));
+                } else {
+                    let term = check(cx, item, &elem)?;
+                    match parts.last_mut() {
+                        Some(ListPart::Items(run)) => run.push(term),
+                        _ => parts.push(ListPart::Items(vec![term])),
+                    }
+                }
+            }
             // A long literal would be a `Cons` chain as deep as it is long,
             // and every pass over terms recurses on that depth (the checker,
             // zonking, lowering, code generation, …): so it's cut into chunks
@@ -3970,42 +4002,80 @@ pub(crate) fn check_value(
             // 200 steps an element, so a literal that fits the stack as one
             // chain stays one (SW-332: `rfl` on a 20,000-element literal got
             // six times dearer).
-            let chunk = if terms.len() <= cx.e.options.limits.stack / LITERAL_BYTES {
+            let count: usize = parts
+                .iter()
+                .map(|p| match p {
+                    ListPart::Items(run) => run.len(),
+                    ListPart::Spread(_) => 0,
+                })
+                .sum();
+            let chunk = if count <= cx.e.options.limits.stack / LITERAL_BYTES {
                 usize::MAX
             } else {
                 LITERAL_CHUNK
             };
-            let mut chunks: Vec<Term> = terms
-                .chunks(chunk)
-                .map(|chunk| {
-                    let mut term = Term::Ctor(list, nil, Vec::new());
-                    for item in chunk.iter().rev() {
-                        term = Term::ctor(list, cons, vec![item.clone(), term]);
-                    }
-                    term
-                })
-                .collect();
-            if chunks.len() > 1 {
-                let append = Term::app_icit(
+            let append = |cx: &mut Ctx| -> Result<Term> {
+                Ok(Term::app_icit(
                     Term::Def(builtin_def(cx, Builtin::Append)?),
                     cx.quote_folded(&elem)?,
                     Icit::Implicit,
-                );
-                while chunks.len() > 1 {
-                    let mut joined = Vec::with_capacity(chunks.len().div_ceil(2));
-                    let mut pairs = chunks.into_iter();
-                    while let Some(a) = pairs.next() {
-                        joined.push(match pairs.next() {
-                            Some(b) => Term::app(Term::app(append.clone(), a), b),
-                            None => a,
-                        });
+                ))
+            };
+            // Built from the right: `rest` is what follows the part, none
+            // at the end, where a run ends in `Nil` and a spread is the tail
+            // itself.
+            let mut rest: Option<Term> = None;
+            for part in parts.into_iter().rev() {
+                rest = Some(match (part, rest) {
+                    (ListPart::Spread(term), None) => term,
+                    (ListPart::Spread(term), Some(rest)) => {
+                        let append = append(cx)?;
+                        Term::app(Term::app(append, term), rest)
                     }
-                    chunks = joined;
-                }
+                    (ListPart::Items(run), rest) => {
+                        let mut chunks: Vec<Term> = run
+                            .chunks(chunk)
+                            .map(|chunk| {
+                                let mut term = match (&rest, run.len() <= chunk.len()) {
+                                    (Some(rest), true) => rest.clone(),
+                                    _ => Term::Ctor(list, nil, Vec::new()),
+                                };
+                                for item in chunk.iter().rev() {
+                                    term = Term::ctor(list, cons, vec![item.clone(), term]);
+                                }
+                                term
+                            })
+                            .collect();
+                        if chunks.len() > 1 {
+                            let append = append(cx)?;
+                            while chunks.len() > 1 {
+                                let mut joined = Vec::with_capacity(chunks.len().div_ceil(2));
+                                let mut pairs = chunks.into_iter();
+                                while let Some(a) = pairs.next() {
+                                    joined.push(match pairs.next() {
+                                        Some(b) => Term::app(Term::app(append.clone(), a), b),
+                                        None => a,
+                                    });
+                                }
+                                chunks = joined;
+                            }
+                        }
+                        let built = chunks
+                            .pop()
+                            .unwrap_or_else(|| Term::Ctor(list, nil, Vec::new()));
+                        match rest {
+                            // A run short enough to be one chunk has `rest`
+                            // as its tail already.
+                            Some(rest) if run.len() > chunk => {
+                                let append = append(cx)?;
+                                Term::app(Term::app(append, built), rest)
+                            }
+                            _ => built,
+                        }
+                    }
+                });
             }
-            Ok(chunks
-                .pop()
-                .unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
+            Ok(rest.unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
         }
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {

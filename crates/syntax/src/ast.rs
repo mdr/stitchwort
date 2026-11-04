@@ -115,6 +115,9 @@ pub enum Expr {
     Ann(Box<Expr>, Box<Expr>, Span),
     /// `[a, b, c]`
     List(Vec<Expr>, Span),
+    /// `..xs`, an item of a list expression (and only there): the list `xs`
+    /// joined in at that place (docs/proposals/list-spread.md).
+    Spread(Box<Expr>, Span),
     /// `()`: the unit value, or the unit type.
     Unit(Span),
     /// `(a, b)`: a pair value or a pair type, decided by elaboration; three
@@ -416,6 +419,7 @@ impl Expr {
             | Expr::Neg(_, span, _)
             | Expr::Interpolated(_, span)
             | Expr::List(_, span)
+            | Expr::Spread(_, span)
             | Expr::Unit(span)
             | Expr::Tuple(_, _, span)
             | Expr::Let { span, .. }
@@ -521,6 +525,7 @@ fn has_nested(expr: &Expr) -> bool {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
         Expr::List(items, _) => !items.is_empty(),
+        Expr::Spread(e, _) => nested(e),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
         Expr::CtorFields { fields, .. } => !fields.is_empty(),
         Expr::Field(e, _) => nested(e),
@@ -663,6 +668,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             }
         }
         Expr::List(items, _) => pending.append(items),
+        Expr::Spread(e, _) => take(e),
         Expr::Record { base, fields, .. } => {
             if let Some(base) = base {
                 take(base);

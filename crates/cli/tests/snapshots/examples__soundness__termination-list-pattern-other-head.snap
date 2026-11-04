@@ -7,7 +7,7 @@ expression: output
     │
  10 │       | True => loop (Cons 0 ps)
     │                 ───────┬───────  
-    │                        ╰───────── this recursive call might not terminate: the 1st argument, `Cons 0 (Cons head✝ tail✝)`, isn't seen as smaller
+    │                        ╰───────── this recursive call might not terminate: the 1st argument, `[0, head✝, ..tail✝]`, isn't seen as smaller
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 
