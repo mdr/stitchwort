@@ -359,7 +359,7 @@ def List.transpose (rows: List (List a)): List (List a) := List.transposeN (List
 @[noReceiver]
 def List.AllLength (n: Nat): List (List a) → Prop
   | Nil => Unit
-  | Cons r rs => And (List.length r = n) (List.AllLength n rs)
+  | Cons r rs => (List.length r = n) ∧ (List.AllLength n rs)
 
 --| The groups of consecutive elements that don't satisfy `p`, in order: `p`
 --| marks the separators, which are dropped, and no group is empty. So
@@ -400,11 +400,11 @@ def List.NonSep (p: a → Bool) (g: List a): Prop := List.all g (x => ¬(p x)) =
 @[noReceiver]
 def List.Groups (p: a → Bool): List (List a) → Prop
   | Nil => Unit
-  | Cons g gs => And (And (0 < List.length g) (List.NonSep p g)) (List.Groups p gs)
+  | Cons g gs => ((0 < List.length g) ∧ (List.NonSep p g)) ∧ (List.Groups p gs)
 
 --| A state of `List.splitBy` is well formed: no group has a separator, and no finished group is empty.
 def List.SplitOk (p: a → Bool): Pair (List a) (List (List a)) → Prop
-  | MkPair cur done => And (List.NonSep p cur) (List.Groups p done)
+  | MkPair cur done => (List.NonSep p cur) ∧ (List.Groups p done)
 
 --| A state of `List.splitBy` holds exactly the elements of `xs` that aren't separators, in order.
 @[noReceiver]
@@ -433,7 +433,7 @@ def List.Perm (xs: List a) (ys: List a): Prop := (p: a → Bool) → List.occurr
 def List.Subsequence: List a → List a → Prop
   | Nil, ys => Unit
   | Cons x xs, Nil => Void
-  | Cons x xs, Cons y ys => Or (And (x = y) (List.Subsequence xs ys)) (List.Subsequence (Cons x xs) ys)
+  | Cons x xs, Cons y ys => ((x = y) ∧ (List.Subsequence xs ys)) ∨ (List.Subsequence (Cons x xs) ys)
 
 --| Congruence lemmas: given callbacks that agree on every argument, a function
 --| gives the same result. Their shape is fixed, since `decreasing` looks them up
@@ -495,7 +495,7 @@ def List.Disjoint (xs: List a) (ys: List a): Prop := List.All (x => x ∉ ys) xs
 --| No element occurs twice.
 def List.Distinct: List a → Prop
   | Nil => Unit
-  | Cons x xs => And (x ∉ xs) (List.Distinct xs)
+  | Cons x xs => (x ∉ xs) ∧ (List.Distinct xs)
 
 --| Decides `List.Distinct xs` by checking each element against those after
 --| it (quadratic; `List.allDistinct` is the faster test, given an `Ord`).
@@ -508,7 +508,7 @@ test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1
 
 --| The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 --| including, `s + c`.
-theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFrom c s → And (s ≤ x) (x < s + c)
+theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFrom c s → (s ≤ x) ∧ (x < s + c)
   | Zero, s, h => Void.exfalso h
   | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
   | Succ c, s, Inr m =>

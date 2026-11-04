@@ -11,7 +11,7 @@ theorem Decidable.toBoolSound: [p: Prop] → (d: Decidable p) → Decidable.toBo
   | Yes h, e => h
   | No r, e => Void.exfalso (Bool.falseNotTrue e)
 
-theorem Decidable.toBoolFalse: [p: Prop] → (d: Decidable p) → Decidable.toBool d = False → Not p
+theorem Decidable.toBoolFalse: [p: Prop] → (d: Decidable p) → Decidable.toBool d = False → ¬p
   | Yes h, e, x => Void.exfalso (Bool.trueNotFalse e)
   | No r, e, x => r x
 
@@ -19,7 +19,7 @@ theorem Decidable.toBoolOf: [p: Prop] → (d: Decidable p) → p → Decidable.t
   | Yes h, x => rfl
   | No r, x => Void.exfalso (r x)
 
-theorem Decidable.toBoolOfNot: [p: Prop] → (d: Decidable p) → Not p → Decidable.toBool d = False
+theorem Decidable.toBoolOfNot: [p: Prop] → (d: Decidable p) → ¬p → Decidable.toBool d = False
   | Yes h, n => Void.exfalso (n h)
   | No r, n => rfl
 
@@ -40,7 +40,7 @@ theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = Fa
     | Yes same => same
     | No differ => Void.exfalso (Bool.trueNotFalse h)
 
-theorem DecEq.neTrue [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = True): Not (x = y) :=
+theorem DecEq.neTrue [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = True): x ≠ y :=
   same => Bool.falseNotTrue (rewrite Decidable.toBoolOfNot (Decidable.not (DecEq.decide x y)) (differ => differ same) at h)
 
 --| A nonzero factor on the right doesn't change `==`: cancelling, as a `Bool`.

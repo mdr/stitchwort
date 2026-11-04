@@ -73,7 +73,7 @@ theorem Ord.minLeRight [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= y :=
     | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
     | Equal => ord.lessEqOf x y (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))
 
-theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): Or (Ord.min x y = x) (Ord.min x y = y) :=
+theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): (Ord.min x y = x) ∨ (Ord.min x y = y) :=
   match order: Ord.compare x y with
     | Greater => Inr rfl
     | Less => Inl rfl
@@ -97,7 +97,7 @@ theorem Ord.leMaxRight [auto ord: Ord a] (x: a) (y: a): y <= Ord.max x y :=
       ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
     | Equal => rewrite ord.equal x y order in Ord.leRefl y
 
-theorem Ord.maxEither [auto ord: Ord a] (x: a) (y: a): Or (Ord.max x y = x) (Ord.max x y = y) :=
+theorem Ord.maxEither [auto ord: Ord a] (x: a) (y: a): (Ord.max x y = x) ∨ (Ord.max x y = y) :=
   match order: Ord.compare x y with
     | Less => Inr rfl
     | Greater => Inl rfl
@@ -117,7 +117,7 @@ theorem Ord.leAntisymm [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <= x)
 --| and an `Equal` makes two of them the same.
 theorem Ordering.notGreaterTrans: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
     (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
-    Not (c1 = Greater) → Not (c2 = Greater) → Not (c3 = Greater)
+    c1 ≠ Greater → c2 ≠ Greater → c3 ≠ Greater
   | Less, Less, c3, t, e1, e2, n1, n2, g => Ordering.lessNotGreater (Eq.trans (Eq.sym (t rfl rfl)) g)
   | Less, Equal, c3, t, e1, e2, n1, n2, g => Ordering.lessNotGreater (Eq.trans (Eq.sym (e2 rfl)) g)
   | Less, Greater, c3, t, e1, e2, n1, n2, g => n2 rfl

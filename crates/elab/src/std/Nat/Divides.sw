@@ -69,7 +69,7 @@ theorem Nat.divLt (n: Nat) (k: Nat) [auto ok: k ≠ 0] (h0: 0 < n) (h1: 1 < k): 
     | Succ m => Nat.divLtSucc m k h1
 
 --| A product is 0 only when a factor is (Lean's `Nat.mul_eq_zero`).
-theorem Nat.mulEqZero: (m: Nat) → (n: Nat) → m * n = 0 → Or (m = 0) (n = 0)
+theorem Nat.mulEqZero: (m: Nat) → (n: Nat) → m * n = 0 → (m = 0) ∨ (n = 0)
   | Zero, n, h => Inl rfl
   | Succ m, Zero, h => Inr rfl
   | Succ m, Succ n, h => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
@@ -97,7 +97,7 @@ theorem Nat.gcdStep (a: Nat) (c: Nat): Nat.gcd a (Succ c) = Nat.gcd (Succ c) (a 
 theorem Nat.gcdZero (a: Nat): Nat.gcd a 0 = a := rewrite Nat.gcd.unfold a 0 in rfl
 
 --| The gcd divides both numbers (Lean's `Nat.gcd_dvd_left` and `_right`).
-theorem Nat.gcdDivides (a: Nat) (b: Nat): And (∃ (x: Nat) => a = x * Nat.gcd a b) (∃ (y: Nat) => b = y * Nat.gcd a b)
+theorem Nat.gcdDivides (a: Nat) (b: Nat): (∃ (x: Nat) => a = x * Nat.gcd a b) ∧ (∃ (y: Nat) => b = y * Nat.gcd a b)
     decreasing b
 :=
   match b with

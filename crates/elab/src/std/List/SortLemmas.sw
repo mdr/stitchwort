@@ -376,7 +376,7 @@ theorem List.sumRangeZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy
 theorem List.sumRangeEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
   List.sumRangeOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
 
-theorem List.sumRangeEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) → s ≤ x → x < s + c → Not (y = x)): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
+theorem List.sumRangeEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) → s ≤ x → x < s + c → y ≠ x): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
   List.sumRangeNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
 
 --| A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
@@ -522,7 +522,7 @@ theorem List.mergeSorted (le: a → a → Bool) (tot: (x: a) → (y: a) → le x
 def List.RunsSorted (le: a → a → Bool): List (Option (List a)) → Prop
   | Nil => Unit
   | Cons None rest => List.RunsSorted le rest
-  | Cons (Some r) rest => And (List.Sorted le r) (List.RunsSorted le rest)
+  | Cons (Some r) rest => (List.Sorted le r) ∧ (List.RunsSorted le rest)
 
 theorem List.pushRunSorted (le: a → a → Bool) (tot: (x: a) → (y: a) → le x y = False → le y x = True)
     (run: List a): (c: List (Option (List a))) → List.Sorted le run → List.RunsSorted le c → List.RunsSorted le (List.pushRun le run c)
@@ -569,10 +569,10 @@ theorem List.sortSorted [auto ord: Ord a] (xs: List a):
   List.sortBySorted Ord.compare Ord.leTotal xs
 
 --| `isLessEq` is "not `Greater`".
-theorem Ordering.notGreaterOfIsLessEq (c: Ordering) (h: Ordering.isLessEq c = True): Not (c = Greater) :=
+theorem Ordering.notGreaterOfIsLessEq (c: Ordering) (h: Ordering.isLessEq c = True): c ≠ Greater :=
   e => Bool.falseNotTrue (rewrite e at h)
 
-theorem Ordering.isLessEqOfNotGreater: (c: Ordering) → Not (c = Greater) → Ordering.isLessEq c = True
+theorem Ordering.isLessEqOfNotGreater: (c: Ordering) → c ≠ Greater → Ordering.isLessEq c = True
   | Less, n => rfl
   | Equal, n => rfl
   | Greater, n => Void.exfalso (n rfl)
@@ -678,7 +678,7 @@ theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) �
 def List.RunsAll (p: a → Prop): List (Option (List a)) → Prop
   | Nil => Unit
   | Cons None rest => List.RunsAll p rest
-  | Cons (Some r) rest => And (List.All p r) (List.RunsAll p rest)
+  | Cons (Some r) rest => (List.All p r) ∧ (List.RunsAll p rest)
 
 theorem List.pushRunAll (le: a → a → Bool) (p: a → Prop) (run: List a): (c: List (Option (List a))) →
     List.All p run → List.RunsAll p c → List.RunsAll p (List.pushRun le run c)
@@ -851,7 +851,7 @@ theorem List.findKey [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (y: 
     | Both py m => Decidable.toBoolSound (DecEq.decide (key y) kk) py
 
 theorem List.findKeySome [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (m: List.Mem kk (List.map xs key)):
-    Not (List.find xs (x => key x == kk) = None) :=
+    List.find xs (x => key x == kk) ≠ None :=
   h => List.anyElim (x => key x = kk) Void xs (List.memMapAny xs key kk m)
     (x inXs e => List.findNoneNotMem xs (z => key z == kk) x (Decidable.toBoolOf (DecEq.decide (key x) kk) e) inXs h)
 
@@ -925,7 +925,7 @@ theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) → (v: a) → (p
           (List.occurrences xs (y => p y ∧ ¬(y == v))) (List.occurrences xs (y => p y ∧ (y == v)))))
 
 --| Counting at `x` in a list without `x` finds nothing.
-theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → Not (List.Mem x xs) →
+theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → ¬(List.Mem x xs) →
     List.occurrences xs (y => p y ∧ (y == x)) = 0
   | Nil, x, p, n => rfl
   | Cons y ys, x, p, n =>
@@ -1031,7 +1031,7 @@ theorem List.sortOfSortedNat (xs: List Nat) (ys: List Nat) (sorted: List.Sorted 
   List.sortOfSorted xs ys (List.sortedCong Nat.leq (x y => Ordering.isLessEq (Nat.compare x y)) (x y => Eq.sym (Nat.compareLeq x y)) ys sorted) same
 
 --| Without `x` in the list, nothing is taken out.
-theorem List.removeFirstAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → Not (List.Mem x xs) → xs.removeFirst x = xs
+theorem List.removeFirstAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → ¬(List.Mem x xs) → xs.removeFirst x = xs
   | Nil, x, n => rfl
   | Cons y ys, x, n =>
     match e: y == x with
@@ -1153,7 +1153,7 @@ theorem List.combinationsMem (xs: List a) (ys: List a) (k: Nat) (sub: List.Subse
   rewrite <- len in List.combinationsMemLength xs ys sub
 
 --| A combination of `k` elements of `xs` has `k` elements and is a subsequence of `xs`.
-theorem List.memCombinations: (xs: List a) → (k: Nat) → (ys: List a) → ys ∈ List.combinations xs k → And (List.length ys = k) (List.Subsequence ys xs)
+theorem List.memCombinations: (xs: List a) → (k: Nat) → (ys: List a) → ys ∈ List.combinations xs k → (List.length ys = k) ∧ (List.Subsequence ys xs)
   | xs, Zero, ys, Inl e => rewrite <- e in Both rfl Trivial
   | xs, Zero, ys, Inr m => Void.exfalso m
   | Nil, Succ k, ys, m => Void.exfalso m
@@ -1170,8 +1170,7 @@ theorem List.memCombinations: (xs: List a) → (k: Nat) → (ys: List a) → ys 
 --| Taking apart a choice from `Cons x rest`: it starts with `x` and continues with a choice
 --| from `rest` of one fewer, or it is a choice from `rest`. (Each way round.)
 theorem List.memCombinationsCons (y: a) (zs: List a) (x: a) (rest: List a) (k: Nat):
-    Iff (Cons y zs ∈ List.combinations (Cons x rest) (Succ k))
-      (Or (And (y = x) (zs ∈ List.combinations rest k)) (Cons y zs ∈ List.combinations rest (Succ k))) :=
+    (Cons y zs ∈ List.combinations (Cons x rest) (Succ k)) ↔ (((y = x) ∧ (zs ∈ List.combinations rest k)) ∨ (Cons y zs ∈ List.combinations rest (Succ k))) :=
   {
     forward = m =>
       match List.memAppend (Cons y zs) (List.map (List.combinations rest k) (ws => Cons x ws)) (List.combinations rest (Succ k)) m with
@@ -1191,7 +1190,7 @@ theorem List.memCombinationsCons (y: a) (zs: List a) (x: a) (rest: List a) (k: N
   }
 
 --| The choices of one element are the elements.
-theorem List.memCombinationsOne (v: a): (xs: List a) → Iff ([v] ∈ List.combinations xs 1) (v ∈ xs)
+theorem List.memCombinationsOne (v: a): (xs: List a) → ([v] ∈ List.combinations xs 1) ↔ (v ∈ xs)
   | Nil => { forward = m => m, backward = m => m }
   | Cons x rest =>
     {
@@ -1207,7 +1206,7 @@ theorem List.memCombinationsOne (v: a): (xs: List a) → Iff ([v] ∈ List.combi
     }
 
 --| The choices of two elements are the pairs.
-theorem List.memCombinationsTwo (u: a) (v: a): (xs: List a) → Iff ([u, v] ∈ List.combinations xs 2) ((u, v) ∈ List.pairs xs)
+theorem List.memCombinationsTwo (u: a) (v: a): (xs: List a) → ([u, v] ∈ List.combinations xs 2) ↔ ((u, v) ∈ List.pairs xs)
   | Nil => { forward = m => m, backward = m => m }
   | Cons x rest => {
     forward = m =>
@@ -1613,7 +1612,7 @@ theorem List.memDedupAfter [auto eq: DecEq a] (x: a): (previous: a) → (xs: Lis
 
 --| `List.dedupAfter` drops only elements equal to the one before.
 theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a): (previous: a) → (xs: List a) → List.Mem x xs →
-    Or (previous = x) (List.Mem x (List.dedupAfter previous xs))
+    (previous = x) ∨ (List.Mem x (List.dedupAfter previous xs))
   | previous, Nil, m => Void.exfalso m
   | previous, Cons y ys, m =>
     match e: y == previous with

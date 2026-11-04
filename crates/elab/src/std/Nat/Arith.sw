@@ -32,7 +32,7 @@ theorem Nat.leqSuccSelf: (n: Nat) → Nat.leq (Succ n) n = False
   | Zero => rfl
   | Succ n => Nat.leqSuccSelf n
 
-theorem Nat.lessIrrefl (n: Nat): Not (n < n)
+theorem Nat.lessIrrefl (n: Nat): ¬(n < n)
   | h => Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.leqSuccSelf n)) h)
 
 theorem Nat.leLessSucc (m: Nat) (n: Nat) (h: m ≤ n): m < Succ n := h
@@ -90,9 +90,9 @@ theorem Nat.leqFalse: (d: Nat) → (n: Nat) → Nat.leq d n = False → n < d
 
 --| Comparisons from their negations and from equations.
 -- (the bridge lemmas of docs/proposals/omega.md §6.4)
-theorem Nat.ltOfNotLe (a: Nat) (b: Nat) (h: Not (a ≤ b)): b < a := Nat.leqFalse a b (Bool.falseOfNotTrue (Nat.leq a b) h)
+theorem Nat.ltOfNotLe (a: Nat) (b: Nat) (h: ¬(a ≤ b)): b < a := Nat.leqFalse a b (Bool.falseOfNotTrue (Nat.leq a b) h)
 
-theorem Nat.leOfNotLt (a: Nat) (b: Nat) (h: Not (a < b)): b ≤ a := Nat.leqFalse (Succ a) b (Bool.falseOfNotTrue (Nat.leq (Succ a) b) h)
+theorem Nat.leOfNotLt (a: Nat) (b: Nat) (h: ¬(a < b)): b ≤ a := Nat.leqFalse (Succ a) b (Bool.falseOfNotTrue (Nat.leq (Succ a) b) h)
 
 theorem Nat.leOfEq (a: Nat) (b: Nat) (e: a = b): a ≤ b := J (y p => a ≤ y) (Nat.leRefl a) e
 
@@ -115,12 +115,12 @@ theorem Nat.divFuelLe: (fuel: Nat) → (n: Nat) → (d: Nat) → Nat.divFuel fue
   | Zero, n, d => rfl
   | Succ fuel, n, d => Nat.divFuelLeStep fuel n d (Nat.leq d n) rfl (m => Nat.divFuelLe fuel m d)
 
-theorem Nat.fuelSub: (n: Nat) → (d: Nat) → (f: Nat) → Not (d = 0) → n ≤ Succ f → n - d ≤ f
+theorem Nat.fuelSub: (n: Nat) → (d: Nat) → (f: Nat) → d ≠ 0 → n ≤ Succ f → n - d ≤ f
   | n, Zero, f, ok, h => Void.exfalso (ok rfl)
   | Zero, Succ d, f, ok, h => rfl
   | Succ n, Succ d, f, ok, h => Nat.leTrans (n - d) n f (Nat.subLe n d) h
 
-theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat) (d: Nat) (ok: Not (d = 0)) (hn: n ≤ Succ fuel): (b: Bool) → Nat.leq d n = b →
+theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat) (d: Nat) (ok: d ≠ 0) (hn: n ≤ Succ fuel): (b: Bool) → Nat.leq d n = b →
     ((m: Nat) → m ≤ fuel → m < Succ (Nat.divFuel fuel m d) * d) →
     n < Succ (Nat.divStep b fuel n d) * d
   | True, h, ih =>
@@ -129,13 +129,13 @@ theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat) (d: Nat) (ok: Not (d = 0)) (hn
   | False, h, ih =>
     Nat.ltCongRight n d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.leqFalse d n h)
 
-theorem Nat.nonzeroPos: (d: Nat) → Not (d = 0) → 0 < d
+theorem Nat.nonzeroPos: (d: Nat) → d ≠ 0 → 0 < d
   | Zero, ok => Void.exfalso (ok rfl)
   | Succ d, ok => rfl
 
 theorem Nat.nonzeroOfPos (d: Nat) (h: 1 ≤ d): d ≠ 0 := e => Bool.falseNotTrue (rewrite e at h)
 
-theorem Nat.divFuelBound: (fuel: Nat) → (n: Nat) → (d: Nat) → Not (d = 0) → n ≤ fuel → n < Succ (Nat.divFuel fuel n d) * d
+theorem Nat.divFuelBound: (fuel: Nat) → (n: Nat) → (d: Nat) → d ≠ 0 → n ≤ fuel → n < Succ (Nat.divFuel fuel n d) * d
   | Zero, Zero, d, ok, hn => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
   | Zero, Succ n, d, ok, hn => Void.exfalso (Bool.falseNotTrue hn)
   | Succ fuel, n, d, ok, hn => Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (m hm => Nat.divFuelBound fuel m d ok hm)
@@ -434,7 +434,7 @@ theorem Nat.posOfDouble: (k: Nat) → (n: Nat) → k + k = n → 1 ≤ n → 1 �
   | Zero, n, e, h => Void.exfalso (Bool.falseNotTrue (rewrite <- e at h))
   | Succ k, n, e, h => rfl
 
-theorem Nat.leNeSucc (s: Nat) (v: Nat) (h: s ≤ v) (ne: Not (s = v)): Succ s ≤ v :=
+theorem Nat.leNeSucc (s: Nat) (v: Nat) (h: s ≤ v) (ne: s ≠ v): Succ s ≤ v :=
   Bool.inspect (Nat.leq (Succ s) v) (u => u = True) (t => rfl)
     (f => Void.exfalso (ne (Nat.leAntisym s v h (Nat.leqFalse (Succ s) v f))))
 
@@ -547,7 +547,7 @@ theorem Nat.powSuccPos (b: Nat): (e: Nat) → 0 < Nat.pow (Succ b) e
 --| Decides that a power of a positive base is never 0. So `auto` proves
 --| `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
 --| unfolds to such a power.
-instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Not (Nat.pow (Succ b) e = 0)) :=
+instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Nat.pow (Succ b) e ≠ 0) :=
   Yes (Nat.nonzeroOfPos (Nat.pow (Succ b) e) (Nat.powSuccPos b e))
 
 theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e ≤ f): Nat.pow (Succ b) e ≤ Nat.pow (Succ b) f :=
@@ -583,7 +583,7 @@ theorem Nat.equalComm: (a: Nat) → (b: Nat) → Nat.equal a b = Nat.equal b a
   | Succ a, Succ b => Nat.equalComm a b
 
 --| A sum is 0 only when both terms are.
-theorem Nat.addEqZero: (a: Nat) → (b: Nat) → a + b = 0 → And (a = 0) (b = 0)
+theorem Nat.addEqZero: (a: Nat) → (b: Nat) → a + b = 0 → (a = 0) ∧ (b = 0)
   | Zero, b, h => Both rfl h
   | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
 

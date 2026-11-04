@@ -22,7 +22,7 @@ theorem Nat.iterateFixedLater (f: a → a) (x: a) (z: a) (fixed: f z = z) (steps
 --| one of the first `second`.
 theorem Nat.iterateRepeats (f: a → a) (x: a) (first: Nat) (second: Nat) (earlier: first < second)
     (same: Nat.iterate first f x = Nat.iterate second f x) (n: Nat):
-    Exists Nat (m => And (m < second) (Nat.iterate n f x = Nat.iterate m f x))
+    Exists Nat (m => (m < second) ∧ (Nat.iterate n f x = Nat.iterate m f x))
     decreasing n
 :=
   match late: Nat.leq second n with
@@ -42,8 +42,8 @@ theorem Nat.iterateRepeats (f: a → a) (x: a) (first: Nat) (second: Nat) (earli
 --| `second`, and not stopped by `second`, never stops.
 theorem Nat.iterateRepeatNeverNone (step: a → Option a) (start: Option a) (first: Nat) (second: Nat) (earlier: first < second)
     (same: Nat.iterate first (state => Option.flatMap state step) start = Nat.iterate second (state => Option.flatMap state step) start)
-    (still: Not (Nat.iterate second (state => Option.flatMap state step) start = None)) (n: Nat):
-    Not (Nat.iterate n (state => Option.flatMap state step) start = None) :=
+    (still: Nat.iterate second (state => Option.flatMap state step) start ≠ None) (n: Nat):
+    Nat.iterate n (state => Option.flatMap state step) start ≠ None :=
   stopped =>
     Exists.elim (Nat.iterateRepeats (state => Option.flatMap state step) start first second earlier same n) (m both =>
       still

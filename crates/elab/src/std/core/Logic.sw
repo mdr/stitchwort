@@ -25,7 +25,7 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inr (right: q)
 
 --| When neither proposition holds, `p || q` doesn't.
-theorem Or.neither: [p q: Prop] → Not p → Not q → Not (Or p q)
+theorem Or.neither: [p q: Prop] → ¬p → ¬q → ¬(p ∨ q)
   | r, s, Inl a => r a
   | r, s, Inr b => s b
 

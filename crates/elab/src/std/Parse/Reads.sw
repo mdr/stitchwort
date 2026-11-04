@@ -462,10 +462,10 @@ theorem Parse.readsTakeWhile (passes: Char → Bool):
 --| A run that isn't empty: `takeWhile1`, `nat`.
 theorem Parse.readsSpanNonEmpty (passes: Char → Bool) (what: Text) (f: List Char → a):
     Parse.Reads (() => match Parse.span passes with | Nil => Parse.expected what | chars => f chars)
-      (read value => Not (read = []) ∧ read.all passes = True ∧ value = f read) :=
+      (read value => read ≠ [] ∧ read.all passes = True ∧ value = f read) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind (() => Parse.span passes) (taken => match taken with | Nil => Parse.expected what | chars => f chars) _
-      (taken read value => read = [] ∧ Not (taken = []) ∧ value = f taken) (Parse.readsSpan passes)
+      (taken read value => read = [] ∧ taken ≠ [] ∧ value = f taken) (Parse.readsSpan passes)
       (taken =>
         match taken with
           | Nil => Parse.readsExpected what _
@@ -477,14 +477,14 @@ theorem Parse.readsSpanNonEmpty (passes: Char → Bool) (what: Text) (f: List Ch
           rewrite split, none, List.appendNil firstRead, same in Both some (Both all made))
 
 theorem Parse.readsTakeWhile1 (what: Text) (passes: Char → Bool):
-    Parse.Reads (() => Parse.takeWhile1 what passes) (read taken => Not (read = []) ∧ read.all passes = True ∧ taken = Text.fromList read) :=
+    Parse.Reads (() => Parse.takeWhile1 what passes) (read taken => read ≠ [] ∧ read.all passes = True ∧ taken = Text.fromList read) :=
   Parse.readsSpanNonEmpty passes what Text.fromList
 
 --| The value of decimal digits.
 def Parse.digitsValue (digits: List Char): Nat := digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
 --| `nat` reads one or more digits, and gives their value.
-theorem Parse.readsNat: Parse.Reads Parse.nat (read n => Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
+theorem Parse.readsNat: Parse.Reads Parse.nat (read n => read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
   Parse.readsSpanNonEmpty Parse.isDigit "a number" Parse.digitsValue
 
 theorem Parse.readsNeed (found: Option a) (message: Text): Parse.Reads (() => Parse.need found message) (read value => read = [] ∧ found = Some value) :=
@@ -508,7 +508,7 @@ theorem Parse.readsSpaces: Parse.Reads Parse.spaces (read u => read.all Parse.is
       match h with
         | Witness skipped (Both (Both same all) unit) => rewrite same in all)
 
-theorem Parse.readsSpaces1: Parse.Reads Parse.spaces1 (read u => Not (read = []) ∧ read.all Parse.isSpace = True) :=
+theorem Parse.readsSpaces1: Parse.Reads Parse.spaces1 (read u => read ≠ [] ∧ read.all Parse.isSpace = True) :=
   Parse.readsWeaken _ _ _ (Parse.readsMap (() => Parse.takeWhile1 "a space" Parse.isSpace) (skipped => ()) _ (Parse.readsTakeWhile1 _ _))
     (read u h =>
       match h with
@@ -760,7 +760,7 @@ theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (
 
 --| `many1 p`: the same, with at least one value.
 theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values ∧ Not (values = [])) :=
+    Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values ∧ values ≠ []) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind p (first => Cons first (Parse.many p)) spec (first read values => ∃ (rest: List a) => Parse.Each spec read rest ∧ values = Cons first rest)
       reads (first => Parse.readsMap (() => Parse.many p) (Cons first) _ (Parse.readsMany p spec reads)))
@@ -815,7 +815,7 @@ theorem Parse.readsLines (p: () → {Parse} a) (spec: List Char → a → Prop) 
 
 --| `grid cell`: rows of one or more cells, line breaks between.
 theorem Parse.readsGrid (cell: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads cell spec):
-    Parse.Reads (() => Parse.grid cell) (Parse.SepBy (read row => Parse.Each spec read row ∧ Not (row = [])) (read u => Parse.LineBreak read)) :=
+    Parse.Reads (() => Parse.grid cell) (Parse.SepBy (read row => Parse.Each spec read row ∧ row ≠ []) (read u => Parse.LineBreak read)) :=
   Parse.readsLines _ _ (Parse.readsMany1 cell spec reads)
 
 --| What `looseRow cell` reads: its cells, then a line break or nothing.
@@ -1124,14 +1124,14 @@ theorem Parse.readsLabel (what: Text) (p: () → {Parse} a) (spec: List Char →
 
 --| What `int` reads: digits, with a '-' in front for a negative number.
 def Parse.IntRead (read: List Char) (n: Int): Prop :=
-  ∃ (digits: List Char) => Not (digits = []) ∧ digits.all Parse.isDigit = True ∧
+  ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
     ((read = Cons '-' digits ∧ n = -(Parse.digitsValue digits).toInt) ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt))
 
 theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind (() => Parse.literal ['-']) (negative => if negative then -(Parse.nat().toInt) else Parse.nat().toInt) _
       (negative read n =>
-        ∃ (digits: List Char) => Not (digits = []) ∧ digits.all Parse.isDigit = True ∧ read = digits ∧
+        ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ read = digits ∧
           ((negative = True ∧ n = -(Parse.digitsValue digits).toInt) ∨ (negative = False ∧ n = (Parse.digitsValue digits).toInt)))
       (Parse.readsLiteral ['-'])
       (negative =>

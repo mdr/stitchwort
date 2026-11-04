@@ -21,7 +21,7 @@ theorem List.getOfMem: (xs: List a) → (x: a) → x ∈ xs → ∃ (k: Nat) => 
       | Witness k found => Witness (Succ k) found
 
 --| `withIndex` pairs `x` with `i` exactly when `x` is element `i`.
-theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): Iff ((i, x) ∈ xs.withIndex) (List.get xs i = Some x) := {
+theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex) ↔ (List.get xs i = Some x) := {
   forward = member =>
     match List.getOfMem xs.withIndex (i, x) member with
       | Witness k found =>
@@ -36,7 +36,7 @@ theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): Iff ((i, x) ∈ xs.withI
 --| A grid has `cell` at `(row, column)` exactly when row `row` is some list
 --| of cells whose element `column` is `cell`.
 theorem List.memGridCells (rows: List (List a)) (row: Nat) (column: Nat) (cell: a):
-    Iff (((row, column), cell) ∈ rows.gridCells) (∃ (cells: List a) => List.get rows row = Some cells ∧ List.get cells column = Some cell) := {
+    (((row, column), cell) ∈ rows.gridCells) ↔ (∃ (cells: List a) => List.get rows row = Some cells ∧ List.get cells column = Some cell) := {
   forward = member =>
     List.anyElim _ _ rows.withIndex (List.memFlatMapElim _ ((row, column), cell) rows.withIndex member)
       (pair inRows inCells =>

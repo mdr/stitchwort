@@ -24,10 +24,10 @@ def Result.IsOk: Result a e → Prop
   | Ok x => Unit
   | Err m => Void
 
-theorem Result.okNotErr (x: a) (m: e): Not (Ok x = Err m)
+theorem Result.okNotErr (x: a) (m: e): Ok x ≠ Err m
   | p => J (y q => Result.IsOk y) Trivial p
 
-theorem Result.errNotOk (m: e) (x: a): Not (Err m = Ok x)
+theorem Result.errNotOk (m: e) (x: a): Err m ≠ Ok x
   | p => Result.okNotErr x m (Eq.sym p)
 
 --| Decides whether two `Ok`s are equal, from a decision about their values.

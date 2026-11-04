@@ -73,7 +73,7 @@ theorem Float.bitsExt (x: Float) (y: Float) (e: x.bits = y.bits): x = y :=
   match x, y with
     | { bits = a, valid = p }, { bits = b, valid = q } => Float.mkExt a b p e q
 
-theorem Float.bitsNe (x: Float) (y: Float) (h: Not (x.bits = y.bits)): Not (x = y) :=
+theorem Float.bitsNe (x: Float) (y: Float) (h: x.bits ≠ y.bits): x ≠ y :=
   e => h (Eq.cong (k => k.bits) e)
 
 --| A decision whether two doubles are equal, from one on their bits.
@@ -520,13 +520,13 @@ theorem Float.rankIeeeLt (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: 
   Float.keysOfRankLt x.bits y.bits x.valid y.valid (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl h
 
 --| JS's `<=` and `<` are false when either side is the NaN.
-theorem Float.ieeeLeNotNaN (x: Float) (y: Float) (h: Float.ieeeLe x y = True): And (Float.isNaN x = False) (Float.isNaN y = False) :=
+theorem Float.ieeeLeNotNaN (x: Float) (y: Float) (h: Float.ieeeLe x y = True): (Float.isNaN x = False) ∧ (Float.isNaN y = False) :=
   Both (Float.notTrueFalse (Float.isNaN x) (Bool.andLeft (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h))
     (Float.notTrueFalse (Float.isNaN y)
       (Bool.andLeft (¬(Float.isNaN y)) ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
         (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h)))
 
-theorem Float.ieeeLtNotNaN (x: Float) (y: Float) (h: Float.ieeeLt x y = True): And (Float.isNaN x = False) (Float.isNaN y = False) :=
+theorem Float.ieeeLtNotNaN (x: Float) (y: Float) (h: Float.ieeeLt x y = True): (Float.isNaN x = False) ∧ (Float.isNaN y = False) :=
   Float.ieeeLeNotNaN x y (Float.ieeeLtLe x y h)
 
 --| `<` is irreflexive and asymmetric, `<=` reflexive (but on the NaN).
@@ -581,7 +581,7 @@ theorem Float.ieeeNotLtLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny:
       | False => omega)
 
 theorem Float.ieeeLeOr (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False):
-    Or (Float.ieeeLe x y = True) (Float.ieeeLe y x = True) :=
+    (Float.ieeeLe x y = True) ∨ (Float.ieeeLe y x = True) :=
   match c: Float.ieeeLe x y with
     | True => Inl rfl
     | False => Inr (Float.ieeeLeTotal x y nx ny c)

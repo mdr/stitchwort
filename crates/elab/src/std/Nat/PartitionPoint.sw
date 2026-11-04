@@ -37,10 +37,7 @@ theorem Nat.partitionPointDone (low: Nat) (high: Nat) (p: Nat → Bool) (close: 
 --| For any test: the answer is from `low` to `high`; `p` holds just before
 --| it, unless it is `low`; and `p` fails at it, unless it is `high`.
 theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high):
-    And (low ≤ Nat.partitionPoint low high p)
-      (And (Nat.partitionPoint low high p ≤ high)
-        (And (Or (Nat.partitionPoint low high p = low) (p (Nat.partitionPoint low high p - 1) = True))
-          (Or (Nat.partitionPoint low high p = high) (p (Nat.partitionPoint low high p) = False))))
+    (low ≤ Nat.partitionPoint low high p) ∧ ((Nat.partitionPoint low high p ≤ high) ∧ (((Nat.partitionPoint low high p = low) ∨ (p (Nat.partitionPoint low high p - 1) = True)) ∧ ((Nat.partitionPoint low high p = high) ∨ (p (Nat.partitionPoint low high p) = False))))
     decreasing high - low :=
   match apart: Nat.leq (Succ low) high with
     | True =>
@@ -77,8 +74,7 @@ theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (order
 --| at every number from it up to `high`.
 theorem Nat.partitionPointSpec (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high)
     (monotone: (smaller: Nat) → (larger: Nat) → smaller ≤ larger → p larger = True → p smaller = True):
-    And ((n: Nat) → low ≤ n → n < Nat.partitionPoint low high p → p n = True)
-      ((n: Nat) → Nat.partitionPoint low high p ≤ n → n < high → p n = False) :=
+    ((n: Nat) → low ≤ n → n < Nat.partitionPoint low high p → p n = True) ∧ ((n: Nat) → Nat.partitionPoint low high p ≤ n → n < high → p n = False) :=
   let (Both above (Both below (Both before after))) := Nat.partitionPointBounds low high p ordered
   let found := Nat.partitionPoint low high p
   Both

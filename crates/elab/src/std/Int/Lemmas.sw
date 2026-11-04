@@ -15,7 +15,7 @@ theorem Int.natAbsZero: (x: Int) → Int.natAbs x = 0 → x = 0
   | NegSucc n, h => Void.exfalso (Nat.succNotZero n h)
 
 --| The size of `x` as an `Int` is `x` or `-x`.
-theorem Int.natAbsCases: (x: Int) → Or (Nat.toInt (Int.natAbs x) = x) (Nat.toInt (Int.natAbs x) = 0 - x)
+theorem Int.natAbsCases: (x: Int) → (Nat.toInt (Int.natAbs x) = x) ∨ (Nat.toInt (Int.natAbs x) = 0 - x)
   | OfNat n => Inl rfl
   | NegSucc n => Inr rfl
 
@@ -30,7 +30,7 @@ theorem Int.natAbsLt (x: Int) (d: Int) (low: 0 - Nat.toInt (Int.natAbs d) < x) (
 --| A multiple of `d` smaller in size than `d` is 0 times `d`.
 theorem Int.smallMultiple (d: Int) (k: Int) (nonzero: d ≠ 0) (small: Int.natAbs (d * k) < Int.natAbs d): k = 0 :=
   let sizes: Int.natAbs d * Int.natAbs k < Int.natAbs d := rewrite <- Int.natAbsMul d k in small
-  let positive: Not (Int.natAbs d = 0) := zero => nonzero (Int.natAbsZero d zero)
+  let positive: Int.natAbs d ≠ 0 := zero => nonzero (Int.natAbsZero d zero)
   match size: Int.natAbs k with
     | Zero => Int.natAbsZero k size
     | Succ j => Void.exfalso (omega [Nat.leMulPos (Int.natAbs d) (Int.natAbs k) (omega)])
@@ -39,7 +39,7 @@ theorem Int.smallMultiple (d: Int) (k: Int) (nonzero: d ≠ 0) (small: Int.natAb
 --| from 0 up to below `|d|`, are the same.
 theorem Int.divModUniqueOf (d: Int) (quotient: Int) (remainder: Int) (other: Int) (otherRemainder: Int) (nonzero: d ≠ 0)
     (same: d * quotient + remainder = d * other + otherRemainder) (low: 0 ≤ remainder) (high: remainder < Nat.toInt (Int.natAbs d))
-    (otherLow: 0 ≤ otherRemainder) (otherHigh: otherRemainder < Nat.toInt (Int.natAbs d)): And (quotient = other) (remainder = otherRemainder) :=
+    (otherLow: 0 ≤ otherRemainder) (otherHigh: otherRemainder < Nat.toInt (Int.natAbs d)): (quotient = other) ∧ (remainder = otherRemainder) :=
   let difference: d * (quotient - other) = otherRemainder - remainder := ring [same]
   let small: Int.natAbs (d * (quotient - other)) < Int.natAbs d := rewrite difference in Int.natAbsLt (otherRemainder - remainder) d (omega) (omega)
   let zero: quotient - other = 0 := Int.smallMultiple d (quotient - other) nonzero small
@@ -49,13 +49,13 @@ theorem Int.divModUniqueOf (d: Int) (quotient: Int) (remainder: Int) (other: Int
 --| The quotient and remainder are the only ones with the division law and a
 --| remainder from 0 up to below `|d|`.
 theorem Int.divModUnique (a: Int) (d: Int) (quotient: Int) (remainder: Int) [auto ok: d ≠ 0] (law: d * quotient + remainder = a)
-    (low: 0 ≤ remainder) (high: remainder < Nat.toInt (Int.natAbs d)): And (a / d = quotient) (a % d = remainder) :=
+    (low: 0 ≤ remainder) (high: remainder < Nat.toInt (Int.natAbs d)): (a / d = quotient) ∧ (a % d = remainder) :=
   Int.divModUniqueOf d (a / d) (a % d) quotient remainder ok (Eq.trans (Int.divAddMod a d) (Eq.sym law))
     (Int.modNonneg a d) (Int.modLtAbs a d) low high
 
 --| A nonzero integer has a nonzero size.
 theorem Int.natAbsPos (d: Int) (nonzero: d ≠ 0): 0 < Int.natAbs d :=
-  let positive: Not (Int.natAbs d = 0) := zero => nonzero (Int.natAbsZero d zero)
+  let positive: Int.natAbs d ≠ 0 := zero => nonzero (Int.natAbsZero d zero)
   omega
 
 --| `(d * a) / d = a` for a nonzero `d` (Lean's `Int.mul_ediv_cancel_left`).
@@ -93,7 +93,7 @@ theorem Int.subEqZero (a: Int) (b: Int) (h: a - b = 0): a = b := omega
 theorem Int.negOfNatZero (k: Nat) (h: Int.neg (OfNat k) = 0): k = 0 := omega
 
 --| No zero divisors (Lean's `Int.mul_eq_zero`).
-theorem Int.mulEqZero: (a: Int) → (b: Int) → a * b = 0 → Or (a = 0) (b = 0)
+theorem Int.mulEqZero: (a: Int) → (b: Int) → a * b = 0 → (a = 0) ∨ (b = 0)
   | OfNat m, OfNat n, h =>
     match Nat.mulEqZero m n (Int.ofNatInjective (m * n) 0 h) with
       | Inl z => Inl (Eq.cong OfNat z)
@@ -112,7 +112,7 @@ theorem Int.mulEqZero: (a: Int) → (b: Int) → a * b = 0 → Or (a = 0) (b = 0
       | Inr z => Void.exfalso (omega [z])
 
 --| A nonzero factor cancels (Lean's `Int.mul_left_cancel`).
-theorem Int.mulCancelLeft (c: Int) (a: Int) (b: Int) (nonzero: Not (c = 0)) (h: c * a = c * b): a = b :=
+theorem Int.mulCancelLeft (c: Int) (a: Int) (b: Int) (nonzero: c ≠ 0) (h: c * a = c * b): a = b :=
   match Int.mulEqZero c (a - b) (calc c * (a - b)
       _ = c * a - c * b := ring
       _ = c * b - c * b := rewrite h
@@ -126,13 +126,13 @@ theorem Int.mulSelf: (x: Int) → x * x = OfNat (Int.natAbs x * Int.natAbs x)
   | NegSucc n => rfl
 
 --| Two squares add up to 0 only when both are 0.
-theorem Int.sumSquaresZero (x: Int) (y: Int) (h: x * x + y * y = 0): And (x = 0) (y = 0) :=
+theorem Int.sumSquaresZero (x: Int) (y: Int) (h: x * x + y * y = 0): (x = 0) ∧ (y = 0) :=
   let natural: Int.natAbs x * Int.natAbs x + Int.natAbs y * Int.natAbs y = 0 :=
     Int.ofNatInjective _ 0 (rewrite Int.mulSelf x, Int.mulSelf y at h in h)
   Both (Int.natAbsZero x (Nat.mulSelfZero (Int.natAbs x) (omega))) (Int.natAbsZero y (Nat.mulSelfZero (Int.natAbs y) (omega)))
 
 --| Equal squares: the same number, or its negation.
-theorem Int.squaresEq (x: Int) (y: Int) (h: x * x = y * y): Or (x = y) (x + y = 0) :=
+theorem Int.squaresEq (x: Int) (y: Int) (h: x * x = y * y): (x = y) ∨ (x + y = 0) :=
   match Int.mulEqZero (x - y) (x + y) (ring [h]) with
     | Inl z => Inl (Int.subEqZero x y z)
     | Inr z => Inr z

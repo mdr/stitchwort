@@ -36,8 +36,8 @@ interface Ord (a: Type) = {
   --| The relations agree with `compare`.
   lessThanOf: (x: a) → (y: a) → compare x y = Less → lessThan x y,
   lessThanTo: (x: a) → (y: a) → lessThan x y → compare x y = Less,
-  lessEqOf: (x: a) → (y: a) → Not (compare x y = Greater) → lessEq x y,
-  lessEqTo: (x: a) → (y: a) → lessEq x y → Not (compare x y = Greater)
+  lessEqOf: (x: a) → (y: a) → compare x y ≠ Greater → lessEq x y,
+  lessEqTo: (x: a) → (y: a) → lessEq x y → compare x y ≠ Greater
 }
 
 --| From a comparison and its three laws. The relations are
@@ -49,7 +49,7 @@ def Ord.fromCompare [auto decEq: DecEq a] (compare: a → a → Ordering)
     (trans: (x: a) → (y: a) → (z: a) → compare x y = Less → compare y z = Less → compare x z = Less): Ord a := {
   compare = compare,
   lessThan = x y => compare x y = Less,
-  lessEq = x y => Not (compare x y = Greater),
+  lessEq = x y => compare x y ≠ Greater,
   decLessThan = x y => Ordering.decEq (compare x y) Less,
   decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater),
   equal = equal,

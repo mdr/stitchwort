@@ -126,7 +126,7 @@ theorem Map.Tree.balanceOnto (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree 
 theorem Map.Tree.pastOnto [auto ord: Ord k] (g: List (k, v) → List (k, v)) (key: k)
     (step: (kk: k) → (vv: v) → (rest: List (k, v)) → Ord.compare key kk = Greater → g (Cons (kk, vv) rest) = Cons (kk, vv) (g rest)):
     (lo: Option k) → (hi: k) → (t: Map.Tree k v) → (ys: List (k, v)) →
-    Map.Tree.Within ord lo (Some hi) t → Not (Ord.compare key hi = Less) →
+    Map.Tree.Within ord lo (Some hi) t → Ord.compare key hi ≠ Less →
     g (Map.Tree.toListOnto t ys) = Map.Tree.toListOnto t (g ys)
   | lo, hi, Tip, ys, w, h => rfl
   | lo, hi, Bin s l kk vv r, ys, Both (Both a b) (Both wl wr), h =>
@@ -328,7 +328,7 @@ theorem Map.Raw.toListAdjust [auto ord: Ord k] (f: v → v) (key: k) (m: Map.Raw
 --| Every key is above `lo`, each above the one before.
 def Map.Spec.Ascending (ord: Ord k): Option k → List (k, v) → Prop
   | lo, Nil => Unit
-  | lo, Cons (kk, vv) rest => And (Map.Tree.Above ord lo kk) (Map.Spec.Ascending ord (Some kk) rest)
+  | lo, Cons (kk, vv) rest => (Map.Tree.Above ord lo kk) ∧ (Map.Spec.Ascending ord (Some kk) rest)
 
 --| The keys are in ascending order by `ord`, each above the one before.
 def Map.Spec.Sorted (ord: Ord k) (xs: List (k, v)): Prop := Map.Spec.Ascending ord None xs
@@ -337,11 +337,11 @@ def Map.Spec.Sorted (ord: Ord k) (xs: List (k, v)): Prop := Map.Spec.Ascending o
 def Map.Spec.Fits (ord: Ord k): Option k → List (k, v) → Prop
   | hi, Nil => Unit
   | None, Cons (kk, vv) rest => Void
-  | Some h, Cons (kk, vv) rest => Not (Ord.compare kk h = Less)
+  | Some h, Cons (kk, vv) rest => Ord.compare kk h ≠ Less
 
 --| `x < y` and `y <= z` give `x < z`.
 theorem Map.Spec.lessOfLessLe (ord: Ord k) (x: k) (y: k) (z: k)
-    (e: Ord.compare x y = Less) (h: Not (Ord.compare z y = Less)): Ord.compare x z = Less :=
+    (e: Ord.compare x y = Less) (h: Ord.compare z y ≠ Less): Ord.compare x z = Less :=
   match c: Ord.compare y z with
     | Less => ord.trans x y z e c
     | Equal => rewrite Eq.sym (ord.equal y z c) in e
@@ -383,7 +383,7 @@ theorem Map.Raw.toListSorted [auto ord: Ord k] (m: Map.Raw k v): Map.Spec.Sorted
 
 --| In a list whose keys are all above `lo`, no key at or below `lo` is found.
 theorem Map.Spec.lookupBelow [auto ord: Ord k] (key: k): (lo: k) → (xs: List (k, v)) →
-    Map.Spec.Ascending ord (Some lo) xs → Not (Ord.compare key lo = Greater) → Map.Tree.lookupList key xs = None
+    Map.Spec.Ascending ord (Some lo) xs → Ord.compare key lo ≠ Greater → Map.Tree.lookupList key xs = None
   | lo, Nil, asc, h => rfl
   | lo, Cons (a, x) rest, Both la arest, h =>
     rewrite Map.Tree.lessOfLeLess ord key lo a h la in
@@ -398,7 +398,7 @@ theorem Map.Spec.lookupEqualHead [auto ord: Ord k] (key: k) (kk: k) (vv: v) (res
   rewrite e in rfl
 
 theorem Map.Spec.lookupSkip [auto ord: Ord k] (key: k) (kk: k) (vv: v) (rest: List (k, v))
-    (ne: Not (Ord.compare key kk = Equal)): Map.Tree.lookupList key (Cons (kk, vv) rest) = Map.Tree.lookupList key rest :=
+    (ne: Ord.compare key kk ≠ Equal): Map.Tree.lookupList key (Cons (kk, vv) rest) = Map.Tree.lookupList key rest :=
   match c: Ord.compare key kk with
     | Less => rfl
     | Equal => Void.exfalso (ne rfl)
@@ -499,7 +499,7 @@ theorem Map.Spec.filterOnto [auto ord: Ord k] (p: k → v → Bool): (ys: List (
 -- What `get` finds after removing, altering and adjusting
 
 --| `key` isn't `kk` when they compare unequal.
-theorem Map.Spec.notEqualOfCompare [auto ord: Ord k] (key: k) (kk: k) (d: Not (Ord.compare key kk = Equal)): Not (key = kk) :=
+theorem Map.Spec.notEqualOfCompare [auto ord: Ord k] (key: k) (kk: k) (d: Ord.compare key kk ≠ Equal): key ≠ kk :=
   e => d (rewrite e in Ord.compareSelf kk)
 
 theorem Map.Spec.lookupRemove [auto ord: Ord k] (key: k): (lo: Option k) → (xs: List (k, v)) → Map.Spec.Ascending ord lo xs →
@@ -511,7 +511,7 @@ theorem Map.Spec.lookupRemove [auto ord: Ord k] (key: k): (lo: Option k) → (xs
       | Equal => Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans (Eq.sym d) z))
       | Greater => rewrite d in Map.Spec.lookupRemove key (Some kk) rest arest
 
-theorem Map.Spec.lookupRemoveOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)):
+theorem Map.Spec.lookupRemoveOther [auto ord: Ord k] (key: k) (other: k) (ne: other ≠ key):
     (xs: List (k, v)) → Map.Tree.lookupList other (Map.Spec.remove key xs) = Map.Tree.lookupList other xs
   | Nil => rfl
   | Cons (kk, vv) rest =>
@@ -618,7 +618,7 @@ theorem Map.Raw.getRemove [auto ord: Ord k] (key: k) (m: Map.Raw k v): Map.Raw.g
   Eq.trans (Map.Raw.getToList key (Map.Raw.remove key m))
     (rewrite Map.Raw.toListRemove key m in Map.Spec.lookupRemove key None (Map.Raw.toList m) (Map.Raw.toListSorted m))
 
-theorem Map.Raw.getRemoveOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+theorem Map.Raw.getRemoveOther [auto ord: Ord k] (key: k) (other: k) (ne: other ≠ key) (m: Map.Raw k v):
     Map.Raw.get other (Map.Raw.remove key m) = Map.Raw.get other m :=
   Eq.trans (Map.Raw.getToList other (Map.Raw.remove key m))
     (Eq.trans (Eq.cong (Map.Tree.lookupList other) (Map.Raw.toListRemove key m))
@@ -630,7 +630,7 @@ theorem Map.Raw.getAlter [auto ord: Ord k] (f: Option v → Option v) (key: k) (
     | None => Map.Raw.getRemove key m
     | Some value => Map.Raw.getInsert key value m
 
-theorem Map.Raw.getAlterOther [auto ord: Ord k] (f: Option v → Option v) (key: k) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+theorem Map.Raw.getAlterOther [auto ord: Ord k] (f: Option v → Option v) (key: k) (other: k) (ne: other ≠ key) (m: Map.Raw k v):
     Map.Raw.get other (Map.Raw.alter f key m) = Map.Raw.get other m :=
   match c: f (Map.Raw.get key m) with
     | None => Map.Raw.getRemoveOther key other ne m
@@ -642,7 +642,7 @@ theorem Map.Raw.getAdjust [auto ord: Ord k] (m: Map.Raw k v) (key: k) (f: v → 
     | None => c
     | Some old => Map.Raw.getInsert key (f old) m
 
-theorem Map.Raw.getAdjustOther [auto ord: Ord k] (f: v → v) (key: k) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+theorem Map.Raw.getAdjustOther [auto ord: Ord k] (f: v → v) (key: k) (other: k) (ne: other ≠ key) (m: Map.Raw k v):
     Map.Raw.get other (Map.Raw.adjust f key m) = Map.Raw.get other m :=
   match c: Map.Raw.get key m with
     | None => rfl
@@ -730,7 +730,7 @@ theorem Map.Spec.lastBelowFilter [auto ord: Ord k] (key: k): (found: Option (k, 
 --| A tree whose keys are all above `lo`, where `lo` isn't below `key`, has no entry below `key`.
 theorem Map.Tree.lastBelowPast [auto ord: Ord k] (key: k) (found: Option (k, v)):
     (lo: k) → (hi: Option k) → (t: Map.Tree k v) → (acc: List (k, v)) →
-    Map.Tree.Within ord (Some lo) hi t → Not (Ord.compare lo key = Less) →
+    Map.Tree.Within ord (Some lo) hi t → Ord.compare lo key ≠ Less →
     Map.Spec.lastBelow key found (Map.Tree.toListOnto t acc) = Map.Spec.lastBelow key found acc
   | lo, hi, Tip, acc, w, h => rfl
   | lo, hi, Bin s l kk vv r, acc, Both (Both akk bkk) (Both wl wr), h =>
@@ -753,7 +753,7 @@ theorem Map.Tree.belowOnto [auto ord: Ord k] (key: k): (found: Option (k, v)) �
 
 --| A tree whose keys are all below `hi`, where `key` isn't below `hi`, has no entry above `key`.
 theorem Map.Tree.abovePast [auto ord: Ord k] (key: k) (found: Option (k, v)):
-    (lo: Option k) → (hi: k) → (t: Map.Tree k v) → Map.Tree.Within ord lo (Some hi) t → Not (Ord.compare key hi = Less) →
+    (lo: Option k) → (hi: k) → (t: Map.Tree k v) → Map.Tree.Within ord lo (Some hi) t → Ord.compare key hi ≠ Less →
     Map.Tree.nearestAbove key found t = found
   | lo, hi, Tip, w, h => rfl
   | lo, hi, Bin s l kk vv r, Both (Both akk bkk) (Both wl wr), h =>
@@ -790,7 +790,7 @@ theorem Map.Raw.aboveToList [auto ord: Ord k] (m: Map.Raw k v) (key: k):
 -- side of `key`, with nothing between.
 
 --| `a < b` rules out `b < a`.
-theorem Map.Spec.notLessOfLess (ord: Ord k) (a: k) (b: k) (e: Ord.compare a b = Less): Not (Ord.compare b a = Less) :=
+theorem Map.Spec.notLessOfLess (ord: Ord k) (a: k) (b: k) (e: Ord.compare a b = Less): Ord.compare b a ≠ Less :=
   z => Ordering.greaterNotLess (Eq.trans (Eq.sym (Eq.trans (ord.flip a b) (Eq.cong Ordering.flip e))) z)
 
 --| When `isLess a b`, comparing `a` with `b` gives `Less`.
@@ -805,7 +805,7 @@ theorem Map.Spec.isLessOf [auto ord: Ord k] (a: k) (b: k) (h: Ord.compare a b = 
 
 --| Started with an entry, `lastBelow` finds one.
 theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k): (entry: (k, v)) → (xs: List (k, v)) →
-    Not (Map.Spec.lastBelow key (Some entry) xs = None)
+    Map.Spec.lastBelow key (Some entry) xs ≠ None
   | entry, Nil, h => Option.someNotNone entry h
   | entry, Cons (kk, vv) rest, h =>
     match d: Ord.compare kk key with
@@ -816,7 +816,7 @@ theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k): (entry: (k, v)
 --| `lastBelow` finds what it started with, or an entry of the list below `key`.
 theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k): (found: Option (k, v)) → (xs: List (k, v)) → (entry: (k, v)) →
     Map.Spec.lastBelow key found xs = Some entry →
-    Or (found = Some entry) (And (List.Mem entry xs) (Ord.compare entry.fst key = Less))
+    (found = Some entry) ∨ ((List.Mem entry xs) ∧ (Ord.compare entry.fst key = Less))
   | found, Nil, entry, h => Inl h
   | found, Cons (kk, vv) rest, entry, h =>
     match d: Ord.compare kk key with
@@ -838,7 +838,7 @@ theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k): (found: Option (k, v)
 --| In an ascending list, no key below `key` is above what `lastBelow` finds.
 theorem Map.Spec.lastBelowGreatest [auto ord: Ord k] (key: k): (lo: Option k) → (found: Option (k, v)) → (xs: List (k, v)) →
     Map.Spec.Ascending ord lo xs → (entry: (k, v)) → Map.Spec.lastBelow key found xs = Some entry →
-    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare other key = Less → Not (Ord.compare entry.fst other = Less)
+    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare other key = Less → Ord.compare entry.fst other ≠ Less
   | lo, found, Nil, asc, entry, h, other, m, less, wrong => Void.exfalso m
   | lo, found, Cons (kk, vv) rest, Both above arest, entry, h, other, Inl isHead, less, wrong =>
     match d: Ord.compare kk key with
@@ -860,7 +860,7 @@ theorem Map.Spec.lastBelowGreatest [auto ord: Ord k] (key: k): (lo: Option k) �
 
 --| Finding nothing, `lastBelow` passed no key below `key`.
 theorem Map.Spec.lastBelowNone [auto ord: Ord k] (key: k): (found: Option (k, v)) → (xs: List (k, v)) →
-    Map.Spec.lastBelow key found xs = None → (other: k) → List.Mem other (List.map xs Pair.fst) → Not (Ord.compare other key = Less)
+    Map.Spec.lastBelow key found xs = None → (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare other key ≠ Less
   | found, Nil, h, other, m, less => Void.exfalso m
   | found, Cons (kk, vv) rest, h, other, Inl isHead, less =>
     match d: Ord.compare kk key with
@@ -876,7 +876,7 @@ theorem Map.Spec.lastBelowNone [auto ord: Ord k] (key: k): (found: Option (k, v)
 --| In an ascending list, no key above `key` is below the first entry above it.
 theorem Map.Spec.findAboveLeast [auto ord: Ord k] (key: k): (lo: Option k) → (xs: List (k, v)) → Map.Spec.Ascending ord lo xs →
     (entry: (k, v)) → List.find xs (e => Map.Spec.isLess key e.fst) = Some entry →
-    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare key other = Less → Not (Ord.compare other entry.fst = Less)
+    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare key other = Less → Ord.compare other entry.fst ≠ Less
   | lo, Nil, asc, entry, h, other, m, more, wrong => Void.exfalso m
   | lo, Cons (kk, vv) rest, Both above arest, entry, h, other, Inl isHead, more, wrong =>
     match d: Ord.compare key kk with
@@ -1091,7 +1091,7 @@ theorem Map.Spec.lookupConsEntryEqual [auto ord: Ord k] (key: k) (kk: k) (rest: 
   | None => Map.Spec.lookupBelow key kk rest asc (z => Ordering.equalNotGreater (Eq.trans (Eq.sym e) z))
 
 theorem Map.Spec.lookupConsEntrySkip [auto ord: Ord k] (key: k) (kk: k) (rest: List (k, x))
-    (ne: Not (Ord.compare key kk = Equal)):
+    (ne: Ord.compare key kk ≠ Equal):
     (o: Option x) → Map.Tree.lookupList key (Map.Spec.consEntry kk rest o) = Map.Tree.lookupList key rest
   | Some value => Map.Spec.lookupSkip key kk value rest ne
   | None => rfl
@@ -1342,7 +1342,7 @@ theorem Map.Tree.buildSized: (fuel: Nat) → (n: Nat) → (xs: List (k, v)) → 
 --| Keys in order: the tree's keys are above `lo` and below the first key
 --| left over, and the entries left over stay above `lo`.
 def Map.Tree.BuiltWithin (ord: Ord k) (lo: Option k) (built: (Map.Tree k v, List (k, v))): Prop :=
-  And (Map.Tree.Within ord lo (Map.Spec.headKey built.snd) built.fst) (Map.Spec.Ascending ord lo built.snd)
+  (Map.Tree.Within ord lo (Map.Spec.headKey built.snd) built.fst) ∧ (Map.Spec.Ascending ord lo built.snd)
 
 theorem Map.Spec.belowHeadKey (ord: Ord k) (key: k): (xs: List (k, v)) →
     Map.Spec.Ascending ord (Some key) xs → Map.Tree.Below ord key (Map.Spec.headKey xs)
@@ -1900,7 +1900,7 @@ theorem Map.Raw.sameComplete [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: 
   Decidable.toBoolOf (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)) h
 
 theorem Map.Raw.sameIff [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]):
-    Iff (Map.Raw.same m n = True) (Map.Raw.Equiv m n) :=
+    (Map.Raw.same m n = True) ↔ (Map.Raw.Equiv m n) :=
   { forward = Map.Raw.sameSound m n, backward = Map.Raw.sameComplete m n }
 
 --| A small sorted entry list for the tests below.

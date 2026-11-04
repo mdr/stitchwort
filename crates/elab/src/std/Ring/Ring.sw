@@ -90,12 +90,12 @@ def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr → Int
 --| `l = r`, as `Both h1 (Both h2 Trivial)`.
 def Ring.NExpr.allHold (env: Ring.Env): List (Pair Ring.NExpr Ring.NExpr) → Prop
   | Nil => Unit
-  | Cons (MkPair l r) hs => And (Ring.NExpr.eval env l = Ring.NExpr.eval env r) (Ring.NExpr.allHold env hs)
+  | Cons (MkPair l r) hs => (Ring.NExpr.eval env l = Ring.NExpr.eval env r) ∧ (Ring.NExpr.allHold env hs)
 
 --| `Int` hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with `l = r`.
 def Ring.ZExpr.allHold (env: Ring.Env): List (Pair Ring.ZExpr Ring.ZExpr) → Prop
   | Nil => Unit
-  | Cons (MkPair l r) hs => And (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) (Ring.ZExpr.allHold env hs)
+  | Cons (MkPair l r) hs => (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) ∧ (Ring.ZExpr.allHold env hs)
 
 --| The hypotheses' left sides added up.
 def Ring.NExpr.lefts: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr

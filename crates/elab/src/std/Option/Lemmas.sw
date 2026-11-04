@@ -131,7 +131,7 @@ theorem Option.someBeqSomeExample (x: Char): (Some x == Some 'A') = (x == 'A') :
 
 --| `orElse` is `Some v` when the first option is, or when the first is `None`
 --| and the second is.
-theorem Option.orElseEqSome (y: Option a) (v: a): (x: Option a) → Option.orElse x y = Some v → Or (x = Some v) (And (x = None) (y = Some v))
+theorem Option.orElseEqSome (y: Option a) (v: a): (x: Option a) → Option.orElse x y = Some v → (x = Some v) ∨ ((x = None) ∧ (y = Some v))
   | Some w, h => Inl h
   | None, h => Inr (Both rfl h)
 
@@ -161,7 +161,7 @@ theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
 --| If `filter p x` is `Some v`, then `x` is `Some v` and `p v` holds.
-theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → (v: a) → Option.filter x p = Some v → And (x = Some v) (p v = True)
+theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → (v: a) → Option.filter x p = Some v → (x = Some v) ∧ (p v = True)
   | Some u, p, v, h =>
     match e: p u with
       | True => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective u v h))) e)
@@ -196,15 +196,15 @@ theorem Option.alignWithHolds (q: c → Prop) (left: a → c) (right: b → c) (
 
 --| `alignWith` is `None` exactly when both options are.
 theorem Option.alignWithEqNone (left: a → c) (right: b → c) (both: a → b → c):
-    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = None ↔ And (x = None) (y = None)
+    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = None ↔ (x = None) ∧ (y = None)
   | Some u, Some w => { forward = h => Void.exfalso (Option.someNotNone (both u w) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
   | Some u, None => { forward = h => Void.exfalso (Option.someNotNone (left u) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
   | None, Some w => { forward = h => Void.exfalso (Option.someNotNone (right w) h), backward = h => Void.exfalso (Option.someNotNone w (And.right h)) }
   | None, None => { forward = h => Both rfl rfl, backward = h => rfl }
 
 theorem Option.alignWithHoldsExample (x: Option Nat) (y: Option Nat) (v: Nat)
-    (h: Option.alignWith x y Succ Succ (u w => Succ (u + w)) = Some v): Not (v = 0) :=
-  Option.alignWithHolds (n => Not (n = 0)) Succ Succ (u w => Succ (u + w))
+    (h: Option.alignWith x y Succ Succ (u w => Succ (u + w)) = Some v): v ≠ 0 :=
+  Option.alignWithHolds (n => n ≠ 0) Succ Succ (u w => Succ (u + w))
     (u => Nat.succNotZero u) (w => Nat.succNotZero w) (u w => Nat.succNotZero (u + w)) x y v h
 
 --| `MkPair` is injective: equal pairs have equal parts.
