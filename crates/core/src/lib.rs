@@ -16,6 +16,7 @@ pub mod ev;
 pub mod float;
 pub mod globals;
 pub mod hash;
+pub mod inert;
 pub mod js_repr;
 pub mod machine;
 pub mod nat_add;

@@ -227,10 +227,11 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         }
         // What admission works out besides the body, so that a trusted
         // replay (stage 3) is compared with a full check on it too.
-        let (transparent, lift_leaf, recursive) = def.admitted_metadata();
+        let (transparent, lift_leaf, recursive, inert) = def.admitted_metadata();
         let _ = write!(
             out,
-            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} param_default {}",
+            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} inert {inert:?} \
+             param_default {}",
             transparent.iter().map(|d| d.0).collect::<Vec<_>>(),
             def.param_default(),
         );
@@ -247,13 +248,14 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     for (i, data) in g.env.datas().iter().enumerate() {
         let _ = write!(
             out,
-            "data {i} {} {} {:?} {:?} record {} auto {:?} group {:?} before {} {} ",
+            "data {i} {} {} {:?} {:?} record {} auto {:?} proofs {:?} group {:?} before {} {} ",
             data.name(),
             data.path(),
             data.state(),
             data.sort(),
             data.record(),
             data.auto_params(),
+            data.proof_params(),
             data.group().iter().map(|d| d.0).collect::<Vec<_>>(),
             data.defs_before(),
             data.datas_before(),

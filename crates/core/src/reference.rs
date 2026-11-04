@@ -836,3 +836,141 @@ fn eta(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
         &apply_icit(g, b.clone(), fresh, icit)?,
     )
 }
+
+/// Checks that every inert mark of the definitions `ids` is justified by
+/// its body, given every definition's final marks, and panics if one isn't
+/// (docs/proposals/proof-irrelevance.md §7.3). Written apart from the
+/// analysis (`crate::inert`), as one pass: each occurrence of a marked
+/// parameter must be *shielded* (inside an argument at an inert position of
+/// a call of a definition, or inside a `let`'s or an annotation's type),
+/// and a `case` on one must have no possible branch. It checks only that
+/// the marks are sound, not that they're the most there could be.
+pub fn validate_inert(g: &Ev, ids: &[DefId]) {
+    for id in ids {
+        let def = g.def(*id);
+        let Some(body) = &def.body else {
+            assert!(
+                def.inert_params().is_empty(),
+                "`{}` has inert marks but no body",
+                def.name()
+            );
+            continue;
+        };
+        let marks = def.inert_params();
+        if !marks.iter().any(|m| *m) {
+            continue;
+        }
+        assert!(
+            marks.len() == def.arity,
+            "`{}`: marks beyond its arity",
+            def.name()
+        );
+        if let Some((i, what)) = unshielded(g, body, def.arity, marks) {
+            panic!(
+                "internal error: parameter {i} of `{}` is marked inert, but {what}",
+                def.name()
+            );
+        }
+    }
+}
+
+/// The first marked parameter (by position) of `body`, a definition's body
+/// with its `arity` lambdas, used where it isn't shielded, and how.
+fn unshielded(g: &Ev, body: &Term, arity: usize, marks: &[bool]) -> Option<(usize, &'static str)> {
+    // (term, binders above it counting the parameters, shielded)
+    let mut todo: Vec<(&Term, usize, bool)> = vec![(body, 0, false)];
+    let marked_param = |ix: usize, binders: usize| -> Option<usize> {
+        // Parameter `p` is bound at binder `p`; at `binders` deep it is
+        // `Var(binders - 1 - p)`.
+        let p = binders.checked_sub(ix + 1)?;
+        (p < arity && marks[p]).then_some(p)
+    };
+    while let Some((t, binders, shielded)) = todo.pop() {
+        match t {
+            Term::Var(ix) => {
+                if !shielded && let Some(p) = marked_param(*ix, binders) {
+                    return Some((p, "it is used outside an inert argument"));
+                }
+            }
+            Term::Case(ix, d, branches) => {
+                if branches.iter().any(|b| b.body.is_some())
+                    && let Some(p) = marked_param(*ix, binders)
+                {
+                    return Some((p, "it is matched with a possible branch"));
+                }
+                for (c, b) in branches.iter().enumerate() {
+                    if let Some(body) = &b.body {
+                        let k = g.data(*d).ctors[c].fields.len();
+                        todo.push((body, binders + k, shielded));
+                    }
+                }
+            }
+            Term::NumCase(ix, arms, default) => {
+                if let Some(p) = marked_param(*ix, binders) {
+                    return Some((p, "it is matched as a number"));
+                }
+                todo.extend(arms.iter().map(|a| (&*a.body, binders, shielded)));
+                todo.push((default, binders, shielded));
+            }
+            Term::App(..) => {
+                let mut spine = Vec::new();
+                let mut f = t;
+                loop {
+                    match f {
+                        Term::App(h, a, _) => {
+                            spine.push(&**a);
+                            f = h;
+                        }
+                        Term::Loc(_, inner) => f = inner,
+                        _ => break,
+                    }
+                }
+                spine.reverse();
+                let callee = match f {
+                    Term::Def(callee) => Some(g.def(*callee)),
+                    _ => None,
+                };
+                todo.push((f, binders, shielded));
+                for (k, a) in spine.into_iter().enumerate() {
+                    let inert_arg = callee.is_some_and(|d| d.is_inert(k));
+                    todo.push((a, binders, shielded || inert_arg));
+                }
+            }
+            Term::Lam(_, _, b) => todo.push((b, binders + 1, shielded)),
+            Term::Pi(_, _, a, b) => {
+                todo.push((a, binders, shielded));
+                todo.push((b, binders + 1, shielded));
+            }
+            Term::Ann(e, ty) => {
+                todo.push((e, binders, shielded));
+                todo.push((ty, binders, true));
+            }
+            Term::Let(_, ty, v, b, _) => {
+                todo.push((ty, binders, true));
+                todo.push((v, binders, shielded));
+                todo.push((b, binders + 1, shielded));
+            }
+            Term::Loc(_, e) => todo.push((e, binders, shielded)),
+            Term::Data(_, xs) | Term::Ctor(_, _, xs) | Term::Quot(_, xs, _) => {
+                todo.extend(xs.iter().map(|x| (&**x, binders, shielded)));
+            }
+            Term::Eq(ty, a, b) => {
+                todo.extend(ty.iter().map(|x| (&**x, binders, shielded)));
+                todo.push((a, binders, shielded));
+                todo.push((b, binders, shielded));
+            }
+            Term::J(m, b, p) => {
+                todo.push((m, binders, shielded));
+                todo.push((b, binders, shielded));
+                todo.push((p, binders, shielded));
+            }
+            Term::Def(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => {}
+        }
+    }
+    None
+}
