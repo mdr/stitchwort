@@ -1,5 +1,5 @@
 {
-  "next": 1235,
+  "next": 1238,
   "tickets": [
     {
       "id": 47,
@@ -5614,6 +5614,48 @@
         "elab"
       ],
       "body": "Follow-up to SW-1222. tailrec.rs treats translate/translateD/mapSig as non-tail (label: converted to the effect row), untested against a real program. Find or build one; confirm the label, or whether such a call is really a tail call.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1235,
+      "title": "Day 3 friction: std Nat.wrap (n % d when d ≠ 0) with lemmas; a Bool rectangle check for Grid (so the counterexample search can run); List.takeWhileMap and takeWhile-over-a-range lemmas; Aoc.Common checkGrid keeps its rows; two messages (Bool hint for a lambda using <; 'braces after Open' for a fieldless constructor)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc-friction"
+      ],
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1236,
+      "title": "Type mismatch errors show the first difference between the two sides, instead of hiding it behind …",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 3); helps every proof.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1237,
+      "title": "Profile a cold check of Aoc.Common (4.7 s CPU, paid by every Grid day)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 6).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
