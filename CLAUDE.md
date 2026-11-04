@@ -111,7 +111,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   finish as in "How a proof lane finishes" in `docs/workflow.md`.
 - In `.sw` code, write propositions with operators (`∧`, `∨`, `¬`, `↔`,
   `≠`), not `And`/`Or`/`Not`/`Iff`, and ability rows without parentheses
-  (`{Fail} List Nat`); see "Writing statements" in the proving guide.
+  (`{Fail} List Nat`); build and match lists with brackets (`[x, ..xs]`),
+  not `Cons x xs`, except `Cons` used as a function; see "Writing
+  statements" in the proving guide.
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 

@@ -66,6 +66,9 @@ statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
 They are the same terms (same hashes), so proofs that take them apart with
 `Inl`, `Both` and so on don't change. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
+Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
+not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
+(`t => Cons t rs`, `fold Cons`).
 
 ## 2. Workflow
 
