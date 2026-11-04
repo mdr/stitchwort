@@ -1744,6 +1744,15 @@ pub fn hidden(g: &Ev, id: DefId) -> bool {
     g.def(id).opaque && !g.machine.erasure.program_running() && !g.machine.transparent.contains(id)
 }
 
+/// Whether a call of definition `id` can't unfold here but may elsewhere
+/// or later: it's [`hidden`], or it has no body yet (a member of the group
+/// being checked, or an axiom). Its arguments are compared in shortcut
+/// mode, so that the call's unfolding, wherever it happens, can only add
+/// equalities (docs/proposals/proof-irrelevance.md §7.10, K4).
+pub fn sealed(g: &Ev, id: DefId) -> bool {
+    body_seen(g, id).is_none()
+}
+
 /// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
 /// path that unfolds a definition, or looks at its case tree, reads.
 #[inline(always)]
@@ -2601,11 +2610,12 @@ fn conv_step(
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
             if let Some(f) = def_head(h1)
-                && hidden(g, f)
+                && sealed(g, f)
             {
                 // A hidden opaque call never unfolds here, but does where
-                // `f` is transparent: compared in shortcut mode, so that
-                // being transparent only ever adds equalities.
+                // `f` is transparent, and a pending group member's does once
+                // the group is admitted: compared in shortcut mode, so that
+                // the body being seen only ever adds equalities.
                 same_spines(g, level, f, s1, s2, memo)?
             } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.

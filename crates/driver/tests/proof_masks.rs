@@ -170,6 +170,30 @@ def memoL (a: Prop) (p: a) (q: a): P2 a :=
 def memoR (a: Prop) (p: a) (q: a): P2 a :=
   let y := wrap (MkBox q)
   MkP2 (zero y) y
+
+-- For the tree memo test: `pickA` and `pickB` are different definitions
+-- stuck on `n`, so they're compared by their case trees, whose leaves
+-- differ only in a proof field. Inside `treeL`/`treeR`'s own tree
+-- comparison (which keeps the memo open), field `b` compares them in the
+-- normal mode (equal), and field `c` again inside the hidden `ob`'s
+-- shortcut (different).
+opaque def ob [a: Prop] (b: Box a): Box a := b
+def pickA (a: Prop) (n: Nat) (p: a) (q: a): Box a := match n with
+  | Zero => MkBox p
+  | Succ _ => MkBox p
+def pickB (a: Prop) (n: Nat) (p: a) (q: a): Box a := match n with
+  | Zero => MkBox q
+  | Succ _ => MkBox q
+type Q2 (a: Prop): Type =
+  | MkQ2 (b: Box a) (c: Box a)
+def treeLgo (a: Prop) (m: Nat) (n: Nat) (p: a) (q: a): Q2 a := match m with
+  | Zero => MkQ2 (pickA a n p q) (ob (pickA a n p q))
+  | Succ _ => MkQ2 (pickA a n p q) (ob (pickA a n p q))
+def treeRgo (a: Prop) (m: Nat) (n: Nat) (p: a) (q: a): Q2 a := match m with
+  | Zero => MkQ2 (pickB a n p q) (ob (pickB a n p q))
+  | Succ _ => MkQ2 (pickB a n p q) (ob (pickB a n p q))
+def treeL (a: Prop) (m: Nat) (n: Nat) (p: a) (q: a): Q2 a := treeLgo a m n p q
+def treeR (a: Prop) (m: Nat) (n: Nat) (p: a) (q: a): Q2 a := treeRgo a m n p q
 "#;
 
 /// The program, with test 29's chains `wrap (wrap (… (MkBox p)))` of the
@@ -282,6 +306,10 @@ const CASES: &[(&str, bool)] = &[
     // in the normal mode (equal): `CallMemo` must keep the two apart.
     ("memo", true),
     ("chain24", true),
+    // The same pair of stuck calls, found equal by their trees in the
+    // normal mode, then met inside a shortcut, where they differ:
+    // `TreeMemo` must keep the two apart.
+    ("tree", false),
 ];
 
 #[test]

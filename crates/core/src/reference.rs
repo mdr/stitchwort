@@ -682,11 +682,13 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 Head::Def(f) => Some(*f),
                 _ => None,
             };
-            // A partially applied definition, or a hidden opaque call, could
-            // still unfold (applied to more, or where it's transparent): its
-            // spine is compared in shortcut mode. A stuck call's isn't.
+            // A partially applied definition, a hidden opaque call, or a
+            // call of a member of the group being checked could still unfold
+            // (applied to more, where it's transparent, or once the group is
+            // admitted): its spine is compared in shortcut mode. A stuck
+            // call's isn't.
             let could_unfold =
-                def.is_some_and(|f| crate::value::hidden(g, f) || s1.len() < g.def(f).arity);
+                def.is_some_and(|f| crate::value::sealed(g, f) || s1.len() < g.def(f).arity);
             let spine_mode = if could_unfold { Mode::Shortcut } else { mode };
             (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, def, s1, s2, spine_mode)?)
                 || eta(g, level, a, b, mode)?
