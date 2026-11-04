@@ -21,20 +21,20 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, Globals, chars, float, nat_add};
+use stitchwort_core::{DataId, chars, float, nat_add};
 use stitchwort_driver::driver::{Session, with_session};
 use stitchwort_rt::natives;
 
 const STACK: usize = 64 * 1024 * 1024;
 
-fn data(g: &Globals, name: &str) -> DataId {
+fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
     g.find_data(name)
         .unwrap_or_else(|| panic!("the prelude defines `{name}`"))
 }
 
 /// Each binding by content hash: its name, the hash its declaration has now,
 /// and whether that is the pinned one.
-fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
+fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
     // R3 and R4 of `+`: off unless `Nat.add` is the pinned declaration.
     let add = nat_add::add_hash(g);
@@ -162,7 +162,7 @@ fn pinned_in(text: &str) -> Vec<String> {
 #[test]
 fn every_binding_by_hash_applies_to_the_library() {
     let found = with_session(STACK, Session::eager_from_source_for_stack, |session| {
-        bindings(&session.elab.globals)
+        bindings(&session.elab.ev())
     });
     let unbound: Vec<String> = found
         .iter()

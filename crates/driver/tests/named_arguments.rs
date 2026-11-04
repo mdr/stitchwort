@@ -41,7 +41,7 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
 
 /// Every declaration the session added after `first`, with its hash.
 fn hashes(session: &Session, first: (usize, usize)) -> Vec<(String, String)> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut out = Vec::new();
     for i in first.0..g.env.datas().len() {
         out.push((
@@ -78,8 +78,8 @@ fn load_session(name: &str, text: &str) -> Result<(Session, Vec<(String, String)
 /// the errors.
 fn load_in(session: &mut Session, name: &str, text: &str) -> Result<Vec<(String, String)>, String> {
     let first = (
-        session.elab.globals.env.datas().len(),
-        session.elab.globals.env.defs().len(),
+        session.elab.kernel.env.datas().len(),
+        session.elab.kernel.env.defs().len(),
     );
     match session.load(name, text) {
         Ok(_) => Ok(hashes(session, first)),
@@ -354,7 +354,7 @@ fn parameters(ty: &Term) -> Vec<(Icit, Option<String>)> {
 /// as `session` (the file loaded as written) knows their parameters' names;
 /// and how many arguments were named.
 fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let by_path: BTreeMap<String, usize> = (0..g.env.defs().len())
         .map(|i| (g.env.defs()[i].path().to_string(), i))
         .collect();
@@ -687,7 +687,7 @@ def literal: Twice := { x = 4 }
 def unused (n: Nat): Twice := { x = n * 3, twice = 1 }
 "#;
         let (session, _) = load_session("twice.sw", text).expect("the file loads");
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let has_let = |name: &str| {
             let def = g
                 .env

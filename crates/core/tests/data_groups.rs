@@ -16,19 +16,19 @@ use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, Name, Sort};
+use stitchwort_core::{DataId, DefId, Kernel, Name, Sort};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
 }
 
 /// Declares a group with these names, parameters and universe.
-fn group(g: &mut Globals, names: &[&str], params: Vec<(&str, Term)>, sort: Sort) -> Vec<DataId> {
+fn group(g: &mut Kernel, names: &[&str], params: Vec<(&str, Term)>, sort: Sort) -> Vec<DataId> {
     try_group(g, names, params, sort).expect("the group's parameters check")
 }
 
 fn try_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     names: &[&str],
     params: Vec<(&str, Term)>,
     sort: Sort,
@@ -44,7 +44,7 @@ fn try_group(
     )
 }
 
-fn state(g: &Globals, d: DataId) -> State {
+fn state(g: &Kernel, d: DataId) -> State {
     g.data(d).state()
 }
 
@@ -121,10 +121,10 @@ fn size_bodies(
 }
 
 /// Evaluates a closed term to a number.
-fn number(g: &Globals, term: &Term) -> Option<usize> {
-    let (term, _) = check::infer_closed(g, term, span()).ok()?;
-    let value = eval(g, &[], &term).ok()?;
-    nat_of(&quote(g, 0, &value).ok()?)
+fn number(g: &Kernel, term: &Term) -> Option<usize> {
+    let (term, _) = check::infer_closed(&g.ev(), term, span()).ok()?;
+    let value = eval(&g.ev(), &[], &term).ok()?;
+    nat_of(&quote(&g.ev(), 0, &value).ok()?)
 }
 
 fn nat_of(term: &Term) -> Option<usize> {
@@ -235,7 +235,7 @@ fn a_negative_occurrence_through_a_sibling_is_refused() {
     for d in &ids {
         assert_eq!(state(&p.g, *d), State::Failed);
         assert!(p.g.data(*d).ctors().is_empty());
-        assert_eq!(data_hash(&p.g, *d).unwrap(), None);
+        assert_eq!(data_hash(&p.g.ev(), *d).unwrap(), None);
     }
     let to_void = arrow(Term::Data(ids[0], vec![]), Term::Data(void, vec![]));
     // (Refused as a match on a type that isn't finished.)
@@ -374,7 +374,7 @@ fn a_pending_member_is_not_empty_and_has_no_constructors() {
         Rc::new(tree_to_void.clone()),
     );
     assert_eq!(
-        code(check::infer_closed(&p.g, &absurd, span())),
+        code(check::infer_closed(&p.g.ev(), &absurd, span())),
         "E-MALFORMED"
     );
     // A constructor of one doesn't exist yet.
@@ -383,17 +383,17 @@ fn a_pending_member_is_not_empty_and_has_no_constructors() {
         Rc::new(Term::Data(forest, vec![])),
     );
     assert_eq!(
-        code(check::infer_closed(&p.g, &fnil, span())),
+        code(check::infer_closed(&p.g.ev(), &fnil, span())),
         "E-MALFORMED"
     );
     // No hash.
-    assert_eq!(data_hash(&p.g, tree).unwrap(), None);
+    assert_eq!(data_hash(&p.g.ev(), tree).unwrap(), None);
     // Once the group is final, all of these work, at once.
     let ctors = tree_forest_ctors(&p, tree, forest);
     define_data_group(&mut p.g, ctors).unwrap();
-    assert_eq!(code(check::infer_closed(&p.g, &fnil, span())), "ok");
-    assert!(data_hash(&p.g, tree).unwrap().is_some());
-    assert!(data_hash(&p.g, forest).unwrap().is_some());
+    assert_eq!(code(check::infer_closed(&p.g.ev(), &fnil, span())), "ok");
+    assert!(data_hash(&p.g.ev(), tree).unwrap().is_some());
+    assert!(data_hash(&p.g.ev(), forest).unwrap().is_some());
     // And `impossible` is just not exhaustive.
     let r = define(
         &mut p.g,
@@ -638,7 +638,7 @@ fn a_failed_dependency_fails_every_member() {
     assert_eq!(code(r), "E-FAILED-DEPENDENCY");
     for d in ids {
         assert_eq!(state(&p.g, d), State::Failed);
-        assert_eq!(data_hash(&p.g, d).unwrap(), None);
+        assert_eq!(data_hash(&p.g.ev(), d).unwrap(), None);
     }
 }
 
@@ -884,7 +884,7 @@ fn tree_forest_hashes(
         ),
     ];
     define_data_group(&mut p.g, ctors).unwrap();
-    let hash = |d| data_hash(&p.g, d).unwrap().expect("final");
+    let hash = |d| data_hash(&p.g.ev(), d).unwrap().expect("final");
     (hash(tree), hash(forest))
 }
 
@@ -943,7 +943,7 @@ fn definitions_over_a_data_group_hash_its_members_and_constructors() {
             ),
         };
         let id = define(&mut p.g, "f", ty, body).unwrap();
-        def_hash(&p.g, id).unwrap().expect("final")
+        def_hash(&p.g.ev(), id).unwrap().expect("final")
     };
     assert_ne!(hash_of(0), hash_of(1));
     assert_eq!(hash_of(1), hash_of(1));
@@ -971,8 +971,8 @@ fn members_with_the_same_name_hash_deterministically() {
         ];
         define_data_group(&mut p.g, ctors).unwrap();
         (
-            data_hash(&p.g, ids[0]).unwrap().unwrap(),
-            data_hash(&p.g, ids[1]).unwrap().unwrap(),
+            data_hash(&p.g.ev(), ids[0]).unwrap().unwrap(),
+            data_hash(&p.g.ev(), ids[1]).unwrap().unwrap(),
         )
     };
     let (a, b) = hashes();

@@ -25,7 +25,7 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
     let Some((Global::Def(f), _)) = e.named(owner) else {
         return None;
     };
-    let def = e.globals.def(*f);
+    let def = e.kernel.def(*f);
     if def.theorem() || def.instance() || e.named(&name.text).is_some() {
         return None;
     }
@@ -45,10 +45,10 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
     // The arm numbers there are: `f.eq1`, `f.eq2`, … (an `or` or a branch
     // below an arm has its arm's number).
     let prefix = format!("{}.eq", def.path());
-    let mut arms: Vec<usize> = (0..e.globals.env.defs().len())
+    let mut arms: Vec<usize> = (0..e.kernel.env.defs().len())
         .map(stitchwort_core::DefId)
         .filter_map(|id| {
-            let d = e.globals.def(id);
+            let d = e.kernel.def(id);
             let rest = d.path().strip_prefix(&prefix)?;
             let number = rest.split('.').next()?;
             if d.theorem() {
@@ -125,7 +125,7 @@ pub(crate) fn computed_equation_note(equation: &str) -> String {
 /// stepping through it by hand fails to do (§1.2). `None` if no helper is
 /// mentioned or none of its branches has an equation.
 pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<String> {
-    let g = &e.globals;
+    let g = &e.ev();
     let mut helpers: Vec<DefId> = Vec::new();
     for t in terms {
         for (s, _) in t.subterms() {

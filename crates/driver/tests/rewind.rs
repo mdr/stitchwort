@@ -67,7 +67,7 @@ fn check(session: &mut Session, source: &Source) -> Result<(), Vec<Diagnostic>> 
 /// content hashes, the navigation index and the diagnostics.
 fn outcome(session: &Session, result: &Result<(), Vec<Diagnostic>>) -> String {
     let mut out = canonical_dump(&session.elab);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget

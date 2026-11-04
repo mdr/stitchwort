@@ -38,7 +38,7 @@ fn passes(session: &Session) {
 }
 
 fn hash_of_path(session: &Session, path: &str) -> ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = g
         .env
         .defs()

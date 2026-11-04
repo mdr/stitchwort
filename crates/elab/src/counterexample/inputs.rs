@@ -18,7 +18,7 @@ use std::rc::Rc;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{conv, eval, force, quote};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Sort, Term, Value};
+use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Sort, Term, Value};
 
 /// The largest total input size enumerated.
 const MAX_SIZE: usize = 100;
@@ -197,7 +197,7 @@ fn nat_of(term: &Term) -> Option<&BigUint> {
 
 /// Makes the inputs of the types it's given plans for.
 pub struct Inputs<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     plans: Vec<Plan>,
     keys: HashMap<String, usize>,
     tiers: RefCell<HashMap<(usize, usize), Tier>>,
@@ -206,7 +206,7 @@ pub struct Inputs<'g> {
 }
 
 impl<'g> Inputs<'g> {
-    pub fn new(g: &'g Globals, tier_cap: usize) -> Self {
+    pub fn new(g: &'g Ev<'g>, tier_cap: usize) -> Self {
         Inputs {
             g,
             plans: Vec::new(),
@@ -1468,7 +1468,7 @@ mod tests {
         let module = parse_module(file, text).expect("parses");
         let errors = e.elaborate_module(&module);
         assert!(errors.is_empty(), "{errors:?}");
-        let g = &e.globals;
+        let g = &e.ev();
         let data = |name: &str| {
             let at = g
                 .env

@@ -8,7 +8,7 @@
 //! shows up as a disagreement.
 //!
 //! It must stay independent: it shares the data types (`Term`, `Value`,
-//! `Globals`) and the native number functions, which it calls with its own
+//! `Kernel`) and the native number functions, which it calls with its own
 //! `force`, but never calls anything in `value.rs` that evaluates. It isn't
 //! optimised, and only changes when the language's evaluation rules do. It
 //! recurses on the Rust stack, so it's only for small inputs, and it doesn't
@@ -16,15 +16,15 @@
 //!
 //! Only compiled for tests (the `reference` feature).
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use crate::budget::Result;
-use crate::globals::Globals;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Term};
 use crate::value::{Closure, Elim, Head, Spine, Value, quot_mk_rep, quot_value};
 
-pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
+pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -105,13 +105,13 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
     })
 }
 
-pub fn apply_closure(g: &Globals, closure: &Closure, arg: Value) -> Result<Value> {
+pub fn apply_closure(g: &Ev, closure: &Closure, arg: Value) -> Result<Value> {
     let mut env = closure.env.to_vec();
     env.push(arg);
     eval(g, &env, &closure.body)
 }
 
-pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value> {
+pub fn apply_icit(g: &Ev, f: Value, arg: Value, icit: Icit) -> Result<Value> {
     match f {
         Value::Lam(_, _, closure) => apply_closure(g, &closure, arg),
         Value::Neutral(Head::Def(id), mut spine) => {
@@ -126,7 +126,7 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value
     }
 }
 
-fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
+fn apply_spine(g: &Ev, mut value: Value, spine: &[Elim]) -> Result<Value> {
     for elim in spine {
         value = match elim {
             Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit)?,
@@ -146,7 +146,7 @@ fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
 /// `Cons (MkChar c rfl) … Nil`, for the characters `chars`: what a compact
 /// list means (docs/proposals/compact-text.md, "Expansion"), written out
 /// from the prelude's constructors, independently of [`crate::chars`].
-fn expand(g: &Globals, chars: &[char]) -> Value {
+fn expand(g: &Ev, chars: &[char]) -> Value {
     let list = g
         .env
         .registry()
@@ -169,7 +169,7 @@ fn expand(g: &Globals, chars: &[char]) -> Value {
 /// `term` with every compact list replaced by its expansion, as constructor
 /// terms: for comparing the machine's quotation, which keeps compact lists,
 /// with this evaluator's, which never makes them.
-pub fn expand_term(g: &Globals, term: &Term) -> Term {
+pub fn expand_term(g: &Ev, term: &Term) -> Term {
     let go = |t: &Rc<Term>| Rc::new(expand_term(g, t));
     match term {
         Term::Chars(chars) => {
@@ -232,7 +232,7 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
 /// Replaces a solved metavariable at the head of `value` by its solution, and
 /// expands a compact list (which only a metavariable's solution, made by the
 /// machine, can hold).
-pub fn force(g: &Globals, value: Value) -> Result<Value> {
+pub fn force(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Chars(chars) = &value {
         return Ok(expand(g, chars.as_slice()));
     }
@@ -248,7 +248,7 @@ pub fn force(g: &Globals, value: Value) -> Result<Value> {
     }
 }
 
-fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
+fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if crate::value::hidden(g, id) {
         return Ok(Value::Neutral(Head::Def(id), spine.into()));
     }
@@ -296,7 +296,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
 
 /// Definition `id`'s body, unless it's opaque and hidden now
 /// ([`crate::value::hidden`]).
-fn seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
+fn seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
     g.def(id)
         .body
         .as_ref()
@@ -305,7 +305,7 @@ fn seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
 
 /// Whether a dictionary (`Def::fold`) or a theorem stays folded when it has
 /// all its arguments, except while a program runs.
-fn folds(g: &Globals, id: DefId) -> bool {
+fn folds(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
     (def.fold || def.theorem) && !g.machine.erasure.program_running()
 }
@@ -313,14 +313,14 @@ fn folds(g: &Globals, id: DefId) -> bool {
 /// Whether a definition with all its arguments stays folded when its case
 /// tree reaches a `Quot.lift` on a quotient that isn't a `Quot.mk`, except
 /// while a program runs.
-fn folds_on_lift(g: &Globals, id: DefId) -> bool {
+fn folds_on_lift(g: &Ev, id: DefId) -> bool {
     g.def(id).lift_leaf && !g.machine.erasure.program_running()
 }
 
 /// Whether `value` is a folded definition with all its arguments (or may
 /// be, folded on a `Quot.lift`), or `k * x` left folded
 /// (`native::folds_mul`).
-fn is_folded(g: &Globals, value: &Value) -> bool {
+fn is_folded(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
@@ -330,7 +330,7 @@ fn is_folded(g: &Globals, value: &Value) -> bool {
 /// A dictionary or theorem left folded (or a definition folded on a
 /// `Quot.lift`), unfolded (repeatedly) for a `case` or `J` to take it apart,
 /// or a comparison; anything else as it is.
-fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
+fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
         && (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
         && spine.len() == g.def(*id).arity
@@ -356,17 +356,12 @@ fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
 /// taken apart first as `value.rs` does. Its own frame, so `eval_tree`'s
 /// recursion keeps a small one.
 #[inline(never)]
-fn number_view(g: &Globals, value: &Value) -> Result<(num_bigint::BigUint, Option<Value>)> {
+fn number_view(g: &Ev, value: &Value) -> Result<(num_bigint::BigUint, Option<Value>)> {
     let value = unfold_folded(g, force(g, value.clone())?)?;
     native::view_with(g, &value, force)
 }
 
-fn eval_tree(
-    g: &Globals,
-    mut env: Vec<Value>,
-    term: &Term,
-    fold_lifts: bool,
-) -> Result<Option<Value>> {
+fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
@@ -423,19 +418,14 @@ fn eval_tree(
 
 /// A `Quot.lift` leaf of a case tree: `f a` on `Quot.mk a`, else stuck.
 #[inline(never)]
-fn lift_leaf(g: &Globals, env: &[Value], args: &[std::rc::Rc<Term>]) -> Result<Option<Value>> {
+fn lift_leaf(g: &Ev, env: &[Value], args: &[std::rc::Rc<Term>]) -> Result<Option<Value>> {
     Ok(lift(g, env, args)?.ok())
 }
 
 /// A quotient form applied to `args`. The one computation rule:
 /// `Quot.lift f h (Quot.mk a)` is `f a`.
 #[inline(never)]
-fn eval_quot(
-    g: &Globals,
-    env: &[Value],
-    form: QuotForm,
-    args: &[std::rc::Rc<Term>],
-) -> Result<Value> {
+fn eval_quot(g: &Ev, env: &[Value], form: QuotForm, args: &[std::rc::Rc<Term>]) -> Result<Value> {
     let eval_all = |args: &[std::rc::Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -457,7 +447,7 @@ fn eval_quot(
 /// recursion keep small ones (io.sw's long chain of prints recurses deeply).
 #[inline(never)]
 fn lift(
-    g: &Globals,
+    g: &Ev,
     env: &[Value],
     args: &[std::rc::Rc<Term>],
 ) -> Result<std::result::Result<Value, Value>> {
@@ -474,7 +464,7 @@ fn lift(
 }
 
 /// Converts a value back into a term, with `level` variables in scope.
-pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     let q = |v: &Value| quote(g, level, v);
     Ok(match force(g, value.clone())? {
         Value::Sort(s) => Term::Sort(s),
@@ -544,7 +534,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// which apply its result. Its own frame, as `lift` is.
 #[inline(never)]
 fn quote_quot<'s>(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     form: QuotForm,
     spine: &'s [Elim],
@@ -566,7 +556,7 @@ fn quote_quot<'s>(
 
 /// Definitional equality (the recursive version `value::conv` was derived
 /// from).
-pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {
@@ -706,7 +696,7 @@ impl Drop for OpenTrees {
 }
 
 /// A stuck call's case tree and arguments.
-fn tree_of(g: &Globals, value: &Value) -> (Rc<Term>, Vec<Value>) {
+fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!()
     };
@@ -728,7 +718,7 @@ fn tree_of(g: &Globals, value: &Value) -> (Rc<Term>, Vec<Value>) {
 /// equal branches (fields as fresh variables), or both leaves with equal
 /// values. A constructor scrutinee takes its branch first.
 fn same_trees(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     t1: &Rc<Term>,
     mut e1: Vec<Value>,
@@ -796,7 +786,7 @@ fn same_trees(
     }
 }
 
-fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
+fn all_conv(g: &Ev, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
     if xs.len() != ys.len() {
         return Ok(false);
     }
@@ -808,7 +798,7 @@ fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<boo
     Ok(true)
 }
 
-fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+fn conv_spines(g: &Ev, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
     for pair in s1.iter().zip(s2) {
         let same = match pair {
             (Elim::App(x, _), Elim::App(y, _)) => conv(g, level, x, y)?,
@@ -833,7 +823,7 @@ fn conv_spines(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bo
 
 /// Eta for partially applied definitions: both sides applied to a fresh
 /// variable.
-fn eta(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+fn eta(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     let underapplied = |v| crate::value::underapplied(g, v);
     let Some(icit) = underapplied(a).or_else(|| underapplied(b)) else {
         return Ok(false);

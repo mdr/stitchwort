@@ -53,7 +53,7 @@
 //! field doesn't compile until it says how it rewinds; the differential test
 //! (`crates/driver/tests/rewind.rs`) catches a field that rewinds wrongly.
 
-use stitchwort_core::globals::GlobalsMark;
+use stitchwort_core::globals::KernelMark;
 
 use crate::state::{
     Checkpoint, Journal, Logs, SessionLogs, SessionPositions, Tables, TablesPositions,
@@ -66,7 +66,7 @@ use crate::{Elaborator, nav, scope};
 /// panics. Released by [`Elaborator::release`] when no longer wanted.
 pub struct Mark {
     checkpoint: Checkpoint,
-    globals: GlobalsMark,
+    kernel: KernelMark,
     unit: crate::state::UnitMark,
     session: crate::state::SessionMark,
     tables: crate::state::TablesMark,
@@ -78,7 +78,7 @@ pub struct Mark {
 impl Mark {
     /// How many definitions there were.
     pub fn defs(&self) -> usize {
-        self.globals.defs()
+        self.kernel.defs()
     }
 }
 
@@ -88,7 +88,7 @@ impl Elaborator {
     /// file loads.
     pub fn mark(&mut self) -> Mark {
         assert!(
-            self.globals.metas.borrow().is_empty() && self.library_stack_is_empty(),
+            self.attempt.store.metas.borrow().is_empty() && self.library_stack_is_empty(),
             "a mark in the middle of checking"
         );
         if let Some(field) = self.decl.leftover() {
@@ -97,7 +97,7 @@ impl Elaborator {
         let checkpoint = self.with_journal(|journal, logs| journal.checkpoint(logs));
         Mark {
             checkpoint,
-            globals: self.globals.mark(),
+            kernel: self.kernel.mark(),
             unit: self.unit.mark(),
             session: self.session.mark(),
             tables: self.tables.mark(self.ids()),
@@ -113,7 +113,7 @@ impl Elaborator {
     /// not.
     pub fn rewind(&mut self, mark: &Mark) {
         let Elaborator {
-            globals,
+            kernel,
             tables,
             scope,
             attempt,
@@ -136,8 +136,8 @@ impl Elaborator {
                 session: session_logs,
             },
         );
-        let defs = mark.globals.defs();
-        globals.rewind(&mark.globals);
+        let defs = mark.kernel.defs();
+        kernel.rewind(&mark.kernel);
         tables.rewind(&mark.tables);
         scope.rewind(&mark.scope);
         attempt.rewind();

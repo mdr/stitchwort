@@ -27,12 +27,14 @@
 //!
 //! These rules are part of the trusted base (DESIGN.md §13).
 
+use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
 
 use crate::budget::Limits;
-use crate::globals::{Globals, State};
+use crate::globals::{Kernel, State};
 use crate::hash::data_hash;
 use crate::term::{DataId, Sort, Term};
 use crate::value::Value;
@@ -151,7 +153,7 @@ pub struct Binding {
 
 /// Compares `list` and `char` with the declarations the compact
 /// representation was written for, by content hash.
-pub fn binding(g: &Globals, list: DataId, char: DataId) -> Binding {
+pub fn binding(g: &Ev, list: DataId, char: DataId) -> Binding {
     // Hashing a reference hashes what it refers to first, which needs an
     // operation for its depth guard.
     let _op = g
@@ -176,24 +178,29 @@ pub fn binding(g: &Globals, list: DataId, char: DataId) -> Binding {
 /// The hash fixes their shape too; the shape is checked anyway, as the rules
 /// rely on it: `List` has one parameter, `Nil` and then `Cons` with two
 /// fields; `Char` has none, and `MkChar` has two fields.
-pub fn register(g: &mut Globals, list: DataId, char: DataId) -> bool {
-    let shaped = |d: DataId, params: usize, fields: &[usize]| {
-        let data = g.data(d);
-        data.state == State::Final
-            && data.params.len() == params
-            && data.indices.is_empty()
-            && data.sort == Sort::Type(0)
-            && data
-                .ctors
-                .iter()
-                .map(|c| c.fields.len())
-                .eq(fields.iter().copied())
-    };
-    if !(shaped(list, 1, &[0, 2]) && shaped(char, 0, &[2]) && binding(g, list, char).bound) {
-        return false;
-    }
-    g.env.builtins_mut().text = Some(CompactText::new(list, char));
-    true
+pub fn register(g: &mut Kernel, list: DataId, char: DataId) -> bool {
+    in_kernel_modes(g, |g| {
+        let shaped = |d: DataId, params: usize, fields: &[usize]| {
+            let data = g.data(d);
+            data.state == State::Final
+                && data.params.len() == params
+                && data.indices.is_empty()
+                && data.sort == Sort::Type(0)
+                && data
+                    .ctors
+                    .iter()
+                    .map(|c| c.fields.len())
+                    .eq(fields.iter().copied())
+        };
+        if !(shaped(list, 1, &[0, 2])
+            && shaped(char, 0, &[2])
+            && binding(&g.ev(), list, char).bound)
+        {
+            return false;
+        }
+        g.env.builtins_mut().text = Some(CompactText::new(list, char));
+        true
+    })
 }
 
 /// A compact list's value: `Nil` if it's empty (which keeps no buffer

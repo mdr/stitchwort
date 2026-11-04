@@ -39,7 +39,7 @@ fn size_and_depth(term: &Term) -> (usize, usize) {
 fn measure(program: String) -> Measured {
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let (steps, visits) = (
             g.machine.budget.total_work(),
             g.machine.budget.total_visits(),
@@ -52,7 +52,7 @@ fn measure(program: String) -> Measured {
                 .collect();
             panic!("{program}\ndidn't check:\n{shown}");
         }
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let (mut size, mut depth) = (0, 0);
         for def in &g.env.defs()[defs..] {
             for term in std::iter::once(def.ty()).chain(def.body().map(|b| &**b)) {

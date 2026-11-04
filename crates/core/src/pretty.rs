@@ -4,6 +4,7 @@
 //! too deeply to reach with the stack the operation may use is shown as `…`
 //! (docs/proposals/stack-safe-evaluation.md).
 
+use crate::ev::Ev;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -11,7 +12,7 @@ use num_bigint::BigUint;
 
 use crate::budget::Result;
 use crate::collections::HashMap;
-use crate::globals::{CallDefaults, DefaultCall, Globals, PlaceholderText};
+use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote_shown, quote_unfolded_shown, same_term};
@@ -62,20 +63,20 @@ pub trait NameScope {
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
-pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
+pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
     Printer::new(g, None).print(&mut names, term, Prec::Arrow)
 }
 
 /// [`term`], with names as `scope` writes them.
-pub fn term_in(g: &Globals, scope: &dyn NameScope, names: &[Name], term: &Term) -> String {
+pub fn term_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
     Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
 }
 
 /// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
 /// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
-pub fn term_ascii(g: &Globals, names: &[Name], term: &Term) -> String {
+pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
     let printer = Printer::new(g, None);
     printer.ascii.set(true);
@@ -83,7 +84,7 @@ pub fn term_ascii(g: &Globals, names: &[Name], term: &Term) -> String {
 }
 
 /// [`term_ascii`] for a value.
-pub fn value_ascii(g: &Globals, names: &[Name], value: &Value) -> String {
+pub fn value_ascii(g: &Ev, names: &[Name], value: &Value) -> String {
     match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term_ascii(g, names, &t),
         Err(_) => "…".into(),
@@ -92,7 +93,7 @@ pub fn value_ascii(g: &Globals, names: &[Name], value: &Value) -> String {
 
 /// Prints all of `term`, or fails if part of it is nested too deeply to
 /// print: for showing a result, where `…` would hide part of it.
-pub fn term_in_full(g: &Globals, names: &[Name], term: &Term) -> Result<String> {
+pub fn term_in_full(g: &Ev, names: &[Name], term: &Term) -> Result<String> {
     let mut names = names.to_vec();
     let printer = Printer::new(g, None);
     let text = printer.print(&mut names, term, Prec::Arrow);
@@ -107,7 +108,7 @@ const PASS: &str = "printer";
 
 /// Prints `value`, whose free variables are named by `names` (outermost first).
 /// If the value can't be quoted within the resource limits, it's shown as `…`.
-pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
+pub fn value(g: &Ev, names: &[Name], value: &Value) -> String {
     match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term(g, names, &t),
         Err(_) => "…".into(),
@@ -134,13 +135,13 @@ const MESSAGE_LIMIT: usize = 240;
 /// (`List.length xs`), not as what they compute to ([`quote_shown`];
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
-pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
+pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
     value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, false)
 }
 
 /// [`value_for_message`], with names as `scope` writes them.
 pub fn value_for_message_in(
-    g: &Globals,
+    g: &Ev,
     scope: &dyn NameScope,
     names: &[Name],
     value: &Value,
@@ -158,13 +159,13 @@ pub fn value_for_message_in(
 
 /// [`value_for_message`], showing the arguments the compiler fills in, for
 /// two types that print the same without them.
-pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> String {
+pub fn value_for_message_hidden(g: &Ev, names: &[Name], value: &Value) -> String {
     value_hidden(g, None, names, value)
 }
 
 /// [`value_for_message_hidden`], with names as `scope` writes them.
 pub fn value_for_message_hidden_in(
-    g: &Globals,
+    g: &Ev,
     scope: &dyn NameScope,
     names: &[Name],
     value: &Value,
@@ -172,12 +173,7 @@ pub fn value_for_message_hidden_in(
     value_hidden(g, Some(scope), names, value)
 }
 
-fn value_hidden(
-    g: &Globals,
-    scope: Option<&dyn NameScope>,
-    names: &[Name],
-    value: &Value,
-) -> String {
+fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &Value) -> String {
     let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
@@ -210,13 +206,13 @@ const DIFFERENCE_LIMIT: usize = 100;
 /// the arguments the compiler fills in. `None` if that's their outermost
 /// layer (which any printing shows), if they differ only in those
 /// arguments, or if they're too deeply nested to compare.
-pub fn first_difference(g: &Globals, names: &[Name], a: &Term, b: &Term) -> Option<Difference> {
+pub fn first_difference(g: &Ev, names: &[Name], a: &Term, b: &Term) -> Option<Difference> {
     difference(g, None, names, a, b)
 }
 
 /// [`first_difference`], with names as `scope` writes them.
 pub fn first_difference_in(
-    g: &Globals,
+    g: &Ev,
     scope: &dyn NameScope,
     names: &[Name],
     a: &Term,
@@ -226,7 +222,7 @@ pub fn first_difference_in(
 }
 
 fn difference(
-    g: &Globals,
+    g: &Ev,
     scope: Option<&dyn NameScope>,
     names: &[Name],
     a: &Term,
@@ -274,23 +270,18 @@ fn difference(
 
 /// Whether `a` and `b` differ, but only in the arguments the compiler fills
 /// in: implicit and `auto` arguments.
-pub fn differ_only_in_hidden(g: &Globals, a: &Term, b: &Term) -> bool {
+pub fn differ_only_in_hidden(g: &Ev, a: &Term, b: &Term) -> bool {
     let compare = |explicit_only| first_mismatch(g, a, b, explicit_only, &mut Path::new(&[]));
     matches!(compare(true), Ok(None)) && matches!(compare(false), Ok(Some(_)))
 }
 
 /// [`value_for_message`], for a term.
-pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
+pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
     term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, false)
 }
 
 /// [`term_for_message`], with names as `scope` writes them.
-pub fn term_for_message_in(
-    g: &Globals,
-    scope: &dyn NameScope,
-    names: &[Name],
-    term_: &Term,
-) -> String {
+pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_: &Term) -> String {
     term_within(
         g,
         Some(scope),
@@ -307,19 +298,14 @@ pub fn term_for_message_in(
 const GOAL_LIMIT: usize = 4000;
 
 /// [`value_for_message_in`], with the larger limit of a goal's types.
-pub fn value_for_goal(g: &Globals, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
+pub fn value_for_goal(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
     value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow, true)
 }
 
 /// [`value_for_message_in`] for one side of an equation shown as `a = b`:
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
-pub fn side_for_message_in(
-    g: &Globals,
-    scope: &dyn NameScope,
-    names: &[Name],
-    value: &Value,
-) -> String {
+pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
     value_within(
         g,
         Some(scope),
@@ -333,7 +319,7 @@ pub fn side_for_message_in(
 
 /// [`term_within`] for a value, with calls shown as written.
 fn value_within(
-    g: &Globals,
+    g: &Ev,
     scope: Option<&dyn NameScope>,
     names: &[Name],
     value: &Value,
@@ -351,7 +337,7 @@ fn value_within(
 /// `limit` characters shortened; with `equations`, as a goal writes
 /// decided equations ([`Printer::equations`]).
 fn term_within(
-    g: &Globals,
+    g: &Ev,
     scope: Option<&dyn NameScope>,
     names: &[Name],
     term_: &Term,
@@ -409,7 +395,7 @@ enum Prec {
 type Branch = (Name, Rc<Term>);
 
 struct Printer<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     /// Whether something was too deeply nested to print, and shown as `…`.
     elided: Cell<bool>,
     /// For messages: parts nested deeper than this are shown as `…`.
@@ -431,7 +417,7 @@ struct Printer<'g> {
 }
 
 impl<'g> Printer<'g> {
-    fn new(g: &'g Globals, scope: Option<&'g dyn NameScope>) -> Self {
+    fn new(g: &'g Ev<'g>, scope: Option<&'g dyn NameScope>) -> Self {
         Printer {
             g,
             elided: Cell::new(false),
@@ -1576,7 +1562,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        let g: &'g Globals = self.g;
+        let g: &'g Ev<'g> = self.g;
         let member = g.def(*id).path.strip_prefix("Std.Ord.")?;
         match (member.strip_prefix('%'), &args[..]) {
             (Some(field), [_, lhs, rhs]) => Some((field, *lhs, *rhs)),
@@ -1747,21 +1733,19 @@ impl<'g> Printer<'g> {
     }
 
     /// An unfilled placeholder of a queued check, as the source it stands
-    /// for (`Globals::placeholder_syntax`, D2091), if it is applied to the
+    /// for (`Shown::placeholder`, D2091), if it is applied to the
     /// variables it was made with: those left out, any further arguments
     /// shown. Applied to anything else (a lambda's parameter replaced by an
     /// argument), the source would name the wrong variables: `None`.
     fn placeholder(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
-        let (context, text) = {
-            let shown = self.g.placeholder_syntax.borrow();
-            if shown.is_empty() {
-                return None;
-            }
-            let Term::Meta(m) = term.spine().0 else {
-                return None;
-            };
-            shown.get(m)?.clone()
+        let mut head = term.strip_loc();
+        while let Term::App(f, _, _) = head {
+            head = f.strip_loc();
+        }
+        let Term::Meta(m) = head else {
+            return None;
         };
+        let (context, text) = self.g.shown.placeholder(*m)?;
         let (_, args) = term.spine();
         let depth = names.len();
         let same = context.len() <= args.len()
@@ -1782,10 +1766,9 @@ impl<'g> Printer<'g> {
         Some(self.applied(names, text, args.into_iter().skip(context)))
     }
 
-    /// A call of a local definition, by its name (`Globals::print_labels`).
+    /// A call of a local definition, by its name (`Shown::print_label`).
     fn label(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
-        let labels = self.g.print_labels.borrow();
-        if labels.is_empty() {
+        if !self.g.shown.has_print_labels() {
             return None;
         }
         let mut args = Vec::new();
@@ -1795,7 +1778,7 @@ impl<'g> Printer<'g> {
             head = f.strip_loc();
         }
         args.reverse();
-        let label = labels.iter().find(|l| match (&l.head, head) {
+        let (name, levels, defaults) = self.g.shown.print_label(&mut |l| match (&l.head, head) {
             (Term::Meta(a), Term::Meta(b)) => a == b && args.len() >= l.levels.len(),
             (Term::Def(a), Term::Def(b)) => {
                 let depth = names.len();
@@ -1807,15 +1790,13 @@ impl<'g> Printer<'g> {
             }
             _ => false,
         })?;
-        let name = label.name.to_string();
-        let params = &args[label.levels.len()..];
-        let defaults = label.defaults.clone();
+        let name = name.to_string();
+        let params = &args[levels..];
         let rest: Vec<&Term> = params
             .iter()
             .filter(|(_, icit)| *icit == Icit::Explicit)
             .map(|(a, _)| *a)
             .collect();
-        drop(labels);
         if !self.show_hidden.get()
             && let Some(defaults) = defaults
             && let Some(shown) = self.defaulted(names, name.clone(), params, &defaults)
@@ -1833,13 +1814,7 @@ impl<'g> Printer<'g> {
             return None;
         };
         let def = self.g.def(*id);
-        let table = self
-            .g
-            .print_hints
-            .param_defaults
-            .borrow()
-            .get(id)
-            .cloned()?;
+        let table = self.g.shown.param_defaults(*id)?;
         let mut ty = def.ty.strip_loc();
         let mut params = Vec::with_capacity(table.header);
         for default in table.params.iter().take(table.header) {
@@ -1945,14 +1920,14 @@ impl<'g> Printer<'g> {
             })
     }
 
-    /// A call of an update's helper (`PrintHints::update_shown`), as the update:
+    /// A call of an update's helper (`Shown::update_shown`), as the update:
     /// `{ x | f = s, g = t }`.
     fn update(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
         let (head, args) = term.spine();
         let Term::Def(id) = head else {
             return None;
         };
-        let shown = self.g.print_hints.update_shown.borrow().get(id).cloned()?;
+        let shown = self.g.shown.update_shown(*id)?;
         if args.len() != shown.params {
             return None;
         }
@@ -2309,13 +2284,7 @@ fn bare(term: &Term) -> &Term {
 /// The first place, in printing order, where `a` and `b` differ; with
 /// `explicit_only`, implicit and `auto` arguments aren't compared. A number
 /// and the `Succ` it stands for are alike.
-fn first_mismatch(
-    g: &Globals,
-    a: &Term,
-    b: &Term,
-    explicit_only: bool,
-    path: &mut Path,
-) -> Compared {
+fn first_mismatch(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut Path) -> Compared {
     path.depth += 1;
     let found = mismatch_within(g, a, b, explicit_only, path);
     path.depth -= 1;
@@ -2323,13 +2292,7 @@ fn first_mismatch(
 }
 
 /// [`first_mismatch`], one layer in.
-fn mismatch_within(
-    g: &Globals,
-    a: &Term,
-    b: &Term,
-    explicit_only: bool,
-    path: &mut Path,
-) -> Compared {
+fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut Path) -> Compared {
     if g.machine.budget.stack_exhausted() {
         return Err(TooDeep);
     }
@@ -2546,12 +2509,12 @@ fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {
 
 /// Whether `d` is the prelude's `b`, which the printer shows specially. By
 /// identity, so a user's own `List` prints as written.
-fn is(g: &Globals, b: Builtin, d: DataId) -> bool {
+fn is(g: &Ev, b: Builtin, d: DataId) -> bool {
     g.env.registry().is_data(b, d)
 }
 
 /// Whether `d` is the library built-in `b`, if its file is loaded.
-fn is_loaded(g: &Globals, b: Builtin, d: DataId) -> bool {
+fn is_loaded(g: &Ev, b: Builtin, d: DataId) -> bool {
     g.env.registry().loaded_data(b) == Some(d)
 }
 
@@ -2566,7 +2529,7 @@ fn same_base(a: Option<&Term>, b: Option<&Term>) -> bool {
 }
 
 /// `Succ (Succ Zero)` as `2`.
-fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
+fn nat_literal(g: &Ev, term: &Term) -> Option<BigUint> {
     let mut n = 0u64;
     let mut term = term.strip_loc();
     loop {
@@ -2584,7 +2547,7 @@ fn nat_literal(g: &Globals, term: &Term) -> Option<BigUint> {
 
 /// `OfNat 5` as `5` and `NegSucc 4` as `-5`: whether it's negative, and the
 /// magnitude.
-fn int_literal(g: &Globals, term: &Term) -> Option<(bool, BigUint)> {
+fn int_literal(g: &Ev, term: &Term) -> Option<(bool, BigUint)> {
     match term.strip_loc() {
         Term::Ctor(d, c, args) if is(g, Builtin::Int, *d) && args.len() == 1 => {
             let n = nat_literal(g, &args[0])?;
@@ -2598,7 +2561,7 @@ fn int_literal(g: &Globals, term: &Term) -> Option<(bool, BigUint)> {
 }
 
 /// `MkChar 97 _` as `'a'`.
-fn char_literal(g: &Globals, term: &Term) -> Option<char> {
+fn char_literal(g: &Ev, term: &Term) -> Option<char> {
     match term.strip_loc() {
         Term::Ctor(d, 0, args) if is(g, Builtin::Char, *d) && args.len() == 2 => {
             let code = u32::try_from(nat_literal(g, &args[0])?).ok()?;
@@ -2609,7 +2572,7 @@ fn char_literal(g: &Globals, term: &Term) -> Option<char> {
 }
 
 /// `MkText ['h', 'i']` as `"hi"`.
-fn text_literal(g: &Globals, term: &Term) -> Option<Vec<char>> {
+fn text_literal(g: &Ev, term: &Term) -> Option<Vec<char>> {
     match term.strip_loc() {
         Term::Ctor(d, 0, args) if is(g, Builtin::Text, *d) && args.len() == 1 => {
             char_list(g, &args[0])
@@ -2620,7 +2583,7 @@ fn text_literal(g: &Globals, term: &Term) -> Option<Vec<char>> {
 
 /// A list of character literals, as cons cells, ending in `Nil` or in a
 /// compact list (whose characters are literals).
-fn char_list(g: &Globals, term: &Term) -> Option<Vec<char>> {
+fn char_list(g: &Ev, term: &Term) -> Option<Vec<char>> {
     let mut chars = Vec::new();
     let mut term = term.strip_loc();
     loop {
@@ -2672,7 +2635,7 @@ fn escape(chars: &[char], quote: char) -> String {
 }
 
 /// `Cons a (Cons b Nil)` as `[a, b]`.
-fn list_literal<'t>(g: &Globals, term: &'t Term) -> Option<Vec<&'t Term>> {
+fn list_literal<'t>(g: &Ev, term: &'t Term) -> Option<Vec<&'t Term>> {
     let mut items = Vec::new();
     let mut term = term.strip_loc();
     loop {
@@ -2689,16 +2652,16 @@ fn list_literal<'t>(g: &Globals, term: &'t Term) -> Option<Vec<&'t Term>> {
 
 /// Records on `g` that a message showed a term that uses a definition that
 /// failed: whatever went wrong then is fallout of that failure (see
-/// `Globals::failed_mentioned`). Looks at the whole term, whatever the
+/// `Shown::note_failed_mentioned`). Looks at the whole term, whatever the
 /// message elides.
-fn note_failed_mention(g: &Globals, term: &Term) {
-    if g.failed_mentioned.get() || g.machine.budget.stack_exhausted() {
+fn note_failed_mention(g: &Ev, term: &Term) {
+    if !g.shown.wants_failed_mention() || g.machine.budget.stack_exhausted() {
         return;
     }
     if let Term::Def(d) = term
         && g.def(*d).state() == crate::globals::State::Failed
     {
-        g.failed_mentioned.set(true);
+        g.shown.note_failed_mentioned();
         return;
     }
     term.for_each_child(|c, _| note_failed_mention(g, c));

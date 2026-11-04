@@ -528,7 +528,7 @@ impl Elaborator {
         if self.present.nav.is_none() {
             return;
         }
-        let def = self.globals.def(id);
+        let def = self.kernel.def(id);
         // The declaration's name, as a written name finds it; a definition's
         // own span covers all of it.
         let path = def.path().to_string();
@@ -656,7 +656,7 @@ impl Elaborator {
         let mut nav = nav.borrow_mut();
         let pending = std::mem::take(&mut nav.pending);
         for (span, ty, names, expr) in pending {
-            let text = pretty::value_for_message(&self.globals, &names, &ty);
+            let text = pretty::value_for_message(&self.ev(), &names, &ty);
             if expr {
                 nav.expr_types.insert(span, text);
             } else {
@@ -985,7 +985,7 @@ impl Elaborator {
     fn global_kind(&self, global: Global) -> &'static str {
         match global {
             Global::Def(id) => {
-                let def = self.globals.def(id);
+                let def = self.kernel.def(id);
                 if def.theorem() {
                     "theorem"
                 } else if def.instance() {
@@ -997,7 +997,7 @@ impl Elaborator {
             Global::Data(d) => {
                 if self.tables.interfaces.contains_key(&d) {
                     "interface"
-                } else if self.globals.data(d).record() {
+                } else if self.kernel.data(d).record() {
                     "record"
                 } else {
                     "data"
@@ -1018,7 +1018,7 @@ impl Elaborator {
     /// The declared type of constructor `c`'s field `name`, in terms of the
     /// type's parameters and the constructor's earlier fields.
     fn ctor_field_type(&self, d: stitchwort_core::DataId, c: usize, name: &str) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let ctor = &data.ctors()[c];
         let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
@@ -1034,7 +1034,7 @@ impl Elaborator {
         let Global::Def(id) = global else {
             return None;
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
@@ -1069,7 +1069,7 @@ impl Elaborator {
     /// The value of definition `id`'s parameter `i`'s default, if it has
     /// one: its helper's body, in the names of the parameters it takes.
     pub(crate) fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let table = self.tables.param_defaults.get(&id)?;
         let default = table.params.get(i)?.as_ref()?;
         let mut body: Term = (**g.def(default.helper).body()?).clone();
@@ -1084,7 +1084,7 @@ impl Elaborator {
     /// A definition with parameter defaults, as its header is written:
     /// `def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat`.
     fn defaulted_header(&self, id: DefId) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(id);
         let table = self.tables.param_defaults.get(&id)?;
         let mut names: Vec<Name> = Vec::new();
@@ -1115,7 +1115,7 @@ impl Elaborator {
     }
 
     fn global_type(&self, global: Global) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         match global {
             Global::Def(id) => {
                 let ty = match self.defaulted_header(id) {

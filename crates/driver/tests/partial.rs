@@ -332,7 +332,7 @@ fn main_value(session: &mut Session) -> stitchwort_core::Value {
         .parse_expression("<main>", "((u => main ()) : () -> {IO, Partial} ()) ()")
         .unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     force(g, eval(g, &[], &term).unwrap()).unwrap()
 }
 
@@ -343,7 +343,7 @@ fn main_value(session: &mut Session) -> stitchwort_core::Value {
 fn a_step_returns_operations_without_performing_them() {
     let mut session = load(&io_program("echo 0"));
     let main = main_value(&mut session);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let machine = Machine::start(g, main);
     let Obs::Call(op, pending) = machine.step(g).unwrap() else {
         panic!("the first thing `echo` does is read a line");
@@ -379,7 +379,7 @@ fn a_step_returns_operations_without_performing_them() {
 fn building_a_partial_computation_runs_nothing() {
     let mut session = load(&printing("spin 0", false));
     let main = main_value(&mut session);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut machine = Machine::start(g, main);
     let mut frames = None;
     for _ in 0..1000 {
@@ -652,7 +652,7 @@ fn a_loop_under_a_handler_runs_in_constant_frames() {
             lines.join(", ")
         )));
         let main = main_value(&mut session);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let unit = stitchwort_core::Value::Ctor(
             g.env
                 .registry()

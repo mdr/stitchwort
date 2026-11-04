@@ -197,7 +197,7 @@ fn term(out: &mut String, t: &Term) {
 /// The canonical dump of `e` (see the module's comment).
 pub fn canonical_dump(e: &Elaborator) -> String {
     let mut out = String::new();
-    let g = &e.globals;
+    let g = &e.ev();
     for (i, def) in g.env.defs().iter().enumerate() {
         let _ = write!(
             out,

@@ -723,7 +723,7 @@ impl Elaborator {
     }
 
     pub fn install_library(&mut self, index: Arc<LibraryIndex>) {
-        stitchwort_core::registry::install_library(&mut self.globals);
+        stitchwort_core::registry::install_library(&mut self.kernel);
         let mut state = vec![LoadState::NotLoaded; index.files.len()];
         state[0] = LoadState::Loaded;
         for (f, file) in index.files.iter().enumerate().skip(1) {
@@ -747,8 +747,8 @@ impl Elaborator {
             stack: Vec::new(),
             order: Vec::new(),
             core: scope::CoreExtent {
-                defs: self.globals.env.defs().len(),
-                datas: self.globals.env.datas().len(),
+                defs: self.kernel.env.defs().len(),
+                datas: self.kernel.env.datas().len(),
                 abilities: self.tables.abilities.len(),
                 fresh: usize::MAX,
             },
@@ -779,7 +779,7 @@ impl Elaborator {
     pub fn library_decision_procedures(&self) -> Vec<String> {
         use stitchwort_core::registry::Builtin;
         use stitchwort_core::{DefId, Value};
-        let g = &self.globals;
+        let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
         let decidable = g.env.registry().data(Builtin::Decidable);
         let mut found = Vec::new();
@@ -1070,7 +1070,7 @@ impl Elaborator {
         let cached = self.cache_lookup(f);
         let timed = cached.is_some() && crate::timings::enabled();
         if timed {
-            crate::timings::begin(&self.globals);
+            crate::timings::begin(&self.ev());
         }
         let hit = match &cached {
             Some((unit, key)) => self.load_from_cache(f, unit, key),
@@ -1083,7 +1083,7 @@ impl Elaborator {
                 file.path,
                 if hit { "cached" } else { "cache miss" }
             );
-            crate::timings::end(&self.globals, label);
+            crate::timings::end(&self.ev(), label);
         }
         if hit {
             let lib = self
@@ -1174,7 +1174,7 @@ impl Elaborator {
         let file = &index.files[f];
         // The core loaded before the library's names were there.
         let core_only = (f == 0).then_some(scope::CoreExtent {
-            fresh: self.globals.env.defs().len(),
+            fresh: self.kernel.env.defs().len(),
             ..lib.core
         });
         let saved = self.enter_nested_unit();

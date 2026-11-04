@@ -110,7 +110,7 @@ impl Elaborator {
     /// `n` parameters (or all of them): whether a definition with entry
     /// arity `n` is partial, as opposed to returning partial functions.
     fn partial_after(&self, id: DefId, n: usize) -> Result<bool> {
-        let g = &self.globals;
+        let g = &self.ev();
         let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) else {
             return Ok(false);
         };
@@ -139,7 +139,7 @@ impl Elaborator {
 
     /// How many parameters the equations of definition `id` bind.
     fn entry_params(&self, id: DefId, equations: &[Decl]) -> Result<usize> {
-        let g = &self.globals;
+        let g = &self.ev();
         let explicit = match equations.first() {
             Some(Decl::Equation { patterns, .. }) => patterns.len(),
             _ => 0,
@@ -237,7 +237,7 @@ impl Elaborator {
         members: &[(usize, &Decl, &[Decl])],
         ids: &[DefId],
     ) -> Result<Vec<(usize, Diagnostic)>> {
-        let g = &self.globals;
+        let g = &self.ev();
         // A prelude whose partial primitives were refused (E-BUILTIN) has
         // already reported that; there is nothing to describe against.
         if [Primitive::Delay, Primitive::Lift, Primitive::Pfix]
@@ -282,7 +282,7 @@ impl Elaborator {
         self.unit.module.phase = Phase::Body;
         let req_name: Name = format!("{}.Request", first.name).into();
         let req = kernel::declare_data_group(
-            &mut self.globals,
+            &mut self.kernel,
             fixed_params
                 .iter()
                 .map(|p| (p.name.clone(), p.ty.clone()))
@@ -302,7 +302,7 @@ impl Elaborator {
                 implicit: Vec::new(),
             })
             .collect();
-        kernel::define_data_group(&mut self.globals, vec![(req, ctors)])
+        kernel::define_data_group(&mut self.kernel, vec![(req, ctors)])
             .map_err(|e| self.unpackable(&infos, f, e))?;
         let req_at = |depth: usize| Term::data(req, (0..f).map(|i| var(depth, i)).collect());
 
@@ -323,7 +323,7 @@ impl Elaborator {
                     Ok(stitchwort_core::term::Branch {
                         names: m.params[f..].iter().map(|p| p.name.clone()).collect(),
                         // From (fixed, changing) to (fixed, r, changing).
-                        body: Some(Rc::new(m.result.shift(&self.globals, 1, c)?)),
+                        body: Some(Rc::new(m.result.shift(&self.ev(), 1, c)?)),
                     })
                 })
                 .collect::<Result<_>>()?;
@@ -336,7 +336,7 @@ impl Elaborator {
                 ),
             );
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &format!("{}.Response", first.name).into(),
@@ -345,7 +345,7 @@ impl Elaborator {
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
             id
         };
         let response_at = |depth: usize| {
@@ -421,7 +421,7 @@ impl Elaborator {
                 ),
             );
             let recur = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &format!("{}.recur", m.name).into(),
@@ -430,10 +430,10 @@ impl Elaborator {
                 false,
                 m.span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, recur, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, recur, &body)?;
             recurs.push(recur);
             descriptions.push(kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &format!("{}.description", m.name).into(),
@@ -466,12 +466,8 @@ impl Elaborator {
             ans: {
                 let mut ans = Value::Neutral(Head::Def(response), Spine::new());
                 for (i, p) in fixed_params.iter().enumerate() {
-                    ans = stitchwort_core::value::apply_icit(
-                        &self.globals,
-                        ans,
-                        Value::var(i),
-                        p.icit,
-                    )?;
+                    ans =
+                        stitchwort_core::value::apply_icit(&self.ev(), ans, Value::var(i), p.icit)?;
                 }
                 ans
             },
@@ -527,7 +523,7 @@ impl Elaborator {
             // (Each on its own, which keeps the descriptions' hashes.)
             for ((&(item, _, _), body), desc) in members.iter().zip(bodies).zip(&descriptions) {
                 self.unit.module.item = Some(item);
-                if let Err(d) = kernel::define_def(&mut self.globals, &self.tables, *desc, &body) {
+                if let Err(d) = kernel::define_def(&mut self.kernel, &self.tables, *desc, &body) {
                     out.push((item, d));
                 }
             }
@@ -536,7 +532,7 @@ impl Elaborator {
             let mut group = pending_helpers;
             group.extend(descriptions.iter().copied().zip(bodies));
             self.unit.module.item = Some(members[0].0);
-            if let Err(d) = kernel::define_group(&mut self.globals, &self.tables, &group) {
+            if let Err(d) = kernel::define_group(&mut self.kernel, &self.tables, &group) {
                 out.push((members[0].0, d));
             }
         }
@@ -548,8 +544,8 @@ impl Elaborator {
         self.unit.module.item = Some(members[0].0);
         let body_id = {
             let depth = f + 1;
-            let ops = ops_fixed.0.shift(&self.globals, 1, 0)?;
-            let res = ops_fixed.1.shift(&self.globals, 1, 0)?;
+            let ops = ops_fixed.0.shift(&self.ev(), 1, 0)?;
+            let res = ops_fixed.1.shift(&self.ev(), 1, 0)?;
             let result = Term::app(response_at(depth), Term::Var(0));
             let (ty, _, _) = described(depth, ops, res, result);
             let ty = pis(
@@ -580,7 +576,7 @@ impl Elaborator {
                 ),
             );
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &format!("{}.body", first.name).into(),
@@ -589,7 +585,7 @@ impl Elaborator {
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
             id
         };
 
@@ -620,7 +616,7 @@ impl Elaborator {
             );
             wrappers.push((m.id, body));
         }
-        kernel::define_group(&mut self.globals, &self.tables, &wrappers)?;
+        kernel::define_group(&mut self.kernel, &self.tables, &wrappers)?;
         for (&(item, signature, _), id) in members.iter().zip(ids) {
             self.unit.module.item = Some(item);
             if let Err(d) = self.after_definition(signature, *id) {
@@ -636,7 +632,7 @@ impl Elaborator {
         let Decl::Signature { name, .. } = decl else {
             unreachable!()
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let n = self.entry_params(id, equations)?;
         let mut params = Vec::new();
         let mut ty = g.def(id).ty_value().clone();
@@ -675,7 +671,7 @@ impl Elaborator {
     /// large: a type, a type family, or in a universe above `Type`. Those
     /// can't be packed into a request, so they must be fixed.
     fn is_large(&self, level: usize, ty: &Value) -> Result<bool> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (mut level, mut ty) = (level, ty.clone());
         loop {
             match force(g, ty)? {
@@ -694,7 +690,7 @@ impl Elaborator {
     /// parameters, which must be the same for every member. Large
     /// parameters after the first ordinary one are refused.
     fn fixed_params(&self, infos: &[Member]) -> Result<usize> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut counts = Vec::new();
         for m in infos {
             let mut env = Vec::new();
@@ -764,7 +760,7 @@ impl Elaborator {
     /// and must be the same for each: its operations and results, in the
     /// context of the fixed parameters.
     fn shared_row(&self, infos: &[Member], f: usize) -> Result<(Term, Term)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut shared: Option<(Term, Term, Value, Value)> = None;
         for m in infos {
             let c = m.params.len() - f;

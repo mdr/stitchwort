@@ -11,8 +11,9 @@
 //! a namespace checked again after the rewind may reuse, so a mark would
 //! have to copy them (2 MB a mark on the AoC project, 15,000 rows: most of
 //! what a language server's mark cost, elaborator-state.md §9 F11); the
-//! namespaces checked again fill them again, at no measured cost (SW-1179). `Globals::hashes` (content hashes) is a cache too, but
-//! lives in `core` until the `Globals` split (step 8).
+//! namespaces checked again fill them again, at no measured cost (SW-1179).
+//! The content hashes are a cache too, but live in `core`, in the kernel's
+//! `EvalCaches`.
 
 use std::cell::RefCell;
 

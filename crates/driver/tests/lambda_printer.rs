@@ -13,7 +13,7 @@ fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
     if let Err(errors) = session.load("test.sw", &format!("def t : {sig} := {body}\n")) {
         panic!("{body}: {errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let (id, def) = g
         .env
         .defs()

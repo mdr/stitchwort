@@ -51,11 +51,12 @@
 //! open terms, where proofs do matter for typing. Erasure is set only by the
 //! driver around running a program or a test.
 
+use crate::ev::Ev;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::check;
-use crate::globals::{Globals, State};
+use crate::globals::State;
 use crate::term::DefId;
 use crate::value::{Apart, Head, Spine, Value};
 
@@ -117,6 +118,20 @@ impl Erasure {
         }
     }
 
+    /// Neither erasing nor running a program, until [`Erasure::put_back`]
+    /// is given what this returns: how the kernel's admission checks,
+    /// whatever its caller was doing (D2294; "the checker never runs with
+    /// erasure").
+    pub(crate) fn stop(&self) -> (bool, bool) {
+        (self.active.replace(false), self.program.replace(false))
+    }
+
+    /// Puts back the modes [`Erasure::stop`] found.
+    pub(crate) fn put_back(&self, (active, program): (bool, bool)) {
+        self.active.set(active);
+        self.program.set(program);
+    }
+
     /// Whether a program or test is running now, erasing or not (erasure is
     /// [`Erasure::set_disabled`] to compare the two): then dictionaries and
     /// theorems don't stay folded and calls aren't glued, as they do while
@@ -138,7 +153,7 @@ impl Erasure {
 }
 
 /// Which parts of definition `id` are erased, or `None` if it isn't final.
-pub fn of_def(g: &Globals, id: DefId) -> Option<Rc<DefErasure>> {
+pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     if let Some(Some(known)) = g.caches.erasure_defs.borrow().get(id.0) {
         return Some(known.clone());
     }

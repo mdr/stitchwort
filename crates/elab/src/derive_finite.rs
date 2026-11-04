@@ -95,7 +95,7 @@ impl Elaborator {
     /// After data type or record `d` is admitted: its `Finite` instance, if
     /// one can be derived, or else why not.
     pub(crate) fn derive_data_finite(&mut self, d: DataId) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         let Some(finite) = interfaces::finite(self) else {
             return Ok(());
@@ -111,7 +111,7 @@ impl Elaborator {
             }
         };
         let ctors: Vec<usize> = self
-            .globals
+            .kernel
             .data(d)
             .ctors()
             .iter()
@@ -149,7 +149,7 @@ impl Elaborator {
         d: DataId,
         finite: DataId,
     ) -> Result<std::result::Result<Plan, String>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let name = data.name().to_string();
         let np = data.params().len();
@@ -227,8 +227,8 @@ impl Elaborator {
             }
         }
         self.clear_metas();
-        let span = self.globals.data(d).span();
-        let params = self.globals.data(d).params().to_vec();
+        let span = self.kernel.data(d).span();
+        let params = self.kernel.data(d).params().to_vec();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
@@ -271,7 +271,7 @@ impl Elaborator {
     /// type of field `k` of `C`, all its arguments explicit, so source can
     /// name it (as `T.%C%P%k` does for a proof field, `derive.rs`).
     fn derive_field_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ctor = &data.ctors()[c];
         let member = format!("%{}%F%{k}", ctor.name);
         if self.has_member(d, &member) {
@@ -292,7 +292,7 @@ impl Elaborator {
         let name: Name = format!("{}.{member}", data.name()).into();
         let span = data.span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -301,7 +301,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())
@@ -312,7 +312,7 @@ impl Elaborator {
     /// (`T.%all%c`), `T.%all`, `T.%complete` and `T.%instFinite`, in an order
     /// where each uses only those before it.
     fn finite_source(&self, d: DataId, plan: &Plan) -> Vec<Definition> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let s = Src { span: data.span() };
         let np = data.params().len();

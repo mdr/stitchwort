@@ -8,7 +8,7 @@ use stitchwort_core::check::telescope;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
-use stitchwort_core::{DefId, Globals, Term, Value};
+use stitchwort_core::{DefId, Ev, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 /// What erasure decides about a definition from its type.
@@ -41,7 +41,7 @@ impl DefShape {
 /// [`DefShape`] for definition `id`. With `primitives_whole`, one of
 /// `Delay`'s constants takes all of its parameters (it has no body, so no
 /// arity): for backends that build `Delay` values rather than erasing them.
-pub fn def_shape(g: &Globals, id: DefId, primitives_whole: bool) -> Result<DefShape, Diagnostic> {
+pub fn def_shape(g: &Ev, id: DefId, primitives_whole: bool) -> Result<DefShape, Diagnostic> {
     let def = g.def(id);
     let tel = telescope(g, def.ty_value(), def.span())?;
     let partial = match (
@@ -72,7 +72,7 @@ pub fn def_shape(g: &Globals, id: DefId, primitives_whole: bool) -> Result<DefSh
 /// [`DefId`]. What an `opaque` definition's body uses doesn't count: an
 /// erased one (a proof or a type) or a natively implemented one.
 pub fn reachable(
-    g: &Globals,
+    g: &Ev,
     roots: impl IntoIterator<Item = DefId>,
     opaque: impl Fn(DefId) -> bool,
 ) -> Vec<bool> {
@@ -116,7 +116,7 @@ pub fn defs_in(term: &Term) -> Vec<DefId> {
 /// writes for an operation or a recursion request, which a runner
 /// recognises to run a tail request in constant space (as
 /// `stitchwort_core::step` does).
-pub fn is_done_continuation(g: &Globals, body: &Term) -> bool {
+pub fn is_done_continuation(g: &Ev, body: &Term) -> bool {
     let mut body = body;
     while let Term::Loc(_, t) | Term::Ann(t, _) = body {
         body = t;
@@ -162,7 +162,7 @@ pub fn text_literal(chars: &Term) -> Option<String> {
 /// (under locations and annotations) and the first argument a variable.
 /// Both backends call it on an application's spine.
 pub fn beta_variable(
-    g: &Globals,
+    g: &Ev,
     head: &Term,
     args: &[&Term],
 ) -> stitchwort_core::budget::Result<Option<Term>> {

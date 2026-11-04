@@ -148,7 +148,7 @@ enum CallError {
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let main_name = self
             .elab
             .current_namespace()
@@ -178,7 +178,7 @@ impl Session {
     /// [`main_calls`] that checks) as a computation in the row
     /// `{IO, Partial}` or `{IO, Fail, Partial}`.
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
-        let def = &self.elab.globals.env.defs()[index];
+        let def = &self.elab.kernel.env.defs()[index];
         let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
         // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
         if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
@@ -299,7 +299,7 @@ impl Session {
         );
         let expr = self.parse_internal("<simulate>", &source)?;
         let (term, _) = self.elab.infer_expr(&expr)?;
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let s = Shapes::new(self);
         let _op = g.machine.budget.operation(self.elab.options.limits);
         // Proofs and types aren't computed (`erase.rs`).
@@ -403,7 +403,7 @@ impl Session {
     /// [`Session::run_main_fast`] does before running it.
     pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
         stitchwort_rt::lower_main(
-            &self.elab.globals,
+            &self.elab.ev(),
             self.elab.options.limits,
             main.term(),
             main.row,
@@ -469,7 +469,7 @@ impl Session {
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
         let result = self.run_loop_inner(main, input, output, terminal, policy, trace);
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         match result {
             Err(RunError::Resource(ResourceError::Depth)) => {
                 let deepest = g.machine.budget.take_deepest();
@@ -498,7 +498,7 @@ impl Session {
         policy: &Policy,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let s = Shapes::new(self);
         // Proofs and types aren't computed (`erase.rs`).
         let _erasing = g.machine.erasure.running();
@@ -546,7 +546,7 @@ impl Session {
     /// steps `main`: each stretch between two ticks is one operation, with
     /// its own resource limits, and there's no tick limit.
     pub(crate) fn run_partial(&self, term: &Term) -> Result<Value, ResourceError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let _erasing = g.machine.erasure.running();
         let mut machine = {
             let _op = g.machine.budget.operation(self.elab.options.limits);
@@ -577,7 +577,7 @@ impl Session {
         lines: &mut usize,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Value, RunError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         // `{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
         // `Plus Fail (Plus IO NoOp)`: an operation is `L` of an `IO` or `Fail`
         // operation, or `R (L …)` of an `IO` one.
@@ -724,7 +724,7 @@ struct Shapes {
 
 impl Shapes {
     fn new(session: &Session) -> Shapes {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let r = &g.env.registry();
         let data = |b: Builtin| r.data(b).expect("the prelude declares it");
         let ctor = |b: Builtin| r.ctor(b).expect("the prelude declares it").1;
@@ -785,7 +785,7 @@ impl Shapes {
     /// A `Text` value's characters. A checked program's text is always made
     /// of scalar values.
     fn text_to_string(&self, session: &Session, value: &Value) -> Result<String, ResourceError> {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let Value::Ctor(d, 0, fields) = force(g, value.clone())? else {
             unreachable!("a `Text` value")
         };

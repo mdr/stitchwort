@@ -201,7 +201,7 @@ fn the_instance_marker_is_hashed() {
         let mut session = Session::new();
         session.load("test.sw", &source).expect("loads");
         let id = session.elab.lookup_def("Pretty.instNat").expect("defined");
-        def_hash(&session.elab.globals, id)
+        def_hash(&session.elab.ev(), id)
             .expect("in budget")
             .expect("final")
     };
@@ -249,7 +249,7 @@ fn a_types_auto_parameters_are_hashed() {
         );
         let mut session = Session::new();
         session.load("test.sw", &source).expect("loads");
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let id = g
             .env
             .datas()
@@ -271,7 +271,7 @@ fn body_of(source: &str, name: &str) -> (Vec<String>, Vec<String>) {
         panic!("{errors:#?}");
     }
     let id = session.elab.lookup_def(name).expect("defined");
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let body = g.def(id).body().expect("a body");
     let mut defs = Vec::new();
     let mut records = Vec::new();

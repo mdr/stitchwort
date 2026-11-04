@@ -17,14 +17,14 @@ use stitchwort_core::native::{self, as_nat};
 use stitchwort_core::reference;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{self, Value};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Icit, Kernel, Term};
 use stitchwort_driver::driver::{Session, with_stack};
 
 /// Room for the definitions' unary recursion when natives are off.
 const STACK: usize = 64 << 20;
 
 /// The prelude's definition `name` (`Int.add`).
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -34,7 +34,7 @@ fn def(g: &Globals, name: &str) -> DefId {
     )
 }
 
-fn int_data(g: &Globals) -> DataId {
+fn int_data(g: &stitchwort_core::Ev) -> DataId {
     g.env
         .registry()
         .data(Builtin::Int)
@@ -50,16 +50,16 @@ fn plus_var(k: u64, level: usize) -> Value {
     native::from_view(BigUint::from(k), Some(Value::var(level)))
 }
 
-fn of_nat(g: &Globals, n: Value) -> Value {
+fn of_nat(g: &stitchwort_core::Ev, n: Value) -> Value {
     Value::Ctor(int_data(g), 0, vec![n].into())
 }
 
-fn neg_succ(g: &Globals, n: Value) -> Value {
+fn neg_succ(g: &stitchwort_core::Ev, n: Value) -> Value {
     Value::Ctor(int_data(g), 1, vec![n].into())
 }
 
 /// The integer `i`, in its one form.
-fn int(g: &Globals, i: i64) -> Value {
+fn int(g: &stitchwort_core::Ev, i: i64) -> Value {
     if i >= 0 {
         of_nat(g, nat(i as u64))
     } else {
@@ -68,7 +68,7 @@ fn int(g: &Globals, i: i64) -> Value {
 }
 
 /// The integer a closed value is, if it's one.
-fn as_int(g: &Globals, v: &Value) -> Option<i64> {
+fn as_int(g: &stitchwort_core::Ev, v: &Value) -> Option<i64> {
     match value::force(g, v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
             let n = i64::try_from(as_nat(g, &fields[0]).ok()??).ok()?;
@@ -93,7 +93,7 @@ fn proof(level: usize) -> Arg {
 }
 
 /// `f args` by the machine: its value and normal form.
-fn machine(g: &Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
+fn machine(g: &stitchwort_core::Ev, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
     let mut v = value::eval(g, &[], &Term::Def(f)).expect("no limits");
     for Arg(a, icit) in args {
         v = value::apply_icit(g, v, a.clone(), *icit).expect("no limits");
@@ -104,7 +104,7 @@ fn machine(g: &Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
 }
 
 /// `f args` by the reference evaluator: its normal form.
-fn slow(g: &Globals, f: DefId, args: &[Arg], level: usize) -> String {
+fn slow(g: &stitchwort_core::Ev, f: DefId, args: &[Arg], level: usize) -> String {
     let mut v = reference::eval(g, &[], &Term::Def(f)).expect("no limits");
     for Arg(a, icit) in args {
         v = reference::apply_icit(g, v, a.clone(), *icit).expect("no limits");
@@ -116,14 +116,14 @@ fn slow(g: &Globals, f: DefId, args: &[Arg], level: usize) -> String {
 /// `f args` four ways (natives on and off, each in both evaluators), which
 /// must give the same normal form: the machine's value with natives on, and
 /// that normal form. `level` variables are free in `args`.
-fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
+fn run(g: &mut Kernel, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
     let name = g.def(f).name().clone();
     let what = || format!("{name} {:?}", args.iter().map(|a| &a.0).collect::<Vec<_>>());
-    let (v, on) = machine(g, f, args, level);
-    let on_slow = slow(g, f, args, level);
+    let (v, on) = machine(&g.ev(), f, args, level);
+    let on_slow = slow(&g.ev(), f, args, level);
     g.env.set_disable_natives(true);
-    let (v_off, off) = machine(g, f, args, level);
-    let off_slow = slow(g, f, args, level);
+    let (v_off, off) = machine(&g.ev(), f, args, level);
+    let off_slow = slow(&g.ev(), f, args, level);
     g.env.set_disable_natives(false);
     assert_eq!(
         on,
@@ -139,7 +139,7 @@ fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
     );
     if on != off {
         assert!(
-            value::conv(g, level, &v, &v_off).expect("no limits"),
+            value::conv(&g.ev(), level, &v, &v_off).expect("no limits"),
             "{}: natives on and off disagree\n  on: {on}\n off: {off}",
             what()
         );
@@ -149,27 +149,27 @@ fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
 
 /// `f args` four ways, which must agree, and compute to the integer
 /// `expected`.
-fn computes(g: &mut Globals, f: &str, args: &[Arg], level: usize, expected: i64) {
-    let id = def(g, f);
+fn computes(g: &mut Kernel, f: &str, args: &[Arg], level: usize, expected: i64) {
+    let id = def(&g.ev(), f);
     let (v, nf) = run(g, id, args, level);
-    assert_eq!(as_int(g, &v), Some(expected), "{f}: {nf}");
+    assert_eq!(as_int(&g.ev(), &v), Some(expected), "{f}: {nf}");
 }
 
 /// `f args` four ways, which must agree, and compute to `expected`, which
 /// may have variables in it.
-fn computes_to(g: &mut Globals, f: &str, args: &[Arg], level: usize, expected: &Value) {
-    let id = def(g, f);
+fn computes_to(g: &mut Kernel, f: &str, args: &[Arg], level: usize, expected: &Value) {
+    let id = def(&g.ev(), f);
     let (v, nf) = run(g, id, args, level);
     assert!(
-        value::conv(g, level, &v, expected).expect("no limits"),
+        value::conv(&g.ev(), level, &v, expected).expect("no limits"),
         "{f}: {nf}, expected {:?}",
-        value::quote(g, level, expected)
+        value::quote(&g.ev(), level, expected)
     );
 }
 
 /// `f args` four ways, which must agree, and be stuck: not a constructor.
-fn stuck(g: &mut Globals, f: &str, args: &[Arg], level: usize) -> String {
-    let id = def(g, f);
+fn stuck(g: &mut Kernel, f: &str, args: &[Arg], level: usize) -> String {
+    let id = def(&g.ev(), f);
     let (v, nf) = run(g, id, args, level);
     assert!(matches!(v, Value::Neutral(..)), "{f}: {nf} isn't stuck");
     nf
@@ -180,7 +180,7 @@ fn stuck(g: &mut Globals, f: &str, args: &[Arg], level: usize) -> String {
 fn edge_cases_agree_in_both_modes() {
     with_stack(STACK, || {
         let mut session = Session::eager();
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         for n in 0..8u64 {
             // `subNatNat 0 n`, `subNatNat n 0`, `subNatNat n n`.
             computes(
@@ -199,7 +199,7 @@ fn edge_cases_agree_in_both_modes() {
                 computes(g, "Int.subNatNat", &[ex(succ(n)), ex(succ(m))], 0, ni - mi);
                 // `OfNat n + NegSucc m`, both orders, with `n` above, equal to
                 // and below `m + 1`.
-                let (a, b) = (of_nat(g, nat(n)), neg_succ(g, nat(m)));
+                let (a, b) = (of_nat(&g.ev(), nat(n)), neg_succ(&g.ev(), nat(m)));
                 computes(
                     g,
                     "Int.add",
@@ -213,7 +213,7 @@ fn edge_cases_agree_in_both_modes() {
         // Division on each side of zero, and by `1` and `-1`.
         for a in -4..=4i64 {
             for d in [-3, -2, -1, 1, 2, 3i64] {
-                let args = [ex(int(g, a)), ex(int(g, d)), proof(0)];
+                let args = [ex(int(&g.ev(), a)), ex(int(&g.ev(), d)), proof(0)];
                 let (q, r) = (a.div_euclid(d), a.rem_euclid(d));
                 computes(g, "Int.div", &args, 1, q);
                 computes(g, "Int.mod", &args, 1, r);
@@ -233,12 +233,12 @@ fn edge_cases_agree_in_both_modes() {
 fn decisions_agree_in_both_modes() {
     with_stack(STACK, || {
         let mut session = Session::eager();
-        let g = &mut session.elab.globals;
-        let dec_eq = def(g, "Int.decEq");
+        let g = &mut session.elab.kernel;
+        let dec_eq = def(&g.ev(), "Int.decEq");
         let (_, yes) = g.env.registry().ctor(Builtin::Yes).expect("`Yes`");
         for a in -6..=6i64 {
             for b in -6..=6i64 {
-                let (v, nf) = run(g, dec_eq, &[ex(int(g, a)), ex(int(g, b))], 0);
+                let (v, nf) = run(g, dec_eq, &[ex(int(&g.ev(), a)), ex(int(&g.ev(), b))], 0);
                 let Value::Ctor(_, c, fields) = &v else {
                     panic!("Int.decEq {a} {b}: {nf}")
                 };
@@ -248,7 +248,7 @@ fn decisions_agree_in_both_modes() {
                     // `refl`.
                     let p = fields.last().unwrap();
                     assert!(
-                        value::conv(g, 0, p, &Value::Refl).unwrap(),
+                        value::conv(&g.ev(), 0, p, &Value::Refl).unwrap(),
                         "Int.decEq {a} {b}: {nf}"
                     );
                 } else {
@@ -266,30 +266,48 @@ fn decisions_agree_in_both_modes() {
 fn open_terms_agree_in_both_modes() {
     with_stack(STACK, || {
         let mut session = Session::eager();
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         let (x, y) = (Value::var(0), Value::var(1));
 
         // `OfNat (x + 5) + NegSucc 2` is `OfNat (x + 2)`; `NegSucc (x + 5) +
         // OfNat 2`, either way round, is `NegSucc (x + 3)`.
-        let expected = of_nat(g, plus_var(2, 0));
-        let args = [ex(of_nat(g, plus_var(5, 0))), ex(neg_succ(g, nat(2)))];
+        let expected = of_nat(&g.ev(), plus_var(2, 0));
+        let args = [
+            ex(of_nat(&g.ev(), plus_var(5, 0))),
+            ex(neg_succ(&g.ev(), nat(2))),
+        ];
         computes_to(g, "Int.add", &args, 1, &expected);
-        let expected = neg_succ(g, plus_var(3, 0));
-        let args = [ex(neg_succ(g, plus_var(5, 0))), ex(of_nat(g, nat(2)))];
+        let expected = neg_succ(&g.ev(), plus_var(3, 0));
+        let args = [
+            ex(neg_succ(&g.ev(), plus_var(5, 0))),
+            ex(of_nat(&g.ev(), nat(2))),
+        ];
         computes_to(g, "Int.add", &args, 1, &expected);
-        let args = [ex(of_nat(g, nat(2))), ex(neg_succ(g, plus_var(5, 0)))];
+        let args = [
+            ex(of_nat(&g.ev(), nat(2))),
+            ex(neg_succ(&g.ev(), plus_var(5, 0))),
+        ];
         computes_to(g, "Int.add", &args, 1, &expected);
         // `OfNat (x + 2) + NegSucc 5` depends on whether `x` is at least 4.
-        let args = [ex(of_nat(g, plus_var(2, 0))), ex(neg_succ(g, nat(5)))];
+        let args = [
+            ex(of_nat(&g.ev(), plus_var(2, 0))),
+            ex(neg_succ(&g.ev(), nat(5))),
+        ];
         stuck(g, "Int.add", &args, 1);
         // Same constructors: computes, around the variables.
-        let args = [ex(of_nat(g, x.clone())), ex(of_nat(g, y.clone()))];
-        let (_, nf) = run(g, def(g, "Int.add"), &args, 2);
+        let args = [
+            ex(of_nat(&g.ev(), x.clone())),
+            ex(of_nat(&g.ev(), y.clone())),
+        ];
+        let (_, nf) = run(g, def(&g.ev(), "Int.add"), &args, 2);
         assert!(nf.contains("Ctor"), "OfNat x + OfNat y: {nf}");
         // `NegSucc x + NegSucc 0` is `NegSucc (Succ (x + 0))`, where `x + 0`
         // is stuck: `Nat.add` recurses on its first argument.
-        let args = [ex(neg_succ(g, x.clone())), ex(neg_succ(g, nat(0)))];
-        let (v, nf) = run(g, def(g, "Int.add"), &args, 1);
+        let args = [
+            ex(neg_succ(&g.ev(), x.clone())),
+            ex(neg_succ(&g.ev(), nat(0))),
+        ];
+        let (v, nf) = run(g, def(&g.ev(), "Int.add"), &args, 1);
         assert!(matches!(v, Value::Ctor(..)), "NegSucc x + NegSucc 0: {nf}");
 
         // `subNatNat` around unknowns: stuck where the subtraction is.
@@ -304,7 +322,7 @@ fn open_terms_agree_in_both_modes() {
         }
         // `subNatNat (x + 3) 1` is `OfNat (x + 2)`; `subNatNat 1 (x + 3)` is
         // `NegSucc (x + 1)`.
-        let expected = of_nat(g, plus_var(2, 0));
+        let expected = of_nat(&g.ev(), plus_var(2, 0));
         computes_to(
             g,
             "Int.subNatNat",
@@ -312,7 +330,7 @@ fn open_terms_agree_in_both_modes() {
             1,
             &expected,
         );
-        let expected = neg_succ(g, plus_var(1, 0));
+        let expected = neg_succ(&g.ev(), plus_var(1, 0));
         computes_to(
             g,
             "Int.subNatNat",
@@ -322,38 +340,59 @@ fn open_terms_agree_in_both_modes() {
         );
 
         // Negation and multiplication by constructors.
-        let expected = neg_succ(g, x.clone());
-        let args = [ex(of_nat(g, plus_var(1, 0)))];
+        let expected = neg_succ(&g.ev(), x.clone());
+        let args = [ex(of_nat(&g.ev(), plus_var(1, 0)))];
         computes_to(g, "Int.neg", &args, 1, &expected);
-        stuck(g, "Int.neg", &[ex(of_nat(g, x.clone()))], 1);
+        stuck(g, "Int.neg", &[ex(of_nat(&g.ev(), x.clone()))], 1);
         run(
             g,
-            def(g, "Int.mul"),
-            &[ex(of_nat(g, x.clone())), ex(neg_succ(g, y.clone()))],
+            def(&g.ev(), "Int.mul"),
+            &[
+                ex(of_nat(&g.ev(), x.clone())),
+                ex(neg_succ(&g.ev(), y.clone())),
+            ],
             2,
         );
 
         // Decisions: different constructors decide at once, whatever the
         // fields; the same constructor waits for its fields.
         for args in [
-            [ex(of_nat(g, x.clone())), ex(neg_succ(g, y.clone()))],
-            [ex(neg_succ(g, x.clone())), ex(of_nat(g, y.clone()))],
+            [
+                ex(of_nat(&g.ev(), x.clone())),
+                ex(neg_succ(&g.ev(), y.clone())),
+            ],
+            [
+                ex(neg_succ(&g.ev(), x.clone())),
+                ex(of_nat(&g.ev(), y.clone())),
+            ],
         ] {
-            let (v, nf) = run(g, def(g, "Int.decEq"), &args, 2);
+            let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
             assert!(matches!(v, Value::Ctor(..)), "{nf}");
         }
         for args in [
-            [ex(neg_succ(g, x.clone())), ex(neg_succ(g, y.clone()))],
-            [ex(neg_succ(g, x.clone())), ex(neg_succ(g, x.clone()))],
-            [ex(of_nat(g, x.clone())), ex(of_nat(g, nat(3)))],
-            [ex(of_nat(g, plus_var(2, 0))), ex(of_nat(g, nat(5)))],
+            [
+                ex(neg_succ(&g.ev(), x.clone())),
+                ex(neg_succ(&g.ev(), y.clone())),
+            ],
+            [
+                ex(neg_succ(&g.ev(), x.clone())),
+                ex(neg_succ(&g.ev(), x.clone())),
+            ],
+            [ex(of_nat(&g.ev(), x.clone())), ex(of_nat(&g.ev(), nat(3)))],
+            [
+                ex(of_nat(&g.ev(), plus_var(2, 0))),
+                ex(of_nat(&g.ev(), nat(5))),
+            ],
         ] {
-            let (v, nf) = run(g, def(g, "Int.decEq"), &args, 2);
+            let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
             assert!(matches!(v, Value::Neutral(..)), "{nf}");
         }
         // `OfNat (x + 2) = OfNat 1` is decided: `x + 2` isn't `1`.
-        let args = [ex(of_nat(g, plus_var(2, 0))), ex(of_nat(g, nat(1)))];
-        let (v, nf) = run(g, def(g, "Int.decEq"), &args, 1);
+        let args = [
+            ex(of_nat(&g.ev(), plus_var(2, 0))),
+            ex(of_nat(&g.ev(), nat(1))),
+        ];
+        let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 1);
         assert!(matches!(v, Value::Ctor(..)), "{nf}");
 
         // Division: an unknown divisor is stuck (the zero case needs to see
@@ -365,25 +404,37 @@ fn open_terms_agree_in_both_modes() {
             stuck(
                 g,
                 op,
-                &[ex(int(g, 7)), ex(of_nat(g, x.clone())), proof(1)],
+                &[
+                    ex(int(&g.ev(), 7)),
+                    ex(of_nat(&g.ev(), x.clone())),
+                    proof(1),
+                ],
                 2,
             );
-            stuck(g, op, &[ex(int(g, 7)), ex(x.clone()), proof(1)], 2);
+            stuck(g, op, &[ex(int(&g.ev(), 7)), ex(x.clone()), proof(1)], 2);
             for d in [-3, 3] {
-                let args = [ex(of_nat(g, plus_var(1, 0))), ex(int(g, d)), proof(1)];
-                run(g, def(g, op), &args, 2);
-                let args = [ex(neg_succ(g, x.clone())), ex(int(g, d)), proof(1)];
-                run(g, def(g, op), &args, 2);
+                let args = [
+                    ex(of_nat(&g.ev(), plus_var(1, 0))),
+                    ex(int(&g.ev(), d)),
+                    proof(1),
+                ];
+                run(g, def(&g.ev(), op), &args, 2);
+                let args = [
+                    ex(neg_succ(&g.ev(), x.clone())),
+                    ex(int(&g.ev(), d)),
+                    proof(1),
+                ];
+                run(g, def(&g.ev(), op), &args, 2);
             }
         }
         stuck(
             g,
             "Int.modNat",
-            &[ex(int(g, -18)), ex(x.clone()), proof(1)],
+            &[ex(int(&g.ev(), -18)), ex(x.clone()), proof(1)],
             2,
         );
-        let args = [ex(neg_succ(g, x.clone())), ex(nat(100)), proof(1)];
-        run(g, def(g, "Int.modNat"), &args, 2);
+        let args = [ex(neg_succ(&g.ev(), x.clone())), ex(nat(100)), proof(1)];
+        run(g, def(&g.ev(), "Int.modNat"), &args, 2);
     });
 }
 
@@ -397,7 +448,7 @@ fn load(
     natives: bool,
 ) -> Vec<&'static str> {
     session.rewind(mark);
-    session.elab.globals.env.set_disable_natives(!natives);
+    session.elab.kernel.env.set_disable_natives(!natives);
     match session.load("int.sw", source) {
         Ok(_) => Vec::new(),
         Err(ds) => ds.iter().map(|d| d.code).collect(),
@@ -514,9 +565,9 @@ fn expected(op: &str, a: i64, b: i64) -> Option<i64> {
 fn every_operation_agrees_in_both_modes_on_small_arguments() {
     with_stack(STACK, || {
         let mut session = Session::eager();
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         for &(op, kinds) in OPS {
-            let id = def(g, op);
+            let id = def(&g.ev(), op);
             let kinds = kinds.as_bytes();
             let unary = kinds.len() == 1;
             for a in -12..=12i64 {
@@ -526,7 +577,7 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
                         continue;
                     }
                     let arg = |k: usize, i: i64| match kinds[k] {
-                        b'I' => ex(int(g, i)),
+                        b'I' => ex(int(&g.ev(), i)),
                         _ => ex(nat(i as u64)),
                     };
                     let mut args = vec![arg(0, a)];
@@ -539,9 +590,11 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
                     let (v, nf) = run(g, id, &args, 1);
                     if let Some(want) = expected(op, a, b) {
                         let got = if op == "Int.modNat" {
-                            as_nat(g, &v).unwrap().and_then(|n| i64::try_from(n).ok())
+                            as_nat(&g.ev(), &v)
+                                .unwrap()
+                                .and_then(|n| i64::try_from(n).ok())
                         } else {
-                            as_int(g, &v)
+                            as_int(&g.ev(), &v)
                         };
                         assert_eq!(got, Some(want), "{op} {a} {b}: {nf}");
                     }
@@ -552,7 +605,7 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
 }
 
 /// An integer as a value, however big.
-fn big_int(g: &Globals, i: &BigInt) -> Value {
+fn big_int(g: &stitchwort_core::Ev, i: &BigInt) -> Value {
     if i.sign() == Sign::Minus {
         neg_succ(g, native::nat_value((-i - 1u32).to_biguint().unwrap()))
     } else {
@@ -560,7 +613,7 @@ fn big_int(g: &Globals, i: &BigInt) -> Value {
     }
 }
 
-fn as_big_int(g: &Globals, v: &Value) -> Option<BigInt> {
+fn as_big_int(g: &stitchwort_core::Ev, v: &Value) -> Option<BigInt> {
     match value::force(g, v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
             let n = BigInt::from(as_nat(g, &fields[0]).ok()??);
@@ -577,7 +630,7 @@ fn as_big_int(g: &Globals, v: &Value) -> Option<BigInt> {
 #[test]
 fn big_values_agree_with_an_independent_implementation() {
     let mut session = Session::eager();
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     let mut values: Vec<BigInt> = Vec::new();
     for e in [64u32, 128, 256] {
         let p = BigInt::from(2u32).pow(e);
@@ -609,8 +662,8 @@ fn big_values_agree_with_an_independent_implementation() {
         "Int.add", "Int.sub", "Int.mul", "Int.div", "Int.mod", "Int.tdiv", "Int.tmod", "Int.fdiv",
         "Int.fmod",
     ];
-    let ops: Vec<(&str, DefId)> = names.iter().map(|op| (*op, def(g, op))).collect();
-    let dec_eq = def(g, "Int.decEq");
+    let ops: Vec<(&str, DefId)> = names.iter().map(|op| (*op, def(&g.ev(), op))).collect();
+    let dec_eq = def(&g.ev(), "Int.decEq");
     let (_, yes) = g.env.registry().ctor(Builtin::Yes).unwrap();
     // The largest normal form of a decision seen so far, not counting the
     // digits of the numbers in it: for `Yes`, and for `No` by the signs.
@@ -641,14 +694,19 @@ fn big_values_agree_with_an_independent_implementation() {
                     "Int.fdiv" => fq.clone(),
                     _ => fr.clone(),
                 };
-                let mut args = vec![ex(big_int(g, a)), ex(big_int(g, d))];
+                let mut args = vec![ex(big_int(&g.ev(), a)), ex(big_int(&g.ev(), d))];
                 if op.ends_with("div") || op.ends_with("mod") {
                     args.push(proof(0));
                 }
-                let (v, nf) = machine(g, *id, &args, 1);
-                assert_eq!(as_big_int(g, &v), Some(want), "{op} {a} {d}: {nf}");
+                let (v, nf) = machine(&g.ev(), *id, &args, 1);
+                assert_eq!(as_big_int(&g.ev(), &v), Some(want), "{op} {a} {d}: {nf}");
             }
-            let (v, nf) = machine(g, dec_eq, &[ex(big_int(g, a)), ex(big_int(g, d))], 0);
+            let (v, nf) = machine(
+                &g.ev(),
+                dec_eq,
+                &[ex(big_int(&g.ev(), a)), ex(big_int(&g.ev(), d))],
+                0,
+            );
             let Value::Ctor(_, c, _) = v else {
                 panic!("Int.decEq {a} {d}: {nf}")
             };

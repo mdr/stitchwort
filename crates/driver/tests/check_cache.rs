@@ -1016,7 +1016,7 @@ fn build_app_here(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, V
     let output = session
         .extract_namespace("App")
         .expect("extraction succeeds");
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ours = |path: &str| path.contains("Shapes.") || path.contains("App.");
     let mut hashes = Vec::new();
     for d in (0..g.env.datas().len()).map(stitchwort_core::DataId) {

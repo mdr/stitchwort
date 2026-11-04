@@ -36,7 +36,7 @@ fn example(name: &str) -> (Session, String) {
 }
 
 fn def_named(session: &Session, name: &str) -> DefId {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     (0..g.env.defs().len())
         .map(DefId)
         .rfind(|id| &**g.def(*id).name() == name)
@@ -50,7 +50,7 @@ struct Export {
 
 impl Export {
     fn new(session: &Session, name: &str) -> Export {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let program = lower_global(g, session.elab.options.limits, def_named(session, name))
             .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
         Export { program }
@@ -515,7 +515,7 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .elab
                     .infer_expr(&expr)
                     .unwrap_or_else(|d| panic!("`{source}` doesn't check: {}", d.message));
-                let g = &session.elab.globals;
+                let g = &session.elab.ev();
                 let value = stitchwort_core::value::eval(g, &[], &term).expect("evaluates");
                 let expected = stitchwort_core::value::quote(g, 0, &value).expect("quotes");
                 let (pair, _) = g
@@ -560,7 +560,7 @@ fn partial_forwarding() -> Program {
         .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));
     let main = session.main().expect("a `main`");
     lower_main(
-        &session.elab.globals,
+        &session.elab.ev(),
         session.elab.options.limits,
         main.term(),
         main.row,
@@ -697,7 +697,7 @@ fn io_operations_cross_translations_on_their_way_to_the_runner() {
             .load("crossing.sw", CROSSING)
             .unwrap_or_else(|e| panic!("crossing.sw doesn't check: {e:?}"));
         let main = session.main().expect("a `main`");
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let limits = session.elab.options.limits;
         // Type arguments are erased by the definitions' types, so any term
         // will do for them.

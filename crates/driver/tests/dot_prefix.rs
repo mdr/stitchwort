@@ -16,7 +16,7 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
     if let Err(errors) = session.load(&path.display().to_string(), &text) {
         panic!("{errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget

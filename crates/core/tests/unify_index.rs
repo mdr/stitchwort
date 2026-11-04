@@ -437,7 +437,7 @@ impl Sig {
         let mut env = Vec::new();
         let mut types = Vec::new();
         for (l, (_, ty)) in context().iter().enumerate() {
-            types.push(eval(g, &env, &self.ty(ty, l)).unwrap());
+            types.push(eval(&g.ev(), &env, &self.ty(ty, l)).unwrap());
             env.push(Value::var(l));
         }
         Scope {
@@ -462,18 +462,18 @@ impl Sig {
             .iter()
             .enumerate()
             .map(|(k, (ty, _, _))| {
-                let ty = self.ty(ty, n).shift(g, k, 0).unwrap();
+                let ty = self.ty(ty, n).shift(&g.ev(), k, 0).unwrap();
                 ("x".into(), ty)
             })
             .collect();
         let values = |side: fn(&(Ty, T, T)) -> &T| {
             problem
                 .iter()
-                .map(|c| eval(g, &vars, &self.term(side(c), n)).unwrap())
+                .map(|c| eval(&g.ev(), &vars, &self.term(side(c), n)).unwrap())
                 .collect::<Vec<_>>()
         };
         let (lhs, rhs) = (values(|c| &c.1), values(|c| &c.2));
-        let outcome = unify(g, &mut scope, &binders, vars, lhs, rhs).unwrap();
+        let outcome = unify(&g.ev(), &mut scope, &binders, vars, lhs, rhs).unwrap();
         let kind = match outcome {
             Outcome::Solved(_) => Kind::Solved,
             Outcome::Conflict(_) => Kind::Conflict,
@@ -482,7 +482,7 @@ impl Sig {
         let effect = scope
             .env
             .iter()
-            .map(|value| self.toy(&quote(g, n, value).unwrap(), n))
+            .map(|value| self.toy(&quote(&g.ev(), n, value).unwrap(), n))
             .collect();
         (kind, effect, scope)
     }
@@ -716,11 +716,11 @@ fn check_invariants(sig: &Sig, problem: &[(Ty, T, T)], scope: &Scope) {
     for (ty, l, r) in problem {
         let (l, r) = (sig.term(l, n), sig.term(r, n));
         let (l, r) = (
-            eval(g, &scope.env, &l).unwrap(),
-            eval(g, &scope.env, &r).unwrap(),
+            eval(&g.ev(), &scope.env, &l).unwrap(),
+            eval(&g.ev(), &scope.env, &r).unwrap(),
         );
         assert!(
-            conv(g, n, &l, &r).unwrap(),
+            conv(&g.ev(), n, &l, &r).unwrap(),
             "{ty:?}: the equation doesn't hold"
         );
     }
@@ -729,7 +729,7 @@ fn check_invariants(sig: &Sig, problem: &[(Ty, T, T)], scope: &Scope) {
         .collect();
     let mut mentions = vec![BTreeSet::new(); n];
     for (l, ty) in scope.types.iter().enumerate() {
-        let term = quote(g, n, ty).unwrap();
+        let term = quote(&g.ev(), n, ty).unwrap();
         for (t, binders) in term.subterms() {
             if let Term::Var(ix) = t
                 && *ix >= binders
@@ -792,7 +792,7 @@ fn the_occurs_check_looks_through_types_transitively() {
         let mut env = Vec::new();
         let mut types = Vec::new();
         for (l, (_, ty)) in telescope.iter().enumerate() {
-            types.push(eval(g, &env, ty).unwrap());
+            types.push(eval(&g.ev(), &env, ty).unwrap());
             env.push(Value::var(l));
         }
         Scope {
@@ -806,10 +806,10 @@ fn the_occurs_check_looks_through_types_transitively() {
     let solve = |x: usize| {
         let mut scope = scope();
         let vars: Vec<Value> = (0..6).map(Value::var).collect();
-        let lhs = eval(g, &vars, &v(5 - x)).unwrap();
-        let rhs = eval(g, &vars, &k_u).unwrap();
-        let binders = vec![(Name::from("e"), nat.clone().shift(g, 6, 0).unwrap())];
-        unify(g, &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap()
+        let lhs = eval(&g.ev(), &vars, &v(5 - x)).unwrap();
+        let rhs = eval(&g.ev(), &vars, &k_u).unwrap();
+        let binders = vec![(Name::from("e"), nat.clone().shift(&g.ev(), 6, 0).unwrap())];
+        unify(&g.ev(), &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap()
     };
     assert!(
         matches!(solve(1), Outcome::Stuck(..)),
@@ -835,7 +835,7 @@ fn refined_types_are_quoted_at_the_branch_depth() {
     let mut env = Vec::new();
     let mut types = Vec::new();
     for (l, (_, ty)) in telescope.iter().enumerate() {
-        types.push(eval(g, &env, ty).unwrap());
+        types.push(eval(&g.ev(), &env, ty).unwrap());
         env.push(Value::var(l));
     }
     let mut scope = Scope {
@@ -846,15 +846,15 @@ fn refined_types_are_quoted_at_the_branch_depth() {
     };
     let vars: Vec<Value> = (0..4).map(Value::var).collect();
     let lhs = Value::var(0);
-    let rhs = eval(g, &vars, &sig.p.succ(v(0))).unwrap();
-    let binders = vec![(Name::from("e"), nat.shift(g, 4, 0).unwrap())];
-    let outcome = unify(g, &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap();
+    let rhs = eval(&g.ev(), &vars, &sig.p.succ(v(0))).unwrap();
+    let binders = vec![(Name::from("e"), nat.shift(&g.ev(), 4, 0).unwrap())];
+    let outcome = unify(&g.ev(), &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap();
     assert!(matches!(outcome, Outcome::Solved(ref s) if s.len() == 1 && s[0].0 == 0));
-    let h_ty = quote(g, 4, &scope.types[2]).unwrap();
+    let h_ty = quote(&g.ev(), 4, &scope.types[2]).unwrap();
     // `Q (Succ m)` at depth 4: Q is v2, m is v0.
     let names: Vec<Name> = ["n", "Q", "h", "m"].map(Name::from).to_vec();
     assert_eq!(
-        stitchwort_core::pretty::term(g, &names, &h_ty),
+        stitchwort_core::pretty::term(&g.ev(), &names, &h_ty),
         "Q (Succ m)"
     );
     assert!(h_ty.subterms().all(|(t, binders)| match t {

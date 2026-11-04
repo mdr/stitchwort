@@ -28,8 +28,8 @@ pub struct Options {
     /// numbers. Tests compare the two compilations.
     pub numbers_as_succ: bool,
     /// Whether declarations are elaborated with glued evaluation
-    /// (`Globals::glue`, docs/proposals/folded-calls.md): on unless
-    /// `STITCHWORT_GLUE=0`. The switch in `Globals` is on only while a
+    /// (`Kernel::glue`, docs/proposals/folded-calls.md): on unless
+    /// `STITCHWORT_GLUE=0`. The switch in the `Machine` is on only while a
     /// declaration or an expression typed in is elaborated
     /// ([`crate::Elaborator::glued`]), never while it is checked by the
     /// kernel or run.

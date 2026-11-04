@@ -28,7 +28,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::{DefId, Ev, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::RewriteRule;
 
@@ -84,7 +84,7 @@ impl Site {
             lhs,
             rhs,
             to_lhs,
-            rule_metas: cx.g().metas.borrow().len(),
+            rule_metas: cx.metas().metas.borrow().len(),
             premises: Vec::new(),
         })
     }
@@ -151,7 +151,7 @@ pub(super) fn sites(
             t.clone()
         } else {
             match replace_with(
-                g,
+                &g,
                 t,
                 level + under,
                 &|l| Ok(Term::Var(level - 1 - l)),
@@ -179,7 +179,7 @@ pub(super) fn sites(
             }
         }
     };
-    let walked = replace_with(g, term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook);
+    let walked = replace_with(&g, term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook);
     if let Some(e) = error.take() {
         return Err(e);
     }
@@ -262,8 +262,8 @@ fn site(
     if candidates.is_empty() {
         match congruence::lookup(cx.e, *f)? {
             Lookup::Found(_) => {}
-            Lookup::Missing(lemma) => note(missing, g, *f, lemma, None),
-            Lookup::Bad(lemma, why) => note(missing, g, *f, lemma, Some(why)),
+            Lookup::Missing(lemma) => note(missing, &g, *f, lemma, None),
+            Lookup::Bad(lemma, why) => note(missing, &g, *f, lemma, Some(why)),
         }
         return Ok(None);
     }
@@ -303,13 +303,13 @@ fn by_lemma(
 ) -> Result<Option<Option<Site>>> {
     let g = cx.g();
     let snapshot = Snapshot::take(cx);
-    let metas = g.metas.borrow().len();
+    let metas = cx.metas().metas.borrow().len();
     // The lemma's parameters: each function compared the call's own (twice,
     // for now), the others unknowns for the call to determine.
-    let mut ty = eval(g, &[], g.def(desc.lemma).ty())?;
+    let mut ty = eval(&g, &[], g.def(desc.lemma).ty())?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
     for level in 0..desc.params {
-        let Value::Pi(_, icit, _, rest) = force(g, ty)? else {
+        let Value::Pi(_, icit, _, rest) = force(&g, ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
@@ -317,19 +317,19 @@ fn by_lemma(
             Some((m, _)) => args[desc.callbacks[m].position].0.clone(),
             None => cx.fresh_meta(),
         };
-        ty = rest.apply(g, cx.eval(&arg)?)?;
+        ty = rest.apply(&g, cx.eval(&arg)?)?;
         lemma_args.push((arg, icit));
     }
     let mut premises = Vec::new();
     for _ in &desc.callbacks {
-        let Value::Pi(_, icit, premise, rest) = force(g, ty)? else {
+        let Value::Pi(_, icit, premise, rest) = force(&g, ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
         premises.push(((*premise).clone(), icit));
-        ty = rest.apply(g, Value::Refl)?;
+        ty = rest.apply(&g, Value::Refl)?;
     }
-    let Value::Eq(carrier, lhs, _) = force(g, ty)? else {
+    let Value::Eq(carrier, lhs, _) = force(&g, ty)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -425,7 +425,7 @@ pub(super) fn written_key(cx: &Ctx, lhs: &Value) -> Option<Key> {
     key(&cx.quote_folded(lhs).ok()?, 0)
 }
 
-fn note(skipped: &mut Skipped, g: &Globals, f: DefId, lemma: String, why: Option<String>) {
+fn note(skipped: &mut Skipped, g: &Ev, f: DefId, lemma: String, why: Option<String>) {
     let function = g.def(f).name().to_string();
     // A function the compiler made (an effect's handler, `Each.%elim`) is
     // nothing the program wrote, so no lemma for it can be asked for.
@@ -491,15 +491,15 @@ fn rewrite_premise(
     let mark = cx.mark();
     let mut ty = premise.clone();
     for (name, _) in names {
-        let Value::Pi(_, _, domain, rest) = force(g, ty)? else {
+        let Value::Pi(_, _, domain, rest) = force(&g, ty)? else {
             cx.reset(mark);
             return Ok(None);
         };
         let x = Value::var(cx.level());
         cx.bind_hidden(name.clone(), (*domain).clone());
-        ty = rest.apply(g, x)?;
+        ty = rest.apply(&g, x)?;
     }
-    let result = match force(g, ty)? {
+    let result = match force(&g, ty)? {
         Value::Eq(carrier, body, _) => {
             rewrite_body(cx, rule, &body, &carrier, base, remaining, missing)
         }
@@ -511,7 +511,7 @@ fn rewrite_premise(
     match result? {
         Some((after, proof)) if facts > 0 => {
             let needs_fact = std::cell::Cell::new(false);
-            let after = crate::decreasing::map_vars(g, &after, 0, &|ix, d| {
+            let after = crate::decreasing::map_vars(&g, &after, 0, &|ix, d| {
                 Ok(if ix < d {
                     Term::Var(ix)
                 } else if ix - d < facts {
@@ -607,7 +607,7 @@ fn rewrite_body(
                 )?
             };
             if let Some(step) = replaced.step {
-                let Value::Eq(_, _, next) = force(g, step.goal)? else {
+                let Value::Eq(_, _, next) = force(&g, step.goal)? else {
                     unreachable!("the motive is an equation")
                 };
                 *current = (*next).clone();
@@ -811,7 +811,7 @@ theorem inside (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (k: Nat
             assert_eq!(errors, ["E-REWRITE-CONG"]);
             let total = e.lookup_def("total").expect("defined");
             assert_eq!(
-                congruence::sketch(&e.globals, total),
+                congruence::sketch(&e.ev(), total),
                 "theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (arg2: List Nat) \
                  (ef: (x: Nat) → f1 x = f2 x): total f1 arg2 = total f2 arg2"
             );
@@ -923,7 +923,7 @@ theorem given (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x * 1 = x) (same: (
             assert!(errors.is_empty(), "{errors:?}");
             let total = e.lookup_def("total").expect("defined");
             let lemma = e.lookup_def("totalCongMem").expect("defined");
-            let desc = congruence::validate_contextual(&e.globals, total, lemma).expect("valid");
+            let desc = congruence::validate_contextual(&e.ev(), total, lemma).expect("valid");
             assert_eq!((desc.params, desc.arity, desc.callbacks.len()), (3, 2, 1));
             let callback = &desc.callbacks[0];
             assert_eq!(
@@ -965,7 +965,7 @@ theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (k: Nat) (
             assert!(errors.is_empty(), "{errors:?}");
             let total = e.lookup_def("total").expect("defined");
             let lemma = e.lookup_def("totalCongMem").expect("defined");
-            let why = congruence::validate_contextual(&e.globals, total, lemma)
+            let why = congruence::validate_contextual(&e.ev(), total, lemma)
                 .err()
                 .expect("refused");
             assert!(why.contains("`k`"), "{why}");

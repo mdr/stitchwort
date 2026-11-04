@@ -122,7 +122,7 @@ fn the_kernel_never_panics_on_random_terms() {
         let body = generator.term(4, 0);
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let mut p = Prelude::new();
-            let _ = infer_closed(&p.g, &body, span());
+            let _ = infer_closed(&p.g.ev(), &body, span());
             let id = check::declare_def(
                 &mut p.g,
                 &"f".into(),

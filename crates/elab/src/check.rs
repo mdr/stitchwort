@@ -9,7 +9,7 @@ use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
-use stitchwort_core::{DataId, Globals, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, Ev, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -373,8 +373,14 @@ impl<'e> Ctx<'e> {
         }
     }
 
-    pub fn g(&self) -> &'e Globals {
-        &self.e.globals
+    /// What the evaluator reads, with the elaborator's metavariables.
+    pub fn g(&self) -> Ev<'e> {
+        self.e.ev()
+    }
+
+    /// The elaborator's metavariables.
+    pub(crate) fn metas(&self) -> &'e crate::state::MetaStore {
+        &self.e.attempt.store
     }
 
     /// The unifier, on this elaborator's metavariables and attempt.
@@ -452,7 +458,7 @@ impl<'e> Ctx<'e> {
         value: Term,
     ) -> Result<()> {
         let g = self.g();
-        let v = match crate::unify::cheaply(g, || eval(g, &self.env, &value)) {
+        let v = match crate::unify::cheaply(&g, || eval(&g, &self.env, &value)) {
             Some(v) => v,
             None => self.deferred(&value)?,
         };
@@ -477,8 +483,8 @@ impl<'e> Ctx<'e> {
             solution = Term::Lam(x.clone(), Icit::Explicit, Rc::new(solution));
         }
         let solution = Term::Lam("_".into(), Icit::Explicit, Rc::new(solution));
-        let m = g.new_meta(self.span);
-        g.solve_meta(m, eval(g, &[], &solution)?);
+        let m = self.metas().new_meta(self.span);
+        self.metas().solve_meta(m, eval(&g, &[], &solution)?);
         let spine = std::iter::once(Value::Sort(Sort::Prop))
             .chain(self.env.iter().cloned())
             .map(|v| stitchwort_core::value::Elim::App(v, Icit::Explicit))
@@ -511,7 +517,7 @@ impl<'e> Ctx<'e> {
         let Some(local) = self.local_entry(name) else {
             return Ok(self.decreasing_call(name));
         };
-        let term = local.term.shift(self.g(), self.level() - local.base, 0)?;
+        let term = local.term.shift(&self.g(), self.level() - local.base, 0)?;
         Ok(Some((term, local.ty.clone())))
     }
 
@@ -536,7 +542,7 @@ impl<'e> Ctx<'e> {
                 .local_entry(&local.name)
                 .is_some_and(|l| std::ptr::eq(l, local))
             {
-                let term = local.term.shift(self.g(), self.level() - local.base, 0)?;
+                let term = local.term.shift(&self.g(), self.level() - local.base, 0)?;
                 out.push((local.name.clone(), term, local.ty.clone()));
             }
         }
@@ -617,11 +623,11 @@ impl<'e> Ctx<'e> {
     }
 
     pub fn eval(&self, term: &Term) -> Result<Value> {
-        Ok(eval(self.g(), &self.env, term)?)
+        Ok(eval(&self.g(), &self.env, term)?)
     }
 
     pub fn quote(&self, value: &Value) -> Result<Term> {
-        Ok(quote(self.g(), self.level(), value)?)
+        Ok(quote(&self.g(), self.level(), value)?)
     }
 
     /// [`Ctx::quote`] with calls written as calls, not their unfoldings
@@ -629,7 +635,7 @@ impl<'e> Ctx<'e> {
     /// annotations and helper types.
     pub fn quote_folded(&self, value: &Value) -> Result<Term> {
         Ok(stitchwort_core::value::quote_folded(
-            self.g(),
+            &self.g(),
             self.level(),
             value,
         )?)
@@ -650,15 +656,15 @@ impl<'e> Ctx<'e> {
     /// compared once more.
     pub(crate) fn conv_now(&self, a: &Value, b: &Value) -> Result<bool> {
         let g = self.g();
-        if stitchwort_core::value::conv(g, self.level(), a, b)? {
+        if stitchwort_core::value::conv(&g, self.level(), a, b)? {
             return Ok(true);
         }
-        if g.meta_trail.borrow().is_empty() {
+        if self.metas().meta_trail.borrow().is_empty() {
             return Ok(false);
         }
         let a = crate::interfaces::refresh(self, a)?;
         let b = crate::interfaces::refresh(self, b)?;
-        Ok(stitchwort_core::value::conv(g, self.level(), &a, &b)?)
+        Ok(stitchwort_core::value::conv(&g, self.level(), &a, &b)?)
     }
 
     /// The names the variables are shown by in a message (SW-1000): each by
@@ -715,20 +721,20 @@ impl<'e> Ctx<'e> {
     }
 
     pub fn show(&self, value: &Value) -> String {
-        pretty::value_for_message_in(self.g(), self.e, &self.shown_names(false), value)
+        pretty::value_for_message_in(&self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// [`Ctx::show`] for one side of an equation written `a = b`.
     pub fn show_side(&self, value: &Value) -> String {
-        pretty::side_for_message_in(self.g(), self.e, &self.shown_names(false), value)
+        pretty::side_for_message_in(&self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match stitchwort_core::value::quote_unfolded_shown(self.g(), self.level(), value) {
+        match stitchwort_core::value::quote_unfolded_shown(&self.g(), self.level(), value) {
             Ok(term) => {
-                pretty::term_for_message_in(self.g(), self.e, &self.shown_names(false), &term)
+                pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
             }
             Err(_) => "…".into(),
         }
@@ -744,9 +750,9 @@ impl<'e> Ctx<'e> {
         }
         let terms: Vec<Term> = values
             .iter()
-            .filter_map(|v| quote(g, self.level(), v).ok())
+            .filter_map(|v| quote(&g, self.level(), v).ok())
             .collect();
-        let ids = crate::opaque::declined_in(g, &terms);
+        let ids = crate::opaque::declined_in(&g, &terms);
         crate::opaque::opaque_notes(self.e, &ids)
             .into_iter()
             .fold(d, Diagnostic::with_note)
@@ -770,7 +776,7 @@ impl<'e> Ctx<'e> {
         let level = self.level();
         let hay: Vec<Term> = values
             .iter()
-            .filter_map(|v| quote(g, level, v).ok())
+            .filter_map(|v| quote(&g, level, v).ok())
             .collect();
         if hay.is_empty() {
             return d;
@@ -779,16 +785,16 @@ impl<'e> Ctx<'e> {
             let Some(name) = self.name_of_level(l) else {
                 continue;
             };
-            let Ok(Value::Eq(_, lhs, rhs)) = force(g, self.types[l].clone()) else {
+            let Ok(Value::Eq(_, lhs, rhs)) = force(&g, self.types[l].clone()) else {
                 continue;
             };
             if !matches!(
-                force(g, (*rhs).clone()),
+                force(&g, (*rhs).clone()),
                 Ok(Value::Ctor(..) | Value::Nat(_))
             ) {
                 continue;
             }
-            let Ok(needle) = quote(g, level, &lhs) else {
+            let Ok(needle) = quote(&g, level, &lhs) else {
                 continue;
             };
             if matches!(needle.strip_loc(), Term::Ctor(..) | Term::Nat(_)) {
@@ -802,10 +808,10 @@ impl<'e> Ctx<'e> {
             if !hay.iter().any(under_binder) {
                 continue;
             }
-            let shown = pretty::term_for_message_in(g, self.e, &self.shown_names(false), &needle);
+            let shown = pretty::term_for_message_in(&g, self.e, &self.shown_names(false), &needle);
             let ty = self.show(&self.types[l]);
             let matched = self.scrutinees.iter().any(|(base, s, _, _)| {
-                s.shift(g, level - base, 0)
+                s.shift(&g, level - base, 0)
                     .is_ok_and(|s| crate::matching::same(&s, &needle))
             });
             let why = if matched {
@@ -827,7 +833,7 @@ impl<'e> Ctx<'e> {
 
     /// [`Ctx::show`], with the arguments the compiler fills in.
     pub fn show_hidden(&self, value: &Value) -> String {
-        pretty::value_for_message_hidden_in(self.g(), self.e, &self.shown_names(false), value)
+        pretty::value_for_message_hidden_in(&self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// Whether `a` and `b` differ only in arguments the compiler fills in,
@@ -835,12 +841,12 @@ impl<'e> Ctx<'e> {
     pub fn differ_only_in_hidden(&self, a: &Value, b: &Value) -> bool {
         let g = self.g();
         let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_shown(g, level, v).ok();
-        let normal = |v| quote(g, level, v).ok();
+        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
+        let normal = |v| quote(&g, level, v).ok();
         [(folded(a), folded(b)), (normal(a), normal(b))]
             .iter()
             .any(|pair| match pair {
-                (Some(x), Some(y)) => pretty::differ_only_in_hidden(g, x, y),
+                (Some(x), Some(y)) => pretty::differ_only_in_hidden(&g, x, y),
                 _ => false,
             })
     }
@@ -850,9 +856,9 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        let shown = |v| stitchwort_core::value::quote_unfolded_shown(g, level, v).ok();
+        let shown = |v| stitchwort_core::value::quote_unfolded_shown(&g, level, v).ok();
         let (x, y) = (shown(a)?, shown(b)?);
-        let found = pretty::first_difference_in(g, self.e, &self.shown_names(false), &x, &y)?;
+        let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
         let within = found
             .within
             .map(|call| format!(", in `{call}`"))
@@ -873,13 +879,13 @@ impl<'e> Ctx<'e> {
         let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
         for value in values {
             let terms = [
-                stitchwort_core::value::quote_shown(g, level, value),
-                quote(g, level, value),
+                stitchwort_core::value::quote_shown(&g, level, value),
+                quote(&g, level, value),
             ];
             for term in terms.iter().flatten() {
                 for (t, _) in term.subterms() {
                     if let Term::Def(id) = t
-                        && self.e.tables.update_shown.contains(id)
+                        && self.e.tables.update_shown.contains_key(id)
                         && !helpers.contains(id)
                     {
                         helpers.push(*id);
@@ -913,7 +919,7 @@ impl<'e> Ctx<'e> {
     /// case branch has replaced by a constructor), so its solution may depend
     /// on them.
     pub fn fresh_meta(&self) -> Term {
-        let mut term = Term::Meta(self.g().new_meta(self.span));
+        let mut term = Term::Meta(self.metas().new_meta(self.span));
         for (level, value) in self.env.iter().enumerate() {
             if matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty()) {
                 term = Term::app(term, Term::Var(self.level() - 1 - level));
@@ -928,7 +934,7 @@ impl<'e> Ctx<'e> {
         let term = self.fresh_meta();
         let (head, args) = term.spine();
         if let Term::Meta(m) = head {
-            self.g().set_meta_type(*m, ty.clone(), args.len());
+            self.metas().set_meta_type(*m, ty.clone(), args.len());
         }
         term
     }
@@ -937,8 +943,8 @@ impl<'e> Ctx<'e> {
         let expected_shown = self.show(expected);
         let found_shown = self.show(found);
         if let (Ok(Value::Sort(_)), Ok(Value::Sort(_))) = (
-            force(self.g(), expected.clone()),
-            force(self.g(), found.clone()),
+            force(&self.g(), expected.clone()),
+            force(&self.g(), found.clone()),
         ) {
             return self
                 .error(
@@ -1008,7 +1014,7 @@ impl<'e> Ctx<'e> {
     /// would only add noise.
     fn alias_notes(&self, expected: &Value, found: &Value, depth: usize, notes: &mut Vec<String>) {
         let g = self.g();
-        let (Ok(fe), Ok(ff)) = (force(g, expected.clone()), force(g, found.clone())) else {
+        let (Ok(fe), Ok(ff)) = (force(&g, expected.clone()), force(&g, found.clone())) else {
             return;
         };
         if depth == 0 || !same_type_head(&fe, &ff) {
@@ -1068,11 +1074,12 @@ impl<'e> Ctx<'e> {
         }
         let g = self.g();
         let level = self.level();
-        let (Ok(expected), Ok(found)) = (quote(g, level, expected), quote(g, level, found)) else {
+        let (Ok(expected), Ok(found)) = (quote(&g, level, expected), quote(&g, level, found))
+        else {
             return d;
         };
         for (base, needle, span, var) in self.scrutinees.iter().rev() {
-            let Ok(needle) = needle.shift(g, level - base, 0) else {
+            let Ok(needle) = needle.shift(&g, level - base, 0) else {
                 continue;
             };
             let contains = |t: &Term| crate::matching::occurs(&needle, t);
@@ -1150,14 +1157,14 @@ impl<'e> Ctx<'e> {
                 .then(|| Term::Var(level + under - 1 - var))
         };
         let Ok(replaced) =
-            crate::lift::replace_with(g, term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook)
+            crate::lift::replace_with(&g, term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook)
         else {
             return false;
         };
         let Ok(value) = self.eval(&replaced) else {
             return false;
         };
-        quote(g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
+        quote(&g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
     }
 }
 
@@ -1477,7 +1484,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         // in scope, a `match` on one of them would substitute into it, and
         // `?0 (Node x kids) = Nat` can't be solved.
         Expr::Num(n, _) => {
-            let ty = Value::Neutral(Head::Meta(cx.g().new_meta(cx.span)), Default::default());
+            let ty = Value::Neutral(Head::Meta(cx.metas().new_meta(cx.span)), Default::default());
             let term = crate::numbers::check_literal(cx, n, false, &ty)?;
             Ok((term, ty))
         }
@@ -1612,7 +1619,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
             for (k, name) in names.iter().enumerate() {
-                let shifted = Rc::new(dom.shift(cx.g(), k, 0)?);
+                let shifted = Rc::new(dom.shift(&cx.g(), k, 0)?);
                 let ty = cx.eval(&shifted)?;
                 cx.bind(&name.text, ty);
                 // The type as written, so dot notation on this variable
@@ -1626,7 +1633,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 term = Term::Pi(
                     name.text.as_str().into(),
                     icit,
-                    Rc::new(dom.shift(cx.g(), k, 0)?),
+                    Rc::new(dom.shift(&cx.g(), k, 0)?),
                     Rc::new(term),
                 );
             }
@@ -1804,7 +1811,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     match cx.e.named(&name.text) {
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
-            let head = (Term::Def(*id), crate::kernel::def_ty(g, *id)?);
+            let head = (Term::Def(*id), crate::kernel::def_ty(&g, *id)?);
             apply_named_head(cx, head, args, fill, name.span)
         }
         // The parameters, then the indices: one telescope; `auto` parameters
@@ -1895,7 +1902,7 @@ fn fresh_function_type_in(
     let dom_value = cx.eval(&dom)?;
     // Noted now, not only once the lambda is checked: a case split in its
     // body unpins it from the matched variable ([`unpin_parameter_types`]).
-    if let Value::Neutral(Head::Meta(m), _) = force(cx.g(), dom_value.clone())? {
+    if let Value::Neutral(Head::Meta(m), _) = force(&cx.g(), dom_value.clone())? {
         cx.e.attempt
             .parameter_metas
             .borrow_mut()
@@ -2011,7 +2018,7 @@ fn infer_section(cx: &mut Ctx, section: &Expr) -> Result<(Term, Value)> {
         name,
         Icit::Explicit,
         Rc::new(dom),
-        Rc::new(cod.shift(cx.g(), 1, 0)?),
+        Rc::new(cod.shift(&cx.g(), 1, 0)?),
     );
     let ty = cx.eval(&ty)?;
     let term = check(cx, section, &ty)?;
@@ -2048,7 +2055,7 @@ fn settle_section_comparison(
         None => cod.clone(),
     };
     if matches!(
-        force(cx.g(), result.clone())?,
+        force(&cx.g(), result.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
@@ -2062,15 +2069,15 @@ fn settle_section_comparison(
 fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
     let g = cx.g();
     let mut level = cx.level();
-    let mut rest = force(g, ty.clone())?;
+    let mut rest = force(&g, ty.clone())?;
     while let Value::Pi(name, _, dom, cod) = rest {
-        if let Value::Neutral(Head::Meta(m), _) = force(g, (*dom).clone())? {
+        if let Value::Neutral(Head::Meta(m), _) = force(&g, (*dom).clone())? {
             cx.e.attempt
                 .parameter_metas
                 .borrow_mut()
                 .insert(m, name.to_string());
         }
-        rest = force(g, cod.apply(g, Value::var(level))?)?;
+        rest = force(&g, cod.apply(&g, Value::var(level))?)?;
         level += 1;
     }
     Ok(())
@@ -2090,14 +2097,14 @@ fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
 pub(crate) fn unpin_parameter_types(cx: &Ctx, level: usize) -> Result<()> {
     let g = cx.g();
     for ty in &cx.types {
-        let Value::Neutral(Head::Meta(m), _) = force(g, ty.clone())? else {
+        let Value::Neutral(Head::Meta(m), _) = force(&g, ty.clone())? else {
             continue;
         };
         let Some(name) = cx.e.attempt.parameter_metas.borrow().get(&m).cloned() else {
             continue;
         };
-        crate::unify::prune_variable(g, ty, level)?;
-        if let Value::Neutral(Head::Meta(m2), _) = force(g, ty.clone())?
+        crate::unify::prune_variable(&cx.u(), ty, level)?;
+        if let Value::Neutral(Head::Meta(m2), _) = force(&g, ty.clone())?
             && m2 != m
         {
             cx.e.attempt.parameter_metas.borrow_mut().insert(m2, name);
@@ -2330,7 +2337,7 @@ fn apply_args_postponing(
     // The checks queued from here on are this application's (`queue.rs`),
     // and so are the unknowns made from here on.
     let queued_from = cx.e.attempt.queue.len();
-    let metas_from = cx.g().metas.borrow().len();
+    let metas_from = cx.metas().metas.borrow().len();
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
     // type expected of it, if `infer_expecting` says what that is.
@@ -2370,14 +2377,14 @@ fn apply_args_postponing(
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
                 if !late_able {
                     let value = check_arg(cx, &term, value, &dom)?;
-                    ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                    ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                     term = Term::app(term, value);
                     continue;
                 }
                 let snapshot = crate::undo::Snapshot::take(cx);
                 match check_arg(cx, &term, value, &dom) {
                     Ok(value) => {
-                        ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                        ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                         term = Term::app(term, value);
                         continue;
                     }
@@ -2395,11 +2402,11 @@ fn apply_args_postponing(
             }
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name, supply)?;
-                let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())? else {
+                let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())? else {
                     unreachable!("insert_until stops at the named implicit parameter");
                 };
                 let value = check(cx, value, &dom)?;
-                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                 term = Term::app_icit(term, value, icit);
             }
             Arg::Piped(piped) => {
@@ -2408,14 +2415,14 @@ fn apply_args_postponing(
                 if !cx.unify(&piped.ty, &dom)? {
                     return Err(piped_mismatch(cx, piped, &dom));
                 }
-                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &piped.term))?;
+                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &piped.term))?;
                 term = Term::app(term, piped.term.clone());
             }
             Arg::Default(default) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (_, cod) = function_parts(cx, &ty)?;
                 let value = crate::defaults::helper_call(cx, *default, &term)?;
-                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
             Arg::Explicit(value) => {
@@ -2484,13 +2491,13 @@ fn apply_args_postponing(
                 };
                 if let Arg::Explicit(Expr::Var(name)) = arg
                     && matches!(
-                        force(cx.g(), dom.clone())?,
+                        force(&cx.g(), dom.clone())?,
                         Value::Pi(_, Icit::Explicit, ..)
                     )
                 {
                     function_name = Some(name);
                 }
-                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
         }
@@ -2538,7 +2545,7 @@ fn apply_args_postponing(
         // The type as `fallback` will compare it: with no implicit
         // parameters left to insert (they'd be made again there).
         let implicit_next = matches!(
-            force(cx.g(), ty.clone())?,
+            force(&cx.g(), ty.clone())?,
             Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
         );
         // Unknowns that only the arguments of a call can fix, as the
@@ -2595,7 +2602,7 @@ fn hold_argument(
 ) -> Result<(Value, usize)> {
     let meta = cx.fresh_meta();
     let placeholder = cx.eval(&meta)?;
-    *ty = cod.apply(cx.g(), placeholder.clone())?;
+    *ty = cod.apply(&cx.g(), placeholder.clone())?;
     let id = match meta.spine().0 {
         Term::Meta(m) => *m,
         _ => unreachable!("a fresh metavariable is headed by one"),
@@ -2640,7 +2647,7 @@ fn check_searches_last(
 ) -> Result<()> {
     if let Some(expected) = expecting {
         let implicit_next = matches!(
-            force(cx.g(), ty.clone())?,
+            force(&cx.g(), ty.clone())?,
             Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
         );
         if !implicit_next {
@@ -2791,7 +2798,7 @@ fn unit_call_hint(
     let (Expr::Var(arg), true, "E-TYPE-MISMATCH") = (value, next_is_unit, e.code) else {
         return e;
     };
-    if matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
+    if matches!(force(&cx.g(), dom.clone()), Ok(Value::Pi(..))) {
         return e;
     }
     match called_name(cx, head) {
@@ -2909,7 +2916,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
             let mut shown = Vec::new();
             let mut ty = def.ty().strip_loc();
             while let Term::Pi(x, icit, dom, cod) = ty {
-                let dom = pretty::term_for_message_in(g, cx.e, &names, dom);
+                let dom = pretty::term_for_message_in(&g, cx.e, &names, dom);
                 shown.push(match (&**x, icit) {
                     ("" | "_", Icit::Explicit) => dom,
                     (x, Icit::Explicit) => format!("({x}: {dom})"),
@@ -2918,7 +2925,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
                 names.push(x.clone());
                 ty = cod.strip_loc();
             }
-            shown.push(pretty::term_for_message_in(g, cx.e, &names, ty));
+            shown.push(pretty::term_for_message_in(&g, cx.e, &names, ty));
             return e.with_note(format!(
                 "`{}` is a local definition with the signature `{}`; its leading parameters \
                  are the variables it uses, in the order they are written (the header's \
@@ -2938,14 +2945,14 @@ fn expects_total_result(cx: &mut Ctx, dom: &Value) -> bool {
     let g = cx.g();
     let mark = cx.mark();
     let result = (|| -> Result<bool> {
-        let mut ty = force(g, dom.clone())?;
+        let mut ty = force(&g, dom.clone())?;
         if !matches!(ty, Value::Pi(..)) {
             return Ok(false);
         }
         while let Value::Pi(x, _, d, c) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d).clone());
-            ty = force(g, c.apply(g, v)?)?;
+            ty = force(&g, c.apply(&g, v)?)?;
         }
         Ok(match crate::effects::comp_parts(cx, &ty)? {
             Some((row, _)) => !row.partial && row.div.is_none(),
@@ -2966,14 +2973,14 @@ fn builds_delay_value(cx: &mut Ctx, dom: &Value) -> bool {
     };
     let mark = cx.mark();
     let result = (|| -> Result<bool> {
-        let mut ty = force(g, dom.clone())?;
+        let mut ty = force(&g, dom.clone())?;
         if !matches!(ty, Value::Pi(..)) {
             return Ok(false);
         }
         while let Value::Pi(x, _, d, c) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d).clone());
-            ty = force(g, c.apply(g, v)?)?;
+            ty = force(&g, c.apply(&g, v)?)?;
         }
         Ok(
             matches!(&ty, Value::Neutral(Head::Def(d), _) if *d == delay)
@@ -2989,14 +2996,14 @@ fn gives_partial_result(cx: &mut Ctx, ty: &Value) -> bool {
     let g = cx.g();
     let mark = cx.mark();
     let result = (|| -> Result<bool> {
-        let mut ty = force(g, ty.clone())?;
+        let mut ty = force(&g, ty.clone())?;
         if !matches!(ty, Value::Pi(..)) {
             return Ok(false);
         }
         while let Value::Pi(x, _, d, c) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d).clone());
-            ty = force(g, c.apply(g, v)?)?;
+            ty = force(&g, c.apply(&g, v)?)?;
         }
         Ok(matches!(
             crate::effects::comp_parts(cx, &ty)?,
@@ -3148,7 +3155,7 @@ fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
 /// The domain and codomain of `ty`, a function type with an explicit
 /// parameter (made one, if it's unknown).
 pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure)> {
-    match force(cx.g(), ty.clone())? {
+    match force(&cx.g(), ty.clone())? {
         Value::Pi(_, Icit::Explicit, dom, cod) => Ok(((*dom).clone(), cod)),
         Value::Neutral(Head::Meta(_), _) => {
             // Unknown type: it must be a function type.
@@ -3215,7 +3222,7 @@ pub(crate) fn piped_mismatch(cx: &Ctx, piped: &Piped, dom: &Value) -> Diagnostic
 /// nothing in `head` can answer its requests (docs/proposals/partial.md
 /// §7.3.4).
 fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Diagnostic> {
-    if !matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
+    if !matches!(force(&cx.g(), dom.clone()), Ok(Value::Pi(..))) {
         return None;
     }
     let (helper, in_std) = match head.spine().0 {
@@ -3323,13 +3330,13 @@ fn insert_with(
     mut ty: Value,
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    while let Value::Pi(_, icit, dom, cod) = force(cx.g(), ty.clone())?
+    while let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())?
         && icit.is_implicit()
     {
         let meta = supplied_arg(cx, icit, &dom, supply);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
-        ty = cod.apply(cx.g(), value)?;
+        ty = cod.apply(&cx.g(), value)?;
     }
     Ok((term, ty))
 }
@@ -3343,7 +3350,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
             _ => unreachable!("a fresh metavariable"),
         };
         if let Some(ignorable) = ignorable_arguments(cx, ty) {
-            cx.g().set_meta_ignorable(tree, ignorable);
+            cx.metas().set_meta_ignorable(tree, ignorable);
         }
         cx.e.attempt
             .obligations
@@ -3376,7 +3383,7 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     let level = cx.level();
     let mut mentioned = vec![false; level];
     let mut mark = |value: &Value| -> Option<()> {
-        let term = quote(cx.g(), level, value).ok()?;
+        let term = quote(&cx.g(), level, value).ok()?;
         for (t, binders) in term.subterms() {
             if let Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) = t
                 && *i >= binders
@@ -3426,7 +3433,7 @@ fn insert_until(
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     loop {
-        match force(cx.g(), ty.clone())? {
+        match force(&cx.g(), ty.clone())? {
             Value::Pi(x, icit, _, _) if icit.is_implicit() && *x == *name.text => {
                 return Ok((term, ty));
             }
@@ -3434,7 +3441,7 @@ fn insert_until(
                 let meta = supplied_arg(cx, icit, &dom, supply);
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
-                ty = cod.apply(cx.g(), value)?;
+                ty = cod.apply(&cx.g(), value)?;
             }
             _ => {
                 return Err(Diagnostic::error(
@@ -3483,7 +3490,7 @@ fn typed_lambda(
     let mark = cx.mark();
     let var = Value::var(cx.level());
     cx.bind(&name.text, dom.clone());
-    let cod = cod.apply(g, var)?;
+    let cod = cod.apply(&g, var)?;
     let result = check(cx, body, &cod);
     cx.reset(mark);
     Ok(Term::Lam(name.text.as_str().into(), icit, Rc::new(result?)))
@@ -3564,7 +3571,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     let g = cx.g();
     let named = expected;
-    let expected = force(g, expected.clone())?;
+    let expected = force(&g, expected.clone())?;
     if cx.e.divergence_case_body() {
         let (term, found) = infer_unrun(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
@@ -3675,12 +3682,12 @@ fn name_unknown_type(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<()> 
     let g = cx.g();
     let found = cx.types[level].clone();
     if !matches!(
-        stitchwort_core::value::force_solved(g, found.clone())?,
+        stitchwort_core::value::force_solved(&g, found.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         return Ok(());
     }
-    let named = stitchwort_core::value::force_solved(g, expected.clone())?;
+    let named = stitchwort_core::value::force_solved(&g, expected.clone())?;
     if matches!(named, Value::Call(..)) {
         // Only a better name for the same type: if it doesn't unify, the
         // ordinary check below reports the mismatch.
@@ -3703,11 +3710,11 @@ fn name_unknown_type(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<()> 
 /// are unchanged.
 fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
     let g = cx.g();
-    let Value::Neutral(Head::Meta(m), _) = stitchwort_core::value::force_solved(g, found.clone())?
+    let Value::Neutral(Head::Meta(m), _) = stitchwort_core::value::force_solved(&g, found.clone())?
     else {
         return Ok(());
     };
-    let name = match stitchwort_core::value::force_solved(g, named.clone())? {
+    let name = match stitchwort_core::value::force_solved(&g, named.clone())? {
         call @ Value::Call(..) => call,
         _ => match crate::dot::meta_name(cx, named)? {
             Some(name) => name,
@@ -3802,7 +3809,7 @@ pub(crate) fn check_value(
             let mark = cx.mark();
             let var = Value::var(cx.level());
             cx.bind_hidden(x.clone(), (**dom).clone());
-            let result = check(cx, expr, &cod.apply(g, var)?);
+            let result = check(cx, expr, &cod.apply(&g, var)?);
             cx.reset(mark);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
@@ -3856,7 +3863,7 @@ pub(crate) fn check_value(
             let mark = cx.mark();
             let var = Value::var(cx.level());
             cx.bind(&first.text, (**dom).clone());
-            let cod = cod.apply(g, var)?;
+            let cod = cod.apply(&g, var)?;
             let check_body = |cx: &mut Ctx| {
                 let result = if rest.is_empty() {
                     settle_section_comparison(cx, first, body, &cod)
@@ -4069,7 +4076,7 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
         b,
         ty: ty.clone(),
     };
-    if let Value::Neutral(Head::Meta(_), _) = force(cx.g(), ty.clone())? {
+    if let Value::Neutral(Head::Meta(_), _) = force(&cx.g(), ty.clone())? {
         let error = joined.error(cx);
         let term = crate::queue::queue(cx, Rc::new(joined), ty.clone(), ty.clone(), error)?;
         return Ok((term, ty));
@@ -4090,7 +4097,7 @@ impl Append {
     fn joined(&self, cx: &Ctx) -> Result<Term> {
         let text = builtin_data(cx, Builtin::Text)?;
         let list = builtin_data(cx, Builtin::List)?;
-        let head = match force(cx.g(), self.ty.clone())? {
+        let head = match force(&cx.g(), self.ty.clone())? {
             Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
             Value::Data(d, params) if d == list => {
                 let elem = cx.quote_folded(&params[0])?;
@@ -4108,7 +4115,7 @@ impl Append {
     /// What they are isn't a text or a list, or (while their type is an
     /// unknown, the error if it stays one) nothing says which.
     fn error(&self, cx: &Ctx) -> Diagnostic {
-        if let Ok(Value::Neutral(Head::Meta(_), _)) = force(cx.g(), self.ty.clone()) {
+        if let Ok(Value::Neutral(Head::Meta(_), _)) = force(&cx.g(), self.ty.clone()) {
             return cx
                 .error(
                     "E-TYPE-MISMATCH",
@@ -4173,7 +4180,7 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
         return Ok(known);
     }
     let g = cx.g();
-    let ty = force(g, expected.clone())?;
+    let ty = force(&g, expected.clone())?;
     // An unknown (`let v := if …`) can't be inferred: said before the
     // kernel's context is made, which reads back every variable's value in
     // full (a `let` of a large computation: effect_differential, SW-1051).
@@ -4182,8 +4189,8 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
     }
     let term = cx.quote(&ty)?;
     let mut kcx = crate::rewrite::kernel_context(cx)?;
-    match crate::kernel::without_glue(g, || crate::kernel::infer(&mut kcx, &term)) {
-        Ok((_, sort)) => Ok(matches!(force(g, sort)?, Value::Sort(Sort::Prop))),
+    match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &term)) {
+        Ok((_, sort)) => Ok(matches!(force(&g, sort)?, Value::Sort(Sort::Prop))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(false),
     }
@@ -4232,7 +4239,7 @@ fn check_proof_if(
     let prop_value = cx.eval(&prop)?;
     let not = builtin_def(cx, Builtin::Not)?;
     let not_prop =
-        stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
+        stitchwort_core::value::apply(&cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
     let branch = |cx: &mut Ctx, ty: Value, body: &Expr| -> Result<Term> {
         let mark = cx.mark();
         cx.bind(name, ty);
@@ -4375,7 +4382,7 @@ fn unused_proof_if(
     };
     let level = cx.level();
     let zonked = |cx: &Ctx, branch: &Term| -> Result<Term> {
-        crate::unify::zonk_in(cx.g(), level, branch, &|_| true, &[]).map_err(|e| match e {
+        crate::unify::zonk_in(&cx.u(), level, branch, &|_| true, &[]).map_err(|e| match e {
             crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
             crate::unify::ZonkError::Unsolved(_) => {
                 unreachable!("every unsolved metavariable is kept")
@@ -4389,7 +4396,7 @@ fn unused_proof_if(
         crate::queue::waiting_literal(cx.e, t).then(|| Term::Nat(Rc::new(0u32.into())))
     };
     let uses_proof = |branch: &Term| match branch.strip_loc() {
-        Term::Lam(_, _, body) => match crate::unify::fold_back(cx.g(), body, 0, &literals) {
+        Term::Lam(_, _, body) => match crate::unify::fold_back(&cx.g(), body, 0, &literals) {
             Ok(Some(body)) => body.mentions(0),
             _ => body.mentions(0),
         },
@@ -4452,7 +4459,7 @@ fn decided_if(
     let prop_value = cx.eval(&prop)?;
     let not = builtin_def(cx, Builtin::Not)?;
     let not_prop =
-        stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
+        stitchwort_core::value::apply(&cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
     let then = branch(cx, name, prop_value, then)?;
     let otherwise = branch(cx, name, not_prop, otherwise)?;
     let elim = builtin_def(cx, Builtin::ElimDec)?;
@@ -4479,13 +4486,13 @@ fn decided_if(
 fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     let mark = cx.mark();
-    let mut ty = force(g, ty.clone())?;
+    let mut ty = force(&g, ty.clone())?;
     let mut any = false;
     let result = (|| -> Result<bool> {
         while let Value::Pi(x, Icit::Explicit, dom, cod) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*dom).clone());
-            ty = force(g, cod.apply(g, v)?)?;
+            ty = force(&g, cod.apply(&g, v)?)?;
             any = true;
         }
         Ok(any
@@ -4573,7 +4580,7 @@ fn extra_negative_argument_note(
 ) -> Diagnostic {
     let g = cx.g();
     let is_function =
-        |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+        |v: &Value| matches!(force(&g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
     if !is_function(expected) || is_function(found) {
         return e;
     }
@@ -4601,7 +4608,7 @@ fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term,
         _ => return infer(cx, expr),
     };
     if matches!(
-        force(cx.g(), expected.clone())?,
+        force(&cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         return infer(cx, expr);
@@ -4627,11 +4634,11 @@ fn awaiting_note(
 ) -> Diagnostic {
     let g = cx.g();
     let is_function =
-        |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+        |v: &Value| matches!(force(&g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
     if !is_function(found)
         || is_function(expected)
         || matches!(
-            force(g, expected.clone()),
+            force(&g, expected.clone()),
             Ok(Value::Neutral(Head::Meta(_), _))
         )
     {
@@ -4687,11 +4694,11 @@ fn decide_to_bool(
     expected: &Value,
 ) -> Result<Option<Term>> {
     if cx.e.decl.condition.get() == std::ptr::from_ref(expr) as usize
-        || !matches!(force(cx.g(), found.clone())?, Value::Sort(Sort::Prop))
+        || !matches!(force(&cx.g(), found.clone())?, Value::Sort(Sort::Prop))
     {
         return Ok(None);
     }
-    if !matches!(force(cx.g(), expected.clone())?,
+    if !matches!(force(&cx.g(), expected.clone())?,
         Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d))
     {
         return Ok(None);
@@ -5034,7 +5041,7 @@ fn propagate(
     named: &Value,
 ) -> Result<Option<Result<Term>>> {
     if matches!(
-        force(cx.g(), expected.clone())?,
+        force(&cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         return Ok(None);
@@ -5189,7 +5196,7 @@ pub(crate) fn propagate_comp(
     if args.is_empty()
         || cx.e.decl.no_propagation.get() != 0
         || matches!(
-            force(cx.g(), expected.clone())?,
+            force(&cx.g(), expected.clone())?,
             Value::Neutral(Head::Meta(_), _)
         )
     {
@@ -5331,7 +5338,8 @@ fn shadow_note(d: Diagnostic, shadowed: Option<&(AstName, AstName)>) -> Diagnost
 /// declared with a function type.
 fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
     let g = cx.g();
-    let is_pi = |ty: &Value| -> Result<bool> { Ok(matches!(force(g, ty.clone())?, Value::Pi(..))) };
+    let is_pi =
+        |ty: &Value| -> Result<bool> { Ok(matches!(force(&g, ty.clone())?, Value::Pi(..))) };
     if let Some((_, ty)) = cx.local(name)? {
         return is_pi(&ty);
     }
@@ -5374,7 +5382,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
             // Propagation elaborates the application from this head without
             // going through `infer_app`, which would note the name.
             cx.e.note_name(name);
-            Some((Term::Def(*id), crate::kernel::def_ty(cx.g(), *id).ok()?))
+            Some((Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id).ok()?))
         }
         _ => None,
     }
@@ -5413,7 +5421,7 @@ fn written_result(
             return Ok(None);
         }
         doms.push((*dom).clone());
-        ty = cod.apply(g, Value::var(base + written))?;
+        ty = cod.apply(&g, Value::var(base + written))?;
         written += 1;
     }
     if implicits(cx, &mut ty, &mut supply, written, |_, _| false)?.is_none() {
@@ -5423,10 +5431,10 @@ fn written_result(
     let mut rest = ty.clone();
     let mut level = base + written;
     loop {
-        match force(g, rest)? {
+        match force(&g, rest)? {
             Value::Pi(_, Icit::Auto, _, _) => return Ok(None),
             Value::Pi(_, _, _, cod) => {
-                rest = cod.apply(g, Value::var(level))?;
+                rest = cod.apply(&g, Value::var(level))?;
                 level += 1;
             }
             _ => break,
@@ -5434,7 +5442,7 @@ fn written_result(
     }
     // Calls stay folded: reading back their unfoldings can be costly, and a
     // call mentions every variable its unfolding does.
-    let term = stitchwort_core::value::quote_folded(g, base + written, &ty)?;
+    let term = stitchwort_core::value::quote_folded(&g, base + written, &ty)?;
     if (0..written).any(|i| term.mentions(i)) {
         return Ok(None);
     }
@@ -5458,7 +5466,7 @@ fn implicits(
 ) -> Result<Option<Value>> {
     let g = cx.g();
     loop {
-        let forced = force(g, ty.clone())?;
+        let forced = force(&g, ty.clone())?;
         match &forced {
             Value::Pi(x, icit, _, _) if stop(x, *icit) => return Ok(Some(forced)),
             Value::Pi(_, Icit::Auto, _, _) if written > 0 => return Ok(None),
@@ -5466,7 +5474,7 @@ fn implicits(
                 let meta = implicit_arg(cx, *icit, dom);
                 let value = cx.eval(&meta)?;
                 supply.push_back(meta);
-                *ty = cod.apply(g, value)?;
+                *ty = cod.apply(&g, value)?;
             }
             _ => return Ok(Some(forced)),
         }
@@ -5638,14 +5646,14 @@ fn ctor_app(
     };
     let mut target = expected.cloned();
     for &i in &missing {
-        match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
+        match target.as_ref().map(|t| force(&g, t.clone())).transpose()? {
             Some(Value::Pi(_, Icit::Explicit, dom, cod)) => {
                 let var = Value::var(cx.level());
                 let name: Name = ctor.fields[i].0.clone();
                 missing_level[i] = Some(cx.level());
                 cx.bind_hidden(name.clone(), (*dom).clone());
                 missing_types.push(name);
-                target = Some(cod.apply(g, var)?);
+                target = Some(cod.apply(&g, var)?);
             }
             _ => {
                 cx.reset(mark);
@@ -5666,7 +5674,7 @@ fn ctor_app(
         Some(t) => effects::unknown_bare_value(cx, t)?.or_else(|| Some(t.clone())),
         None => None,
     };
-    let params = match value_target.map(|t| force(g, t)).transpose()? {
+    let params = match value_target.map(|t| force(&g, t)).transpose()? {
         Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
         _ if !missing.is_empty() => fallback_params,
         _ => data
@@ -5691,7 +5699,7 @@ fn ctor_app(
         }
         let mut early = params.clone();
         early.extend((0..i).map(|_| unused()));
-        let ty = eval(g, &early, field_ty)?;
+        let ty = eval(&g, &early, field_ty)?;
         let found = cx.types[level].clone();
         // A mismatch is reported by the pass below.
         cx.unify(&found, &ty)?;
@@ -5699,7 +5707,7 @@ fn ctor_app(
     let mut env = params.clone();
     let mut terms = Vec::new();
     for (i, (_, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(g, &env, field_ty)?;
+        let ty = eval(&g, &env, field_ty)?;
         let term = if let Some(level) = missing_level[i] {
             let found = cx.types[level].clone();
             if !cx.unify(&found, &ty)? {
@@ -5719,7 +5727,7 @@ fn ctor_app(
         terms.push(term);
     }
     let indices = (ctor.result.iter())
-        .map(|r| eval(g, &env, r))
+        .map(|r| eval(&g, &env, r))
         .collect::<std::result::Result<Vec<_>, _>>()?;
     let result_ty = Value::Data(d, params.into_iter().chain(indices).collect());
     if let Some(target) = &target
@@ -5743,7 +5751,7 @@ fn ctor_app(
 /// Wraps an inferred constructor in a type annotation, so the kernel (which
 /// can only check constructors of parameterised types) can infer it too.
 fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
-    Ok(match force(cx.g(), ty.clone())? {
+    Ok(match force(&cx.g(), ty.clone())? {
         Value::Data(d, _) if !cx.g().data(d).params().is_empty() => {
             Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(ty)?))
         }
@@ -5792,7 +5800,7 @@ fn type_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
 /// type is a universe, otherwise a value tuple.
 fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (ta, tya) = infer(cx, a)?;
-    if let Value::Sort(_) = force(cx.g(), tya.clone())? {
+    if let Value::Sort(_) = force(&cx.g(), tya.clone())? {
         return type_tuple(cx, a, b);
     }
     let (tb, tyb) = infer(cx, b)?;
@@ -5838,11 +5846,11 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     // Trailing implicit and `auto` parameters, as in a synonym's
     // `type Set (k: Type) [auto ord: Ord k] = …`: `Set Nat` finds `ord`
     // (docs/proposals/interfaces.md §7.5).
-    let (term, ty) = match force(cx.g(), ty.clone())? {
+    let (term, ty) = match force(&cx.g(), ty.clone())? {
         Value::Pi(_, icit, _, _) if icit.is_implicit() => insert(cx, term, ty)?,
         _ => (term, ty),
     };
-    match force(cx.g(), ty)? {
+    match force(&cx.g(), ty)? {
         Value::Sort(s) => Ok((term, s)),
         ty @ Value::Neutral(Head::Meta(_), _) => {
             // An unknown type of types defaults to `Type`.
@@ -5867,7 +5875,7 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
     let g = cx.g();
     let (proof, proof_ty) = infer(cx, proof)?;
     let (proof, proof_ty) = insert(cx, proof, proof_ty)?;
-    let Value::Eq(ty, x, y) = force(g, proof_ty.clone())? else {
+    let Value::Eq(ty, x, y) = force(&g, proof_ty.clone())? else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",
             "`J` needs a proof of an equation",
@@ -5901,13 +5909,13 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
     );
     let motive_value = cx.eval(&motive)?;
     let base_ty = apply(
-        g,
-        apply(g, motive_value.clone(), (*x).clone())?,
+        &g,
+        apply(&g, motive_value.clone(), (*x).clone())?,
         Value::Refl,
     )?;
     let base = check(cx, base, &base_ty)?;
     let proof_value = cx.eval(&proof)?;
-    let result = apply(g, apply(g, motive_value, (*y).clone())?, proof_value)?;
+    let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,
@@ -5924,7 +5932,7 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
 
 /// `Nat`, which numbers need.
 pub(crate) fn nat(cx: &Ctx) -> Result<DataId> {
-    cx.e.globals
+    cx.e.kernel
         .env
         .builtins()
         .nat
@@ -5954,7 +5962,7 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     if !same(ga, a)? || !same(gb, b)? {
         return None;
     }
-    let show = |t: &Term| pretty::term_for_message_in(cx.g(), cx.e, &cx.shown_names(false), t);
+    let show = |t: &Term| pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), t);
     Some((show(ga), show(gb)))
 }
 

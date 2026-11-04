@@ -11,7 +11,7 @@
 
 use stitchwort_core::reference;
 use stitchwort_core::value::{self, Value, set_shortcuts_disabled};
-use stitchwort_core::{DefId, Globals, Name, Term};
+use stitchwort_core::{DefId, Name, Term};
 use stitchwort_driver::driver::{Session, with_session};
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -23,7 +23,7 @@ const LCG: &str = "def lcg (seed: Nat): Nat := (seed * 1103515245 + 12345) % 214
                    def later (x: Nat): Nat := (x + 5) / 3\n\
                    def bothOpen (x: Nat) (d: Nat): Nat := (x + 5) / (d + 2)\n";
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -34,7 +34,7 @@ fn def(g: &Globals, name: &str) -> DefId {
 }
 
 /// `name` applied to `arity` variables, evaluated by the machine.
-fn applied(g: &Globals, name: &str, arity: usize) -> Value {
+fn applied(g: &stitchwort_core::Ev, name: &str, arity: usize) -> Value {
     let mut term = Term::Def(def(g, name));
     for i in (0..arity).rev() {
         term = Term::app(term, Term::Var(i));
@@ -49,7 +49,7 @@ fn applied(g: &Globals, name: &str, arity: usize) -> Value {
 fn an_open_dividend_has_a_small_normal_form() {
     with_session(STACK, Session::for_stack, |session| {
         assert!(session.load("lcg.sw", LCG).is_ok());
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         for name in ["lcg", "quotient"] {
             let machine = applied(g, name, 1);
             let term = value::quote(g, 1, &machine).expect("no limits");
@@ -81,7 +81,7 @@ fn an_open_dividend_has_a_small_normal_form() {
 fn a_stuck_step_of_division_is_shown_as_division() {
     with_session(STACK, Session::for_stack, |session| {
         assert!(session.load("lcg.sw", LCG).is_ok());
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let x: Vec<Name> = vec!["x".into()];
         let xd: Vec<Name> = vec!["x".into(), "d".into()];
         let shown = |names: &[Name], name: &str| {
@@ -118,7 +118,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
     for shortcuts in [true, false] {
         with_session(STACK, Session::for_stack, |session| {
             set_shortcuts_disabled(!shortcuts);
-            let before = session.elab.globals.machine.budget.total_work();
+            let before = session.elab.kernel.machine.budget.total_work();
             let loaded = session.load(
                 "sw920.sw",
                 &format!(
@@ -128,7 +128,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             );
             set_shortcuts_disabled(false);
             assert!(loaded.is_ok(), "{loaded:?}");
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             let work = g.machine.budget.total_work() - before;
             eprintln!("shortcuts {shortcuts}: work {work}");
             assert!(

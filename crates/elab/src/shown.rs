@@ -2,7 +2,7 @@
 //! sides (D601) and a counterexample's (`counterexample/`).
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{Globals, Term};
+use stitchwort_core::{Ev, Term};
 
 /// The most characters of a value shown.
 pub const SHOWN: usize = 200;
@@ -58,7 +58,7 @@ pub fn cut_to(text: &str, limit: usize) -> String {
 }
 
 /// The characters of a text.
-fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
+fn text_chars(g: &Ev, term: &Term) -> Option<Vec<char>> {
     let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let Term::Ctor(d, 0, args) = term.strip_loc() else {
         return None;
@@ -98,7 +98,7 @@ fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
 /// after a `| ` margin, with control characters escaped. Lines stop once
 /// they pass `limit` characters in all, with a count of the rest. `None` for
 /// a value that isn't a text of more than one line.
-pub fn text_lines(g: &Globals, term: &Term, limit: usize) -> Option<String> {
+pub fn text_lines(g: &Ev, term: &Term, limit: usize) -> Option<String> {
     let text: String = text_chars(g, term)?.into_iter().collect();
     if !text.contains('\n') {
         return None;
@@ -134,7 +134,7 @@ fn escape_controls(line: &str) -> String {
 
 /// A line diff of two texts of more than one line: which lines differ, up to
 /// [`SHOWN_LINES`] of them, each cut to [`SHOWN_LINE`] characters.
-fn line_diff(g: &Globals, left: &Term, right: &Term) -> Option<String> {
+fn line_diff(g: &Ev, left: &Term, right: &Term) -> Option<String> {
     let a: String = text_chars(g, left)?.into_iter().collect();
     let b: String = text_chars(g, right)?.into_iter().collect();
     if !a.contains('\n') && !b.contains('\n') {
@@ -179,7 +179,7 @@ fn line_diff(g: &Globals, left: &Term, right: &Term) -> Option<String> {
 /// compared whole. `None` when the values are equal, or are a single
 /// number, character or the like (the whole values already say it). Two
 /// texts of several lines are followed by which lines differ.
-pub fn first_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
+pub fn first_difference(g: &Ev, left: &Term, right: &Term) -> Option<String> {
     let first = walk(g, left, right, &mut String::new(), 0).and_then(|found| found.render());
     match (first, line_diff(g, left, right)) {
         (Some(first), Some(lines)) => Some(format!("{first}\n{lines}")),
@@ -272,7 +272,7 @@ fn text_excerpt(chars: &[char], at: usize) -> String {
 
 /// The elements of a list around index `at`, as a list, with `…` where the
 /// list goes on.
-fn list_excerpt(g: &Globals, elements: &[&Term], at: usize) -> String {
+fn list_excerpt(g: &Ev, elements: &[&Term], at: usize) -> String {
     let start = at.saturating_sub(EXCERPT_ELEMENTS);
     let end = (at + EXCERPT_ELEMENTS + 1).min(elements.len());
     let mut shown: Vec<String> = elements[start.min(end)..end]
@@ -310,7 +310,7 @@ fn count(noun: &str, n: usize) -> String {
 
 /// The elements of a list (not a text), as terms, if it is a plain chain of
 /// `Cons`.
-fn list_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
+fn list_terms<'a>(g: &Ev, term: &'a Term) -> Option<Vec<&'a Term>> {
     let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let mut out = Vec::new();
     let mut rest = term.strip_loc();
@@ -327,7 +327,7 @@ fn list_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
 }
 
 /// The parts of a tuple, `(a, b, c)` being `MkPair a (MkPair b c)`.
-fn tuple_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
+fn tuple_terms<'a>(g: &Ev, term: &'a Term) -> Option<Vec<&'a Term>> {
     let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let mut out = Vec::new();
     let mut rest = term.strip_loc();
@@ -347,7 +347,7 @@ fn tuple_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
 
 /// Whether a value of data type `d` is compared whole: a number, character,
 /// text, float, map.
-fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
+fn is_whole(g: &Ev, d: stitchwort_core::DataId) -> bool {
     use Builtin::*;
     [Nat, Int, SafeNat, SafeInt, Text, Char, Map, Float]
         .iter()
@@ -359,11 +359,11 @@ fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
         })
 }
 
-fn print(g: &Globals, term: &Term) -> String {
+fn print(g: &Ev, term: &Term) -> String {
     stitchwort_core::pretty::term(g, &[], term)
 }
 
-fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize) -> Option<Found> {
+fn walk(g: &Ev, left: &Term, right: &Term, path: &mut String, depth: usize) -> Option<Found> {
     let (left, right) = (left.strip_loc(), right.strip_loc());
     let leaf = |path: &String| -> Option<Found> {
         let (a, b) = (print(g, left), print(g, right));

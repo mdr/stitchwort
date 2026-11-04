@@ -24,7 +24,7 @@ use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use stitchwort_core::value::{Head, Value, eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Term};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Limits, Term};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -113,7 +113,7 @@ pub struct Pattern {
 
 impl Pattern {
     /// The pattern, read back folded, for messages and the JSON's `query`.
-    pub fn show(&self, g: &Globals) -> String {
+    pub fn show(&self, g: &Ev) -> String {
         match stitchwort_core::value::quote_folded(g, 0, &self.value) {
             Ok(t) => stitchwort_core::pretty::term(g, &[], &t),
             Err(_) => "?".into(),
@@ -131,7 +131,7 @@ pub(crate) enum Ty {
 }
 
 impl Ty {
-    pub(crate) fn of(g: &Globals, ty: Value) -> Res<Ty> {
+    pub(crate) fn of(g: &Ev, ty: Value) -> Res<Ty> {
         Ok(match force(g, ty)? {
             Value::Sort(_) => Ty::Type,
             other => Ty::Of(other),
@@ -144,7 +144,11 @@ impl Ty {
 /// type; a definition or one of the candidate's variables, applied to
 /// arguments, has the type its own type gives them. `None` when it can't
 /// tell.
-pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Option<Ty>> {
+pub(crate) fn type_of_target(
+    g: &crate::unify::Unifier<'_>,
+    env: &[Value],
+    term: &Term,
+) -> Res<Option<Ty>> {
     let (head, args) = term.spine();
     let mut ty = match head {
         Term::Pi(..) | Term::Data(..) | Term::Eq(..) | Term::Sort(..) if args.is_empty() => {
@@ -156,7 +160,7 @@ pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Opt
         },
         Term::Def(id) => g.def(*id).ty_value().clone(),
         Term::Var(_) => match force(g, eval(g, env, head)?)? {
-            Value::Neutral(Head::Meta(m), s) if s.is_empty() => match g.meta_type(m) {
+            Value::Neutral(Head::Meta(m), s) if s.is_empty() => match g.store.meta_type(m) {
                 Some((ty, 0)) => ty,
                 _ => return Ok(None),
             },
@@ -363,7 +367,7 @@ impl Part {
 /// `Part2Answer levels answer` is `AllFlashIn levels answer ∧ …`, and
 /// `AllFlashIn`'s own first conjunct, `1 ≤ answer`, fits any `1 ≤ x` (and
 /// its theorem's premise, closed by `rfl`, then computed for minutes).
-pub fn conjuncts(g: &Globals, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
+pub fn conjuncts(g: &Ev, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
     let mut binders: Vec<(&stitchwort_core::Name, Icit, &Term)> = Vec::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(name, icit, dom, cod) = t {
@@ -408,7 +412,7 @@ pub fn conjuncts(g: &Globals, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
 }
 
 fn split_conjunction(
-    g: &Globals,
+    g: &Ev,
     v: Value,
     level: usize,
     and: DataId,
@@ -455,7 +459,7 @@ impl Kind {
 impl Item {
     /// A theorem, or a definition whose type concludes in a proposition (an
     /// interface's law, such as `Ord.flip`); a definition; a constructor.
-    pub fn kind(self, g: &Globals) -> Kind {
+    pub fn kind(self, g: &Ev) -> Kind {
         match self {
             Item::Def(id) if g.def(id).theorem() || concludes_in_prop(g, g.def(id).ty()) => {
                 Kind::Theorem
@@ -468,7 +472,7 @@ impl Item {
 
     /// Whether it is a generated equation (`f.eqK`, `f.eqK.orN`), or a
     /// conjunct of one.
-    pub fn generated_equation(self, g: &Globals) -> bool {
+    pub fn generated_equation(self, g: &stitchwort_core::Ev) -> bool {
         match self {
             Item::Def(id) | Item::Part(id, _) => {
                 g.def(id).theorem() && crate::equations::is_generated_name(g, g.def(id).name())
@@ -487,7 +491,7 @@ impl Item {
 
     /// Its full name: `Std.List.lengthAppend`, `Std.List.Cons`.
     /// A conjunct's is its theorem's.
-    pub fn path(self, g: &Globals) -> String {
+    pub fn path(self, g: &stitchwort_core::Ev) -> String {
         match self {
             Item::Def(id) | Item::Part(id, _) => g.def(id).path().to_string(),
             Item::Ctor(d, c) => format!("{}.{}", g.data(d).path(), g.data(d).ctors()[c].name),
@@ -496,7 +500,7 @@ impl Item {
 
     /// Its name from the root of its module (`List.lengthAppend`, without
     /// the module's namespace).
-    pub fn name(self, g: &Globals) -> String {
+    pub fn name(self, g: &Ev) -> String {
         match self {
             Item::Def(id) | Item::Part(id, _) => g.def(id).name().to_string(),
             Item::Ctor(d, c) => format!("{}.{}", g.data(d).name(), g.data(d).ctors()[c].name),
@@ -504,7 +508,7 @@ impl Item {
     }
 
     /// Where it is declared (a constructor: its type's declaration).
-    pub fn span(self, g: &Globals) -> Span {
+    pub fn span(self, g: &stitchwort_core::Ev) -> Span {
         match self {
             Item::Def(id) | Item::Part(id, _) => g.def(id).span(),
             Item::Ctor(d, _) => g.data(d).span(),
@@ -513,7 +517,7 @@ impl Item {
 
     /// Its type: a constructor's is its type's parameters (implicit), its
     /// fields, then the type applied to the parameters and its indices.
-    pub fn ty(self, g: &Globals) -> Term {
+    pub fn ty(self, g: &Ev) -> Term {
         match self {
             Item::Def(id) => g.def(id).ty().clone(),
             Item::Part(id, part) => {
@@ -557,7 +561,7 @@ impl Item {
 
 /// Whether type `ty`, after its parameters, is an equation or a data type
 /// in `Prop`.
-fn concludes_in_prop(g: &Globals, ty: &Term) -> bool {
+fn concludes_in_prop(g: &Ev, ty: &Term) -> bool {
     let mut t = ty.strip_loc();
     while let Term::Pi(_, _, _, cod) = t {
         t = cod.strip_loc();
@@ -641,7 +645,7 @@ impl Hit {
     /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
     /// the one meant, and the equations stay found after it), specificity,
     /// premises, size, then the name.
-    pub fn key(&self, g: &Globals) -> Key {
+    pub fn key(&self, g: &stitchwort_core::Ev) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
             p => p,
@@ -665,7 +669,7 @@ impl Hit {
 }
 
 /// Orders `hits` by [`Hit::key`].
-pub fn rank(g: &Globals, hits: &mut [Hit]) {
+pub fn rank(g: &stitchwort_core::Ev, hits: &mut [Hit]) {
     hits.sort_by_cached_key(|h| h.key(g));
 }
 
@@ -783,7 +787,7 @@ fn shape(ty: &Term) -> (usize, usize) {
 /// What unknown `m` is now: another unknown, one of the pattern's binders,
 /// or a term of some size. A solution under the pattern's binders (`x y =>
 /// ?a`) is read under them.
-fn rep(g: &Globals, m: usize) -> Res<Now> {
+fn rep(g: &Ev, m: usize) -> Res<Now> {
     let mut v = force(g, eval(g, &[], &Term::Meta(m))?)?;
     let mut level = 0;
     while let Value::Lam(_, _, body) = &v {
@@ -804,7 +808,7 @@ fn rep(g: &Globals, m: usize) -> Res<Now> {
 /// how many of those decide the relation, and whether one of the
 /// candidate's variables took the whole pattern (see [`Hit`]).
 fn measure(
-    g: &Globals,
+    g: &Ev,
     pattern: &Pattern,
     opened: &[usize],
 ) -> Res<Option<(usize, usize, usize, bool)>> {
@@ -911,9 +915,9 @@ pub(crate) struct Restore<'g> {
 impl Drop for Restore<'_> {
     fn drop(&mut self) {
         let g = &self.g;
-        g.frozen_metas.borrow_mut().truncate(self.frozen);
+        g.store.frozen_metas.borrow_mut().truncate(self.frozen);
         crate::unify::undo_since(g, self.trail);
-        g.metas.borrow_mut().truncate(self.metas);
+        g.store.metas.borrow_mut().truncate(self.metas);
         g.machine.glue.set(self.glue);
     }
 }
@@ -928,18 +932,18 @@ impl Elaborator {
     /// elaborate, or that is a hole on its own (it would match everything).
     pub fn search_pattern(&mut self, expr: &Expr, holes: &[String]) -> Result<Vec<Pattern>> {
         self.clear_metas();
-        let was = self.globals.machine.glue.replace(self.options.glue);
-        let saved = self.globals.machine.budget.start(self.options.limits);
+        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Vec<Pattern>> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
-            let g = &self.globals;
+            let g = &self.ev();
             let mut decisive = Vec::new();
             for name in holes {
-                let ty = g.new_meta(span);
-                let hole = g.new_meta(span);
+                let ty = self.metas().new_meta(span);
+                let hole = self.metas().new_meta(span);
                 let ty_value = eval(g, &[], &Term::Meta(ty))?;
-                g.set_meta_type(hole, ty_value.clone(), 0);
+                self.metas().set_meta_type(hole, ty_value.clone(), 0);
                 cx.define(
                     Some(name),
                     name.as_str().into(),
@@ -998,7 +1002,7 @@ impl Elaborator {
             let make = |value: Value, via: Option<Via>| -> Pattern {
                 let zonked = stitchwort_core::value::quote_folded(g, 0, &value)
                     .unwrap_or_else(|_| term.clone());
-                let metas = g.metas.borrow().len();
+                let metas = self.metas().metas.borrow().len();
                 Pattern {
                     head: head_key(&zonked),
                     constants: constants(&zonked),
@@ -1031,7 +1035,7 @@ impl Elaborator {
                         &|t, _| match t {
                             Term::App(f, arg, Icit::Auto) if is_dictionary(g, arg) => {
                                 made.set(true);
-                                let hole = Term::Meta(g.new_meta(span));
+                                let hole = Term::Meta(self.metas().new_meta(span));
                                 Some(Term::App(f.clone(), Rc::new(hole), Icit::Auto))
                             }
                             _ => None,
@@ -1055,8 +1059,8 @@ impl Elaborator {
                 _ => Ok(vec![make(value, None)]),
             }
         })();
-        self.globals.machine.budget.restore(saved);
-        self.globals.machine.glue.set(was);
+        self.kernel.machine.budget.restore(saved);
+        self.kernel.machine.glue.set(was);
         result
     }
 
@@ -1073,7 +1077,7 @@ impl Elaborator {
         iff: Option<DataId>,
     ) -> Option<Pattern> {
         self.clear_metas();
-        let g = &self.globals;
+        let g = &self.unifier();
         let was = g.machine.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
@@ -1081,8 +1085,8 @@ impl Elaborator {
             let mut env: Vec<Value> = Vec::new();
             let mut t = def.ty().strip_loc();
             while let Term::Pi(_, _, dom, cod) = t {
-                let m = g.new_meta(def.span());
-                g.set_meta_type(m, eval(g, &env, dom)?, 0);
+                let m = self.metas().new_meta(def.span());
+                self.metas().set_meta_type(m, eval(g, &env, dom)?, 0);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
@@ -1113,14 +1117,14 @@ impl Elaborator {
     /// to all its parameters, or its conclusion is a variable.
     pub fn use_pattern(&mut self, lemma: DefId, args: &[&Term], depth: usize) -> Option<Pattern> {
         self.clear_metas();
-        let g = &self.globals;
+        let g = &self.unifier();
         let was = g.machine.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
             let def = g.def(lemma);
             let mut env: Vec<Value> = Vec::new();
             for _ in 0..depth {
-                let m = g.new_meta(def.span());
+                let m = self.metas().new_meta(def.span());
                 env.push(eval(g, &[], &Term::Meta(m))?);
             }
             // The proof's variables have no recorded type, so unification
@@ -1166,14 +1170,14 @@ impl Elaborator {
     /// A pattern of `value`, whose unknowns are all holes, each a different
     /// variable; `None` if it is one.
     fn finish_pattern(&self, value: Value, ty: Option<Ty>) -> Res<Option<Pattern>> {
-        let g = &self.globals;
+        let g = &self.ev();
         if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
             && s.is_empty()
         {
             return Ok(None);
         }
         let quoted = stitchwort_core::value::quote_folded(g, 0, &value)?;
-        let metas = g.metas.borrow().len();
+        let metas = self.metas().metas.borrow().len();
         Ok(Some(Pattern {
             head: head_key(&quoted),
             constants: constants(&quoted),
@@ -1195,7 +1199,7 @@ impl Elaborator {
     /// name), definitions, theorems and constructors, but those not checked
     /// in full (unfinished, or failed).
     pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
-        let g = &self.globals;
+        let g = &self.ev();
         let defs = (0..g.env.defs().len())
             .map(DefId)
             .filter(|id| !self.is_unfinished(*id))
@@ -1244,7 +1248,7 @@ impl Elaborator {
     /// such as `Ord.compare` is named the same way in both), and as
     /// written.
     pub fn type_index(&self, ty: &Term) -> Index {
-        let g = &self.globals;
+        let g = &self.ev();
         let was = g.machine.glue.replace(self.options.glue);
         let found = (|| {
             let _op = g.machine.budget.attempt(ATTEMPT);
@@ -1276,7 +1280,7 @@ impl Elaborator {
         opts: &Opts,
         keep: &dyn Fn(&Candidate) -> bool,
     ) -> Found {
-        let g = &self.globals;
+        let g = &self.ev();
         let names_something = patterns
             .iter()
             .any(|p| !p.constants.is_empty() || !p.data.is_empty());
@@ -1373,11 +1377,11 @@ impl Elaborator {
         }
         stats.compared += 1;
         let g = &self.unifier();
-        let frozen = g.frozen_metas.borrow().len();
+        let frozen = g.store.frozen_metas.borrow().len();
         let _restore = Restore {
             g: *g,
-            metas: g.metas.borrow().len().max(pattern.metas),
-            trail: g.meta_trail.borrow().len(),
+            metas: g.store.metas.borrow().len().max(pattern.metas),
+            trail: g.store.meta_trail.borrow().len(),
             frozen,
             glue: g.machine.glue.replace(self.options.glue),
         };
@@ -1404,8 +1408,8 @@ impl Elaborator {
                     }
                     premises.push(((**dom).clone(), env.len()));
                 }
-                let m = g.new_meta(span);
-                g.set_meta_type(m, eval(g, &env, dom)?, 0);
+                let m = g.store.new_meta(span);
+                g.store.set_meta_type(m, eval(g, &env, dom)?, 0);
                 opened.push(m);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
@@ -1481,7 +1485,7 @@ impl Elaborator {
                     // (SW-924).
                     let theirs = match place {
                         Place::Left | Place::Right => match conclusion.strip_loc() {
-                            Term::Eq(Some(ty), ..) => Some(Ty::of(g, eval(g, &env, ty)?)?),
+                            Term::Eq(Some(ty), ..) => Some(Ty::of(&g.ev, eval(g, &env, ty)?)?),
                             Term::Eq(None, ..) => type_of_target(g, &env[..at], target)?,
                             _ => Some(Ty::Type),
                         },
@@ -1517,14 +1521,14 @@ impl Elaborator {
                 {
                     break;
                 }
-                let inner = g.meta_trail.borrow().len();
+                let inner = g.store.meta_trail.borrow().len();
                 stats.unifications += 1;
                 let Some((same, mut absorbs)) = try_target(place, &target, at)? else {
                     stats.unifications -= 1;
                     continue;
                 };
                 let measured = if same {
-                    measure(g, pattern, &opened)?
+                    measure(&g.ev, pattern, &opened)?
                 } else {
                     None
                 };
@@ -1547,12 +1551,15 @@ impl Elaborator {
                     if want >= relation {
                         break;
                     }
-                    g.frozen_metas.borrow_mut().extend(side.iter().copied());
+                    g.store
+                        .frozen_metas
+                        .borrow_mut()
+                        .extend(side.iter().copied());
                     stats.unifications += 1;
                     let tried = try_target(place, &target, at);
-                    g.frozen_metas.borrow_mut().truncate(frozen);
+                    g.store.frozen_metas.borrow_mut().truncate(frozen);
                     let m = match tried? {
-                        Some((true, _)) => measure(g, pattern, &opened)?,
+                        Some((true, _)) => measure(&g.ev, pattern, &opened)?,
                         _ => None,
                     };
                     crate::unify::undo_since(g, inner);
@@ -1601,7 +1608,13 @@ impl Elaborator {
 
 /// For a call of something of type `ty` to `args` (terms in `env`): each
 /// argument that is one of `holes` with no type yet gets its parameter's.
-fn type_holes(g: &Globals, env: &[Value], holes: &[usize], ty: Value, args: &[&Term]) -> Res<()> {
+fn type_holes(
+    g: &crate::unify::Unifier<'_>,
+    env: &[Value],
+    holes: &[usize],
+    ty: Value,
+    args: &[&Term],
+) -> Res<()> {
     let mut ty = ty;
     for arg in args {
         let Value::Pi(_, _, dom, closure) = force(g, ty)? else {
@@ -1611,9 +1624,9 @@ fn type_holes(g: &Globals, env: &[Value], holes: &[usize], ty: Value, args: &[&T
         if let Value::Neutral(Head::Meta(m), s) = force(g, value.clone())?
             && s.is_empty()
             && holes.contains(&m)
-            && g.meta_type(m).is_none()
+            && g.store.meta_type(m).is_none()
         {
-            g.set_meta_type(m, (*dom).clone(), 0);
+            g.store.set_meta_type(m, (*dom).clone(), 0);
         }
         ty = closure.apply(g, value)?;
     }
@@ -1661,7 +1674,7 @@ fn explicit_data(term: &Term) -> BTreeSet<usize> {
 /// Whether `arg`, an `auto` argument, is an interface dictionary that
 /// elaboration resolved: an instance (or a dictionary definition) applied
 /// to arguments.
-fn is_dictionary(g: &Globals, arg: &Term) -> bool {
+fn is_dictionary(g: &Ev, arg: &Term) -> bool {
     match arg.spine().0.strip_loc() {
         Term::Def(id) => {
             let def = g.def(*id);
@@ -1715,7 +1728,7 @@ fn reordered(
             if used[i] {
                 continue;
             }
-            let inner = g.meta_trail.borrow().len();
+            let inner = g.store.meta_trail.borrow().len();
             if crate::unify::unify_solving_arguments(g, level, want, have)? {
                 used[i] = true;
                 found = true;

@@ -12,7 +12,7 @@ use stitchwort_core::{MAX_LEVEL, Sort, Term};
 
 fn infer_code(term: &Term) -> &'static str {
     let p = Prelude::new();
-    infer_closed(&p.g, term, span())
+    infer_closed(&p.g.ev(), term, span())
         .err()
         .map_or("ok", |d| d.code)
 }
@@ -27,7 +27,7 @@ fn refuses_the_top_universe_and_accepts_the_one_below() {
     assert_eq!(infer_code(&ty_n(MAX_LEVEL)), "E-UNIVERSE");
     assert_eq!(infer_code(&ty_n(MAX_LEVEL + 1)), "E-UNIVERSE");
     let p = Prelude::new();
-    let (_, t) = infer_closed(&p.g, &ty_n(MAX_LEVEL - 1), span()).expect("checks");
+    let (_, t) = infer_closed(&p.g.ev(), &ty_n(MAX_LEVEL - 1), span()).expect("checks");
     assert!(matches!(t, stitchwort_core::Value::Sort(Sort::Type(l)) if l == MAX_LEVEL));
 }
 

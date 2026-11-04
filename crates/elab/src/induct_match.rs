@@ -30,6 +30,7 @@
 //! the cases, the variables and the generalised ones; the kernel checks it.
 
 use std::rc::Rc;
+use stitchwort_core::Ev;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{force, quote};
@@ -72,9 +73,9 @@ fn telescope(cx: &Ctx, ty: &Value) -> Result<Vec<(Name, Icit)>> {
     let g = cx.g();
     let mut out = Vec::new();
     let mut cur = ty.clone();
-    while let Value::Pi(name, icit, _, cod) = force(g, cur.clone())? {
+    while let Value::Pi(name, icit, _, cod) = force(&g, cur.clone())? {
         out.push((name, icit));
-        cur = cod.apply(g, Value::var(DUMMY))?;
+        cur = cod.apply(&g, Value::var(DUMMY))?;
     }
     Ok(out)
 }
@@ -120,7 +121,7 @@ struct Abstract<'a> {
 }
 
 impl Abstract<'_> {
-    fn apply(&self, g: &stitchwort_core::Globals, term: &Term) -> Result<Term> {
+    fn apply(&self, g: &Ev, term: &Term) -> Result<Term> {
         let hook = |t: &Term, under: usize| {
             same_shifted(self.call, t, under, 0)
                 .then(|| Term::Var(self.depth + under - 1 - self.result))
@@ -168,7 +169,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     // The call, as the goal says it, for the occurrence test.
     let (call_term, call_ty) = infer(cx, call)?;
     let (call_term, _) = insert(cx, call_term, call_ty)?;
-    let call_normal = quote(g, base, &cx.eval(&call_term)?)?;
+    let call_normal = quote(&g, base, &cx.eval(&call_term)?)?;
     // `f.induct`.
     let induct_name = stitchwort_syntax::ast::Name {
         text: format!("{}.induct", head.text),
@@ -206,26 +207,26 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     }
     let (with_prefix, ty) = infer(cx, &applied)?;
     let (with_prefix, ty) = insert(cx, with_prefix, ty)?;
-    let Value::Pi(_, _, motive_ty, rest) = force(g, ty)? else {
+    let Value::Pi(_, _, motive_ty, rest) = force(&g, ty)? else {
         return Err(motive_error(span, "`f.induct` has no motive"));
     };
     // The motive's parameters: the targets, then the result.
     let params = telescope(cx, &motive_ty)?;
     let k = params.len().saturating_sub(1);
     // The cases, and the targets after them, with the cases' own binders.
-    let rest_dummy = rest.apply(g, Value::var(DUMMY))?;
+    let rest_dummy = rest.apply(&g, Value::var(DUMMY))?;
     let after = telescope(cx, &rest_dummy)?;
     let ncases = after.len().saturating_sub(k);
     let mut cases: Vec<(Name, Vec<Name>)> = Vec::new();
     {
         let mut cur = rest_dummy.clone();
         for _ in 0..ncases {
-            let Value::Pi(name, _, dom, cod) = force(g, cur)? else {
+            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             let own = telescope(cx, &dom)?;
             cases.push((name, own.into_iter().map(|(n, _)| n).collect()));
-            cur = cod.apply(g, Value::var(DUMMY))?;
+            cur = cod.apply(&g, Value::var(DUMMY))?;
         }
     }
     // The targets are distinct variables.
@@ -316,9 +317,9 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         .with_note(format!("the cases are {}", list(&expected))));
     }
     // The motive.
-    let goal_term = quote(g, base, goal)?;
+    let goal_term = quote(&g, base, goal)?;
     let type_terms: Vec<Term> = (0..base)
-        .map(|l| quote(g, base, &cx.types[l]))
+        .map(|l| quote(&g, base, &cx.types[l]))
         .collect::<std::result::Result<_, _>>()?;
     // The variables to generalise: those whose types mention the call or a
     // target, and those whose types mention one generalised.
@@ -344,12 +345,12 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         let mut cur = (*motive_ty).clone();
         let mut names: Vec<Name> = Vec::new();
         for _ in 0..params.len() {
-            let Value::Pi(name, _, dom, cod) = force(g, cur)? else {
+            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             cx.bind_hidden(name.clone(), (*dom).clone());
             names.push(name);
-            cur = cod.apply(g, Value::var(cx.level() - 1))?;
+            cur = cod.apply(&g, Value::var(cx.level() - 1))?;
         }
         let mut map: HashMap<usize, usize> = HashMap::default();
         for (i, &l) in targets.iter().enumerate() {
@@ -366,7 +367,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
                 result,
                 map: &map,
             };
-            let ty = abs.apply(g, &type_terms[l])?;
+            let ty = abs.apply(&g, &type_terms[l])?;
             let value = cx.eval(&ty)?;
             cx.bind_hidden(cx.names[l].clone(), value);
             map.insert(l, depth);
@@ -380,7 +381,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
             result,
             map: &map,
         };
-        let mut body = abs.apply(g, &goal_term)?;
+        let mut body = abs.apply(&g, &goal_term)?;
         for (name, ty) in copy_types.into_iter().rev() {
             body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
         }
@@ -393,39 +394,39 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     let (motive_term, _) = built?;
     let motive = cx.eval(&motive_term)?;
     // `f.induct` with the motive; its cases are the alternatives.
-    let ty = rest.apply(g, motive.clone())?;
+    let ty = rest.apply(&g, motive.clone())?;
     let mut term = Term::app(with_prefix, motive_term);
     let mut cur = ty;
     for (i, alt) in chosen.iter().enumerate() {
         let alt = alt.expect("none missing");
-        let Value::Pi(_, _, dom, cod) = force(g, cur)? else {
+        let Value::Pi(_, _, dom, cod) = force(&g, cur)? else {
             unreachable!("counted")
         };
         let case = alternative(cx, alt, &cases[i], &induct_name.text, &dom, &copied)?;
-        cur = cod.apply(g, cx.eval(&case)?)?;
+        cur = cod.apply(&g, cx.eval(&case)?)?;
         term = Term::app(term, case);
     }
     for &l in &targets {
-        let Value::Pi(_, _, _, cod) = force(g, cur)? else {
+        let Value::Pi(_, _, _, cod) = force(&g, cur)? else {
             unreachable!("counted")
         };
-        cur = cod.apply(g, Value::var(l))?;
+        cur = cod.apply(&g, Value::var(l))?;
         term = Term::app(term, Term::Var(base - 1 - l));
     }
     // Applied to the variables the motive took as premises.
     for &l in &copied {
-        let Value::Pi(_, _, _, cod) = force(g, cur)? else {
+        let Value::Pi(_, _, _, cod) = force(&g, cur)? else {
             return Err(motive_error(
                 span,
                 "the motive's premises aren't as expected",
             ));
         };
-        cur = cod.apply(g, Value::var(l))?;
+        cur = cod.apply(&g, Value::var(l))?;
         term = Term::app(term, Term::Var(base - 1 - l));
     }
     if !cx.unify(&cur, goal)? {
         let shown =
-            crate::pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), &cx.quote(&cur)?);
+            crate::pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), &cx.quote(&cur)?);
         return Err(motive_error(
             span,
             "the motive worked out from the goal doesn't give the goal back",
@@ -473,7 +474,7 @@ fn alternative(
         let mut lams: Vec<Name> = Vec::new();
         let mut cur = ty.clone();
         for b in &alt.binders {
-            let Value::Pi(name, _, dom, cod) = force(g, cur)? else {
+            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             let shown: Name = if b.text == "_" {
@@ -487,10 +488,10 @@ fn alternative(
                 cx.bind(&b.text, (*dom).clone());
             }
             lams.push(shown);
-            cur = cod.apply(g, Value::var(cx.level() - 1))?;
+            cur = cod.apply(&g, Value::var(cx.level() - 1))?;
         }
         for &l in copied {
-            let Value::Pi(name, _, dom, cod) = force(g, cur)? else {
+            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 return Err(motive_error(
                     alt.span,
                     "the case's premises aren't as the motive made them",
@@ -500,7 +501,7 @@ fn alternative(
             let level = cx.level() - 1;
             cx.rebind(l, level);
             lams.push(name);
-            cur = cod.apply(g, Value::var(level))?;
+            cur = cod.apply(&g, Value::var(level))?;
         }
         let mut body = check(cx, &alt.body, &cur)?;
         for name in lams.into_iter().rev() {

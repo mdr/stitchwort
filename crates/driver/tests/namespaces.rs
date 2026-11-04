@@ -46,7 +46,7 @@ fn types_are_hashed_with_their_full_names() {
          type Geometry.Shape : Type =\n  | Square (side : Nat)\n\n\
          type UI.Shape : Type =\n  | Square (side : Nat)\n",
     );
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget
@@ -184,7 +184,7 @@ fn an_imported_name_in_a_type_is_not_a_type_variable() {
 }
 
 fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = g
         .env
         .defs()
@@ -197,7 +197,7 @@ fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHas
 }
 
 fn data_path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = (0..g.env.datas().len())
         .map(stitchwort_core::DataId)
         .find(|d| &**g.data(*d).path() == path)

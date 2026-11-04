@@ -14,7 +14,7 @@ use stitchwort_core::check::{self, define_def};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::term::{NumArm, Term};
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, termination};
+use stitchwort_core::{BigUint, DefId, Icit, Kernel, Limits, termination};
 
 /// `Nat -> … -> Nat` with `n` parameters.
 fn nats_to_nat(p: &Prelude, n: usize) -> Term {
@@ -55,7 +55,7 @@ fn zero(p: &Prelude) -> Term {
 }
 
 /// Evaluates `f` applied to these numbers, fully.
-fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<Term> {
+fn run(g: &Kernel, f: DefId, args: &[usize], work: u64) -> Option<Term> {
     let nat = g.find_data("Nat").unwrap();
     let num = |n: usize| {
         (0..n).fold(Term::ctor(nat, 0, vec![]), |t, _| {
@@ -67,8 +67,8 @@ fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<Term> {
         work,
         ..Limits::default()
     });
-    let value = eval(g, &[], &term).ok()?;
-    quote(g, 0, &value).ok()
+    let value = eval(&g.ev(), &[], &term).ok()?;
+    quote(&g.ev(), 0, &value).ok()
 }
 
 fn nat_of(term: &Term) -> Option<usize> {
@@ -469,7 +469,7 @@ fn implicit_parameters_count_towards_the_arity() {
         .def_mut_for_tests(id)
         .set_arity_unchecked_for_tests(2);
     let body = len(Term::Def(id), |g| g);
-    let e = termination::check(&p.g, &body, id, "len2", span()).unwrap_err();
+    let e = termination::check(&p.g.ev(), &body, id, "len2", span()).unwrap_err();
     assert_eq!(e.code, "E-TERMINATION");
     assert!(e.message.contains("without all its arguments"), "{e:?}");
 }
@@ -588,7 +588,7 @@ fn a_body_that_disagrees_with_the_stored_arity_is_malformed() {
         .def_mut_for_tests(id)
         .set_arity_unchecked_for_tests(2);
     let body = lam("n", v(0));
-    let e = termination::check(&p.g, &body, id, "f", span()).unwrap_err();
+    let e = termination::check(&p.g.ev(), &body, id, "f", span()).unwrap_err();
     assert_eq!(e.code, "E-MALFORMED");
 }
 
@@ -639,9 +639,9 @@ fn running_out_while_deciding_termination_is_inconclusive() {
         .set_arity_unchecked_for_tests(3);
     // Enough graphs: it terminates (a permutation of the arguments with one
     // made smaller, repeated, always shrinks something).
-    assert!(termination::check(&p.g, &body, id, "f", span()).is_ok());
+    assert!(termination::check(&p.g.ev(), &body, id, "f", span()).is_ok());
     // Too few: inconclusive, not accepted.
-    let e = termination::check_with_limit(&p.g, &body, id, "f", span(), 3).unwrap_err();
+    let e = termination::check_with_limit(&p.g.ev(), &body, id, "f", span(), 3).unwrap_err();
     assert_eq!(e.code, "E-RESOURCE");
     assert!(e.notes.iter().any(|n| n.contains("inconclusive")), "{e:?}");
 }
@@ -657,7 +657,7 @@ fn running_out_of_steps_while_deciding_termination_leaves_the_definition_failed(
         let _op = p.g.machine.budget.operation(Limits::default());
         let before = p.g.machine.budget.total_work();
         let def = p.g.def(probe);
-        let mut cx = check::Ctx::new(&p.g, def.span());
+        let mut cx = check::Ctx::new(&p.g.ev(), def.span());
         check::check(&mut cx, &body, def.ty_value()).expect("the body type-checks");
         p.g.machine.budget.total_work() - before
     };
@@ -679,7 +679,7 @@ fn running_out_of_steps_while_deciding_termination_leaves_the_definition_failed(
         "it ran out in the termination check: {e:?}"
     );
     assert_eq!(p.g.def(id).state(), stitchwort_core::globals::State::Failed);
-    assert_eq!(def_hash(&p.g, id).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), id).unwrap(), None);
 }
 
 // Generated programs: the old checker against the new
@@ -858,7 +858,7 @@ fn accepts_everything_the_structural_checker_accepted() {
         let is_recursive = mentions(&body, id);
         recursive += usize::from(is_recursive);
         old_recursive += usize::from(old && is_recursive);
-        let new = termination::check(&p.g, &body, id, "f", span()).is_ok();
+        let new = termination::check(&p.g.ev(), &body, id, "f", span()).is_ok();
         old_accepts += usize::from(old);
         new_accepts += usize::from(new);
         both += usize::from(old && new);
@@ -868,7 +868,7 @@ fn accepts_everything_the_structural_checker_accepted() {
                 has_partial_occurrence(&body, id, arity),
                 "seed {seed}: the structural checker accepts this, the size-change one doesn't: \
                  {}",
-                stitchwort_core::pretty::term(&p.g, &[], &body)
+                stitchwort_core::pretty::term(&p.g.ev(), &[], &body)
             );
             partial += 1;
         }
@@ -883,7 +883,7 @@ fn accepts_everything_the_structural_checker_accepted() {
                 assert!(
                     run(&p.g, id, &args, 1_000_000).is_some(),
                     "seed {seed}: accepted, but {args:?} didn't finish: {}",
-                    stitchwort_core::pretty::term(&p.g, &[], &body)
+                    stitchwort_core::pretty::term(&p.g.ev(), &[], &body)
                 );
             }
         }

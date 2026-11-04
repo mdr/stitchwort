@@ -103,6 +103,7 @@
 //! clash with the user's.
 
 use std::rc::Rc;
+use stitchwort_core::Ev;
 
 use crate::kernel;
 use num_bigint::BigUint;
@@ -181,7 +182,7 @@ pub(crate) struct Member {
 /// Which of `members` has type `ty` (with `T`'s parameters as the
 /// variables `0..np`), if any.
 pub(crate) fn member_of(
-    g: &stitchwort_core::Globals,
+    g: &Ev,
     np: usize,
     members: &[Member],
     ty: &Value,
@@ -213,7 +214,7 @@ pub(crate) fn member_prefix(ty_name: &str, m: usize) -> String {
 }
 
 /// The containers the derivers look into.
-fn known_container(g: &stitchwort_core::Globals, e: DataId) -> bool {
+fn known_container(g: &Ev, e: DataId) -> bool {
     [Builtin::List, Builtin::Option, Builtin::Pair]
         .iter()
         .any(|b| g.env.registry().data(*b) == Some(e))
@@ -225,7 +226,7 @@ impl Elaborator {
     pub(crate) fn derive_data_eq(&mut self, d: DataId) -> Result<()> {
         // Nor for a type the compiler declared, whose constructors' names
         // source can't write: an ability's operations (`effects.rs`).
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         if self.unit.loading_prelude || generated || interfaces::dec_eq(self).is_none() {
             return Ok(());
@@ -243,7 +244,7 @@ impl Elaborator {
                 return Ok(());
             }
         };
-        let ctors = self.globals.data(d).ctors().len();
+        let ctors = self.kernel.data(d).ctors().len();
         if ctors > 1 {
             self.derive_tag(d)?;
         }
@@ -299,7 +300,7 @@ impl Elaborator {
         d: DataId,
         label: &str,
     ) -> Result<std::result::Result<Vec<Member>, String>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let name = data.name().to_string();
         let np = data.params().len();
@@ -407,7 +408,7 @@ impl Elaborator {
         label: &str,
         compare: bool,
     ) -> Result<std::result::Result<Plan, String>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let name = data.name().to_string();
         let np = data.params().len();
@@ -436,7 +437,7 @@ impl Elaborator {
         } else {
             Vec::new()
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
         let param_is_type: Vec<bool> = data.params().iter().map(|(_, t)| is_type(t)).collect();
@@ -608,14 +609,14 @@ impl Elaborator {
         let Some(dec_eq) = interfaces::dec_eq(self) else {
             return Ok(Err("there's no prelude".into()));
         };
-        let interface_name = |e: &Self, i: DataId| e.globals.data(i).name().to_string();
+        let interface_name = |e: &Self, i: DataId| e.kernel.data(i).name().to_string();
         let names = (
             interface_name(self, interface),
             interface_name(self, dec_eq),
         );
         self.clear_metas();
-        let span = self.globals.data(d).span();
-        let params: Vec<(Name, Term)> = self.globals.data(d).params().to_vec();
+        let span = self.kernel.data(d).span();
+        let params: Vec<(Name, Term)> = self.kernel.data(d).params().to_vec();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
@@ -694,9 +695,9 @@ impl Elaborator {
         let prefix = format!("%m{m}%");
         let ty_member = format!("{prefix}type");
         if !self.has_member(d, &ty_member) {
-            let data = self.globals.data(d);
+            let data = self.kernel.data(d);
             let np = data.params().len();
-            let mut body = quote(&self.globals, np, &member.ty())?;
+            let mut body = quote(&self.ev(), np, &member.ty())?;
             let mut ty = Term::Sort(data.sort());
             for (x, t) in data.params().iter().rev() {
                 ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
@@ -705,7 +706,7 @@ impl Elaborator {
             let name: Name = format!("{}.{ty_member}", data.name()).into();
             let span = data.span();
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &name,
@@ -714,11 +715,11 @@ impl Elaborator {
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
             let key = Self::member_key(&self.data_key(d), &ty_member);
             self.scope.insert(&key, Global::Def(id), span, false);
         }
-        let container = self.globals.data(member.data);
+        let container = self.kernel.data(member.data);
         let ctors: Vec<usize> = container.ctors().iter().map(|c| c.fields.len()).collect();
         let tag = format!("{prefix}tag");
         if ctors.len() > 1 && !self.has_member(d, &tag) {
@@ -729,7 +730,7 @@ impl Elaborator {
                 for k in 0..*count {
                     let name = format!(
                         "{prefix}{}%{k}",
-                        self.globals.data(member.data).ctors()[c].name
+                        self.kernel.data(member.data).ctors()[c].name
                     );
                     if !self.has_member(d, &name) {
                         self.derive_field_in(d, member.data, &prefix, c, k)?;
@@ -743,10 +744,10 @@ impl Elaborator {
     /// Declares `T.member : [params] -> D params -> Nat`, for `D` (`d`) `T`
     /// itself or a container of it.
     fn derive_tag_in(&mut self, owner: DataId, d: DataId, member: &str) -> Result<()> {
-        let Some(nat) = self.globals.env.registry().data(Builtin::Nat) else {
+        let Some(nat) = self.kernel.env.registry().data(Builtin::Nat) else {
             return Ok(());
         };
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let np = data.params().len();
         let params: Vec<Term> = (0..np).map(|k| Term::Var(np - 1 - k)).collect();
         let ty = Term::Pi(
@@ -788,7 +789,7 @@ impl Elaborator {
         c: usize,
         k: usize,
     ) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let np = data.params().len();
         let ctor = &data.ctors()[c];
@@ -842,7 +843,7 @@ impl Elaborator {
     /// Declares `T.%C%P%k : (params) -> (fields before k) -> Prop`, the type
     /// of proof field `k` of `C`, all its arguments explicit.
     pub(crate) fn derive_proof_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ctor = &data.ctors()[c];
         let binders: Vec<(Name, Term)> = data
             .params()
@@ -860,7 +861,7 @@ impl Elaborator {
         let name: Name = format!("{}.{member}", data.name()).into();
         let span = data.span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -869,7 +870,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())
@@ -886,17 +887,17 @@ impl Elaborator {
         ty: Term,
         body: Term,
     ) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let (mut ty, mut body) = (ty, body);
         for (x, t) in data.params().iter().rev() {
             ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
             body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
         }
-        let owner_data = self.globals.data(owner);
+        let owner_data = self.kernel.data(owner);
         let name: Name = format!("{}.{member}", owner_data.name()).into();
         let span = owner_data.span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -905,7 +906,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
         let key = Self::member_key(&self.data_key(owner), member);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())
@@ -916,7 +917,7 @@ impl Elaborator {
     /// `T.%m1%differ` and `T.%m1%decEq` for each container it's in, the
     /// `decEq`s defined together.
     fn eq_source(&self, d: DataId, plan: &Plan) -> Source {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let span = data.span();
         let n = |text: &str| ast::Name {
@@ -1022,14 +1023,14 @@ impl Elaborator {
                 let container = plan.nested[m - 1].member.data;
                 (
                     container,
-                    self.globals.data(container).path().to_string(),
+                    self.kernel.data(container).path().to_string(),
                     apps(
                         var(&format!("{prefix}type")),
                         (0..np).map(|j| var(&param(j))).collect(),
                     ),
                 )
             };
-            let ctors = self.globals.data(matched).ctors();
+            let ctors = self.kernel.data(matched).ctors();
             let member_fields = plan.member_fields(m);
 
             // T.%decEq : … -> (%r %s : T %p0 …) -> Decidable (%r = %s)

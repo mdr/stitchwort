@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Ev, Term};
 use stitchwort_syntax::ast::{Decl, Expr, Import, Module};
 use stitchwort_syntax::docs::{
     Doc, docs, file_doc, file_doc_namespace, file_imports, link_candidates_with_imports,
@@ -1122,7 +1122,7 @@ impl Session {
     /// The full name's elaborated type, if the session has it: a
     /// definition's or theorem's, a constructor's.
     pub fn declared_type(&self, path: &str) -> Option<String> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let ty = match def_named(g, path) {
             Some(id) => g.def(id).ty().clone(),
             None => {
@@ -1170,7 +1170,7 @@ impl Session {
                 None => return Err(d),
             },
         };
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let target = def_named(g, path);
         let iff = (0..g.env.datas().len())
             .map(DataId)
@@ -1237,7 +1237,7 @@ impl Session {
         command_extra: &str,
     ) -> Result<Option<Equations>, stitchwort_syntax::Diagnostic> {
         self.elab.generate_deferred_equations()?;
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let Some(f) = def_named(g, path) else {
             return Ok(None);
         };
@@ -1306,7 +1306,7 @@ impl Session {
 
 /// Every generated equation made so far, by its definition's full path, in
 /// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
-pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
+pub(crate) fn generated_equations(g: &Ev) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
     for id in (0..g.env.defs().len()).map(DefId) {
         let d = g.def(id);
@@ -1363,7 +1363,7 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
 
 /// A definition's generated equations as hover shows them: the count and
 /// the first few (function-equations §3.4), in markdown.
-pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> String {
+pub(crate) fn equations_hover(g: &Ev, ids: &[(Vec<usize>, DefId)]) -> String {
     const HOVER_SHOWN: usize = 4;
     // `f.induct`, listed first, isn't an equation: not counted (SW-1073).
     let inducts = (ids.iter())
@@ -1417,7 +1417,7 @@ fn has_overlap_hypothesis(ty: &Term) -> bool {
 }
 
 /// The definition with full name `path`.
-fn def_named(g: &Globals, path: &str) -> Option<DefId> {
+fn def_named(g: &Ev, path: &str) -> Option<DefId> {
     (0..g.env.defs().len())
         .map(DefId)
         .find(|id| &**g.def(*id).path() == path)
@@ -1440,7 +1440,7 @@ fn rewrites(ty: &Term, x: DefId, iff: Option<DataId>) -> bool {
 
 /// A theorem's statement without its leading parameters that only later ones
 /// use (`[a: Type] → (xs: List a) → …`): the premises and the conclusion.
-fn statement(g: &Globals, ty: &Term) -> String {
+fn statement(g: &Ev, ty: &Term) -> String {
     let mut names = Vec::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(name, _, _, cod) = t

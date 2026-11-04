@@ -231,7 +231,7 @@ impl Elaborator {
     /// it. `atom` when it is an argument, so a constructor with arguments
     /// is in parentheses.
     fn show_column(&self, level: usize, shapes: &HashMap<usize, Shape>, atom: bool) -> String {
-        let g = &self.globals;
+        let g = &self.ev();
         let reg = &g.env.registry();
         let (d, c, base) = match shapes.get(&level) {
             None => return "_".to_string(),

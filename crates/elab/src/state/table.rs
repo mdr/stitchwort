@@ -20,10 +20,8 @@
 //! copied at a mark until §7 step 6b), and the derived ones are
 //! [`super::Caches`].
 
-use std::cell::RefCell;
 use std::hash::Hash;
 use std::ops::Deref;
-use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DataId, DefId};
@@ -262,74 +260,6 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
 
     fn dump(&self, name: &str, out: &mut String) {
         dump_rows(&self.rows, name, out);
-    }
-}
-
-/// An [`OwnedBy`] table whose rows are also held by core's `Globals`, for
-/// what the printer reads through `&Globals` (`PrintHints`): the same kind
-/// in every other way. The rows are `Clone` handles (`Rc`s).
-pub(crate) struct SharedOwnedBy<I, V> {
-    rows: Rc<RefCell<HashMap<I, V>>>,
-}
-
-impl<I, V> Default for SharedOwnedBy<I, V> {
-    fn default() -> Self {
-        SharedOwnedBy {
-            rows: Rc::default(),
-        }
-    }
-}
-
-impl<I: Id, V: Clone> SharedOwnedBy<I, V> {
-    /// Holds the rows of `rows` from now on (the table is empty).
-    pub(crate) fn share(&mut self, rows: Rc<RefCell<HashMap<I, V>>>) {
-        debug_assert!(self.rows.borrow().is_empty(), "shared after rows were set");
-        self.rows = rows;
-    }
-
-    /// Sets `id`'s row, as [`OwnedBy::insert`].
-    pub(crate) fn insert(&mut self, owners: &Owners, id: I, row: V) -> Option<V> {
-        owned(owners, id);
-        self.rows.borrow_mut().insert(id, row)
-    }
-
-    pub(crate) fn get(&self, id: &I) -> Option<V> {
-        self.rows.borrow().get(id).cloned()
-    }
-
-    pub(crate) fn contains(&self, id: &I) -> bool {
-        self.rows.borrow().contains_key(id)
-    }
-}
-
-impl<I: Id, V: Clone + Codec + Dump> Table for SharedOwnedBy<I, V> {
-    type Mark = OwnedMark;
-    type Rows = Vec<(I, V)>;
-
-    fn mark(&self, ids: Ids) -> OwnedMark {
-        mark_rows(&self.rows.borrow(), ids)
-    }
-
-    fn rewind(&mut self, m: &OwnedMark) {
-        rewind_rows(&mut self.rows.borrow_mut(), m);
-    }
-
-    fn encode_since(&self, m: &OwnedMark, e: &mut Encoding<'_>) -> Result<(), String> {
-        encode_rows(&self.rows.borrow(), m, e)
-    }
-
-    fn decode(b: &mut Body<'_>) -> Read<Vec<(I, V)>> {
-        decode_rows(b)
-    }
-
-    fn replay(&mut self, rows: Vec<(I, V)>, owners: &Owners) {
-        for (id, row) in rows {
-            self.insert(owners, id, row);
-        }
-    }
-
-    fn dump(&self, name: &str, out: &mut String) {
-        dump_rows(&self.rows.borrow(), name, out);
     }
 }
 

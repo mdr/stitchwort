@@ -23,7 +23,7 @@ fn errors(source: &str) -> Vec<Diagnostic> {
 /// The update lemmas of type `ty`, as `name : statement`, in the order
 /// they're declared (helpers left out).
 fn lemmas(session: &Session, ty: &str) -> Vec<String> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let prefix = format!("{ty}.");
     g.env
         .defs()
@@ -195,7 +195,7 @@ fn every_lemma_of_the_core_checks() {
     assert!(
         session
             .elab
-            .globals
+            .kernel
             .env
             .defs()
             .iter()

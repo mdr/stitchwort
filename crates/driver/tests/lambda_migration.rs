@@ -90,7 +90,7 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
 }
 
 fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut out = String::new();
     for i in first_data..g.env.datas().len() {
         out += &format!(
@@ -127,8 +127,8 @@ fn all_hashes() -> BTreeMap<String, String> {
             let text = std::fs::read_to_string(&path).unwrap();
             let mut session = Session::eager();
             let (d, f) = (
-                session.elab.globals.env.datas().len(),
-                session.elab.globals.env.defs().len(),
+                session.elab.kernel.env.datas().len(),
+                session.elab.kernel.env.defs().len(),
             );
             let name = format!("{dir}-{}", path.file_stem().unwrap().to_string_lossy());
             let unit = match session.load(&path.display().to_string(), &text) {
@@ -154,8 +154,8 @@ fn all_hashes() -> BTreeMap<String, String> {
     for (name, dir) in projects {
         let mut session = Session::eager();
         let (d, f) = (
-            session.elab.globals.env.datas().len(),
-            session.elab.globals.env.defs().len(),
+            session.elab.kernel.env.datas().len(),
+            session.elab.kernel.env.defs().len(),
         );
         let files = DiskFiles { root: dir };
         let project = name.strip_prefix("project-").unwrap_or(&name).to_string();

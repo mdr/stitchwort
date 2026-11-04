@@ -98,7 +98,7 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
 }
 
 fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut out = String::new();
     for i in first_data..g.env.datas().len() {
         let h = show(data_hash(g, DataId(i)));
@@ -156,8 +156,8 @@ fn examples() {
             // Every library file loaded first, so the lines are the file's own.
             session.rewind(mark);
             let (d, f) = (
-                session.elab.globals.env.datas().len(),
-                session.elab.globals.env.defs().len(),
+                session.elab.kernel.env.datas().len(),
+                session.elab.kernel.env.defs().len(),
             );
             if session.load(&path.display().to_string(), &text).is_err() {
                 eprintln!("skipped {}", path.display());
@@ -185,8 +185,8 @@ fn examples() {
 fn own_lines(text: &str) -> String {
     let mut session = Session::eager();
     let (d, f) = (
-        session.elab.globals.env.datas().len(),
-        session.elab.globals.env.defs().len(),
+        session.elab.kernel.env.datas().len(),
+        session.elab.kernel.env.defs().len(),
     );
     if let Err(errors) = session.load("logic.sw", text) {
         panic!("doesn't load: {errors:#?}");
@@ -294,8 +294,8 @@ fn projects() {
             let name = dir.file_name().unwrap().to_string_lossy().to_string();
             session.rewind(mark);
             let (d, f) = (
-                session.elab.globals.env.datas().len(),
-                session.elab.globals.env.defs().len(),
+                session.elab.kernel.env.datas().len(),
+                session.elab.kernel.env.defs().len(),
             );
             let files = DiskFiles { root: dir.clone() };
             if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
@@ -456,7 +456,7 @@ fn dump_on_this_thread() {
     let Ok(path) = std::env::var("HASH_DEPS") else {
         return;
     };
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut deps = Vec::new();
     for def in g.env.defs() {
         let mut refs = std::collections::BTreeSet::new();

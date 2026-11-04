@@ -12,6 +12,7 @@ pub mod check;
 pub mod collections;
 pub mod env;
 pub mod erase;
+pub mod ev;
 pub mod float;
 pub mod globals;
 pub mod hash;
@@ -33,7 +34,8 @@ pub mod value;
 
 pub use budget::{Limits, ResourceError};
 pub use env::Env;
-pub use globals::Globals;
+pub use ev::{Ev, Metas, NoMetas, NoShown, Shown};
+pub use globals::Kernel;
 pub use num_bigint::BigUint;
 pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
 pub use value::Value;

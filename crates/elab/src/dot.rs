@@ -16,7 +16,7 @@ use std::rc::Rc;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force, force_solved};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Term, Value};
 use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -67,7 +67,7 @@ enum Step {
 }
 
 /// What a type is, without unfolding a definition at its head.
-fn step(g: &Globals, ty: Ty) -> Result<Step> {
+fn step(g: &Ev, ty: Ty) -> Result<Step> {
     let (term, env) = match ty {
         Ty::Value(v) => return step_value(g, v),
         Ty::Term(term, env) => (term, env),
@@ -84,7 +84,7 @@ fn step(g: &Globals, ty: Ty) -> Result<Step> {
     }
 }
 
-fn step_value(g: &Globals, value: Value) -> Result<Step> {
+fn step_value(g: &Ev, value: Value) -> Result<Step> {
     // A glued call is a definition as written (`Code`, kept while gluing),
     // say an inferred type that came from one: try its namespace before
     // unfolding it.
@@ -107,10 +107,12 @@ fn step_value(g: &Globals, value: Value) -> Result<Step> {
 /// Unfolds the definition `id` at the head of `ty` once: by substituting
 /// its arguments into its body if that's not a case tree, or else by
 /// running it. `None` if it can't unfold (it's stuck, say on a variable).
-fn unfold(g: &Globals, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
+fn unfold(g: &Ev, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
     let (term, env) = match ty {
         // A glued call unfolds by forcing.
-        Some(Ty::Value(value @ Value::Call(..))) => return Ok(Some(Ty::Value(force(g, value)?))),
+        Some(Ty::Value(value @ Value::Call(..))) => {
+            return Ok(Some(Ty::Value(force(g, value)?)));
+        }
         // A value is already as unfolded as evaluation could make it.
         None | Some(Ty::Value(_)) => return Ok(None),
         Some(Ty::Term(term, env)) => (term, env),
@@ -154,7 +156,7 @@ fn strip(term: &Rc<Term>) -> Rc<Term> {
 /// Every head the view goes through, from `ty`: for finding a function's
 /// receiver parameter. Stops at the first head with no namespace, or one
 /// already seen.
-fn heads(g: &Globals, mut ty: Ty) -> Result<Vec<TyHead>> {
+fn heads(g: &Ev, mut ty: Ty) -> Result<Vec<TyHead>> {
     let mut out = Vec::new();
     loop {
         match step(g, ty)? {
@@ -233,7 +235,7 @@ pub(crate) fn meta_name_in(
     if e.attempt.meta_names.borrow().is_empty() {
         return Ok(None);
     }
-    let g = &e.globals;
+    let g = &e.ev();
     let mut value = ty.clone();
     let name = loop {
         let Value::Neutral(Head::Meta(m), spine) = &value else {
@@ -371,7 +373,7 @@ fn dotted(e: &Expr) -> Option<(String, stitchwort_syntax::Span)> {
 fn dot_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
     if let Some(id) = helper(cx, recv, field) {
         cx.e.note_dot(field, id);
-        let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
+        let head = (Term::Def(id), crate::kernel::def_ty(&cx.g(), id)?);
         let (term, ty) = crate::check::apply_args(cx, head, args)?;
         return Ok(Dotted::Done(term, ty));
     }
@@ -626,7 +628,7 @@ impl crate::queue::Check for DotCall {
         };
         // Its implicit arguments, as an inferred term's are before it is
         // compared with what is expected of it, unless that takes them.
-        let (term, ty) = match force(cx.g(), self.result.clone())? {
+        let (term, ty) = match force(&cx.g(), self.result.clone())? {
             Value::Neutral(Head::Meta(_), _) => (term, ty),
             Value::Pi(_, icit, ..) if icit.is_implicit() => (term, ty),
             _ => {
@@ -634,7 +636,7 @@ impl crate::queue::Check for DotCall {
                 // None were inserted at the placeholder, so the item's own
                 // term has them (invariant 8, §5.10's implicit arguments).
                 debug_assert!(
-                    !matches!(force(cx.g(), ty.clone()), Ok(Value::Pi(_, icit, ..)) if icit.is_implicit()),
+                    !matches!(force(&cx.g(), ty.clone()), Ok(Value::Pi(_, icit, ..)) if icit.is_implicit()),
                     "a resumed call kept an implicit parameter its place doesn't take (invariant 8)"
                 );
                 (term, ty)
@@ -650,8 +652,8 @@ impl crate::queue::Check for DotCall {
 /// For hover on `field`, a dot call of `f` with `args`: the defaults it
 /// used.
 fn note_left_out(cx: &Ctx, field: &AstName, f: DefId, args: &[Arg]) -> Result<()> {
-    if cx.e.present.nav.is_some() && cx.e.tables.param_defaults.contains(&f) {
-        let head = (Term::Def(f), crate::kernel::def_ty(cx.g(), f)?);
+    if cx.e.present.nav.is_some() && cx.e.tables.param_defaults.contains_key(&f) {
+        let head = (Term::Def(f), crate::kernel::def_ty(&cx.g(), f)?);
         crate::defaults::note_left_out(cx, field.span, &head, args);
     }
     Ok(())
@@ -824,7 +826,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
     let receiver_ty = ty.clone();
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
-        match step(g, ty)? {
+        match step(&g, ty)? {
             // A section's argument whose type meets an unknown further along
             // its view (K3's sections wait before that, on the argument's
             // type itself): the `.field` waits, with the section's message.
@@ -973,7 +975,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                         .with_note(note));
                 }
                 match h {
-                    TyHead::Def(id) => match unfold(g, id, at)? {
+                    TyHead::Def(id) => match unfold(&g, id, at)? {
                         Some(next) => ty = next,
                         None => return Err(blocked(cx, recv, field, &tried)),
                     },
@@ -1018,7 +1020,7 @@ pub(crate) fn section_partial(
         return Ok(None);
     };
     let g = cx.g();
-    let all = params(g, f);
+    let all = params(&g, f);
     let Some((depth, k)) = receiver_place(cx, &all, owner)? else {
         return Ok(None);
     };
@@ -1041,7 +1043,7 @@ pub(crate) fn section_partial(
             _ => return Ok(None),
         }
     }
-    let head = (Term::Def(f), crate::kernel::def_ty(g, f)?);
+    let head = (Term::Def(f), crate::kernel::def_ty(&g, f)?);
     let snapshot = crate::undo::Snapshot::take(cx);
     let attempt = (|| -> Result<Option<Term>> {
         let (term, ty) = apply_args(cx, head, &args)?;
@@ -1103,7 +1105,7 @@ pub(crate) fn queue_section(
     dom: &Value,
     expected: &Value,
 ) -> Result<Option<Term>> {
-    let Value::Neutral(Head::Meta(blocker), _) = force(cx.g(), dom.clone())? else {
+    let Value::Neutral(Head::Meta(blocker), _) = force(&cx.g(), dom.clone())? else {
         return Ok(None);
     };
     let field = section.section_name().expect("a section");
@@ -1347,10 +1349,10 @@ fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<(Stri
                 let Some((Global::Def(f), _)) = cx.e.scope.get(key) else {
                     return None;
                 };
-                let all = params(g, f);
+                let all = params(&g, f);
                 let depth = all.iter().position(|p| p.icit == Icit::Explicit)?;
                 let env: Vec<Value> = (0..depth).map(|j| Value::var(level + j)).collect();
-                let hs = heads(g, Ty::Term(all[depth].ty.clone(), env)).ok()?;
+                let hs = heads(&g, Ty::Term(all[depth].ty.clone(), env)).ok()?;
                 hs.iter()
                     .any(|h| tried.contains(h))
                     .then(|| (scope::display(key).to_string(), hs))
@@ -1380,9 +1382,9 @@ fn unmentioned_alias(
     let g = cx.g();
     let value = match receiver_ty {
         Ty::Value(value) => value,
-        Ty::Term(term, env) => eval(g, &env, &term).ok()?,
+        Ty::Term(term, env) => eval(&g, &env, &term).ok()?,
     };
-    let term = stitchwort_core::value::quote_folded(g, cx.level(), &value).ok()?;
+    let term = stitchwort_core::value::quote_folded(&g, cx.level(), &value).ok()?;
     if term
         .subterms()
         .any(|(t, _)| matches!(t, Term::Def(id) if *id == alias))
@@ -1419,14 +1421,14 @@ fn in_scope_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<Option
     }
     let g = cx.g();
     let level = cx.level();
-    let all = params(g, f);
+    let all = params(&g, f);
     let explicit = all
         .iter()
         .enumerate()
         .filter(|(_, p)| p.icit == Icit::Explicit);
     for (k, (depth, p)) in explicit.enumerate() {
         let env: Vec<Value> = (0..depth).map(|j| Value::var(level + j)).collect();
-        let takes = heads(g, Ty::Term(p.ty.clone(), env))
+        let takes = heads(&g, Ty::Term(p.ty.clone(), env))
             .is_ok_and(|hs| hs.iter().any(|h| tried.contains(h)));
         if takes {
             return Some((k > 0).then(|| p.name.to_string()));
@@ -1444,7 +1446,7 @@ struct Param {
 }
 
 /// `T.f`'s parameters, as far as its signature as written spells them out.
-fn params(g: &Globals, f: DefId) -> Vec<Param> {
+fn params(g: &Ev, f: DefId) -> Vec<Param> {
     let mut out = Vec::new();
     let mut ty = g.def(f).ty().clone();
     while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
@@ -1468,7 +1470,7 @@ fn receiver_place(cx: &Ctx, params: &[Param], owner: TyHead) -> Result<Option<(u
     };
     let level = cx.level();
     let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
-    let fits = heads(cx.g(), Ty::Term(params[depth].ty.clone(), env))?.contains(&owner);
+    let fits = heads(&cx.g(), Ty::Term(params[depth].ty.clone(), env))?.contains(&owner);
     Ok(fits.then_some((depth, 0)))
 }
 
@@ -1496,7 +1498,7 @@ pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Optio
     if name.starts_with('%') {
         return Ok(None);
     }
-    let params = params(g, f);
+    let params = params(&g, f);
     let level = cx.level();
     let mut first = true;
     for (depth, p) in params.iter().enumerate() {
@@ -1504,7 +1506,7 @@ pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Optio
             continue;
         }
         let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
-        let found = heads(g, Ty::Term(p.ty.clone(), env))?
+        let found = heads(&g, Ty::Term(p.ty.clone(), env))?
             .into_iter()
             .any(|h| scope::display(&namespace(cx, h)) == scope::display(owner_key));
         if found && first {
@@ -1610,7 +1612,7 @@ pub(crate) fn prefix_form<'a>(
         }
     };
     let g = cx.g();
-    if receiver_place(cx, &params(g, f), owner)?.is_none() {
+    if receiver_place(cx, &params(&g, f), owner)?.is_none() {
         return Ok(None);
     }
     // A recursive call of a definition with `decreasing`: its stand-in
@@ -1656,7 +1658,7 @@ pub(crate) fn prefix_form<'a>(
     if let Some(rec) = cx.decreasing_rec(Some(f)) {
         return Ok(Some((rec, full)));
     }
-    Ok(Some(((Term::Def(f), crate::kernel::def_ty(g, f)?), full)))
+    Ok(Some(((Term::Def(f), crate::kernel::def_ty(&g, f)?), full)))
 }
 
 /// `T.f` applied with the receiver as its first explicit argument, and the
@@ -1674,7 +1676,7 @@ fn call(
     args: &[Arg],
 ) -> Result<(Term, Value)> {
     let g = cx.g();
-    let params = params(g, f);
+    let params = params(&g, f);
     if receiver_place(cx, &params, owner)?.is_none() {
         return Err(no_receiver(cx, recv, field, owner, f, key, &params));
     }
@@ -1712,7 +1714,7 @@ fn call(
                     other => other,
                 })
                 .collect();
-            let head = (Term::Def(f), crate::kernel::def_ty(g, f)?);
+            let head = (Term::Def(f), crate::kernel::def_ty(&g, f)?);
             return crate::named::apply_slots(cx, head, &slots);
         }
         ordered = (slots.into_iter())
@@ -1728,16 +1730,16 @@ fn call(
     // The implicit arguments before the receiver, then the receiver,
     // compared with its parameter before the written arguments are checked.
     let mut term = Term::Def(f);
-    let mut ty = crate::kernel::def_ty(g, f)?;
+    let mut ty = crate::kernel::def_ty(&g, f)?;
     loop {
-        let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
             unreachable!("the receiver's parameter is in the signature");
         };
         if icit.is_implicit() {
             let meta = implicit_arg(cx, icit, &dom);
             let value = cx.eval(&meta)?;
             term = Term::app_icit(term, meta, icit);
-            ty = cod.apply(g, value)?;
+            ty = cod.apply(&g, value)?;
             continue;
         }
         if !cx.unify(&rty, &dom)? {
@@ -1757,7 +1759,7 @@ fn call(
         }
         // The receiver's value is computed only if the result type needs it
         // (docs/proposals/checker-evaluation.md).
-        ty = cod.apply_lazy(g, || eval(g, &cx.env, &rterm))?;
+        ty = cod.apply_lazy(&g, || eval(&g, &cx.env, &rterm))?;
         term = Term::app(term, rterm);
         break;
     }
@@ -1802,7 +1804,7 @@ fn no_receiver(
         let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
         let fits = !placed
             && value.is_some()
-            && heads(g, Ty::Term(p.ty.clone(), env)).is_ok_and(|h| h.contains(&owner));
+            && heads(&g, Ty::Term(p.ty.clone(), env)).is_ok_and(|h| h.contains(&owner));
         if fits {
             placed = true;
             names.push(value.clone().expect("checked above"));
@@ -1853,7 +1855,7 @@ pub(crate) fn target_place(
     let Ok((owner, f, _)) = find(cx, recv, field, ty) else {
         return Ok(None);
     };
-    let place = receiver_place(cx, &params(cx.g(), f), owner)?;
+    let place = receiver_place(cx, &params(&cx.g(), f), owner)?;
     Ok(Some((f, place.map(|(_, k)| k))))
 }
 
@@ -2008,10 +2010,10 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
             return Ok(Some(Ty::Term(term, env)));
         }
     }
-    let mut ty = crate::kernel::def_ty(g, id)?;
+    let mut ty = crate::kernel::def_ty(&g, id)?;
     let mut level = cx.level();
     loop {
-        match force(g, ty)? {
+        match force(&g, ty)? {
             Value::Pi(_, icit, _, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
@@ -2019,7 +2021,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
                     }
                     explicit -= 1;
                 }
-                ty = cod.apply(g, Value::var(level))?;
+                ty = cod.apply(&g, Value::var(level))?;
                 level += 1;
             }
             other if explicit == 0 => {
@@ -2089,8 +2091,10 @@ fn call_key(cx: &Ctx, recv: &Expr, field: &AstName) -> CallKey {
 
 /// The metavariable state, which a failure is only valid in.
 fn state(cx: &Ctx) -> (usize, usize) {
-    let g = cx.g();
-    (g.metas.borrow().len(), g.meta_trail.borrow().len())
+    (
+        cx.metas().metas.borrow().len(),
+        cx.metas().meta_trail.borrow().len(),
+    )
 }
 
 fn mark_failed(cx: &Ctx, key: CallKey) {

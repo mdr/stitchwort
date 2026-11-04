@@ -61,10 +61,10 @@
 //! the checker accept something false, since nothing computed here is given
 //! back to it.
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use crate::budget::Result;
-use crate::globals::Globals;
 use crate::partial::Primitive;
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Term};
@@ -85,7 +85,7 @@ struct Shapes {
 }
 
 impl Shapes {
-    fn new(g: &Globals) -> Shapes {
+    fn new(g: &Ev) -> Shapes {
         let data = |b: Builtin| g.env.registry().data(b).expect("the prelude declares it");
         let prim = |p: Primitive| {
             g.env
@@ -199,7 +199,7 @@ pub struct Pending {
 
 impl Pending {
     /// Continues the step with the host's reply to the operation.
-    pub fn reply(self, g: &Globals, reply: Value) -> Result<Obs> {
+    pub fn reply(self, g: &Ev, reply: Value) -> Result<Obs> {
         let mut m = self.machine;
         let reply = translate_back(g, &m.frames, &self.back, reply)?;
         m.focus = Focus::Comp(apply_cont(g, &m.shapes, &self.cont, reply)?);
@@ -209,7 +209,7 @@ impl Pending {
 
 impl Machine {
     /// A machine about to run `delay`, a closed value of a `Delay` type.
-    pub fn start(g: &Globals, delay: Value) -> Machine {
+    pub fn start(g: &Ev, delay: Value) -> Machine {
         Machine {
             focus: Focus::Eval(delay),
             frames: Vec::new(),
@@ -218,7 +218,7 @@ impl Machine {
     }
 
     /// `step`: runs to the next observation.
-    pub fn step(self, g: &Globals) -> Result<Obs> {
+    pub fn step(self, g: &Ev) -> Result<Obs> {
         self.run(g)
     }
 
@@ -227,7 +227,7 @@ impl Machine {
         self.frames.len()
     }
 
-    fn run(mut self, g: &Globals) -> Result<Obs> {
+    fn run(mut self, g: &Ev) -> Result<Obs> {
         let s = self.shapes;
         loop {
             g.machine.budget.step()?;
@@ -307,7 +307,7 @@ impl Machine {
     /// frames. A `Handle` captures it (no tick); a `Tie` answers a recursion
     /// request (one tick); one that reaches the bottom is returned to the
     /// host, unperformed.
-    fn route(mut self, g: &Globals, mut op: Value, cont: Cont) -> Result<Routed> {
+    fn route(mut self, g: &Ev, mut op: Value, cont: Cont) -> Result<Routed> {
         let s = self.shapes;
         let mut back: Vec<(usize, Value)> = Vec::new();
         let mut j = self.frames.len();
@@ -371,7 +371,7 @@ impl Machine {
     /// the handler.
     fn capture(
         &mut self,
-        g: &Globals,
+        g: &Ev,
         h: usize,
         op: Value,
         cont: Cont,
@@ -412,7 +412,7 @@ impl Machine {
     /// frames are moved if nothing else holds the resumption, and copied if
     /// something does: it may be resumed again
     /// (docs/proposals/partial-handlers.md §5.2).
-    fn restore(&mut self, g: &Globals, capture: Rc<Capture>, reply: Value) -> Result<()> {
+    fn restore(&mut self, g: &Ev, capture: Rc<Capture>, reply: Value) -> Result<()> {
         let capture = Rc::try_unwrap(capture).unwrap_or_else(|shared| (*shared).clone());
         let reply = translate_back(g, &capture.frames, &capture.back, reply)?;
         self.frames.push(Frame::Handle {
@@ -447,7 +447,7 @@ enum Built {
 
 /// A `Delay` value: the constant it's built by, and its arguments, or a
 /// resumption applied to a reply.
-fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<Built> {
+fn constant(g: &Ev, s: &Shapes, d: Value) -> Result<Built> {
     let Value::Neutral(Head::Def(id), spine) = force(g, d)? else {
         panic!("internal error: running something that isn't a `Delay`")
     };
@@ -501,7 +501,7 @@ fn cont(s: &Shapes, rest: &Value) -> Cont {
     Cont::Fn(rest.clone())
 }
 
-fn apply_cont(g: &Globals, s: &Shapes, cont: &Cont, v: Value) -> Result<Value> {
+fn apply_cont(g: &Ev, s: &Shapes, cont: &Cont, v: Value) -> Result<Value> {
     match cont {
         Cont::Done => Ok(Value::Ctor(s.comp, 0, [v].into())),
         Cont::Fn(rest) => apply(g, rest.clone(), v),
@@ -511,7 +511,7 @@ fn apply_cont(g: &Globals, s: &Shapes, cont: &Cont, v: Value) -> Result<Value> {
 /// Translates a reply back through the `Map` frames an operation passed
 /// (`back`, innermost first, so they're undone outermost first).
 fn translate_back(
-    g: &Globals,
+    g: &Ev,
     frames: &[Frame],
     back: &[(usize, Value)],
     mut v: Value,

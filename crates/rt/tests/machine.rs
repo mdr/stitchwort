@@ -45,7 +45,7 @@ fn machine(program: &Program, limits: Limits, input: &[u8]) -> Run {
 }
 
 fn lowered(session: &Session, main: &Main, what: &str) -> Program {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     lower_main(g, session.elab.options.limits, main.term(), main.row)
         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"))
 }
@@ -129,7 +129,7 @@ fn run_tests_where(
 
 /// Every definition with a body (or a primitive), lowered together.
 fn everything(session: &Session, what: &str) -> Program {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())

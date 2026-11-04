@@ -1,7 +1,7 @@
 //! Goal holes, `?` (docs/proposals/lsp-goal-holes.md §4).
 //!
 //! A `?` checked against a type `T` becomes a fresh *frozen* metavariable
-//! (`Globals::frozen_metas`) applied to the variables in scope: unification
+//! (`MetaStore::frozen_metas`) applied to the variables in scope: unification
 //! never solves it, so nothing fills the hole in by accident. The goal (where
 //! it is, `T`, and the names in scope) is noted, and checking carries on, so
 //! every hole in a declaration is reported.
@@ -21,7 +21,7 @@ use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
-use stitchwort_core::{Globals, Icit, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{Ev, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
 
 use crate::Elaborator;
@@ -206,7 +206,7 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
             .then(|| Term::Lam("()".into(), *icit, std::rc::Rc::new(done(under + 1))))
     };
     let term = crate::lift::replace_with(
-        cx.g(),
+        &cx.g(),
         &shown.folded,
         base,
         &|l| Ok(Term::Var(level - 1 - l)),
@@ -221,8 +221,8 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
 /// term. Notes the goal.
 pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let g = cx.g();
-    let m = g.new_meta(cx.span);
-    g.freeze_meta(m);
+    let m = cx.metas().new_meta(cx.span);
+    cx.metas().freeze_meta(m);
     let mut term = Term::Meta(m);
     let mut context = Vec::new();
     let mut hidden = Vec::new();
@@ -258,7 +258,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         });
     }
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
-    let prop = match force(g, expected.clone()) {
+    let prop = match force(&g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
     };
@@ -325,7 +325,7 @@ fn drop_superseded(
         values.extend(e.value.as_ref());
     }
     for v in values {
-        match quote_shown(g, level, v)
+        match quote_shown(&g, level, v)
             .ok()
             .and_then(|t| levels_in(&t, level))
         {
@@ -369,7 +369,7 @@ pub(crate) fn uses_unfinished(span: Option<Span>) -> Diagnostic {
 /// unfinished, the refusal becomes [`UNFINISHED`]. `own` are the
 /// declarations being admitted, failed by the refusal itself.
 pub(crate) fn unfinished_dependency<'t>(
-    g: &Globals,
+    g: &Ev,
     tables: &Tables,
     terms: impl IntoIterator<Item = &'t Term>,
     own: &[HashKey],
@@ -471,7 +471,7 @@ impl Elaborator {
         if pending.is_empty() {
             return;
         }
-        let g = &self.globals;
+        let g = &self.ev();
         // Printing a goal that mentions a failed declaration isn't an error
         // message showing it (`Decl::failed_mentioned`).
         let mentioned = self.decl.failed_mentioned.get();
@@ -504,7 +504,7 @@ impl Elaborator {
     }
 
     fn print_goal(&self, p: &Pending) -> Found {
-        let g = &self.globals;
+        let g = &self.ev();
         let scope = GoalScope {
             e: self,
             span: p.span,
@@ -616,7 +616,7 @@ impl Elaborator {
         // Every variable the goal mentions is one it shows, a hypothesis's
         // type mentioning only those before it (a case split can refine an
         // earlier one's type with a later one).
-        let g = &self.globals;
+        let g = &self.ev();
         let level = p.names.len();
         let levels: Vec<usize> = p.context.iter().map(|e| e.level).collect();
         let mut declarations = Vec::new();
@@ -832,7 +832,7 @@ impl Elaborator {
     /// known (no unknown left in it), mentioning only variables of the
     /// context, in an order where each type mentions only those before.
     fn goal_snapshot_of(&self, p: &Pending) -> Option<GoalSnapshot> {
-        let g = &self.globals;
+        let g = &self.ev();
         let level = p.names.len();
         let quote = |v: &Value| stitchwort_core::value::quote_folded(g, level, v).ok();
         let mut vars: Vec<SnapVar> = Vec::new();
@@ -926,7 +926,7 @@ impl Elaborator {
         snapshot: &GoalSnapshot,
         span: Span,
     ) -> crate::Result<(Ctx<'e>, Value, Vec<SnapBinder>)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut cx = Ctx::new(self, span);
         // What stands for each variable at the `?`, by its level there.
         let mut env: Vec<Value> = vec![Value::Sort(Sort::Prop); snapshot.level];

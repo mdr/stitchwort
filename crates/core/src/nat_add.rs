@@ -62,6 +62,8 @@
 //! the soundness argument: the kernel trusts this code to implement R3 and
 //! R4, as it trusts the natives (DESIGN.md §13).
 
+use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -69,7 +71,7 @@ use num_traits::Zero;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget::{self, Limits};
-use crate::globals::{Globals, State};
+use crate::globals::{Kernel, State};
 use crate::hash::def_hash;
 use crate::native::{Force, view_with};
 use crate::registry::Builtin;
@@ -85,7 +87,7 @@ pub const NAT_ADD_HASH: &str = "f3f3581f05751a4470b1254229a1905626119a6eff6ac5a2
 /// (the rules aren't bound to `id`, or `n` isn't a number, `Zero` or a
 /// `Succ` either). `n` is forced with `force`, the evaluator's own.
 pub fn stuck(
-    g: &Globals,
+    g: &Ev,
     id: DefId,
     m: &Value,
     n: &Value,
@@ -107,7 +109,7 @@ pub fn stuck(
 
 /// [`stuck`] as a value, for an evaluator to return.
 pub fn stuck_value(
-    g: &Globals,
+    g: &Ev,
     id: DefId,
     m: &Value,
     n: &Value,
@@ -140,7 +142,7 @@ pub struct CriticalPair {
 /// inside it. As terms, for `add` and `Nat`'s constructors, in a context of
 /// two variables, `m` (level 0) and `n` (level 1): each sum with what the
 /// first rule rewrites it to and what the second does.
-pub fn critical_pairs(g: &Globals, id: DefId) -> Option<Vec<CriticalPair>> {
+pub fn critical_pairs(g: &Ev, id: DefId) -> Option<Vec<CriticalPair>> {
     let nat = g.env.builtins().nat?;
     let zero = || Term::Ctor(nat, 0, Vec::new());
     let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
@@ -186,7 +188,7 @@ fn refused(span: Span, why: &str) -> Diagnostic {
 
 /// The content hash of the bound `Nat.add`, if it has one: for the test
 /// that fails when the library changes it, which prints the new one.
-pub fn add_hash(g: &Globals) -> Option<String> {
+pub fn add_hash(g: &Ev) -> Option<String> {
     let id = g.env.registry().def(Builtin::Add)?;
     let _op = g
         .machine
@@ -202,68 +204,70 @@ pub fn add_hash(g: &Globals) -> Option<String> {
 /// Succ (n + m)`. The theorems are checked as a safety net against binding
 /// the rules to the wrong definition: what makes the rules sound is the
 /// argument in the module comment, not their proofs.
-pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
-    let span = g.def(add_succ).span;
-    let (Some(nat), Some(add), Some(add_zero)) = (
-        g.env.builtins().nat,
-        g.env.registry().def(Builtin::Add),
-        g.env.registry().def(Builtin::NatAddZero),
-    ) else {
-        return Err(refused(
-            span,
-            "`Nat`, `Nat.add` or `Nat.addZero` isn't bound",
-        ));
-    };
-    // Another `Nat.add` (or `Nat`): the rules stay off, and `+` is its
-    // definition alone, as compact text falls back to constructors for
-    // another `List` or `Char`. The library's own is checked by the test
-    // `nat_add_is_the_pinned_declaration`, which prints the new hash.
-    if add_hash(g).as_deref() != Some(NAT_ADD_HASH) {
-        return Ok(());
-    }
-    let nat_ty = || Term::Data(nat, Vec::new());
-    let pi =
-        |dom: Term, cod: Term| Term::Pi("n".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
-    let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
-    let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
-    let eq = |a: Term, b: Term| Term::Eq(Some(Rc::new(nat_ty())), Rc::new(a), Rc::new(b));
-    // (n: Nat) → n + 0 = n
-    let zero_ty = pi(
-        nat_ty(),
-        eq(
-            plus(Term::Var(0), Term::Ctor(nat, 0, Vec::new())),
-            Term::Var(0),
-        ),
-    );
-    // (n: Nat) → (m: Nat) → n + Succ m = Succ (n + m)
-    let succ_ty = pi(
-        nat_ty(),
-        pi(
+pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
+    in_kernel_modes(g, |g| {
+        let span = g.def(add_succ).span;
+        let (Some(nat), Some(add), Some(add_zero)) = (
+            g.env.builtins().nat,
+            g.env.registry().def(Builtin::Add),
+            g.env.registry().def(Builtin::NatAddZero),
+        ) else {
+            return Err(refused(
+                span,
+                "`Nat`, `Nat.add` or `Nat.addZero` isn't bound",
+            ));
+        };
+        // Another `Nat.add` (or `Nat`): the rules stay off, and `+` is its
+        // definition alone, as compact text falls back to constructors for
+        // another `List` or `Char`. The library's own is checked by the test
+        // `nat_add_is_the_pinned_declaration`, which prints the new hash.
+        if add_hash(&g.ev()).as_deref() != Some(NAT_ADD_HASH) {
+            return Ok(());
+        }
+        let nat_ty = || Term::Data(nat, Vec::new());
+        let pi =
+            |dom: Term, cod: Term| Term::Pi("n".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
+        let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
+        let eq = |a: Term, b: Term| Term::Eq(Some(Rc::new(nat_ty())), Rc::new(a), Rc::new(b));
+        // (n: Nat) → n + 0 = n
+        let zero_ty = pi(
             nat_ty(),
             eq(
-                plus(Term::Var(1), succ(Term::Var(0))),
-                succ(plus(Term::Var(1), Term::Var(0))),
+                plus(Term::Var(0), Term::Ctor(nat, 0, Vec::new())),
+                Term::Var(0),
             ),
-        ),
-    );
-    for (id, expected, name) in [
-        (add_zero, zero_ty, "Nat.addZero"),
-        (add_succ, succ_ty, "Nat.addSucc"),
-    ] {
-        let def = g.def(id);
-        let fits = def.state == State::Final
-            && def.theorem
-            && conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)?;
-        if !fits {
-            return Err(Diagnostic::error(
+        );
+        // (n: Nat) → (m: Nat) → n + Succ m = Succ (n + m)
+        let succ_ty = pi(
+            nat_ty(),
+            pi(
+                nat_ty(),
+                eq(
+                    plus(Term::Var(1), succ(Term::Var(0))),
+                    succ(plus(Term::Var(1), Term::Var(0))),
+                ),
+            ),
+        );
+        for (id, expected, name) in [
+            (add_zero, zero_ty, "Nat.addZero"),
+            (add_succ, succ_ty, "Nat.addSucc"),
+        ] {
+            let def = g.def(id);
+            let fits = def.state == State::Final
+                && def.theorem
+                && conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?;
+            if !fits {
+                return Err(Diagnostic::error(
                 "E-BUILTIN",
                 format!(
                     "the library's `{name}` doesn't have the type the compiler's rules for `+` need"
                 ),
             )
             .with_label(def.span, "here"));
+            }
         }
-    }
-    g.env.builtins_mut().nat_add_rule = Some(add);
-    Ok(())
+        g.env.builtins_mut().nat_add_rule = Some(add);
+        Ok(())
+    })
 }

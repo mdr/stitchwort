@@ -73,7 +73,7 @@ impl Elaborator {
     /// kernel's conversion running out of resources: never "not shared",
     /// so which accessors exist doesn't depend on the budget (§12.1).
     pub(crate) fn shared_fields(&self, d: DataId) -> Result<SharedFields> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let np = data.params().len();
         let mut out = SharedFields {
@@ -228,7 +228,7 @@ impl Elaborator {
         let shared = self.shared_fields(d)?.shared;
         let mut made: HashMap<Name, DefId> = HashMap::default();
         for (field, positions) in shared {
-            let g = &self.globals;
+            let g = &self.ev();
             let data = g.data(d);
             let (np, ni) = (data.params().len(), data.indices().len());
             let n = np + ni;
@@ -278,7 +278,7 @@ impl Elaborator {
             // don't move.
             let theorem = !data.record() && first.field_sorts[positions[0]] == Sort::Prop;
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &name,
@@ -287,7 +287,7 @@ impl Elaborator {
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
             // In the type's namespace, but not visible by its short name:
             // reached through a value (`a.id`), or written in full
             // (`Shape.id`).
@@ -348,7 +348,7 @@ impl Elaborator {
         recv: &str,
         use_: &str,
     ) -> Option<(String, String)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let has = |c: &&stitchwort_core::globals::Ctor| c.fields.iter().any(|(x, _)| **x == *f);
         if !data.ctors().iter().any(|c| has(&c)) {
@@ -410,7 +410,7 @@ impl Elaborator {
     /// One step of [`Self::unshared_member`]'s explanation, and the field to
     /// explain next, if the reason is another field's.
     fn unshared_reason(&self, d: DataId, f: &Name, why: &Unshared) -> (String, Option<Name>) {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         match why {
             Unshared::Implicit { ctor } => {
                 (format!("`{f}` is an implicit field of `{ctor}`"), None)
@@ -508,7 +508,7 @@ pub(crate) fn variant_update(
     fields: &[(ast::Name, Expr)],
 ) -> Result<Term> {
     let g = cx.g();
-    let Value::Data(d, args) = force(g, ty.clone())? else {
+    let Value::Data(d, args) = force(&g, ty.clone())? else {
         unreachable!("only called on a data type")
     };
     let shared = cx.e.shared_fields(d)?.shared;
@@ -639,7 +639,7 @@ fn update_match(
             };
             env.push(value);
         }
-        let field_ty = eval(g, &env, &first.fields[positions[0]].1)?;
+        let field_ty = eval(&g, &env, &first.fields[positions[0]].1)?;
         let term = check(cx, expr, &field_ty)?;
         let ty_term = cx.quote(&field_ty)?;
         let x = new_name(field);

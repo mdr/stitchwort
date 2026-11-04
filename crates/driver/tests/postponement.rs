@@ -49,7 +49,7 @@ fn hashes(source: &str, names: &[&str]) -> Vec<String> {
         (names.iter())
             .map(|name| {
                 let id = session.elab.lookup_def(name).expect("defined");
-                def_hash(&session.elab.globals, id).unwrap().unwrap().hex()
+                def_hash(&session.elab.ev(), id).unwrap().unwrap().hex()
             })
             .collect()
     })
@@ -61,7 +61,7 @@ fn mentions(source: &str, name: &str) -> Vec<String> {
     checked(source, move |loaded| {
         let session = loaded.unwrap_or_else(|e| panic!("{e:#?}"));
         let id = session.elab.lookup_def(&name).expect("defined");
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         (g.def(id).body().expect("a body").subterms())
             .filter_map(|(t, _)| match t {
                 stitchwort_core::Term::Def(d) => Some(g.def(*d).name().to_string()),

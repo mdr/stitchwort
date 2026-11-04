@@ -61,7 +61,7 @@ fn run(source: &str, trace: bool) -> Run {
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("`main` has the right type");
         let program = lower_main(
-            &session.elab.globals,
+            &session.elab.ev(),
             session.elab.options.limits,
             main.term(),
             main.row,

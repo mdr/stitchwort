@@ -30,7 +30,7 @@ use stitchwort_core::hash::def_hash;
 use stitchwort_core::reference;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{self, Value};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Icit, Kernel, Limits, Term};
 use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
@@ -38,12 +38,12 @@ fn span() -> Span {
     Span::point(SourceMap::new().add("kernel", ""), 0)
 }
 
-fn data(g: &Globals, name: &str) -> DataId {
+fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
     g.find_data(name)
         .unwrap_or_else(|| panic!("the prelude defines `{name}`"))
 }
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -97,12 +97,12 @@ fn codes(session: &mut Session, source: &str) -> Vec<&'static str> {
 
 /// Elaborates `expr` with text literals compact or not, and evaluates it.
 fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
-    session.elab.globals.env.set_disable_compact_text(!compact);
+    session.elab.kernel.env.set_disable_compact_text(!compact);
     let parsed = session.parse_expression("<test>", expr).unwrap();
     let result = session.elab.infer_expr(&parsed);
-    session.elab.globals.env.set_disable_compact_text(false);
+    session.elab.kernel.env.set_disable_compact_text(false);
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(session.elab.options.limits);
     let value = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap();
     (term, value)
@@ -111,7 +111,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
 /// The normal form of `value`, as a complete core term with every compact
 /// list expanded (by the reference evaluator, not `chars`).
 fn normal(session: &Session, value: &Value) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(session.elab.options.limits);
     let term = value::quote(g, 0, value).unwrap();
     format!("{:?}", reference::expand_term(g, &term))
@@ -213,7 +213,7 @@ fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (_, cb) = value_of(session, &lb, true);
     let (_, xa) = value_of(session, &la, false);
     let (_, xb) = value_of(session, &lb, false);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(session.elab.options.limits);
     let conv = |x: &Value, y: &Value| value::conv(g, 0, x, y).unwrap();
     let equal = a == b;
@@ -291,7 +291,7 @@ const AWKWARD: [char; 13] = [
 fn small_texts_mean_the_same_compact_with_natives_off() {
     with_stack(64 * 1024 * 1024, || {
         let mut session = session_with_helpers();
-        session.elab.globals.env.set_disable_natives(true);
+        session.elab.kernel.env.set_disable_natives(true);
         for t in texts(&SMALL, 3) {
             one_text(&mut session, &t);
         }
@@ -387,7 +387,7 @@ fn medium_texts() {
         // A prelude function applied to values, so that no long value ends
         // up in a type for the elaborator to finish.
         let call = |session: &Session, f: &str, args: &[&Value]| {
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             let _op = g.machine.budget.operation(session.elab.options.limits);
             let mut v = value::eval(g, &[], &Term::Def(def(g, f))).unwrap();
             for arg in args {
@@ -423,7 +423,7 @@ fn medium_texts() {
         // the length (tier 1 compares complete proofs).
         let answer = |session: &Session, a: &Value, b: &Value| {
             let decision = call(session, "Text.decEq", &[a, b]);
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             let _op = g.machine.budget.operation(session.elab.options.limits);
             let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
             let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
@@ -536,7 +536,7 @@ fn laws_hold_on_long_texts() {
 #[test]
 fn a_range_means_the_list_of_its_characters() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let (list, char) = (data(g, "List"), data(g, "Char"));
     let buffer: Rc<[char]> = "xabcdy".chars().collect();
@@ -597,7 +597,7 @@ fn quoting_a_suffix_shares_or_copies_it() {
             &format!("dropChars {drop} (Text.toList {})", literal(text)),
             true,
         );
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let _op = g.machine.budget.operation(Limits::default());
         value::quote(g, 0, &v).unwrap()
     };
@@ -615,16 +615,16 @@ fn quoting_a_suffix_shares_or_copies_it() {
     assert_eq!(suffix.as_slice(), ['i', 'j']);
     assert_eq!(suffix.buffer().len(), 2);
     // None left: `Nil`.
-    let g_list = data(&session.elab.globals, "List");
+    let g_list = data(&session.elab.ev(), "List");
     assert!(matches!(quoted(&mut session, 10), Term::Ctor(d, 0, _) if d == g_list));
     // The quoted suffixes check, and mean what they say.
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let suffix = quoted_check(g, &Term::Chars(suffix));
     assert_eq!(suffix, "['i', 'j']");
 }
 
-fn quoted_check(g: &Globals, term: &Term) -> String {
+fn quoted_check(g: &stitchwort_core::Ev, term: &Term) -> String {
     infer_closed(g, term, span()).expect("checks");
     stitchwort_core::pretty::term(g, &[], term)
 }
@@ -640,7 +640,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
         &format!("dropChars 999999 (Text.toList {})", literal(&text)),
         true,
     );
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let Value::Chars(range) = &v else {
         panic!("dropping from a compact list leaves a compact list")
@@ -660,7 +660,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
 #[test]
 fn a_proof_variable_is_not_rfl() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let (list, char, bool) = (data(g, "List"), data(g, "Char"), data(g, "Bool"));
     let is_scalar = def(g, "Char.isScalar");
@@ -752,7 +752,7 @@ fn unification_solves_through_a_compact_list() {
 /// as constructors: the same programs check, and fail, either way.
 fn unification_solves(compact: bool) {
     let mut session = Session::new();
-    session.elab.globals.env.set_disable_compact_text(!compact);
+    session.elab.kernel.env.set_disable_compact_text(!compact);
     load(
         &mut session,
         r#"
@@ -803,8 +803,12 @@ theorem codesKnown : codeAt 97 rfl = 97 := rfl
 #[test]
 fn a_compact_list_is_never_a_smaller_argument() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let (list, char, nat) = (data(g, "List"), data(g, "Char"), data(g, "Nat"));
+    let g = &mut session.elab.kernel;
+    let (list, char, nat) = (
+        data(&g.ev(), "List"),
+        data(&g.ev(), "Char"),
+        data(&g.ev(), "Nat"),
+    );
     let list_char = Term::data(list, vec![Term::Data(char, Vec::new())]);
     let ty = Term::Pi(
         "cs".into(),
@@ -813,7 +817,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
         Rc::new(Term::Data(nat, Vec::new())),
     );
     // Kernel declarations outside an operation have no limits.
-    let define = |g: &mut Globals, name: &str, recurse: Term| {
+    let define = |g: &mut Kernel, name: &str, recurse: Term| {
         let id = declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
         // cs => case cs of Nil -> 0 | Cons c rest -> self <recurse>
         let body = Term::Lam(
@@ -853,13 +857,13 @@ fn a_compact_list_is_never_a_smaller_argument() {
 fn hashes_cover_the_characters_not_the_buffer() {
     let mut session = Session::new();
     load(&mut session, "def plain : Text := \"abc\"\n");
-    let g = &mut session.elab.globals;
-    let text = data(g, "Text");
-    let declare = |g: &mut Globals, name: &str, chars: Term| {
+    let g = &mut session.elab.kernel;
+    let text = data(&g.ev(), "Text");
+    let declare = |g: &mut Kernel, name: &str, chars: Term| {
         let ty = Term::Data(text, Vec::new());
         let id = declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
         define_def(g, id, &Term::ctor(text, 0, vec![chars])).unwrap();
-        def_hash(g, id).unwrap().unwrap()
+        def_hash(&g.ev(), id).unwrap().unwrap()
     };
     let in_middle = declare(
         g,
@@ -872,13 +876,13 @@ fn hashes_cover_the_characters_not_the_buffer() {
         Term::Chars(Chars::whole("abd".chars().collect())),
     );
     let _op = g.machine.budget.operation(Limits::default());
-    let plain = def_hash(g, def(g, "plain")).unwrap().unwrap();
+    let plain = def_hash(&g.ev(), def(&g.ev(), "plain")).unwrap().unwrap();
     assert_eq!(plain, in_middle);
     assert_ne!(plain, other);
     let mut cons = Session::new();
-    cons.elab.globals.env.set_disable_compact_text(true);
+    cons.elab.kernel.env.set_disable_compact_text(true);
     load(&mut cons, "def plain : Text := \"abc\"\n");
-    let g = &cons.elab.globals;
+    let g = &cons.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     assert_ne!(plain, def_hash(g, def(g, "plain")).unwrap().unwrap());
 }
@@ -955,7 +959,7 @@ fn must_reject_examples_still_are() {
 #[test]
 fn is_scalar_agrees_with_rust_on_every_code_point() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let is_scalar = def(g, "Char.isScalar");
     let _op = g
         .machine
@@ -979,7 +983,7 @@ fn is_scalar_agrees_with_rust_on_every_code_point() {
 #[test]
 fn compact_text_is_bound_to_the_prelude() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let binding = chars::binding(g, data(g, "List"), data(g, "Char"));
     assert!(
         binding.bound,
@@ -1008,7 +1012,7 @@ fn a_changed_builtin_isnt_bound() {
     session.elab.set_loading_prelude(true);
     load(&mut session, &changed);
     session.elab.set_loading_prelude(false);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     assert!(g.env.builtins().text.is_none());
     assert!(!chars::binding(g, data(g, "List"), data(g, "Char")).bound);
     // Literals still work, as constructors.
@@ -1022,7 +1026,7 @@ fn a_changed_builtin_isnt_bound() {
     let results = session.run_tests(&Cache::disabled());
     assert_eq!(results[0].outcome, Outcome::Passed);
     // And the kernel refuses a compact list.
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let abc = Term::Chars(Chars::whole("abc".chars().collect()));
     assert_eq!(
@@ -1047,7 +1051,7 @@ fn text_blocks_hash_like_the_one_line_text() {
          def interp (n: Nat): Text := \"\"\"\n  n = ${n}\n  \"\"\"\n\
          def interpLine (n: Nat): Text := \"n = ${n}\\n\"\n",
     );
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let hash = |name: &str| def_hash(g, def(g, name)).unwrap().unwrap();
     assert_eq!(hash("block"), hash("line"));

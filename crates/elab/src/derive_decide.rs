@@ -41,7 +41,7 @@ impl Elaborator {
     /// After record `d` is admitted: `T.%instDecidable`, if `d` is a
     /// proposition whose fields can each be decided.
     pub(crate) fn derive_record_decidable(&mut self, d: DataId) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         if self.unit.loading_prelude
             || data.sort() != Sort::Prop
             || data.group().len() > 1
@@ -63,7 +63,7 @@ impl Elaborator {
         // `T.%C%P%k`, the fields' types, unless made already.
         let count = fields.len();
         for k in 0..count {
-            let ctor = &self.globals.data(d).ctors()[0].name;
+            let ctor = &self.kernel.data(d).ctors()[0].name;
             let key = Self::member_key(&self.data_key(d), &format!("%{ctor}%P%{k}"));
             if self.scope.get(&key).is_none() {
                 self.derive_proof_type(d, 0, k)?;
@@ -103,7 +103,7 @@ impl Elaborator {
     /// Why the proposition of some field of record `d` has no decision
     /// `auto` finds (with the record's parameters as variables), if so.
     fn undecidable_field(&mut self, d: DataId) -> Result<Option<String>> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let span = data.span();
         let np = data.params().len();
         let params: Vec<(Name, Term)> = data.params().to_vec();
@@ -121,7 +121,7 @@ impl Elaborator {
             }
             for (k, ty) in fields.iter().enumerate() {
                 let env: Vec<Value> = (0..np + k).map(Value::var).collect();
-                let prop = force(cx.g(), eval(cx.g(), &env, ty)?)?;
+                let prop = force(&cx.g(), eval(&cx.g(), &env, ty)?)?;
                 match crate::auto::decide(&mut cx, &prop, 0) {
                     Ok(_) => {}
                     Err(e) if e.code == "E-RESOURCE" => return Err(e),
@@ -138,7 +138,7 @@ impl Elaborator {
 
     /// The signature and the equation of `T.%instDecidable`.
     fn decidable_source(&self, d: DataId) -> (Decl, Decl) {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let span = data.span();
         let n = |text: &str| ast::Name {

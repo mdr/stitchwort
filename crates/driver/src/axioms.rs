@@ -20,8 +20,8 @@
 
 use std::collections::BTreeSet;
 
+use stitchwort_core::Ev;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::globals::Globals;
 use stitchwort_core::{DataId, DefId, QuotForm, Term};
 
 /// A reusable walk, with the axiom set of every declaration it has finished.
@@ -41,7 +41,7 @@ impl AxiomWalk {
 
     /// The names of the axioms `root` depends on, sorted, walking only what
     /// earlier calls haven't.
-    pub fn axioms(&mut self, globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
+    pub fn axioms(&mut self, globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
         let root = Node::Def(root);
         if let Some(found) = self.finished.get(&root) {
             return found.clone();
@@ -56,7 +56,7 @@ impl AxiomWalk {
     /// Walks what is reachable from `root` and isn't finished yet, assigning
     /// each strongly connected component its union once all its successors
     /// have theirs.
-    fn walk(&mut self, globals: &Globals, root: Node) {
+    fn walk(&mut self, globals: &Ev, root: Node) {
         let defs = globals.env.defs().len();
         let count = defs + globals.env.datas().len();
         let mut tarjan = Tarjan::new(count);
@@ -144,7 +144,7 @@ impl Tarjan {
         }
     }
 
-    fn discover(&mut self, globals: &Globals, defs: usize, i: usize) {
+    fn discover(&mut self, globals: &Ev, defs: usize, i: usize) {
         let (found, successors) = scan(globals, node(defs, i));
         self.own[i] = Some(found);
         self.edges[i] = Some(
@@ -210,13 +210,13 @@ impl Tarjan {
 }
 
 /// The names of the axioms `root` depends on, sorted.
-pub fn axioms(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
+pub fn axioms(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
     AxiomWalk::new().axioms(globals, root)
 }
 
 /// The walk from scratch, kept for tests that compare [`AxiomWalk`] with it.
 #[cfg(test)]
-fn from_scratch(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
+fn from_scratch(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
     let mut found = BTreeSet::new();
     let mut seen_defs = stitchwort_core::collections::HashSet::default();
     let mut seen_datas = stitchwort_core::collections::HashSet::default();
@@ -264,7 +264,7 @@ fn from_scratch(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
 }
 
 /// A node's own axioms and the declarations it refers to, from its terms.
-fn scan(globals: &Globals, node: Node) -> (BTreeSet<&'static str>, Vec<Node>) {
+fn scan(globals: &Ev, node: Node) -> (BTreeSet<&'static str>, Vec<Node>) {
     let mut found = BTreeSet::new();
     let mut successors = Vec::new();
     let mut terms: Vec<&Term> = Vec::new();
@@ -349,7 +349,7 @@ def odd: Nat → Nat
   | Succ n => even n
 "#,
         );
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let mut walk = AxiomWalk::new();
         for name in ["even", "odd", "soundNat"] {
             let id = def(&session, name);
@@ -371,7 +371,7 @@ def odd: Nat → Nat
     #[test]
     fn the_standard_librarys_theorems_match_the_walk_from_scratch() {
         let session = Session::eager();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let theorems = crate::audit::theorems(g, &|_| true);
         assert!(
             !theorems.is_empty(),

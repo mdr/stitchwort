@@ -13,7 +13,7 @@ fn load(source: &str) -> Session {
 }
 
 fn hash_of(session: &Session, name: &str) -> ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     if let Some(i) = g.env.defs().iter().position(|d| &**d.name() == name) {
         return def_hash(g, DefId(i)).unwrap().expect("checked");
     }
@@ -180,8 +180,8 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let program = "import Std (Nat, Text)\ntest \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
     let run = |natives: bool, compact: bool| {
         let mut session = Session::new();
-        session.elab.globals.env.set_disable_natives(!natives);
-        session.elab.globals.env.set_disable_compact_text(!compact);
+        session.elab.kernel.env.set_disable_natives(!natives);
+        session.elab.kernel.env.set_disable_compact_text(!compact);
         session.load("test.sw", program).expect("checks");
         let results = session.run_tests(&cache);
         assert!(results.iter().all(|r| r.outcome == Outcome::Passed));
@@ -189,7 +189,7 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
             .path(
                 &Cache::unit("", &results[0].name),
                 &results[0].hash.unwrap(),
-                &modes(&session.elab.globals),
+                &modes(&session.elab.ev()),
             )
             .unwrap();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();

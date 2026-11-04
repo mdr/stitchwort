@@ -552,7 +552,7 @@ impl Checker<'_> {
                     hyps.push((name.clone(), ty));
                 }
                 let recursive = self.recursive.as_deref();
-                (self.session.elab.globals.machine.budget).set_deadline(Some(limit));
+                (self.session.elab.kernel.machine.budget).set_deadline(Some(limit));
                 (self.session.elab).check_proof_at(snapshot, &hyps, recursive, &expr)
             }
             None if self.recursive.is_some() => return Outcome::Failed,
@@ -561,12 +561,12 @@ impl Checker<'_> {
                 let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
                     return Outcome::Failed;
                 };
-                (self.session.elab.globals.machine.budget).set_deadline(Some(limit));
+                (self.session.elab.kernel.machine.budget).set_deadline(Some(limit));
                 self.session.elab.check_proof(&expr)
             }
         };
-        (self.session.elab.globals.machine.budget).set_deadline(None);
-        if self.session.elab.globals.machine.budget.take_timed_out() {
+        (self.session.elab.kernel.machine.budget).set_deadline(None);
+        if self.session.elab.kernel.machine.budget.take_timed_out() {
             self.gave_up.push(proof.to_string());
         }
         debug_time(&format!("checked `{body}`"), began);
@@ -631,7 +631,7 @@ impl Session {
             }
         };
         goal.deadline = Some(started + options.time);
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let prop = goal.prop;
         let candidates = searchable(&self.elab, options, prop);
         let keep = |_: &Candidate| true;
@@ -958,7 +958,7 @@ impl Session {
         results.sort_by_key(|(s, rank)| {
             (
                 s.class == "applicable",
-                stitchwort_elab::is_generated_name(&session.elab.globals, &s.name),
+                stitchwort_elab::is_generated_name(&session.elab.ev(), &s.name),
                 class_rank(s.class),
                 s.witnesses,
                 s.goals.len(),
@@ -1021,8 +1021,7 @@ impl Session {
                 budget.matched, budget.tried
             ));
         }
-        if let Some(w) =
-            crate::search::out_of_budget_warning(&self.elab.globals, &closing.found.stats)
+        if let Some(w) = crate::search::out_of_budget_warning(&self.elab.ev(), &closing.found.stats)
         {
             warnings.push(w);
         }
@@ -1066,7 +1065,7 @@ impl Session {
 
     /// Fills in a suggestion's declaration: name, kind, type, place, import.
     fn describe(&self, s: &mut Suggestion, scope: &Scope) {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         // A hypothesis, or the declaration being proved (filled in already).
         if s.kind == "hypothesis" || s.recursive {
             return;
@@ -1083,7 +1082,7 @@ impl Session {
     }
 
     fn describe_rewrite(&self, r: &mut Rewrite, scope: &Scope) {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         if r.recursive {
             return;
         }
@@ -1106,7 +1105,7 @@ fn searchable(
     options: &AtOptions,
     prop: bool,
 ) -> Vec<Candidate> {
-    let g = &elab.globals;
+    let g = &elab.ev();
     elab.search_candidates(&|item, path| {
         (options.all || !hidden(path))
             && (!prop || item.kind(g) != Kind::Definition)
@@ -1183,7 +1182,7 @@ fn after_rewrite(
 
 /// The declaration with full name `path`.
 fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::Item> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     if let Some(id) = session.elab.lookup_def(path) {
         return Some(stitchwort_elab::search::Item::Def(id));
     }

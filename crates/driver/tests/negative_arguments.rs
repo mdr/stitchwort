@@ -34,7 +34,7 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
     if let Err(errors) = session.load("negative.sw", SOURCE) {
         panic!("{errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
+use stitchwort_core::{Ev, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference, text_lines};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
@@ -566,7 +566,7 @@ impl Session {
         // loads as a success, though.
         let (module, parse_errors) =
             parse_module_recovering(file, text, self.elab.options.limits.stack);
-        let first_new_def = self.elab.globals.env.defs().len();
+        let first_new_def = self.elab.kernel.env.defs().len();
         self.elab.set_file_mode(context);
         let diagnostics =
             if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
@@ -629,7 +629,7 @@ impl Session {
                 module,
             })
             .collect();
-        let first_new_def = self.elab.globals.env.defs().len();
+        let first_new_def = self.elab.kernel.env.defs().len();
         let diagnostics = self
             .elab
             .elaborate_namespace(Some(&namespace), &units, None);
@@ -732,7 +732,7 @@ impl Session {
 
     /// Generates JavaScript for the exports loaded so far.
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         self.refuse_unfinished((0..g.env.defs().len()).map(stitchwort_core::DefId))?;
         stitchwort_js::generate(&self.elab.backend(), self.elab.options.limits)
     }
@@ -744,7 +744,7 @@ impl Session {
         &self,
         ids: impl Iterator<Item = stitchwort_core::DefId>,
     ) -> Result<(), Diagnostic> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         for id in ids {
             let def = g.def(id);
             if def.export() && self.elab.is_unfinished(id) {
@@ -764,7 +764,7 @@ impl Session {
     /// Generates JavaScript for the exports of namespace `namespace` of the
     /// project loaded, and no others'.
     pub fn extract_namespace(&self, namespace: &str) -> Result<stitchwort_js::Output, Diagnostic> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let ids: Vec<stitchwort_core::DefId> = self
             .elab
             .namespace_def_range(namespace)
@@ -1018,7 +1018,7 @@ pub const SOURCE_FINGERPRINT_CRATES: &str = env!("STITCHWORT_SOURCE_FINGERPRINT_
 /// The effective modes of evaluation, for the cache key: whether the native
 /// implementations are used (`n1`) or not (`n0`), and whether text literals
 /// are compact (`c1`) or constructors (`c0`).
-pub fn modes(g: &Globals) -> String {
+pub fn modes(g: &Ev) -> String {
     format!(
         "n{}c{}",
         u8::from(!g.env.builtins().disable_natives),
@@ -1278,7 +1278,7 @@ impl Session {
     /// for the machine, if they can be. One that can't be lowered with the
     /// others is left out (and runs on the reference evaluator).
     fn lower_tests(&self, cache: &Cache, selected: &Selection, modes: &str) -> Option<TestMachine> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let wanted: Vec<stitchwort_core::DefId> = self
             .elab
             .tests()
@@ -1315,7 +1315,7 @@ impl Session {
     }
 
     fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
         let modes = match runner {
@@ -1437,7 +1437,7 @@ impl Session {
 
     /// Whether the operand `probe` is `True`, if it can be told.
     fn holds(&self, probe: &stitchwort_elab::Probe) -> Option<bool> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let term = probe.truth.as_ref()?;
         let _op = g.machine.budget.operation(self.elab.options.limits);
         let _erasing = g.machine.erasure.running();
@@ -1476,7 +1476,7 @@ impl Session {
 
     /// The values of the sides of a comparison.
     fn compare(&self, op: &'static str, left: &Term, right: &Term) -> Comparison {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         // Each side is shown in an operation of its own, with a small limit
         // on the size of the value: a value too big to show is a marker, and
         // never a crash (quoting a very long list nests as deep as it is
@@ -1553,7 +1553,7 @@ mod tests {
         assert!(!results.iter().any(|r| r.cached));
         let added = cache.added();
         assert_eq!(added.len(), 2);
-        let modes = modes(&session.elab.globals);
+        let modes = modes(&session.elab.ev());
         for (result, (key, outcome)) in results.iter().zip(&added) {
             assert_eq!(key, &Cache::key(&result.hash.expect("a hash"), &modes));
             assert_eq!(*outcome, result.outcome);

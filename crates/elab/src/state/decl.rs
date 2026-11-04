@@ -15,7 +15,6 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::globals::FailedMention;
 use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast;
@@ -27,11 +26,11 @@ pub(crate) struct Decl {
     /// Whether an error message has shown a term that uses a failed
     /// definition since the component's check began: its errors are then
     /// fallout of that failure, not its own (`blame_failed_dependency`). The
-    /// printer sets it through the handle `Globals` shares. Unlike the
+    /// printer sets it through the elaborator's `Shown`. Unlike the
     /// rest, it outlives the `glued` call it is set in: the component's
     /// blame is decided after it. So [`Decl::reset`] keeps it, the
     /// component's start clears it, and a rewind empties it.
-    pub(crate) failed_mentioned: FailedMention,
+    pub(crate) failed_mentioned: Cell<bool>,
     /// While a test is checked: the comparisons in it whose sides are
     /// shown when it fails (`probe.rs`).
     pub(crate) sides_capture: RefCell<SidesCapture>,
@@ -154,12 +153,11 @@ pub(crate) struct Decl {
 }
 
 impl Decl {
-    /// Empties everything but [`Self::failed_mentioned`] (and the sharing of
-    /// its cell with the printer).
+    /// Empties everything but [`Self::failed_mentioned`].
     pub(crate) fn reset(&mut self) {
-        let failed_mentioned = self.failed_mentioned.clone();
+        let failed_mentioned = self.failed_mentioned.get();
         *self = Decl {
-            failed_mentioned,
+            failed_mentioned: Cell::new(failed_mentioned),
             ..Decl::default()
         };
     }

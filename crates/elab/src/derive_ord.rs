@@ -61,7 +61,7 @@ impl Elaborator {
     /// After data type or record `d` is admitted, and its `DecEq` derived:
     /// its `Ord` instance, if one can be derived, or else why not.
     pub(crate) fn derive_data_ord(&mut self, d: DataId) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
@@ -139,13 +139,13 @@ impl Elaborator {
             }
         };
         // The helpers `DecEq` declares, in case it didn't.
-        let ctors = self.globals.data(d).ctors().len();
+        let ctors = self.kernel.data(d).ctors().len();
         if ctors > 1 && !self.has_member(d, "%tag") {
             self.derive_tag(d)?;
         }
         for c in 0..ctors {
             for (k, field) in plan.fields[c].iter().enumerate() {
-                let member = format!("%{}%P%{k}", self.globals.data(d).ctors()[c].name);
+                let member = format!("%{}%P%{k}", self.kernel.data(d).ctors()[c].name);
                 if *field == Field::Proof && !self.has_member(d, &member) {
                     self.derive_proof_type(d, c, k)?;
                 }
@@ -208,7 +208,7 @@ impl Elaborator {
 
     /// `T.%instOrd`.
     fn ord_instance_source(&self, d: DataId, plan: &Plan) -> Definition {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let s = Src { span: data.span() };
         let member = |m: &str| format!("{ty_name}.%{m}");
@@ -235,7 +235,7 @@ impl Elaborator {
     /// with two constructors or more, not all without fields) and `trans`
     /// (4), each with its kind.
     fn ord_member_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let s = Src { span: data.span() };
         let np = data.params().len();
@@ -249,14 +249,14 @@ impl Elaborator {
             let container = plan.nested[m - 1].member.data;
             (
                 container,
-                self.globals.data(container).path().to_string(),
+                self.kernel.data(container).path().to_string(),
                 s.app(
                     s.var(&format!("{prefix}type")),
                     (0..np).map(|j| s.var(&param(j))).collect(),
                 ),
             )
         };
-        let ctor_list = self.globals.data(matched).ctors();
+        let ctor_list = self.kernel.data(matched).ctors();
         let member_fields = plan.member_fields(m);
         let ctors = ctor_list.len();
         let enumeration = ctors > 1 && ctor_list.iter().all(|c| c.fields.is_empty());

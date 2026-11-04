@@ -20,6 +20,7 @@
 //! direction. Every plan is only text: the driver elaborates it, and the
 //! kernel checks it, before anything is suggested as closing the goal.
 
+use stitchwort_core::Ev;
 use stitchwort_core::pretty;
 use stitchwort_core::value::{Value, eval, force, quote_folded};
 use stitchwort_core::{DataId, Icit, Name, Term};
@@ -157,13 +158,13 @@ fn fresh(name: &str, taken: &[Name]) -> String {
 
 /// A candidate's type opened: each binder (name, mode, unknown), its
 /// conclusion, and the values of the binders, for evaluating in.
-fn open_binders(g: &stitchwort_core::Globals, ty: &Term, span: Span) -> Res<Opened> {
+fn open_binders(g: &crate::unify::Unifier<'_>, ty: &Term, span: Span) -> Res<Opened> {
     let mut env: Vec<Value> = Vec::new();
     let mut binders = Vec::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(name, icit, dom, cod) = t {
-        let m = g.new_meta(span);
-        g.set_meta_type(m, eval(g, &env, dom)?, 0);
+        let m = g.store.new_meta(span);
+        g.store.set_meta_type(m, eval(g, &env, dom)?, 0);
         binders.push((name.clone(), *icit, m));
         env.push(eval(g, &[], &Term::Meta(m))?);
         t = cod.strip_loc();
@@ -188,8 +189,8 @@ impl Elaborator {
     /// An error if the statement doesn't elaborate here.
     pub fn open_goal(&mut self, expr: &Expr, hyps: usize) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.machine.glue.replace(self.options.glue);
-        let saved = self.globals.machine.budget.start(self.options.limits);
+        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -202,8 +203,8 @@ impl Elaborator {
             let v = cx.eval(&term)?;
             self.open_from(&cx, Vec::new(), hyps, v, span)
         })();
-        self.globals.machine.budget.restore(saved);
-        self.globals.machine.glue.set(was);
+        self.kernel.machine.budget.restore(saved);
+        self.kernel.machine.glue.set(was);
         result
     }
 
@@ -217,10 +218,10 @@ impl Elaborator {
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.machine.glue.replace(self.options.glue);
-        let saved = self.globals.machine.budget.start(self.options.limits);
+        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
-            let g = &self.globals;
+            let g = &self.ev();
             let cx = Ctx::new(self, span);
             let mut env = vec![Value::Sort(stitchwort_core::Sort::Prop); snapshot.level];
             let mut vars: Vec<(Name, usize)> = Vec::new();
@@ -230,9 +231,9 @@ impl Elaborator {
                     env[var.level] = eval(g, &env, value)?;
                     continue;
                 }
-                let m = g.new_meta(span);
-                g.set_meta_type(m, ty, 0);
-                g.freeze_meta(m);
+                let m = self.metas().new_meta(span);
+                self.metas().set_meta_type(m, ty, 0);
+                self.metas().freeze_meta(m);
                 env[var.level] = eval(g, &[], &Term::Meta(m))?;
                 vars.push((var.name.clone(), m));
             }
@@ -245,8 +246,8 @@ impl Elaborator {
             goal.owner_args = owner_args;
             Ok(goal)
         })();
-        self.globals.machine.budget.restore(saved);
-        self.globals.machine.glue.set(was);
+        self.kernel.machine.budget.restore(saved);
+        self.kernel.machine.glue.set(was);
         result
     }
 
@@ -262,7 +263,7 @@ impl Elaborator {
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         {
-            let g = &self.globals;
+            let g = &self.ev();
             let mut v = v;
             let mut intros = Vec::new();
             loop {
@@ -272,9 +273,9 @@ impl Elaborator {
                 if vars.len() >= hyps && icit != Icit::Explicit {
                     break;
                 }
-                let m = g.new_meta(span);
-                g.set_meta_type(m, (*dom).clone(), 0);
-                g.freeze_meta(m);
+                let m = self.metas().new_meta(span);
+                self.metas().set_meta_type(m, (*dom).clone(), 0);
+                self.metas().freeze_meta(m);
                 let var = eval(g, &[], &Term::Meta(m))?;
                 let taken: Vec<Name> = vars.iter().map(|(n, _)| n.clone()).collect();
                 let name: Name = if vars.len() >= hyps {
@@ -291,7 +292,7 @@ impl Elaborator {
             let prop = crate::rewrite::is_proof_type(cx, &target)?;
             let quoted = quote_folded(g, 0, &target)?;
             let shown = self.show_with_vars(&vars, &target)?;
-            let metas = g.metas.borrow().len();
+            let metas = self.metas().metas.borrow().len();
             let pattern = Pattern {
                 head: head_key(&quoted),
                 constants: constants(&quoted),
@@ -322,9 +323,9 @@ impl Elaborator {
     /// `value`, printed as a goal is, the goal's variables by their names.
     fn show_with_vars(&self, vars: &[(Name, usize)], value: &Value) -> Res<String> {
         let g = &self.unifier();
-        let mark = g.meta_trail.borrow().len();
+        let mark = g.store.meta_trail.borrow().len();
         for (i, (_, m)) in vars.iter().enumerate() {
-            g.solve_meta(*m, Value::var(i));
+            g.store.solve_meta(*m, Value::var(i));
         }
         let names: Vec<Name> = vars.iter().map(|(n, _)| n.clone()).collect();
         let shown = force(g, value.clone()).map(|v| pretty::value_for_goal(g, self, &names, &v));
@@ -338,7 +339,7 @@ impl Elaborator {
             Item::Def(id) | Item::Part(id, _) => Term::Def(id),
             Item::Ctor(d, c) => Term::Ctor(d, c, Vec::new()),
         };
-        pretty::term_in(&self.globals, self, &[], &term)
+        pretty::term_in(&self.ev(), self, &[], &term)
     }
 
     /// The definition with full name `path`, as this file can write it.
@@ -383,7 +384,7 @@ impl Elaborator {
             .collect();
         // An equation, also the other way round: `Eq.sym (L …)` (SW-971).
         // Not by a lemma whose conclusion names nothing (`x = y`).
-        let g = &self.globals;
+        let g = &self.ev();
         let swapped = match force(g, goal.pattern.value.clone()) {
             Ok(Value::Eq(ty, a, b)) => self.write_name("Std.Eq.sym").map(|sym| {
                 let pattern = Pattern {
@@ -457,9 +458,9 @@ impl Elaborator {
         let g = &self.unifier();
         let _restore = Restore {
             g: *g,
-            metas: g.metas.borrow().len(),
-            trail: g.meta_trail.borrow().len(),
-            frozen: g.frozen_metas.borrow().len(),
+            metas: g.store.metas.borrow().len(),
+            trail: g.store.meta_trail.borrow().len(),
+            frozen: g.store.frozen_metas.borrow().len(),
             glue: g.machine.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
@@ -472,7 +473,8 @@ impl Elaborator {
             }
             let cx = Ctx::new(self, span);
             let is_prop = |m: usize| -> bool {
-                g.meta_type(m)
+                g.store
+                    .meta_type(m)
                     .is_some_and(|(ty, _)| crate::rewrite::is_proof_type(&cx, &ty).unwrap_or(false))
             };
             let premises: Vec<usize> = (opened.binders.iter().enumerate())
@@ -484,7 +486,7 @@ impl Elaborator {
             let hyps: Vec<(usize, Value)> = (goal.vars.iter().enumerate())
                 // Only those a proof can name (not `h✝`, a compiler-made `%x`).
                 .filter(|(_, (n, m))| is_prop(*m) && nameable(n))
-                .filter_map(|(i, (_, m))| Some((i, g.meta_type(*m)?.0)))
+                .filter_map(|(i, (_, m))| Some((i, g.store.meta_type(*m)?.0)))
                 .collect();
             let mut search = Fill {
                 goal,
@@ -530,14 +532,14 @@ impl Elaborator {
         if g.meta_solution(m).is_some() {
             return self.fill_premises(s, k + 1);
         }
-        let Some((ty, _)) = g.meta_type(m) else {
+        let Some((ty, _)) = g.store.meta_type(m) else {
             return self.fill_premises(s, k + 1);
         };
         for (vi, hty) in s.hyps {
-            let mark = g.meta_trail.borrow().len();
+            let mark = g.store.meta_trail.borrow().len();
             if crate::unify::unify(g, 0, &ty, hty)? {
                 let hyp = eval(g, &[], &Term::Meta(s.goal.vars[*vi].1))?;
-                g.solve_meta(m, hyp);
+                g.store.solve_meta(m, hyp);
                 s.chosen[i] = Some(*vi);
                 self.fill_premises(s, k + 1)?;
                 s.chosen[i] = None;
@@ -573,7 +575,7 @@ impl Elaborator {
                 unreachable!("a part")
             };
             let mut own = 0;
-            let mut t = self.globals.def(id).ty().strip_loc();
+            let mut t = self.kernel.def(id).ty().strip_loc();
             while let Term::Pi(_, icit, _, cod) = t {
                 own += usize::from(*icit == Icit::Explicit);
                 t = cod.strip_loc();
@@ -590,7 +592,7 @@ impl Elaborator {
         Ok(Plan {
             item,
             head: self.write_item(item),
-            item_path: item.path(&self.globals),
+            item_path: item.path(&self.ev()),
             args,
             general: false,
             sym: None,
@@ -602,7 +604,7 @@ impl Elaborator {
     /// One argument: unknown `m` as solved, printed; `?` if it is still
     /// open and a premise; else `_`.
     fn arg(&self, goal: &Goal, m: usize, premise: bool) -> Res<Arg> {
-        let g = &self.globals;
+        let g = &self.ev();
         let Some(solution) = g.meta_solution(m) else {
             return Ok(if premise { Arg::Open } else { Arg::Unsolved });
         };
@@ -631,7 +633,7 @@ impl Elaborator {
         per_call: usize,
         max: usize,
     ) -> Vec<RewritePlan> {
-        let g = &self.globals;
+        let g = &self.ev();
         let Ok(target) = quote_folded(g, 0, &goal.pattern.value) else {
             return Vec::new();
         };
@@ -710,10 +712,10 @@ impl Elaborator {
     /// A pattern of a call in a goal's target: its unknowns are the goal's
     /// frozen variables, so it matches only as an instance.
     fn call_pattern(&self, call: &Term) -> Option<Pattern> {
-        let g = &self.globals;
+        let g = &self.unifier();
         let value = eval(g, &[], call).ok()?;
         let ty = type_of_target(g, &[], call).ok().flatten();
-        let metas = g.metas.borrow().len();
+        let metas = self.metas().metas.borrow().len();
         Some(Pattern {
             head: head_key(call),
             constants: constants(call),
@@ -746,9 +748,9 @@ impl Elaborator {
         let g = &self.unifier();
         let _restore = Restore {
             g: *g,
-            metas: g.metas.borrow().len(),
-            trail: g.meta_trail.borrow().len(),
-            frozen: g.frozen_metas.borrow().len(),
+            metas: g.store.metas.borrow().len(),
+            trail: g.store.meta_trail.borrow().len(),
+            frozen: g.store.frozen_metas.borrow().len(),
             glue: g.machine.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
@@ -806,9 +808,9 @@ impl Elaborator {
         let span = item.span(g);
         let _restore = Restore {
             g: *g,
-            metas: g.metas.borrow().len(),
-            trail: g.meta_trail.borrow().len(),
-            frozen: g.frozen_metas.borrow().len(),
+            metas: g.store.metas.borrow().len(),
+            trail: g.store.meta_trail.borrow().len(),
+            frozen: g.store.frozen_metas.borrow().len(),
             glue: g.machine.glue.replace(self.options.glue),
         };
         let made = (|| -> Res<Vec<RecursivePlan>> {
@@ -832,12 +834,12 @@ impl Elaborator {
                         Some(v) => v.clone(),
                         None => eval(g, &[], &Term::Meta(intros[i - args.len()].1))?,
                     };
-                    if let Some((want, _)) = g.meta_type(*m) {
+                    if let Some((want, _)) = g.store.meta_type(*m) {
                         fits &= match (force(g, v.clone())?, force(g, want.clone())?) {
                             (Value::Neutral(stitchwort_core::value::Head::Meta(gm), s), _)
                                 if s.is_empty() =>
                             {
-                                g.meta_type(gm).is_none_or(|(have, _)| {
+                                g.store.meta_type(gm).is_none_or(|(have, _)| {
                                     crate::unify::unify(g, 0, &want, &have).unwrap_or(false)
                                 })
                             }
@@ -846,7 +848,7 @@ impl Elaborator {
                             _ => true,
                         };
                     }
-                    g.solve_meta(*m, v);
+                    g.store.solve_meta(*m, v);
                 }
                 // The target is the conclusion so instantiated, or, where the
                 // two compute to forms the unifier doesn't equate (`x + 2 *
@@ -860,7 +862,8 @@ impl Elaborator {
             }
             let cx = Ctx::new(self, span);
             let is_prop = |m: usize| -> bool {
-                g.meta_type(m)
+                g.store
+                    .meta_type(m)
                     .is_some_and(|(ty, _)| crate::rewrite::is_proof_type(&cx, &ty).unwrap_or(false))
             };
             // Each explicit argument of data as the goal has it, and the
@@ -873,14 +876,17 @@ impl Elaborator {
                 let mut inside = Vec::new();
                 if let Some(v) = &solution {
                     smaller_vars(g, v, goal, false, &mut inside)?;
-                    let Some((want, _)) = g.meta_type(*m) else {
+                    let Some((want, _)) = g.store.meta_type(*m) else {
                         return Ok(Vec::new());
                     };
                     inside.retain(|vi| {
-                        let mark = g.meta_trail.borrow().len();
-                        let fits = g.meta_type(goal.vars[*vi].1).is_some_and(|(have, _)| {
-                            crate::unify::unify(g, 0, &want, &have).unwrap_or(false)
-                        });
+                        let mark = g.store.meta_trail.borrow().len();
+                        let fits = g
+                            .store
+                            .meta_type(goal.vars[*vi].1)
+                            .is_some_and(|(have, _)| {
+                                crate::unify::unify(g, 0, &want, &have).unwrap_or(false)
+                            });
                         crate::unify::undo_since(g, mark);
                         fits
                     });
@@ -932,14 +938,14 @@ impl Elaborator {
             let mut out: Vec<RecursivePlan> = Vec::new();
             for choice in &choices {
                 // The other arguments as at the goal.
-                let mark = g.meta_trail.borrow().len();
+                let mark = g.store.meta_trail.borrow().len();
                 let fresh = open_binders(g, &ty, span)?;
                 for (i, (_, _, m)) in fresh.binders.iter().enumerate() {
                     match (choice[i], &at_goal[i]) {
-                        (Some(vi), _) => {
-                            g.solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?)
-                        }
-                        (None, Some(v)) => g.solve_meta(*m, v.clone()),
+                        (Some(vi), _) => g
+                            .store
+                            .solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?),
+                        (None, Some(v)) => g.store.solve_meta(*m, v.clone()),
                         (None, None) => {}
                     }
                 }
@@ -953,11 +959,12 @@ impl Elaborator {
                 // A side matched against a call of the target.
                 for call in &calls {
                     for backwards in [false, true] {
-                        let mark = g.meta_trail.borrow().len();
+                        let mark = g.store.meta_trail.borrow().len();
                         let fresh = open_binders(g, &ty, span)?;
                         for (i, (_, _, m)) in fresh.binders.iter().enumerate() {
                             if let Some(vi) = choice[i] {
-                                g.solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?);
+                                g.store
+                                    .solve_meta(*m, eval(g, &[], &Term::Meta(goal.vars[vi].1))?);
                             }
                         }
                         let side = match fresh.conclusion.strip_loc() {
@@ -1002,7 +1009,7 @@ impl Elaborator {
         opened: &Opened,
         is_prop: &dyn Fn(usize) -> bool,
     ) -> Res<Vec<Plan>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let premises: Vec<usize> = (opened.binders.iter().enumerate())
             .filter(|(_, (_, icit, m))| {
                 *icit == Icit::Explicit && g.meta_solution(*m).is_none() && is_prop(*m)
@@ -1011,7 +1018,7 @@ impl Elaborator {
             .collect();
         let hyps: Vec<(usize, Value)> = (goal.vars.iter().enumerate())
             .filter(|(_, (n, m))| is_prop(*m) && nameable(n))
-            .filter_map(|(i, (_, m))| Some((i, g.meta_type(*m)?.0)))
+            .filter_map(|(i, (_, m))| Some((i, self.metas().meta_type(*m)?.0)))
             .collect();
         let mut search = Fill {
             goal,
@@ -1041,13 +1048,7 @@ pub struct RecursivePlan {
 
 /// The goal's variables inside `v` under at least one constructor (with
 /// `under`, `v` is already under one): structurally smaller than `v`.
-fn smaller_vars(
-    g: &stitchwort_core::Globals,
-    v: &Value,
-    goal: &Goal,
-    under: bool,
-    out: &mut Vec<usize>,
-) -> Res<()> {
+fn smaller_vars(g: &Ev, v: &Value, goal: &Goal, under: bool, out: &mut Vec<usize>) -> Res<()> {
     match force(g, v.clone())? {
         Value::Ctor(_, _, fields) => {
             for f in fields.iter() {

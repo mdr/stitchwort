@@ -1,6 +1,5 @@
 //! Checked top-level declarations.
 
-use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use stitchwort_syntax::Span;
@@ -64,7 +63,7 @@ pub struct Def {
     pub(crate) fold: bool,
     /// Opaque to the checker (docs/proposals/opaque-definitions.md §6.4):
     /// outside the declarations whose transparency set holds it
-    /// ([`Globals::transparent`]), it has a type and no body, so a call of
+    /// ([`crate::machine::Machine::transparent`]), it has a type and no body, so a call of
     /// it is neutral, like a variable applied to arguments. Running a
     /// program still uses the body. Set on a pending definition
     /// ([`crate::check::mark_opaque`]); hashed when set.
@@ -114,7 +113,7 @@ pub struct Def {
     pub(crate) span: Span,
 }
 
-/// How a call of an update's helper is shown (see [`PrintHints`]):
+/// How a call of an update's helper is shown ([`crate::ev::Shown::update_shown`]):
 /// the record updated and each field's new value, in the order written, as
 /// terms in the helper's parameters (all explicit, the innermost last).
 #[derive(Clone, Debug)]
@@ -522,127 +521,26 @@ pub struct Ctor {
     pub implicit: Vec<bool>,
 }
 
-/// A metavariable created by the elaborator. Solutions are closed values
-/// (functions of the variables in scope where the metavariable was created).
-#[derive(Clone)]
-pub struct Meta {
-    pub solution: Option<Value>,
-    /// Where it was created, for "can't work out" errors.
-    pub span: Span,
-    /// For the unknown proof of an `auto` argument, one entry per argument
-    /// it's applied to (the variables in scope where it was made): whether
-    /// neither its statement nor the type of a later variable depends on
-    /// that one. Unification may solve it ignoring such an argument where
-    /// that argument isn't a variable (SW-323: a proof inside a lambda,
-    /// once the lambda is applied to a term).
-    pub ignorable: Option<Rc<[bool]>>,
-    /// Its type, where whoever made it knew it: the type of the unknown
-    /// applied to the first `.1` arguments of its spine (the variables in
-    /// scope where it was made), in that context. Unification reads it only
-    /// to refuse pairing values whose types plainly differ (SW-919), so it
-    /// may be missing.
-    pub ty: Option<(Value, usize)>,
-}
-
+/// The kernel's side of a session: the declarations admitted, the
+/// evaluator's machine and what is derived from the declarations. It holds
+/// no metavariables and no printing hints: the elaborator's are its own
+/// (its `state::MetaStore`), and reach the evaluator only through an
+/// [`Ev`](crate::ev::Ev) it builds. So the kernel's admission, which takes
+/// a `&mut Kernel`, can never see a solution (docs/proposals/globals-split.md
+/// §3.6, §4).
 #[derive(Default)]
-pub struct Globals {
+pub struct Kernel {
     /// The declarations admitted so far.
     pub env: crate::env::Env,
-    /// The elaborator's metavariables. Empty whenever the kernel runs.
-    pub metas: RefCell<Vec<Meta>>,
-    /// Every metavariable solution made, newest last, with what it replaced:
-    /// how the elaborator undoes a failed attempt (its `undo.rs`). Cleared
-    /// with `metas`.
-    pub meta_trail: RefCell<Vec<(usize, Option<Value>)>>,
-    /// Metavariables standing for a lifted `match` whose helper isn't made
-    /// yet (docs/proposals/syntax-conveniences.md §4.10): unification never
-    /// solves them, so each is equal only to itself. The elaborator solves
-    /// them directly once the helpers are declared. Few, so a list; cleared
-    /// with `metas`. Never seen by the kernel.
-    pub frozen_metas: RefCell<Vec<usize>>,
-    /// For a frozen metavariable once solved with its helper's call: how many
-    /// variables the call is a function of, and the call itself (a term in
-    /// them). Zonking puts this term in, instead of reading the solution
-    /// value back, which would write out what the arguments of the call
-    /// unfold to. The elaborator's queued checks keep the term each filled
-    /// its placeholder with here too, for the same reason. Cleared with
-    /// `metas`.
-    pub lifted_calls: RefCell<crate::collections::HashMap<usize, (usize, Rc<Term>)>>,
-    /// The placeholders of the elaborator's queued checks that their checks
-    /// haven't filled yet (its `queue.rs`): frozen to unification, as
-    /// `frozen_metas` are, until filled (docs/proposals/postponement.md,
-    /// D2016, stage 6). Kept in step with the queue; cleared with `metas`.
-    pub unfilled_placeholders: RefCell<crate::collections::HashSet<usize>>,
-    /// How the printer shows a placeholder of those while it is unfilled:
-    /// as the source its check stands for (`r.items`, a record literal),
-    /// not as an unknown (D2091), with the names of the variables it is
-    /// applied to: it is shown so only while applied to those, which then
-    /// aren't shown. Kept in step with the queue; cleared with `metas`.
-    /// Only affects messages.
-    pub placeholder_syntax: RefCell<crate::collections::HashMap<usize, PlaceholderSyntax>>,
-    /// The unfilled placeholders of number literals waiting for their type
-    /// (K4, step 4.3): the literal, and the type it waits on. A comparison
-    /// meeting one against the same numeral at a known type takes that type
-    /// (D2110; `unify`). Kept in step with the queue; cleared with `metas`.
-    pub waiting_literals:
-        RefCell<crate::collections::HashMap<usize, (Rc<num_bigint::BigUint>, crate::value::Value)>>,
-    /// How the printer shows calls of local definitions while their owner
-    /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
-    /// not the lifted call with its captures. Cleared with `metas`. Only
-    /// affects messages.
-    pub print_labels: RefCell<Vec<PrintLabel>>,
-    /// The elaborator's facts the printer reads (see [`PrintHints`]).
-    pub print_hints: PrintHints,
     /// The evaluator's modes and operation state (`machine.rs`).
     pub machine: crate::machine::Machine,
     /// What is derived from the environment, and can be worked out again
     /// (`caches.rs`).
     pub caches: crate::caches::EvalCaches,
-    /// Whether an error message has shown a term that uses a failed
-    /// definition since the elaborator last cleared this: its errors are
-    /// then fallout of that failure, not the declaration's own. The elaborator's
-    /// `Decl` owns it; this handle is shared with the printer, which sets
-    /// it (until it takes the hints as an argument, globals-split.md §3.5).
-    pub failed_mentioned: FailedMention,
-    /// Counts the times metavariable solutions were taken back (undone or
-    /// cleared). A call's kept unfolding records the count it was computed
-    /// at, and is computed again if the count has moved since: it may have
-    /// used a solution that's gone.
-    pub meta_epoch: Cell<u64>,
 }
 
-/// The flag [`Globals::failed_mentioned`]: a handle on one shared cell.
-#[derive(Clone, Default)]
-pub struct FailedMention(Rc<Cell<bool>>);
-
-impl FailedMention {
-    pub fn get(&self) -> bool {
-        self.0.get()
-    }
-
-    pub fn set(&self, mentioned: bool) {
-        self.0.set(mentioned);
-    }
-}
-
-/// The elaborator's facts about declarations that the printer reads, for
-/// messages: how a call of a defaulted function and of a record update's
-/// helper are shown. The rows belong to the elaborator's `Tables`
-/// (`OwnedBy` tables, keyed by definition), which share these maps, so
-/// that the printer finds them through `&Globals`; they go when the
-/// printer takes its hints as an argument (globals-split.md §3.5).
-#[derive(Clone, Default)]
-pub struct PrintHints {
-    /// The default values of a definition's header's parameters,
-    /// `(step: Nat := 1)` (docs/proposals/signature-defaults.md §7.1).
-    pub param_defaults: Rc<RefCell<crate::collections::HashMap<DefId, Rc<ParamDefaults>>>>,
-    /// For the helper a record update `{ x | f = s }` of a type with several
-    /// constructors is lifted to: how a call of it is shown, as the update.
-    pub update_shown: Rc<RefCell<crate::collections::HashMap<DefId, Rc<UpdateShown>>>>,
-}
-
-/// How the printer shows an unfilled placeholder (see
-/// [`Globals::placeholder_syntax`]): the names of the variables it is applied
+/// How the printer shows an unfilled placeholder of a queued check
+/// ([`crate::ev::Shown::placeholder`]): the names of the variables it is applied
 /// to when made, and the source its check stands for.
 pub type PlaceholderSyntax = (Rc<[Name]>, PlaceholderText);
 
@@ -656,8 +554,8 @@ pub enum PlaceholderText {
     Number(Rc<num_bigint::BigUint>),
 }
 
-/// A call the printer shows by a local name (see
-/// [`Globals::print_labels`]): `head` applied first to the variables at
+/// A call the printer shows by a local name
+/// ([`crate::ev::Shown::print_label`]): `head` applied first to the variables at
 /// `levels` (by level, outermost first) is shown as `name` applied to the
 /// rest. For a metavariable, those first arguments are hidden whatever
 /// they are.
@@ -697,7 +595,14 @@ pub enum HashKey {
     Data(DataId),
 }
 
-impl Globals {
+impl Kernel {
+    /// What the evaluator reads, with no metavariables and no hints: for
+    /// hosts that run or inspect checked declarations. The elaborator
+    /// builds its own, over its meta store (`Elaborator::ev`).
+    pub fn ev(&self) -> crate::ev::Ev<'_> {
+        crate::ev::Ev::kernel(&self.env, &self.machine, &self.caches)
+    }
+
     pub fn def(&self, id: DefId) -> &Def {
         self.env.def(id)
     }
@@ -723,82 +628,11 @@ impl Globals {
             .map(DataId)
     }
 
-    pub fn meta_solution(&self, m: usize) -> Option<Value> {
-        self.metas.borrow()[m].solution.clone()
-    }
-
-    pub fn new_meta(&self, span: Span) -> usize {
-        let mut metas = self.metas.borrow_mut();
-        metas.push(Meta {
-            solution: None,
-            span,
-            ignorable: None,
-            ty: None,
-        });
-        metas.len() - 1
-    }
-
-    /// Records metavariable `m`'s type (see [`Meta::ty`]): `ty`, the type
-    /// of `m` applied to its first `arity` arguments.
-    pub fn set_meta_type(&self, m: usize, ty: Value, arity: usize) {
-        self.metas.borrow_mut()[m].ty = Some((ty, arity));
-    }
-
-    /// See [`Meta::ty`].
-    pub fn meta_type(&self, m: usize) -> Option<(Value, usize)> {
-        self.metas.borrow()[m].ty.clone()
-    }
-
-    /// Records which arguments metavariable `m` may ignore (see
-    /// [`Meta::ignorable`]).
-    pub fn set_meta_ignorable(&self, m: usize, ignorable: Rc<[bool]>) {
-        self.metas.borrow_mut()[m].ignorable = Some(ignorable);
-    }
-
-    /// See [`Meta::ignorable`].
-    pub fn meta_ignorable(&self, m: usize) -> Option<Rc<[bool]>> {
-        self.metas.borrow()[m].ignorable.clone()
-    }
-
-    /// Whether metavariable `m` is frozen (see [`Globals::frozen_metas`]).
-    pub fn meta_frozen(&self, m: usize) -> bool {
-        self.frozen_metas.borrow().contains(&m)
-    }
-
-    /// Freezes metavariable `m` (see [`Globals::frozen_metas`]).
-    pub fn freeze_meta(&self, m: usize) {
-        self.frozen_metas.borrow_mut().push(m);
-    }
-
-    pub fn solve_meta(&self, m: usize, solution: Value) {
-        let old = self.metas.borrow_mut()[m].solution.replace(solution);
-        self.meta_trail.borrow_mut().push((m, old));
-    }
-
-    /// Records that metavariable solutions have been taken back (see
-    /// [`Globals::meta_epoch`]).
-    pub fn metas_taken_back(&self) {
-        self.meta_epoch.set(self.meta_epoch.get() + 1);
-    }
-
-    /// Forgets every metavariable (and the record of their solutions).
-    pub fn clear_metas(&self) {
-        self.metas_taken_back();
-        self.metas.borrow_mut().clear();
-        self.frozen_metas.borrow_mut().clear();
-        self.lifted_calls.borrow_mut().clear();
-        self.unfilled_placeholders.borrow_mut().clear();
-        self.placeholder_syntax.borrow_mut().clear();
-        self.waiting_literals.borrow_mut().clear();
-        self.meta_trail.borrow_mut().clear();
-        self.print_labels.borrow_mut().clear();
-    }
-
-    /// Where the environment is now, for [`Globals::rewind`]. Taken between
-    /// declarations (no operation running, no metavariables): the
-    /// elaborator's `mark` is the only caller.
-    pub fn mark(&self) -> GlobalsMark {
-        GlobalsMark {
+    /// Where the environment is now, for [`Kernel::rewind`]. Taken between
+    /// declarations (no operation running): the elaborator's `mark` is the
+    /// only caller.
+    pub fn mark(&self) -> KernelMark {
+        KernelMark {
             defs: self.env.defs().len(),
             datas: self.env.datas().len(),
             builtins: self.env.builtins().mark(),
@@ -808,31 +642,18 @@ impl Globals {
     /// Puts the environment back as it was at `mark`: the definitions and
     /// data types declared since are removed, with everything recorded
     /// about them (built-ins bound, natives registered, hashes, erasure),
-    /// and the metavariables and the budget are cleared, as if no operation
-    /// were running. Declarations from before the mark are never changed
-    /// after they are final, so nothing else needs undoing; the elaborator
-    /// rewinds its own tables. The settings (the `disable_*` switches,
-    /// erasure's) and the cancellation flag stay as they are.
+    /// and the budget is cleared, as if no operation were running.
+    /// Declarations from before the mark are never changed after they are
+    /// final, so nothing else needs undoing; the elaborator rewinds its own
+    /// state, metavariables included. The settings (the `disable_*`
+    /// switches, erasure's) and the cancellation flag stay as they are.
     ///
     /// Every field is named here, so a new one can't be forgotten.
-    pub fn rewind(&mut self, mark: &GlobalsMark) {
-        let Globals {
+    pub fn rewind(&mut self, mark: &KernelMark) {
+        let Kernel {
             env,
-            metas: _,
-            meta_trail: _,
-            frozen_metas: _,
-            lifted_calls: _,
-            unfilled_placeholders: _,
-            placeholder_syntax: _,
-            waiting_literals: _,
-            print_labels: _,
-            // Rows of the elaborator's tables, which it rewinds.
-            print_hints: _,
             machine,
             caches,
-            // The elaborator's `Decl` owns it, and its rewind empties it.
-            failed_mentioned: _,
-            meta_epoch: _,
         } = self;
         assert!(
             mark.defs <= env.defs().len() && mark.datas <= env.datas().len(),
@@ -841,20 +662,18 @@ impl Globals {
         env.rewind(mark.defs, mark.datas, &mark.builtins);
         caches.forget_from(mark.defs, mark.datas);
         machine.reset();
-        // Bumps the epoch, so no kept unfolding is trusted.
-        self.clear_metas();
     }
 }
 
-/// A point [`Globals::rewind`] goes back to.
+/// A point [`Kernel::rewind`] goes back to.
 #[derive(Clone)]
-pub struct GlobalsMark {
+pub struct KernelMark {
     defs: usize,
     datas: usize,
     builtins: crate::native::BuiltinsMark,
 }
 
-impl GlobalsMark {
+impl KernelMark {
     /// How many definitions there were.
     pub fn defs(&self) -> usize {
         self.defs

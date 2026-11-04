@@ -64,7 +64,7 @@ fn the_float_bindings_are_the_pinned_declarations() {
     // A binding that doesn't match fails the load; its hash is printed below
     // all the same (fix `Float`'s first: the others depend on it).
     let loaded = session.load("uses.sw", "import Std (Float)\ndef zero: Float := 0.0\n");
-    let bindings = float::bindings(&session.elab.globals);
+    let bindings = float::bindings(&session.elab.ev());
     assert_eq!(bindings.len(), 1 + float::NATIVE_HASHES.len());
     let wrong: Vec<String> = bindings
         .iter()
@@ -93,7 +93,7 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     use stitchwort_core::hash::{def_hash, float_primitive_hash};
     use stitchwort_core::registry::Builtin;
     let session = loaded();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let mul = g
         .env
@@ -153,7 +153,7 @@ fn the_fingerprint_changes_with_the_toolchain_and_target() {
 #[test]
 fn the_runtime_float_natives_are_bound() {
     let session = loaded();
-    let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.globals).unwrap();
+    let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.ev()).unwrap();
     assert_eq!(bindings.len(), 4);
     for b in &bindings {
         assert!(b.bound, "{}: {:?}", b.name, b.hash);

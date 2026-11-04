@@ -62,7 +62,7 @@ use std::rc::Rc;
 use stitchwort_core::budget::Result;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, Icit, NumArm};
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Ev, Term};
 
 use crate::erasure::def_shape;
 
@@ -115,7 +115,7 @@ pub struct Fused {
 }
 
 impl StateFusion {
-    pub fn new(g: &Globals) -> Option<StateFusion> {
+    pub fn new(g: &Ev) -> Option<StateFusion> {
         let r = &g.env.registry();
         let run_pure = r.loaded_def(Builtin::RunPure)?;
         let run_pure_params = def_shape(g, run_pure, false).ok()?.mask().len();
@@ -145,7 +145,7 @@ impl StateFusion {
     /// trees of the `match`es to follow, if the backend can inline them.
     pub fn fuse(
         &self,
-        g: &Globals,
+        g: &Ev,
         args: &[&Term],
         bodies: Option<MatchBodies>,
     ) -> Result<Option<Fused>> {
@@ -274,13 +274,7 @@ impl StateFusion {
     }
 
     /// Operation clause `x => k => body` as `x => k => jump => s => body′`.
-    fn clause(
-        &self,
-        g: &Globals,
-        clause: &Term,
-        comp: bool,
-        walk: &mut Walk,
-    ) -> Result<Option<Term>> {
+    fn clause(&self, g: &Ev, clause: &Term, comp: bool, walk: &mut Walk) -> Result<Option<Term>> {
         let Term::Lam(x, xi, inner) = strip(clause) else {
             return Ok(None);
         };
@@ -317,7 +311,7 @@ impl StateFusion {
 
     /// `term`, under `depth` more binders than the clause's body (where `s`
     /// is 0, `jump` 1 and `k` 2), with its tail resumptions made jumps.
-    fn tail(&self, g: &Globals, term: &Term, depth: usize, walk: &mut Walk) -> Result<Term> {
+    fn tail(&self, g: &Ev, term: &Term, depth: usize, walk: &mut Walk) -> Result<Term> {
         if depth > MAX_DEPTH {
             return Ok(term.clone());
         }
@@ -499,7 +493,7 @@ impl StateFusion {
 }
 
 /// Whether `id` is a `match` lifted out of a definition (`f.%match1`).
-fn is_lifted_match(g: &Globals, id: DefId) -> bool {
+fn is_lifted_match(g: &Ev, id: DefId) -> bool {
     g.def(id)
         .path()
         .rsplit('.')
@@ -510,7 +504,7 @@ fn is_lifted_match(g: &Globals, id: DefId) -> bool {
 /// `tree`, under one binder per argument, applied to `args`: a variable argument replaces its
 /// parameter, and any other is bound to it by an applied lambda, so that a
 /// case tree's scrutinee stays a variable.
-fn inline(g: &Globals, tree: &Term, args: &[&Term]) -> Result<Term> {
+fn inline(g: &Ev, tree: &Term, args: &[&Term]) -> Result<Term> {
     let mut lams = tree.clone();
     for _ in args {
         lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
@@ -520,7 +514,7 @@ fn inline(g: &Globals, tree: &Term, args: &[&Term]) -> Result<Term> {
 
 /// [`inline`] on `lams`, a lambda per argument, with `bound` arguments
 /// bound by lambdas so far.
-fn bind(g: &Globals, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
+fn bind(g: &Ev, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
     let Some((first, rest)) = args.split_first() else {
         return Ok(lams.clone());
     };

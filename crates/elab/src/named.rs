@@ -90,7 +90,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
             ty = value;
             continue;
         }
-        match force(g, ty.clone())? {
+        match force(&g, ty.clone())? {
             Value::Pi(x, icit, dom, cod) => {
                 params.push(Param {
                     name: x,
@@ -98,7 +98,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                     ty: Some((*dom).clone()),
                     default: false,
                 });
-                ty = cod.apply(g, Value::var(level))?;
+                ty = cod.apply(&g, Value::var(level))?;
                 level += 1;
             }
             Value::Neutral(Head::Meta(_), _) => {
@@ -719,12 +719,12 @@ fn bind_missing(
         let at = cx.level();
         cx.bind_hidden((*name).clone(), dom.clone());
         let applied = (
-            Term::app(term.shift(g, 1, 0)?, Term::Var(0)),
-            cod.apply(g, Value::var(at))?,
+            Term::app(term.shift(&g, 1, 0)?, Term::Var(0)),
+            cod.apply(&g, Value::var(at))?,
         );
         let (body, body_ty, _) = bind_missing(cx, applied, &slots[i + 1..], base, true)?;
         let body_ty = cx.quote(&body_ty)?;
-        let dom = quote(g, at, &dom)?;
+        let dom = quote(&g, at, &dom)?;
         cx.reset(mark);
         let pi = Term::Pi(
             (*name).clone(),
@@ -788,7 +788,7 @@ fn apply_shifted(cx: &mut Ctx, head: Typed, args: &[Arg], base: usize) -> Result
     for arg in args {
         if let Arg::Piped(p) = arg {
             shifted.push(Piped {
-                term: p.term.shift(g, depth, 0)?,
+                term: p.term.shift(&g, depth, 0)?,
                 ty: p.ty.clone(),
                 span: p.span,
                 dot: p.dot,
@@ -826,7 +826,7 @@ fn infer_missing(cx: &mut Ctx, head: Typed, slots: &[Slot]) -> Result<Vec<(Name,
                 let value = cx.eval(&meta)?;
                 unknowns.push(((*name).clone(), value.clone()));
                 term = Term::app(term, meta);
-                ty = cod.apply(g, value)?;
+                ty = cod.apply(&g, value)?;
             }
         }
     }
@@ -849,7 +849,7 @@ fn rigid_notes(cx: &mut Ctx, head: (Term, Value), slots: &[Slot]) -> Vec<String>
         Ok(unknowns) => unknowns
             .iter()
             .filter_map(|(x, value)| {
-                let forced = force(cx.g(), value.clone()).ok()?;
+                let forced = force(&cx.g(), value.clone()).ok()?;
                 if matches!(forced, Value::Neutral(Head::Meta(_), _)) {
                     return None;
                 }
@@ -888,13 +888,13 @@ pub(crate) fn dependencies(cx: &Ctx, ty: &Value) -> Result<Vec<Vec<usize>>> {
             ty = value;
             continue;
         }
-        let Value::Pi(_, _, dom, cod) = force(g, ty.clone())? else {
+        let Value::Pi(_, _, dom, cod) = force(&g, ty.clone())? else {
             return Ok(out);
         };
         let i = out.len();
-        let dom = quote(g, base + i, &dom)?;
+        let dom = quote(&g, base + i, &dom)?;
         out.push((0..i).filter(|j| dom.mentions(i - 1 - j)).collect());
-        ty = cod.apply(g, Value::var(base + i))?;
+        ty = cod.apply(&g, Value::var(base + i))?;
     }
 }
 

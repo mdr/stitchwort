@@ -7,7 +7,7 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_core::check;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
-use stitchwort_core::{DataId, Globals, Icit, Sort, Term};
+use stitchwort_core::{DataId, Icit, Kernel, Sort, Term};
 
 /// Defines `name : ty = body` in a fresh prelude and returns its hash.
 fn hash(
@@ -28,7 +28,7 @@ fn hash(
     )
     .expect("type checks");
     check::define_def(&mut p.g, id, &body).expect("body checks");
-    def_hash(&p.g, id).unwrap().expect("defined")
+    def_hash(&p.g.ev(), id).unwrap().expect("defined")
 }
 
 #[test]
@@ -97,7 +97,10 @@ fn hashes_distinguish_which_data_type_is_used() {
         d
     };
     let (a, b) = (declare("A"), declare("B"));
-    assert_ne!(data_hash(&p.g, a).unwrap(), data_hash(&p.g, b).unwrap());
+    assert_ne!(
+        data_hash(&p.g.ev(), a).unwrap(),
+        data_hash(&p.g.ev(), b).unwrap()
+    );
     let mut identity_on = |d: DataId| {
         let ty = arrow(Term::Data(d, vec![]), Term::Data(d, vec![]));
         let id = check::declare_def(
@@ -111,7 +114,7 @@ fn hashes_distinguish_which_data_type_is_used() {
         )
         .unwrap();
         check::define_def(&mut p.g, id, &lam("x", v(0))).unwrap();
-        def_hash(&p.g, id).unwrap().unwrap()
+        def_hash(&p.g.ev(), id).unwrap().unwrap()
     };
     assert_ne!(identity_on(a), identity_on(b));
 }
@@ -120,9 +123,9 @@ fn hashes_distinguish_which_data_type_is_used() {
 fn a_data_type_has_a_hash_only_once_its_constructors_are_defined() {
     let mut p = Prelude::new();
     let d = data(&mut p.g, "Later", vec![], Sort::Type(0));
-    assert_eq!(data_hash(&p.g, d).unwrap(), None, "pending");
+    assert_eq!(data_hash(&p.g.ev(), d).unwrap(), None, "pending");
     check::define_ctors(&mut p.g, d, vec![ctor("One", vec![])]).unwrap();
-    assert!(data_hash(&p.g, d).unwrap().is_some());
+    assert!(data_hash(&p.g.ev(), d).unwrap().is_some());
 }
 
 #[test]
@@ -136,7 +139,7 @@ fn hashes_print_as_short_hex() {
 /// constructor names (registered as the built-in `Nat`). It mentions `Nat`
 /// only through the literal.
 fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
-    let mut g = Globals::default();
+    let mut g = Kernel::default();
     let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
     let nat_ty = Term::Data(nat, vec![]);
     check::define_ctors(
@@ -151,7 +154,7 @@ fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
     let id = check::declare_def(&mut g, &"x".into(), &"x".into(), &ty, true, false, span())
         .expect("type");
     check::define_def(&mut g, id, &Term::Refl).expect("body");
-    def_hash(&g, id).unwrap().expect("defined")
+    def_hash(&g.ev(), id).unwrap().expect("defined")
 }
 
 #[test]

@@ -48,13 +48,14 @@ use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::Kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::{Ctor, State};
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::{Builtin, Home, Kind};
-use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
+use stitchwort_core::{DataId, DefId, Ev, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
 use crate::library::{Needs, PendingKind};
@@ -255,7 +256,7 @@ impl Elaborator {
 
     /// Everything else that changes what elaborating a library file gives.
     fn modes(&self) -> String {
-        let g = &self.globals;
+        let g = &self.ev();
         format!(
             "natives {} compact {} {} nav {:?}",
             !g.env.builtins().disable_natives,
@@ -342,8 +343,8 @@ impl Elaborator {
     /// What a unit's load is compared against.
     fn snapshot(&self) -> Before {
         Before {
-            defs: self.globals.env.defs().len(),
-            datas: self.globals.env.datas().len(),
+            defs: self.kernel.env.defs().len(),
+            datas: self.kernel.env.datas().len(),
             tables: self.tables.mark(self.ids()),
             nav: self.present.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -364,7 +365,7 @@ impl Elaborator {
     ) {
         let log = self.scope.log.take().unwrap_or_default();
         // A cancelled check isn't a result, even where it reported nothing.
-        if ok && !self.globals.machine.budget.cancelled() {
+        if ok && !self.kernel.machine.budget.cancelled() {
             let store = self.options.check_cache.clone().expect("a cache is set");
             let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
             match entry {
@@ -407,7 +408,7 @@ impl Elaborator {
         let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure))?;
         self.session.namespace_keys.insert(ns.to_string(), key);
         if self.options.fail_replays_late
-            || stitchwort_core::registry::check_complete_core(&self.globals).is_err()
+            || stitchwort_core::registry::check_complete_core(&self.ev()).is_err()
         {
             return None;
         }
@@ -540,7 +541,7 @@ impl Elaborator {
         // Before the replay, so that if it fails part way, the namespace's
         // write-set holds what it did as well as what elaborating does.
         let transaction = self.with_journal(|journal, logs| journal.begin(logs));
-        if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
+        if stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
             && let Some(bytes) = store.read(unit, key)
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
@@ -592,7 +593,7 @@ impl Elaborator {
             .iter()
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             && self.tables.unfinished_count() == unfinished
-            && !self.globals.machine.budget.cancelled();
+            && !self.kernel.machine.budget.cancelled();
         if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)
@@ -799,7 +800,7 @@ impl Elaborator {
                 .collect(),
             namespace: Some(ns.to_string()),
             closure: Some(closure.to_vec()),
-            first_def: self.globals.env.defs().len(),
+            first_def: self.kernel.env.defs().len(),
             first_test: self.tables.tests.len(),
             ..crate::module::ModuleState::default()
         };
@@ -828,13 +829,13 @@ impl Elaborator {
         }
         let d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut pre.warnings);
-        let base_defs = self.globals.env.defs().len();
+        let base_defs = self.kernel.env.defs().len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)
             .map_err(late)?;
         self.replay_tables(d.rest, &pre.early);
         self.tables
             .namespace_defs
-            .insert(ns.to_string(), base_defs..self.globals.env.defs().len());
+            .insert(ns.to_string(), base_defs..self.kernel.env.defs().len());
         Ok(warnings)
     }
 }
@@ -843,7 +844,7 @@ impl Elaborator {
 
 /// How an entry refers to declarations and files while it is written.
 struct Out<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     base_defs: usize,
     base_datas: usize,
     /// Declarations outside the entry, by their place in `deps`.
@@ -1066,7 +1067,7 @@ impl Encoding<'_> {
 /// `datas` on: kind (0 a definition, 1 a data type), the declaration's
 /// place after those, and the built-in. A data type's constructors are
 /// bound with it.
-fn bound_builtins(g: &Globals, defs: usize, datas: usize) -> Vec<(u8, usize, Builtin)> {
+fn bound_builtins(g: &Ev, defs: usize, datas: usize) -> Vec<(u8, usize, Builtin)> {
     let missing = g.env.registry().missing();
     let mut out: Vec<(u8, usize, Builtin)> = Builtin::ALL
         .iter()
@@ -1288,7 +1289,7 @@ impl Elaborator {
         key: &Key,
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
         let (defs, datas) = (
             before.defs..g.env.defs().len(),
@@ -1329,7 +1330,7 @@ impl Elaborator {
             return Err("a library test was kept".to_string());
         }
 
-        self.session.paths.borrow_mut().sync(&g.env);
+        self.session.paths.borrow_mut().sync(g.env);
         let paths = self.session.paths.borrow();
         // Each `unfolding` entry is written as a reference term. The term
         // writer knows a term by its address, so these live as long as the
@@ -2140,12 +2141,12 @@ impl Elaborator {
     /// be here, with the hashes it was made with. Changes nothing.
     fn decode(&self, deps: &[Dep], head: Head, early: &[(String, Span, bool)]) -> Read<Decoded> {
         let index = self.library_index().expect("a library is installed");
-        let g = &self.globals;
+        let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
-        self.session.paths.borrow_mut().sync(&g.env);
+        self.session.paths.borrow_mut().sync(g.env);
         let paths = self.session.paths.borrow();
         let mut ext_defs = vec![DefId(usize::MAX); deps.len()];
         let mut ext_datas = vec![DataId(usize::MAX); deps.len()];
@@ -2403,19 +2404,19 @@ impl Elaborator {
         tables: &state::TablesDelta,
     ) -> Read<()> {
         let param_defaults: HashSet<DefId> = tables.param_default_helpers().collect();
-        let base_defs = self.globals.env.defs().len();
-        let base_datas = self.globals.env.datas().len();
+        let base_defs = self.kernel.env.defs().len();
+        let base_datas = self.kernel.env.datas().len();
         let result = self
             .submit(defs, datas, &param_defaults, base_defs, base_datas)
             .and_then(|()| {
-                if bound_builtins(&self.globals, base_defs, base_datas) != bound {
+                if bound_builtins(&self.ev(), base_defs, base_datas) != bound {
                     return bad("other built-ins were bound");
                 }
                 Ok(())
             });
         if let Err(why) = result {
             // Undo: nothing else refers to what was added yet.
-            let g = &mut self.globals;
+            let g = &mut self.kernel;
             g.forget_declarations_from(base_defs, base_datas);
             let ids = crate::state::Ids {
                 defs: base_defs,
@@ -2429,7 +2430,7 @@ impl Elaborator {
         // that name them are checked against these rather than hashing the
         // terms again. An entry is sealed (`open`), and one that lies about
         // a hash makes the entries written against the true one miss.
-        let mut hashes = self.globals.caches.hashes.borrow_mut();
+        let mut hashes = self.kernel.caches.hashes.borrow_mut();
         for (i, def) in defs.iter().enumerate() {
             if let Some(h) = def.hash {
                 hashes.insert(HashKey::Def(DefId(base_defs + i)), h);
@@ -2571,7 +2572,7 @@ impl Elaborator {
                         group
                             .members
                             .iter()
-                            .all(|m| *m < self.globals.env.datas().len() - base_datas)
+                            .all(|m| *m < self.kernel.env.datas().len() - base_datas)
                     } else {
                         group.members.iter().all(|m| *m < next_def)
                     };
@@ -2664,14 +2665,14 @@ impl Elaborator {
                     .map_err(refused)?;
                 for (&m, id) in groups[gi].members.iter().zip(&ids) {
                     let data = &datas[m];
-                    if id.0 != base_datas + m || *self.globals.data(*id).path() != data.path {
+                    if id.0 != base_datas + m || *self.kernel.data(*id).path() != data.path {
                         return bad("a data type came out differently");
                     }
                     if data.params.len() != first.params.len() || data.sort != first.sort {
                         return bad("a data group's members disagree");
                     }
                     if !data.auto_params.is_empty() {
-                        kernel::mark_auto_params(&mut self.globals, *id, data.auto_params.clone());
+                        kernel::mark_auto_params(&mut self.kernel, *id, data.auto_params.clone());
                     }
                 }
                 next_data_group += 1;
@@ -2692,23 +2693,23 @@ impl Elaborator {
                         )
                     })
                     .map_err(refused)?;
-                if id.0 != base_defs + next_def || *self.globals.def(id).path() != def.path {
+                if id.0 != base_defs + next_def || *self.kernel.def(id).path() != def.path {
                     return bad("a definition came out differently");
                 }
                 if def.fold {
-                    kernel::mark_folded(&mut self.globals, id);
+                    kernel::mark_folded(&mut self.kernel, id);
                 }
                 if def.instance {
-                    kernel::mark_instance(&mut self.globals, id);
+                    kernel::mark_instance(&mut self.kernel, id);
                 }
                 if def.opaque {
-                    kernel::mark_opaque(&mut self.globals, id);
+                    kernel::mark_opaque(&mut self.kernel, id);
                 }
                 if param_defaults.contains(&id) {
-                    kernel::mark_param_default(&mut self.globals, id);
+                    kernel::mark_param_default(&mut self.kernel, id);
                 }
                 if !def.unfolding.is_empty() {
-                    kernel::set_unfolding(&mut self.globals, id, &def.unfolding);
+                    kernel::set_unfolding(&mut self.kernel, id, &def.unfolding);
                 }
                 next_def += 1;
                 continue;
@@ -2723,10 +2724,10 @@ impl Elaborator {
 
     /// Runs one kernel call as its own operation, with its own resource
     /// limits, as elaborating each component does.
-    fn kernel_op<T>(&mut self, f: impl FnOnce(&mut Globals) -> T) -> T {
-        let saved = self.globals.machine.budget.start(self.options.limits);
-        let result = f(&mut self.globals);
-        self.globals.machine.budget.restore(saved);
+    fn kernel_op<T>(&mut self, f: impl FnOnce(&mut Kernel) -> T) -> T {
+        let saved = self.kernel.machine.budget.start(self.options.limits);
+        let result = f(&mut self.kernel);
+        self.kernel.machine.budget.restore(saved);
         result
     }
 

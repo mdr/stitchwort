@@ -46,7 +46,7 @@ impl Elaborator {
                 .with_label(earlier.span, "first declared here"));
             }
         }
-        let autos = if self.globals.data(d).indices().is_empty() {
+        let autos = if self.kernel.data(d).indices().is_empty() {
             Vec::new()
         } else {
             self.ctor_autos(d, ctor)?
@@ -75,7 +75,7 @@ impl Elaborator {
     /// as for a signature, but over its fields and result type, with the
     /// type's parameters in scope.
     fn ctor_autos(&self, d: DataId, ctor: &ast::CtorDecl) -> Result<Vec<ast::Name>> {
-        let params: Vec<String> = (self.globals.data(d).params().iter())
+        let params: Vec<String> = (self.kernel.data(d).params().iter())
             .map(|(x, _)| x.to_string())
             .collect();
         let span = ctor.name.span;
@@ -104,7 +104,7 @@ impl Elaborator {
         front: bool,
     ) -> Result<kernel::CtorDecl> {
         self.clear_metas();
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let np = data.params().len();
         let mut cx = Ctx::new(self, span);
@@ -160,7 +160,7 @@ impl Elaborator {
     /// parameters and the fields), from its result type: `d` applied to
     /// exactly its own parameters, then indices.
     fn ctor_result(&self, cx: &mut Ctx, d: DataId, ctor: &ast::CtorDecl) -> Result<Vec<Term>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let (np, ni) = (data.params().len(), data.indices().len());
         let own = || {
@@ -236,7 +236,7 @@ impl Elaborator {
         let Ok(decl) = self.ctor_attempt(d, ctor, span, &ordered, false) else {
             return Ok(None);
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let written = decl.fields.len() - autos.len();
         for (j, auto) in autos.iter().enumerate() {
             let ty = &decl.fields[written + j].1;
@@ -316,7 +316,7 @@ impl Elaborator {
         args: Vec<Pat<'a>>,
         span: Span,
     ) -> Result<Vec<Pat<'a>>> {
-        let ctor = &self.globals.data(d).ctors()[c];
+        let ctor = &self.kernel.data(d).ctors()[c];
         let k = ctor.fields.len();
         let implicit: Vec<bool> = (0..k)
             .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
@@ -505,7 +505,7 @@ fn case_branch(
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let ctor_name = g.data(d).ctors()[c].name.clone();
-    let goal = eval(g, &cx.env, goal_term)?;
+    let goal = eval(&g, &cx.env, goal_term)?;
     // Before entering, while `x` is still a variable in the context.
     let number = match subtree {
         Tree::Missing { .. } => fin_missing(cx, x, d, c)?,
@@ -613,7 +613,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
     // with the most `FSucc`s.
     let (mut root, mut below) = (x, 0);
     for y in 0..x {
-        let mut value = force(g, cx.env[y].clone())?;
+        let mut value = force(&g, cx.env[y].clone())?;
         let mut count = 0;
         while let Value::Ctor(d2, c2, fields) = &value
             && *d2 == fin
@@ -621,7 +621,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
             && let Some(last) = fields.last()
         {
             count += 1;
-            value = force(g, last.clone())?;
+            value = force(&g, last.clone())?;
         }
         if count > below
             && let Value::Neutral(Head::Var(l, _), spine) = &value
@@ -633,7 +633,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
     }
     let ty = cx.types[root].clone();
     // With the bound known, `FSucc _` may leave one number.
-    let only = match crate::numbers::fin_bound(g, &ty)? {
+    let only = match crate::numbers::fin_bound(&g, &ty)? {
         Some(Some(n)) if c == fsucc && n == BigUint::from(below + 2) => Some(below + 1),
         _ => None,
     };
@@ -675,7 +675,7 @@ fn enter(
     let base = cx.level();
     let mut field_env = params.to_vec();
     for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
-        let ty = eval(g, &field_env, field_ty)?;
+        let ty = eval(&g, &field_env, field_ty)?;
         field_env.push(Value::var(cx.level()));
         cx.bind_hidden(name.clone(), ty);
     }
@@ -683,10 +683,10 @@ fn enter(
     // The unifier compares with the kernel's conversion, which doesn't look
     // inside solved metavariables: they're substituted first.
     let identity: Vec<Value> = (0..level).map(Value::var).collect();
-    let solved = |v: &Value| -> Result<Value> { Ok(eval(g, &identity, &quote(g, level, v)?)?) };
+    let solved = |v: &Value| -> Result<Value> { Ok(eval(&g, &identity, &quote(&g, level, v)?)?) };
     let all = |vs: &[Value]| vs.iter().map(solved).collect::<Result<Vec<_>>>();
     let result = (ctor.result.iter())
-        .map(|r| eval(g, &field_env, r))
+        .map(|r| eval(&g, &field_env, r))
         .collect::<std::result::Result<Vec<_>, _>>()?;
     let mut scope = Scope {
         env: all(&cx.env)?,
@@ -695,7 +695,7 @@ fn enter(
         rigid: vec![x],
     };
     let outcome = unify(
-        g,
+        &g,
         &mut scope,
         data.indices(),
         all(params)?,
@@ -709,12 +709,12 @@ fn enter(
     }
     let goal = scope.extra.pop().expect("the goal");
     let value = Value::Ctor(d, c, scope.env[base..].to_vec().into());
-    let mut env = kernel::substitute_folded(g, &scope.env, x, &value, &scope.env[..base])?;
+    let mut env = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.env[..base])?;
     env[x] = value.clone();
     env.extend_from_slice(&scope.env[base..]);
-    let mut types = kernel::substitute_folded(g, &scope.env, x, &value, &scope.types[..base])?;
+    let mut types = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.types[..base])?;
     types.extend_from_slice(&scope.types[base..]);
-    let goal = kernel::substitute_folded(g, &scope.env, x, &value, &[goal])?
+    let goal = kernel::substitute_folded(&g, &scope.env, x, &value, &[goal])?
         .pop()
         .expect("one value in, one out");
     cx.env = env;
@@ -731,7 +731,7 @@ pub(crate) fn empty_case(
     stuck_at: Option<Span>,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Data(d, args) = force(g, cx.types[level].clone())? else {
+    let Value::Data(d, args) = force(&g, cx.types[level].clone())? else {
         return Ok(None);
     };
     let data = g.data(d);

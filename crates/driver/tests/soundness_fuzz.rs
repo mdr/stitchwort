@@ -43,8 +43,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use stitchwort_core::DefId;
 use stitchwort_core::budget::Limits;
-use stitchwort_core::{DefId, Globals};
 use stitchwort_driver::audit::{Options, Status, TheoremAudit};
 use stitchwort_driver::counterexample::Verdict;
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier, tier_sample};
@@ -752,7 +752,11 @@ fn configure(session: &mut Session) {
 
 /// The theorem `name` of namespace `namespace` (or any, for a file), if
 /// it was declared.
-fn find_theorem(g: &Globals, namespace: Option<&str>, name: &str) -> Option<(DefId, String)> {
+fn find_theorem(
+    g: &stitchwort_core::Ev,
+    namespace: Option<&str>,
+    name: &str,
+) -> Option<(DefId, String)> {
     let found = stitchwort_driver::audit::theorems(g, &|path: &str| match namespace {
         Some(ns) => path == format!("{ns}.{name}"),
         None => !path.starts_with("Std.") && (path == name || path.ends_with(&format!(".{name}"))),
@@ -844,7 +848,7 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
             Some(namespace.as_str())
         }
     };
-    let Some((id, name)) = find_theorem(&session.elab.globals, namespace, &site.name) else {
+    let Some((id, name)) = find_theorem(&session.elab.ev(), namespace, &site.name) else {
         return rejected;
     };
     let options = Options {
@@ -1752,7 +1756,7 @@ fn void_attempts() -> Vec<Attempt> {
 
 /// Whether `id`'s type is an empty type with no parameters: a closed proof
 /// of `Void` (or of another empty type).
-fn closed_empty(g: &Globals, id: DefId) -> bool {
+fn closed_empty(g: &stitchwort_core::Ev, id: DefId) -> bool {
     use stitchwort_core::Value;
     use stitchwort_core::value::force;
     matches!(force(g, g.def(id).ty_value().clone()), Ok(Value::Data(d, _)) if g.data(d).ctors().is_empty())
@@ -1772,7 +1776,7 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
     use stitchwort_core::globals::{HashKey, State};
     let mut session = session();
     session.use_check_cache(cache);
-    let first = session.elab.globals.env.defs().len();
+    let first = session.elab.kernel.env.defs().len();
     let result = session.load("attempt.sw", text);
     let (accepted, codes) = match &result {
         Ok(_) => (true, Vec::new()),
@@ -1784,7 +1788,7 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
                 .collect(),
         ),
     };
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut findings = Vec::new();
     let mut theorems = Vec::new();
     for id in (first..g.env.defs().len()).map(DefId) {

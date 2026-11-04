@@ -83,14 +83,14 @@ impl Elaborator {
             .with_note("give every method in each instance"));
         }
         let mut table: Vec<Vec<Option<FieldDefault>>> = self
-            .globals
+            .kernel
             .data(d)
             .ctors()
             .iter()
             .map(|c| vec![None; c.fields.len()])
             .collect();
         for (c, field, value) in written {
-            let i = self.globals.data(d).ctors()[c]
+            let i = self.kernel.data(d).ctors()[c]
                 .fields
                 .iter()
                 .position(|(x, _)| **x == *field.text)
@@ -112,7 +112,7 @@ impl Elaborator {
         i: usize,
         value: &Expr,
     ) -> Result<FieldDefault> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let ctor = &data.ctors()[c];
         let np = data.params().len();
@@ -164,7 +164,7 @@ impl Elaborator {
             return Ok(());
         }
         let front = self.front_binders(ty)?;
-        let def = self.globals.def(id);
+        let def = self.kernel.def(id);
         let owner = def.name().clone();
         let telescope = telescope(def.ty());
         let table = self.header_helpers(&owner, &telescope, front, defaults)?;
@@ -228,7 +228,7 @@ impl Elaborator {
     fn front_binders(&self, ty: &Expr) -> Result<usize> {
         let auto = crate::autobind::auto_bound(self, ty)?;
         let indexed = match self
-            .globals
+            .kernel
             .env
             .registry()
             .data(stitchwort_core::registry::Builtin::Divergence)
@@ -279,7 +279,7 @@ impl Elaborator {
         });
         self.decl.local_helpers.clear();
         let body = body.map_err(|e| helper_error(of, e, earlier, later))?;
-        let g = &self.globals;
+        let g = &self.ev();
         let n = context.len();
         // What it needs: the variables the value and its type mention, and
         // those their types mention.
@@ -324,7 +324,7 @@ impl Elaborator {
             lam = Term::Lam(x.clone(), icit, Rc::new(lam));
         }
         let helper = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &label,
@@ -334,9 +334,9 @@ impl Elaborator {
             span,
         )?;
         if of == Of::Param {
-            kernel::mark_param_default(&mut self.globals, helper);
+            kernel::mark_param_default(&mut self.kernel, helper);
         }
-        kernel::define_def(&mut self.globals, &self.tables, helper, &lam)?;
+        kernel::define_def(&mut self.kernel, &self.tables, helper, &lam)?;
         Ok(FieldDefault { helper, captures })
     }
 
@@ -347,7 +347,7 @@ impl Elaborator {
 
     /// The names of the fields of constructor `c` of `d` that have defaults.
     pub(crate) fn defaulted_fields(&self, d: DataId, c: usize) -> Vec<&str> {
-        let ctor = &self.globals.data(d).ctors()[c];
+        let ctor = &self.kernel.data(d).ctors()[c];
         (0..ctor.fields.len())
             .filter(|&i| self.field_default(d, c, i).is_some())
             .map(|i| &*ctor.fields[i].0)
@@ -513,7 +513,7 @@ pub(crate) fn construct(
     let mut defaulted: Vec<usize> = Vec::new();
     let result = (|| -> Result<()> {
         for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-            let ty = eval(g, &env, field_ty)?;
+            let ty = eval(&g, &env, field_ty)?;
             let mut term = match given(i) {
                 Some((_, expr)) => crate::queue::framed(
                     cx,
@@ -549,7 +549,7 @@ pub(crate) fn construct(
             let (last, at) = terms.last().expect("just pushed");
             env.push(
                 if kernel::later_types_mention(&ctor.fields, i) || needed.contains(&i) {
-                    cx.eval(&last.shift(g, cx.level() - at, 0)?)?
+                    cx.eval(&last.shift(&g, cx.level() - at, 0)?)?
                 } else {
                     unused()
                 },
@@ -562,7 +562,7 @@ pub(crate) fn construct(
     result?;
     let fields = terms
         .iter()
-        .map(|(t, at)| Ok(t.shift(g, level - at, 0)?))
+        .map(|(t, at)| Ok(t.shift(&g, level - at, 0)?))
         .collect::<Result<Vec<_>>>()?;
     let mut term = Term::ctor(d, c, fields);
     for (x, ty, value) in lets.into_iter().rev() {
@@ -598,7 +598,7 @@ fn call(
             cx.quote(&env[l])?
         } else {
             let (t, at) = &terms[l - np];
-            t.shift(g, cx.level() - at, 0)?
+            t.shift(&g, cx.level() - at, 0)?
         };
         term = Term::app_icit(term, arg, helper_icit(l, np));
     }
@@ -622,7 +622,7 @@ fn left_out_notes(
     let mut notes = Vec::new();
     for &j in defaulted {
         if ctor.fields[i].1.mentions(i - 1 - j) {
-            let value = force(g, env[np + j].clone())
+            let value = force(&g, env[np + j].clone())
                 .map(|v| cx.show(&v))
                 .unwrap_or_else(|_| "its default".into());
             notes.push(format!(
@@ -668,7 +668,7 @@ pub(crate) fn ctor_with_defaults(
     let data = g.data(d);
     let np = data.params().len();
     let known = match expected {
-        Some(t) => match force(g, t.clone())? {
+        Some(t) => match force(&g, t.clone())? {
             Value::Data(e, args) if e == d => Some(args[..np].to_vec()),
             _ => None,
         },
@@ -679,7 +679,7 @@ pub(crate) fn ctor_with_defaults(
         None => {
             let mut params: Vec<Value> = Vec::new();
             for (k, (_, ty)) in data.params().iter().enumerate() {
-                let ty = eval(g, &params, ty)?;
+                let ty = eval(&g, &params, ty)?;
                 let icit = if data.auto_params().get(k).copied().unwrap_or(false) {
                     Icit::Auto
                 } else {
@@ -695,7 +695,7 @@ pub(crate) fn ctor_with_defaults(
     let (term, env) = construct(cx, d, c, &params, written, &mut missing)?;
     let mut args = params;
     for index in &data.ctors()[c].result {
-        args.push(eval(g, &env, index)?);
+        args.push(eval(&g, &env, index)?);
     }
     let ty = Value::Data(d, args);
     if let Some(t) = expected
@@ -795,7 +795,7 @@ pub(crate) struct DefaultRef {
 pub(crate) fn of_head(cx: &Ctx, head: &Term) -> Option<HeadDefaults> {
     let (h, args) = head.spine();
     match h {
-        Term::Def(id) if args.is_empty() && cx.e.tables.param_defaults.contains(id) => {
+        Term::Def(id) if args.is_empty() && cx.e.tables.param_defaults.contains_key(id) => {
             let table = cx.e.tables.param_defaults.get(id)?;
             Some(HeadDefaults {
                 of: DefaultsOf::Def(*id),
@@ -877,7 +877,7 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
                 .and_then(Option::as_ref)
                 .ok_or_else(internal)?;
             let by = cx.level().checked_sub(table.base).ok_or_else(internal)?;
-            Ok((found.helper.shift(cx.g(), by, 0)?, found.captures.clone()))
+            Ok((found.helper.shift(&cx.g(), by, 0)?, found.captures.clone()))
         }
     }
 }
@@ -886,7 +886,7 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
 /// function's parameters before it at `cx`'s level plus `extra`.
 fn helper_call_with(cx: &Ctx, r: DefaultRef, params: &[Term], extra: usize) -> Result<Term> {
     let (helper, captures) = resolve(cx, r)?;
-    let mut call = helper.shift(cx.g(), extra, 0)?;
+    let mut call = helper.shift(&cx.g(), extra, 0)?;
     for (l, icit) in captures {
         let arg = params.get(l).ok_or_else(internal)?;
         call = Term::app_icit(call, arg.clone(), icit);
@@ -999,16 +999,16 @@ fn bind_needed(
     let mut ty = head.1.clone();
     let mut parts: Vec<(Name, Term)> = Vec::new();
     for (arg, _) in &params[..=last] {
-        let Value::Pi(x, _, dom, cod) = force(g, ty)? else {
+        let Value::Pi(x, _, dom, cod) = force(&g, ty)? else {
             return Ok(term);
         };
         parts.push((x.clone(), cx.quote(&dom)?));
-        ty = cod.apply(g, cx.eval(arg)?)?;
+        ty = cod.apply(&g, cx.eval(arg)?)?;
     }
     let k = lets.len();
     let mut terms: Vec<Term> = Vec::with_capacity(params.len());
     for (t, _) in params {
-        terms.push(t.shift(g, k, 0)?);
+        terms.push(t.shift(&g, k, 0)?);
     }
     for (rank, &l) in lets.iter().enumerate() {
         terms[l] = Term::Var(k - 1 - rank);
@@ -1016,9 +1016,9 @@ fn bind_needed(
     for (p, r) in &defaulted {
         terms[*p] = helper_call_with(cx, *r, &terms[..*p], k)?;
     }
-    let mut out = f.shift(g, k, 0)?;
+    let mut out = f.shift(&g, k, 0)?;
     for (t, icit) in &spine[..defaults.prefix] {
-        out = Term::app_icit(out, t.shift(g, k, 0)?, *icit);
+        out = Term::app_icit(out, t.shift(&g, k, 0)?, *icit);
     }
     for (t, (_, icit)) in terms.into_iter().zip(params) {
         out = Term::app_icit(out, t, *icit);
@@ -1027,8 +1027,8 @@ fn bind_needed(
         let (x, ty) = &parts[l];
         out = Term::let_(
             x.clone(),
-            ty.shift(g, rank, 0)?,
-            params[l].0.shift(g, rank, 0)?,
+            ty.shift(&g, rank, 0)?,
+            params[l].0.shift(&g, rank, 0)?,
             out,
         );
     }
@@ -1088,7 +1088,7 @@ fn default_note(
         for (k, (p, _)) in mentioned.iter().enumerate() {
             if let Some((arg, _)) = args.get(prefix + p)
                 && let Ok(value) = cx.eval(arg)
-                && let Ok(value) = force(cx.g(), value)
+                && let Ok(value) = force(&cx.g(), value)
                 && !matches!(
                     value,
                     Value::Neutral(stitchwort_core::value::Head::Meta(_), _)
@@ -1122,7 +1122,7 @@ pub(crate) fn default_value(cx: &Ctx, r: DefaultRef) -> Option<String> {
     if !captures.is_empty() {
         return None;
     }
-    let value = force(cx.g(), cx.eval(&helper).ok()?).ok()?;
+    let value = force(&cx.g(), cx.eval(&helper).ok()?).ok()?;
     Some(cx.show(&value))
 }
 
@@ -1136,7 +1136,7 @@ pub(crate) fn filled_by_call(cx: &Ctx, expr: &Expr) -> Vec<String> {
         Ok(Some(head)) => head,
         _ if cx.lookup(&name.text).is_some() => return Vec::new(),
         _ => match cx.e.named(&name.text) {
-            Some((crate::Global::Def(id), _)) => match kernel::def_ty(cx.g(), *id) {
+            Some((crate::Global::Def(id), _)) => match kernel::def_ty(&cx.g(), *id) {
                 Ok(ty) => (Term::Def(*id), ty),
                 Err(_) => return Vec::new(),
             },
@@ -1325,8 +1325,7 @@ fn label_defaults(
             .collect(),
     };
     let shown = Rc::new(shown);
-    let g = cx.g();
-    let mut labels = g.print_labels.borrow_mut();
+    let mut labels = cx.metas().print_labels.borrow_mut();
     if let Some(label) = labels.iter_mut().rev().find(|l| match (&l.head, &head) {
         (Term::Meta(a), Term::Meta(b)) => a == b,
         (Term::Def(a), Term::Def(b)) => a == b,
@@ -1403,7 +1402,7 @@ fn local_helper(
     // `scope` captures.
     let into = |t: &Term, depth: usize, scope: usize| {
         crate::lift::replace_with(
-            g,
+            &g,
             t,
             base + depth,
             &|l| {

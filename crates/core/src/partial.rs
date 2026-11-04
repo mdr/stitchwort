@@ -39,11 +39,13 @@
 //!
 //! This file is trusted for consistency: it fixes the types.
 
+use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 use std::rc::Rc;
 
 use stitchwort_syntax::Diagnostic;
 
-use crate::globals::{Globals, State};
+use crate::globals::{Kernel, State};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{conv, eval};
@@ -170,7 +172,7 @@ struct Prelude {
     delay: Option<DefId>,
 }
 
-fn prelude(g: &Globals) -> Option<Prelude> {
+fn prelude(g: &Ev) -> Option<Prelude> {
     let r = &g.env.registry();
     Some(Prelude {
         comp: r.data(Builtin::Comp)?,
@@ -380,7 +382,7 @@ fn expected(p: &Prelude, prim: Primitive) -> Option<Shape> {
     })
 }
 
-fn shape_error(g: &Globals, id: DefId, prim: Primitive) -> Diagnostic {
+fn shape_error(g: &Ev, id: DefId, prim: Primitive) -> Diagnostic {
     Diagnostic::error(
         "E-BUILTIN",
         format!(
@@ -395,35 +397,42 @@ fn shape_error(g: &Globals, id: DefId, prim: Primitive) -> Diagnostic {
 /// primitive `prim`: final, with no body. Its type must be exactly the one
 /// above. Each primitive is admitted once, `Delay` first; the prelude's
 /// `Comp`, `Plus`, `PlusRes`, `SigMap`, `Rec` and `RecRes` must be final.
-pub fn define_primitive(g: &mut Globals, id: DefId, prim: Primitive) -> Result<()> {
-    let Some(def) = g.env.defs().get(id.0) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: reference to an unknown definition",
-        ));
-    };
-    if def.state != State::Pending {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            format!(
-                "malformed core term: `{}` has already been defined",
-                def.name
-            ),
-        ));
-    }
-    let fits = g.env.builtins().primitive_id(prim).is_none()
-        && match prelude(g).and_then(|p| expected(&p, prim)) {
-            Some(shape) => conv(g, 0, &eval(g, &[], &shape.term(0))?, &def.ty_value)?,
-            None => false,
+pub fn define_primitive(g: &mut Kernel, id: DefId, prim: Primitive) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let Some(def) = g.env.defs().get(id.0) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: reference to an unknown definition",
+            ));
         };
-    if !fits {
-        let e = shape_error(g, id, prim);
-        g.env.defs_mut()[id.0].state = State::Failed;
-        return Err(e);
-    }
-    let def = &mut g.env.defs_mut()[id.0];
-    def.state = State::Final;
-    def.arity = 0;
-    g.env.builtins_mut().register_primitive(prim, id);
-    Ok(())
+        if def.state != State::Pending {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                format!(
+                    "malformed core term: `{}` has already been defined",
+                    def.name
+                ),
+            ));
+        }
+        let fits = g.env.builtins().primitive_id(prim).is_none()
+            && match prelude(&g.ev()).and_then(|p| expected(&p, prim)) {
+                Some(shape) => conv(
+                    &g.ev(),
+                    0,
+                    &eval(&g.ev(), &[], &shape.term(0))?,
+                    &def.ty_value,
+                )?,
+                None => false,
+            };
+        if !fits {
+            let e = shape_error(&g.ev(), id, prim);
+            g.env.defs_mut()[id.0].state = State::Failed;
+            return Err(e);
+        }
+        let def = &mut g.env.defs_mut()[id.0];
+        def.state = State::Final;
+        def.arity = 0;
+        g.env.builtins_mut().register_primitive(prim, id);
+        Ok(())
+    })
 }

@@ -36,7 +36,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, quote, quote_at_most};
-use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, Name, Sort, Term, Value};
+use stitchwort_core::{BigUint, DefId, Icit, Limits, Name, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
 use crate::{Elaborator, shown};
@@ -96,7 +96,7 @@ const STATEMENT_NODES: u64 = 100_000;
 /// won't run on it: past [`STATEMENT_NODES`], reading it back would build a
 /// huge term only to give up at the budget's size limit.
 fn statement_part(cx: &Ctx, value: &Value) -> Result<Term, String> {
-    match quote_at_most(cx.g(), cx.level(), value, STATEMENT_NODES) {
+    match quote_at_most(&cx.g(), cx.level(), value, STATEMENT_NODES) {
         Ok(Some(term)) => Ok(term),
         Ok(None) => Err(format!(
             "the statement's normal form has more than {STATEMENT_NODES} nodes"
@@ -114,7 +114,7 @@ const SHRINK_ROUNDS: usize = 200;
 /// when `each` says to. Returns `false`, having run nothing, if the
 /// checker can't run there (the reference evaluator runs it instead).
 pub type FastRunner = fn(
-    g: &Globals,
+    g: &stitchwort_core::Ev,
     limits: Limits,
     checker: &Term,
     inputs: &[Vec<Term>],
@@ -254,7 +254,7 @@ impl Elaborator {
     /// definition the statement mentions; the proof can't, unless the theorem
     /// unfolds it (docs/proposals/opaque-definitions.md §6.10).
     fn with_opaque_counterexample_note(&self, def: DefId, note: String) -> String {
-        let g = &self.globals;
+        let g = &self.ev();
         let Ok(statement) = quote(g, 0, g.def(def).ty_value()) else {
             return note;
         };
@@ -293,15 +293,12 @@ impl Elaborator {
         budget: Budget,
     ) -> (SearchLog, Option<String>) {
         let started = clock::now();
-        let theorem = self.globals.def(def).name().to_string();
-        let saved = self.globals.machine.budget.start(self.options.limits);
-        let datas = (
-            self.globals.env.defs().len(),
-            self.globals.env.datas().len(),
-        );
+        let theorem = self.kernel.def(def).name().to_string();
+        let saved = self.kernel.machine.budget.start(self.options.limits);
+        let datas = (self.kernel.env.defs().len(), self.kernel.env.datas().len());
         let built = self.build_checker(def);
         self.clear_metas();
-        self.globals.machine.budget.restore(saved);
+        self.kernel.machine.budget.restore(saved);
         let mut log = SearchLog {
             theorem,
             ..SearchLog::default()
@@ -315,12 +312,7 @@ impl Elaborator {
         };
         // Building a checker declares nothing (§12); were it ever to, the
         // search stops there.
-        if datas
-            != (
-                self.globals.env.defs().len(),
-                self.globals.env.datas().len(),
-            )
-        {
+        if datas != (self.kernel.env.defs().len(), self.kernel.env.datas().len()) {
             log.out_of_scope = Some("building the checker declared something".to_string());
             return (log, None);
         }
@@ -335,9 +327,9 @@ impl Elaborator {
     /// `Err` says why not. For measuring (the proposal's §12); leaves the
     /// metavariables cleared.
     pub fn counterexample_scope(&mut self, def: DefId) -> Result<(), String> {
-        let saved = self.globals.machine.budget.start(self.options.limits);
+        let saved = self.kernel.machine.budget.start(self.options.limits);
         let built = self.build_checker(def).and_then(|checker| {
-            let g = &self.globals;
+            let g = &self.ev();
             let _op = g.machine.budget.operation(self.options.limits);
             let mut inputs = Inputs::new(g, 4 * MAX_INPUTS);
             for (name, ty) in &checker.params {
@@ -348,13 +340,13 @@ impl Elaborator {
             Ok(())
         });
         self.clear_metas();
-        self.globals.machine.budget.restore(saved);
+        self.kernel.machine.budget.restore(saved);
         built
     }
 
     /// The checker of theorem `def`'s statement, or why there's none.
     fn build_checker(&self, def: DefId) -> Result<Checker, String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let span = g.def(def).span();
         let mut cx = Ctx::new(self, span);
         let failed = |e: stitchwort_syntax::Diagnostic| e.message;
@@ -502,7 +494,7 @@ impl Elaborator {
         started: Option<clock::Instant>,
         log: &mut SearchLog,
     ) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut inputs = Inputs::new(g, 4 * budget.inputs);
         let mut plans = Vec::new();
         {
@@ -671,7 +663,7 @@ impl Elaborator {
         counted: bool,
         log: &mut SearchLog,
     ) -> Option<Batch> {
-        let g = &self.globals;
+        let g = &self.ev();
         let falsified = checker.hypotheses as u64 + 1;
         let mut found = None;
         let mut stopped = false;
@@ -740,7 +732,7 @@ impl Elaborator {
         input: &[Term],
         steps: u64,
     ) -> Result<Option<u64>, ()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let _op = g.machine.budget.operation(Limits {
             work: steps,
             ..self.options.limits
@@ -773,7 +765,7 @@ impl Elaborator {
         plans: &[usize],
         input: &[Term],
     ) -> Vec<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         checker
             .params
             .iter()
@@ -795,7 +787,7 @@ impl Elaborator {
 
     /// A closed term's value, printed and cut.
     fn show_closed(&self, term: &Term) -> String {
-        let g = &self.globals;
+        let g = &self.ev();
         let _op = g.machine.budget.operation(Limits {
             size: shown::SHOWN_NODES,
             work: CONFIRM_STEPS,
@@ -813,7 +805,7 @@ impl Elaborator {
 
     /// A value printed and cut, and its term.
     fn shown_value(&self, value: Option<Value>) -> (String, Option<Term>) {
-        let g = &self.globals;
+        let g = &self.ev();
         let Some(value) = value else {
             return ("…".to_string(), None);
         };
@@ -833,7 +825,7 @@ impl Elaborator {
         input: &[Term],
         bindings: &[String],
     ) -> String {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut text = String::from("this statement is false");
         if !checker.type_params.is_empty() {
             let at: Vec<String> = checker

@@ -284,8 +284,8 @@ fn running_out_leaves_nothing_behind() {
         ..Limits::default()
     };
     assert!(session.load("first.sw", PROGRAM).is_err());
-    assert!(session.elab.globals.metas.borrow().is_empty());
-    assert_eq!(session.elab.globals.machine.budget.exhausted(), None);
+    assert!(session.elab.metas().metas.borrow().is_empty());
+    assert_eq!(session.elab.kernel.machine.budget.exhausted(), None);
     // The same session, with enough resources, checks a new file as usual.
     session.elab.options.limits = Limits::default();
     session
@@ -360,7 +360,7 @@ fn comparing_long_values_runs_without_using_the_stack() {
     use stitchwort_core::value::{conv, eval};
     let mut session = Session::new();
     session.load("lists.sw", LISTS).expect("checks");
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let def = |name: &str| {
         stitchwort_core::DefId(
             g.env
@@ -456,13 +456,13 @@ fn nested_lets_finish_under_the_budget() {
 fn a_large_let_is_computed_only_when_a_type_needs_it() {
     let work = |body: &str| {
         let mut session = Session::new();
-        let before = session.elab.globals.machine.budget.total_work();
+        let before = session.elab.kernel.machine.budget.total_work();
         let source = format!(
             "import Std (List)\ndef f : Nat :=\n  let xs := List.range 200000\n{body}  List.length xs\n"
         );
         let result = codes(session.load("big.sw", &source));
         assert!(result.is_empty(), "{result:?}");
-        session.elab.globals.machine.budget.total_work() - before
+        session.elab.kernel.machine.budget.total_work() - before
     };
     let unused = work("");
     let used = work("  let p : List.length xs = 200000 := rfl\n");
@@ -482,11 +482,11 @@ fn a_large_let_is_computed_only_when_a_type_needs_it() {
 fn comparing_a_large_let_does_not_compute_it_while_checking() {
     let work = |decl: &str| {
         let mut session = Session::new();
-        let before = session.elab.globals.machine.budget.total_work();
+        let before = session.elab.kernel.machine.budget.total_work();
         let source = format!("import Std (List)\n{decl}\n");
         let result = codes(session.load("big.sw", &source));
         assert!(result.is_empty(), "{result:?}");
-        session.elab.globals.machine.budget.total_work() - before
+        session.elab.kernel.machine.budget.total_work() - before
     };
     let small = work("test \"small\" := (List.range 2).length == 2");
     for decl in [
@@ -541,14 +541,14 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
              def g (xs: List Nat): Nat := List.length ({nested})\n"
         );
         let mut session = Session::new();
-        let before = session.elab.globals.machine.budget.total_visits();
+        let before = session.elab.kernel.machine.budget.total_visits();
         let result = codes(session.load("nested.sw", &source));
         let expected: &[&str] = match (callback, depth) {
             ("fails", 1..) => &["E-ABILITY"],
             _ => &[],
         };
         assert_eq!(result, expected, "{callback} at depth {depth}");
-        session.elab.globals.machine.budget.total_visits() - before
+        session.elab.kernel.machine.budget.total_visits() - before
     };
     for callback in ["pure", "fails"] {
         let base = visits(callback, 0);

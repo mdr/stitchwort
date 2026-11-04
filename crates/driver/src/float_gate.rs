@@ -15,7 +15,7 @@ use stitchwort_core::float::{self, FloatNative};
 use stitchwort_core::native::nat_value;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{apply, eval, quote};
-use stitchwort_core::{DefId, Globals, Limits, Term, Value};
+use stitchwort_core::{DefId, Ev, Limits, Term, Value};
 
 use crate::driver::Session;
 
@@ -261,7 +261,7 @@ fn check(out: &mut Vec<Check>, mode: Mode, name: String, result: Result<(), Stri
     });
 }
 
-fn def(g: &Globals, name: &str) -> Result<DefId, String> {
+fn def(g: &Ev, name: &str) -> Result<DefId, String> {
     g.env
         .defs()
         .iter()
@@ -271,7 +271,7 @@ fn def(g: &Globals, name: &str) -> Result<DefId, String> {
 }
 
 /// The normal form of `value`, with `level` variables in scope, as text.
-fn normal(g: &Globals, level: usize, value: &Value) -> Result<String, String> {
+fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
     quote(g, level, value)
         .map(|t| format!("{t:?}"))
         .map_err(|e| format!("{e:?}"))
@@ -283,7 +283,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     let mut session = Session::new();
     session.elab.options.limits = limits;
     {
-        let env = &mut session.elab.globals.env;
+        let env = &mut session.elab.kernel.env;
         env.set_disable_natives(mode == Mode::AllNativesOff);
         env.set_disable_float_natives(mode == Mode::FloatNativesOff);
     }
@@ -305,7 +305,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     // The natives are bound, never used while checking, and used while a
     // program runs exactly when the mode says.
     {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         for native in FloatNative::ALL {
             let result = def(g, native.name()).and_then(|id| {
                 let bound = g.env.builtins().float_native(id) == Some(native);
@@ -333,10 +333,10 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     // normal forms below compare them with their definitions.
     session
         .elab
-        .globals
+        .kernel
         .env
         .set_float_natives_outside_runs(mode == Mode::NativesOn);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(limits);
     let value_of = |name: &str| -> Result<Value, String> {
         eval(g, &[], &Term::Def(def(g, name)?)).map_err(|e| format!("{e:?}"))

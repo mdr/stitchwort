@@ -5,12 +5,12 @@
 use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::value::{apply, conv, eval, force, quote};
-use stitchwort_core::{BigUint, DefId, Globals, Term, Value};
+use stitchwort_core::{BigUint, DefId, Kernel, Term, Value};
 use stitchwort_driver::driver::Session;
 use stitchwort_elab::{Elaborator, prelude};
 use stitchwort_syntax::{SourceMap, parse_module};
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -24,7 +24,7 @@ fn nat(n: u64) -> Value {
     native::nat_value(BigUint::from(n))
 }
 
-fn call(g: &Globals, id: DefId, args: &[Value]) -> Value {
+fn call(g: &stitchwort_core::Ev, id: DefId, args: &[Value]) -> Value {
     let mut f = eval(g, &[], &Term::Def(id)).unwrap();
     for arg in args {
         f = apply(g, f, arg.clone()).unwrap();
@@ -34,8 +34,8 @@ fn call(g: &Globals, id: DefId, args: &[Value]) -> Value {
 
 /// Runs `op` with natives on, and its definition with every native off, on
 /// numbers `args`, and checks the whole results are the same.
-fn compare(g: &mut Globals, op: Native, args: &[Value]) {
-    let id = def(g, op.name());
+fn compare(g: &mut Kernel, op: Native, args: &[Value]) {
+    let id = def(&g.ev(), op.name());
     assert_eq!(
         g.env.builtins().native(id),
         Some(op),
@@ -43,11 +43,11 @@ fn compare(g: &mut Globals, op: Native, args: &[Value]) {
         op.name()
     );
     let args = with_proof(op, args);
-    let fast = call(g, id, &args);
+    let fast = call(&g.ev(), id, &args);
     g.env.set_disable_natives(true);
-    let slow = call(g, id, &args);
+    let slow = call(&g.ev(), id, &args);
     g.env.set_disable_natives(false);
-    same_result(g, &format!("{}{args:?}", op.name()), &fast, &slow);
+    same_result(&g.ev(), &format!("{}{args:?}", op.name()), &fast, &slow);
 }
 
 /// `op`'s arguments: the numbers `nums`, and for `eqNatSound` its proof,
@@ -67,7 +67,7 @@ fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
 
 /// Checks that a native's whole result is definitionally the definition's,
 /// proofs included, not just the same answer. One variable is in scope.
-fn same_result(g: &Globals, what: &str, fast: &Value, slow: &Value) {
+fn same_result(g: &stitchwort_core::Ev, what: &str, fast: &Value, slow: &Value) {
     let shown = |v: &Value| match quote(g, 1, v) {
         Ok(term) => format!("{term:?}"),
         Err(e) => format!("{v:?} ({e:?})"),
@@ -83,7 +83,7 @@ fn same_result(g: &Globals, what: &str, fast: &Value, slow: &Value) {
 #[test]
 fn natives_agree_with_their_definitions_on_small_numbers() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     for op in Native::ALL {
         match op.numbers() {
             1 => (0..=40).for_each(|n| compare(g, op, &[nat(n)])),
@@ -125,7 +125,7 @@ fn natives_agree_with_their_definitions_on_random_numbers() {
 
 fn random_numbers() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     // A small linear congruential generator, so failures are reproducible.
     let mut state: u64 = 0x5717_c4b0_e7a1_1234;
     let mut next = |bound: u64| {
@@ -147,7 +147,7 @@ fn random_numbers() {
 #[test]
 fn natives_accept_succ_around_a_number() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let nat_data = g.env.builtins().nat.unwrap();
     // `Succ 4`, built without the evaluator's compaction.
     let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)].into());
@@ -161,7 +161,7 @@ fn natives_accept_succ_around_a_number() {
 #[test]
 fn natives_wait_for_numbers() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     // `add x y` with both unknown stays as it is, as the definition would.
     let stuck = call(g, def(g, "Nat.add"), &[Value::var(0), Value::var(1)]);
     assert!(matches!(stuck, Value::Neutral(..)), "{stuck:?}");
@@ -177,7 +177,7 @@ fn natives_wait_for_numbers() {
 #[test]
 fn big_numbers_compute_without_counting() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let big = |s: &str| native::nat_value(s.parse::<BigUint>().unwrap());
     let product = call(
         g,
@@ -204,7 +204,7 @@ fn big_numbers_compute_without_counting() {
 #[test]
 fn a_number_is_its_succ_chain() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let d = g.env.builtins().nat.unwrap();
     let three = Value::Ctor(
         d,
@@ -255,7 +255,7 @@ fn as_prelude(source: &str) -> Vec<&'static str> {
 fn the_real_prelude_registers_every_native() {
     assert_eq!(as_prelude(prelude()), Vec::<&str>::new());
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     for op in Native::ALL {
         assert_eq!(g.env.builtins().native(def(g, op.name())), Some(op));
     }
@@ -319,7 +319,7 @@ fn plus_var(k: u64, level: Option<usize>) -> Value {
 }
 
 /// `base` under `k` `Succ` constructors (not the compact `k + base`).
-fn succs(g: &stitchwort_core::Globals, k: u64, base: Value) -> Value {
+fn succs(g: &stitchwort_core::Ev, k: u64, base: Value) -> Value {
     let nat = g.env.builtins().nat.expect("`Nat` is bound");
     (0..k).fold(base, |v, _| Value::Ctor(nat, 1, vec![v].into()))
 }
@@ -328,9 +328,9 @@ fn succs(g: &stitchwort_core::Globals, k: u64, base: Value) -> Value {
 fn shortcuts_with_unknowns_agree_with_the_definitions() {
     with_big_stack(|| {
         let mut session = Session::new();
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         for op in [Native::Add, Native::Sub, Native::Leq, Native::EqNat] {
-            let id = def(g, op.name());
+            let id = def(&g.ev(), op.name());
             for k1 in 0..12 {
                 for k2 in 0..12 {
                     // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`; and
@@ -344,14 +344,14 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                         (plus_var(k1, Some(0)), plus_var(k2, None)),
                         (plus_var(k1, None), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), plus_var(k2, Some(0))),
-                        (plus_var(k1, Some(0)), succs(g, k2, Value::var(1))),
+                        (plus_var(k1, Some(0)), succs(&g.ev(), k2, Value::var(1))),
                     ] {
-                        let fast = call(g, id, &[a.clone(), b.clone()]);
+                        let fast = call(&g.ev(), id, &[a.clone(), b.clone()]);
                         g.env.set_disable_natives(true);
-                        let slow = call(g, id, &[a.clone(), b.clone()]);
+                        let slow = call(&g.ev(), id, &[a.clone(), b.clone()]);
                         g.env.set_disable_natives(false);
                         assert!(
-                            conv(g, 2, &fast, &slow).unwrap(),
+                            conv(&g.ev(), 2, &fast, &slow).unwrap(),
                             "{}({a:?}, {b:?}): native {fast:?}, definition {slow:?}",
                             op.name()
                         );
@@ -360,15 +360,15 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
             }
         }
         // `eqNatRefl (k + x)` is `eqNatRefl x`.
-        let id = def(g, Native::EqNatRefl.name());
+        let id = def(&g.ev(), Native::EqNatRefl.name());
         for k in 0..12 {
             let n = plus_var(k, Some(0));
-            let fast = call(g, id, std::slice::from_ref(&n));
+            let fast = call(&g.ev(), id, std::slice::from_ref(&n));
             g.env.set_disable_natives(true);
-            let slow = call(g, id, std::slice::from_ref(&n));
+            let slow = call(&g.ev(), id, std::slice::from_ref(&n));
             g.env.set_disable_natives(false);
             assert!(
-                conv(g, 1, &fast, &slow).unwrap(),
+                conv(&g.ev(), 1, &fast, &slow).unwrap(),
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
@@ -378,7 +378,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
 #[test]
 fn a_big_number_plus_an_unknown_stays_compact() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let big = native::nat_value(BigUint::from(10u32).pow(30));
     let sum = call(g, def(g, "Nat.add"), &[big, Value::var(0)]);
     assert!(matches!(sum, Value::NatAdd(..)), "{sum:?}");
@@ -459,8 +459,8 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
 
 /// A copy of `op`'s definition, unfolding once to the same body, in which
 /// the recursive calls go to the native `op`.
-fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
-    let id = def(g, op.name());
+fn unfolded_once(g: &mut Kernel, op: Native) -> DefId {
+    let id = def(&g.ev(), op.name());
     let d = g.def(id);
     let (ty, body, span) = (d.ty().clone(), d.body().cloned().unwrap(), d.span());
     let name = format!("{}Once", op.name());
@@ -485,7 +485,7 @@ fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
 #[test]
 fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     let big = |s: &str| native::nat_value(s.parse::<BigUint>().unwrap());
     let b = BIG.parse::<BigUint>().unwrap();
     let numbers = [
@@ -497,7 +497,7 @@ fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
         big("340282366920938463463374607431768211457"), // 2^128 + 1
     ];
     for op in Native::ALL {
-        let id = def(g, op.name());
+        let id = def(&g.ev(), op.name());
         let once = unfolded_once(g, op);
         let mut inputs: Vec<Vec<Value>> = Vec::new();
         match op.numbers() {
@@ -521,13 +521,13 @@ fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
         for nums in inputs {
             // `eqNatSound` on different numbers isn't native: the definition
             // counts down both ways.
-            if op == Native::EqNatSound && !conv(g, 0, &nums[0], &nums[1]).unwrap() {
+            if op == Native::EqNatSound && !conv(&g.ev(), 0, &nums[0], &nums[1]).unwrap() {
                 continue;
             }
             let args = with_proof(op, &nums);
-            let fast = call(g, id, &args);
-            let slow = call(g, once, &args);
-            same_result(g, &format!("{}{nums:?}", op.name()), &fast, &slow);
+            let fast = call(&g.ev(), id, &args);
+            let slow = call(&g.ev(), once, &args);
+            same_result(&g.ev(), &format!("{}{nums:?}", op.name()), &fast, &slow);
         }
     }
 }

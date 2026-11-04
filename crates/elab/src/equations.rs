@@ -84,7 +84,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Elim, Head, eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Decl, Expr, MatchKind, Pattern, Scrutinee};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -1082,7 +1082,7 @@ impl BranchLib {
 
     /// From `q`, a proof (at `top`, the statement's depth) that the tail
     /// below `step` is `z`, a proof that the tail at `step` is.
-    fn step_proof(&self, g: &Globals, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
+    fn step_proof(&self, g: &Ev, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
         let up = |t: &Term, from: usize, by: usize| t.shift(g, top - from + by, 0);
         let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
         let pi =
@@ -1350,7 +1350,7 @@ impl BranchLib {
 }
 
 /// `Pair` and its constructor, for a `match` on several expressions.
-fn tuple_parts(g: &Globals) -> R<(DataId, usize)> {
+fn tuple_parts(g: &Ev) -> R<(DataId, usize)> {
     g.env
         .registry()
         .ctor(Builtin::MkPair)
@@ -1380,7 +1380,7 @@ fn tuple_ty(pair: DataId, ts: &[Term]) -> Term {
 
 /// The components of `y`, a tuple of these types: `Pair.fst y`,
 /// `Pair.fst (Pair.snd y)`, …, the last `Pair.snd (… y)`.
-fn tuple_projections(g: &Globals, tys: &[Term], y: Term) -> R<Vec<Term>> {
+fn tuple_projections(g: &Ev, tys: &[Term], y: Term) -> R<Vec<Term>> {
     let pair = tuple_parts(g)?.0;
     let none = || Stop::Skip("`Pair.fst` isn't loaded yet".into());
     let fst = g.env.registry().def(Builtin::Fst).ok_or_else(none)?;
@@ -1627,7 +1627,7 @@ impl Elaborator {
             return Ok(());
         };
         let step_name = format!("{}.%step", crate::scope::display(&key));
-        let g = &self.globals;
+        let g = &self.ev();
         let Some(step) = (0..g.env.defs().len())
             .rev()
             .map(DefId)
@@ -1700,7 +1700,7 @@ impl Elaborator {
                 "an instance's arms have no equations: write the method as a named `def` the \
                  instance points to, which gets them",
             )
-        } else if !unfolding.is_empty() || !self.globals.def(f).unfolding().is_empty() {
+        } else if !unfolding.is_empty() || !self.kernel.def(f).unfolding().is_empty() {
             Some(
                 "an `opaque` definition with an `unfolding` clause has no equations, as it has no `unfold`",
             )
@@ -1720,7 +1720,7 @@ impl Elaborator {
             }
             return Ok(());
         }
-        let def = self.globals.def(f);
+        let def = self.kernel.def(f);
         if def.state() != stitchwort_core::globals::State::Final {
             return Ok(());
         }
@@ -1773,20 +1773,20 @@ impl Elaborator {
             );
             return Ok(());
         }
-        let Some(body) = self.globals.def(tree_def).body().cloned() else {
+        let Some(body) = self.kernel.def(tree_def).body().cloned() else {
             skip_all(self, "its body isn't available");
             return Ok(());
         };
         let tree_params = arity + usize::from(tree_lams.is_some());
-        if self.globals.def(tree_def).arity() != tree_params {
+        if self.kernel.def(tree_def).arity() != tree_params {
             skip_all(
                 self,
                 "its body returns a function, so its arms aren't a case tree",
             );
             return Ok(());
         }
-        let special = special_params(&self.globals, &binders);
-        if performs_abilities(&self.globals, &def_ty, &special)? {
+        let special = special_params(&self.ev(), &binders);
+        if performs_abilities(&self.ev(), &def_ty, &special)? {
             skip_all(
                 self,
                 "it performs abilities (or is polymorphic in them): its arms are computations, \
@@ -2034,7 +2034,7 @@ impl Elaborator {
                 return Ok(());
             }
         };
-        let mark = self.globals.mark();
+        let mark = self.kernel.mark();
         match self.attempt(|e| make(e, d, shape, shapes)) {
             Ok(()) => {}
             Err(Stop::Skip(why)) => {
@@ -2070,12 +2070,12 @@ impl Elaborator {
             frames: ATTEMPT.frames,
             ..self.options.limits
         };
-        let saved = self.globals.machine.budget.start_attempt(limits);
+        let saved = self.kernel.machine.budget.start_attempt(limits);
         let result = f(self);
-        self.globals.machine.budget.restore(saved);
+        self.kernel.machine.budget.restore(saved);
         match result {
             Err(Stop::Error(e))
-                if e.code == "E-RESOURCE" && self.globals.machine.budget.exhausted().is_none() =>
+                if e.code == "E-RESOURCE" && self.kernel.machine.budget.exhausted().is_none() =>
             {
                 Err(Stop::Skip(
                     "checking it takes more than the generator allows for one equation (its \
@@ -2106,7 +2106,7 @@ impl Elaborator {
 
     /// The shape of a [`Form::Body`]'s one row: the parameters themselves.
     fn body_shape(&self, d: &Def) -> R<Shape> {
-        let g = &self.globals;
+        let g = &self.ev();
         let n = d.binders.len();
         let depth = n + 1;
         let lhs: Vec<Term> = (0..n).map(|i| Term::Var(n - 1 - i)).collect();
@@ -2140,12 +2140,11 @@ impl Elaborator {
     }
 
     fn probe_row_in(&mut self, d: &Def, row: &Row, span: Span) -> R<Shape> {
-        let g = &self.globals;
         let n = d.binders.len();
         // The predicate `%P: (params) → Prop` the goal applies to the
         // parameters, so the goal at the leaf shows what they are there.
         let pred_ty = pis(&d.binders, Term::Sort(Sort::Prop));
-        let pred_ty = eval(g, &[], &pred_ty)?;
+        let pred_ty = eval(&self.ev(), &[], &pred_ty)?;
         let probe_span = Span {
             file: span.file,
             start: span.start,
@@ -2167,7 +2166,7 @@ impl Elaborator {
             let mut cx = Ctx::new(self, span);
             cx.bind_hidden("%P".into(), pred_ty.clone());
             for (i, b) in d.binders.iter().enumerate() {
-                let ty = eval(g, &cx.env[1..], &b.ty)?;
+                let ty = eval(&cx.g(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
                     let ty_term = cx.quote(&ty)?;
                     cx.define(
@@ -2270,7 +2269,7 @@ impl Elaborator {
             return skip("its arm is never reached");
         };
         let cx = saved.ctx(self);
-        let g = &self.globals;
+        let g = &self.ev();
         let depth = cx.level();
         let Value::Neutral(Head::Var(0, _), spine) = force(g, goal)? else {
             return skip("its arm's goal wasn't the probe's");
@@ -2440,7 +2439,7 @@ impl Elaborator {
         shape: &Shape,
         shapes: &[std::result::Result<Shape, String>],
     ) -> R<Stated> {
-        let g = &self.globals;
+        let g = &self.ev();
         // The hypotheses: each earlier row it overlaps.
         let mut hyps: Vec<Hyp> = Vec::new();
         for j in d.earlier(k) {
@@ -2619,7 +2618,7 @@ impl Elaborator {
         // Declared and checked by the kernel like any theorem.
         let name: Name = format!("{}.{suffix}", d.display).into();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -2633,11 +2632,11 @@ impl Elaborator {
             let mut all: Vec<DefId> = opaque.then_some(d.f).into_iter().collect();
             all.extend(unfolding.iter().copied());
             if opaque {
-                stitchwort_core::check::mark_opaque(&mut self.globals, id);
+                stitchwort_core::check::mark_opaque(&mut self.kernel, id);
             }
-            stitchwort_core::check::set_unfolding(&mut self.globals, id, &all);
+            stitchwort_core::check::set_unfolding(&mut self.kernel, id, &all);
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, proof)])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, proof)])?;
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
         }
@@ -2749,7 +2748,7 @@ impl Elaborator {
                     (refines, wanted),
                     false,
                 )?;
-                let g = &self.globals;
+                let g = &self.ev();
                 let top = run.binders.len();
                 // The proof that the row's right side is the branch's, from
                 // the inside out.
@@ -2798,7 +2797,7 @@ impl Elaborator {
                         (refines, wanted),
                         false,
                     )?;
-                    let g = &self.globals;
+                    let g = &self.ev();
                     let top = run.binders.len();
                     let mut q = Term::Refl;
                     for step in run.steps.iter().rev() {
@@ -2853,11 +2852,11 @@ impl Elaborator {
                 let mut binders = s.binders.clone();
                 binders.extend(bs);
                 let top = binders.len();
-                let lhs = s.lhs.shift(&self.globals, top - base, 0)?;
+                let lhs = s.lhs.shift(&self.ev(), top - base, 0)?;
                 (binders, z, unfolding, Then::PerLeaf(lhs, proofs), arm_size)
             }
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let top = binders.len();
         // §10, for the branch's right side too.
         let size = z.subterms().count();
@@ -2942,7 +2941,7 @@ impl Elaborator {
         let mut unnamed = 0;
         let decreasing = matches!(d.kind, Kind::Decreasing { .. });
         // Whether a branch uses its binder, its decrease proofs aside.
-        let uses_var = |g: &Globals, t: &Term| -> stitchwort_core::budget::Result<bool> {
+        let uses_var = |g: &Ev, t: &Term| -> stitchwort_core::budget::Result<bool> {
             Ok(if marked {
                 unmark(g, d, t)?.mentions(0)
             } else {
@@ -3002,7 +3001,7 @@ impl Elaborator {
                     } else if is(lib.elim) && args.len() == 5 {
                         let p = args[0].0.clone();
                         let mut branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
-                        let uses = uses_var(&self.globals, &branch)?;
+                        let uses = uses_var(&self.ev(), &branch)?;
                         if uses && !yes {
                             return skip(
                                 "its `else` branch uses the proof that the condition is false: \
@@ -3046,7 +3045,7 @@ impl Elaborator {
                         {
                             let conv = lib.refutation_of_other(*x);
                             let at = depth + 1;
-                            branch = remap(&self.globals, &branch, at, at, &|l| {
+                            branch = remap(&self.ev(), &branch, at, at, &|l| {
                                 Some(if l == depth {
                                     conv.clone()
                                 } else {
@@ -3115,7 +3114,7 @@ impl Elaborator {
                             made
                         }
                     };
-                    if self.globals.def(h).opaque() {
+                    if self.kernel.def(h).opaque() {
                         unfolding.push(h);
                     }
                     // The alternative's row, or below it, the row of each
@@ -3152,7 +3151,7 @@ impl Elaborator {
                             }
                         },
                     };
-                    let g = &self.globals;
+                    let g = &self.ev();
                     let n_h = helper.arity;
                     let he_len = he.binders.len();
                     // A variable the helper captured that the alternative's
@@ -3418,7 +3417,7 @@ impl Elaborator {
                     } else {
                         Term::Ann(Rc::new(he.proof.clone()), Rc::new(he.ty.clone()))
                     };
-                    let g = &self.globals;
+                    let g = &self.ev();
                     if !marked {
                         for ((v, at), (_, icit, _)) in vals.iter().zip(&he.binders) {
                             proof = Term::app_icit(proof, v.shift(g, after - at, 0)?, *icit);
@@ -3477,7 +3476,7 @@ impl Elaborator {
     /// recorded them (`lift::MatchColumns`), one for each scrutinee, never
     /// read off the parameters' names.
     fn helper_call(&self, h: DefId, scrutinees: &[Scrutinee], args: &[(Term, Icit)]) -> R<Call> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(h);
         if !def.name().contains(".%match") {
             return skip("its `match` isn't a call of a lifted `match`'s helper here");
@@ -3541,7 +3540,7 @@ impl Elaborator {
     /// alternatives (`alts`), matching parameters `cols`: as a definition's
     /// for its arms (stage 1a), not declared, each a closed term.
     fn helper(&mut self, owner: &Def, h: DefId, cols: &[usize], alts: &[Alt]) -> R<Helper> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(h);
         let arity = def.arity();
         let (binders, _) = split_pis(def.ty(), Some(arity));
@@ -3664,9 +3663,9 @@ impl Elaborator {
     /// row refined below, SW-1069, its alternatives' names after it), for a
     /// branch equation whose proof uses it.
     fn helper_lemma(&mut self, h: DefId, suffix: &str, he: &HelperEq, span: Span) -> R<DefId> {
-        let name: Name = format!("{}.{suffix}", self.globals.def(h).name()).into();
+        let name: Name = format!("{}.{suffix}", self.kernel.def(h).name()).into();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -3675,10 +3674,10 @@ impl Elaborator {
             false,
             span,
         )?;
-        if self.globals.def(h).opaque() {
-            stitchwort_core::check::set_unfolding(&mut self.globals, id, &[h]);
+        if self.kernel.def(h).opaque() {
+            stitchwort_core::check::set_unfolding(&mut self.kernel, id, &[h]);
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, he.proof.clone())])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, he.proof.clone())])?;
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
         }
@@ -3724,7 +3723,7 @@ impl Elaborator {
     /// D2180): `p` an equation of `Bool`s (`<` and `≤` on `Nat` and `Int`
     /// are), or one decided by a `DecEq` instance.
     fn uniqueness(&self, lib: &BranchLib, p: &Term, decision: &Term, depth: usize) -> R<Uniq> {
-        let g = &self.globals;
+        let g = &self.ev();
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
         if let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)?
             && matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool)
@@ -3757,7 +3756,7 @@ impl Elaborator {
 
     /// The declarations branch equations are made with.
     fn branch_lib(&self) -> R<BranchLib> {
-        let g = &self.globals;
+        let g = &self.ev();
         let r = &g.env.registry();
         let none = || Stop::Skip("the core's logic isn't loaded yet".into());
         let def = |key: &str| self.lookup_def(&format!("Std.{key}")).ok_or_else(none);
@@ -3789,7 +3788,7 @@ impl Elaborator {
 
     /// What row `k`'s leaf is ([`Found`]).
     fn leaf_found(&self, d: &Def, k: usize, shape: &Shape) -> R<Found> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut fmap: Vec<Option<Term>> = Vec::new();
         for level in 0..d.tree_params() {
             fmap.push(match d.param_of_tree_level(level) {
@@ -3815,7 +3814,7 @@ impl Elaborator {
     /// of its leaves that mentions only what the arm's patterns bind; `None`
     /// if each leaf's body mentions what that leaf refined (SW-1071).
     fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Option<Term>, usize)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut fmap: Vec<Option<Term>> = Vec::new();
         for level in 0..d.tree_params() {
             fmap.push(match d.param_of_tree_level(level) {
@@ -3854,7 +3853,7 @@ impl Elaborator {
         shapes: &[std::result::Result<Shape, String>],
         depth: usize,
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let lib =
             Lib::new(g).ok_or_else(|| Stop::Skip("the core's logic isn't loaded yet".into()))?;
         match h {
@@ -3941,7 +3940,7 @@ impl Elaborator {
 /// `Regular a` is `left` again). `None` if a field is left over: the leaf
 /// says something of what its patterns bind that the row's variables can't.
 fn generalise(
-    g: &Globals,
+    g: &Ev,
     t: &Term,
     at: usize,
     leaf: &LeafCtx,
@@ -3953,7 +3952,7 @@ fn generalise(
     let mut images: Vec<&(usize, Term)> = leaf.images.iter().collect();
     images.sort_by_key(|(_, t)| std::cmp::Reverse(t.subterms().count()));
     fn go(
-        g: &Globals,
+        g: &Ev,
         t: &Term,
         under: usize,
         (at, from): (usize, usize),
@@ -3997,7 +3996,7 @@ fn generalise(
 /// variables (by their position among the binders) as terms in `t`'s
 /// context (SW-1069).
 fn match_pattern(
-    g: &Globals,
+    g: &Ev,
     pat: &Term,
     depth: usize,
     t: &Term,
@@ -4057,7 +4056,7 @@ fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
 
 /// `t`, a term under the first `from` binders of an equation whose
 /// binder `l` is `vals[l]` (a term at the depth given), at depth `to`.
-fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: usize) -> R<Term> {
+fn instantiate(g: &Ev, t: &Term, from: usize, vals: &[(Term, usize)], to: usize) -> R<Term> {
     remap(g, t, from, to, &|l| {
         let (v, at) = vals.get(l)?;
         v.shift(g, to - at, 0).ok()
@@ -4067,7 +4066,7 @@ fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: u
 
 /// `t` (under `by` binders more than `e` and `ty`) with each untyped
 /// equation `e = p` given the type `ty`.
-fn typed_equations(g: &Globals, t: &Term, e: &Term, ty: &Term, by: usize) -> R<Term> {
+fn typed_equations(g: &Ev, t: &Term, e: &Term, ty: &Term, by: usize) -> R<Term> {
     g.machine.budget.nesting("equations")?;
     if let Term::Eq(None, a, b) = t {
         let e = e.shift(g, by, 0)?;
@@ -4125,7 +4124,7 @@ fn fresh(taken: &[Name], base: &str) -> String {
 
 /// Whether `t` mentions a computation type: `Comp`, `CompIn`, `CompD` or
 /// `Delay`.
-fn mentions_computation(g: &Globals, t: &Term) -> bool {
+fn mentions_computation(g: &Ev, t: &Term) -> bool {
     let r = &g.env.registry();
     let comp = r.data(Builtin::Comp);
     let defs = [
@@ -4144,7 +4143,7 @@ fn mentions_computation(g: &Globals, t: &Term) -> bool {
 /// with its implicit rows `Empty` and its divergences `Total` (`special`),
 /// a parameter's type or its result is still a computation.
 fn performs_abilities(
-    g: &Globals,
+    g: &Ev,
     ty: &Term,
     special: &[Option<Term>],
 ) -> stitchwort_core::budget::Result<bool> {
@@ -4174,7 +4173,7 @@ fn performs_abilities(
 /// effect-polymorphic definition's are stated at the empty row (§3.2), so
 /// an implicit row of abilities is `Empty` and an implicit divergence
 /// `Total`.
-fn special_params(g: &Globals, binders: &[Binder]) -> Vec<Option<Term>> {
+fn special_params(g: &Ev, binders: &[Binder]) -> Vec<Option<Term>> {
     let r = &g.env.registry();
     let row = r.data(Builtin::Row);
     let div = r.data(Builtin::Divergence);
@@ -4270,7 +4269,7 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
 }
 
 /// `t` with every `let` substituted.
-fn zeta(g: &Globals, t: &Term) -> stitchwort_core::budget::Result<Term> {
+fn zeta(g: &Ev, t: &Term) -> stitchwort_core::budget::Result<Term> {
     g.machine.budget.nesting("equations")?;
     if let Term::Let(_, _, v, b, _) = t {
         let v = zeta(g, v)?;
@@ -4284,7 +4283,7 @@ fn zeta(g: &Globals, t: &Term) -> stitchwort_core::budget::Result<Term> {
 /// `Total` computed away (`bindDv Total Empty c next` is `next c`, `CompIn
 /// Empty a` is `a`), so an effect-polymorphic definition's equation reads
 /// as pure code (§3.2).
-fn pure_at_empty(g: &Globals, t: &Term, depth: usize) -> stitchwort_core::budget::Result<Term> {
+fn pure_at_empty(g: &Ev, t: &Term, depth: usize) -> stitchwort_core::budget::Result<Term> {
     g.machine.budget.nesting("equations")?;
     let r = &g.env.registry();
     let plumbing = [
@@ -4337,7 +4336,7 @@ fn levels_in(t: &Term, depth: usize) -> Vec<usize> {
 
 /// `t`, a term in a shape's context, in a context of `to` variables whose
 /// first are the shape's variables in order.
-fn remap_shape(g: &Globals, t: &Term, shape: &Shape, to: usize) -> R<Term> {
+fn remap_shape(g: &Ev, t: &Term, shape: &Shape, to: usize) -> R<Term> {
     remap(g, t, shape.depth, to, &|l| {
         shape
             .tele
@@ -4352,7 +4351,7 @@ fn remap_shape(g: &Globals, t: &Term, shape: &Shape, to: usize) -> R<Term> {
 /// `l` replaced by `map(l)`, a term in a context of `to` variables; `None`
 /// if one isn't mapped, or is a case's scrutinee.
 fn remap(
-    g: &Globals,
+    g: &Ev,
     t: &Term,
     from: usize,
     to: usize,
@@ -4360,7 +4359,7 @@ fn remap(
 ) -> stitchwort_core::budget::Result<Option<Term>> {
     struct Missing;
     fn go(
-        g: &Globals,
+        g: &Ev,
         t: &Term,
         k: usize,
         from: usize,
@@ -4479,7 +4478,7 @@ fn rec_term(d: &Def, depth: usize) -> Term {
 }
 
 /// Applications of `%rec`'s lambda, reduced: `((y => f y) a)` is `f a`.
-fn beta_rec(g: &Globals, t: Term) -> stitchwort_core::budget::Result<Term> {
+fn beta_rec(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
     g.machine.budget.nesting("equations")?;
     let (head, args) = {
         let (h, a) = t.spine();
@@ -4521,10 +4520,10 @@ fn beta_rec(g: &Globals, t: Term) -> stitchwort_core::budget::Result<Term> {
 }
 
 /// `t` with the marks of [`Def::mark_rec`] dropped: `f y… p` is `f y…`.
-fn unmark(g: &Globals, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Term> {
+fn unmark(g: &Ev, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Term> {
     let n = d.binders.len();
     let f = d.f;
-    fn go(g: &Globals, f: DefId, n: usize, t: &Term) -> stitchwort_core::budget::Result<Term> {
+    fn go(g: &Ev, f: DefId, n: usize, t: &Term) -> stitchwort_core::budget::Result<Term> {
         g.machine.budget.nesting("equations")?;
         if let Term::App(head, _, Icit::Auto) = t {
             let (h, args) = t.spine();
@@ -4573,7 +4572,7 @@ enum Found {
 /// `k` whose body says its right side in the arm's variables.
 #[allow(clippy::too_many_arguments)]
 fn find_rhs(
-    g: &Globals,
+    g: &Ev,
     d: &Def,
     k: usize,
     shape: &Shape,
@@ -4675,7 +4674,7 @@ fn find_rhs(
 
 /// `t` as constructor `c` of `data` applied to fields, if it is one (a
 /// number, of `Nat`, as `Zero` or `Succ`).
-fn ctor_view(g: &Globals, t: &Term, data: DataId) -> Option<(usize, Vec<Term>)> {
+fn ctor_view(g: &Ev, t: &Term, data: DataId) -> Option<(usize, Vec<Term>)> {
     match t.strip_loc() {
         Term::Ctor(d, c, args) if *d == data => {
             Some((*c, args.iter().map(|a| (**a).clone()).collect()))
@@ -4718,7 +4717,7 @@ impl Elaborator {
                 }
                 continue;
             }
-            let kind = if self.globals.def(*id).opaque() {
+            let kind = if self.kernel.def(*id).opaque() {
                 Kind::Opaque
             } else {
                 Kind::Plain
@@ -4766,7 +4765,7 @@ impl Elaborator {
         let Some(id) = self.lookup_def(key) else {
             return Ok(());
         };
-        if self.globals.def(id).state() != stitchwort_core::globals::State::Final {
+        if self.kernel.def(id).state() != stitchwort_core::globals::State::Final {
             return Ok(());
         }
         let file = &index.files[f];
@@ -4878,9 +4877,8 @@ impl Elaborator {
         if arms.iter().any(|a| a.rhs.is_none()) {
             return Ok(None);
         }
-        let g = &self.globals;
         let n = d.binders.len();
-        let pred_ty = eval(g, &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
+        let pred_ty = eval(&self.ev(), &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
         let nav = self.present.nav.take();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
@@ -4891,7 +4889,7 @@ impl Elaborator {
             let mut cx = Ctx::new(self, root);
             cx.bind_hidden("%P".into(), pred_ty.clone());
             for (i, b) in d.binders.iter().enumerate() {
-                let ty = eval(g, &cx.env[1..], &b.ty)?;
+                let ty = eval(&cx.g(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
                     let ty_term = cx.quote(&ty)?;
                     cx.define(
@@ -5006,7 +5004,7 @@ enum Overlap {
 /// left sides unified, the earlier's variables solved by this one's terms
 /// where they can be, and the rest left as equations of this one's
 /// variables.
-fn overlap(g: &Globals, other: &Shape, shape: &Shape) -> R<Overlap> {
+fn overlap(g: &Ev, other: &Shape, shape: &Shape) -> R<Overlap> {
     let mut bound: HashMap<usize, Term> = HashMap::default();
     let mut eqs: Vec<(usize, Term)> = Vec::new();
     // Every column, so one that's disjoint settles it even when another
@@ -5063,7 +5061,7 @@ enum Unified {
 
 /// Unifies `a` (in the earlier row's context) with `b` (in this one's).
 fn unify(
-    g: &Globals,
+    g: &Ev,
     a: &Term,
     adepth: usize,
     b: &Term,
@@ -5149,7 +5147,7 @@ fn data_of(t: &Term) -> Option<DataId> {
 }
 
 /// A character literal `MkChar k rfl`'s character.
-fn char_literal(g: &Globals, t: &Term) -> Option<char> {
+fn char_literal(g: &Ev, t: &Term) -> Option<char> {
     let char_data = g.env.registry().data(Builtin::Char)?;
     match t.strip_loc() {
         Term::Ctor(d, 0, args) if *d == char_data && args.len() == 2 => {
@@ -5173,11 +5171,7 @@ fn number_overlap(h: &Hyp) -> bool {
 
 /// The earlier rows that only say a variable isn't some character, merged
 /// into one `c ∉ […]` per variable (§3.2), where the first of them was.
-fn merge_chars(
-    g: &Globals,
-    hyps: Vec<Hyp>,
-    shapes: &[std::result::Result<Shape, String>],
-) -> Vec<Hyp> {
+fn merge_chars(g: &Ev, hyps: Vec<Hyp>, shapes: &[std::result::Result<Shape, String>]) -> Vec<Hyp> {
     let _ = shapes;
     let single = |h: &Hyp| -> Option<(usize, usize, char)> {
         match h {
@@ -5223,7 +5217,7 @@ struct Lib {
 }
 
 impl Lib {
-    fn new(g: &Globals) -> Option<Lib> {
+    fn new(g: &Ev) -> Option<Lib> {
         let r = &g.env.registry();
         Some(Lib {
             void: r.data(Builtin::Void)?,
@@ -5237,7 +5231,7 @@ impl Lib {
     }
 
     /// The list of these characters, as a literal is.
-    fn char_list(&self, g: &Globals, chars: &Rc<[char]>) -> R<Term> {
+    fn char_list(&self, g: &Ev, chars: &Rc<[char]>) -> R<Term> {
         if let Some(text) = g.env.builtins().compact_literals() {
             return Ok(stitchwort_core::chars::term(
                 text,
@@ -5316,7 +5310,7 @@ impl<'a> Walk<'a> {
         base: usize,
         body: &'a Term,
     ) -> R<Walk<'a>> {
-        let lib = Lib::new(&e.globals);
+        let lib = Lib::new(&e.ev());
         Ok(Walk {
             e,
             d,
@@ -5335,8 +5329,8 @@ impl<'a> Walk<'a> {
         })
     }
 
-    fn g(&self) -> &'a Globals {
-        &self.e.globals
+    fn g(&self) -> Ev<'a> {
+        self.e.ev()
     }
 
     fn lib(&self) -> R<&Lib> {
@@ -5368,7 +5362,7 @@ impl<'a> Walk<'a> {
             ),
             Term::Nat(n) => PV::Nat(n.clone()),
             other => PV::Term(
-                remap_shape(self.g(), other, shape, self.depth())?,
+                remap_shape(&self.g(), other, shape, self.depth())?,
                 self.depth(),
             ),
         })
@@ -5403,7 +5397,7 @@ impl<'a> Walk<'a> {
             PV::Nat(n) => Term::Nat(n),
             PV::Term(t, at) => {
                 // Refinements since it was made are substituted.
-                let shifted = t.shift(self.g(), depth - at, 0)?;
+                let shifted = t.shift(&self.g(), depth - at, 0)?;
                 self.refine(&shifted)?
             }
             PV::Rec => return skip("`%rec` escaped into a proof term"),
@@ -5425,7 +5419,7 @@ impl<'a> Walk<'a> {
                 other => self.term(&other.clone())?,
             });
         }
-        remap(self.g(), t, depth, depth, &|l| cache[l].clone())?
+        remap(&self.g(), t, depth, depth, &|l| cache[l].clone())?
             .ok_or_else(|| Stop::Skip("a refined term couldn't be read".into()))
     }
 
@@ -5602,19 +5596,19 @@ impl<'a> Walk<'a> {
                 v => self.term(v)?,
             }));
         }
-        let body = remap(g, t, fvals.len(), depth, &|l| terms[l].clone())?
+        let body = remap(&g, t, fvals.len(), depth, &|l| terms[l].clone())?
             .ok_or_else(|| Stop::Skip("a leaf's body couldn't be read".into()))?;
         let body = if matches!(self.d.kind, Kind::Decreasing { .. }) {
-            beta_rec(g, body)?
+            beta_rec(&g, body)?
         } else {
             body
         };
         let body = if self.d.special.iter().any(Option::is_some) {
-            pure_at_empty(g, &body, depth)?
+            pure_at_empty(&g, &body, depth)?
         } else {
             body
         };
-        let body = zeta(g, &body)?;
+        let body = zeta(&g, &body)?;
         let mut images = Vec::new();
         for j in 0..self.tk {
             if !matches!(&self.pvals[j], PV::Var(m) if *m == j) {
@@ -5656,7 +5650,7 @@ impl<'a> Walk<'a> {
             let g = self.g();
             let (lhs, then) = match &self.then {
                 Then::Own => return Ok(own),
-                Then::One(lhs, then) => (lhs, then.shift(g, depth - self.base, 0)?),
+                Then::One(lhs, then) => (lhs, then.shift(&g, depth - self.base, 0)?),
                 // This leaf's own proof (SW-1071), from its context (the
                 // row's variables, its fields, the branch's binders) to
                 // here (the statement's binders, then the same fields).
@@ -5670,7 +5664,7 @@ impl<'a> Walk<'a> {
                         return skip("a leaf of its arm has other fields than when it was read");
                     }
                     let from = p.depth + (self.base - at);
-                    let q = remap(g, &p.q, from, depth, &|l| {
+                    let q = remap(&g, &p.q, from, depth, &|l| {
                         Some(Term::Var(
                             depth
                                 - 1
@@ -5687,7 +5681,7 @@ impl<'a> Walk<'a> {
                     (lhs, q)
                 }
             };
-            let lhs = self.refine(&lhs.shift(g, depth - self.base, 0)?)?;
+            let lhs = self.refine(&lhs.shift(&g, depth - self.base, 0)?)?;
             let then = self.refine(&then)?;
             let motive = Term::Lam(
                 "z".into(),
@@ -5697,7 +5691,7 @@ impl<'a> Walk<'a> {
                     Icit::Explicit,
                     Rc::new(Term::Eq(
                         None,
-                        Rc::new(lhs.shift(g, 2, 0)?),
+                        Rc::new(lhs.shift(&g, 2, 0)?),
                         Rc::new(Term::Var(1)),
                     )),
                 )),
@@ -5776,7 +5770,7 @@ impl<'a> Walk<'a> {
                 Term::app(hyp, proof)
             }
         };
-        let goal = self.refine(&self.body.shift(self.g(), depth - self.base, 0)?)?;
+        let goal = self.refine(&self.body.shift(&self.g(), depth - self.base, 0)?)?;
         Ok(apps(
             Term::Def(self.lib()?.exfalso),
             [(goal, Icit::Implicit), (void, Icit::Explicit)],
@@ -5887,7 +5881,7 @@ impl<'a> Walk<'a> {
             let with_q = replace_at(&right, &diff.path, hole);
             let motive_body = Term::Eq(
                 None,
-                Rc::new(lx.shift(g, 2, 0)?),
+                Rc::new(lx.shift(&g, 2, 0)?),
                 Rc::new(self.term_at(&with_q, depth + 2)?),
             );
             let motive = Term::Lam(
@@ -5906,8 +5900,8 @@ impl<'a> Walk<'a> {
     /// and the equation's sides); `false` if they differ otherwise.
     fn differ(&self, x: &PV, y: &PV, path: &mut Vec<usize>, out: &mut Vec<Diff>) -> R<bool> {
         let g = self.g();
-        let x = nat_as_ctor(g, x);
-        let y = nat_as_ctor(g, y);
+        let x = nat_as_ctor(&g, x);
+        let y = nat_as_ctor(&g, y);
         if same_pv(&x, &y) {
             return Ok(true);
         }
@@ -5933,13 +5927,13 @@ impl<'a> Walk<'a> {
                         let Some(t) = closed_term(f) else {
                             return Ok(false);
                         };
-                        env.push(eval(g, &[], &t)?);
+                        env.push(eval(&g, &[], &t)?);
                     }
-                    let ty = eval(g, &env, &data.ctors()[*c].fields[i].1)?;
-                    let Value::Eq(ty, l, r) = force(g, ty)? else {
+                    let ty = eval(&g, &env, &data.ctors()[*c].fields[i].1)?;
+                    let Value::Eq(ty, l, r) = force(&g, ty)? else {
                         return Ok(false);
                     };
-                    if !matches!(force(g, (*ty).clone())?, Value::Data(b, _) if g.env.registry().is_data(Builtin::Bool, b))
+                    if !matches!(force(&g, (*ty).clone())?, Value::Data(b, _) if g.env.registry().is_data(Builtin::Bool, b))
                     {
                         return Ok(false);
                     }
@@ -5950,8 +5944,8 @@ impl<'a> Walk<'a> {
                         path: p,
                         left: a.clone(),
                         right: b.clone(),
-                        a: stitchwort_core::value::quote(g, depth, &l)?,
-                        b: stitchwort_core::value::quote(g, depth, &r)?,
+                        a: stitchwort_core::value::quote(&g, depth, &l)?,
+                        b: stitchwort_core::value::quote(&g, depth, &r)?,
                     });
                 }
                 Ok(true)
@@ -5964,7 +5958,7 @@ impl<'a> Walk<'a> {
     fn term_at(&self, v: &PV, depth: usize) -> R<Term> {
         let here = self.depth();
         match v {
-            PV::Term(t, at) if *at >= here => Ok(t.shift(self.g(), depth - at, 0)?),
+            PV::Term(t, at) if *at >= here => Ok(t.shift(&self.g(), depth - at, 0)?),
             PV::Ctor(d, c, args) => Ok(Term::Ctor(
                 *d,
                 *c,
@@ -5972,7 +5966,7 @@ impl<'a> Walk<'a> {
                     .map(|a| Ok(Rc::new(self.term_at(a, depth)?)))
                     .collect::<R<_>>()?,
             )),
-            _ => Ok(self.term(v)?.shift(self.g(), depth - here, 0)?),
+            _ => Ok(self.term(v)?.shift(&self.g(), depth - here, 0)?),
         }
     }
 }
@@ -6017,7 +6011,7 @@ fn closed_term(v: &PV) -> Option<Term> {
 }
 
 /// A number as `Zero` or `Succ` of a number, to compare with constructors.
-fn nat_as_ctor(g: &Globals, v: &PV) -> PV {
+fn nat_as_ctor(g: &Ev, v: &PV) -> PV {
     match v {
         PV::Nat(n) => match g.env.builtins().nat {
             Some(nat) if n.bits() == 0 => PV::Ctor(nat, 0, Vec::new()),
@@ -6073,14 +6067,14 @@ pub fn is_equation_name(name: &str) -> bool {
 /// Whether `name` is a definition's generated functional induction,
 /// `f.induct` (stage 2a), not a data type's `T.induct`
 /// (`derive_induct.rs`).
-pub fn is_function_induct(g: &Globals, name: &str) -> bool {
+pub fn is_function_induct(g: &stitchwort_core::Ev, name: &str) -> bool {
     name.strip_suffix(".induct")
         .is_some_and(|o| !o.is_empty() && !o.contains('%') && g.find_data(o).is_none())
 }
 
 /// Whether `name` is a generated theorem's: an equation (`f.eq2`) or a
 /// definition's `f.induct`.
-pub fn is_generated_name(g: &Globals, name: &str) -> bool {
+pub fn is_generated_name(g: &stitchwort_core::Ev, name: &str) -> bool {
     is_equation_name(name) || is_function_induct(g, name)
 }
 
@@ -6093,7 +6087,7 @@ pub(crate) fn no_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic
     let Some((Global::Def(f), _)) = e.named(owner) else {
         return None;
     };
-    let def = e.globals.def(*f);
+    let def = e.kernel.def(*f);
     let induct = suffix == "induct";
     let lazy = if def.theorem() && induct {
         Some("a theorem has no `induct`: it is made for a recursive definition".to_string())
@@ -6124,7 +6118,7 @@ pub(crate) fn no_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic
     Some(
         Diagnostic::error(
             "E-NO-EQUATION",
-            format!("`{}.{suffix}` isn't generated", e.globals.def(*f).name()),
+            format!("`{}.{suffix}` isn't generated", e.kernel.def(*f).name()),
         )
         .with_label(name.span, why)
         .with_note(if induct {

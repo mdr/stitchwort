@@ -23,7 +23,7 @@ fn the_prelude_binds_every_builtin_to_a_final_declaration() {
 
 fn prelude_binds_every_builtin() {
     let session = Session::eager_from_source_for_stack(STACK);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let r = &g.env.registry();
     assert_eq!(r.missing(), Vec::<Builtin>::new());
     assert!(check_complete(g).is_ok());
@@ -83,7 +83,7 @@ fn library_hashes_as_in_the_release_build() {
         .filter(|(_, hash)| hash.len() == 64)
         .collect();
     let session = Session::eager_from_source_for_stack(STACK);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let show = |h: stitchwort_core::budget::Result<Option<stitchwort_core::hash::ContentHash>>| {
         h.ok().flatten().map(|h| h.hex())
     };
@@ -152,7 +152,7 @@ fn a_forgotten_builtin_is_an_error_not_a_name_lookup() {
         .expect("loads");
     session
         .elab
-        .globals
+        .kernel
         .env
         .forget_builtin_for_tests(Builtin::Add);
     let errors = session.load("more.sw", "def y : Nat := 1\n").unwrap_err();
@@ -289,7 +289,7 @@ fn syntax_means_the_prelude_whatever_its_names_mean() {
 #[test]
 fn natives_stay_on_the_prelude_definitions() {
     let session = hidden_session();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let add = g.env.registry().def(Builtin::Add).unwrap();
     assert!(g.env.builtins().native(add).is_some());
     // The program's own `add` is the last definition of that name.

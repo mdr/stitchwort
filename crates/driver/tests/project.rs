@@ -57,7 +57,7 @@ fn passes(session: &Session) {
 }
 
 fn def_hash_of(session: &Session, path: &str) -> ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = g
         .env
         .defs()
@@ -68,7 +68,7 @@ fn def_hash_of(session: &Session, path: &str) -> ContentHash {
 }
 
 fn data_hash_of(session: &Session, path: &str) -> ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = (0..g.env.datas().len())
         .map(DataId)
         .find(|d| &**g.data(*d).path() == path)
@@ -385,7 +385,7 @@ def Shape.area: Shape -> Nat
 test \"area\" := (Rect 2 3).area == 6 && Square 2 == Square 2
 ";
     let hashes = |session: &Session| -> BTreeMap<String, ContentHash> {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let mut out = BTreeMap::new();
         for (i, d) in g.env.defs().iter().enumerate() {
             if d.path().starts_with("Solo.") {
@@ -917,7 +917,7 @@ fn assert_reaches_only_planned_in(
     let loaded = session
         .load_project_sources("proj", files, &Target::Everything)
         .unwrap_or_else(|e| panic!("{label}: {e:#?}"));
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ranges: Vec<(String, std::ops::Range<usize>)> = loaded
         .checked
         .iter()

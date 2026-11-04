@@ -125,7 +125,7 @@ impl Elaborator {
                 body = Term::Lam(x, icit, Rc::new(body));
             }
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &scope::display(&key).into(),
@@ -136,7 +136,7 @@ impl Elaborator {
             )?;
             self.unit.module.def_items.insert(id, *item);
             self.scope.insert(&key, Global::Def(id), name.span, false);
-            kernel::define_def(&mut self.globals, &self.tables, id, &body).map_err(|d| {
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body).map_err(|d| {
                 Diagnostic::error(
                     "E-BUILTIN",
                     format!(

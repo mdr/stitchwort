@@ -14,7 +14,7 @@ use stitchwort_core::native::{self, as_nat};
 use stitchwort_core::reference;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{self, Head, Value};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Icit, Kernel, Term};
 use stitchwort_driver::driver::{Session, with_stack};
 
 const STACK: usize = 64 << 20;
@@ -29,7 +29,7 @@ fn load(session: &mut Session, text: &str) {
 }
 
 /// The last definition called `name`.
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -39,7 +39,7 @@ fn def(g: &Globals, name: &str) -> DefId {
     )
 }
 
-fn int_data(g: &Globals) -> DataId {
+fn int_data(g: &stitchwort_core::Ev) -> DataId {
     g.env
         .registry()
         .data(Builtin::Int)
@@ -51,7 +51,7 @@ fn nat(n: u128) -> Value {
 }
 
 /// The integer `i`, in its one form.
-fn int(g: &Globals, i: i128) -> Value {
+fn int(g: &stitchwort_core::Ev, i: i128) -> Value {
     if i >= 0 {
         Value::Ctor(int_data(g), 0, vec![nat(i as u128)].into())
     } else {
@@ -60,7 +60,7 @@ fn int(g: &Globals, i: i128) -> Value {
 }
 
 /// The integer a closed value is, if it's one.
-fn as_int(g: &Globals, v: &Value) -> Option<i128> {
+fn as_int(g: &stitchwort_core::Ev, v: &Value) -> Option<i128> {
     match value::force(g, v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
             let n = as_nat(g, &fields[0]).ok()??.to_i128()?;
@@ -71,7 +71,7 @@ fn as_int(g: &Globals, v: &Value) -> Option<i128> {
 }
 
 /// `f args` by the machine: its value and normal form.
-fn machine(g: &Globals, f: DefId, args: &[Value], level: usize) -> (Value, String) {
+fn machine(g: &stitchwort_core::Ev, f: DefId, args: &[Value], level: usize) -> (Value, String) {
     let mut v = value::eval(g, &[], &Term::Def(f)).expect("no limits");
     for a in args {
         v = value::apply_icit(g, v, a.clone(), Icit::Explicit).expect("no limits");
@@ -82,7 +82,7 @@ fn machine(g: &Globals, f: DefId, args: &[Value], level: usize) -> (Value, Strin
 }
 
 /// `f args` by the reference evaluator: its normal form.
-fn slow(g: &Globals, f: DefId, args: &[Value], level: usize) -> String {
+fn slow(g: &stitchwort_core::Ev, f: DefId, args: &[Value], level: usize) -> String {
     let mut v = reference::eval(g, &[], &Term::Def(f)).expect("no limits");
     for a in args {
         v = reference::apply_icit(g, v, a.clone(), Icit::Explicit).expect("no limits");
@@ -93,12 +93,12 @@ fn slow(g: &Globals, f: DefId, args: &[Value], level: usize) -> String {
 
 /// `f args` four ways (natives on and off, each in both evaluators), which
 /// must agree: the machine's value with natives on, and its normal form.
-fn run4(g: &mut Globals, f: DefId, args: &[Value], level: usize, what: &str) -> (Value, String) {
-    let (v, on) = machine(g, f, args, level);
-    let on_slow = slow(g, f, args, level);
+fn run4(g: &mut Kernel, f: DefId, args: &[Value], level: usize, what: &str) -> (Value, String) {
+    let (v, on) = machine(&g.ev(), f, args, level);
+    let on_slow = slow(&g.ev(), f, args, level);
     g.env.set_disable_natives(true);
-    let (_, off) = machine(g, f, args, level);
-    let off_slow = slow(g, f, args, level);
+    let (_, off) = machine(&g.ev(), f, args, level);
+    let off_slow = slow(&g.ev(), f, args, level);
     g.env.set_disable_natives(false);
     assert_eq!(on, on_slow, "{what}: the evaluators disagree, natives on");
     assert_eq!(
@@ -354,7 +354,7 @@ fn closed(c: Col) -> Vec<Arg> {
     }
 }
 
-fn to_value(g: &Globals, a: Arg) -> Value {
+fn to_value(g: &stitchwort_core::Ev, a: Arg) -> Value {
     match a {
         Arg::Int(i) => int(g, i),
         Arg::Bool(b) => Value::Ctor(g.find_data("Bool").unwrap(), usize::from(b), vec![].into()),
@@ -363,7 +363,7 @@ fn to_value(g: &Globals, a: Arg) -> Value {
 
 /// Open arguments for a column, the variable at `level` free in them:
 /// unknown values, signs with unknown magnitudes, and `k + x` magnitudes.
-fn open(g: &Globals, c: Col, level: usize) -> Vec<Value> {
+fn open(g: &stitchwort_core::Ev, c: Col, level: usize) -> Vec<Value> {
     let x = Value::var(level);
     match c {
         Col::Int => {
@@ -408,8 +408,8 @@ fn generated_int_matches_agree_with_the_rows_in_every_evaluator() {
         load(&mut old, &small);
         for (name, generated) in &all {
             let text = generated.source(name);
-            let g = &mut new.elab.globals;
-            let f = def(g, name);
+            let g = &mut new.elab.kernel;
+            let f = def(&g.ev(), name);
             let body = g.def(f).body().unwrap();
             if body.subterms().any(|(t, _)| matches!(t, Term::NumCase(..))) {
                 num_cases += 1;
@@ -418,19 +418,20 @@ fn generated_int_matches_agree_with_the_rows_in_every_evaluator() {
             for args in product(&generated.cols, closed) {
                 let expected = generated.expected(&args);
                 let what = format!("{text}on {args:?}");
-                let values: Vec<Value> = args.iter().map(|a| to_value(g, *a)).collect();
+                let values: Vec<Value> = args.iter().map(|a| to_value(&g.ev(), *a)).collect();
                 let (v, nf) = run4(g, f, &values, 0, &what);
-                assert_eq!(as_int(g, &v), Some(expected), "{what}: {nf}");
+                assert_eq!(as_int(&g.ev(), &v), Some(expected), "{what}: {nf}");
                 if let Some(old) = &old {
-                    let og = &old.elab.globals;
+                    let og = &old.elab.kernel;
                     let small = args.iter().all(|a| match a {
                         Arg::Int(i) => i.abs() < BIG - 1,
                         Arg::Bool(_) => true,
                     });
                     if small {
-                        let values: Vec<Value> = args.iter().map(|a| to_value(og, *a)).collect();
-                        let (v, nf) = machine(og, def(og, name), &values, 0);
-                        assert_eq!(as_int(og, &v), Some(expected), "old: {what}: {nf}");
+                        let values: Vec<Value> =
+                            args.iter().map(|a| to_value(&og.ev(), *a)).collect();
+                        let (v, nf) = machine(&og.ev(), def(&og.ev(), name), &values, 0);
+                        assert_eq!(as_int(&og.ev(), &v), Some(expected), "old: {what}: {nf}");
                         compared_old += 1;
                     }
                 }
@@ -440,7 +441,7 @@ fn generated_int_matches_agree_with_the_rows_in_every_evaluator() {
                 .cols
                 .iter()
                 .zip(&levels)
-                .map(|(c, l)| open(g, *c, *l))
+                .map(|(c, l)| open(&g.ev(), *c, *l))
                 .collect();
             let mut combos = vec![Vec::new()];
             for choices in &per_column {
@@ -475,9 +476,9 @@ fn the_sign_is_known_and_the_magnitude_is_not() {
             &mut session,
             "def zeroOrOther : Int -> Bool\n  | 0 => True\n  | _ => False\n",
         );
-        let g = &mut session.elab.globals;
-        let f = def(g, "zeroOrOther");
-        let d = int_data(g);
+        let g = &mut session.elab.kernel;
+        let f = def(&g.ev(), "zeroOrOther");
+        let d = int_data(&g.ev());
         let neg = Value::Ctor(d, 1, vec![Value::var(0)].into());
         let (v, nf) = run4(g, f, &[neg], 1, "NegSucc k");
         let bool_data = g.find_data("Bool").unwrap();

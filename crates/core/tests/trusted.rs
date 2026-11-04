@@ -7,7 +7,7 @@ mod common;
 
 use common::*;
 use stitchwort_core::check::{self, DataDecl};
-use stitchwort_core::globals::{Ctor, Globals, State};
+use stitchwort_core::globals::{Ctor, Kernel, State};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DefId, Sort, Term};
 
@@ -18,8 +18,8 @@ fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
 /// `a` again, every declaration admitted trusted with the terms checking
 /// gave back, in the same order, as a cache replay does. For environments
 /// whose groups each have one member, defined right after being declared.
-fn trusted_copy(a: &Globals) -> Globals {
-    let mut b = Globals::default();
+fn trusted_copy(a: &Kernel) -> Kernel {
+    let mut b = Kernel::default();
     let (mut i, mut j) = (0, 0);
     while i < a.env.defs().len() || j < a.env.datas().len() {
         if j < a.env.datas().len() && a.env.datas()[j].defs_before() == i {
@@ -152,11 +152,17 @@ fn a_trusted_copy_is_the_checked_environment() {
     }
     for i in 0..a.env.defs().len() {
         let id = DefId(i);
-        assert_eq!(def_hash(a, id).unwrap(), def_hash(&b, id).unwrap());
+        assert_eq!(
+            def_hash(&a.ev(), id).unwrap(),
+            def_hash(&b.ev(), id).unwrap()
+        );
     }
     for i in 0..a.env.datas().len() {
         let id = stitchwort_core::DataId(i);
-        assert_eq!(data_hash(a, id).unwrap(), data_hash(&b, id).unwrap());
+        assert_eq!(
+            data_hash(&a.ev(), id).unwrap(),
+            data_hash(&b.ev(), id).unwrap()
+        );
     }
 }
 

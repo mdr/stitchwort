@@ -145,7 +145,7 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
         .load("use.sw", "def client : Nat := needsToken")
         .expect_err("`decToken` isn't marked `instance`");
     assert_eq!(codes(&errors), ["E-AUTO-NONE"]);
-    let defs = session.elab.globals.env.defs().len();
+    let defs = session.elab.kernel.env.defs().len();
     session.rewind(&mark);
     session
         .load(
@@ -158,7 +158,7 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
         .unwrap_or_else(|errors| panic!("{errors:#?}"));
     // The same definitions as before the rewind, so only the rewind tells
     // the remembered order apart.
-    assert_eq!(session.elab.globals.env.defs().len(), defs);
+    assert_eq!(session.elab.kernel.env.defs().len(), defs);
 }
 
 /// And the other way: a procedure that was found, rewound and declared

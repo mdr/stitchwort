@@ -19,7 +19,7 @@
 //! `List.range`, say) would keep its value alive for the whole run.
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Ev, Term};
 
 use crate::erasure::def_shape;
 
@@ -30,7 +30,7 @@ pub struct SigMaps {
 
 impl SigMaps {
     /// `None` if the core's effect machinery isn't loaded.
-    pub fn new(g: &Globals) -> Option<SigMaps> {
+    pub fn new(g: &Ev) -> Option<SigMaps> {
         Some(SigMaps {
             sig_map: g.env.registry().loaded_data(Builtin::SigMap)?,
         })
@@ -41,7 +41,7 @@ impl SigMaps {
     /// variable at run time: built from definitions, constructors and
     /// literals alone, wherever its arguments aren't erased. A definition
     /// without runtime parameters (`sigId`) is a constant already.
-    pub fn closed_map(&self, g: &Globals, id: DefId, args: &[&Term]) -> bool {
+    pub fn closed_map(&self, g: &Ev, id: DefId, args: &[&Term]) -> bool {
         let def = g.def(id);
         if args.len() != def.arity() || !self.returns_map(def.ty(), args.len()) {
             return false;
@@ -67,7 +67,7 @@ impl SigMaps {
 
 /// `id` applied to `args` reads no variable at run time: its erased
 /// arguments aren't looked at.
-fn runtime_closed_app(g: &Globals, id: DefId, args: &[&Term]) -> bool {
+fn runtime_closed_app(g: &Ev, id: DefId, args: &[&Term]) -> bool {
     let Ok(shape) = def_shape(g, id, false) else {
         return false;
     };
@@ -82,7 +82,7 @@ fn runtime_closed_app(g: &Globals, id: DefId, args: &[&Term]) -> bool {
 
 /// `term` reads no variable at run time. Conservative: a lambda, a `let`
 /// or a match counts as reading one.
-fn runtime_closed(g: &Globals, term: &Term) -> bool {
+fn runtime_closed(g: &Ev, term: &Term) -> bool {
     let (head, args) = term.spine();
     match head {
         Term::Def(id) => runtime_closed_app(g, *id, &args),

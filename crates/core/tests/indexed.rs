@@ -13,7 +13,7 @@ use stitchwort_core::check::{self, DataDecl, infer_closed};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, Sort, pretty};
+use stitchwort_core::{DataId, DefId, Kernel, Sort, pretty};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
@@ -114,7 +114,7 @@ impl Fams {
         }
     }
 
-    fn g(&mut self) -> &mut Globals {
+    fn g(&mut self) -> &mut Kernel {
         &mut self.p.g
     }
 
@@ -273,9 +273,9 @@ impl Fams {
 }
 
 /// The number a closed term computes to.
-fn nat_of(g: &Globals, term: &Term) -> Option<usize> {
-    let (term, _) = infer_closed(g, term, span()).expect("checks");
-    let value = eval(g, &[], &term).unwrap();
+fn nat_of(g: &Kernel, term: &Term) -> Option<usize> {
+    let (term, _) = infer_closed(&g.ev(), term, span()).expect("checks");
+    let value = eval(&g.ev(), &[], &term).unwrap();
     match value {
         Value::Nat(n) => n.to_string().parse().ok(),
         _ => None,
@@ -290,39 +290,45 @@ fn families_are_declared_and_typed() {
     let nat = f.nat();
     // `Vec Nat 3` is a type; `Vec Nat` alone isn't a full application.
     let vec3 = f.vec_ty(nat.clone(), f.p.num(3));
-    assert_eq!(code(infer_closed(&f.p.g, &vec3, span())), "ok");
+    assert_eq!(code(infer_closed(&f.p.g.ev(), &vec3, span())), "ok");
     let short = Term::data(f.vec, vec![nat.clone()]);
-    assert_eq!(code(infer_closed(&f.p.g, &short, span())), "E-MALFORMED");
+    assert_eq!(
+        code(infer_closed(&f.p.g.ev(), &short, span())),
+        "E-MALFORMED"
+    );
     // The index is checked against its type.
     let bad_index = f.vec_ty(nat.clone(), Term::ctor(f.p.list, 0, vec![]));
     assert_eq!(
-        code(infer_closed(&f.p.g, &bad_index, span())),
+        code(infer_closed(&f.p.g.ev(), &bad_index, span())),
         "E-TYPE-MISMATCH"
     );
     // `VNil : Vec Nat 0`, not `Vec Nat 1`.
     let nil0 = Term::Ann(f.vnil().into(), f.vec_ty(nat.clone(), f.p.num(0)).into());
     let nil1 = Term::Ann(f.vnil().into(), f.vec_ty(nat.clone(), f.p.num(1)).into());
-    assert_eq!(code(infer_closed(&f.p.g, &nil0, span())), "ok");
-    assert_eq!(code(infer_closed(&f.p.g, &nil1, span())), "E-TYPE-MISMATCH");
+    assert_eq!(code(infer_closed(&f.p.g.ev(), &nil0, span())), "ok");
+    assert_eq!(
+        code(infer_closed(&f.p.g.ev(), &nil1, span())),
+        "E-TYPE-MISMATCH"
+    );
     // `VCons [0] 7 VNil : Vec Nat 1`, and the implicit field must agree
     // with the tail's length.
     let one = f.vcons(f.p.num(0), f.p.num(7), f.vnil());
     let ok = Term::Ann(one.into(), f.vec_ty(nat.clone(), f.p.num(1)).into());
-    assert_eq!(code(infer_closed(&f.p.g, &ok, span())), "ok");
+    assert_eq!(code(infer_closed(&f.p.g.ev(), &ok, span())), "ok");
     let wrong = f.vcons(f.p.num(1), f.p.num(7), f.vnil());
     let wrong = Term::Ann(wrong.into(), f.vec_ty(nat.clone(), f.p.num(2)).into());
     assert_eq!(
-        code(infer_closed(&f.p.g, &wrong, span())),
+        code(infer_closed(&f.p.g.ev(), &wrong, span())),
         "E-TYPE-MISMATCH"
     );
     // A constructor of a family without parameters infers its type from
     // its result indices: `FZero [2] : Fin 3`.
     let fzero = Term::ctor(f.fin, 0, vec![f.p.num(2)]);
-    let (_, ty) = infer_closed(&f.p.g, &fzero, span()).unwrap();
-    let ty = quote(&f.p.g, 0, &ty).unwrap();
-    assert_eq!(pretty::term(&f.p.g, &[], &ty), "Fin 3");
+    let (_, ty) = infer_closed(&f.p.g.ev(), &fzero, span()).unwrap();
+    let ty = quote(&f.p.g.ev(), 0, &ty).unwrap();
+    assert_eq!(pretty::term(&f.p.g.ev(), &[], &ty), "Fin 3");
     // Printing.
-    assert_eq!(pretty::term(&f.p.g, &[], &vec3), "Vec Nat 3");
+    assert_eq!(pretty::term(&f.p.g.ev(), &[], &vec3), "Vec Nat 3");
 }
 
 #[test]
@@ -521,7 +527,7 @@ fn hashes_cover_indices_and_result_indices() {
     // The same constructors, without the index.
     let d = data(&mut f.p.g, "V", vec![("a", ty())], Sort::Type(0));
     check::define_ctors(&mut f.p.g, d, vec![ctor("VNil", vec![])]).unwrap();
-    let hash = |d| data_hash(&f.p.g, d).unwrap().unwrap();
+    let hash = |d| data_hash(&f.p.g.ev(), d).unwrap().unwrap();
     assert_eq!(hash(a), hash(b));
     assert_ne!(hash(a), hash(c), "the result index is hashed");
     assert_ne!(hash(a), hash(d), "the index telescope is hashed");
@@ -531,7 +537,7 @@ fn hashes_cover_indices_and_result_indices() {
 
 /// Defines `stuck: ty := body`, which must be refused with `E-INDEX-STUCK`:
 /// its label and notes.
-fn stuck(g: &mut Globals, ty: Term, body: Term) -> String {
+fn stuck(g: &mut Kernel, ty: Term, body: Term) -> String {
     let id = check::declare_def(
         g,
         &"stuck".into(),
@@ -565,10 +571,10 @@ fn head_needs_no_vnil_branch() {
     assert_eq!(nat_of(&f.p.g, &call), Some(5));
     // And while running, with erasure.
     let _running = f.p.g.machine.erasure.running();
-    let (call, _) = infer_closed(&f.p.g, &call, span()).unwrap();
-    let value = eval(&f.p.g, &[], &call).unwrap();
+    let (call, _) = infer_closed(&f.p.g.ev(), &call, span()).unwrap();
+    let value = eval(&f.p.g.ev(), &[], &call).unwrap();
     assert!(matches!(value, Value::Nat(n) if n.to_string() == "5"));
-    assert!(def_hash(&f.p.g, head).unwrap().is_some());
+    assert!(def_hash(&f.p.g.ev(), head).unwrap().is_some());
 }
 
 #[test]
@@ -1455,7 +1461,7 @@ fn an_impossible_branch_is_never_taken() {
     let mut f = Fams::new();
     let head = f.head("head", None).unwrap();
     let call = app(Term::Def(head), [f.nat(), f.p.num(0), f.vnil()]);
-    let value = eval(&f.p.g, &[], &call).unwrap();
+    let value = eval(&f.p.g.ev(), &[], &call).unwrap();
     assert!(matches!(value, Value::Neutral(..)));
 }
 
@@ -1466,5 +1472,5 @@ fn running_into_an_impossible_branch_fails_loudly() {
     let head = f.head("head", None).unwrap();
     let call = app(Term::Def(head), [f.nat(), f.p.num(0), f.vnil()]);
     let _running = f.p.g.machine.erasure.running();
-    let _ = eval(&f.p.g, &[], &call);
+    let _ = eval(&f.p.g.ev(), &[], &call);
 }

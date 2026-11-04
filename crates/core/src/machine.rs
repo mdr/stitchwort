@@ -54,6 +54,30 @@ impl Machine {
     }
 }
 
+/// Runs `f` in the kernel's own modes, then puts the caller's back
+/// (D2294): gluing off, the transparency set empty and erasure off. Every
+/// admission function runs in them, so what the kernel accepts never
+/// depends on the modes its caller left; it then turns gluing on for a
+/// body and sets a declaration's transparency set itself. The budget stays
+/// the caller's: resource limits and cancellation apply to the whole
+/// operation. The kernel returns errors as values, so `f` returns rather
+/// than unwinds, and nothing needs a guard.
+pub(crate) fn in_kernel_modes<T>(
+    g: &mut crate::globals::Kernel,
+    f: impl FnOnce(&mut crate::globals::Kernel) -> T,
+) -> T {
+    let m = &g.machine;
+    let glue = m.glue.replace(false);
+    let transparent = m.transparent.0.replace(Rc::default());
+    let erasure = m.erasure.stop();
+    let out = f(g);
+    let m = &g.machine;
+    m.glue.set(glue);
+    *m.transparent.0.borrow_mut() = transparent;
+    m.erasure.put_back(erasure);
+    out
+}
+
 /// The current transparency set ([`Machine::transparent`]).
 #[derive(Clone, Default)]
 pub struct Transparency(pub(crate) Rc<RefCell<Rc<[DefId]>>>);

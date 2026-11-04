@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote, quote_at_most};
-use stitchwort_core::{DefId, Globals, Name, Term, Value, pretty};
+use stitchwort_core::{DefId, Ev, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -59,7 +59,7 @@ pub(crate) fn infer_match(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 pub(crate) fn unknown_type(cx: &Ctx, expr: &Expr) -> Term {
     let (scrutinees, _, _, _) = parts(expr);
     let matched: Vec<usize> = scrutinees.iter().filter_map(|s| variable(cx, s)).collect();
-    let mut ty = Term::Meta(cx.g().new_meta(cx.span));
+    let mut ty = Term::Meta(cx.metas().new_meta(cx.span));
     for (level, value) in cx.env.iter().enumerate() {
         if is_var(value, level) && !matched.contains(&level) {
             ty = Term::app(ty, Term::Var(cx.level() - 1 - level));
@@ -274,7 +274,7 @@ fn refutable(
     });
     let span = patterns[0].span().to(patterns[patterns.len() - 1].span());
     let message = match columns {
-        [column] => match stitchwort_core::value::force(cx.g(), cx.types[*column].clone()) {
+        [column] => match stitchwort_core::value::force(&cx.g(), cx.types[*column].clone()) {
             Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => {
                 format!("this pattern doesn't match every case: it doesn't match {what}")
             }
@@ -414,7 +414,7 @@ fn lifted(
         // A proposition with a decision procedure (`match h: a <= b with`) is
         // matched as the `Bool` it decides, as `if` reads it (SW-206 item 5).
         let decided = matches!(
-            stitchwort_core::value::force(g, ty.clone())?,
+            stitchwort_core::value::force(&g, ty.clone())?,
             Value::Sort(stitchwort_core::Sort::Prop)
         );
         let (term, ty) = if decided {
@@ -435,7 +435,7 @@ fn lifted(
         // decided (D1073). Any other scrutinee's normal form is left for the
         // occurrence test to compute, as far as it needs ([`normals`]).
         let (term, normal) = if decided {
-            let normal = (|| Ok(quote(g, base, &cx.eval(&term)?)?))()
+            let normal = (|| Ok(quote(&g, base, &cx.eval(&term)?)?))()
                 .map_err(|d| in_scrutinee(d, s.expr.span()))?;
             match tested_bool(cx, &normal) {
                 Some(b) => (b.clone(), Some(b)),
@@ -682,7 +682,7 @@ fn blocker(
     own: Option<usize>,
 ) -> Result<Option<usize>> {
     let g = cx.g();
-    let unsolved = |m: usize| g.meta_solution(m).is_none() && !g.meta_frozen(m);
+    let unsolved = |m: usize| g.meta_solution(m).is_none() && !cx.metas().meta_frozen(m);
     for s in exprs {
         for t in [&s.term, &s.ty_term] {
             let t = cx.e.zonk_keeping(t, base, &|_| true)?;
@@ -692,7 +692,7 @@ fn blocker(
         }
     }
     for l in 0..base {
-        if let Some(m) = first_meta(&quote(g, base, &cx.types[l])?, &unsolved) {
+        if let Some(m) = first_meta(&quote(&g, base, &cx.types[l])?, &unsolved) {
             return Ok(Some(m));
         }
     }
@@ -701,7 +701,7 @@ fn blocker(
     }
     let pending = crate::queue::pending(cx)?;
     let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
-    Ok(first_meta(&quote(g, base, goal)?, &is_pending))
+    Ok(first_meta(&quote(&g, base, goal)?, &is_pending))
 }
 
 /// The first unknown in `t` that `which` picks.
@@ -748,7 +748,7 @@ impl crate::queue::Check for WaitingMatch {
             s.ty_term = cx.quote(&s.ty)?;
         }
         // Its own type, which it settles, is pending only for others.
-        let own = match stitchwort_core::value::force(g, goal.clone())? {
+        let own = match stitchwort_core::value::force(&g, goal.clone())? {
             Value::Neutral(Head::Meta(m), _) => Some(m),
             _ => None,
         };
@@ -776,7 +776,7 @@ impl crate::queue::Check for WaitingMatch {
         // Still waiting at the end on an unknown no check of the queue
         // fills: what finishing reports for it (a lambda parameter's type).
         let m = blocker?;
-        (!e.globals.unfilled_placeholders.borrow().contains(&m)).then(|| e.unsolved_error(m))
+        (!e.attempt.store.unfilled_placeholders.borrow().contains(&m)).then(|| e.unsolved_error(m))
     }
 
     fn display(&self, _cx: &Ctx) -> Option<String> {
@@ -816,10 +816,10 @@ fn generalised_now(
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
             // Never copied, so never read (`cannot_occur` passes over it).
             true => Ok(Term::Refl),
-            false => quote(g, base, &cx.types[l]).map_err(in_match),
+            false => quote(&g, base, &cx.types[l]).map_err(in_match),
         })
         .collect::<Result<_>>()?;
-    let goal_term = quote(g, base, goal).map_err(in_match)?;
+    let goal_term = quote(&g, base, goal).map_err(in_match)?;
     let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
@@ -915,7 +915,7 @@ fn generalised_now(
             exprs: &occurrences,
             copies: &copies,
         };
-        let ty = generalise.apply(g, &type_terms[l])?;
+        let ty = generalise.apply(&g, &type_terms[l])?;
         let value = cx.eval(&ty)?;
         cx.bind_hidden(cx.names[l].clone(), value);
         cx.rebind(l, depth);
@@ -929,7 +929,7 @@ fn generalised_now(
         if let Some(h) = &s.name {
             let depth = cx.level();
             equations.push((i, depth));
-            let shift = |t: &Term| t.shift(g, depth - base, 0);
+            let shift = |t: &Term| t.shift(&g, depth - base, 0);
             let eq = Term::Eq(
                 Some(Rc::new(shift(&s.ty_term)?)),
                 Rc::new(shift(&s.term)?),
@@ -947,7 +947,7 @@ fn generalised_now(
         exprs: &occurrences,
         copies: &copies,
     };
-    let goal_term = generalise.apply(g, &goal_term)?;
+    let goal_term = generalise.apply(&g, &goal_term)?;
     let motive = cx.eval(&goal_term)?;
     let motive_later = skip.is_none() && check_motive(cx, base, &extra, &motive, span)?;
     let levels: Vec<usize> = columns
@@ -1060,13 +1060,13 @@ fn normals(
     let normals = (exprs.iter().zip(&mut unread))
         .map(|(s, unread)| match &s.normal {
             Some(normal) => Ok(Some(normal.clone())),
-            None if exprs.len() == 1 && cannot_occur(g, s, targets(), base) => {
+            None if exprs.len() == 1 && cannot_occur(&g, s, targets(), base) => {
                 *unread = !closed(s, base);
                 Ok(None)
             }
             None => (|| {
                 let value = cx.eval(&s.term)?;
-                Ok(quote_at_most(g, base, &value, cap)?)
+                Ok(quote_at_most(&g, base, &value, cap)?)
             })()
             .map_err(|d| in_scrutinee(d, s.span)),
         })
@@ -1096,7 +1096,7 @@ fn closed(s: &Scrut, base: usize) -> bool {
 /// is no such variable if `s` has no free variables or unknowns, or if the
 /// targets have no free variables.
 fn cannot_occur<'a>(
-    g: &Globals,
+    g: &Ev,
     s: &Scrut,
     mut targets: impl Iterator<Item = &'a Term>,
     base: usize,
@@ -1190,12 +1190,12 @@ fn not_found(
             continue;
         }
         let shown = pretty::term_for_message_in(
-            g,
+            &g,
             cx.e,
             &cx.shown_names(false),
             normal.as_ref().unwrap_or(&s.term),
         );
-        let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), goal_normal);
+        let goal_shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), goal_normal);
         out.push((
             i,
             Diagnostic::warning(
@@ -1286,9 +1286,9 @@ fn uses_all(base: usize, depth: usize) -> Term {
 fn unknown_left_for_lifting(cx: &Ctx, draft: &Draft) -> Result<bool> {
     let g = cx.g();
     let depth = draft.env.len();
-    let unsolved = |m: usize| g.meta_solution(m).is_none() && !g.meta_frozen(m);
+    let unsolved = |m: usize| g.meta_solution(m).is_none() && !cx.metas().meta_frozen(m);
     for ty in &draft.types {
-        if first_meta(&quote(g, depth, ty)?, &unsolved).is_some() {
+        if first_meta(&quote(&g, depth, ty)?, &unsolved).is_some() {
             return Ok(false);
         }
     }
@@ -1336,7 +1336,7 @@ pub(crate) fn check_motive_when_lifted(e: &crate::Elaborator, d: &Draft) -> Resu
 /// Checks `ty`, a generalised `match`'s helper's type with every variable it
 /// added: [`check_motive`]'s error if it is ill-formed.
 fn motive_holds(e: &crate::Elaborator, ty: &Term, span: stitchwort_syntax::Span) -> Result<()> {
-    let g = &e.globals;
+    let g = &e.ev();
     let mut kcx = kernel::Ctx::new(g, span);
     match kernel::without_glue(g, || kernel::check_type(&mut kcx, ty)) {
         Ok(_) => Ok(()),
@@ -1483,7 +1483,7 @@ struct Generalise<'a> {
 }
 
 impl Generalise<'_> {
-    fn apply(&self, g: &stitchwort_core::Globals, term: &Term) -> Result<Term> {
+    fn apply(&self, g: &Ev, term: &Term) -> Result<Term> {
         let hook = |t: &Term, under: usize| {
             self.exprs.iter().enumerate().find_map(|(i, e)| {
                 e.is_some_and(|e| same_shifted(e, t, under, 0))
@@ -1522,9 +1522,9 @@ mod tests {
     }
 
     fn meta(cx: &Ctx, levels: &[usize], frozen: bool) -> (usize, Value) {
-        let m = cx.g().new_meta(span());
+        let m = cx.metas().new_meta(span());
         if frozen {
-            cx.g().freeze_meta(m);
+            cx.metas().freeze_meta(m);
         }
         let spine = levels
             .iter()
@@ -1561,7 +1561,7 @@ mod tests {
         let e = Elaborator::new();
         let cx = Ctx::new(&e, span());
         let g = cx.g();
-        let m = g.new_meta(span());
+        let m = cx.metas().new_meta(span());
         let unknown = Term::app(Term::Meta(m), Term::Var(0));
         let needle = Term::app(Term::Var(1), Term::Var(0));
         // Source locations don't matter.

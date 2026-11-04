@@ -7,7 +7,7 @@ use std::rc::Rc;
 use stitchwort_core::check::{self, CtorDecl};
 use stitchwort_core::registry;
 use stitchwort_core::term::Branch;
-use stitchwort_core::{DataId, DefId, Globals, Icit, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, Kernel, Sort, Term};
 use stitchwort_syntax::{SourceMap, Span};
 
 pub fn span() -> Span {
@@ -44,7 +44,7 @@ pub fn ipi(x: &str, a: Term, b: Term) -> Term {
 
 /// `a -> b`, where `b` is written outside the binder (it's shifted under it).
 pub fn arrow(a: Term, b: Term) -> Term {
-    pi("_", a, b.shift(&Globals::default(), 1, 0).unwrap())
+    pi("_", a, b.shift(&Kernel::default().ev(), 1, 0).unwrap())
 }
 
 pub fn lam(x: &str, body: Term) -> Term {
@@ -79,7 +79,7 @@ pub fn case(ix: usize, d: DataId, branches: Vec<(Vec<&str>, Term)>) -> Term {
 
 /// A prelude built directly in the core: `Nat`, `add` and `List`.
 pub struct Prelude {
-    pub g: Globals,
+    pub g: Kernel,
     pub nat: DataId,
     pub add: DefId,
     pub list: DataId,
@@ -87,7 +87,7 @@ pub struct Prelude {
 
 impl Prelude {
     pub fn new() -> Self {
-        let mut g = Globals::default();
+        let mut g = Kernel::default();
         let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
         let nat_ty = Term::Data(nat, vec![]);
         check::define_ctors(
@@ -161,7 +161,7 @@ impl Prelude {
     }
 }
 
-pub fn data(g: &mut Globals, name: &str, params: Vec<(&str, Term)>, sort: Sort) -> DataId {
+pub fn data(g: &mut Kernel, name: &str, params: Vec<(&str, Term)>, sort: Sort) -> DataId {
     check::declare_data(
         g,
         name.into(),
@@ -185,14 +185,14 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
     }
 }
 
-pub fn declare(g: &mut Globals, name: &str, ty: Term) -> DefId {
+pub fn declare(g: &mut Kernel, name: &str, ty: Term) -> DefId {
     check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())
         .expect("type checks")
 }
 
 /// Declares and defines `name : ty = body`, returning the error code if the
 /// kernel rejects it.
-pub fn define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId, &'static str> {
+pub fn define(g: &mut Kernel, name: &str, ty: Term, body: Term) -> Result<DefId, &'static str> {
     let id = check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())
         .map_err(|d| d.code)?;
     check::define_def(g, id, &body).map_err(|d| d.code)?;
@@ -203,7 +203,7 @@ pub fn define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId
 
 /// Declares a data type with parameters and an index telescope.
 pub fn try_family(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &str,
     params: Vec<(&str, Term)>,
     indices: Vec<(&str, Term)>,
@@ -225,7 +225,7 @@ pub fn try_family(
 }
 
 pub fn family(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &str,
     params: Vec<(&str, Term)>,
     indices: Vec<(&str, Term)>,

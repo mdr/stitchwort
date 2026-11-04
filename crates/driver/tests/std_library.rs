@@ -807,7 +807,7 @@ struct Run {
 }
 
 fn hashes(session: &Session) -> BTreeMap<String, String> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let show =
         |h: stitchwort_core::budget::Result<Option<stitchwort_core::hash::ContentHash>>| match h {
             Ok(Some(h)) => h.hex(),

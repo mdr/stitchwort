@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DefId, Globals, Limits, Term};
+use stitchwort_core::{DefId, Ev, Limits, Term};
 use stitchwort_elab::counterexample::{Budget, FAST_STEPS, SearchLog};
 use stitchwort_rt::value::Value;
 
@@ -197,7 +197,7 @@ impl Session {
         budget: Budget,
         keep: &dyn Fn(&str) -> bool,
     ) -> Vec<TheoremSearch> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let theorems: Vec<(DefId, String, bool)> = (0..g.env.defs().len())
             .map(DefId)
             .filter_map(|id| {
@@ -223,7 +223,7 @@ impl Session {
 /// Runs `checker` on each of `inputs` on the fast runtime, telling `each`
 /// the results, until it says to stop. `false` if it can't run there.
 pub fn run_fast(
-    g: &Globals,
+    g: &Ev,
     limits: Limits,
     checker: &Term,
     inputs: &[Vec<Term>],

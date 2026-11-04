@@ -260,7 +260,7 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
             "def f (n : Nat) : Nat := n\n\nexport def g (n : Nat) : Nat := n\n",
         )
         .expect("checks");
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     let f = DefId(
         g.env
             .defs()
@@ -286,7 +286,7 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
 fn deep_terms_in_later_passes() {
     isolated("deep_terms_in_later_passes", || {
         let (session, id) = with_deep_definition(1_000_000);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let body = g.def(id).body().unwrap();
         {
             let _op = g.machine.budget.operation(Limits::default());
@@ -333,14 +333,14 @@ fn deep_terms_in_later_passes() {
 fn long_chains_of_definitions_to_hash() {
     isolated("long_chains_of_definitions_to_hash", || {
         let (mut session, _) = with_deep_definition(1);
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         let first = g.env.defs().len() - 1;
         for i in 0..1_000_000 {
             let body = Some(Rc::new(Term::Def(DefId(g.env.defs().len() - 1))));
             g.env
                 .push_copy_unchecked_for_tests(DefId(first), format!("chain{i}").into(), body);
         }
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let _op = g.machine.budget.operation(Limits::default());
         assert_eq!(
             def_hash(g, DefId(g.env.defs().len() - 1)),

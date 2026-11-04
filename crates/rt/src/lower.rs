@@ -14,7 +14,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Limits, QuotForm, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
 use crate::effect::{Carrier, EffectNatives, EffectOp};
@@ -43,7 +43,7 @@ fn internal(message: impl Into<String>) -> Diagnostic {
 /// in the driver), with every definition it uses. Uses at most
 /// `limits.stack` bytes of stack: a definition nested too deeply for that
 /// is an `E-RESOURCE` error.
-pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Result<Program> {
+pub fn lower_main(g: &Ev, limits: Limits, main: &Term, row: MainRow) -> Result<Program> {
     if row == MainRow::FailIo && g.env.registry().loaded_data(Builtin::Fail).is_none() {
         return Err(internal("a `main` that may fail, with `Fail` not loaded"));
     }
@@ -54,23 +54,23 @@ pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Res
 
 /// Lowers global `id` and every definition it uses; the program's entry is
 /// `id`'s value. For tests and debugging.
-pub fn lower_global(g: &Globals, limits: Limits, id: DefId) -> Result<Program> {
+pub fn lower_global(g: &Ev, limits: Limits, id: DefId) -> Result<Program> {
     lower_program(g, limits, &Term::Def(id))
 }
 
 /// Lowers the definitions `ids` and every definition they use, with no
 /// entry (it's `erased`). For tests that lower everything a program has.
-pub fn lower_definitions(g: &Globals, limits: Limits, ids: &[DefId]) -> Result<Program> {
+pub fn lower_definitions(g: &Ev, limits: Limits, ids: &[DefId]) -> Result<Program> {
     lower_roots(g, limits, ids.to_vec(), &Term::Refl)
 }
 
-fn lower_program(g: &Globals, limits: Limits, entry: &Term) -> Result<Program> {
+fn lower_program(g: &Ev, limits: Limits, entry: &Term) -> Result<Program> {
     // The definitions the entry uses are found by scanning it, which sees
     // which of its calls are at the empty row.
     lower_roots(g, limits, Vec::new(), entry)
 }
 
-fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Result<Program> {
+fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Result<Program> {
     let _op = g.machine.budget.operation(Limits::stack_only(limits.stack));
     let mut cx = Lowerer::new(g)?;
     // What the entry uses, as the JS backend finds it: an erased definition
@@ -193,7 +193,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
 /// The constructors the runtime builds and takes apart, from the prelude:
 /// constructor `c` of data type `d`, checked to have `fields` runtime
 /// fields.
-fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
+fn shape(g: &Ev, d: DataId, c: usize, fields: usize) -> Result<u32> {
     let data = g.data(d);
     let ctor = data
         .ctors()
@@ -217,7 +217,7 @@ fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
     Ok(u32::try_from(c).expect("ctors fit"))
 }
 
-fn shapes(g: &Globals) -> Result<Shapes> {
+fn shapes(g: &Ev) -> Result<Shapes> {
     let missing = |b: Builtin| internal(format!("the prelude doesn't declare `{}`", b.name()));
     let ctor = |b: Builtin, fields: usize| -> Result<u32> {
         let (d, c) = g.env.registry().ctor(b).ok_or_else(|| missing(b))?;
@@ -294,7 +294,7 @@ struct Frame {
 }
 
 struct Lowerer<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     repr: Representation,
     shapes: Vec<OnceCell<DefShape>>,
     if_then_else: Option<DefId>,
@@ -331,7 +331,7 @@ struct Lowerer<'g> {
 }
 
 impl<'g> Lowerer<'g> {
-    fn new(g: &'g Globals) -> Result<Self> {
+    fn new(g: &'g Ev<'g>) -> Result<Self> {
         let repr = Representation::new(g, true, true).map_err(Diagnostic::from)?;
         // As for `run --js`: the runtime is written for native numbers and
         // text.

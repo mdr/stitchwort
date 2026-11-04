@@ -4,11 +4,11 @@
 //! a code that isn't one.
 
 use stitchwort_core::check::infer_closed;
-use stitchwort_core::{BigUint, DataId, Globals, Term};
+use stitchwort_core::{BigUint, DataId, Term};
 use stitchwort_driver::driver::Session;
 use stitchwort_syntax::{SourceMap, Span};
 
-fn mk_char(g: &Globals) -> DataId {
+fn mk_char(g: &stitchwort_core::Ev) -> DataId {
     DataId(
         g.env
             .datas()
@@ -24,7 +24,7 @@ fn span() -> Span {
 
 /// `MkChar code rfl`, checked by the kernel. For a code that isn't a scalar
 /// value, `rfl` would have to prove `False = True`.
-fn check_code(g: &Globals, code: u32) -> Result<(), &'static str> {
+fn check_code(g: &stitchwort_core::Ev, code: u32) -> Result<(), &'static str> {
     let term = Term::ctor(
         mk_char(g),
         0,
@@ -38,7 +38,7 @@ fn check_code(g: &Globals, code: u32) -> Result<(), &'static str> {
 #[test]
 fn the_kernel_accepts_exactly_the_scalar_values() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     for code in [
         0, 0x41, 0xD7FF, 0xE000, 0xFFFF, 0x1_0000, 0x1F600, 0x10_FFFF,
     ] {
@@ -60,7 +60,7 @@ fn the_kernel_accepts_exactly_the_scalar_values() {
 #[test]
 fn the_kernel_refuses_a_char_without_its_proof() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let term = Term::ctor(mk_char(g), 0, vec![Term::Nat(BigUint::from(65u32).into())]);
     assert_eq!(
         infer_closed(g, &term, span())

@@ -10,7 +10,7 @@ use stitchwort_core::check::{
     CtorDecl, add_field_validator, declare_data_group_as, define_data_group,
 };
 use stitchwort_core::hash::data_hash;
-use stitchwort_core::{DataId, Globals, Sort, Term};
+use stitchwort_core::{DataId, Kernel, Sort, Term};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_syntax::{SourceMap, Span};
 
@@ -26,19 +26,19 @@ fn load(source: &str) -> Session {
     session
 }
 
-fn data(g: &Globals, name: &str) -> DataId {
+fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
     g.find_data(name).unwrap_or_else(|| panic!("no `{name}`"))
 }
 
 /// Declares `name` with constructors `ctors`, each `(name, fields)` with
 /// fields of type `Nat`, as a record or not.
 fn declare(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &str,
     record: bool,
     ctors: &[(&str, &[&str])],
 ) -> Result<DataId, &'static str> {
-    let nat = Term::Data(data(g, "Nat"), Vec::new());
+    let nat = Term::Data(data(&g.ev(), "Nat"), Vec::new());
     let ids = declare_data_group_as(
         g,
         Vec::new(),
@@ -66,21 +66,21 @@ fn declare(
 fn the_record_flag_is_hashed() {
     let mut a = Session::new();
     let mut b = Session::new();
-    let ga = &mut a.elab.globals;
-    let gb = &mut b.elab.globals;
+    let ga = &mut a.elab.kernel;
+    let gb = &mut b.elab.kernel;
     let r = declare(ga, "Point", true, &[("Point.mk", &["x", "y"])]).unwrap();
     let d = declare(gb, "Point", false, &[("Point.mk", &["x", "y"])]).unwrap();
     let _op = ga
         .machine
         .budget
         .operation(stitchwort_core::Limits::default());
-    let ha = data_hash(ga, r).unwrap();
+    let ha = data_hash(&ga.ev(), r).unwrap();
     drop(_op);
     let _op = gb
         .machine
         .budget
         .operation(stitchwort_core::Limits::default());
-    let hb = data_hash(gb, d).unwrap();
+    let hb = data_hash(&gb.ev(), d).unwrap();
     assert!(ha.is_some() && hb.is_some());
     assert_ne!(
         ha, hb,
@@ -91,7 +91,7 @@ fn the_record_flag_is_hashed() {
 #[test]
 fn a_record_has_exactly_one_constructor() {
     let mut s = Session::new();
-    let g = &mut s.elab.globals;
+    let g = &mut s.elab.kernel;
     assert_eq!(
         declare(g, "Two", true, &[("A", &[]), ("B", &[])]),
         Err("E-MALFORMED")
@@ -114,10 +114,10 @@ fn field_validators_are_checked() {
          def decZero (n : Nat) : Decidable (IsZero' n) := Nat.decEq n 0\n\n\
          def decOne (n : Nat) : Decidable (n = 1) := Nat.decEq n 1\n",
     );
-    let g = &mut s.elab.globals;
-    let small = data(g, "Small");
-    let decidable = data(g, "Decidable");
-    let def = |g: &Globals, name: &str| {
+    let g = &mut s.elab.kernel;
+    let small = data(&g.ev(), "Small");
+    let decidable = data(&g.ev(), "Decidable");
+    let def = |g: &stitchwort_core::Ev, name: &str| {
         Term::Def(stitchwort_core::DefId(
             g.env
                 .defs()
@@ -127,8 +127,8 @@ fn field_validators_are_checked() {
         ))
     };
     // In the context of the earlier field `n`, variable 0.
-    let wrong = Term::app(def(g, "decOne"), Term::Var(0));
-    let right = Term::app(def(g, "decZero"), Term::Var(0));
+    let wrong = Term::app(def(&g.ev(), "decOne"), Term::Var(0));
+    let right = Term::app(def(&g.ev(), "decZero"), Term::Var(0));
     let code = |r: Result<(), stitchwort_syntax::Diagnostic>| r.err().map_or("ok", |d| d.code);
     assert_eq!(
         code(add_field_validator(g, small, 0, 0, decidable, &right)),
@@ -166,7 +166,7 @@ fn projections_and_equality_are_generated() {
          type Sized = { items : List Nat, size : Nat, ok : List.length items = size }\n\n\
          type Box (a : Type) = { value : a }\n",
     );
-    let g = &s.elab.globals;
+    let g = &s.elab.ev();
     let shown = |name: &str| {
         let def = g
             .env

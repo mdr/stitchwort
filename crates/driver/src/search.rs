@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::{DataId, Globals};
+use stitchwort_core::{DataId, Ev};
 use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
 };
@@ -607,7 +607,7 @@ impl Session {
             query.mentions.push(p);
             query.pattern = None;
         }
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let all = options.all;
         let candidates = self.elab.search_candidates(&|item, path| {
             options.kinds.allows(item.kind(g))
@@ -645,7 +645,7 @@ impl Session {
             for reading in resolutions(&expr, text) {
                 match self.search_patterns(&reading, &query.holes) {
                     Ok((patterns, named)) => {
-                        let g = &self.elab.globals;
+                        let g = &self.elab.ev();
                         let shown = patterns[0].show(g);
                         // The same pattern up to how its holes are
                         // numbered (`List.length (_ ++ _) = _` as written,
@@ -673,7 +673,7 @@ impl Session {
                 return Err(first_error.expect("the pattern as written was tried"));
             }
         }
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let elaborated = readings.first().map(|(s, _)| s.clone());
         let resolutions: Vec<String> = if readings.len() > 1 {
             readings.iter().map(|(s, _)| s.clone()).collect()
@@ -707,7 +707,7 @@ impl Session {
             ),
             _ => {}
         }
-        if let Some(w) = out_of_budget_warning(&self.elab.globals, &found.stats) {
+        if let Some(w) = out_of_budget_warning(&self.elab.ev(), &found.stats) {
             warnings.push(w);
         }
         if found.stats.internal_errors > 0 {
@@ -756,7 +756,7 @@ impl Session {
     /// Imports every namespace of the library (`import Std (List, Map,
     /// …)`), so that a query can say `List.length` or `Map.insert`.
     pub fn import_library_namespaces(&mut self) {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let tops = (0..g.env.defs().len())
             .map(|i| g.def(stitchwort_core::DefId(i)).path().to_string())
             .chain((0..g.env.datas().len()).map(|d| g.data(DataId(d)).path().to_string()));
@@ -814,7 +814,7 @@ impl Session {
         scope: &Scope,
         docs: &mut DocCache,
     ) -> Result1 {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let item = hit.item;
         let (file, line) = crate::render::location(&self.sources, item.span(g));
         // A constructor's span is its type's, so its doc would be the type's:
@@ -875,7 +875,7 @@ impl DocCache {
 /// one: a declaration found by more than one appears once, at its best
 /// rank. If some reading found something without the relaxed pass, the
 /// readings that needed it are left out, as weaker.
-fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
+fn merge(g: &Ev, mut runs: Vec<Found>) -> Found {
     if runs.len() == 1 {
         return runs.pop().expect("one");
     }
@@ -925,7 +925,7 @@ fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
 
 /// Without a pattern: every candidate `keep` keeps, smallest type first.
 fn list(
-    g: &Globals,
+    g: &Ev,
     candidates: &[Candidate],
     keep: &dyn Fn(&Candidate) -> bool,
     stats: &mut Stats,
@@ -954,7 +954,7 @@ fn list(
 /// keeping the order within each half (D2154, documentation.md §5.2): the
 /// last component of the name equals the text (`List.filterMap` for
 /// `"filterMap"`), or the name ends with the text at a dot (`"List.filterMap"`).
-fn exact_name_first(g: &Globals, hits: &mut [Hit], names: &[String]) {
+fn exact_name_first(g: &Ev, hits: &mut [Hit], names: &[String]) {
     let exact = |hit: &Hit| {
         let path = hit.item.path(g);
         names.iter().any(|n| {
@@ -986,7 +986,7 @@ pub(crate) fn hidden(path: &str) -> bool {
 /// `magUnits 9218868437227405311` run out of depth against any `Nat`
 /// sum), so a reader can tell whether one of them could be what they want.
 pub(crate) fn out_of_budget_warning(
-    g: &Globals,
+    g: &Ev,
     stats: &stitchwort_elab::search::Stats,
 ) -> Option<String> {
     if stats.out_of_budget == 0 {
@@ -1016,7 +1016,7 @@ pub(crate) fn out_of_budget_warning(
 /// `Std.List.lengthAppend`, `import Lib (Range)` for a project's
 /// `Lib.Range.size` in a project with namespace `Lib`; `None` for a
 /// declaration of the file searched.
-pub(crate) fn import_line(g: &Globals, item: Item, scope: &Scope) -> Option<String> {
+pub(crate) fn import_line(g: &Ev, item: Item, scope: &Scope) -> Option<String> {
     let path = item.path(g);
     let (namespace, rest) = match path.strip_prefix("Std.") {
         Some(rest) => ("Std", rest),
