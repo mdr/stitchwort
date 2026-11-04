@@ -6239,16 +6239,18 @@
     {
       "id": 1278,
       "title": "AoC 2020 day 6 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "next",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.",
+      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.\n\nLane notes (Sonnet, 4 Nov): answers 6630 and 3437 (example 11, 6). Domain types Person/Group, Spec on lines, parser and both parts proved (Proofs/Parse, Sets, Proofs). Main finding: std Parse.SepBy does not tie the first value to the first read (day 4 affected); worked around locally. Notes in aoc/NOTES-2020.md \"Day 6\". About 25 min. Not run: Matt's Scala.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "d327458e8"
+      ]
     },
     {
       "id": 1279,
