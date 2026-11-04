@@ -471,15 +471,26 @@ fn opaque_calls_compare_by_their_arguments() {
 }
 
 #[test]
-fn opaque_calls_with_different_proofs_differ() {
-    // h (n: Nat) (proof: n = n): Nat := n, which ignores its proof. With `h`
-    // opaque, `h 0 p` and `h 0 q` for two proofs `p`, `q` aren't convertible:
-    // there's no definitional proof irrelevance (§6.4).
+fn opaque_calls_with_different_proofs() {
+    // h (n: Nat) (proof: n = n): Nat := n, which ignores its proof, so the
+    // proof is an inert parameter, and comparison skips it whether `h` is
+    // opaque or not: its marks come from its body, hidden or not
+    // (docs/proposals/proof-irrelevance.md §7.3). `k`, which takes `J` on its
+    // proof, computes with it, so `k 0 p` and `k 0 q` stay different.
     let mut p = Prelude::new();
     let ty = pi("n", p.nat_ty(), arrow(nat_eq(&p, v(0), v(0)), p.nat_ty()));
     let body = lam("n", lam("proof", v(1)));
     let opaque_h = submit(&mut p.g, "h", OPAQUE, ty.clone(), body.clone()).unwrap();
-    let plain_h = submit(&mut p.g, "h2", PLAIN, ty, body).unwrap();
+    let plain_h = submit(&mut p.g, "h2", PLAIN, ty.clone(), body).unwrap();
+    let motive = lam("y", lam("e", p.nat_ty()));
+    let uses = lam(
+        "n",
+        lam(
+            "proof",
+            Term::J(Rc::new(motive), Rc::new(v(1)), Rc::new(v(0))),
+        ),
+    );
+    let opaque_k = submit(&mut p.g, "k", OPAQUE, ty, uses).unwrap();
     let zero_eq = nat_eq(&p, p.num(0), p.num(0));
     let statement = |h: DefId| {
         pi(
@@ -497,13 +508,14 @@ fn opaque_calls_with_different_proofs_differ() {
         )
     };
     let proof = lam("p", lam("q", Term::Refl));
-    let (opaque_statement, plain_statement) = (statement(opaque_h), statement(plain_h));
+    let (opaque_h, plain_h, opaque_k) =
+        (statement(opaque_h), statement(plain_h), statement(opaque_k));
+    assert!(submit(&mut p.g, "irr", THEOREM, opaque_h, proof.clone()).is_ok());
+    assert!(submit(&mut p.g, "irr2", THEOREM, plain_h, proof.clone()).is_ok());
     assert_eq!(
-        submit(&mut p.g, "irr", THEOREM, opaque_statement, proof.clone()),
+        submit(&mut p.g, "irr3", THEOREM, opaque_k, proof),
         Err("E-REFL")
     );
-    // Paired: transparent, the body ignores the proof.
-    assert!(submit(&mut p.g, "irr", THEOREM, plain_statement, proof).is_ok());
 }
 
 #[test]

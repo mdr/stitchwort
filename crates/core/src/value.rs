@@ -2263,6 +2263,18 @@ fn succ_unglued(g: &Ev, field: &Value) -> Result<Value> {
 /// It doesn't recurse on the Rust stack: the pairs still to compare are kept
 /// on a work list, depth first and left to right, so the first difference
 /// found stops it, as a recursive version would.
+///
+/// **Precondition: homogeneous values.** `a` and `b` have the same type.
+/// Proofs are skipped by position (a constructor's proof field, a data
+/// type's proof parameter, a definition's inert argument), without knowing
+/// what they prove, which is the same proposition on both sides only
+/// because the values have one type; a constructor value doesn't even
+/// carry its type's parameters. Breaking this can be a soundness bug, not
+/// just a wrong `false`: a caller that has two values of possibly
+/// different types compares the types first
+/// (docs/proposals/proof-irrelevance.md §7.4). Inside, parts are taken left
+/// to right, so earlier parts (which later parts' types depend on) are
+/// compared, or are skipped proofs, first.
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     conv_with(g, level, a, b, &mut CallMemo::default(), Mode::Normal)
 }
@@ -2560,9 +2572,8 @@ fn conv_step(
             if d1 != d2 || a1.len() != a2.len() {
                 return Ok(false);
             }
-            let data = g.data(*d1);
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
-                if !data.is_proof_param(k) {
+                if !proof_param(g, *d1, k) {
                     work.push(ConvTask::Values(level, x.clone(), y.clone()));
                 }
             }
@@ -2572,9 +2583,8 @@ fn conv_step(
             if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
                 return Ok(false);
             }
-            let sorts = &g.data(*d1).ctors[*c1].field_sorts;
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
-                if mode == Mode::Shortcut || sorts.get(k) != Some(&Sort::Prop) {
+                if mode == Mode::Shortcut || !proof_field(g, *d1, *c1, k) {
                     work.push(ConvTask::Values(level, x.clone(), y.clone()));
                 }
             }
@@ -2687,6 +2697,26 @@ fn spine_pairs(
         }
     }
     Some(pairs)
+}
+
+/// Whether parameter `k` of data type `d` is a proof. A type the
+/// environment doesn't hold (only unit tests build such values) has none.
+pub fn proof_param(g: &Ev, d: DataId, k: usize) -> bool {
+    g.env
+        .datas()
+        .get(d.0)
+        .is_some_and(|data| data.is_proof_param(k))
+}
+
+/// Whether field `k` of constructor `c` of data type `d` is a proof (its
+/// type is in `Prop`; not `field_erased`, which types share). A type the
+/// environment doesn't hold (only unit tests build such values) has none.
+pub fn proof_field(g: &Ev, d: DataId, c: usize, k: usize) -> bool {
+    g.env
+        .datas()
+        .get(d.0)
+        .and_then(|data| data.ctors.get(c))
+        .is_some_and(|ctor| ctor.field_sorts.get(k) == Some(&Sort::Prop))
 }
 
 /// The definition at the head of a neutral value, if it's one.

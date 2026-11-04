@@ -555,7 +555,8 @@ fn quote_quot<'s>(
 }
 
 /// Definitional equality (the recursive version `value::conv` was derived
-/// from).
+/// from), with the same precondition: `a` and `b` have the same type, as
+/// proofs are skipped by position.
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     conv_in(g, level, a, b, Mode::Normal)
 }
@@ -631,13 +632,12 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
         )?,
         // Proof parameters and proof fields aren't compared.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
-            let data = g.data(*d1);
-            d1 == d2 && all_conv_but(g, level, a1, a2, |k| data.is_proof_param(k), mode)?
+            let proof = |k| crate::value::proof_param(g, *d1, k);
+            d1 == d2 && all_conv_but(g, level, a1, a2, proof, mode)?
         }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && {
-                let sorts = &g.data(*d1).ctors()[*c1].field_sorts;
-                let proof = |k: usize| mode == Mode::Normal && sorts[k] == crate::term::Sort::Prop;
+                let proof = |k| mode == Mode::Normal && crate::value::proof_field(g, *d1, *c1, k);
                 all_conv_but(g, level, a1, a2, proof, mode)?
             }
         }
