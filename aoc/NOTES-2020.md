@@ -472,3 +472,247 @@ besides a 3-minute build of the CLI.
    and day 1's item 5). Missing feature; medium, as on day 1.
 6. `readsLine` is 4.6 s of a 5.8 s check (item 4). Performance; unknown
    size, worth a profile before the bigger parsers of later days.
+
+## Day 3: Toboggan Trajectory
+
+A map of open squares (`.`) and trees (`#`) that repeats to the right
+without end. A toboggan starts at the top left and moves on a slope, so many
+columns right and rows down at each step, until it goes past the bottom.
+Part 1 counts the trees met on the slope right 3, down 1; part 2 multiplies
+the counts on five slopes. Answers on Matt's input: 276 and 7812180000
+(100 × 276 × 85 × 90 × 37); the example gives 7 and 336. All four match
+Matt's Scala (`sbt "runMain aoc.day3.Day3"`, run on a copy of his
+repository), and an `awk` brute force over the input agrees slope by slope.
+
+The program parses with `Aoc.Common.parseGrid` and counts steps, looking
+squares up through `Grid.lookupOr`, with the column wrapped to the map's
+width:
+
+```stitchwort
+def wrap (column: Nat) (width: Nat): Nat :=
+  match width with
+    | Zero => column
+    | Succ less => column % Succ less
+
+def treesOn (map: Grid Square) (slope: Slope): Nat :=
+  let find := map.lookupOr Open
+  List.rangeFrom map.height 1
+    |> .takeWhile (step => step * slope.down < map.height)
+    |> .count (step => find { row = step * slope.down, column = wrap (step * slope.right) map.width } == Tree)
+```
+
+It printed the right answers on the first run, and 15 of the 16 tests passed
+the first time (the one that didn't guessed a parse error's wording). The
+spec (`Spec/Spec.sw`) has no `%`: a row of the endless map is its pattern,
+and past the pattern's end the square is the one a pattern's width to the
+left (`repeatingAt`, a `decreasing` recursion); the path is the start moved
+along the slope, then moved again "from there, and so on" (`path`, written
+with a list spread, `[next, ..path slope next more]`), cut where it goes
+past the bottom with `takeWhile`; the count is `filter` and `length`.
+
+Proved (`Aoc.Year2020.Day03.Proofs`):
+
+- `treesOnSpec`: on every rectangular map, for every slope, `treesOn` is the
+  spec's count, including slopes that go 0 rows down or 0 columns right, and
+  maps with no columns. `part1Correct`, `part2Correct` follow.
+- `repeatingAtMod`, `repeatingAtWrap`: the repeating row is the pattern at
+  the column's remainder, so `wrap` is right; `lookupSquareAt`: the
+  program's lookup at the wrapped column is the spec's square.
+- `pathRange`: the spec's path, step after step, is the start plus 1, 2, …
+  steps, which is what the program counts.
+- `visitedEnough`: the spec's own bound loses nothing. It takes as many
+  steps as the map has rows before cutting at the bottom; on any slope that
+  goes down, more steps visit the same positions.
+- `parseWritten`: if `parseMap` reads the input as `map`, each line is its
+  row written with `.` and `#`, nothing dropped, added or changed;
+  `answersCorrect`: on any input the parser reads, both answers are the
+  puzzle's (the parsed map is a rectangle, by `Aoc.Common`'s
+  `parseGridRectangle`).
+
+Not proved: that every well-formed map parses (`Parse.Reads` is soundness
+only, as on day 2). The theorems take `map.Rectangle` because the spec
+repeats each row by its own length and the program wraps by the first row's;
+on a ragged map they differ, and the puzzle's maps are rectangles. With
+`slope.down = 0` both sides stop after as many steps as the map has rows,
+which the puzzle never asks for (`visitedEnough` needs `0 < slope.down`).
+
+Breaking the program made the proofs fail: `step * slope.down <= map.height`
+and `List.rangeFrom map.height 0` (counting the start) both fail
+`treesOnSpec` with a type mismatch; `wrap` as `(column + 1) % Succ less`
+fails `repeatingAtWrap` with the counterexample `pattern = [Open, Tree],
+column = 0`.
+
+Most proofs checked on the first try. 60 lines of program, 60 of spec, 155
+of proofs, 64 of tests; about 30 minutes from reading the puzzle to the
+audit, besides a 2-minute build of the CLI.
+
+### 1. `%` by the map's width needs a proof, and an `if h:` around the program loses its equation
+
+`x % map.width` doesn't check: `E-AUTO-STUCK`, since nothing says the width
+isn't 0. The obvious fix, in the program:
+
+```stitchwort
+def treesOn (map: Grid Square) (slope: Slope): Nat :=
+  if nonEmpty: map.width ≠ 0 then
+    …
+      |> .count (step => find { row = …, column = step * slope.right % map.width } == Tree)
+  else 0
+```
+
+checks and runs, but then can't be proved about:
+
+```
+Not generated:
+  Aoc.Year2020.Day03.treesOn.eq.ifTrue  its branch uses the proof `h` of a condition that isn't an equation in a type with `DecEq` (or a comparison): two proofs of it aren't known to be equal without proof irrelevance (D2180)
+```
+
+The branch's `%` holds the `if`'s proof, so a lemma stated with its own
+`nonEmpty` is about a different term, and matching on `map.width` in the
+proof computes the `if` but leaves the program's proof inside the `%`. The
+way out was a `wrap` that matches on the width, so the `%` is by `Succ less`
+and `auto` proves it by computing. It reads as plumbing in the program, and
+its doc has to explain why it is there. Three fixes, any of which would
+have done: `%` total, with `x % 0 = x` as in Lean (a language decision);
+a std `Nat.wrap`-like function with this definition and its lemmas; or a
+`Grid` whose width is known not to be 0 (`parseGrid` already proves it,
+`parseGridRectangle`, but the type doesn't carry it).
+
+### 2. The same parser written two ways isn't the same term
+
+`square` was first written as day 2's parser was:
+
+```stitchwort
+def square(): {Parse} Square :=
+  let char := Parse.satisfy "'.' or '#'" (char => char == '.' || char == '#')
+  if char == '#' then Tree else Open
+```
+
+Its proof restates the parser for `Parse.readsMap`, as on day 2 (item 1
+there), as `() => f (p())` with `f` the `if`. That fails:
+
+```
+[E-TYPE-MISMATCH] Error: type mismatch
+    │ ╰── expected `(state: Parse.State) → (value: Square) → … → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads (arg => Std.Effect.bind (Parse.satisfy "'.' or '#'" (char => … || …)) (x => Done (if … then … else …))) (read value => …)`
+     ├─[ std/Parse/Parse.sw:135:18 ]
+    │     Note 2: `(match …)` is a `match` written inside `Parse.runFrom`, marked "this `match`" above; … To state a lemma about it, make it a local `def` …
+```
+
+The same parser written `Square.ofChar (Parse.satisfy …)`, or `(char => if
+… then Tree else Open) (Parse.satisfy …)`, checks, with the `||` lambda
+inline too. So it is the `let` followed by an `if` in an effectful body
+that elaborates to something other than `f (p())` (presumably the `Done`
+goes into each branch). Nothing in the message says that: it shows both
+sides as unfolded `Reads` with the difference elided, and its note points
+at a `match` in std's `Parse.runFrom`, which is a red herring. I renamed the
+pieces (`isSquare`, `Square.ofChar`) and wrote `square` as one application,
+so the program's shape is chosen for its proof. Day 2's item 1 (unfold a
+named parser when a higher-order pattern meets it) would remove this too;
+failing that, a note on the mismatch naming the first place the two terms
+differ.
+
+### 3. `Grid.Rectangle` makes the main theorems unsearchable for counterexamples
+
+`Grid.Rectangle` is a `Prop` over membership (`(row: List a) → row ∈
+grid.rows → row.length = grid.width`), so the counterexample search can't
+decide it, and every theorem that takes it is "not applicable":
+
+```
+  - Aoc.Year2020.Day03.Proofs.treesOnSpec   not applicable: nothing decides `(row: List Aoc.Year2020.Day03.Square) → row ∈ map.rows → Std.List.length row = …`
+```
+
+So breaking `treesOn` (`<=` for `<`) gives only a type mismatch, whose two
+sides differ in the elided part:
+
+```
+expected `List.foldLeft (List.takeWhile (List.rangeFrom … 1) (step => …)) 0 (n x => Nat.succIf n …) = List.count (List.takeWhile (List.rangeFrom … 1) (x => …)) (x => Std.Decidable.toBool …)`, but this has type `List.count (List.takeWhile (List.rangeFrom … 1) (step => …)) (x => …) = List.count (List.takeWhile (List.rangeFrom … 1) (step => …)) (x => …)`
+```
+
+The breakage that went through a theorem without `Rectangle`
+(`repeatingAtWrap`) got a counterexample at once. A decision procedure for
+a `∀` over list membership (the list is finite), or a `Bool`
+`Grid.isRectangle` beside the `Prop`, would make these searchable. Separately,
+a mismatch message could show where its two sides first differ, as the
+test runner does ("first difference at …").
+
+### 4. Smaller things
+
+- **Std lacks `List.takeWhileMap`.** `(xs.map f).takeWhile p =
+  (xs.takeWhile (x => p (f x))).map f`, four lines by induction and `cases`;
+  a std candidate beside `List.countMap`. So does the lemma that a
+  `takeWhile` over `List.rangeFrom` stops at a cutoff past which nothing
+  passes (`takeWhileRangeCutoff`, used by `visitedEnough`).
+- **`checkGrid` keeps its rows, but `Aoc.Common.Proofs` doesn't say so.**
+  `checkGridOk` proves the grid is a rectangle and uses `rows = grid.rows`
+  inside; the parser proof needs that fact, so `checkGridRows` restates it
+  (ten lines). An `Aoc.Common.Proofs` candidate, or better a
+  `parseGridReads` that hands on the rows' `Parse.Each` for any cell spec.
+- **A lambda with `<` is a `Prop` without an annotation.** `let below :=
+  (position: Position) => position.row < map.height` made `takeWhileMap
+  onPath below …` fail with "expected `Position → Bool`, but this has type
+  `Position → Prop`"; `let below: Position → Bool := …` fixed it. Fair, but
+  the message could say that the comparison is the `Prop` because nothing
+  asked for a `Bool`, and suggest the annotation.
+- **Braces after a nullary constructor.** `map.lookupOr Open { row = …,
+  column = … }` is "braces after `Open` as an argument need brackets",
+  suggesting `(Open { … })` among the fixes, though `Open` has no fields.
+  `Ok { rows = … }` in a test got a better one: `E-UNKNOWN-FIELD`, "to
+  build the `Aoc.Common.Grid` it holds, write `Ok ({ … })`".
+- **The audit warns on `answersCorrect`** ("no input made the hypotheses
+  true"), since random text almost never parses as a map: day 1's item 5
+  again, for parse hypotheses. The real input satisfies it (the tests).
+- **What went well.** List spreads in patterns and expressions read like the
+  puzzle (`[next, ..path slope next more]`, `| [x, ..rest] =>`), and goals
+  print them the same way. `stitchwort doc repeatingAt` listed the
+  `decreasing` definition's `eq.ifTrue` / `eq.ifFalse.ifTrue` /
+  `eq.ifFalse.ifFalse`, which proved `repeatingAtMod` on the first try.
+  `stitchwort search` found `List.countFalse`, `Nat.modAddMod`,
+  `Nat.leMulPos`, `DecEq.sound` and `Bool.falseOfNotTrue` as its first
+  result each time. `Aoc.Common`'s `parseGrid`, `lookupOr`, `lookupOrAt` and
+  `parseGridRectangle` fitted without change; the one thing a day like this
+  might want from it is a wrapping lookup, and once is not enough to add it.
+  The new `Text.get`/`count`/`any`/`all` weren't needed: the grid parser
+  does the reading.
+
+### Size and time
+
+CPU time (load average about 70, so wall-clock times meant nothing):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day03.Proofs` | 7.9 s user |
+| the same without `Proofs/Parse.sw` | 5.0 s user |
+| `stitchwort check --no-cache Aoc.Common` (included in each of these) | 4.7 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day03` | 4.8 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day03` (16 tests) | 8.4 s user |
+| `stitchwort audit Aoc.Year2020.Day03` (35 theorems) | 4.2 s user |
+| `stitchwort check --counterexamples --verbose Aoc.Year2020.Day03.Proofs` | 2.6 s user |
+| `stitchwort run Aoc.Year2020.Day03.main` on the input | 0.6 s user |
+
+So the day's own proofs take about 0.3 s, the parser proof about 2.9 s, and
+a cold check of `Aoc.Common`, which every Grid day pays, 4.7 s.
+
+### Ranked
+
+1. `%` by a width not known to be non-zero needs a proof, and an `if h:`
+   around the program then has no `ifTrue` equation (item 1), so the
+   program grows a `wrap` helper for its proofs. Missing feature or
+   library; small for a std `Nat.wrap` with lemmas (an hour), medium for a
+   `Grid` that carries its width, a language decision for a total `%`.
+2. A parser written `let x := p(); if … then … else …` isn't the term
+   `f (p())` its proof restates, and the message points at std (item 2).
+   Error message, small (name the first difference); the real fix is day
+   2's item 1, medium.
+3. `Grid.Rectangle` is undecidable, so the counterexample search skips the
+   main theorems, and a broken program gives only a mismatch with the
+   difference elided (item 3). Missing feature, small to medium (a decision
+   procedure for `∀` over list membership, or a `Bool` rectangle check);
+   error message, small (show the first difference).
+4. No `List.takeWhileMap` or `takeWhile` cutoff lemma in std; no
+   `checkGrid` keeps-its-rows lemma in `Aoc.Common.Proofs` (item 4).
+   Missing library; small (under an hour together).
+5. A lambda with `<` infers `Prop`, and the mismatch doesn't suggest the
+   annotation (item 4). Error message; small.
+6. "Braces after `Open` … need brackets" suggests building a nullary
+   constructor by its fields (item 4). Error message; small.
+7. A cold check of `Aoc.Common` is 4.7 s of every Grid day's check (Size and
+   time). Performance; unknown size, worth a profile.
