@@ -3922,12 +3922,12 @@
       "id": 1116,
       "title": "Editor foundation: position-based answers (goal at cursor, hover, signature, quick fixes) in crates/driver, shared by the LSP and the playground; elaborator probe for expected type and locals at a cursor",
       "status": "next",
-      "agent": "",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2304 (Matt, 4 Nov 2026): keep in next; may pick up soon.\n",
+      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2304 (Matt, 4 Nov 2026): keep in next; may pick up soon.\n\n\nD2346 (Matt, 4 Nov 2026): yes, schedule it; start when a slot would otherwise be idle (after SW-1235). Sonnet.\n",
       "created": "2026-11-03",
       "updated": "2026-11-04",
       "commits": []
