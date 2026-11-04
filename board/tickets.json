@@ -6542,7 +6542,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "The remaining 'rewrite' sites of docs/research/aoc-chaining-survey.md (not 'optional', not main/orFail which SW-1296 did): bracketed (.field), (f x).method, f (xs.chain), section lambdas, partial-application lambdas, positional literal runs → named arguments. Years 2020, 2021, Common, 2024, 2025 in one DeepSeek run, diffs reviewed line by line. Expected: 80 min.",
+      "body": "The remaining 'rewrite' sites of docs/research/aoc-chaining-survey.md (not 'optional', not main/orFail which SW-1296 did): bracketed (.field), (f x).method, f (xs.chain), section lambdas, partial-application lambdas, positional literal runs → named arguments. Years 2020, 2021, Common, 2024, 2025 in one DeepSeek run, diffs reviewed line by line. Expected: 80 min.\n\nMerged ceb5c4d6 after line-by-line review (52 lines, 24 files); verifying. Model result: DeepSeek, worked (applied two optional sites by mistake, caught and reverted them itself), 14 min (est. 80).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
