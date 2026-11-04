@@ -21,12 +21,14 @@ pub(crate) fn same_tokens(
     after: &str,
     lexed_after: &Lexed,
 ) -> Result<(), String> {
-    // Commas are the one allowed difference: D1012/D1017 add and remove
-    // them at the ends of the lines of a multi-line bracket. The tree check
-    // (§4.1, 3) catches any comma that mattered.
+    // Commas are one allowed difference: D1012/D1017 add and remove
+    // them at the ends of the lines of a multi-line bracket. Parentheses are
+    // the other (D2307): the formatter drops the redundant ones after an
+    // ability row. The tree check (§4.1, 3) catches any comma or parenthesis
+    // whose removal changed the parse.
     let strip = |lexed: &Lexed| -> Vec<Token> {
-        let commas = |t: &&Token| t.tok != Tok::Comma;
-        lexed.tokens.iter().filter(commas).cloned().collect()
+        let kept = |t: &&Token| !matches!(t.tok, Tok::Comma | Tok::LParen | Tok::RParen);
+        lexed.tokens.iter().filter(kept).cloned().collect()
     };
     let (a, b) = (strip(lexed_before), strip(lexed_after));
     for (x, y) in a.iter().zip(&b) {

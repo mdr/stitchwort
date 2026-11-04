@@ -353,6 +353,139 @@ impl<'a> Layout<'a> {
         convs
     }
 
+    /// The `(` and `)` tokens to drop (D2307): a pair around the type after
+    /// an ability row, when removing it leaves the declaration parsing to
+    /// the same tree. Pairs around a function type are kept: `{e} (A -> B)`
+    /// reads better than `{e} A -> B`, which is easy to misread. Pairs that
+    /// start a line or carry a comment are kept too, so the author's line
+    /// breaks and every comment stay. Each pair is tried with the ones
+    /// already dropped, so `((Nat, Nat))` loses both when that is safe.
+    fn parens_to_drop(&self, range: &Range<usize>) -> Vec<bool> {
+        let tokens = self.tokens();
+        let mut drop = vec![false; range.len()];
+        // Nothing to do, and no parse, for the many declarations without a
+        // parenthesised type after a row.
+        let mut prev: Option<usize> = None;
+        let mut candidate = false;
+        for k in range.clone() {
+            if tokens[k].tok == Tok::LParen
+                && prev.is_some_and(|p| tokens[p].tok == Tok::RBrace && self.roles[p] == Role::Row)
+            {
+                candidate = true;
+                break;
+            }
+            prev = Some(k);
+        }
+        if !candidate {
+            return drop;
+        }
+        let before = self.decl_source(range);
+        let base = tokens[range.start].span.start as usize - tokens[range.start].column as usize;
+        let Ok(want) = equivalence::parse_shape(before) else {
+            return drop;
+        };
+        let mut pairs: Vec<(usize, usize)> = Vec::new();
+        loop {
+            let mut prev: Option<usize> = None;
+            let mut found = None;
+            for k in range.clone() {
+                if drop[k - range.start] {
+                    continue;
+                }
+                if tokens[k].tok == Tok::LParen
+                    && prev
+                        .is_some_and(|p| tokens[p].tok == Tok::RBrace && self.roles[p] == Role::Row)
+                    && let Some(close) = self.matching_paren(k, range.end)
+                    && self.paren_can_go(k, close)
+                    && !self.paren_holds_function(k, close)
+                {
+                    let mut text = before.to_string();
+                    let span = |k: usize| {
+                        let span = tokens[k].span;
+                        span.start as usize - base..span.end as usize - base
+                    };
+                    let mut spans: Vec<Range<usize>> = pairs
+                        .iter()
+                        .flat_map(|&(open, close)| [span(open), span(close)])
+                        .collect();
+                    spans.push(span(k));
+                    spans.push(span(close));
+                    // Remove from the end, so the earlier spans stay valid.
+                    spans.sort_by_key(|span| std::cmp::Reverse(span.start));
+                    for span in spans {
+                        text.replace_range(span, "");
+                    }
+                    if equivalence::parse_shape(&text).is_ok_and(|got| got == want) {
+                        found = Some((k, close));
+                        break;
+                    }
+                }
+                prev = Some(k);
+            }
+            match found {
+                Some((open, close)) => {
+                    drop[open - range.start] = true;
+                    drop[close - range.start] = true;
+                    pairs.push((open, close));
+                }
+                None => break,
+            }
+        }
+        drop
+    }
+
+    /// The `)` matching the `(` at `open`, before `end`.
+    fn matching_paren(&self, open: usize, end: usize) -> Option<usize> {
+        let tokens = self.tokens();
+        let mut depth = 0usize;
+        for (k, t) in tokens.iter().enumerate().take(end).skip(open) {
+            match t.tok {
+                Tok::LParen => depth += 1,
+                Tok::RParen => {
+                    depth = depth.checked_sub(1)?;
+                    if depth == 0 {
+                        return Some(k);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Whether the type in the pair at `open`..`close` is a function type:
+    /// an arrow at its top level, or a further pair holding one. Those keep
+    /// their parentheses, which make the row's scope plain.
+    fn paren_holds_function(&self, open: usize, close: usize) -> bool {
+        let tokens = self.tokens();
+        let mut depth = 0usize;
+        for t in &tokens[open + 1..close] {
+            match t.tok {
+                Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+                Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
+                Tok::Arrow if depth == 0 => return true,
+                _ => {}
+            }
+        }
+        close > open + 2
+            && tokens[open + 1].tok == Tok::LParen
+            && self.matching_paren(open + 1, close) == Some(close - 1)
+            && self.paren_holds_function(open + 1, close - 1)
+    }
+
+    /// Whether a parenthesis pair can be dropped without moving a line break
+    /// or losing a comment.
+    fn paren_can_go(&self, open: usize, close: usize) -> bool {
+        let tokens = self.tokens();
+        let trivia = &self.lexed.trivia;
+        !tokens[open].line_start
+            && !tokens[close].line_start
+            && trivia[open].leading.is_empty()
+            && trivia[open].trailing.is_none()
+            && trivia[close].leading.is_empty()
+            && trivia[close].trailing.is_none()
+    }
+
     /// The lines of a declaration in the new layout.
     fn vlines(&self, range: &Range<usize>, convert: bool) -> Vec<VLine<'a>> {
         let (tokens, trivia) = (self.tokens(), &self.lexed.trivia);
@@ -384,6 +517,9 @@ impl<'a> Layout<'a> {
         } else {
             Vec::new()
         };
+        // D2307: parentheses after an ability row that can go without
+        // changing the parse.
+        let drop_paren = self.parens_to_drop(range);
         let mut opens: Vec<Option<usize>> = vec![None; n];
         let mut closes: Vec<Option<usize>> = vec![None; n];
         let mut dropped = vec![false; n];
@@ -425,7 +561,7 @@ impl<'a> Layout<'a> {
         for (i, &(first, column)) in old.iter().enumerate() {
             // Lines that start with a comma or closer converted away aren't
             // statements of the block.
-            if dropped[at(first)] || closes[at(first)].is_some() {
+            if dropped[at(first)] || drop_paren[at(first)] || closes[at(first)].is_some() {
                 continue;
             }
             *group_size.entry((old_parent[i], column)).or_default() += 1;
@@ -457,6 +593,11 @@ impl<'a> Layout<'a> {
         let mut carry: Option<usize> = None;
         for k in range.clone() {
             let t = &tokens[k];
+            if drop_paren[at(k)] {
+                // Dropped only when the paren starts no line and carries no
+                // comment, so the layout and the comments stay as they are.
+                continue;
+            }
             if dropped[at(k)] {
                 if let Some(last) = lines.last_mut() {
                     if !trailing_sep[at(k)] {
