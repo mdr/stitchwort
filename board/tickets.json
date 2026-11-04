@@ -6494,16 +6494,18 @@
     {
       "id": 1296,
       "title": "Chaining rewrite batch 1: main functions and orFail (SW-1291 stage 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1296",
       "labels": [
         "aoc"
       ],
-      "body": "Batch 1 of the SW-1291 survey's stage 2: every main site (21), orFail messages in the puzzle's words, 2024 day 14's 'main with no picture' test. See docs/research/aoc-chaining-survey.md on lane/SW-1291.",
+      "body": "Batch 1 of the SW-1291 survey's stage 2: every main site (21), orFail messages in the puzzle's words, 2024 day 14's 'main with no picture' test. See docs/research/aoc-chaining-survey.md on lane/SW-1291.\n\nProgress (Sonnet lane): 13 main sites rewritten in batch 1 (F and G, not 2025 day 8); checks and tests pass; 2024 day 14 test updated. About 20 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "26e316ecb"
+      ]
     }
   ]
 }
