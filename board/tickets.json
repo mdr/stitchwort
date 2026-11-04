@@ -6267,9 +6267,9 @@
     {
       "id": 1280,
       "title": "Editor: go to definition (and a document link) on an include path opens the file",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1280",
       "labels": [
         "lsp",
         "editor"
