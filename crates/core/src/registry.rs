@@ -27,6 +27,7 @@
 //! content hashes), which this doesn't weaken.
 
 use crate::collections::HashMap;
+use crate::ev::Ev;
 
 use stitchwort_syntax::Diagnostic;
 
@@ -647,7 +648,7 @@ pub fn bind_data(g: &mut Globals, d: DataId) -> Option<Builtin> {
     if data.state != State::Final {
         return None;
     }
-    let b = unbound(g, &data.name, |k| k == Kind::Data)?;
+    let b = unbound(&g.ev(), &data.name, |k| k == Kind::Data)?;
     let mut new = vec![(b, Entry::Data(d))];
     for &ctor in Builtin::ALL {
         if ctor.kind() == Kind::Ctor(b)
@@ -667,12 +668,12 @@ pub fn bind_def(g: &mut Globals, id: DefId) -> Option<Builtin> {
     if def.state != State::Final {
         return None;
     }
-    let b = unbound(g, &def.name, |k| k == Kind::Def)?;
+    let b = unbound(&g.ev(), &def.name, |k| k == Kind::Def)?;
     g.env.registry_mut().entries.insert(b, Entry::Def(id));
     Some(b)
 }
 
-fn unbound(g: &Globals, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Builtin> {
+fn unbound(g: &Ev, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Builtin> {
     Builtin::ALL
         .iter()
         .copied()
@@ -682,13 +683,13 @@ fn unbound(g: &Globals, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Built
 
 /// Refuses an incomplete registry: user code can't be elaborated until every
 /// built-in is bound.
-pub fn check_complete(g: &Globals) -> Result<(), Diagnostic> {
+pub fn check_complete(g: &Ev) -> Result<(), Diagnostic> {
     complete(&g.env.registry().missing())
 }
 
 /// [`check_complete`] for the core built-ins only: what user code needs
 /// before it is elaborated. A library built-in is bound when its file loads.
-pub fn check_complete_core(g: &Globals) -> Result<(), Diagnostic> {
+pub fn check_complete_core(g: &Ev) -> Result<(), Diagnostic> {
     complete(&g.env.registry().missing_core())
 }
 

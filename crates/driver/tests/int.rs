@@ -69,9 +69,9 @@ fn int(g: &Globals, i: i64) -> Value {
 
 /// The integer a closed value is, if it's one.
 fn as_int(g: &Globals, v: &Value) -> Option<i64> {
-    match value::force(g, v.clone()).ok()? {
+    match value::force(&g.ev(), v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
-            let n = i64::try_from(as_nat(g, &fields[0]).ok()??).ok()?;
+            let n = i64::try_from(as_nat(&g.ev(), &fields[0]).ok()??).ok()?;
             Some(if c == 0 { n } else { -1 - n })
         }
         _ => None,
@@ -94,23 +94,26 @@ fn proof(level: usize) -> Arg {
 
 /// `f args` by the machine: its value and normal form.
 fn machine(g: &Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
-    let mut v = value::eval(g, &[], &Term::Def(f)).expect("no limits");
+    let mut v = value::eval(&g.ev(), &[], &Term::Def(f)).expect("no limits");
     for Arg(a, icit) in args {
-        v = value::apply_icit(g, v, a.clone(), *icit).expect("no limits");
+        v = value::apply_icit(&g.ev(), v, a.clone(), *icit).expect("no limits");
     }
-    let v = value::force(g, v).expect("no limits");
-    let nf = format!("{:?}", value::quote(g, level, &v).expect("no limits"));
+    let v = value::force(&g.ev(), v).expect("no limits");
+    let nf = format!("{:?}", value::quote(&g.ev(), level, &v).expect("no limits"));
     (v, nf)
 }
 
 /// `f args` by the reference evaluator: its normal form.
 fn slow(g: &Globals, f: DefId, args: &[Arg], level: usize) -> String {
-    let mut v = reference::eval(g, &[], &Term::Def(f)).expect("no limits");
+    let mut v = reference::eval(&g.ev(), &[], &Term::Def(f)).expect("no limits");
     for Arg(a, icit) in args {
-        v = reference::apply_icit(g, v, a.clone(), *icit).expect("no limits");
+        v = reference::apply_icit(&g.ev(), v, a.clone(), *icit).expect("no limits");
     }
-    let v = reference::force(g, v).expect("no limits");
-    format!("{:?}", reference::quote(g, level, &v).expect("no limits"))
+    let v = reference::force(&g.ev(), v).expect("no limits");
+    format!(
+        "{:?}",
+        reference::quote(&g.ev(), level, &v).expect("no limits")
+    )
 }
 
 /// `f args` four ways (natives on and off, each in both evaluators), which
@@ -139,7 +142,7 @@ fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
     );
     if on != off {
         assert!(
-            value::conv(g, level, &v, &v_off).expect("no limits"),
+            value::conv(&g.ev(), level, &v, &v_off).expect("no limits"),
             "{}: natives on and off disagree\n  on: {on}\n off: {off}",
             what()
         );
@@ -161,9 +164,9 @@ fn computes_to(g: &mut Globals, f: &str, args: &[Arg], level: usize, expected: &
     let id = def(g, f);
     let (v, nf) = run(g, id, args, level);
     assert!(
-        value::conv(g, level, &v, expected).expect("no limits"),
+        value::conv(&g.ev(), level, &v, expected).expect("no limits"),
         "{f}: {nf}, expected {:?}",
-        value::quote(g, level, expected)
+        value::quote(&g.ev(), level, expected)
     );
 }
 
@@ -248,7 +251,7 @@ fn decisions_agree_in_both_modes() {
                     // `refl`.
                     let p = fields.last().unwrap();
                     assert!(
-                        value::conv(g, 0, p, &Value::Refl).unwrap(),
+                        value::conv(&g.ev(), 0, p, &Value::Refl).unwrap(),
                         "Int.decEq {a} {b}: {nf}"
                     );
                 } else {
@@ -539,7 +542,9 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
                     let (v, nf) = run(g, id, &args, 1);
                     if let Some(want) = expected(op, a, b) {
                         let got = if op == "Int.modNat" {
-                            as_nat(g, &v).unwrap().and_then(|n| i64::try_from(n).ok())
+                            as_nat(&g.ev(), &v)
+                                .unwrap()
+                                .and_then(|n| i64::try_from(n).ok())
                         } else {
                             as_int(g, &v)
                         };
@@ -561,9 +566,9 @@ fn big_int(g: &Globals, i: &BigInt) -> Value {
 }
 
 fn as_big_int(g: &Globals, v: &Value) -> Option<BigInt> {
-    match value::force(g, v.clone()).ok()? {
+    match value::force(&g.ev(), v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
-            let n = BigInt::from(as_nat(g, &fields[0]).ok()??);
+            let n = BigInt::from(as_nat(&g.ev(), &fields[0]).ok()??);
             Some(if c == 0 { n } else { -n - 1 })
         }
         _ => None,

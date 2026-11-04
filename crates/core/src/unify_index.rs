@@ -41,7 +41,7 @@
 
 use crate::budget::Result;
 use crate::check::substitute;
-use crate::globals::Globals;
+use crate::ev::Ev;
 use crate::native;
 use crate::term::{Name, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, expand_step, force, quote};
@@ -138,7 +138,7 @@ struct Entry<'g> {
 ///
 /// On `Conflict` or `Stuck`, `scope` may have been refined part way.
 pub fn unify<'g>(
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     scope: &mut Scope,
     binders: &'g [(Name, Term)],
     base: Vec<Value>,
@@ -270,7 +270,7 @@ fn is_type_former(value: &Value) -> bool {
 
 /// `value` as a constructor of data type `d` and its fields, if it is one:
 /// a constructor value, a number (for `Nat`) or a compact list, one cell.
-fn constructor(g: &Globals, d: crate::term::DataId, value: &Value) -> Option<(usize, Vec<Value>)> {
+fn constructor(g: &Ev, d: crate::term::DataId, value: &Value) -> Option<(usize, Vec<Value>)> {
     match value {
         Value::Ctor(d2, c, fields) if *d2 == d => Some((*c, fields.to_vec())),
         Value::Nat(_) | Value::NatAdd(..) if Some(d) == g.env.builtins().nat => {
@@ -293,7 +293,7 @@ fn constructor(g: &Globals, d: crate::term::DataId, value: &Value) -> Option<(us
 /// without reading back, at a superset of those variables, and only if `y`
 /// is among them is anything read back, to decide as before (SW-1154).
 /// Either way the answer is the readback's.
-pub fn occurs(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
+pub fn occurs(g: &Ev, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
     if !may_occur(g, scope, y, t)? {
         return Ok(false);
     }
@@ -315,7 +315,7 @@ pub fn occurs(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
 /// [`occurs`], with each value's variables over-approximated by
 /// [`value_levels`]: `false` only where [`occurs`] is, since every
 /// variable [`occurs`] visits, this does too.
-fn may_occur(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
+fn may_occur(g: &Ev, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
     let level = scope.level();
     let mut seen = vec![false; level];
     let mut todo = Vec::new();
@@ -345,7 +345,7 @@ fn may_occur(g: &Globals, scope: &Scope, y: usize, t: &Value) -> Result<bool> {
 /// ([`Value::Pi`], [`Value::Lam`]), a metavariable's application (whose
 /// solution readback substitutes) and a resumption (which readback
 /// refuses) are read back, and their variables taken exactly.
-fn value_levels(g: &Globals, level: usize, value: &Value, out: &mut Vec<usize>) -> Result<()> {
+fn value_levels(g: &Ev, level: usize, value: &Value, out: &mut Vec<usize>) -> Result<()> {
     let mut todo: Vec<&Value> = vec![value];
     while let Some(v) = todo.pop() {
         let spine = match v {
@@ -405,7 +405,7 @@ fn free_levels(term: &Term, level: usize) -> Vec<usize> {
 
 /// Substitutes `t` for variable `y` everywhere: the context, the extra
 /// values and the stack.
-fn solve(g: &Globals, scope: &mut Scope, stack: &mut [Entry], y: usize, t: &Value) -> Result<()> {
+fn solve(g: &Ev, scope: &mut Scope, stack: &mut [Entry], y: usize, t: &Value) -> Result<()> {
     let level = scope.level();
     let sub = |values: &[Value]| substitute(g, level, y, t, values);
     let mut env = sub(&scope.env)?;

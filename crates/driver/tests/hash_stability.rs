@@ -101,11 +101,11 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
     let g = &session.elab.globals;
     let mut out = String::new();
     for i in first_data..g.env.datas().len() {
-        let h = show(data_hash(g, DataId(i)));
+        let h = show(data_hash(&g.ev(), DataId(i)));
         out += &format!("data {} {h}\n", g.env.datas()[i].path());
     }
     for i in first_def..g.env.defs().len() {
-        let h = show(def_hash(g, DefId(i)));
+        let h = show(def_hash(&g.ev(), DefId(i)));
         out += &format!("{} {h}\n", g.env.defs()[i].path());
     }
     out

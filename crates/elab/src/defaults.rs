@@ -513,7 +513,7 @@ pub(crate) fn construct(
     let mut defaulted: Vec<usize> = Vec::new();
     let result = (|| -> Result<()> {
         for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-            let ty = eval(g, &env, field_ty)?;
+            let ty = eval(&g.ev(), &env, field_ty)?;
             let mut term = match given(i) {
                 Some((_, expr)) => crate::queue::framed(
                     cx,
@@ -549,7 +549,7 @@ pub(crate) fn construct(
             let (last, at) = terms.last().expect("just pushed");
             env.push(
                 if kernel::later_types_mention(&ctor.fields, i) || needed.contains(&i) {
-                    cx.eval(&last.shift(g, cx.level() - at, 0)?)?
+                    cx.eval(&last.shift(&g.ev(), cx.level() - at, 0)?)?
                 } else {
                     unused()
                 },
@@ -562,7 +562,7 @@ pub(crate) fn construct(
     result?;
     let fields = terms
         .iter()
-        .map(|(t, at)| Ok(t.shift(g, level - at, 0)?))
+        .map(|(t, at)| Ok(t.shift(&g.ev(), level - at, 0)?))
         .collect::<Result<Vec<_>>>()?;
     let mut term = Term::ctor(d, c, fields);
     for (x, ty, value) in lets.into_iter().rev() {
@@ -598,7 +598,7 @@ fn call(
             cx.quote(&env[l])?
         } else {
             let (t, at) = &terms[l - np];
-            t.shift(g, cx.level() - at, 0)?
+            t.shift(&g.ev(), cx.level() - at, 0)?
         };
         term = Term::app_icit(term, arg, helper_icit(l, np));
     }
@@ -622,7 +622,7 @@ fn left_out_notes(
     let mut notes = Vec::new();
     for &j in defaulted {
         if ctor.fields[i].1.mentions(i - 1 - j) {
-            let value = force(g, env[np + j].clone())
+            let value = force(&g.ev(), env[np + j].clone())
                 .map(|v| cx.show(&v))
                 .unwrap_or_else(|_| "its default".into());
             notes.push(format!(
@@ -668,7 +668,7 @@ pub(crate) fn ctor_with_defaults(
     let data = g.data(d);
     let np = data.params().len();
     let known = match expected {
-        Some(t) => match force(g, t.clone())? {
+        Some(t) => match force(&g.ev(), t.clone())? {
             Value::Data(e, args) if e == d => Some(args[..np].to_vec()),
             _ => None,
         },
@@ -679,7 +679,7 @@ pub(crate) fn ctor_with_defaults(
         None => {
             let mut params: Vec<Value> = Vec::new();
             for (k, (_, ty)) in data.params().iter().enumerate() {
-                let ty = eval(g, &params, ty)?;
+                let ty = eval(&g.ev(), &params, ty)?;
                 let icit = if data.auto_params().get(k).copied().unwrap_or(false) {
                     Icit::Auto
                 } else {
@@ -695,7 +695,7 @@ pub(crate) fn ctor_with_defaults(
     let (term, env) = construct(cx, d, c, &params, written, &mut missing)?;
     let mut args = params;
     for index in &data.ctors()[c].result {
-        args.push(eval(g, &env, index)?);
+        args.push(eval(&g.ev(), &env, index)?);
     }
     let ty = Value::Data(d, args);
     if let Some(t) = expected
@@ -877,7 +877,10 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
                 .and_then(Option::as_ref)
                 .ok_or_else(internal)?;
             let by = cx.level().checked_sub(table.base).ok_or_else(internal)?;
-            Ok((found.helper.shift(cx.g(), by, 0)?, found.captures.clone()))
+            Ok((
+                found.helper.shift(&cx.g().ev(), by, 0)?,
+                found.captures.clone(),
+            ))
         }
     }
 }
@@ -886,7 +889,7 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
 /// function's parameters before it at `cx`'s level plus `extra`.
 fn helper_call_with(cx: &Ctx, r: DefaultRef, params: &[Term], extra: usize) -> Result<Term> {
     let (helper, captures) = resolve(cx, r)?;
-    let mut call = helper.shift(cx.g(), extra, 0)?;
+    let mut call = helper.shift(&cx.g().ev(), extra, 0)?;
     for (l, icit) in captures {
         let arg = params.get(l).ok_or_else(internal)?;
         call = Term::app_icit(call, arg.clone(), icit);
@@ -999,16 +1002,16 @@ fn bind_needed(
     let mut ty = head.1.clone();
     let mut parts: Vec<(Name, Term)> = Vec::new();
     for (arg, _) in &params[..=last] {
-        let Value::Pi(x, _, dom, cod) = force(g, ty)? else {
+        let Value::Pi(x, _, dom, cod) = force(&g.ev(), ty)? else {
             return Ok(term);
         };
         parts.push((x.clone(), cx.quote(&dom)?));
-        ty = cod.apply(g, cx.eval(arg)?)?;
+        ty = cod.apply(&g.ev(), cx.eval(arg)?)?;
     }
     let k = lets.len();
     let mut terms: Vec<Term> = Vec::with_capacity(params.len());
     for (t, _) in params {
-        terms.push(t.shift(g, k, 0)?);
+        terms.push(t.shift(&g.ev(), k, 0)?);
     }
     for (rank, &l) in lets.iter().enumerate() {
         terms[l] = Term::Var(k - 1 - rank);
@@ -1016,9 +1019,9 @@ fn bind_needed(
     for (p, r) in &defaulted {
         terms[*p] = helper_call_with(cx, *r, &terms[..*p], k)?;
     }
-    let mut out = f.shift(g, k, 0)?;
+    let mut out = f.shift(&g.ev(), k, 0)?;
     for (t, icit) in &spine[..defaults.prefix] {
-        out = Term::app_icit(out, t.shift(g, k, 0)?, *icit);
+        out = Term::app_icit(out, t.shift(&g.ev(), k, 0)?, *icit);
     }
     for (t, (_, icit)) in terms.into_iter().zip(params) {
         out = Term::app_icit(out, t, *icit);
@@ -1027,8 +1030,8 @@ fn bind_needed(
         let (x, ty) = &parts[l];
         out = Term::let_(
             x.clone(),
-            ty.shift(g, rank, 0)?,
-            params[l].0.shift(g, rank, 0)?,
+            ty.shift(&g.ev(), rank, 0)?,
+            params[l].0.shift(&g.ev(), rank, 0)?,
             out,
         );
     }
@@ -1088,7 +1091,7 @@ fn default_note(
         for (k, (p, _)) in mentioned.iter().enumerate() {
             if let Some((arg, _)) = args.get(prefix + p)
                 && let Ok(value) = cx.eval(arg)
-                && let Ok(value) = force(cx.g(), value)
+                && let Ok(value) = force(&cx.g().ev(), value)
                 && !matches!(
                     value,
                     Value::Neutral(stitchwort_core::value::Head::Meta(_), _)
@@ -1122,7 +1125,7 @@ pub(crate) fn default_value(cx: &Ctx, r: DefaultRef) -> Option<String> {
     if !captures.is_empty() {
         return None;
     }
-    let value = force(cx.g(), cx.eval(&helper).ok()?).ok()?;
+    let value = force(&cx.g().ev(), cx.eval(&helper).ok()?).ok()?;
     Some(cx.show(&value))
 }
 

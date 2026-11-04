@@ -131,7 +131,7 @@ impl Elaborator {
         for (binder, implicit) in ctor.fields.iter().zip(implicits(ctor)) {
             let (ty, _) = check_type(&mut cx, &binder.ty)?;
             for (k, n) in binder.names.iter().enumerate() {
-                let ty = ty.shift(g, k, 0)?;
+                let ty = ty.shift(&g.ev(), k, 0)?;
                 let value = cx.eval(&ty)?;
                 fields.push((name(n), ty, binder.ty.span(), implicit));
                 cx.bind(&n.text, value);
@@ -191,7 +191,7 @@ impl Elaborator {
         };
         cx.span = written.span();
         let (ty, _) = check_type(cx, written)?;
-        let value = force(g, cx.eval(&ty)?)?;
+        let value = force(&g.ev(), cx.eval(&ty)?)?;
         let wrong = |cx: &Ctx, value: &Value| {
             error(
                 "E-TYPE-MISMATCH",
@@ -245,7 +245,7 @@ impl Elaborator {
             };
             let mut names: Vec<Name> = g.data(d).params().iter().map(|(x, _)| x.clone()).collect();
             names.extend(decl.fields[..written + j].iter().map(|(x, _, _)| x.clone()));
-            let shown = pretty::term(g, &names, ty);
+            let shown = pretty::term(&g.ev(), &names, ty);
             let field = &decl.fields[k].0;
             return Ok(Some(
                 error(
@@ -505,7 +505,7 @@ fn case_branch(
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let ctor_name = g.data(d).ctors()[c].name.clone();
-    let goal = eval(g, &cx.env, goal_term)?;
+    let goal = eval(&g.ev(), &cx.env, goal_term)?;
     // Before entering, while `x` is still a variable in the context.
     let number = match subtree {
         Tree::Missing { .. } => fin_missing(cx, x, d, c)?,
@@ -613,7 +613,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
     // with the most `FSucc`s.
     let (mut root, mut below) = (x, 0);
     for y in 0..x {
-        let mut value = force(g, cx.env[y].clone())?;
+        let mut value = force(&g.ev(), cx.env[y].clone())?;
         let mut count = 0;
         while let Value::Ctor(d2, c2, fields) = &value
             && *d2 == fin
@@ -621,7 +621,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
             && let Some(last) = fields.last()
         {
             count += 1;
-            value = force(g, last.clone())?;
+            value = force(&g.ev(), last.clone())?;
         }
         if count > below
             && let Value::Neutral(Head::Var(l, _), spine) = &value
@@ -675,7 +675,7 @@ fn enter(
     let base = cx.level();
     let mut field_env = params.to_vec();
     for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
-        let ty = eval(g, &field_env, field_ty)?;
+        let ty = eval(&g.ev(), &field_env, field_ty)?;
         field_env.push(Value::var(cx.level()));
         cx.bind_hidden(name.clone(), ty);
     }
@@ -683,10 +683,11 @@ fn enter(
     // The unifier compares with the kernel's conversion, which doesn't look
     // inside solved metavariables: they're substituted first.
     let identity: Vec<Value> = (0..level).map(Value::var).collect();
-    let solved = |v: &Value| -> Result<Value> { Ok(eval(g, &identity, &quote(g, level, v)?)?) };
+    let solved =
+        |v: &Value| -> Result<Value> { Ok(eval(&g.ev(), &identity, &quote(&g.ev(), level, v)?)?) };
     let all = |vs: &[Value]| vs.iter().map(solved).collect::<Result<Vec<_>>>();
     let result = (ctor.result.iter())
-        .map(|r| eval(g, &field_env, r))
+        .map(|r| eval(&g.ev(), &field_env, r))
         .collect::<std::result::Result<Vec<_>, _>>()?;
     let mut scope = Scope {
         env: all(&cx.env)?,
@@ -695,7 +696,7 @@ fn enter(
         rigid: vec![x],
     };
     let outcome = unify(
-        g,
+        &g.ev(),
         &mut scope,
         data.indices(),
         all(params)?,
@@ -731,7 +732,7 @@ pub(crate) fn empty_case(
     stuck_at: Option<Span>,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Data(d, args) = force(g, cx.types[level].clone())? else {
+    let Value::Data(d, args) = force(&g.ev(), cx.types[level].clone())? else {
         return Ok(None);
     };
     let data = g.data(d);

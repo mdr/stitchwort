@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Ev, Term};
 use stitchwort_syntax::ast::{Decl, Expr, Import, Module};
 use stitchwort_syntax::docs::{
     Doc, docs, file_doc, file_doc_namespace, file_imports, link_candidates_with_imports,
@@ -1123,7 +1123,7 @@ impl Session {
     /// definition's or theorem's, a constructor's.
     pub fn declared_type(&self, path: &str) -> Option<String> {
         let g = &self.elab.globals;
-        let ty = match def_named(g, path) {
+        let ty = match def_named(&g.ev(), path) {
             Some(id) => g.def(id).ty().clone(),
             None => {
                 let (data, ctor) = path.rsplit_once('.')?;
@@ -1134,7 +1134,7 @@ impl Session {
                 stitchwort_elab::search::Item::Ctor(d, c).ty(g)
             }
         };
-        Some(stitchwort_core::pretty::term(g, &[], &ty))
+        Some(stitchwort_core::pretty::term(&g.ev(), &[], &ty))
     }
 
     /// The theorems whose statement mentions `path`, a definition (§5.5):
@@ -1171,7 +1171,7 @@ impl Session {
             },
         };
         let g = &self.elab.globals;
-        let target = def_named(g, path);
+        let target = def_named(&g.ev(), path);
         let iff = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).path() == "Std.Iff");
@@ -1186,7 +1186,7 @@ impl Session {
             if example || r.generated || !seen.insert(r.name.clone()) {
                 continue;
             }
-            let ty = def_named(g, &r.name).map(|id| g.def(id).ty().clone());
+            let ty = def_named(&g.ev(), &r.name).map(|id| g.def(id).ty().clone());
             let named = named_after(&r.name, path);
             let group = match (&ty, target) {
                 (Some(ty), Some(x)) if named && rewrites(ty, x, iff) => 0,
@@ -1194,7 +1194,7 @@ impl Session {
                 _ => 2,
             };
             let statement = match &ty {
-                Some(ty) => statement(g, ty),
+                Some(ty) => statement(&g.ev(), ty),
                 None => r.ty.clone(),
             };
             groups[group].push(TheoremJson {
@@ -1238,13 +1238,15 @@ impl Session {
     ) -> Result<Option<Equations>, stitchwort_syntax::Diagnostic> {
         self.elab.generate_deferred_equations()?;
         let g = &self.elab.globals;
-        let Some(f) = def_named(g, path) else {
+        let Some(f) = def_named(&g.ev(), path) else {
             return Ok(None);
         };
         // `f.eq2`, `f.eq2.or1`: the owner's path, then the reserved suffix.
-        let found = generated_equations(g).remove(path).unwrap_or_default();
+        let found = generated_equations(&g.ev())
+            .remove(path)
+            .unwrap_or_default();
         let transparent_tree =
-            def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque();
+            def_named(&g.ev(), &format!("{path}.%step")).is_none() && !g.def(f).opaque();
         let shown_name = |p: &str| shown(p).to_string();
         let mut induct = None;
         let mut equations: Vec<EquationJson> = Vec::new();
@@ -1254,14 +1256,14 @@ impl Session {
                 let (file, line) = crate::render::location(&self.sources, d.span());
                 EquationJson {
                     name: shown_name(d.path()),
-                    statement: statement(g, d.ty()),
+                    statement: statement(&g.ev(), d.ty()),
                     line,
                     file,
-                    stuck: !stitchwort_elab::is_function_induct(g, d.name())
+                    stuck: !stitchwort_elab::is_function_induct(&g.ev(), d.name())
                         && (!transparent_tree || has_overlap_hypothesis(d.ty())),
                 }
             };
-            if stitchwort_elab::is_function_induct(g, g.def(*id).name()) {
+            if stitchwort_elab::is_function_induct(&g.ev(), g.def(*id).name()) {
                 induct = Some(json);
             } else {
                 equations.push(json);
@@ -1275,7 +1277,8 @@ impl Session {
                 continue;
             }
             let name = format!("{path}.{suffix}");
-            if def_named(g, &name).is_some() || skipped.iter().any(|s| s.name == shown_name(&name))
+            if def_named(&g.ev(), &name).is_some()
+                || skipped.iter().any(|s| s.name == shown_name(&name))
             {
                 continue;
             }
@@ -1306,7 +1309,7 @@ impl Session {
 
 /// Every generated equation made so far, by its definition's full path, in
 /// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
-pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
+pub(crate) fn generated_equations(g: &Ev) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
     for id in (0..g.env.defs().len()).map(DefId) {
         let d = g.def(id);
@@ -1363,7 +1366,7 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
 
 /// A definition's generated equations as hover shows them: the count and
 /// the first few (function-equations §3.4), in markdown.
-pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> String {
+pub(crate) fn equations_hover(g: &Ev, ids: &[(Vec<usize>, DefId)]) -> String {
     const HOVER_SHOWN: usize = 4;
     // `f.induct`, listed first, isn't an equation: not counted (SW-1073).
     let inducts = (ids.iter())
@@ -1417,7 +1420,7 @@ fn has_overlap_hypothesis(ty: &Term) -> bool {
 }
 
 /// The definition with full name `path`.
-fn def_named(g: &Globals, path: &str) -> Option<DefId> {
+fn def_named(g: &Ev, path: &str) -> Option<DefId> {
     (0..g.env.defs().len())
         .map(DefId)
         .find(|id| &**g.def(*id).path() == path)
@@ -1440,7 +1443,7 @@ fn rewrites(ty: &Term, x: DefId, iff: Option<DataId>) -> bool {
 
 /// A theorem's statement without its leading parameters that only later ones
 /// use (`[a: Type] → (xs: List a) → …`): the premises and the conclusion.
-fn statement(g: &Globals, ty: &Term) -> String {
+fn statement(g: &Ev, ty: &Term) -> String {
     let mut names = Vec::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(name, _, _, cod) = t

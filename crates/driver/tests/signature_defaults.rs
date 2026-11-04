@@ -43,7 +43,7 @@ fn hashes(text: &str) -> BTreeMap<String, String> {
             .map(|i| {
                 (
                     g.env.defs()[i].path().to_string(),
-                    show(def_hash(g, DefId(i))),
+                    show(def_hash(&g.ev(), DefId(i))),
                 )
             })
             .collect()
@@ -71,7 +71,7 @@ fn refused(text: &str) -> String {
 }
 
 fn hash_of(session: &Session, name: &str) -> String {
-    show(def_hash(&session.elab.globals, def(session, name)))
+    show(def_hash(&session.elab.globals.ev(), def(session, name)))
 }
 
 fn body_of(session: &Session, name: &str) -> Term {

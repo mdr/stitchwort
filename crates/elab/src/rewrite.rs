@@ -460,7 +460,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
         })
         .collect();
     let written_ty = ty.clone();
-    while let Value::Pi(name, Icit::Explicit, domain, rest) = force(g, ty.clone())? {
+    while let Value::Pi(name, Icit::Explicit, domain, rest) = force(&g.ev(), ty.clone())? {
         let meta = cx.fresh_meta();
         let value = cx.eval(&meta)?;
         premises.push(Premise {
@@ -468,9 +468,9 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
             ty: (*domain).clone(),
             name: Some(name.clone()),
         });
-        (proof, ty) = insert(cx, Term::app(proof, meta), rest.apply(g, value)?)?;
+        (proof, ty) = insert(cx, Term::app(proof, meta), rest.apply(&g.ev(), value)?)?;
     }
-    let Value::Eq(carrier, left, right) = force(g, ty.clone())? else {
+    let Value::Eq(carrier, left, right) = force(&g.ev(), ty.clone())? else {
         return Err(
             Diagnostic::error("E-REWRITE-RULE", "`rewrite` needs a proof of an equation")
                 .with_label(
@@ -530,11 +530,14 @@ fn discharge(
     let g = cx.g();
     for premise in &equation.premises {
         let value = cx.eval(&premise.meta)?;
-        if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
+        if !matches!(
+            force(&g.ev(), value.clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        ) {
             continue;
         }
         // Read again, so what matching solved is in it (and computes).
-        let ty = force(g, cx.eval(&cx.quote(&premise.ty)?)?)?;
+        let ty = force(&g.ev(), cx.eval(&cx.quote(&premise.ty)?)?)?;
         // An unknown type is nothing to look for.
         if matches!(ty, Value::Neutral(Head::Meta(_), _)) || !is_proof_type(cx, &ty)? {
             continue;
@@ -566,7 +569,7 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
         return Ok(true);
     }
     let g = cx.g();
-    Ok(match force(g, ty.clone())? {
+    Ok(match force(&g.ev(), ty.clone())? {
         Value::Neutral(Head::Def(d), spine) => {
             let (params, result) = crate::decreasing::split_pis(g.def(d).ty(), None);
             params.len() == spine.len()
@@ -681,7 +684,7 @@ fn rewrite_once(
     stats: &mut Stats,
 ) -> Result<Vec<Step>> {
     let g = cx.g();
-    let goal_value = force(g, goal.clone())?;
+    let goal_value = force(&g.ev(), goal.clone())?;
     let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
     // is replaced, which only shows once it is found.
@@ -820,7 +823,7 @@ fn replaced_by_match(cx: &Ctx, lhs: &Value, place: Place, error: Diagnostic) -> 
         return error;
     };
     for (base, needle, span, var) in cx.scrutinees.iter().rev() {
-        let Ok(needle) = needle.shift(g, level - base, 0) else {
+        let Ok(needle) = needle.shift(&g.ev(), level - base, 0) else {
             continue;
         };
         if !crate::matching::same(&needle, &lhs_term) {
@@ -983,7 +986,13 @@ fn replace_occurrences(
     // Only when the new goal reads back the same either way: one that
     // computes further now would change what the body (and a later rule)
     // is elaborated against, and so the hashes.
-    let goal_with = |rhs: Value| apply(g, apply(g, motive_value.clone(), rhs)?, Value::Refl);
+    let goal_with = |rhs: Value| {
+        apply(
+            &g.ev(),
+            apply(&g.ev(), motive_value.clone(), rhs)?,
+            Value::Refl,
+        )
+    };
     let mut next = goal_with(equation.rhs.clone())?;
     if open && found.conversions > 0 {
         let refreshed = goal_with(crate::interfaces::refresh(cx, &equation.rhs)?)?;
@@ -1146,7 +1155,7 @@ impl Search<'_, '_> {
             .machine
             .budget
             .limited(&mut remaining, || -> Result<bool> {
-                let value = eval(g, &cx.env, &candidate)?;
+                let value = eval(&g.ev(), &cx.env, &candidate)?;
                 if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
                     return Ok(false);
                 }
@@ -1227,7 +1236,7 @@ pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
         .collect::<Result<Vec<_>>>()?;
     let types = cx.types.iter().map(zonked).collect::<Result<Vec<_>>>()?;
     Ok(kernel::Ctx::with_variables(
-        cx.g(),
+        &cx.g().ev(),
         &env,
         &types,
         &cx.names,
@@ -1423,7 +1432,7 @@ fn round_trip(
     let g = cx.g();
     g.machine.budget.limited(remaining, || -> Result<bool> {
         let motive = cx.eval(motive)?;
-        let back = apply(g, apply(g, motive, lhs.clone())?, proof.clone())?;
+        let back = apply(&g.ev(), apply(&g.ev(), motive, lhs.clone())?, proof.clone())?;
         cx.unify(&back, goal)
     })
 }
@@ -1442,7 +1451,11 @@ fn round_trip_awaiting_helpers(
         return Ok(false);
     }
     let g = cx.g();
-    let back = apply(g, apply(g, cx.eval(motive)?, lhs.clone())?, proof.clone())?;
+    let back = apply(
+        &g.ev(),
+        apply(&g.ev(), cx.eval(motive)?, lhs.clone())?,
+        proof.clone(),
+    )?;
     crate::lift::await_helpers(cx, &back, goal, crate::lift::Failure::Mismatch)
 }
 
@@ -1450,7 +1463,7 @@ fn round_trip_awaiting_helpers(
 /// not applied to every variable in scope as it is made.
 fn written(cx: &Ctx, term: &Term) -> String {
     stitchwort_core::pretty::term_for_message_in(
-        cx.g(),
+        &cx.g().ev(),
         cx.e,
         &cx.shown_names(false),
         &tidy(cx, term),
@@ -1460,9 +1473,13 @@ fn written(cx: &Ctx, term: &Term) -> String {
 /// Whether [`written`] shortens `term` (to `…` inside).
 fn shortened(cx: &Ctx, term: &Term) -> bool {
     let tidy = tidy(cx, term);
-    let short =
-        stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.shown_names(false), &tidy);
-    short != stitchwort_core::pretty::term_in(cx.g(), cx.e, &cx.shown_names(false), &tidy)
+    let short = stitchwort_core::pretty::term_for_message_in(
+        &cx.g().ev(),
+        cx.e,
+        &cx.shown_names(false),
+        &tidy,
+    );
+    short != stitchwort_core::pretty::term_in(&cx.g().ev(), cx.e, &cx.shown_names(false), &tidy)
 }
 
 /// `term` with each unknown the rule left open bare, as [`written`] shows it.
@@ -1517,7 +1534,7 @@ fn shown_computed(cx: &Ctx, value: &Value) -> String {
 /// within what is left of the search budget, and solving nothing.
 fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result<bool> {
     let g = cx.g();
-    let Value::Eq(_, left, right) = force(g, goal.clone())? else {
+    let Value::Eq(_, left, right) = force(&g.ev(), goal.clone())? else {
         return Ok(false);
     };
     let snapshot = Snapshot::take(cx);

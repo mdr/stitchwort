@@ -1755,7 +1755,7 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
     }
     let several = keys.len() > 1;
     for (key, id) in keys.iter().zip(ids) {
-        let found = stitchwort_driver::axioms::axioms(&session.elab.globals, id);
+        let found = stitchwort_driver::axioms::axioms(&session.elab.globals.ev(), id);
         let indent = if several { "  " } else { "" };
         if several {
             println!("{key}:");
@@ -2438,7 +2438,7 @@ fn audit_loaded(
         }
         roots.iter().any(|r| is_under(path, r)) || named.iter().any(|n| matches(path, n))
     };
-    let selected = stitchwort_driver::audit::theorems(&session.elab.globals, &keep);
+    let selected = stitchwort_driver::audit::theorems(&session.elab.globals.ev(), &keep);
     for name in named {
         if !selected.iter().any(|(_, p)| matches(p, name)) {
             eprintln!("error: there's no theorem `{name}`");

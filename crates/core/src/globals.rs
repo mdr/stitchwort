@@ -697,7 +697,67 @@ pub enum HashKey {
     Data(DataId),
 }
 
+impl crate::ev::Metas for Globals {
+    fn solution(&self, m: usize) -> Option<Value> {
+        self.meta_solution(m)
+    }
+
+    fn epoch(&self) -> u64 {
+        self.meta_epoch.get()
+    }
+}
+
+impl crate::ev::Shown for Globals {
+    fn placeholder(&self, m: usize) -> Option<PlaceholderSyntax> {
+        self.placeholder_syntax.borrow().get(&m).cloned()
+    }
+
+    fn has_print_labels(&self) -> bool {
+        !self.print_labels.borrow().is_empty()
+    }
+
+    fn print_label(
+        &self,
+        found: &mut dyn FnMut(&PrintLabel) -> bool,
+    ) -> Option<(Name, usize, Option<Rc<CallDefaults>>)> {
+        let labels = self.print_labels.borrow();
+        let label = labels.iter().find(|l| found(l))?;
+        Some((
+            label.name.clone(),
+            label.levels.len(),
+            label.defaults.clone(),
+        ))
+    }
+
+    fn update_shown(&self, id: DefId) -> Option<Rc<UpdateShown>> {
+        self.print_hints.update_shown.borrow().get(&id).cloned()
+    }
+
+    fn param_defaults(&self, id: DefId) -> Option<Rc<ParamDefaults>> {
+        self.print_hints.param_defaults.borrow().get(&id).cloned()
+    }
+
+    fn wants_failed_mention(&self) -> bool {
+        !self.failed_mentioned.get()
+    }
+
+    fn note_failed_mentioned(&self) {
+        self.failed_mentioned.set(true);
+    }
+}
+
 impl Globals {
+    /// What the evaluator reads, with this session's metavariables.
+    pub fn ev(&self) -> crate::ev::Ev<'_> {
+        crate::ev::Ev {
+            env: &self.env,
+            machine: &self.machine,
+            caches: &self.caches,
+            metas: self,
+            shown: self,
+        }
+    }
+
     pub fn def(&self, id: DefId) -> &Def {
         self.env.def(id)
     }

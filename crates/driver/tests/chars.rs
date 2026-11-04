@@ -30,7 +30,7 @@ fn check_code(g: &Globals, code: u32) -> Result<(), &'static str> {
         0,
         vec![Term::Nat(BigUint::from(code).into()), Term::Refl],
     );
-    infer_closed(g, &term, span())
+    infer_closed(&g.ev(), &term, span())
         .map(|_| ())
         .map_err(|d| d.code)
 }
@@ -63,7 +63,7 @@ fn the_kernel_refuses_a_char_without_its_proof() {
     let g = &session.elab.globals;
     let term = Term::ctor(mk_char(g), 0, vec![Term::Nat(BigUint::from(65u32).into())]);
     assert_eq!(
-        infer_closed(g, &term, span())
+        infer_closed(&g.ev(), &term, span())
             .map(|_| ())
             .map_err(|d| d.code),
         Err("E-MALFORMED")

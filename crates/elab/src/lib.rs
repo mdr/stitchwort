@@ -549,7 +549,8 @@ impl Elaborator {
     /// The unifier, on this elaborator's metavariables and attempt.
     pub(crate) fn unifier(&self) -> unify::Unifier<'_> {
         unify::Unifier {
-            g: &self.globals,
+            ev: self.globals.ev(),
+            store: &self.globals,
             attempt: &self.attempt,
             stats: &self.session.stats,
         }
@@ -673,7 +674,7 @@ impl Elaborator {
     /// The session's declarations with the elaborator's facts about them
     /// that the extraction backends read (`stitchwort_core::backend`).
     pub fn backend(&self) -> stitchwort_core::backend::View<'_> {
-        stitchwort_core::backend::View::new(&self.globals, &self.tables)
+        stitchwort_core::backend::View::new(self.globals.ev(), &self.tables)
     }
 
     /// Whether anything at all has key `key`.
@@ -762,13 +763,13 @@ impl Elaborator {
         // The prelude's imports are its own.
         self.scope.clear_imports();
         self.tables.prelude_defs = self.globals.env.defs().len();
-        registry::check_complete_core(&self.globals)
+        registry::check_complete_core(&self.globals.ev())
     }
 
     /// Checks that every built-in is bound, library ones too: for a test
     /// that has loaded every library file.
     pub fn check_registry_complete(&self) -> Result<()> {
-        registry::check_complete(&self.globals)
+        registry::check_complete(&self.globals.ev())
     }
 
     /// Elaborates and evaluates a closed expression: its value and its type,
@@ -779,10 +780,10 @@ impl Elaborator {
         let inferred = self.infer_expr_in_operation(expr);
         let run = || -> Result<(String, String)> {
             let (term, ty) = inferred?;
-            let value = eval(&self.globals, &[], &term)?;
+            let value = eval(&self.globals.ev(), &[], &term)?;
             let g = &self.globals;
             let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
-                pretty::term_in_full(g, &[], &stitchwort_core::value::quote(g, 0, v)?)
+                pretty::term_in_full(&g.ev(), &[], &stitchwort_core::value::quote(&g.ev(), 0, v)?)
             };
             Ok((show(&value)?, show(&ty)?))
         };
@@ -880,7 +881,7 @@ impl Elaborator {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.globals, || {
-            kernel::infer_closed(&self.globals, &term, expr.span())
+            kernel::infer_closed(&self.globals.ev(), &term, expr.span())
         })?;
         Ok(Checked::Closed)
     }
@@ -962,7 +963,7 @@ impl Elaborator {
             return Err(goals::uses_unfinished(Some(body.span())));
         }
         kernel::without_glue(&self.globals, || {
-            kernel::infer_closed(&self.globals, &term, body.span())
+            kernel::infer_closed(&self.globals.ev(), &term, body.span())
         })?;
         Ok(Checked::Closed)
     }
@@ -1002,19 +1003,19 @@ impl Elaborator {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.globals, || {
-            kernel::infer_closed(&self.globals, &term, expr.span())
+            kernel::infer_closed(&self.globals.ev(), &term, expr.span())
         })
     }
 
     pub fn eval(&self, term: &Term) -> std::result::Result<Value, stitchwort_core::ResourceError> {
-        eval(&self.globals, &[], term)
+        eval(&self.globals.ev(), &[], term)
     }
 
     /// Prints a closed value, as one operation: a part too large or nested
     /// too deeply to print within its limits is shown as `…`.
     pub fn show(&self, value: &Value) -> String {
         let _op = self.globals.machine.budget.operation(self.options.limits);
-        pretty::value(&self.globals, &[], value)
+        pretty::value(&self.globals.ev(), &[], value)
     }
 
     /// Rewinds the environment to `mark`, which also clears the
@@ -1934,7 +1935,7 @@ impl Elaborator {
                 self.check_data_auto(&mut cx, binder, &ty)?;
             }
             for (k, n) in binder.names.iter().enumerate() {
-                let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
+                let ty = self.finish(&ty.shift(&self.globals.ev(), k, 0)?, cx.level())?;
                 let value = cx.eval(&ty)?;
                 checked.push((name(n), ty));
                 cx.bind(&n.text, value);
@@ -1983,7 +1984,7 @@ impl Elaborator {
         // No large indices (D142): an index's type fits the universe, as a
         // field's must. (The kernel checks it too.)
         if let Some((s, at)) = index_sorts.iter().find(|(s, _)| !s.fits_in(sort)) {
-            let show = |s: &Sort| pretty::term(&self.globals, &[], &Term::Sort(*s));
+            let show = |s: &Sort| pretty::term(&self.globals.ev(), &[], &Term::Sort(*s));
             return Err(error(
                 "E-UNIVERSE",
                 *at,
@@ -2031,7 +2032,7 @@ impl Elaborator {
             let mut names: Vec<Name> = Vec::new();
             let mut shown = Vec::new();
             for (x, ty) in params {
-                shown.push(format!("({x}: {})", pretty::term(g, &names, ty)));
+                shown.push(format!("({x}: {})", pretty::term(&g.ev(), &names, ty)));
                 names.push(x.clone());
             }
             shown.join(" ")
@@ -2043,8 +2044,8 @@ impl Elaborator {
                 break;
             }
             let level = env.len();
-            let (a, b) = (eval(g, &env, ty)?, eval(g, &env, first_ty)?);
-            same = x == y && stitchwort_core::value::conv(g, level, &a, &b)?;
+            let (a, b) = (eval(&g.ev(), &env, ty)?, eval(&g.ev(), &env, first_ty)?);
+            same = x == y && stitchwort_core::value::conv(&g.ev(), level, &a, &b)?;
             env.push(Value::var(level));
         }
         if !same {
@@ -2066,7 +2067,7 @@ impl Elaborator {
             ));
         }
         if sort != first_sort {
-            let show = |s: &Sort| pretty::term(g, &[], &Term::Sort(*s));
+            let show = |s: &Sort| pretty::term(&g.ev(), &[], &Term::Sort(*s));
             return Err(Diagnostic::error(
                 "E-MUTUAL-PARAMETERS",
                 format!(
@@ -2145,7 +2146,7 @@ impl Elaborator {
                 }
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
                 for (k, n) in binder.names.iter().enumerate() {
-                    let ty = self.finish(&ty.shift(&self.globals, k, 0)?, cx.level())?;
+                    let ty = self.finish(&ty.shift(&self.globals.ev(), k, 0)?, cx.level())?;
                     let value = cx.eval(&ty)?;
                     if *interface {
                         self.check_interface_field(d, group_interfaces, n, &value)?;
@@ -2938,10 +2939,10 @@ impl Elaborator {
         };
         let def = self.globals.def(id);
         let (name, span) = (def.name().clone(), def.span());
-        let tel = kernel::telescope(&self.globals, def.ty_value(), span)?;
+        let tel = kernel::telescope(&self.globals.ev(), def.ty_value(), span)?;
         let mut found = Vec::new();
         for (i, (_, ty, erased)) in tel.params.iter().enumerate() {
-            if !erased || kernel::is_type_former(&self.globals, i, ty)? {
+            if !erased || kernel::is_type_former(&self.globals.ev(), i, ty)? {
                 continue; // runtime data, or a type parameter (refused when exporting)
             }
             self.clear_metas();
@@ -3020,7 +3021,7 @@ impl Elaborator {
             return Ok(None);
         };
         Ok(Some(
-            stitchwort_core::check::telescope(&self.globals, &ty, span)?.result_erased,
+            stitchwort_core::check::telescope(&self.globals.ev(), &ty, span)?.result_erased,
         ))
     }
 
@@ -3129,7 +3130,7 @@ impl Elaborator {
             matches!(rhs, Some(Expr::TypedLam(_, mode, ..)) if *mode != ast::Mode::Explicit)
         });
         loop {
-            match force(g, ty.clone())? {
+            match force(&g.ev(), ty.clone())? {
                 Value::Pi(_, icit, ..)
                     if icit.is_implicit() && binds_itself && columns.len() == arity =>
                 {
@@ -3143,7 +3144,7 @@ impl Elaborator {
                     cx.set_kind(icit);
                     next_written(cx);
                     lams.push((x, icit));
-                    ty = cod.apply(g, var)?;
+                    ty = cod.apply(&g.ev(), var)?;
                 }
                 Value::Pi(x, Icit::Explicit, dom, cod) if columns.len() < arity => {
                     let param = match &first_patterns[columns.len()] {
@@ -3156,7 +3157,7 @@ impl Elaborator {
                     cx.bind_hidden(param.clone(), (*dom).clone());
                     next_written(cx);
                     lams.push((param, Icit::Explicit));
-                    ty = cod.apply(g, var)?;
+                    ty = cod.apply(&g.ev(), var)?;
                 }
                 _ => break,
             }
@@ -3168,7 +3169,10 @@ impl Elaborator {
             // after the colon, counted up to the first thing that isn't a
             // function type (an ability row, say).
             let fewer = columns.len() == arity
-                && matches!(force(g, ty.clone())?, Value::Pi(_, Icit::Explicit, ..));
+                && matches!(
+                    force(&g.ev(), ty.clone())?,
+                    Value::Pi(_, Icit::Explicit, ..)
+                );
             if columns.len() == h {
                 return Err(error(
                     "E-ARITY",
@@ -3514,7 +3518,7 @@ impl Elaborator {
                 for (i, t) in types.iter().enumerate() {
                     if let Some(t) = t
                         && i != j
-                        && let Value::Data(d2, _) = force(&self.globals, t.clone())?
+                        && let Value::Data(d2, _) = force(&self.globals.ev(), t.clone())?
                         && !self.globals.data(d2).indices().is_empty()
                     {
                         return Ok(true);
@@ -3665,7 +3669,7 @@ impl Elaborator {
     ) -> Result<Vec<Option<Value>>> {
         let g = &self.globals;
         let fields = &g.data(d).ctors()[c].fields;
-        let params = match ty.map(|t| force(g, t.clone())).transpose()? {
+        let params = match ty.map(|t| force(&g.ev(), t.clone())).transpose()? {
             Some(Value::Data(d2, params)) if d2 == d => params,
             _ => return Ok(vec![None; fields.len()]),
         };
@@ -3675,7 +3679,7 @@ impl Elaborator {
         env.truncate(g.data(d).params().len());
         let mut out = Vec::new();
         for (f, (_, field_ty)) in fields.iter().enumerate() {
-            out.push(Some(eval(g, &env, field_ty)?));
+            out.push(Some(eval(&g.ev(), &env, field_ty)?));
             env.push(Value::var(depth + f));
         }
         Ok(out)
@@ -3856,7 +3860,7 @@ impl Elaborator {
         let Some(ty) = ty else {
             return Ok(NumberKind::Other);
         };
-        Ok(match force(g, ty.clone())? {
+        Ok(match force(&g.ev(), ty.clone())? {
             Value::Data(d, params) if params.is_empty() && Some(d) == g.env.builtins().nat => {
                 NumberKind::Nat
             }
@@ -4002,7 +4006,7 @@ impl Elaborator {
         else {
             return Ok(false);
         };
-        Ok(matches!(force(&self.globals, ty.clone())?, Value::Data(d, _) if d == unit))
+        Ok(matches!(force(&self.globals.ev(), ty.clone())?, Value::Data(d, _) if d == unit))
     }
 
     fn builtin_ctor(&self, b: Builtin, span: Span) -> Result<(DataId, usize)> {
@@ -4074,12 +4078,12 @@ fn canonical(
             && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
     };
     // `p : a = b` in `Bool`, where `a` computes to `b` (it's `True`).
-    let (a, b) = match force(g, cx.types[p].clone())? {
+    let (a, b) = match force(&g.ev(), cx.types[p].clone())? {
         Value::Eq(ty, a, b)
             if own(cx, p)
-                && matches!(force(g, (*ty).clone())?,
+                && matches!(force(&g.ev(), (*ty).clone())?,
                     Value::Data(d, _) if g.env.registry().is_data(Builtin::Bool, d))
-                && stitchwort_core::value::conv(g, base, &a, &b)? =>
+                && stitchwort_core::value::conv(&g.ev(), base, &a, &b)? =>
         {
             (a, b)
         }
@@ -4087,9 +4091,9 @@ fn canonical(
     };
     let mentions = |t: &Term, l: usize| t.mentions(base - 1 - l);
     let types = (0..base)
-        .map(|l| quote(g, base, &cx.types[l]))
+        .map(|l| quote(&g.ev(), base, &cx.types[l]))
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    let goal_t = quote(g, base, goal)?;
+    let goal_t = quote(&g.ev(), base, goal)?;
     // The hypotheses to take as arguments: those whose types mention `p`,
     // or one of them.
     let mut reverted: Vec<usize> = Vec::new();
@@ -4126,9 +4130,13 @@ fn canonical(
     // The motive `r e => (h₁ : T₁[r]) -> … -> G[r]`, under `r` and `e` at
     // `base` and `base + 1`.
     let motive_env = subst(Value::var(base), base + 2);
-    let mut motive = quote(g, base + 2 + k, &eval(g, &motive_env, &goal_t)?)?;
+    let mut motive = quote(&g.ev(), base + 2 + k, &eval(&g.ev(), &motive_env, &goal_t)?)?;
     for (i, &h) in reverted.iter().enumerate().rev() {
-        let ty = quote(g, base + 2 + i, &eval(g, &motive_env, &types[h])?)?;
+        let ty = quote(
+            &g.ev(),
+            base + 2 + i,
+            &eval(&g.ev(), &motive_env, &types[h])?,
+        )?;
         motive = Term::Pi(
             cx.names[h].clone(),
             Icit::Explicit,
@@ -4145,7 +4153,7 @@ fn canonical(
     let mark = cx.mark();
     let refl_env = subst(Value::Refl, base);
     for &h in &reverted {
-        let ty = eval(g, &refl_env, &types[h])?;
+        let ty = eval(&g.ev(), &refl_env, &types[h])?;
         cx.bind_hidden(cx.names[h].clone(), ty);
     }
     for (i, &h) in reverted.iter().enumerate() {
@@ -4159,14 +4167,14 @@ fn canonical(
         if l >= base || l == p || reverted.contains(&l) || own(cx, l) || cx.lets[l].is_some() {
             continue;
         }
-        let value = quote(g, base, &cx.env[l])?;
+        let value = quote(&g.ev(), base, &cx.env[l])?;
         if mentions(&value, p) || reverted.iter().any(|&h| mentions(&value, h)) {
-            let term = quote(g, base + k, &eval(g, &refl_env, &value)?)?;
-            let ty = eval(g, &refl_env, &types[l])?;
+            let term = quote(&g.ev(), base + k, &eval(&g.ev(), &refl_env, &value)?)?;
+            let ty = eval(&g.ev(), &refl_env, &types[l])?;
             cx.bind_local(&name, term, ty);
         }
     }
-    let arm_goal = eval(g, &refl_env, &goal_t)?;
+    let arm_goal = eval(&g.ev(), &refl_env, &goal_t)?;
     let result = canonical(cx, rest, &arm_goal, &mut |cx, goal, _| body(cx, goal, true));
     cx.reset(mark);
     let mut arm = result?;
@@ -4176,8 +4184,8 @@ fn canonical(
     // `Bool.uniqueEq a b rfl p : rfl = p`.
     let mut unique = Term::Def(check::builtin_def(cx, Builtin::BoolUniqueEq)?);
     for arg in [
-        quote(g, base, &a)?,
-        quote(g, base, &b)?,
+        quote(&g.ev(), base, &a)?,
+        quote(&g.ev(), base, &b)?,
         Term::Refl,
         Term::Var(base - 1 - p),
     ] {
@@ -4238,17 +4246,17 @@ fn unfolded_arguments_note(
         return Ok(None);
     };
     let g = &cx.e.globals;
-    let shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), written);
+    let shown = pretty::term_for_message_in(&g.ev(), cx.e, &cx.shown_names(false), written);
     let definition = g.def(*id).name().to_string();
     let mut added = Vec::new();
     let mut ty = ty;
-    while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+    while let Value::Pi(x, icit, dom, cod) = force(&g.ev(), ty.clone())? {
         if icit == Icit::Explicit {
             added.push(format!("`{}: {}`", x, cx.show(&dom)));
         }
         let var = Value::var(cx.level());
         cx.bind_hidden(x, (*dom).clone());
-        ty = cod.apply(g, var)?;
+        ty = cod.apply(&g.ev(), var)?;
     }
     if added.is_empty() {
         return Ok(None);
@@ -4377,7 +4385,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
-        Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
+        Tree::Absurd { level, span } => match force(&cx.g().ev(), cx.types[*level].clone())? {
             Value::Data(d, _) if cx.g().data(d).ctors().is_empty() => Ok(Term::Loc(
                 *span,
                 Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
@@ -4400,7 +4408,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         } => {
             let g = cx.g();
             let data = g.data(*d);
-            let mut ty = force(g, cx.types[*x].clone())?;
+            let mut ty = force(&g.ev(), cx.types[*x].clone())?;
             if let Value::Neutral(Head::Meta(_), _) = ty {
                 // A variable of a type not yet known, matched by a
                 // constructor: a pattern lambda's parameter checked before
@@ -4460,7 +4468,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     &cx.env,
                     *x,
                     &value,
-                    &[eval(g, &cx.env, &goal_term)?],
+                    &[eval(&g.ev(), &cx.env, &goal_term)?],
                 )?
                 .pop()
                 .expect("one value in, one out");
@@ -4470,7 +4478,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 for ((_, field_ty), (name, field)) in
                     ctor.fields.iter().zip(names.iter().zip(&fields))
                 {
-                    let ty = eval(g, &field_env, field_ty)?;
+                    let ty = eval(&g.ev(), &field_env, field_ty)?;
                     field_env.push(field.clone());
                     cx.bind_hidden(name.clone(), ty);
                 }
@@ -4517,7 +4525,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         } => {
             let g = cx.g();
             let nat = g.env.builtins().nat;
-            match force(g, cx.types[*x].clone())? {
+            match force(&g.ev(), cx.types[*x].clone())? {
                 Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
                 other => {
                     let mut e = error(
@@ -4552,7 +4560,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     &cx.env,
                     *x,
                     &value,
-                    &[eval(g, &cx.env, &goal_term)?],
+                    &[eval(&g.ev(), &cx.env, &goal_term)?],
                 )?
                 .pop()
                 .expect("one value in, one out");
@@ -4591,11 +4599,13 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let default = match &cx.env[*x] {
                 Value::Neutral(Head::Var(l, known), spine) if l == x && spine.is_empty() => {
                     let mut numbers: Vec<BigUint> = arms.iter().map(|(k, _)| k.clone()).collect();
-                    numbers.extend(known.numbers(g).iter().cloned());
+                    numbers.extend(known.numbers(&g.ev()).iter().cloned());
                     numbers.sort_unstable();
                     numbers.dedup();
-                    let value =
-                        Value::Neutral(Head::Var(*x, Apart::new(g, numbers.into())), Spine::new());
+                    let value = Value::Neutral(
+                        Head::Var(*x, Apart::new(&g.ev(), numbers.into())),
+                        Spine::new(),
+                    );
                     let mut env = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.env)?;
                     env[*x] = value.clone();
                     let refined = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.types)?;
@@ -4604,7 +4614,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         &cx.env,
                         *x,
                         &value,
-                        &[eval(g, &cx.env, &goal_term)?],
+                        &[eval(&g.ev(), &cx.env, &goal_term)?],
                     )?
                     .pop()
                     .expect("one value in, one out");

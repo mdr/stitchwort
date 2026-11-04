@@ -73,14 +73,18 @@ fn run(args: &[String]) -> ExitCode {
     };
     let checked = start.elapsed();
     let g = &session.elab.globals;
-    let program =
-        match stitchwort_rt::lower_main(g, session.elab.options.limits, main.term(), main.row) {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("{e:?}");
-                return ExitCode::FAILURE;
-            }
-        };
+    let program = match stitchwort_rt::lower_main(
+        &g.ev(),
+        session.elab.options.limits,
+        main.term(),
+        main.row,
+    ) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{e:?}");
+            return ExitCode::FAILURE;
+        }
+    };
     let lowered = start.elapsed();
     // `RT_DUMP=FILE` writes the lowered program's listing there.
     if let Some(path) = std::env::var_os("RT_DUMP") {

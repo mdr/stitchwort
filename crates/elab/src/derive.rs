@@ -187,7 +187,7 @@ pub(crate) fn member_of(
     ty: &Value,
 ) -> Result<Option<usize>> {
     for (m, member) in members.iter().enumerate() {
-        if stitchwort_core::value::conv(g, np, ty, &member.ty())? {
+        if stitchwort_core::value::conv(&g.ev(), np, ty, &member.ty())? {
             return Ok(Some(m));
         }
     }
@@ -322,11 +322,11 @@ impl Elaborator {
                         .cloned()
                         .chain((0..i).map(|_| unused()))
                         .collect();
-                    let value = force(g, eval(g, &env, ty)?)?;
+                    let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                     if matches!(value, Value::Pi(..)) {
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote(&g.ev(), np, &value)?;
                     if !term
                         .subterms()
                         .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
@@ -475,14 +475,14 @@ impl Elaborator {
                     // The field's type with the parameters and the fields
                     // before it as variables.
                     let env: Vec<Value> = (0..np + i).map(Value::var).collect();
-                    let value = force(g, eval(g, &env, ty)?)?;
+                    let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                     let Value::Eq(carrier, _, _) = value else {
                         return Ok(Err(format!(
                             "{what} is a proof of something other than an equation, and two \
                              values equal in their data can still differ there"
                         )));
                     };
-                    let carrier_term = quote(g, np + i, &carrier)?;
+                    let carrier_term = quote(&g.ev(), np + i, &carrier)?;
                     if carrier_term
                         .subterms()
                         .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
@@ -516,7 +516,7 @@ impl Elaborator {
                     .map(Value::var)
                     .chain((0..i).map(|_| unused()))
                     .collect();
-                let value = force(g, eval(g, &env, ty)?)?;
+                let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                 if compare && matches!(value, Value::Pi(..)) {
                     return Ok(Err(format!(
                         "{what} is a function, and functions can't be compared"
@@ -579,7 +579,7 @@ impl Elaborator {
                         .cloned()
                         .chain((0..i).map(|_| unused()))
                         .collect();
-                    let value = force(g, eval(g, &env, ty)?)?;
+                    let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                     if matches!(value, Value::Pi(..)) {
                         return Ok(Err(format!(
                             "{what} has a function inside `{}`, and functions can't be compared",
@@ -590,7 +590,7 @@ impl Elaborator {
                         kinds.push(Field::Recursive(m));
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote(&g.ev(), np, &value)?;
                     for j in 0..np {
                         if term.mentions(np - 1 - j) {
                             deciders[j] |= param_is_type[j];
@@ -696,7 +696,7 @@ impl Elaborator {
         if !self.has_member(d, &ty_member) {
             let data = self.globals.data(d);
             let np = data.params().len();
-            let mut body = quote(&self.globals, np, &member.ty())?;
+            let mut body = quote(&self.globals.ev(), np, &member.ty())?;
             let mut ty = Term::Sort(data.sort());
             for (x, t) in data.params().iter().rev() {
                 ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
@@ -796,17 +796,17 @@ impl Elaborator {
             .map(Value::var)
             .chain((0..k).map(|_| unused()))
             .collect();
-        let field = eval(g, &env, &ctor.fields[k].1)?;
+        let field = eval(&g.ev(), &env, &ctor.fields[k].1)?;
         let params: Vec<Term> = (0..np).map(|j| Term::Var(np - j)).collect();
         let ty = Term::Pi(
             "default".into(),
             Icit::Explicit,
-            Rc::new(quote(g, np, &field)?),
+            Rc::new(quote(&g.ev(), np, &field)?),
             Rc::new(Term::Pi(
                 "r".into(),
                 Icit::Explicit,
                 Rc::new(Term::data(d, params)),
-                Rc::new(quote(g, np + 2, &field)?),
+                Rc::new(quote(&g.ev(), np + 2, &field)?),
             )),
         );
         let branches: Vec<Branch> = data

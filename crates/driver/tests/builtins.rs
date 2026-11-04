@@ -26,7 +26,7 @@ fn prelude_binds_every_builtin() {
     let g = &session.elab.globals;
     let r = &g.env.registry();
     assert_eq!(r.missing(), Vec::<Builtin>::new());
-    assert!(check_complete(g).is_ok());
+    assert!(check_complete(&g.ev()).is_ok());
     for &b in Builtin::ALL {
         match b.kind() {
             Kind::Data => {
@@ -91,13 +91,13 @@ fn library_hashes_as_in_the_release_build() {
     for i in 0..g.env.datas().len() {
         lines.push((
             format!("data {}", g.env.datas()[i].path()),
-            show(data_hash(g, DataId(i))),
+            show(data_hash(&g.ev(), DataId(i))),
         ));
     }
     for i in 0..g.env.defs().len() {
         lines.push((
             g.env.defs()[i].path().to_string(),
-            show(def_hash(g, DefId(i))),
+            show(def_hash(&g.ev(), DefId(i))),
         ));
     }
     assert_eq!(

@@ -79,10 +79,10 @@
 //! So it sees the patterns around the place it's written: in it, `Cons y
 //! more` rebuilt from the fields of an enclosing pattern is still that part.
 
+use crate::ev::Ev;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget::ResourceError;
-use crate::globals::Globals;
 use crate::pretty;
 use crate::sct::{self, Label, Outcome};
 use crate::term::{DataId, DefId, Icit, Name, Term};
@@ -90,7 +90,7 @@ use crate::term::{DataId, DefId, Icit, Name, Term};
 /// Checks that `body`, the checked body of definition `self_id` (which hasn't
 /// got a body yet), terminates: a group of one.
 pub fn check(
-    g: &Globals,
+    g: &Ev,
     body: &Term,
     self_id: DefId,
     name: &str,
@@ -102,7 +102,7 @@ pub fn check(
 /// [`check`], allowing at most `max_graphs` distinct graphs in the closure of
 /// the calls.
 pub fn check_with_limit(
-    g: &Globals,
+    g: &Ev,
     body: &Term,
     self_id: DefId,
     name: &str,
@@ -122,7 +122,7 @@ pub struct Member<'a> {
 /// Checks that the members of a group terminate together: every call from
 /// any member to any member is in the analysis. Allows at most `max_graphs`
 /// distinct graphs in the closure of the calls.
-pub fn check_group(g: &Globals, members: &[Member], max_graphs: usize) -> Result<(), Diagnostic> {
+pub fn check_group(g: &Ev, members: &[Member], max_graphs: usize) -> Result<(), Diagnostic> {
     let members: Vec<(DefId, &Term, &str, Span)> = members
         .iter()
         .map(|m| {
@@ -144,7 +144,7 @@ struct MemberInfo<'a> {
 }
 
 fn check_members(
-    g: &Globals,
+    g: &Ev,
     members: &[(DefId, &Term, &str, Span)],
     max_graphs: usize,
 ) -> Result<(), Diagnostic> {
@@ -315,7 +315,7 @@ struct Info {
 
 /// Walks the body of member `from`, recording its calls.
 struct Walker<'a> {
-    g: &'a Globals,
+    g: &'a Ev<'a>,
     /// The group's members, by position.
     members: &'a [DefId],
     infos: &'a [MemberInfo<'a>],
@@ -347,7 +347,7 @@ struct Matched {
 /// `d` or another member of its data group (the group's metadata, fixed when
 /// it was declared). Strict positivity across the group makes each result a
 /// part of the matched value.
-fn is_recursive_fn(g: &Globals, ty: &Term, d: DataId) -> bool {
+fn is_recursive_fn(g: &Ev, ty: &Term, d: DataId) -> bool {
     let mut ty = ty.strip_loc();
     let mut arrows = 0;
     while let Term::Pi(_, _, _, cod) = ty {
@@ -368,7 +368,7 @@ enum Pins {
 
 /// Whether field type `ty` is a data type with variable `ix` as one of the
 /// arguments `pins` says are known.
-fn pins_var(g: &Globals, ty: &Term, ix: usize, pins: Pins) -> bool {
+fn pins_var(g: &Ev, ty: &Term, ix: usize, pins: Pins) -> bool {
     let Term::Data(d, args) = ty.strip_loc() else {
         return false;
     };
@@ -767,7 +767,7 @@ impl Walker<'_> {
 /// The error for a cycle of calls (`path`, composing to `entries`) in which
 /// no parameter gets smaller.
 fn no_descent(
-    g: &Globals,
+    g: &Ev,
     members: &[MemberInfo],
     matched_params: &[Vec<bool>],
     inlined: &[bool],
@@ -925,7 +925,7 @@ fn describe(
 /// callee matches, since those are the arguments that could have. `None` if
 /// some argument gets smaller, or the callee matches on none.
 fn not_smaller(
-    g: &Globals,
+    g: &Ev,
     from: &MemberInfo,
     to: &MemberInfo,
     matched: &[bool],

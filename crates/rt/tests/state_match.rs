@@ -127,8 +127,12 @@ fn resuming_inside_a_match_runs_as_a_loop() {
         let g = &session.elab.globals;
         let limits = Limits::from_core(session.elab.options.limits);
         for name in ["byState", "byPair", "nested", "opened"] {
-            let program = lower_global(g, session.elab.options.limits, def_named(&session, name))
-                .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
+            let program = lower_global(
+                &g.ev(),
+                session.elab.options.limits,
+                def_named(&session, name),
+            )
+            .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
             let mut peaks = Vec::new();
             for n in [1_000u64, 100_000] {
                 let mut m = Machine::new(&program, limits);

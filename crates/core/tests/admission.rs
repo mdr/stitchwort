@@ -47,8 +47,8 @@ fn a_cycle_split_across_two_definitions_is_refused() {
     assert_eq!(define_def(&mut p, f, calls(g)), "E-MALFORMED");
     assert_eq!(define_def(&mut p, g, calls(f)), "E-FAILED-DEPENDENCY");
     // Neither unfolds, so this is stuck rather than looping.
-    let (term, _) = infer_closed(&p.g, &app(Term::Def(f), [p.num(0)]), span()).unwrap();
-    stitchwort_core::value::eval(&p.g, &[], &term).unwrap();
+    let (term, _) = infer_closed(&p.g.ev(), &app(Term::Def(f), [p.num(0)]), span()).unwrap();
+    stitchwort_core::value::eval(&p.g.ev(), &[], &term).unwrap();
 }
 
 #[test]
@@ -72,7 +72,10 @@ fn a_data_type_without_its_constructors_yet_is_not_empty() {
     // The `case` rule refuses the empty match too, outside any declaration.
     let absurd = lam("x", case(0, d, vec![]));
     let annotated = Term::Ann(Rc::new(absurd.clone()), Rc::new(d_to_void.clone()));
-    assert_eq!(code(infer_closed(&p.g, &annotated, span())), "E-MALFORMED");
+    assert_eq!(
+        code(infer_closed(&p.g.ev(), &annotated, span())),
+        "E-MALFORMED"
+    );
     // Had it been accepted, `impossible MakeD` would prove `Void`.
     // Neighbour: an empty match on a final data type with no constructors.
     let void_to_nat = arrow(Term::Data(void, vec![]), p.nat_ty());
@@ -97,7 +100,7 @@ fn a_failed_declaration_cannot_be_used() {
     // f n = Type: ill-typed, so `f` fails.
     let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
     assert_eq!(define_def(&mut p, f, lam("n", ty())), "E-TYPE-MISMATCH");
-    assert_eq!(def_hash(&p.g, f).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), f).unwrap(), None);
 
     // A body using it is still checked, but the result is failed.
     let g = declare(&mut p.g, "g", nat_to_nat(p.nat));
@@ -105,7 +108,7 @@ fn a_failed_declaration_cannot_be_used() {
         define_def(&mut p, g, lam("n", app(Term::Def(f), [v(0)]))),
         "E-FAILED-DEPENDENCY"
     );
-    assert_eq!(def_hash(&p.g, g).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), g).unwrap(), None);
     // Its own errors come first.
     let h = declare(&mut p.g, "h", nat_to_nat(p.nat));
     assert_eq!(
@@ -127,7 +130,7 @@ fn a_failed_declaration_cannot_be_used() {
     );
     let t = t.expect("declared");
     assert_eq!(define_def(&mut p, t, Term::Refl), "E-FAILED-DEPENDENCY");
-    assert_eq!(def_hash(&p.g, t).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), t).unwrap(), None);
     // And neither can anything using that.
     let r = define(&mut p.g, "u", reflexive, Term::Def(t));
     assert_eq!(r.err(), Some("E-FAILED-DEPENDENCY"));
@@ -138,7 +141,7 @@ fn a_failed_declaration_cannot_be_used() {
         code(check::define_ctors(&mut p.g, e, fields)),
         "E-FAILED-DEPENDENCY"
     );
-    assert_eq!(data_hash(&p.g, e).unwrap(), None);
+    assert_eq!(data_hash(&p.g.ev(), e).unwrap(), None);
     let e_to_e = arrow(Term::Data(e, vec![]), Term::Data(e, vec![]));
     let r = define(&mut p.g, "idE", e_to_e, lam("x", v(0)));
     assert_eq!(r.err(), Some("E-FAILED-DEPENDENCY"));
@@ -149,15 +152,15 @@ fn a_definition_is_defined_only_once() {
     let mut p = Prelude::new();
     let id = lam("n", v(0));
     let f = define(&mut p.g, "f", nat_to_nat(p.nat), id.clone()).unwrap();
-    let hash = def_hash(&p.g, f).unwrap();
+    let hash = def_hash(&p.g.ev(), f).unwrap();
     let zero = lam("n", p.num(0));
     assert_eq!(define_def(&mut p, f, zero), "E-MALFORMED");
-    assert_eq!(def_hash(&p.g, f).unwrap(), hash);
+    assert_eq!(def_hash(&p.g.ev(), f).unwrap(), hash);
     // A failed one isn't retried either.
     let g = declare(&mut p.g, "g", nat_to_nat(p.nat));
     assert_eq!(define_def(&mut p, g, lam("n", ty())), "E-TYPE-MISMATCH");
     assert_eq!(define_def(&mut p, g, id), "E-MALFORMED");
-    assert_eq!(def_hash(&p.g, g).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), g).unwrap(), None);
 }
 
 #[test]
@@ -396,7 +399,7 @@ fn running_out_of_resources_leaves_a_definition_failed() {
         r
     };
     assert_eq!(code(r), "E-RESOURCE");
-    assert_eq!(def_hash(&p.g, big).unwrap(), None);
+    assert_eq!(def_hash(&p.g.ev(), big).unwrap(), None);
     // With enough resources it would check, but it's failed now.
     assert_eq!(define_def(&mut p, big, Term::Refl), "E-MALFORMED");
 }

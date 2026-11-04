@@ -56,14 +56,18 @@ fn summarize(session: &Session, first: (usize, usize, usize)) -> Summary {
     for i in first.0..g.env.datas().len() {
         decls.push((
             format!("data {}", g.env.datas()[i].path()),
-            show(data_hash(g, DataId(i))),
+            show(data_hash(&g.ev(), DataId(i))),
         ));
     }
     for i in first.1..g.env.defs().len() {
         let d = &g.env.defs()[i];
         decls.push((
             format!("def {}", d.path()),
-            format!("{} export={}", show(def_hash(g, DefId(i))), d.export()),
+            format!(
+                "{} export={}",
+                show(def_hash(&g.ev(), DefId(i))),
+                d.export()
+            ),
         ));
     }
     let tests = session.elab.tests()[first.2..]

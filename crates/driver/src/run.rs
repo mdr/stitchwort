@@ -306,10 +306,10 @@ impl Session {
         let _erasing = g.machine.erasure.running();
         let run = || -> Result<Vec<String>, ResourceError> {
             let mut printed = Vec::new();
-            let mut list = force(g, eval(g, &[], &term)?)?;
+            let mut list = force(&g.ev(), eval(&g.ev(), &[], &term)?)?;
             while let Value::Ctor(_, 1, cell) = list {
                 printed.push(s.text_to_string(self, &cell[0])?);
-                list = force(g, cell[1].clone())?;
+                list = force(&g.ev(), cell[1].clone())?;
             }
             Ok(printed)
         };
@@ -403,7 +403,7 @@ impl Session {
     /// [`Session::run_main_fast`] does before running it.
     pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
         stitchwort_rt::lower_main(
-            &self.elab.globals,
+            &self.elab.globals.ev(),
             self.elab.options.limits,
             main.term(),
             main.row,
@@ -506,12 +506,12 @@ impl Session {
         let mut ticks = 0;
         let mut machine = {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
+            Machine::start(&g.ev(), force(&g.ev(), eval(&g.ev(), &[], &main.term)?)?)
         };
         loop {
             let mut obs = {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                machine.step(g)?
+                machine.step(&g.ev())?
             };
             // Perform operations until the step ends.
             loop {
@@ -534,7 +534,7 @@ impl Session {
                             self.perform(&s, o, input, output, terminal, &mut lines, trace)?
                         };
                         let _op = g.machine.budget.operation(self.elab.options.limits);
-                        obs = pending.reply(g, reply)?;
+                        obs = pending.reply(&g.ev(), reply)?;
                     }
                 }
             }
@@ -550,12 +550,12 @@ impl Session {
         let _erasing = g.machine.erasure.running();
         let mut machine = {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            Machine::start(g, force(g, eval(g, &[], term)?)?)
+            Machine::start(&g.ev(), force(&g.ev(), eval(&g.ev(), &[], term)?)?)
         };
         loop {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            match machine.step(g)? {
-                Obs::Now(v) => return force(g, v),
+            match machine.step(&g.ev())? {
+                Obs::Now(v) => return force(&g.ev(), v),
                 Obs::Later(rest) => machine = rest,
                 Obs::Call(..) => unreachable!("a test performs nothing"),
             }
@@ -581,12 +581,12 @@ impl Session {
         // `{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
         // `Plus Fail (Plus IO NoOp)`: an operation is `L` of an `IO` or `Fail`
         // operation, or `R (L …)` of an `IO` one.
-        let mut o = force(g, o)?;
+        let mut o = force(&g.ev(), o)?;
         let op = loop {
             let Value::Ctor(_, side, fields) = o else {
                 unreachable!("an operation in `{{IO}}` or `{{Fail, IO}}`")
             };
-            let inner = force(g, fields[0].clone())?;
+            let inner = force(&g.ev(), fields[0].clone())?;
             if side == 0 {
                 break inner;
             }
@@ -643,8 +643,7 @@ impl Session {
                 )
             }
             Value::Ctor(d, c, payload) if d == s.io && c == s.keys_mode => {
-                let on =
-                    matches!(force(g, payload[0].clone())?, Value::Ctor(_, c, _) if c == s.true_);
+                let on = matches!(force(&g.ev(), payload[0].clone())?, Value::Ctor(_, c, _) if c == s.true_);
                 terminal.keys_mode(on, output)?;
                 trace(Event::KeysMode(on));
                 s.unit()
@@ -786,24 +785,24 @@ impl Shapes {
     /// of scalar values.
     fn text_to_string(&self, session: &Session, value: &Value) -> Result<String, ResourceError> {
         let g = &session.elab.globals;
-        let Value::Ctor(d, 0, fields) = force(g, value.clone())? else {
+        let Value::Ctor(d, 0, fields) = force(&g.ev(), value.clone())? else {
             unreachable!("a `Text` value")
         };
         debug_assert_eq!(d, self.text);
         let mut out = String::new();
         // A compact list (a literal's) is taken a cell at a time, as matching
         // would.
-        let mut list = expand_step(g, force(g, fields[0].clone())?);
+        let mut list = expand_step(&g.ev(), force(&g.ev(), fields[0].clone())?);
         while let Value::Ctor(_, 1, cell) = list {
-            let Value::Ctor(_, 0, c) = force(g, cell[0].clone())? else {
+            let Value::Ctor(_, 0, c) = force(&g.ev(), cell[0].clone())? else {
                 unreachable!("a `Char` value")
             };
-            let code = native::as_nat(g, &c[0])?
+            let code = native::as_nat(&g.ev(), &c[0])?
                 .and_then(|n| u32::try_from(n).ok())
                 .and_then(char::from_u32)
                 .expect("a `Char` holds a scalar value");
             out.push(code);
-            list = expand_step(g, force(g, cell[1].clone())?);
+            list = expand_step(&g.ev(), force(&g.ev(), cell[1].clone())?);
         }
         Ok(out)
     }

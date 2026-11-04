@@ -27,6 +27,7 @@
 //!
 //! These rules are part of the trusted base (DESIGN.md §13).
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -151,7 +152,7 @@ pub struct Binding {
 
 /// Compares `list` and `char` with the declarations the compact
 /// representation was written for, by content hash.
-pub fn binding(g: &Globals, list: DataId, char: DataId) -> Binding {
+pub fn binding(g: &Ev, list: DataId, char: DataId) -> Binding {
     // Hashing a reference hashes what it refers to first, which needs an
     // operation for its depth guard.
     let _op = g
@@ -189,7 +190,7 @@ pub fn register(g: &mut Globals, list: DataId, char: DataId) -> bool {
                 .map(|c| c.fields.len())
                 .eq(fields.iter().copied())
     };
-    if !(shaped(list, 1, &[0, 2]) && shaped(char, 0, &[2]) && binding(g, list, char).bound) {
+    if !(shaped(list, 1, &[0, 2]) && shaped(char, 0, &[2]) && binding(&g.ev(), list, char).bound) {
         return false;
     }
     g.env.builtins_mut().text = Some(CompactText::new(list, char));

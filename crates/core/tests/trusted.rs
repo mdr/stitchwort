@@ -152,11 +152,17 @@ fn a_trusted_copy_is_the_checked_environment() {
     }
     for i in 0..a.env.defs().len() {
         let id = DefId(i);
-        assert_eq!(def_hash(a, id).unwrap(), def_hash(&b, id).unwrap());
+        assert_eq!(
+            def_hash(&a.ev(), id).unwrap(),
+            def_hash(&b.ev(), id).unwrap()
+        );
     }
     for i in 0..a.env.datas().len() {
         let id = stitchwort_core::DataId(i);
-        assert_eq!(data_hash(a, id).unwrap(), data_hash(&b, id).unwrap());
+        assert_eq!(
+            data_hash(&a.ev(), id).unwrap(),
+            data_hash(&b.ev(), id).unwrap()
+        );
     }
 }
 

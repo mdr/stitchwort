@@ -3,6 +3,7 @@
 //! Checking also completes terms: it fills in the type of each `a = b`, which
 //! evaluation needs.
 
+use crate::ev::Ev;
 use num_bigint::BigUint;
 use std::rc::Rc;
 
@@ -25,7 +26,7 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 
 /// The typing context: a value and a type for each variable in scope.
 pub struct Ctx<'g> {
-    g: &'g Globals,
+    g: Ev<'g>,
     /// What each variable evaluates to. Normally the variable itself, but
     /// inside a case branch the matched variable is the constructor value.
     /// For a `let` whose value hasn't been needed yet, its slot holds a
@@ -45,9 +46,9 @@ pub struct Ctx<'g> {
 }
 
 impl<'g> Ctx<'g> {
-    pub fn new(g: &'g Globals, span: Span) -> Self {
+    pub fn new(g: &Ev<'g>, span: Span) -> Self {
         Ctx {
-            g,
+            g: *g,
             env: Vec::new(),
             types: Vec::new(),
             names: Vec::new(),
@@ -61,14 +62,14 @@ impl<'g> Ctx<'g> {
     /// the elaborator is working on (`rewrite`'s motive and the types of
     /// the occurrences it compares).
     pub fn with_variables(
-        g: &'g Globals,
+        g: &Ev<'g>,
         env: &[Value],
         types: &[Value],
         names: &[Name],
         span: Span,
     ) -> Self {
         Ctx {
-            g,
+            g: *g,
             env: env.to_vec(),
             types: types.to_vec(),
             names: names.to_vec(),
@@ -121,7 +122,7 @@ impl<'g> Ctx<'g> {
     /// `let` it mentions whose value hasn't been needed yet.
     fn eval(&mut self, term: &Term) -> Result<Value> {
         self.force_mentioned(term, self.level())?;
-        Ok(eval(self.g, &self.env, term)?)
+        Ok(eval(&self.g, &self.env, term)?)
     }
 
     /// Computes the pending `let`s that `term`, in the context of the first
@@ -155,7 +156,7 @@ impl<'g> Ctx<'g> {
         };
         self.g.machine.budget.nesting(PASS)?;
         self.force_mentioned(&value, level)?;
-        let computed = eval(self.g, &self.env[..level], &value)?;
+        let computed = eval(&self.g, &self.env[..level], &value)?;
         self.env[level] = computed;
         self.pending[level] = None;
         self.unforced -= 1;
@@ -172,22 +173,22 @@ impl<'g> Ctx<'g> {
     }
 
     fn quote(&self, value: &Value) -> Result<Term> {
-        Ok(quote(self.g, self.level(), value)?)
+        Ok(quote(&self.g, self.level(), value)?)
     }
 
     /// [`quote_folded`]: glued calls kept as calls. Only for a term the
     /// kernel evaluates again or checks, never one put in a checked term
     /// (see "Read-backs that keep calls", by [`substitute`]).
     fn quote_kept(&self, value: &Value) -> Result<Term> {
-        Ok(quote_folded(self.g, self.level(), value)?)
+        Ok(quote_folded(&self.g, self.level(), value)?)
     }
 
     fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
-        Ok(conv(self.g, self.level(), a, b)?)
+        Ok(conv(&self.g, self.level(), a, b)?)
     }
 
     fn show(&self, value: &Value) -> String {
-        pretty::value_for_message(self.g, &self.names, value)
+        pretty::value_for_message(&self.g, &self.names, value)
     }
 
     fn error(
@@ -244,7 +245,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
         Term::Def(id) => match g.env.defs().get(id.0) {
-            Some(def) => Ok((term.clone(), def_type(g, def)?)),
+            Some(def) => Ok((term.clone(), def_type(&g, def)?)),
             None => Err(malformed(cx, "reference to an unknown definition")),
         },
         Term::Data(d, args) => {
@@ -272,7 +273,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let mut params = Vec::new();
             let mut out = Vec::new();
             for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
-                let ty = eval(g, &params, param_ty)?;
+                let ty = eval(&g, &params, param_ty)?;
                 let arg = check(cx, arg, &ty)?;
                 params.push(if later_types_mention(&telescope, i) {
                     cx.eval(&arg)?
@@ -315,7 +316,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::App(f, a, icit) => {
             let (f, f_ty) = infer(cx, f)?;
-            match force(g, f_ty)? {
+            match force(&g, f_ty)? {
                 Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
                     let a = check(cx, a, &dom)?;
                     // As `Closure::apply_lazy`: `a` is computed only if the
@@ -325,7 +326,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                     } else {
                         unused()
                     };
-                    let ty = cod.apply(g, arg)?;
+                    let ty = cod.apply(&g, arg)?;
                     Ok((Term::app_icit(f, a, *icit), ty))
                 }
                 other => Err(cx.error(
@@ -402,7 +403,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             let indices = ctor
                 .result
                 .iter()
-                .map(|r| eval(g, &env, r))
+                .map(|r| eval(&g, &env, r))
                 .collect::<budget::Result<Vec<Value>>>()?;
             Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices)))
         }
@@ -421,7 +422,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     g.machine.budget.nesting(PASS)?;
     // A type the elaborator passed in may be a call (`Value::Call`); the
     // kernel's own values never are, so this changes nothing for them.
-    let expected = &*force_ref(g, expected)?;
+    let expected = &*force_ref(&g, expected)?;
     match (term, expected) {
         (Term::Loc(span, inner), _) => {
             let saved = std::mem::replace(&mut cx.span, *span);
@@ -432,7 +433,7 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
         (Term::Lam(x, icit, body), Value::Pi(_, pi_icit, dom, cod)) if icit == pi_icit => {
             let var = Value::var(cx.level());
             cx.bind(x.clone(), (**dom).clone());
-            let result = check(cx, body, &cod.apply(g, var)?);
+            let result = check(cx, body, &cod.apply(&g, var)?);
             cx.unbind(1);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
@@ -468,12 +469,12 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             // fields substituted, must be the expected type's.
             let ctor = &data.ctors[*c];
             for (r, expected_index) in ctor.result.iter().zip(indices) {
-                let found = eval(g, &env, r)?;
+                let found = eval(&g, &env, r)?;
                 if !cx.conv(&found, expected_index)? {
                     let found_indices = ctor
                         .result
                         .iter()
-                        .map(|r| eval(g, &env, r))
+                        .map(|r| eval(&g, &env, r))
                         .collect::<budget::Result<Vec<Value>>>()?;
                     let found_ty =
                         Value::Data(*d, params.iter().cloned().chain(found_indices).collect());
@@ -566,7 +567,7 @@ fn check_ctor_fields(
     let mut env = params;
     let mut out = Vec::new();
     for (i, ((_, field_ty), arg)) in ctor.fields.iter().zip(args).enumerate() {
-        let ty = eval(g, &env, field_ty)?;
+        let ty = eval(&g, &env, field_ty)?;
         let arg = check(cx, arg, &ty)?;
         let needed = later_types_mention(&ctor.fields, i)
             || ctor.result.iter().any(|r| r.mentions(n - 1 - i));
@@ -578,7 +579,7 @@ fn check_ctor_fields(
 
 pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
     let (term, ty) = infer(cx, term)?;
-    match force(cx.g, ty)? {
+    match force(&cx.g, ty)? {
         Value::Sort(s) => Ok((term, s)),
         other => Err(cx.error(
             "E-NOT-A-TYPE",
@@ -602,7 +603,7 @@ fn check_let_value(
 ) -> Result<(Name, Rc<Term>, Rc<Term>, bool)> {
     let (ty, sort) = check_type(cx, ty)?;
     let ty_value = cx.eval(&ty)?;
-    let erased = sort == Sort::Prop || is_type_former(cx.g, cx.level(), &ty_value)?;
+    let erased = sort == Sort::Prop || is_type_former(&cx.g, cx.level(), &ty_value)?;
     let value = Rc::new(check(cx, value, &ty_value)?);
     // Computed only when checking the body needs it (`Ctx::define`).
     cx.define(x.clone(), ty_value, value.clone());
@@ -611,7 +612,7 @@ fn check_let_value(
 
 /// The universe that `ty` lives in.
 fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
-    match &*force_ref(cx.g, ty)? {
+    match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
         // An equation is a proposition. Answered without quoting it: the
         // quote of its sides can be exponentially larger than their values,
@@ -630,7 +631,7 @@ fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
 fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
     let (proof, proof_ty) = infer(cx, proof)?;
-    let proof_ty = force(g, proof_ty)?;
+    let proof_ty = force(&g, proof_ty)?;
     let Value::Eq(ty, x, y) = proof_ty else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",
@@ -660,13 +661,13 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
     );
     let motive_value = cx.eval(&motive)?;
     let base_ty = apply(
-        g,
-        apply(g, motive_value.clone(), (*x).clone())?,
+        &g,
+        apply(&g, motive_value.clone(), (*x).clone())?,
         Value::Refl,
     )?;
     let base = check(cx, base, &base_ty)?;
     let proof_value = cx.eval(&proof)?;
-    let result = apply(g, apply(g, motive_value, (*y).clone())?, proof_value)?;
+    let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,
@@ -704,7 +705,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
             ),
         ));
     }
-    let shift = |t: &Term, by: usize| t.shift(g, by, 0);
+    let shift = |t: &Term, by: usize| t.shift(&g, by, 0);
     let rc = Rc::new;
     let arrow = |x: &str, dom: Term, cod: Term| {
         Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
@@ -803,7 +804,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
             let case_ty = cx.eval(&case_ty)?;
             let h = check(cx, &args[3], &case_ty)?;
             let q = check(cx, &args[4], &quot_ty_value)?;
-            let ty = apply(g, cx.eval(&motive)?, cx.eval(&q)?)?;
+            let ty = apply(&g, cx.eval(&motive)?, cx.eval(&q)?)?;
             (vec![motive, h, q], ty, false)
         }
         QuotForm::Sound => {
@@ -874,7 +875,7 @@ fn check_case(
             format!("a match on `{}`, which isn't finished", data.name),
         ));
     }
-    let args = match &*force_ref(g, &cx.types[x])? {
+    let args = match &*force_ref(&g, &cx.types[x])? {
         Value::Data(d2, args) if *d2 == d => args.clone(),
         other => {
             return Err(cx.error(
@@ -926,7 +927,7 @@ fn check_case(
         // A proposition with a field that holds it inside another type counts
         // as defined together with (a copy of) that type
         // (docs/proposals/nested-data-types.md §5.4).
-        let nested = nested_field(g, d);
+        let nested = nested_field(&g, d);
         let subsingleton = data.group.len() == 1
             && nested.is_none()
             && data.ctors.len() <= 1
@@ -1084,12 +1085,12 @@ fn refine_branch(
     let data = g.data(d);
     let ctor = &data.ctors[c];
     let (params, indices) = args.split_at(data.params.len());
-    let mut goal = eval(g, &cx.env, goal_term)?;
+    let mut goal = eval(&g, &cx.env, goal_term)?;
     let base = cx.level();
     // 1. The fields, bound after everything in scope.
     let mut field_env = params.to_vec();
     for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
-        let ty = eval(g, &field_env, field_ty)?;
+        let ty = eval(&g, &field_env, field_ty)?;
         field_env.push(Value::var(cx.level()));
         cx.bind(name.clone(), ty);
     }
@@ -1098,7 +1099,7 @@ fn refine_branch(
         let result = ctor
             .result
             .iter()
-            .map(|r| eval(g, &field_env, r))
+            .map(|r| eval(&g, &field_env, r))
             .collect::<budget::Result<Vec<Value>>>()?;
         let mut scope = Scope {
             env: std::mem::take(&mut cx.env),
@@ -1107,7 +1108,7 @@ fn refine_branch(
             rigid: vec![x],
         };
         let outcome = unify(
-            g,
+            &g,
             &mut scope,
             &data.indices,
             params.to_vec(),
@@ -1130,12 +1131,12 @@ fn refine_branch(
     // solutions mention `x`, so only what was in scope before needs it.
     let fields: Vec<Value> = cx.env[base..].to_vec();
     let value = Value::Ctor(d, c, fields.into());
-    let mut env = substitute_in(g, &cx.env, x, &value, &cx.env[..base])?;
+    let mut env = substitute_in(&g, &cx.env, x, &value, &cx.env[..base])?;
     env[x] = value.clone();
     env.extend_from_slice(&cx.env[base..]);
-    let mut types = substitute_in(g, &cx.env, x, &value, &cx.types[..base])?;
+    let mut types = substitute_in(&g, &cx.env, x, &value, &cx.types[..base])?;
     types.extend_from_slice(&cx.types[base..]);
-    let goal = substitute_in(g, &cx.env, x, &value, &[goal])?
+    let goal = substitute_in(&g, &cx.env, x, &value, &[goal])?
         .pop()
         .expect("one value in, one out");
     cx.env = env;
@@ -1219,7 +1220,7 @@ fn check_num_case(
     }
     // The elaborator only compiles a column of a `Nat` to a number case, so
     // anything else is a compiler bug.
-    match &*force_ref(g, &cx.types[x])? {
+    match &*force_ref(&g, &cx.types[x])? {
         Value::Data(d, params) if *d == nat && params.is_empty() => {}
         other => {
             return Err(malformed(
@@ -1245,11 +1246,11 @@ fn check_num_case(
     // Checks `body` with `value` substituted for `x` throughout the context
     // and the goal.
     let refined = |cx: &mut Ctx, value: Value, body: &Term| -> Result<Term> {
-        let mut env = substitute_in(g, &cx.env, x, &value, &cx.env)?;
+        let mut env = substitute_in(&g, &cx.env, x, &value, &cx.env)?;
         env[x] = value.clone();
-        let refined_types = substitute_in(g, &cx.env, x, &value, &cx.types)?;
-        let goal = eval(g, &cx.env, &goal_term)?;
-        let refined_goal = substitute_in(g, &cx.env, x, &value, &[goal])?
+        let refined_types = substitute_in(&g, &cx.env, x, &value, &cx.types)?;
+        let goal = eval(&g, &cx.env, &goal_term)?;
+        let refined_goal = substitute_in(&g, &cx.env, x, &value, &[goal])?
             .pop()
             .expect("one value in, one out");
         let saved_env = std::mem::replace(&mut cx.env, env);
@@ -1275,10 +1276,10 @@ fn check_num_case(
     let default = match &cx.env[x] {
         Value::Neutral(Head::Var(l, known), spine) if *l == x && spine.is_empty() => {
             let mut numbers: Vec<BigUint> = arms.iter().map(|arm| (*arm.value).clone()).collect();
-            numbers.extend(known.numbers(g).iter().cloned());
+            numbers.extend(known.numbers(&g).iter().cloned());
             numbers.sort_unstable();
             numbers.dedup();
-            let apart = Apart::new(g, numbers.into());
+            let apart = Apart::new(&g, numbers.into());
             refined(
                 cx,
                 Value::Neutral(Head::Var(x, apart), Spine::new()),
@@ -1293,7 +1294,7 @@ fn check_num_case(
 /// [`substitute`], in a context whose environment is `env`: a variable
 /// known apart from some numbers there ([`Apart`]) stays so.
 pub fn substitute_in(
-    g: &Globals,
+    g: &Ev,
     env: &[Value],
     x: usize,
     value: &Value,
@@ -1333,7 +1334,7 @@ pub fn substitute_in(
 /// one bound earlier (`rest : res o` after `o` is matched as `L o'`). Each
 /// value is read back with its glued calls kept (below).
 pub fn substitute(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     x: usize,
     value: &Value,
@@ -1419,7 +1420,7 @@ pub fn substitute(
 /// linear in the size of the values as stored, and allocates only its work
 /// list and that set.
 pub(crate) struct Unchanged<'g, K> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     x: usize,
     known: K,
     /// The shared sequences already found clean, by address.
@@ -1432,7 +1433,7 @@ pub(crate) struct Unchanged<'g, K> {
 }
 
 impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
-    pub(crate) fn new(g: &'g Globals, x: usize, known: K) -> Self {
+    pub(crate) fn new(g: &'g Ev<'g>, x: usize, known: K) -> Self {
         Unchanged {
             g,
             x,
@@ -1574,7 +1575,7 @@ pub fn later_types_mention(binders: &[(Name, Term)], i: usize) -> bool {
 }
 
 /// Infers the type of a closed term.
-pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value)> {
+pub fn infer_closed(g: &Ev, term: &Term, span: Span) -> Result<(Term, Value)> {
     infer(&mut Ctx::new(g, span), term)
 }
 
@@ -1583,7 +1584,7 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
 /// call of one is neutral there for good; under a set that holds it, the
 /// type is evaluated again, so that call computes (a type `Code`, with
 /// `Code` unfolded, is `Nat`).
-pub fn def_type(g: &Globals, def: &Def) -> budget::Result<Value> {
+pub fn def_type(g: &Ev, def: &Def) -> budget::Result<Value> {
     if g.machine.transparent.is_empty() {
         Ok(def.ty_value.clone())
     } else {
@@ -1629,7 +1630,7 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
 fn install_group(
     g: &mut Globals,
     members: &[(DefId, Term)],
-    bodies: impl FnOnce(&Globals, &[(DefId, Term)]) -> Result<Vec<Term>>,
+    bodies: impl FnOnce(&Ev, &[(DefId, Term)]) -> Result<Vec<Term>>,
 ) -> Result<()> {
     debug_assert!(
         !g.machine.glue.get(),
@@ -1670,7 +1671,10 @@ fn install_group(
             None
         };
         if let Some(problem) = problem {
-            let e = malformed(&Ctx::new(g, def.span), format!("`{}` {problem}", def.name));
+            let e = malformed(
+                &Ctx::new(&g.ev(), def.span),
+                format!("`{}` {problem}", def.name),
+            );
             return fail(g, e);
         }
     }
@@ -1685,12 +1689,12 @@ fn install_group(
     }
     // Each member's transparency set, also fixed before anything is checked.
     for (id, _) in members {
-        match transparency(g, *id, &ids) {
+        match transparency(&g.ev(), *id, &ids) {
             Ok(set) => g.env.defs_mut()[id.0].transparent = set,
             Err(e) => return fail(g, e),
         }
     }
-    match bodies(g, members) {
+    match bodies(&g.ev(), members) {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
                 let def = &mut g.env.defs_mut()[id.0];
@@ -1711,7 +1715,7 @@ fn install_group(
 
 /// Everything [`define_group`] checks once the members are known to be
 /// pending: the checked bodies, in order.
-fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
+fn admit_group(g: &Ev, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
     let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
     // Every reference in every member is checked first, so a malformed one
     // is refused before any body is type-checked.
@@ -1785,7 +1789,8 @@ pub fn declare_def(
     );
     // A type is checked with every opaque definition hidden.
     let _set = g.machine.transparent.set(Rc::default());
-    let mut cx = Ctx::new(g, span);
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
             &cx,
@@ -1825,7 +1830,7 @@ fn push_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    let ty_value = eval(g, &[], &ty)?;
+    let ty_value = eval(&g.ev(), &[], &ty)?;
     g.env.defs_mut().push(Def {
         name: name.clone(),
         path: path.clone(),
@@ -1865,7 +1870,8 @@ pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
     );
     let _set = g.machine.transparent.set(Rc::default());
     let span = g.env.defs()[id.0].span;
-    let mut cx = Ctx::new(g, span);
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, span);
     if g.env.defs()[id.0].state != State::Pending {
         return Err(malformed(
             &cx,
@@ -1880,7 +1886,7 @@ pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
     }
     admissible(&cx, [ty], None)?;
     let (ty, _) = check_type(&mut cx, ty)?;
-    let ty_value = eval(g, &[], &ty)?;
+    let ty_value = eval(&g.ev(), &[], &ty)?;
     let def = &mut g.env.defs_mut()[id.0];
     def.ty = ty;
     def.ty_value = ty_value;
@@ -1904,11 +1910,12 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
 /// the kernel and isn't hashed: the runtimes are untrusted (docs/core.md),
 /// and a proof never depends on what they compute.
 pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    run_body_shape(g, id, body)?;
+    run_body_shape(&g.ev(), id, body)?;
     let def = g.def(id);
-    let mut cx = Ctx::new(g, def.span);
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, def.span);
     let _set = g.machine.transparent.set(def.transparent.clone());
-    let ty = def_type(g, def)?;
+    let ty = def_type(&g.ev(), def)?;
     let checked = check(&mut cx, body, &ty)?;
     g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
     Ok(())
@@ -1917,7 +1924,7 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 /// What [`set_run_body`] asks of a run body before checking its type: the
 /// definition is final with no run body yet, and `body` has its arity, a
 /// `case` only in its case tree, and refers only to final declarations.
-fn run_body_shape(g: &Globals, id: DefId, body: &Term) -> Result<()> {
+fn run_body_shape(g: &Ev, id: DefId, body: &Term) -> Result<()> {
     let def = g.def(id);
     let cx = Ctx::new(g, def.span);
     if def.state != State::Final {
@@ -1986,7 +1993,7 @@ pub fn set_unfolding(g: &mut Globals, id: DefId, unfolding: &[DefId]) {
 /// `unfolding` list checked first, as [`define_group`] will: for the
 /// elaborator, which elaborates the body under the same set
 /// (docs/proposals/opaque-definitions.md §6.4).
-pub fn transparency_set(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
+pub fn transparency_set(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
     transparency(g, id, ids)
 }
 
@@ -2003,7 +2010,7 @@ pub fn transparency_set(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[Def
 /// definition in it, that one's own set and its opaque group-mates (D1267).
 /// Each definition's set is closed already, so this only follows them; it
 /// ends, as it only grows within the final definitions. Sorted.
-fn transparency(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
+fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
     let def = g.def(id);
     let cx = Ctx::new(g, def.span);
     if !def.unfolding.is_empty() && !def.opaque {
@@ -2171,7 +2178,8 @@ pub fn declare_indexed_data_group(
             "malformed core term: an empty group of data types",
         ));
     };
-    let mut cx = Ctx::new(g, span);
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, span);
     // The members' type ends in `sort`, which must itself have a type.
     universe_above(&cx, sort)?;
     // A failed reference is let through: `define_data_group` finds it again.
@@ -2209,9 +2217,9 @@ pub fn declare_indexed_data_group(
                         format!("index `{x}` is too large for `{}`", member.name),
                         format!(
                             "its type is in `{}`, but `{}` is in `{}`",
-                            pretty::term(g, &[], &Term::Sort(index_sort)),
+                            pretty::term(&g.ev(), &[], &Term::Sort(index_sort)),
                             member.name,
-                            pretty::term(g, &[], &Term::Sort(sort))
+                            pretty::term(&g.ev(), &[], &Term::Sort(sort))
                         ),
                     )
                     .with_note(
@@ -2317,7 +2325,7 @@ pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>)
 fn install_data_group<C>(
     g: &mut Globals,
     members: Vec<(DataId, Vec<C>)>,
-    admit: impl FnOnce(&Globals, &[DataId], Vec<(DataId, Vec<C>)>) -> Result<Vec<(DataId, Vec<Ctor>)>>,
+    admit: impl FnOnce(&Ev, &[DataId], Vec<(DataId, Vec<C>)>) -> Result<Vec<(DataId, Vec<Ctor>)>>,
 ) -> Result<()> {
     let _set = g.machine.transparent.set(Rc::default());
     // Refused before anything changes: an empty group, or an id that isn't
@@ -2372,14 +2380,14 @@ fn install_data_group<C>(
             None
         };
         if let Some(problem) = problem {
-            let e = malformed(&Ctx::new(g, data.span), problem);
+            let e = malformed(&Ctx::new(&g.ev(), data.span), problem);
             return fail(g, e);
         }
     }
     if let Some(missing) = group.iter().find(|d| !listed.contains(d)) {
         let data = g.data(*missing);
         let e = malformed(
-            &Ctx::new(g, data.span),
+            &Ctx::new(&g.ev(), data.span),
             format!(
                 "`{}` was declared in this group, but its constructors aren't given",
                 data.name
@@ -2387,7 +2395,7 @@ fn install_data_group<C>(
         );
         return fail(g, e);
     }
-    match admit(g, &group, members) {
+    match admit(&g.ev(), &group, members) {
         Ok(ctors) => {
             // Every member at once: until now none had constructors, could
             // be matched on, or had a hash.
@@ -2397,7 +2405,7 @@ fn install_data_group<C>(
             }
             // Which parameters later groups may nest in, now that the
             // constructors are final.
-            let nestable: Rc<[_]> = nestable_params(g, &group).into();
+            let nestable: Rc<[_]> = nestable_params(&g.ev(), &group).into();
             for d in group.iter() {
                 g.env.datas_mut()[d.0].nestable = nestable.clone();
             }
@@ -2410,7 +2418,7 @@ fn install_data_group<C>(
 /// Everything [`define_data_group`] checks once the members are known to be
 /// the group's, and pending: each member's checked constructors.
 fn admit_data_group(
-    g: &Globals,
+    g: &Ev,
     group: &[DataId],
     members: Vec<(DataId, Vec<CtorDecl>)>,
 ) -> Result<Vec<(DataId, Vec<Ctor>)>> {
@@ -2563,7 +2571,7 @@ fn check_result_indices(
                 "`case` may only appear at the top of a definition",
             ));
         }
-        if let Some(later) = declared_later(g, &r, d) {
+        if let Some(later) = declared_later(&g, &r, d) {
             return Err(cx.error(
                 "E-POSITIVITY",
                 format!(
@@ -2588,7 +2596,7 @@ fn check_result_indices(
                      the types defined with it",
                 ));
         }
-        let ty = eval(g, &env, index_ty)?;
+        let ty = eval(&g, &env, index_ty)?;
         let r = check(cx, &r, &ty)?;
         env.push(cx.eval(&r)?);
         out.push(r);
@@ -2635,7 +2643,8 @@ pub fn admit_trusted_def(
         "the kernel is entered unglued (D483)"
     );
     let _set = g.machine.transparent.set(Rc::default());
-    let cx = Ctx::new(g, span);
+    let ev = g.ev();
+    let cx = Ctx::new(&ev, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
             &cx,
@@ -2678,7 +2687,7 @@ pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result
 /// does, without checking its type: it must be the run body `set_run_body`
 /// installed. The trust boundary (above).
 pub fn admit_trusted_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    run_body_shape(g, id, body)?;
+    run_body_shape(&g.ev(), id, body)?;
     g.env.defs_mut()[id.0].run_body = Some(Rc::new(body.clone()));
     Ok(())
 }
@@ -2699,7 +2708,8 @@ pub fn admit_trusted_data_decls(
             "malformed core term: an empty group of data types",
         ));
     };
-    let cx = Ctx::new(g, span);
+    let ev = g.ev();
+    let cx = Ctx::new(&ev, span);
     universe_above(&cx, sort)?;
     let first = members[0].name.clone();
     let types = params.iter().map(|(_, ty)| ty).chain(
@@ -2903,7 +2913,7 @@ fn failed_dependency(cx: &Ctx, what: &Name, dep: &Name) -> Diagnostic {
 
 /// A definition or data type in `term` declared after data type `d`'s group
 /// (and not in it), if any: the first one, reading left to right.
-fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
+fn declared_later(g: &Ev, term: &Term, d: DataId) -> Option<String> {
     let data = g.data(d);
     let later_data = |d2: DataId| {
         (d2.0 >= data.datas_before && !data.group.contains(&d2)).then(|| {
@@ -2954,7 +2964,7 @@ fn universe_above(cx: &Ctx, s: Sort) -> Result<Sort> {
             "a universe with no universe above it",
             format!(
                 "`{}` has no type: the largest universe is `Type {MAX_LEVEL}`",
-                pretty::term(cx.g, &[], &Term::Sort(s))
+                pretty::term(&cx.g, &[], &Term::Sort(s))
             ),
         )
         .with_note("so `Type n` is a term only for `n` below the largest level")
@@ -3040,7 +3050,7 @@ impl Container {
         }
     }
 
-    fn describe(self, g: &Globals) -> String {
+    fn describe(self, g: &Ev) -> String {
         match self {
             Container::Def(id) => match g.env.defs().get(id.0) {
                 Some(def) => format!("`{}`, which is a definition, not a data type", def.name),
@@ -3069,7 +3079,7 @@ impl Container {
 /// `depth` is the number of variables in scope. The member that doesn't, if
 /// one doesn't (the first found), and how it occurs.
 fn not_positive(
-    g: &Globals,
+    g: &Ev,
     ty: &Term,
     group: &[DataId],
     params: usize,
@@ -3107,7 +3117,7 @@ fn not_positive(
 /// [`not_positive`]'s case 3: a member somewhere in `args`, the arguments
 /// of `outer`, a data type outside the group.
 fn not_positive_nested(
-    g: &Globals,
+    g: &Ev,
     outer: DataId,
     args: &[Rc<Term>],
     group: &[DataId],
@@ -3163,13 +3173,13 @@ fn strip_lambdas(term: &Term, depth: usize) -> (&Term, usize) {
 ///
 /// The group's constructors must be final. Reads the earlier groups' own
 /// flags, so it's computed once per group, in declaration order.
-fn nestable_params(g: &Globals, group: &[DataId]) -> Vec<std::result::Result<(), NotNestable>> {
+fn nestable_params(g: &Ev, group: &[DataId]) -> Vec<std::result::Result<(), NotNestable>> {
     let n = g.data(group[0]).params.len();
     (0..n).map(|j| param_nestable(g, group, j)).collect()
 }
 
 /// [`nestable_params`] for parameter `j`.
-fn param_nestable(g: &Globals, group: &[DataId], j: usize) -> std::result::Result<(), NotNestable> {
+fn param_nestable(g: &Ev, group: &[DataId], j: usize) -> std::result::Result<(), NotNestable> {
     let params = &g.data(group[0]).params;
     let n = params.len();
     if !is_arity(&params[j].1) {
@@ -3234,7 +3244,7 @@ fn is_arity(ty: &Term) -> bool {
 /// it only at nestable parameters, where it occurs only strictly
 /// positively (after any leading lambdas).
 fn stored_only(
-    g: &Globals,
+    g: &Ev,
     ty: &Term,
     group: &[DataId],
     params: usize,
@@ -3301,7 +3311,7 @@ fn stored_only(
 /// Why parameter `param` of data type `outer` isn't nestable, as the end of
 /// a sentence: "`Neg`'s field `consume` takes its parameter `a` as a
 /// function's input".
-fn why_not_nestable(g: &Globals, outer: DataId, param: usize) -> String {
+fn why_not_nestable(g: &Ev, outer: DataId, param: usize) -> String {
     let data = g.data(outer);
     let name = &data.name;
     let Some((p, _)) = data.params.get(param) else {
@@ -3449,7 +3459,7 @@ fn not_positive_error(
                 "E-POSITIVITY",
                 format!(
                     "`{name}` is used inside `{outer_name}`, and {}",
-                    why_not_nestable(g, outer, param)
+                    why_not_nestable(&g, outer, param)
                 ),
                 format!("field `{x}` has `{name}` inside `{outer_name}`, as its parameter `{p}`"),
             )
@@ -3465,7 +3475,7 @@ fn not_positive_error(
             .error(
                 "E-POSITIVITY",
                 format!("`{name}` is used inside another type"),
-                format!("field `{x}` has `{name}` inside {}", container.describe(g)),
+                format!("field `{x}` has `{name}` inside {}", container.describe(&g)),
             )
             .with_note(format!(
                 "{nesting}. Whether it's safe inside anything else would depend on how that uses \
@@ -3498,7 +3508,7 @@ fn depends_on_recursive_error(cx: &Ctx, x: &Name, earlier: &Name, found: DataId)
 /// holds a member of its group inside another data type (a nested
 /// occurrence, docs/proposals/nested-data-types.md), if any: `items` in
 /// `Packets (items: List Packet)`.
-pub fn nested_field(g: &Globals, d: DataId) -> Option<(usize, usize)> {
+pub fn nested_field(g: &Ev, d: DataId) -> Option<(usize, usize)> {
     let data = g.data(d);
     let group = &data.group;
     data.ctors.iter().enumerate().find_map(|(c, ctor)| {
@@ -3547,8 +3557,9 @@ pub fn add_validator(
         ));
     };
     let span = def.span;
-    let tel = telescope(g, &def.ty_value, span)?;
-    let mut cx = Ctx::new(g, span);
+    let tel = telescope(&g.ev(), &def.ty_value, span)?;
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, span);
     if def.state != State::Final {
         return Err(malformed(
             &cx,
@@ -3561,7 +3572,7 @@ pub fn add_validator(
             "a validator for a parameter that isn't erased",
         ));
     };
-    if !shaped_like_decidable(g, decidable) || !case_only_in_tree(decision, false) {
+    if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
         return Err(malformed(&cx, "a validator that isn't a decision"));
     }
     let failed = admissible(&cx, [decision], None)?;
@@ -3599,7 +3610,8 @@ pub fn add_field_validator(
             "malformed core term: reference to an unknown data type",
         ));
     };
-    let mut cx = Ctx::new(g, data.span);
+    let ev = g.ev();
+    let mut cx = Ctx::new(&ev, data.span);
     if data.state != State::Final {
         return Err(malformed(
             &cx,
@@ -3622,7 +3634,7 @@ pub fn add_field_validator(
     {
         return Err(malformed(&cx, "a second validator for one field"));
     }
-    if !shaped_like_decidable(g, decidable) || !case_only_in_tree(decision, false) {
+    if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
         return Err(malformed(&cx, "a validator that isn't a decision"));
     }
     let failed = admissible(&cx, [decision], None)?;
@@ -3647,7 +3659,7 @@ pub fn add_field_validator(
 
 /// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`
 /// parameter, and two constructors, the first holding a proof of it.
-fn shaped_like_decidable(g: &Globals, decidable: DataId) -> bool {
+fn shaped_like_decidable(g: &Ev, decidable: DataId) -> bool {
     g.env.datas().get(decidable.0).is_some_and(|d| {
         d.state == State::Final
             && d.params.len() == 1
@@ -3660,7 +3672,7 @@ fn shaped_like_decidable(g: &Globals, decidable: DataId) -> bool {
 
 /// Whether `ty` is `Type`, `Prop`, or a function type ending in one: values of
 /// such types are types, which are erased at runtime.
-pub fn is_type_former(g: &Globals, level: usize, ty: &Value) -> budget::Result<bool> {
+pub fn is_type_former(g: &Ev, level: usize, ty: &Value) -> budget::Result<bool> {
     let (mut level, mut ty) = (level, ty.clone());
     loop {
         match force(g, ty)? {
@@ -3685,7 +3697,7 @@ pub struct Telescope {
 }
 
 /// Splits an already-checked type into its parameters and result.
-pub fn telescope(g: &Globals, ty: &Value, span: Span) -> Result<Telescope> {
+pub fn telescope(g: &Ev, ty: &Value, span: Span) -> Result<Telescope> {
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
     let mut ty = force(g, ty.clone())?;
@@ -3705,5 +3717,5 @@ pub fn telescope(g: &Globals, ty: &Value, span: Span) -> Result<Telescope> {
 }
 
 fn is_erased(cx: &mut Ctx, ty: &Value) -> Result<bool> {
-    Ok(is_type_former(cx.g, cx.level(), ty)? || sort_of(cx, ty)? == Sort::Prop)
+    Ok(is_type_former(&cx.g, cx.level(), ty)? || sort_of(cx, ty)? == Sort::Prop)
 }

@@ -61,7 +61,7 @@ fn types_are_hashed_with_their_full_names() {
     assert_eq!(&**g.data(library).path(), "Std.List");
     let own = find("Main.List");
     assert_ne!(own, library);
-    let hash = |d| data_hash(g, d).unwrap().unwrap();
+    let hash = |d| data_hash(&g.ev(), d).unwrap().unwrap();
     assert_ne!(hash(own), hash(library));
     assert_ne!(
         hash(find("Main.Geometry.Shape")),
@@ -191,7 +191,7 @@ fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHas
         .iter()
         .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
-    stitchwort_core::hash::def_hash(g, stitchwort_core::DefId(id))
+    stitchwort_core::hash::def_hash(&g.ev(), stitchwort_core::DefId(id))
         .unwrap()
         .expect("checked")
 }
@@ -202,7 +202,7 @@ fn data_path_hash(session: &Session, path: &str) -> stitchwort_core::hash::Conte
         .map(stitchwort_core::DataId)
         .find(|d| &**g.data(*d).path() == path)
         .unwrap_or_else(|| panic!("no type `{path}`"));
-    data_hash(g, id).unwrap().unwrap()
+    data_hash(&g.ev(), id).unwrap().unwrap()
 }
 
 /// A namespace line puts a file's types in the namespace, and their hashes

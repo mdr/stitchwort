@@ -425,8 +425,8 @@ impl Elaborator {
         let g = &self.globals;
         let data = g.data(d);
         let depth = data.params().len() + i;
-        let value = eval(g, &vars(0..depth), &data.ctors()[c].fields[i].1)?;
-        Ok(quote(g, depth, &value)?)
+        let value = eval(&g.ev(), &vars(0..depth), &data.ctors()[c].fields[i].1)?;
+        Ok(quote(&g.ev(), depth, &value)?)
     }
 
     /// How `ty` (in a context of `depth` variables, `owner`'s parameters
@@ -506,7 +506,7 @@ impl Elaborator {
         let g = &self.globals;
         let ev = |ts: &[Term]| -> R<Vec<Value>> {
             ts.iter()
-                .map(|t| Ok(eval(g, env, t)?))
+                .map(|t| Ok(eval(&g.ev(), env, t)?))
                 .collect::<R<Vec<Value>>>()
         };
         Ok(match shape {
@@ -626,7 +626,7 @@ impl Elaborator {
     fn pred_levels(&self, pred: &Pred, depth: usize, found: &mut dyn FnMut(usize)) -> R<()> {
         let g = &self.globals;
         let value = |v: &Value, found: &mut dyn FnMut(usize)| -> R<()> {
-            let t = quote(g, depth, v)?;
+            let t = quote(&g.ev(), depth, v)?;
             for (s, under) in t.subterms() {
                 if let Term::Var(ix) = s
                     && *ix >= under
@@ -814,8 +814,8 @@ impl Elaborator {
                 .collect()
         };
         for k in (0..ni).rev() {
-            let value = eval(g, &index_env(k), &data.indices()[k].1)?;
-            let dom = quote(g, np + preds.len() + k, &value)?;
+            let value = eval(&g.ev(), &index_env(k), &data.indices()[k].1)?;
+            let dom = quote(&g.ev(), np + preds.len() + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         for (k, &j) in preds.iter().enumerate().rev() {
@@ -931,7 +931,7 @@ impl Elaborator {
             Pred::Motive(is) => {
                 let mut args = Vec::new();
                 for v in is {
-                    args.push(quote(g, depth, v)?);
+                    args.push(quote(&g.ev(), depth, v)?);
                 }
                 apps(var(depth, motive.expect("a motive")), explicit(args))
             }
@@ -944,7 +944,7 @@ impl Elaborator {
             } => {
                 let mut t = Term::Def(*all);
                 for v in params {
-                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote(&g.ev(), depth, v)?, Icit::Implicit);
                 }
                 let view = self.view(pred_data(pred), true);
                 for (j, p) in preds.iter().enumerate() {
@@ -953,7 +953,7 @@ impl Elaborator {
                     }
                 }
                 for v in indices {
-                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote(&g.ev(), depth, v)?, Icit::Implicit);
                 }
                 t
             }
@@ -1116,8 +1116,8 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(first + j)))
                 .collect();
-            let value = eval(g, &env, &data.indices()[k].1)?;
-            let dom = quote(g, first + k, &value)?;
+            let value = eval(&g.ev(), &env, &data.indices()[k].1)?;
+            let dom = quote(&g.ev(), first + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         Ok(ty)
@@ -1189,7 +1189,7 @@ impl Elaborator {
             Pred::Motive(is) => {
                 let mut args = implicit(ps);
                 for v in is {
-                    args.push((quote(g, depth, v)?, Icit::Implicit));
+                    args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(sizes.size), args)
@@ -1200,7 +1200,7 @@ impl Elaborator {
                 let mut args = implicit(ps);
                 args.extend(explicit(self.scope_args(st, m, depth, here, scope_levels)));
                 for v in indices {
-                    args.push((quote(g, depth, v)?, Icit::Implicit));
+                    args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(id), args)
@@ -1250,7 +1250,7 @@ impl Elaborator {
             Some(f) => {
                 let move_to = |v: &Value| -> R<Value> {
                     let depth = f.field_levels.last().map_or(np, |l| l + 1).max(np);
-                    let t = quote(g, depth, v)?;
+                    let t = quote(&g.ev(), depth, v)?;
                     let mut env: Vec<Value> = vec![stitchwort_core::value::unused(); depth];
                     for (j, slot) in env.iter_mut().enumerate().take(np) {
                         *slot = Value::var(j);
@@ -1258,7 +1258,7 @@ impl Elaborator {
                     for (k, l) in f.field_levels.iter().enumerate() {
                         env[*l] = Value::var(np + k);
                     }
-                    Ok(eval(g, &env, &t)?)
+                    Ok(eval(&g.ev(), &env, &t)?)
                 };
                 let params = params.iter().map(move_to).collect::<R<Vec<_>>>()?;
                 let preds = preds
@@ -1316,7 +1316,7 @@ impl Elaborator {
         // (x: D args indices)
         let mut args = Vec::new();
         for v in &member.params {
-            args.push(quote(g, x_level, v)?);
+            args.push(quote(&g.ev(), x_level, v)?);
         }
         args.extend((0..ne_i).map(|k| var(x_level, first_index + k)));
         ty = pi("x", Icit::Explicit, Term::data(member.data, args), ty);
@@ -1327,11 +1327,11 @@ impl Elaborator {
                 .cloned()
                 .chain((0..k).map(|j| Value::var(first_index + j)))
                 .collect();
-            let value = eval(g, &env, &e.indices()[k].1)?;
+            let value = eval(&g.ev(), &env, &e.indices()[k].1)?;
             ty = pi(
                 &e.indices()[k].0,
                 Icit::Implicit,
-                quote(g, first_index + k, &value)?,
+                quote(&g.ev(), first_index + k, &value)?,
                 ty,
             );
         }
@@ -1340,9 +1340,13 @@ impl Elaborator {
         }
         if let Some((c, n)) = member.scope {
             for k in (0..n).rev() {
-                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
+                let value = eval(
+                    &g.ev(),
+                    &vars(0..np + k),
+                    &g.data(st.d).ctors()[c].fields[k].1,
+                )?;
                 let x = &g.data(st.d).ctors()[c].fields[k].0;
-                ty = pi(x, Icit::Explicit, quote(g, np + k, &value)?, ty);
+                ty = pi(x, Icit::Explicit, quote(&g.ev(), np + k, &value)?, ty);
             }
         }
         Ok(self.wrap_params_pi(st.d, ty))
@@ -1489,7 +1493,7 @@ impl Elaborator {
         let size_t = |g: &stitchwort_core::Globals, depth: usize, at: Term| -> R<Term> {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &is {
-                args.push((quote(g, depth, v)?, Icit::Implicit));
+                args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
             }
             args.push((at, Icit::Explicit));
             Ok(apps(Term::Def(sizes.size), args))
@@ -1519,7 +1523,7 @@ impl Elaborator {
             let mem = apps(
                 Term::Def(lib.list_mem),
                 vec![
-                    (quote(g, depth, &elem)?, Icit::Implicit),
+                    (quote(&g.ev(), depth, &elem)?, Icit::Implicit),
                     (var(depth, q), Icit::Explicit),
                     (var(depth, xs), Icit::Explicit),
                 ],
@@ -1529,17 +1533,21 @@ impl Elaborator {
         ty = pi(
             "xs",
             Icit::Explicit,
-            Term::data(lib.list, vec![quote(g, xs, &elem)?]),
+            Term::data(lib.list, vec![quote(&g.ev(), xs, &elem)?]),
             ty,
         );
-        ty = pi("q", Icit::Explicit, quote(g, q, &elem)?, ty);
+        ty = pi("q", Icit::Explicit, quote(&g.ev(), q, &elem)?, ty);
         if let Some((c, n)) = st.members[m].scope {
             for k in (0..n).rev() {
-                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
+                let value = eval(
+                    &g.ev(),
+                    &vars(0..np + k),
+                    &g.data(st.d).ctors()[c].fields[k].1,
+                )?;
                 ty = pi(
                     &g.data(st.d).ctors()[c].fields[k].0,
                     Icit::Explicit,
-                    quote(g, np + k, &value)?,
+                    quote(&g.ev(), np + k, &value)?,
                     ty,
                 );
             }
@@ -1753,7 +1761,7 @@ impl Elaborator {
         let elem_ty = Term::data(d, {
             let mut a: Vec<Term> = (0..np).map(|j| var(depth_all, j)).collect();
             for v in &elem_is {
-                a.push(quote(g, depth_all, v)?);
+                a.push(quote(&g.ev(), depth_all, v)?);
             }
             a
         });
@@ -1778,8 +1786,8 @@ impl Elaborator {
                     env[np + k] = Value::var(new_level(k));
                 }
             }
-            let v = eval(g, &env, t)?;
-            Ok(quote(g, to, &v)?)
+            let v = eval(&g.ev(), &env, t)?;
+            Ok(quote(&g.ev(), to, &v)?)
         };
         let nk = kept.len();
         let q = np + nk;
@@ -1788,7 +1796,7 @@ impl Elaborator {
         let sq = {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &elem_is {
-                let t = quote(g, depth_all, v)?;
+                let t = quote(&g.ev(), depth_all, v)?;
                 args.push((reindex(&t, depth_all, depth)?, Icit::Implicit));
             }
             args.push((var(depth, q), Icit::Explicit));
@@ -2042,11 +2050,11 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
-            let value = eval(g, &env, &data.indices()[k].1)?;
+            let value = eval(&g.ev(), &env, &data.indices()[k].1)?;
             ty = pi(
                 &data.indices()[k].0,
                 Icit::Explicit,
-                quote(g, depth + k, &value)?,
+                quote(&g.ev(), depth + k, &value)?,
                 ty,
             );
         }
@@ -2126,7 +2134,7 @@ impl Elaborator {
             .collect();
         let mut args = Vec::new();
         for t in &ctor.result {
-            args.push(quote(g, end, &eval(g, &env, t)?)?);
+            args.push(quote(&g.ev(), end, &eval(&g.ev(), &env, t)?)?);
         }
         args.push(Term::ctor(
             d,
@@ -2149,8 +2157,13 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
-            let value = eval(g, &env, &ctor.fields[k].1)?;
-            ty = pi(&fields[k], Icit::Explicit, quote(g, depth + k, &value)?, ty);
+            let value = eval(&g.ev(), &env, &ctor.fields[k].1)?;
+            ty = pi(
+                &fields[k],
+                Icit::Explicit,
+                quote(&g.ev(), depth + k, &value)?,
+                ty,
+            );
         }
         Ok(ty)
     }
@@ -2189,7 +2202,7 @@ impl Elaborator {
         let inner = depth + 2;
         let mut margs = Vec::new();
         for v in is {
-            margs.push(quote(g, inner, v)?);
+            margs.push(quote(&g.ev(), inner, v)?);
         }
         margs.push(var(inner, q));
         let result = apps(var(inner, motive), explicit(margs));
@@ -2197,13 +2210,13 @@ impl Elaborator {
             apps(
                 Term::Def(st.lib.list_mem),
                 vec![
-                    (quote(g, depth + 1, elem)?, Icit::Implicit),
+                    (quote(&g.ev(), depth + 1, elem)?, Icit::Implicit),
                     (var(depth + 1, q), Icit::Explicit),
                     (var(depth + 1, f), Icit::Explicit),
                 ],
             )
         } else {
-            let opt = Term::data(st.lib.option, vec![quote(g, depth + 1, elem)?]);
+            let opt = Term::data(st.lib.option, vec![quote(&g.ev(), depth + 1, elem)?]);
             Term::Eq(
                 Some(Rc::new(opt)),
                 Rc::new(var(depth + 1, f)),
@@ -2213,7 +2226,7 @@ impl Elaborator {
         Ok(pi(
             "q",
             Icit::Explicit,
-            quote(g, depth, elem)?,
+            quote(&g.ev(), depth, elem)?,
             pi("member", Icit::Explicit, member, result),
         ))
     }
@@ -2238,7 +2251,7 @@ impl Elaborator {
                 here.cases.iter().map(|l| var(depth, *l)).collect(),
             ));
             for v in indices {
-                args.push((quote(g, depth, v)?, Icit::Implicit));
+                args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
             }
             args.push((var(depth, at), Icit::Explicit));
             Ok(apps(Term::Def(head), args))
@@ -2475,7 +2488,7 @@ impl Elaborator {
                     let d2 = inner + 2;
                     let mut margs = Vec::new();
                     for v in is {
-                        margs.push(quote(g, d2, v)?);
+                        margs.push(quote(&g.ev(), d2, v)?);
                     }
                     let pred = apps(var(d2, motive), explicit(margs));
                     let lemma = if list {
@@ -2486,7 +2499,7 @@ impl Elaborator {
                     let call = apps(
                         Term::Def(lemma),
                         vec![
-                            (quote(g, d2, &params[0])?, Icit::Implicit),
+                            (quote(&g.ev(), d2, &params[0])?, Icit::Implicit),
                             (pred, Icit::Explicit),
                             (var(d2, depth + i), Icit::Explicit),
                             (var(d2, depth + nf + h), Icit::Explicit),
@@ -2581,7 +2594,7 @@ fn map_pred(pred: &Pred, f: &dyn Fn(&Value) -> R<Value>) -> R<Pred> {
 
 fn pred_eq_all(g: &stitchwort_core::Globals, level: usize, a: &[Value], b: &[Value]) -> R<bool> {
     for (x, y) in a.iter().zip(b) {
-        if !conv(g, level, x, y)? {
+        if !conv(&g.ev(), level, x, y)? {
             return Ok(false);
         }
     }

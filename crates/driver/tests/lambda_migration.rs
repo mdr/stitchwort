@@ -96,14 +96,14 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
         out += &format!(
             "data {} {}\n",
             g.env.datas()[i].path(),
-            show(data_hash(g, DataId(i)))
+            show(data_hash(&g.ev(), DataId(i)))
         );
     }
     for i in first_def..g.env.defs().len() {
         out += &format!(
             "{} {}\n",
             g.env.defs()[i].path(),
-            show(def_hash(g, DefId(i)))
+            show(def_hash(&g.ev(), DefId(i)))
         );
     }
     out

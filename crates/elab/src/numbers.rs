@@ -66,7 +66,7 @@ enum Class {
 /// such as `Price = Int` are already unfolded by evaluation.
 fn classify(cx: &Ctx, ty: &Value) -> Result<Class> {
     let g = cx.g();
-    Ok(match force(g, ty.clone())? {
+    Ok(match force(&g.ev(), ty.clone())? {
         Value::Data(d, params) if params.is_empty() && Some(d) == g.env.builtins().nat => {
             Class::Num(Kind::Nat)
         }
@@ -428,9 +428,9 @@ pub(crate) fn fin_bound(
     let Some(fin) = g.env.registry().loaded_data(Builtin::Fin) else {
         return Ok(None);
     };
-    match force(g, ty.clone())? {
+    match force(&g.ev(), ty.clone())? {
         Value::Data(d, params) if d == fin && params.len() == 1 => {
-            Ok(Some(stitchwort_core::native::as_nat(g, &params[0])?))
+            Ok(Some(stitchwort_core::native::as_nat(&g.ev(), &params[0])?))
         }
         _ => Ok(None),
     }
@@ -455,9 +455,9 @@ fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Resul
             .with_note("a `Fin n` is a number from 0 up to n - 1"));
     }
     let Some(n) = bound else {
-        let unsolved = match force(cx.g(), expected.clone())? {
+        let unsolved = match force(&cx.g().ev(), expected.clone())? {
             Value::Data(_, params) => matches!(
-                force(cx.g(), params[0].clone())?,
+                force(&cx.g().ev(), params[0].clone())?,
                 Value::Neutral(Head::Meta(_), _)
             ),
             _ => false,
@@ -517,7 +517,7 @@ const SAFE_BOUND: u64 = 9_007_199_254_740_991;
 /// bound by computing it, as for a `Fin` literal. `None` for any other type.
 fn safe_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Data(d, params) = force(g, expected.clone())? else {
+    let Value::Data(d, params) = force(&g.ev(), expected.clone())? else {
         return Ok(None);
     };
     if !params.is_empty() {
@@ -925,7 +925,7 @@ fn function_operand_note(cx: &mut Ctx, expr: &Expr, e: Diagnostic) -> Diagnostic
     };
     let is_function = matches!(
         attempt(cx, |cx| infer(cx, inner)),
-        Ok(Some((_, ty))) if matches!(force(cx.g(), ty.clone()), Ok(Value::Pi(..)))
+        Ok(Some((_, ty))) if matches!(force(&cx.g().ev(), ty.clone()), Ok(Value::Pi(..)))
     );
     if !is_function {
         return e;
@@ -1318,7 +1318,7 @@ impl crate::queue::Check for NumberGroup {
         for (leaf, state) in g.leaves.iter_mut().zip(&self.states) {
             leaf.state = state.clone();
         }
-        let t = force(cx.g(), self.t.clone())?;
+        let t = force(&cx.g().ev(), self.t.clone())?;
         let defaulted = (cx.e.attempt.defaulted.borrow().iter())
             .any(|d| d.literal.is_none() && d.span == self.expr.span());
         // What a message says decided it: the ladder's default; the
@@ -1437,7 +1437,7 @@ impl crate::queue::Check for GroupType {
 
 /// The unknown at the head of `v`, if it is one.
 fn head_meta(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
-    Ok(match force(cx.g(), v.clone())? {
+    Ok(match force(&cx.g().ev(), v.clone())? {
         Value::Neutral(Head::Meta(m), _) => Some(m),
         _ => None,
     })
@@ -1656,7 +1656,7 @@ fn prop_not_equal(
     decided: Option<(&Expr, &str)>,
 ) -> Option<Diagnostic> {
     if !matches!(e.code, "E-NOT-A-TYPE" | "E-TYPE-MISMATCH")
-        || !matches!(force(cx.g(), t.clone()), Ok(Value::Sort(Sort::Prop)))
+        || !matches!(force(&cx.g().ev(), t.clone()), Ok(Value::Sort(Sort::Prop)))
     {
         return None;
     }
@@ -1916,10 +1916,10 @@ fn apply_def(cx: &mut Ctx, id: DefId, args: Vec<Term>) -> Result<Term> {
     let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value().clone();
     for arg in args {
-        let Value::Pi(_, Icit::Explicit, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, Icit::Explicit, _, cod) = force(&g.ev(), ty)? else {
             unreachable!("built-in operators take two explicit arguments");
         };
-        ty = cod.apply_lazy(g, || eval(g, &cx.env, &arg))?;
+        ty = cod.apply_lazy(&g.ev(), || eval(&g.ev(), &cx.env, &arg))?;
         term = Term::app(term, arg);
     }
     Ok(insert(cx, term, ty)?.0)

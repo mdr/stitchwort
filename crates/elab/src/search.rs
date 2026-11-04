@@ -114,8 +114,8 @@ pub struct Pattern {
 impl Pattern {
     /// The pattern, read back folded, for messages and the JSON's `query`.
     pub fn show(&self, g: &Globals) -> String {
-        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
-            Ok(t) => stitchwort_core::pretty::term(g, &[], &t),
+        match stitchwort_core::value::quote_folded(&g.ev(), 0, &self.value) {
+            Ok(t) => stitchwort_core::pretty::term(&g.ev(), &[], &t),
             Err(_) => "?".into(),
         }
     }
@@ -132,7 +132,7 @@ pub(crate) enum Ty {
 
 impl Ty {
     pub(crate) fn of(g: &Globals, ty: Value) -> Res<Ty> {
-        Ok(match force(g, ty)? {
+        Ok(match force(&g.ev(), ty)? {
             Value::Sort(_) => Ty::Type,
             other => Ty::Of(other),
         })
@@ -155,7 +155,7 @@ pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Opt
             None => return Ok(None),
         },
         Term::Def(id) => g.def(*id).ty_value().clone(),
-        Term::Var(_) => match force(g, eval(g, env, head)?)? {
+        Term::Var(_) => match force(&g.ev(), eval(&g.ev(), env, head)?)? {
             Value::Neutral(Head::Meta(m), s) if s.is_empty() => match g.meta_type(m) {
                 Some((ty, 0)) => ty,
                 _ => return Ok(None),
@@ -165,10 +165,10 @@ pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Opt
         _ => return Ok(None),
     };
     for arg in args {
-        let Value::Pi(_, _, _, closure) = force(g, ty)? else {
+        let Value::Pi(_, _, _, closure) = force(&g.ev(), ty)? else {
             return Ok(None);
         };
-        ty = closure.apply(g, eval(g, env, arg)?)?;
+        ty = closure.apply(&g.ev(), eval(&g.ev(), env, arg)?)?;
     }
     Ty::of(g, ty).map(Some)
 }
@@ -389,7 +389,7 @@ pub fn conjuncts(g: &Globals, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
     let found = (|| -> Res<()> {
         let _op = g.machine.budget.attempt(ATTEMPT);
         let env: Vec<Value> = (0..level).map(Value::var).collect();
-        let concl = eval(g, &env, t)?;
+        let concl = eval(&g.ev(), &env, t)?;
         split_conjunction(g, concl, level, and, Part { bits: 0, len: 0 }, &mut out)
     })();
     g.machine.glue.set(was);
@@ -419,7 +419,7 @@ fn split_conjunction(
         return Ok(());
     }
     // The conclusion itself is unfolded; a side only as written.
-    let v = if part.len == 0 { force(g, v)? } else { v };
+    let v = if part.len == 0 { force(&g.ev(), v)? } else { v };
     let Value::Data(d, args) = v else {
         return Ok(());
     };
@@ -428,7 +428,10 @@ fn split_conjunction(
     }
     for (right, side) in [(false, &args[0]), (true, &args[1])] {
         let here = part.then(right);
-        out.push((here, stitchwort_core::value::quote_folded(g, level, side)?));
+        out.push((
+            here,
+            stitchwort_core::value::quote_folded(&g.ev(), level, side)?,
+        ));
         split_conjunction(g, side.clone(), level, and, here, out)?;
     }
     Ok(())
@@ -468,7 +471,7 @@ impl Item {
 
     /// Whether it is a generated equation (`f.eqK`, `f.eqK.orN`), or a
     /// conjunct of one.
-    pub fn generated_equation(self, g: &Globals) -> bool {
+    pub fn generated_equation(self, g: &stitchwort_core::Ev) -> bool {
         match self {
             Item::Def(id) | Item::Part(id, _) => {
                 g.def(id).theorem() && crate::equations::is_generated_name(g, g.def(id).name())
@@ -487,7 +490,7 @@ impl Item {
 
     /// Its full name: `Std.List.lengthAppend`, `Std.List.Cons`.
     /// A conjunct's is its theorem's.
-    pub fn path(self, g: &Globals) -> String {
+    pub fn path(self, g: &stitchwort_core::Ev) -> String {
         match self {
             Item::Def(id) | Item::Part(id, _) => g.def(id).path().to_string(),
             Item::Ctor(d, c) => format!("{}.{}", g.data(d).path(), g.data(d).ctors()[c].name),
@@ -504,7 +507,7 @@ impl Item {
     }
 
     /// Where it is declared (a constructor: its type's declaration).
-    pub fn span(self, g: &Globals) -> Span {
+    pub fn span(self, g: &stitchwort_core::Ev) -> Span {
         match self {
             Item::Def(id) | Item::Part(id, _) => g.def(id).span(),
             Item::Ctor(d, _) => g.data(d).span(),
@@ -641,7 +644,7 @@ impl Hit {
     /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
     /// the one meant, and the equations stay found after it), specificity,
     /// premises, size, then the name.
-    pub fn key(&self, g: &Globals) -> Key {
+    pub fn key(&self, g: &stitchwort_core::Ev) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
             p => p,
@@ -665,7 +668,7 @@ impl Hit {
 }
 
 /// Orders `hits` by [`Hit::key`].
-pub fn rank(g: &Globals, hits: &mut [Hit]) {
+pub fn rank(g: &stitchwort_core::Ev, hits: &mut [Hit]) {
     hits.sort_by_cached_key(|h| h.key(g));
 }
 
@@ -784,17 +787,21 @@ fn shape(ty: &Term) -> (usize, usize) {
 /// or a term of some size. A solution under the pattern's binders (`x y =>
 /// ?a`) is read under them.
 fn rep(g: &Globals, m: usize) -> Res<Now> {
-    let mut v = force(g, eval(g, &[], &Term::Meta(m))?)?;
+    let mut v = force(&g.ev(), eval(&g.ev(), &[], &Term::Meta(m))?)?;
     let mut level = 0;
     while let Value::Lam(_, _, body) = &v {
-        let next = force(g, body.apply(g, Value::var(level))?)?;
+        let next = force(&g.ev(), body.apply(&g.ev(), Value::var(level))?)?;
         v = next;
         level += 1;
     }
     Ok(match v {
         Value::Neutral(Head::Meta(r), s) if s.is_empty() => Now::Meta(r),
         Value::Neutral(Head::Var(..), s) if s.is_empty() && level > 0 => Now::Var,
-        v => Now::Size(size(&stitchwort_core::value::quote_folded(g, level, &v)?)),
+        v => Now::Size(size(&stitchwort_core::value::quote_folded(
+            &g.ev(),
+            level,
+            &v,
+        )?)),
     })
 }
 
@@ -911,9 +918,9 @@ pub(crate) struct Restore<'g> {
 impl Drop for Restore<'_> {
     fn drop(&mut self) {
         let g = &self.g;
-        g.frozen_metas.borrow_mut().truncate(self.frozen);
+        g.store.frozen_metas.borrow_mut().truncate(self.frozen);
         crate::unify::undo_since(g, self.trail);
-        g.metas.borrow_mut().truncate(self.metas);
+        g.store.metas.borrow_mut().truncate(self.metas);
         g.machine.glue.set(self.glue);
     }
 }
@@ -938,7 +945,7 @@ impl Elaborator {
             for name in holes {
                 let ty = g.new_meta(span);
                 let hole = g.new_meta(span);
-                let ty_value = eval(g, &[], &Term::Meta(ty))?;
+                let ty_value = eval(&g.ev(), &[], &Term::Meta(ty))?;
                 g.set_meta_type(hole, ty_value.clone(), 0);
                 cx.define(
                     Some(name),
@@ -967,7 +974,7 @@ impl Elaborator {
             }
             let value = cx.eval(&term)?;
             let ty = Ty::of(g, ty).ok();
-            if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
+            if let Value::Neutral(Head::Meta(_), s) = force(&g.ev(), value.clone())?
                 && s.is_empty()
             {
                 // Written as more than a hole, it computed to one (SW-942):
@@ -996,7 +1003,7 @@ impl Elaborator {
                 ));
             }
             let make = |value: Value, via: Option<Via>| -> Pattern {
-                let zonked = stitchwort_core::value::quote_folded(g, 0, &value)
+                let zonked = stitchwort_core::value::quote_folded(&g.ev(), 0, &value)
                     .unwrap_or_else(|_| term.clone());
                 let metas = g.metas.borrow().len();
                 Pattern {
@@ -1082,21 +1089,21 @@ impl Elaborator {
             let mut t = def.ty().strip_loc();
             while let Term::Pi(_, _, dom, cod) = t {
                 let m = g.new_meta(def.span());
-                g.set_meta_type(m, eval(g, &env, dom)?, 0);
-                env.push(eval(g, &[], &Term::Meta(m))?);
+                g.set_meta_type(m, eval(&g.ev(), &env, dom)?, 0);
+                env.push(eval(&g.ev(), &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
             let (value, ty) = match (side, t) {
-                (Side::Conclusion, _) => (eval(g, &env, t)?, Some(Ty::Type)),
+                (Side::Conclusion, _) => (eval(&g.ev(), &env, t)?, Some(Ty::Type)),
                 (Side::Left, Term::Eq(ty, left, _)) => {
                     let ty = match ty {
-                        Some(ty) => Some(Ty::of(g, eval(g, &env, ty)?)?),
+                        Some(ty) => Some(Ty::of(g, eval(&g.ev(), &env, ty)?)?),
                         None => type_of_target(g, &env, left)?,
                     };
-                    (eval(g, &env, left)?, ty)
+                    (eval(&g.ev(), &env, left)?, ty)
                 }
                 (Side::Left, Term::Data(d, args)) if Some(*d) == iff && args.len() == 2 => {
-                    (eval(g, &env, &args[0])?, Some(Ty::Type))
+                    (eval(&g.ev(), &env, &args[0])?, Some(Ty::Type))
                 }
                 _ => return Ok(None),
             };
@@ -1121,7 +1128,7 @@ impl Elaborator {
             let mut env: Vec<Value> = Vec::new();
             for _ in 0..depth {
                 let m = g.new_meta(def.span());
-                env.push(eval(g, &[], &Term::Meta(m))?);
+                env.push(eval(&g.ev(), &[], &Term::Meta(m))?);
             }
             // The proof's variables have no recorded type, so unification
             // can't tell an ill-typed pairing from a good one (SW-919's
@@ -1146,14 +1153,14 @@ impl Elaborator {
                     }
                 }
             }
-            let mut ty = eval(g, &[], def.ty())?;
+            let mut ty = eval(&g.ev(), &[], def.ty())?;
             for arg in args {
-                let Value::Pi(_, _, _, closure) = force(g, ty)? else {
+                let Value::Pi(_, _, _, closure) = force(&g.ev(), ty)? else {
                     return Ok(None);
                 };
-                ty = closure.apply(g, eval(g, &env, arg)?)?;
+                ty = closure.apply(&g.ev(), eval(&g.ev(), &env, arg)?)?;
             }
-            let ty = force(g, ty)?;
+            let ty = force(&g.ev(), ty)?;
             if matches!(ty, Value::Pi(..)) {
                 return Ok(None);
             }
@@ -1167,12 +1174,12 @@ impl Elaborator {
     /// variable; `None` if it is one.
     fn finish_pattern(&self, value: Value, ty: Option<Ty>) -> Res<Option<Pattern>> {
         let g = &self.globals;
-        if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
+        if let Value::Neutral(Head::Meta(_), s) = force(&g.ev(), value.clone())?
             && s.is_empty()
         {
             return Ok(None);
         }
-        let quoted = stitchwort_core::value::quote_folded(g, 0, &value)?;
+        let quoted = stitchwort_core::value::quote_folded(&g.ev(), 0, &value)?;
         let metas = g.metas.borrow().len();
         Ok(Some(Pattern {
             head: head_key(&quoted),
@@ -1218,7 +1225,7 @@ impl Elaborator {
         };
         let mut out = Vec::new();
         for item in defs.chain(ctors) {
-            if !keep(item, &item.path(g)) {
+            if !keep(item, &item.path(&g.ev())) {
                 continue;
             }
             let ty = item.ty(g);
@@ -1248,8 +1255,8 @@ impl Elaborator {
         let was = g.machine.glue.replace(self.options.glue);
         let found = (|| {
             let _op = g.machine.budget.attempt(ATTEMPT);
-            let v = eval(g, &[], ty)?;
-            stitchwort_core::value::quote_folded(g, 0, &v)
+            let v = eval(&g.ev(), &[], ty)?;
+            stitchwort_core::value::quote_folded(&g.ev(), 0, &v)
         })();
         g.machine.glue.set(was);
         let mut index = Index {
@@ -1338,7 +1345,7 @@ impl Elaborator {
                                 other.via.iter().chain(&hit.via).copied().collect();
                             via.sort();
                             via.dedup();
-                            if hit.key(g) < other.key(g) {
+                            if hit.key(&g.ev()) < other.key(&g.ev()) {
                                 other = hit;
                             }
                             other.via = via;
@@ -1352,7 +1359,7 @@ impl Elaborator {
                 tier = SearchTier::Relaxed;
                 continue;
             }
-            rank(g, &mut hits);
+            rank(&g.ev(), &mut hits);
             return Found { hits, tier, stats };
         }
     }
@@ -1373,15 +1380,15 @@ impl Elaborator {
         }
         stats.compared += 1;
         let g = &self.unifier();
-        let frozen = g.frozen_metas.borrow().len();
+        let frozen = g.store.frozen_metas.borrow().len();
         let _restore = Restore {
             g: *g,
-            metas: g.metas.borrow().len().max(pattern.metas),
-            trail: g.meta_trail.borrow().len(),
+            metas: g.store.metas.borrow().len().max(pattern.metas),
+            trail: g.store.meta_trail.borrow().len(),
             frozen,
             glue: g.machine.glue.replace(self.options.glue),
         };
-        let span = candidate.item.span(g);
+        let span = candidate.item.span(&g.store.ev());
         let mode = opts.mode;
         let found = (|| -> Res<Option<Hit>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
@@ -1404,8 +1411,8 @@ impl Elaborator {
                     }
                     premises.push(((**dom).clone(), env.len()));
                 }
-                let m = g.new_meta(span);
-                g.set_meta_type(m, eval(g, &env, dom)?, 0);
+                let m = g.store.new_meta(span);
+                g.store.set_meta_type(m, eval(g, &env, dom)?, 0);
                 opened.push(m);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
@@ -1481,12 +1488,12 @@ impl Elaborator {
                     // (SW-924).
                     let theirs = match place {
                         Place::Left | Place::Right => match conclusion.strip_loc() {
-                            Term::Eq(Some(ty), ..) => Some(Ty::of(g, eval(g, &env, ty)?)?),
-                            Term::Eq(None, ..) => type_of_target(g, &env[..at], target)?,
+                            Term::Eq(Some(ty), ..) => Some(Ty::of(g.store, eval(g, &env, ty)?)?),
+                            Term::Eq(None, ..) => type_of_target(g.store, &env[..at], target)?,
                             _ => Some(Ty::Type),
                         },
                         Place::Whole | Place::Conclusion | Place::Premise => Some(Ty::Type),
-                        _ => type_of_target(g, &env[..at], target)?,
+                        _ => type_of_target(g.store, &env[..at], target)?,
                     };
                     if !types_agree(g, pattern.ty.as_ref(), theirs.as_ref())? {
                         return Ok(Some((false, false)));
@@ -1517,14 +1524,14 @@ impl Elaborator {
                 {
                     break;
                 }
-                let inner = g.meta_trail.borrow().len();
+                let inner = g.store.meta_trail.borrow().len();
                 stats.unifications += 1;
                 let Some((same, mut absorbs)) = try_target(place, &target, at)? else {
                     stats.unifications -= 1;
                     continue;
                 };
                 let measured = if same {
-                    measure(g, pattern, &opened)?
+                    measure(g.store, pattern, &opened)?
                 } else {
                     None
                 };
@@ -1547,12 +1554,15 @@ impl Elaborator {
                     if want >= relation {
                         break;
                     }
-                    g.frozen_metas.borrow_mut().extend(side.iter().copied());
+                    g.store
+                        .frozen_metas
+                        .borrow_mut()
+                        .extend(side.iter().copied());
                     stats.unifications += 1;
                     let tried = try_target(place, &target, at);
-                    g.frozen_metas.borrow_mut().truncate(frozen);
+                    g.store.frozen_metas.borrow_mut().truncate(frozen);
                     let m = match tried? {
-                        Some((true, _)) => measure(g, pattern, &opened)?,
+                        Some((true, _)) => measure(g.store, pattern, &opened)?,
                         _ => None,
                     };
                     crate::unify::undo_since(g, inner);
@@ -1589,7 +1599,10 @@ impl Elaborator {
             Ok(hit) => hit,
             Err(why) => {
                 if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
-                    eprintln!("search: {} ran out ({why:?})", candidate.item.path(g));
+                    eprintln!(
+                        "search: {} ran out ({why:?})",
+                        candidate.item.path(&g.store.ev())
+                    );
                 }
                 stats.out_of_budget += 1;
                 stats.out_of_budget_items.push(candidate.item);
@@ -1604,18 +1617,18 @@ impl Elaborator {
 fn type_holes(g: &Globals, env: &[Value], holes: &[usize], ty: Value, args: &[&Term]) -> Res<()> {
     let mut ty = ty;
     for arg in args {
-        let Value::Pi(_, _, dom, closure) = force(g, ty)? else {
+        let Value::Pi(_, _, dom, closure) = force(&g.ev(), ty)? else {
             return Ok(());
         };
-        let value = eval(g, env, arg)?;
-        if let Value::Neutral(Head::Meta(m), s) = force(g, value.clone())?
+        let value = eval(&g.ev(), env, arg)?;
+        if let Value::Neutral(Head::Meta(m), s) = force(&g.ev(), value.clone())?
             && s.is_empty()
             && holes.contains(&m)
             && g.meta_type(m).is_none()
         {
             g.set_meta_type(m, (*dom).clone(), 0);
         }
-        ty = closure.apply(g, value)?;
+        ty = closure.apply(&g.ev(), value)?;
     }
     Ok(())
 }
@@ -1715,7 +1728,7 @@ fn reordered(
             if used[i] {
                 continue;
             }
-            let inner = g.meta_trail.borrow().len();
+            let inner = g.store.meta_trail.borrow().len();
             if crate::unify::unify_solving_arguments(g, level, want, have)? {
                 used[i] = true;
                 found = true;

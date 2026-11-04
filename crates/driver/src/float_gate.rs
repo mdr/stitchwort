@@ -15,7 +15,7 @@ use stitchwort_core::float::{self, FloatNative};
 use stitchwort_core::native::nat_value;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{apply, eval, quote};
-use stitchwort_core::{DefId, Globals, Limits, Term, Value};
+use stitchwort_core::{DefId, Ev, Limits, Term, Value};
 
 use crate::driver::Session;
 
@@ -261,7 +261,7 @@ fn check(out: &mut Vec<Check>, mode: Mode, name: String, result: Result<(), Stri
     });
 }
 
-fn def(g: &Globals, name: &str) -> Result<DefId, String> {
+fn def(g: &Ev, name: &str) -> Result<DefId, String> {
     g.env
         .defs()
         .iter()
@@ -271,7 +271,7 @@ fn def(g: &Globals, name: &str) -> Result<DefId, String> {
 }
 
 /// The normal form of `value`, with `level` variables in scope, as text.
-fn normal(g: &Globals, level: usize, value: &Value) -> Result<String, String> {
+fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
     quote(g, level, value)
         .map(|t| format!("{t:?}"))
         .map_err(|e| format!("{e:?}"))
@@ -307,7 +307,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     {
         let g = &session.elab.globals;
         for native in FloatNative::ALL {
-            let result = def(g, native.name()).and_then(|id| {
+            let result = def(&g.ev(), native.name()).and_then(|id| {
                 let bound = g.env.builtins().float_native(id) == Some(native);
                 let checking = g.env.builtins().float_def(id, false).is_some();
                 let running = g.env.builtins().float_def(id, true).is_some();
@@ -339,12 +339,12 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     let g = &session.elab.globals;
     let _op = g.machine.budget.operation(limits);
     let value_of = |name: &str| -> Result<Value, String> {
-        eval(g, &[], &Term::Def(def(g, name)?)).map_err(|e| format!("{e:?}"))
+        eval(&g.ev(), &[], &Term::Def(def(&g.ev(), name)?)).map_err(|e| format!("{e:?}"))
     };
     for (left, right) in SAME {
         let result = (|| {
-            let l = normal(g, 0, &value_of(left)?)?;
-            let r = normal(g, 0, &value_of(right)?)?;
+            let l = normal(&g.ev(), 0, &value_of(left)?)?;
+            let r = normal(&g.ev(), 0, &value_of(right)?)?;
             if l == r {
                 Ok(())
             } else {
@@ -359,7 +359,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         );
     }
     for name in COMPARED {
-        if let Ok(form) = value_of(name).and_then(|v| normal(g, 0, &v)) {
+        if let Ok(form) = value_of(name).and_then(|v| normal(&g.ev(), 0, &v)) {
             forms.push(((*name).to_string(), form));
         }
     }
@@ -380,13 +380,17 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                 native.name()
             );
             let result = (|| {
-                let id = def(g, native.name())?;
+                let id = def(&g.ev(), native.name())?;
                 let x = Value::Ctor(data, 0, [nat_value(bits.into()), Value::var(0)].into());
-                let f = eval(g, &[], &Term::Def(id)).map_err(|e| format!("{e:?}"))?;
-                let got = apply(g, f, x).map_err(|e| format!("{e:?}"))?;
-                let expected = eval(g, &[], &float::literal_term(data, native.on_bits(bits)))
-                    .map_err(|e| format!("{e:?}"))?;
-                let (got, expected) = (normal(g, 1, &got)?, normal(g, 1, &expected)?);
+                let f = eval(&g.ev(), &[], &Term::Def(id)).map_err(|e| format!("{e:?}"))?;
+                let got = apply(&g.ev(), f, x).map_err(|e| format!("{e:?}"))?;
+                let expected = eval(
+                    &g.ev(),
+                    &[],
+                    &float::literal_term(data, native.on_bits(bits)),
+                )
+                .map_err(|e| format!("{e:?}"))?;
+                let (got, expected) = (normal(&g.ev(), 1, &got)?, normal(&g.ev(), 1, &expected)?);
                 if got == expected {
                     Ok(got)
                 } else {
@@ -405,8 +409,9 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     let with_witness = |bits: u64, level: usize| {
         Value::Ctor(data, 0, [nat_value(bits.into()), Value::var(level)].into())
     };
-    let literal =
-        |bits: u64| eval(g, &[], &float::literal_term(data, bits)).map_err(|e| format!("{e:?}"));
+    let literal = |bits: u64| {
+        eval(&g.ev(), &[], &float::literal_term(data, bits)).map_err(|e| format!("{e:?}"))
+    };
     for native in [
         FloatNative::IsNaN,
         FloatNative::IsFinite,
@@ -418,12 +423,12 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                 native.name()
             );
             let result = (|| {
-                let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                let f = eval(&g.ev(), &[], &Term::Def(def(&g.ev(), native.name())?))
                     .map_err(|e| format!("{e:?}"))?;
-                let got =
-                    apply(g, f.clone(), with_witness(bits, 0)).map_err(|e| format!("{e:?}"))?;
-                let expected = apply(g, f, literal(bits)?).map_err(|e| format!("{e:?}"))?;
-                let (got, expected) = (normal(g, 1, &got)?, normal(g, 1, &expected)?);
+                let got = apply(&g.ev(), f.clone(), with_witness(bits, 0))
+                    .map_err(|e| format!("{e:?}"))?;
+                let expected = apply(&g.ev(), f, literal(bits)?).map_err(|e| format!("{e:?}"))?;
+                let (got, expected) = (normal(&g.ev(), 1, &got)?, normal(&g.ev(), 1, &expected)?);
                 if got == expected && !got.contains("Def(") {
                     Ok(got)
                 } else {
@@ -444,15 +449,17 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                     native.name()
                 );
                 let result = (|| {
-                    let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                    let f = eval(&g.ev(), &[], &Term::Def(def(&g.ev(), native.name())?))
                         .map_err(|e| format!("{e:?}"))?;
-                    let partial =
-                        apply(g, f.clone(), with_witness(a, 0)).map_err(|e| format!("{e:?}"))?;
-                    let got =
-                        apply(g, partial, with_witness(b, 1)).map_err(|e| format!("{e:?}"))?;
-                    let partial = apply(g, f, literal(a)?).map_err(|e| format!("{e:?}"))?;
-                    let expected = apply(g, partial, literal(b)?).map_err(|e| format!("{e:?}"))?;
-                    let (got, expected) = (normal(g, 2, &got)?, normal(g, 2, &expected)?);
+                    let partial = apply(&g.ev(), f.clone(), with_witness(a, 0))
+                        .map_err(|e| format!("{e:?}"))?;
+                    let got = apply(&g.ev(), partial, with_witness(b, 1))
+                        .map_err(|e| format!("{e:?}"))?;
+                    let partial = apply(&g.ev(), f, literal(a)?).map_err(|e| format!("{e:?}"))?;
+                    let expected =
+                        apply(&g.ev(), partial, literal(b)?).map_err(|e| format!("{e:?}"))?;
+                    let (got, expected) =
+                        (normal(&g.ev(), 2, &got)?, normal(&g.ev(), 2, &expected)?);
                     if got == expected && !got.contains("Def(") {
                         Ok(got)
                     } else {
@@ -476,13 +483,15 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                     native.name()
                 );
                 let result = (|| {
-                    let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                    let f = eval(&g.ev(), &[], &Term::Def(def(&g.ev(), native.name())?))
                         .map_err(|e| format!("{e:?}"))?;
-                    let partial = apply(g, f, with_witness(a, 0)).map_err(|e| format!("{e:?}"))?;
-                    let got =
-                        apply(g, partial, with_witness(b, 1)).map_err(|e| format!("{e:?}"))?;
+                    let partial =
+                        apply(&g.ev(), f, with_witness(a, 0)).map_err(|e| format!("{e:?}"))?;
+                    let got = apply(&g.ev(), partial, with_witness(b, 1))
+                        .map_err(|e| format!("{e:?}"))?;
                     let expected = literal(native.on_pair(a, b))?;
-                    let (got, expected) = (normal(g, 2, &got)?, normal(g, 2, &expected)?);
+                    let (got, expected) =
+                        (normal(&g.ev(), 2, &got)?, normal(&g.ev(), 2, &expected)?);
                     if got == expected {
                         Ok(got)
                     } else {

@@ -43,7 +43,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::force;
-use stitchwort_core::{DataId, DefId, Globals, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 use crate::erasure::def_shape;
@@ -84,7 +84,7 @@ struct Inline {
 /// Decides which calls are at the empty row and makes the variants, with
 /// what it has worked out about each definition kept.
 pub struct Specialiser<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     /// The types that drive specialisation, each with the constructor it's
     /// specialised on: `Effect.Effects` and `Empty`, then `Effect.Divergence`
     /// and `Total`, those the core has.
@@ -102,7 +102,7 @@ pub struct Specialiser<'g> {
 }
 
 impl<'g> Specialiser<'g> {
-    pub fn new(g: &'g Globals) -> Self {
+    pub fn new(g: &'g Ev<'g>) -> Self {
         let driver = |b: Builtin, ctor: &str| {
             g.env.registry().loaded_data(b).and_then(|d| {
                 let c = g.data(d).ctors().iter().position(|c| &*c.name == ctor)?;

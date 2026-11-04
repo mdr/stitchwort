@@ -73,7 +73,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
     let mut hypotheses = Vec::new();
     let mut t = g.def(id).ty().strip_loc();
     while let Term::Pi(name, _, dom, cod) = t {
-        let ty = stitchwort_core::pretty::term_in(g, &session.elab, &names, dom);
+        let ty = stitchwort_core::pretty::term_in(&g.ev(), &session.elab, &names, dom);
         let mut fresh = name.to_string();
         if fresh == "_" || fresh.is_empty() || names.iter().any(|n| **n == *fresh) {
             fresh = format!("x{}", names.len());
@@ -86,7 +86,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         names.push(fresh.as_str().into());
         t = cod.strip_loc();
     }
-    let target = stitchwort_core::pretty::term_in(g, &session.elab, &names, t);
+    let target = stitchwort_core::pretty::term_in(&g.ev(), &session.elab, &names, t);
     let unwritable = |s: &str| s.contains(['%', '✝', '?', '…', '\n']);
     if unwritable(&target) || hypotheses.iter().any(|h| unwritable(&h.ty)) {
         return None;
@@ -156,7 +156,7 @@ fn run(
             };
             let g = &session.elab.globals;
             let theorem_path = g.def(theorem).path().to_string();
-            let lemma_path = lemma.map(|l| Item::Def(l).path(g));
+            let lemma_path = lemma.map(|l| Item::Def(l).path(&g.ev()));
             let options = AtOptions {
                 exclude: vec![theorem_path.clone()],
                 ..AtOptions::default()

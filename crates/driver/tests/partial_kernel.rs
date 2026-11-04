@@ -181,7 +181,11 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
         assert_eq!(&**d.name(), p.name());
         assert_eq!(d.state(), State::Final, "{}", p.name());
         assert!(d.body().is_none(), "{} has no computation rule", p.name());
-        assert!(def_hash(g, id).unwrap().is_some(), "{} is hashed", p.name());
+        assert!(
+            def_hash(&g.ev(), id).unwrap().is_some(),
+            "{} is hashed",
+            p.name()
+        );
     }
 }
 
@@ -432,19 +436,19 @@ fn conversion_never_unfolds_a_partial_computation() {
             exp(Term::Nat(Rc::new(0u32.into()))),
         ],
     );
-    let a = eval(g, &[], &steps).unwrap();
-    let b = eval(g, &[], &now).unwrap();
-    assert!(!conv(g, 0, &a, &b).unwrap());
-    assert!(conv(g, 0, &a, &eval(g, &[], &steps).unwrap()).unwrap());
+    let a = eval(&g.ev(), &[], &steps).unwrap();
+    let b = eval(&g.ev(), &[], &now).unwrap();
+    assert!(!conv(&g.ev(), 0, &a, &b).unwrap());
+    assert!(conv(&g.ev(), 0, &a, &eval(&g.ev(), &[], &steps).unwrap()).unwrap());
     // `spin 0` never finishes, and comparing it with itself, or with
     // something else, takes a few steps.
     let spin = app(
         Term::Def(def(g, "spin")),
         [exp(Term::Nat(Rc::new(0u32.into())))],
     );
-    let s = eval(g, &[], &spin).unwrap();
-    assert!(conv(g, 0, &s, &s).unwrap());
-    assert!(!conv(g, 0, &s, &b).unwrap());
+    let s = eval(&g.ev(), &[], &spin).unwrap();
+    assert!(conv(&g.ev(), 0, &s, &s).unwrap());
+    assert!(!conv(&g.ev(), 0, &s, &b).unwrap());
 }
 
 /// A data type can't recurse through `Delay`: it's a nested occurrence.

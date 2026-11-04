@@ -61,9 +61,9 @@ fn int(g: &Globals, i: i128) -> Value {
 
 /// The integer a closed value is, if it's one.
 fn as_int(g: &Globals, v: &Value) -> Option<i128> {
-    match value::force(g, v.clone()).ok()? {
+    match value::force(&g.ev(), v.clone()).ok()? {
         Value::Ctor(d, c, fields) if d == int_data(g) => {
-            let n = as_nat(g, &fields[0]).ok()??.to_i128()?;
+            let n = as_nat(&g.ev(), &fields[0]).ok()??.to_i128()?;
             Some(if c == 0 { n } else { -1 - n })
         }
         _ => None,
@@ -72,23 +72,26 @@ fn as_int(g: &Globals, v: &Value) -> Option<i128> {
 
 /// `f args` by the machine: its value and normal form.
 fn machine(g: &Globals, f: DefId, args: &[Value], level: usize) -> (Value, String) {
-    let mut v = value::eval(g, &[], &Term::Def(f)).expect("no limits");
+    let mut v = value::eval(&g.ev(), &[], &Term::Def(f)).expect("no limits");
     for a in args {
-        v = value::apply_icit(g, v, a.clone(), Icit::Explicit).expect("no limits");
+        v = value::apply_icit(&g.ev(), v, a.clone(), Icit::Explicit).expect("no limits");
     }
-    let v = value::force(g, v).expect("no limits");
-    let nf = format!("{:?}", value::quote(g, level, &v).expect("no limits"));
+    let v = value::force(&g.ev(), v).expect("no limits");
+    let nf = format!("{:?}", value::quote(&g.ev(), level, &v).expect("no limits"));
     (v, nf)
 }
 
 /// `f args` by the reference evaluator: its normal form.
 fn slow(g: &Globals, f: DefId, args: &[Value], level: usize) -> String {
-    let mut v = reference::eval(g, &[], &Term::Def(f)).expect("no limits");
+    let mut v = reference::eval(&g.ev(), &[], &Term::Def(f)).expect("no limits");
     for a in args {
-        v = reference::apply_icit(g, v, a.clone(), Icit::Explicit).expect("no limits");
+        v = reference::apply_icit(&g.ev(), v, a.clone(), Icit::Explicit).expect("no limits");
     }
-    let v = reference::force(g, v).expect("no limits");
-    format!("{:?}", reference::quote(g, level, &v).expect("no limits"))
+    let v = reference::force(&g.ev(), v).expect("no limits");
+    format!(
+        "{:?}",
+        reference::quote(&g.ev(), level, &v).expect("no limits")
+    )
 }
 
 /// `f args` four ways (natives on and off, each in both evaluators), which

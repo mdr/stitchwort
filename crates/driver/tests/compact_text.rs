@@ -104,7 +104,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
     let g = &session.elab.globals;
     let _op = g.machine.budget.operation(session.elab.options.limits);
-    let value = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap();
+    let value = value::force(&g.ev(), value::eval(&g.ev(), &[], &term).unwrap()).unwrap();
     (term, value)
 }
 
@@ -113,8 +113,8 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
 fn normal(session: &Session, value: &Value) -> String {
     let g = &session.elab.globals;
     let _op = g.machine.budget.operation(session.elab.options.limits);
-    let term = value::quote(g, 0, value).unwrap();
-    format!("{:?}", reference::expand_term(g, &term))
+    let term = value::quote(&g.ev(), 0, value).unwrap();
+    format!("{:?}", reference::expand_term(&g.ev(), &term))
 }
 
 fn has_chars(term: &Term) -> bool {
@@ -215,7 +215,7 @@ fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (_, xb) = value_of(session, &lb, false);
     let g = &session.elab.globals;
     let _op = g.machine.budget.operation(session.elab.options.limits);
-    let conv = |x: &Value, y: &Value| value::conv(g, 0, x, y).unwrap();
+    let conv = |x: &Value, y: &Value| value::conv(&g.ev(), 0, x, y).unwrap();
     let equal = a == b;
     assert_eq!(conv(&ca, &cb), equal, "{la} ~ {lb}, both compact");
     assert_eq!(conv(&ca, &xb), equal, "{la} ~ {lb}, compact ~ constructors");
@@ -389,9 +389,9 @@ fn medium_texts() {
         let call = |session: &Session, f: &str, args: &[&Value]| {
             let g = &session.elab.globals;
             let _op = g.machine.budget.operation(session.elab.options.limits);
-            let mut v = value::eval(g, &[], &Term::Def(def(g, f))).unwrap();
+            let mut v = value::eval(&g.ev(), &[], &Term::Def(def(g, f))).unwrap();
             for arg in args {
-                v = value::apply(g, v, (*arg).clone()).unwrap();
+                v = value::apply(&g.ev(), v, (*arg).clone()).unwrap();
             }
             v
         };
@@ -425,9 +425,11 @@ fn medium_texts() {
             let decision = call(session, "Text.decEq", &[a, b]);
             let g = &session.elab.globals;
             let _op = g.machine.budget.operation(session.elab.options.limits);
-            let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
-            let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
-            normal(session, &value::apply(g, to_bool, decision).unwrap())
+            let to_bool =
+                value::eval(&g.ev(), &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
+            let to_bool =
+                value::apply_icit(&g.ev(), to_bool, value::unused(), Icit::Implicit).unwrap();
+            normal(session, &value::apply(&g.ev(), to_bool, decision).unwrap())
         };
         assert_eq!(
             answer(&session, &t_compact, &t_compact),
@@ -554,15 +556,28 @@ fn a_range_means_the_list_of_its_characters() {
     };
     let range = |start, end| Term::Chars(Chars::new(buffer.clone(), start, end).unwrap());
     for (start, end, text) in [(1, 5, "abcd"), (0, 6, "xabcdy"), (5, 6, "y"), (3, 3, "")] {
-        let (_, ty) = infer_closed(g, &range(start, end), span()).expect("a `List Char`");
-        assert_eq!(stitchwort_core::pretty::value(g, &[], &ty), "List Char");
-        let compact = value::eval(g, &[], &range(start, end)).unwrap();
-        let cons = value::eval(g, &[], &expansion(text)).unwrap();
-        assert!(value::conv(g, 0, &compact, &cons).unwrap(), "{text:?}");
-        assert!(value::conv(g, 0, &cons, &compact).unwrap(), "{text:?}");
-        let shorter = value::eval(g, &[], &expansion(&text[..text.len().saturating_sub(1)]));
+        let (_, ty) = infer_closed(&g.ev(), &range(start, end), span()).expect("a `List Char`");
+        assert_eq!(
+            stitchwort_core::pretty::value(&g.ev(), &[], &ty),
+            "List Char"
+        );
+        let compact = value::eval(&g.ev(), &[], &range(start, end)).unwrap();
+        let cons = value::eval(&g.ev(), &[], &expansion(text)).unwrap();
+        assert!(
+            value::conv(&g.ev(), 0, &compact, &cons).unwrap(),
+            "{text:?}"
+        );
+        assert!(
+            value::conv(&g.ev(), 0, &cons, &compact).unwrap(),
+            "{text:?}"
+        );
+        let shorter = value::eval(
+            &g.ev(),
+            &[],
+            &expansion(&text[..text.len().saturating_sub(1)]),
+        );
         if !text.is_empty() {
-            assert!(!value::conv(g, 0, &compact, &shorter.unwrap()).unwrap());
+            assert!(!value::conv(&g.ev(), 0, &compact, &shorter.unwrap()).unwrap());
         }
         // `rfl` proves them equal: the kernel's conversion, from a type.
         let proof = Term::Ann(
@@ -573,10 +588,10 @@ fn a_range_means_the_list_of_its_characters() {
                 Rc::new(expansion(text)),
             )),
         );
-        infer_closed(g, &proof, span()).expect("`rfl` proves it");
+        infer_closed(&g.ev(), &proof, span()).expect("`rfl` proves it");
     }
     // An empty range is `Nil`, holding no buffer.
-    let empty = value::eval(g, &[], &range(3, 3)).unwrap();
+    let empty = value::eval(&g.ev(), &[], &range(3, 3)).unwrap();
     assert!(matches!(empty, Value::Ctor(d, 0, _) if d == list));
     // Ranges are made within their buffers, or not at all.
     assert!(Chars::new(buffer.clone(), 2, 1).is_none());
@@ -599,7 +614,7 @@ fn quoting_a_suffix_shares_or_copies_it() {
         );
         let g = &session.elab.globals;
         let _op = g.machine.budget.operation(Limits::default());
-        value::quote(g, 0, &v).unwrap()
+        value::quote(&g.ev(), 0, &v).unwrap()
     };
     // Six of ten characters: shared, from offset 4.
     let Term::Chars(suffix) = &quoted(&mut session, 4) else {
@@ -625,8 +640,8 @@ fn quoting_a_suffix_shares_or_copies_it() {
 }
 
 fn quoted_check(g: &Globals, term: &Term) -> String {
-    infer_closed(g, term, span()).expect("checks");
-    stitchwort_core::pretty::term(g, &[], term)
+    infer_closed(&g.ev(), term, span()).expect("checks");
+    stitchwort_core::pretty::term(&g.ev(), &[], term)
 }
 
 /// Keeping only the last character of a million-character literal doesn't
@@ -646,7 +661,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
         panic!("dropping from a compact list leaves a compact list")
     };
     assert_eq!(range.buffer().len(), 1_000_000, "evaluation shares");
-    let Term::Chars(quoted) = &value::quote(g, 0, &v).unwrap() else {
+    let Term::Chars(quoted) = &value::quote(&g.ev(), 0, &v).unwrap() else {
         panic!("a compact list quotes to one")
     };
     assert_eq!(quoted.as_slice(), ['b']);
@@ -707,7 +722,11 @@ fn a_proof_variable_is_not_rfl() {
             )),
         )
     };
-    let code = |t: Term| infer_closed(g, &t, span()).map(|_| ()).map_err(|d| d.code);
+    let code = |t: Term| {
+        infer_closed(&g.ev(), &t, span())
+            .map(|_| ())
+            .map_err(|d| d.code)
+    };
     assert_eq!(code(claim(a.clone(), Term::Var(0))), Err("E-REFL"));
     assert_eq!(
         code(claim(a_expanded(Term::Refl), Term::Var(0))),
@@ -859,7 +878,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
         let ty = Term::Data(text, Vec::new());
         let id = declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
         define_def(g, id, &Term::ctor(text, 0, vec![chars])).unwrap();
-        def_hash(g, id).unwrap().unwrap()
+        def_hash(&g.ev(), id).unwrap().unwrap()
     };
     let in_middle = declare(
         g,
@@ -872,7 +891,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
         Term::Chars(Chars::whole("abd".chars().collect())),
     );
     let _op = g.machine.budget.operation(Limits::default());
-    let plain = def_hash(g, def(g, "plain")).unwrap().unwrap();
+    let plain = def_hash(&g.ev(), def(g, "plain")).unwrap().unwrap();
     assert_eq!(plain, in_middle);
     assert_ne!(plain, other);
     let mut cons = Session::new();
@@ -880,7 +899,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
     load(&mut cons, "def plain : Text := \"abc\"\n");
     let g = &cons.elab.globals;
     let _op = g.machine.budget.operation(Limits::default());
-    assert_ne!(plain, def_hash(g, def(g, "plain")).unwrap().unwrap());
+    assert_ne!(plain, def_hash(&g.ev(), def(g, "plain")).unwrap().unwrap());
 }
 
 /// Printing shows a compact list as the literal it is.
@@ -963,7 +982,8 @@ fn is_scalar_agrees_with_rust_on_every_code_point() {
         .operation(Limits::stack_only(Limits::default().stack));
     for code in 0..0x11_0100u32 {
         let term = Term::app(Term::Def(is_scalar), Term::Nat(Rc::new(code.into())));
-        let Value::Ctor(_, c, _) = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap()
+        let Value::Ctor(_, c, _) =
+            value::force(&g.ev(), value::eval(&g.ev(), &[], &term).unwrap()).unwrap()
         else {
             panic!("`Char.isScalar {code}` is a `Bool`")
         };
@@ -980,7 +1000,7 @@ fn is_scalar_agrees_with_rust_on_every_code_point() {
 fn compact_text_is_bound_to_the_prelude() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let binding = chars::binding(g, data(g, "List"), data(g, "Char"));
+    let binding = chars::binding(&g.ev(), data(g, "List"), data(g, "Char"));
     assert!(
         binding.bound,
         "`List` or `Char` changed: their hashes are now {:?} and {:?}",
@@ -1010,7 +1030,7 @@ fn a_changed_builtin_isnt_bound() {
     session.elab.set_loading_prelude(false);
     let g = &session.elab.globals;
     assert!(g.env.builtins().text.is_none());
-    assert!(!chars::binding(g, data(g, "List"), data(g, "Char")).bound);
+    assert!(!chars::binding(&g.ev(), data(g, "List"), data(g, "Char")).bound);
     // Literals still work, as constructors.
     load(
         &mut session,
@@ -1026,7 +1046,7 @@ fn a_changed_builtin_isnt_bound() {
     let _op = g.machine.budget.operation(Limits::default());
     let abc = Term::Chars(Chars::whole("abc".chars().collect()));
     assert_eq!(
-        infer_closed(g, &abc, span())
+        infer_closed(&g.ev(), &abc, span())
             .map(|_| ())
             .map_err(|d| d.code),
         Err("E-MALFORMED")
@@ -1049,7 +1069,7 @@ fn text_blocks_hash_like_the_one_line_text() {
     );
     let g = &session.elab.globals;
     let _op = g.machine.budget.operation(Limits::default());
-    let hash = |name: &str| def_hash(g, def(g, name)).unwrap().unwrap();
+    let hash = |name: &str| def_hash(&g.ev(), def(g, name)).unwrap().unwrap();
     assert_eq!(hash("block"), hash("line"));
     assert_eq!(hash("tight"), hash("tightLine"));
     assert_eq!(hash("interp"), hash("interpLine"));

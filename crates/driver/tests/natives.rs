@@ -25,11 +25,11 @@ fn nat(n: u64) -> Value {
 }
 
 fn call(g: &Globals, id: DefId, args: &[Value]) -> Value {
-    let mut f = eval(g, &[], &Term::Def(id)).unwrap();
+    let mut f = eval(&g.ev(), &[], &Term::Def(id)).unwrap();
     for arg in args {
-        f = apply(g, f, arg.clone()).unwrap();
+        f = apply(&g.ev(), f, arg.clone()).unwrap();
     }
-    force(g, f).unwrap()
+    force(&g.ev(), f).unwrap()
 }
 
 /// Runs `op` with natives on, and its definition with every native off, on
@@ -68,12 +68,12 @@ fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
 /// Checks that a native's whole result is definitionally the definition's,
 /// proofs included, not just the same answer. One variable is in scope.
 fn same_result(g: &Globals, what: &str, fast: &Value, slow: &Value) {
-    let shown = |v: &Value| match quote(g, 1, v) {
+    let shown = |v: &Value| match quote(&g.ev(), 1, v) {
         Ok(term) => format!("{term:?}"),
         Err(e) => format!("{v:?} ({e:?})"),
     };
     assert!(
-        conv(g, 1, fast, slow).unwrap(),
+        conv(&g.ev(), 1, fast, slow).unwrap(),
         "{what}: native {}, definition {}",
         shown(fast),
         shown(slow)
@@ -153,7 +153,7 @@ fn natives_accept_succ_around_a_number() {
     let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)].into());
     let zero = Value::Ctor(nat_data, 0, Vec::new().into());
     assert_eq!(
-        native::as_nat(g, &call(g, def(g, "Nat.add"), &[succ_4, zero])).unwrap(),
+        native::as_nat(&g.ev(), &call(g, def(g, "Nat.add"), &[succ_4, zero])).unwrap(),
         Some(BigUint::from(5u32))
     );
 }
@@ -189,7 +189,7 @@ fn big_numbers_compute_without_counting() {
     );
     assert!(
         conv(
-            g,
+            &g.ev(),
             0,
             &product,
             &big("121932631137021795226185032733622923332237463801111263526900")
@@ -198,7 +198,7 @@ fn big_numbers_compute_without_counting() {
     );
     // Matching on a big number takes the `Succ` branch: `pred` subtracts one.
     let pred = call(g, def(g, "Nat.pred"), &[big("1000000000000000000000")]);
-    assert!(conv(g, 0, &pred, &big("999999999999999999999")).unwrap());
+    assert!(conv(&g.ev(), 0, &pred, &big("999999999999999999999")).unwrap());
 }
 
 #[test]
@@ -221,15 +221,15 @@ fn a_number_is_its_succ_chain() {
         )]
         .into(),
     );
-    assert!(conv(g, 0, &nat(3), &three).unwrap());
-    assert!(conv(g, 0, &three, &nat(3)).unwrap());
-    assert!(!conv(g, 0, &nat(2), &three).unwrap());
-    assert!(!conv(g, 0, &nat(4), &three).unwrap());
-    assert!(!conv(g, 0, &nat(0), &Value::Ctor(d, 1, vec![nat(0)].into())).unwrap());
+    assert!(conv(&g.ev(), 0, &nat(3), &three).unwrap());
+    assert!(conv(&g.ev(), 0, &three, &nat(3)).unwrap());
+    assert!(!conv(&g.ev(), 0, &nat(2), &three).unwrap());
+    assert!(!conv(&g.ev(), 0, &nat(4), &three).unwrap());
+    assert!(!conv(&g.ev(), 0, &nat(0), &Value::Ctor(d, 1, vec![nat(0)].into())).unwrap());
     // `Succ x` is not any particular number.
     assert!(
         !conv(
-            g,
+            &g.ev(),
             0,
             &nat(1),
             &Value::Ctor(d, 1, vec![Value::var(0)].into())
@@ -351,7 +351,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                         let slow = call(g, id, &[a.clone(), b.clone()]);
                         g.env.set_disable_natives(false);
                         assert!(
-                            conv(g, 2, &fast, &slow).unwrap(),
+                            conv(&g.ev(), 2, &fast, &slow).unwrap(),
                             "{}({a:?}, {b:?}): native {fast:?}, definition {slow:?}",
                             op.name()
                         );
@@ -368,7 +368,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
             let slow = call(g, id, std::slice::from_ref(&n));
             g.env.set_disable_natives(false);
             assert!(
-                conv(g, 1, &fast, &slow).unwrap(),
+                conv(&g.ev(), 1, &fast, &slow).unwrap(),
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
@@ -385,8 +385,8 @@ fn a_big_number_plus_an_unknown_stays_compact() {
     // Matching on it takes the `Succ` branch: `pred` takes one off.
     let pred = call(g, def(g, "Nat.pred"), std::slice::from_ref(&sum));
     let expected = native::from_view(BigUint::from(10u32).pow(30) - 1u32, Some(Value::var(0)));
-    assert!(conv(g, 1, &pred, &expected).unwrap());
-    assert!(!conv(g, 1, &pred, &sum).unwrap());
+    assert!(conv(&g.ev(), 1, &pred, &expected).unwrap());
+    assert!(!conv(&g.ev(), 1, &pred, &sum).unwrap());
 }
 
 /// Loads `source` after the prelude, panicking with the rendered errors.
@@ -521,7 +521,7 @@ fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
         for nums in inputs {
             // `eqNatSound` on different numbers isn't native: the definition
             // counts down both ways.
-            if op == Native::EqNatSound && !conv(g, 0, &nums[0], &nums[1]).unwrap() {
+            if op == Native::EqNatSound && !conv(&g.ev(), 0, &nums[0], &nums[1]).unwrap() {
                 continue;
             }
             let args = with_proof(op, &nums);

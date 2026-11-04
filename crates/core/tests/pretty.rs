@@ -10,7 +10,7 @@ use stitchwort_core::{Icit, Sort, Term, pretty};
 
 fn show(p: &Prelude, names: &[&str], term: &Term) -> String {
     let names: Vec<_> = names.iter().map(|n| (*n).into()).collect();
-    pretty::term(&p.g, &names, term)
+    pretty::term(&p.g.ev(), &names, term)
 }
 
 #[test]
@@ -359,7 +359,7 @@ fn a_binder_never_captures_a_variable_its_body_mentions() {
 
 fn difference(p: &Prelude, names: &[&str], a: &Term, b: &Term) -> Option<pretty::Difference> {
     let names: Vec<_> = names.iter().map(|n| (*n).into()).collect();
-    pretty::first_difference(&p.g, &names, a, b)
+    pretty::first_difference(&p.g.ev(), &names, a, b)
 }
 
 /// `f`, a function of two numbers that nothing unfolds.
@@ -441,7 +441,7 @@ fn tells_apart_terms_that_differ_only_in_implicit_arguments() {
             Icit::Explicit,
         )
     };
-    let only_hidden = |a: &Term, b: &Term| pretty::differ_only_in_hidden(&p.g, a, b);
+    let only_hidden = |a: &Term, b: &Term| pretty::differ_only_in_hidden(&p.g.ev(), a, b);
     assert!(only_hidden(&call(p.num(1), v(0)), &call(p.num(2), v(0))));
     // Also differing in an explicit argument.
     assert!(!only_hidden(

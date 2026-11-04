@@ -91,7 +91,7 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
     let mut out = String::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(x, icit, dom, cod) = t {
-        let shown = stitchwort_core::pretty::term(g, &names, dom);
+        let shown = stitchwort_core::pretty::term(&g.ev(), &names, dom);
         let (open, close) = if icit.is_implicit() {
             ("[", "]")
         } else {
@@ -101,7 +101,7 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
         names.push(x.clone());
         t = cod.strip_loc();
     }
-    out + &stitchwort_core::pretty::term(g, &names, t)
+    out + &stitchwort_core::pretty::term(&g.ev(), &names, t)
 }
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
@@ -540,7 +540,7 @@ fn a_projects_inducts() {
 fn report(session: &Session, own: impl Fn(&stitchwort_core::globals::Def) -> bool) {
     let g = &session.elab.globals;
     let made = (g.env.defs().iter())
-        .filter(|d| own(d) && d.theorem() && stitchwort_elab::is_function_induct(g, d.name()))
+        .filter(|d| own(d) && d.theorem() && stitchwort_elab::is_function_induct(&g.ev(), d.name()))
         .count();
     eprintln!("made {made} `f.induct`");
     let mut reasons: std::collections::BTreeMap<String, Vec<String>> = Default::default();

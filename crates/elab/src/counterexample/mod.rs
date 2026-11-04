@@ -36,7 +36,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, quote, quote_at_most};
-use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, Name, Sort, Term, Value};
+use stitchwort_core::{BigUint, DefId, Icit, Limits, Name, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
 use crate::{Elaborator, shown};
@@ -96,7 +96,7 @@ const STATEMENT_NODES: u64 = 100_000;
 /// won't run on it: past [`STATEMENT_NODES`], reading it back would build a
 /// huge term only to give up at the budget's size limit.
 fn statement_part(cx: &Ctx, value: &Value) -> Result<Term, String> {
-    match quote_at_most(cx.g(), cx.level(), value, STATEMENT_NODES) {
+    match quote_at_most(&cx.g().ev(), cx.level(), value, STATEMENT_NODES) {
         Ok(Some(term)) => Ok(term),
         Ok(None) => Err(format!(
             "the statement's normal form has more than {STATEMENT_NODES} nodes"
@@ -114,7 +114,7 @@ const SHRINK_ROUNDS: usize = 200;
 /// when `each` says to. Returns `false`, having run nothing, if the
 /// checker can't run there (the reference evaluator runs it instead).
 pub type FastRunner = fn(
-    g: &Globals,
+    g: &stitchwort_core::Ev,
     limits: Limits,
     checker: &Term,
     inputs: &[Vec<Term>],
@@ -255,7 +255,7 @@ impl Elaborator {
     /// unfolds it (docs/proposals/opaque-definitions.md §6.10).
     fn with_opaque_counterexample_note(&self, def: DefId, note: String) -> String {
         let g = &self.globals;
-        let Ok(statement) = quote(g, 0, g.def(def).ty_value()) else {
+        let Ok(statement) = quote(&g.ev(), 0, g.def(def).ty_value()) else {
             return note;
         };
         let ids: Vec<DefId> = crate::opaque::declined_in(g, [&statement])
@@ -360,7 +360,7 @@ impl Elaborator {
         let failed = |e: stitchwort_syntax::Diagnostic| e.message;
         let nat = builtin_data(&cx, Builtin::Nat).map_err(failed)?;
         let nat_ty = Value::Data(nat, Vec::new());
-        let erased = stitchwort_core::check::telescope(g, g.def(def).ty_value(), span)
+        let erased = stitchwort_core::check::telescope(&g.ev(), g.def(def).ty_value(), span)
             .map_err(failed)?
             .params
             .into_iter()
@@ -385,16 +385,16 @@ impl Elaborator {
                 .iter()
                 .map(|(x, _)| x.clone())
                 .collect();
-            stitchwort_core::pretty::term_for_message_in(g, self, &names, term)
+            stitchwort_core::pretty::term_for_message_in(&g.ev(), self, &names, term)
         };
-        let mut ty = force(g, g.def(def).ty_value().clone()).map_err(|e| e.to_string())?;
+        let mut ty = force(&g.ev(), g.def(def).ty_value().clone()).map_err(|e| e.to_string())?;
         let mut position = 0;
         while let Value::Pi(x, icit, dom, cod) = ty.clone() {
-            let dom = force(g, (*dom).clone()).map_err(|e| e.to_string())?;
+            let dom = force(&g.ev(), (*dom).clone()).map_err(|e| e.to_string())?;
             let is_erased = *erased.get(position).ok_or("the telescope changed")?;
             position += 1;
             let next = if is_erased
-                && stitchwort_core::check::is_type_former(g, cx.level(), &dom)
+                && stitchwort_core::check::is_type_former(&g.ev(), cx.level(), &dom)
                     .map_err(|e| e.to_string())?
             {
                 // A type parameter: at `Nat` (D1157).
@@ -403,7 +403,7 @@ impl Elaborator {
                 }
                 type_params.push(x.clone());
                 slots.push(Slot::Fixed(Term::Data(nat, Vec::new())));
-                cod.apply(g, nat_ty.clone())
+                cod.apply(&g.ev(), nat_ty.clone())
             } else if is_erased {
                 // A hypothesis: decided, and assumed from here on.
                 let prop = statement_part(&cx, &dom)?;
@@ -423,7 +423,7 @@ impl Elaborator {
                 slots.push(Slot::Proof);
                 let level = cx.level();
                 cx.bind(&x, dom);
-                cod.apply(g, Value::var(level))
+                cod.apply(&g.ev(), Value::var(level))
             } else if icit == Icit::Auto
                 && crate::interfaces::interface_goal(self, &dom)
                     .map_err(failed)?
@@ -435,7 +435,7 @@ impl Elaborator {
                 let found = self.zonk(&meta, cx.level()).map_err(failed)?;
                 let value = cx.eval(&found).map_err(failed)?;
                 slots.push(Slot::Fixed(found));
-                cod.apply(g, value)
+                cod.apply(&g.ev(), value)
             } else {
                 // A data parameter: an input. Its type mustn't depend on the
                 // ones before (stage 1).
@@ -454,9 +454,9 @@ impl Elaborator {
                 });
                 let level = cx.level();
                 cx.bind(&x, dom);
-                cod.apply(g, Value::var(level))
+                cod.apply(&g.ev(), Value::var(level))
             };
-            ty = force(g, next.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            ty = force(&g.ev(), next.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         }
         let conclusion = statement_part(&cx, &ty)?;
         let shown_conclusion = if erased.len() == written_binders.len() {
@@ -707,9 +707,13 @@ impl Elaborator {
             true
         };
         let fast = match self.options.counterexample_runner {
-            Some(run) if !checker.params.is_empty() && !inputs.is_empty() => {
-                run(g, self.options.limits, &checker.term, inputs, &mut each)
-            }
+            Some(run) if !checker.params.is_empty() && !inputs.is_empty() => run(
+                &g.ev(),
+                self.options.limits,
+                &checker.term,
+                inputs,
+                &mut each,
+            ),
             _ => false,
         };
         if !fast {
@@ -752,7 +756,7 @@ impl Elaborator {
         // A step per word of a big number, so that the steps bound the
         // input's time and memory, as on the fast runtime (SW-907).
         let counted = g.machine.budget.count_number_words(true);
-        let result = eval(g, &[], &call).and_then(|v| force(g, v));
+        let result = eval(&g.ev(), &[], &call).and_then(|v| force(&g.ev(), v));
         g.machine.budget.count_number_words(counted);
         match result {
             Ok(Value::Nat(k)) => Ok(u64::try_from(k.as_ref().clone()).ok()),
@@ -781,7 +785,7 @@ impl Elaborator {
             .map(|((name, _), (plan, term))| {
                 let shown = if inputs.shown_as_term(*plan) {
                     shown::cut(&stitchwort_core::pretty::term_for_message(
-                        g,
+                        &g.ev(),
                         &[],
                         &inputs.shown(*plan, term),
                     ))
@@ -802,13 +806,13 @@ impl Elaborator {
             ..self.options.limits
         });
         // In full first, so a `Float` keeps the proof it prints by.
-        if let Ok(t) = eval(g, &[], term).and_then(|v| quote(g, 0, &v))
+        if let Ok(t) = eval(&g.ev(), &[], term).and_then(|v| quote(&g.ev(), 0, &v))
             && is_data(&t)
         {
-            return shown::cut(&stitchwort_core::pretty::term(g, &[], &t));
+            return shown::cut(&stitchwort_core::pretty::term(&g.ev(), &[], &t));
         }
         let _erasing = g.machine.erasure.running();
-        self.shown_value(eval(g, &[], term).ok()).0
+        self.shown_value(eval(&g.ev(), &[], term).ok()).0
     }
 
     /// A value printed and cut, and its term.
@@ -817,9 +821,9 @@ impl Elaborator {
         let Some(value) = value else {
             return ("…".to_string(), None);
         };
-        match quote(g, 0, &value) {
+        match quote(&g.ev(), 0, &value) {
             Ok(t) => (
-                shown::cut(&stitchwort_core::pretty::term(g, &[], &t)),
+                shown::cut(&stitchwort_core::pretty::term(&g.ev(), &[], &t)),
                 Some(t),
             ),
             Err(_) => ("… (too large to show)".to_string(), None),
@@ -870,8 +874,8 @@ impl Elaborator {
                     ..self.options.limits
                 });
                 let value = match slot {
-                    Slot::Input(i) => eval(g, &env, &input[*i]),
-                    Slot::Fixed(term) => eval(g, &env, term),
+                    Slot::Input(i) => eval(&g.ev(), &env, &input[*i]),
+                    Slot::Fixed(term) => eval(&g.ev(), &env, term),
                     Slot::Proof => Ok(stitchwort_core::erase::erased()),
                 };
                 env.push(value.unwrap_or_else(|_| stitchwort_core::erase::erased()));
@@ -888,20 +892,20 @@ impl Elaborator {
                 };
                 let in_full = {
                     let _op = g.machine.budget.operation(limits);
-                    eval(g, &env, term).and_then(|v| quote(g, 0, &v))
+                    eval(&g.ev(), &env, term).and_then(|v| quote(&g.ev(), 0, &v))
                 };
                 if let Ok(t) = in_full
                     && is_data(&t)
                 {
                     let _op = g.machine.budget.operation(limits);
                     return (
-                        shown::cut(&stitchwort_core::pretty::term(g, &[], &t)),
+                        shown::cut(&stitchwort_core::pretty::term(&g.ev(), &[], &t)),
                         Some(t),
                     );
                 }
                 let _op = g.machine.budget.operation(limits);
                 let _erasing = g.machine.erasure.running();
-                self.shown_value(eval(g, &env, term).ok())
+                self.shown_value(eval(&g.ev(), &env, term).ok())
             };
             let (left, left_term) = side(left);
             let (right, right_term) = side(right);

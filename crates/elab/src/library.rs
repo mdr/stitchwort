@@ -788,8 +788,8 @@ impl Elaborator {
             let mut level = 0;
             while let Value::Pi(_, _, _, cod) = &ty {
                 let Ok(next) = cod
-                    .apply(g, Value::var(level))
-                    .and_then(|v| stitchwort_core::value::force(g, v))
+                    .apply(&g.ev(), Value::var(level))
+                    .and_then(|v| stitchwort_core::value::force(&g.ev(), v))
                 else {
                     break;
                 };

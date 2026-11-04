@@ -279,7 +279,7 @@ impl Saturator<'_> {
         let mut call = Term::Def(id);
         for (arg, icit) in args {
             let arg = self.expand(arg)?.unwrap_or_else(|| (*arg).clone());
-            call = Term::app_icit(call, arg.shift(self.g, shift, 0)?, *icit);
+            call = Term::app_icit(call, arg.shift(&self.g.ev(), shift, 0)?, *icit);
         }
         for (k, (_, icit)) in missing.iter().enumerate() {
             call = Term::app_icit(call, Term::Var(shift - 1 - k), *icit);

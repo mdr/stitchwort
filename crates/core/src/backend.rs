@@ -1,5 +1,5 @@
 //! What the extraction backends (`crates/js`) read of a session: its
-//! declarations ([`Globals`]) and the elaborator's facts about them that
+//! declarations ([`Ev`]) and the elaborator's facts about them that
 //! aren't declarations, handed over by the session as a [`View`]
 //! (docs/proposals/globals-split.md §2.1, D2292). The backend reads the
 //! facts here and never edits the kernel's types.
@@ -7,7 +7,8 @@
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::globals::{FieldDefaults, Globals};
+use crate::ev::Ev;
+use crate::globals::FieldDefaults;
 use crate::js_repr::JsRepr;
 use crate::term::DataId;
 
@@ -30,21 +31,16 @@ pub trait DataFacts {
 }
 
 /// A session's declarations with its [`DataFacts`]. It derefs to the
-/// [`Globals`], so the backend reads declarations through it as before.
+/// [`Ev`], so the backend reads declarations through it as before.
 #[derive(Clone, Copy)]
 pub struct View<'a> {
-    globals: &'a Globals,
+    ev: Ev<'a>,
     facts: &'a dyn DataFacts,
 }
 
 impl<'a> View<'a> {
-    pub fn new(globals: &'a Globals, facts: &'a dyn DataFacts) -> View<'a> {
-        View { globals, facts }
-    }
-
-    /// The declarations.
-    pub fn globals(&self) -> &'a Globals {
-        self.globals
+    pub fn new(ev: Ev<'a>, facts: &'a dyn DataFacts) -> View<'a> {
+        View { ev, facts }
     }
 
     /// See [`DataFacts::js`].
@@ -58,9 +54,9 @@ impl<'a> View<'a> {
     }
 }
 
-impl Deref for View<'_> {
-    type Target = Globals;
-    fn deref(&self) -> &Globals {
-        self.globals
+impl<'a> Deref for View<'a> {
+    type Target = Ev<'a>;
+    fn deref(&self) -> &Ev<'a> {
+        &self.ev
     }
 }

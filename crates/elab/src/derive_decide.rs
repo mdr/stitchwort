@@ -121,7 +121,7 @@ impl Elaborator {
             }
             for (k, ty) in fields.iter().enumerate() {
                 let env: Vec<Value> = (0..np + k).map(Value::var).collect();
-                let prop = force(cx.g(), eval(cx.g(), &env, ty)?)?;
+                let prop = force(&cx.g().ev(), eval(&cx.g().ev(), &env, ty)?)?;
                 match crate::auto::decide(&mut cx, &prop, 0) {
                     Ok(_) => {}
                     Err(e) if e.code == "E-RESOURCE" => return Err(e),

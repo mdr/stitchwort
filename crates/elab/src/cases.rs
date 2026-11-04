@@ -399,9 +399,10 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
 /// (`False = True`), which the note on the goal shows to be false already.
 fn visibly_false(cx: &Ctx, goal: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(match force(g, goal.clone())? {
+    Ok(match force(&g.ev(), goal.clone())? {
         Value::Eq(_, l, r) => {
-            is_ctor_form(&force(g, (*l).clone())?) && is_ctor_form(&force(g, (*r).clone())?)
+            is_ctor_form(&force(&g.ev(), (*l).clone())?)
+                && is_ctor_form(&force(&g.ev(), (*r).clone())?)
         }
         _ => false,
     })
@@ -428,7 +429,7 @@ enum Decided {
 /// itself, as it does for `auto`, so running it here is only to choose the
 /// closer and to say what happened, never what is believed.
 fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
-    let goal = force(cx.g(), goal.clone())?;
+    let goal = force(&cx.g().ev(), goal.clone())?;
     if !is_proposition(cx, &goal)? {
         return Ok(Decided::Unknown);
     }
@@ -439,7 +440,7 @@ fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(_) => return Ok(None),
         };
-        match force(cx.g(), cx.eval(&decision)?)? {
+        match force(&cx.g().ev(), cx.eval(&decision)?)? {
             Value::Ctor(_, 0, _) => crate::auto::from_yes(cx, &goal, decision).map(Some),
             Value::Ctor(..) => {
                 no = true;
@@ -466,7 +467,7 @@ const UNNAMED: &str = "%hyp";
 /// term `x y => cases` elaborates to. `None` if the goal isn't a `Π`.
 fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
-    let mut goal = force(g, goal.clone())?;
+    let mut goal = force(&g.ev(), goal.clone())?;
     if !matches!(goal, Value::Pi(..)) {
         return Ok(None);
     }
@@ -485,7 +486,7 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
             cx.set_kind(icit);
         }
         binders.push((name, icit));
-        goal = force(g, cod.apply(g, var)?)?;
+        goal = force(&g.ev(), cod.apply(&g.ev(), var)?)?;
     }
     let body = node(cx, run, &goal);
     cx.reset(mark);
@@ -619,7 +620,7 @@ fn open_case(
     // The fallback splits on the way here, by what they split.
     let fallbacks: Vec<String> = (0..cx.level())
         .filter(|&l| is_fallback(cx, l) && cx.name_of_level(l).is_some())
-        .filter_map(|l| match force(cx.g(), cx.types[l].clone()) {
+        .filter_map(|l| match force(&cx.g().ev(), cx.types[l].clone()) {
             Ok(Value::Eq(_, split, _)) => Some(format!("`{}`", cx.show(&split))),
             _ => None,
         })
@@ -637,7 +638,7 @@ fn open_case(
 /// Whether a hypothesis of type `ty` is worth showing: a proposition, as
 /// far as can be told cheaply (an equation, or a type of proofs).
 fn is_fact(cx: &Ctx, ty: &Value) -> bool {
-    match force(cx.g(), ty.clone()) {
+    match force(&cx.g().ev(), ty.clone()) {
         Ok(Value::Eq(..)) => true,
         Ok(Value::Data(d, _)) => cx.g().data(d).sort() == Sort::Prop,
         Ok(Value::Neutral(Head::Def(_), _)) => true,
@@ -648,7 +649,7 @@ fn is_fact(cx: &Ctx, ty: &Value) -> bool {
 // The closers.
 
 fn by_computation(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
-    if let Value::Eq(_, l, r) = force(cx.g(), goal.clone())?
+    if let Value::Eq(_, l, r) = force(&cx.g().ev(), goal.clone())?
         && cx.conv_now(&l, &r)?
     {
         return Ok(Some(Term::Refl));
@@ -669,7 +670,7 @@ fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
     let levels = visible(cx);
     let found = |l: usize| Ok(Some(Term::Var(cx.level() - 1 - l)));
     for &level in &levels {
-        if conv(cx.g(), cx.level(), &cx.types[level], goal)? {
+        if conv(&cx.g().ev(), cx.level(), &cx.types[level], goal)? {
             return found(level);
         }
     }
@@ -681,7 +682,7 @@ fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
     let goal = crate::interfaces::refresh(cx, goal)?;
     for level in levels {
         let ty = crate::interfaces::refresh(cx, &cx.types[level])?;
-        if conv(cx.g(), cx.level(), &ty, &goal)? {
+        if conv(&cx.g().ev(), cx.level(), &ty, &goal)? {
             return found(level);
         }
     }
@@ -709,11 +710,11 @@ fn ctor_equations(cx: &Ctx) -> Result<Vec<CtorEquation>> {
 /// type that isn't a proposition or an indexed family.
 fn ctor_equation(cx: &Ctx, level: usize) -> Result<Option<CtorEquation>> {
     let g = cx.g();
-    let Value::Eq(ty, l, r) = force(g, cx.types[level].clone())? else {
+    let Value::Eq(ty, l, r) = force(&g.ev(), cx.types[level].clone())? else {
         return Ok(None);
     };
     let (Value::Ctor(d, c1, f1), Value::Ctor(d2, c2, f2)) =
-        (force(g, (*l).clone())?, force(g, (*r).clone())?)
+        (force(&g.ev(), (*l).clone())?, force(&g.ev(), (*r).clone())?)
     else {
         return Ok(None);
     };
@@ -795,7 +796,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
                 ))),
             })
             .collect();
-        let left = force(g, cx.types[eq.level].clone())?;
+        let left = force(&g.ev(), cx.types[eq.level].clone())?;
         let Value::Eq(_, l, _) = left else {
             unreachable!("an equation")
         };
@@ -853,14 +854,14 @@ fn family(
 
 pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(match force(g, goal.clone())? {
+    Ok(match force(&g.ev(), goal.clone())? {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         other => {
             let term = cx.quote(&other)?;
             let mut kcx = crate::rewrite::kernel_context(cx)?;
             match crate::kernel::without_glue(g, || crate::kernel::infer(&mut kcx, &term)) {
-                Ok((_, ty)) => matches!(force(g, ty)?, Value::Sort(Sort::Prop)),
+                Ok((_, ty)) => matches!(force(&g.ev(), ty)?, Value::Sort(Sort::Prop)),
                 Err(e) if crate::undo::fatal(&e) => return Err(e),
                 Err(_) => true,
             }
@@ -882,11 +883,11 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         for (i, (a, b)) in eq.left.1.iter().zip(&eq.right.1).enumerate() {
             if ctor.field_erased.get(i).copied().unwrap_or(false)
                 || mentions_fields(&ctor.fields[i].1, i)
-                || conv(g, cx.level(), a, b)?
+                || conv(&g.ev(), cx.level(), a, b)?
             {
                 continue;
             }
-            let Value::Data(_, params) = force(g, eq.ty.clone())? else {
+            let Value::Data(_, params) = force(&g.ev(), eq.ty.clone())? else {
                 continue;
             };
             // A field's type is in the context of the parameters and the
@@ -900,7 +901,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
                 .chain(&eq.left.1[..i])
                 .cloned()
                 .collect();
-            let field_ty = eval(g, &env, &ctor.fields[i].1)?;
+            let field_ty = eval(&g.ev(), &env, &ctor.fields[i].1)?;
             let fact = Value::Eq(
                 Rc::new(field_ty.clone()),
                 Rc::new(a.clone()),
@@ -908,7 +909,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             );
             if visible(cx)
                 .into_iter()
-                .any(|l| conv(g, cx.level(), &cx.types[l], &fact).unwrap_or(false))
+                .any(|l| conv(&g.ev(), cx.level(), &cx.types[l], &fact).unwrap_or(false))
             {
                 continue;
             }
@@ -921,14 +922,14 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
     let mark = cx.mark();
     let mut lets = Vec::new();
     for (level, i, a, field_ty, fact) in facts {
-        let Value::Eq(ty, l, _) = force(g, cx.types[level].clone())? else {
+        let Value::Eq(ty, l, _) = force(&g.ev(), cx.types[level].clone())? else {
             unreachable!("an equation")
         };
-        let Value::Data(d, _) = force(g, (*ty).clone())? else {
+        let Value::Data(d, _) = force(&g.ev(), (*ty).clone())? else {
             unreachable!("data")
         };
         let data = g.data(d);
-        let Value::Ctor(_, c, _) = force(g, (*l).clone())? else {
+        let Value::Ctor(_, c, _) = force(&g.ev(), (*l).clone())? else {
             unreachable!("a constructor")
         };
         // `case y of C … fi … => fi | _ => a`, under each branch's fields.
@@ -940,7 +941,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             let body = if k == c {
                 Term::Var(fields - 1 - i)
             } else {
-                a_term.shift(g, 2 + fields, 0)?
+                a_term.shift(&g.ev(), 2 + fields, 0)?
             };
             branches.push(Branch {
                 names: ctor.fields.iter().map(|(n, _)| n.clone()).collect(),
@@ -957,8 +958,8 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             unreachable!("a lambda")
         };
         let motive_body = Term::Eq(
-            Some(Rc::new(cx.quote(&field_ty)?.shift(g, 2, 0)?)),
-            Rc::new(a_term.shift(g, 2, 0)?),
+            Some(Rc::new(cx.quote(&field_ty)?.shift(&g.ev(), 2, 0)?)),
+            Rc::new(a_term.shift(&g.ev(), 2, 0)?),
             call.clone(),
         );
         let motive = Term::Lam(
@@ -999,13 +1000,14 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
     // proof (`None` for `rfl`, else a hypothesis's level).
     let mut facts: Vec<(Value, usize, Option<usize>)> = Vec::new();
     for &level in &levels {
-        let Value::Pi(_, Icit::Explicit, dom, closure) = force(g, cx.types[level].clone())? else {
+        let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g.ev(), cx.types[level].clone())?
+        else {
             continue;
         };
         if closure.body.mentions(0) {
             continue;
         }
-        let premise = force(g, (*dom).clone())?;
+        let premise = force(&g.ev(), (*dom).clone())?;
         let Value::Eq(_, l, r) = &premise else {
             continue;
         };
@@ -1014,7 +1016,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
         } else {
             let mut found = None;
             for &k in &levels {
-                if k != level && conv(g, cx.level(), &cx.types[k], &premise)? {
+                if k != level && conv(&g.ev(), cx.level(), &cx.types[k], &premise)? {
                     found = Some(k);
                     break;
                 }
@@ -1024,16 +1026,16 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
                 None => continue,
             }
         };
-        let fact = closure.apply(g, Value::Refl)?;
-        if !is_fact(cx, &fact) && !matches!(force(g, fact.clone())?, Value::Pi(..)) {
+        let fact = closure.apply(&g.ev(), Value::Refl)?;
+        if !is_fact(cx, &fact) && !matches!(force(&g.ev(), fact.clone())?, Value::Pi(..)) {
             continue;
         }
         let known = levels
             .iter()
-            .any(|&k| conv(g, cx.level(), &cx.types[k], &fact).unwrap_or(false))
+            .any(|&k| conv(&g.ev(), cx.level(), &cx.types[k], &fact).unwrap_or(false))
             || facts
                 .iter()
-                .any(|(f, ..)| conv(g, cx.level(), f, &fact).unwrap_or(false));
+                .any(|(f, ..)| conv(&g.ev(), cx.level(), f, &fact).unwrap_or(false));
         if known {
             continue;
         }
@@ -1135,8 +1137,8 @@ impl<'a, 'e> Finder<'a, 'e> {
             if !is_equation(cx, level) {
                 continue;
             }
-            if let Ok(Value::Eq(_, l, _)) = force(cx.g(), cx.types[level].clone())
-                && let Ok(t) = quote(cx.g(), cx.level(), &l)
+            if let Ok(Value::Eq(_, l, _)) = force(&cx.g().ev(), cx.types[level].clone())
+                && let Ok(t) = quote(&cx.g().ev(), cx.level(), &l)
             {
                 known.push(t);
             }
@@ -1225,7 +1227,7 @@ impl<'a, 'e> Finder<'a, 'e> {
     fn survey_chain(&mut self, stuck: &Value, first: Option<(Value, DataId)>) -> Result<()> {
         let cx = self.cx;
         let g = cx.g();
-        let start = quote(g, cx.level(), stuck)?;
+        let start = quote(&g.ev(), cx.level(), stuck)?;
         let survey = self.survey.as_ref().expect("in the survey pass");
         if survey.seen.iter().any(|t| crate::matching::same(t, &start)) {
             return Ok(());
@@ -1263,11 +1265,11 @@ impl<'a, 'e> Finder<'a, 'e> {
             if is_first {
                 continue;
             }
-            seen.push(quote(g, cx.level(), &raw)?);
+            seen.push(quote(&g.ev(), cx.level(), &raw)?);
             end = Some((raw.clone(), d));
-            let next = force(g, raw)?;
-            current = if is_folded(g, &next) {
-                match unfold_folded(g, &next)? {
+            let next = force(&g.ev(), raw)?;
+            current = if is_folded(&g.ev(), &next) {
+                match unfold_folded(&g.ev(), &next)? {
                     Some(u) => u,
                     None => break,
                 }
@@ -1280,7 +1282,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         }
         let end = match end {
             Some((raw, d)) if atom_outside && direct && recursive(cx, d) => {
-                Some((quote(g, cx.level(), &raw)?, raw, d))
+                Some((quote(&g.ev(), cx.level(), &raw)?, raw, d))
             }
             _ => None,
         };
@@ -1299,17 +1301,17 @@ impl<'a, 'e> Finder<'a, 'e> {
             if !is_equation(cx, level) {
                 continue;
             }
-            let Value::Eq(_, _, r) = force(g, cx.types[level].clone())? else {
+            let Value::Eq(_, _, r) = force(&g.ev(), cx.types[level].clone())? else {
                 continue;
             };
-            let Value::Ctor(of, _, fields) = force(g, (*r).clone())? else {
+            let Value::Ctor(of, _, fields) = force(&g.ev(), (*r).clone())? else {
                 continue;
             };
             if of != d {
                 continue;
             }
             for field in fields.iter() {
-                if crate::matching::same(&quote(g, cx.level(), field)?, term) {
+                if crate::matching::same(&quote(&g.ev(), cx.level(), field)?, term) {
                     return Ok(true);
                 }
             }
@@ -1324,11 +1326,11 @@ impl<'a, 'e> Finder<'a, 'e> {
             return Ok(None);
         }
         g.machine.budget.step()?;
-        let forced = force(g, value.clone())?;
+        let forced = force(&g.ev(), value.clone())?;
         match &forced {
             Value::Neutral(Head::Def(_), spine) => {
-                if is_folded(g, &forced) {
-                    return match unfold_folded(g, &forced)? {
+                if is_folded(&g.ev(), &forced) {
+                    return match unfold_folded(&g.ev(), &forced)? {
                         Some(unfolded) => self.walk(&unfolded),
                         None => Ok(None),
                     };
@@ -1364,14 +1366,14 @@ impl<'a, 'e> Finder<'a, 'e> {
                 // A side that is itself stuck, of a splittable type, is the
                 // outermost candidate: `f x = True` splits on `f x` if
                 // nothing inside it is splittable.
-                let d = match force(g, (**ty).clone())? {
+                let d = match force(&g.ev(), (**ty).clone())? {
                     Value::Data(d, _) => Some(d),
                     _ => None,
                 };
                 for side in [l, r] {
-                    let forced = force(g, (**side).clone())?;
+                    let forced = force(&g.ev(), (**side).clone())?;
                     if let (Some(d), Value::Neutral(Head::Def(_), spine)) = (d, &forced)
-                        && !is_folded(g, &forced)
+                        && !is_folded(&g.ev(), &forced)
                     {
                         if let Some(atom) = self.chain(&forced, Some(((**side).clone(), d)))? {
                             return Ok(Some(atom));
@@ -1472,9 +1474,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             if is_first {
                 continue;
             }
-            let next = force(g, raw)?;
-            current = if is_folded(g, &next) {
-                match unfold_folded(g, &next)? {
+            let next = force(&g.ev(), raw)?;
+            current = if is_folded(&g.ev(), &next) {
+                match unfold_folded(&g.ev(), &next)? {
                     Some(u) => u,
                     None => break,
                 }
@@ -1509,7 +1511,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             if is_equation(cx, level) {
                 continue;
             }
-            let Value::Data(d, _) = force(cx.g(), cx.types[level].clone())? else {
+            let Value::Data(d, _) = force(&cx.g().ev(), cx.types[level].clone())? else {
                 continue;
             };
             let Some(count) = self.ctors(d) else {
@@ -1538,7 +1540,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         if self.known.is_empty() {
             return Ok(false);
         }
-        let t = quote(self.cx.g(), self.cx.level(), value)?;
+        let t = quote(&self.cx.g().ev(), self.cx.level(), value)?;
         Ok(self.known.iter().any(|k| crate::matching::same(k, &t)))
     }
 
@@ -1603,11 +1605,14 @@ fn stuck_sides(cx: &Ctx) -> Result<Vec<(Value, Value)>> {
         if is_equation(cx, level) {
             continue;
         }
-        let equation = force(g, cx.types[level].clone())?;
+        let equation = force(&g.ev(), cx.types[level].clone())?;
         let Value::Eq(_, l, r) = &equation else {
             continue;
         };
-        let (l, r) = (force(g, (**l).clone())?, force(g, (**r).clone())?);
+        let (l, r) = (
+            force(&g.ev(), (**l).clone())?,
+            force(&g.ev(), (**r).clone())?,
+        );
         if is_ctor_form(&r) && is_stuck(&l) {
             sides.push((equation, l));
         } else if is_ctor_form(&l) && is_stuck(&r) {
@@ -1658,7 +1663,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
         return Ok(None);
     };
     let def = g.def(*id);
-    let Some(body) = body_seen(g, *id) else {
+    let Some(body) = body_seen(&g.ev(), *id) else {
         return Ok(None);
     };
     if def.arity() == 0 || spine.len() < def.arity() {
@@ -1678,9 +1683,9 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
         match &*node {
             Term::Case(ix, d, branches) => {
                 let raw = env[env.len() - 1 - ix].clone();
-                let mut scrutinee = force(g, raw.clone())?;
-                if is_folded(g, &scrutinee)
-                    && let Some(u) = unfold_folded(g, &scrutinee)?
+                let mut scrutinee = force(&g.ev(), raw.clone())?;
+                if is_folded(&g.ev(), &scrutinee)
+                    && let Some(u) = unfold_folded(&g.ev(), &scrutinee)?
                 {
                     scrutinee = u;
                 }
@@ -1699,7 +1704,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
             Term::NumCase(ix, ..) => {
                 let raw = env[env.len() - 1 - ix].clone();
                 let nat = g.env.builtins().nat;
-                return Ok(match (force(g, raw.clone())?, nat) {
+                return Ok(match (force(&g.ev(), raw.clone())?, nat) {
                     (Value::Neutral(..), Some(nat)) => Some((raw, nat)),
                     _ => None,
                 });

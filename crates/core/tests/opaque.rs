@@ -80,7 +80,7 @@ fn submit(
 
 fn hash_of(g: &Globals, id: DefId) -> ContentHash {
     let _op = g.machine.budget.operation(Limits::default());
-    def_hash(g, id).unwrap().expect("final")
+    def_hash(&g.ev(), id).unwrap().expect("final")
 }
 
 /// `Nat -> Nat`.
@@ -557,18 +557,18 @@ fn conversion_treats_an_opaque_call_as_neutral() {
     let f = double(&mut p, "f", OPAQUE);
     let call = app(Term::Def(f), [p.num(2)]);
     let _op = p.g.machine.budget.operation(Limits::default());
-    let value = eval(&p.g, &[], &call).unwrap();
+    let value = eval(&p.g.ev(), &[], &call).unwrap();
     assert!(matches!(&value, Value::Neutral(Head::Def(id), spine) if *id == f && spine.len() == 1));
-    let four = eval(&p.g, &[], &p.num(4)).unwrap();
-    assert!(!conv(&p.g, 0, &value, &four).unwrap());
+    let four = eval(&p.g.ev(), &[], &p.num(4)).unwrap();
+    assert!(!conv(&p.g.ev(), 0, &value, &four).unwrap());
     // In the transparency set, it computes.
     let set: Rc<[DefId]> = Rc::from([f]);
     let in_set = p.g.machine.transparent.set(set);
-    let value = eval(&p.g, &[], &call).unwrap();
-    assert!(conv(&p.g, 0, &value, &four).unwrap());
+    let value = eval(&p.g.ev(), &[], &call).unwrap();
+    assert!(conv(&p.g.ev(), 0, &value, &four).unwrap());
     drop(in_set);
     assert!(matches!(
-        eval(&p.g, &[], &call).unwrap(),
+        eval(&p.g.ev(), &[], &call).unwrap(),
         Value::Neutral(..)
     ));
 }
@@ -583,8 +583,8 @@ fn a_running_program_unfolds_opaque_definitions() {
     let _op = p.g.machine.budget.operation(Limits::default());
     let _running = p.g.machine.erasure.running();
     for (term, expected) in [(app(Term::Def(f), [p.num(3)]), 6), (Term::Def(two), 2)] {
-        let value = eval(&p.g, &[], &term).unwrap();
-        let read = quote(&p.g, 0, &value).unwrap();
+        let value = eval(&p.g.ev(), &[], &term).unwrap();
+        let read = quote(&p.g.ev(), 0, &value).unwrap();
         assert_eq!(nat_of(&read), Some(expected));
     }
 }

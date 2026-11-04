@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 use serde::Serialize;
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::value::force;
-use stitchwort_core::{DefId, Globals, Value};
+use stitchwort_core::{DefId, Ev, Value};
 use stitchwort_elab::counterexample::Budget;
 
 use crate::counterexample::{TheoremSearch, Verdict};
@@ -122,7 +122,7 @@ pub struct Options {
 /// The theorems of `g` whose full name `keep` keeps, in the order they were
 /// declared, with their full names. Local definitions lifted out of a
 /// theorem (`%` names) aren't theorems of their own.
-pub fn theorems(g: &Globals, keep: &dyn Fn(&str) -> bool) -> Vec<(DefId, String)> {
+pub fn theorems(g: &Ev, keep: &dyn Fn(&str) -> bool) -> Vec<(DefId, String)> {
     (0..g.env.defs().len())
         .map(DefId)
         .filter_map(|id| {
@@ -185,7 +185,7 @@ impl Session {
             }
             Status::Checked => {}
         }
-        audit.axioms = crate::axioms::axioms(g, id).into_iter().collect();
+        audit.axioms = crate::axioms::axioms(&g.ev(), id).into_iter().collect();
         let refused: Vec<&str> = (audit.axioms.iter().copied())
             .filter(|a| !options.allowed.contains(*a))
             .collect();
@@ -254,7 +254,7 @@ impl Session {
         let (log, note) = self.elab.search_counterexample(id, budget);
         let g = &self.elab.globals;
         let saved = g.machine.budget.start(self.elab.options.limits);
-        let refutes = concludes_empty(g, id);
+        let refutes = concludes_empty(&g.ev(), id);
         g.machine.budget.restore(saved);
         TheoremSearch {
             name: name.to_string(),
@@ -271,7 +271,7 @@ impl Session {
 /// other, and the search finding none of its inputs satisfied them is what
 /// it claims, not a sign it's vacuous (`someNotNone (found: Some m = None):
 /// Void`).
-pub fn concludes_empty(g: &Globals, id: DefId) -> bool {
+pub fn concludes_empty(g: &Ev, id: DefId) -> bool {
     let Ok(mut ty) = force(g, g.def(id).ty_value().clone()) else {
         return false;
     };

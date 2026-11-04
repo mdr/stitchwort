@@ -98,7 +98,7 @@ impl Elaborator {
     ) -> Result<()> {
         let mut pending = vec![ty.clone()];
         while let Some(ty) = pending.pop() {
-            let Value::Data(d, args) = force(&self.globals, ty)? else {
+            let Value::Data(d, args) = force(&self.globals.ev(), ty)? else {
                 continue;
             };
             pending.extend(args);
@@ -119,14 +119,14 @@ impl Elaborator {
                 let mut types: Vec<Value> = Vec::new();
                 for k in 0..np {
                     let param_ty = &self.globals.data(d).params()[k].1;
-                    types.push(eval(&self.globals, &env, param_ty)?);
+                    types.push(eval(&self.globals.ev(), &env, param_ty)?);
                     env.push(Value::var(k));
                 }
                 let fields = self.globals.data(d).ctors()[c].fields.len();
                 for i in 0..fields {
                     let data = self.globals.data(d);
                     let ctor = &data.ctors()[c];
-                    let ty = eval(&self.globals, &env, &ctor.fields[i].1)?;
+                    let ty = eval(&self.globals.ev(), &env, &ctor.fields[i].1)?;
                     let erased = ctor.field_erased[i];
                     let missing = data.record()
                         && ctor.field_sorts[i] == Sort::Prop
@@ -170,7 +170,7 @@ impl Elaborator {
         names.extend(data.ctors()[c].fields[..i].iter().map(|(x, _)| x.clone()));
         let field_ty = data.ctors()[c].fields[i].1.clone();
         self.clear_metas();
-        let shown = stitchwort_core::pretty::term(&self.globals, &names, &field_ty);
+        let shown = stitchwort_core::pretty::term(&self.globals.ev(), &names, &field_ty);
         let mut cx = Ctx::from_parts(self, env.to_vec(), types.to_vec(), names, span);
         let prop = cx.eval(&field_ty)?;
         let decision = auto::decide(&mut cx, &prop, 0).map_err(|e| {
@@ -206,7 +206,7 @@ impl Elaborator {
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
         let g = &self.globals;
-        let d = match ty.map(|t| force(g, t.clone())).transpose()? {
+        let d = match ty.map(|t| force(&g.ev(), t.clone())).transpose()? {
             Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
                 return Err(error(
@@ -394,7 +394,7 @@ impl Elaborator {
         let Some(Some(field_ty)) = types.get(*only) else {
             return Ok(None);
         };
-        Ok(match force(g, field_ty.clone())? {
+        Ok(match force(&g.ev(), field_ty.clone())? {
             Value::Data(r, _) if g.data(r).ctors().len() == 1 => Some(r),
             _ => None,
         })
@@ -661,7 +661,7 @@ fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> D
 /// `what` (a literal, an update, or `.field`) on it.
 fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)> {
     let g = cx.g();
-    match force(g, ty.clone())? {
+    match force(&g.ev(), ty.clone())? {
         Value::Data(d, params) if g.data(d).record() => Ok((d, params)),
         Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
             .error(
@@ -682,7 +682,7 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
 /// rebuilds by their constructor (docs/proposals/variant-fields.md §6).
 fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record()))
+    Ok(matches!(force(&g.ev(), ty.clone())?, Value::Data(d, _) if !g.data(d).record()))
 }
 
 /// The record types a literal with these fields may be, when nothing says
@@ -838,7 +838,7 @@ pub(crate) fn check_record(
     match base {
         None => {
             if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
-                force(cx.g(), expected.clone())?
+                force(&cx.g().ev(), expected.clone())?
             {
                 return queue_literal(cx, fields, expected);
             }
@@ -959,7 +959,7 @@ fn changing_update(
     expected: &Value,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Data(d, wanted) = force(g, expected.clone())? else {
+    let Value::Data(d, wanted) = force(&g.ev(), expected.clone())? else {
         return Ok(None);
     };
     let data = g.data(d);
@@ -979,7 +979,7 @@ fn changing_update(
     let snapshot = crate::undo::Snapshot::take(cx);
     let found = infer(cx, base).and_then(|(term, ty)| insert(cx, term, ty));
     let learnt = match found {
-        Ok((_, ty)) => match force(cx.g(), ty.clone())? {
+        Ok((_, ty)) => match force(&cx.g().ev(), ty.clone())? {
             Value::Data(d2, have) if d2 == d => Some((ty, have)),
             _ => None,
         },
@@ -1090,7 +1090,7 @@ fn literal(
     let mut env = params.to_vec();
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(g, &env, field_ty)?;
+        let ty = eval(&g.ev(), &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
             Some((_, expr)) => check(cx, expr, &ty)?,
             None => {
@@ -1236,7 +1236,7 @@ fn update_fields(
     let mut env = new_params.to_vec();
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(g, &env, field_ty)?;
+        let ty = eval(&g.ev(), &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
             Some((_, expr)) => crate::queue::framed(
                 cx,

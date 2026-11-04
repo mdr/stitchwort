@@ -168,13 +168,13 @@ impl Elaborator {
                         None => unused(),
                     });
                 }
-                Ok(eval(g, &env, &ctor.fields[positions[c]].1)?)
+                Ok(eval(&g.ev(), &env, &ctor.fields[positions[c]].1)?)
             };
             let mut differs = None;
             if data.ctors().len() > 1 {
                 let in_first = declared(0)?;
                 for c in 1..data.ctors().len() {
-                    if !conv(g, level, &in_first, &declared(c)?)? {
+                    if !conv(&g.ev(), level, &in_first, &declared(c)?)? {
                         differs = Some(c);
                         break;
                     }
@@ -187,7 +187,11 @@ impl Elaborator {
                         data.params().iter().map(|(x, _)| x.clone()).collect();
                     names.extend(ctor.fields.iter().map(|(x, _)| x.clone()));
                     names.truncate(np + positions[c]);
-                    let ty = stitchwort_core::pretty::term(g, &names, &ctor.fields[positions[c]].1);
+                    let ty = stitchwort_core::pretty::term(
+                        &g.ev(),
+                        &names,
+                        &ctor.fields[positions[c]].1,
+                    );
                     (ctor.name.clone(), ty)
                 };
                 status[k] = Some(Err(Unshared::Differs {
@@ -239,11 +243,15 @@ impl Elaborator {
             let mut env: Vec<Value> = with_r[..np].to_vec();
             for (x, _) in &first.fields[..positions[0]] {
                 env.push(match made.get(x) {
-                    Some(p) => eval(g, &with_r, &applied(*p, n))?,
+                    Some(p) => eval(&g.ev(), &with_r, &applied(*p, n))?,
                     None => unused(),
                 });
             }
-            let result = quote(g, n + 1, &eval(g, &env, &first.fields[positions[0]].1)?)?;
+            let result = quote(
+                &g.ev(),
+                n + 1,
+                &eval(&g.ev(), &env, &first.fields[positions[0]].1)?,
+            )?;
             let args: Vec<Term> = (0..n).map(|k| Term::Var(n - 1 - k)).collect();
             let mut ty = Term::Pi(
                 "r".into(),
@@ -508,7 +516,7 @@ pub(crate) fn variant_update(
     fields: &[(ast::Name, Expr)],
 ) -> Result<Term> {
     let g = cx.g();
-    let Value::Data(d, args) = force(g, ty.clone())? else {
+    let Value::Data(d, args) = force(&g.ev(), ty.clone())? else {
         unreachable!("only called on a data type")
     };
     let shared = cx.e.shared_fields(d)?.shared;
@@ -639,7 +647,7 @@ fn update_match(
             };
             env.push(value);
         }
-        let field_ty = eval(g, &env, &first.fields[positions[0]].1)?;
+        let field_ty = eval(&g.ev(), &env, &first.fields[positions[0]].1)?;
         let term = check(cx, expr, &field_ty)?;
         let ty_term = cx.quote(&field_ty)?;
         let x = new_name(field);

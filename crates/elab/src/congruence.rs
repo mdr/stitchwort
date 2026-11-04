@@ -546,9 +546,9 @@ pub(crate) fn validate_cong(
             )));
         }
         let env: Vec<Value> = (0..i).map(Value::var).collect();
-        let a = eval(g, &env, &moved)?;
-        let b = eval(g, &env, &ftel[i].ty)?;
-        if !stitchwort_core::value::conv(g, i, &a, &b)? {
+        let a = eval(&g.ev(), &env, &moved)?;
+        let b = eval(&g.ev(), &env, &ftel[i].ty)?;
+        if !stitchwort_core::value::conv(&g.ev(), i, &a, &b)? {
             return Ok(Err(what()));
         }
     }
@@ -611,7 +611,7 @@ pub(crate) fn sketch(g: &Globals, f: DefId) -> String {
     let name = g.def(f).name().to_string();
     let (tel, _) = split_pis(g.def(f).ty(), None);
     let row = g.env.registry().data(Builtin::Row);
-    let print = |names: &[Name], t: &Term| stitchwort_core::pretty::term(g, names, t);
+    let print = |names: &[Name], t: &Term| stitchwort_core::pretty::term(&g.ev(), names, t);
     let mut names: Vec<Name> = Vec::new();
     let mut params = String::new();
     let mut premises = String::new();

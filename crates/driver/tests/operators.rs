@@ -198,7 +198,7 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
         let g = &session.elab.globals;
         let mut out = std::collections::BTreeMap::new();
         for (i, def) in g.env.defs().iter().enumerate() {
-            let h = def_hash(g, stitchwort_core::DefId(i))
+            let h = def_hash(&g.ev(), stitchwort_core::DefId(i))
                 .unwrap()
                 .map(|h| h.hex());
             out.insert(def.path().to_string(), h);

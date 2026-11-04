@@ -64,7 +64,7 @@ fn def_hash_of(session: &Session, path: &str) -> ContentHash {
         .iter()
         .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
-    def_hash(g, DefId(id)).unwrap().expect("checked")
+    def_hash(&g.ev(), DefId(id)).unwrap().expect("checked")
 }
 
 fn data_hash_of(session: &Session, path: &str) -> ContentHash {
@@ -73,7 +73,7 @@ fn data_hash_of(session: &Session, path: &str) -> ContentHash {
         .map(DataId)
         .find(|d| &**g.data(*d).path() == path)
         .unwrap_or_else(|| panic!("no type `{path}`"));
-    data_hash(g, id).unwrap().expect("checked")
+    data_hash(&g.ev(), id).unwrap().expect("checked")
 }
 
 const LIB: &str = "namespace Lib
@@ -391,7 +391,7 @@ test \"area\" := (Rect 2 3).area == 6 && Square 2 == Square 2
             if d.path().starts_with("Solo.") {
                 out.insert(
                     d.path().to_string(),
-                    def_hash(g, DefId(i)).unwrap().unwrap(),
+                    def_hash(&g.ev(), DefId(i)).unwrap().unwrap(),
                 );
             }
         }
@@ -399,7 +399,7 @@ test \"area\" := (Rect 2 3).area == 6 && Square 2 == Square 2
             if d.path().starts_with("Solo.") {
                 out.insert(
                     d.path().to_string(),
-                    data_hash(g, DataId(i)).unwrap().unwrap(),
+                    data_hash(&g.ev(), DataId(i)).unwrap().unwrap(),
                 );
             }
         }

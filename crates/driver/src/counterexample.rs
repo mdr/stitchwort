@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DefId, Globals, Limits, Term};
+use stitchwort_core::{DefId, Ev, Limits, Term};
 use stitchwort_elab::counterexample::{Budget, FAST_STEPS, SearchLog};
 use stitchwort_rt::value::Value;
 
@@ -207,7 +207,7 @@ impl Session {
                 (def.theorem()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_generated_name(g, def.name())
+                    && !stitchwort_elab::is_generated_name(&g.ev(), def.name())
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
                 .then(|| (id, def.name().to_string(), state == State::Final))
@@ -223,7 +223,7 @@ impl Session {
 /// Runs `checker` on each of `inputs` on the fast runtime, telling `each`
 /// the results, until it says to stop. `false` if it can't run there.
 pub fn run_fast(
-    g: &Globals,
+    g: &Ev,
     limits: Limits,
     checker: &Term,
     inputs: &[Vec<Term>],

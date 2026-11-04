@@ -360,7 +360,7 @@ fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
 }
 
 fn print(g: &Globals, term: &Term) -> String {
-    stitchwort_core::pretty::term(g, &[], term)
+    stitchwort_core::pretty::term(&g.ev(), &[], term)
 }
 
 fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize) -> Option<Found> {

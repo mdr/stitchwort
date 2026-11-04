@@ -186,7 +186,7 @@ pub fn substitute_folded(
     value: &stitchwort_core::Value,
     values: &[stitchwort_core::Value],
 ) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
-    k::substitute_in(g, env, x, value, values)
+    k::substitute_in(&g.ev(), env, x, value, values)
 }
 
 /// Definition `id`'s type as a value under the current transparency set
@@ -204,8 +204,8 @@ pub fn substitute_folded(
 pub fn def_ty(g: &Globals, id: DefId) -> stitchwort_core::budget::Result<stitchwort_core::Value> {
     let def = g.def(id);
     if g.machine.glue.get() && def.ty().subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
-        stitchwort_core::value::eval(g, &[], def.ty())
+        stitchwort_core::value::eval(&g.ev(), &[], def.ty())
     } else {
-        k::def_type(g, def)
+        k::def_type(&g.ev(), def)
     }
 }

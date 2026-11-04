@@ -37,33 +37,33 @@ fn data(g: &Globals, name: &str) -> DataId {
 fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
     // R3 and R4 of `+`: off unless `Nat.add` is the pinned declaration.
-    let add = nat_add::add_hash(g);
+    let add = nat_add::add_hash(&g.ev());
     let on =
         add.as_deref() == Some(nat_add::NAT_ADD_HASH) && g.env.builtins().nat_add_rule.is_some();
     out.push(("Nat.add (R3, R4)".to_string(), add, on));
     // Compact text.
-    let text = chars::binding(g, data(g, "List"), data(g, "Char"));
+    let text = chars::binding(&g.ev(), data(g, "List"), data(g, "Char"));
     let on = text.bound && g.env.builtins().text.is_some();
     out.push(("List (compact text)".to_string(), text.list_hash, on));
     out.push(("Char (compact text)".to_string(), text.char_hash, on));
     // `Float` and its kernel natives; a mismatch refuses the library, so
     // this is a second line.
-    for (name, hash, pinned) in float::bindings(g) {
+    for (name, hash, pinned) in float::bindings(&g.ev()) {
         let on = hash.as_deref() == Some(pinned);
         out.push((format!("{name} (kernel)"), hash, on));
     }
     // The runtimes' representations and natives.
     let rt =
         |name: &str, hash: Option<String>, bound: bool| (format!("{name} (runtimes)"), hash, bound);
-    let int = natives::bind_int(g).expect("hashes");
+    let int = natives::bind_int(&g.ev()).expect("hashes");
     out.push(rt("Int", int.hash, int.bound));
     for b in int.natives {
         out.push(rt(b.name, b.hash, b.bound));
     }
-    for b in natives::bind_text_natives(g).expect("hashes") {
+    for b in natives::bind_text_natives(&g.ev()).expect("hashes") {
         out.push(rt(b.name, b.hash, b.bound));
     }
-    for b in natives::bind_float_natives(g).expect("hashes") {
+    for b in natives::bind_float_natives(&g.ev()).expect("hashes") {
         out.push(rt(b.name, b.hash, b.bound));
     }
     for (name, builtin, pinned, found) in [
@@ -71,25 +71,25 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
             "Nat",
             Builtin::Nat,
             natives::NAT_DATA_HASH,
-            natives::nat_data(g),
+            natives::nat_data(&g.ev()),
         ),
         (
             "Text",
             Builtin::Text,
             natives::TEXT_DATA_HASH,
-            natives::text_data(g),
+            natives::text_data(&g.ev()),
         ),
         (
             "SafeNat",
             Builtin::SafeNat,
             natives::SAFE_NAT_HASH,
-            natives::safe_nat_data(g),
+            natives::safe_nat_data(&g.ev()),
         ),
         (
             "SafeInt",
             Builtin::SafeInt,
             natives::SAFE_INT_HASH,
-            natives::safe_int_data(g),
+            natives::safe_int_data(&g.ev()),
         ),
     ] {
         let d = g
@@ -104,14 +104,14 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
                 .operation(stitchwort_core::Limits::stack_only(
                     stitchwort_core::Limits::default().stack,
                 ));
-            stitchwort_core::hash::data_hash(g, d)
+            stitchwort_core::hash::data_hash(&g.ev(), d)
                 .expect("hashes")
                 .map(|h| h.hex())
         };
         let bound = hash.as_deref() == Some(pinned) && found == Some(d);
         out.push(rt(name, hash, bound));
     }
-    match natives::float_data(g) {
+    match natives::float_data(&g.ev()) {
         Some(_) => {}
         None => out.push(rt("Float", None, false)),
     }

@@ -306,10 +306,10 @@ fn by_lemma(
     let metas = g.metas.borrow().len();
     // The lemma's parameters: each function compared the call's own (twice,
     // for now), the others unknowns for the call to determine.
-    let mut ty = eval(g, &[], g.def(desc.lemma).ty())?;
+    let mut ty = eval(&g.ev(), &[], g.def(desc.lemma).ty())?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
     for level in 0..desc.params {
-        let Value::Pi(_, icit, _, rest) = force(g, ty)? else {
+        let Value::Pi(_, icit, _, rest) = force(&g.ev(), ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
@@ -317,19 +317,19 @@ fn by_lemma(
             Some((m, _)) => args[desc.callbacks[m].position].0.clone(),
             None => cx.fresh_meta(),
         };
-        ty = rest.apply(g, cx.eval(&arg)?)?;
+        ty = rest.apply(&g.ev(), cx.eval(&arg)?)?;
         lemma_args.push((arg, icit));
     }
     let mut premises = Vec::new();
     for _ in &desc.callbacks {
-        let Value::Pi(_, icit, premise, rest) = force(g, ty)? else {
+        let Value::Pi(_, icit, premise, rest) = force(&g.ev(), ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
         premises.push(((*premise).clone(), icit));
-        ty = rest.apply(g, Value::Refl)?;
+        ty = rest.apply(&g.ev(), Value::Refl)?;
     }
-    let Value::Eq(carrier, lhs, _) = force(g, ty)? else {
+    let Value::Eq(carrier, lhs, _) = force(&g.ev(), ty)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -491,15 +491,15 @@ fn rewrite_premise(
     let mark = cx.mark();
     let mut ty = premise.clone();
     for (name, _) in names {
-        let Value::Pi(_, _, domain, rest) = force(g, ty)? else {
+        let Value::Pi(_, _, domain, rest) = force(&g.ev(), ty)? else {
             cx.reset(mark);
             return Ok(None);
         };
         let x = Value::var(cx.level());
         cx.bind_hidden(name.clone(), (*domain).clone());
-        ty = rest.apply(g, x)?;
+        ty = rest.apply(&g.ev(), x)?;
     }
-    let result = match force(g, ty)? {
+    let result = match force(&g.ev(), ty)? {
         Value::Eq(carrier, body, _) => {
             rewrite_body(cx, rule, &body, &carrier, base, remaining, missing)
         }
@@ -607,7 +607,7 @@ fn rewrite_body(
                 )?
             };
             if let Some(step) = replaced.step {
-                let Value::Eq(_, _, next) = force(g, step.goal)? else {
+                let Value::Eq(_, _, next) = force(&g.ev(), step.goal)? else {
                     unreachable!("the motive is an equation")
                 };
                 *current = (*next).clone();

@@ -170,7 +170,7 @@ impl Elaborator {
         if unfolding.is_empty() {
             return body(self);
         }
-        let set = kernel::transparency_set(&self.globals, id, ids)?;
+        let set = kernel::transparency_set(&self.globals.ev(), id, ids)?;
         *self.decl.owner_unfolding.borrow_mut() = Some(unfolding.clone());
         self.decl.owner_helpers.borrow_mut().clear();
         // A glued call keeps its unfolding for as long as the metavariable
@@ -384,13 +384,13 @@ fn refl_tree(g: &Globals, tree: &Term) -> Result<Option<Term>> {
             let largest = values.iter().copied().max().unwrap_or(0);
             // From the deepest level up: below `j` `Succ`s, the number is
             // `j` plus the newest variable, and `j` binders are new.
-            let mut proof = default.shift(g, largest + 1, 0)?;
+            let mut proof = default.shift(&g.ev(), largest + 1, 0)?;
             for j in (0..=largest).rev() {
                 let at = match values.iter().position(|v| *v == j) {
                     Some(k) => &proofs[k],
                     None => &default,
                 };
-                let at_zero = at.shift(g, j, 0)?;
+                let at_zero = at.shift(&g.ev(), j, 0)?;
                 let scrutinee = if j == 0 { *ix } else { 0 };
                 let mut branches = vec![
                     Branch {
@@ -452,7 +452,7 @@ pub(crate) fn declined_in<'t>(
             if def.opaque()
                 && def.body().is_some()
                 && !def.name().contains('%')
-                && stitchwort_core::value::hidden(g, *id)
+                && stitchwort_core::value::hidden(&g.ev(), *id)
                 && !found.contains(id)
             {
                 found.push(*id);

@@ -163,7 +163,7 @@ fn self_retrieval(left: bool) -> Score {
         // query.
         let queries: Vec<(DefId, Option<DefId>)> = sample(
             (candidates.iter())
-                .filter(|c| !c.item.generated_equation(g))
+                .filter(|c| !c.item.generated_equation(&g.ev()))
                 .filter_map(|c| match c.item {
                     Item::Def(id) => Some((g.def(id).path().to_string(), (id, None))),
                     Item::Ctor(..) | Item::Part(..) => None,

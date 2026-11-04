@@ -10,26 +10,27 @@ use stitchwort_core::value::{
     force_solved, is_folded, matches_at_once, opens_by_tree, quote, quote_at_most, quote_folded,
     same_closure_solved, same_stuck_trees, underapplied, unfold_folded,
 };
-use stitchwort_core::{BigUint, DefId, Globals, Icit, Term, Value};
+use stitchwort_core::{BigUint, DefId, Ev, Globals, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
 
 use crate::state::{Attempt, Scoped, ScopedCell, Stats};
 
-/// What the unifier works on: the metavariables, in `Globals`, and its own
-/// state, in the [`Attempt`]. Derefs to the `Globals`, so it is passed
-/// where they are wanted.
+/// What the unifier works on: the evaluator's context, the
+/// metavariables, in `Globals`, and its own state, in the [`Attempt`].
+/// Derefs to the [`Ev`], so it is passed where one is wanted.
 #[derive(Clone, Copy)]
 pub(crate) struct Unifier<'a> {
-    pub(crate) g: &'a Globals,
+    pub(crate) ev: Ev<'a>,
+    pub(crate) store: &'a Globals,
     pub(crate) attempt: &'a Attempt,
     pub(crate) stats: &'a Stats,
 }
 
-impl std::ops::Deref for Unifier<'_> {
-    type Target = Globals;
+impl<'a> std::ops::Deref for Unifier<'a> {
+    type Target = Ev<'a>;
 
-    fn deref(&self) -> &Globals {
-        self.g
+    fn deref(&self) -> &Ev<'a> {
+        &self.ev
     }
 }
 
@@ -161,7 +162,7 @@ fn on_pending(g: &Unifier<'_>, level: usize, v: &Value) -> Result<bool> {
     // check does. There are few.
     let pending: Vec<usize> = g.attempt.pending.borrow().iter().copied().collect();
     for m in pending {
-        if mentions_meta(g, level, m, &v)? {
+        if mentions_meta(g.store, level, m, &v)? {
             return Ok(true);
         }
     }
@@ -230,8 +231,8 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
             Task::Values(level, a, b) => {
                 if unify_step(g, level, &a, &b, &mut work)? {
                     true
-                } else if blocked(g, &a)? || blocked(g, &b)? {
-                    let trail = g.meta_trail.borrow().len();
+                } else if blocked(g.store, &a)? || blocked(g.store, &b)? {
+                    let trail = g.store.meta_trail.borrow().len();
                     work.insert(0, Task::Later(level, a, b, trail));
                     true
                 } else {
@@ -241,7 +242,7 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
             }
             // Put aside, and nothing solved since: they differ, unless the
             // comparison may wait on them.
-            Task::Later(level, a, b, trail) if g.meta_trail.borrow().len() <= trail => {
+            Task::Later(level, a, b, trail) if g.store.meta_trail.borrow().len() <= trail => {
                 note_unfilled(g, &a, &b)?;
                 sets_aside(g, level, &a, &b)?
             }
@@ -274,10 +275,10 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
 /// Counts a failing pair, `a` against `b`, if one side's head is an unfilled
 /// placeholder, or a definition stuck on one.
 fn note_unfilled(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<()> {
-    if g.unfilled_placeholders.borrow().is_empty() {
+    if g.store.unfilled_placeholders.borrow().is_empty() {
         return Ok(());
     }
-    let is_unfilled = |m: usize| g.unfilled_placeholders.borrow().contains(&m);
+    let is_unfilled = |m: usize| g.store.unfilled_placeholders.borrow().contains(&m);
     let unfilled = |v: &Value| -> Result<bool> {
         Ok(match force(g, v.clone())? {
             Value::Neutral(Head::Meta(m), _) => is_unfilled(m),
@@ -304,7 +305,7 @@ fn note_unfilled(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<()> {
 /// Notes the solutions made since the trail was `trail` long as made by
 /// comparing two calls' arguments (`Attempt::lossy`).
 fn note_lossy(g: &Unifier<'_>, trail: usize) {
-    let made = g.meta_trail.borrow();
+    let made = g.store.meta_trail.borrow();
     if made.len() > trail {
         g.attempt.lossy.borrow_mut().extend(
             made[trail..]
@@ -318,7 +319,7 @@ fn note_lossy(g: &Unifier<'_>, trail: usize) {
 /// Whether metavariable `m`'s solution, as it now is, was made by comparing
 /// two calls of a definition by their arguments (`Attempt::lossy`).
 pub(crate) fn solved_lossily(g: &Unifier<'_>, m: usize) -> bool {
-    let trail = g.meta_trail.borrow();
+    let trail = g.store.meta_trail.borrow();
     let Some(at) = trail.iter().rposition(|(solved, _)| *solved == m) else {
         return false;
     };
@@ -438,7 +439,7 @@ pub(crate) fn rigid_head(g: &Globals, v: &Value) -> Option<Rigid> {
         // (docs/proposals/opaque-definitions.md §6.4): it never computes.
         Value::Neutral(Head::Def(d), _) => {
             let def = g.def(*d);
-            if stitchwort_core::value::body_seen(g, *d).is_some()
+            if stitchwort_core::value::body_seen(&g.ev(), *d).is_some()
                 || def.state() != stitchwort_core::globals::State::Final
             {
                 return None;
@@ -498,7 +499,7 @@ fn row_rule(
             return Ok(None);
         };
         Ok(match force(g, row.clone())? {
-            Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => {
+            Value::Neutral(Head::Meta(m), _) if !frozen(g.store, m) => {
                 Some((row.clone(), result.clone()))
             }
             _ => None,
@@ -517,7 +518,7 @@ fn row_rule(
         g.env.registry().data(Builtin::Comp),
         g.env.registry().data(Builtin::Plus),
         g.env.registry().data(Builtin::NoOp),
-        crate::rows::empty_row(g),
+        crate::rows::empty_row(g.store),
     ) else {
         return Ok(None);
     };
@@ -544,7 +545,7 @@ fn row_rule(
             return Ok(Some(match force(g, args[0].clone())? {
                 // Effectful: the row is the `Comp`'s.
                 Value::Data(p, _) if p == plus => {
-                    match crate::rows::ops_row(g, args[0].clone(), args[1].clone()) {
+                    match crate::rows::ops_row(g.store, args[0].clone(), args[1].clone()) {
                         Ok(value) => {
                             solve_with(work, value, result, args[2].clone());
                             true
@@ -569,7 +570,7 @@ fn row_rule(
         {
             return Ok(Some(false));
         }
-        _ => match rigid_head(g, other) {
+        _ => match rigid_head(g.store, other) {
             Some(_) => true,
             // A definition, or a `Quot.lift`, stuck on something that may
             // still compute: blocked.
@@ -633,7 +634,7 @@ fn divergence_rule(
             return Ok(None);
         };
         Ok(match force(g, div.clone())? {
-            Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => {
+            Value::Neutral(Head::Meta(m), _) if !frozen(g.store, m) => {
                 Some((div.clone(), row.clone(), result.clone()))
             }
             _ => None,
@@ -660,7 +661,7 @@ fn divergence_rule(
         g.env.registry().data(Builtin::Plus),
         g.env.registry().data(Builtin::NoOp),
         g.env.registry().def(Builtin::RowOp),
-        crate::rows::empty_row(g),
+        crate::rows::empty_row(g.store),
     ) else {
         return Ok(None);
     };
@@ -689,7 +690,7 @@ fn divergence_rule(
         // The partial computation's row, as an `Effects`.
         let row_value = match force(g, op.clone())? {
             Value::Data(p, _) if p == plus => {
-                match crate::rows::ops_row(g, op.clone(), res.clone()) {
+                match crate::rows::ops_row(g.store, op.clone(), res.clone()) {
                     Ok(value) => value,
                     Err(crate::rows::RowFault::Resource(e)) => return Err(e),
                     Err(_) => return Ok(Some(false)),
@@ -714,7 +715,7 @@ fn divergence_rule(
         ));
         return Ok(Some(true));
     }
-    let settled = rigid_head(g, other).is_some()
+    let settled = rigid_head(g.store, other).is_some()
         || matches!(other, Value::Neutral(Head::Def(d), _)
             if Some(*d) == g.env.registry().def(Builtin::CompIn));
     if !settled {
@@ -809,7 +810,7 @@ fn stuck_sum(g: &Globals, level: usize, add: DefId, v: &Value) -> Result<Option<
         return Ok(None);
     }
     let unknown = |v: &Value| -> Result<Option<(usize, Spine)>> {
-        Ok(match force(g, v.clone())? {
+        Ok(match force(&g.ev(), v.clone())? {
             Value::Neutral(Head::Meta(m), s) if !frozen(g, m) && distinct_variables(g, &s)? => {
                 Some((m, s))
             }
@@ -853,13 +854,13 @@ fn plus_rule_with(
             };
             solution = Term::Lam("x".into(), *icit, Rc::new(solution));
         }
-        g.solve_meta(sum.m, eval(g, &[], &solution)?);
+        g.solve_meta(sum.m, eval(&g.ev(), &[], &solution)?);
         Ok(())
     };
-    let (k, rest) = native::view(g, other)?;
+    let (k, rest) = native::view(&g.ev(), other)?;
     match rest {
         // `k + a`: `?m := k`.
-        Some(t) if k != BigUint::ZERO && conv(g, level, &sum.known, &t)? => {
+        Some(t) if k != BigUint::ZERO && conv(&g.ev(), level, &sum.known, &t)? => {
             solve_with(Term::Nat(Rc::new(k)))?;
             Ok(Some(true))
         }
@@ -878,7 +879,7 @@ fn plus_rule_with(
                 };
                 applied = Term::app_icit(applied, Term::Var(n - 1 - i), *icit);
             }
-            solve_with(native::nat_add_term(g, &k, applied))?;
+            solve_with(native::nat_add_term(&g.ev(), &k, applied))?;
             let fresh = Value::Neutral(Head::Meta(fresh), sum.spine.clone());
             let smaller = if sum.unknown_first {
                 nat_add::call(add, fresh, sum.known)
@@ -899,7 +900,7 @@ fn distinct_variables(g: &Globals, spine: &[Elim]) -> Result<bool> {
         let Elim::App(v, _) = elim else {
             return Ok(false);
         };
-        match force(g, v.clone())? {
+        match force(&g.ev(), v.clone())? {
             Value::Neutral(Head::Var(l, _), s) if s.is_empty() && seen.insert(l) => {}
             _ => return Ok(false),
         }
@@ -913,7 +914,7 @@ const KNOWN_CAP: u64 = 4096;
 /// Whether `v` may mention an unknown: read back, it has one, or it's too
 /// large to tell cheaply.
 fn mentions_unknown(g: &Globals, level: usize, v: &Value) -> Result<bool> {
-    Ok(match quote_at_most(g, level, v, KNOWN_CAP)? {
+    Ok(match quote_at_most(&g.ev(), level, v, KNOWN_CAP)? {
         Some(t) => t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))),
         None => true,
     })
@@ -945,15 +946,15 @@ fn blocked(g: &Globals, v: &Value) -> Result<bool> {
 const BLOCKED_DEPTH: usize = 3;
 
 fn blocked_within(g: &Globals, v: &Value, depth: usize) -> Result<bool> {
-    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+    let Value::Neutral(Head::Def(_), spine) = force(&g.ev(), v.clone())? else {
         return Ok(false);
     };
     for elim in spine.iter() {
         let Elim::App(arg, _) = elim else {
             continue;
         };
-        let arg = match force(g, arg.clone())? {
-            Value::NatAdd(_, base) => force(g, (*base).clone())?,
+        let arg = match force(&g.ev(), arg.clone())? {
+            Value::NatAdd(_, base) => force(&g.ev(), (*base).clone())?,
             other => other,
         };
         match &arg {
@@ -984,7 +985,7 @@ fn unify_step(
     {
         return Ok(true);
     }
-    if meta_against_call(g, level, a, b)? {
+    if meta_against_call(g.store, level, a, b)? {
         return Ok(true);
     }
     let a = force(g, a.clone())?;
@@ -1009,7 +1010,7 @@ fn unify_step(
         }
     }
     // A sum stuck on an unknown, by the rules of `+` read backwards.
-    if let Some(answer) = plus_rule(g, level, &a, &b, work)? {
+    if let Some(answer) = plus_rule(g.store, level, &a, &b, work)? {
         return Ok(answer);
     }
     // Numbers compare by their `k + x` forms (see `conv`): `3` and `Succ ?x`
@@ -1029,7 +1030,7 @@ fn unify_step(
                     return unify(g, level, x, v);
                 }
                 let mut work = Vec::new();
-                match plus_rule(g, level, x, v, &mut work)? {
+                match plus_rule(g.store, level, x, v, &mut work)? {
                     Some(true) => nested(g, || run(g, work)),
                     _ => Ok(false),
                 }
@@ -1129,14 +1130,14 @@ fn unify_step(
         // A frozen metavariable is rigid: against a metavariable that isn't,
         // that one is solved; against anything else, they differ.
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
-            if frozen(g, *m1) != frozen(g, *m2) =>
+            if frozen(g.store, *m1) != frozen(g.store, *m2) =>
         {
-            let (m, spine, other) = if frozen(g, *m1) {
+            let (m, spine, other) = if frozen(g.store, *m1) {
                 (*m2, s2, &a)
             } else {
                 (*m1, s1, &b)
             };
-            solve(g, level, m, spine, other)? || first_order(g, level, m, spine, other)?
+            solve(g.store, level, m, spine, other)? || first_order(g, level, m, spine, other)?
         }
         // A number literal waiting for its type (K4) against the same
         // numeral at a known type (D2110, step 4.3): `k` checked at `Nat` is
@@ -1148,9 +1149,9 @@ fn unify_step(
         // variables isn't a pattern: the pair fails, as for any frozen one.
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine))
-            if let Some((waits_on, ty)) = literal_seen_through(g, *m, other) =>
+            if let Some((waits_on, ty)) = literal_seen_through(g.store, *m, other) =>
         {
-            if solve(g, level, *m, spine, other)? {
+            if solve(g.store, level, *m, spine, other)? {
                 work.push(Task::Values(level, waits_on, ty));
                 true
             } else {
@@ -1158,7 +1159,7 @@ fn unify_step(
             }
         }
         (Value::Neutral(Head::Meta(m), _), _) | (_, Value::Neutral(Head::Meta(m), _))
-            if frozen(g, *m) =>
+            if frozen(g.store, *m) =>
         {
             let awaited =
                 |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if awaited_helper(g, *m));
@@ -1166,7 +1167,7 @@ fn unify_step(
         }
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
-            solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
+            solve(g.store, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
         }
         // A range against anything else but a metavariable (which is solved
         // with the range itself, above): its first cell, as a constructor.
@@ -1188,9 +1189,10 @@ fn unify_step(
                 // differ, the calls are put aside whole ([`run`]).
                 match spine_pairs(level, s1, s2) {
                     Some(pairs)
-                        if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
+                        if matches!(h1, Head::Def(_))
+                            && (blocked(g.store, &a)? || blocked(g.store, &b)?) =>
                     {
-                        let trail = g.meta_trail.borrow().len();
+                        let trail = g.store.meta_trail.borrow().len();
                         let same = nested(g, || run(g, pairs.into_iter().rev().collect()))?;
                         note_lossy(g, trail);
                         same
@@ -1221,7 +1223,7 @@ fn unify_step(
                     }
                     None => false,
                 };
-                spines || push_eta(g, level, &a, &b, work)?
+                spines || push_eta(g.store, level, &a, &b, work)?
             }
         }
         // Two different definitions stuck on a `case`: by their case trees,
@@ -1233,7 +1235,7 @@ fn unify_step(
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
-            let trail = g.meta_trail.borrow().len();
+            let trail = g.store.meta_trail.borrow().len();
             let same = same_stuck_trees(g, level, &a, &b, Relation::Unify, &mut |l, x, y| {
                 unify(g, l, x, y)
             })?;
@@ -1242,7 +1244,7 @@ fn unify_step(
             }
             same
         }
-        _ => push_eta(g, level, &a, &b, work)?,
+        _ => push_eta(g.store, level, &a, &b, work)?,
     })
 }
 
@@ -1252,7 +1254,7 @@ fn same_arguments(g: &Unifier<'_>, level: usize, s1: &[Elim], s2: &[Elim]) -> Re
     let Some(pairs) = spine_pairs(level, s1, s2) else {
         return Ok(false);
     };
-    let trail = g.meta_trail.borrow().len();
+    let trail = g.store.meta_trail.borrow().len();
     for pair in pairs {
         let Task::Values(l, x, y) = pair else {
             unreachable!()
@@ -1279,11 +1281,11 @@ fn same_arguments_solving_nothing(
     s1: &[Elim],
     s2: &[Elim],
 ) -> Result<bool> {
-    let trail = g.meta_trail.borrow().len();
+    let trail = g.store.meta_trail.borrow().len();
     if !same_arguments(g, level, s1, s2)? {
         return Ok(false);
     }
-    if g.meta_trail.borrow().len() > trail && !g.attempt.solving_arguments.get() {
+    if g.store.meta_trail.borrow().len() > trail && !g.attempt.solving_arguments.get() {
         undo_since(g, trail);
         return Ok(false);
     }
@@ -1292,10 +1294,10 @@ fn same_arguments_solving_nothing(
 
 /// Undoes the metavariable solutions made since the trail was `len` long.
 pub(crate) fn undo_since(g: &Unifier<'_>, len: usize) {
-    let mut metas = g.metas.borrow_mut();
-    let mut trail = g.meta_trail.borrow_mut();
+    let mut metas = g.store.metas.borrow_mut();
+    let mut trail = g.store.meta_trail.borrow_mut();
     if trail.len() > len {
-        g.metas_taken_back();
+        g.store.metas_taken_back();
         g.attempt.forget_lossy_since(len);
     }
     while trail.len() > len {
@@ -1347,7 +1349,7 @@ fn can_apply(v: &Value) -> bool {
 /// Eta for definitions: pushes both sides applied to a fresh variable, or
 /// returns `false` if neither is a partially applied definition.
 fn push_eta(g: &Globals, level: usize, a: &Value, b: &Value, work: &mut Vec<Task>) -> Result<bool> {
-    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+    let Some(icit) = underapplied(&g.ev(), a).or_else(|| underapplied(&g.ev(), b)) else {
         return Ok(false);
     };
     if !can_apply(a) || !can_apply(b) {
@@ -1356,8 +1358,8 @@ fn push_eta(g: &Globals, level: usize, a: &Value, b: &Value, work: &mut Vec<Task
     let fresh = Value::var(level);
     work.push(Task::Values(
         level + 1,
-        apply_icit(g, a.clone(), fresh.clone(), icit)?,
-        apply_icit(g, b.clone(), fresh, icit)?,
+        apply_icit(&g.ev(), a.clone(), fresh.clone(), icit)?,
+        apply_icit(&g.ev(), b.clone(), fresh, icit)?,
     ));
     Ok(true)
 }
@@ -1392,10 +1394,10 @@ fn first_order(
     }
     let left = Value::Neutral(Head::Meta(m), rest1.to_vec().into());
     let right = Value::Neutral(*head, rest2.to_vec().into());
-    if apart(g, level, x, y)? || apart(g, level, &left, &right)? {
+    if apart(g.store, level, x, y)? || apart(g.store, level, &left, &right)? {
         return Ok(false);
     }
-    let mark = g.meta_trail.borrow().len();
+    let mark = g.store.meta_trail.borrow().len();
     if !unify(g, level, x, y)? {
         return Ok(false);
     }
@@ -1441,8 +1443,8 @@ fn apart(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
 /// Whether types `a` and `b` surely differ: their forms do, or (for
 /// `depth` levels of function types) their domains or codomains do.
 fn types_apart(g: &Globals, level: usize, a: &Value, b: &Value, depth: usize) -> Result<bool> {
-    let a = force(g, a.clone())?;
-    let b = force(g, b.clone())?;
+    let a = force(&g.ev(), a.clone())?;
+    let b = force(&g.ev(), b.clone())?;
     if let (Value::Pi(_, i1, d1, c1), Value::Pi(_, i2, d2, c2)) = (&a, &b) {
         if i1 != i2 {
             return Ok(true);
@@ -1455,8 +1457,8 @@ fn types_apart(g: &Globals, level: usize, a: &Value, b: &Value, depth: usize) ->
             || types_apart(
                 g,
                 level + 1,
-                &c1.apply(g, fresh.clone())?,
-                &c2.apply(g, fresh)?,
+                &c1.apply(&g.ev(), fresh.clone())?,
+                &c2.apply(&g.ev(), fresh)?,
                 depth - 1,
             )?);
     }
@@ -1471,7 +1473,7 @@ fn types_apart(g: &Globals, level: usize, a: &Value, b: &Value, depth: usize) ->
 /// recorded type is in the context it was made in, where its arguments may
 /// since stand for other values.
 fn form(g: &Globals, ty: &Value) -> Result<Option<Rigid>> {
-    let ty = force(g, ty.clone())?;
+    let ty = force(&g.ev(), ty.clone())?;
     Ok(rigid_head(g, &ty).filter(|r| *r != Rigid::Var))
 }
 
@@ -1480,7 +1482,7 @@ fn form(g: &Globals, ty: &Value) -> Result<Option<Rigid>> {
 /// recorded one ([`stitchwort_core::globals::Meta::ty`]), applied to its
 /// arguments. `None` for a variable, or anything else.
 fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
-    let v = force(g, v.clone())?;
+    let v = force(&g.ev(), v.clone())?;
     let (ty, args) = match &v {
         Value::Ctor(d, ..) => return Ok(Some(Known::Form(Rigid::Data(*d)))),
         Value::Nat(_) | Value::NatAdd(..) => {
@@ -1505,10 +1507,10 @@ fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
         let Elim::App(arg, _) = elim else {
             return Ok(None);
         };
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
             return Ok(None);
         };
-        ty = cod.apply(g, arg.clone())?;
+        ty = cod.apply(&g.ev(), arg.clone())?;
     }
     Ok(Some(Known::Type(ty)))
 }
@@ -1528,8 +1530,8 @@ fn meta_against_call(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<
     {
         return Ok(false);
     }
-    let a = force_solved(g, a.clone())?;
-    let b = force_solved(g, b.clone())?;
+    let a = force_solved(&g.ev(), a.clone())?;
+    let b = force_solved(&g.ev(), b.clone())?;
     let (m, spine, call) = match (&a, &b) {
         (Value::Neutral(Head::Meta(m), spine), call @ Value::Call(..))
         | (call @ Value::Call(..), Value::Neutral(Head::Meta(m), spine))
@@ -1578,7 +1580,7 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     let ignorable = g.meta_ignorable(m);
     for elim in spine {
         match elim {
-            Elim::App(arg, icit) => match force(g, arg.clone())? {
+            Elim::App(arg, icit) => match force(&g.ev(), arg.clone())? {
                 Value::Neutral(Head::Var(l, _), s) if s.is_empty() => {
                     if renaming.insert(l, icits.len()).is_some() {
                         repeated.push(l);
@@ -1616,7 +1618,7 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     for icit in icits.into_iter().rev() {
         solution = Term::Lam("x".into(), icit, Rc::new(solution));
     }
-    let value = eval(g, &[], &solution)?;
+    let value = eval(&g.ev(), &[], &solution)?;
     g.solve_meta(m, value);
     Ok(true)
 }
@@ -1658,11 +1660,11 @@ fn rename(
     let under = |closure: &Closure| -> Renamed<Term> {
         let mut renaming = renaming.clone();
         renaming.insert(cod, dom);
-        let body = closure.apply(g, Value::var(cod))?;
+        let body = closure.apply(&g.ev(), Value::var(cod))?;
         rename(g, m, &renaming, dom + 1, cod + 1, &body, in_call)
     };
-    let value = match force_solved(g, value.clone())? {
-        Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
+    let value = match force_solved(&g.ev(), value.clone())? {
+        Value::Call(id, spine, unfolding) if !matches_at_once(&g.ev(), id, &spine)? => {
             let mut term = Term::Def(id);
             let mut written = Ok(());
             for (arg, icit) in call_args(&spine) {
@@ -1677,10 +1679,10 @@ fn rename(
             match written {
                 Ok(()) => return Ok(term),
                 Err(Fail::Out(e)) => return Err(Fail::Out(e)),
-                Err(Fail::No) => force(g, Value::Call(id, spine, unfolding))?,
+                Err(Fail::No) => force(&g.ev(), Value::Call(id, spine, unfolding))?,
             }
         }
-        other => force(g, other)?,
+        other => force(&g.ev(), other)?,
     };
     Ok(match value {
         Value::Sort(s) => Term::Sort(s),
@@ -1691,8 +1693,8 @@ fn rename(
         Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Nat(n) => Term::Nat(n),
         // Closed: nothing to rename, and no metavariable to occur.
-        Value::Chars(c) => quote(g, cod, &Value::Chars(c))?,
-        Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
+        Value::Chars(c) => quote(&g.ev(), cod, &Value::Chars(c))?,
+        Value::NatAdd(k, base) => native::nat_add_term(&g.ev(), &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
             if !in_call && let Some((m3, kept)) = prune(g, m2, &spine, renaming)? {
@@ -1772,13 +1774,13 @@ pub(crate) fn strengthen(
 /// unknown applied to the others, so its solution can't mention `level`.
 /// Anything else is left alone.
 pub(crate) fn prune_variable(g: &Globals, value: &Value, level: usize) -> Result<()> {
-    let Value::Neutral(Head::Meta(m), spine) = force(g, value.clone())? else {
+    let Value::Neutral(Head::Meta(m), spine) = force(&g.ev(), value.clone())? else {
         return Ok(());
     };
     let mut renaming = HashMap::default();
     for elim in &spine {
         if let Elim::App(v, _) = elim
-            && let Value::Neutral(Head::Var(l, _), s) = force(g, v.clone())?
+            && let Value::Neutral(Head::Var(l, _), s) = force(&g.ev(), v.clone())?
             && s.is_empty()
             && l != level
         {
@@ -1806,7 +1808,7 @@ fn prune(
     let mut levels = Vec::new();
     for elim in spine {
         match elim {
-            Elim::App(v, _) => match force(g, v.clone())? {
+            Elim::App(v, _) => match force(&g.ev(), v.clone())? {
                 Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !levels.contains(&l) => {
                     levels.push(l);
                 }
@@ -1838,7 +1840,7 @@ fn prune(
         };
         body = Term::Lam("x".into(), *icit, Rc::new(body));
     }
-    g.solve_meta(m2, eval(g, &[], &body)?);
+    g.solve_meta(m2, eval(&g.ev(), &[], &body)?);
     Ok(Some((m3, kept)))
 }
 
@@ -2062,12 +2064,12 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// unfolding where a call can't be written, and a decision's solution is
 /// found on the unfolded goal (D484).
 pub(crate) fn both_forms(g: &Globals, level: usize, value: &Value) -> Result<Vec<Term>> {
-    let unfolded = quote(g, level, value)?;
+    let unfolded = quote(&g.ev(), level, value)?;
     if !g.machine.glue.get() {
         // No calls: the two are the same.
         return Ok(vec![unfolded]);
     }
-    let folded = quote_folded(g, level, value)?;
+    let folded = quote_folded(&g.ev(), level, value)?;
     Ok(if stitchwort_core::value::same_term(&folded, &unfolded) {
         vec![folded]
     } else {
@@ -2178,7 +2180,7 @@ fn zonk_call(
         if *ix < under {
             return None;
         }
-        match zonked[n - 1 - (ix - under)].shift(g, under, 0) {
+        match zonked[n - 1 - (ix - under)].shift(&g.ev(), under, 0) {
             Ok(t) => Some(t),
             Err(_) => {
                 failed.set(true);
@@ -2232,7 +2234,7 @@ fn zonk_changed(
         }
         Term::Meta(_) | Term::App(..) if meta_headed(term) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let value = eval(g, &env, term)?;
+            let value = eval(&g.ev(), &env, term)?;
             let unsolved = |t: &Term| {
                 t.subterms().find_map(|(t, _)| match t {
                     Term::Meta(m) if !keep(*m) => Some(*m),
@@ -2242,9 +2244,9 @@ fn zonk_changed(
             // Calls folded (docs/proposals/folded-calls.md, stage 3), unless
             // a call's arguments mention an unsolved metavariable its
             // unfolding may not: then unfolded, as without gluing.
-            let mut solved = quote_folded(g, level, &value)?;
+            let mut solved = quote_folded(&g.ev(), level, &value)?;
             if g.machine.glue.get() && unsolved(&solved).is_some() {
-                solved = quote(g, level, &value)?;
+                solved = quote(&g.ev(), level, &value)?;
             }
             if let Some(m) = unsolved(&solved) {
                 return Err(ZonkError::Unsolved(m));
@@ -2256,7 +2258,7 @@ fn zonk_changed(
             let v2 = go(v, level)?;
             let v_now = v2.clone().unwrap_or_else(|| v.clone());
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let normals = cheaply(g, || both_forms(g, level, &eval(g, &env, &v_now)?));
+            let normals = cheaply(g, || both_forms(g, level, &eval(&g.ev(), &env, &v_now)?));
             let normals: Vec<Term> = normals
                 .unwrap_or_default()
                 .into_iter()
@@ -2422,7 +2424,8 @@ mod tests {
     impl Fresh {
         fn unifier(&self) -> Unifier<'_> {
             Unifier {
-                g: &self.g,
+                ev: self.g.ev(),
+                store: &self.g,
                 attempt: &self.attempt,
                 stats: &self.stats,
             }
@@ -2453,7 +2456,7 @@ mod tests {
     }
 
     fn is_var(g: &Globals, v: &Value, level: usize) -> bool {
-        matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
+        matches!(force(&g.ev(), v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
     }
 
     /// A `let` at level 0 whose value, after a case split, mentions the
@@ -2468,7 +2471,7 @@ mod tests {
             |a: usize, b: usize| Term::Eq(None, Rc::new(Term::Var(a)), Rc::new(Term::Var(b)));
         // `level 1 = level 0`, in a context of two variables.
         let lets: Vec<Around> = vec![(0, 2, Rc::new(pair(0, 1)))];
-        let folded = |term: Term, level: usize| refold(&g, term, level, &lets).ok().unwrap();
+        let folded = |term: Term, level: usize| refold(g.store, term, level, &lets).ok().unwrap();
         assert!(matches!(folded(pair(0, 1), 2), Term::Var(1)));
         assert!(matches!(folded(pair(1, 2), 3), Term::Var(2)));
         // Under a binder of its own.
@@ -2486,7 +2489,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m x0 x1 = x1, so ?m = a b => b
-        let (m, lhs) = meta(&g, &[0, 1]);
+        let (m, lhs) = meta(g.store, &[0, 1]);
         assert!(unify(&g, 2, &lhs, &Value::var(1)).unwrap());
         let solution = g.meta_solution(m).expect("solved");
         let applied = apply_icit(
@@ -2496,7 +2499,7 @@ mod tests {
             Icit::Explicit,
         )
         .unwrap();
-        assert!(is_var(&g, &applied, 7));
+        assert!(is_var(g.store, &applied, 7));
     }
 
     /// Globals with `first: Type -> Type -> Type := a b => a`, gluing on.
@@ -2539,7 +2542,7 @@ mod tests {
             Term::app(Term::Def(id), Term::Var(level - 1 - a)),
             Term::Var(level - 1 - b),
         );
-        let value = eval(g, &env, &call).unwrap();
+        let value = eval(&g.ev(), &env, &call).unwrap();
         assert!(matches!(value, Value::Call(..)));
         value
     }
@@ -2549,8 +2552,8 @@ mod tests {
         let (fresh, id) = with_first();
         let g = fresh.unifier();
         // ?m x0 x1 = first x0 x1, so ?m = a b => first a b, not a b => a.
-        let (m, lhs) = meta(&g, &[0, 1]);
-        assert!(unify(&g, 2, &lhs, &first_of(&g, id, 2, 0, 1)).unwrap());
+        let (m, lhs) = meta(g.store, &[0, 1]);
+        assert!(unify(&g, 2, &lhs, &first_of(g.store, id, 2, 0, 1)).unwrap());
         let solution = quote_folded(&g, 0, &g.meta_solution(m).expect("solved")).unwrap();
         assert!(
             solution
@@ -2566,18 +2569,18 @@ mod tests {
         let g = fresh.unifier();
         // ?m x0 = first x0 x1: `x1` can't be in the solution, but
         // `first x0 x1` unfolds to `x0`, so ?m = a => a.
-        let (m, lhs) = meta(&g, &[0]);
-        assert!(unify(&g, 2, &lhs, &first_of(&g, id, 2, 0, 1)).unwrap());
+        let (m, lhs) = meta(g.store, &[0]);
+        assert!(unify(&g, 2, &lhs, &first_of(g.store, id, 2, 0, 1)).unwrap());
         let solution = g.meta_solution(m).expect("solved");
         let applied = apply_icit(&g, solution, Value::var(5), Icit::Explicit).unwrap();
-        assert!(is_var(&g, &applied, 5));
+        assert!(is_var(g.store, &applied, 5));
     }
 
     #[test]
     fn solves_from_either_side() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, rhs) = meta(&g, &[]);
+        let (m, rhs) = meta(g.store, &[]);
         assert!(unify(&g, 0, &ty(), &rhs).unwrap());
         assert!(matches!(
             g.meta_solution(m),
@@ -2590,7 +2593,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m x0 = (?m x0 = x0) has no finite solution.
-        let (m, lhs) = meta(&g, &[0]);
+        let (m, lhs) = meta(g.store, &[0]);
         assert!(!unify(&g, 1, &lhs, &eq(lhs.clone(), Value::var(0))).unwrap());
         assert!(g.meta_solution(m).is_none());
     }
@@ -2600,7 +2603,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m only receives x0, so it can't be x1.
-        let (m, lhs) = meta(&g, &[0]);
+        let (m, lhs) = meta(g.store, &[0]);
         assert!(!unify(&g, 2, &lhs, &Value::var(1)).unwrap());
         assert!(g.meta_solution(m).is_none());
     }
@@ -2610,7 +2613,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m x0 x0 = x0 has two solutions (a b => a and a b => b), so neither is chosen.
-        let (m, lhs) = meta(&g, &[0, 0]);
+        let (m, lhs) = meta(g.store, &[0, 0]);
         assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         assert!(g.meta_solution(m).is_none());
     }
@@ -2620,7 +2623,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m x0 x0 = Type has one solution, `a b => Type`.
-        let (m, lhs) = meta(&g, &[0, 0]);
+        let (m, lhs) = meta(g.store, &[0, 0]);
         assert!(unify(&g, 1, &lhs, &ty()).unwrap());
         assert!(g.meta_solution(m).is_some());
     }
@@ -2643,8 +2646,8 @@ mod tests {
         let g = fresh.unifier();
         // A proof's unknown whose statement doesn't depend on its second
         // argument (SW-323): ?m x0 (x0 = x0) = x0 is solved by `a b => a`.
-        let (m, lhs) = meta_with_a_term(&g);
-        g.set_meta_ignorable(m, Rc::from([false, true]));
+        let (m, lhs) = meta_with_a_term(g.store);
+        g.store.set_meta_ignorable(m, Rc::from([false, true]));
         assert!(unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         let solution = g.meta_solution(m).expect("solved");
         let applied = apply_icit(
@@ -2654,18 +2657,18 @@ mod tests {
             Icit::Explicit,
         )
         .unwrap();
-        assert!(is_var(&g, &applied, 5));
+        assert!(is_var(g.store, &applied, 5));
     }
 
     #[test]
     fn refuses_an_argument_that_is_not_a_variable_unless_ignorable() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, lhs) = meta_with_a_term(&g);
+        let (m, lhs) = meta_with_a_term(g.store);
         assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         assert!(g.meta_solution(m).is_none());
-        let (m, lhs) = meta_with_a_term(&g);
-        g.set_meta_ignorable(m, Rc::from([true, false]));
+        let (m, lhs) = meta_with_a_term(g.store);
+        g.store.set_meta_ignorable(m, Rc::from([true, false]));
         assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         assert!(g.meta_solution(m).is_none());
     }
@@ -2674,7 +2677,7 @@ mod tests {
     fn the_same_metavariable_needs_matching_arguments() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (_, a) = meta(&g, &[0, 1]);
+        let (_, a) = meta(g.store, &[0, 1]);
         let b = match &a {
             Value::Neutral(head, _) => Value::Neutral(
                 *head,
@@ -2696,8 +2699,8 @@ mod tests {
         let g = fresh.unifier();
         // ?a = (?b x0 = Type), where ?a can't depend on x0. Pruning solves
         // ?b := _ => ?c, so the equation has the solution ?a := (?c = Type).
-        let (a, lhs) = meta(&g, &[]);
-        let (b, b_applied) = meta(&g, &[0]);
+        let (a, lhs) = meta(g.store, &[]);
+        let (b, b_applied) = meta(g.store, &[0]);
         assert!(unify(&g, 1, &lhs, &eq(b_applied.clone(), ty())).unwrap());
         assert!(g.meta_solution(a).is_some());
         assert!(g.meta_solution(b).is_some());
@@ -2714,9 +2717,9 @@ mod tests {
     fn zonk_reports_an_unsolved_metavariable() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, _) = meta(&g, &[]);
+        let (m, _) = meta(g.store, &[]);
         assert_eq!(
-            zonk(&g, 0, &Term::Meta(m)).err(),
+            zonk(g.store, 0, &Term::Meta(m)).err(),
             Some(ZonkError::Unsolved(m))
         );
     }
@@ -2725,16 +2728,16 @@ mod tests {
     fn zonk_substitutes_and_normalises_a_solution() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, lhs) = meta(&g, &[0]);
+        let (m, lhs) = meta(g.store, &[0]);
         assert!(unify(&g, 1, &lhs, &Value::var(0)).unwrap());
         // ?m x0 with ?m = a => a zonks to x0.
         let term = Term::app(Term::Meta(m), Term::Var(0));
-        let zonked = zonk(&g, 1, &term).expect("solved");
+        let zonked = zonk(g.store, 1, &term).expect("solved");
         assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
     }
 
     fn closed(g: &Globals, t: &Term) -> Value {
-        eval(g, &[], t).unwrap()
+        eval(&g.ev(), &[], t).unwrap()
     }
 
     fn pi(i: Icit, a: Term, b: Term) -> Term {
@@ -2775,15 +2778,15 @@ mod tests {
         ];
         for (a, b) in &differ {
             assert!(
-                !unify(&g, 0, &closed(&g, a), &closed(&g, b)).unwrap(),
+                !unify(&g, 0, &closed(g.store, a), &closed(g.store, b)).unwrap(),
                 "{a:?} vs {b:?}"
             );
             assert!(
-                !unify(&g, 0, &closed(&g, b), &closed(&g, a)).unwrap(),
+                !unify(&g, 0, &closed(g.store, b), &closed(g.store, a)).unwrap(),
                 "{b:?} vs {a:?}"
             );
             assert!(
-                unify(&g, 0, &closed(&g, a), &closed(&g, a)).unwrap(),
+                unify(&g, 0, &closed(g.store, a), &closed(g.store, a)).unwrap(),
                 "{a:?} vs itself"
             );
         }
@@ -2845,7 +2848,7 @@ mod tests {
         let fresh = Fresh::default();
         let g = fresh.unifier();
         // ?m x0 = (y => x0), so ?m = a => y => a.
-        let (m, lhs) = meta(&g, &[0]);
+        let (m, lhs) = meta(g.store, &[0]);
         let rhs = eval(&g, &[Value::var(0)], &lam(Term::Var(1))).unwrap();
         assert!(unify(&g, 1, &lhs, &rhs).unwrap());
         let solution = g.meta_solution(m).expect("solved");
@@ -2856,9 +2859,9 @@ mod tests {
             Icit::Explicit,
         )
         .unwrap();
-        assert!(is_var(&g, &applied, 5));
+        assert!(is_var(g.store, &applied, 5));
         // ?n x0 = ((y : Type) -> x0), a function type mentioning the argument.
-        let (n, lhs) = meta(&g, &[0]);
+        let (n, lhs) = meta(g.store, &[0]);
         let rhs = eval(
             &g,
             &[Value::var(0)],
@@ -2875,19 +2878,19 @@ mod tests {
         let g = fresh.unifier();
         // With x0, x1, x2 in scope: ?a x0 x2 = (?b x0 x1 x2 = Type). ?b can't
         // depend on x1, but it may depend on x0 and x2, in that order.
-        let (_, lhs) = meta(&g, &[0, 2]);
-        let (b, b_applied) = meta(&g, &[0, 1, 2]);
+        let (_, lhs) = meta(g.store, &[0, 2]);
+        let (b, b_applied) = meta(g.store, &[0, 1, 2]);
         assert!(unify(&g, 3, &lhs, &eq(b_applied.clone(), ty())).unwrap());
         assert!(g.meta_solution(b).is_some());
         match force(&g, b_applied).unwrap() {
             Value::Neutral(Head::Meta(_), spine) => {
                 let kept: Vec<bool> = spine
                     .iter()
-                    .map(|e| matches!(e, Elim::App(v, _) if is_var(&g, v, 0)))
+                    .map(|e| matches!(e, Elim::App(v, _) if is_var(g.store, v, 0)))
                     .collect();
                 assert_eq!(spine.len(), 2, "x1 was pruned");
                 assert_eq!(kept, vec![true, false], "x0 first, then x2");
-                assert!(matches!(&spine[1], Elim::App(v, _) if is_var(&g, v, 2)));
+                assert!(matches!(&spine[1], Elim::App(v, _) if is_var(g.store, v, 2)));
             }
             other => panic!("expected a new metavariable, got {other:?}"),
         }
@@ -2897,15 +2900,15 @@ mod tests {
     fn zonk_works_under_binders() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, lhs) = meta(&g, &[]);
+        let (m, lhs) = meta(g.store, &[]);
         assert!(unify(&g, 0, &lhs, &ty()).unwrap());
         // x => ?m, inside a case branch with two fields.
         let term = lam(Term::Meta(m));
         assert!(
-            matches!(zonk(&g, 0, &term), Ok(Term::Lam(_, _, ref body)) if matches!(**body, Term::Sort(_)))
+            matches!(zonk(g.store, 0, &term), Ok(Term::Lam(_, _, ref body)) if matches!(**body, Term::Sort(_)))
         );
         // ?id x0 = x0, used inside a case branch with two fields.
-        let (id, id_applied) = meta(&g, &[0]);
+        let (id, id_applied) = meta(g.store, &[0]);
         assert!(unify(&g, 1, &id_applied, &Value::var(0)).unwrap());
         let branch = Term::Case(
             0,
@@ -2916,7 +2919,7 @@ mod tests {
             }]
             .into(),
         );
-        match zonk(&g, 1, &branch) {
+        match zonk(g.store, 1, &branch) {
             Ok(Term::Case(_, _, ref branches)) => {
                 assert!(
                     matches!(branches[0].body.as_deref(), Some(Term::Var(0))),
@@ -2964,7 +2967,7 @@ mod tests {
     }
 
     fn quoted(g: &Globals, v: Value) -> String {
-        format!("{:?}", quote(g, 0, &v).unwrap())
+        format!("{:?}", quote(&g.ev(), 0, &v).unwrap())
     }
 
     #[test]
@@ -2973,8 +2976,8 @@ mod tests {
             let (fresh, t) = text_globals();
             let g = fresh.unifier();
             let t = &t;
-            let (c, c_value) = meta(&g, &[]);
-            let (tail, tail_value) = meta(&g, &[]);
+            let (c, c_value) = meta(g.store, &[]);
+            let (tail, tail_value) = meta(g.store, &[]);
             let lhs = cons(t, c_value, tail_value);
             let rhs = if compact_side {
                 compact("ab")
@@ -2984,7 +2987,10 @@ mod tests {
             assert!(unify(&g, 0, &lhs, &rhs).unwrap());
             let c = g.meta_solution(c).unwrap();
             let tail = g.meta_solution(tail).unwrap();
-            assert_eq!(quoted(&g, c), quoted(&g, chars::char_value(t, 'a')));
+            assert_eq!(
+                quoted(g.store, c),
+                quoted(g.store, chars::char_value(t, 'a'))
+            );
             if compact_side {
                 // The rest of the same range.
                 assert!(matches!(&tail, Value::Chars(r) if r.as_slice() == ['b']));
@@ -3000,10 +3006,10 @@ mod tests {
     fn a_metavariable_is_solved_with_the_compact_list_itself() {
         let (fresh, _) = text_globals();
         let g = fresh.unifier();
-        let (m, lhs) = meta(&g, &[]);
+        let (m, lhs) = meta(g.store, &[]);
         assert!(unify(&g, 0, &lhs, &compact("abc")).unwrap());
         assert_eq!(
-            format!("{:?}", zonk(&g, 0, &Term::Meta(m)).unwrap()),
+            format!("{:?}", zonk(g.store, 0, &Term::Meta(m)).unwrap()),
             r#"Chars(Chars("abc"))"#
         );
     }
@@ -3017,8 +3023,8 @@ mod tests {
                 let (fresh, t) = text_globals();
                 let g = fresh.unifier();
                 let t = &t;
-                let (n, n_value) = meta(&g, &[]);
-                let (p, p_value) = meta(&g, &[]);
+                let (n, n_value) = meta(g.store, &[]);
+                let (p, p_value) = meta(g.store, &[]);
                 if let Some(code) = first {
                     let code = stitchwort_core::native::nat_value(code.into());
                     assert!(unify(&g, 0, &n_value, &code).unwrap());
@@ -3032,8 +3038,8 @@ mod tests {
                 };
                 assert_eq!(unify(&g, 0, &lhs, &rhs).unwrap(), expect, "{first:?}");
                 if expect {
-                    assert_eq!(quoted(&g, g.meta_solution(n).unwrap()), "Nat(97)");
-                    assert_eq!(quoted(&g, g.meta_solution(p).unwrap()), "Refl");
+                    assert_eq!(quoted(g.store, g.meta_solution(n).unwrap()), "Nat(97)");
+                    assert_eq!(quoted(g.store, g.meta_solution(p).unwrap()), "Refl");
                     // Afterwards, `?n` can't be anything else.
                     let other = stitchwort_core::native::nat_value(98u32.into());
                     assert!(!unify(&g, 0, &n_value, &other).unwrap());
@@ -3081,7 +3087,7 @@ mod tests {
         let g = fresh.unifier();
         // `x => ?m y x`, twice, with different values for the variable
         // the body doesn't use.
-        let (m, _) = meta(&g, &[]);
+        let (m, _) = meta(g.store, &[]);
         let body = || {
             Rc::new(Term::App(
                 Rc::new(Term::App(
@@ -3122,10 +3128,10 @@ mod tests {
         let attempt = |g_ty: Option<Value>| {
             let fresh = Fresh::default();
             let g = fresh.unifier();
-            let (p, _) = meta(&g, &[]);
-            let (m, unknown) = meta(&g, &[]);
+            let (p, _) = meta(g.store, &[]);
+            let (m, unknown) = meta(g.store, &[]);
             if let Some(t) = g_ty {
-                g.set_meta_type(m, t, 0);
+                g.store.set_meta_type(m, t, 0);
             }
             let left = Value::Neutral(
                 Head::Meta(p),
@@ -3171,7 +3177,7 @@ mod tests {
     fn matching_last_arguments_that_solves_the_head_with_a_non_function_fails() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (m, unknown) = meta(&g, &[]);
+        let (m, unknown) = meta(g.store, &[]);
         let left = Value::Neutral(
             Head::Meta(m),
             vec![
@@ -3199,9 +3205,9 @@ mod tests {
     fn a_pair_on_a_pending_unknown_waits_and_the_rest_is_solved() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (p, placeholder) = meta(&g, &[]);
-        let (x, unknown) = meta(&g, &[]);
-        g.unfilled_placeholders.borrow_mut().insert(p);
+        let (p, placeholder) = meta(g.store, &[]);
+        let (x, unknown) = meta(g.store, &[]);
+        g.store.unfilled_placeholders.borrow_mut().insert(p);
         let a = eq(placeholder.clone(), unknown);
         let b = eq(ty(), ty());
         assert!(
@@ -3227,10 +3233,10 @@ mod tests {
     fn only_pending_unknowns_make_a_comparison_wait() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (p, placeholder) = meta(&g, &[]);
-        let (q, other) = meta(&g, &[]);
-        g.unfilled_placeholders.borrow_mut().insert(p);
-        g.unfilled_placeholders.borrow_mut().insert(q);
+        let (p, placeholder) = meta(g.store, &[]);
+        let (q, other) = meta(g.store, &[]);
+        g.store.unfilled_placeholders.borrow_mut().insert(p);
+        g.store.unfilled_placeholders.borrow_mut().insert(q);
         let pending = pending_of(&[p]);
         // Type 0 against Type 1: rigid.
         let rigid = unify_waiting(&g, 0, &ty(), &Value::Sort(Sort::Type(1)), &pending).unwrap();
@@ -3261,8 +3267,8 @@ mod tests {
     fn a_nested_comparison_answers_for_itself() {
         let fresh = Fresh::default();
         let g = fresh.unifier();
-        let (p, placeholder) = meta(&g, &[]);
-        g.unfilled_placeholders.borrow_mut().insert(p);
+        let (p, placeholder) = meta(g.store, &[]);
+        g.store.unfilled_placeholders.borrow_mut().insert(p);
         let waiting = Scoped::set(&g.attempt.waiting, Some(Vec::new()));
         let pending = Scoped::set(&g.attempt.pending, pending_of(&[p]));
         assert!(!unify(&g, 0, &placeholder, &ty()).unwrap());

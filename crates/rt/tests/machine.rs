@@ -46,7 +46,7 @@ fn machine(program: &Program, limits: Limits, input: &[u8]) -> Run {
 
 fn lowered(session: &Session, main: &Main, what: &str) -> Program {
     let g = &session.elab.globals;
-    lower_main(g, session.elab.options.limits, main.term(), main.row)
+    lower_main(&g.ev(), session.elab.options.limits, main.term(), main.row)
         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"))
 }
 
@@ -134,7 +134,7 @@ fn everything(session: &Session, what: &str) -> Program {
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
         .collect();
-    lower_definitions(g, session.elab.options.limits, &ids)
+    lower_definitions(&g.ev(), session.elab.options.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"))
 }
 

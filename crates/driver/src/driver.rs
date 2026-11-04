@@ -7,7 +7,7 @@ use std::sync::Arc;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
+use stitchwort_core::{Ev, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference, text_lines};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
@@ -1018,7 +1018,7 @@ pub const SOURCE_FINGERPRINT_CRATES: &str = env!("STITCHWORT_SOURCE_FINGERPRINT_
 /// The effective modes of evaluation, for the cache key: whether the native
 /// implementations are used (`n1`) or not (`n0`), and whether text literals
 /// are compact (`c1`) or constructors (`c0`).
-pub fn modes(g: &Globals) -> String {
+pub fn modes(g: &Ev) -> String {
     format!(
         "n{}c{}",
         u8::from(!g.env.builtins().disable_natives),
@@ -1286,7 +1286,7 @@ impl Session {
             .filter(|test| selected(test))
             .filter(|test| {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                match def_hash(g, test.def) {
+                match def_hash(&g.ev(), test.def) {
                     Ok(Some(hash)) => cache
                         .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
                         .is_none(),
@@ -1299,7 +1299,7 @@ impl Session {
             return None;
         }
         let lower = |ids: &[stitchwort_core::DefId]| {
-            stitchwort_rt::lower_definitions(g, self.elab.options.limits, ids).ok()
+            stitchwort_rt::lower_definitions(&g.ev(), self.elab.options.limits, ids).ok()
         };
         // Together, so what they share is lowered once; one at a time only
         // if some test can't be lowered.
@@ -1319,8 +1319,8 @@ impl Session {
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
         let modes = match runner {
-            Runner::Reference => modes(g),
-            Runner::Machine => format!("{}m", modes(g)),
+            Runner::Reference => modes(&g.ev()),
+            Runner::Machine => format!("{}m", modes(&g.ev())),
         };
         let lowered = match runner {
             Runner::Reference => None,
@@ -1340,7 +1340,7 @@ impl Session {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                let hash = match def_hash(g, test.def) {
+                let hash = match def_hash(&g.ev(), test.def) {
                     Ok(hash) => hash.expect("tests are checked before they run"),
                     Err(e) => {
                         return TestResult {
@@ -1380,7 +1380,7 @@ impl Session {
                     } else {
                         // Proofs and types aren't computed (`erase.rs`).
                         let _erasing = g.machine.erasure.running();
-                        eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v))
+                        eval(&g.ev(), &[], &Term::Def(test.def)).and_then(|v| force(&g.ev(), v))
                     };
                     match value {
                         // `Bool` is `False | True`: constructor 1 is `True`.
@@ -1441,7 +1441,7 @@ impl Session {
         let term = probe.truth.as_ref()?;
         let _op = g.machine.budget.operation(self.elab.options.limits);
         let _erasing = g.machine.erasure.running();
-        match eval(g, &[], term).and_then(|v| force(g, v)) {
+        match eval(&g.ev(), &[], term).and_then(|v| force(&g.ev(), v)) {
             Ok(Value::Ctor(_, c, _)) => Some(c == 1),
             _ => None,
         }
@@ -1488,12 +1488,12 @@ impl Session {
         let show = |term: &Term| -> (String, Option<Term>) {
             let _op = g.machine.budget.operation(limits);
             let _erasing = g.machine.erasure.running();
-            let Ok(v) = eval(g, &[], term) else {
+            let Ok(v) = eval(&g.ev(), &[], term) else {
                 return ("…".to_string(), None);
             };
-            match stitchwort_core::value::quote(g, 0, &v) {
+            match stitchwort_core::value::quote(&g.ev(), 0, &v) {
                 Ok(t) => (
-                    cut_to(&stitchwort_core::pretty::term(g, &[], &t), SHOWN_SIDE),
+                    cut_to(&stitchwort_core::pretty::term(&g.ev(), &[], &t), SHOWN_SIDE),
                     Some(t),
                 ),
                 Err(_) => ("… (too large to show)".to_string(), None),
@@ -1553,7 +1553,7 @@ mod tests {
         assert!(!results.iter().any(|r| r.cached));
         let added = cache.added();
         assert_eq!(added.len(), 2);
-        let modes = modes(&session.elab.globals);
+        let modes = modes(&session.elab.globals.ev());
         for (result, (key, outcome)) in results.iter().zip(&added) {
             assert_eq!(key, &Cache::key(&result.hash.expect("a hash"), &modes));
             assert_eq!(*outcome, result.outcome);

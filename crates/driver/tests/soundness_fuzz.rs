@@ -753,7 +753,7 @@ fn configure(session: &mut Session) {
 /// The theorem `name` of namespace `namespace` (or any, for a file), if
 /// it was declared.
 fn find_theorem(g: &Globals, namespace: Option<&str>, name: &str) -> Option<(DefId, String)> {
-    let found = stitchwort_driver::audit::theorems(g, &|path: &str| match namespace {
+    let found = stitchwort_driver::audit::theorems(&g.ev(), &|path: &str| match namespace {
         Some(ns) => path == format!("{ns}.{name}"),
         None => !path.starts_with("Std.") && (path == name || path.ends_with(&format!(".{name}"))),
     });
@@ -1755,7 +1755,7 @@ fn void_attempts() -> Vec<Attempt> {
 fn closed_empty(g: &Globals, id: DefId) -> bool {
     use stitchwort_core::Value;
     use stitchwort_core::value::force;
-    matches!(force(g, g.def(id).ty_value().clone()), Ok(Value::Data(d, _)) if g.data(d).ctors().is_empty())
+    matches!(force(&g.ev(), g.def(id).ty_value().clone()), Ok(Value::Data(d, _)) if g.data(d).ctors().is_empty())
 }
 
 /// What a program's check found.

@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::{DataId, Globals};
+use stitchwort_core::{DataId, Ev};
 use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
 };
@@ -682,14 +682,14 @@ impl Session {
         };
         let pattern = !readings.is_empty();
         let found = if pattern {
-            merge(g, readings.into_iter().map(|(_, f)| f).collect())
+            merge(&g.ev(), readings.into_iter().map(|(_, f)| f).collect())
         } else {
             let mut stats = Stats::default();
-            let mut hits = list(g, &candidates, &keep, &mut stats);
+            let mut hits = list(&g.ev(), &candidates, &keep, &mut stats);
             // Only `"text"` parts: a name that is the text itself first
             // (D2154).
             if query.mentions.is_empty() {
-                exact_name_first(g, &mut hits, &query.names);
+                exact_name_first(&g.ev(), &mut hits, &query.names);
             }
             Found {
                 hits,
@@ -707,7 +707,7 @@ impl Session {
             ),
             _ => {}
         }
-        if let Some(w) = out_of_budget_warning(&self.elab.globals, &found.stats) {
+        if let Some(w) = out_of_budget_warning(&self.elab.globals.ev(), &found.stats) {
             warnings.push(w);
         }
         if found.stats.internal_errors > 0 {
@@ -816,26 +816,26 @@ impl Session {
     ) -> Result1 {
         let g = &self.elab.globals;
         let item = hit.item;
-        let (file, line) = crate::render::location(&self.sources, item.span(g));
+        let (file, line) = crate::render::location(&self.sources, item.span(&g.ev()));
         // A constructor's span is its type's, so its doc would be the type's:
         // none is shown.
         let summary = match item {
             Item::Ctor(..) => None,
-            _ => docs.summary(&self.sources, item.span(g), &item.path(g)),
+            _ => docs.summary(&self.sources, item.span(&g.ev()), &item.path(&g.ev())),
         };
-        let path = item.path(g);
+        let path = item.path(&g.ev());
         Result1 {
             kind: item.kind(g).name(),
-            ty: stitchwort_core::pretty::term(g, &[], &item.ty(g)),
+            ty: stitchwort_core::pretty::term(&g.ev(), &[], &item.ty(g)),
             file,
             line,
             summary,
-            import: import_line(g, item, scope),
+            import: import_line(&g.ev(), item, scope),
             relation: pattern.then(|| hit.relation.name()),
             place: pattern.then(|| hit.place.name()),
             equation: (pattern && rewrite).then_some(if hit.iff { "iff" } else { "eq" }),
             via: hit.via.iter().map(|v| Via::name(*v)).collect(),
-            generated: item.generated_equation(g),
+            generated: item.generated_equation(&g.ev()),
             absorbed: hit.absorbed,
             instantiated: hit.instantiated,
             premises: hit.premises,
@@ -875,7 +875,7 @@ impl DocCache {
 /// one: a declaration found by more than one appears once, at its best
 /// rank. If some reading found something without the relaxed pass, the
 /// readings that needed it are left out, as weaker.
-fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
+fn merge(g: &Ev, mut runs: Vec<Found>) -> Found {
     if runs.len() == 1 {
         return runs.pop().expect("one");
     }
@@ -925,7 +925,7 @@ fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
 
 /// Without a pattern: every candidate `keep` keeps, smallest type first.
 fn list(
-    g: &Globals,
+    g: &Ev,
     candidates: &[Candidate],
     keep: &dyn Fn(&Candidate) -> bool,
     stats: &mut Stats,
@@ -954,7 +954,7 @@ fn list(
 /// keeping the order within each half (D2154, documentation.md §5.2): the
 /// last component of the name equals the text (`List.filterMap` for
 /// `"filterMap"`), or the name ends with the text at a dot (`"List.filterMap"`).
-fn exact_name_first(g: &Globals, hits: &mut [Hit], names: &[String]) {
+fn exact_name_first(g: &Ev, hits: &mut [Hit], names: &[String]) {
     let exact = |hit: &Hit| {
         let path = hit.item.path(g);
         names.iter().any(|n| {
@@ -986,7 +986,7 @@ pub(crate) fn hidden(path: &str) -> bool {
 /// `magUnits 9218868437227405311` run out of depth against any `Nat`
 /// sum), so a reader can tell whether one of them could be what they want.
 pub(crate) fn out_of_budget_warning(
-    g: &Globals,
+    g: &Ev,
     stats: &stitchwort_elab::search::Stats,
 ) -> Option<String> {
     if stats.out_of_budget == 0 {
@@ -1016,7 +1016,7 @@ pub(crate) fn out_of_budget_warning(
 /// `Std.List.lengthAppend`, `import Lib (Range)` for a project's
 /// `Lib.Range.size` in a project with namespace `Lib`; `None` for a
 /// declaration of the file searched.
-pub(crate) fn import_line(g: &Globals, item: Item, scope: &Scope) -> Option<String> {
+pub(crate) fn import_line(g: &Ev, item: Item, scope: &Scope) -> Option<String> {
     let path = item.path(g);
     let (namespace, rest) = match path.strip_prefix("Std.") {
         Some(rest) => ("Std", rest),

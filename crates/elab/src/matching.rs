@@ -274,7 +274,7 @@ fn refutable(
     });
     let span = patterns[0].span().to(patterns[patterns.len() - 1].span());
     let message = match columns {
-        [column] => match stitchwort_core::value::force(cx.g(), cx.types[*column].clone()) {
+        [column] => match stitchwort_core::value::force(&cx.g().ev(), cx.types[*column].clone()) {
             Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => {
                 format!("this pattern doesn't match every case: it doesn't match {what}")
             }
@@ -414,7 +414,7 @@ fn lifted(
         // A proposition with a decision procedure (`match h: a <= b with`) is
         // matched as the `Bool` it decides, as `if` reads it (SW-206 item 5).
         let decided = matches!(
-            stitchwort_core::value::force(g, ty.clone())?,
+            stitchwort_core::value::force(&g.ev(), ty.clone())?,
             Value::Sort(stitchwort_core::Sort::Prop)
         );
         let (term, ty) = if decided {
@@ -435,7 +435,7 @@ fn lifted(
         // decided (D1073). Any other scrutinee's normal form is left for the
         // occurrence test to compute, as far as it needs ([`normals`]).
         let (term, normal) = if decided {
-            let normal = (|| Ok(quote(g, base, &cx.eval(&term)?)?))()
+            let normal = (|| Ok(quote(&g.ev(), base, &cx.eval(&term)?)?))()
                 .map_err(|d| in_scrutinee(d, s.expr.span()))?;
             match tested_bool(cx, &normal) {
                 Some(b) => (b.clone(), Some(b)),
@@ -692,7 +692,7 @@ fn blocker(
         }
     }
     for l in 0..base {
-        if let Some(m) = first_meta(&quote(g, base, &cx.types[l])?, &unsolved) {
+        if let Some(m) = first_meta(&quote(&g.ev(), base, &cx.types[l])?, &unsolved) {
             return Ok(Some(m));
         }
     }
@@ -701,7 +701,7 @@ fn blocker(
     }
     let pending = crate::queue::pending(cx)?;
     let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
-    Ok(first_meta(&quote(g, base, goal)?, &is_pending))
+    Ok(first_meta(&quote(&g.ev(), base, goal)?, &is_pending))
 }
 
 /// The first unknown in `t` that `which` picks.
@@ -748,7 +748,7 @@ impl crate::queue::Check for WaitingMatch {
             s.ty_term = cx.quote(&s.ty)?;
         }
         // Its own type, which it settles, is pending only for others.
-        let own = match stitchwort_core::value::force(g, goal.clone())? {
+        let own = match stitchwort_core::value::force(&g.ev(), goal.clone())? {
             Value::Neutral(Head::Meta(m), _) => Some(m),
             _ => None,
         };
@@ -816,10 +816,10 @@ fn generalised_now(
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
             // Never copied, so never read (`cannot_occur` passes over it).
             true => Ok(Term::Refl),
-            false => quote(g, base, &cx.types[l]).map_err(in_match),
+            false => quote(&g.ev(), base, &cx.types[l]).map_err(in_match),
         })
         .collect::<Result<_>>()?;
-    let goal_term = quote(g, base, goal).map_err(in_match)?;
+    let goal_term = quote(&g.ev(), base, goal).map_err(in_match)?;
     let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
@@ -929,7 +929,7 @@ fn generalised_now(
         if let Some(h) = &s.name {
             let depth = cx.level();
             equations.push((i, depth));
-            let shift = |t: &Term| t.shift(g, depth - base, 0);
+            let shift = |t: &Term| t.shift(&g.ev(), depth - base, 0);
             let eq = Term::Eq(
                 Some(Rc::new(shift(&s.ty_term)?)),
                 Rc::new(shift(&s.term)?),
@@ -1066,7 +1066,7 @@ fn normals(
             }
             None => (|| {
                 let value = cx.eval(&s.term)?;
-                Ok(quote_at_most(g, base, &value, cap)?)
+                Ok(quote_at_most(&g.ev(), base, &value, cap)?)
             })()
             .map_err(|d| in_scrutinee(d, s.span)),
         })
@@ -1190,12 +1190,13 @@ fn not_found(
             continue;
         }
         let shown = pretty::term_for_message_in(
-            g,
+            &g.ev(),
             cx.e,
             &cx.shown_names(false),
             normal.as_ref().unwrap_or(&s.term),
         );
-        let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), goal_normal);
+        let goal_shown =
+            pretty::term_for_message_in(&g.ev(), cx.e, &cx.shown_names(false), goal_normal);
         out.push((
             i,
             Diagnostic::warning(
@@ -1288,7 +1289,7 @@ fn unknown_left_for_lifting(cx: &Ctx, draft: &Draft) -> Result<bool> {
     let depth = draft.env.len();
     let unsolved = |m: usize| g.meta_solution(m).is_none() && !g.meta_frozen(m);
     for ty in &draft.types {
-        if first_meta(&quote(g, depth, ty)?, &unsolved).is_some() {
+        if first_meta(&quote(&g.ev(), depth, ty)?, &unsolved).is_some() {
             return Ok(false);
         }
     }
@@ -1337,7 +1338,7 @@ pub(crate) fn check_motive_when_lifted(e: &crate::Elaborator, d: &Draft) -> Resu
 /// added: [`check_motive`]'s error if it is ill-formed.
 fn motive_holds(e: &crate::Elaborator, ty: &Term, span: stitchwort_syntax::Span) -> Result<()> {
     let g = &e.globals;
-    let mut kcx = kernel::Ctx::new(g, span);
+    let mut kcx = kernel::Ctx::new(&g.ev(), span);
     match kernel::without_glue(g, || kernel::check_type(&mut kcx, ty)) {
         Ok(_) => Ok(()),
         Err(d) if crate::undo::fatal(&d) => Err(d),

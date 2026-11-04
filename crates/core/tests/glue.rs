@@ -85,16 +85,16 @@ fn defs() -> Defs {
 fn both_ways(g: &Globals, level: usize, term: &Term) -> (Value, Value) {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
     g.machine.glue.set(false);
-    let off = eval(g, &env, term).unwrap();
+    let off = eval(&g.ev(), &env, term).unwrap();
     g.machine.glue.set(true);
-    let on = eval(g, &env, term).unwrap();
+    let on = eval(&g.ev(), &env, term).unwrap();
     g.machine.glue.set(false);
     assert_eq!(
-        format!("{:?}", quote(g, level, &off).unwrap()),
-        format!("{:?}", quote(g, level, &on).unwrap()),
+        format!("{:?}", quote(&g.ev(), level, &off).unwrap()),
+        format!("{:?}", quote(&g.ev(), level, &on).unwrap()),
         "read back the same"
     );
-    assert!(conv(g, level, &off, &on).unwrap(), "convertible");
+    assert!(conv(&g.ev(), level, &off, &on).unwrap(), "convertible");
     (off, on)
 }
 
@@ -109,7 +109,7 @@ fn a_call_with_all_its_arguments_stays_a_call_only_while_gluing() {
         matches!(on, Value::Call(id, _, _) if id == d.double),
         "kept as the call"
     );
-    assert!(matches!(force(g, on).unwrap(), Value::Ctor(..)));
+    assert!(matches!(force(&g.ev(), on).unwrap(), Value::Ctor(..)));
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn a_call_stuck_on_a_variable_unfolds_to_the_folded_definition() {
     let (off, on) = both_ways(g, 1, &term);
     assert!(matches!(off, Value::Neutral(..)));
     assert!(matches!(on, Value::Call(..)));
-    assert!(matches!(force(g, on).unwrap(), Value::Neutral(..)));
+    assert!(matches!(force(&g.ev(), on).unwrap(), Value::Neutral(..)));
 }
 
 #[test]
@@ -128,12 +128,12 @@ fn copies_share_the_unfolding_until_metavariables_are_taken_back() {
     let d = defs();
     let g = &d.p.g;
     g.machine.glue.set(true);
-    let call = eval(g, &[], &app(Term::Def(d.double), [d.p.num(20)])).unwrap();
+    let call = eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(20)])).unwrap();
     g.machine.glue.set(false);
     let copy = call.clone();
     let steps = |v: Value| {
         let before = g.machine.budget.total_work();
-        force(g, v).unwrap();
+        force(&g.ev(), v).unwrap();
         g.machine.budget.total_work() - before
     };
     let first = steps(call.clone());
@@ -157,18 +157,26 @@ fn looking_inside_forces_a_call_everywhere() {
     // Applying a call whose unfolding is a function: `pick 0 5` is `5`.
     let term = app(Term::Def(d.pick), [d.p.num(0), d.p.num(5)]);
     let (off, on) = both_ways(g, 0, &term);
-    assert!(conv(g, 0, &off, &eval(g, &[], &d.p.num(5)).unwrap()).unwrap());
+    assert!(conv(&g.ev(), 0, &off, &eval(&g.ev(), &[], &d.p.num(5)).unwrap()).unwrap());
     assert!(
         matches!(on, Value::Ctor(..)),
         "applied, so unfolded: {on:?}"
     );
     // And applying a glued call value to an argument afterwards.
     g.machine.glue.set(true);
-    let partial = eval(g, &[], &app(Term::Def(d.pick), [d.p.num(1)])).unwrap();
+    let partial = eval(&g.ev(), &[], &app(Term::Def(d.pick), [d.p.num(1)])).unwrap();
     assert!(matches!(partial, Value::Call(..)));
-    let applied = apply(g, partial, eval(g, &[], &d.p.num(5)).unwrap()).unwrap();
+    let applied = apply(&g.ev(), partial, eval(&g.ev(), &[], &d.p.num(5)).unwrap()).unwrap();
     g.machine.glue.set(false);
-    assert!(conv(g, 0, &applied, &eval(g, &[], &d.p.num(0)).unwrap()).unwrap());
+    assert!(
+        conv(
+            &g.ev(),
+            0,
+            &applied,
+            &eval(&g.ev(), &[], &d.p.num(0)).unwrap()
+        )
+        .unwrap()
+    );
 }
 
 #[test]
@@ -180,7 +188,7 @@ fn natives_never_glue() {
     let g = &d.p.g;
     // A native computes on numbers at once, as without gluing.
     g.machine.glue.set(true);
-    let sum = eval(g, &[], &d.p.plus(d.p.num(2), d.p.num(3))).unwrap();
+    let sum = eval(&g.ev(), &[], &d.p.plus(d.p.num(2), d.p.num(3))).unwrap();
     g.machine.glue.set(false);
     assert!(!matches!(sum, Value::Call(..)), "{sum:?}");
 }
@@ -190,16 +198,16 @@ fn natives_never_glue() {
 fn folded(g: &Globals, level: usize, term: &Term) -> Term {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
     g.machine.glue.set(true);
-    let on = eval(g, &env, term).unwrap();
-    let written = quote_folded(g, level, &on).unwrap();
+    let on = eval(&g.ev(), &env, term).unwrap();
+    let written = quote_folded(&g.ev(), level, &on).unwrap();
     g.machine.glue.set(false);
-    let off = eval(g, &env, term).unwrap();
-    let again = eval(g, &env, &written).unwrap();
-    assert!(conv(g, level, &off, &again).unwrap(), "convertible");
+    let off = eval(&g.ev(), &env, term).unwrap();
+    let again = eval(&g.ev(), &env, &written).unwrap();
+    assert!(conv(&g.ev(), level, &off, &again).unwrap(), "convertible");
     // Without gluing there are no calls: folded is the normal form.
     assert_eq!(
-        format!("{:?}", quote_folded(g, level, &off).unwrap()),
-        format!("{:?}", quote(g, level, &off).unwrap()),
+        format!("{:?}", quote_folded(&g.ev(), level, &off).unwrap()),
+        format!("{:?}", quote(&g.ev(), level, &off).unwrap()),
     );
     written
 }
@@ -252,7 +260,7 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
     use stitchwort_core::unify_index::{Scope, occurs};
     let d = defs();
     let g = &d.p.g;
-    let nat = eval(g, &[], &d.p.nat_ty()).unwrap();
+    let nat = eval(&g.ev(), &[], &d.p.nat_ty()).unwrap();
     let scope = Scope {
         env: vec![Value::var(0)],
         types: vec![nat],
@@ -261,19 +269,19 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
     };
     g.machine.glue.set(true);
     let big = d.p.num(2_000);
-    let closed = eval(g, &[], &app(Term::Def(d.double), [big])).unwrap();
+    let closed = eval(&g.ev(), &[], &app(Term::Def(d.double), [big])).unwrap();
     assert!(matches!(closed, Value::Call(..)));
     let before = g.machine.budget.total_work();
-    let found = occurs(g, &scope, 0, &closed).unwrap();
+    let found = occurs(&g.ev(), &scope, 0, &closed).unwrap();
     let steps = g.machine.budget.total_work() - before;
     let env = [Value::var(0)];
-    let on_y = eval(g, &env, &app(Term::Def(d.double), [v(0)])).unwrap();
+    let on_y = eval(&g.ev(), &env, &app(Term::Def(d.double), [v(0)])).unwrap();
     let succ_y = Term::ctor(d.p.nat, 1, vec![v(0)]);
-    let dropped = eval(g, &env, &app(Term::Def(d.is_zero), [succ_y])).unwrap();
+    let dropped = eval(&g.ev(), &env, &app(Term::Def(d.is_zero), [succ_y])).unwrap();
     assert!(matches!(dropped, Value::Call(..)));
     let (on_y, dropped) = (
-        occurs(g, &scope, 0, &on_y).unwrap(),
-        occurs(g, &scope, 0, &dropped).unwrap(),
+        occurs(&g.ev(), &scope, 0, &on_y).unwrap(),
+        occurs(&g.ev(), &scope, 0, &dropped).unwrap(),
     );
     g.machine.glue.set(false);
     assert!(!found);

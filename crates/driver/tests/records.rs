@@ -74,13 +74,13 @@ fn the_record_flag_is_hashed() {
         .machine
         .budget
         .operation(stitchwort_core::Limits::default());
-    let ha = data_hash(ga, r).unwrap();
+    let ha = data_hash(&ga.ev(), r).unwrap();
     drop(_op);
     let _op = gb
         .machine
         .budget
         .operation(stitchwort_core::Limits::default());
-    let hb = data_hash(gb, d).unwrap();
+    let hb = data_hash(&gb.ev(), d).unwrap();
     assert!(ha.is_some() && hb.is_some());
     assert_ne!(
         ha, hb,
@@ -174,7 +174,7 @@ fn projections_and_equality_are_generated() {
             .iter()
             .find(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}`"));
-        stitchwort_core::pretty::term(g, &[], def.ty())
+        stitchwort_core::pretty::term(&g.ev(), &[], def.ty())
     };
     assert_eq!(shown("Person.age"), "Person → Nat");
     assert_eq!(

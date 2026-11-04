@@ -248,7 +248,7 @@ fn instantiate(g: &Globals, body: &Term, value: &Term) -> Result<Term> {
         Ok(if ix < d {
             Term::Var(ix)
         } else if ix == d {
-            value.shift(g, d, 0)?
+            value.shift(&g.ev(), d, 0)?
         } else {
             Term::Var(ix - 1)
         })
@@ -514,8 +514,8 @@ impl Plan {
     ) -> Result<Term> {
         let n = self.n();
         let inner = depth + n + 1;
-        let fuel = fuel.shift(g, n + 1, 0)?;
-        let hyp = hyp.shift(g, n + 1, 0)?;
+        let fuel = fuel.shift(&g.ev(), n + 1, 0)?;
+        let hyp = hyp.shift(&g.ev(), n + 1, 0)?;
         let glue = self.glue(g, inner, depth, Term::Var(0), &fuel, hyp, level)?;
         let call = apps(
             Term::Def(go),
@@ -575,7 +575,7 @@ impl Plan {
         let n = self.n();
         let inner = depth + n + 1;
         let ys = |l: usize| depth + l;
-        let up = |t: &Term, by: usize| t.shift(g, by, 0);
+        let up = |t: &Term, by: usize| t.shift(&g.ev(), by, 0);
         let m1y = self.measure_at(g, inner, &ys)?;
         let m2y = self.second_at(g, inner, &ys)?;
         let m1x = self.measure_at(g, inner, level)?;
@@ -1744,7 +1744,7 @@ fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Res
     let r_go = plan.rec_lam(g, go, n, &m_x, &refl_x, &id)?;
     // e: y… p => irrel (m x) (Succ (m y)) y… (glue p (leRefl (m x))) (leRefl (m y))
     let inner = n + n + 1;
-    let m_x_in = m_x.shift(g, n + 1, 0)?;
+    let m_x_in = m_x.shift(&g.ev(), n + 1, 0)?;
     let m_y_in = plan.measure_at(g, inner, &|l| n + l)?;
     let e = {
         let call = apps(
@@ -1759,7 +1759,7 @@ fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Res
                         n,
                         Term::Var(0),
                         &m_x_in,
-                        refl_x.shift(g, n + 1, 0)?,
+                        refl_x.shift(&g.ev(), n + 1, 0)?,
                         &id,
                     )?,
                     Term::app(Term::Def(plan.p.le_refl), m_y_in),
@@ -1813,7 +1813,7 @@ impl Elaborator {
                 binders.push(Binder {
                     name: "r2".into(),
                     icit: b.icit,
-                    ty: b.ty.shift(g, 1, 0)?,
+                    ty: b.ty.shift(&g.ev(), 1, 0)?,
                 });
                 // e: y… (p: P) -> r1 y… p = r2 y… p
                 let ys = arity - 1;
@@ -1974,8 +1974,8 @@ impl Elaborator {
         let mut sites = Vec::new();
         let tpl = self.template(st, &t, leaf, &mut sites, span)?;
         let g = &self.globals;
-        let ty2 = ty.shift(g, 2, 0)?;
-        let orig2 = t.shift(g, 2, 0)?;
+        let ty2 = ty.shift(&g.ev(), 2, 0)?;
+        let orig2 = t.shift(&g.ev(), 2, 0)?;
         let mut proof = Term::Refl;
         for i in 0..sites.len() {
             let choose = |j: usize| match j.cmp(&i) {
@@ -2455,7 +2455,7 @@ fn leaf_lambda(t: &Term) -> bool {
 /// starts with applied: the callback's body under the premise's binders.
 fn beta(g: &Globals, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
     let k = binders.len();
-    let mut t = c.shift(g, k, 0)?;
+    let mut t = c.shift(&g.ev(), k, 0)?;
     for (j, (_, icit)) in binders.iter().enumerate() {
         let x = Term::Var(k - 1 - j);
         let mut head = &t;
@@ -2479,7 +2479,7 @@ fn substitute(g: &Globals, t: &Term, env: &[Term]) -> Result<Term> {
             Ok(Term::Var(ix))
         } else {
             let level = n - 1 - (ix - d);
-            Ok(env[level].shift(g, d, 0)?)
+            Ok(env[level].shift(&g.ev(), d, 0)?)
         }
     })
 }
@@ -2522,11 +2522,11 @@ fn rebuild(
     g.machine.budget.nesting(PASS)?;
     let go = |t: &Tpl| rebuild(g, t, sites, leaf, choose, shift, hole);
     Ok(match tpl {
-        Tpl::Plain(t) => t.shift(g, shift, 0)?,
+        Tpl::Plain(t) => t.shift(&g.ev(), shift, 0)?,
         Tpl::Site(i) => match choose(*i) {
-            Choice::Pre => sites[*i].pre.shift(g, shift, 0)?,
+            Choice::Pre => sites[*i].pre.shift(&g.ev(), shift, 0)?,
             Choice::Post => {
-                rename(g, &sites[*i].pre, leaf.depth, leaf.r1, leaf.r2)?.shift(g, shift, 0)?
+                rename(g, &sites[*i].pre, leaf.depth, leaf.r1, leaf.r2)?.shift(&g.ev(), shift, 0)?
             }
             Choice::Hole => hole.clone(),
         },
@@ -2570,7 +2570,7 @@ fn rebuild(
                 Choice::Pre => false,
                 Choice::Post => true,
             };
-            let mut term = head.shift(g, shift, 0)?;
+            let mut term = head.shift(&g.ev(), shift, 0)?;
             for a in args {
                 let (a, icit) = match a {
                     CongArg::Ordinary(t, icit) => (go(t)?, *icit),
@@ -2580,7 +2580,7 @@ fn rebuild(
                         } else {
                             c.clone()
                         };
-                        (c.shift(g, shift, 0)?, *icit)
+                        (c.shift(&g.ev(), shift, 0)?, *icit)
                     }
                 };
                 term = Term::app_icit(term, a, icit);
@@ -2596,7 +2596,9 @@ fn rebuild(
                 .map(|f| Ok(Rc::new(go(f)?)))
                 .collect::<Result<_>>()?,
         ),
-        Tpl::Ann(inner, ty) => Term::Ann(Rc::new(go(inner)?), Rc::new(ty.shift(g, shift, 0)?)),
+        Tpl::Ann(inner, ty) => {
+            Term::Ann(Rc::new(go(inner)?), Rc::new(ty.shift(&g.ev(), shift, 0)?))
+        }
         Tpl::Loc(span, inner) => Term::Loc(*span, Rc::new(go(inner)?)),
     })
 }
@@ -2725,7 +2727,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     };
     // In the obligation's context, where a case may have refined the parameters.
     let env: Vec<Value> = cx.env[..header].to_vec();
-    let Ok(old) = eval(g, &env, &measure) else {
+    let Ok(old) = eval(&g.ev(), &env, &measure) else {
         return error;
     };
     // Is the goal `_ < m x`?
@@ -2733,8 +2735,12 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         let meta = cx.fresh_meta();
         let new = cx.eval(&meta)?;
         let shape = stitchwort_core::value::apply(
-            cx.g(),
-            stitchwort_core::value::apply(cx.g(), eval(cx.g(), &[], &Term::Def(less))?, new)?,
+            &cx.g().ev(),
+            stitchwort_core::value::apply(
+                &cx.g().ev(),
+                eval(&cx.g().ev(), &[], &Term::Def(less))?,
+                new,
+            )?,
             old.clone(),
         )?;
         if cx.unify(goal, &shape)? {
@@ -2772,7 +2778,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
         if name.starts_with('%') || name.is_empty() {
             continue;
         }
-        if let Ok(Value::Eq(..)) = force(cx.g(), cx.types[level].clone()) {
+        if let Ok(Value::Eq(..)) = force(&cx.g().ev(), cx.types[level].clone()) {
             hypotheses.push(format!("`{name}: {}`", cx.show(&cx.types[level].clone())));
         }
     }
@@ -2786,7 +2792,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
 /// [`explain_obligation`] for a pair: the goal is `Nat.LexLess n1 n2 o1 o2`.
 fn explain_lex(cx: &mut Ctx, goal: &Value, error: Diagnostic) -> Diagnostic {
     let lex = cx.g().env.registry().data(Builtin::LexLess);
-    let params = match force(cx.g(), goal.clone()) {
+    let params = match force(&cx.g().ev(), goal.clone()) {
         Ok(Value::Data(d, params)) if Some(d) == lex && params.len() == 4 => params,
         _ => return error,
     };
@@ -3131,7 +3137,7 @@ fn lex_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result
 /// reading the goal's own arguments instead of the solved metavariable
 /// keeps `n / 2` from showing as its unfolding, `Nat.divFuel n n 2`.
 fn folded_new_measure(cx: &Ctx, goal: &Value, less: DefId) -> Option<Value> {
-    let goal = stitchwort_core::value::force_solved(cx.g(), goal.clone()).ok()?;
+    let goal = stitchwort_core::value::force_solved(&cx.g().ev(), goal.clone()).ok()?;
     let spine = match &goal {
         Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) if *id == less => spine,
         _ => return None,

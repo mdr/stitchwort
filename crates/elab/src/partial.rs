@@ -117,9 +117,9 @@ impl Elaborator {
         let mut ty = g.def(id).ty_value().clone();
         let mut level = 0;
         loop {
-            match force(g, ty)? {
+            match force(&g.ev(), ty)? {
                 Value::Pi(_, _, _, cod) if level < n => {
-                    ty = cod.apply(g, Value::var(level))?;
+                    ty = cod.apply(&g.ev(), Value::var(level))?;
                     level += 1;
                 }
                 Value::Neutral(Head::Def(d), spine) => return Ok(d == delay && spine.len() == 3),
@@ -146,12 +146,12 @@ impl Elaborator {
         };
         let (mut ty, mut level, mut seen) = (g.def(id).ty_value().clone(), 0, 0);
         loop {
-            match force(g, ty)? {
+            match force(&g.ev(), ty)? {
                 Value::Pi(_, icit, _, cod) if icit.is_implicit() || seen < explicit => {
                     if !icit.is_implicit() {
                         seen += 1;
                     }
-                    ty = cod.apply(g, Value::var(level))?;
+                    ty = cod.apply(&g.ev(), Value::var(level))?;
                     level += 1;
                 }
                 _ => return Ok(level),
@@ -323,7 +323,7 @@ impl Elaborator {
                     Ok(stitchwort_core::term::Branch {
                         names: m.params[f..].iter().map(|p| p.name.clone()).collect(),
                         // From (fixed, changing) to (fixed, r, changing).
-                        body: Some(Rc::new(m.result.shift(&self.globals, 1, c)?)),
+                        body: Some(Rc::new(m.result.shift(&self.globals.ev(), 1, c)?)),
                     })
                 })
                 .collect::<Result<_>>()?;
@@ -467,7 +467,7 @@ impl Elaborator {
                 let mut ans = Value::Neutral(Head::Def(response), Spine::new());
                 for (i, p) in fixed_params.iter().enumerate() {
                     ans = stitchwort_core::value::apply_icit(
-                        &self.globals,
+                        &self.globals.ev(),
                         ans,
                         Value::var(i),
                         p.icit,
@@ -548,8 +548,8 @@ impl Elaborator {
         self.unit.module.item = Some(members[0].0);
         let body_id = {
             let depth = f + 1;
-            let ops = ops_fixed.0.shift(&self.globals, 1, 0)?;
-            let res = ops_fixed.1.shift(&self.globals, 1, 0)?;
+            let ops = ops_fixed.0.shift(&self.globals.ev(), 1, 0)?;
+            let res = ops_fixed.1.shift(&self.globals.ev(), 1, 0)?;
             let result = Term::app(response_at(depth), Term::Var(0));
             let (ty, _, _) = described(depth, ops, res, result);
             let ty = pis(
@@ -641,22 +641,22 @@ impl Elaborator {
         let mut params = Vec::new();
         let mut ty = g.def(id).ty_value().clone();
         for level in 0..n {
-            let Value::Pi(x, icit, dom, cod) = force(g, ty)? else {
+            let Value::Pi(x, icit, dom, cod) = force(&g.ev(), ty)? else {
                 unreachable!("`entry_params` counted these")
             };
             params.push(Param {
                 name: x,
                 icit,
-                ty: quote(g, level, &dom)?,
+                ty: quote(&g.ev(), level, &dom)?,
             });
-            ty = cod.apply(g, Value::var(level))?;
+            ty = cod.apply(&g.ev(), Value::var(level))?;
         }
-        let Value::Neutral(_, spine) = force(g, ty)? else {
+        let Value::Neutral(_, spine) = force(&g.ev(), ty)? else {
             unreachable!("a partial member's result is a `Delay`")
         };
         let arg = |i: usize| -> Result<Term> {
             match &spine[i] {
-                Elim::App(v, _) => Ok(quote(g, n, v)?),
+                Elim::App(v, _) => Ok(quote(&g.ev(), n, v)?),
                 Elim::J { .. } => unreachable!("a `Delay` is applied to its arguments"),
             }
         };
@@ -678,10 +678,10 @@ impl Elaborator {
         let g = &self.globals;
         let (mut level, mut ty) = (level, ty.clone());
         loop {
-            match force(g, ty)? {
+            match force(&g.ev(), ty)? {
                 Value::Sort(_) => return Ok(true),
                 Value::Pi(_, _, _, cod) => {
-                    ty = cod.apply(g, Value::var(level))?;
+                    ty = cod.apply(&g.ev(), Value::var(level))?;
                     level += 1;
                 }
                 Value::Data(d, _) => return Ok(matches!(g.data(d).sort(), Sort::Type(i) if i > 0)),
@@ -700,7 +700,7 @@ impl Elaborator {
             let mut env = Vec::new();
             let mut count = None;
             for (i, p) in m.params.iter().enumerate() {
-                let ty = eval(g, &env, &p.ty)?;
+                let ty = eval(&g.ev(), &env, &p.ty)?;
                 let large = self.is_large(i, &ty)?;
                 match (large, count) {
                     (true, None) => {}
@@ -733,10 +733,10 @@ impl Elaborator {
                 if !same {
                     break;
                 }
-                let a = eval(g, &env, &infos[0].params[i].ty)?;
-                let b = eval(g, &env, &m.params[i].ty)?;
+                let a = eval(&g.ev(), &env, &infos[0].params[i].ty)?;
+                let b = eval(&g.ev(), &env, &m.params[i].ty)?;
                 same = infos[0].params[i].icit == m.params[i].icit
-                    && stitchwort_core::value::conv(g, i, &a, &b)?;
+                    && stitchwort_core::value::conv(&g.ev(), i, &a, &b)?;
                 env.push(Value::var(i));
             }
             if !same {
@@ -779,15 +779,15 @@ impl Elaborator {
                 ));
             }
             let env: Vec<Value> = (0..m.params.len()).map(Value::var).collect();
-            let ops = eval(g, &env, &m.ops)?;
-            let res = eval(g, &env, &m.res)?;
+            let ops = eval(&g.ev(), &env, &m.ops)?;
+            let res = eval(&g.ev(), &env, &m.res)?;
             match &shared {
                 None => {
-                    shared = Some((quote(g, f, &ops)?, quote(g, f, &res)?, ops, res));
+                    shared = Some((quote(&g.ev(), f, &ops)?, quote(&g.ev(), f, &res)?, ops, res));
                 }
                 Some((_, _, ops0, res0)) => {
-                    let same = stitchwort_core::value::conv(g, f, ops0, &ops)?
-                        && stitchwort_core::value::conv(g, f, res0, &res)?;
+                    let same = stitchwort_core::value::conv(&g.ev(), f, ops0, &ops)?
+                        && stitchwort_core::value::conv(&g.ev(), f, res0, &res)?;
                     if !same {
                         return Err(Diagnostic::error(
                             "E-PARTIAL-NONUNIFORM",

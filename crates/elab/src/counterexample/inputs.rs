@@ -219,11 +219,11 @@ impl<'g> Inputs<'g> {
     /// The plan for closed type `ty`, if it has inputs.
     pub fn plan(&mut self, ty: &Value) -> Option<usize> {
         let g = self.g;
-        let ty = force(g, ty.clone()).ok()?;
+        let ty = force(&g.ev(), ty.clone()).ok()?;
         let Value::Data(d, args) = &ty else {
             return None;
         };
-        let key = stitchwort_core::pretty::term(g, &[], &quote(g, 0, &ty).ok()?);
+        let key = stitchwort_core::pretty::term(&g.ev(), &[], &quote(&g.ev(), 0, &ty).ok()?);
         if let Some(&plan) = self.keys.get(&key) {
             return match self.plans[plan] {
                 Plan::Failed => None,
@@ -273,7 +273,7 @@ impl<'g> Inputs<'g> {
     fn fin_plan(&mut self, args: &[Value]) -> Option<Plan> {
         let g = self.g;
         let [n] = args else { return None };
-        let Value::Nat(n) = force(g, n.clone()).ok()? else {
+        let Value::Nat(n) = force(&g.ev(), n.clone()).ok()? else {
             return None;
         };
         let of_nat_lt = g.env.registry().loaded_def(Builtin::FinOfNatLt)?;
@@ -289,7 +289,7 @@ impl<'g> Inputs<'g> {
         let g = self.g;
         let data = g.data(d);
         let [a, n] = args else { return None };
-        let Value::Nat(n) = force(g, n.clone()).ok()? else {
+        let Value::Nat(n) = force(&g.ev(), n.clone()).ok()? else {
             return None;
         };
         let n = usize::try_from(n.as_ref()).ok().filter(|n| *n <= MAX_VEC)?;
@@ -343,7 +343,7 @@ impl<'g> Inputs<'g> {
         // `Map.fromList`'s implicit arguments, by name: the map's
         // parameters.
         let mut head = Term::Def(from_list);
-        let mut ty = force(g, g.def(from_list).ty_value().clone()).ok()?;
+        let mut ty = force(&g.ev(), g.def(from_list).ty_value().clone()).ok()?;
         let mut explicit = 0;
         while let Value::Pi(x, icit, _, cod) = ty.clone() {
             if icit == Icit::Explicit {
@@ -351,8 +351,8 @@ impl<'g> Inputs<'g> {
                 break;
             }
             let at = params.iter().position(|(p, _)| *p == x)?;
-            head = Term::app_icit(head, quote(g, 0, &args[at]).ok()?, icit);
-            ty = force(g, cod.apply(g, args[at].clone()).ok()?).ok()?;
+            head = Term::app_icit(head, quote(&g.ev(), 0, &args[at]).ok()?, icit);
+            ty = force(&g.ev(), cod.apply(&g.ev(), args[at].clone()).ok()?).ok()?;
         }
         if explicit != 1 || args.len() < 2 {
             return None;
@@ -397,7 +397,7 @@ impl<'g> Inputs<'g> {
                     if (0..j).any(|ix| field_ty.mentions(ix)) {
                         return None;
                     }
-                    let field = eval(g, &env, field_ty).ok()?;
+                    let field = eval(&g.ev(), &env, field_ty).ok()?;
                     fields.push(Field::Data(self.plan(&field)?));
                 }
                 env.push(Value::var(args.len() + j));
@@ -425,7 +425,7 @@ impl<'g> Inputs<'g> {
     /// or a conjunction of them.
     fn decidable(&self, env: &[Value], prop: &Term) -> bool {
         let g = self.g;
-        let Ok(value) = eval(g, env, prop).and_then(|v| force(g, v)) else {
+        let Ok(value) = eval(&g.ev(), env, prop).and_then(|v| force(&g.ev(), v)) else {
             return false;
         };
         self.decidable_value(&value, 0)
@@ -435,9 +435,11 @@ impl<'g> Inputs<'g> {
         let g = self.g;
         match value {
             Value::Eq(..) => true,
-            Value::Data(d, args) if depth < 8 && g.env.registry().is_data(Builtin::And, *d) => args
-                .iter()
-                .all(|a| force(g, a.clone()).is_ok_and(|a| self.decidable_value(&a, depth + 1))),
+            Value::Data(d, args) if depth < 8 && g.env.registry().is_data(Builtin::And, *d) => {
+                args.iter().all(|a| {
+                    force(&g.ev(), a.clone()).is_ok_and(|a| self.decidable_value(&a, depth + 1))
+                })
+            }
             Value::Data(d, _) => g.env.registry().is_data(Builtin::Unit, *d),
             _ => false,
         }
@@ -448,9 +450,9 @@ impl<'g> Inputs<'g> {
     /// its proofs.
     fn proof(&self, prop: Value, depth: usize) -> Option<Term> {
         let g = self.g;
-        let prop = force(g, prop).ok()?;
+        let prop = force(&g.ev(), prop).ok()?;
         match prop {
-            Value::Eq(_, a, b) => conv(g, 0, &a, &b).ok()?.then_some(Term::Refl),
+            Value::Eq(_, a, b) => conv(&g.ev(), 0, &a, &b).ok()?.then_some(Term::Refl),
             Value::Data(d, args) if depth < 8 && g.env.registry().is_data(Builtin::And, d) => {
                 let parts = args
                     .into_iter()
@@ -486,11 +488,11 @@ impl<'g> Inputs<'g> {
             match field {
                 Field::Data(_) => {
                     let part = parts.next()?;
-                    env.push(eval(g, &[], &part).ok()?);
+                    env.push(eval(&g.ev(), &[], &part).ok()?);
                     out.push(part);
                 }
                 Field::Proof(prop) => {
-                    let proof = self.proof(eval(g, &env, prop).ok()?, 0)?;
+                    let proof = self.proof(eval(&g.ev(), &env, prop).ok()?, 0)?;
                     env.push(stitchwort_core::erase::erased());
                     out.push(proof);
                 }

@@ -27,16 +27,16 @@ enum Evaluator {
 /// `term` evaluated in `env` by `evaluator`, with the natives as they are.
 fn eval(g: &Globals, env: &[Value], term: &Term, evaluator: Evaluator) -> Value {
     match evaluator {
-        Evaluator::Machine => value::eval(g, env, term).expect("no limits"),
-        Evaluator::Reference => reference::eval(g, env, term).expect("no limits"),
+        Evaluator::Machine => value::eval(&g.ev(), env, term).expect("no limits"),
+        Evaluator::Reference => reference::eval(&g.ev(), env, term).expect("no limits"),
     }
 }
 
 /// Whether `a` and `b` are convertible, by `evaluator`'s own conversion.
 fn conv(g: &Globals, level: usize, a: &Value, b: &Value, evaluator: Evaluator) -> bool {
     match evaluator {
-        Evaluator::Machine => value::conv(g, level, a, b).expect("no limits"),
-        Evaluator::Reference => reference::conv(g, level, a, b).expect("no limits"),
+        Evaluator::Machine => value::conv(&g.ev(), level, a, b).expect("no limits"),
+        Evaluator::Reference => reference::conv(&g.ev(), level, a, b).expect("no limits"),
     }
 }
 
@@ -45,7 +45,7 @@ fn conv(g: &Globals, level: usize, a: &Value, b: &Value, evaluator: Evaluator) -
 fn shown(g: &Globals, level: usize, value: &Value) -> String {
     format!(
         "{:?}",
-        reference::quote(g, level, value).expect("no limits")
+        reference::quote(&g.ev(), level, value).expect("no limits")
     )
 }
 
@@ -102,7 +102,10 @@ fn num(n: u64) -> Term {
 fn nat_add_is_the_pinned_declaration() {
     let session = Session::new();
     let g = &session.elab.globals;
-    assert_eq!(nat_add::add_hash(g).as_deref(), Some(nat_add::NAT_ADD_HASH));
+    assert_eq!(
+        nat_add::add_hash(&g.ev()).as_deref(),
+        Some(nat_add::NAT_ADD_HASH)
+    );
     assert_eq!(g.env.builtins().nat_add_rule, Some(add_id(g)));
 }
 
@@ -115,7 +118,7 @@ fn the_critical_pairs_join() {
     with_stack(STACK, || {
         let mut session = Session::new();
         let g = &mut session.elab.globals;
-        let pairs = nat_add::critical_pairs(g, add_id(g)).expect("`Nat` is bound");
+        let pairs = nat_add::critical_pairs(&g.ev(), add_id(g)).expect("`Nat` is bound");
         assert_eq!(pairs.len(), 4);
         // `m` and `n` are levels 0 and 1, a number, or `3 + x` with `x` level 2.
         let x = Value::var(2);
@@ -268,12 +271,12 @@ fn stuck_sums_compute_on_their_second_argument() {
         // `x + 3` with the natives on is the compact `3 + x`, as `3 + x` is;
         // and so is `x + 10^30`, in one step (with the natives off too, but
         // then `10^30 + x` would count down).
-        let value = value::eval(g, &env, &plus(x(), num(3))).expect("no limits");
+        let value = value::eval(&g.ev(), &env, &plus(x(), num(3))).expect("no limits");
         assert!(matches!(value, Value::NatAdd(..)), "{value:?}");
-        let value = value::eval(g, &env, &plus(x(), big())).expect("no limits");
-        let expected = value::eval(g, &env, &plus(big(), x())).expect("no limits");
+        let value = value::eval(&g.ev(), &env, &plus(x(), big())).expect("no limits");
+        let expected = value::eval(&g.ev(), &env, &plus(big(), x())).expect("no limits");
         assert!(matches!(value, Value::NatAdd(..)), "{value:?}");
-        assert!(value::conv(g, 2, &value, &expected).expect("no limits"));
+        assert!(value::conv(&g.ev(), 2, &value, &expected).expect("no limits"));
     });
 }
 
@@ -388,19 +391,25 @@ fn stuck_sums_are_printed_as_written() {
         (plus(x(), y()), "x + y", plus(x(), y())),
     ];
     for (term, printed, kernel) in &cases {
-        let v = value::eval(g, &env, term).expect("no limits");
-        assert_eq!(stitchwort_core::pretty::value(g, &names, &v), *printed);
+        let v = value::eval(&g.ev(), &env, term).expect("no limits");
         assert_eq!(
-            stitchwort_core::pretty::value_for_message(g, &names, &v),
+            stitchwort_core::pretty::value(&g.ev(), &names, &v),
             *printed
         );
         assert_eq!(
-            format!("{:?}", value::quote(g, 2, &v).expect("no limits")),
+            stitchwort_core::pretty::value_for_message(&g.ev(), &names, &v),
+            *printed
+        );
+        assert_eq!(
+            format!("{:?}", value::quote(&g.ev(), 2, &v).expect("no limits")),
             format!("{kernel:?}"),
             "the kernel's readback of {printed}"
         );
         assert_eq!(
-            format!("{:?}", value::quote_folded(g, 2, &v).expect("no limits")),
+            format!(
+                "{:?}",
+                value::quote_folded(&g.ev(), 2, &v).expect("no limits")
+            ),
             format!("{kernel:?}"),
             "the elaborator's readback of {printed}"
         );

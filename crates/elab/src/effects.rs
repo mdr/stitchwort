@@ -209,14 +209,18 @@ fn label_res(cx: &Ctx, label: &Label) -> Result<Value> {
         // `RecRes [A] B`.
         let rec = cx.e.decl.recursion.as_ref().expect("only while describing");
         let f = Value::Neutral(Head::Def(def(cx, Builtin::RecRes)?), Spine::new());
-        let f =
-            stitchwort_core::value::apply_icit(cx.g(), f, label.args[0].clone(), Icit::Implicit)?;
-        return Ok(apply(cx.g(), f, rec.ans.clone())?);
+        let f = stitchwort_core::value::apply_icit(
+            &cx.g().ev(),
+            f,
+            label.args[0].clone(),
+            Icit::Implicit,
+        )?;
+        return Ok(apply(&cx.g().ev(), f, rec.ans.clone())?);
     }
     let info = &cx.e.tables.abilities[label.ability];
     let mut f = Value::Neutral(Head::Def(info.res), Spine::new());
     for a in &label.args {
-        f = apply(cx.g(), f, a.clone())?;
+        f = apply(&cx.g().ev(), f, a.clone())?;
     }
     Ok(f)
 }
@@ -226,7 +230,7 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
     let g = cx.g();
     let mut value = match &row.tail {
         Some(e) => apply(
-            g,
+            &g.ev(),
             Value::Neutral(Head::Def(def(cx, Builtin::RowOp)?), Spine::new()),
             e.clone(),
         )?,
@@ -244,7 +248,7 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     let g = cx.g();
     let mut value = match &row.tail {
         Some(e) => apply(
-            g,
+            &g.ev(),
             Value::Neutral(Head::Def(def(cx, Builtin::RowRes)?), Spine::new()),
             e.clone(),
         )?,
@@ -254,10 +258,10 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     for (i, label) in row.labels.iter().enumerate().rev() {
         let rest_ops = ops(cx, &row.suffix(i + 1))?;
         let mut f = Value::Neutral(Head::Def(plus_res), Spine::new());
-        f = stitchwort_core::value::apply_icit(g, f, label_ops(cx, label), Icit::Implicit)?;
-        f = stitchwort_core::value::apply_icit(g, f, rest_ops, Icit::Implicit)?;
-        f = apply(g, f, label_res(cx, label)?)?;
-        value = apply(g, f, value)?;
+        f = stitchwort_core::value::apply_icit(&g.ev(), f, label_ops(cx, label), Icit::Implicit)?;
+        f = stitchwort_core::value::apply_icit(&g.ev(), f, rest_ops, Icit::Implicit)?;
+        f = apply(&g.ev(), f, label_res(cx, label)?)?;
+        value = apply(&g.ev(), f, value)?;
     }
     Ok(value)
 }
@@ -271,21 +275,21 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
         let rv = row_value(cx, &row.without_div())?;
         let mut ty = Value::Neutral(Head::Def(def(cx, Builtin::CompD)?), Spine::new());
         for arg in [d.clone(), rv, t] {
-            ty = apply(cx.g(), ty, arg)?;
+            ty = apply(&cx.g().ev(), ty, arg)?;
         }
         return Ok(ty);
     }
     if row.is_bare() {
         let tail = row.tail.clone().expect("a bare row has a tail");
         let comp_in = Value::Neutral(Head::Def(def(cx, Builtin::CompIn)?), Spine::new());
-        let applied = apply(cx.g(), comp_in, tail)?;
-        return Ok(apply(cx.g(), applied, t)?);
+        let applied = apply(&cx.g().ev(), comp_in, tail)?;
+        return Ok(apply(&cx.g().ev(), applied, t)?);
     }
     if row.partial {
         let delay = primitive(cx, Primitive::Delay)?;
         let mut ty = Value::Neutral(Head::Def(delay), Spine::new());
         for arg in [ops(cx, row)?, res(cx, row)?, t] {
-            ty = apply(cx.g(), ty, arg)?;
+            ty = apply(&cx.g().ev(), ty, arg)?;
         }
         return Ok(ty);
     }
@@ -316,7 +320,7 @@ enum DivState {
 
 fn div_state(cx: &Ctx, d: &Value) -> Result<DivState> {
     let g = cx.g();
-    Ok(match force(g, d.clone())? {
+    Ok(match force(&g.ev(), d.clone())? {
         Value::Ctor(dd, c, _) if g.env.registry().ctor(Builtin::DivTotal) == Some((dd, c)) => {
             DivState::Total
         }
@@ -369,7 +373,7 @@ fn decode_row_value(cx: &Ctx, rv: &Value) -> Result<Option<Row>> {
     ) else {
         return Ok(None);
     };
-    Ok(match force(g, rv.clone())? {
+    Ok(match force(&g.ev(), rv.clone())? {
         Value::Ctor(d, c, _) if (d, c) == empty => Some(Row::empty()),
         Value::Ctor(d, c, fields) if (d, c) == ops_ctor => decode(cx, &fields[0])?,
         Value::Ctor(..) => None,
@@ -428,11 +432,11 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
         None => None,
     };
     let mut labels = Vec::new();
-    let mut value = force(g, op_type.clone())?;
+    let mut value = force(&g.ev(), op_type.clone())?;
     loop {
         match value {
             Value::Data(d, args) if d == plus => {
-                match force(g, args[0].clone())? {
+                match force(&g.ev(), args[0].clone())? {
                     Value::Data(od, oargs) if Some(od) == rec => labels.push(Label {
                         ability: REC,
                         args: oargs,
@@ -446,7 +450,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                     },
                     _ => return Ok(None),
                 }
-                value = force(g, args[1].clone())?;
+                value = force(&g.ev(), args[1].clone())?;
             }
             Value::Data(d, _) if d == no_op => {
                 no_duplicates(cx, &labels)?;
@@ -461,9 +465,9 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 let stitchwort_core::value::Elim::App(x, _) = &spine[0] else {
                     return Ok(None);
                 };
-                match force(g, x.clone())? {
+                match force(&g.ev(), x.clone())? {
                     Value::Ctor(d, c, fields) if d == row_data && c == ops_ctor => {
-                        value = force(g, fields[0].clone())?
+                        value = force(&g.ev(), fields[0].clone())?
                     }
                     Value::Ctor(d, c, _) if d == row_data && c == empty => {
                         value = Value::Data(no_op, Vec::new())
@@ -527,7 +531,7 @@ pub fn comp_parts_at(cx: &Ctx, level: usize, ty: &Value) -> Result<Option<(Row, 
     let delay = cx.g().env.builtins().primitive_id(Primitive::Delay);
     let comp_in = cx.g().env.registry().def(Builtin::CompIn);
     let comp_d = cx.g().env.registry().def(Builtin::CompD);
-    Ok(match force(cx.g(), ty.clone())? {
+    Ok(match force(&cx.g().ev(), ty.clone())? {
         // Stuck on its divergence index: a variable or an unknown.
         Value::Neutral(Head::Def(d), spine) if Some(d) == comp_d && spine.len() == 3 => {
             match (&spine[0], &spine[1], &spine[2]) {
@@ -678,7 +682,7 @@ fn written_results(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value, Value)>> 
         return Ok(None);
     };
     let delay = cx.g().env.builtins().primitive_id(Primitive::Delay);
-    let (op, written) = match force(cx.g(), ty.clone())? {
+    let (op, written) = match force(&cx.g().ev(), ty.clone())? {
         Value::Data(d, args) if d == comp => (args[0].clone(), args[1].clone()),
         Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
             match (&spine[0], &spine[1]) {
@@ -769,7 +773,7 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
         return Ok(false);
     };
     if !matches!(
-        force(cx.g(), tail.clone())?,
+        force(&cx.g().ev(), tail.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         return Ok(false);
@@ -839,7 +843,7 @@ fn agree(cx: &mut Ctx, a: &Label, b: &Label) -> Result<()> {
 
 /// A partial group's request type, `f.Request ps`, as its parameters `ps`.
 fn show_request(cx: &Ctx, req: &Value) -> String {
-    match force(cx.g(), req.clone()) {
+    match force(&cx.g().ev(), req.clone()) {
         Ok(Value::Data(_, args)) if !args.is_empty() => args
             .iter()
             .map(|a| cx.show(a))
@@ -1228,7 +1232,7 @@ fn align(cx: &mut Ctx, from: &Row, to: &Row) -> Result<(Row, Row)> {
             match row
                 .tail
                 .as_ref()
-                .map(|t| force(cx.g(), t.clone()))
+                .map(|t| force(&cx.g().ev(), t.clone()))
                 .transpose()?
             {
                 Some(Value::Neutral(Head::Meta(m), _)) => Some(m),
@@ -1382,10 +1386,15 @@ fn res_ending(cx: &Ctx, labels: &[Label], end_ops: Value, end_res: Value) -> Res
     for i in (0..labels.len()).rev() {
         let rest_ops = ops_ending(cx, &labels[i + 1..], end_ops.clone())?;
         let mut f = Value::Neutral(Head::Def(plus_res), Spine::new());
-        f = stitchwort_core::value::apply_icit(g, f, label_ops(cx, &labels[i]), Icit::Implicit)?;
-        f = stitchwort_core::value::apply_icit(g, f, rest_ops, Icit::Implicit)?;
-        f = apply(g, f, label_res(cx, &labels[i])?)?;
-        value = apply(g, f, value)?;
+        f = stitchwort_core::value::apply_icit(
+            &g.ev(),
+            f,
+            label_ops(cx, &labels[i]),
+            Icit::Implicit,
+        )?;
+        f = stitchwort_core::value::apply_icit(&g.ev(), f, rest_ops, Icit::Implicit)?;
+        f = apply(&g.ev(), f, label_res(cx, &labels[i])?)?;
+        value = apply(&g.ev(), f, value)?;
     }
     Ok(value)
 }
@@ -1395,7 +1404,7 @@ fn res_ending(cx: &Ctx, labels: &[Label], end_ops: Value, end_res: Value) -> Res
 fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Result<Term> {
     let level = cx.level();
     let quote_at =
-        |depth: usize, v: &Value| stitchwort_core::value::quote(cx.g(), level + depth, v);
+        |depth: usize, v: &Value| stitchwort_core::value::quote(&cx.g().ev(), level + depth, v);
     // `t => Plus A (Plus B … t)`.
     let pre_body = ops_ending(cx, &from.labels, Value::var(level))?;
     let pre = Term::Lam("t".into(), Icit::Explicit, Rc::new(quote_at(1, &pre_body)?));
@@ -1467,7 +1476,7 @@ fn refresh(cx: &Ctx, row: &Row) -> Result<Row> {
 
 fn is_unknown(cx: &Ctx, value: &Value) -> Result<bool> {
     Ok(matches!(
-        force(cx.g(), value.clone())?,
+        force(&cx.g().ev(), value.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ))
 }
@@ -1564,9 +1573,9 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     }
     let g = cx.g();
     let mut level = cx.level();
-    let mut rest = force(g, ty.clone())?;
+    let mut rest = force(&g.ev(), ty.clone())?;
     while let Value::Pi(_, _, _, cod) = rest {
-        rest = force(g, cod.apply(g, Value::var(level))?)?;
+        rest = force(&g.ev(), cod.apply(&g.ev(), Value::var(level))?)?;
         level += 1;
     }
     let Some((row, _)) = comp_parts_at(cx, level, &rest)? else {
@@ -1886,7 +1895,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     }
     let mut values = Vec::new();
     for ((_, param_ty), arg) in params.iter().zip(args) {
-        let ty = stitchwort_core::value::eval(cx.g(), &values, param_ty)?;
+        let ty = stitchwort_core::value::eval(&cx.g().ev(), &values, param_ty)?;
         let term = check(cx, arg, &ty)?;
         values.push(cx.eval(&term)?);
     }
@@ -1909,7 +1918,7 @@ pub fn is_comp_type(cx: &Ctx, ty: &Value) -> Result<bool> {
         return Ok(false);
     };
     let comp_in = cx.g().env.registry().def(Builtin::CompIn);
-    Ok(match force(cx.g(), ty.clone())? {
+    Ok(match force(&cx.g().ev(), ty.clone())? {
         Value::Data(d, _) => d == comp,
         // `CompIn e a` for a row variable or an unknown row, or `CompD d e a`.
         Value::Neutral(Head::Def(d), spine) => {
@@ -1939,14 +1948,14 @@ fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
         if comp_parts_at(cx, level, &ty)?.is_some() {
             return Ok(out);
         }
-        match force(g, ty)? {
+        match force(&g.ev(), ty)? {
             Value::Pi(name, icit, dom, cod) => {
                 out.push(ParamSlot {
                     name: name.clone(),
                     explicit: !icit.is_implicit(),
                     ty: (*dom).clone(),
                 });
-                ty = cod.apply(g, Value::var(level))?;
+                ty = cod.apply(&g.ev(), Value::var(level))?;
                 level += 1;
             }
             _ => return Ok(out),
@@ -1970,7 +1979,7 @@ fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result
     };
     let mut out = Vec::new();
     for (k, (name, ty)) in ctor.fields.iter().enumerate() {
-        let ty = stitchwort_core::value::eval(g, &env, ty)?;
+        let ty = stitchwort_core::value::eval(&g.ev(), &env, ty)?;
         out.push(ParamSlot {
             name: name.clone(),
             explicit: !ctor.implicit.get(k).copied().unwrap_or(false),
@@ -2156,7 +2165,7 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
         Ok(out)
     };
     let expected = match expected {
-        Some(t) => Some(force(cx.g(), t.clone())?),
+        Some(t) => Some(force(&cx.g().ev(), t.clone())?),
         None => None,
     };
     Ok(match expr {
@@ -2476,7 +2485,10 @@ fn unit_call_hint(
         },
         _ => return e,
     };
-    if !matches!(force(cx.g(), ty), Ok(Value::Pi(_, Icit::Explicit, ..))) {
+    if !matches!(
+        force(&cx.g().ev(), ty),
+        Ok(Value::Pi(_, Icit::Explicit, ..))
+    ) {
         return e;
     }
     e.with_note(crate::check::unit_call_note(&function.text, &name.text))
@@ -2485,8 +2497,8 @@ fn unit_call_hint(
 /// Whether `ty` is a function whose first parameter is a function.
 fn takes_function(cx: &Ctx, ty: &Value) -> bool {
     let g = cx.g();
-    match force(g, ty.clone()) {
-        Ok(Value::Pi(_, _, dom, _)) => matches!(force(g, (*dom).clone()), Ok(Value::Pi(..))),
+    match force(&g.ev(), ty.clone()) {
+        Ok(Value::Pi(_, _, dom, _)) => matches!(force(&g.ev(), (*dom).clone()), Ok(Value::Pi(..))),
         _ => false,
     }
 }
@@ -2545,7 +2557,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
         if let Some((row, _)) = comp_parts_at(cx, level, &ty)? {
             return Ok(!(row.is_bare() && cx.e.decl.bare_rows_pure.get()));
         }
-        match force(g, ty)? {
+        match force(&g.ev(), ty)? {
             Value::Pi(_, icit, _, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
@@ -2553,7 +2565,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
                     }
                     explicit -= 1;
                 }
-                ty = cod.apply(g, Value::var(level))?;
+                ty = cod.apply(&g.ev(), Value::var(level))?;
                 level += 1;
             }
             _ => return Ok(false),
@@ -2947,7 +2959,7 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
             return Ok(None);
         }
         let term = crate::check::compare(cx, term, &found, &whole)?;
-        let empty = match force(cx.g(), tail.clone())? {
+        let empty = match force(&cx.g().ev(), tail.clone())? {
             Value::Ctor(d, c, _) => cx.g().env.registry().ctor(Builtin::RowEmpty) == Some((d, c)),
             _ => false,
         };
@@ -3003,9 +3015,11 @@ fn comp_value(cx: &Ctx, expr: &Expr, comp_only: bool) -> Result<bool> {
     let comp = data(cx, Builtin::Comp).ok();
     loop {
         if explicit == 0 && is_comp_type(cx, &ty)? {
-            return Ok(!comp_only || matches!(force(g, ty)?, Value::Data(d, _) if Some(d) == comp));
+            return Ok(
+                !comp_only || matches!(force(&g.ev(), ty)?, Value::Data(d, _) if Some(d) == comp)
+            );
         }
-        match force(g, ty)? {
+        match force(&g.ev(), ty)? {
             Value::Pi(_, icit, _, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
@@ -3013,7 +3027,7 @@ fn comp_value(cx: &Ctx, expr: &Expr, comp_only: bool) -> Result<bool> {
                     }
                     explicit -= 1;
                 }
-                ty = cod.apply(g, Value::var(level))?;
+                ty = cod.apply(&g.ev(), Value::var(level))?;
                 level += 1;
             }
             _ => return Ok(false),
@@ -3234,7 +3248,7 @@ fn plain_value_in_any_row(
 ) -> Result<Option<(Term, Value)>> {
     let expected = match expected {
         Some(t) if is_comp_type(cx, t)? => return Ok(None),
-        Some(t) => Some(force(cx.g(), t.clone())?),
+        Some(t) => Some(force(&cx.g().ev(), t.clone())?),
         None => None,
     };
     let plain = |cx: &mut Ctx| match &expected {
@@ -4207,7 +4221,7 @@ fn is_proposition(e: &Expr) -> bool {
 }
 
 fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
-    Ok(matches!(force(cx.g(), ty.clone())?,
+    Ok(matches!(force(&cx.g().ev(), ty.clone())?,
         Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d)))
 }
 
@@ -4271,7 +4285,7 @@ fn op_call(
     let label = row.labels[pos].clone();
     let op_data = info.op_data;
     let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
-    let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
+    let dom = stitchwort_core::value::eval(&cx.g().ev(), &label.args, &field_ty)?;
 
     let make = |cx: &mut Ctx, x: Term| make_call(cx, op_data, i, &label, pos, row, x);
 
@@ -4315,14 +4329,14 @@ fn make_call(
 ) -> Result<(Term, Value)> {
     let x_value = cx.eval(&x)?;
     let op_value = Value::Ctor(op_data, i, [x_value].into());
-    let result_ty = apply(cx.g(), label_res(cx, label)?, op_value)?;
+    let result_ty = apply(&cx.g().ev(), label_res(cx, label)?, op_value)?;
     let plus = data(cx, Builtin::Plus)?;
     let mut injected = Term::ctor(plus, 0, vec![Term::ctor(op_data, i, vec![x])]);
     for _ in 0..pos {
         injected = Term::ctor(plus, 1, vec![injected]);
     }
     let comp = comp_type(cx, &row.total(), result_ty.clone())?;
-    let comp_inner = stitchwort_core::value::quote(cx.g(), cx.level() + 1, &comp)?;
+    let comp_inner = stitchwort_core::value::quote(&cx.g().ev(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
         Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
@@ -4380,7 +4394,7 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
         div: None,
     };
     let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
-    let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
+    let dom = stitchwort_core::value::eval(&cx.g().ev(), &label.args, &field_ty)?;
     let mark = cx.mark();
     cx.bind_hidden("x".into(), dom.clone());
     let result = make_call(cx, op_data, i, &label, 0, &row, Term::Var(0));
@@ -4653,7 +4667,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     elim_term = Term::app_icit(elim_term, cx.quote(&r)?, Icit::Implicit);
     for (i, (_, arg, k, body)) in op_clauses.into_iter().enumerate() {
         let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
-        let dom = stitchwort_core::value::eval(cx.g(), &handled.args, &field_ty)?;
+        let dom = stitchwort_core::value::eval(&cx.g().ev(), &handled.args, &field_ty)?;
         let mark = cx.mark();
         let x_name = match arg {
             Pattern::Var(n) => n.text.clone(),
@@ -4677,14 +4691,14 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let x_level = cx.level();
         cx.bind(&x_name, dom.clone());
         let op_value = Value::Ctor(op_data, i, [Value::var(x_level)].into());
-        let b = apply(cx.g(), label_res(cx, &handled)?, op_value)?;
+        let b = apply(&cx.g().ev(), label_res(cx, &handled)?, op_value)?;
         let k_ty = Value::Pi(
             "y".into(),
             Icit::Explicit,
             Rc::new(b),
             stitchwort_core::value::Closure {
                 env: cx.env.as_slice().into(),
-                body: Rc::new(cx.quote(&r)?.shift(cx.g(), 1, 0)?),
+                body: Rc::new(cx.quote(&r)?.shift(&cx.g().ev(), 1, 0)?),
             },
         );
         cx.bind(&k.text, k_ty);
@@ -4719,7 +4733,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let with_implicits = |b: Builtin, depth: usize| -> Result<Term> {
             let mut term = Term::Def(def(cx, b)?);
             for v in [&rest_ops, &rest_res, &out_ops, &out_res] {
-                let v = stitchwort_core::value::quote(cx.g(), level + depth, v)?;
+                let v = stitchwort_core::value::quote(&cx.g().ev(), level + depth, v)?;
                 term = Term::app_icit(term, v, Icit::Implicit);
             }
             Ok(term)
@@ -4729,7 +4743,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let inject = Term::app(
             Term::app(
                 with_implicits(Builtin::SigInject, 2)?,
-                m.shift(cx.g(), 2, 0)?,
+                m.shift(&cx.g().ev(), 2, 0)?,
             ),
             Term::Var(1),
         );
@@ -4737,7 +4751,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Term::app(
                 Term::app(
                     with_implicits(Builtin::SigReply, 3)?,
-                    m.shift(cx.g(), 3, 0)?,
+                    m.shift(&cx.g().ev(), 3, 0)?,
                 ),
                 Term::Var(2),
             ),
@@ -4752,8 +4766,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `callD d out (sigInject m o) (y => k (…))`: the operation
             // performed in a row that may be partial, then the handler goes
             // on.
-            let quoted =
-                |v: &Value, depth: usize| stitchwort_core::value::quote(cx.g(), level + depth, v);
+            let quoted = |v: &Value, depth: usize| {
+                stitchwort_core::value::quote(&cx.g().ev(), level + depth, v)
+            };
             let out_row = row_value(cx, &out.without_div())?;
             let mut call_d = Term::app_icit(
                 Term::Def(def(cx, Builtin::CallD)?),
@@ -4768,7 +4783,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
             // carrier is a `Delay`, so the operation is performed, and then
             // the handler goes on.
-            let quoted = |v: &Value| stitchwort_core::value::quote(cx.g(), level + 2, v);
+            let quoted = |v: &Value| stitchwort_core::value::quote(&cx.g().ev(), level + 2, v);
             let ans = Term::app(quoted(&out_res)?, inject.clone());
             let done = Term::Lam(
                 "y".into(),
@@ -4789,8 +4804,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // the handler's result is a `CompIn e t`, and an operation
             // forwarded to `{e}` is a tree.
             let tail = out.tail.as_ref().expect("bare");
-            let quoted =
-                |v: &Value, depth: usize| stitchwort_core::value::quote(cx.g(), level + depth, v);
+            let quoted = |v: &Value, depth: usize| {
+                stitchwort_core::value::quote(&cx.g().ev(), level + depth, v)
+            };
             let lift_in = Term::app(
                 Term::app(
                     Term::app_icit(
@@ -4900,16 +4916,17 @@ pub fn partial_mismatch(
     let mark = cx.mark();
     let (mut found, mut expected) = (found.clone(), expected.clone());
     let result = (|| -> Result<Option<Diagnostic>> {
-        while let (Value::Pi(x, i1, d1, c1), Value::Pi(_, i2, _, c2)) =
-            (force(g, found.clone())?, force(g, expected.clone())?)
-        {
+        while let (Value::Pi(x, i1, d1, c1), Value::Pi(_, i2, _, c2)) = (
+            force(&g.ev(), found.clone())?,
+            force(&g.ev(), expected.clone())?,
+        ) {
             if i1 != i2 {
                 return Ok(None);
             }
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d1).clone());
-            found = c1.apply(g, v.clone())?;
-            expected = c2.apply(g, v)?;
+            found = c1.apply(&g.ev(), v.clone())?;
+            expected = c2.apply(&g.ev(), v)?;
         }
         Ok(
             match (comp_parts(cx, &found)?, comp_parts(cx, &expected)?) {
@@ -4948,23 +4965,24 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
     let mut expected = expected.clone();
     let mut names: Vec<Name> = Vec::new();
     let result = (|| -> Result<Option<Term>> {
-        while let (Value::Pi(x, Icit::Explicit, d1, c1), Value::Pi(_, Icit::Explicit, d2, c2)) =
-            (force(g, found.clone())?, force(g, expected.clone())?)
-        {
+        while let (Value::Pi(x, Icit::Explicit, d1, c1), Value::Pi(_, Icit::Explicit, d2, c2)) = (
+            force(&g.ev(), found.clone())?,
+            force(&g.ev(), expected.clone())?,
+        ) {
             if !cx.unify(&d1, &d2)? {
                 return Ok(None);
             }
             let v = Value::var(cx.level());
             cx.bind_hidden(x.clone(), (*d1).clone());
             names.push(x);
-            found = c1.apply(g, v.clone())?;
-            expected = c2.apply(g, v)?;
+            found = c1.apply(&g.ev(), v.clone())?;
+            expected = c2.apply(&g.ev(), v)?;
         }
         let Some((re, te)) = comp_parts(cx, &expected)? else {
             return Ok(None);
         };
         let n = names.len();
-        let mut applied = term.shift(cx.g(), n, 0)?;
+        let mut applied = term.shift(&cx.g().ev(), n, 0)?;
         for i in (0..n).rev() {
             applied = Term::app(applied, Term::Var(i));
         }
@@ -4976,7 +4994,10 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
             // while its result type is still unknown: that might yet be a
             // computation.
             if n == 0
-                || matches!(force(g, found.clone())?, Value::Neutral(Head::Meta(_), _))
+                || matches!(
+                    force(&g.ev(), found.clone())?,
+                    Value::Neutral(Head::Meta(_), _)
+                )
                 || unknown_bare(cx, &re)?
                 || !cx.unify(&found, &te)?
             {

@@ -258,7 +258,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         });
     }
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
-    let prop = match force(g, expected.clone()) {
+    let prop = match force(&g.ev(), expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
     };
@@ -325,7 +325,7 @@ fn drop_superseded(
         values.extend(e.value.as_ref());
     }
     for v in values {
-        match quote_shown(g, level, v)
+        match quote_shown(&g.ev(), level, v)
             .ok()
             .and_then(|t| levels_in(&t, level))
         {
@@ -509,7 +509,7 @@ impl Elaborator {
             e: self,
             span: p.span,
         };
-        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, v);
+        let show = |v: &Value| pretty::value_for_goal(&g.ev(), &scope, &p.names, v);
         let hypotheses: Vec<Hypothesis> = p
             .context
             .iter()
@@ -535,7 +535,7 @@ impl Elaborator {
             .collect();
         // Forcing leaves a metavariable only if it's unsolved.
         let known = !matches!(
-            force(g, p.expected.clone()),
+            force(&g.ev(), p.expected.clone()),
             Ok(Value::Neutral(Head::Meta(_), _))
         );
         let target = if known {
@@ -622,7 +622,7 @@ impl Elaborator {
         let mut declarations = Vec::new();
         let mut ctors = Vec::new();
         let mut writable = |v: &Value, shown: &[usize]| {
-            let Ok(term) = quote_shown(g, level, v) else {
+            let Ok(term) = quote_shown(&g.ev(), level, v) else {
                 return false;
             };
             term.subterms().all(|(t, binders)| match t {
@@ -834,7 +834,7 @@ impl Elaborator {
     fn goal_snapshot_of(&self, p: &Pending) -> Option<GoalSnapshot> {
         let g = &self.globals;
         let level = p.names.len();
-        let quote = |v: &Value| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let quote = |v: &Value| stitchwort_core::value::quote_folded(&g.ev(), level, v).ok();
         let mut vars: Vec<SnapVar> = Vec::new();
         for e in &p.context {
             vars.push(SnapVar {
@@ -932,11 +932,11 @@ impl Elaborator {
         let mut env: Vec<Value> = vec![Value::Sort(Sort::Prop); snapshot.level];
         let mut binders = Vec::new();
         for v in &snapshot.vars {
-            let ty = stitchwort_core::value::eval(g, &env, &v.ty)?;
+            let ty = stitchwort_core::value::eval(&g.ev(), &env, &v.ty)?;
             let ty_term = cx.quote(&ty)?;
             match &v.value {
                 Some(value) => {
-                    let value = stitchwort_core::value::eval(g, &env, value)?;
+                    let value = stitchwort_core::value::eval(&g.ev(), &env, value)?;
                     let value = cx.quote(&value)?;
                     let name = v.writable.then_some(&*v.name);
                     cx.define(name, v.name.clone(), ty, ty_term.clone(), value.clone())?;
@@ -953,7 +953,7 @@ impl Elaborator {
             }
             env[v.level] = cx.env.last().expect("just bound").clone();
         }
-        let target = stitchwort_core::value::eval(g, &env, &snapshot.target)?;
+        let target = stitchwort_core::value::eval(&g.ev(), &env, &snapshot.target)?;
         Ok((cx, target, binders))
     }
 }

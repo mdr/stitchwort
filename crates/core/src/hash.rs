@@ -44,7 +44,8 @@
 //! recursive passes, and needs an operation to be running.
 
 use crate::budget::Result;
-use crate::globals::{Data, Globals, HashKey, State};
+use crate::ev::Ev;
+use crate::globals::{Data, HashKey, State};
 use crate::term::{DataId, DefId, Icit, QuotForm, Sort, Term};
 
 /// A 256-bit content hash.
@@ -87,7 +88,7 @@ enum Itself<'a> {
 const PASS: &str = "hasher";
 
 /// `None` for a definition that isn't final (pending, or failed).
-pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
+pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Def(id)) {
         return Ok(Some(*hash));
     }
@@ -140,7 +141,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
 /// type hash differently, and a change of meaning (a new `FLOAT_CONTRACT`)
 /// changes every hash that depends on one. [`def_hash`] uses the current
 /// contract; another is for the test that a bump changes the hashes.
-pub fn float_primitive_hash(g: &Globals, id: DefId, contract: u32) -> Result<Option<ContentHash>> {
+pub fn float_primitive_hash(g: &Ev, id: DefId, contract: u32) -> Result<Option<ContentHash>> {
     let Some(op) = g.env.builtins().float_primitive(id) else {
         return Ok(None);
     };
@@ -156,7 +157,7 @@ pub fn float_primitive_hash(g: &Globals, id: DefId, contract: u32) -> Result<Opt
 
 /// `None` for a data type that isn't final: without its constructors, it
 /// isn't yet the type it will be.
-pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
+pub fn data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
     if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Data(id)) {
         return Ok(Some(*hash));
     }
@@ -187,7 +188,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
 
 /// Hashes every member of a final group of two or more definitions, and
 /// stores their hashes.
-fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
+fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
     let declaration = |h: &mut Hasher, id: DefId| -> Result<()> {
         let def = g.def(id);
         let body = def
@@ -256,7 +257,7 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
 
 /// Hashes every member of a final group of two or more data types, and
 /// stores their hashes.
-fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
+fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
     // The canonical order: by name, and as declared where names are the same.
     let mut order: Vec<usize> = (0..members.len()).collect();
     order.sort_by(|&a, &b| {
@@ -302,13 +303,13 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
 }
 
 struct Hasher<'g> {
-    g: &'g Globals,
+    g: &'g Ev<'g>,
     itself: Itself<'g>,
     inner: blake3::Hasher,
 }
 
 impl<'g> Hasher<'g> {
-    fn new(g: &'g Globals, itself: Itself<'g>) -> Self {
+    fn new(g: &'g Ev<'g>, itself: Itself<'g>) -> Self {
         Hasher {
             g,
             itself,
@@ -678,8 +679,9 @@ mod tests {
 
     /// The hash of a closed term on its own.
     fn hash_term(term: &Term) -> ContentHash {
-        let g = Globals::default();
-        let mut h = Hasher::new(&g, Itself::Def(DefId(usize::MAX)));
+        let g = crate::globals::Globals::default();
+        let ev = g.ev();
+        let mut h = Hasher::new(&ev, Itself::Def(DefId(usize::MAX)));
         h.term(term).unwrap();
         h.finish()
     }

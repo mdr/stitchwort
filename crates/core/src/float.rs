@@ -50,6 +50,7 @@
 //! [`FLOAT_CONTRACT`] is hashed into every primitive's hash, so changing what
 //! a primitive means changes every hash that depends on it.
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
@@ -600,7 +601,7 @@ fn refused(span: stitchwort_syntax::Span, name: &str, why: &str) -> Diagnostic {
 
 /// Hashes, with an operation running for the hasher's depth guard.
 fn hex_of(
-    g: &Globals,
+    g: &Ev,
     f: impl FnOnce() -> budget::Result<Option<crate::hash::ContentHash>>,
 ) -> Option<String> {
     let _op = g
@@ -613,7 +614,7 @@ fn hex_of(
 /// The content hash of `Float` and of each definition bound here, against
 /// the pinned one: for the test that fails when the library changes them,
 /// which prints the new ones.
-pub fn bindings(g: &Globals) -> Vec<(String, Option<String>, &'static str)> {
+pub fn bindings(g: &Ev) -> Vec<(String, Option<String>, &'static str)> {
     let mut out = Vec::new();
     if let Some(d) = g.env.registry().loaded_data(Builtin::Float) {
         out.push((
@@ -646,7 +647,7 @@ pub fn register_data(g: &mut Globals, d: DataId) -> Result<()> {
     if !shaped {
         return Err(refused(span, "Float", "not the record of a double's bits"));
     }
-    if hex_of(g, || data_hash(g, d)).as_deref() != Some(FLOAT_DATA_HASH) {
+    if hex_of(&g.ev(), || data_hash(&g.ev(), d)).as_deref() != Some(FLOAT_DATA_HASH) {
         return Err(refused(
             span,
             "Float",
@@ -658,13 +659,13 @@ pub fn register_data(g: &mut Globals, d: DataId) -> Result<()> {
 }
 
 /// The bound `Float` type, as a term.
-fn float_ty(g: &Globals) -> Option<Term> {
+fn float_ty(g: &Ev) -> Option<Term> {
     Some(Term::Data(g.env.builtins().float.data?, Vec::new()))
 }
 
 /// The type primitive `op` must have, for the bound `Float` and the core's
 /// `Int`, `Nat` and `Text`.
-fn primitive_type(g: &Globals, op: FloatOp) -> Option<Term> {
+fn primitive_type(g: &Ev, op: FloatOp) -> Option<Term> {
     let arrow =
         |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
     let f = float_ty(g)?;
@@ -705,8 +706,8 @@ pub fn define_primitive(g: &mut Globals, id: DefId, op: FloatOp) -> Result<()> {
         .values()
         .any(|d| *d == FloatDef::Primitive(op));
     let fits = !taken
-        && match primitive_type(g, op) {
-            Some(expected) => conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)?,
+        && match primitive_type(&g.ev(), op) {
+            Some(expected) => conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?,
             None => false,
         };
     if !fits {
@@ -743,7 +744,7 @@ pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
     if g.env.builtins().float.data.is_none() {
         return Err(refused(span, b.name(), "`Float` isn't bound"));
     }
-    if hex_of(g, || def_hash(g, id)).as_deref() != Some(pinned) {
+    if hex_of(&g.ev(), || def_hash(&g.ev(), id)).as_deref() != Some(pinned) {
         return Err(refused(
             span,
             b.name(),
@@ -779,12 +780,7 @@ pub fn float_value(data: DataId, bits: u64) -> Value {
 
 /// The bits of `value`, if it's a `Float` record whose bits are known and
 /// valid.
-fn known_bits(
-    g: &Globals,
-    data: DataId,
-    value: &Value,
-    force: Force,
-) -> budget::Result<Option<u64>> {
+fn known_bits(g: &Ev, data: DataId, value: &Value, force: Force) -> budget::Result<Option<u64>> {
     let Value::Ctor(d, 0, fields) = force(g, value.clone())? else {
         return Ok(None);
     };
@@ -799,7 +795,7 @@ fn known_bits(
 /// Runs float primitive or native `id` on `spine`, if it is one, it has
 /// all its arguments, and their bits are known: `None` otherwise (it's
 /// stuck, or its definition unfolds).
-pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Option<Value>> {
+pub fn run(g: &Ev, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Option<Value>> {
     let Some(def) = g
         .env
         .builtins()
@@ -877,7 +873,7 @@ pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Resu
 
 /// The integer `value` is, if it's an `Int` constructor around a known
 /// number.
-fn known_int(g: &Globals, value: &Value, force: Force) -> budget::Result<Option<BigInt>> {
+fn known_int(g: &Ev, value: &Value, force: Force) -> budget::Result<Option<BigInt>> {
     let (Some((int, of_nat)), Some((_, neg_succ))) = (
         g.env.registry().ctor(Builtin::OfNat),
         g.env.registry().ctor(Builtin::NegSucc),
@@ -904,7 +900,7 @@ fn known_int(g: &Globals, value: &Value, force: Force) -> budget::Result<Option<
 
 /// What `Float.toInt` computes for known bits: `None`, `Some (OfNat n)` or
 /// `Some (NegSucc n)` (what `Int.neg (OfNat (n + 1))` reduces to).
-fn to_int_value(g: &Globals, bits: u64) -> Option<Value> {
+fn to_int_value(g: &Ev, bits: u64) -> Option<Value> {
     let (option, none) = g.env.registry().ctor(Builtin::None)?;
     let (_, some) = g.env.registry().ctor(Builtin::Some)?;
     let (int, of_nat) = g.env.registry().ctor(Builtin::OfNat)?;
@@ -928,7 +924,7 @@ fn to_int_value(g: &Globals, bits: u64) -> Option<Value> {
 /// (Float.bitsExt x y rfl)`, or `No (Float.bitsNe x y (Nat.equalFalse m n
 /// rfl))` (what `Nat.decEq m n` gives, passed on by `Float.decEqFrom`). The
 /// theorems stay folded, as they do when the definition runs.
-fn dec_eq(g: &Globals, args: &[Value], m: u64, n: u64) -> Option<Value> {
+fn dec_eq(g: &Ev, args: &[Value], m: u64, n: u64) -> Option<Value> {
     let dec = g.env.builtins().decidable?;
     let arg = |v: Value| Elim::App(v, Icit::Explicit);
     let (x, y) = (args[0].clone(), args[1].clone());

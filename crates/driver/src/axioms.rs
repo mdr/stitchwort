@@ -11,12 +11,12 @@
 
 use std::collections::BTreeSet;
 
+use stitchwort_core::Ev;
 use stitchwort_core::collections::HashSet;
-use stitchwort_core::globals::Globals;
 use stitchwort_core::{DataId, DefId, QuotForm, Term};
 
 /// The names of the axioms `root` depends on, sorted.
-pub fn axioms(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
+pub fn axioms(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
     let mut found = BTreeSet::new();
     let mut seen_defs = HashSet::default();
     let mut seen_datas = HashSet::default();

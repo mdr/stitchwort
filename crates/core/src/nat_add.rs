@@ -62,6 +62,7 @@
 //! the soundness argument: the kernel trusts this code to implement R3 and
 //! R4, as it trusts the natives (DESIGN.md §13).
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -85,7 +86,7 @@ pub const NAT_ADD_HASH: &str = "f3f3581f05751a4470b1254229a1905626119a6eff6ac5a2
 /// (the rules aren't bound to `id`, or `n` isn't a number, `Zero` or a
 /// `Succ` either). `n` is forced with `force`, the evaluator's own.
 pub fn stuck(
-    g: &Globals,
+    g: &Ev,
     id: DefId,
     m: &Value,
     n: &Value,
@@ -107,7 +108,7 @@ pub fn stuck(
 
 /// [`stuck`] as a value, for an evaluator to return.
 pub fn stuck_value(
-    g: &Globals,
+    g: &Ev,
     id: DefId,
     m: &Value,
     n: &Value,
@@ -140,7 +141,7 @@ pub struct CriticalPair {
 /// inside it. As terms, for `add` and `Nat`'s constructors, in a context of
 /// two variables, `m` (level 0) and `n` (level 1): each sum with what the
 /// first rule rewrites it to and what the second does.
-pub fn critical_pairs(g: &Globals, id: DefId) -> Option<Vec<CriticalPair>> {
+pub fn critical_pairs(g: &Ev, id: DefId) -> Option<Vec<CriticalPair>> {
     let nat = g.env.builtins().nat?;
     let zero = || Term::Ctor(nat, 0, Vec::new());
     let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
@@ -186,7 +187,7 @@ fn refused(span: Span, why: &str) -> Diagnostic {
 
 /// The content hash of the bound `Nat.add`, if it has one: for the test
 /// that fails when the library changes it, which prints the new one.
-pub fn add_hash(g: &Globals) -> Option<String> {
+pub fn add_hash(g: &Ev) -> Option<String> {
     let id = g.env.registry().def(Builtin::Add)?;
     let _op = g
         .machine
@@ -218,7 +219,7 @@ pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
     // definition alone, as compact text falls back to constructors for
     // another `List` or `Char`. The library's own is checked by the test
     // `nat_add_is_the_pinned_declaration`, which prints the new hash.
-    if add_hash(g).as_deref() != Some(NAT_ADD_HASH) {
+    if add_hash(&g.ev()).as_deref() != Some(NAT_ADD_HASH) {
         return Ok(());
     }
     let nat_ty = || Term::Data(nat, Vec::new());
@@ -253,7 +254,7 @@ pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
         let def = g.def(id);
         let fits = def.state == State::Final
             && def.theorem
-            && conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)?;
+            && conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?;
         if !fits {
             return Err(Diagnostic::error(
                 "E-BUILTIN",

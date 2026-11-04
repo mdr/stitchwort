@@ -291,7 +291,7 @@ fn deep_terms_in_later_passes() {
         {
             let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
-            let mut cx = kernel::Ctx::new(g, def.span());
+            let mut cx = kernel::Ctx::new(&g.ev(), def.span());
             let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
@@ -299,26 +299,26 @@ fn deep_terms_in_later_passes() {
         {
             let _op = g.machine.budget.operation(Limits::default());
             assert_eq!(
-                pretty::term_in_full(g, &[], body),
+                pretty::term_in_full(&g.ev(), &[], body),
                 Err(ResourceError::Nesting("printer"))
             );
         }
         {
             // For an error message, the part it can't reach is `…`.
             let _op = g.machine.budget.operation(Limits::default());
-            assert!(pretty::term(g, &[], body).contains('…'));
+            assert!(pretty::term(&g.ev(), &[], body).contains('…'));
         }
         {
             let _op = g.machine.budget.operation(Limits::default());
             let span = g.def(id).span();
-            let e = stitchwort_core::termination::check(g, body, id, "g", span).unwrap_err();
+            let e = stitchwort_core::termination::check(&g.ev(), body, id, "g", span).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("termination"), "{}", e.message);
         }
         {
             // Hashing walks a term with a work list, so any depth hashes.
             let _op = g.machine.budget.operation(Limits::default());
-            assert!(def_hash(g, id).unwrap().is_some());
+            assert!(def_hash(&g.ev(), id).unwrap().is_some());
         }
         let e = session.extract().err().expect("too deep to generate");
         assert_eq!(e.code, "E-RESOURCE");
@@ -343,7 +343,7 @@ fn long_chains_of_definitions_to_hash() {
         let g = &session.elab.globals;
         let _op = g.machine.budget.operation(Limits::default());
         assert_eq!(
-            def_hash(g, DefId(g.env.defs().len() - 1)),
+            def_hash(&g.ev(), DefId(g.env.defs().len() - 1)),
             Err(ResourceError::Nesting("hasher"))
         );
     });

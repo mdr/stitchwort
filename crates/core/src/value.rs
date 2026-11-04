@@ -7,6 +7,7 @@
 //! comparison from unfolding recursive definitions forever. See `docs/core.md`.
 
 use crate::collections::{HashMap, QuickHasher};
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -14,7 +15,6 @@ use num_bigint::BigUint;
 use crate::budget::{ResourceError, Result};
 use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
-use crate::globals::Globals;
 use crate::native;
 use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 
@@ -62,15 +62,15 @@ pub enum Value {
 pub struct Unfolding(std::cell::RefCell<Option<(u64, Value)>>);
 
 impl Unfolding {
-    fn get(&self, g: &Globals) -> Option<Value> {
+    fn get(&self, g: &Ev) -> Option<Value> {
         match &*self.0.borrow() {
-            Some((epoch, value)) if *epoch == g.meta_epoch.get() => Some(value.clone()),
+            Some((epoch, value)) if *epoch == g.metas.epoch() => Some(value.clone()),
             _ => None,
         }
     }
 
-    fn set(&self, g: &Globals, value: Value) {
-        *self.0.borrow_mut() = Some((g.meta_epoch.get(), value));
+    fn set(&self, g: &Ev, value: Value) {
+        *self.0.borrow_mut() = Some((g.metas.epoch(), value));
     }
 }
 
@@ -137,14 +137,14 @@ impl Apart {
     pub const NONE: Apart = Apart(0);
 
     /// The set `numbers` (sorted, without duplicates), named in `g`.
-    pub fn new(g: &Globals, numbers: Rc<[BigUint]>) -> Apart {
+    pub fn new(g: &Ev, numbers: Rc<[BigUint]>) -> Apart {
         let mut sets = g.machine.apart_sets.borrow_mut();
         sets.push(numbers);
         Apart(u32::try_from(sets.len()).expect("fewer than 2^32 number cases"))
     }
 
     /// The numbers, sorted; empty for [`Apart::NONE`].
-    pub fn numbers(self, g: &Globals) -> Rc<[BigUint]> {
+    pub fn numbers(self, g: &Ev) -> Rc<[BigUint]> {
         match self.0 {
             0 => Rc::from([]),
             i => g.machine.apart_sets.borrow()[i as usize - 1].clone(),
@@ -154,7 +154,7 @@ impl Apart {
     /// Whether a number case on `k + x`, for `x` known not to be these
     /// numbers, can take none of `arms` (sorted): each is below `k`, or `k`
     /// plus one of these.
-    pub fn excludes(self, g: &Globals, k: &BigUint, arms: &[crate::term::NumArm]) -> bool {
+    pub fn excludes(self, g: &Ev, k: &BigUint, arms: &[crate::term::NumArm]) -> bool {
         if self == Apart::NONE {
             return false;
         }
@@ -449,14 +449,14 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
 }
 
 impl Closure {
-    pub fn apply(&self, g: &Globals, arg: Value) -> Result<Value> {
+    pub fn apply(&self, g: &Ev, arg: Value) -> Result<Value> {
         run(g, enter(self, arg))
     }
 
     /// Like `apply`, but only computes the argument if the body uses it. For
     /// the result type of an application: `f a : B a` needs the value of `a`
     /// only when `B` depends on it, and computing it may be expensive.
-    pub fn apply_lazy(&self, g: &Globals, arg: impl FnOnce() -> Result<Value>) -> Result<Value> {
+    pub fn apply_lazy(&self, g: &Ev, arg: impl FnOnce() -> Result<Value>) -> Result<Value> {
         let arg = if self.body.mentions(0) {
             arg()?
         } else {
@@ -478,15 +478,15 @@ impl Value {
     }
 }
 
-pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
+pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
     run(g, Control::Eval(Rc::new(term.clone()), env.into()))
 }
 
-pub fn apply(g: &Globals, f: Value, arg: Value) -> Result<Value> {
+pub fn apply(g: &Ev, f: Value, arg: Value) -> Result<Value> {
     apply_icit(g, f, arg, Icit::Explicit)
 }
 
-pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value> {
+pub fn apply_icit(g: &Ev, f: Value, arg: Value, icit: Icit) -> Result<Value> {
     run(g, Control::Apply(Box::new((f, arg, icit))))
 }
 
@@ -497,7 +497,7 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value
 /// shape calls this first. Without metavariables and gluing (the kernel),
 /// it returns `value` as it is.
 #[inline]
-pub fn force(g: &Globals, value: Value) -> Result<Value> {
+pub fn force(g: &Ev, value: Value) -> Result<Value> {
     if needs_forcing(g, &value) {
         force_now(g, value)
     } else {
@@ -508,7 +508,7 @@ pub fn force(g: &Globals, value: Value) -> Result<Value> {
 /// [`force`] for a value it changes: a call's kept unfolding if there is
 /// one, or else the machine.
 #[inline(never)]
-fn force_now(g: &Globals, value: Value) -> Result<Value> {
+fn force_now(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Call(_, _, unfolding) = &value
         && let Some(unfolded) = unfolding.get(g)
         && !needs_forcing(g, &unfolded)
@@ -519,7 +519,7 @@ fn force_now(g: &Globals, value: Value) -> Result<Value> {
 }
 
 /// [`force`] on a borrowed value, copying it only if forcing changes it.
-pub fn force_ref<'v>(g: &Globals, value: &'v Value) -> Result<std::borrow::Cow<'v, Value>> {
+pub fn force_ref<'v>(g: &Ev, value: &'v Value) -> Result<std::borrow::Cow<'v, Value>> {
     Ok(if needs_forcing(g, value) {
         std::borrow::Cow::Owned(force(g, value.clone())?)
     } else {
@@ -532,7 +532,7 @@ pub fn force_ref<'v>(g: &Globals, value: &'v Value) -> Result<std::borrow::Cow<'
 /// spine, until none is; a call that gives is returned as the call. For
 /// reading back folded ([`quote_folded`]). Without gluing, it's [`force`]
 /// except on a call itself.
-pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
+pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
     if !g.machine.glue.get() {
         // Nothing is glued now, so `force` as usual (taking the same steps);
         // but a call kept from while gluing (a goal's context, printed
@@ -566,7 +566,7 @@ pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
 
 /// Glued call `id spine` unfolded one step: its case tree run, the calls in
 /// what it returns kept as calls rather than forced.
-fn unfold_once(g: &Globals, id: DefId, spine: Spine) -> Result<Value> {
+fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
     let start = unfold_now(g, id, spine, false)?;
     run(g, start)
 }
@@ -580,7 +580,7 @@ fn unfold_once(g: &Globals, id: DefId, spine: Spine) -> Result<Value> {
 /// `if True then a else b` is `a`, and `List.length (Cons x xs)` is
 /// `Succ (List.length xs)`, while `invalid r` or `List.length (f xs)` stay
 /// calls (docs/proposals/folded-calls.md, stage 3).
-pub fn matches_at_once(g: &Globals, id: DefId, spine: &Spine) -> Result<bool> {
+pub fn matches_at_once(g: &Ev, id: DefId, spine: &Spine) -> Result<bool> {
     let def = g.def(id);
     let Some(body) = body_seen(g, id) else {
         return Ok(false);
@@ -829,13 +829,7 @@ fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
 /// Applying call `f` to `arg`: its unfolding, once forced, is applied.
 #[cold]
 #[inline(never)]
-fn apply_call(
-    g: &Globals,
-    stack: &mut Vec<Frame>,
-    f: Value,
-    arg: Value,
-    icit: Icit,
-) -> Result<Control> {
+fn apply_call(g: &Ev, stack: &mut Vec<Frame>, f: Value, arg: Value, icit: Icit) -> Result<Control> {
     push(g, stack, Frame::AppTo(arg, icit))?;
     Ok(Control::Force(f))
 }
@@ -845,7 +839,7 @@ fn apply_call(
 #[cold]
 #[inline(never)]
 fn force_call(
-    g: &Globals,
+    g: &Ev,
     stack: &mut Vec<Frame>,
     id: DefId,
     spine: Spine,
@@ -872,7 +866,7 @@ fn extend(env: &Env, value: Value) -> Env {
     Values(env)
 }
 
-fn run(g: &Globals, mut control: Control) -> Result<Value> {
+fn run(g: &Ev, mut control: Control) -> Result<Value> {
     #[cfg(any(test, feature = "reference"))]
     RUNS.with(|r| r.set(r.get() + 1));
     let mut stack: Vec<Frame> = Vec::new();
@@ -959,7 +953,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
     }
 }
 
-fn push(g: &Globals, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
+fn push(g: &Ev, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
     if let Err(e) = g.machine.budget.frames(stack.len() + 1) {
         if e == ResourceError::Depth {
             note_deepest(g, stack);
@@ -973,7 +967,7 @@ fn push(g: &Globals, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
 /// Tells the budget which definitions the pending frames are calls of: the
 /// three with the most, for the message about recursing too deeply.
 #[cold]
-fn note_deepest(g: &Globals, stack: &[Frame]) {
+fn note_deepest(g: &Ev, stack: &[Frame]) {
     let mut counts: crate::collections::HashMap<usize, usize> = Default::default();
     for frame in stack {
         match frame {
@@ -1006,7 +1000,7 @@ fn note_deepest(g: &Globals, stack: &[Frame]) {
 /// The value of `term` if it takes no evaluation steps (a variable, a
 /// number, a function, a folded definition, a constructor with no fields), so
 /// common terms like `f x` need no frames.
-fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
+fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
     match &**term {
         Term::Var(ix) => Some(env[env.len() - 1 - ix].clone()),
         Term::Nat(n) => Some(Value::Nat(n.clone())),
@@ -1035,7 +1029,7 @@ fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
 }
 
 /// The first step of evaluating `term`.
-fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result<Control> {
+fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result<Control> {
     Ok(match &*term {
         Term::Var(ix) => Control::Return(env[env.len() - 1 - ix].clone()),
         Term::Def(id) => {
@@ -1211,7 +1205,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
 /// Evaluates the arguments of a data type or constructor `term` after the
 /// ones `done`: as many as are quick, then a frame for the next.
 fn fields(
-    g: &Globals,
+    g: &Ev,
     term: Rc<Term>,
     env: Env,
     mut done: Vec<Value>,
@@ -1260,7 +1254,7 @@ fn fields(
 /// many as are quick, then a frame for the next. With all of them, the form
 /// applied to them.
 fn quot_args(
-    g: &Globals,
+    g: &Ev,
     term: Rc<Term>,
     env: Env,
     mut done: Vec<Value>,
@@ -1295,7 +1289,7 @@ fn quot_args(
 }
 
 /// Continues `frame` with the value it was waiting for.
-fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
+fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
     Ok(match frame {
         Frame::AppArg(arg, env, icit) => {
             push(g, stack, Frame::AppFun(value, icit))?;
@@ -1538,7 +1532,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
 /// The value of a compact list. Only checked terms, and the elaborator's
 /// (which makes them only once the representation is registered), are
 /// evaluated, and the kernel refuses `Term::Chars` without it.
-fn chars_value(g: &Globals, c: &Chars) -> Value {
+fn chars_value(g: &Ev, c: &Chars) -> Value {
     let text = g
         .env
         .builtins()
@@ -1550,7 +1544,7 @@ fn chars_value(g: &Globals, c: &Chars) -> Value {
 
 /// One step of the expansion of a compact list `value`, as matching sees it
 /// (see [`chars::step`]); anything else as it is.
-pub fn expand_step(g: &Globals, value: Value) -> Value {
+pub fn expand_step(g: &Ev, value: Value) -> Value {
     match (&value, &g.env.builtins().text) {
         (Value::Chars(c), Some(text)) => chars::step(text, c),
         _ => value,
@@ -1560,7 +1554,7 @@ pub fn expand_step(g: &Globals, value: Value) -> Value {
 /// Whether [`force`] would change `value`: it's headed by a solved
 /// metavariable, or it's a call.
 #[inline]
-fn needs_forcing(g: &Globals, value: &Value) -> bool {
+fn needs_forcing(g: &Ev, value: &Value) -> bool {
     match value {
         Value::Neutral(Head::Meta(m), _) => g.meta_solution(*m).is_some(),
         Value::Call(..) => true,
@@ -1570,7 +1564,7 @@ fn needs_forcing(g: &Globals, value: &Value) -> bool {
 
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
 fn branch(
-    g: &Globals,
+    g: &Ev,
     tree: Rc<Term>,
     mut env: Vec<Value>,
     stuck: Stuck,
@@ -1645,7 +1639,7 @@ pub fn apart_of(value: &Value) -> Apart {
 
 /// A case tree that can't take a step: its definition stays folded, unless
 /// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`).
-fn stuck_tree(g: &Globals, stuck: Stuck) -> Result<Control> {
+fn stuck_tree(g: &Ev, stuck: Stuck) -> Result<Control> {
     match stuck {
         Some((id, spine, _)) => {
             if g.env.builtins().nat_add_rule == Some(id)
@@ -1663,7 +1657,7 @@ fn stuck_tree(g: &Globals, stuck: Stuck) -> Result<Control> {
 /// A definition applied to `spine`: its native implementation, or its case
 /// tree if it has all its arguments (kept as the call instead while gluing,
 /// [`glues`]), or else it stays folded.
-fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
+fn unfold(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
     unfold_now(g, id, spine, true)
 }
 
@@ -1673,13 +1667,13 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
 /// Dictionaries, folded by name already, never get this far.
 #[cold]
 #[inline(never)]
-fn glues(g: &Globals, id: DefId) -> bool {
+fn glues(g: &Ev, id: DefId) -> bool {
     !g.machine.erasure.program_running() && g.env.builtins().native(id).is_none()
 }
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
 #[inline(always)]
-fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
+fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if g.def(id).opaque && hidden(g, id) {
         return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
     }
@@ -1734,7 +1728,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
 /// it first; so a proof that's only passed along is never computed (SW-281:
 /// the fuel's proofs in a definition with `decreasing`). What's equal
 /// doesn't change, only when it's computed.
-fn folds(g: &Globals, id: DefId) -> bool {
+fn folds(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
     (def.fold || def.theorem) && !g.machine.erasure.program_running()
 }
@@ -1745,14 +1739,14 @@ fn folds(g: &Globals, id: DefId) -> bool {
 /// a call of it is neutral, like a variable applied to arguments: it never
 /// unfolds (not even by a native implementation), and no shortcut of
 /// conversion or matching looks at its body ([`body_seen`]).
-pub fn hidden(g: &Globals, id: DefId) -> bool {
+pub fn hidden(g: &Ev, id: DefId) -> bool {
     g.def(id).opaque && !g.machine.erasure.program_running() && !g.machine.transparent.contains(id)
 }
 
 /// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
 /// path that unfolds a definition, or looks at its case tree, reads.
 #[inline(always)]
-pub fn body_seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
+pub fn body_seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
     let def = g.def(id);
     def.body.as_ref().filter(|_| !def.opaque || !hidden(g, id))
 }
@@ -1760,7 +1754,7 @@ pub fn body_seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
 /// its case tree runs in this machine, and `next` gets the result
 /// ([`Frame::Unfolding`]).
-fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
+fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
@@ -1792,7 +1786,7 @@ fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) ->
 /// arguments, looks at its body (docs/proposals/map-equality.md §7.2: the
 /// policy changes what's shown and when things are computed, never what's
 /// equal).
-pub fn is_folded(g: &Globals, value: &Value) -> bool {
+pub fn is_folded(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
@@ -1803,7 +1797,7 @@ pub fn is_folded(g: &Globals, value: &Value) -> bool {
 /// its case tree reaches a `Quot.lift` whose quotient isn't a `Quot.mk`, as
 /// when it reaches a `case` that can't step: so a goal shows `Map.get k m`,
 /// not the lift it unfolds to. Except while a program runs.
-fn folds_on_lift(g: &Globals, id: DefId) -> bool {
+fn folds_on_lift(g: &Ev, id: DefId) -> bool {
     g.def(id).lift_leaf && !g.machine.erasure.program_running()
 }
 
@@ -1834,7 +1828,7 @@ pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
 /// may be a call of another, `Ord.fromCompare …`): what taking it apart, or
 /// comparing it with something that isn't the same call, sees. `None` if
 /// `value` isn't one, or its case tree is stuck.
-pub fn unfold_folded(g: &Globals, value: &Value) -> Result<Option<Value>> {
+pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
     let mut current: Option<Value> = None;
     loop {
         let v = current.as_ref().unwrap_or(value);
@@ -1874,7 +1868,7 @@ pub fn unfold_folded(g: &Globals, value: &Value) -> Result<Option<Value>> {
 
 /// Whether, while erasing, definition `id` (with a body) applied to all its
 /// parameters is erased rather than run (`erase.rs`).
-fn erases_result(g: &Globals, id: DefId) -> bool {
+fn erases_result(g: &Ev, id: DefId) -> bool {
     g.machine.erasure.active()
         && g.def(id).body.is_some()
         && erase::of_def(g, id).is_some_and(|e| e.result)
@@ -1882,7 +1876,7 @@ fn erases_result(g: &Globals, id: DefId) -> bool {
 
 /// Whether, while erasing, the argument applied to `f` is erased: `f` is a
 /// definition applied to some arguments, and the parameter it's for is.
-fn erased_arg(g: &Globals, f: &Term) -> bool {
+fn erased_arg(g: &Ev, f: &Term) -> bool {
     let mut n = 0;
     let mut f = f;
     loop {
@@ -1903,14 +1897,14 @@ fn erased_arg(g: &Globals, f: &Term) -> bool {
 /// Converts a value back into a term, with `level` variables in scope.
 /// Solved metavariables are replaced by their solutions, and a glued call
 /// ([`Value::Call`]) by its unfolding: the normal form.
-pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Unfolded, None)?.expect("no cap"))
 }
 
 /// [`quote`], or `None` if the term would have more than `cap` nodes: for
 /// callers that only inspect the normal form and can do without it when it's
 /// large.
-pub fn quote_at_most(g: &Globals, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+pub fn quote_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
     quote_as(g, level, value, Readback::Unfolded, Some(cap))
 }
 
@@ -1919,7 +1913,7 @@ pub fn quote_at_most(g: &Globals, level: usize, value: &Value, cap: u64) -> Resu
 /// (docs/proposals/folded-calls.md, stage 3): `List.length xs`, not what it
 /// computes to. The two terms are convertible. Without gluing (the kernel)
 /// there are no calls, and this is [`quote`].
-pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Folded, None)?.expect("no cap"))
 }
 
@@ -1929,13 +1923,13 @@ pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// For printing only; elaborated terms are read back with [`quote_folded`].
 /// A sum stuck on an unknown is written `x + k`
 /// ([`native::nat_add_shown`], SW-895).
-pub fn quote_shown(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+pub fn quote_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Shown, None)?.expect("no cap"))
 }
 
 /// [`quote`] for display: the normal form, but a sum stuck on an unknown is
 /// written `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
-pub fn quote_unfolded_shown(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+pub fn quote_unfolded_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::UnfoldedShown, None)?.expect("no cap"))
 }
 
@@ -1968,7 +1962,7 @@ impl Readback {
 /// The readback; `None` if it grows past `cap` nodes (when given and below
 /// the budget's size limit, which is otherwise an error).
 fn quote_as(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     value: &Value,
     mode: Readback,
@@ -2104,7 +2098,7 @@ fn pop2(done: &mut Vec<Term>) -> (Term, Term) {
 /// Quotes the outermost layer of `value`: finished at once, or an assembly
 /// task with its parts to visit first.
 fn visit(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     value: Value,
     mode: Readback,
@@ -2222,7 +2216,7 @@ fn visit(
 /// a number only once unfolded, so the `Succ` around it stayed a
 /// constructor. Never true without gluing (the kernel).
 #[inline]
-fn has_call_base(g: &Globals, args: &[Value]) -> bool {
+fn has_call_base(g: &Ev, args: &[Value]) -> bool {
     let mut field = &args[0];
     loop {
         match field {
@@ -2240,7 +2234,7 @@ fn has_call_base(g: &Globals, args: &[Value]) -> bool {
 /// (docs/proposals/folded-calls.md, stage 2).
 #[cold]
 #[inline(never)]
-fn succ_unglued(g: &Globals, field: &Value) -> Result<Value> {
+fn succ_unglued(g: &Ev, field: &Value) -> Result<Value> {
     let nat = g.env.builtins().nat.expect("a `Succ` value needs `Nat`");
     let mut succs = 1usize;
     let mut base = field.clone();
@@ -2268,13 +2262,13 @@ fn succ_unglued(g: &Globals, field: &Value) -> Result<Value> {
 /// It doesn't recurse on the Rust stack: the pairs still to compare are kept
 /// on a work list, depth first and left to right, so the first difference
 /// found stops it, as a recursive version would.
-pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     conv_with(g, level, a, b, &mut CallMemo::default())
 }
 
 /// [`conv`], inside an outermost one whose record of glued calls compared
 /// so far is `memo`.
-fn conv_with(g: &Globals, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
+fn conv_with(g: &Ev, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(task) = work.pop() {
         g.machine.budget.step()?;
@@ -2377,7 +2371,7 @@ impl CallMemo {
 /// that's too deep. A pair of glued calls found different is recorded as
 /// such ([`CallMemo`]).
 fn same_spines(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     s1: &[Elim],
     s2: &[Elim],
@@ -2404,7 +2398,7 @@ fn same_spines(
 /// Compares the outermost layer of `a` and `b`: `false` if they differ
 /// there; otherwise pushes the pairs of parts still to compare.
 fn conv_step(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     a: Value,
     b: Value,
@@ -2617,13 +2611,7 @@ fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<ConvTask>> 
 /// lambdas); `SCRes` defined as `SCRes o = PlusRes … o` then equals
 /// `PlusRes …`. Pushes that comparison, or returns `false` if neither side is
 /// a partially applied definition.
-fn push_eta(
-    g: &Globals,
-    level: usize,
-    a: &Value,
-    b: &Value,
-    work: &mut Vec<ConvTask>,
-) -> Result<bool> {
+fn push_eta(g: &Ev, level: usize, a: &Value, b: &Value, work: &mut Vec<ConvTask>) -> Result<bool> {
     let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
         return Ok(false);
     };
@@ -2639,7 +2627,7 @@ fn push_eta(
 /// If `value` is a definition applied to fewer arguments than it takes (so
 /// it's a function that doesn't unfold yet), the implicitness of its next
 /// parameter.
-pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
+pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return None;
     };
@@ -2679,7 +2667,7 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
 
 /// Whether `value` is a definition applied to all its arguments that
 /// [`same_stuck_trees`] can compare with another by its case tree.
-pub fn opens_by_tree(g: &Globals, value: &Value) -> bool {
+pub fn opens_by_tree(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return false;
     };
@@ -2707,7 +2695,7 @@ enum TreeEnd {
 
 /// Walks case tree `tree` in `env`, taking every branch a constructor
 /// selects, to the first `case` that's stuck or to a leaf.
-fn walk_tree(g: &Globals, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd> {
+fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd> {
     loop {
         g.machine.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
@@ -2740,7 +2728,7 @@ fn walk_tree(g: &Globals, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<Tre
 /// `relation`. A pair already found equal in the same outermost comparison
 /// is answered at once (see the comment above [`Relation`]).
 pub fn same_stuck_trees(
-    g: &Globals,
+    g: &Ev,
     level: usize,
     a: &Value,
     b: &Value,
@@ -2894,20 +2882,14 @@ struct TreeMemo {
 }
 
 impl TreeMemo {
-    fn enter(
-        g: &Globals,
-        level: usize,
-        a: &Value,
-        b: &Value,
-        relation: Relation,
-    ) -> Result<TreeMemo> {
+    fn enter(g: &Ev, level: usize, a: &Value, b: &Value, relation: Relation) -> Result<TreeMemo> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
         };
         TREE_MEMO.with(|m| m.borrow_mut().open += 1);
         let mut memo = TreeMemo {
-            key: (relation, level, g.meta_epoch.get(), def(a), def(b), 0, 0),
+            key: (relation, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
         };
@@ -3041,7 +3023,7 @@ impl Part<'_> {
 /// layer from its own data and its parts' hashes, so a shared allocation is
 /// hashed once ([`ShapeCache`]). A work list, as values can nest deeply; a
 /// budget step per part hashed.
-fn shape_hash(g: &Globals, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
+fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
     use std::hash::{Hash, Hasher};
     enum Task<'v> {
         Enter(Part<'v>),
@@ -3289,7 +3271,7 @@ pub fn same_closure(a: &Closure, b: &Closure) -> bool {
 /// [`same_closure`], with a solved metavariable alike to its solution: where
 /// a value headed by one differs from the value on the other side, it is
 /// compared again with the solution applied. For the elaborator.
-pub fn same_closure_solved(g: &Globals, a: &Closure, b: &Closure) -> bool {
+pub fn same_closure_solved(g: &Ev, a: &Closure, b: &Closure) -> bool {
     !shortcuts_disabled() && identical(Same::Closures(a, b), Some(g))
 }
 
@@ -3300,7 +3282,7 @@ pub fn same_closure_solved(g: &Globals, a: &Closure, b: &Closure) -> bool {
 /// which reports that).
 #[cold]
 #[inline(never)]
-fn same_when_solved(g: &Globals, a: &Value, b: &Value) -> bool {
+fn same_when_solved(g: &Ev, a: &Value, b: &Value) -> bool {
     let solved =
         |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
     if !solved(a) && !solved(b) {
@@ -3331,7 +3313,7 @@ enum Same<'v> {
 /// No evaluation: the cost is at most the size of the smaller side. With
 /// `g`, a solved metavariable is alike to its solution
 /// ([`same_when_solved`]), which applies the solution.
-fn identical(first: Same, g: Option<&Globals>) -> bool {
+fn identical(first: Same, g: Option<&Ev>) -> bool {
     let mut work = vec![first];
     while let Some(pair) = work.pop() {
         let alike = match pair {
@@ -3634,7 +3616,7 @@ mod tests {
 
     /// `conv` with and without the shortcut, which must agree; and the steps
     /// each took.
-    fn conv_both(g: &Globals, a: &Value, b: &Value) -> (bool, u64, u64) {
+    fn conv_both(g: &Ev, a: &Value, b: &Value) -> (bool, u64, u64) {
         let before = g.machine.budget.total_work();
         let with = conv(g, 0, a, b).unwrap();
         let middle = g.machine.budget.total_work();
@@ -3663,8 +3645,8 @@ mod tests {
             ),
         );
         assert!(same_closure(&a, &b));
-        let g = Globals::default();
-        let (equal, with, without) = conv_both(&g, &lam(a), &lam(b));
+        let g = crate::globals::Globals::default();
+        let (equal, with, without) = conv_both(&g.ev(), &lam(a), &lam(b));
         assert!(equal);
         assert!(with < without, "the shortcut was taken: {with} < {without}");
     }
@@ -3674,7 +3656,7 @@ mod tests {
         // The same closures as above, inside separately built constructors
         // and calls: identical, so filed under the same hash, each with a
         // cache of its own and with one shared.
-        let g = Globals::default();
+        let g = crate::globals::Globals::default();
         let a = closure(vec![Value::var(7), Value::var(3)], call_last());
         let b = closure(vec![Value::var(9), Value::var(3)], call_last());
         let wrap = |c: Closure| {
@@ -3688,17 +3670,17 @@ mod tests {
         let (x, y) = (wrap(a), wrap(b));
         assert!(identical(Same::Values(&x, &y), None));
         let mut shared = ShapeCache::default();
-        let hash = shape_hash(&g, &mut shared, &x).unwrap();
-        assert_eq!(hash, shape_hash(&g, &mut shared, &y).unwrap());
+        let hash = shape_hash(&g.ev(), &mut shared, &x).unwrap();
+        assert_eq!(hash, shape_hash(&g.ev(), &mut shared, &y).unwrap());
         assert_eq!(
             hash,
-            shape_hash(&g, &mut ShapeCache::default(), &y).unwrap()
+            shape_hash(&g.ev(), &mut ShapeCache::default(), &y).unwrap()
         );
         // A used variable's value counts.
         let c = closure(vec![Value::var(7), Value::var(4)], call_last());
         let z = wrap(c);
         assert!(!identical(Same::Values(&x, &z), None));
-        assert_ne!(hash, shape_hash(&g, &mut shared, &z).unwrap());
+        assert_ne!(hash, shape_hash(&g.ev(), &mut shared, &z).unwrap());
     }
 
     #[test]
@@ -3706,30 +3688,30 @@ mod tests {
         let a = closure(vec![Value::var(3)], call_last());
         let b = closure(vec![Value::var(4)], call_last());
         assert!(!same_closure(&a, &b));
-        let g = Globals::default();
-        assert!(!conv_both(&g, &lam(a), &lam(b)).0);
+        let g = crate::globals::Globals::default();
+        assert!(!conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
 
     /// SW-920: for the elaborator, a solved metavariable is its solution.
     #[test]
     fn a_solved_metavariable_is_the_same_as_its_solution_for_the_elaborator() {
-        let g = Globals::default();
+        let g = crate::globals::Globals::default();
         let span =
             stitchwort_syntax::Span::point(stitchwort_syntax::SourceMap::new().add("t", ""), 0);
         let m = g.new_meta(span);
         let unknown = Value::Neutral(Head::Meta(m), Spine::from(Vec::new()));
         let a = closure(vec![unknown], call_last());
         let b = closure(vec![Value::var(3)], call_last());
-        assert!(!same_closure_solved(&g, &a, &b), "unsolved");
+        assert!(!same_closure_solved(&g.ev(), &a, &b), "unsolved");
         g.solve_meta(m, Value::var(3));
-        assert!(same_closure_solved(&g, &a, &b));
+        assert!(same_closure_solved(&g.ev(), &a, &b));
         assert!(
             !same_closure(&a, &b),
             "the kernel's form looks at no solution"
         );
         g.solve_meta(m, Value::var(4));
         assert!(
-            !same_closure_solved(&g, &a, &b),
+            !same_closure_solved(&g.ev(), &a, &b),
             "solved with another value"
         );
     }
@@ -3747,11 +3729,11 @@ mod tests {
             Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Implicit),
         );
         assert!(!same_closure(&a, &implicit));
-        let g = Globals::default();
-        assert!(!conv_both(&g, &lam(a.clone()), &lam(b)).0);
+        let g = crate::globals::Globals::default();
+        assert!(!conv_both(&g.ev(), &lam(a.clone()), &lam(b)).0);
         // (Conversion ignores how an argument is passed, so this pair is
         // equal the long way; `conv_both` checks the two ways agree.)
-        assert!(conv_both(&g, &lam(a), &lam(implicit)).0);
+        assert!(conv_both(&g.ev(), &lam(a), &lam(implicit)).0);
     }
 
     #[test]
@@ -3772,8 +3754,8 @@ mod tests {
         let a = closure(vec![f], call_last());
         let b = closure(vec![eta], call_last());
         assert!(!same_closure(&a, &b));
-        let g = Globals::default();
-        assert!(conv_both(&g, &lam(a), &lam(b)).0);
+        let g = crate::globals::Globals::default();
+        assert!(conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
 
     #[test]
@@ -3786,11 +3768,11 @@ mod tests {
                 closure(env, call_last()),
             )
         };
-        let g = Globals::default();
+        let g = crate::globals::Globals::default();
         let (equal, with, without) =
-            conv_both(&g, &pi(vec![Value::var(2)]), &pi(vec![Value::var(2)]));
+            conv_both(&g.ev(), &pi(vec![Value::var(2)]), &pi(vec![Value::var(2)]));
         assert!(equal);
         assert!(with < without);
-        assert!(!conv_both(&g, &pi(vec![Value::var(2)]), &pi(vec![Value::var(5)])).0);
+        assert!(!conv_both(&g.ev(), &pi(vec![Value::var(2)]), &pi(vec![Value::var(5)])).0);
     }
 }

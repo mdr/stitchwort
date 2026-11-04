@@ -24,7 +24,7 @@ impl Elaborator {
     /// nothing else is found by instance search (`E-DATA-AUTO`).
     pub(crate) fn check_data_auto(&self, cx: &mut Ctx, binder: &Binder, ty: &Term) -> Result<()> {
         let value = cx.eval(ty)?;
-        if let Value::Data(i, _) = force(cx.g(), value.clone())?
+        if let Value::Data(i, _) = force(&cx.g().ev(), value.clone())?
             && self.is_interface(i)
         {
             return Ok(());
@@ -116,7 +116,7 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
     let mut terms = Vec::new();
     let mut next = 0;
     for (k, (x, param_ty)) in data.params().iter().chain(data.indices()).enumerate() {
-        let ty = stitchwort_core::value::eval(g, &env, param_ty)?;
+        let ty = stitchwort_core::value::eval(&g.ev(), &env, param_ty)?;
         let term = if auto(k) {
             match args.get(next) {
                 Some(Arg::Named(name, value)) if *name.text == **x => {
@@ -196,8 +196,8 @@ fn misplaced_named(cx: &Ctx, d: DataId, name: &stitchwort_syntax::ast::Name) -> 
 pub(crate) fn auto_mismatch_note(cx: &Ctx, expected: &Value, found: &Value) -> Option<String> {
     let g = cx.g();
     let (Value::Data(d, a), Value::Data(e, b)) = (
-        force(g, expected.clone()).ok()?,
-        force(g, found.clone()).ok()?,
+        force(&g.ev(), expected.clone()).ok()?,
+        force(&g.ev(), found.clone()).ok()?,
     ) else {
         return None;
     };
@@ -208,7 +208,7 @@ pub(crate) fn auto_mismatch_note(cx: &Ctx, expected: &Value, found: &Value) -> O
     let level = cx.level();
     let mut differing = Vec::new();
     for (k, (x, y)) in a.iter().zip(&b).enumerate() {
-        if conv(g, level, x, y).ok()? {
+        if conv(&g.ev(), level, x, y).ok()? {
             continue;
         }
         if data.auto_params().get(k) != Some(&true) {

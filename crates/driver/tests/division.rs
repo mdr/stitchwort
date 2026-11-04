@@ -40,7 +40,7 @@ fn applied(g: &Globals, name: &str, arity: usize) -> Value {
         term = Term::app(term, Term::Var(i));
     }
     let env: Vec<Value> = (0..arity).map(Value::var).collect();
-    value::eval(g, &env, &term).expect("no limits")
+    value::eval(&g.ev(), &env, &term).expect("no limits")
 }
 
 /// The normal form of `lcg seed`, by both evaluators, stays small: it was
@@ -52,19 +52,19 @@ fn an_open_dividend_has_a_small_normal_form() {
         let g = &session.elab.globals;
         for name in ["lcg", "quotient"] {
             let machine = applied(g, name, 1);
-            let term = value::quote(g, 1, &machine).expect("no limits");
+            let term = value::quote(&g.ev(), 1, &machine).expect("no limits");
             let size = format!("{term:?}").len();
             assert!(
                 size < 2_000,
                 "{name}: the machine's normal form is {size} characters"
             );
             let slow = reference::eval(
-                g,
+                &g.ev(),
                 &[Value::var(0)],
                 &Term::app(Term::Def(def(g, name)), Term::Var(0)),
             )
             .expect("no limits");
-            let term = reference::quote(g, 1, &slow).expect("no limits");
+            let term = reference::quote(&g.ev(), 1, &slow).expect("no limits");
             let size = format!("{term:?}").len();
             assert!(
                 size < 2_000,
@@ -86,10 +86,10 @@ fn a_stuck_step_of_division_is_shown_as_division() {
         let xd: Vec<Name> = vec!["x".into(), "d".into()];
         let shown = |names: &[Name], name: &str| {
             let v = applied(g, name, names.len());
-            let printed = stitchwort_core::pretty::value(g, names, &v);
+            let printed = stitchwort_core::pretty::value(&g.ev(), names, &v);
             assert_eq!(
                 printed,
-                stitchwort_core::pretty::value_for_message(g, names, &v),
+                stitchwort_core::pretty::value_for_message(&g.ev(), names, &v),
                 "{name}"
             );
             printed
@@ -137,7 +137,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             );
             let ty = &g.def(def(g, "t")).ty_value();
             assert_eq!(
-                stitchwort_core::pretty::value(g, &[], ty),
+                stitchwort_core::pretty::value(&g.ev(), &[], ty),
                 "(seed: Nat) → (seed * 1103515245 + 12345) % 2147483648 ≤ 2147483647"
             );
         });

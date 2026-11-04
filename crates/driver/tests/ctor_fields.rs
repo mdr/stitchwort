@@ -80,7 +80,7 @@ fn hashes(text: &str) -> Vec<(String, String)> {
             NAMES.iter().any(|n| path == format!("Main.{n}"))
         })
         .map(|i| {
-            let h = def_hash(g, DefId(i)).unwrap().expect("a hash").hex();
+            let h = def_hash(&g.ev(), DefId(i)).unwrap().expect("a hash").hex();
             (g.env.defs()[i].path().to_string(), h)
         })
         .collect()

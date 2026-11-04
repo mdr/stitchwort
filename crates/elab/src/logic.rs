@@ -373,7 +373,11 @@ fn assumption(cx: &mut Ctx, prop: &Term, and: bool) -> Result<Value> {
         return Ok(prop_value);
     }
     let not = cx.eval(&Term::Def(builtin_def(cx, Builtin::Not)?))?;
-    Ok(stitchwort_core::value::apply(cx.g(), not, prop_value)?)
+    Ok(stitchwort_core::value::apply(
+        &cx.g().ev(),
+        not,
+        prop_value,
+    )?)
 }
 
 /// Whether an obligation recorded since the first `before` needs a proof:
@@ -454,7 +458,7 @@ pub(crate) fn infer(cx: &mut Ctx, logic: Logic) -> Result<(Term, Value)> {
 /// otherwise as `infer` finds it.
 pub(crate) fn check_against(cx: &mut Ctx, logic: Logic, expected: &Value) -> Result<Term> {
     let bool_data = builtin_data(cx, Builtin::Bool)?;
-    let (term, found) = match force(cx.g(), expected.clone())? {
+    let (term, found) = match force(&cx.g().ev(), expected.clone())? {
         Value::Data(d, _) if d == bool_data => return as_bool(cx, logic),
         Value::Sort(Sort::Prop) => return as_prop(cx, logic),
         Value::Sort(_) => (as_prop(cx, logic)?, Value::Sort(Sort::Prop)),

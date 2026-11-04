@@ -232,8 +232,8 @@ fn prove_premise_within(
     limits: search::Limits,
 ) -> Result<Option<Term>> {
     // One that computes to `a = a`, such as `2 <= 2`.
-    if let Value::Eq(_, l, r) = force(cx.g(), goal.clone())?
-        && conv(cx.g(), cx.level(), &l, &r)?
+    if let Value::Eq(_, l, r) = force(&cx.g().ev(), goal.clone())?
+        && conv(&cx.g().ev(), cx.level(), &l, &r)?
     {
         return Ok(Some(Term::Refl));
     }
@@ -241,7 +241,7 @@ fn prove_premise_within(
         return Ok(None);
     };
     lib.limits = limits;
-    let arithmetic = match force(cx.g(), goal.clone())? {
+    let arithmetic = match force(&cx.g().ev(), goal.clone())? {
         Value::Eq(ty, l, r) if is_data(cx, &ty, lib.bool)? => {
             (is_ctor(cx, &r, lib.tru)? || is_ctor(cx, &r, lib.fls)?)
                 && bool_form(cx, &lib, &l)?.is_some()
@@ -631,11 +631,11 @@ enum Goal {
 
 /// The data constructor `which` of `value`, if it is one.
 fn is_ctor(cx: &Ctx, value: &Value, which: (DataId, usize)) -> Result<bool> {
-    Ok(matches!(force(cx.g(), value.clone())?, Value::Ctor(d, c, _) if (d, c) == which))
+    Ok(matches!(force(&cx.g().ev(), value.clone())?, Value::Ctor(d, c, _) if (d, c) == which))
 }
 
 fn is_data(cx: &Ctx, value: &Value, which: DataId) -> Result<bool> {
-    Ok(matches!(force(cx.g(), value.clone())?, Value::Data(d, _) if d == which))
+    Ok(matches!(force(&cx.g().ev(), value.clone())?, Value::Data(d, _) if d == which))
 }
 
 /// `def` applied to exactly these explicit and implicit arguments.
@@ -666,7 +666,7 @@ enum BoolForm {
 }
 
 fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
-    let l = force(cx.g(), l.clone())?;
+    let l = force(&cx.g().ev(), l.clone())?;
     // A comparison that has computed all the way: `True` is `Nat.leq 0 0`
     // and `False` is `Nat.leq 1 0`, so `h: 3 < 2` (`False = True`) is a fact.
     let number = |k: u32| Value::Nat(Rc::new(BigUint::from(k)));
@@ -695,8 +695,8 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     // `Bool.ifThenElse p (u => True) (u => q)`.
     if let Some([_, p, t, e]) = call_args(&l, lib.ite).as_deref() {
         let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
-        let otherwise = apply(cx.g(), e.clone(), trivial.clone())?;
-        let then = apply(cx.g(), t.clone(), trivial)?;
+        let otherwise = apply(&cx.g().ev(), e.clone(), trivial.clone())?;
+        let then = apply(&cx.g().ev(), t.clone(), trivial)?;
         if is_ctor(cx, &otherwise, lib.fls)? {
             return Ok(Some(BoolForm::And(p.clone(), then)));
         }
@@ -709,12 +709,12 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
 
 /// `Not p` as a value (`p -> Void`, or the folded `Not p`): `p`.
 fn negated(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<Value>> {
-    let value = force(cx.g(), value.clone())?;
+    let value = force(&cx.g().ev(), value.clone())?;
     if let Some([p]) = call_args(&value, lib.not).as_deref() {
         return Ok(Some(p.clone()));
     }
     if let Value::Pi(_, Icit::Explicit, dom, cod) = &value {
-        let result = cod.apply(cx.g(), Value::var(cx.level()))?;
+        let result = cod.apply(&cx.g().ev(), Value::var(cx.level()))?;
         if is_data(cx, &result, lib.void)? {
             return Ok(Some((**dom).clone()));
         }
@@ -728,14 +728,14 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
     let mut term = Term::Def(which);
     let mut ty = g.def(which).ty_value().clone();
     for (arg, value) in args {
-        let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, icit, _, cod) = force(&g.ev(), ty)? else {
             return Err(internal(
                 cx.span,
                 "a bridge lemma has fewer parameters than expected".into(),
             ));
         };
         term = Term::app_icit(term, arg.clone(), icit);
-        ty = cod.apply(g, value.clone())?;
+        ty = cod.apply(&g.ev(), value.clone())?;
     }
     Ok((term, ty))
 }
@@ -754,7 +754,7 @@ fn prove_goal(
     extra: &[Extra],
     span: Span,
 ) -> Result<Term> {
-    let goal = force(cx.g(), expected.clone())?;
+    let goal = force(&cx.g().ev(), expected.clone())?;
     match &goal {
         Value::Eq(ty, l, r) if is_data(cx, ty, lib.nat)? => {
             return linear(
@@ -1009,7 +1009,7 @@ fn lex_less(
 /// in `Type` (`Some(false)`), when that's easy to see.
 pub(crate) fn is_prop(cx: &Ctx, goal: &Value) -> Result<Option<bool>> {
     use stitchwort_core::Sort;
-    Ok(match force(cx.g(), goal.clone())? {
+    Ok(match force(&cx.g().ev(), goal.clone())? {
         Value::Eq(..) => Some(true),
         Value::Data(d, _) => match cx.g().data(d).sort() {
             Sort::Prop => Some(true),
@@ -1052,7 +1052,7 @@ fn by_cases(
     let motive = Term::Lam(
         "b".into(),
         Icit::Explicit,
-        Rc::new(cx.quote_folded(goal)?.shift(cx.g(), 1, 0)?),
+        Rc::new(cx.quote_folded(goal)?.shift(&cx.g().ev(), 1, 0)?),
     );
     Ok(apps(
         Term::Def(lib.inspect),
@@ -1079,7 +1079,7 @@ fn prove_or(
     splits: &mut usize,
 ) -> Result<Term> {
     for (side, decided, other) in [(0, p, q), (1, q, p)] {
-        let (b, sides) = match force(cx.g(), decided.clone())? {
+        let (b, sides) = match force(&cx.g().ev(), decided.clone())? {
             Value::Eq(ty, l, r) if is_data(cx, &ty, lib.bool)? && is_ctor(cx, &r, lib.tru)? => {
                 ((*l).clone(), None)
             }
@@ -1220,7 +1220,7 @@ impl Reader<'_> {
             return Ok(());
         }
         let lib = self.lib;
-        let value = force(cx.g(), prop.clone())?;
+        let value = force(&cx.g().ev(), prop.clone())?;
         let fact = |kind, int, a: &Value, b: &Value| Fact {
             kind,
             int,
@@ -1245,7 +1245,7 @@ impl Reader<'_> {
                 } else {
                     return Ok(());
                 };
-                let l_forced = force(cx.g(), (**l).clone())?;
+                let l_forced = force(&cx.g().ev(), (**l).clone())?;
                 if let Some([x, y]) = call_args(&l_forced, lib.nat_equal).as_deref() {
                     let which = if truth {
                         lib.equal_sound
@@ -1345,7 +1345,7 @@ impl Reader<'_> {
                 let Some(p) = negated(cx, lib, &value)? else {
                     return Ok(());
                 };
-                let p = force(cx.g(), p)?;
+                let p = force(&cx.g().ev(), p)?;
                 match &p {
                     Value::Eq(ty, l, r)
                         if is_data(cx, ty, lib.bool)? && is_ctor(cx, r, lib.tru)? =>
@@ -1691,8 +1691,8 @@ impl Quoter {
         span: Span,
     ) -> Result<std::result::Result<NTerm, Unknown>> {
         let g = cx.g();
-        let value = force(g, value.clone())?;
-        let (k, base) = stitchwort_core::native::view(g, &value)?;
+        let value = force(&g.ev(), value.clone())?;
+        let (k, base) = stitchwort_core::native::view(&g.ev(), &value)?;
         let Some(base) = base else {
             return Ok(Ok(NTerm::Lit(k)));
         };
@@ -1707,7 +1707,7 @@ impl Quoter {
                 NTerm::Add(Box::new(NTerm::Lit(k)), Box::new(inner))
             }));
         }
-        let base = force(g, base)?;
+        let base = force(&g.ev(), base)?;
         if let Value::Neutral(Head::Meta(_), _) = base {
             return Ok(Err(Unknown));
         }
@@ -1741,7 +1741,7 @@ impl Quoter {
             return Ok(Ok(NTerm::Add(Box::new(a), Box::new(b))));
         }
         if let Some([a, b]) = call_args(&base, lib.mul).as_deref() {
-            let (k, rest) = stitchwort_core::native::view(g, b)?;
+            let (k, rest) = stitchwort_core::native::view(&g.ev(), b)?;
             if rest.is_none() {
                 let a = match self.quote(cx, lib, a, span)? {
                     Ok(t) => t,
@@ -1811,7 +1811,7 @@ impl Quoter {
                 }
             };
         }
-        let value = force(cx.g(), value.clone())?;
+        let value = force(&cx.g().ev(), value.clone())?;
         if let Value::Ctor(d, c, fields) = &value
             && fields.len() == 1
             && (*d == lib.of_nat.0 && (*c == lib.of_nat.1 || *c == lib.neg_succ.1))
@@ -1906,7 +1906,7 @@ impl Quoter {
         let Some([m, n, gap]) = args.as_deref() else {
             return Ok(None);
         };
-        let gap = force(cx.g(), gap.clone())?;
+        let gap = force(&cx.g().ev(), gap.clone())?;
         let same = crate::matching::same;
         if let Some([n2, m2]) = call_args(&gap, lib.sub).as_deref()
             && same(&cx.quote(n2)?, &cx.quote(n)?)
@@ -1921,7 +1921,7 @@ impl Quoter {
             Term::Def(lib.sub),
             vec![cx.quote_folded(n)?, cx.quote_folded(m)?],
         );
-        let computed = force(cx.g(), cx.eval(&gap_of)?)?;
+        let computed = force(&cx.g().ev(), cx.eval(&gap_of)?)?;
         let matches = same(&cx.quote(&computed)?, &cx.quote(&gap)?);
         Ok(matches.then(|| (m.clone(), n.clone())))
     }
@@ -1951,7 +1951,7 @@ impl Quoter {
                     Term::Def(lib.div_fuel),
                     vec![fuel.clone(), cx.quote_folded(n)?, cx.quote_folded(d)?],
                 );
-                let computed = force(cx.g(), cx.eval(&call)?)?;
+                let computed = force(&cx.g().ev(), cx.eval(&call)?)?;
                 if !crate::matching::same(&cx.quote(&computed)?, &cx.quote(value)?) {
                     return Ok(None);
                 }
@@ -1959,7 +1959,7 @@ impl Quoter {
             } else {
                 return Ok(None);
             };
-        Ok(match force(cx.g(), divisor)? {
+        Ok(match force(&cx.g().ev(), divisor)? {
             Value::Nat(k) if *k != BigUint::default() => Some((numerator, fuel, (*k).clone())),
             _ => None,
         })
@@ -1986,23 +1986,23 @@ impl Quoter {
         let Some([_, c, then, otherwise]) = ite.as_deref() else {
             return Ok(None);
         };
-        let c = force(cx.g(), c.clone())?;
+        let c = force(&cx.g().ev(), c.clone())?;
         let leq = call_args(&c, lib.leq);
         let Some([a, b]) = leq.as_deref() else {
             return Ok(None);
         };
         let g = cx.g();
         let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
-        let then = apply(g, then.clone(), trivial.clone())?;
-        let otherwise = apply(g, otherwise.clone(), trivial)?;
+        let then = apply(&g.ev(), then.clone(), trivial.clone())?;
+        let otherwise = apply(&g.ev(), otherwise.clone(), trivial)?;
         // `max (k + a) (k + b)` computes to `if Nat.leq a b then k + b else
         // k + a`: `Nat.leq` takes off the `Succ`s both sides share, and the
         // branches keep them. (With `+` computing on both sides, `min (x +
         // 1) (y + 1)` is `if Nat.leq x y then Succ x else Succ y`.) So take
         // the same `k` off each branch before comparing them with `a` and `b`.
         use stitchwort_core::native::{from_view, view};
-        let (k_then, base_then) = view(g, &then)?;
-        let (k_otherwise, base_otherwise) = view(g, &otherwise)?;
+        let (k_then, base_then) = view(&g.ev(), &then)?;
+        let (k_otherwise, base_otherwise) = view(&g.ev(), &otherwise)?;
         let (k, then, otherwise) = match (base_then, base_otherwise) {
             (Some(t), Some(o)) if k_then == k_otherwise => (k_then, t, o),
             _ => (BigUint::default(), then, otherwise),
@@ -2032,7 +2032,7 @@ impl Quoter {
         let g = cx.g();
         if let Some([k, t]) = call_args(value, lib.mul).as_deref()
             && let Value::Nat(k) = k
-            && stitchwort_core::value::is_folded(g, value)
+            && stitchwort_core::value::is_folded(&g.ev(), value)
         {
             return Ok(Some(((**k).clone(), t.clone())));
         }
@@ -2045,7 +2045,7 @@ impl Quoter {
         let mut count: u32 = 0;
         let mut current = value.clone();
         loop {
-            let current_forced = force(g, current)?;
+            let current_forced = force(&g.ev(), current)?;
             match call_args(&current_forced, lib.add).as_deref() {
                 Some([x, rest]) => {
                     if !crate::matching::same(&cx.quote(x)?, &t_term) {
@@ -2055,7 +2055,7 @@ impl Quoter {
                     current = rest.clone();
                 }
                 _ => {
-                    let (k, base) = stitchwort_core::native::view(g, &current_forced)?;
+                    let (k, base) = stitchwort_core::native::view(&g.ev(), &current_forced)?;
                     let zero = base.is_none() && k == BigUint::default();
                     // The last `t + 0` is `t` itself when `t` is stuck: `+`
                     // computes on its second argument too (`nat_add.rs`).
@@ -2096,7 +2096,7 @@ impl Quoter {
                 size: 10_000,
                 frames: 10_000,
             });
-            if conv(g, cx.level(), &a.value, &value) == Ok(true) {
+            if conv(&g.ev(), cx.level(), &a.value, &value) == Ok(true) {
                 return Ok(i);
             }
         }
@@ -2143,7 +2143,7 @@ fn recomputed(cx: &Ctx, value: &Value) -> Result<Option<Value>> {
         return Ok(None);
     }
     let term = cx.quote(value)?;
-    let again = force(cx.g(), cx.eval(&term)?)?;
+    let again = force(&cx.g().ev(), cx.eval(&term)?)?;
     if matches!(&again, Value::Neutral(Head::Def(_), _))
         && crate::matching::same(&cx.quote(&again)?, &term)
     {
@@ -2154,13 +2154,13 @@ fn recomputed(cx: &Ctx, value: &Value) -> Result<Option<Value>> {
 
 /// `value` as an `Int` number, if it is one that fits in an `i128`.
 fn int_literal(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<i128>> {
-    let Value::Ctor(d, c, fields) = force(cx.g(), value.clone())? else {
+    let Value::Ctor(d, c, fields) = force(&cx.g().ev(), value.clone())? else {
         return Ok(None);
     };
     if d != lib.of_nat.0 || fields.len() != 1 {
         return Ok(None);
     }
-    let (k, base) = stitchwort_core::native::view(cx.g(), &fields[0])?;
+    let (k, base) = stitchwort_core::native::view(&cx.g().ev(), &fields[0])?;
     let Some(k) = base.is_none().then(|| i128::try_from(&k).ok()).flatten() else {
         return Ok(None);
     };
@@ -2456,7 +2456,7 @@ fn split_first(
     for d in found {
         let mut done = false;
         for (proof, level) in split {
-            if crate::matching::same(&proof.shift(cx.g(), cx.level() - level, 0)?, &d.proof) {
+            if crate::matching::same(&proof.shift(&cx.g().ev(), cx.level() - level, 0)?, &d.proof) {
                 done = true;
             }
         }
@@ -2623,7 +2623,7 @@ fn assuming(
     let mut shifted = Vec::new();
     for e in extra {
         shifted.push(Extra {
-            term: e.term.shift(cx.g(), 1, 0)?,
+            term: e.term.shift(&cx.g().ev(), 1, 0)?,
             ty: e.ty.clone(),
             name: e.name.clone(),
         });
@@ -2905,8 +2905,8 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
     let enough_fuel = if same(&cx.quote(&division.numerator)?, &cx.quote(&division.fuel)?) {
         Some(lemma(cx, lib.le_refl, std::slice::from_ref(&numerator))?)
     } else {
-        let (k, base) = stitchwort_core::native::view(cx.g(), &division.numerator)?;
-        let (k_fuel, base_fuel) = stitchwort_core::native::view(cx.g(), &division.fuel)?;
+        let (k, base) = stitchwort_core::native::view(&cx.g().ev(), &division.numerator)?;
+        let (k_fuel, base_fuel) = stitchwort_core::native::view(&cx.g().ev(), &division.fuel)?;
         match (base, base_fuel) {
             (Some(base), Some(base_fuel))
                 if k_fuel >= k && same(&cx.quote(&base)?, &cx.quote(&base_fuel)?) =>
@@ -3524,24 +3524,24 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     let g = cx.g();
     let mut ty = g.def(which).ty_value().clone();
     for arg in args {
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
             return Err(internal(
                 cx.span,
                 "`Std.Omega.prove` has fewer parameters than expected".into(),
             ));
         };
-        ty = cod.apply(g, cx.eval(arg)?)?;
+        ty = cod.apply(&g.ev(), cx.eval(arg)?)?;
     }
     // The certificates and proofs: the result doesn't depend on them.
     let mut remaining = rest;
     while remaining > 0 {
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
             return Err(internal(
                 cx.span,
                 "`Std.Omega.prove` has fewer parameters than expected".into(),
             ));
         };
-        ty = cod.apply(g, Value::var(cx.level()))?;
+        ty = cod.apply(&g.ev(), Value::var(cx.level()))?;
         remaining -= 1;
     }
     Ok(ty)

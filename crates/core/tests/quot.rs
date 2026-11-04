@@ -178,7 +178,7 @@ fn refused<T: std::fmt::Debug>(result: Result<T, Diagnostic>, code: &str, reason
 }
 
 fn infer(g: &Globals, term: &Term) -> Result<(Term, Value), Diagnostic> {
-    infer_closed(g, term, span())
+    infer_closed(&g.ev(), term, span())
 }
 
 // R1, R2: no pattern matching on a quotient, so no projection back to the
@@ -848,7 +848,7 @@ fn the_rules_accept_well_formed_forms() {
     let (_, sort) = infer(g, &f.q_ty()).expect("Q");
     assert!(matches!(sort, Value::Sort(Sort::Type(0))));
     let (_, ty) = infer(g, &f.mk(f.ff())).expect("Quot.mk False");
-    assert!(conv(g, 0, &ty, &eval(g, &[], &f.q_ty()).unwrap()).unwrap());
+    assert!(conv(&g.ev(), 0, &ty, &eval(&g.ev(), &[], &f.q_ty()).unwrap()).unwrap());
     // Carriers: the universe `Prop`, and `Type 0` (in `Type 1`).
     let (_, sort) = infer(g, &q(QuotType, vec![prop(), f.everything()])).expect("Quot Prop");
     assert!(matches!(sort, Value::Sort(Sort::Type(0))));
@@ -1286,9 +1286,9 @@ fn a8_a_folded_lift_is_still_its_body() {
     let names: Vec<stitchwort_core::Name> = vec!["q".into()];
     let shown = |term: &Term, level: usize| {
         let env: Vec<Value> = (0..level).map(Value::var).collect();
-        let value = eval(g, &env, term).expect("evaluates");
-        let quoted = quote(g, level, &value).expect("quotes");
-        stitchwort_core::pretty::term(g, &names[..level], &quoted)
+        let value = eval(&g.ev(), &env, term).expect("evaluates");
+        let quoted = quote(&g.ev(), level, &value).expect("quotes");
+        stitchwort_core::pretty::term(&g.ev(), &names[..level], &quoted)
     };
     assert_eq!(shown(&applied(observe), 1), "observe q");
     let under_true = app(Term::Def(under), [f.tt(), v(0)]);

@@ -49,7 +49,10 @@ fn hashes(source: &str, names: &[&str]) -> Vec<String> {
         (names.iter())
             .map(|name| {
                 let id = session.elab.lookup_def(name).expect("defined");
-                def_hash(&session.elab.globals, id).unwrap().unwrap().hex()
+                def_hash(&session.elab.globals.ev(), id)
+                    .unwrap()
+                    .unwrap()
+                    .hex()
             })
             .collect()
     })

@@ -406,7 +406,7 @@ impl Elaborator {
         let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure))?;
         self.session.namespace_keys.insert(ns.to_string(), key);
         if self.options.fail_replays_late
-            || stitchwort_core::registry::check_complete_core(&self.globals).is_err()
+            || stitchwort_core::registry::check_complete_core(&self.globals.ev()).is_err()
         {
             return None;
         }
@@ -539,7 +539,7 @@ impl Elaborator {
         // Before the replay, so that if it fails part way, the namespace's
         // write-set holds what it did as well as what elaborating does.
         let transaction = self.with_journal(|journal, logs| journal.begin(logs));
-        if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
+        if stitchwort_core::registry::check_complete_core(&self.globals.ev()).is_ok()
             && let Some(bytes) = store.read(unit, key)
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
@@ -883,7 +883,7 @@ impl Refs for Out<'_> {
             return;
         }
         let def = self.g.def(id);
-        let hash = match def_hash(self.g, id) {
+        let hash = match def_hash(&self.g.ev(), id) {
             Ok(Some(hash)) => hash,
             _ => {
                 self.fail(format!("`{}` has no content hash", def.path()));
@@ -909,7 +909,7 @@ impl Refs for Out<'_> {
             return;
         }
         let data = self.g.data(id);
-        let hash = match data_hash(self.g, id) {
+        let hash = match data_hash(&self.g.ev(), id) {
             Ok(Some(hash)) => hash,
             _ => {
                 self.fail(format!("`{}` has no content hash", data.path()));
@@ -2151,11 +2151,11 @@ impl Elaborator {
             let found = match kind {
                 0 => unique(&def_paths, path).and_then(|id| {
                     ext_defs[i] = id;
-                    def_hash(g, id).ok().flatten()
+                    def_hash(&g.ev(), id).ok().flatten()
                 }),
                 1 => unique(&data_paths, path).and_then(|id| {
                     ext_datas[i] = id;
-                    data_hash(g, id).ok().flatten()
+                    data_hash(&g.ev(), id).ok().flatten()
                 }),
                 _ => return bad("an unknown kind of dependency"),
             };

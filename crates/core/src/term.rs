@@ -1,5 +1,6 @@
 //! Core terms: the small, explicit language the kernel checks. See `docs/core.md`.
 
+use crate::ev::Ev;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -7,7 +8,6 @@ use stitchwort_syntax::Span;
 
 use crate::budget::Result;
 use crate::chars::Chars;
-use crate::globals::Globals;
 
 pub type Name = Rc<str>;
 
@@ -467,7 +467,7 @@ impl Term {
 
     /// Adds `by` to every variable at or above `cutoff`, for moving a term
     /// under `by` new binders.
-    pub fn shift(&self, g: &Globals, by: usize, cutoff: usize) -> Result<Term> {
+    pub fn shift(&self, g: &Ev, by: usize, cutoff: usize) -> Result<Term> {
         self.map_vars(g, cutoff, &|ix, cutoff| {
             if ix >= cutoff { ix + by } else { ix }
         })
@@ -476,7 +476,7 @@ impl Term {
     /// The body of a lambda applied to the variable `to` (an index outside
     /// the lambda): `self`, the body under the binder, with its variable 0
     /// replaced by `to` and the rest lowered by one.
-    pub fn instantiate_var(&self, g: &Globals, to: usize) -> Result<Term> {
+    pub fn instantiate_var(&self, g: &Ev, to: usize) -> Result<Term> {
         self.map_vars(g, 0, &|ix, depth| match ix.cmp(&depth) {
             std::cmp::Ordering::Less => ix,
             std::cmp::Ordering::Equal => to + depth,
@@ -488,7 +488,7 @@ impl Term {
     /// `value` (a term outside the binder) in place of its variable, and the
     /// rest lowered by one. Unless `value` is a variable, the binder's
     /// variable must not be a `match`'s scrutinee (only a variable can be).
-    pub fn instantiate(&self, g: &Globals, value: &Term) -> Result<Term> {
+    pub fn instantiate(&self, g: &Ev, value: &Term) -> Result<Term> {
         if let Term::Var(to) = value.strip_loc() {
             return self.instantiate_var(g, *to);
         }
@@ -511,12 +511,7 @@ impl Term {
 
     /// Renumbers every variable: `f(ix, depth)` is the new index of variable
     /// `ix` with `depth` binders entered inside the starting point.
-    fn map_vars(
-        &self,
-        g: &Globals,
-        cutoff: usize,
-        f: &dyn Fn(usize, usize) -> usize,
-    ) -> Result<Term> {
+    fn map_vars(&self, g: &Ev, cutoff: usize, f: &dyn Fn(usize, usize) -> usize) -> Result<Term> {
         self.map_vars_with(g, cutoff, &|ix, depth| Ok(Term::Var(f(ix, depth))), f)
     }
 
@@ -525,7 +520,7 @@ impl Term {
     /// stays a variable), `f(ix, depth)`.
     fn map_vars_with(
         &self,
-        g: &Globals,
+        g: &Ev,
         cutoff: usize,
         var: &dyn Fn(usize, usize) -> Result<Term>,
         f: &dyn Fn(usize, usize) -> usize,
@@ -726,7 +721,8 @@ mod tests {
 
     impl Term {
         fn shifted(&self, by: usize, cutoff: usize) -> Term {
-            self.shift(&Globals::default(), by, cutoff).unwrap()
+            self.shift(&crate::globals::Globals::default().ev(), by, cutoff)
+                .unwrap()
         }
     }
 
@@ -737,7 +733,7 @@ mod tests {
 
     #[test]
     fn instantiating_a_body_with_a_variable_renumbers_around_it() {
-        let g = Globals::default();
+        let g = crate::globals::Globals::default();
         // Body `v0 v1 (y => v0 v1 v2)` applied to outer v3: the bound v0
         // becomes v3, free v1 becomes v0; under y, v1 is that same bound
         // variable (now v4), v2 is the old v1 (now v1), v0 is y.
@@ -757,10 +753,10 @@ mod tests {
                 rc(Term::app(Term::app(v(0), v(4)), v(1))),
             ),
         );
-        assert_same(body.instantiate_var(&g, 3).unwrap(), expected);
+        assert_same(body.instantiate_var(&g.ev(), 3).unwrap(), expected);
         // A case on the bound variable scrutinises the new one.
         assert_same(
-            case(0, 1, v(1)).instantiate_var(&g, 2).unwrap(),
+            case(0, 1, v(1)).instantiate_var(&g.ev(), 2).unwrap(),
             case(2, 1, v(3)),
         );
     }

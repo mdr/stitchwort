@@ -163,7 +163,7 @@ impl Elaborator {
                     .map(Value::var)
                     .chain((0..i).map(|_| unused()))
                     .collect();
-                let value = force(g, eval(g, &env, ty)?)?;
+                let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                 if matches!(value, Value::Pi(..)) {
                     return Ok(Err(format!(
                         "{what} is a function, and functions can't be shown"
@@ -225,7 +225,7 @@ impl Elaborator {
                         .cloned()
                         .chain((0..i).map(|_| unused()))
                         .collect();
-                    let value = force(g, eval(g, &env, ty)?)?;
+                    let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                     if matches!(value, Value::Pi(..)) {
                         return Ok(Err(format!(
                             "{what} has a function inside `{}`, and functions can't be shown",
@@ -236,7 +236,7 @@ impl Elaborator {
                         kinds.push(Field::Recursive(m));
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote(&g.ev(), np, &value)?;
                     for j in 0..np {
                         if term.mentions(np - 1 - j) {
                             dicts[j] |= param_is_type[j];

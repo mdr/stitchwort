@@ -202,7 +202,7 @@ fn elaborate_own(
         ));
     }
     let g = cx.g();
-    let shift = |t: &Term, by: usize| t.shift(g, by, 0);
+    let shift = |t: &Term, by: usize| t.shift(&g.ev(), by, 0);
     let pi = |x: &str, dom: Term, cod: Term| {
         Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
     };
@@ -444,7 +444,7 @@ pub(crate) fn recursive_through_quotient(
             let label = if depth == 0 {
                 format!(
                     "field `{x}` has `{name}` inside `{}`, {what}",
-                    pretty::term(g, &names, inner)
+                    pretty::term(&g.ev(), &names, inner)
                 )
             } else {
                 format!("field `{x}` has `{name}` inside a type that is or contains a quotient")
@@ -540,7 +540,8 @@ fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
     }
     // Not an opaque definition's hidden body
     // (docs/proposals/opaque-definitions.md §6.4).
-    let found = stitchwort_core::value::body_seen(g, f).is_some_and(|body| reaches(g, body, seen));
+    let found =
+        stitchwort_core::value::body_seen(&g.ev(), f).is_some_and(|body| reaches(g, body, seen));
     seen.defs.remove(&f);
     found
 }

@@ -817,13 +817,13 @@ fn hashes(session: &Session) -> BTreeMap<String, String> {
     for i in 0..g.env.datas().len() {
         out.insert(
             format!("data {}", g.env.datas()[i].path()),
-            show(data_hash(g, DataId(i))),
+            show(data_hash(&g.ev(), DataId(i))),
         );
     }
     for i in 0..g.env.defs().len() {
         out.insert(
             g.env.defs()[i].path().to_string(),
-            show(def_hash(g, DefId(i))),
+            show(def_hash(&g.ev(), DefId(i))),
         );
     }
     out

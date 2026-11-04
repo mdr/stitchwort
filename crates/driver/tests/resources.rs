@@ -375,13 +375,13 @@ fn comparing_long_values_runs_without_using_the_stack() {
             stitchwort_core::Term::Def(def(name)),
             stitchwort_core::Term::Nat(std::rc::Rc::new(100_000u32.into())),
         );
-        eval(g, &[], &term).unwrap()
+        eval(&g.ev(), &[], &term).unwrap()
     };
     let _op = g.machine.budget.operation(Limits::default());
     let ones = call("allOnes");
-    assert!(conv(g, 0, &ones, &call("allOnes")).unwrap());
-    assert!(!conv(g, 0, &ones, &call("startsWithTwo")).unwrap());
-    assert!(!conv(g, 0, &ones, &call("endsInTwo")).unwrap());
+    assert!(conv(&g.ev(), 0, &ones, &call("allOnes")).unwrap());
+    assert!(!conv(&g.ev(), 0, &ones, &call("startsWithTwo")).unwrap());
+    assert!(!conv(&g.ev(), 0, &ones, &call("endsInTwo")).unwrap());
 }
 
 /// Printing a long value quotes it with a work list.

@@ -45,7 +45,7 @@ fn hash_of_path(session: &Session, path: &str) -> ContentHash {
         .iter()
         .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
-    def_hash(g, DefId(id)).unwrap().expect("checked")
+    def_hash(&g.ev(), DefId(id)).unwrap().expect("checked")
 }
 
 #[test]

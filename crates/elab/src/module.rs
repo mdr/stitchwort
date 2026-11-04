@@ -292,7 +292,7 @@ impl Elaborator {
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.unit.loading_prelude
-            && let Err(d) = stitchwort_core::registry::check_complete_core(&self.globals)
+            && let Err(d) = stitchwort_core::registry::check_complete_core(&self.globals.ev())
         {
             return vec![d];
         }

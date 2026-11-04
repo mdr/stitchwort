@@ -362,7 +362,7 @@ def hitD : Nat -> Bool
 ",
     );
     let g = &session.elab.globals;
-    let hash = |name| def_hash(g, def(g, name)).unwrap().unwrap();
+    let hash = |name| def_hash(&g.ev(), def(g, name)).unwrap().unwrap();
     assert_ne!(hash("hitA"), hash("hitB"));
     assert_ne!(hash("hitA"), hash("hitC"));
     // A control: the same body hashes the same.
@@ -375,26 +375,26 @@ def hitD : Nat -> Bool
 fn normal(g: &Globals, level: usize, value: &Value) -> String {
     format!(
         "{:?}",
-        reference::quote(g, level, value).expect("no limits")
+        reference::quote(&g.ev(), level, value).expect("no limits")
     )
 }
 
 /// `f arg` by both evaluators, which must agree: its normal form.
 fn call_both(g: &Globals, f: DefId, arg: &Value) -> String {
     let fast = value::apply(
-        g,
+        &g.ev(),
         Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
         arg.clone(),
     )
-    .and_then(|v| value::force(g, v))
+    .and_then(|v| value::force(&g.ev(), v))
     .expect("no limits");
     let slow = reference::apply_icit(
-        g,
+        &g.ev(),
         Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
         arg.clone(),
         Icit::Explicit,
     )
-    .and_then(|v| reference::force(g, v))
+    .and_then(|v| reference::force(&g.ev(), v))
     .expect("no limits");
     let (fast, slow) = (normal(g, 1, &fast), normal(g, 1, &slow));
     assert_eq!(fast, slow, "the evaluators disagree");
@@ -443,7 +443,7 @@ fn evaluation_follows_the_table() {
         assert_eq!(call_both(g, hit, &pending), t);
         // A solved metavariable applied to an argument, inside a prefix.
         let m2 = g.new_meta(span());
-        let id = value::eval(g, &[], &lam(Term::Var(0))).unwrap();
+        let id = value::eval(&g.ev(), &[], &lam(Term::Var(0))).unwrap();
         g.solve_meta(m2, id);
         let applied = Value::Neutral(Head::Meta(m2), vec![Elim::App(n(4), Icit::Explicit)].into());
         assert_eq!(call_both(g, hit, &plus(400, applied)), t);
@@ -453,7 +453,7 @@ fn evaluation_follows_the_table() {
         let apart = |numbers: &[u64]| {
             let numbers: Vec<BigUint> = numbers.iter().map(|&k| BigUint::from(k)).collect();
             Value::Neutral(
-                Head::Var(0, Apart::new(g, numbers.into())),
+                Head::Var(0, Apart::new(&g.ev(), numbers.into())),
                 stitchwort_core::value::Spine::new(),
             )
         };
@@ -465,9 +465,9 @@ fn evaluation_follows_the_table() {
         assert_eq!(call_both(g, hit, &plus(4, apart(&[400]))), f);
         stuck(&plus(4, apart(&[404])));
         // Still the variable: equal to it whatever it's known apart from.
-        assert!(value::conv(g, 1, &apart(&[404]), &x).unwrap());
-        assert!(value::conv(g, 1, &apart(&[404]), &apart(&[7])).unwrap());
-        assert!(!value::conv(g, 1, &apart(&[404]), &n(405)).unwrap());
+        assert!(value::conv(&g.ev(), 1, &apart(&[404]), &x).unwrap());
+        assert!(value::conv(&g.ev(), 1, &apart(&[404]), &apart(&[7])).unwrap());
+        assert!(!value::conv(&g.ev(), 1, &apart(&[404]), &n(405)).unwrap());
     });
 }
 
@@ -512,10 +512,10 @@ fn chain(g: &Globals, ix: usize, arms: &[(BigUint, Term)], default: &Term, j: us
         .iter()
         .find(|(k, _)| *k == here)
         .map_or(default, |(_, body)| body)
-        .shift(g, j, 0)
+        .shift(&g.ev(), j, 0)
         .unwrap();
     let succ = if here == last {
-        default.shift(g, j + 1, 0).unwrap()
+        default.shift(&g.ev(), j + 1, 0).unwrap()
     } else {
         chain(g, ix, arms, default, j + 1)
     };
@@ -583,13 +583,13 @@ fn run(g: &Globals, f: DefId, args: &[Arg]) -> Option<String> {
             Arg::Open(0) => Value::var(i),
             Arg::Open(k) => plus(*k, Value::var(i)),
         };
-        value = value::apply(g, value, arg).unwrap();
+        value = value::apply(&g.ev(), value, arg).unwrap();
     }
-    let value = value::force(g, value).unwrap();
+    let value = value::force(&g.ev(), value).unwrap();
     if matches!(value, Value::Neutral(Head::Def(_), _)) {
         return None;
     }
-    Some(match as_nat(g, &value).unwrap() {
+    Some(match as_nat(&g.ev(), &value).unwrap() {
         Some(n) => n.to_string(),
         None => normal(g, args.len(), &value),
     })

@@ -36,7 +36,7 @@ use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Ev, Term};
 
 use crate::erasure::def_shape;
 use crate::ir::Shapes;
@@ -129,7 +129,7 @@ pub struct EffectNatives {
 }
 
 impl EffectNatives {
-    pub fn new(g: &Globals) -> Option<EffectNatives> {
+    pub fn new(g: &Ev) -> Option<EffectNatives> {
         let r = &g.env.registry();
         let mut natives = HashMap::default();
         for (b, op) in [

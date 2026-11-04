@@ -14,7 +14,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::native;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId, Globals, Limits, ResourceError};
+use stitchwort_core::{DataId, DefId, Ev, Limits, ResourceError};
 
 /// A prelude text operation with a native implementation, where a `Text` is
 /// a native string (in JS, with the backend's `Options::native_text`). Like the
@@ -154,7 +154,7 @@ pub type TextBinding = NativeBinding<TextNative>;
 /// Matches each native in `table` with the definition it replaces, by
 /// content hash.
 fn bind_natives<N: Copy>(
-    g: &Globals,
+    g: &Ev,
     table: &[(Builtin, N, &str)],
 ) -> Result<Vec<NativeBinding<N>>, ResourceError> {
     let _op = g
@@ -183,7 +183,7 @@ fn bind_natives<N: Copy>(
 }
 
 /// Matches each text native with the definition it replaces, by content hash.
-pub fn bind_text_natives(g: &Globals) -> Result<Vec<TextBinding>, ResourceError> {
+pub fn bind_text_natives(g: &Ev) -> Result<Vec<TextBinding>, ResourceError> {
     bind_natives(g, TEXT_NATIVES)
 }
 
@@ -237,7 +237,7 @@ pub struct IntBinding {
 
 /// Matches the `bigint` representation with the prelude's `Int`, and each
 /// integer native with the definition it replaces, by content hash.
-pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
+pub fn bind_int(g: &Ev) -> Result<IntBinding, ResourceError> {
     let _op = g
         .machine
         .budget
@@ -258,7 +258,7 @@ pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
 /// The prelude's `Int`, if the `bigint` representation applies to it
 /// ([`bind_int`]). Hashing a checked data type with two constructors of one
 /// field each takes a few stack frames, and the hash is remembered.
-pub fn int_data(g: &Globals) -> Option<DataId> {
+pub fn int_data(g: &Ev) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Int)?;
     let _op = g
         .machine
@@ -271,7 +271,7 @@ pub fn int_data(g: &Globals) -> Option<DataId> {
 /// The prelude's `Nat`, if the `bigint` representation applies to it
 /// ([`NAT_DATA_HASH`]). Hashing a checked data type takes a few stack frames,
 /// and the hash is remembered.
-pub fn nat_data(g: &Globals) -> Option<DataId> {
+pub fn nat_data(g: &Ev) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Nat)?;
     let _op = g
         .machine
@@ -284,7 +284,7 @@ pub fn nat_data(g: &Globals) -> Option<DataId> {
 /// The prelude's `Text`, if the JS string representation applies to it
 /// ([`TEXT_DATA_HASH`]). Hashing a checked data type takes a few stack
 /// frames, and the hash is remembered.
-pub fn text_data(g: &Globals) -> Option<DataId> {
+pub fn text_data(g: &Ev) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Text)?;
     let _op = g
         .machine
@@ -307,7 +307,7 @@ pub const SAFE_INT_HASH: &str = "f83abb645b0b44d517077c186e28726771d9394db538538
 
 /// The library's `SafeNat`, if its file is loaded and the `number` codec
 /// applies to it ([`SAFE_NAT_HASH`]).
-pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
+pub fn safe_nat_data(g: &Ev) -> Option<DataId> {
     let d = g.env.registry().loaded_data(Builtin::SafeNat)?;
     let _op = g
         .machine
@@ -319,7 +319,7 @@ pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
 
 /// The library's `SafeInt`, if its file is loaded and the `number` codec
 /// applies to it ([`SAFE_INT_HASH`]).
-pub fn safe_int_data(g: &Globals) -> Option<DataId> {
+pub fn safe_int_data(g: &Ev) -> Option<DataId> {
     let d = g.env.registry().loaded_data(Builtin::SafeInt)?;
     let _op = g
         .machine
@@ -584,14 +584,14 @@ const FLOAT_NATIVES: &[(Builtin, FloatPrim, &str)] = &[
 
 /// Matches each runtime-only float native with the definition it replaces,
 /// by content hash.
-pub fn bind_float_natives(g: &Globals) -> Result<Vec<NativeBinding<FloatPrim>>, ResourceError> {
+pub fn bind_float_natives(g: &Ev) -> Result<Vec<NativeBinding<FloatPrim>>, ResourceError> {
     bind_natives(g, FLOAT_NATIVES)
 }
 
 /// The library's `Float`, if its file is loaded and it is the declaration
 /// the native double was written for: the kernel binds it only then, by
 /// content hash (`stitchwort_core::float::FLOAT_DATA_HASH`).
-pub fn float_data(g: &Globals) -> Option<DataId> {
+pub fn float_data(g: &Ev) -> Option<DataId> {
     g.env.builtins().float.data
 }
 
@@ -623,7 +623,7 @@ pub struct Representation {
 impl Representation {
     /// What applies, with native text and integers wanted or not.
     pub fn new(
-        g: &Globals,
+        g: &Ev,
         native_text: bool,
         native_int: bool,
     ) -> Result<Representation, ResourceError> {
@@ -703,12 +703,12 @@ impl Representation {
     /// Which kernel-native implementation applies to `id`, if any: the
     /// number natives assume the native representation, so they apply only
     /// with it ([`nat_data`]).
-    pub fn kernel_native(&self, g: &Globals, id: DefId) -> Option<native::Native> {
+    pub fn kernel_native(&self, g: &Ev, id: DefId) -> Option<native::Native> {
         self.nat.and(g.env.builtins().native(id))
     }
 
     /// Whether `id` has a native implementation of any kind.
-    pub fn is_native(&self, g: &Globals, id: DefId) -> bool {
+    pub fn is_native(&self, g: &Ev, id: DefId) -> bool {
         self.kernel_native(g, id).is_some()
             || self.text_natives.contains_key(&id)
             || self.int_natives.contains_key(&id)

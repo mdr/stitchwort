@@ -33,7 +33,9 @@ fn code<T>(r: Result<T, &'static str>) -> &'static str {
 }
 
 fn infer_code(g: &Globals, term: &Term) -> &'static str {
-    infer_closed(g, term, span()).err().map_or("ok", |d| d.code)
+    infer_closed(&g.ev(), term, span())
+        .err()
+        .map_or("ok", |d| d.code)
 }
 
 /// The prelude, plus a length-indexed vector made by a type-level function
@@ -122,13 +124,13 @@ fn a_dependent_let_has_its_body_type_with_the_value_put_in() {
         three.clone(),
         ann(app(Term::Def(vs.zeros), [v(0)]), vs.vec_of(v(0))),
     );
-    let (_, ty) = infer_closed(&vs.p.g, &term, span()).expect("checks");
+    let (_, ty) = infer_closed(&vs.p.g.ev(), &term, span()).expect("checks");
     let g = &vs.p.g;
-    let expected = eval(g, &[], &vs.vec_of(three.clone())).unwrap();
-    assert!(conv(g, 0, &ty, &expected).unwrap());
+    let expected = eval(&g.ev(), &[], &vs.vec_of(three.clone())).unwrap();
+    assert!(conv(&g.ev(), 0, &ty, &expected).unwrap());
     // Quoted outside the `let`, at depth 0, the type is closed: it checks
     // as a type in the empty context.
-    let quoted = quote(g, 0, &ty).unwrap();
+    let quoted = quote(&g.ev(), 0, &ty).unwrap();
     assert_eq!(
         infer_code(g, &quoted),
         "ok",
@@ -144,8 +146,16 @@ fn a_dependent_let_has_its_body_type_with_the_value_put_in() {
 fn a_let_can_define_a_type() {
     let p = Prelude::new();
     let term = let_("T", ty(), p.nat_ty(), ann(p.num(2), v(0)));
-    let (_, ty) = infer_closed(&p.g, &term, span()).expect("checks");
-    assert!(conv(&p.g, 0, &ty, &eval(&p.g, &[], &p.nat_ty()).unwrap()).unwrap());
+    let (_, ty) = infer_closed(&p.g.ev(), &term, span()).expect("checks");
+    assert!(
+        conv(
+            &p.g.ev(),
+            0,
+            &ty,
+            &eval(&p.g.ev(), &[], &p.nat_ty()).unwrap()
+        )
+        .unwrap()
+    );
 }
 
 /// The value is visible: `let n := 2; (rfl : n + n = 4)` checks, but the
@@ -198,18 +208,18 @@ fn a_dependent_function_type_after_a_let_is_closed_outside_it() {
         p.num(2),
         ann(lam("m", Term::Refl), pi("m", p.nat_ty(), fn_ty(v(1), v(0)))),
     );
-    let (term, ty) = infer_closed(g, &term, span()).expect("checks");
-    let quoted = quote(g, 0, &ty).unwrap();
+    let (term, ty) = infer_closed(&g.ev(), &term, span()).expect("checks");
+    let quoted = quote(&g.ev(), 0, &ty).unwrap();
     assert_eq!(infer_code(g, &quoted), "ok", "closed: {quoted:?}");
     let (expected, _) =
-        infer_closed(g, &pi("m", p.nat_ty(), fn_ty(p.num(2), v(0))), span()).unwrap();
-    let expected = eval(g, &[], &expected).unwrap();
-    assert!(conv(g, 0, &ty, &expected).unwrap());
+        infer_closed(&g.ev(), &pi("m", p.nat_ty(), fn_ty(p.num(2), v(0))), span()).unwrap();
+    let expected = eval(&g.ev(), &[], &expected).unwrap();
+    assert!(conv(&g.ev(), 0, &ty, &expected).unwrap());
     // Its value is a function, closed too, and applying it to a fresh
     // variable (level 0, the next free one outside) gives a proof.
-    let value = eval(g, &[], &term).unwrap();
+    let value = eval(&g.ev(), &[], &term).unwrap();
     assert_eq!(
-        format!("{:?}", quote(g, 0, &value).unwrap()),
+        format!("{:?}", quote(&g.ev(), 0, &value).unwrap()),
         format!("{:?}", lam("m", Term::Refl))
     );
 }
@@ -249,8 +259,8 @@ fn nested_lets_under_binders() {
         "ok"
     );
     // Its normal form is `a => b => rfl`: no `let` is quoted back.
-    let value = eval(&p.g, &[], &body).unwrap();
-    let normal = quote(&p.g, 0, &value).unwrap();
+    let value = eval(&p.g.ev(), &[], &body).unwrap();
+    let normal = quote(&p.g.ev(), 0, &value).unwrap();
     assert_eq!(
         format!("{normal:?}"),
         format!("{:?}", lam("a", lam("b", Term::Refl)))
@@ -339,14 +349,18 @@ fn a_mutated_let_is_refused_by_the_kernel() {
     let mut p = Prelude::new();
     let (good, bad, ty) = (make(&p, 3), make(&p, 4), claim(&p));
     let id = define(&mut p.g, "good", ty.clone(), good.clone()).expect("checks");
-    let hash = def_hash(&p.g, id).unwrap().expect("final");
+    let hash = def_hash(&p.g.ev(), id).unwrap().expect("final");
     assert_eq!(code(define(&mut p.g, "bad", ty.clone(), bad)), "E-REFL");
 
     // The same body as a function applied to the value hashes differently
     // (and is refused: the function form can't see the value).
     let mut q = Prelude::new();
     let id = define(&mut q.g, "good", ty.clone(), good).unwrap();
-    assert_eq!(def_hash(&q.g, id).unwrap(), Some(hash), "deterministic");
+    assert_eq!(
+        def_hash(&q.g.ev(), id).unwrap(),
+        Some(hash),
+        "deterministic"
+    );
     let mut r = Prelude::new();
     let five = let_(
         "n",
@@ -356,7 +370,7 @@ fn a_mutated_let_is_refused_by_the_kernel() {
     );
     let id = define(&mut r.g, "good", ty, five).unwrap();
     assert_ne!(
-        def_hash(&r.g, id).unwrap(),
+        def_hash(&r.g.ev(), id).unwrap(),
         Some(hash),
         "the value is hashed"
     );
@@ -378,20 +392,25 @@ fn evaluation_puts_the_value_in_the_environment() {
         lam("y", p.plus(v(1), v(0))),
     );
     let applied = app(f, [p.num(1)]);
-    let value = eval(g, &[], &applied).unwrap();
+    let value = eval(&g.ev(), &[], &applied).unwrap();
     assert_eq!(
-        format!("{:?}", quote(g, 0, &value).unwrap()),
+        format!("{:?}", quote(&g.ev(), 0, &value).unwrap()),
         format!(
             "{:?}",
-            quote(g, 0, &eval(g, &[], &p.num(6)).unwrap()).unwrap()
+            quote(&g.ev(), 0, &eval(&g.ev(), &[], &p.num(6)).unwrap()).unwrap()
         )
     );
     // On an open term the value stays stuck, and the body has it.
     let open = let_("x", p.nat_ty(), p.plus(v(0), p.num(1)), p.plus(v(0), v(0)));
-    let value = eval(g, &[stitchwort_core::Value::var(0)], &open).unwrap();
+    let value = eval(&g.ev(), &[stitchwort_core::Value::var(0)], &open).unwrap();
     let x = p.plus(v(0), p.num(1));
-    let expected = eval(g, &[stitchwort_core::Value::var(0)], &p.plus(x.clone(), x)).unwrap();
-    assert!(conv(g, 1, &value, &expected).unwrap());
+    let expected = eval(
+        &g.ev(),
+        &[stitchwort_core::Value::var(0)],
+        &p.plus(x.clone(), x),
+    )
+    .unwrap();
+    assert!(conv(&g.ev(), 1, &value, &expected).unwrap());
 }
 
 // Termination: `let x := v` is exactly as small as `v` (§6.1 rule 3)
@@ -488,7 +507,7 @@ fn deeply_nested_lets_finish_under_the_budget() {
     ] {
         let _op = g.machine.budget.operation(Limits::default());
         let started = Instant::now();
-        let r = infer_closed(g, &term, span())
+        let r = infer_closed(&g.ev(), &term, span())
             .err()
             .map_or("ok", |d| d.code);
         let elapsed = started.elapsed();

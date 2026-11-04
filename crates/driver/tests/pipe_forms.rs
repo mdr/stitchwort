@@ -19,7 +19,7 @@ fn hashes_by_name(text: &str) -> BTreeMap<String, String> {
     let g = &session.elab.globals;
     (first..g.env.defs().len())
         .map(|i| {
-            let hash = def_hash(g, DefId(i)).unwrap().map(|h| h.hex());
+            let hash = def_hash(&g.ev(), DefId(i)).unwrap().map(|h| h.hex());
             (g.env.defs()[i].name().to_string(), format!("{hash:?}"))
         })
         .collect()

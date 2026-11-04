@@ -67,7 +67,7 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
     let mut out = String::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(x, icit, dom, cod) = t {
-        let shown = stitchwort_core::pretty::term(g, &names, dom);
+        let shown = stitchwort_core::pretty::term(&g.ev(), &names, dom);
         let (open, close) = if icit.is_implicit() {
             ("[", "]")
         } else {
@@ -77,7 +77,7 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
         names.push(x.clone());
         t = cod.strip_loc();
     }
-    out + &stitchwort_core::pretty::term(g, &names, t)
+    out + &stitchwort_core::pretty::term(&g.ev(), &names, t)
 }
 
 fn with_session(f: impl FnOnce(&Session) + Send + 'static) {
@@ -942,7 +942,7 @@ fn box_equations(session: &Session) -> Vec<(String, String, [u8; 32])> {
                 .map(stitchwort_core::DefId)
                 .find(|id| **g.def(*id).name() == *name)
                 .unwrap_or_else(|| panic!("`{name}` isn't generated"));
-            let hash = stitchwort_core::hash::def_hash(g, id)
+            let hash = stitchwort_core::hash::def_hash(&g.ev(), id)
                 .unwrap()
                 .expect("final");
             (name, statement(g, g.def(id).ty()), hash.0)

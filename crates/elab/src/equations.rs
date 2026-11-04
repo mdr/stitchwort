@@ -1083,7 +1083,7 @@ impl BranchLib {
     /// From `q`, a proof (at `top`, the statement's depth) that the tail
     /// below `step` is `z`, a proof that the tail at `step` is.
     fn step_proof(&self, g: &Globals, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
-        let up = |t: &Term, from: usize, by: usize| t.shift(g, top - from + by, 0);
+        let up = |t: &Term, from: usize, by: usize| t.shift(&g.ev(), top - from + by, 0);
         let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
         let pi =
             |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
@@ -1108,12 +1108,12 @@ impl BranchLib {
                 let dom = Term::Eq(
                     Some(ty(2)?),
                     Rc::new(call(Term::Var(1), 2)?),
-                    Rc::new(z.shift(g, 2, 0)?),
+                    Rc::new(z.shift(&g.ev(), 2, 0)?),
                 );
                 let cod = Term::Eq(
                     Some(ty(3)?),
                     Rc::new(call(up(&args[1].0, *depth, 3)?, 3)?),
-                    Rc::new(z.shift(g, 3, 0)?),
+                    Rc::new(z.shift(&g.ev(), 3, 0)?),
                 );
                 let motive = lam("y", lam("e", pi(dom, cod)));
                 Term::app(Term::J(Rc::new(motive), Rc::new(id), Rc::new(hyp)), q)
@@ -1132,7 +1132,7 @@ impl BranchLib {
                     .map(|(t, _)| up(t, *depth, 0))
                     .collect::<stitchwort_core::budget::Result<_>>()?;
                 let (y, n) = (&a[3], &a[4]);
-                let result = |by: usize| a[1].shift(g, by, 0).map(|t| Some(Rc::new(t)));
+                let result = |by: usize| a[1].shift(&g.ev(), by, 0).map(|t| Some(Rc::new(t)));
                 // Under the one binder of `ey` or `en`.
                 // `branch h = z`, the application reduced (the kernel
                 // infers an equation's type from its left side).
@@ -1143,12 +1143,12 @@ impl BranchLib {
                     Ok(Term::Eq(
                         result(1)?,
                         Rc::new((**body).clone()),
-                        Rc::new(z.shift(g, 1, 0)?),
+                        Rc::new(z.shift(&g.ev(), 1, 0)?),
                     ))
                 };
                 let (ey, en) = if *yes {
                     let taken = match uniq {
-                        None => q.shift(g, 1, 0)?,
+                        None => q.shift(&g.ev(), 1, 0)?,
                         Some(uniq) => {
                             // `J (q e => A[q] = z) q' (unique hyp h')`.
                             let Term::Lam(_, _, body) = y.strip_loc() else {
@@ -1172,11 +1172,11 @@ impl BranchLib {
                                     Term::Eq(
                                         result(3)?,
                                         Rc::new(opened),
-                                        Rc::new(z.shift(g, 3, 0)?),
+                                        Rc::new(z.shift(&g.ev(), 3, 0)?),
                                     ),
                                 ),
                             );
-                            let both = [hyp.shift(g, 1, 0)?, Term::Var(0)];
+                            let both = [hyp.shift(&g.ev(), 1, 0)?, Term::Var(0)];
                             let proof = match uniq {
                                 Uniq::Bool(l, r) => apps(
                                     Term::Def(self.bool_unique),
@@ -1198,10 +1198,14 @@ impl BranchLib {
                                     out
                                 }
                             };
-                            Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
+                            Term::J(
+                                Rc::new(motive),
+                                Rc::new(q.shift(&g.ev(), 1, 0)?),
+                                Rc::new(proof),
+                            )
                         }
                     };
-                    let refuted = Term::app(Term::Var(0), hyp.shift(g, 1, 0)?);
+                    let refuted = Term::app(Term::Var(0), hyp.shift(&g.ev(), 1, 0)?);
                     (
                         lam("h", taken),
                         lam("r", self.exfalso(goal_of(n)?, refuted)),
@@ -1211,13 +1215,13 @@ impl BranchLib {
                     // the other `Bool` equation (D2186), `X = notX` from
                     // `J (y _ => b = notX → y = notX) (x => x) h' hyp`.
                     let void = match normal {
-                        None => Term::app(hyp.shift(g, 1, 0)?, Term::Var(0)),
+                        None => Term::app(hyp.shift(&g.ev(), 1, 0)?, Term::Var(0)),
                         Some((b, x)) => {
                             let other = self.bool_value(!*x);
                             let b = up(b, *depth, 1)?;
                             let dom = Term::Eq(
                                 Some(Rc::new(self.bool_ty())),
-                                Rc::new(b.shift(g, 2, 0)?),
+                                Rc::new(b.shift(&g.ev(), 2, 0)?),
                                 Rc::new(other.clone()),
                             );
                             let cod = Term::Eq(
@@ -1228,7 +1232,7 @@ impl BranchLib {
                             let motive = lam("y", lam("e", pi(dom, cod)));
                             let swapped = Term::app(
                                 Term::J(Rc::new(motive), Rc::new(id), Rc::new(Term::Var(0))),
-                                hyp.shift(g, 1, 0)?,
+                                hyp.shift(&g.ev(), 1, 0)?,
                             );
                             let apart = if *x {
                                 self.true_not_false
@@ -1240,7 +1244,7 @@ impl BranchLib {
                     };
                     (
                         lam("h", self.exfalso(goal_of(y)?, void)),
-                        lam("r", q.shift(g, 1, 0)?),
+                        lam("r", q.shift(&g.ev(), 1, 0)?),
                     )
                 };
                 let given = [
@@ -1279,7 +1283,7 @@ impl BranchLib {
                 proof,
                 result,
             } => {
-                let proof = proof.shift(g, top - after, 0)?;
+                let proof = proof.shift(&g.ev(), top - after, 0)?;
                 // (Every one a catch-all: no hypothesis, no `col_tys`.)
                 let parts = if !col_tys.is_empty() {
                     let tys = col_tys
@@ -1310,16 +1314,16 @@ impl BranchLib {
                 let local = match hyp {
                     None => proof,
                     Some(level) => {
-                        let result = result.shift(g, top - after, 0)?;
+                        let result = result.shift(&g.ev(), top - after, 0)?;
                         let dom = Term::Eq(
                             None,
                             Rc::new(call(2, true)?),
-                            Rc::new(result.shift(g, 2, 0)?),
+                            Rc::new(result.shift(&g.ev(), 2, 0)?),
                         );
                         let cod = Term::Eq(
                             None,
                             Rc::new(call(3, false)?),
-                            Rc::new(result.shift(g, 3, 0)?),
+                            Rc::new(result.shift(&g.ev(), 3, 0)?),
                         );
                         let motive = lam("y", lam("e", pi(dom, cod)));
                         Term::app(
@@ -2145,7 +2149,7 @@ impl Elaborator {
         // The predicate `%P: (params) → Prop` the goal applies to the
         // parameters, so the goal at the leaf shows what they are there.
         let pred_ty = pis(&d.binders, Term::Sort(Sort::Prop));
-        let pred_ty = eval(g, &[], &pred_ty)?;
+        let pred_ty = eval(&g.ev(), &[], &pred_ty)?;
         let probe_span = Span {
             file: span.file,
             start: span.start,
@@ -2167,7 +2171,7 @@ impl Elaborator {
             let mut cx = Ctx::new(self, span);
             cx.bind_hidden("%P".into(), pred_ty.clone());
             for (i, b) in d.binders.iter().enumerate() {
-                let ty = eval(g, &cx.env[1..], &b.ty)?;
+                let ty = eval(&g.ev(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
                     let ty_term = cx.quote(&ty)?;
                     cx.define(
@@ -2272,13 +2276,13 @@ impl Elaborator {
         let cx = saved.ctx(self);
         let g = &self.globals;
         let depth = cx.level();
-        let Value::Neutral(Head::Var(0, _), spine) = force(g, goal)? else {
+        let Value::Neutral(Head::Var(0, _), spine) = force(&g.ev(), goal)? else {
             return skip("its arm's goal wasn't the probe's");
         };
         let mut lhs = Vec::new();
         for elim in spine.iter() {
             match elim {
-                Elim::App(v, _) => lhs.push(stitchwort_core::value::quote(g, depth, v)?),
+                Elim::App(v, _) => lhs.push(stitchwort_core::value::quote(&g.ev(), depth, v)?),
                 _ => return skip("its arm's goal wasn't the probe's"),
             }
         }
@@ -2292,7 +2296,10 @@ impl Elaborator {
         let mut types: HashMap<usize, Term> = HashMap::default();
         for l in 1..depth {
             if own(l) {
-                types.insert(l, stitchwort_core::value::quote(g, depth, &cx.types[l])?);
+                types.insert(
+                    l,
+                    stitchwort_core::value::quote(&g.ev(), depth, &cx.types[l])?,
+                );
             }
         }
         // The variables the equation takes: those its arguments mention,
@@ -2757,7 +2764,7 @@ impl Elaborator {
                 for step in run.steps.iter().rev() {
                     q = lib.step_proof(g, step, top, &run.cur, q)?;
                 }
-                let lhs = s.lhs.shift(g, top - base, 0)?;
+                let lhs = s.lhs.shift(&g.ev(), top - base, 0)?;
                 let then = if matches!(q, Term::Refl) {
                     Then::Own
                 } else {
@@ -2853,7 +2860,7 @@ impl Elaborator {
                 let mut binders = s.binders.clone();
                 binders.extend(bs);
                 let top = binders.len();
-                let lhs = s.lhs.shift(&self.globals, top - base, 0)?;
+                let lhs = s.lhs.shift(&self.globals.ev(), top - base, 0)?;
                 (binders, z, unfolding, Then::PerLeaf(lhs, proofs), arm_size)
             }
         };
@@ -2869,7 +2876,7 @@ impl Elaborator {
         // The row's proof, walking the definition's tree (its case splits
         // at the top), going on along the proof that its right side is the
         // branch's at the row's leaf.
-        let lhs = s.lhs.shift(g, top - base, 0)?;
+        let lhs = s.lhs.shift(&g.ev(), top - base, 0)?;
         let body = Term::Eq(None, Rc::new(lhs), Rc::new(z));
         let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, top, &body, then)?;
         let ty = pi_over(&binders, body);
@@ -3309,14 +3316,14 @@ impl Elaborator {
                         let mut ps = Vec::new();
                         for &c in &call.cols {
                             ps.push(instantiate(g, &he.args[c].0, he_len, &vals, here)?);
-                            es.push(args[c].0.shift(g, here - depth, 0)?);
+                            es.push(args[c].0.shift(&g.ev(), here - depth, 0)?);
                             let at: Vec<(Term, usize)> =
                                 args[..c].iter().map(|(a, _)| (a.clone(), depth)).collect();
                             col_tys.push(instantiate(g, &hb[c].ty, c, &at, depth)?);
                         }
                         let tys = col_tys
                             .iter()
-                            .map(|t| t.shift(g, here - depth, 0))
+                            .map(|t| t.shift(&g.ev(), here - depth, 0))
                             .collect::<std::result::Result<Vec<_>, _>>()?;
                         let pair = tuple_parts(g)?;
                         let name: Name = fresh(&used, &format!("isAlt{}", taken.choice + 1)).into();
@@ -3335,7 +3342,7 @@ impl Elaborator {
                     if !several && hyp.is_none() && col_var.is_none() {
                         let here = binders.len();
                         let pattern = instantiate(g, &he.args[col].0, he_len, &vals, here)?;
-                        let e = args[col].0.shift(g, here - depth, 0)?;
+                        let e = args[col].0.shift(&g.ev(), here - depth, 0)?;
                         let base = match (&scrutinee.name, alt_ctor(alt)) {
                             (Some(n), _) => n.text.to_string(),
                             (None, Some(c)) => format!("is{c}"),
@@ -3368,7 +3375,7 @@ impl Elaborator {
                             None if several && all_vars => {
                                 let mut ty = ty;
                                 for &c in &call.cols {
-                                    let e = args[c].0.shift(g, here - depth, 0)?;
+                                    let e = args[c].0.shift(&g.ev(), here - depth, 0)?;
                                     let at: Vec<(Term, usize)> =
                                         args[..c].iter().map(|(a, _)| (a.clone(), depth)).collect();
                                     let col_ty = instantiate(g, &hb[c].ty, c, &at, here)?;
@@ -3377,7 +3384,7 @@ impl Elaborator {
                                 ty
                             }
                             Some(_) => {
-                                let e = args[col].0.shift(g, here - depth, 0)?;
+                                let e = args[col].0.shift(&g.ev(), here - depth, 0)?;
                                 let at: Vec<(Term, usize)> = args[..col]
                                     .iter()
                                     .map(|(a, _)| (a.clone(), depth))
@@ -3421,7 +3428,7 @@ impl Elaborator {
                     let g = &self.globals;
                     if !marked {
                         for ((v, at), (_, icit, _)) in vals.iter().zip(&he.binders) {
-                            proof = Term::app_icit(proof, v.shift(g, after - at, 0)?, *icit);
+                            proof = Term::app_icit(proof, v.shift(&g.ev(), after - at, 0)?, *icit);
                         }
                     }
                     steps.push(Step::Helper {
@@ -3726,12 +3733,12 @@ impl Elaborator {
     fn uniqueness(&self, lib: &BranchLib, p: &Term, decision: &Term, depth: usize) -> R<Uniq> {
         let g = &self.globals;
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
-        if let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)?
-            && matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool)
+        if let Value::Eq(ty, l, r) = force(&g.ev(), eval(&g.ev(), &env, p)?)?
+            && matches!(force(&g.ev(), (*ty).clone())?, Value::Data(b, _) if b == lib.bool)
         {
             return Ok(Uniq::Bool(
-                stitchwort_core::value::quote(g, depth, &l)?,
-                stitchwort_core::value::quote(g, depth, &r)?,
+                stitchwort_core::value::quote(&g.ev(), depth, &l)?,
+                stitchwort_core::value::quote(&g.ev(), depth, &r)?,
             ));
         }
         if let (Some((unique, icits)), Some(decide)) = (&lib.deceq_unique, lib.deceq_decide) {
@@ -3896,7 +3903,9 @@ impl Elaborator {
                         .position(|&v| v == l)
                     {
                         Some(i) => Some(Term::Var(to - 1 - (depth + i))),
-                        None => solved.get(&l).map(|t| t.shift(g, to - depth, 0).ok())?,
+                        None => solved
+                            .get(&l)
+                            .map(|t| t.shift(&g.ev(), to - depth, 0).ok())?,
                     })?
                     .ok_or_else(|| {
                         Stop::Skip("an overlap mentions a variable it doesn't bind".into())
@@ -3965,7 +3974,7 @@ fn generalise(
             let by = at + cache.len() - from;
             let shifted = images
                 .iter()
-                .map(|(_, image)| image.shift(g, by, 0))
+                .map(|(_, image)| image.shift(&g.ev(), by, 0))
                 .collect::<stitchwort_core::budget::Result<Vec<_>>>()?;
             cache.push(shifted);
         }
@@ -4060,7 +4069,7 @@ fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
 fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: usize) -> R<Term> {
     remap(g, t, from, to, &|l| {
         let (v, at) = vals.get(l)?;
-        v.shift(g, to - at, 0).ok()
+        v.shift(&g.ev(), to - at, 0).ok()
     })?
     .ok_or_else(|| Stop::Skip("a `match`'s alternative couldn't be stated in the branch".into()))
 }
@@ -4070,10 +4079,10 @@ fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: u
 fn typed_equations(g: &Globals, t: &Term, e: &Term, ty: &Term, by: usize) -> R<Term> {
     g.machine.budget.nesting("equations")?;
     if let Term::Eq(None, a, b) = t {
-        let e = e.shift(g, by, 0)?;
+        let e = e.shift(&g.ev(), by, 0)?;
         if stitchwort_core::value::same_term(a, &e) {
             return Ok(Term::Eq(
-                Some(Rc::new(ty.shift(g, by, 0)?)),
+                Some(Rc::new(ty.shift(&g.ev(), by, 0)?)),
                 a.clone(),
                 b.clone(),
             ));
@@ -4148,25 +4157,25 @@ fn performs_abilities(
     ty: &Term,
     special: &[Option<Term>],
 ) -> stitchwort_core::budget::Result<bool> {
-    let mut v = eval(g, &[], ty)?;
+    let mut v = eval(&g.ev(), &[], ty)?;
     let mut depth = 0;
     for s in special {
-        let Value::Pi(_, _, dom, cod) = force(g, v)? else {
+        let Value::Pi(_, _, dom, cod) = force(&g.ev(), v)? else {
             return Ok(true);
         };
         if let Some(t) = s {
-            v = cod.apply(g, eval(g, &[], t)?)?;
+            v = cod.apply(&g.ev(), eval(&g.ev(), &[], t)?)?;
             continue;
         }
-        if mentions_computation(g, &stitchwort_core::value::quote(g, depth, &dom)?) {
+        if mentions_computation(g, &stitchwort_core::value::quote(&g.ev(), depth, &dom)?) {
             return Ok(true);
         }
-        v = cod.apply(g, Value::var(depth))?;
+        v = cod.apply(&g.ev(), Value::var(depth))?;
         depth += 1;
     }
     Ok(mentions_computation(
         g,
-        &stitchwort_core::value::quote(g, depth, &v)?,
+        &stitchwort_core::value::quote(&g.ev(), depth, &v)?,
     ))
 }
 
@@ -4275,7 +4284,7 @@ fn zeta(g: &Globals, t: &Term) -> stitchwort_core::budget::Result<Term> {
     if let Term::Let(_, _, v, b, _) = t {
         let v = zeta(g, v)?;
         let b = zeta(g, b)?;
-        return b.instantiate(g, &v);
+        return b.instantiate(&g.ev(), &v);
     }
     rebuild(t, &mut |s, _| Ok(Rc::new(zeta(g, s)?)))
 }
@@ -4310,9 +4319,9 @@ fn pure_at_empty(g: &Globals, t: &Term, depth: usize) -> stitchwort_core::budget
     }
     // One step of its case tree, where its row or divergence is known.
     let env: Vec<Value> = (0..depth).map(Value::var).collect();
-    let value = eval(g, &env, &t)?;
-    let stepped = force(g, value)?;
-    let back = stitchwort_core::value::quote_folded(g, depth, &stepped)?;
+    let value = eval(&g.ev(), &env, &t)?;
+    let stepped = force(&g.ev(), value)?;
+    let back = stitchwort_core::value::quote_folded(&g.ev(), depth, &stepped)?;
     if matches!(back.spine().0, Term::Def(d) if d == id) {
         return Ok(t);
     }
@@ -4382,7 +4391,7 @@ fn remap(
                     return Ok(Err(Missing));
                 };
                 match map(level) {
-                    Some(t) => t.shift(g, k, 0)?,
+                    Some(t) => t.shift(&g.ev(), k, 0)?,
                     None => return Ok(Err(Missing)),
                 }
             }
@@ -4492,7 +4501,7 @@ fn beta_rec(g: &Globals, t: Term) -> stitchwort_core::budget::Result<Term> {
         for a in args {
             let a = beta_rec(g, a)?;
             f = match f.strip_loc() {
-                Term::Lam(_, _, body) => body.instantiate(g, &a)?,
+                Term::Lam(_, _, body) => body.instantiate(&g.ev(), &a)?,
                 _ => Term::app(f, a),
             };
         }
@@ -4880,7 +4889,7 @@ impl Elaborator {
         }
         let g = &self.globals;
         let n = d.binders.len();
-        let pred_ty = eval(g, &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
+        let pred_ty = eval(&g.ev(), &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
         let nav = self.present.nav.take();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
@@ -4891,7 +4900,7 @@ impl Elaborator {
             let mut cx = Ctx::new(self, root);
             cx.bind_hidden("%P".into(), pred_ty.clone());
             for (i, b) in d.binders.iter().enumerate() {
-                let ty = eval(g, &cx.env[1..], &b.ty)?;
+                let ty = eval(&g.ev(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
                     let ty_term = cx.quote(&ty)?;
                     cx.define(
@@ -5403,7 +5412,7 @@ impl<'a> Walk<'a> {
             PV::Nat(n) => Term::Nat(n),
             PV::Term(t, at) => {
                 // Refinements since it was made are substituted.
-                let shifted = t.shift(self.g(), depth - at, 0)?;
+                let shifted = t.shift(&self.g().ev(), depth - at, 0)?;
                 self.refine(&shifted)?
             }
             PV::Rec => return skip("`%rec` escaped into a proof term"),
@@ -5656,7 +5665,7 @@ impl<'a> Walk<'a> {
             let g = self.g();
             let (lhs, then) = match &self.then {
                 Then::Own => return Ok(own),
-                Then::One(lhs, then) => (lhs, then.shift(g, depth - self.base, 0)?),
+                Then::One(lhs, then) => (lhs, then.shift(&g.ev(), depth - self.base, 0)?),
                 // This leaf's own proof (SW-1071), from its context (the
                 // row's variables, its fields, the branch's binders) to
                 // here (the statement's binders, then the same fields).
@@ -5687,7 +5696,7 @@ impl<'a> Walk<'a> {
                     (lhs, q)
                 }
             };
-            let lhs = self.refine(&lhs.shift(g, depth - self.base, 0)?)?;
+            let lhs = self.refine(&lhs.shift(&g.ev(), depth - self.base, 0)?)?;
             let then = self.refine(&then)?;
             let motive = Term::Lam(
                 "z".into(),
@@ -5697,7 +5706,7 @@ impl<'a> Walk<'a> {
                     Icit::Explicit,
                     Rc::new(Term::Eq(
                         None,
-                        Rc::new(lhs.shift(g, 2, 0)?),
+                        Rc::new(lhs.shift(&g.ev(), 2, 0)?),
                         Rc::new(Term::Var(1)),
                     )),
                 )),
@@ -5776,7 +5785,7 @@ impl<'a> Walk<'a> {
                 Term::app(hyp, proof)
             }
         };
-        let goal = self.refine(&self.body.shift(self.g(), depth - self.base, 0)?)?;
+        let goal = self.refine(&self.body.shift(&self.g().ev(), depth - self.base, 0)?)?;
         Ok(apps(
             Term::Def(self.lib()?.exfalso),
             [(goal, Icit::Implicit), (void, Icit::Explicit)],
@@ -5887,7 +5896,7 @@ impl<'a> Walk<'a> {
             let with_q = replace_at(&right, &diff.path, hole);
             let motive_body = Term::Eq(
                 None,
-                Rc::new(lx.shift(g, 2, 0)?),
+                Rc::new(lx.shift(&g.ev(), 2, 0)?),
                 Rc::new(self.term_at(&with_q, depth + 2)?),
             );
             let motive = Term::Lam(
@@ -5933,13 +5942,13 @@ impl<'a> Walk<'a> {
                         let Some(t) = closed_term(f) else {
                             return Ok(false);
                         };
-                        env.push(eval(g, &[], &t)?);
+                        env.push(eval(&g.ev(), &[], &t)?);
                     }
-                    let ty = eval(g, &env, &data.ctors()[*c].fields[i].1)?;
-                    let Value::Eq(ty, l, r) = force(g, ty)? else {
+                    let ty = eval(&g.ev(), &env, &data.ctors()[*c].fields[i].1)?;
+                    let Value::Eq(ty, l, r) = force(&g.ev(), ty)? else {
                         return Ok(false);
                     };
-                    if !matches!(force(g, (*ty).clone())?, Value::Data(b, _) if g.env.registry().is_data(Builtin::Bool, b))
+                    if !matches!(force(&g.ev(), (*ty).clone())?, Value::Data(b, _) if g.env.registry().is_data(Builtin::Bool, b))
                     {
                         return Ok(false);
                     }
@@ -5950,8 +5959,8 @@ impl<'a> Walk<'a> {
                         path: p,
                         left: a.clone(),
                         right: b.clone(),
-                        a: stitchwort_core::value::quote(g, depth, &l)?,
-                        b: stitchwort_core::value::quote(g, depth, &r)?,
+                        a: stitchwort_core::value::quote(&g.ev(), depth, &l)?,
+                        b: stitchwort_core::value::quote(&g.ev(), depth, &r)?,
                     });
                 }
                 Ok(true)
@@ -5964,7 +5973,7 @@ impl<'a> Walk<'a> {
     fn term_at(&self, v: &PV, depth: usize) -> R<Term> {
         let here = self.depth();
         match v {
-            PV::Term(t, at) if *at >= here => Ok(t.shift(self.g(), depth - at, 0)?),
+            PV::Term(t, at) if *at >= here => Ok(t.shift(&self.g().ev(), depth - at, 0)?),
             PV::Ctor(d, c, args) => Ok(Term::Ctor(
                 *d,
                 *c,
@@ -5972,7 +5981,7 @@ impl<'a> Walk<'a> {
                     .map(|a| Ok(Rc::new(self.term_at(a, depth)?)))
                     .collect::<R<_>>()?,
             )),
-            _ => Ok(self.term(v)?.shift(self.g(), depth - here, 0)?),
+            _ => Ok(self.term(v)?.shift(&self.g().ev(), depth - here, 0)?),
         }
     }
 }
@@ -6073,14 +6082,14 @@ pub fn is_equation_name(name: &str) -> bool {
 /// Whether `name` is a definition's generated functional induction,
 /// `f.induct` (stage 2a), not a data type's `T.induct`
 /// (`derive_induct.rs`).
-pub fn is_function_induct(g: &Globals, name: &str) -> bool {
+pub fn is_function_induct(g: &stitchwort_core::Ev, name: &str) -> bool {
     name.strip_suffix(".induct")
         .is_some_and(|o| !o.is_empty() && !o.contains('%') && g.find_data(o).is_none())
 }
 
 /// Whether `name` is a generated theorem's: an equation (`f.eq2`) or a
 /// definition's `f.induct`.
-pub fn is_generated_name(g: &Globals, name: &str) -> bool {
+pub fn is_generated_name(g: &stitchwort_core::Ev, name: &str) -> bool {
     is_equation_name(name) || is_function_induct(g, name)
 }
 

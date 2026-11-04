@@ -69,8 +69,8 @@ fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<usize> {
         work,
         ..Limits::default()
     });
-    let value = eval(g, &[], &term).ok()?;
-    nat_of(&quote(g, 0, &value).ok()?)
+    let value = eval(&g.ev(), &[], &term).ok()?;
+    nat_of(&quote(&g.ev(), 0, &value).ok()?)
 }
 
 fn nat_of(term: &Term) -> Option<usize> {
@@ -84,7 +84,7 @@ fn nat_of(term: &Term) -> Option<usize> {
 
 fn hash_of(g: &Globals, id: DefId) -> Option<stitchwort_core::hash::ContentHash> {
     let _op = g.machine.budget.operation(Limits::default());
-    def_hash(g, id).unwrap()
+    def_hash(&g.ev(), id).unwrap()
 }
 
 // Admission
@@ -505,7 +505,7 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
         let before = p.g.machine.budget.total_work();
         for (id, body) in &probe {
             let def = p.g.def(*id);
-            let mut cx = check::Ctx::new(&p.g, def.span());
+            let mut cx = check::Ctx::new(&p.g.ev(), def.span());
             check::check(&mut cx, body, def.ty_value()).expect("the body type-checks");
         }
         p.g.machine.budget.total_work() - before
@@ -527,8 +527,8 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
         .collect();
     {
         let _op = p.g.machine.budget.operation(Limits::default());
-        termination::check_group(&p.g, &group, stitchwort_core::sct::MAX_GRAPHS).unwrap();
-        let e = termination::check_group(&p.g, &group, 3).unwrap_err();
+        termination::check_group(&p.g.ev(), &group, stitchwort_core::sct::MAX_GRAPHS).unwrap();
+        let e = termination::check_group(&p.g.ev(), &group, 3).unwrap_err();
         assert_eq!(e.code, "E-RESOURCE");
         assert!(
             e.notes
@@ -791,8 +791,8 @@ fn every_accepted_generated_group_runs_to_an_answer() {
                         run(&p.g, id, &args, 1_000_000).is_some(),
                         "seed {seed}: accepted, but member {m} on {args:?} didn't finish: \
                          {}\n{}",
-                        stitchwort_core::pretty::term(&p.g, &[], &bodies[0].1),
-                        stitchwort_core::pretty::term(&p.g, &[], &bodies[1].1),
+                        stitchwort_core::pretty::term(&p.g.ev(), &[], &bodies[0].1),
+                        stitchwort_core::pretty::term(&p.g.ev(), &[], &bodies[1].1),
                     );
                 }
             }

@@ -51,8 +51,12 @@ struct Export {
 impl Export {
     fn new(session: &Session, name: &str) -> Export {
         let g = &session.elab.globals;
-        let program = lower_global(g, session.elab.options.limits, def_named(session, name))
-            .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
+        let program = lower_global(
+            &g.ev(),
+            session.elab.options.limits,
+            def_named(session, name),
+        )
+        .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
         Export { program }
     }
 
@@ -516,15 +520,15 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .infer_expr(&expr)
                     .unwrap_or_else(|d| panic!("`{source}` doesn't check: {}", d.message));
                 let g = &session.elab.globals;
-                let value = stitchwort_core::value::eval(g, &[], &term).expect("evaluates");
-                let expected = stitchwort_core::value::quote(g, 0, &value).expect("quotes");
+                let value = stitchwort_core::value::eval(&g.ev(), &[], &term).expect("evaluates");
+                let expected = stitchwort_core::value::quote(&g.ev(), 0, &value).expect("quotes");
                 let (pair, _) = g
                     .env
                     .registry()
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);
-                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::Io)
+                let program = lower_main(&g.ev(), session.elab.options.limits, &entry, MainRow::Io)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
                 let mut m = Machine::new(&program, Limits::from_core(session.elab.options.limits));
                 let got = m.entry().unwrap_or_else(|e| panic!("`{source}`: {e}"));
@@ -560,7 +564,7 @@ fn partial_forwarding() -> Program {
         .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));
     let main = session.main().expect("a `main`");
     lower_main(
-        &session.elab.globals,
+        &session.elab.globals.ev(),
         session.elab.options.limits,
         main.term(),
         main.row,
@@ -710,8 +714,8 @@ fn io_operations_cross_translations_on_their_way_to_the_runner() {
         let map_sig = def_named(&session, "Effect.mapSig");
         let sig_swap = def_named(&session, "Effect.sigSwap");
         let wrap = |d: Term| Term::app(Term::app(implicit(map_sig, 5), implicit(sig_swap, 4)), d);
-        let plain = lower_main(g, limits, main.term(), main.row).expect("lowering main");
-        let wrapped = lower_main(g, limits, &wrap(wrap(main.term().clone())), main.row)
+        let plain = lower_main(&g.ev(), limits, main.term(), main.row).expect("lowering main");
+        let wrapped = lower_main(&g.ev(), limits, &wrap(wrap(main.term().clone())), main.row)
             .expect("lowering the wrapped main");
         let run = |program: &Program, input: &str| {
             let mut output = Vec::new();

@@ -361,7 +361,7 @@ fn go_replace(
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
+        Ok(f(depth - 1 - (ix - under))?.shift(&g.ev(), under, 0)?)
     };
     let split = |ix: usize| -> Result<usize> {
         match var(ix)? {
@@ -491,9 +491,9 @@ fn erased_type(e: &Elaborator, draft: &Draft, ty: &Value) -> Result<bool> {
     let g = &e.globals;
     let (mut at, mut result) = (draft.env.len(), ty.clone());
     loop {
-        match force(g, result)? {
+        match force(&g.ev(), result)? {
             Value::Pi(_, _, _, codomain) => {
-                result = codomain.apply(g, Value::var(at))?;
+                result = codomain.apply(&g.ev(), Value::var(at))?;
                 at += 1;
             }
             Value::Sort(_) | Value::Eq(..) => return Ok(true),
@@ -739,7 +739,7 @@ impl Elaborator {
                 for _ in 0..s {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
-                g.solve_meta(d.meta, eval(g, &[], &call)?);
+                g.solve_meta(d.meta, eval(&g.ev(), &[], &call)?);
                 if let Some(item) = self.unit.module.item {
                     self.unit.module.def_items.insert(id, item);
                 }
@@ -991,7 +991,7 @@ impl Elaborator {
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
         let n = draft.env.len();
-        let term = term.shift(&self.globals, n - level, 0)?;
+        let term = term.shift(&self.globals.ev(), n - level, 0)?;
         self.unrefine_before(draft, &term, n, keep, true, level)
     }
 
@@ -1023,7 +1023,7 @@ impl Elaborator {
             if is_var(&draft.env[l], l) || (lets && draft.lets[l].is_some()) {
                 Ok(Term::Var(depth - 1 - l))
             } else {
-                Ok(quote_folded(g, depth, &draft.env[l])?)
+                Ok(quote_folded(&g.ev(), depth, &draft.env[l])?)
             }
         })
     }
@@ -1296,7 +1296,7 @@ impl Elaborator {
                         continue;
                     }
                     if types[i][l].is_none() {
-                        let ty = quote_folded(g, n, &d.types[l])?;
+                        let ty = quote_folded(&g.ev(), n, &d.types[l])?;
                         types[i][l] = Some(self.unrefine(d, &ty, n, &in_batch)?);
                     }
                     let mut deps = BTreeSet::new();
@@ -1382,7 +1382,7 @@ impl Elaborator {
         if draft.local.is_some() || draft.lets.iter().all(Option::is_none) {
             return Ok(out);
         }
-        let goal = eval(g, &draft.env, &draft.goal)?;
+        let goal = eval(&g.ev(), &draft.env, &draft.goal)?;
         if erased_type(self, draft, &goal)? {
             return Ok(out);
         }
@@ -1521,7 +1521,7 @@ impl Elaborator {
         let mut ty = into(&goal, n, k)?;
         let mut lam = into(&body, n, k)?;
         for (p, &l) in ordered.iter().enumerate().rev() {
-            let dom = quote_folded(g, n, &draft.types[l])?;
+            let dom = quote_folded(&g.ev(), n, &draft.types[l])?;
             let dom = into(&self.unrefine(draft, &dom, n, keep)?, n, p)?;
             let x = draft.names[l].clone();
             ty = Term::Pi(x.clone(), kind(l), Rc::new(dom), Rc::new(ty));

@@ -144,12 +144,12 @@ pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
 /// `Prop`, or a function into one.
 pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(match force(g, ty.clone())? {
+    Ok(match force(&g.ev(), ty.clone())? {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         Value::Pi(_, _, _, cod) => {
             // A fresh variable no binder in scope has, for the test only.
-            proposition(cx, &cod.apply(g, Value::var(usize::MAX - 2))?)?
+            proposition(cx, &cod.apply(&g.ev(), Value::var(usize::MAX - 2))?)?
         }
         _ => false,
     })
@@ -219,7 +219,7 @@ fn destructure(
     lets: &mut Vec<(Name, Term, Term)>,
 ) -> Result<()> {
     let g = cx.g();
-    let ty = force(g, cx.types[level].clone())?;
+    let ty = force(&g.ev(), cx.types[level].clone())?;
     match p {
         Pattern::Tuple(a, b, span) => {
             let pair = builtin_data(cx, Builtin::Pair)?;
@@ -235,7 +235,7 @@ fn destructure(
                         cx.span = saved;
                         return Err(e.with_note("a tuple pattern matches a pair"));
                     }
-                    let Value::Data(_, params) = force(g, expected)? else {
+                    let Value::Data(_, params) = force(&g.ev(), expected)? else {
                         unreachable!("a data type")
                     };
                     params
@@ -322,10 +322,10 @@ fn project(cx: &Ctx, def: DefId, params: &[Value], level: usize) -> Result<(Term
         ))))
         .collect::<Result<Vec<_>>>()?;
     for (arg, value, icit) in args {
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
             unreachable!("a projection takes the parameters and the value")
         };
-        ty = cod.apply(g, value)?;
+        ty = cod.apply(&g.ev(), value)?;
         term = Term::app_icit(term, arg, icit);
     }
     Ok((term, ty))

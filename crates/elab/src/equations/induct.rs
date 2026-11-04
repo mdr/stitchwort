@@ -540,7 +540,7 @@ impl Elaborator {
                 if !matches!(l.strip_loc(), Term::Var(_)) {
                     return Ok(false);
                 }
-                let at = l.shift(g, c.binders.len() - c.tk, 0)?;
+                let at = l.shift(&g.ev(), c.binders.len() - c.tk, 0)?;
                 if c.ihs.iter().any(|ih| !same_var(&ih.args[i].0, &at)) {
                     return Ok(false);
                 }
@@ -865,11 +865,11 @@ impl Elaborator {
                 d,
                 lay,
                 depth,
-                &|i, _| Ok(first.lhs[i].0.shift(g, rd - first.tk, 0)?),
+                &|i, _| Ok(first.lhs[i].0.shift(&g.ev(), rd - first.tk, 0)?),
                 &|_| {
                     let mut call = Term::Def(d.f);
                     for (a, icit) in &first.lhs {
-                        call = Term::app_icit(call, a.shift(g, rd - first.tk, 0)?, *icit);
+                        call = Term::app_icit(call, a.shift(&g.ev(), rd - first.tk, 0)?, *icit);
                     }
                     Ok(call)
                 },
@@ -899,7 +899,7 @@ impl Elaborator {
         let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
         let lib = self.branch_lib()?;
         let up = |e: &Elaborator, t: &Term, from: usize| -> R<Term> {
-            Ok(t.shift(&e.globals, rd - from, 0)?)
+            Ok(t.shift(&e.globals.ev(), rd - from, 0)?)
         };
         match &first.steps[level] {
             Step::Ite { depth, args, .. } => {
@@ -958,8 +958,11 @@ impl Elaborator {
                     .collect();
                 let col_ty = instantiate(g, &hb[col].ty, col, &at, depth)?;
                 let env: Vec<Value> = (0..depth).map(Value::var).collect();
-                let col_ty =
-                    stitchwort_core::value::quote(g, depth, &force(g, eval(g, &env, &col_ty)?)?)?;
+                let col_ty = stitchwort_core::value::quote(
+                    &g.ev(),
+                    depth,
+                    &force(&g.ev(), eval(&g.ev(), &env, &col_ty)?)?,
+                )?;
                 let Term::Data(data, data_args) = col_ty.strip_loc() else {
                     return skip("a lifted `match`'s scrutinee isn't of a data type");
                 };
@@ -1031,7 +1034,7 @@ impl Elaborator {
                     }
                     by_ctor[c] = Some((after, group.clone(), pat));
                 }
-                let e = args[col].0.shift(g, rd - depth, 0)?;
+                let e = args[col].0.shift(&g.ev(), rd - depth, 0)?;
                 let data_args: Vec<Term> = data_args.iter().map(|a| (**a).clone()).collect();
                 let gl = goal(self, rd)?;
                 let split = match splits.get(&data) {
@@ -1093,7 +1096,11 @@ impl Elaborator {
     /// `Bool.inspect b (_ => goal) t f`.
     fn induct_inspect(&self, sp: &Splitters, b: Term, goal: Term, t: Term, f: Term) -> R<Term> {
         let g = &self.globals;
-        let motive = Term::Lam("b".into(), Icit::Explicit, Rc::new(goal.shift(g, 1, 0)?));
+        let motive = Term::Lam(
+            "b".into(),
+            Icit::Explicit,
+            Rc::new(goal.shift(&g.ev(), 1, 0)?),
+        );
         Ok(apps(
             Term::Def(sp.inspect),
             [b, motive, t, f].into_iter().map(|t| (t, Icit::Explicit)),
@@ -1118,7 +1125,7 @@ impl Elaborator {
         let lhs: Vec<(Term, Icit)> = case
             .lhs
             .iter()
-            .map(|(t, icit)| Ok((t.shift(g, rd - case.tk, 0)?, *icit)))
+            .map(|(t, icit)| Ok((t.shift(&g.ev(), rd - case.tk, 0)?, *icit)))
             .collect::<R<_>>()?;
         let f_lhs = apps(Term::Def(d.f), lhs.clone());
         // The case, applied.
@@ -1172,7 +1179,7 @@ impl Elaborator {
             Rc::new(lam2(Term::Eq(
                 None,
                 Rc::new(Term::Var(1)),
-                Rc::new(f_lhs.shift(g, 2, 0)?),
+                Rc::new(f_lhs.shift(&g.ev(), 2, 0)?),
             ))),
             Rc::new(Term::Refl),
             Rc::new(eqn),
@@ -1182,7 +1189,7 @@ impl Elaborator {
             d,
             lay,
             depth + 2,
-            &|i, _| Ok(lhs[i].0.shift(g, 2, 0)?),
+            &|i, _| Ok(lhs[i].0.shift(&g.ev(), 2, 0)?),
             &|_| Ok(Term::Var(1)),
         )?;
         Ok(Term::J(
@@ -1438,7 +1445,11 @@ impl Elaborator {
         }
         let fty = instantiate(g, &decl.ctors()[node.ctor].fields[k].1, np + k, &vals, cur)?;
         let env: Vec<Value> = (0..cur).map(Value::var).collect();
-        let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
+        let fty = stitchwort_core::value::quote(
+            &g.ev(),
+            cur,
+            &force(&g.ev(), eval(&g.ev(), &env, &fty)?)?,
+        )?;
         let Term::Data(fd, fargs) = fty.strip_loc() else {
             return skip("a nested pattern's field isn't of a data type");
         };
@@ -1475,7 +1486,7 @@ impl Elaborator {
         for a in fargs {
             out = Term::app_icit(out, a, Icit::Implicit);
         }
-        out = Term::app(out, n.goal.shift(&self.globals, up, 0)?);
+        out = Term::app(out, n.goal.shift(&self.globals.ev(), up, 0)?);
         out = Term::app(out, Term::Var(cur - 1 - node.fields[k]));
         Ok(Term::app(out, lams(&names, body)))
     }
@@ -1574,7 +1585,7 @@ fn nested_proof(
     let node = &nodes[i];
     let target = match node.target {
         Some(l) => Term::Var(cur - 1 - l),
-        None => n.scrut.shift(g, cur - n.depth, 0)?,
+        None => n.scrut.shift(&g.ev(), cur - n.depth, 0)?,
     };
     let mut args: Vec<Term> = node
         .fields
@@ -1586,7 +1597,7 @@ fn nested_proof(
         node.data,
         node.args
             .iter()
-            .map(|a| a.shift(g, cur - node.args_at, 0))
+            .map(|a| a.shift(&g.ev(), cur - node.args_at, 0))
             .collect::<std::result::Result<Vec<_>, _>>()?,
     );
     for k in 0..args.len() {
@@ -1597,7 +1608,7 @@ fn nested_proof(
             shifted.push(if j == k {
                 Term::Var(1)
             } else {
-                a.shift(g, 2, 0)?
+                a.shift(&g.ev(), 2, 0)?
             });
         }
         let motive = Term::Lam(
@@ -1607,8 +1618,8 @@ fn nested_proof(
                 "e".into(),
                 Icit::Explicit,
                 Rc::new(Term::Eq(
-                    Some(Rc::new(ty.shift(g, 2, 0)?)),
-                    Rc::new(target.shift(g, 2, 0)?),
+                    Some(Rc::new(ty.shift(&g.ev(), 2, 0)?)),
+                    Rc::new(target.shift(&g.ev(), 2, 0)?),
                     Rc::new(Term::ctor(node.data, node.ctor, shifted)),
                 )),
             )),
@@ -1767,8 +1778,11 @@ impl Tree<'_> {
         };
         // The type of the equation's sides: the row variable's.
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
-        let root_ty =
-            stitchwort_core::value::quote(g, depth, &force(g, eval(g, &env, &types[e])?)?)?;
+        let root_ty = stitchwort_core::value::quote(
+            &g.ev(),
+            depth,
+            &force(&g.ev(), eval(&g.ev(), &env, &types[e])?)?,
+        )?;
         let Term::Data(root, args) = root_ty.strip_loc() else {
             return skip("an overlap hypothesis's equation isn't about a data type");
         };
@@ -1794,7 +1808,7 @@ impl Tree<'_> {
         let inner = vars + eqs;
         let mut applied = Term::Def(disc);
         for a in &args {
-            applied = Term::app_icit(applied, a.shift(g, inner + 2, 0)?, Icit::Implicit);
+            applied = Term::app_icit(applied, a.shift(&g.ev(), inner + 2, 0)?, Icit::Implicit);
         }
         let motive = Term::Lam(
             "y".into(),
@@ -1950,7 +1964,7 @@ impl Tree<'_> {
                     .collect::<R<_>>()?,
             ),
             PV::Nat(n) => Term::Nat(n),
-            PV::Term(t, at) => t.shift(self.g(), depth - at, 0)?,
+            PV::Term(t, at) => t.shift(&self.g().ev(), depth - at, 0)?,
             PV::Rec => return skip("`%rec` escaped into a proof term"),
         })
     }

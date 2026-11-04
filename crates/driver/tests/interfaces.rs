@@ -201,7 +201,7 @@ fn the_instance_marker_is_hashed() {
         let mut session = Session::new();
         session.load("test.sw", &source).expect("loads");
         let id = session.elab.lookup_def("Pretty.instNat").expect("defined");
-        def_hash(&session.elab.globals, id)
+        def_hash(&session.elab.globals.ev(), id)
             .expect("in budget")
             .expect("final")
     };
@@ -256,7 +256,7 @@ fn a_types_auto_parameters_are_hashed() {
             .iter()
             .position(|d| &**d.name() == "Map")
             .expect("declared");
-        stitchwort_core::hash::data_hash(g, stitchwort_core::DataId(id))
+        stitchwort_core::hash::data_hash(&g.ev(), stitchwort_core::DataId(id))
             .expect("in budget")
             .expect("final")
     };

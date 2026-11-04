@@ -57,7 +57,7 @@ fn the_elaborator_runs_the_computation_with_run_pure() {
     session.load("test.sw", SOURCE).unwrap();
     let g = &session.elab.globals;
     let body = g.def(def(g, "g")).body().expect("g has a body").clone();
-    let printed = stitchwort_core::pretty::term(g, &[], &body);
+    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &body);
     assert!(
         printed.contains("Effect.runPure") && printed.contains('f'),
         "g's core body: {printed}"
@@ -72,9 +72,9 @@ fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
     session.load("test.sw", SOURCE).unwrap();
     let g = &mut session.elab.globals;
     let (comp, nat) = comp_nat(g);
-    let a = eval(g, &[], &comp).unwrap();
-    let b = eval(g, &[], &nat).unwrap();
-    assert!(!conv(g, 0, &a, &b).unwrap());
+    let a = eval(&g.ev(), &[], &comp).unwrap();
+    let b = eval(&g.ev(), &[], &nat).unwrap();
+    assert!(!conv(&g.ev(), 0, &a, &b).unwrap());
 
     let f = Term::Def(def(g, "f"));
     let bad =
@@ -157,7 +157,7 @@ fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
     }
     let g = &session.elab.globals;
     let ty = g.def(def(g, "same")).ty().clone();
-    let printed = stitchwort_core::pretty::term(g, &[], &ty);
+    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &ty);
     assert!(
         !printed.contains("Effect.bind")
             && !printed.contains("Effect.runPure")
@@ -237,7 +237,7 @@ fn an_equation_between_computations_compares_them() {
     }
     let g = &session.elab.globals;
     let ty = g.def(def(g, "same")).ty().clone();
-    let printed = stitchwort_core::pretty::term(g, &[], &ty);
+    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &ty);
     assert!(
         !printed.contains("Effect.runPure") && !printed.contains("Effect.bind"),
         "same's statement: {printed}"

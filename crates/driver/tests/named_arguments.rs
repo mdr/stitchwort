@@ -46,13 +46,13 @@ fn hashes(session: &Session, first: (usize, usize)) -> Vec<(String, String)> {
     for i in first.0..g.env.datas().len() {
         out.push((
             format!("data {}", g.env.datas()[i].path()),
-            show(data_hash(g, DataId(i))),
+            show(data_hash(&g.ev(), DataId(i))),
         ));
     }
     for i in first.1..g.env.defs().len() {
         out.push((
             g.env.defs()[i].path().to_string(),
-            show(def_hash(g, DefId(i))),
+            show(def_hash(&g.ev(), DefId(i))),
         ));
     }
     out

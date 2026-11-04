@@ -51,11 +51,12 @@
 //! open terms, where proofs do matter for typing. Erasure is set only by the
 //! driver around running a program or a test.
 
+use crate::ev::Ev;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::check;
-use crate::globals::{Globals, State};
+use crate::globals::State;
 use crate::term::DefId;
 use crate::value::{Apart, Head, Spine, Value};
 
@@ -138,7 +139,7 @@ impl Erasure {
 }
 
 /// Which parts of definition `id` are erased, or `None` if it isn't final.
-pub fn of_def(g: &Globals, id: DefId) -> Option<Rc<DefErasure>> {
+pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     if let Some(Some(known)) = g.caches.erasure_defs.borrow().get(id.0) {
         return Some(known.clone());
     }

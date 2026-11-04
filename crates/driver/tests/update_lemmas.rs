@@ -37,7 +37,7 @@ fn lemmas(session: &Session, ty: &str) -> Vec<String> {
             format!(
                 "{} : {}",
                 d.name(),
-                pretty::term_for_message(g, &[], d.ty())
+                pretty::term_for_message(&g.ev(), &[], d.ty())
             )
         })
         .collect()

@@ -400,13 +400,13 @@ pub(crate) fn admitted_call(
             .with_note("this is a bug in the compiler, not in your program"));
         }
         term = Term::app_icit(term, Term::Var(cx.level() - 1 - level), *icit);
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
             return Err(Diagnostic::error(
                 "E-INTERNAL",
                 "internal error: a lifted definition takes fewer captures than it was given",
             ));
         };
-        ty = cod.apply(g, cx.env[*level].clone())?;
+        ty = cod.apply(&g.ev(), cx.env[*level].clone())?;
     }
     g.print_labels.borrow_mut().push(PrintLabel {
         head: Term::Def(id),

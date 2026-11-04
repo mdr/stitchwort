@@ -1112,7 +1112,7 @@ impl Comparison {
         let mut found = Vec::new();
         for pair in &self.pairs {
             for side in [&pair.a, &pair.b] {
-                let term = stitchwort_core::value::quote(cx.g(), pair.level, side)?;
+                let term = stitchwort_core::value::quote(&cx.g().ev(), pair.level, side)?;
                 for (t, _) in term.subterms() {
                     if let Term::Meta(m) = t
                         && pending.contains(m)
@@ -1234,7 +1234,7 @@ fn head_meta(g: &Globals, v: &Value) -> Result<Option<usize>> {
             Some(_) => {}
         }
     }
-    Ok(match force(g, v.clone())? {
+    Ok(match force(&g.ev(), v.clone())? {
         Value::Neutral(Head::Meta(m), _) => Some(m),
         _ => None,
     })
@@ -1423,7 +1423,7 @@ impl Elaborator {
             "only its own running item fills a placeholder (invariant 2)"
         );
         debug_assert!(
-            !g.lifted_calls.borrow().contains_key(&item.meta),
+            !g.store.lifted_calls.borrow().contains_key(&item.meta),
             "a placeholder is filled once (invariant 1)"
         );
         // A number at `Nat` filling a placeholder applied to nothing, not
@@ -1431,11 +1431,14 @@ impl Elaborator {
         // number, and its call is the number. Done so here, without
         // computing either side or reading the number back (SW-1048).
         if let (Term::Meta(_), Term::Nat(k)) = (&item.placeholder, term)
-            && g.metas.borrow()[item.meta].solution.is_none()
+            && g.store.metas.borrow()[item.meta].solution.is_none()
         {
-            g.unfilled_placeholders.borrow_mut().remove(&item.meta);
-            g.solve_meta(item.meta, Value::Nat(k.clone()));
-            (g.lifted_calls.borrow_mut()).insert(item.meta, (0, Rc::new(term.clone())));
+            g.store
+                .unfilled_placeholders
+                .borrow_mut()
+                .remove(&item.meta);
+            g.store.solve_meta(item.meta, Value::Nat(k.clone()));
+            (g.store.lifted_calls.borrow_mut()).insert(item.meta, (0, Rc::new(term.clone())));
             return Ok(());
         }
         if g.meta_solution(item.meta).is_some() {
@@ -1446,14 +1449,18 @@ impl Elaborator {
         }
         let value = cx.eval(term)?;
         let placeholder = cx.eval(&item.placeholder)?;
-        g.unfilled_placeholders.borrow_mut().remove(&item.meta);
+        g.store
+            .unfilled_placeholders
+            .borrow_mut()
+            .remove(&item.meta);
         if !cx.unify(&placeholder, &value)? {
             count(&cx.e.session.stats.disagreed);
             return Err(cx.mismatch(&placeholder, &value));
         }
         match placeholder_call(cx, &item.placeholder, term)? {
             Some((s, call)) => {
-                g.lifted_calls
+                g.store
+                    .lifted_calls
                     .borrow_mut()
                     .insert(item.meta, (s, Rc::new(call)));
             }
@@ -2768,7 +2775,7 @@ mod tests {
     /// domain is what it waits on.
     fn section(cx: &mut Ctx, source: &str) -> (Term, Value) {
         let (term, ty) = crate::check::infer(cx, &expression(source)).unwrap();
-        let Value::Pi(_, _, dom, _) = force(cx.g(), ty).unwrap() else {
+        let Value::Pi(_, _, dom, _) = force(&cx.g().ev(), ty).unwrap() else {
             unreachable!("a section's type is a function's")
         };
         (term, (*dom).clone())

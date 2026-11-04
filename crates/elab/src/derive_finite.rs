@@ -212,7 +212,7 @@ impl Elaborator {
                     .map(Value::var)
                     .chain((0..i).map(|_| unused()))
                     .collect();
-                let value = force(g, eval(g, &env, ty)?)?;
+                let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
                 if matches!(value, Value::Pi(..)) {
                     return Ok(Err(format!(
                         "{what} is a function, and there's no list of every function"

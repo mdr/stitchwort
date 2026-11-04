@@ -656,7 +656,7 @@ impl Elaborator {
         let mut nav = nav.borrow_mut();
         let pending = std::mem::take(&mut nav.pending);
         for (span, ty, names, expr) in pending {
-            let text = pretty::value_for_message(&self.globals, &names, &ty);
+            let text = pretty::value_for_message(&self.globals.ev(), &names, &ty);
             if expr {
                 nav.expr_types.insert(span, text);
             } else {
@@ -1024,7 +1024,7 @@ impl Elaborator {
         let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
         let mut names: Vec<Name> = data.params().iter().map(|(n, _)| n.clone()).collect();
         names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
-        Some(pretty::term(g, &names, &ctor.fields[i].1))
+        Some(pretty::term(&g.ev(), &names, &ctor.fields[i].1))
     }
 
     /// The parameters of a definition's type with their names (all of
@@ -1039,7 +1039,7 @@ impl Elaborator {
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
         while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
-            let shown = pretty::term(g, &names, dom);
+            let shown = pretty::term(&g.ev(), &names, dom);
             // A bare row's divergence index isn't written
             // (docs/proposals/partial-stage-3.md §2.2).
             if name.starts_with("%div.") {
@@ -1062,7 +1062,7 @@ impl Elaborator {
         if parts.is_empty() {
             return None;
         }
-        parts.push(pretty::term(g, &names, &ty));
+        parts.push(pretty::term(&g.ev(), &names, &ty));
         Some(parts.join(" -> "))
     }
 
@@ -1078,7 +1078,7 @@ impl Elaborator {
             names.push(x.clone());
             body = (**inner).clone();
         }
-        Some(pretty::term(g, &names, &body))
+        Some(pretty::term(&g.ev(), &names, &body))
     }
 
     /// A definition with parameter defaults, as its header is written:
@@ -1095,7 +1095,7 @@ impl Elaborator {
                 return None;
             };
             if !name.starts_with("%div.") {
-                let shown = pretty::term(g, &names, dom);
+                let shown = pretty::term(&g.ev(), &names, dom);
                 parts.push(match (icit, self.param_default_shown(id, names.len())) {
                     (Icit::Explicit, Some(d)) => format!("({name}: {shown} := {d})"),
                     (Icit::Explicit, None) => format!("({name}: {shown})"),
@@ -1110,7 +1110,7 @@ impl Elaborator {
         Some(format!(
             "{kind} {short} {}: {}",
             parts.join(" "),
-            pretty::term(g, &names, &ty)
+            pretty::term(&g.ev(), &names, &ty)
         ))
     }
 
@@ -1122,7 +1122,7 @@ impl Elaborator {
                     Some(header) => header,
                     // The type as elaborated, with calls as written
                     // (`Float.isValid a`): unfolded, it can run to megabytes.
-                    None => pretty::term(g, &[], g.def(id).ty()),
+                    None => pretty::term(&g.ev(), &[], g.def(id).ty()),
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
@@ -1143,7 +1143,7 @@ impl Elaborator {
                 for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
                 }
-                Some(pretty::term(g, &[], &ty))
+                Some(pretty::term(&g.ev(), &[], &ty))
             }
             Global::Ctor(d, c) => {
                 let data = g.data(d);
@@ -1163,7 +1163,7 @@ impl Elaborator {
                 for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Implicit, t.clone().into(), ty.into());
                 }
-                Some(pretty::term(g, &[], &ty))
+                Some(pretty::term(&g.ev(), &[], &ty))
             }
             _ => None,
         }
