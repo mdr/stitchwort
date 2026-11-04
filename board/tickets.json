@@ -1,5 +1,5 @@
 {
-  "next": 1185,
+  "next": 1186,
   "tickets": [
     {
       "id": 47,
@@ -4841,13 +4841,13 @@
     {
       "id": 1182,
       "title": "fuzz_elab: kernel rejects an elaborated term from a mutated match.sw (full tier)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-1182",
       "labels": [
         "elab"
       ],
-      "body": "Full tier at 1cef1def (SW-1175): fuzz_elab mutated_examples_check_without_internal_errors failed. Oracle 3 (kernel rejected an elaborated term): case 1050, seed 0x5eede1ab00000685, rng state 0xe3a9eaefcf2cbaaa, from accept/match.sw: E-TYPE-MISMATCH. Input saved (copy outside target/) in the orchestrator's scratchpad as 5eede1ab00000685-1050.sw. Find whether this is new tonight (elaborator-state steps 6a-7, SW-1179) or older, minimise, and fix the elaborator so it reports an error or builds a well-typed term. Expected: 60 min.\n",
+      "body": "Full tier at 1cef1def (SW-1175): fuzz_elab mutated_examples_check_without_internal_errors failed. Oracle 3 (kernel rejected an elaborated term): case 1050, seed 0x5eede1ab00000685, rng state 0xe3a9eaefcf2cbaaa, from accept/match.sw: E-TYPE-MISMATCH. Input saved (copy outside target/) in the orchestrator's scratchpad as 5eede1ab00000685-1050.sw. Find whether this is new tonight (elaborator-state steps 6a-7, SW-1179) or older, minimise, and fix the elaborator so it reports an error or builds a well-typed term. Expected: 60 min.\n\nProgress (Opus, 04:59-05:20): commit 6b93dea2 on lane/SW-1182. Cause: equation generation, not the elaborator proper. `lenZero` in accept/match.sw (`match h: xs.length with | Zero => Yes rfl`) lifts to a helper whose result type mentions the matched column, so branch equations `lenZero.eq.zero/.succ` were stated ill-typed; the kernel refused them (E-REFL, E-TYPE-MISMATCH) and one_equation swallowed that as a skip (\"the kernel refused the generated proof\"). It happens on the unmutated example too; oracle 3 fired because it matches by message and the mutation added user E-TYPE-MISMATCH errors with the same \"type mismatch\" message. Not tonight's work: 8cffe0be (before SW-1152) refuses the same two terms. Fix: helper_call skips a match whose helper's result type mentions what it matches, with a reason. Test: function_equations a_generalising_matchs_branches_are_skipped_not_refused. Ran: function_equations + function_induct binaries (14 pass); fuzz_elab with FUZZ_CASES=1051 once (pass, 84 s). Follow-up: oracle 3 matches by message alone, so any swallowed kernel refusal plus an unrelated user error with the same message fails it.\n\n\nCause: lenZero in examples/accept/match.sw (a match h: whose helper result type mentions the scrutinee) had ill-typed branch equations the kernel refused silently; the mutation added a user E-TYPE-MISMATCH with the same message, which oracle 3 matched. Pre-existing (reproduced at 8cffe0be). Fix: skip such equations with a reason.\nModel result: Opus, worked, 21 min (est. 60)\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -4876,6 +4876,20 @@
         "test"
       ],
       "body": "Full tier 4 Nov 2026 (SW-1175): memguard's peak 10.95 GB, of which this one test 9.6 GB (249 s). Find out whether it's the test's design (many checks kept alive), the allocator keeping freed blocks, or a leak in rewind; it leaves only ~6 GB headroom under the 16 GB cap.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1185,
+      "title": "fuzz_elab oracle 3 matches a kernel refusal to a diagnostic by message only",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "SW-1182: a silently skipped kernel refusal (E-TYPE-MISMATCH, 'type mismatch') was matched by an unrelated user error with the same message, so the oracle fired on a case that wasn't a user-visible bug. Compare code, message and labels instead. Also: per-alternative check would let catch-all branches of generalising matches keep their equations (small loss today).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
