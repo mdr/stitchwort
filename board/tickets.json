@@ -5585,9 +5585,9 @@
     {
       "id": 1232,
       "title": "Mark std functions @[tailrec] (tailrec note §6.3): pins List.lengthOnto, foldLeft, Nat.digitsAcc etc. as loops, so a regression is an error",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1232",
       "labels": [
         "language"
       ],
@@ -6111,7 +6111,7 @@
     {
       "id": 1269,
       "title": "AoC 2020 day 5 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1269",
       "labels": [
