@@ -5197,14 +5197,14 @@
     {
       "id": 1206,
       "title": "AoC 2020 day 1 in Stitchwort (spec, solution, proof where natural, input test, NOTES-2020.md)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.",
+      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
