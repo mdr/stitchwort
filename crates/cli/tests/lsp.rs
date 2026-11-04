@@ -1167,7 +1167,7 @@ fn percentile(sorted: &[Duration], p: f64) -> Duration {
 /// Prints a `cycle` line for every change and a `sample` line every 10
 /// cycles: resident KB, live heap bytes (the counting allocator), and the
 /// last latency, then median and p95 per file at the end. The journal's
-/// statistics belong in `print_journal_stats` once `Session::stats` has them.
+/// `journal` lines (`JournalStats`) go with them.
 #[test]
 #[ignore]
 fn state_edit_loop() {
@@ -1187,34 +1187,50 @@ fn state_edit_loop() {
         })
         .collect();
     let project = copy_of_project(Path::new(&source), &name);
-    let mut client = Client::start();
+    let options = Options::new(STACK);
+    let journal = options.journal.clone();
+    let mut client = Client::start_with(options);
     let mut version = 1;
     let started = Instant::now();
-    // Open every file, then wait until the server has been quiet for 20 s:
-    // it publishes a file's diagnostics when its namespace is checked, which
-    // for the later files may be before they are opened.
+    // Open every file, then wait for each one's first diagnostics (as
+    // `latency_on_aoc` does), with a timeout above the first check's 120 s.
     for (path, _) in &plan {
         let uri = uri(&project.join(path));
         client.open(&uri, &std::fs::read_to_string(project.join(path)).unwrap());
     }
-    let mut last_message = Instant::now();
-    while client
-        .conn
-        .receiver
-        .recv_timeout(Duration::from_secs(20))
-        .is_ok()
-    {
-        last_message = Instant::now();
+    let mut waiting: BTreeMap<String, &str> = plan
+        .iter()
+        .map(|(path, _)| (uri(&project.join(path)), path.as_str()))
+        .collect();
+    let deadline = started + Duration::from_secs(900);
+    while !waiting.is_empty() {
+        let message = client
+            .conn
+            .receiver
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .expect("the first check's diagnostics within 900 s");
+        if let Message::Notification(n) = message
+            && n.method == "textDocument/publishDiagnostics"
+            && let Some(path) = n.params["uri"].as_str().and_then(|u| waiting.remove(u))
+        {
+            eprintln!(
+                "first diagnostics\t{path}\t{:.1} s",
+                started.elapsed().as_secs_f64()
+            );
+        }
     }
     eprintln!(
-        "first check: {:.1} s (to the last message)",
-        (last_message - started).as_secs_f64()
+        "first check: {:.1} s (to the last file's diagnostics)",
+        started.elapsed().as_secs_f64()
     );
+    // Let any background checks finish before sampling.
+    std::thread::sleep(Duration::from_secs(3));
     eprintln!(
         "sample\tcycle 0\trss_kb {}\theap_bytes {}",
         resident_kb(),
         stitchwort_bench::alloc::live()
     );
+    print_journal_stats(&journal, 0);
     let mut cycle = 0;
     let mut edit_times: BTreeMap<String, (Vec<Duration>, Vec<Duration>)> = BTreeMap::new();
     for (path, cycles) in &plan {
@@ -1247,6 +1263,7 @@ fn state_edit_loop() {
                     resident_kb(),
                     stitchwort_bench::alloc::live()
                 );
+                print_journal_stats(&journal, cycle);
             }
         }
     }
@@ -1269,14 +1286,27 @@ fn state_edit_loop() {
             );
         }
     }
-    print_journal_stats();
+    print_journal_stats(&journal, cycle);
     client.shutdown();
 }
 
-/// The journal's statistics (SW-1171, step 6a), once the session reports
-/// them. Today there is nothing to print; the "after" run fills this in.
-fn print_journal_stats() {
-    eprintln!("journal\t(no JournalStats before step 6a)");
+/// The journal's statistics (`JournalStats`) as the server last reported
+/// them, one line.
+fn print_journal_stats(journal: &std::sync::Mutex<stitchwort_elab::JournalStats>, cycle: usize) {
+    let j = *journal.lock().unwrap();
+    eprintln!(
+        "journal\tcycle {cycle}\tentries {}\tpeak_entries {}\theld {}\tbytes_held {}\tdistinct_keys {}\topen {}\trewinds {}\tundone {}\tcheckpoints {}\ttransactions {}",
+        j.entries,
+        j.peak_entries,
+        j.held,
+        j.bytes_held,
+        j.distinct_keys,
+        j.open,
+        j.rewinds,
+        j.undone,
+        j.checkpoints,
+        j.transactions
+    );
 }
 
 /// A program where the second declaration has an `if` over arithmetic.
