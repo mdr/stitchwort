@@ -741,3 +741,298 @@ a cold check of `Aoc.Common`, which every Grid day pays, 4.7 s.
    constructor by its fields (item 4). Error message; small.
 7. A cold check of `Aoc.Common` is 4.7 s of every Grid day's check (Size and
    time). Performance; unknown size, worth a profile.
+
+## Day 4: Passport Processing
+
+A batch file of passports: `key:value` fields separated by spaces or line
+breaks, a blank line between passports. Part 1 counts the passports with
+all eight fields, or all but `cid`; part 2 those whose values also keep a
+rule for each field (`byr` four digits from 1920 to 2002, `hgt` a number
+then `cm` or `in` in a range, `hcl` a `#` and six of 0-9 a-f, and so on).
+Answers on Matt's input: 200 and 116; the example gives 2 and 2 (part 2's
+four invalid and four valid examples give 0 and 4). All match Matt's Scala
+(`sbt "runMain aoc.day4.Day4"`, run on a copy of his repository), and an
+`awk` with the puzzle's rules as regular expressions agrees. The input has
+no duplicate keys and no keys outside the eight.
+
+The program parses each field's key into an enumeration with `Parse.pick`,
+keeps the value as `Text`, and checks the values with `Text` functions:
+
+```stitchwort
+def field(): {Parse} Field :=
+  let key := Parse.pick (keys.map (key => (key.code, key)))
+  Parse.char ':'
+  let value := Parse.takeWhile1 "a value" isValueChar
+  { key, value }
+
+def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
+def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
+def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
+
+def heightValid (value: Text): Bool :=
+  match value.stripSuffix "cm" with
+    | Some number => between 150 193 number.toNat
+    | None =>
+      match value.stripSuffix "in" with
+        | Some number => between 59 76 number.toNat
+        | None => False
+```
+
+It printed the right answers on the first run; 23 of the 25 tests passed the
+first time (the two that didn't guessed parse errors' wording, items 3 and
+4). The spec (`Spec/Spec.sw`) is about the fields as written, key by its
+three letters: part 1 lists the eight expected keys and asks whether the
+missing ones are none or just `cid`, where the program checks the seven
+required keys; part 2's rules dispatch on the key's text and read each
+value as characters: "four digits" is a length and `Parse.isDigit`, the
+height splits off its last two characters with `take` and `drop` where the
+program uses `stripSuffix` and `Text.toNat`, "exactly one of" the eye
+colours is a `filter` of length 1 where the program uses `contains`.
+
+Proved (`Aoc.Year2020.Day04.Proofs`):
+
+- `validSpec`: each key's check is the puzzle's rule for that key's three
+  letters, for every value, from one theorem per rule: `yearSpec` (for all
+  bounds), `heightSpec`, `hairColorSpec`, `eyeColorSpec`, `passportIdSpec`,
+  and `cid` by `rfl`. A key given the wrong code, or a rule attached to the
+  wrong key, fails it.
+- `hasRequiredSpec`: having the seven required keys is "all eight, or all
+  but cid" (`allButCid`, for any `Key → Bool`, by `cases`), through
+  `missingHas` and `codeEq` (no two keys share a code, by `Finite.check` on
+  pairs of keys).
+- `part1Correct`, `part2Correct`: so both answers are the spec's, for every
+  list of passports.
+- `toNatDigits`: `Text.toNat` is `Some` of the digits' value exactly when the
+  text is one or more digits; `stripSuffixTwo`: removing a two-character
+  suffix is `take`/`drop` of all but the last two characters, when those are
+  the suffix.
+- `parseWritten`: if `parsePassports` reads the input as `passports`, the
+  input is the passports written out with a blank line between each two,
+  then only line breaks; each passport is its fields with a space or a line
+  break between each two, each field its key's code, `:`, and its value (one
+  or more characters, none of them whitespace). Nothing dropped, added or
+  changed.
+
+Not proved: that every well-formed batch file parses (`Parse.Reads` is
+soundness only, as on days 2 and 3). The spec counts a passport valid in
+part 2 when every field it has keeps its rule, as the program does; the
+puzzle doesn't say what a repeated key means, and the input has none.
+Unknown keys don't parse, so neither side meets one.
+
+Breaking the program made the proofs fail: `between 151 193` for the
+centimetre range fails `heightChars` (at a `rewrite` that names `150 193`,
+not with a counterexample: item 6); dropping `PassportId` from `required`
+fails `allButCid` with the open case `has PassportId = False`; `char <= 'g'`
+in `isHexDigit` fails `hairColorChars` with `E-REFL`.
+
+114 lines of program, 75 of spec, 239 of proofs, 113 of tests. About 20
+minutes from reading the puzzle to the proofs checking, by the clock, plus
+a 3-minute build of the CLI; the proofs mostly went through on the first or
+second try.
+
+### 1. `Text.toNat` and `Text.stripSuffix` have no lemmas, and `stripSuffix` compares by `sameChar`
+
+Part 2 is checks on text, and the natural program uses `Text.toNat`,
+`Text.stripSuffix` and `Text.length`. std proves nothing about the first
+two. `toNatDigits` needed the loop's own lemma first:
+
+```stitchwort
+theorem readDigitsAll: (acc: Nat) → (chars: List Char) →
+    Text.readDigits acc chars = (if chars.all Parse.isDigit then Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit)) else None)
+```
+
+(it checked first time, 7 lines). `Parse.digitsValue` and `Parse.readsNat`
+already say what `Parse.nat` reads, but nothing ties `Text.toNat` to them.
+
+`stripSuffix` took seven lemmas, 45 lines: it reverses both texts and runs
+`stripPrefixChars`, which compares characters with `Text.sameChar` (a
+`Nat.equal` on the codes), not `==`, so a statement in the spec's terms
+needs `sameCharEq: Text.sameChar c d = (c == d)` first, then a two-element
+list's `==` taken apart (`pairEq`), then the reversal (`reverseTwo`,
+`List.reverseReverse`) and `take`/`drop` of an append (`dropTwo`,
+`takeTwo`). Along the way std had no "the heads of equal lists are equal"
+(`List.consInjective` is for the tails); `Eq.cong (list => (list.get
+0).getOrElse x)` did it. A std `Text.toNatSome` (as `toNatDigits` here) and
+`Text.stripSuffixSome: text.stripSuffix suffix = Some rest ↔ text = rest ++
+suffix`, with `stripPrefix`/`stripSuffix` defined through `==` (or a
+`sameChar` lemma beside them), would have made part 2's proofs a few
+rewrites.
+
+### 2. `cases` after a `rewrite`, in an arm, can fail with `E-MATCH-MOTIVE` and the kernel's "`rfl` can't prove this"
+
+In `yearChars` the goal after `rewrite betweenToNat …` is a Bool identity,
+`(len == 4 ∧ True ∧ allDigits ∧ low <= n ∧ n <= high) = ((len == 4 ∧
+allDigits) ∧ low <= n ∧ n <= high)`, with `n` a fold over `[char, ..rest]`:
+
+```
+[E-MATCH-MOTIVE] Error: this `match` can't be given a type: generalising its scrutinee makes the types it depends on ill-formed
+ 31 │   | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] in cases
+    │                                                                       ╰──── this `match`
+    │ Note 1: the kernel's reason: `rfl` can't prove this
+    │ Note 2: a top-level helper with a written signature can always do what this `match` would: define one and call it
+```
+
+The same proof, `cases` on the four Booleans as a lemma of its own
+(`andShape (a b c d: Bool): (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) :=
+cases`), checked, and so did `passportIdChars` with `andIsSome`. In
+`heightChars` the same `rewrite … in cases` shape worked. Presumably `cases`
+split something stuck inside the fold (the head character's `48 <= Char.toNat
+char`) whose generalisation breaks the term; the message doesn't say what it
+split, and "this `match`" points at `cases`, which the reader didn't write
+as a match. `cases` could skip a split it can't type and try the next, or
+say what it was splitting.
+
+### 3. A failure after a blank line is reported past it, as "expected the end of the input"
+
+With a second blank line between two passports:
+
+```stitchwort
+test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 4, column 1: expected the end of the input, got 'c'"
+```
+
+The mistake is line 3, an empty line where a passport should start. The
+sections stop at the failed passport, `Parse.all`'s final line breaks take
+all three, and the end is expected where `cid:2` starts. A batch file edited
+by hand will have exactly this. The furthest failure (line 3, a key
+expected) was nearer the start than where the final line breaks stopped,
+so it lost. `Parse.all` could prefer a failure inside the last section, or
+add "after a blank line, another section" as an expectation there.
+
+### 4. `pick`'s message lists eight keys with seven "or"s
+
+```
+line 1, column 10: expected 'byr' or 'iyr' or 'eyr' or 'hgt' or 'hcl' or 'ecl' or 'pid' or 'cid', got 'abc'
+```
+
+I had guessed "expected 'byr', 'iyr', …, 'pid' or 'cid'", as English lists
+them. Small, but every enumeration parsed with `pick` reads this way.
+
+### 5. `BirthYear.valid "2002"` is "not in scope"
+
+In the tests, `BirthYear.valid "2002"` (Scala's `BirthYear.validate(…)`) is
+
+```
+[E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
+ 75 │ test "byr" := BirthYear.valid "2002" ∧ not (BirthYear.valid "2003")
+    │               ╰───────── not in scope
+```
+
+with no note. It needs `Key.valid BirthYear "2002"`. A constructor name
+followed by a field could resolve as dot notation on the constructor's
+value, or the note could say "`BirthYear` is a `Key`: write `Key.valid
+BirthYear`". The program itself had the same trap the other way:
+`Passport.mk (…)` for a record is `E-UNKNOWN-NAME` ("has no `mk`"), printed
+three times over for the one use; `{ fields = … }` is the way.
+
+### 6. The counterexample search can't reach the height rule, and the audit warns on generated equations
+
+With the centimetre range broken (`between 151 193`), `check
+--counterexamples` finds nothing: "0 false, 29 with none found". Random
+texts never spell `150cm`, so `heightSpec` and `validSpec` look fine. The
+proof failed at a `rewrite` whose rule names `150 193`, which is luck: a
+proof written with `betweenToNat _ _ …` would have failed in some less
+direct way. The search could seed text generators with the literals in the
+definitions it is checking (`"cm"`, `"byr"`, the bounds).
+
+The same blindness gives the audit 11 warnings, all on compiler-generated
+equations: `heightValid.eq.some` (hypothesis `value.stripSuffix "cm" = Some
+number`), `hairColorValid.eq.alt1`, and the seven `Spec.validValue.eq.if…`
+(hypotheses `(key == "byr") = True`, …), each "no input made the hypotheses
+true … the theorem is vacuous". None is vacuous. Day 3 had one such warning,
+on a theorem of its own; here they are 11 of 11, and they bury anything
+real. The audit could leave generated equations out of the vacuity check,
+or seed the search as above.
+
+### 7. Smaller things
+
+- **`readsThen` composes the whole parser proof.** Day 2's item 1 is gone:
+  `readsField` is a `readsThen` chain over `Parse.readsPickBy`,
+  `readsChar` and `readsTakeWhile1` that inferred every spec, and the
+  passport, sections and `Parse.all` steps are one std lemma each
+  (`readsSepBy1`, `readsSections`, `allReads`, `readsOneOf` for the field
+  break). Two goals were left, a `rfl` and the `()` that ends a `List.All`.
+  `readsPickBy` turned "the key read is in the table" into "the key's code
+  was read", which is what the spec needed. 44 lines for the parser proof.
+- **`cases` on two keys splits the codes, not the keys.** `codeEq (a b:
+  Key): (a.code == b.code) = (a == b) := cases` is `E-CASES-BUDGET`: it
+  split `a`, then `List.decEq … ['b', 'y', 'r'] (Text.toList (Key.code b))`
+  and three more such comparisons before `b`. Splitting `b` first would
+  have closed each of the 64 cases by computing. `Finite.check` on the pair
+  did it in one line, as the note suggested, plus `DecEq.sound` to turn
+  the `Bool` back into the equation.
+- **"Exactly one of" seven colours took seven nested matches.**
+  `eyeColorSpec` matches `"amb" == value`, `"blu" == value`, …, rewriting
+  `value` in each `True` branch. A std lemma that on a list of distinct
+  values `contains` is "filter has length 1" (or `count` is at most 1)
+  would replace it. The last branch needed no rewrite: the earlier
+  matches had already made the goal compute, and the `E-REWRITE-NOTHING`
+  said so ("the goal already holds by computing").
+- **No text patterns.** `hcl` matches `value.toList` against `['#',
+  ..digits]`; a pattern like `"#" ++ digits` on `Text` would read as the
+  puzzle does. And the two `match value.toList` (program and spec) are
+  different hidden functions, so `hairColorSpec` is `rfl` only after
+  matching the characters by the same pattern in the proof; the `E-REFL`
+  note says exactly this.
+- **An inner `match` hides the second `stripSuffix` from `rewrite`.**
+  `rewrite stripSuffixTwo 'c' 'm' chars, stripSuffixTwo 'i' 'n' chars in …`
+  found no `"in"` suffix, because it sits in the `None` arm's hidden match
+  function; the note said so. Matching on the `cm` case first, then
+  rewriting in its `False` arm, worked.
+- **The first `stitchwort search` in a fresh worktree took over two minutes
+  of wall clock** (`'List.filter (List.map _ _) _ = _'`; the shell's
+  2-minute limit moved it to the background). The same search again took
+  3.4 s user. It found `List.filterOfMap` first, which `missingHas` used.
+- **The Text API helped where it existed.** `Text.length`, `Text.all` and
+  `Text.toNat` read well in the program; the spec still writes
+  `value.toList` for `take`, `drop` and patterns.
+
+### Size and time
+
+CPU time (load average about 70, so wall-clock times meant nothing):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day04.Proofs` | 4.5 s user |
+| the same without `Proofs/Parse.sw` | 4.3 s user |
+| the same with only `Proofs/Parse.sw` | 3.7 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day04` | 1.1 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day04` (25 tests) | 4.5 s user |
+| `stitchwort check --counterexamples Aoc.Year2020.Day04.Proofs` | 4.3 s user |
+| `task audit:touched -- Aoc.Year2020.Day04` (69 theorems) | 6.9 s user |
+| `stitchwort run Aoc.Year2020.Day04.main` on the input | 0.5 s user |
+
+So most of a cold check is shared: the rules and the parser proof each add
+well under a second to about 3.5 s that either alone pays (day 2's
+`readsLine` alone was 4.6 s; `readsThen` chains seem cheaper).
+
+### Ranked
+
+1. No lemmas for `Text.toNat` or `Text.stripSuffix`, and `stripSuffix`
+   compares by `sameChar`, so part 2's proofs grew 50 lines of text
+   plumbing (item 1). Missing library; small (two lemmas and a `sameChar`
+   bridge in std, an hour or two; this day's `toNatDigits` and
+   `stripSuffixTwo` are candidates).
+2. The counterexample search never builds texts like `150cm` or `byr`, so it
+   misses a broken text rule, and the audit gives 11 false vacuity warnings
+   on generated equations (item 6). Missing feature (seed generators with
+   literals from the definitions), medium; the audit filter, small.
+3. A parse failure after an extra blank line is reported a line later as
+   "expected the end of the input" (item 3). Error message; small to
+   medium (which failure `Parse.all` keeps).
+4. `rewrite … in cases` in an arm fails with `E-MATCH-MOTIVE` and the
+   kernel's "`rfl` can't prove this", where the same `cases` as a lemma
+   works (item 2). Bug in `cases`; medium (needs a repro; skip splits it
+   can't type, or say what it split).
+5. `cases` on two enumeration values splits stuck comparisons before the
+   second variable, and runs past 64 cases (item 7). Missing feature
+   (heuristic); small.
+6. `BirthYear.valid` is "not in scope" with no note, and `Passport.mk`'s
+   error is printed three times (item 5). Error message, small; the
+   repeated diagnostic is a bug, small.
+7. `pick`'s expectation reads "'a' or 'b' or … or 'h'" (item 4). Error
+   message; small.
+8. No std lemma for `contains` on a list of distinct values, or for the
+   heads of equal lists (items 1, 7). Missing library; small.
+9. The first `stitchwort search` in a new worktree took over two minutes of
+   wall clock (item 7). Performance; unknown size, worth timing on an idle
+   machine.
