@@ -1,5 +1,5 @@
 {
-  "next": 1215,
+  "next": 1216,
   "tickets": [
     {
       "id": 47,
@@ -5228,14 +5228,14 @@
     {
       "id": 1208,
       "title": "Std/prelude from AoC 2020 day 1: List.combinations k (with length and membership lemmas), membership lemmas for List.pairs of a Cons, Exists in the prelude",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.\n\n\nProgress (lane): done, commit fbfa2fd4 on lane/SW-1208. Added List.combinations (xs k), memCombinations/combinationsMem/memCombinationsCons/One/Two, lengthCombinationsCons (no Nat.choose in std, so no binomial), List.memMapPair, List.memPairsCons; Exists in scope.rs PRELUDE; Day01 spec uses combinations 3 and proofs shortened. Prelude hash snapshot gains only new entries; new example exists-in-prelude.\n",
+      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.\n\n\nProgress (lane): done, commit fbfa2fd4 on lane/SW-1208. Added List.combinations (xs k), memCombinations/combinationsMem/memCombinationsCons/One/Two, lengthCombinationsCons (no Nat.choose in std, so no binomial), List.memMapPair, List.memPairsCons; Exists in scope.rs PRELUDE; Day01 spec uses combinations 3 and proofs shortened. Prelude hash snapshot gains only new entries; new example exists-in-prelude.\n\n\nMerged. Model result: Sonnet, worked, 28 min (est. 90).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5324,6 +5324,20 @@
         "syntax"
       ],
       "body": "D2309 (Matt, 4 Nov 2026): yes, likes the spread; write the design note. Today: list patterns have [x, ..rest]; expressions have no spread and no :: (docs/syntax.md). Opus, expected: 60 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1215,
+      "title": "Std: Nat.choose and length (xs.combinations k) = choose (length xs) k; a Cons head injectivity lemma (List.consInjective covers only the tail)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "SW-1208 findings.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
