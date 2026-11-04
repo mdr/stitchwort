@@ -45,6 +45,13 @@ impl<'a> std::ops::Deref for Unifier<'a> {
 /// right as a recursive version would take them, so metavariables are solved
 /// in the same order; a function type's codomain is only evaluated once its
 /// domain has been unified, so it sees the solutions.
+///
+/// **Precondition: homogeneous values**, as for `value::conv`: `a` and `b`
+/// have the same type, since proof positions are skipped by position
+/// (docs/proposals/proof-irrelevance.md §7.4). And it isn't atomic: a pair
+/// that fails part-way keeps what was solved before it, a whole proof
+/// solved at a proof position included, so a caller that tries another way
+/// after a `false` runs the first inside `undo::transaction`.
 pub(crate) fn unify(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
     unify_in(g, level, a, b, Mode::Normal)
 }

@@ -159,6 +159,19 @@ def t22pR (n: Nat) (h1: 0 = 0) (h2: 0 = 0): Nat := quietB n h2
 def t22fL (n: Nat) (i: Nat) (h1: i < n) (h2: i < n): Fin n := Fin.ofNatLt n i h1
 def t22fR (n: Nat) (i: Nat) (h1: i < n) (h2: i < n): Fin n := Fin.ofNatLt n i h2
 
+-- Test 4: a data field inside a proof is compared.
+type Exists (p: Nat → Prop): Prop =
+  | MkEx (x: Nat) (h: p x)
+def t4L (h1: 1 = 1) (h2: 2 = 2): Exists (n => n = n) := MkEx 1 h1
+def t4R (h1: 1 = 1) (h2: 2 = 2): Exists (n => n = n) := MkEx 2 h2
+def t4pL (h1: 1 = 1) (h2: 1 = 1): Exists (n => n = n) := MkEx 1 h1
+def t4pR (h1: 1 = 1) (h2: 1 = 1): Exists (n => n = n) := MkEx 1 h2
+-- Test 8: skipping a proof field doesn't skip its neighbours.
+type Checked: Type =
+  | MkChecked (n: Nat) (ok: n = n)
+def t8L (x: Nat) (y: Nat) (p: x = x) (q: y = y): Checked := MkChecked x p
+def t8R (x: Nat) (y: Nat) (p: x = x) (q: y = y): Checked := MkChecked y q
+
 -- For the memo tests: `wrap` glues, and unfolds to its argument.
 def wrap [a: Prop] (b: Box a): Box a := b
 def zero [a: Prop] (b: Box a): Nat := 0
@@ -275,6 +288,9 @@ fn session() -> Session {
 
 const CASES: &[(&str, bool)] = &[
     ("t1", false),
+    ("t4", false),
+    ("t4p", true),
+    ("t8", false),
     ("t2", false),
     ("sameMod", true),
     ("t20", false),

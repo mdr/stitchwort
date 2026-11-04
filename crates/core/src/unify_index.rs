@@ -180,7 +180,11 @@ pub fn unify<'g>(
                 return Ok(Outcome::Stuck(constraint, Reason::TypesDiffer { ty_right }));
             }
         }
-        // Deletion.
+        // Deletion, by `conv`, so modulo proof positions: `MkT p 1 = MkT q 1`
+        // is deleted whole, before injectivity could look at the proof field,
+        // and nothing is solved from inside one (proof-irrelevance.md §7.12).
+        // The two sides have one type here: binder types that depend on
+        // earlier sides were compared above.
         if conv(g, level, &lhs, &rhs)? {
             stack.last_mut().expect("an entry").solved += 1;
             continue;

@@ -1209,11 +1209,14 @@ only carry `≤` arcs, which are harmless. A proof can be matched. Matching a
 proof to produce *another proof* is allowed for any proposition; matching a
 proof to produce *data* is restricted to subsingletons (`E-PROP-ELIM`, §1).
 Either way, the fields of a matched proof are genuine sub-parts of a value
-the kernel's evaluator really computes with: Stitchwort has no definitional
-proof irrelevance, which is what went wrong in Agda #8699 [A5]. So
-proof-to-proof recursion over the permitted constructors is handled by the
-same rules. **If proof irrelevance is ever added, recursion on proofs must be
-revisited.**
+the kernel's evaluator really computes with. So proof-to-proof recursion
+over the permitted constructors is handled by the same rules. *Revisited
+with proof irrelevance* (docs/proposals/proof-irrelevance.md §5.4, stage 1):
+comparison now skips proofs at proof positions, but evaluation still
+computes with them, descent is still read from real matches on variables,
+and the termination checker never compares, so what went wrong in Agda
+#8699 [A5] has nothing to act on; a self-referential proposition can't be
+matched into data (D1980). Tests: soundness/proof-irrelevance-07 and -14.
 
 ### 6.8 Worked examples
 

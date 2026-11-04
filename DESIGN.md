@@ -460,7 +460,7 @@ def reveal: HiddenType -> Type      -- rejected: `a` is a type, not a proof,
 | `∃ x, p x` | **No** | The witness `x` is data that doesn't appear in an index |
 | `HiddenType` | **No** | The field `a: Type` is neither a proof nor an index |
 
-The kernel implements this rule and nothing looser. Each "No" row is a "must reject" test, paired with an accepted test for a nearby "Yes" row ([§13](#13-soundness-policy)). Definitional proof irrelevance (treating any two proofs of the same proposition as equal during type checking) isn't needed for the POC.
+The kernel implements this rule and nothing looser. Each "No" row is a "must reject" test, paired with an accepted test for a nearby "Yes" row ([§13](#13-soundness-policy)). Comparison skips proofs at proof positions (a constructor's proof field, a data type's proof parameter, a definition's inert argument), which makes any two proofs of one proposition equal there: `MkBox p ≡ MkBox q` ([docs/core.md](docs/core.md#evaluation-and-conversion), [proof irrelevance](docs/proposals/proof-irrelevance.md)). Bare proof variables are still compared.
 
 Data indices like a vector's length are **not** erased, because they're data, not proofs: a constructor's forced implicit fields (`n` in `VCons`) are stored, while its proof fields are erased even in a family that is data (`Certified n`). That costs some runtime space and work (the field is computed from whatever the elaborator inferred for it, so `fromList` should pass the length down rather than recompute it), which is acceptable since performance isn't a goal. A more general relevance system (Idris 2-style usage annotations) can come later if needed.
 
