@@ -918,6 +918,17 @@ impl<'t> Parser<'t> {
                  `:=` or the arms: `theorem t: … unfolding f := …`; it can't be written in a body",
             );
         }
+        // `x :: xs` lexes as two colons; there's no infix cons (D2323).
+        if let (Some(a), Some(b)) = (self.tokens.get(self.pos), self.tokens.get(self.pos + 1))
+            && a.tok == Tok::Colon
+            && b.tok == Tok::Colon
+            && a.span.end == b.span.start
+        {
+            return diagnostic.with_note(
+                "there is no `::` for a list: write `[x, ..xs]` to put `x` in front of `xs`, \
+                 in an expression and in a pattern alike",
+            );
+        }
         if found_arrow {
             return diagnostic.with_note(
                 "to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`",
@@ -1385,6 +1396,18 @@ impl<'t> Parser<'t> {
                             break;
                         }
                     }
+                }
+                if tail.is_some() && self.peek() == Some(&Tok::Comma) {
+                    return Err(error(
+                        self.here(),
+                        "a `..` tail must be the last item of a list pattern",
+                    )
+                    .with_note(
+                        "patterns take `..` only last, as in `[x, y, ..rest]`, because a list \
+                         can be taken apart from the front only; to reach the end of a list, \
+                         use `List.last` or `List.reverse`, or write a recursive function",
+                    )
+                    .into());
                 }
                 let end = self
                     .expect(
@@ -3992,16 +4015,46 @@ impl<'t> Parser<'t> {
         self.bump();
         let mut items = Vec::new();
         if self.peek() != Some(&Tok::RBracket) {
-            items.push(self.expr()?);
+            items.push(self.list_expr_item()?);
             while self.eat(&Tok::Comma) {
                 if self.peek() == Some(&Tok::RBracket) {
                     break;
                 }
-                items.push(self.expr()?);
+                items.push(self.list_expr_item()?);
             }
         }
         let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
         Ok(Expr::List(items, span.to(end)))
+    }
+
+    /// An element, or a `..xs` spread (docs/proposals/list-spread.md): a
+    /// list joined in at that place.
+    fn list_expr_item(&mut self) -> Result<Expr> {
+        if self.peek() != Some(&Tok::DotDot) {
+            return self.expr();
+        }
+        let dots = self.bump().span;
+        if matches!(self.peek(), Some(Tok::Comma | Tok::RBracket)) {
+            return Err(error(self.here(), "expected a list after `..`, as in `[x, ..xs]`").into());
+        }
+        let list = self.expr()?;
+        let span = dots.to(list.span());
+        Ok(Expr::Spread(Box::new(list), span))
+    }
+
+    /// The facts of `omega [..]`, `ring [..]` and the like: a list of terms
+    /// with no spread.
+    fn fact_list(&mut self) -> Result<(Vec<Expr>, Span)> {
+        let Expr::List(facts, span) = &mut self.list_expr(self.here())? else {
+            unreachable!("list_expr makes a list")
+        };
+        let (facts, span) = (std::mem::take(facts), *span);
+        if let Some(Expr::Spread(_, at)) = facts.iter().find(|f| matches!(f, Expr::Spread(..))) {
+            return Err(error(*at, "a list of facts can't have a `..` spread")
+                .with_note("this list is the facts to use, one term each; `..` builds a list value")
+                .into());
+        }
+        Ok((facts, span))
     }
 
     /// `"a${x}b${y}c"`: text pieces joined with `++`, each interpolation
@@ -4165,12 +4218,10 @@ impl<'t> Parser<'t> {
                         span,
                     });
                 }
-                let Expr::List(facts, list_span) = &mut self.list_expr(self.here())? else {
-                    unreachable!("list_expr makes a list")
-                };
+                let (facts, list_span) = self.fact_list()?;
                 Ok(Expr::Omega {
-                    facts: std::mem::take(facts),
-                    span: span.to(*list_span),
+                    facts,
+                    span: span.to(list_span),
                 })
             }
             Some(Tok::KwRing) => {
@@ -4182,12 +4233,10 @@ impl<'t> Parser<'t> {
                         span,
                     });
                 }
-                let Expr::List(facts, list_span) = &mut self.list_expr(self.here())? else {
-                    unreachable!("list_expr makes a list")
-                };
+                let (facts, list_span) = self.fact_list()?;
                 Ok(Expr::Ring {
-                    facts: std::mem::take(facts),
-                    span: span.to(*list_span),
+                    facts,
+                    span: span.to(list_span),
                 })
             }
             Some(Tok::KwCases) if self.bare_cases() => {
@@ -7073,6 +7122,24 @@ mod tests {
             })
             .collect();
         (names, body)
+    }
+
+    #[test]
+    fn list_spreads_are_items_anywhere_in_a_list_expression() {
+        let list = rhs("def f : Nat := [a, ..xs, b, ..f ys]\n");
+        let Expr::List(items, _) = &list else {
+            panic!("a list")
+        };
+        let shape: Vec<bool> = items
+            .iter()
+            .map(|i| matches!(i, Expr::Spread(..)))
+            .collect();
+        assert_eq!(shape, [false, true, false, true]);
+        assert!(matches!(rhs("def f : Nat := [..xs]\n"), Expr::List(..)));
+        let message = parse_error("def f : Nat := [a, ..]\n").message;
+        assert!(message.contains("a list after `..`"), "{message}");
+        let message = parse_error("def f : Nat := omega [h, ..xs]\n").message;
+        assert!(message.contains("list of facts"), "{message}");
     }
 
     fn parse_error(text: &str) -> Diagnostic {

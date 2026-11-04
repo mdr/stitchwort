@@ -259,7 +259,7 @@ def ofName (name: List Char): Nat :=
             (
                 "deeper.eq2.some.cons",
                 "(x: Nat) → (z: Nat) → (more: List Nat) → (y: Nat) → \
-                 (isSome: List.head (Cons z more) = Some y) → deeper (Cons x (Cons z more)) = y + z",
+                 (isSome: List.head [z, ..more] = Some y) → deeper [x, z, ..more] = y + z",
             ),
             (
                 "deeper.eq2.some.nil",
@@ -443,32 +443,32 @@ fn branch_equations() {
             (
                 "countFresh.eq2.ifTrue",
                 "(b: Bool) → (rest: List Bool) → (fresh: b = False) → \
-                 countFresh (Cons b rest) = 1 + countFresh rest",
+                 countFresh [b, ..rest] = 1 + countFresh rest",
             ),
             (
                 "countFresh.eq2.ifFalse",
                 "(b: Bool) → (rest: List Bool) → (notFresh: b = True) → \
-                 countFresh (Cons b rest) = countFresh rest",
+                 countFresh [b, ..rest] = countFresh rest",
             ),
             // The printer shows `Nat.leq 4 x = True` as `3 < x`.
             (
                 "big.eq2.ifTrue",
-                "(x: Nat) → (rest: List Nat) → (h1: 3 < x) → big (Cons x rest) = x",
+                "(x: Nat) → (rest: List Nat) → (h1: 3 < x) → big [x, ..rest] = x",
             ),
             (
                 "big.eq2.ifFalse",
                 "(x: Nat) → (rest: List Nat) → (h1: (3 < x) = False) → \
-                 big (Cons x rest) = big rest",
+                 big [x, ..rest] = big rest",
             ),
             (
                 "firstBig.eq2.true",
                 "(x: Nat) → (rest: List Nat) → (big: 10 ≤ x) → \
-                 firstBig (Cons x rest) = Some ({ value = x, isBig = big })",
+                 firstBig [x, ..rest] = Some ({ value = x, isBig = big })",
             ),
             (
                 "firstBig.eq2.false",
                 "(x: Nat) → (rest: List Nat) → (big: (10 <= x) = False) → \
-                 firstBig (Cons x rest) = firstBig rest",
+                 firstBig [x, ..rest] = firstBig rest",
             ),
             (
                 "check.eq.ifTrue",
@@ -485,7 +485,7 @@ fn branch_equations() {
             (
                 "takeFirst.eq2.cons",
                 "[a: Type] → (k: Nat) → (x: a) → (rest: List a) → \
-                 takeFirst (Cons x rest) (Succ k) = Cons x (takeFirst rest k)",
+                 takeFirst [x, ..rest] (Succ k) = [x, ..takeFirst rest k]",
             ),
             (
                 "headOr.eq.some",

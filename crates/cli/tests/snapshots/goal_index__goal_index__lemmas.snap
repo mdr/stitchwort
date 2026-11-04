@@ -48,9 +48,9 @@ param-default-shown goal 1: theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b 
 param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?
 param-default-shown goal 3: no lemma
 proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
-readable-forms goal 1: theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?
+readable-forms goal 1: theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
 readable-forms goal 2: theorem keysLessGoal1 (x: Float) (y: Float) (h: x < y) (keys: x < y): x = x := ?
-readable-forms goal 3: theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest := ?
+readable-forms goal 3: theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest := ?
 readable-forms goal 4: theorem rewrittenGoal1 (n: Nat) (h: n = 3): n = 3 := ?
 record-update goal 1: theorem renamedKeepsRefGoal1 (shape: Shape) (newId: Text): ({ shape | id = Std.Text.append newId "!" }.ref = shape.ref) := ?
 record-update goal 2: theorem renamedTwiceGoal1 (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat): ({ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }) := ?

@@ -10,4 +10,4 @@ hypotheses: theorem pasted0 (xs: List Nat) (h: Std.List.all xs (n => n <= 9) = T
 equations: theorem pasted0 (xs: List Nat) (b: Bool) (i: Int) (c: Char) (s: Text) (it: Item): (b == True) = (i == 0) ∧ (c == 'a') = (s == "x") ∧ (it == it) = True ∧ (xs == []) = True := ?
 integers: theorem pasted0 (n: Nat) (m: Nat) (x: Int): n.toInt + x = -x * -(m + 1).toInt + (5).toInt + (n * 2).toInt := ?
 computed: theorem pasted0 (m: Nat) (rest: List Nat): (Succ m == Succ m) = True := ?
-computed: theorem pasted1 (m: Nat) (xs: List Nat) (rest: List (List Nat)): (Cons m xs == Cons m xs) = True := ?
+computed: theorem pasted1 (m: Nat) (xs: List Nat) (rest: List (List Nat)): ([m, ..xs] == [m, ..xs]) = True := ?

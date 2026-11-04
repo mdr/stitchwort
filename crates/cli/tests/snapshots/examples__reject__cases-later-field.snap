@@ -9,7 +9,7 @@ expression: output
    │   ──┬──  
    │     ╰──── this `cases`
    │ 
-   │ Note 1: h: Cons x xs = Cons y ys
+   │ Note 1: h: [x, ..xs] = [y, ..ys]
    │ 
    │ Note 2: %fact1: x = y
    │ 
@@ -24,7 +24,7 @@ expression: output
    │           xs = []
    │           y = 0
    │           ys = []
-   │         `Cons x xs = Cons y ys` holds
+   │         `[x, ..xs] = [y, ..ys]` holds
    │         `List.length xs = 5` is false:
    │           left:  0
    │           right: 5

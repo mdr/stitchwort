@@ -2881,6 +2881,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 then(&mut stack, vec![Work::Expr(e), Work::Expr(t)]);
             }
             Expr::List(items, _) => then(&mut stack, items.iter().map(Work::Expr).collect()),
+            Expr::Spread(e, _) => then(&mut stack, vec![Work::Expr(e)]),
             Expr::Record { base, fields, .. } => {
                 let mut steps: Vec<Work> = base.iter().map(|b| Work::Expr(b)).collect();
                 steps.extend(fields.iter().map(|(_, e)| Work::Expr(e)));

@@ -147,6 +147,7 @@ fn without_statements(expr: &Expr) -> bool {
             | Expr::Lam(_, a, _)
             | Expr::Field(a, _) => pending.push(a),
             Expr::List(items, _) => pending.extend(items.iter()),
+            Expr::Spread(e, _) => pending.push(e),
             Expr::If {
                 cond,
                 then,

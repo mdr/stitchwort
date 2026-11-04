@@ -4742,6 +4742,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             Expr::TypedLam(_, _, t, b, _) => pending.extend([&**t, &**b]),
             Expr::Tuple(a, b, _) => pending.extend([&**a, &**b]),
             Expr::List(items, _) => pending.extend(items),
+            Expr::Spread(e, _) => pending.push(e),
             Expr::Record { base, fields, .. } => {
                 pending.extend(base.as_deref());
                 pending.extend(fields.iter().map(|(_, e)| e));

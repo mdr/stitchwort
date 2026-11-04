@@ -431,6 +431,7 @@ fn walk_at(
             walk(e, a, bound, is_type, uses)?;
             walk(e, b, bound, is_type, uses)?;
         }
+        Expr::Spread(list, _) => walk(e, list, bound, false, uses)?,
         Expr::List(items, _) => {
             for item in items {
                 walk(e, item, bound, false, uses)?;

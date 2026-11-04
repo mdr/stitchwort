@@ -1967,6 +1967,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             } => stack.extend([&**cond, &**then, &**otherwise]),
             Expr::Ann(e, t, _) => stack.extend([&**e, &**t]),
             Expr::List(items, _) => stack.extend(items),
+            Expr::Spread(e, _) => stack.push(e),
             Expr::Record { base, fields, .. } => {
                 stack.extend(base.as_deref());
                 stack.extend(fields.iter().map(|(_, e)| e));

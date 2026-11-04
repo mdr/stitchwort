@@ -153,32 +153,32 @@ fn each_kind_of_recursion_and_split() {
                 "len.induct",
                 "(motive: List Nat → Nat → Prop) → (eq1: motive [] 0) → \
                  (eq2: (x: Nat) → (xs: List Nat) → motive xs (len xs) → \
-                 motive (Cons x xs) (Succ (len xs))) → (x: List Nat) → motive x (len x)",
+                 motive [x, ..xs] (Succ (len xs))) → (x: List Nat) → motive x (len x)",
             ),
             (
                 "countAbove.induct",
                 "(k: Nat) → (motive: List Nat → Nat → Prop) → (eq1: motive [] 0) → \
                  (eq2IfTrue: (x: Nat) → (xs: List Nat) → k ≤ x → motive xs (countAbove k xs) → \
-                 motive (Cons x xs) (Succ (countAbove k xs))) → \
+                 motive [x, ..xs] (Succ (countAbove k xs))) → \
                  (eq2IfFalse: (x: Nat) → (xs: List Nat) → (k <= x) = False → \
-                 motive xs (countAbove k xs) → motive (Cons x xs) (countAbove k xs)) → \
+                 motive xs (countAbove k xs) → motive [x, ..xs] (countAbove k xs)) → \
                  (x: List Nat) → motive x (countAbove k x)",
             ),
             (
                 "firstBig.induct",
                 "(motive: List Nat → Option Nat → Prop) → (eq1: motive [] None) → \
-                 (eq2True: (x: Nat) → (rest: List Nat) → 10 ≤ x → motive (Cons x rest) (Some x)) → \
+                 (eq2True: (x: Nat) → (rest: List Nat) → 10 ≤ x → motive [x, ..rest] (Some x)) → \
                  (eq2False: (x: Nat) → (rest: List Nat) → (10 <= x) = False → \
-                 motive rest (firstBig rest) → motive (Cons x rest) (firstBig rest)) → \
+                 motive rest (firstBig rest) → motive [x, ..rest] (firstBig rest)) → \
                  (x: List Nat) → motive x (firstBig x)",
             ),
             (
                 "countFresh.induct",
                 "(motive: List Bool → Nat → Prop) → (eq1: motive [] 0) → \
                  (eq2IfTrue: (b: Bool) → (rest: List Bool) → b = False → \
-                 motive rest (countFresh rest) → motive (Cons b rest) (1 + countFresh rest)) → \
+                 motive rest (countFresh rest) → motive [b, ..rest] (1 + countFresh rest)) → \
                  (eq2IfFalse: (b: Bool) → (rest: List Bool) → b = True → \
-                 motive rest (countFresh rest) → motive (Cons b rest) (countFresh rest)) → \
+                 motive rest (countFresh rest) → motive [b, ..rest] (countFresh rest)) → \
                  (x: List Bool) → motive x (countFresh x)",
             ),
             (
@@ -198,9 +198,9 @@ fn each_kind_of_recursion_and_split() {
                 "(motive: Nat → List Nat → Nat → Prop) → (eq1: (d: Nat) → motive d [] d) → \
                  (eq2Some: (d: Nat) → (x: Nat) → (rest: List Nat) → (y: Nat) → \
                  List.head rest = Some y → motive y rest (lastOr y rest) → \
-                 motive d (Cons x rest) (lastOr y rest)) → \
+                 motive d [x, ..rest] (lastOr y rest)) → \
                  (eq2None: (d: Nat) → (x: Nat) → (rest: List Nat) → List.head rest = None → \
-                 motive d (Cons x rest) x) → \
+                 motive d [x, ..rest] x) → \
                  (d: Nat) → (x: List Nat) → motive d x (lastOr d x)",
             ),
             (
@@ -347,7 +347,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
             deep.contains(
                 "(eq2Alt2: (x: ((Nat, Nat), Nat)) → (rest: List ((Nat, Nat), Nat)) → \
                  (a: Nat) → (b: Nat) → (c: Nat) → List.head rest = Some ((a, b), c) → \
-                 motive rest (deep rest) → motive (Cons x rest) (a + b + c + deep rest))"
+                 motive rest (deep rest) → motive [x, ..rest] (a + b + c + deep rest))"
             ),
             "{deep}"
         );
@@ -359,7 +359,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
                  (a: Nat) → (b: Nat) → (c: Nat) → (e: Nat) → \
                  List.head rest = Some ((a, b), c, e) → \
                  motive rest (both rest) → \
-                 motive (Cons x rest) (a + b + c + e + both rest))"
+                 motive [x, ..rest] (a + b + c + e + both rest))"
             ),
             "{both}"
         );
@@ -400,7 +400,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
              (eqAlt2: (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
              (v: a) → (next: s) → step seed = Some (v, next) → \
              motive next step measure shrinks (List.unfold next step measure shrinks) → \
-             motive seed step measure shrinks (Cons v (List.unfold next step measure shrinks))) → \
+             motive seed step measure shrinks [v, ..List.unfold next step measure shrinks]) → \
              (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
              motive seed step measure shrinks (List.unfold seed step measure shrinks)"
         );

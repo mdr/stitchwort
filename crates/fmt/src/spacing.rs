@@ -126,6 +126,10 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
     }
     // `..base`: the spread touches its name.
     if *left == DotDot {
+        // `[x, ..xs]`, in a pattern or an expression (list-spread.md).
+        if matches!(right, Lower(_) | Upper(_) | LParen | LBracket) {
+            return Gap::Rule(false);
+        }
         return Gap::Kept(spaced);
     }
     // R3: `(x: Nat)`.

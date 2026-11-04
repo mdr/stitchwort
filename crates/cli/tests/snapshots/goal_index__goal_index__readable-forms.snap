@@ -32,16 +32,16 @@ expression: json
         },
         {
           "name": "h",
-          "type": "y ∈ Cons y ys"
+          "type": "y ∈ [y, ..ys]"
         }
       ],
-      "lemma": "theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?",
+      "lemma": "theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?",
       "target": "y ∈ ys"
     },
     "labels": [
       {
         "file": 0,
-        "message": "y: Nat\nys: List Nat\nh: y ∈ Cons y ys\n⊢ y ∈ ys",
+        "message": "y: Nat\nys: List Nat\nh: y ∈ [y, ..ys]\n⊢ y ∈ ys",
         "range": [
           9,
           75,
@@ -52,7 +52,7 @@ expression: json
     ],
     "message": "in `memberOfTail`",
     "notes": [
-      "this statement is false; a counterexample:\n  y = 0\n  ys = []\n`y ∈ Cons y ys` holds\n`y ∈ ys` is false"
+      "this statement is false; a counterexample:\n  y = 0\n  ys = []\n`y ∈ [y, ..ys]` holds\n`y ∈ ys` is false"
     ],
     "range": [
       9,
@@ -127,13 +127,13 @@ expression: json
           "type": "List Leaf"
         }
       ],
-      "lemma": "theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest := ?",
-      "target": "f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest"
+      "lemma": "theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest := ?",
+      "target": "f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest"
     },
     "labels": [
       {
         "file": 0,
-        "message": "f: List Leaf → Nat\nleaf: Leaf\nrest: List Leaf\n⊢ f (Cons ({ leaf | depth = leaf.depth + 1 }) rest) = f rest",
+        "message": "f: List Leaf → Nat\nleaf: Leaf\nrest: List Leaf\n⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest",
         "range": [
           19,
           79,

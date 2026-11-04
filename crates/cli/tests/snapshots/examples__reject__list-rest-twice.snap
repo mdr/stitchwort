@@ -2,10 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: expected `]`: a `..` tail must be the last item, but found `,`
+[E-PARSE] Error: a `..` tail must be the last item of a list pattern
    ╭─[ reject/list-rest-twice.sw:4:12 ]
    │
  4 │   | [x, ..a, ..b] => x
    │            ┬  
-   │            ╰── expected `]`: a `..` tail must be the last item, but found `,`
+   │            ╰── a `..` tail must be the last item of a list pattern
+   │ 
+   │ Note: patterns take `..` only last, as in `[x, y, ..rest]`, because a list can be taken apart from the front only; to reach the end of a list, use `List.last` or `List.reverse`, or write a recursive function
 ───╯

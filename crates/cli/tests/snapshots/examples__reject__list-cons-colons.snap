@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected the end of the declaration, but found `:`
+   ╭─[ reject/list-cons-colons.sw:3:46 ]
+   │
+ 3 │ def f (x: Nat) (xs: List Nat): List Nat := x :: xs
+   │                                              ┬  
+   │                                              ╰── expected the end of the declaration, but found `:`
+   │ 
+   │ Note: there is no `::` for a list: write `[x, ..xs]` to put `x` in front of `xs`, in an expression and in a pattern alike
+───╯

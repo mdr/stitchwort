@@ -315,6 +315,7 @@ fn ambiguities(expr: &Expr, out: &mut Vec<Ambiguity>) {
         }
         Expr::Lam(_, body, _) | Expr::TypedLam(_, _, _, body, _) => ambiguities(body, out),
         Expr::List(items, _) => items.iter().for_each(|i| ambiguities(i, out)),
+        Expr::Spread(e, _) => ambiguities(e, out),
         _ => {}
     }
 }

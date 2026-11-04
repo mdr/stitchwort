@@ -311,6 +311,7 @@ impl Walk {
                 }
             }
             Expr::List(items, _) => items.iter().for_each(|i| self.expr(i)),
+            Expr::Spread(e, _) => self.expr(e),
             Expr::Record { base, fields, .. } => {
                 if let Some(b) = base {
                     self.expr(b);
