@@ -993,7 +993,7 @@
       "labels": [
         "decision"
       ],
-      "body": "Day 16 needed a bridging lemma; workaround rewrite moved in rfl; Lean behaves as Stitchwort does today. Rec: no; have the error suggest the workaround.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: no, as recommended: the error suggests the workaround instead (SW-1219's error note; lazy delta SW-1227 addresses the cause).",
+      "body": "Day 16 needed a bridging lemma; workaround rewrite moved in rfl; Lean behaves as Stitchwort does today. Rec: no; have the error suggest the workaround.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: no: no comparison up to an arm's equation. SW-1219's error note was dropped (D2344); the cause is addressed by lazy delta, SW-1227 (D2341).",
       "created": "2026-10-28",
       "updated": "2026-11-04",
       "commits": []
