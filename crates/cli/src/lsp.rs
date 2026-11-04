@@ -1888,6 +1888,7 @@ fn action_options() -> stitchwort_driver::search_at::AtOptions {
 /// (`open`, by path in the project): the project's namespaces through its
 /// check cache, the goal read and the proofs checked in the file's
 /// namespace, as `search --at` does.
+#[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
     uri: &Url,
