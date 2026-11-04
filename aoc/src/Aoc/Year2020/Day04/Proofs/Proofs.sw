@@ -11,7 +11,6 @@ import Std (Bool, DecEq, Eq, Finite, List, Text)
 theorem codeEq (a: Key) (b: Key): (a.code == b.code) = (a == b) :=
   DecEq.sound _ _ (Finite.check (((x, y)) => (x.code == y.code) == (x == y)) rfl (a, b))
 
---| A key is among the pairs as written when the passport has it.
 theorem writtenHas (passport: Passport) (key: Key): (pairs passport).any (((written, _)) => written == key.code) = passport.has key :=
   rewrite List.anyMap passport.fields _ _ in List.anyCong _ _ _ (field => codeEq field.key key)
 

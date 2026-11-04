@@ -6,7 +6,6 @@ import Aoc.Year2020.Day04 (..)
 import Aoc.Year2020.Day04.Spec (..)
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Parse, Text, Void)
 
---| `readDigits` reads the digits after `acc` when every character is one.
 theorem readDigitsAll: (acc: Nat) → (chars: List Char) →
     Text.readDigits acc chars = (if chars.all Parse.isDigit then Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit)) else None)
   | acc, [] => rfl
@@ -15,7 +14,6 @@ theorem readDigitsAll: (acc: Nat) → (chars: List Char) →
       | None => rfl
       | Some d => readDigitsAll (acc * 10 + d) rest
 
---| A text is a number when it is one or more digits, and then it is their value.
 theorem toNatDigits (chars: List Char):
     Text.toNat (Text.fromList chars) = (if chars ≠ [] ∧ chars.all Parse.isDigit then Some (Parse.digitsValue chars) else None) :=
   match chars with
@@ -88,7 +86,6 @@ theorem sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
         | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound c d equal, Text.sameCharRefl d at same in Eq.sym same))
         | False => rfl
 
---| Two characters are a two-character list.
 theorem pairEq (x: Char) (y: Char) (f: Char) (s: Char): ([x, y] == [f, s]) = (f == x ∧ s == y) :=
   match first: f == x with
     | True =>
@@ -113,8 +110,6 @@ theorem dropTwo (front: List Char) (x: Char) (y: Char): (front ++ [x, y]).drop (
 theorem takeTwo (front: List Char) (x: Char) (y: Char): (front ++ [x, y]).take ((front ++ [x, y]).length - 2) = front :=
   List.takeAppendLength front [x, y] _ (rewrite List.lengthAppend front [x, y] in omega)
 
---| Removing a two-character suffix: the text less its last two characters,
---| when those are the suffix.
 theorem stripSuffixReversed (first: Char) (second: Char): (back: List Char) →
     Text.stripSuffix (Text.fromList back.reverse) (Text.fromList [first, second])
       = (if back.reverse.drop (back.reverse.length - 2) == [first, second] then Some (Text.fromList (back.reverse.take (back.reverse.length - 2))) else None)
@@ -144,7 +139,6 @@ theorem heightSpec (value: Text): Key.valid Height value = height value :=
   match value with
     | MkText chars => heightChars chars
 
---| Each key's check is the puzzle's rule for the key as written.
 theorem validSpec (key: Key) (value: Text): key.valid value = validValue key.code value :=
   match key with
     | BirthYear => yearSpec 1920 2002 value

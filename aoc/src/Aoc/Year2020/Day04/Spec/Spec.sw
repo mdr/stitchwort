@@ -6,8 +6,7 @@ namespace Aoc.Year2020.Day04.Spec
 import Aoc.Year2020.Day04 (Passport)
 import Std (List, Parse, Text)
 
---| "Each passport is represented as a sequence of key:value pairs": the
---| fields as written, key and value.
+--| "Each passport is represented as a sequence of key:value pairs".
 def pairs (passport: Passport): List (Text, Text) := passport.fields.map (field => (field.key.code, field.value))
 
 --| The expected fields: "byr (Birth Year), iyr (Issue Year), eyr
@@ -15,7 +14,6 @@ def pairs (passport: Passport): List (Text, Text) := passport.fields.map (field 
 --| (Passport ID), cid (Country ID)".
 def expected: List Text := ["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid", "cid"]
 
---| The expected fields the passport doesn't have.
 def missing (passport: Passport): List Text := expected.filter (key => not ((pairs passport).any ((written, _) => written == key)))
 
 --| "Passports … with all eight fields are valid", and "treat cid as
@@ -25,7 +23,6 @@ def validPart1 (passport: Passport): Bool := missing passport == [] ∨ missing 
 --| "Count the number of valid passports."
 def part1Answer (passports: List Passport): Nat := (passports.filter validPart1).length
 
---| The number the digits spell.
 def number (digits: List Char): Nat := Parse.digitsValue digits
 
 --| "`count` digits", 0 to 9.
@@ -37,7 +34,7 @@ def year (low: Nat) (high: Nat) (value: Text): Bool :=
 
 --| "A number followed by either cm or in: If cm, the number must be at
 --| least 150 and at most 193. If in, the number must be at least 59 and at
---| most 76." The unit is the last two characters, the number what is before.
+--| most 76."
 def height (value: Text): Bool :=
   let chars := value.toList
   let split := chars.length - 2
@@ -56,8 +53,7 @@ def hairColor (value: Text): Bool :=
 --| "Exactly one of: amb blu brn gry grn hzl oth."
 def eyeColor (value: Text): Bool := (["amb", "blu", "brn", "gry", "grn", "hzl", "oth"].filter (== value)).length == 1
 
---| Each field's rule, by its key. "cid (Country ID) - ignored, missing or
---| not."
+--| "cid (Country ID) - ignored, missing or not."
 def validValue (key: Text) (value: Text): Bool :=
   if key == "byr" then year 1920 2002 value
   else if key == "iyr" then year 2010 2020 value

@@ -9,14 +9,12 @@ namespace Aoc.Year2020.Day04.Proofs
 import Aoc.Year2020.Day04 (..)
 import Std (Eq, Exists, Fail, List, Parse, Result, Text)
 
---| `key:value`, the value one or more characters, none a space or line break.
 def FieldWritten (read: List Char) (field: Field): Prop :=
   read = field.key.code.toList ++ [':'] ++ field.value.toList ∧ field.value.toList ≠ [] ∧ field.value.toList.all isValueChar = True
 
 --| "Separated by spaces or newlines."
 def FieldBreak (read: List Char) (u: ()): Prop := read = [' '] ∨ Parse.LineBreak read
 
---| A passport's fields, a space or line break between each two.
 def PassportWritten (read: List Char) (passport: Passport): Prop := Parse.SepBy FieldWritten FieldBreak read passport.fields
 
 theorem readsField: Parse.Reads field FieldWritten :=
@@ -35,8 +33,6 @@ theorem readsPassport: Parse.Reads passport PassportWritten :=
   Parse.readsThen (() => Parse.sepBy1 field fieldBreak) _ _ _ (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
     Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead in written))
 
---| The input is the passports written out with a blank line between each
---| two, then nothing but line breaks.
 theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Parse.SepBy PassportWritten (read u => Parse.BlankLine read) read passports

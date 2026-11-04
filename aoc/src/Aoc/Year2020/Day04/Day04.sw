@@ -29,7 +29,6 @@ type Key =
   | PassportId
   | CountryId
 
---| How the batch file writes each key.
 def Key.code: Key → Text
   | BirthYear => "byr"
   | IssueYear => "iyr"
@@ -46,32 +45,26 @@ type Field = { key: Key, value: Text }
 
 type Passport = { fields: List Field }
 
---| A value runs to the next space or line break.
 def isValueChar (char: Char): Bool := not char.isWhitespace
 
---| `ecl:gry`: a key, a colon, and a value of one or more characters.
 def field(): {Parse} Field :=
   let key := Parse.pick (keys.map (key => (key.code, key)))
   Parse.char ':'
   let value := Parse.takeWhile1 "a value" isValueChar
   { key, value }
 
---| What separates two fields of a passport: a space or a line break.
 def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
 
 def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
 
---| Passports with a blank line between each two.
 def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
 
 def Passport.has (passport: Passport) (key: Key): Bool := passport.fields.any (field => field.key == key)
 
---| Every key but `cid`.
 def required: List Key := [BirthYear, IssueYear, ExpirationYear, Height, HairColor, EyeColor, PassportId]
 
 def Passport.hasRequired (passport: Passport): Bool := required.all passport.has
 
---| Whether the number is there and from `low` to `high`.
 def between (low: Nat) (high: Nat): Option Nat → Bool
   | Some n => low <= n ∧ n <= high
   | None => False
@@ -95,7 +88,6 @@ def hairColorValid (value: Text): Bool :=
 
 def eyeColors: List Text := ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
 
---| Part 2's rule for each key's value.
 def Key.valid (key: Key) (value: Text): Bool :=
   match key with
     | BirthYear => yearBetween 1920 2002 value
