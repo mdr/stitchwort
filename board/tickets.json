@@ -1,5 +1,5 @@
 {
-  "next": 1269,
+  "next": 1270,
   "tickets": [
     {
       "id": 47,
@@ -5643,7 +5643,7 @@
     {
       "id": 1236,
       "title": "Type mismatch errors show the first difference between the two sides, instead of hiding it behind …",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1236",
       "labels": [
@@ -6103,7 +6103,21 @@
         "kernel",
         "design"
       ],
-      "body": "D2355: an independent Opus review of docs/proposals/proof-irrelevance.md (draft 4, SW-1250) before SW-93 stage 1 starts. Reviewer gets the note and the code, not the orchestrator's conclusions. Expected: 60 min.",
+      "body": "D2355: an independent Opus review of docs/proposals/proof-irrelevance.md (draft 4, SW-1250) before SW-93 stage 1 starts. Reviewer gets the note and the code, not the orchestrator's conclusions. Expected: 60 min.\n\nDone c3a1fb9c (Opus, ~11 min, est. 60): docs/proposals/proof-irrelevance-review.md. Verdicts: soundness sound; decidability sound; §7.10 gap (TreeMemo not mode-keyed, value.rs:2861; hidden opaque calls; unifier sites unify.rs:999/1205/1185 missing; SW-386 cross-definition comparison needs its own transitivity step); subject reduction gap then acceptable (masks must be bounded by Def::arity: positions past arity would count inert; hidden opaque calls); stage 1 scope gap (D1980 not integrated, tests 18/21 unwritable; Prop-typed indices; arity bound; full shortcut list; natives on inert positions; bodiless decls; reference.rs; check-cache format; SW-93 done criteria list tests 1-16 vs 23 + property tests needing a well-typed value generator). No design blocker. Eleven suggested note changes, incl. keep index unification's deletion before injectivity (else closed Void via T: Box (Unit ∨ Unit) → Type), §3 outdated (indexed families, Acc declarable; E-PROP-ELIM), depth-24 test, carry D1981.\n\nOrchestrator's call (per decision-scope): draft 5 of the note integrates the review (D1980 first on SW-93's branch, tests 18/21 rewritten with a non-recursive proposition, arity bound, complete shortcut list incl. TreeMemo and the unifier sites, open stage-1 decisions settled); Opus, in this worktree, before SW-93.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1269,
+      "title": "AoC 2020 day 5 in Stitchwort: spec, solution, proofs, input test, friction notes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1269",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2305 track. Day 4 friction review done 4 Nov 2026 (D2356, D2357; tickets SW-1260 to SW-1267). Started 4 Nov 2026 on Opus, expected: 120 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
