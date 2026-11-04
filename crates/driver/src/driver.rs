@@ -566,7 +566,7 @@ impl Session {
         // loads as a success, though.
         let (module, parse_errors) =
             parse_module_recovering(file, text, self.elab.options.limits.stack);
-        let first_new_def = self.elab.globals.defs.len();
+        let first_new_def = self.elab.globals.env.defs().len();
         self.elab.set_file_mode(context);
         let diagnostics =
             if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
@@ -629,7 +629,7 @@ impl Session {
                 module,
             })
             .collect();
-        let first_new_def = self.elab.globals.defs.len();
+        let first_new_def = self.elab.globals.env.defs().len();
         let diagnostics = self
             .elab
             .elaborate_namespace(Some(&namespace), &units, None);
@@ -671,9 +671,9 @@ impl Session {
         let _op = g
             .budget
             .operation(Limits::stack_only(self.elab.options.limits.stack));
-        for id in first_new_def..g.defs.len() {
+        for id in first_new_def..g.env.defs().len() {
             let id = stitchwort_core::DefId(id);
-            if g.def(id).export
+            if g.def(id).export()
                 && let Err(d) = stitchwort_js::exportable(g, id)
             {
                 diagnostics.push(d);
@@ -685,7 +685,7 @@ impl Session {
         let fit = if among {
             stitchwort_js::exports_fit_together_among(
                 g,
-                (first_new_def..g.defs.len()).map(stitchwort_core::DefId),
+                (first_new_def..g.env.defs().len()).map(stitchwort_core::DefId),
             )
         } else {
             stitchwort_js::exports_fit_together(g)
@@ -731,7 +731,7 @@ impl Session {
     /// Generates JavaScript for the exports loaded so far.
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
         let g = &self.elab.globals;
-        self.refuse_unfinished((0..g.defs.len()).map(stitchwort_core::DefId))?;
+        self.refuse_unfinished((0..g.env.defs().len()).map(stitchwort_core::DefId))?;
         stitchwort_js::generate(g, self.elab.options.limits)
     }
 
@@ -745,15 +745,15 @@ impl Session {
         let g = &self.elab.globals;
         for id in ids {
             let def = g.def(id);
-            if def.export && self.elab.is_unfinished(id) {
+            if def.export() && self.elab.is_unfinished(id) {
                 return Err(Diagnostic::error(
                     "E-UNFINISHED",
                     format!(
                         "`{}` can't be built: it, or something it uses, has an open goal (`?`)",
-                        def.name
+                        def.name()
                     ),
                 )
-                .with_label(def.span, "fill in every goal it needs first"));
+                .with_label(def.span(), "fill in every goal it needs first"));
             }
         }
         Ok(())
@@ -767,7 +767,7 @@ impl Session {
             .elab
             .namespace_def_range(namespace)
             .map(stitchwort_core::DefId)
-            .filter(|id| g.def(*id).export)
+            .filter(|id| g.def(*id).export())
             .collect();
         self.refuse_unfinished(ids.iter().copied())?;
         stitchwort_js::generate_exports(
@@ -1019,8 +1019,8 @@ pub const SOURCE_FINGERPRINT_CRATES: &str = env!("STITCHWORT_SOURCE_FINGERPRINT_
 pub fn modes(g: &Globals) -> String {
     format!(
         "n{}c{}",
-        u8::from(!g.builtins.disable_natives),
-        u8::from(g.builtins.compact_literals().is_some())
+        u8::from(!g.env.builtins().disable_natives),
+        u8::from(g.env.builtins().compact_literals().is_some())
     )
 }
 

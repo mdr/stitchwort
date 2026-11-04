@@ -132,22 +132,22 @@ pub fn generate_program_with(
     for &id in &used {
         let info = codegen.try_info(id)?;
         let def = g.def(id);
-        if let Some(prim) = g.builtins.primitive(id) {
+        if let Some(prim) = g.env.builtins().primitive(id) {
             let runtime = info.mask.iter().filter(|erased| !**erased).count();
             if info.convention != Convention::Erased && runtime != runtime_arity(prim) {
                 return Err(internal(format!(
                     "`{}` takes {runtime} runtime arguments, not {}",
-                    def.name,
+                    def.name(),
                     runtime_arity(prim)
                 )));
             }
         } else if def.body().is_none() && !info.result_erased && !codegen.is_native(id) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
-                format!("can't generate JavaScript for `{}`", def.name),
+                format!("can't generate JavaScript for `{}`", def.name()),
             )
             .with_label(
-                def.span,
+                def.span(),
                 "it hasn't been checked successfully, so it has no definition to generate",
             ));
         }
@@ -174,7 +174,7 @@ pub fn generate_program_with(
     js.push('\n');
     for id in crate::dependency_order(&codegen, &used) {
         js.push_str(&codegen.def(id).map_err(|e| {
-            Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
+            Diagnostic::from(e).with_label(g.def(id).span(), "while generating JavaScript for this")
         })?);
     }
     let mut env = Vec::new();
@@ -247,12 +247,14 @@ struct Shapes {
 impl Shapes {
     fn new(g: &Globals) -> Result<Shapes, Diagnostic> {
         let data = |b: Builtin| -> Result<DataId, Diagnostic> {
-            g.registry
+            g.env
+                .registry()
                 .data(b)
                 .ok_or_else(|| internal(format!("the prelude doesn't declare `{}`", b.name())))
         };
         let ctor_of = |b: Builtin| -> Result<(DataId, usize), Diagnostic> {
-            g.registry
+            g.env
+                .registry()
                 .ctor(b)
                 .ok_or_else(|| internal(format!("the prelude doesn't declare `{}`", b.name())))
         };
@@ -261,9 +263,9 @@ impl Shapes {
         // `fields` many.
         let mut ctor = |name: &'static str, d: DataId, c: usize, fields: &[&'static str]| {
             let data = g.data(d);
-            let ctor = &data.ctors[c];
-            if data.record {
-                return Err(internal(format!("`{}` is a record", data.name)));
+            let ctor = &data.ctors()[c];
+            if data.record() {
+                return Err(internal(format!("`{}` is a record", data.name())));
             }
             let keys: Vec<String> = (0..ctor.fields.len())
                 .filter(|i| !ctor.field_erased[*i])
@@ -339,7 +341,7 @@ impl Shapes {
         ctor("args", io, ctor_of(Builtin::Args)?.1, &["argsUnit"])?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
-        if let Some(fail) = g.registry.loaded_data(Builtin::Fail) {
+        if let Some(fail) = g.env.registry().loaded_data(Builtin::Fail) {
             ctor("stop", fail, 0, &["stopMessage"])?;
         }
         let maybe = data(Builtin::Option)?;
@@ -348,7 +350,7 @@ impl Shapes {
         ctor("unit", data(Builtin::UnitType)?, 0, &[])?;
         // `Console`, a record: no tag, its fields' keys.
         let console = data(Builtin::Console)?;
-        let fields = &g.data(console).ctors[0].fields;
+        let fields = &g.data(console).ctors()[0].fields;
         let names = [
             "consoleInput",
             "consoleOutput",

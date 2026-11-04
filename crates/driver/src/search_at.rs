@@ -639,9 +639,9 @@ impl Session {
         let closing = self
             .elab
             .closing_plans(&goal, &candidates, &keep, options.max_candidates);
-        let iff = (0..g.datas.len())
+        let iff = (0..g.env.datas().len())
             .map(DataId)
-            .find(|d| &*g.data(*d).path == "Std.Iff");
+            .find(|d| &**g.data(*d).path() == "Std.Iff");
         debug_time("closing searched", started);
         let rewrite_plans = if prop {
             self.elab
@@ -1189,15 +1189,15 @@ fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::I
     }
     // A file's own (`Main.…`, its scope's keys have no `Main.`), a
     // generated `T.ext`: by its path.
-    let def = (0..g.defs.len())
+    let def = (0..g.env.defs().len())
         .map(|id| stitchwort_elab::search::Item::Def(stitchwort_core::DefId(id)))
         .find(|item| item.path(g) == path);
     if def.is_some() {
         return def;
     }
-    (0..g.datas.len()).find_map(|d| {
+    (0..g.env.datas().len()).find_map(|d| {
         let data = g.data(DataId(d));
-        (0..data.ctors.len())
+        (0..data.ctors().len())
             .map(|c| stitchwort_elab::search::Item::Ctor(DataId(d), c))
             .find(|item| item.path(g) == path)
     })

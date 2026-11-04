@@ -619,8 +619,8 @@ impl Elaborator {
     /// How many declarations there are.
     pub(crate) fn ids(&self) -> state::Ids {
         state::Ids {
-            defs: self.globals.defs.len(),
-            datas: self.globals.datas.len(),
+            defs: self.globals.env.defs().len(),
+            datas: self.globals.env.datas().len(),
         }
     }
 
@@ -716,7 +716,7 @@ impl Elaborator {
         self.unit.loading_prelude = false;
         // The prelude's imports are its own.
         self.scope.clear_imports();
-        self.tables.prelude_defs = self.globals.defs.len();
+        self.tables.prelude_defs = self.globals.env.defs().len();
         registry::check_complete_core(&self.globals)
     }
 
@@ -888,7 +888,7 @@ impl Elaborator {
                 binders.push(goals::SnapBinder::Lam(name.as_str().into(), ty_term));
             }
             if let (Some(name), Some(owner)) = (recursive, snapshot.owner()) {
-                let ty_term = self.globals.def(owner).ty.clone();
+                let ty_term = self.globals.def(owner).ty().clone();
                 let ty = cx.eval(&ty_term)?;
                 cx.bind(name, ty);
                 binders.push(goals::SnapBinder::Lam(name.into(), ty_term));
@@ -1176,7 +1176,7 @@ impl Elaborator {
             )
             .with_label(earlier.span, "first defined here"));
         }
-        let Some(bool_data) = self.globals.registry.data(Builtin::Bool) else {
+        let Some(bool_data) = self.globals.env.registry().data(Builtin::Bool) else {
             return Err(error(
                 "E-UNKNOWN-NAME",
                 span,
@@ -1675,10 +1675,14 @@ impl Elaborator {
             return None;
         };
         let data = self.globals.data(d);
-        if self.globals.def(id).span != data.span || data.record {
+        if self.globals.def(id).span() != data.span() || data.record() {
             return None;
         }
-        let ctors: Vec<String> = data.ctors.iter().map(|c| format!("`{}`", c.name)).collect();
+        let ctors: Vec<String> = data
+            .ctors()
+            .iter()
+            .map(|c| format!("`{}`", c.name))
+            .collect();
         let every = if ctors.len() == 1 {
             format!("its constructor {} has", ctors[0])
         } else {
@@ -1814,7 +1818,7 @@ impl Elaborator {
             let params: Vec<Name> = self
                 .globals
                 .data(ids[0])
-                .params
+                .params()
                 .iter()
                 .map(|(x, _)| x.clone())
                 .collect();
@@ -2054,7 +2058,7 @@ impl Elaborator {
             }
             // With indices, a result type or implicit fields
             // (docs/proposals/indexed-families.md §7.1).
-            if !self.globals.data(d).indices.is_empty()
+            if !self.globals.data(d).indices().is_empty()
                 || ctor.result.is_some()
                 || ctor.implicit.contains(&true)
             {
@@ -2063,7 +2067,7 @@ impl Elaborator {
             }
             self.clear_metas();
             let mut cx = Ctx::new(self, *span);
-            for (x, ty) in &self.globals.data(d).params {
+            for (x, ty) in self.globals.data(d).params() {
                 let value = cx.eval(ty)?;
                 cx.bind(x, value);
             }
@@ -2123,7 +2127,7 @@ impl Elaborator {
             self.bind_builtin_data(d)?;
         }
         self.data_attributes(decl, d)?;
-        if self.globals.data(d).record {
+        if self.globals.data(d).record() {
             let interface = matches!(
                 decl,
                 Decl::Data {
@@ -2614,7 +2618,7 @@ impl Elaborator {
         }
         self.mark_opaque_signature(signature, id);
         // A dictionary keeps its name in what uses it (stage 1, item 13).
-        if self.is_dictionary_type(&self.globals.def(id).ty.clone())? {
+        if self.is_dictionary_type(&self.globals.def(id).ty().clone())? {
             kernel::mark_folded(&mut self.globals, id);
         }
         if *instance {
@@ -2714,7 +2718,7 @@ impl Elaborator {
         // a divergence index beside it, so it may stand for a partial row
         // (docs/proposals/partial-stage-3.md §2.2, D1214;
         // docs/proposals/partial-handlers.md §4, D1255).
-        let divergence = match self.globals.registry.data(Builtin::Divergence) {
+        let divergence = match self.globals.env.registry().data(Builtin::Divergence) {
             Some(d) if !self.decl.total_rows_only.get() => Some(d),
             _ => None,
         };
@@ -2794,7 +2798,7 @@ impl Elaborator {
             // the compact representation of text was written for, text
             // literals are constructors instead (and a test fails).
             Some(Builtin::Char) => {
-                if let Some(list) = self.globals.registry.data(Builtin::List) {
+                if let Some(list) = self.globals.env.registry().data(Builtin::List) {
                     chars::register(&mut self.globals, list, d);
                 }
             }
@@ -2840,7 +2844,7 @@ impl Elaborator {
     /// a long list doesn't run out of stack; `List.lengthOntoEq` proves the
     /// two equal. A replayed `List.length` has it already.
     fn length_run_body(&mut self, id: DefId) -> Result<()> {
-        let Some(onto) = self.globals.registry.def(Builtin::ListLengthOnto) else {
+        let Some(onto) = self.globals.env.registry().def(Builtin::ListLengthOnto) else {
             return Ok(());
         };
         if self.globals.def(id).own_run_body().is_some() {
@@ -2867,12 +2871,12 @@ impl Elaborator {
     /// no decision procedure can't be checked at runtime, so the export is
     /// refused.
     fn add_validators(&mut self, id: DefId) -> Result<()> {
-        let Some(decidable) = self.globals.registry.data(Builtin::Decidable) else {
+        let Some(decidable) = self.globals.env.registry().data(Builtin::Decidable) else {
             return Ok(()); // no prelude
         };
         let def = self.globals.def(id);
-        let (name, span) = (def.name.clone(), def.span);
-        let tel = kernel::telescope(&self.globals, &def.ty_value, span)?;
+        let (name, span) = (def.name().clone(), def.span());
+        let tel = kernel::telescope(&self.globals, def.ty_value(), span)?;
         let mut found = Vec::new();
         for (i, (_, ty, erased)) in tel.params.iter().enumerate() {
             if !erased || kernel::is_type_former(&self.globals, i, ty)? {
@@ -2921,7 +2925,7 @@ impl Elaborator {
     fn body_term(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
         let g = &self.globals;
         let mut cx = Ctx::new(self, def_name.span);
-        let written = Rc::new(g.def(id).ty.clone());
+        let written = Rc::new(g.def(id).ty().clone());
         // Its type, as the body sees it: `codes: List Code` keeps `Code`
         // (`kernel::def_ty`).
         let ty_value = kernel::def_ty(g, id)?;
@@ -3366,11 +3370,11 @@ impl Elaborator {
 
         let level = columns[j];
         let data = self.globals.data(d);
-        if Some(d) == self.globals.registry.data(Builtin::Int) {
+        if Some(d) == self.globals.env.registry().data(Builtin::Int) {
             self.int_coverage(rows, j, types[j].as_ref(), span)?;
         }
         let mut branches = Vec::new();
-        for (c, ctor) in data.ctors.iter().enumerate() {
+        for (c, ctor) in data.ctors().iter().enumerate() {
             let k = ctor.fields.len();
             // In this branch, column `j` is replaced by the constructor's
             // fields, which are bound at levels `depth..depth + k`.
@@ -3404,9 +3408,9 @@ impl Elaborator {
                                 pattern_span,
                                 format!(
                                     "this pattern is {} `{}`, but other patterns here are `{}`",
-                                    article(&self.globals.data(d2).name),
-                                    self.globals.data(d2).name,
-                                    data.name
+                                    article(self.globals.data(d2).name()),
+                                    self.globals.data(d2).name(),
+                                    data.name()
                                 ),
                             ));
                         }
@@ -3449,14 +3453,14 @@ impl Elaborator {
                     if let Some(t) = t
                         && i != j
                         && let Value::Data(d2, _) = force(&self.globals, t.clone())?
-                        && !self.globals.data(d2).indices.is_empty()
+                        && !self.globals.data(d2).indices().is_empty()
                     {
                         return Ok(true);
                     }
                 }
                 Ok(false)
             };
-            if branch_rows.is_empty() && (!data.indices.is_empty() || other_family()?) {
+            if branch_rows.is_empty() && (!data.indices().is_empty() || other_family()?) {
                 // It may be impossible: `check_tree` unifies, and decides
                 // (docs/proposals/indexed-families.md §7.3). Without
                 // indices, only if another column's type becomes empty in
@@ -3598,7 +3602,7 @@ impl Elaborator {
         depth: usize,
     ) -> Result<Vec<Option<Value>>> {
         let g = &self.globals;
-        let fields = &g.data(d).ctors[c].fields;
+        let fields = &g.data(d).ctors()[c].fields;
         let params = match ty.map(|t| force(g, t.clone())).transpose()? {
             Some(Value::Data(d2, params)) if d2 == d => params,
             _ => return Ok(vec![None; fields.len()]),
@@ -3606,7 +3610,7 @@ impl Elaborator {
         // `params` holds the type's indices after its parameters; the fields
         // are in the context of the parameters only.
         let mut env = params;
-        env.truncate(g.data(d).params.len());
+        env.truncate(g.data(d).params().len());
         let mut out = Vec::new();
         for (f, (_, field_ty)) in fields.iter().enumerate() {
             out.push(Some(eval(g, &env, field_ty)?));
@@ -3791,16 +3795,16 @@ impl Elaborator {
             return Ok(NumberKind::Other);
         };
         Ok(match force(g, ty.clone())? {
-            Value::Data(d, params) if params.is_empty() && Some(d) == g.builtins.nat => {
+            Value::Data(d, params) if params.is_empty() && Some(d) == g.env.builtins().nat => {
                 NumberKind::Nat
             }
             Value::Data(d, params)
-                if params.is_empty() && Some(d) == g.registry.data(Builtin::Int) =>
+                if params.is_empty() && Some(d) == g.env.registry().data(Builtin::Int) =>
             {
                 NumberKind::Int
             }
             Value::Data(d, params)
-                if params.len() == 1 && Some(d) == g.registry.loaded_data(Builtin::Fin) =>
+                if params.len() == 1 && Some(d) == g.env.registry().loaded_data(Builtin::Fin) =>
             {
                 NumberKind::Fin
             }
@@ -3874,8 +3878,8 @@ impl Elaborator {
             return Ok(());
         }
         let (Some((_, of_nat)), Some((_, neg_succ))) = (
-            self.globals.registry.ctor(Builtin::OfNat),
-            self.globals.registry.ctor(Builtin::NegSucc),
+            self.globals.env.registry().ctor(Builtin::OfNat),
+            self.globals.env.registry().ctor(Builtin::NegSucc),
         ) else {
             return Ok(());
         };
@@ -3932,14 +3936,15 @@ impl Elaborator {
     /// The prelude's constructor `b`, for a pattern the compiler writes.
     /// Whether `ty`, if known, is the unit type `()`.
     fn is_unit_type(&self, ty: Option<&Value>) -> Result<bool> {
-        let (Some(ty), Some(unit)) = (ty, self.globals.registry.data(Builtin::UnitType)) else {
+        let (Some(ty), Some(unit)) = (ty, self.globals.env.registry().data(Builtin::UnitType))
+        else {
             return Ok(false);
         };
         Ok(matches!(force(&self.globals, ty.clone())?, Value::Data(d, _) if d == unit))
     }
 
     fn builtin_ctor(&self, b: Builtin, span: Span) -> Result<(DataId, usize)> {
-        self.globals.registry.ctor(b).ok_or_else(|| {
+        self.globals.env.registry().ctor(b).ok_or_else(|| {
             error(
                 "E-UNKNOWN-NAME",
                 span,
@@ -4011,7 +4016,7 @@ fn canonical(
         Value::Eq(ty, a, b)
             if own(cx, p)
                 && matches!(force(g, (*ty).clone())?,
-                    Value::Data(d, _) if g.registry.is_data(Builtin::Bool, d))
+                    Value::Data(d, _) if g.env.registry().is_data(Builtin::Bool, d))
                 && stitchwort_core::value::conv(g, base, &a, &b)? =>
         {
             (a, b)
@@ -4172,7 +4177,7 @@ fn unfolded_arguments_note(
     };
     let g = &cx.e.globals;
     let shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), written);
-    let definition = g.def(*id).name.to_string();
+    let definition = g.def(*id).name().to_string();
     let mut added = Vec::new();
     let mut ty = ty;
     while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
@@ -4311,7 +4316,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
         Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
-            Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
+            Value::Data(d, _) if cx.g().data(d).ctors().is_empty() => Ok(Term::Loc(
                 *span,
                 Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
             )),
@@ -4340,7 +4345,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params.len() + data.indices.len())
+                let params = (0..data.params().len() + data.indices().len())
                     .map(|_| cx.eval(&cx.fresh_meta()))
                     .collect::<Result<Vec<_>>>()?;
                 let known = Value::Data(*d, params);
@@ -4356,7 +4361,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         *span,
                         format!(
                             "these patterns match a `{}`, but the argument has type `{}`",
-                            data.name,
+                            data.name(),
                             cx.show(&other)
                         ),
                     );
@@ -4369,13 +4374,13 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
             let goal_term = cx.quote_folded(goal)?;
-            if !data.indices.is_empty() {
+            if !data.indices().is_empty() {
                 let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
             let mut out = Vec::new();
             let mut failed = Vec::new();
-            for (c, ((names, subtree), ctor)) in branches.iter().zip(&data.ctors).enumerate() {
+            for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
                 let mark = cx.mark();
                 let base = cx.level();
                 let fields: Vec<Value> = (0..ctor.fields.len())
@@ -4449,7 +4454,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             span,
         } => {
             let g = cx.g();
-            let nat = g.builtins.nat;
+            let nat = g.env.builtins().nat;
             match force(g, cx.types[*x].clone())? {
                 Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
                 other => {

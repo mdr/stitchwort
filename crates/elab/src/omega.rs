@@ -249,7 +249,7 @@ fn prove_premise_within(
         Value::Eq(ty, _, _) => is_data(cx, &ty, lib.nat)? || is_data(cx, &ty, lib.int)?,
         Value::Data(d, params) => {
             (d == lib.and && params.len() == 2)
-                || (Some(d) == cx.g().registry.data(Builtin::LexLess) && params.len() == 4)
+                || (Some(d) == cx.g().env.registry().data(Builtin::LexLess) && params.len() == 4)
         }
         other => negated(cx, &lib, &other)?.is_some(),
     };
@@ -726,7 +726,7 @@ fn negated(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<Value>> {
 fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)> {
     let g = cx.g();
     let mut term = Term::Def(which);
-    let mut ty = g.def(which).ty_value.clone();
+    let mut ty = g.def(which).ty_value().clone();
     for (arg, value) in args {
         let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
             return Err(internal(
@@ -930,7 +930,7 @@ fn prove_goal(
             return Ok(Term::ctor(lib.and, 0, vec![p, q]));
         }
         Value::Data(d, params)
-            if Some(*d) == cx.g().registry.data(Builtin::LexLess) && params.len() == 4 =>
+            if Some(*d) == cx.g().env.registry().data(Builtin::LexLess) && params.len() == 4 =>
         {
             return lex_less(cx, lib, *d, params, extra, span);
         }
@@ -1011,7 +1011,7 @@ pub(crate) fn is_prop(cx: &Ctx, goal: &Value) -> Result<Option<bool>> {
     use stitchwort_core::Sort;
     Ok(match force(cx.g(), goal.clone())? {
         Value::Eq(..) => Some(true),
-        Value::Data(d, _) => match cx.g().data(d).sort {
+        Value::Data(d, _) => match cx.g().data(d).sort() {
             Sort::Prop => Some(true),
             Sort::Type(0) => Some(false),
             Sort::Type(_) => None,
@@ -3187,7 +3187,7 @@ fn failed(
     let opaque_division = quoter.atoms.iter().enumerate().any(|(i, atom)| {
         !quoter.divisions.iter().any(|d| d.q == i)
             && matches!(&atom.value, Value::Neutral(Head::Def(id), _)
-                if cx.g().registry.is_def(Builtin::DivFuel, *id))
+                if cx.g().env.registry().is_def(Builtin::DivFuel, *id))
     });
     if opaque_division {
         d = d.with_note(
@@ -3522,7 +3522,7 @@ fn apps(f: Term, args: Vec<Term>) -> Term {
 /// arguments its result doesn't depend on.
 fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Value> {
     let g = cx.g();
-    let mut ty = g.def(which).ty_value.clone();
+    let mut ty = g.def(which).ty_value().clone();
     for arg in args {
         let Value::Pi(_, _, _, cod) = force(g, ty)? else {
             return Err(internal(

@@ -91,7 +91,7 @@ impl Effect {
     /// shapes the runtime was written for. All four functions or none: a
     /// generated `foldComp` couldn't take apart a `Bind` node.
     pub(crate) fn new(g: &Globals, counters: bool) -> Option<Effect> {
-        let r = &g.registry;
+        let r = &g.env.registry();
         let mut natives = HashMap::default();
         for (b, native) in [
             (Builtin::Bind, EffectNative::Bind),
@@ -111,11 +111,11 @@ impl Effect {
         let comp = r.loaded_data(Builtin::Comp)?;
         let sig_map = r.loaded_data(Builtin::SigMap)?;
         let data = g.data(comp);
-        if data.record || data.ctors.len() != 2 || g.data(sig_map).ctors.len() != 1 {
+        if data.record() || data.ctors().len() != 2 || g.data(sig_map).ctors().len() != 1 {
             return None;
         }
         let runtime_keys = |d: DataId, c: usize| -> Vec<String> {
-            let ctor = &g.data(d).ctors[c];
+            let ctor = &g.data(d).ctors()[c];
             (0..ctor.fields.len())
                 .filter(|i| !ctor.field_erased[*i])
                 .map(|i| field_key_at(g, d, c, i))
@@ -130,14 +130,14 @@ impl Effect {
             return None;
         }
         let row = r.loaded_data(Builtin::Row).and_then(|d| {
-            let ctors = &g.data(d).ctors;
+            let ctors = g.data(d).ctors();
             let empty = ctors.iter().position(|c| &*c.name == "Empty")?;
             let ops = ctors.iter().position(|c| &*c.name == "Ops")?;
             Some((d, empty, ops))
         });
         let empty_tag = row.map_or_else(
             || js_string_literal("Empty"),
-            |(d, empty, _)| js_string_literal(&g.data(d).ctors[empty].name),
+            |(d, empty, _)| js_string_literal(&g.data(d).ctors()[empty].name),
         );
         let count = |what: &str| {
             if counters {
@@ -163,10 +163,10 @@ impl Effect {
             .replace("@RESUME@", &count_in("resumes"))
             .replace("@BIND_NODE@", &count_in("binds"))
             .replace("@JUMP@", &count("jumps"))
-            .replace("@DONE_TAG@", &js_string_literal(&data.ctors[0].name))
+            .replace("@DONE_TAG@", &js_string_literal(&data.ctors()[0].name))
             .replace("@VALUE_KEY@", &ts_key(&done_keys[0]))
             .replace("@VALUE@", &member(&done_keys[0]))
-            .replace("@CALL_TAG@", &js_string_literal(&data.ctors[1].name))
+            .replace("@CALL_TAG@", &js_string_literal(&data.ctors()[1].name))
             .replace("@OP_KEY@", &ts_key(&call_keys[0]))
             .replace("@REST_KEY@", &ts_key(&call_keys[1]))
             .replace("@OP@", &member(&call_keys[0]))

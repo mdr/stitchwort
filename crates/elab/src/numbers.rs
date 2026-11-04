@@ -67,14 +67,16 @@ enum Class {
 fn classify(cx: &Ctx, ty: &Value) -> Result<Class> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {
-        Value::Data(d, params) if params.is_empty() && Some(d) == g.builtins.nat => {
+        Value::Data(d, params) if params.is_empty() && Some(d) == g.env.builtins().nat => {
             Class::Num(Kind::Nat)
         }
-        Value::Data(d, params) if params.is_empty() && Some(d) == g.registry.data(Builtin::Int) => {
+        Value::Data(d, params)
+            if params.is_empty() && Some(d) == g.env.registry().data(Builtin::Int) =>
+        {
             Class::Num(Kind::Int)
         }
         Value::Data(d, params)
-            if params.is_empty() && Some(d) == g.registry.loaded_data(Builtin::Float) =>
+            if params.is_empty() && Some(d) == g.env.registry().loaded_data(Builtin::Float) =>
         {
             Class::Num(Kind::Float)
         }
@@ -95,18 +97,22 @@ fn num_type(cx: &Ctx, kind: Kind) -> Result<Value> {
 /// The library's `Float`, which a decimal literal loads (its references
 /// include `Std.Float`, `module.rs`).
 fn float_data(cx: &Ctx) -> Result<DataId> {
-    cx.g().registry.loaded_data(Builtin::Float).ok_or_else(|| {
-        cx.error(
-            "E-UNKNOWN-NAME",
-            "a decimal literal is a `Float`, and the library's `Std.Float` isn't loaded",
-            "here",
-        )
-    })
+    cx.g()
+        .env
+        .registry()
+        .loaded_data(Builtin::Float)
+        .ok_or_else(|| {
+            cx.error(
+                "E-UNKNOWN-NAME",
+                "a decimal literal is a `Float`, and the library's `Std.Float` isn't loaded",
+                "here",
+            )
+        })
 }
 
 /// One of the library's `Float` definitions.
 fn float_def(cx: &Ctx, b: Builtin) -> Result<DefId> {
-    cx.g().registry.loaded_def(b).ok_or_else(|| {
+    cx.g().env.registry().loaded_def(b).ok_or_else(|| {
         cx.error(
             "E-UNKNOWN-NAME",
             format!("this needs the library's `{}`", b.name()),
@@ -419,7 +425,7 @@ pub(crate) fn fin_bound(
     g: &stitchwort_core::Globals,
     ty: &Value,
 ) -> Result<Option<Option<BigUint>>> {
-    let Some(fin) = g.registry.loaded_data(Builtin::Fin) else {
+    let Some(fin) = g.env.registry().loaded_data(Builtin::Fin) else {
         return Ok(None);
     };
     match force(g, ty.clone())? {
@@ -486,7 +492,8 @@ fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Resul
     }
     let of_nat_lt = cx
         .g()
-        .registry
+        .env
+        .registry()
         .loaded_def(Builtin::FinOfNatLt)
         .ok_or_else(|| {
             cx.error(
@@ -516,9 +523,9 @@ fn safe_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Resu
     if !params.is_empty() {
         return Ok(None);
     }
-    let (name, int) = if Some(d) == g.registry.loaded_data(Builtin::SafeNat) {
+    let (name, int) = if Some(d) == g.env.registry().loaded_data(Builtin::SafeNat) {
         ("SafeNat", false)
-    } else if Some(d) == g.registry.loaded_data(Builtin::SafeInt) {
+    } else if Some(d) == g.env.registry().loaded_data(Builtin::SafeInt) {
         ("SafeInt", true)
     } else {
         return Ok(None);
@@ -1907,7 +1914,7 @@ fn operator(
 fn apply_def(cx: &mut Ctx, id: DefId, args: Vec<Term>) -> Result<Term> {
     let g = cx.g();
     let mut term = Term::Def(id);
-    let mut ty = g.def(id).ty_value.clone();
+    let mut ty = g.def(id).ty_value().clone();
     for arg in args {
         let Value::Pi(_, Icit::Explicit, _, cod) = force(g, ty)? else {
             unreachable!("built-in operators take two explicit arguments");

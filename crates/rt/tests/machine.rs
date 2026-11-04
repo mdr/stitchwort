@@ -130,9 +130,9 @@ fn run_tests_where(
 /// Every definition with a body (or a primitive), lowered together.
 fn everything(session: &Session, what: &str) -> Program {
     let g = &session.elab.globals;
-    let ids: Vec<DefId> = (0..g.defs.len())
+    let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
-        .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
+        .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
         .collect();
     lower_definitions(g, session.elab.options.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"))

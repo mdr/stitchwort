@@ -2440,7 +2440,7 @@ fn audit_loaded(
     let selected: Vec<_> = if file {
         let g = &session.elab.globals;
         (selected.into_iter())
-            .map(|(id, _)| (id, g.def(id).name.to_string()))
+            .map(|(id, _)| (id, g.def(id).name().to_string()))
             .collect()
     } else {
         selected

@@ -29,9 +29,9 @@ fn well_formed(program: &Program, what: &str) {
 /// Every definition with a body (or a primitive), lowered together.
 fn lower_everything(session: &Session, what: &str) -> usize {
     let g = &session.elab.globals;
-    let ids: Vec<DefId> = (0..g.defs.len())
+    let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
-        .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
+        .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
         .collect();
     let program = lower_definitions(g, session.elab.options.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"));
@@ -161,10 +161,11 @@ fn lower_project(dir: &Path) -> usize {
     eprintln!("{name}: ran {tests} tests on the IR");
     let g = &session.elab.globals;
     let mains: Vec<String> = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .filter(|d| is_main(&d.name) && !d.path.starts_with("Std."))
-        .map(|d| d.name.to_string())
+        .filter(|d| is_main(d.name()) && !d.path().starts_with("Std."))
+        .map(|d| d.name().to_string())
         .collect();
     for main_name in &mains {
         let main = session
@@ -215,9 +216,9 @@ fn the_library_lowers_and_its_tests_agree() {
     with_stack(STACK, || {
         let session = Session::with_library_tests();
         let g = &session.elab.globals;
-        let ids: Vec<DefId> = (0..g.defs.len())
+        let ids: Vec<DefId> = (0..g.env.defs().len())
             .map(DefId)
-            .filter(|id| g.def(*id).body().is_some() || g.builtins.primitive(*id).is_some())
+            .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
             .collect();
         let program = lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
         well_formed(&program, "the library");

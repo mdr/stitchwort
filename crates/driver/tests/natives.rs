@@ -12,9 +12,10 @@ use stitchwort_syntax::{SourceMap, parse_module};
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == name)
+            .position(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}` in the prelude")),
     )
 }
@@ -36,16 +37,16 @@ fn call(g: &Globals, id: DefId, args: &[Value]) -> Value {
 fn compare(g: &mut Globals, op: Native, args: &[Value]) {
     let id = def(g, op.name());
     assert_eq!(
-        g.builtins.native(id),
+        g.env.builtins().native(id),
         Some(op),
         "`{}` isn't native",
         op.name()
     );
     let args = with_proof(op, args);
     let fast = call(g, id, &args);
-    g.builtins.disable_natives = true;
+    g.env.set_disable_natives(true);
     let slow = call(g, id, &args);
-    g.builtins.disable_natives = false;
+    g.env.set_disable_natives(false);
     same_result(g, &format!("{}{args:?}", op.name()), &fast, &slow);
 }
 
@@ -147,7 +148,7 @@ fn random_numbers() {
 fn natives_accept_succ_around_a_number() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let nat_data = g.builtins.nat.unwrap();
+    let nat_data = g.env.builtins().nat.unwrap();
     // `Succ 4`, built without the evaluator's compaction.
     let succ_4 = Value::Ctor(nat_data, 1, vec![nat(4)].into());
     let zero = Value::Ctor(nat_data, 0, Vec::new().into());
@@ -204,7 +205,7 @@ fn big_numbers_compute_without_counting() {
 fn a_number_is_its_succ_chain() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let d = g.builtins.nat.unwrap();
+    let d = g.env.builtins().nat.unwrap();
     let three = Value::Ctor(
         d,
         1,
@@ -256,7 +257,7 @@ fn the_real_prelude_registers_every_native() {
     let session = Session::new();
     let g = &session.elab.globals;
     for op in Native::ALL {
-        assert_eq!(g.builtins.native(def(g, op.name())), Some(op));
+        assert_eq!(g.env.builtins().native(def(g, op.name())), Some(op));
     }
 }
 
@@ -319,7 +320,7 @@ fn plus_var(k: u64, level: Option<usize>) -> Value {
 
 /// `base` under `k` `Succ` constructors (not the compact `k + base`).
 fn succs(g: &stitchwort_core::Globals, k: u64, base: Value) -> Value {
-    let nat = g.builtins.nat.expect("`Nat` is bound");
+    let nat = g.env.builtins().nat.expect("`Nat` is bound");
     (0..k).fold(base, |v, _| Value::Ctor(nat, 1, vec![v].into()))
 }
 
@@ -346,9 +347,9 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                         (plus_var(k1, Some(0)), succs(g, k2, Value::var(1))),
                     ] {
                         let fast = call(g, id, &[a.clone(), b.clone()]);
-                        g.builtins.disable_natives = true;
+                        g.env.set_disable_natives(true);
                         let slow = call(g, id, &[a.clone(), b.clone()]);
-                        g.builtins.disable_natives = false;
+                        g.env.set_disable_natives(false);
                         assert!(
                             conv(g, 2, &fast, &slow).unwrap(),
                             "{}({a:?}, {b:?}): native {fast:?}, definition {slow:?}",
@@ -363,9 +364,9 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
         for k in 0..12 {
             let n = plus_var(k, Some(0));
             let fast = call(g, id, std::slice::from_ref(&n));
-            g.builtins.disable_natives = true;
+            g.env.set_disable_natives(true);
             let slow = call(g, id, std::slice::from_ref(&n));
-            g.builtins.disable_natives = false;
+            g.env.set_disable_natives(false);
             assert!(
                 conv(g, 1, &fast, &slow).unwrap(),
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
@@ -461,9 +462,9 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
 fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
     let id = def(g, op.name());
     let d = g.def(id);
-    let (ty, body, span) = (d.ty.clone(), d.body().cloned().unwrap(), d.span);
+    let (ty, body, span) = (d.ty().clone(), d.body().cloned().unwrap(), d.span());
     let name = format!("{}Once", op.name());
-    let copy = declare_def(g, &name.as_str().into(), &ty, d.theorem, false, span).unwrap();
+    let copy = declare_def(g, &name.as_str().into(), &ty, d.theorem(), false, span).unwrap();
     define_def(g, copy, &body).unwrap();
     copy
 }

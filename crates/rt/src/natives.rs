@@ -165,7 +165,7 @@ fn bind_natives<N: Copy>(
         .map(|&(builtin, native, expected)| {
             // Natives are mostly library built-ins, whose file may not have
             // loaded: then the program has no such definition to replace.
-            let id = g.registry.loaded_def(builtin);
+            let id = g.env.registry().loaded_def(builtin);
             let hash = match id {
                 Some(id) => def_hash(g, id)?.map(|h| h.hex()),
                 None => None,
@@ -240,7 +240,7 @@ pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
-    let data = g.registry.data(Builtin::Int);
+    let data = g.env.registry().data(Builtin::Int);
     let hash = match data {
         Some(d) => data_hash(g, d)?.map(|h| h.hex()),
         None => None,
@@ -257,7 +257,7 @@ pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
 /// ([`bind_int`]). Hashing a checked data type with two constructors of one
 /// field each takes a few stack frames, and the hash is remembered.
 pub fn int_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Int)?;
+    let d = g.env.registry().data(Builtin::Int)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -269,7 +269,7 @@ pub fn int_data(g: &Globals) -> Option<DataId> {
 /// ([`NAT_DATA_HASH`]). Hashing a checked data type takes a few stack frames,
 /// and the hash is remembered.
 pub fn nat_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Nat)?;
+    let d = g.env.registry().data(Builtin::Nat)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -281,7 +281,7 @@ pub fn nat_data(g: &Globals) -> Option<DataId> {
 /// ([`TEXT_DATA_HASH`]). Hashing a checked data type takes a few stack
 /// frames, and the hash is remembered.
 pub fn text_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.data(Builtin::Text)?;
+    let d = g.env.registry().data(Builtin::Text)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -303,7 +303,7 @@ pub const SAFE_INT_HASH: &str = "f83abb645b0b44d517077c186e28726771d9394db538538
 /// The library's `SafeNat`, if its file is loaded and the `number` codec
 /// applies to it ([`SAFE_NAT_HASH`]).
 pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.loaded_data(Builtin::SafeNat)?;
+    let d = g.env.registry().loaded_data(Builtin::SafeNat)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -314,7 +314,7 @@ pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
 /// The library's `SafeInt`, if its file is loaded and the `number` codec
 /// applies to it ([`SAFE_INT_HASH`]).
 pub fn safe_int_data(g: &Globals) -> Option<DataId> {
-    let d = g.registry.loaded_data(Builtin::SafeInt)?;
+    let d = g.env.registry().loaded_data(Builtin::SafeInt)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -585,7 +585,7 @@ pub fn bind_float_natives(g: &Globals) -> Result<Vec<NativeBinding<FloatPrim>>, 
 /// the native double was written for: the kernel binds it only then, by
 /// content hash (`stitchwort_core::float::FLOAT_DATA_HASH`).
 pub fn float_data(g: &Globals) -> Option<DataId> {
-    g.builtins.float.data
+    g.env.builtins().float.data
 }
 
 /// Which native representations and operations apply to a program: the
@@ -647,8 +647,11 @@ impl Representation {
         let mut float_natives = HashMap::default();
         if float.is_some() {
             use stitchwort_core::float::{FloatNative, FloatOp};
-            for id in (0..g.defs.len()).map(DefId) {
-                let prim = match (g.builtins.float_primitive(id), g.builtins.float_native(id)) {
+            for id in (0..g.env.defs().len()).map(DefId) {
+                let prim = match (
+                    g.env.builtins().float_primitive(id),
+                    g.env.builtins().float_native(id),
+                ) {
                     (_, Some(FloatNative::Add)) => FloatPrim::Add,
                     (_, Some(FloatNative::Sub)) => FloatPrim::Sub,
                     (Some(FloatOp::Mul), _) => FloatPrim::Mul,
@@ -694,7 +697,7 @@ impl Representation {
     /// number natives assume the native representation, so they apply only
     /// with it ([`nat_data`]).
     pub fn kernel_native(&self, g: &Globals, id: DefId) -> Option<native::Native> {
-        self.nat.and(g.builtins.native(id))
+        self.nat.and(g.env.builtins().native(id))
     }
 
     /// Whether `id` has a native implementation of any kind.

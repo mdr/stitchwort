@@ -161,8 +161,8 @@ fn helper_calls(g: &Globals, f: DefId, h: DefId, seen: &mut Vec<DefId>) -> bool 
         return false;
     }
     seen.push(h);
-    let prefix = format!("{}.", g.def(f).name);
-    if !g.def(h).name.starts_with(&prefix) {
+    let prefix = format!("{}.", g.def(f).name());
+    if !g.def(h).name().starts_with(&prefix) {
         return false;
     }
     let Some(body) = g.def(h).body().cloned() else {
@@ -261,7 +261,7 @@ fn calls(g: &Globals, d: &Def, t: &Term, depth: usize, under: usize, out: &mut V
             return skip(format!(
                 "it calls itself inside `{}`, a lifted `match` or local definition that isn't in \
                  tail position: its induction hypothesis can't be stated (§5.1)",
-                g.def(*x).name
+                g.def(*x).name()
             ));
         }
         _ => {}
@@ -518,7 +518,7 @@ impl Elaborator {
         let sp = Splitters {
             inspect: self.lookup_def("Std.Bool.inspect").ok_or_else(none)?,
             elim_proof,
-            elim_proof_icits: split_pis(&self.globals.def(elim_proof).ty, None)
+            elim_proof_icits: split_pis(self.globals.def(elim_proof).ty(), None)
                 .0
                 .iter()
                 .map(|b| b.icit)
@@ -573,7 +573,7 @@ impl Elaborator {
             decreasing,
         };
         // The statement. A parameter the type doesn't name is `x`, `x2`, ….
-        let (_, result_ty) = split_pis(&g.def(d.f).ty, Some(n));
+        let (_, result_ty) = split_pis(g.def(d.f).ty(), Some(n));
         let mut used: Vec<Name> = vec!["motive".into(), "result".into()];
         used.extend(cases.iter().map(|c| c.name.clone()));
         let mut pnames: Vec<Name> = Vec::new();
@@ -942,7 +942,7 @@ impl Elaborator {
                 };
                 let g = &self.globals;
                 // The scrutinee's type, the helper's parameter's.
-                let (hb, _) = split_pis(&g.def(*h).ty, Some(args.len()));
+                let (hb, _) = split_pis(g.def(*h).ty(), Some(args.len()));
                 let at: Vec<(Term, usize)> = args[..col]
                     .iter()
                     .map(|(a, _)| (a.clone(), depth))
@@ -956,13 +956,13 @@ impl Elaborator {
                 };
                 let data = *data;
                 let decl = g.data(data);
-                if !decl.indices.is_empty() {
+                if !decl.indices().is_empty() {
                     return skip("a lifted `match` on an indexed family isn't split by stage 2a");
                 }
                 // Each way's constructor, from its equation `e = C fields`,
                 // the last of the binders the alternative adds.
                 type Way<'c> = (usize, Vec<(usize, &'c Case)>, Pat);
-                let mut by_ctor: Vec<Option<Way>> = vec![None; decl.ctors.len()];
+                let mut by_ctor: Vec<Option<Way>> = vec![None; decl.ctors().len()];
                 for (_, group) in &ways {
                     let case = group[0].1;
                     let Step::Helper { after, hyp, .. } = &case.steps[level] else {
@@ -995,7 +995,7 @@ impl Elaborator {
                              variables or to nested constructors, which stage 2a splits on",
                         );
                     };
-                    if pd != data || decl.ctors[c].fields.len() != pf.len() {
+                    if pd != data || decl.ctors()[c].fields.len() != pf.len() {
                         return skip(
                             "a lifted `match`'s alternative isn't of its scrutinee's type, or \
                              isn't applied to the fields of that type's constructor",
@@ -1189,10 +1189,10 @@ impl Elaborator {
     fn induct_declare_split(&mut self, d: &Def, data: DataId, n: usize) -> R<DefId> {
         let g = &self.globals;
         let decl = g.data(data);
-        let np = decl.params.len();
-        let k = decl.ctors.len();
+        let np = decl.params().len();
+        let k = decl.ctors().len();
         let mut binders: Vec<Binder> = decl
-            .params
+            .params()
             .iter()
             .map(|(x, ty)| Binder {
                 name: x.clone(),
@@ -1212,7 +1212,7 @@ impl Elaborator {
             icit: Icit::Explicit,
             ty: Term::data(data, params_at(np + 1)),
         });
-        for (i, ctor) in decl.ctors.iter().enumerate() {
+        for (i, ctor) in decl.ctors().iter().enumerate() {
             let at = np + 2 + i;
             let m = ctor.fields.len();
             let mut fields = Vec::new();
@@ -1257,7 +1257,7 @@ impl Elaborator {
         let top = np + 2 + k;
         let ty = pis(&binders, Term::Var(top - 1 - np));
         let branches: Vec<Branch> = decl
-            .ctors
+            .ctors()
             .iter()
             .enumerate()
             .map(|(i, ctor)| {
@@ -1312,7 +1312,7 @@ impl Elaborator {
     }
 
     fn field_names(&self, data: DataId, ctor: usize) -> Vec<(Name, Icit)> {
-        let mut names: Vec<(Name, Icit)> = self.globals.data(data).ctors[ctor]
+        let mut names: Vec<(Name, Icit)> = self.globals.data(data).ctors()[ctor]
             .fields
             .iter()
             .map(|(x, _)| (x.clone(), Icit::Explicit))
@@ -1332,7 +1332,7 @@ impl Elaborator {
         target: Option<usize>,
         at: usize,
     ) -> NestNode {
-        let m = self.globals.data(data).ctors[ctor].fields.len();
+        let m = self.globals.data(data).ctors()[ctor].fields.len();
         NestNode {
             data,
             ctor,
@@ -1400,7 +1400,7 @@ impl Elaborator {
         // A later field whose type mentions this one: splitting the field
         // would need the later field's type rewritten by the split, which
         // stage 2a's lemma doesn't do.
-        let fields = &decl.ctors[node.ctor].fields;
+        let fields = &decl.ctors()[node.ctor].fields;
         if let Some(j) = (k + 1..fields.len()).find(|&j| fields[j].1.mentions(j - 1 - k)) {
             return skip(format!(
                 "a later field `{}` of the constructor has a type that depends on the nested \
@@ -1409,7 +1409,7 @@ impl Elaborator {
             ));
         }
         // The field's type here.
-        let np = decl.params.len();
+        let np = decl.params().len();
         let mut vals: Vec<(Term, usize)> = node
             .args
             .iter()
@@ -1418,7 +1418,7 @@ impl Elaborator {
         for j in 0..k {
             vals.push((Term::Var(cur - 1 - node.fields[j]), cur));
         }
-        let fty = instantiate(g, &decl.ctors[node.ctor].fields[k].1, np + k, &vals, cur)?;
+        let fty = instantiate(g, &decl.ctors()[node.ctor].fields[k].1, np + k, &vals, cur)?;
         let env: Vec<Value> = (0..cur).map(Value::var).collect();
         let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
         let Term::Data(fd, fargs) = fty.strip_loc() else {
@@ -1426,14 +1426,14 @@ impl Elaborator {
         };
         let fd = *fd;
         let fdecl = g.data(fd);
-        if fd != pd || !fdecl.indices.is_empty() || fdecl.ctors.len() != 1 || pc != 0 {
+        if fd != pd || !fdecl.indices().is_empty() || fdecl.ctors().len() != 1 || pc != 0 {
             return skip(
                 "a nested pattern on a type with several constructors or indices isn't split \
                  by stage 2a",
             );
         }
         let fargs: Vec<Term> = fargs.iter().map(|a| (**a).clone()).collect();
-        let m = fdecl.ctors[0].fields.len();
+        let m = fdecl.ctors()[0].fields.len();
         let child = self.open_node(fd, 0, &pf, fargs.clone(), Some(node.fields[k]), cur);
         let ci = nodes.len();
         nodes[ni].kids[k] = Some(ci);
@@ -1505,8 +1505,8 @@ fn nested_unsplittable(g: &Globals, pat: &Pat) -> bool {
         Pat::Leaf => false,
         Pat::Node { data, fields, .. } => {
             let decl = g.data(*data);
-            !decl.indices.is_empty()
-                || decl.ctors.len() != 1
+            !decl.indices().is_empty()
+                || decl.ctors().len() != 1
                 || fields.iter().any(|f| nested_unsplittable(g, f))
         }
     }
@@ -1659,7 +1659,7 @@ fn ctor_of(g: &Globals, t: &Term) -> Option<(DataId, usize, Vec<Term>)> {
     match t.strip_loc() {
         Term::Ctor(d, c, args) => Some((*d, *c, args.iter().map(|a| (**a).clone()).collect())),
         Term::Nat(n) => {
-            let nat = g.builtins.nat?;
+            let nat = g.env.builtins().nat?;
             Some(if n.bits() == 0 {
                 (nat, 0, Vec::new())
             } else {
@@ -1709,7 +1709,7 @@ impl Tree<'_> {
     /// `Void` by `J` with a hidden definition that tells the two apart.
     fn refute(&mut self, ty: &Term, vars: usize, types: &[Term], depth: usize) -> R<Term> {
         let g = self.g();
-        let not = g.registry.def(Builtin::Not);
+        let not = g.env.registry().def(Builtin::Not);
         // The binders: the variables, then the equations.
         let mut binders: Vec<Term> = Vec::new();
         let mut t = ty.strip_loc();
@@ -1755,7 +1755,7 @@ impl Tree<'_> {
             return skip("an overlap hypothesis's equation isn't about a data type");
         };
         let root = *root;
-        if !g.data(root).indices.is_empty() {
+        if !g.data(root).indices().is_empty() {
             return skip(
                 "an overlap hypothesis on an indexed family isn't established by stage 2a",
             );
@@ -1764,11 +1764,13 @@ impl Tree<'_> {
         let disc = self.disc(root, &path, at)?;
         let g = self.g();
         let unit = g
-            .registry
+            .env
+            .registry()
             .data(Builtin::Unit)
             .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
         let (_, trivial) = g
-            .registry
+            .env
+            .registry()
             .ctor(Builtin::Trivial)
             .ok_or_else(|| Stop::Skip("no `Trivial`".into()))?;
         let inner = vars + eqs;
@@ -1811,21 +1813,23 @@ impl Tree<'_> {
         }
         let g = self.g();
         let unit = g
-            .registry
+            .env
+            .registry()
             .data(Builtin::Unit)
             .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
         let void = g
-            .registry
+            .env
+            .registry()
             .data(Builtin::Void)
             .ok_or_else(|| Stop::Skip("no `Void`".into()))?;
-        let sort = g.data(unit).sort;
-        if g.data(void).sort != sort {
+        let sort = g.data(unit).sort();
+        if g.data(void).sort() != sort {
             return skip("`Unit` and `Void` aren't in one universe");
         }
         let decl = g.data(root);
-        let np = decl.params.len();
+        let np = decl.params().len();
         let mut binders: Vec<Binder> = decl
-            .params
+            .params()
             .iter()
             .map(|(x, ty)| Binder {
                 name: x.clone(),
@@ -1857,7 +1861,7 @@ impl Tree<'_> {
             };
             let branches: Vec<Branch> = g
                 .data(data)
-                .ctors
+                .ctors()
                 .iter()
                 .enumerate()
                 .map(|(c, ctor)| {
@@ -1930,7 +1934,7 @@ impl Tree<'_> {
             Term::Case(ix, data, branches) => {
                 let x = fvals.len() - 1 - ix;
                 let v = self.resolve(&fvals[x]);
-                let nat = self.g().builtins.nat == Some(*data);
+                let nat = self.g().env.builtins().nat == Some(*data);
                 let follow = |me: &mut Self,
                               c: usize,
                               args: Vec<PV>,
@@ -1959,7 +1963,7 @@ impl Tree<'_> {
                         follow(self, c, args, fvals, path)
                     }
                     PV::Var(v) => {
-                        if !self.g().data(*data).indices.is_empty() {
+                        if !self.g().data(*data).indices().is_empty() {
                             return skip(
                                 "its case tree splits an indexed family, which stage 2a doesn't",
                             );
@@ -2124,7 +2128,7 @@ fn bind(g: &Globals, pat: &Term, shape: &Shape, v: &PV, out: &mut Vec<Option<PV>
                 }
                 Ok(())
             }
-            PV::Nat(n) if g.builtins.nat == Some(*d) => {
+            PV::Nat(n) if g.env.builtins().nat == Some(*d) => {
                 let (vc, vs) = if n.bits() == 0 {
                     (0, Vec::new())
                 } else {
@@ -2141,7 +2145,7 @@ fn bind(g: &Globals, pat: &Term, shape: &Shape, v: &PV, out: &mut Vec<Option<PV>
             _ => Err(mismatch()),
         },
         Term::Nat(n) => {
-            let nat = g.builtins.nat.ok_or_else(mismatch)?;
+            let nat = g.env.builtins().nat.ok_or_else(mismatch)?;
             match v {
                 PV::Nat(m) if m == n => Ok(()),
                 PV::Ctor(d, c, vs) if *d == nat => {

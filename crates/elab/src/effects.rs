@@ -317,10 +317,10 @@ enum DivState {
 fn div_state(cx: &Ctx, d: &Value) -> Result<DivState> {
     let g = cx.g();
     Ok(match force(g, d.clone())? {
-        Value::Ctor(dd, c, _) if g.registry.ctor(Builtin::DivTotal) == Some((dd, c)) => {
+        Value::Ctor(dd, c, _) if g.env.registry().ctor(Builtin::DivTotal) == Some((dd, c)) => {
             DivState::Total
         }
-        Value::Ctor(dd, c, _) if g.registry.ctor(Builtin::DivMay) == Some((dd, c)) => {
+        Value::Ctor(dd, c, _) if g.env.registry().ctor(Builtin::DivMay) == Some((dd, c)) => {
             DivState::MayDiverge
         }
         Value::Neutral(Head::Meta(_), _) => DivState::Unknown,
@@ -364,8 +364,8 @@ fn unknown_div(cx: &Ctx, row: &Row) -> Result<bool> {
 fn decode_row_value(cx: &Ctx, rv: &Value) -> Result<Option<Row>> {
     let g = cx.g();
     let (Some(empty), Some(ops_ctor)) = (
-        g.registry.ctor(Builtin::RowEmpty),
-        g.registry.ctor(Builtin::RowOps),
+        g.env.registry().ctor(Builtin::RowEmpty),
+        g.env.registry().ctor(Builtin::RowOps),
     ) else {
         return Ok(None);
     };
@@ -399,7 +399,7 @@ fn row_value(cx: &Ctx, row: &Row) -> Result<Value> {
 
 /// The definition admitted as primitive `prim`.
 fn primitive(cx: &Ctx, prim: Primitive) -> Result<DefId> {
-    cx.g().builtins.primitive_id(prim).ok_or_else(|| {
+    cx.g().env.builtins().primitive_id(prim).ok_or_else(|| {
         cx.error(
             "E-UNKNOWN-NAME",
             format!("`Partial` needs the prelude's `{}`", prim.name()),
@@ -417,8 +417,8 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
         data(cx, Builtin::Plus),
         data(cx, Builtin::NoOp),
         def(cx, Builtin::RowOp),
-        cx.g().registry.ctor(Builtin::RowEmpty).ok_or(()),
-        cx.g().registry.ctor(Builtin::RowOps).ok_or(()),
+        cx.g().env.registry().ctor(Builtin::RowEmpty).ok_or(()),
+        cx.g().env.registry().ctor(Builtin::RowOps).ok_or(()),
     ) else {
         return Ok(None);
     };
@@ -524,9 +524,9 @@ pub fn comp_parts_at(cx: &Ctx, level: usize, ty: &Value) -> Result<Option<(Row, 
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(None);
     };
-    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
-    let comp_in = cx.g().registry.def(Builtin::CompIn);
-    let comp_d = cx.g().registry.def(Builtin::CompD);
+    let delay = cx.g().env.builtins().primitive_id(Primitive::Delay);
+    let comp_in = cx.g().env.registry().def(Builtin::CompIn);
+    let comp_d = cx.g().env.registry().def(Builtin::CompD);
     Ok(match force(cx.g(), ty.clone())? {
         // Stuck on its divergence index: a variable or an unknown.
         Value::Neutral(Head::Def(d), spine) if Some(d) == comp_d && spine.len() == 3 => {
@@ -665,7 +665,7 @@ pub(crate) fn comp_headed(cx: &Ctx, ty: &Value) -> bool {
     match ty {
         Value::Data(d, _) => data(cx, Builtin::Comp).is_ok_and(|comp| *d == comp),
         Value::Neutral(Head::Def(d), _) => {
-            cx.g().builtins.primitive_id(Primitive::Delay) == Some(*d)
+            cx.g().env.builtins().primitive_id(Primitive::Delay) == Some(*d)
         }
         _ => false,
     }
@@ -677,7 +677,7 @@ fn written_results(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value, Value)>> 
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(None);
     };
-    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
+    let delay = cx.g().env.builtins().primitive_id(Primitive::Delay);
     let (op, written) = match force(cx.g(), ty.clone())? {
         Value::Data(d, args) if d == comp => (args[0].clone(), args[1].clone()),
         Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
@@ -742,10 +742,10 @@ pub(crate) fn comp_result_term(cx: &Ctx, term: &Rc<Term>) -> Option<Rc<Term>> {
         return None;
     };
     let g = cx.g();
-    let arity = if Some(*id) == g.registry.def(Builtin::CompIn) {
+    let arity = if Some(*id) == g.env.registry().def(Builtin::CompIn) {
         2
-    } else if Some(*id) == g.registry.def(Builtin::CompD)
-        || Some(*id) == g.builtins.primitive_id(Primitive::Delay)
+    } else if Some(*id) == g.env.registry().def(Builtin::CompD)
+        || Some(*id) == g.env.builtins().primitive_id(Primitive::Delay)
     {
         3
     } else {
@@ -1006,7 +1006,7 @@ pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
 /// Whether definition `id`'s signature binds a divergence index: its rows
 /// may be partial, when what it's given is (D1214, D1255).
 fn has_divergence_index(cx: &Ctx, id: DefId) -> bool {
-    let mut ty = &cx.g().def(id).ty;
+    let mut ty = cx.g().def(id).ty();
     while let Term::Pi(x, _, _, body) = ty.strip_loc() {
         if x.starts_with("%div.") {
             return true;
@@ -1021,36 +1021,36 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
     let (head, args) = term.spine();
     // A function that is partial only because a callback it was given is
     // (`List.map xs collatzSteps`): name the callback.
-    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
+    let delay = cx.g().env.builtins().primitive_id(Primitive::Delay);
     let partial_callback = args.iter().find_map(|arg| match arg.strip_loc() {
         Term::Def(id)
             if delay.is_some_and(|delay| {
                 cx.g()
                     .def(*id)
-                    .ty
+                    .ty()
                     .subterms()
                     .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
             }) =>
         {
-            Some(cx.g().def(*id).name.to_string())
+            Some(cx.g().def(*id).name().to_string())
         }
         _ => None,
     });
     let label = match (head, partial_callback) {
         (Term::Def(id), Some(callback)) => format!(
             "`{}` is partial here because its callback `{callback}` is",
-            cx.g().def(*id).name
+            cx.g().def(*id).name()
         ),
         // A function whose rows may be partial (D1214, D1255), such as a
         // handler given a partial program: partial because of what it was
         // given.
         (Term::Def(id), None) if has_divergence_index(cx, *id) => format!(
             "`{}` is partial here because a function it's given is",
-            cx.g().def(*id).name
+            cx.g().def(*id).name()
         ),
         (Term::Def(id), None) => format!(
             "`{}` is `Partial`: it might not finish",
-            cx.g().def(*id).name
+            cx.g().def(*id).name()
         ),
         _ => "this is `Partial`: it might not finish".to_string(),
     };
@@ -1876,7 +1876,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
         return Err(d);
     };
     let op_data = cx.e.tables.abilities[a].op_data;
-    let params = cx.g().data(op_data).params.clone();
+    let params = cx.g().data(op_data).params().to_vec();
     if args.len() != params.len() {
         return Err(cx.error(
             "E-ARITY",
@@ -1908,13 +1908,13 @@ pub fn is_comp_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(false);
     };
-    let comp_in = cx.g().registry.def(Builtin::CompIn);
+    let comp_in = cx.g().env.registry().def(Builtin::CompIn);
     Ok(match force(cx.g(), ty.clone())? {
         Value::Data(d, _) => d == comp,
         // `CompIn e a` for a row variable or an unknown row, or `CompD d e a`.
         Value::Neutral(Head::Def(d), spine) => {
             (Some(d) == comp_in && spine.len() == 2)
-                || (Some(d) == cx.g().registry.def(Builtin::CompD) && spine.len() == 3)
+                || (Some(d) == cx.g().env.registry().def(Builtin::CompD) && spine.len() == 3)
         }
         _ => false,
     })
@@ -1961,10 +1961,10 @@ fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result
     let g = cx.g();
     let level = cx.level();
     let data = g.data(d);
-    let ctor = &data.ctors[c];
+    let ctor = &data.ctors()[c];
     let mut env: Vec<Value> = match params {
-        Some(params) if params.len() == data.params.len() => params.to_vec(),
-        _ => (0..data.params.len())
+        Some(params) if params.len() == data.params().len() => params.to_vec(),
+        _ => (0..data.params().len())
             .map(|i| Value::var(level + i))
             .collect(),
     };
@@ -1976,7 +1976,7 @@ fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result
             explicit: !ctor.implicit.get(k).copied().unwrap_or(false),
             ty,
         });
-        env.push(Value::var(level + data.params.len() + k));
+        env.push(Value::var(level + data.params().len() + k));
     }
     Ok(out)
 }
@@ -2171,7 +2171,7 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
             _ => None,
         },
         Expr::Record { fields, .. } => match &expected {
-            Some(Value::Data(d, params)) if cx.g().data(*d).record => {
+            Some(Value::Data(d, params)) if cx.g().data(*d).record() => {
                 Some(by_name(&ctor_slots(cx, *d, 0, Some(params))?, fields)?)
             }
             _ => None,
@@ -2948,7 +2948,7 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
         }
         let term = crate::check::compare(cx, term, &found, &whole)?;
         let empty = match force(cx.g(), tail.clone())? {
-            Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
+            Value::Ctor(d, c, _) => cx.g().env.registry().ctor(Builtin::RowEmpty) == Some((d, c)),
             _ => false,
         };
         // A partial body settles the divergence, whatever the row.
@@ -4208,7 +4208,7 @@ fn is_proposition(e: &Expr) -> bool {
 
 fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(cx.g(), ty.clone())?,
-        Value::Data(d, _) if cx.g().registry.is_data(Builtin::Bool, d)))
+        Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d)))
 }
 
 /// Whether an operand of `a op b` is itself arithmetic (or a prefix `-`)
@@ -4250,7 +4250,7 @@ fn op_call(
         Some(pos) => pos,
         None => {
             // An unknown tail of the row can take the ability.
-            let params = cx.g().data(info.op_data).params.len();
+            let params = cx.g().data(info.op_data).params().len();
             let args = (0..params)
                 .map(|_| {
                     let m = cx.fresh_meta();
@@ -4270,7 +4270,7 @@ fn op_call(
     let row = &row;
     let label = row.labels[pos].clone();
     let op_data = info.op_data;
-    let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
+    let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
     let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
 
     let make = |cx: &mut Ctx, x: Term| make_call(cx, op_data, i, &label, pos, row, x);
@@ -4365,7 +4365,7 @@ fn make_call(
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let op_data = cx.e.tables.abilities[a].op_data;
-    let params = cx.g().data(op_data).params.len();
+    let params = cx.g().data(op_data).params().len();
     let args: Vec<Value> = (0..params)
         .map(|_| {
             let m = cx.fresh_meta();
@@ -4379,7 +4379,7 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
         partial: false,
         div: None,
     };
-    let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
+    let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
     let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
     let mark = cx.mark();
     cx.bind_hidden("x".into(), dom.clone());
@@ -4581,7 +4581,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
     // The handled computation's row: this ability first, then everything in
     // `out` except this ability.
-    let params = cx.g().data(op_data).params.len();
+    let params = cx.g().data(op_data).params().len();
     let args: Vec<Value> = (0..params)
         .map(|_| {
             let m = cx.fresh_meta();
@@ -4652,7 +4652,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     }
     elim_term = Term::app_icit(elim_term, cx.quote(&r)?, Icit::Implicit);
     for (i, (_, arg, k, body)) in op_clauses.into_iter().enumerate() {
-        let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
+        let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
         let dom = stitchwort_core::value::eval(cx.g(), &handled.args, &field_ty)?;
         let mark = cx.mark();
         let x_name = match arg {

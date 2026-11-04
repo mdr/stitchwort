@@ -113,7 +113,11 @@ fn field_validators_are_checked() {
     let decidable = data(g, "Decidable");
     let def = |g: &Globals, name: &str| {
         Term::Def(stitchwort_core::DefId(
-            g.defs.iter().position(|d| &*d.name == name).unwrap(),
+            g.env
+                .defs()
+                .iter()
+                .position(|d| &**d.name() == name)
+                .unwrap(),
         ))
     };
     // In the context of the earlier field `n`, variable 0.
@@ -143,7 +147,7 @@ fn field_validators_are_checked() {
         "E-MALFORMED",
         "only one"
     );
-    assert_eq!(g.data(small).validators.len(), 1);
+    assert_eq!(g.data(small).validators().len(), 1);
 }
 
 /// Each field has a projection, `R.field`, whose type mentions earlier
@@ -159,11 +163,12 @@ fn projections_and_equality_are_generated() {
     let g = &s.elab.globals;
     let shown = |name: &str| {
         let def = g
-            .defs
+            .env
+            .defs()
             .iter()
-            .find(|d| &*d.name == name)
+            .find(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}`"));
-        stitchwort_core::pretty::term(g, &[], &def.ty)
+        stitchwort_core::pretty::term(g, &[], def.ty())
     };
     assert_eq!(shown("Person.age"), "Person → Nat");
     assert_eq!(
@@ -176,11 +181,12 @@ fn projections_and_equality_are_generated() {
     for record in ["Person", "Sized", "Box"] {
         let name = format!("{record}.%instDecEq");
         let def = g
-            .defs
+            .env
+            .defs()
             .iter()
-            .find(|d| *d.name == *name)
+            .find(|d| **d.name() == *name)
             .unwrap_or_else(|| panic!("no `{name}`"));
-        assert!(def.instance, "{name} is an instance");
+        assert!(def.instance(), "{name} is an instance");
         let ty = shown(&name);
         assert!(
             ty.contains(&format!("DecEq {record}")) || ty.contains(&format!("DecEq ({record}")),

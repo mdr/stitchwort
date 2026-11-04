@@ -295,7 +295,7 @@ impl Saturator<'_> {
         };
         self.expanded.push(Expanded {
             span: self.span,
-            name: self.g.def(id).name.to_string(),
+            name: self.g.def(id).name().to_string(),
             given: explicit(&params[..args.len()]),
             wanted: explicit(params),
         });

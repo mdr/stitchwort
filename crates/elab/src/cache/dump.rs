@@ -196,27 +196,27 @@ fn term(out: &mut String, t: &Term) {
 pub fn canonical_dump(e: &Elaborator) -> String {
     let mut out = String::new();
     let g = &e.globals;
-    for (i, def) in g.defs.iter().enumerate() {
+    for (i, def) in g.env.defs().iter().enumerate() {
         let _ = write!(
             out,
             "def {i} {} {} {:?} arity {} group {:?} theorem {} instance {} fold {} export {} opaque {} unfolding {:?} ",
-            def.name,
-            def.path,
+            def.name(),
+            def.path(),
             def.state(),
-            def.arity,
-            def.group
+            def.arity(),
+            def.group()
                 .as_ref()
                 .map(|m| m.iter().map(|d| d.0).collect::<Vec<_>>()),
-            def.theorem,
-            def.instance,
-            def.fold,
-            def.export,
-            def.opaque,
-            def.unfolding.iter().map(|d| d.0).collect::<Vec<_>>(),
+            def.theorem(),
+            def.instance(),
+            def.fold(),
+            def.export(),
+            def.opaque(),
+            def.unfolding().iter().map(|d| d.0).collect::<Vec<_>>(),
         );
-        span(&mut out, def.span);
+        span(&mut out, def.span());
         out.push_str("\n  ty ");
-        term(&mut out, &def.ty);
+        term(&mut out, def.ty());
         out.push_str("\n  body ");
         match def.body() {
             Some(b) => term(&mut out, b),
@@ -229,13 +229,13 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             out,
             "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} param_default {}",
             transparent.iter().map(|d| d.0).collect::<Vec<_>>(),
-            def.param_default,
+            def.param_default(),
         );
         if let Some(run) = def.own_run_body() {
             out.push_str("\n  run ");
             term(&mut out, run);
         }
-        for v in &def.validators {
+        for v in def.validators() {
             let _ = write!(out, "\n  validator {} ", v.param);
             term(&mut out, &v.decision);
         }
@@ -252,30 +252,30 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         }
         out.push('\n');
     }
-    for (i, data) in g.datas.iter().enumerate() {
+    for (i, data) in g.env.datas().iter().enumerate() {
         let _ = write!(
             out,
             "data {i} {} {} {:?} {:?} record {} auto {:?} group {:?} before {} {} ",
-            data.name,
-            data.path,
+            data.name(),
+            data.path(),
             data.state(),
-            data.sort,
-            data.record,
-            data.auto_params,
-            data.group.iter().map(|d| d.0).collect::<Vec<_>>(),
-            data.defs_before,
-            data.datas_before,
+            data.sort(),
+            data.record(),
+            data.auto_params(),
+            data.group().iter().map(|d| d.0).collect::<Vec<_>>(),
+            data.defs_before(),
+            data.datas_before(),
         );
-        span(&mut out, data.span);
-        for (x, t) in data.params.iter() {
+        span(&mut out, data.span());
+        for (x, t) in data.params().iter() {
             let _ = write!(out, "\n  param {x} ");
             term(&mut out, t);
         }
-        for (x, t) in data.indices.iter() {
+        for (x, t) in data.indices().iter() {
             let _ = write!(out, "\n  index {x} ");
             term(&mut out, t);
         }
-        for ctor in &data.ctors {
+        for ctor in data.ctors() {
             let _ = write!(
                 out,
                 "\n  ctor {} sorts {:?} erased {:?} implicit {:?}",
@@ -290,7 +290,7 @@ pub fn canonical_dump(e: &Elaborator) -> String {
                 term(&mut out, r);
             }
         }
-        for v in &data.validators {
+        for v in data.validators() {
             let _ = write!(out, "\n  validator {} {} ", v.ctor, v.field);
             term(&mut out, &v.decision);
         }
@@ -299,24 +299,24 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         }
         out.push('\n');
     }
-    let _ = writeln!(out, "registry missing {:?}", g.registry.missing());
-    for id in 0..g.defs.len() {
+    let _ = writeln!(out, "registry missing {:?}", g.env.registry().missing());
+    for id in 0..g.env.defs().len() {
         let id = stitchwort_core::DefId(id);
-        if let Some(b) = g.registry.def_builtin(id) {
+        if let Some(b) = g.env.registry().def_builtin(id) {
             let _ = writeln!(out, "builtin {b:?} = def {}", id.0);
         }
-        if let Some(n) = g.builtins.native(id) {
+        if let Some(n) = g.env.builtins().native(id) {
             let _ = writeln!(out, "native {} = def {}", n.name(), id.0);
         }
     }
     // (A library built-in whose file hasn't loaded is missing, and may not
     // be asked for.)
-    let missing = g.registry.missing();
+    let missing = g.env.registry().missing();
     for b in stitchwort_core::registry::Builtin::ALL {
         if missing.contains(b) {
             continue;
         }
-        if let Some(d) = g.registry.data(*b) {
+        if let Some(d) = g.env.registry().data(*b) {
             let _ = writeln!(out, "builtin {b:?} = data {}", d.0);
         }
     }

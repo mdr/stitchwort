@@ -24,7 +24,7 @@ fn the_prelude_binds_every_builtin_to_a_final_declaration() {
 fn prelude_binds_every_builtin() {
     let session = Session::eager_from_source_for_stack(STACK);
     let g = &session.elab.globals;
-    let r = &g.registry;
+    let r = &g.env.registry();
     assert_eq!(r.missing(), Vec::<Builtin>::new());
     assert!(check_complete(g).is_ok());
     for &b in Builtin::ALL {
@@ -32,27 +32,32 @@ fn prelude_binds_every_builtin() {
             Kind::Data => {
                 let data = g.data(r.data(b).unwrap());
                 assert_eq!(data.state(), State::Final, "{b:?}");
-                assert_eq!(&*data.name, b.name(), "{b:?}");
+                assert_eq!(&**data.name(), b.name(), "{b:?}");
             }
             Kind::Def => {
                 let def = g.def(r.def(b).unwrap());
                 assert_eq!(def.state(), State::Final, "{b:?}");
-                assert_eq!(&*def.name, b.name(), "{b:?}");
+                assert_eq!(&**def.name(), b.name(), "{b:?}");
             }
             Kind::Ctor(parent) => {
                 let (d, c) = r.ctor(b).unwrap();
                 assert_eq!(Some(d), r.data(parent), "{b:?}");
-                assert_eq!(&*g.data(d).ctors[c].name, b.name(), "{b:?}");
+                assert_eq!(&*g.data(d).ctors()[c].name, b.name(), "{b:?}");
             }
         }
     }
     // The natives and the compact text representation are attached to the
     // registry's declarations.
-    assert_eq!(g.builtins.nat, r.data(Builtin::Nat));
-    assert_eq!(g.builtins.bool, r.data(Builtin::Bool));
-    assert_eq!(g.builtins.decidable, r.data(Builtin::Decidable));
-    assert_eq!(g.builtins.nat_neq, r.def(Builtin::NatNeq));
-    let text = g.builtins.text.as_ref().expect("compact text is bound");
+    assert_eq!(g.env.builtins().nat, r.data(Builtin::Nat));
+    assert_eq!(g.env.builtins().bool, r.data(Builtin::Bool));
+    assert_eq!(g.env.builtins().decidable, r.data(Builtin::Decidable));
+    assert_eq!(g.env.builtins().nat_neq, r.def(Builtin::NatNeq));
+    let text = g
+        .env
+        .builtins()
+        .text
+        .as_ref()
+        .expect("compact text is bound");
     assert_eq!(Some(text.list), r.data(Builtin::List));
     assert_eq!(Some(text.char), r.data(Builtin::Char));
 }
@@ -83,14 +88,17 @@ fn library_hashes_as_in_the_release_build() {
         h.ok().flatten().map(|h| h.hex())
     };
     let mut lines: Vec<(String, Option<String>)> = Vec::new();
-    for i in 0..g.datas.len() {
+    for i in 0..g.env.datas().len() {
         lines.push((
-            format!("data {}", g.datas[i].path),
+            format!("data {}", g.env.datas()[i].path()),
             show(data_hash(g, DataId(i))),
         ));
     }
-    for i in 0..g.defs.len() {
-        lines.push((g.defs[i].path.to_string(), show(def_hash(g, DefId(i)))));
+    for i in 0..g.env.defs().len() {
+        lines.push((
+            g.env.defs()[i].path().to_string(),
+            show(def_hash(g, DefId(i))),
+        ));
     }
     assert_eq!(
         lines.len(),
@@ -142,7 +150,11 @@ fn a_forgotten_builtin_is_an_error_not_a_name_lookup() {
     session
         .load("test.sw", "def x : Nat := 1 + 2\n")
         .expect("loads");
-    session.elab.globals.registry.forget_for_test(Builtin::Add);
+    session
+        .elab
+        .globals
+        .env
+        .forget_builtin_for_tests(Builtin::Add);
     let errors = session.load("more.sw", "def y : Nat := 1\n").unwrap_err();
     assert_eq!(errors[0].code, "E-BUILTIN");
     assert!(errors[0].message.contains("`Nat.add`"));
@@ -278,12 +290,22 @@ fn syntax_means_the_prelude_whatever_its_names_mean() {
 fn natives_stay_on_the_prelude_definitions() {
     let session = hidden_session();
     let g = &session.elab.globals;
-    let add = g.registry.def(Builtin::Add).unwrap();
-    assert!(g.builtins.native(add).is_some());
+    let add = g.env.registry().def(Builtin::Add).unwrap();
+    assert!(g.env.builtins().native(add).is_some());
     // The program's own `add` is the last definition of that name.
-    let mine = g.defs.iter().rposition(|d| &*d.name == "add").unwrap();
+    let mine = g
+        .env
+        .defs()
+        .iter()
+        .rposition(|d| &**d.name() == "add")
+        .unwrap();
     assert_ne!(mine, add.0);
-    assert!(g.builtins.native(stitchwort_core::DefId(mine)).is_none());
+    assert!(
+        g.env
+            .builtins()
+            .native(stitchwort_core::DefId(mine))
+            .is_none()
+    );
 }
 
 #[test]

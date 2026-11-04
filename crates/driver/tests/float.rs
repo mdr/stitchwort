@@ -95,8 +95,16 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     let session = loaded();
     let g = &session.elab.globals;
     let _op = g.budget.operation(Limits::default());
-    let mul = g.registry.loaded_def(Builtin::FloatMul).expect("loaded");
-    let div = g.registry.loaded_def(Builtin::FloatDiv).expect("loaded");
+    let mul = g
+        .env
+        .registry()
+        .loaded_def(Builtin::FloatMul)
+        .expect("loaded");
+    let div = g
+        .env
+        .registry()
+        .loaded_def(Builtin::FloatDiv)
+        .expect("loaded");
     let hash = |id| def_hash(g, id).unwrap().expect("final");
     assert_ne!(hash(mul), hash(div), "the same type, different operations");
     for id in [mul, div] {

@@ -46,7 +46,7 @@ impl Elaborator {
                 .with_label(earlier.span, "first declared here"));
             }
         }
-        let autos = if self.globals.data(d).indices.is_empty() {
+        let autos = if self.globals.data(d).indices().is_empty() {
             Vec::new()
         } else {
             self.ctor_autos(d, ctor)?
@@ -75,7 +75,7 @@ impl Elaborator {
     /// as for a signature, but over its fields and result type, with the
     /// type's parameters in scope.
     fn ctor_autos(&self, d: DataId, ctor: &ast::CtorDecl) -> Result<Vec<ast::Name>> {
-        let params: Vec<String> = (self.globals.data(d).params.iter())
+        let params: Vec<String> = (self.globals.data(d).params().iter())
             .map(|(x, _)| x.to_string())
             .collect();
         let span = ctor.name.span;
@@ -106,9 +106,9 @@ impl Elaborator {
         self.clear_metas();
         let g = &self.globals;
         let data = g.data(d);
-        let np = data.params.len();
+        let np = data.params().len();
         let mut cx = Ctx::new(self, span);
-        for (x, ty) in &data.params {
+        for (x, ty) in data.params() {
             let value = cx.eval(ty)?;
             cx.bind(x, value);
         }
@@ -162,10 +162,10 @@ impl Elaborator {
     fn ctor_result(&self, cx: &mut Ctx, d: DataId, ctor: &ast::CtorDecl) -> Result<Vec<Term>> {
         let g = &self.globals;
         let data = g.data(d);
-        let (np, ni) = (data.params.len(), data.indices.len());
+        let (np, ni) = (data.params().len(), data.indices().len());
         let own = || {
-            let params: Vec<&str> = data.params.iter().map(|(x, _)| &**x).collect();
-            std::iter::once(&*data.name)
+            let params: Vec<&str> = data.params().iter().map(|(x, _)| &**x).collect();
+            std::iter::once(&**data.name())
                 .chain(params)
                 .collect::<Vec<_>>()
                 .join(" ")
@@ -179,7 +179,8 @@ impl Elaborator {
                 ctor.name.span,
                 format!(
                     "`{}` needs a result type, since `{}` has indices",
-                    ctor.name.text, data.name
+                    ctor.name.text,
+                    data.name()
                 ),
             )
             .with_note(format!(
@@ -242,7 +243,7 @@ impl Elaborator {
             let Some(k) = (0..written).find(|&k| ty.mentions(written + j - 1 - k)) else {
                 continue;
             };
-            let mut names: Vec<Name> = g.data(d).params.iter().map(|(x, _)| x.clone()).collect();
+            let mut names: Vec<Name> = g.data(d).params().iter().map(|(x, _)| x.clone()).collect();
             names.extend(decl.fields[..written + j].iter().map(|(x, _, _)| x.clone()));
             let shown = pretty::term(g, &names, ty);
             let field = &decl.fields[k].0;
@@ -315,7 +316,7 @@ impl Elaborator {
         args: Vec<Pat<'a>>,
         span: Span,
     ) -> Result<Vec<Pat<'a>>> {
-        let ctor = &self.globals.data(d).ctors[c];
+        let ctor = &self.globals.data(d).ctors()[c];
         let k = ctor.fields.len();
         let implicit: Vec<bool> = (0..k)
             .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
@@ -503,7 +504,7 @@ fn case_branch(
     scrutinee: &str,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let ctor_name = g.data(d).ctors[c].name.clone();
+    let ctor_name = g.data(d).ctors()[c].name.clone();
     let goal = eval(g, &cx.env, goal_term)?;
     // Before entering, while `x` is still a variable in the context.
     let number = match subtree {
@@ -542,7 +543,7 @@ fn case_branch(
                 if let Some(missing) = number {
                     return Err(missing.diagnostic(*span));
                 }
-                let ctor = &g.data(d).ctors[c];
+                let ctor = &g.data(d).ctors()[c];
                 Err(crate::missing::diagnostic(
                     *span,
                     vec![(arm.order.clone(), arm.pattern.clone())],
@@ -600,8 +601,8 @@ impl FinMissing {
 fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMissing>> {
     let g = cx.g();
     let (Some(fin), Some((_, fsucc))) = (
-        g.registry.loaded_data(Builtin::Fin),
-        g.registry.loaded_ctor(Builtin::FSucc),
+        g.env.registry().loaded_data(Builtin::Fin),
+        g.env.registry().loaded_ctor(Builtin::FSucc),
     ) else {
         return Ok(None);
     };
@@ -669,8 +670,8 @@ fn enter(
 ) -> Result<Entered> {
     let g = cx.g();
     let data = g.data(d);
-    let ctor = &data.ctors[c];
-    let (params, indices) = args.split_at(data.params.len());
+    let ctor = &data.ctors()[c];
+    let (params, indices) = args.split_at(data.params().len());
     let base = cx.level();
     let mut field_env = params.to_vec();
     for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
@@ -696,7 +697,7 @@ fn enter(
     let outcome = unify(
         g,
         &mut scope,
-        &data.indices,
+        data.indices(),
         all(params)?,
         all(indices)?,
         all(&result)?,
@@ -734,12 +735,12 @@ pub(crate) fn empty_case(
         return Ok(None);
     };
     let data = g.data(d);
-    if data.indices.is_empty() {
+    if data.indices().is_empty() {
         return Ok(None);
     }
     let scrutinee = cx.show(&Value::Data(d, args.clone()));
     let mut branches = Vec::new();
-    for (c, ctor) in data.ctors.iter().enumerate() {
+    for (c, ctor) in data.ctors().iter().enumerate() {
         let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
         let mark = cx.mark();
         let saved_env = cx.env.clone();
@@ -843,7 +844,7 @@ fn plus(cx: &Ctx, value: &Value) -> Option<(String, String)> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return None;
     };
-    if !g.registry.is_def(Builtin::Add, *id) {
+    if !g.env.registry().is_def(Builtin::Add, *id) {
         return None;
     }
     let [Elim::App(a, _), Elim::App(b, _)] = &spine[..] else {

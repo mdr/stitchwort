@@ -5,7 +5,6 @@ use std::rc::Rc;
 
 use stitchwort_syntax::Span;
 
-use crate::native::Builtins;
 use crate::term::{DataId, DefId, Name, Sort, Term};
 use crate::value::Value;
 
@@ -25,13 +24,13 @@ pub enum State {
 #[derive(Clone)]
 pub struct Def {
     /// Its name as written from the root of its module: `List.length`.
-    pub name: Name,
+    pub(crate) name: Name,
     /// Its full logical name, unique in the environment: `Std.List.length`,
     /// `Main.List.length` (see [`Data::path`]). Not hashed: a definition's
     /// identity doesn't include its name. Extraction names it by this.
-    pub path: Name,
-    pub ty: Term,
-    pub ty_value: Value,
+    pub(crate) path: Name,
+    pub(crate) ty: Term,
+    pub(crate) ty_value: Value,
     /// Set exactly when the definition is final. So it's `None` while its own
     /// body is being checked (recursive references don't unfold), and if
     /// checking it failed.
@@ -43,17 +42,17 @@ pub struct Def {
     /// this many arguments, and termination relates calls to these
     /// parameters; the definition unfolds once it's applied to this many
     /// arguments and its case tree can make progress.
-    pub arity: usize,
+    pub(crate) arity: usize,
     /// The function group this definition was submitted in (`define_group`),
     /// in submission order, including itself: `None` until then. Set once,
     /// when the group is submitted, and never changed. Hashing and extraction
     /// treat members of a group of two or more as one unit.
-    pub group: Option<Rc<[DefId]>>,
-    pub theorem: bool,
+    pub(crate) group: Option<Rc<[DefId]>>,
+    pub(crate) theorem: bool,
     /// Declared with `instance`, so `auto` finds it by its type
     /// (docs/proposals/interfaces.md §9.3). Hashed when set; nothing in
     /// checking depends on it.
-    pub instance: bool,
+    pub(crate) instance: bool,
     /// A dictionary (an instance, or another definition whose result is an
     /// interface): applied to all its parameters it stays folded, by name,
     /// until something takes it apart (a `case`, or a comparison that the
@@ -62,20 +61,20 @@ pub struct Def {
     /// solutions, messages and elaborated terms keep the name. It changes
     /// only when things are computed, never what's equal, so it isn't hashed;
     /// and while a program runs (erasure in effect) it unfolds at once.
-    pub fold: bool,
+    pub(crate) fold: bool,
     /// Opaque to the checker (docs/proposals/opaque-definitions.md §6.4):
     /// outside the declarations whose transparency set holds it
     /// ([`Globals::transparent`]), it has a type and no body, so a call of
     /// it is neutral, like a variable applied to arguments. Running a
     /// program still uses the body. Set on a pending definition
     /// ([`crate::check::mark_opaque`]); hashed when set.
-    pub opaque: bool,
+    pub(crate) opaque: bool,
     /// The opaque definitions its body may unfold, as written (its
     /// `unfolding` clause): set on a pending definition
     /// ([`crate::check::set_unfolding`]), checked by `define_group` (a
     /// definition with any must itself be opaque, and each must be final,
     /// opaque and outside its group), and hashed in a canonical order.
-    pub unfolding: Rc<[DefId]>,
+    pub(crate) unfolding: Rc<[DefId]>,
     /// Its transparency set: the closure of [`Def::unfolding`], in which
     /// each opaque definition brings its own set and its opaque
     /// group-mates (D1267), sorted. Computed by `define_group` before the
@@ -94,9 +93,9 @@ pub struct Def {
     /// with another by its case tree (`value::same_stuck_trees`). Determined
     /// by the body, so it isn't hashed.
     pub(crate) recursive: bool,
-    pub export: bool,
+    pub(crate) export: bool,
     /// For an export: how to check each proof parameter at runtime.
-    pub validators: Vec<Validator>,
+    pub(crate) validators: Vec<Validator>,
     /// What the untrusted runtimes (`crates/rt`, JS) run instead of the body,
     /// if set ([`crate::check::set_run_body`]): for a definition with
     /// `decreasing`, the recursion as written, without the fuel the body
@@ -116,12 +115,12 @@ pub struct Def {
     /// stays folded while gluing, as a constant written in the source does,
     /// so a call that left the default out reads back as written. Set with
     /// the owner's [`Def::param_defaults`]; never hashed.
-    pub param_default: bool,
+    pub(crate) param_default: bool,
     /// For the helper a record update `{ x | f = s }` of a type with several
     /// constructors is lifted to: how the printer shows a call of it, as the
     /// update. Only messages read it, so it isn't hashed.
     pub update_shown: Option<Rc<UpdateShown>>,
-    pub span: Span,
+    pub(crate) span: Span,
 }
 
 /// How a call of an update's helper is shown (see [`Def::update_shown`]):
@@ -148,6 +147,83 @@ pub struct ParamDefaults {
 }
 
 impl Def {
+    /// Its name as written from the root of its module.
+    pub fn name(&self) -> &Name {
+        &self.name
+    }
+
+    /// Its full logical name, unique in the environment.
+    pub fn path(&self) -> &Name {
+        &self.path
+    }
+
+    /// Its type, as a term.
+    pub fn ty(&self) -> &Term {
+        &self.ty
+    }
+
+    /// Its type, evaluated.
+    pub fn ty_value(&self) -> &Value {
+        &self.ty_value
+    }
+
+    /// The definition-entry arity: the number of leading lambdas in the
+    /// submitted body.
+    pub fn arity(&self) -> usize {
+        self.arity
+    }
+
+    /// The function group it was submitted in, including itself: `None`
+    /// until then.
+    pub fn group(&self) -> &Option<Rc<[DefId]>> {
+        &self.group
+    }
+
+    /// Whether it is a theorem.
+    pub fn theorem(&self) -> bool {
+        self.theorem
+    }
+
+    /// Whether it was declared with `instance`.
+    pub fn instance(&self) -> bool {
+        self.instance
+    }
+
+    /// Whether it is a dictionary that stays folded (see the field's doc).
+    pub fn fold(&self) -> bool {
+        self.fold
+    }
+
+    /// Whether it is opaque to the checker.
+    pub fn opaque(&self) -> bool {
+        self.opaque
+    }
+
+    /// The opaque definitions its body may unfold, as written.
+    pub fn unfolding(&self) -> &Rc<[DefId]> {
+        &self.unfolding
+    }
+
+    /// Whether it is exported.
+    pub fn export(&self) -> bool {
+        self.export
+    }
+
+    /// For an export: how to check each proof parameter at runtime.
+    pub fn validators(&self) -> &[Validator] {
+        &self.validators
+    }
+
+    /// Whether it is the helper of a definition's parameter default.
+    pub fn param_default(&self) -> bool {
+        self.param_default
+    }
+
+    /// Where it was declared.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
     /// The definition's body, once it has been admitted.
     pub fn body(&self) -> Option<&Rc<Term>> {
         self.body.as_ref()
@@ -176,15 +252,21 @@ impl Def {
     }
 
     /// Bypasses admission: for tests that build deliberately broken states only.
-    #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub fn set_body_unchecked_for_tests(&mut self, body: Option<Rc<Term>>) {
         self.body = body;
     }
 
     /// Bypasses admission: for tests that build deliberately broken states only.
-    #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub fn set_state_unchecked_for_tests(&mut self, state: State) {
         self.state = state;
+    }
+
+    /// Bypasses admission: for tests that build deliberately broken states only.
+    #[cfg(feature = "test-bypass")]
+    pub fn set_arity_unchecked_for_tests(&mut self, arity: usize) {
+        self.arity = arity;
     }
 }
 
@@ -259,33 +341,33 @@ pub enum ParamUse {
 pub struct Data {
     /// Its name as written from the root of its module: `List`,
     /// `Effect.Comp`, `Geometry.Shape`.
-    pub name: Name,
+    pub(crate) name: Name,
     /// Its full logical name, which is hashed (types are nominal): `name`
     /// within its module's root, `Std.List` or `Main.Geometry.Shape`
     /// (docs/proposals/namespaces.md §7.4). Never a file-system path.
-    pub path: Name,
+    pub(crate) path: Name,
     /// Parameter types, each in the context of the previous parameters.
-    pub params: Vec<(Name, Term)>,
+    pub(crate) params: Vec<(Name, Term)>,
     /// Which parameters are `auto`, `[auto ord: Ord k]`, for the elaborator,
     /// which fills them in by instance search wherever the type is written
     /// (docs/proposals/interfaces.md §7.5). The kernel sees ordinary
     /// parameters. Empty when none is; hashed only when one is.
-    pub auto_params: Vec<bool>,
+    pub(crate) auto_params: Vec<bool>,
     /// Index types (docs/proposals/indexed-families.md §6.1), each in the
     /// context of the parameters and the previous indices. Empty for a type
     /// without indices. `Term::Data` and `Value::Data` hold the parameters
     /// then the indices. Unlike the parameters, each member of a group has
     /// its own.
-    pub indices: Vec<(Name, Term)>,
-    pub sort: Sort,
-    pub ctors: Vec<Ctor>,
+    pub(crate) indices: Vec<(Name, Term)>,
+    pub(crate) sort: Sort,
+    pub(crate) ctors: Vec<Ctor>,
     /// Whether it was declared as a record (docs/proposals/records.md): one
     /// constructor, represented in JS without a tag. Fixed when declared, and
     /// hashed; checking never depends on it.
-    pub record: bool,
+    pub(crate) record: bool,
     /// Decision procedures for proof fields, which extracted JS runs to
     /// establish them for decoded input. Added once the type is final.
-    pub validators: Vec<FieldValidator>,
+    pub(crate) validators: Vec<FieldValidator>,
     /// How the type crosses the JS boundary, when `js.*` attributes on it
     /// say (docs/proposals/attributes.md §4.6): resolved and checked by the
     /// elaborator once the type is final. `None` for a type without them,
@@ -308,7 +390,7 @@ pub struct Data {
     /// the group is declared, and never changed. Positivity, the termination
     /// checker's recursive function fields, elimination from `Prop` and
     /// hashing read it.
-    pub group: Rc<[DataId]>,
+    pub(crate) group: Rc<[DataId]>,
     /// For each parameter of its group, whether it's nestable, or why not
     /// (docs/proposals/nested-data-types.md §5.1): whether a later data
     /// type may contain itself inside a member of this group applied to it
@@ -317,20 +399,91 @@ pub struct Data {
     /// checked or trusted (so the check cache needn't store it), and read
     /// only by later groups' positivity checks. Empty until then. Not
     /// hashed: it's a function of what is.
-    pub nestable: Rc<[Result<(), NotNestable>]>,
+    pub(crate) nestable: Rc<[Result<(), NotNestable>]>,
     /// How many definitions, and data types, existed when this type's group
     /// was declared. Its fields may only use those (and its group's
     /// members), since anything declared later could mention this type and
     /// hide a negative occurrence.
-    pub defs_before: usize,
-    pub datas_before: usize,
+    pub(crate) defs_before: usize,
+    pub(crate) datas_before: usize,
     /// Final once its constructors are defined (they can be only once).
     /// Until then it isn't empty: it can't be matched on or hashed.
     pub(crate) state: State,
-    pub span: Span,
+    pub(crate) span: Span,
 }
 
 impl Data {
+    /// Its name as written from the root of its module.
+    pub fn name(&self) -> &Name {
+        &self.name
+    }
+
+    /// Its full logical name, which is hashed.
+    pub fn path(&self) -> &Name {
+        &self.path
+    }
+
+    /// Parameter types, each in the context of the previous parameters.
+    pub fn params(&self) -> &[(Name, Term)] {
+        &self.params
+    }
+
+    /// Which parameters are `auto`.
+    pub fn auto_params(&self) -> &[bool] {
+        &self.auto_params
+    }
+
+    /// Index types, each in the context of the parameters and the previous
+    /// indices.
+    pub fn indices(&self) -> &[(Name, Term)] {
+        &self.indices
+    }
+
+    /// The universe it lives in.
+    pub fn sort(&self) -> Sort {
+        self.sort
+    }
+
+    /// Its constructors.
+    pub fn ctors(&self) -> &[Ctor] {
+        &self.ctors
+    }
+
+    /// Whether it was declared as a record.
+    pub fn record(&self) -> bool {
+        self.record
+    }
+
+    /// Decision procedures for proof fields.
+    pub fn validators(&self) -> &[FieldValidator] {
+        &self.validators
+    }
+
+    /// The data group it was declared in, including itself.
+    pub fn group(&self) -> &Rc<[DataId]> {
+        &self.group
+    }
+
+    /// For each parameter of its group, whether it's nestable, or why not.
+    pub fn nestable(&self) -> &[Result<(), NotNestable>] {
+        &self.nestable
+    }
+
+    /// How many definitions existed when its group was declared.
+    pub fn defs_before(&self) -> usize {
+        self.defs_before
+    }
+
+    /// How many data types existed when its group was declared.
+    pub fn datas_before(&self) -> usize {
+        self.datas_before
+    }
+
+    /// Where it was declared.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
     /// The one run-time field of a record that is stored as that field
     /// itself, with no box around it (D866, D1067;
     /// docs/proposals/map-equality.md §13.1): a record (in `Type`, not a
@@ -362,7 +515,7 @@ impl Data {
     }
 
     /// Bypasses admission: for tests that build deliberately broken states only.
-    #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub fn set_state_unchecked_for_tests(&mut self, state: State) {
         self.state = state;
     }
@@ -418,12 +571,8 @@ pub struct Meta {
 
 #[derive(Default)]
 pub struct Globals {
-    pub defs: Vec<Def>,
-    pub datas: Vec<Data>,
-    /// `Nat` and the definitions with native implementations.
-    pub builtins: Builtins,
-    /// The prelude declarations the compiler refers to, by identity.
-    pub registry: crate::registry::Registry,
+    /// The declarations admitted so far.
+    pub env: crate::env::Env,
     /// The elaborator's metavariables. Empty whenever the kernel runs.
     pub metas: RefCell<Vec<Meta>>,
     /// Every metavariable solution made, newest last, with what it replaced:
@@ -616,20 +765,50 @@ pub enum HashKey {
 
 impl Globals {
     pub fn def(&self, id: DefId) -> &Def {
-        &self.defs[id.0]
+        self.env.def(id)
     }
 
     pub fn data(&self, id: DataId) -> &Data {
-        &self.datas[id.0]
+        self.env.data(id)
     }
 
     /// Gives definition `id` its parameter defaults `table`, marking each
     /// default's helper ([`Def::param_default`]).
     pub fn set_param_defaults(&mut self, id: DefId, table: ParamDefaults) {
         for default in table.params.iter().flatten() {
-            self.defs[default.helper.0].param_default = true;
+            self.env.defs_mut()[default.helper.0].param_default = true;
         }
-        self.defs[id.0].param_defaults = Some(Rc::new(table));
+        self.env.defs_mut()[id.0].param_defaults = Some(Rc::new(table));
+    }
+
+    /// Records the JS representation `repr` of data type `d` (see
+    /// [`Data::js`]): an elaborator fact, not a declaration.
+    pub fn set_data_js(&mut self, d: DataId, repr: Rc<crate::js_repr::JsRepr>) {
+        self.env.datas_mut()[d.0].js = Some(repr);
+    }
+
+    /// Records data type `d`'s field defaults (see [`Data::defaults`]): an
+    /// elaborator fact, not a declaration.
+    pub fn set_data_defaults(&mut self, d: DataId, table: Rc<FieldDefaults>) {
+        self.env.datas_mut()[d.0].defaults = Some(table);
+    }
+
+    /// Records how the printer shows calls of record-update helper `id` (see
+    /// [`Def::update_shown`]): an elaborator fact, not a declaration.
+    pub fn set_update_shown(&mut self, id: DefId, shown: Rc<UpdateShown>) {
+        self.env.defs_mut()[id.0].update_shown = Some(shown);
+    }
+
+    /// Removes the definitions from `defs` on and the data types from
+    /// `datas` on, with the registry entries and cached hashes of them: for
+    /// undoing declarations a check cache entry added before the kernel
+    /// refused part of it. Nothing may refer to them yet.
+    pub fn forget_declarations_from(&mut self, defs: usize, datas: usize) {
+        self.env.truncate(defs, datas);
+        self.hashes.borrow_mut().retain(|k, _| match k {
+            HashKey::Def(id) => id.0 < defs,
+            HashKey::Data(d) => d.0 < datas,
+        });
     }
 
     /// The full logical name of a declaration named `name` in the module
@@ -643,7 +822,11 @@ impl Globals {
     }
 
     pub fn find_data(&self, name: &str) -> Option<DataId> {
-        self.datas.iter().position(|d| &*d.name == name).map(DataId)
+        self.env
+            .datas()
+            .iter()
+            .position(|d| &*d.name == name)
+            .map(DataId)
     }
 
     pub fn meta_solution(&self, m: usize) -> Option<Value> {
@@ -722,9 +905,9 @@ impl Globals {
     /// elaborator's `mark` is the only caller.
     pub fn mark(&self) -> GlobalsMark {
         GlobalsMark {
-            defs: self.defs.len(),
-            datas: self.datas.len(),
-            builtins: self.builtins.mark(),
+            defs: self.env.defs().len(),
+            datas: self.env.datas().len(),
+            builtins: self.env.builtins().mark(),
             failed_mentioned: self.failed_mentioned.get(),
             module: self.module.clone(),
             glue: self.glue.get(),
@@ -743,10 +926,7 @@ impl Globals {
     /// Every field is named here, so a new one can't be forgotten.
     pub fn rewind(&mut self, mark: &GlobalsMark) {
         let Globals {
-            defs,
-            datas,
-            builtins,
-            registry,
+            env,
             metas: _,
             meta_trail: _,
             frozen_metas: _,
@@ -769,13 +949,10 @@ impl Globals {
             apart_sets: _,
         } = self;
         assert!(
-            mark.defs <= defs.len() && mark.datas <= datas.len(),
+            mark.defs <= env.defs().len() && mark.datas <= env.datas().len(),
             "a mark from after the point the session was rewound to"
         );
-        defs.truncate(mark.defs);
-        datas.truncate(mark.datas);
-        builtins.rewind(&mark.builtins, mark.defs);
-        registry.forget_from(mark.defs, mark.datas);
+        env.rewind(mark.defs, mark.datas, &mark.builtins);
         hashes.borrow_mut().retain(|k, _| match k {
             HashKey::Def(id) => id.0 < mark.defs,
             HashKey::Data(d) => d.0 < mark.datas,

@@ -26,9 +26,10 @@ fn load(source: &str, uniform: bool) -> Session {
 fn body(session: &Session, name: &str) -> String {
     let g = &session.elab.globals;
     let def = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .find(|d| &*d.name == name)
+        .find(|d| &**d.name() == name)
         .unwrap_or_else(|| panic!("no `{name}`"));
     raw(g, def.body().expect("a body"))
 }
@@ -37,18 +38,18 @@ fn raw(g: &Globals, t: &Term) -> String {
     match t {
         Term::Loc(_, t) => raw(g, t),
         Term::Var(i) => format!("#{i}"),
-        Term::Def(id) => g.def(*id).path.to_string(),
+        Term::Def(id) => g.def(*id).path().to_string(),
         Term::Nat(k) => k.to_string(),
         Term::Lam(_, icit, body) => format!("(fun {}{})", mark(*icit), raw(g, body)),
         Term::App(f, a, icit) => format!("({} {}{})", raw(g, f), mark(*icit), raw(g, a)),
         Term::Ctor(d, c, args) => {
-            let name = &g.data(*d).ctors[*c].name;
+            let name = &g.data(*d).ctors()[*c].name;
             let args: Vec<String> = args.iter().map(|a| raw(g, a)).collect();
             format!("({name} {})", args.join(" "))
         }
         Term::Data(d, args) => {
             let args: Vec<String> = args.iter().map(|a| raw(g, a)).collect();
-            format!("({} {})", g.data(*d).path, args.join(" "))
+            format!("({} {})", g.data(*d).path(), args.join(" "))
         }
         Term::Ann(t, ty) => format!("({} : {})", raw(g, t), raw(g, ty)),
         Term::Pi(_, icit, a, b) => format!("({}{} -> {})", mark(*icit), raw(g, a), raw(g, b)),
@@ -196,11 +197,11 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
         }
         let g = &session.elab.globals;
         let mut out = std::collections::BTreeMap::new();
-        for (i, def) in g.defs.iter().enumerate() {
+        for (i, def) in g.env.defs().iter().enumerate() {
             let h = def_hash(g, stitchwort_core::DefId(i))
                 .unwrap()
                 .map(|h| h.hex());
-            out.insert(def.path.to_string(), h);
+            out.insert(def.path().to_string(), h);
         }
         out
     };

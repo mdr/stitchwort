@@ -232,13 +232,13 @@ impl Elaborator {
     /// is in parentheses.
     fn show_column(&self, level: usize, shapes: &HashMap<usize, Shape>, atom: bool) -> String {
         let g = &self.globals;
-        let reg = &g.registry;
+        let reg = &g.env.registry();
         let (d, c, base) = match shapes.get(&level) {
             None => return "_".to_string(),
             Some(Shape::Num(n)) => return n.to_string(),
             Some(Shape::Ctor { d, c, base }) => (*d, *c, *base),
         };
-        let ctor = &g.data(d).ctors[c];
+        let ctor = &g.data(d).ctors()[c];
         // The fields a pattern writes: the explicit ones.
         let fields: Vec<usize> = (0..ctor.fields.len())
             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
@@ -259,7 +259,7 @@ impl Elaborator {
                     Some(Shape::Ctor { d, c, base })
                         if reg.ctor(Builtin::Cons) == Some((*d, *c)) =>
                     {
-                        let ctor = &g.data(*d).ctors[*c];
+                        let ctor = &g.data(*d).ctors()[*c];
                         let explicit: Vec<usize> = (0..ctor.fields.len())
                             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
                             .map(|i| base + i)
@@ -287,7 +287,7 @@ impl Elaborator {
                     Some(Shape::Ctor { d, c, base })
                         if reg.ctor(Builtin::MkPair) == Some((*d, *c)) =>
                     {
-                        let ctor = &g.data(*d).ctors[*c];
+                        let ctor = &g.data(*d).ctors()[*c];
                         let explicit: Vec<usize> = (0..ctor.fields.len())
                             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
                             .map(|i| base + i)

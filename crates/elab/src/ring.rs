@@ -1237,7 +1237,7 @@ fn emit(
             "`Std.Ring.prove…` has fewer parameters than expected".into(),
         )
     };
-    let mut ty = g.def(which).ty_value.clone();
+    let mut ty = g.def(which).ty_value().clone();
     for arg in &args {
         let Value::Pi(_, _, _, cod) = force(g, ty)? else {
             return Err(shape());

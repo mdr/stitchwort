@@ -130,7 +130,7 @@ pub struct EffectNatives {
 
 impl EffectNatives {
     pub fn new(g: &Globals) -> Option<EffectNatives> {
-        let r = &g.registry;
+        let r = &g.env.registry();
         let mut natives = HashMap::default();
         for (b, op) in [
             (Builtin::Bind, EffectOp::Bind),
@@ -149,25 +149,25 @@ impl EffectNatives {
         let comp = r.loaded_data(Builtin::Comp)?;
         let sig_map = r.loaded_data(Builtin::SigMap)?;
         let runtime_fields = |d: DataId, c: usize| {
-            g.data(d).ctors[c]
+            g.data(d).ctors()[c]
                 .field_erased
                 .iter()
                 .filter(|erased| !**erased)
                 .count()
         };
         let data = g.data(comp);
-        if data.record
-            || data.ctors.len() != 2
+        if data.record()
+            || data.ctors().len() != 2
             || data.unboxed_field().is_some()
             || runtime_fields(comp, 0) != 1
             || runtime_fields(comp, 1) != 2
-            || g.data(sig_map).ctors.len() != 1
+            || g.data(sig_map).ctors().len() != 1
             || runtime_fields(sig_map, 0) != 2
         {
             return None;
         }
         let row = r.loaded_data(Builtin::Row).and_then(|d| {
-            let ops = g.data(d).ctors.iter().position(|c| &*c.name == "Ops")?;
+            let ops = g.data(d).ctors().iter().position(|c| &*c.name == "Ops")?;
             Some((d, ops))
         });
         Some(EffectNatives {

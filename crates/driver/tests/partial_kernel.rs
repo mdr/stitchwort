@@ -27,15 +27,16 @@ fn data(g: &Globals, name: &str) -> DataId {
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .rposition(|d| &*d.name == name)
+            .rposition(|d| &**d.name() == name)
             .expect("declared"),
     )
 }
 
 fn prim(g: &Globals, p: Primitive) -> DefId {
-    g.builtins.primitive_id(p).expect("admitted")
+    g.env.builtins().primitive_id(p).expect("admitted")
 }
 
 fn app(f: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
@@ -177,7 +178,7 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
     for p in Primitive::ALL {
         let id = prim(g, p);
         let d = g.def(id);
-        assert_eq!(&*d.name, p.name());
+        assert_eq!(&**d.name(), p.name());
         assert_eq!(d.state(), State::Final, "{}", p.name());
         assert!(d.body().is_none(), "{} has no computation rule", p.name());
         assert!(def_hash(g, id).unwrap().is_some(), "{} is hashed", p.name());
@@ -245,7 +246,7 @@ fn a_constant_is_admitted_once() {
     let g = &mut session.elab.globals;
     // A second `now`, with exactly the right type: refused, since `now` is
     // admitted already.
-    let ty = g.def(prim(g, Primitive::Now)).ty.clone();
+    let ty = g.def(prim(g, Primitive::Now)).ty().clone();
     let again = check::declare_def(g, &"now2".into(), &ty, false, false, span()).unwrap();
     assert_eq!(
         code(partial::define_primitive(g, again, Primitive::Now)),

@@ -100,13 +100,13 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
 fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
     let g = &session.elab.globals;
     let mut out = String::new();
-    for i in first_data..g.datas.len() {
+    for i in first_data..g.env.datas().len() {
         let h = show(data_hash(g, DataId(i)));
-        out += &format!("data {} {h}\n", g.datas[i].path);
+        out += &format!("data {} {h}\n", g.env.datas()[i].path());
     }
-    for i in first_def..g.defs.len() {
+    for i in first_def..g.env.defs().len() {
         let h = show(def_hash(g, DefId(i)));
-        out += &format!("{} {h}\n", g.defs[i].path);
+        out += &format!("{} {h}\n", g.env.defs()[i].path());
     }
     out
 }
@@ -156,8 +156,8 @@ fn examples() {
             // Every library file loaded first, so the lines are the file's own.
             session.rewind(mark);
             let (d, f) = (
-                session.elab.globals.datas.len(),
-                session.elab.globals.defs.len(),
+                session.elab.globals.env.datas().len(),
+                session.elab.globals.env.defs().len(),
             );
             if session.load(&path.display().to_string(), &text).is_err() {
                 eprintln!("skipped {}", path.display());
@@ -185,8 +185,8 @@ fn examples() {
 fn own_lines(text: &str) -> String {
     let mut session = Session::eager();
     let (d, f) = (
-        session.elab.globals.datas.len(),
-        session.elab.globals.defs.len(),
+        session.elab.globals.env.datas().len(),
+        session.elab.globals.env.defs().len(),
     );
     if let Err(errors) = session.load("logic.sw", text) {
         panic!("doesn't load: {errors:#?}");
@@ -294,8 +294,8 @@ fn projects() {
             let name = dir.file_name().unwrap().to_string_lossy().to_string();
             session.rewind(mark);
             let (d, f) = (
-                session.elab.globals.datas.len(),
-                session.elab.globals.defs.len(),
+                session.elab.globals.env.datas().len(),
+                session.elab.globals.env.defs().len(),
             );
             let files = DiskFiles { root: dir.clone() };
             if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
@@ -458,25 +458,25 @@ fn dump_on_this_thread() {
     };
     let g = &session.elab.globals;
     let mut deps = Vec::new();
-    for def in &g.defs {
+    for def in g.env.defs() {
         let mut refs = std::collections::BTreeSet::new();
-        for term in std::iter::once(&def.ty).chain(def.body().map(|b| &**b)) {
+        for term in std::iter::once(def.ty()).chain(def.body().map(|b| &**b)) {
             for (t, _) in term.subterms() {
                 match t {
                     stitchwort_core::Term::Def(id) => {
-                        refs.insert(g.def(*id).path.to_string());
+                        refs.insert(g.def(*id).path().to_string());
                     }
                     stitchwort_core::Term::Data(d, _)
                     | stitchwort_core::Term::Ctor(d, _, _)
                     | stitchwort_core::Term::Case(_, d, _) => {
-                        refs.insert(format!("data {}", g.data(*d).path));
+                        refs.insert(format!("data {}", g.data(*d).path()));
                     }
                     _ => {}
                 }
             }
         }
         let refs: Vec<String> = refs.into_iter().collect();
-        deps.push(format!("{}\t{}", def.path, refs.join("\t")));
+        deps.push(format!("{}\t{}", def.path(), refs.join("\t")));
     }
     deps.sort();
     std::fs::write(path, deps.join("\n") + "\n").unwrap();

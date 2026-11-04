@@ -21,21 +21,25 @@ fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
 fn trusted_copy(a: &Globals) -> Globals {
     let mut b = Globals::default();
     let (mut i, mut j) = (0, 0);
-    while i < a.defs.len() || j < a.datas.len() {
-        if j < a.datas.len() && a.datas[j].defs_before == i {
-            let data = &a.datas[j];
-            assert_eq!(data.group.len(), 1);
+    while i < a.env.defs().len() || j < a.env.datas().len() {
+        if j < a.env.datas().len() && a.env.datas()[j].defs_before() == i {
+            let data = &a.env.datas()[j];
+            assert_eq!(data.group().len(), 1);
             let decl = DataDecl {
-                name: data.name.clone(),
-                span: data.span,
-                record: data.record,
-                indices: data.indices.clone(),
+                name: data.name().clone(),
+                span: data.span(),
+                record: data.record(),
+                indices: data.indices().to_vec(),
             };
-            let ids =
-                check::admit_trusted_data_decls(&mut b, data.params.clone(), data.sort, vec![decl])
-                    .expect("declared");
+            let ids = check::admit_trusted_data_decls(
+                &mut b,
+                data.params().to_vec(),
+                data.sort(),
+                vec![decl],
+            )
+            .expect("declared");
             let ctors = data
-                .ctors
+                .ctors()
                 .iter()
                 .map(|c| Ctor {
                     name: c.name.clone(),
@@ -49,21 +53,22 @@ fn trusted_copy(a: &Globals) -> Globals {
             check::admit_trusted_data_group(&mut b, vec![(ids[0], ctors)]).expect("defined");
             j += 1;
         } else {
-            let def = &a.defs[i];
-            assert_eq!(def.group.as_ref().map(|g| g.len()), Some(1));
-            let id = check::admit_trusted_def(&mut b, &def.name, &def.ty, def.theorem, def.span)
-                .expect("declared");
+            let def = &a.env.defs()[i];
+            assert_eq!(def.group().as_ref().map(|g| g.len()), Some(1));
+            let id =
+                check::admit_trusted_def(&mut b, def.name(), def.ty(), def.theorem(), def.span())
+                    .expect("declared");
             assert_eq!(id, DefId(i));
-            if def.fold {
+            if def.fold() {
                 check::mark_folded(&mut b, id);
             }
-            if def.instance {
+            if def.instance() {
                 check::mark_instance(&mut b, id);
             }
-            if def.opaque {
+            if def.opaque() {
                 check::mark_opaque(&mut b, id);
             }
-            check::set_unfolding(&mut b, id, &def.unfolding);
+            check::set_unfolding(&mut b, id, def.unfolding());
             let body = (**def.body().expect("final")).clone();
             check::admit_trusted_group(&mut b, &[(id, body)]).expect("defined");
             if let Some(run) = def.own_run_body() {
@@ -108,41 +113,41 @@ fn a_trusted_copy_is_the_checked_environment() {
     with_double(&mut p);
     let a = &p.g;
     let b = trusted_copy(a);
-    assert_eq!(a.defs.len(), b.defs.len());
-    assert_eq!(a.datas.len(), b.datas.len());
-    for (x, y) in a.defs.iter().zip(&b.defs) {
+    assert_eq!(a.env.defs().len(), b.env.defs().len());
+    assert_eq!(a.env.datas().len(), b.env.datas().len());
+    for (x, y) in a.env.defs().iter().zip(b.env.defs()) {
         assert_eq!(y.state(), State::Final);
-        assert_eq!(x.arity, y.arity, "{}", x.name);
-        assert_eq!(x.group, y.group, "{}", x.name);
-        assert_eq!(x.path, y.path);
+        assert_eq!(x.arity(), y.arity(), "{}", x.name());
+        assert_eq!(x.group(), y.group(), "{}", x.name());
+        assert_eq!(x.path(), y.path());
         assert_eq!(format!("{:?}", x.body()), format!("{:?}", y.body()));
         assert_eq!(
             x.admitted_metadata(),
             y.admitted_metadata(),
             "{}: transparency set, lift_leaf, recursive",
-            x.name
+            x.name()
         );
     }
-    for (x, y) in a.datas.iter().zip(&b.datas) {
+    for (x, y) in a.env.datas().iter().zip(b.env.datas()) {
         assert_eq!(y.state(), State::Final);
-        assert_eq!(x.group, y.group);
+        assert_eq!(x.group(), y.group());
         assert_eq!(
-            (x.defs_before, x.datas_before),
-            (y.defs_before, y.datas_before)
+            (x.defs_before(), x.datas_before()),
+            (y.defs_before(), y.datas_before())
         );
-        assert_eq!(x.nestable, y.nestable, "{}", x.name);
-        for (c, d) in x.ctors.iter().zip(&y.ctors) {
+        assert_eq!(x.nestable(), y.nestable(), "{}", x.name());
+        for (c, d) in x.ctors().iter().zip(y.ctors()) {
             assert_eq!(format!("{:?}", c.fields), format!("{:?}", d.fields));
             assert_eq!(c.field_sorts, d.field_sorts);
             assert_eq!(c.field_erased, d.field_erased);
             assert_eq!(c.implicit, d.implicit);
         }
     }
-    for i in 0..a.defs.len() {
+    for i in 0..a.env.defs().len() {
         let id = DefId(i);
         assert_eq!(def_hash(a, id).unwrap(), def_hash(&b, id).unwrap());
     }
-    for i in 0..a.datas.len() {
+    for i in 0..a.env.datas().len() {
         let id = stitchwort_core::DataId(i);
         assert_eq!(data_hash(a, id).unwrap(), data_hash(&b, id).unwrap());
     }

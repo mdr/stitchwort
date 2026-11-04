@@ -148,11 +148,13 @@ fn apply_spine(g: &Globals, mut value: Value, spine: &[Elim]) -> Result<Value> {
 /// from the prelude's constructors, independently of [`crate::chars`].
 fn expand(g: &Globals, chars: &[char]) -> Value {
     let list = g
-        .registry
+        .env
+        .registry()
         .data(crate::registry::Builtin::List)
         .expect("a compact list needs `List`");
     let char = g
-        .registry
+        .env
+        .registry()
         .data(crate::registry::Builtin::Char)
         .expect("a compact list needs `Char`");
     let mut value = Value::Ctor(list, 0, Vec::new().into());
@@ -172,11 +174,13 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
     match term {
         Term::Chars(chars) => {
             let list = g
-                .registry
+                .env
+                .registry()
                 .data(crate::registry::Builtin::List)
                 .expect("a compact list needs `List`");
             let char = g
-                .registry
+                .env
+                .registry()
                 .data(crate::registry::Builtin::Char)
                 .expect("a compact list needs `Char`");
             let mut out = Term::Ctor(list, 0, Vec::new());
@@ -251,7 +255,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if let Some(value) = crate::float::run(g, id, &spine, force)? {
         return Ok(value);
     }
-    if let Some(op) = g.builtins.native(id)
+    if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
         match native::run(g, id, op, &spine, force)? {
@@ -367,7 +371,7 @@ fn eval_tree(
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
-                other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
+                other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
                     match native::split_value(&other) {
                         Some(split) => split,
                         None => return Ok(None),

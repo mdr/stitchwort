@@ -122,13 +122,14 @@ fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
 fn generated(session: &Session, name: &str) -> String {
     let g = &session.elab.globals;
     let def = g
-        .defs
+        .env
+        .defs()
         .iter()
         .rev()
-        .find(|d| &*d.name == name)
+        .find(|d| &**d.name() == name)
         .unwrap_or_else(|| panic!("`{name}` isn't generated"));
-    assert!(def.theorem, "`{name}` is a theorem");
-    statement(g, &def.ty)
+    assert!(def.theorem(), "`{name}` is a theorem");
+    statement(g, def.ty())
 }
 
 fn skipped(session: &Session, name: &str) -> String {
@@ -137,7 +138,7 @@ fn skipped(session: &Session, name: &str) -> String {
         .elab
         .equation_skips()
         .iter()
-        .find(|(id, s, _)| format!("{}.{s}", g.defs[id.0].name) == name)
+        .find(|(id, s, _)| format!("{}.{s}", g.env.defs()[id.0].name()) == name)
         .map(|(_, _, why)| why.clone())
         .unwrap_or_else(|| panic!("`{name}` isn't recorded as skipped"))
 }
@@ -246,12 +247,12 @@ fn each_kind_of_recursion_and_split() {
         );
         // Not recursive: neither made nor recorded.
         let g = &s.elab.globals;
-        assert!(!g.defs.iter().any(|d| &*d.name == "double.induct"));
+        assert!(!g.env.defs().iter().any(|d| &**d.name() == "double.induct"));
         assert!(
             !s.elab
                 .equation_skips()
                 .iter()
-                .any(|(id, x, _)| x == "induct" && &*g.defs[id.0].name == "double")
+                .any(|(id, x, _)| x == "induct" && &**g.env.defs()[id.0].name() == "double")
         );
     });
 }
@@ -527,7 +528,7 @@ fn a_projects_inducts() {
             if let Err(errors) = session.load_project(&files, &name, &target) {
                 panic!("{project} doesn't load: {errors:#?}");
             }
-            report(&session, |d| !d.path.starts_with("Std."));
+            report(&session, |d| !d.path().starts_with("Std."));
         })
         .unwrap()
         .join()
@@ -538,17 +539,17 @@ fn a_projects_inducts() {
 /// the others weren't; none refused by the kernel.
 fn report(session: &Session, own: impl Fn(&stitchwort_core::globals::Def) -> bool) {
     let g = &session.elab.globals;
-    let made = (g.defs.iter())
-        .filter(|d| own(d) && d.theorem && stitchwort_elab::is_function_induct(g, &d.name))
+    let made = (g.env.defs().iter())
+        .filter(|d| own(d) && d.theorem() && stitchwort_elab::is_function_induct(g, d.name()))
         .count();
     eprintln!("made {made} `f.induct`");
     let mut reasons: std::collections::BTreeMap<String, Vec<String>> = Default::default();
     for (id, s, why) in session.elab.equation_skips() {
-        if s == "induct" && own(&g.defs[id.0]) {
+        if s == "induct" && own(&g.env.defs()[id.0]) {
             reasons
                 .entry(why.clone())
                 .or_default()
-                .push(g.defs[id.0].name.to_string());
+                .push(g.env.defs()[id.0].name().to_string());
         }
     }
     for (why, names) in &reasons {

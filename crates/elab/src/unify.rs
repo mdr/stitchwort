@@ -195,7 +195,7 @@ fn literal_seen_through(g: &Globals, m: usize, other: &Value) -> Option<(Value, 
         return None;
     }
     let (k, waits_on) = g.waiting_literals.borrow().get(&m).cloned()?;
-    let reg = &g.registry;
+    let reg = &g.env.registry();
     let ty = match other {
         Value::Nat(n) if **n == *k => Value::Data(
             reg.data(stitchwort_core::registry::Builtin::Nat)?,
@@ -483,7 +483,7 @@ fn row_rule(
     if let Some(answer) = divergence_rule(g, level, a, b, work)? {
         return Ok(Some(answer));
     }
-    let Some(comp_in) = g.registry.def(Builtin::CompIn) else {
+    let Some(comp_in) = g.env.registry().def(Builtin::CompIn) else {
         return Ok(None);
     };
     // `CompIn ?e B`: its row and its result.
@@ -514,9 +514,9 @@ fn row_rule(
         return Ok(None);
     }
     let (Some(comp), Some(plus), Some(no_op), Some(empty_row)) = (
-        g.registry.data(Builtin::Comp),
-        g.registry.data(Builtin::Plus),
-        g.registry.data(Builtin::NoOp),
+        g.env.registry().data(Builtin::Comp),
+        g.env.registry().data(Builtin::Plus),
+        g.env.registry().data(Builtin::NoOp),
         crate::rows::empty_row(g),
     ) else {
         return Ok(None);
@@ -565,7 +565,7 @@ fn row_rule(
         // A partial computation: the tail of a row with abilities is total
         // (a bare `{e}` is a `CompD`, handled by `divergence_rule`).
         Value::Neutral(Head::Def(d), _)
-            if g.builtins.primitive_id(Primitive::Delay) == Some(*d) =>
+            if g.env.builtins().primitive_id(Primitive::Delay) == Some(*d) =>
         {
             return Ok(Some(false));
         }
@@ -615,7 +615,7 @@ fn divergence_rule(
 ) -> Result<Option<bool>> {
     use stitchwort_core::partial::Primitive;
     use stitchwort_core::registry::Builtin;
-    let Some(comp_d) = g.registry.def(Builtin::CompD) else {
+    let Some(comp_d) = g.env.registry().def(Builtin::CompD) else {
         return Ok(None);
     };
     let is_comp_d = |v: &Value| matches!(v, Value::Neutral(Head::Def(d), _) if *d == comp_d);
@@ -655,11 +655,11 @@ fn divergence_rule(
         return Ok(None);
     }
     let (Some((dd, total)), Some((_, may)), Some(plus), Some(no_op), Some(row_op), Some(empty)) = (
-        g.registry.ctor(Builtin::DivTotal),
-        g.registry.ctor(Builtin::DivMay),
-        g.registry.data(Builtin::Plus),
-        g.registry.data(Builtin::NoOp),
-        g.registry.def(Builtin::RowOp),
+        g.env.registry().ctor(Builtin::DivTotal),
+        g.env.registry().ctor(Builtin::DivMay),
+        g.env.registry().data(Builtin::Plus),
+        g.env.registry().data(Builtin::NoOp),
+        g.env.registry().def(Builtin::RowOp),
         crate::rows::empty_row(g),
     ) else {
         return Ok(None);
@@ -677,7 +677,7 @@ fn divergence_rule(
             None => false,
         }
     };
-    let delay = g.builtins.primitive_id(Primitive::Delay);
+    let delay = g.env.builtins().primitive_id(Primitive::Delay);
     if let Value::Neutral(Head::Def(d), spine) = other
         && Some(*d) == delay
     {
@@ -716,7 +716,7 @@ fn divergence_rule(
     }
     let settled = rigid_head(g, other).is_some()
         || matches!(other, Value::Neutral(Head::Def(d), _)
-            if Some(*d) == g.registry.def(Builtin::CompIn));
+            if Some(*d) == g.env.registry().def(Builtin::CompIn));
     if !settled {
         return Ok(match other {
             Value::Neutral(Head::Def(_), _)
@@ -725,7 +725,7 @@ fn divergence_rule(
         });
     }
     // Total: then compared again, as `CompIn E B`.
-    let Some(comp_in) = g.registry.def(Builtin::CompIn) else {
+    let Some(comp_in) = g.env.registry().def(Builtin::CompIn) else {
         return Ok(None);
     };
     let comp_in = Value::Neutral(Head::Def(comp_in), Default::default());
@@ -773,7 +773,7 @@ fn plus_rule(
     b: &Value,
     work: &mut Vec<Task>,
 ) -> Result<Option<bool>> {
-    let Some(add) = g.builtins.nat_add_rule else {
+    let Some(add) = g.env.builtins().nat_add_rule else {
         return Ok(None);
     };
     if let Some(sum) = stuck_sum(g, level, add, a)?
@@ -1484,7 +1484,7 @@ fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
     let (ty, args) = match &v {
         Value::Ctor(d, ..) => return Ok(Some(Known::Form(Rigid::Data(*d)))),
         Value::Nat(_) | Value::NatAdd(..) => {
-            return Ok(g.builtins.nat.map(|d| Known::Form(Rigid::Data(d))));
+            return Ok(g.env.builtins().nat.map(|d| Known::Form(Rigid::Data(d))));
         }
         Value::Sort(_) | Value::Pi(..) | Value::Data(..) | Value::Eq(..) => {
             return Ok(Some(Known::Form(Rigid::Sort)));
@@ -1492,7 +1492,7 @@ fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
         Value::Refl => return Ok(Some(Known::Form(Rigid::Eq))),
         Value::Lam(..) => return Ok(Some(Known::Form(Rigid::Pi))),
         Value::Neutral(Head::Def(id), spine) | Value::Call(id, spine, _) => {
-            (g.def(*id).ty_value.clone(), &spine[..])
+            (g.def(*id).ty_value().clone(), &spine[..])
         }
         Value::Neutral(Head::Meta(m), spine) => match g.meta_type(*m) {
             Some((ty, arity)) if arity <= spine.len() => (ty, &spine[arity..]),
@@ -1625,7 +1625,7 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
 /// fields or indices (`()`).
 fn has_one_value(g: &Globals, d: stitchwort_core::DataId) -> bool {
     let data = g.data(d);
-    data.indices.is_empty() && data.ctors.len() == 1 && data.ctors[0].fields.is_empty()
+    data.indices().is_empty() && data.ctors().len() == 1 && data.ctors()[0].fields.is_empty()
 }
 
 type Renamed<T> = std::result::Result<T, Fail>;
@@ -2389,14 +2389,14 @@ fn empty_row_done(g: &Globals, term: &Term) -> Option<Term> {
     };
     let is_ctor = |t: &Term, b: Builtin| {
         matches!(t.strip_loc(), Term::Ctor(data, ctor, fields)
-            if fields.is_empty() && g.registry.ctor(b) == Some((*data, *ctor)))
+            if fields.is_empty() && g.env.registry().ctor(b) == Some((*data, *ctor)))
     };
     if !is_ctor(row, Builtin::RowEmpty) {
         return None;
     }
     let is_def = |t: &Term, b: Builtin| {
         matches!(t.strip_loc(), Term::App(d, _, Icit::Implicit)
-            if matches!(d.strip_loc(), Term::Def(d) if g.registry.is_def(b, *d)))
+            if matches!(d.strip_loc(), Term::Def(d) if g.env.registry().is_def(b, *d)))
     };
     let done = is_def(head, Builtin::DoneIn)
         || matches!(head.strip_loc(), Term::App(h, div, Icit::Explicit)
@@ -2931,7 +2931,7 @@ mod tests {
     fn text_globals() -> (Fresh, CompactText) {
         let mut fresh = Fresh::default();
         let text = CompactText::new(stitchwort_core::DataId(0), stitchwort_core::DataId(1));
-        fresh.g.builtins.text = Some(text.clone());
+        fresh.g.env.set_text_unchecked_for_tests(text.clone());
         (fresh, text)
     }
 

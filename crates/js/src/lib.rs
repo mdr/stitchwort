@@ -187,27 +187,27 @@ pub struct Check {
 pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
     let def = g.def(id);
     let refuse = |why: String| {
-        Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", def.name))
-            .with_label(def.span, why)
+        Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", def.name()))
+            .with_label(def.span(), why)
     };
     // A partial function, or one taking or returning one: generated code
     // has no way to run a `Delay` (docs/proposals/partial.md §7.6, §10.6).
-    if let Some(delay) = g.builtins.primitive_id(Primitive::Delay)
-        && quote(g, 0, &def.ty_value)?
+    if let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay)
+        && quote(g, 0, def.ty_value())?
             .subterms()
             .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
     {
         return Err(Diagnostic::error(
             "E-JS-PARTIAL",
-            format!("`{}` can't be exported", def.name),
+            format!("`{}` can't be exported", def.name()),
         )
-        .with_label(def.span, "its type mentions `Partial`")
+        .with_label(def.span(), "its type mentions `Partial`")
         .with_note("partial functions can't be exported to JavaScript yet: only the runtime (`stitchwort run`, the playground) runs them")
         .with_note("export the total parts instead: the functions a partial loop calls"));
     }
     // An export is imported in JS by its short name: `Geometry.area` as
     // `area` (docs/proposals/namespaces.md §7.3).
-    let export_name = short_name(&def.name);
+    let export_name = short_name(def.name());
     if !is_js_identifier(export_name) {
         return Err(refuse(
             "its name isn't a valid JavaScript identifier".into(),
@@ -221,7 +221,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             "the generated module exports something else with that name".into(),
         ));
     }
-    let tel = telescope(g, &def.ty_value, def.span)?;
+    let tel = telescope(g, def.ty_value(), def.span())?;
     if tel.result_erased {
         return Err(refuse(
             "it's a proof or a type, so it has no runtime value".into(),
@@ -240,14 +240,14 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             .with_note("export a version specialised to a concrete type"));
         }
         if *erased {
-            let Some(validator) = def.validators.iter().find(|v| v.param == i) else {
+            let Some(validator) = def.validators().iter().find(|v| v.param == i) else {
                 return Err(refuse(format!(
                     "proof parameter `{x}` has no runtime check"
                 )));
             };
             // Describe the precondition as written in the signature.
             let names: Vec<_> = tel.params[..i].iter().map(|(n, _, _)| n.clone()).collect();
-            let description = written_param_type(&def.ty, i).map_or_else(
+            let description = written_param_type(def.ty(), i).map_or_else(
                 || pretty::value_ascii(g, &names, ty),
                 |t| pretty::term_ascii(g, &names, t),
             );
@@ -310,7 +310,7 @@ fn boundary(
             // `List` is encoded as the data type it is. Where the codec
             // depends on the declaration, its content hash confirms it;
             // otherwise the type crosses as the data type it is.
-            let builtin = g.registry.boundary_form(*d);
+            let builtin = g.env.registry().boundary_form(*d);
             // `SafeNat` and `SafeInt` are records of a `Nat` or `Int` inside
             // generated code, and `number`s at the boundary, which the codec
             // needs the `bigint` representations for.
@@ -361,7 +361,7 @@ fn boundary(
                         }
                         Value::Data(k, a) if a.is_empty() && unboxed_over_text(g, *k) => {
                             if !is_derived_order(g, *k, order) {
-                                let key_name = &g.data(*k).name;
+                                let key_name = g.data(*k).name();
                                 return Err(format!(
                                     "`{}` can't cross the JS boundary: a map from `{key_name}` \
                                      crosses only in `{key_name}`'s derived order, which is \
@@ -394,12 +394,12 @@ fn boundary(
                 // Decoding would have to check the indices (a `Vec a n`'s
                 // length, a `Grid`'s rows): refused wherever it appears in the
                 // serialized form (docs/proposals/indexed-families.md §6.8, D147).
-                _ if !data.indices.is_empty() => Err(format!(
+                _ if !data.indices().is_empty() => Err(format!(
                     "`{}` is an indexed family, which can't cross the JS boundary yet: \
                      decoding would have to check its indices",
-                    data.name
+                    data.name()
                 )),
-                _ if data.sort != Sort::Prop => {
+                _ if data.sort() != Sort::Prop => {
                     let args = args
                         .iter()
                         .map(|arg| boundary(g, arg, params, visiting))
@@ -418,7 +418,7 @@ fn boundary(
 /// Whether `order` is the library's `Text.instOrd`, the ordering a map that
 /// crosses as an object is sorted by.
 fn is_text_order(g: &Globals, order: &Value) -> bool {
-    let Some(text_order) = g.registry.loaded_def(Builtin::TextInstOrd) else {
+    let Some(text_order) = g.env.registry().loaded_def(Builtin::TextInstOrd) else {
         return false;
     };
     match order {
@@ -438,10 +438,10 @@ fn unboxed_over_text(g: &Globals, d: DataId) -> bool {
     let Some(i) = data.unboxed_field() else {
         return false;
     };
-    let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
-    env.extend((0..i).map(|j| Value::var(data.params.len() + j)));
+    let mut env: Vec<Value> = (0..data.params().len()).map(Value::var).collect();
+    env.extend((0..i).map(|j| Value::var(data.params().len() + j)));
     matches!(
-        eval(g, &env, &data.ctors[0].fields[i].1).expect(OUTSIDE_LIMITS),
+        eval(g, &env, &data.ctors()[0].fields[i].1).expect(OUTSIDE_LIMITS),
         Value::Data(t, a) if a.is_empty() && text_data(g) == Some(t)
     )
 }
@@ -456,7 +456,7 @@ fn is_derived_order(g: &Globals, d: DataId, order: &Value) -> bool {
         Value::Neutral(Head::Def(id), spine) if spine.is_empty() => *id,
         _ => return false,
     };
-    *g.def(id).name == *format!("{}.%instOrd", g.data(d).name)
+    **g.def(id).name() == *format!("{}.%instOrd", g.data(d).name())
 }
 
 /// Whether a data type can have a codec: its parameters are types, and its
@@ -468,28 +468,28 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
         return Ok(());
     }
     let data = g.data(d);
-    if MODULE_NAMES.contains(&short_name(&data.name)) {
+    if MODULE_NAMES.contains(&short_name(data.name())) {
         return Err(format!(
             "`{}` is the name of something else the generated module exports",
-            data.name
+            data.name()
         ));
     }
     let mut env = Vec::new();
-    for (x, ty) in &data.params {
+    for (x, ty) in data.params() {
         if !matches!(
             eval(g, &env, ty).expect(OUTSIDE_LIMITS),
             Value::Sort(Sort::Type(_))
         ) {
             return Err(format!(
                 "`{}`'s parameter `{x}` isn't a type, which can't cross the JS boundary yet",
-                data.name
+                data.name()
             ));
         }
         env.push(Value::var(env.len()));
     }
     // (That each field has its own key at the boundary is checked with the
     // rest of the type's names, in `check_names`.)
-    for (c, (ctor, fields)) in data.ctors.iter().zip(data_fields(g, d)).enumerate() {
+    for (c, (ctor, fields)) in data.ctors().iter().zip(data_fields(g, d)).enumerate() {
         for (i, (field, _)) in ctor.fields.iter().enumerate() {
             if !ctor.field_erased[i] {
                 continue;
@@ -497,30 +497,34 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
             // A record's proof field is established by its decision procedure
             // (docs/proposals/records.md §11.3).
             let proof = ctor.field_sorts[i] == Sort::Prop;
-            let checked =
-                data.record && proof && data.validators.iter().any(|v| v.ctor == c && v.field == i);
+            let checked = data.record()
+                && proof
+                && data
+                    .validators()
+                    .iter()
+                    .any(|v| v.ctor == c && v.field == i);
             if !checked {
-                return Err(if data.record && proof {
+                return Err(if data.record() && proof {
                     format!(
                         "`{}`'s proof field `{field}` has no runtime check",
-                        data.name
+                        data.name()
                     )
-                } else if data.record {
+                } else if data.record() {
                     format!(
                         "`{}`'s field `{field}` is a type, which can't cross the JS boundary",
-                        data.name
+                        data.name()
                     )
                 } else {
                     format!(
                         "`{}` has a proof or type field, which can't be checked at the boundary yet",
-                        data.name
+                        data.name()
                     )
                 });
             }
         }
         for (field, field_ty) in fields {
-            let b = boundary(g, &field_ty, data.params.len(), visiting)
-                .map_err(|why| format!("`{}`'s field `{field}`: {why}", data.name))?;
+            let b = boundary(g, &field_ty, data.params().len(), visiting)
+                .map_err(|why| format!("`{}`'s field `{field}`: {why}", data.name()))?;
             if repr(g, d).unboxed {
                 unboxed_field_crosses(g, d, &field, &b)?;
             }
@@ -535,7 +539,7 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
 /// refuses one written as such), and it isn't `d` again, directly or through
 /// other unboxed records, which would be a value that is only itself.
 fn unboxed_field_crosses(g: &Globals, d: DataId, field: &str, b: &Boundary) -> Result<(), String> {
-    let name = &g.data(d).name;
+    let name = g.data(d).name();
     if matches!(b, Boundary::Option(..)) {
         return Err(format!(
             "`{name}` is `js.unboxed`, so it would cross as its field `{field}`, which crosses \
@@ -573,10 +577,10 @@ fn unboxed_field_crosses(g: &Globals, d: DataId, field: &str, b: &Boundary) -> R
 /// constructor of a data type, with its parameters as the first variables.
 fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
     let data = g.data(d);
-    data.ctors
+    data.ctors()
         .iter()
         .map(|ctor| {
-            let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
+            let mut env: Vec<Value> = (0..data.params().len()).map(Value::var).collect();
             let mut out = Vec::new();
             for ((name, ty), erased) in ctor.fields.iter().zip(&ctor.field_erased) {
                 let value = eval(g, &env, ty).expect(OUTSIDE_LIMITS);
@@ -606,7 +610,7 @@ pub fn field_boundaries(g: &Globals, d: DataId, args: &[Boundary]) -> Vec<Vec<(S
 
 /// [`field_boundaries`] with the parameters left as [`Boundary::Param`].
 fn generic_field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary)>> {
-    let params = g.data(d).params.len();
+    let params = g.data(d).params().len();
     data_fields(g, d)
         .into_iter()
         .map(|fields| {
@@ -682,13 +686,13 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
                 "E-EXPORT",
                 format!(
                     "`{}` and `{}` would both be exported as `{}`",
-                    g.def(other).name,
-                    g.def(sig.id).name,
+                    g.def(other).name(),
+                    g.def(sig.id).name(),
                     sig.name
                 ),
             )
-            .with_label(g.def(sig.id).span, "exported here")
-            .with_label(g.def(other).span, "and here")
+            .with_label(g.def(sig.id).span(), "exported here")
+            .with_label(g.def(other).span(), "and here")
             .with_note("export only one of them, or rename one"));
         }
     }
@@ -708,9 +712,9 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
             continue;
         }
         let repr = repr(g, d);
-        if let Some(clash) = js_repr::clashes(&repr, data.record).first() {
+        if let Some(clash) = js_repr::clashes(&repr, data.record()).first() {
             let mut diagnostic = Diagnostic::error("E-JS-NAME-CLASH", clash.message(data, &repr))
-                .with_label(data.span, "this type crosses the JS boundary");
+                .with_label(data.span(), "this type crosses the JS boundary");
             let reaches = |sig: &&ExportSig| {
                 let mut datas = Vec::new();
                 for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
@@ -720,8 +724,8 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
             };
             if let Some(sig) = exports.iter().find(reaches) {
                 diagnostic = diagnostic.with_label(
-                    g.def(sig.id).span,
-                    format!("`{}` is exported, and reaches it", g.def(sig.id).name),
+                    g.def(sig.id).span(),
+                    format!("`{}` is exported, and reaches it", g.def(sig.id).name()),
                 );
             }
             return Err(diagnostic.with_note(clash.note(&repr)));
@@ -729,18 +733,18 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
     }
     let mut short_types: HashMap<String, DataId> = HashMap::default();
     for &d in &boundary_datas {
-        if let Some(other) = short_types.insert(type_name(&g.data(d).name), d) {
+        if let Some(other) = short_types.insert(type_name(g.data(d).name()), d) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!(
                     "`{}` and `{}` would both be called `{}` in the TypeScript declarations",
-                    g.data(other).name,
-                    g.data(d).name,
-                    type_name(&g.data(d).name)
+                    g.data(other).name(),
+                    g.data(d).name(),
+                    type_name(g.data(d).name())
                 ),
             )
-            .with_label(g.data(d).span, "this type crosses the JS boundary")
-            .with_label(g.data(other).span, "and so does this one")
+            .with_label(g.data(d).span(), "this type crosses the JS boundary")
+            .with_label(g.data(other).span(), "and so does this one")
             .with_note("rename one of them"));
         }
     }
@@ -750,7 +754,7 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
 /// Checks that the exports loaded so far can be named in JS and TypeScript
 /// together: [`exportable`] checks each on its own.
 pub fn exports_fit_together(g: &Globals) -> Result<(), Diagnostic> {
-    exports_fit_together_among(g, (0..g.defs.len()).map(DefId))
+    exports_fit_together_among(g, (0..g.env.defs().len()).map(DefId))
 }
 
 /// [`exports_fit_together`] for the exports among `ids` only: one
@@ -760,7 +764,7 @@ pub fn exports_fit_together_among(
     ids: impl Iterator<Item = DefId>,
 ) -> Result<(), Diagnostic> {
     let exports = ids
-        .filter(|id| g.def(*id).export)
+        .filter(|id| g.def(*id).export())
         .map(|id| exportable(g, id))
         .collect::<Result<Vec<_>, _>>()?;
     let boundary_datas = check_names(g, &exports)?;
@@ -773,9 +777,9 @@ pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
 
 /// [`generate`], with the given representation options.
 pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
-    let ids: Vec<DefId> = (0..g.defs.len())
+    let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
-        .filter(|id| g.def(*id).export)
+        .filter(|id| g.def(*id).export())
         .collect();
     generate_exports(g, limits, options, &ids)
 }
@@ -808,7 +812,7 @@ pub fn generate_exports(
     // missing properties (docs/proposals/named-arguments.md §5.3).
     let checks = boundary_datas
         .iter()
-        .flat_map(|d| &g.data(*d).validators)
+        .flat_map(|d| g.data(*d).validators())
         .flat_map(|v| v.decision.subterms())
         .filter_map(|(t, _)| match t {
             Term::Def(id) => Some(*id),
@@ -841,7 +845,8 @@ pub fn generate_exports(
         ]
         .into_iter()
         .map(|b| {
-            g.registry
+            g.env
+                .registry()
                 .loaded_def(b)
                 .expect("a map crosses only with the library's `Map` loaded")
         })
@@ -901,7 +906,7 @@ pub fn generate_exports(
         let data = g.data(d);
         let tag_key = repr(g, d).tag_key.clone();
         // The tag key, unless it's the default (or the type is a record).
-        let key = if data.record || tag_key == js_repr::DEFAULT_TAG_KEY {
+        let key = if data.record() || tag_key == js_repr::DEFAULT_TAG_KEY {
             String::new()
         } else {
             format!(", {}", js_string_literal(&tag_key))
@@ -909,22 +914,22 @@ pub fn generate_exports(
         let _ = writeln!(
             js,
             "const {} = datatype({}{key});",
-            info_name(&data.path),
-            js_string_literal(&data.name)
+            info_name(data.path()),
+            js_string_literal(data.name())
         );
     }
     // How the runtime builds and takes apart an `Option`.
     if let Some(&d) = boundary_datas
         .iter()
-        .find(|d| g.registry.is_data(Builtin::Option, **d))
+        .find(|d| g.env.registry().is_data(Builtin::Option, **d))
     {
         let data = g.data(d);
-        let some = &data.ctors[1];
+        let some = &data.ctors()[1];
         let _ = writeln!(
             js,
             "const OPTION_SHAPE = {{ info: {}, none: {}, some: {}, key: {} }};",
-            info_name(&data.path),
-            js_string_literal(&data.ctors[0].name),
+            info_name(data.path()),
+            js_string_literal(&data.ctors()[0].name),
             js_string_literal(&some.name),
             js_string_literal(&field_key_at(g, d, 1, 0)),
         );
@@ -945,7 +950,7 @@ pub fn generate_exports(
     }
     let while_generating = |id: DefId| {
         move |e: ResourceError| {
-            Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
+            Diagnostic::from(e).with_label(g.def(id).span(), "while generating JavaScript for this")
         }
     };
     let wanted: Vec<DefId> = wanted
@@ -961,15 +966,15 @@ pub fn generate_exports(
         if def.body().is_none() && !codegen.info(id).result_erased && !codegen.is_native(id) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
-                format!("can't generate JavaScript for `{}`", def.name),
+                format!("can't generate JavaScript for `{}`", def.name()),
             )
             .with_label(
-                def.span,
+                def.span(),
                 "it hasn't been checked successfully, so it has no definition to generate",
             ));
         }
         let text = codegen.def(id).map_err(while_generating(id))?;
-        mapper.chunk(&js, &text, def.span, &def.name);
+        mapper.chunk(&js, &text, def.span(), def.name());
         js.push_str(&text);
     }
     mapper.end(&js);
@@ -978,7 +983,7 @@ pub fn generate_exports(
     }
     for sig in &exports {
         let text = codegen.wrapper(sig).map_err(while_generating(sig.id))?;
-        mapper.chunk(&js, &text, g.def(sig.id).span, &sig.name);
+        mapper.chunk(&js, &text, g.def(sig.id).span(), &sig.name);
         js.push_str(&text);
     }
     mapper.end(&js);
@@ -1009,7 +1014,7 @@ pub fn generate_exports(
                 .any(|(_, b)| names_option(g, b))
         });
     for &d in &boundary_datas {
-        if g.registry.is_data(Builtin::Option, d) && !tagged_option {
+        if g.env.registry().is_data(Builtin::Option, d) && !tagged_option {
             continue;
         }
         dts.push_str(&codegen.ts_alias(d, None));
@@ -1046,7 +1051,7 @@ fn names_option(g: &Globals, b: &Boundary) -> bool {
         Boundary::List(elem) | Boundary::Map(_, _, elem) => names_option(g, elem),
         Boundary::Option(..) => names_option(g, &b.payload()),
         Boundary::Data(d, args) => {
-            g.registry.is_data(Builtin::Option, *d) || args.iter().any(|a| names_option(g, a))
+            g.env.registry().is_data(Builtin::Option, *d) || args.iter().any(|a| names_option(g, a))
         }
         _ => false,
     }
@@ -1073,7 +1078,7 @@ fn input_datas(g: &Globals, boundary_datas: &[DataId]) -> Result<HashSet<DataId>
     let own_default = |d: DataId| {
         let data = g.data(d);
         !repr(g, d).unboxed
-            && data.ctors.iter().enumerate().any(|(c, ctor)| {
+            && data.ctors().iter().enumerate().any(|(c, ctor)| {
                 (0..ctor.fields.len())
                     .any(|i| !ctor.field_erased[i] && field_default(g, d, c, i).is_some())
             })
@@ -1111,29 +1116,29 @@ fn input_datas(g: &Globals, boundary_datas: &[DataId]) -> Result<HashSet<DataId>
         inputs.extend(more);
     }
     for &d in boundary_datas.iter().filter(|d| inputs.contains(d)) {
-        let input = format!("{}{INPUT_SUFFIX}", type_name(&g.data(d).name));
+        let input = format!("{}{INPUT_SUFFIX}", type_name(g.data(d).name()));
         if let Some(&other) = boundary_datas
             .iter()
-            .find(|e| type_name(&g.data(**e).name) == input)
+            .find(|e| type_name(g.data(**e).name()) == input)
         {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!(
                     "`{}`'s input shape and `{}` would both be called `{input}` in the \
                      TypeScript declarations",
-                    g.data(d).name,
-                    g.data(other).name
+                    g.data(d).name(),
+                    g.data(other).name()
                 ),
             )
-            .with_label(g.data(d).span, format!("its input shape is `{input}`"))
+            .with_label(g.data(d).span(), format!("its input shape is `{input}`"))
             .with_label(
-                g.data(other).span,
+                g.data(other).span(),
                 "and this type crosses the JS boundary too",
             )
             .with_note(format!(
                 "a parameter's `{}` may leave out fields with defaults, in it or inside it, \
                  so its type is `{input}`; rename one of the types",
-                type_name(&g.data(d).name)
+                type_name(g.data(d).name())
             )));
         }
     }
@@ -2179,13 +2184,13 @@ impl<'g> Gen<'g> {
             int_natives,
             float,
             float_natives,
-            infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
-            if_then_else: g.registry.def(Builtin::IfThenElse),
-            elim_dec: g.registry.def(Builtin::ElimDec),
-            ord_compare: g.registry.def(Builtin::OrdCompare),
-            ord_from_compare: g.registry.def(Builtin::OrdFromCompare),
-            nat_add: nat.and(g.registry.def(Builtin::Add)),
-            list_append: g.registry.def(Builtin::Append),
+            infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
+            if_then_else: g.env.registry().def(Builtin::IfThenElse),
+            elim_dec: g.env.registry().def(Builtin::ElimDec),
+            ord_compare: g.env.registry().def(Builtin::OrdCompare),
+            ord_from_compare: g.env.registry().def(Builtin::OrdFromCompare),
+            nat_add: nat.and(g.env.registry().def(Builtin::Add)),
+            list_append: g.env.registry().def(Builtin::Append),
             effect: effect::Effect::new(g, options.effect_counters),
             run_delay: false,
             holes: RefCell::new(Vec::new()),
@@ -2193,9 +2198,9 @@ impl<'g> Gen<'g> {
             hole_misused: Cell::new(false),
             fast: RefCell::default(),
             spec: Specialiser::new(g),
-            used: RefCell::new(vec![true; g.defs.len()]),
-            empty: RefCell::new(vec![false; g.defs.len()]),
-            empty_infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
+            used: RefCell::new(vec![true; g.env.defs().len()]),
+            empty: RefCell::new(vec![false; g.env.defs().len()]),
+            empty_infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             sig_maps: SigMaps::new(g),
             hoisted: RefCell::new(Vec::new()),
             hoisting: Cell::new(false),
@@ -2233,7 +2238,7 @@ impl<'g> Gen<'g> {
         if let Some(e) = failure.into_inner() {
             return Err(e);
         }
-        let wanted: Vec<DefId> = (0..g.defs.len())
+        let wanted: Vec<DefId> = (0..g.env.defs().len())
             .map(DefId)
             .filter(|id| reach.used[id.0] || reach.empty[id.0])
             .collect();
@@ -2289,7 +2294,7 @@ impl<'g> Gen<'g> {
     /// The name `id` (or its variant) is declared under, even if it's an
     /// alias ([`Gen::share`]).
     fn own_name(&self, id: DefId, variant: bool) -> String {
-        let name = def_name(&self.g.def(id).path);
+        let name = def_name(self.g.def(id).path());
         if variant { format!("{name}$e") } else { name }
     }
 
@@ -2298,7 +2303,7 @@ impl<'g> Gen<'g> {
     /// and the variant if the loop is the variant's.
     fn is_self(&self, call: &SelfCall, id: DefId, args: &[&Term]) -> bool {
         id == call.id
-            && args.len() == self.g.def(id).arity
+            && args.len() == self.g.def(id).arity()
             && self.empty_call(id, args) == call.variant
     }
 
@@ -2306,7 +2311,7 @@ impl<'g> Gen<'g> {
     /// number natives assume the `bigint` representation, so they apply only
     /// with it ([`nat_data`]).
     fn kernel_native(&self, id: DefId) -> Option<native::Native> {
-        self.nat.and(self.g.builtins.native(id))
+        self.nat.and(self.g.env.builtins().native(id))
     }
 
     /// The one run-time field of a record that generated code stores as
@@ -2359,9 +2364,9 @@ impl<'g> Gen<'g> {
             Convention::Function
         } else {
             let case_tree = def.body().is_some_and(|b| {
-                matches!(b.peel_lams(def.arity), Term::Case(..) | Term::NumCase(..))
+                matches!(b.peel_lams(def.arity()), Term::Case(..) | Term::NumCase(..))
             });
-            let in_group = def.group.as_ref().is_some_and(|m| m.len() > 1);
+            let in_group = def.group().as_ref().is_some_and(|m| m.len() > 1);
             if case_tree || in_group {
                 Convention::Thunk
             } else {
@@ -2392,7 +2397,7 @@ impl<'g> Gen<'g> {
     fn info(&self, id: DefId) -> &DefInfo {
         self.infos[id.0]
             .get()
-            .unwrap_or_else(|| panic!("no info for {}", self.g.def(id).name))
+            .unwrap_or_else(|| panic!("no info for {}", self.g.def(id).name()))
     }
 
     /// The declaration of `id` if the program uses it as it is, followed by
@@ -2500,7 +2505,7 @@ impl<'g> Gen<'g> {
         // The effect runtime's functions take all their arguments at once
         // already.
         if let Some(op) = self.effect_native(id) {
-            return Ok(format!("const {} = {};\n", def_name(&def.path), op.js()));
+            return Ok(format!("const {} = {};\n", def_name(def.path()), op.js()));
         }
         if let Some(js) = self.native_rhs(id) {
             let info = self.info(id);
@@ -2510,7 +2515,7 @@ impl<'g> Gen<'g> {
             } else {
                 js
             };
-            return Ok(format!("const {} = {js};\n", def_name(&def.path)));
+            return Ok(format!("const {} = {js};\n", def_name(def.path())));
         }
         let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");
@@ -2520,7 +2525,7 @@ impl<'g> Gen<'g> {
         let simplified = self.spec.generic_body(id).ok().flatten();
         let tree = simplified
             .as_deref()
-            .unwrap_or_else(|| body.peel_lams(def.arity));
+            .unwrap_or_else(|| body.peel_lams(def.arity()));
         self.def_body(id, false, tree, mask, convention)
     }
 
@@ -2528,7 +2533,7 @@ impl<'g> Gen<'g> {
     /// a function taking its runtime arguments one at a time.
     fn native_rhs(&self, id: DefId) -> Option<String> {
         if self.run_delay
-            && let Some(prim) = self.g.builtins.primitive(id)
+            && let Some(prim) = self.g.env.builtins().primitive(id)
         {
             return Some(run::primitive_js(prim).into());
         }
@@ -2678,7 +2683,7 @@ impl<'g> Gen<'g> {
     /// mentions `id` or another member of its group: only then is
     /// [`Gen::self_tail_loop`] worth trying.
     fn may_loop(&self, id: DefId, body: &Term) -> bool {
-        let group = self.g.def(id).group.as_deref().unwrap_or(&[]);
+        let group = self.g.def(id).group().as_deref().unwrap_or(&[]);
         body.subterms().any(|(t, _)| match t {
             Term::Def(d) => *d == id || group.contains(d),
             _ => false,
@@ -2702,7 +2707,7 @@ impl<'g> Gen<'g> {
     /// `f.%match1` calls `f`, which loops, rather than holding a copy of it.
     fn inlines_member(&self, member: DefId, call: &SelfCall) -> bool {
         let def = self.g.def(call.id);
-        let Some(group) = def.group.as_deref() else {
+        let Some(group) = def.group().as_deref() else {
             return false;
         };
         // A member's body is the generic one, which a variant's loop
@@ -2715,8 +2720,8 @@ impl<'g> Gen<'g> {
             return false;
         }
         let member_def = self.g.def(member);
-        let path = def.path.to_string();
-        let member_path = member_def.path.to_string();
+        let path = def.path().to_string();
+        let member_path = member_def.path().to_string();
         if path.starts_with(&format!("{member_path}.%")) {
             return false;
         }
@@ -2815,10 +2820,10 @@ impl<'g> Gen<'g> {
         let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| {
             let pad = "  ".repeat(depth);
             let level = env.len();
-            for (f, ((_, _), erased)) in data.ctors[c]
+            for (f, ((_, _), erased)) in data.ctors()[c]
                 .fields
                 .iter()
-                .zip(&data.ctors[c].field_erased)
+                .zip(&data.ctors()[c].field_erased)
                 .enumerate()
             {
                 if !erased && Some(*d) == self.float {
@@ -2852,7 +2857,7 @@ impl<'g> Gen<'g> {
             env.truncate(level);
             Ok(())
         };
-        if data.sort == Sort::Prop {
+        if data.sort() == Sort::Prop {
             // The proof doesn't exist at runtime. Matching on it into data is
             // only allowed for at most one constructor with only proof fields.
             match branches.first() {
@@ -2894,13 +2899,13 @@ impl<'g> Gen<'g> {
                 let _ = writeln!(out, "{pad}const {} = charsOfText({scrutinee});", var(level));
             }
             out.push_str(&body);
-        } else if data.record {
+        } else if data.record() {
             // A record has one constructor and no tag.
             branch(&mut out, 0, &branches[0], depth)?;
         } else {
             let _ = writeln!(out, "{pad}switch ({scrutinee}.tag) {{");
             for (c, b) in branches.iter().enumerate() {
-                let _ = writeln!(out, "{pad}  case \"{}\": {{", data.ctors[c].name);
+                let _ = writeln!(out, "{pad}  case \"{}\": {{", data.ctors()[c].name);
                 branch(&mut out, c, b, depth + 2)?;
                 let _ = writeln!(out, "{pad}  }}");
             }
@@ -2916,8 +2921,8 @@ impl<'g> Gen<'g> {
     /// value itself.
     fn is_identity_match(&self, d: DataId, branches: &[Branch]) -> bool {
         let data = self.g.data(d);
-        if data.sort == Sort::Prop
-            || data.record
+        if data.sort() == Sort::Prop
+            || data.record()
             || Some(d) == self.float
             || Some(d) == self.text
             || Some(d) == self.nat
@@ -2926,7 +2931,7 @@ impl<'g> Gen<'g> {
             return false;
         }
         branches.iter().enumerate().all(|(c, b)| {
-            data.ctors[c].field_erased.iter().all(|erased| *erased)
+            data.ctors()[c].field_erased.iter().all(|erased| *erased)
                 && matches!(
                     b.body.as_ref().map(|body| body.strip_loc()),
                     Some(Term::Ctor(d2, c2, _)) if *d2 == d && *c2 == c
@@ -3169,17 +3174,18 @@ impl<'g> Gen<'g> {
         let Term::Def(id) = head else {
             return Ok(None);
         };
-        if Some(*id) != self.list_append || args.len() != self.g.def(*id).arity || args.len() < 2 {
+        if Some(*id) != self.list_append || args.len() != self.g.def(*id).arity() || args.len() < 2
+        {
             return Ok(None);
         }
         let (front, rest) = (args[args.len() - 2], args[args.len() - 1]);
-        let Some(list) = self.g.registry.data(Builtin::List) else {
+        let Some(list) = self.g.env.registry().data(Builtin::List) else {
             return Ok(None);
         };
         let Some(cons) = self
             .g
             .data(list)
-            .ctors
+            .ctors()
             .iter()
             .position(|c| &*c.name == "Cons")
         else {
@@ -3193,7 +3199,7 @@ impl<'g> Gen<'g> {
         let passed = self
             .hole_passed(rest, env, call)?
             .expect("`hole_passed_shape` found a call");
-        let tag = js_string_literal(&self.g.data(list).ctors[cons].name);
+        let tag = js_string_literal(&self.g.data(list).ctors()[cons].name);
         let head_key = field_key_at(self.g, list, cons, 0);
         let tail_key = field_key_at(self.g, list, cons, 1);
         let n = call.fresh();
@@ -3326,7 +3332,7 @@ impl<'g> Gen<'g> {
         };
         let data = self.g.data(*d);
         // A record stored as its field (D866) is no cell either.
-        if data.sort == Sort::Prop
+        if data.sort() == Sort::Prop
             || Some(*d) == self.text
             || Some(*d) == self.nat
             || Some(*d) == self.int
@@ -3353,7 +3359,7 @@ impl<'g> Gen<'g> {
             }
         }
         // The field mustn't be erased, or there's no cell to put it in.
-        let ctor_erased = |c: usize, i: usize| self.g.data(*d).ctors[c].field_erased[i];
+        let ctor_erased = |c: usize, i: usize| self.g.data(*d).ctors()[c].field_erased[i];
         let Term::Ctor(_, c, _) = term.strip_loc() else {
             return None;
         };
@@ -3380,9 +3386,9 @@ impl<'g> Gen<'g> {
             .hole_path(term, env, call)
             .expect("`hole_path` found a hole");
         let data = self.g.data(*d);
-        let ctor = &data.ctors[*c];
+        let ctor = &data.ctors()[*c];
         let mut fields = Vec::new();
-        if !data.record {
+        if !data.record() {
             fields.push(format!("tag: \"{}\"", ctor.name));
         }
         let mut inner = None;
@@ -3438,7 +3444,7 @@ impl<'g> Gen<'g> {
         call: &SelfCall,
     ) -> Fallible<Option<String>> {
         let def = self.g.def(id);
-        if id == call.id || def.arity != args.len() || self.is_native(id) {
+        if id == call.id || def.arity() != args.len() || self.is_native(id) {
             return Ok(None);
         }
         let Some(info) = self.infos[id.0].get() else {
@@ -3457,7 +3463,7 @@ impl<'g> Gen<'g> {
         } else {
             match (self.spec.generic_body(id).ok().flatten(), def.run_body()) {
                 (Some(simplified), _) => simplified,
-                (None, Some(body)) => Rc::new(body.peel_lams(def.arity).clone()),
+                (None, Some(body)) => Rc::new(body.peel_lams(def.arity()).clone()),
                 (None, None) => return Ok(None),
             }
         };
@@ -3859,7 +3865,7 @@ impl<'g> Gen<'g> {
             }
             Term::Ctor(d, c, args) => {
                 let data = self.g.data(*d);
-                if data.sort == Sort::Prop {
+                if data.sort() == Sort::Prop {
                     return Ok("undefined".into());
                 }
                 if Some(*d) == self.text {
@@ -3913,9 +3919,9 @@ impl<'g> Gen<'g> {
                 if let Some(i) = self.unboxed(*d) {
                     return self.expr(&args[i], env);
                 }
-                let ctor = &data.ctors[*c];
+                let ctor = &data.ctors()[*c];
                 let mut fields = Vec::new();
-                if !data.record {
+                if !data.record() {
                     fields.push(format!("tag: \"{}\"", ctor.name));
                 }
                 for (f, (erased, arg)) in ctor.field_erased.iter().zip(args).enumerate() {
@@ -4019,7 +4025,8 @@ impl<'g> Gen<'g> {
     fn is_decision(&self, term: &Term, yes: bool) -> bool {
         let ctor = self
             .g
-            .registry
+            .env
+            .registry()
             .ctor(if yes { Builtin::Yes } else { Builtin::No });
         matches!(term.strip_loc(), Term::Ctor(d, c, _) if Some((*d, *c)) == ctor)
     }
@@ -4056,7 +4063,7 @@ impl<'g> Gen<'g> {
             return None;
         };
         let def = self.g.def(*id);
-        if def.arity != 0 {
+        if def.arity() != 0 {
             return None;
         }
         let body = def.run_body()?.strip_loc();
@@ -4066,7 +4073,7 @@ impl<'g> Gen<'g> {
                 return None;
             };
             let data = self.g.data(*d);
-            let k = data.ctors[0]
+            let k = data.ctors()[0]
                 .fields
                 .iter()
                 .position(|(name, _)| &**name == "compare")?;
@@ -4086,7 +4093,7 @@ impl<'g> Gen<'g> {
             // argument in that place.
             let from = self.g.def(*from);
             let mut inner = from.run_body()?.strip_loc();
-            for _ in 0..from.arity {
+            for _ in 0..from.arity() {
                 let Term::Lam(_, _, b) = inner else {
                     return None;
                 };
@@ -4095,7 +4102,7 @@ impl<'g> Gen<'g> {
             let Term::Var(ix) = field(inner)?.strip_loc().clone() else {
                 return None;
             };
-            let param = from.arity.checked_sub(ix + 1)?;
+            let param = from.arity().checked_sub(ix + 1)?;
             Rc::new((*args.get(param)?).clone())
         };
         matches!(compare.strip_loc(), Term::Def(_)).then_some(compare)
@@ -4358,7 +4365,7 @@ impl<'g> Gen<'g> {
             wrapper_name(&sig.name),
             params.join(", ")
         );
-        let mut call = def_name(&self.g.def(sig.id).path);
+        let mut call = def_name(self.g.def(sig.id).path());
         let info = self.info(sig.id);
         if info.convention == Convention::Thunk {
             call.push_str("()");
@@ -4417,12 +4424,13 @@ impl<'g> Gen<'g> {
     fn nat_from_number(&self, n: &BigUint) -> String {
         let d = self
             .g
-            .registry
+            .env
+            .registry()
             .data(Builtin::Nat)
             .expect("a checked `Nat` term has a declared `Nat`");
         let data = self.g.data(d);
-        let zero = js_string_literal(&data.ctors[0].name);
-        let succ = js_string_literal(&data.ctors[1].name);
+        let zero = js_string_literal(&data.ctors()[0].name);
+        let succ = js_string_literal(&data.ctors()[1].name);
         let key = ts_key(&field_key_at(self.g, d, 1, 0));
         format!(
             "((k) => {{ let v = {{ tag: {zero} }}; for (let i = 0n; i < k; i++) v = {{ tag: {succ}, {key}: v }}; return v; }})({n}n)"
@@ -4461,8 +4469,8 @@ impl<'g> Gen<'g> {
         // Inside generated code, `OfNat n` and `NegSucc n` are objects, as
         // any data type's constructors are (`Options::native_int` off).
         let data = self.g.data(d);
-        let tag = |c: usize| js_string_literal(&data.ctors[c].name);
-        let field = |c: usize| key(self.g, d, &data.ctors[c].fields[0].0);
+        let tag = |c: usize| js_string_literal(&data.ctors()[c].name);
+        let field = |c: usize| key(self.g, d, &data.ctors()[c].fields[0].0);
         format!(
             "\n// `Int` is a `bigint` of either sign at the boundary, and `{of_nat}` or\n\
              // `{neg_succ}` inside generated code.\n\
@@ -4473,8 +4481,8 @@ impl<'g> Gen<'g> {
                }},\n  \
                (v) => (v.tag === {t0} ? v{m0} : -v{m1} - 1n),\n\
              );\n",
-            of_nat = data.ctors[0].name,
-            neg_succ = data.ctors[1].name,
+            of_nat = data.ctors()[0].name,
+            neg_succ = data.ctors()[1].name,
             t0 = tag(0),
             t1 = tag(1),
             k0 = ts_key(&field(0)),
@@ -4515,7 +4523,7 @@ impl<'g> Gen<'g> {
             if self.unboxed(d) == Some(0) {
                 return (value.to_string(), "v".to_string());
             }
-            let name = &data.ctors[0].fields[0].0;
+            let name = &data.ctors()[0].fields[0].0;
             let k = key(self.g, d, name);
             (
                 format!("({{ {}: {value} }})", ts_key(&k)),
@@ -4546,7 +4554,7 @@ impl<'g> Gen<'g> {
     /// any map; a pair is `MkPair`'s tag and its fields' keys.
     fn map_shape(&self) -> Fallible<String> {
         let g = self.g;
-        let registry = &g.registry;
+        let registry = &g.env.registry();
         let (pair, ctor) = registry
             .ctor(Builtin::MkPair)
             .expect("a checked program has pairs");
@@ -4568,7 +4576,7 @@ impl<'g> Gen<'g> {
                fromList: {from_list},\n  \
                toList: {to_list},\n\
              }};\n",
-            js_string_literal(&g.data(pair).ctors[ctor].name),
+            js_string_literal(&g.data(pair).ctors()[ctor].name),
             js_string_literal(&field_key_at(g, pair, ctor, 0)),
             js_string_literal(&field_key_at(g, pair, ctor, 1)),
         ))
@@ -4576,9 +4584,9 @@ impl<'g> Gen<'g> {
 
     /// The tag of `Decidable`'s first constructor (`Yes`).
     fn decision_yes_tag(&self) -> String {
-        self.g.registry.data(Builtin::Decidable).map_or_else(
+        self.g.env.registry().data(Builtin::Decidable).map_or_else(
             || "Yes".into(),
-            |d| self.g.data(d).ctors[0].name.to_string(),
+            |d| self.g.data(d).ctors()[0].name.to_string(),
         )
     }
 
@@ -4603,13 +4611,13 @@ impl<'g> Gen<'g> {
                 format!("map({}, {})", self.type_expr(value), self.type_expr(key))
             }
             Boundary::Data(d, args) if args.is_empty() => {
-                format!("data({})", info_name(&self.g.data(*d).path))
+                format!("data({})", info_name(self.g.data(*d).path()))
             }
             Boundary::Data(d, args) => {
                 let args: Vec<String> = args.iter().map(|a| self.type_expr(a)).collect();
                 format!(
                     "data({}, [{}])",
-                    info_name(&self.g.data(*d).path),
+                    info_name(self.g.data(*d).path()),
                     args.join(", ")
                 )
             }
@@ -4629,9 +4637,9 @@ impl<'g> Gen<'g> {
     fn define(&self, d: DataId) -> Fallible<String> {
         let data = self.g.data(d);
         let repr = repr(self.g, d);
-        let mut out = format!("define({}, [\n", info_name(&data.path));
+        let mut out = format!("define({}, [\n", info_name(data.path()));
         for (c, (ctor, fields)) in data
-            .ctors
+            .ctors()
             .iter()
             .zip(generic_field_boundaries(self.g, d))
             .enumerate()
@@ -4673,7 +4681,7 @@ impl<'g> Gen<'g> {
             }
             let fields = entries;
             let tag = &repr.ctors[c].tag;
-            let external = if data.record || *tag == *ctor.name {
+            let external = if data.record() || *tag == *ctor.name {
                 String::new()
             } else {
                 format!(", {}", js_string_literal(tag))
@@ -4689,7 +4697,7 @@ impl<'g> Gen<'g> {
         if repr.string_enum {
             out.push_str(", false, [], true");
         }
-        if data.record {
+        if data.record() {
             out.push_str(", true, [");
             for check in self.field_checks(d)? {
                 let _ = write!(out, "\n  {check},");
@@ -4725,8 +4733,8 @@ impl<'g> Gen<'g> {
             return Ok(None);
         };
         let data = self.g.data(d);
-        let ctor = &data.ctors[c];
-        let np = data.params.len();
+        let ctor = &data.ctors()[c];
+        let np = data.params().len();
         let mut env: Vec<bool> = vec![true; np];
         env.extend(&ctor.field_erased[..i]);
         let n = env.len();
@@ -4752,12 +4760,12 @@ impl<'g> Gen<'g> {
     /// object saying whether it does.
     fn field_checks(&self, d: DataId) -> Fallible<Vec<String>> {
         let data = self.g.data(d);
-        let ctor = &data.ctors[0];
-        let np = data.params.len();
+        let ctor = &data.ctors()[0];
+        let np = data.params().len();
         let yes = self.decision_yes_tag();
         let unboxed = self.unboxed(d).is_some();
         let mut out = Vec::new();
-        let mut validators: Vec<_> = data.validators.iter().filter(|v| v.ctor == 0).collect();
+        let mut validators: Vec<_> = data.validators().iter().filter(|v| v.ctor == 0).collect();
         validators.sort_by_key(|v| v.field);
         for v in validators {
             // The parameters are types, so erased; the earlier fields are read
@@ -4784,7 +4792,7 @@ impl<'g> Gen<'g> {
             }
             let decision = self.expr(&v.decision, &mut env)?;
             let mut names: Vec<stitchwort_core::Name> =
-                data.params.iter().map(|(x, _)| x.clone()).collect();
+                data.params().iter().map(|(x, _)| x.clone()).collect();
             names.extend(ctor.fields[..v.field].iter().map(|(x, _)| x.clone()));
             let field = &ctor.fields[v.field];
             let message = format!(
@@ -4847,7 +4855,7 @@ impl<'g> Gen<'g> {
             }
             Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params, inputs)),
             Boundary::Data(d, args) => {
-                let mut name = type_name(&self.g.data(*d).name);
+                let mut name = type_name(self.g.data(*d).name());
                 if inputs.is_some_and(|set| set.contains(d)) {
                     name.push_str(INPUT_SUFFIX);
                 }
@@ -4877,7 +4885,7 @@ impl<'g> Gen<'g> {
         let data = self.g.data(d);
         let repr = repr(self.g, d);
         let params = self.ts_params(d);
-        let mut name = type_name(&data.name);
+        let mut name = type_name(data.name());
         if inputs.is_some() {
             name.push_str(INPUT_SUFFIX);
         }
@@ -4899,7 +4907,7 @@ impl<'g> Gen<'g> {
             .enumerate()
             .map(|(c, fields)| {
                 let mut parts = Vec::new();
-                if !data.record {
+                if !data.record() {
                     parts.push(format!(
                         "readonly {}: {}",
                         ts_key(&repr.tag_key),
@@ -4943,7 +4951,7 @@ impl<'g> Gen<'g> {
         } else {
             format!("<{}>", params.join(", "))
         };
-        if data.record {
+        if data.record() {
             // Structural, like every TypeScript object type: another record
             // with the same fields is accepted too (docs/proposals/records.md
             // §11.1).
@@ -4987,14 +4995,19 @@ impl<'g> Gen<'g> {
             "void",
         ];
         let data = self.g.data(d);
-        data.params
+        data.params()
             .iter()
             .enumerate()
             .map(|(i, (x, _))| {
                 let clear = is_js_identifier(x)
                     && !TS_TYPE_WORDS.contains(&&**x)
-                    && !self.g.datas.iter().any(|d| type_name(&d.name) == **x)
-                    && data.params[..i].iter().all(|(y, _)| y != x);
+                    && !self
+                        .g
+                        .env
+                        .datas()
+                        .iter()
+                        .any(|d| type_name(d.name()) == **x)
+                    && data.params()[..i].iter().all(|(y, _)| y != x);
                 if clear {
                     x.to_string()
                 } else {
@@ -5048,7 +5061,7 @@ fn erasable(g: &Globals) -> Result<(), Diagnostic> {
             | Primitive::Pfix
             | Primitive::FoldD => true,
         };
-        if let Some(id) = g.builtins.primitive_id(prim)
+        if let Some(id) = g.env.builtins().primitive_id(prim)
             && (!builds || g.def(id).body().is_some())
         {
             return Err(Diagnostic::error(
@@ -5056,7 +5069,7 @@ fn erasable(g: &Globals) -> Result<(), Diagnostic> {
                 "partial computations can't be extracted to JavaScript",
             )
             .with_label(
-                g.def(id).span,
+                g.def(id).span(),
                 format!(
                     "`{}` computes, so `Delay` values can't all be erased to one token",
                     prim.name()
@@ -5665,7 +5678,7 @@ fn external_optional(repr: &JsRepr, c: usize) -> Vec<bool> {
 /// The indices, among all of constructor `c`'s fields, of those that have a
 /// key (not erased), in order: alongside [`external_keys`].
 fn runtime_fields(g: &Globals, d: DataId, c: usize) -> Vec<usize> {
-    let ctor = &g.data(d).ctors[c];
+    let ctor = &g.data(d).ctors()[c];
     (0..ctor.fields.len())
         .filter(|&i| !ctor.field_erased[i])
         .collect()
@@ -5685,7 +5698,7 @@ fn field_default(g: &Globals, d: DataId, c: usize, i: usize) -> Option<&FieldDef
 /// always present on output, `None` as `undefined` (D1114).
 fn optional_property(g: &Globals, d: DataId, c: usize, i: usize, b: &Boundary, flag: bool) -> bool {
     field_default(g, d, c, i).is_none()
-        && (flag || (g.data(d).record && matches!(b, Boundary::Option(..))))
+        && (flag || (g.data(d).record() && matches!(b, Boundary::Option(..))))
 }
 
 /// The key of a constructor's field in a JS object inside generated code
@@ -5724,7 +5737,7 @@ pub fn record_key(name: &str) -> String {
 /// name (a partial definition's request type has a field `_` for each
 /// unnamed parameter), when it's `$i`, which no name's key can be.
 pub(crate) fn field_key_at(g: &Globals, d: DataId, c: usize, i: usize) -> String {
-    let fields = &g.data(d).ctors[c].fields;
+    let fields = &g.data(d).ctors()[c].fields;
     let name = &fields[i].0;
     if fields.iter().filter(|(n, _)| n == name).count() > 1 {
         format!("${i}")
@@ -5735,7 +5748,7 @@ pub(crate) fn field_key_at(g: &Globals, d: DataId, c: usize, i: usize) -> String
 
 /// The key of field `name` of data type `d`.
 fn key(g: &Globals, d: DataId, name: &str) -> String {
-    if g.data(d).record {
+    if g.data(d).record() {
         record_key(name)
     } else {
         field_key(name)
@@ -5957,7 +5970,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         }
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);
-            let ctor = &data.ctors[*c];
+            let ctor = &data.ctors()[*c];
             let repr = repr(g, *d);
             if repr.string_enum {
                 return Ok(js_string_literal(&repr.ctors[*c].tag));
@@ -5976,7 +5989,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 return boundary_literal(g, b, field);
             }
             let mut parts = Vec::new();
-            if !data.record {
+            if !data.record() {
                 parts.push(format!(
                     "{}: {}",
                     ts_key(&repr.tag_key),

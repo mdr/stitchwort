@@ -639,7 +639,7 @@ fn open_case(
 fn is_fact(cx: &Ctx, ty: &Value) -> bool {
     match force(cx.g(), ty.clone()) {
         Ok(Value::Eq(..)) => true,
-        Ok(Value::Data(d, _)) => cx.g().data(d).sort == Sort::Prop,
+        Ok(Value::Data(d, _)) => cx.g().data(d).sort() == Sort::Prop,
         Ok(Value::Neutral(Head::Def(_), _)) => true,
         _ => false,
     }
@@ -717,7 +717,7 @@ fn ctor_equation(cx: &Ctx, level: usize) -> Result<Option<CtorEquation>> {
     else {
         return Ok(None);
     };
-    if d != d2 || g.data(d).sort == Sort::Prop || !g.data(d).indices.is_empty() {
+    if d != d2 || g.data(d).sort() == Sort::Prop || !g.data(d).indices().is_empty() {
         return Ok(None);
     }
     Ok(Some(CtorEquation {
@@ -784,7 +784,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
         let trivial = builtin_ctor(cx, Builtin::Trivial)?;
         let data = g.data(eq.d);
         let branches: Vec<Branch> = data
-            .ctors
+            .ctors()
             .iter()
             .enumerate()
             .map(|(c, ctor)| Branch {
@@ -855,7 +855,7 @@ pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, goal.clone())? {
         Value::Eq(..) => true,
-        Value::Data(d, _) => g.data(d).sort == Sort::Prop,
+        Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         other => {
             let term = cx.quote(&other)?;
             let mut kcx = crate::rewrite::kernel_context(cx)?;
@@ -878,7 +878,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         if eq.left.0 != eq.right.0 {
             continue;
         }
-        let ctor = &g.data(eq.d).ctors[eq.left.0];
+        let ctor = &g.data(eq.d).ctors()[eq.left.0];
         for (i, (a, b)) in eq.left.1.iter().zip(&eq.right.1).enumerate() {
             if ctor.field_erased.get(i).copied().unwrap_or(false)
                 || mentions_fields(&ctor.fields[i].1, i)
@@ -894,7 +894,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             // alone misread `List a` in `Cons`'s tail and `b` in a pair's
             // second field). It doesn't mention those fields (checked
             // above), so either side's fields will do; the left's are used.
-            let np = g.data(eq.d).params.len();
+            let np = g.data(eq.d).params().len();
             let env: Vec<Value> = params[..np]
                 .iter()
                 .chain(&eq.left.1[..i])
@@ -934,7 +934,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         // `case y of C … fi … => fi | _ => a`, under each branch's fields.
         let a_term = cx.quote(&a)?;
         let mut branches = Vec::new();
-        for (k, ctor) in data.ctors.iter().enumerate() {
+        for (k, ctor) in data.ctors().iter().enumerate() {
             let fields = ctor.fields.len();
             // The branch is under y, q and the fields.
             let body = if k == c {
@@ -1431,7 +1431,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             // `omega` and `ring` take the arithmetic as it is.
             if int_arithmetic(g, &current) {
                 if last_unsplittable.is_none()
-                    && let Some(int) = g.registry.loaded_data(Builtin::Int)
+                    && let Some(int) = g.env.registry().loaded_data(Builtin::Int)
                 {
                     last_unsplittable = Some((current.clone(), int));
                 }
@@ -1491,7 +1491,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             && let Some((raw, d)) = last_unsplittable
         {
             let shown = self.cx.show(&raw);
-            self.stuck = Some((shown, g.data(d).name.to_string()));
+            self.stuck = Some((shown, g.data(d).name().to_string()));
         }
         Ok(best)
     }
@@ -1587,9 +1587,9 @@ fn int_arithmetic(g: &stitchwort_core::Globals, value: &Value) -> bool {
     ];
     ARITHMETIC
         .iter()
-        .any(|b| g.registry.loaded_def(*b) == Some(*id))
+        .any(|b| g.env.registry().loaded_def(*b) == Some(*id))
         || matches!(
-            &*g.def(*id).path,
+            &**g.def(*id).path(),
             "Std.Int.subNatNat" | "Std.Int.subNatNatFrom"
         )
 }
@@ -1621,10 +1621,10 @@ fn stuck_sides(cx: &Ctx) -> Result<Vec<(Value, Value)>> {
 /// isn't a proposition, an indexed family or recursive.
 fn splittable(cx: &Ctx, d: DataId) -> Option<usize> {
     let data = cx.g().data(d);
-    if data.sort == Sort::Prop || !data.indices.is_empty() || data.ctors.is_empty() {
+    if data.sort() == Sort::Prop || !data.indices().is_empty() || data.ctors().is_empty() {
         return None;
     }
-    (!is_recursive(data)).then_some(data.ctors.len())
+    (!is_recursive(data)).then_some(data.ctors().len())
 }
 
 /// Whether `d` is splittable but for being recursive, and isn't `Nat`
@@ -1633,18 +1633,18 @@ fn splittable(cx: &Ctx, d: DataId) -> Option<usize> {
 fn recursive(cx: &Ctx, d: DataId) -> bool {
     let g = cx.g();
     let data = g.data(d);
-    data.sort != Sort::Prop
-        && data.indices.is_empty()
-        && data.ctors.len() >= 2
-        && g.builtins.nat != Some(d)
+    data.sort() != Sort::Prop
+        && data.indices().is_empty()
+        && data.ctors().len() >= 2
+        && g.env.builtins().nat != Some(d)
         && is_recursive(data)
 }
 
 fn is_recursive(data: &stitchwort_core::globals::Data) -> bool {
-    data.ctors.iter().any(|c| {
+    data.ctors().iter().any(|c| {
         c.fields.iter().any(|(_, ty)| {
             ty.subterms()
-                .any(|(t, _)| matches!(t, Term::Data(x, _) if data.group.contains(x)))
+                .any(|(t, _)| matches!(t, Term::Data(x, _) if data.group().contains(x)))
         })
     })
 }
@@ -1661,17 +1661,17 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
     let Some(body) = body_seen(g, *id) else {
         return Ok(None);
     };
-    if def.arity == 0 || spine.len() < def.arity {
+    if def.arity() == 0 || spine.len() < def.arity() {
         return Ok(None);
     }
-    let mut env = Vec::with_capacity(def.arity);
-    for elim in spine.iter().take(def.arity) {
+    let mut env = Vec::with_capacity(def.arity());
+    for elim in spine.iter().take(def.arity()) {
         match elim {
             Elim::App(v, _) => env.push(v.clone()),
             Elim::J { .. } => return Ok(None),
         }
     }
-    let mut tree = Term::peel_lams_rc(body, def.arity);
+    let mut tree = Term::peel_lams_rc(body, def.arity());
     loop {
         g.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
@@ -1698,7 +1698,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
             }
             Term::NumCase(ix, ..) => {
                 let raw = env[env.len() - 1 - ix].clone();
-                let nat = g.builtins.nat;
+                let nat = g.env.builtins().nat;
                 return Ok(match (force(g, raw.clone())?, nat) {
                     (Value::Neutral(..), Some(nat)) => Some((raw, nat)),
                     _ => None,
@@ -1727,7 +1727,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         };
         run.atom_types.borrow_mut().push(ty);
     }
-    run.cases.set(run.cases.get() + data.ctors.len() - 1);
+    run.cases.set(run.cases.get() + data.ctors().len() - 1);
     if run.cases.get() > CASES {
         run.over.set(true);
         *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
@@ -1755,7 +1755,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         span: run.span,
     };
     let alts: Vec<Alt> = data
-        .ctors
+        .ctors()
         .iter()
         .enumerate()
         .map(|(c, ctor)| {
@@ -1814,7 +1814,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
 /// parameters, and otherwise as the kernel infers it.
 fn atom_type(cx: &Ctx, term: &Term, d: DataId) -> Result<Value> {
     let g = cx.g();
-    if g.data(d).params.is_empty() {
+    if g.data(d).params().is_empty() {
         return Ok(Value::Data(d, Vec::new()));
     }
     let mut kcx = crate::rewrite::kernel_context(cx)?;

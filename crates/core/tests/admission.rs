@@ -325,7 +325,7 @@ fn references_to_declarations_that_do_not_exist_are_refused() {
     // Declaration ids are plain numbers, so a buggy elaborator could make
     // one up. Nothing is added when it does.
     let mut p = Prelude::new();
-    let (defs, datas) = (p.g.defs.len(), p.g.datas.len());
+    let (defs, datas) = (p.g.env.defs().len(), p.g.env.datas().len());
     let missing_def = Term::Def(DefId(1000));
     let missing_data = Term::Data(DataId(1000), vec![]);
     for ty in [arrow(missing_data.clone(), p.nat_ty()), missing_def.clone()] {
@@ -340,7 +340,7 @@ fn references_to_declarations_that_do_not_exist_are_refused() {
         span(),
     );
     assert_eq!(code(r), "E-MALFORMED");
-    assert_eq!((p.g.defs.len(), p.g.datas.len()), (defs, datas));
+    assert_eq!((p.g.env.defs().len(), p.g.env.datas().len()), (defs, datas));
     let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
     let body = lam("n", app(missing_def, [v(0)]));
     assert_eq!(define_def(&mut p, f, body), "E-MALFORMED");

@@ -32,7 +32,7 @@ impl SigMaps {
     /// `None` if the core's effect machinery isn't loaded.
     pub fn new(g: &Globals) -> Option<SigMaps> {
         Some(SigMaps {
-            sig_map: g.registry.loaded_data(Builtin::SigMap)?,
+            sig_map: g.env.registry().loaded_data(Builtin::SigMap)?,
         })
     }
 
@@ -43,7 +43,7 @@ impl SigMaps {
     /// without runtime parameters (`sigId`) is a constant already.
     pub fn closed_map(&self, g: &Globals, id: DefId, args: &[&Term]) -> bool {
         let def = g.def(id);
-        if args.len() != def.arity || !self.returns_map(&def.ty, args.len()) {
+        if args.len() != def.arity() || !self.returns_map(def.ty(), args.len()) {
             return false;
         }
         let Ok(shape) = def_shape(g, id, false) else {

@@ -86,9 +86,10 @@ struct Shapes {
 
 impl Shapes {
     fn new(g: &Globals) -> Shapes {
-        let data = |b: Builtin| g.registry.data(b).expect("the prelude declares it");
+        let data = |b: Builtin| g.env.registry().data(b).expect("the prelude declares it");
         let prim = |p: Primitive| {
-            g.builtins
+            g.env
+                .builtins()
                 .primitive_id(p)
                 .expect("the prelude declares the partial constants")
         };
@@ -101,7 +102,7 @@ impl Shapes {
             bind: prim(Primitive::BindD),
             map_sig: prim(Primitive::MapSig),
             pfix: prim(Primitive::Pfix),
-            fold_d: g.builtins.primitive_id(Primitive::FoldD),
+            fold_d: g.env.builtins().primitive_id(Primitive::FoldD),
         }
     }
 }

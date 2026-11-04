@@ -200,7 +200,7 @@ fn type_former(
         (Global::Ability(a), _) => e.globals.data(e.tables.abilities[*a].op_data),
         (Global::Def(id), _) => {
             let mut params = Vec::new();
-            let mut ty = &e.globals.def(*id).ty;
+            let mut ty = e.globals.def(*id).ty();
             while let Term::Pi(x, icit, dom, cod) = ty.strip_loc() {
                 if *icit == Icit::Explicit {
                     params.push((Some(x.to_string()), Some(is_sort(dom))));
@@ -214,12 +214,12 @@ fn type_former(
     // The indices come after the parameters: `None` marks an index. An
     // `auto` parameter is given by name, if at all (`auto_param`).
     Some(
-        data.params
+        data.params()
             .iter()
             .enumerate()
-            .filter(|(k, _)| data.auto_params.get(*k) != Some(&true))
+            .filter(|(k, _)| data.auto_params().get(*k) != Some(&true))
             .map(|(_, (_, ty))| (None, Some(is_sort(ty))))
-            .chain(data.indices.iter().map(|_| (None, None)))
+            .chain(data.indices().iter().map(|_| (None, None)))
             .collect(),
     )
 }
@@ -238,9 +238,9 @@ fn auto_param(e: &Elaborator, head: &Expr, x: &str, bound: &[String]) -> bool {
         return false;
     };
     let data = e.globals.data(*d);
-    data.params
+    data.params()
         .iter()
-        .zip(&data.auto_params)
+        .zip(data.auto_params())
         .any(|((p, _), auto)| *auto && **p == *x)
 }
 
