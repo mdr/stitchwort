@@ -129,14 +129,14 @@
     {
       "id": 328,
       "title": "Exploration: port a real-world TypeScript app's core logic to Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "Private work; status kept outside this repo.",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "design",
         "js"
       ],
-      "body": "Problem: we want to know whether a real TypeScript app's core logic can be written in Stitchwort, proved, and used from TS as generated JS.\n\nThe change: port it (private repo, nothing committed here).\n\nDone when: a short note in this repo lists what worked and the friction found (the numbered findings already feed SW-578, 597, 608, 622, 623, 627, 629, 642).\n\nBacklog review, 4 Nov 2026: no activity since 26 Oct; SW-595 and SW-647 are the same private-port family and sit in backlog. Status left as `doing` pending Matt's answer.",
+      "body": "Problem: we want to know whether a real TypeScript app's core logic can be written in Stitchwort, proved, and used from TS as generated JS.\n\nThe change: port it (private repo, nothing committed here).\n\nDone when: a short note in this repo lists what worked and the friction found (the numbered findings already feed SW-578, 597, 608, 622, 623, 627, 629, 642).\n\nBacklog review, 4 Nov 2026: no activity since 26 Oct; SW-595 and SW-647 are the same private-port family and sit in backlog. Status left as `doing` pending Matt's answer.\n\nD2361 (Matt, 4 Nov 2026): not to be done. 'It's an experiment which we no longer have access to the private repo and it's no longer a concern for us.' Closed.",
       "created": "2026-10-22",
       "updated": "2026-11-04",
       "commits": []
@@ -390,13 +390,13 @@
     {
       "id": 595,
       "title": "Private app port: restore the copied app tree and run the integration suites — at the END of the current round of changes (Matt, 26 Oct: 'maybe do that at the end of all our changes') (private work only)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "\n\nD2361 (Matt, 4 Nov 2026): not to be done. 'It's an experiment which we no longer have access to the private repo and it's no longer a concern for us.' Closed with SW-328 (same private port).",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -534,13 +534,13 @@
     {
       "id": 647,
       "title": "Private app port (D1374, deferred by Matt 26 Oct): research what useful behaviour can be proved — plain-words theorem inventory; candidate real-world assumptions (per event: bubbles wholly inside recordings, blob ids distinct, transcripts inside; pair-level Compatible: same event id, shared recording ids extend one another, shared annotation ids same kind) checked against the app code; candidate theorems (no blob lost, all bubbles kept, re-sync harmless, devices agree) tested on random data; note for Matt before proving",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "\n\nD2361 (Matt, 4 Nov 2026): not to be done. 'It's an experiment which we no longer have access to the private repo and it's no longer a concern for us.' Closed with SW-328 (same private port).",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
