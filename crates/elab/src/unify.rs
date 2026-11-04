@@ -6,9 +6,9 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
-    Closure, Elim, Head, Relation, Spine, apply_icit, call_args, conv, eval, expand_step, force,
-    force_solved, is_folded, matches_at_once, opens_by_tree, quote, quote_at_most, quote_folded,
-    same_closure_solved, same_stuck_trees, underapplied, unfold_folded,
+    Closure, Elim, Head, Mode, Relation, Spine, apply_icit, call_args, conv, eval, expand_step,
+    force, force_solved, is_folded, matches_at_once, opens_by_tree, quote, quote_at_most,
+    quote_folded, same_closure_solved, same_stuck_trees, underapplied, unfold_folded,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1236,9 +1236,15 @@ fn unify_step(
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
             let trail = g.store.meta_trail.borrow().len();
-            let same = same_stuck_trees(g, level, &a, &b, Relation::Unify, &mut |l, x, y| {
-                unify(g, l, x, y)
-            })?;
+            let same = same_stuck_trees(
+                g,
+                level,
+                &a,
+                &b,
+                Relation::Unify,
+                Mode::Normal,
+                &mut |l, x, y| unify(g, l, x, y),
+            )?;
             if !same {
                 undo_since(g, trail);
             }
