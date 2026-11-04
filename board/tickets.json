@@ -5489,14 +5489,14 @@
     {
       "id": 1226,
       "title": "Elaborator: when a lemma's arguments depend only on _, compare its conclusion with the goal before checking its proof arguments (removes the doubling re-checks)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "performance"
       ],
-      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.",
+      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
