@@ -6014,13 +6014,13 @@
     {
       "id": 1262,
       "title": "Parse.all: a failure after an extra blank line is reported a line late as 'expected the end of the input'",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1262",
       "labels": [
         "diagnostics"
       ],
-      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 3 (ranked 3). parsed \"cid:1\\n\\n\\ncid:2\" gives 'line 4, column 1: expected the end of the input'; the mistake is line 3. The furthest failure (a key expected, line 3) loses to the final line breaks. Parse.all could prefer a failure inside the last section, or add 'another section' as an expectation after a blank line.\n\nD2358 (Matt, 4 Nov): yes. DeepSeek, together with SW-1266 in scratch-sw-1262, expected: 45 min (both).\n\nDeepSeek done 21:18 (4b42340e8 in scratch-sw-1262, ~30 min, est. 45): English expectation lists (Parse.joinOr) fine; withFinalLineBreaks change fixes the sections case but made Parse.all \"1\\n\\nfoo\" report 'line 1, column 2: expected the end of the input, got the end of the line' (was line 3, got 'f'). Sonnet fix-up running in the same clone.",
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 3 (ranked 3). parsed \"cid:1\\n\\n\\ncid:2\" gives 'line 4, column 1: expected the end of the input'; the mistake is line 3. The furthest failure (a key expected, line 3) loses to the final line breaks. Parse.all could prefer a failure inside the last section, or add 'another section' as an expectation after a blank line.\n\nD2358 (Matt, 4 Nov): yes. DeepSeek, together with SW-1266 in scratch-sw-1262, expected: 45 min (both).\n\nDeepSeek done 21:18 (4b42340e8 in scratch-sw-1262, ~30 min, est. 45): English expectation lists (Parse.joinOr) fine; withFinalLineBreaks change fixes the sections case but made Parse.all \"1\\n\\nfoo\" report 'line 1, column 2: expected the end of the input, got the end of the line' (was line 3, got 'f'). Sonnet fix-up running in the same clone.\n\nMerged 1e341b46 with Sonnet's fix-up 16624cf3 (an extra blank line before unread input: 'expected the end of the input, got a blank line'). Verified: selection 597, all 1341 aoc tests, merge tier 1066, audit clean. Model result: DeepSeek, needed fixes (the final-line-break change made Parse.all \"1\\n\\nfoo\" report a nonsensical position; Sonnet fixed it in 8 min), ~30 min (est. 45).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6070,13 +6070,13 @@
     {
       "id": 1266,
       "title": "pick's expectation lists 'a' or 'b' or … or 'h'",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1262",
       "labels": [
         "diagnostics"
       ],
-      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 4 (ranked 7). 'expected 'byr' or 'iyr' or … or 'cid'' should read 'expected 'byr', 'iyr', …, 'pid' or 'cid''. Affects every pick-parsed enumeration.\n\nD2358 (Matt, 4 Nov): yes. DeepSeek, together with SW-1262 in scratch-sw-1262, expected: 45 min (both).\n\nDeepSeek done 21:18 (4b42340e8 in scratch-sw-1262, ~30 min, est. 45): English expectation lists (Parse.joinOr) fine; withFinalLineBreaks change fixes the sections case but made Parse.all \"1\\n\\nfoo\" report 'line 1, column 2: expected the end of the input, got the end of the line' (was line 3, got 'f'). Sonnet fix-up running in the same clone.",
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 4 (ranked 7). 'expected 'byr' or 'iyr' or … or 'cid'' should read 'expected 'byr', 'iyr', …, 'pid' or 'cid''. Affects every pick-parsed enumeration.\n\nD2358 (Matt, 4 Nov): yes. DeepSeek, together with SW-1262 in scratch-sw-1262, expected: 45 min (both).\n\nDeepSeek done 21:18 (4b42340e8 in scratch-sw-1262, ~30 min, est. 45): English expectation lists (Parse.joinOr) fine; withFinalLineBreaks change fixes the sections case but made Parse.all \"1\\n\\nfoo\" report 'line 1, column 2: expected the end of the input, got the end of the line' (was line 3, got 'f'). Sonnet fix-up running in the same clone.\n\nMerged 1e341b46 with Sonnet's fix-up 16624cf3 (an extra blank line before unread input: 'expected the end of the input, got a blank line'). Verified: selection 597, all 1341 aoc tests, merge tier 1066, audit clean. Model result: DeepSeek, needed fixes (the final-line-break change made Parse.all \"1\\n\\nfoo\" report a nonsensical position; Sonnet fixed it in 8 min), ~30 min (est. 45).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
