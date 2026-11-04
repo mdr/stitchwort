@@ -28,21 +28,25 @@ def frontBack(): {Parse} Bool := half 'F' 'B'
 
 def leftRight(): {Parse} Bool := half 'L' 'R'
 
---| A pass's bits, the most significant first.
-def pass(): {Parse} List Bool :=
+--| A boarding pass: its row letters and its column letters as bits, the
+--| most significant first, `B` and `R` as 1.
+type Pass = { row: List Bool, column: List Bool }
+
+--| Row × 8 + column: the pass's 10 bits read as one number.
+def Pass.seatId (pass: Pass): Nat := Nat.fromBits (pass.row ++ pass.column)
+
+def pass(): {Parse} Pass :=
   let row := Parse.repeat 7 7 frontBack
   let column := Parse.repeat 3 3 leftRight
-  row ++ column
+  { row, column }
 
-def parsePasses (input: Text): {Fail} List (List Bool) := Parse.eachLine input pass
+def parsePasses (input: Text): {Fail} List Pass := Parse.eachLine input pass
 
-def seatId (pass: List Bool): Nat := Nat.fromBits pass
-
-def solvePart1 (passes: List (List Bool)): Option Nat := (passes.map seatId).maximum
+def solvePart1 (passes: List Pass): Option Nat := passes.maximumOf (.seatId)
 
 --| In a sorted list, the first number missing between two that are 2 apart.
 def gap: List Nat → Option Nat
   | [low, high, ..rest] => if high == low + 2 then Some (low + 1) else gap [high, ..rest]
   | _ => None
 
-def solvePart2 (passes: List (List Bool)): Option Nat := (passes.map seatId).sort |> gap
+def solvePart2 (passes: List Pass): Option Nat := (passes.map (.seatId)).sort |> gap
