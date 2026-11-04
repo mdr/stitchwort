@@ -3,6 +3,7 @@
 -- doesn't check them.
 
 namespace Aoc.Year2021.Day05.Tests
+import Aoc.Common (..)
 import Aoc.Year2021.Day05 (..)
 import Aoc.Year2021.Day05.Spec (..)
 import Std (Fail, List, Text)
@@ -24,27 +25,28 @@ def exampleLines: List Line := Fail.orElse [] (() => parseLines example)
 
 def parsed (input: Text): Result (List Line) Text := Fail.toResult (() => parseLines input)
 
-def line (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat): Line := { x1, y1, x2, y2 }
+def line (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat): Line := { from = { x = x1, y = y1 }, to = { x = x2, y = y2 } }
+def point (x: Nat) (y: Nat): Point := { x, y }
 
 test "parse the example" := exampleLines.length == 10 ∧ exampleLines.headOr (line 1 1 1 1) == line 0 9 5 9
 test "example, part 1" := solvePart1 exampleLines == 5
 test "example, part 2" := solvePart2 exampleLines == 12
 
 --| "An entry like 1,1 -> 1,3 covers points 1,1, 1,2, and 1,3", and so on.
-test "a vertical line's points" := (line 1 1 1 3).points == [(1, 1), (1, 2), (1, 3)]
-test "a horizontal line's points" := (line 9 7 7 7).points == [(9, 7), (8, 7), (7, 7)]
-test "a diagonal line's points" := (line 1 1 3 3).points == [(1, 1), (2, 2), (3, 3)]
-test "the other diagonal's points" := (line 9 7 7 9).points == [(9, 7), (8, 8), (7, 9)]
-test "a line of one point" := (line 4 4 4 4).points == [(4, 4)]
+test "a vertical line's points" := (line 1 1 1 3).points == [point 1 1, point 1 2, point 1 3]
+test "a horizontal line's points" := (line 9 7 7 7).points == [point 9 7, point 8 7, point 7 7]
+test "a diagonal line's points" := (line 1 1 3 3).points == [point 1 1, point 2 2, point 3 3]
+test "the other diagonal's points" := (line 9 7 7 9).points == [point 9 7, point 8 8, point 7 9]
+test "a line of one point" := (line 4 4 4 4).points == [point 4 4]
 
 --| The spec says the same of those lines, point by point, around them.
-def around: List Point := List.range 11 |> .flatMap (x => List.range 11 |> .map (y => (x, y)))
+def around: List Point := List.range 11 |> .flatMap (x => List.range 11 |> .map (y => point x y))
 def agrees (l: Line): Bool := around.all (p => covers l p == l.points.contains p)
 test "the spec's points" := [line 1 1 1 3, line 9 7 7 7, line 1 1 3 3, line 9 7 7 9, line 4 4 4 4, line 8 0 0 8, line 5 5 8 2].all agrees
 --| A line at another angle: the spec has its grid points, (0, 0), (2, 1)
 --| and (4, 2); the program, which steps one point at a time, wouldn't.
 test "a line at another angle" :=
-  around.filter (covers (line 0 0 4 2)) == [(0, 0), (2, 1), (4, 2)] ∧ (line 0 0 4 2).points == [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
+  around.filter (covers (line 0 0 4 2)) == [point 0 0, point 2 1, point 4 2] ∧ (line 0 0 4 2).points == [point 0 0, point 1 1, point 2 2, point 3 3, point 4 4]
 
 --| The example's overlaps, as the spec counts them: part 1 has 5 points
 --| with two lines or more, part 2 has 12.

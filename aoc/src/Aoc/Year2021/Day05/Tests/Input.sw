@@ -1,6 +1,7 @@
 --| The real puzzle input (aoc/inputs/2021/day05.txt, committed), through
 --| `include`: the answers are checked on it when the tests run.
 namespace Aoc.Year2021.Day05.Tests
+import Aoc.Common (Line)
 import Aoc.Year2021.Day05 (..)
 import Std (Fail, Text)
 

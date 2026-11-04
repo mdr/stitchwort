@@ -5,6 +5,7 @@
 --| only the horizontal and vertical lines.
 
 namespace Aoc.Year2021.Day05.Proofs
+import Aoc.Common (..)
 import Aoc.Year2021.Day05 (..)
 import Aoc.Year2021.Day05.Spec (..)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Pair, Void)
@@ -68,14 +69,14 @@ theorem countedTwice (listed: List Point):
 --| doesn't.
 theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True): (p: Point) →
     line.points.count (== p) = Bool.toNat (covers line p)
-  | (x, y) =>
-    let steps := Nat.max (Nat.absDiff line.x1 line.x2) (Nat.absDiff line.y1 line.y2)
-    let k := Nat.max (Nat.absDiff line.x1 x) (Nat.absDiff line.y1 y)
-    Eq.trans (List.countMap (List.range (steps + 1)) (== (x, y)) (step => (towards line.x1 line.x2 step, towards line.y1 line.y2 step)))
+  | point =>
+    let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
+    let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
+    Eq.trans (List.countMap (List.range (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
       (Eq.trans
-        (List.countCongMem (List.range (steps + 1)) _ (i => covers line (x, y) ∧ i == k)
-          (i inRange => pointStep line shape x y i (stepInRange steps i inRange)))
-        (countRangeOnce (steps + 1) k (covers line (x, y)) (c => coveredWithin line x y c)))
+        (List.countCongMem (List.range (steps + 1)) _ (i => covers line point ∧ i == k)
+          (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
+        (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 
 --| So every line's points, together, list a point once for each line that
 --| covers it.
@@ -99,10 +100,10 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range (steps + 1)
   omega [And.right bounds]
 
 --| A point a line covers is within its steps.
-theorem coveredWithin (line: Line) (x: Nat) (y: Nat) (c: covers line (x, y) = True):
-    Nat.max (Nat.absDiff line.x1 x) (Nat.absDiff line.y1 y) < Nat.max (Nat.absDiff line.x1 line.x2) (Nat.absDiff line.y1 line.y2) + 1 :=
-  let bx := betweenBound line.x1 x line.x2 (firstOf _ _ _ c)
-  let by := betweenBound line.y1 y line.y2 (secondOf _ _ _ c)
+theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
+    Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y) < Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y) + 1 :=
+  let bx := betweenBound line.from.x point.x line.to.x (firstOf _ _ _ c)
+  let by := betweenBound line.from.y point.y line.to.y (secondOf _ _ _ c)
   omega
 
 theorem firstOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → a = True := cases
@@ -110,14 +111,23 @@ theorem secondOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = Tr
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
-theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (x: Nat) (y: Nat) (i: Nat)
-    (hi: i ≤ Nat.max (Nat.absDiff line.x1 line.x2) (Nat.absDiff line.y1 line.y2)):
-    ((towards line.x1 line.x2 i, towards line.y1 line.y2 i) == (x, y))
-      = (covers line (x, y) ∧ i == Nat.max (Nat.absDiff line.x1 x) (Nat.absDiff line.y1 y)) :=
-  Eq.trans (Pair.mkBeqMk (towards line.x1 line.x2 i) (towards line.y1 line.y2 i) x y)
-    (Eq.trans (pointLinear line.x1 line.y1 line.x2 line.y2 i x y shape hi)
-    (Eq.cong (c => c ∧ i == Nat.max (Nat.absDiff line.x1 x) (Nat.absDiff line.y1 y))
-      (Eq.sym (coversLinear line.x1 line.y1 line.x2 line.y2 x y shape))))
+theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (point: Point) (i: Nat)
+    (hi: i ≤ Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)):
+    (({ x = towards line.from.x line.to.x i, y = towards line.from.y line.to.y i }: Point) == point)
+      = (covers line point ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)) :=
+  Eq.trans (Point.beqMk (towards line.from.x line.to.x i) (towards line.from.y line.to.y i) point)
+    (Eq.trans (pointLinear line.from.x line.from.y line.to.x line.to.y i point.x point.y shape hi)
+    (Eq.cong (c => c ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y))
+      (Eq.sym (coversLinear line.from.x line.from.y line.to.x line.to.y point.x point.y shape))))
+
+--| A point is another when both coordinates are the same.
+theorem Point.beqMk (x: Nat) (y: Nat) (point: Point): (({ x, y }: Point) == point) = (x == point.x ∧ y == point.y) :=
+  match point with
+    | { x = px, y = py } =>
+      match Nat.decEq x px, Nat.decEq y py with
+        | Yes p, Yes q => rfl
+        | Yes p, No r => rfl
+        | No r, dq => rfl
 
 -- One coordinate at a time.
 
