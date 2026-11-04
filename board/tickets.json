@@ -6169,9 +6169,9 @@
     {
       "id": 1273,
       "title": "Std: bit lemmas (Nat.fromBitsAppend, fromBitsBelow, toBits round trip), Eq.subst with inferred motive, Decidable List.Sorted",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1273",
       "labels": [
         "std"
       ],
