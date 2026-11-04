@@ -5228,14 +5228,14 @@
     {
       "id": 1208,
       "title": "Std/prelude from AoC 2020 day 1: List.combinations k (with length and membership lemmas), membership lemmas for List.pairs of a Cons, Exists in the prelude",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.",
+      "body": "D2306 (Matt, 4 Nov 2026), lane A from aoc/NOTES-2020.md day 1 items 1, 2, 4. Then use them in Aoc.Year2020.Day01 (Spec triples -> combinations, the hand-taken-apart pair proofs). Sonnet, expected: 90 min.\n\n\nProgress (lane): done, commit fbfa2fd4 on lane/SW-1208. Added List.combinations (xs k), memCombinations/combinationsMem/memCombinationsCons/One/Two, lengthCombinationsCons (no Nat.choose in std, so no binomial), List.memMapPair, List.memPairsCons; Exists in scope.rs PRELUDE; Day01 spec uses combinations 3 and proofs shortened. Prelude hash snapshot gains only new entries; new example exists-in-prelude.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
