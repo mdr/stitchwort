@@ -235,8 +235,7 @@ def Map.Tree.Below (ord: Ord k) (x: k): Option k → Prop
 def Map.Tree.Within (ord: Ord k): Option k → Option k → Map.Tree k v → Prop
   | lo, hi, Tip => Unit
   | lo, hi, Bin _ l kk _ r =>
-    And (And (Map.Tree.Above ord lo kk) (Map.Tree.Below ord kk hi))
-      (And (Map.Tree.Within ord lo (Some kk) l) (Map.Tree.Within ord (Some kk) hi r))
+    ((Map.Tree.Above ord lo kk) ∧ (Map.Tree.Below ord kk hi)) ∧ ((Map.Tree.Within ord lo (Some kk) l) ∧ (Map.Tree.Within ord (Some kk) hi r))
 
 --| The keys are in order by `ord`.
 @[noReceiver]
@@ -247,7 +246,7 @@ def Map.Tree.Ordered (ord: Ord k) (t: Map.Tree k v): Prop := Map.Tree.Within ord
 --| rest never depend on them; `Map.size` does.
 def Map.Tree.Sized: Map.Tree k v → Prop
   | Tip => Unit
-  | Bin s l _ _ r => And (s = Succ (Map.Tree.size l + Map.Tree.size r)) (And (Map.Tree.Sized l) (Map.Tree.Sized r))
+  | Bin s l _ _ r => (s = Succ (Map.Tree.size l + Map.Tree.size r)) ∧ ((Map.Tree.Sized l) ∧ (Map.Tree.Sized r))
 
 --| A raw map: a tree, the proof that its keys are in order, and the proof
 --| that its stored sizes are right (both erased at run time).
@@ -276,7 +275,7 @@ theorem Map.Tree.lessOfGreater (ord: Ord k) (x: k) (y: k) (e: Ord.compare x y = 
 
 --| `x <= y < z` gives `x < z`.
 theorem Map.Tree.lessOfLeLess (ord: Ord k) (x: k) (y: k) (z: k)
-    (h: Not (Ord.compare x y = Greater)) (e: Ord.compare y z = Less):
+    (h: Ord.compare x y ≠ Greater) (e: Ord.compare y z = Less):
     Ord.compare x z = Less :=
   match c: Ord.compare x y with
     | Less => ord.trans x y z c e
@@ -576,7 +575,7 @@ theorem Map.Tree.orElseNone: (m: Option v) → Map.Tree.orElse m None = m
 
 --| No key at or below the lower bound is in the tree.
 theorem Map.Tree.getAbsentLow [auto ord: Ord k] (key: k): (lo: k) → (hi: Option k) → (t: Map.Tree k v) →
-    Map.Tree.Within ord (Some lo) hi t → Not (Ord.compare key lo = Greater) → Map.Tree.get key t = None
+    Map.Tree.Within ord (Some lo) hi t → Ord.compare key lo ≠ Greater → Map.Tree.get key t = None
   | lo, hi, Tip, w, h => rfl
   | lo, hi, Bin s l kk vv r, Both (Both a b) (Both wl wr), h =>
     match e: Ord.compare key kk with
@@ -586,7 +585,7 @@ theorem Map.Tree.getAbsentLow [auto ord: Ord k] (key: k): (lo: k) → (hi: Optio
 
 --| No key at or above the upper bound is in the tree.
 theorem Map.Tree.getAbsentHigh [auto ord: Ord k] (key: k): (lo: Option k) → (hi: k) → (t: Map.Tree k v) →
-    Map.Tree.Within ord lo (Some hi) t → Not (Ord.compare key hi = Less) → Map.Tree.get key t = None
+    Map.Tree.Within ord lo (Some hi) t → Ord.compare key hi ≠ Less → Map.Tree.get key t = None
   | lo, hi, Tip, w, h => rfl
   | lo, hi, Bin s l kk vv r, Both (Both a b) (Both wl wr), h =>
     match e: Ord.compare key kk with
@@ -663,7 +662,7 @@ theorem Map.Tree.getInsertWith [auto ord: Ord k] (f: v → v → v) (key: k) (va
         Map.Tree.getInsertWith f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr
 
 theorem Map.Tree.getInsertWithOther [auto ord: Ord k] (f: v → v → v) (key: k) (value: v) (other: k)
-    (ne: Not (other = key)):
+    (ne: other ≠ key):
     (lo: Option k) → (hi: Option k) → (t: Map.Tree k v) →
     Map.Tree.Above ord lo key → Map.Tree.Below ord key hi → Map.Tree.Within ord lo hi t →
     Map.Tree.get other (Map.Tree.insertWith f key value t) = Map.Tree.get other t
@@ -835,7 +834,7 @@ theorem Map.Raw.getInsert [auto ord: Ord k] (key: k) (value: v) (m: Map.Raw k v)
   Eq.trans (Map.Tree.getInsertWith (new old => new) key value None None m.tree Trivial Trivial m.ordered)
     (Eq.cong Some (Map.Tree.combineFirst value (Map.Raw.get key m)))
 
-theorem Map.Raw.getInsertOther [auto ord: Ord k] (key: k) (value: v) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+theorem Map.Raw.getInsertOther [auto ord: Ord k] (key: k) (value: v) (other: k) (ne: other ≠ key) (m: Map.Raw k v):
     Map.Raw.get other (Map.Raw.insert key value m) = Map.Raw.get other m :=
   Map.Tree.getInsertWithOther (new old => new) key value other ne None None m.tree Trivial Trivial m.ordered
 
@@ -843,7 +842,7 @@ theorem Map.Raw.getInsertWith [auto ord: Ord k] (f: v → v → v) (key: k) (val
     Map.Raw.get key (Map.Raw.insertWith f key value m) = Some (Map.Tree.combine f value (Map.Raw.get key m)) :=
   Map.Tree.getInsertWith f key value None None m.tree Trivial Trivial m.ordered
 
-theorem Map.Raw.getInsertWithOther [auto ord: Ord k] (f: v → v → v) (key: k) (value: v) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+theorem Map.Raw.getInsertWithOther [auto ord: Ord k] (f: v → v → v) (key: k) (value: v) (other: k) (ne: other ≠ key) (m: Map.Raw k v):
     Map.Raw.get other (Map.Raw.insertWith f key value m) = Map.Raw.get other m :=
   Map.Tree.getInsertWithOther f key value other ne None None m.tree Trivial Trivial m.ordered
 

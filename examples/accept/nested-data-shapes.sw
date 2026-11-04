@@ -166,7 +166,7 @@ type Chain: Type =
 -- A proposition nested in `And` may be matched to produce a proof, but not
 -- data: soundness/nested-prop-elim.sw.
 type P: Prop =
-  | MkP (h: And P Unit)
+  | MkP (h: P ∧ Unit)
 
 theorem fromP: P → Unit
   | MkP (Both _ u) => u

@@ -44,7 +44,7 @@ test "a ragged grid" := step [[9], [8, 8]] == [[0], [0, 0]]
 --| flash" is closed (each would be at 10), but it isn't the flashers.
 theorem eightsClosed: Closed [[8, 8]] (q => True) := q level member above => rfl
 
-theorem eightsNotFlashers: Not (Flashers [[8, 8]] (at => True)) :=
+theorem eightsNotFlashers: ¬(Flashers [[8, 8]] (at => True)) :=
   both => Bool.falseNotTrue (And.right both (flashedAt (flashers [[8, 8]])) (And.left (flashersCorrect [[8, 8]])) (at 0 0) rfl)
 
 --| The hypotheses of `onGridAfter`, `grows` and `stableOfCount` (an

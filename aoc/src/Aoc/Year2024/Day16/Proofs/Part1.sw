@@ -11,7 +11,7 @@ import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Or, Void)
 
 --| Some moves from the start end at `reindeer`, scoring `cost`.
 def ReachedFromStart (maze: Maze) (reindeer: Reindeer) (cost: Nat): Prop :=
-  Exists (List Move) (moves => And (final maze (startingReindeer maze) moves = Some reindeer) (score moves = cost))
+  Exists (List Move) (moves => (final maze (startingReindeer maze) moves = Some reindeer) ∧ (score moves = cost))
 
 --| Moves, then one more.
 theorem finalSnoc (maze: Maze) (reindeer: Reindeer) (moves: List Move) (middle: Reindeer) (ended: final maze reindeer moves = Some middle)
@@ -25,7 +25,7 @@ theorem scoreSnoc (moves: List Move) (way: Move): score (moves ++ [way]) = score
 --| back.
 theorem edgeHolds (maze: Maze) (backwards: Bool) (state: Reindeer) (next: Reindeer) (weight: Nat)
     (edge: (next, weight) ∈ (maze.graph backwards).edges state):
-    And (maze.holds state = True) ((next, weight) ∈ (if backwards then maze.before state else maze.after state)) :=
+    (maze.holds state = True) ∧ ((next, weight) ∈ (if backwards then maze.before state else maze.after state)) :=
   match holds: maze.holds state with
     | False => Void.exfalso edge
     | True => Both rfl edge
@@ -54,7 +54,7 @@ theorem fromStartCorrect (maze: Maze):
 --| same.
 theorem movesWalk (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
-    Exists (List (Reindeer, Nat)) (path => And ((maze.graph False).Walk reindeer path last) (Graph.cost path = score moves))
+    Exists (List (Reindeer, Nat)) (path => ((maze.graph False).Walk reindeer path last) ∧ (Graph.cost path = score moves))
   | reindeer, holds, Nil, last, ended => Witness Nil (Both (Option.someInjective _ _ ended) rfl)
   | reindeer, holds, Cons way rest, last, ended =>
     match moved: move maze reindeer way with
@@ -87,7 +87,7 @@ theorem listedAtEnd (maze: Maze) (reindeer: Reindeer) (member: reindeer ∈ maze
 
 --| A path's moves end on the end tile.
 theorem pathEnds (maze: Maze) (moves: List Move) (standings: List Reindeer) (path: IsPath maze moves standings):
-    Exists Reindeer (last => And (final maze (startingReindeer maze) moves = Some last) (last.position = maze.end)) :=
+    Exists Reindeer (last => (final maze (startingReindeer maze) moves = Some last) ∧ (last.position = maze.end)) :=
   Exists.elim (followFinal maze (startingReindeer maze) moves standings (And.left path)) (last both =>
     let atEnd := And.right path
     rewrite And.right both at atEnd in Witness last (Both (And.left both) (Option.someInjective _ _ atEnd)))
@@ -102,13 +102,13 @@ theorem pathOfFinal (maze: Maze) (moves: List Move) (last: Reindeer) (ended: fin
 --| lowest score of any path.
 theorem lowestScoreCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
     (reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings))):
-    Exists Nat (best => And (maze.lowestScore maze.fromStart = Some best) (IsLowestScore maze best)) :=
+    Exists Nat (best => (maze.lowestScore maze.fromStart = Some best) ∧ (IsLowestScore maze best)) :=
   let (Both reachedAll (Both sourcesBound closed)) := fromStartCorrect maze
   let startBound: Graph.Bound maze.fromStart 0 (startingReindeer maze) := sourcesBound maze.startReindeer 0 (Inl rfl)
   let candidates := maze.endReindeer.filterMap maze.fromStart.get
   -- Each path's score is at least some candidate.
   let pathCandidate: (moves: List Move) → (standings: List Reindeer) → IsPath maze moves standings →
-      Exists Nat (found => And (found ∈ candidates) (found ≤ score moves)) :=
+      Exists Nat (found => (found ∈ candidates) ∧ (found ≤ score moves)) :=
     moves standings path =>
       Exists.elim (pathEnds maze moves standings path) (last both =>
         Exists.elim (boundAlong maze maze.fromStart closed (startingReindeer maze) startOpen 0 startBound moves last (And.left both)) (found bound =>

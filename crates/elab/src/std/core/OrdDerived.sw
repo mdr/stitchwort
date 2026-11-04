@@ -10,7 +10,7 @@
 -- (docs/proposals/interfaces.md §5.11, stage 7)
 
 --| When `c` then `d` is `Equal`, both are.
-theorem Ordering.thenEqual [c d: Ordering] (h: Ordering.andThen c d = Equal): And (c = Equal) (d = Equal) :=
+theorem Ordering.thenEqual [c d: Ordering] (h: Ordering.andThen c d = Equal): (c = Equal) ∧ (d = Equal) :=
   Ordering.andThenEqual c d h
 
 --| Comparing the other way round, field by field.

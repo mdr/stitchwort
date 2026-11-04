@@ -26,6 +26,5 @@ import Std (And, List)
 
 --| Part 1 over all moves, from a warehouse where nothing overlaps.
 theorem part1Moves (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse):
-    And ((warehouse.moveAll moves).walls = warehouse.walls)
-      (And (boxCount (warehouse.moveAll moves) = boxCount warehouse) (Separate (warehouse.moveAll moves))) :=
+    ((warehouse.moveAll moves).walls = warehouse.walls) ∧ ((boxCount (warehouse.moveAll moves) = boxCount warehouse) ∧ (Separate (warehouse.moveAll moves))) :=
   Both (moveAllWalls warehouse moves) (Both (moveAllCount warehouse moves) (moveAllSeparate warehouse moves separate))

@@ -18,8 +18,7 @@ def isAt (row: Nat) (column: Nat) (position: Position): Bool := position.row == 
 --| positions where `has` holds.
 def Represents (sightlines: Sightlines) (has: Position → Bool): Prop :=
   (row: Nat) → (column: Nat) →
-    And ((sightlines.byRow.getOr row Set.empty).contains column = has { row, column })
-      ((sightlines.byColumn.getOr column Set.empty).contains row = has { row, column })
+    ((sightlines.byRow.getOr row Set.empty).contains column = has { row, column }) ∧ ((sightlines.byColumn.getOr column Set.empty).contains row = has { row, column })
 
 --| The line `key` of `lines` after adding `item` to the line `line`.
 theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Nat) (other: Nat):
@@ -271,9 +270,7 @@ theorem walkLeftLeave (lab: Lab) (row: Nat): (column: Nat) → ((other: Nat) →
 theorem simulateAt (lab: Lab) (sightlines: Sightlines) (represents: Represents sightlines (position => lab.obstructions.contains position))
     (mapped: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True):
     (guard: Guard) → onMap lab guard.position = True →
-      And
-        ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => And (0 < steps) (walk lab (Some guard) steps = Some next)))
-        (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
+      ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => (0 < steps) ∧ (walk lab (Some guard) steps = Some next))) ∧ (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
   | { position = { row, column }, facing = Up }, inside =>
     match found: (sightlines.byColumn.getOr column Set.empty).below row with
       | Some obstruction =>
@@ -361,7 +358,7 @@ theorem insertContains (obstructions: Set Position) (added: Position) (position:
   match here: isAt added.row added.column position with
     | True => rewrite isAtSound added position here in Eq.sym (Set.containsInsert added obstructions)
     | False =>
-      let other: Not (position = added) := same => Bool.falseNotTrue (Eq.trans (Eq.sym here) (rewrite same in isAtSelf added))
+      let other: position ≠ added := same => Bool.falseNotTrue (Eq.trans (Eq.sym here) (rewrite same in isAtSelf added))
       rewrite Set.containsInsertOther obstructions added position other in rfl
 
 --| The program's sightlines with each new obstruction on the map simulate

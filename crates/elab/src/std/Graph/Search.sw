@@ -30,7 +30,7 @@ type Graph (s: Type) = {
 --| it, ending at `finish`.
 def Graph.Walk (graph: Graph s) (start: s): List (s, Nat) → s → Prop
   | Nil, finish => start = finish
-  | Cons (next, weight) rest, finish => And ((next, weight) ∈ graph.edges start) (graph.Walk next rest finish)
+  | Cons (next, weight) rest, finish => ((next, weight) ∈ graph.edges start) ∧ (graph.Walk next rest finish)
 
 --| What a walk's edges cost together.
 def Graph.cost (path: List (s, Nat)): Nat := path.sumBy Pair.snd
@@ -59,7 +59,7 @@ theorem Graph.walkSnoc (graph: Graph s) (start: s) (path: List (s, Nat)) (middle
 def Graph.Reached (graph: Graph s) (sources: List (s, Nat)) (state: s) (cost: Nat): Prop :=
   Exists s (source =>
     Exists Nat (start =>
-      Exists (List (s, Nat)) (path => And ((source, start) ∈ sources) (And (graph.Walk source path state) (start + Graph.cost path = cost)))))
+      Exists (List (s, Nat)) (path => ((source, start) ∈ sources) ∧ ((graph.Walk source path state) ∧ (start + Graph.cost path = cost)))))
 
 theorem Graph.reachedSources (graph: Graph s) (sources: List (s, Nat)) (source: s) (start: Nat) (member: (source, start) ∈ sources):
     graph.Reached sources source start :=
@@ -82,7 +82,7 @@ theorem Graph.reachedEdges (graph: Graph s) (sources: List (s, Nat)) (state: s) 
 
 --| `state` is settled for no more than `cost`.
 def Graph.Bound [auto ord: Ord s] (settled: Map s Nat) (cost: Nat) (state: s): Prop :=
-  Exists Nat (found => And (settled.get state = Some found) (found ≤ cost))
+  Exists Nat (found => (settled.get state = Some found) ∧ (found ≤ cost))
 
 --| A bound still holds for a larger cost.
 theorem Graph.boundWeaken [auto ord: Ord s] (settled: Map s Nat) (cost: Nat) (more: Nat) (state: s) (bound: Graph.Bound settled cost state)
@@ -94,10 +94,8 @@ theorem Graph.boundWeaken [auto ord: Ord s] (settled: Map s Nat) (cost: Nat) (mo
 --| more than its starting cost, and each edge out of a settled state leads to
 --| one settled for no more than the two together.
 def Graph.SearchResult [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (result: Map s Nat): Prop :=
-  And ((state: s) → (cost: Nat) → result.get state = Some cost → reach state cost)
-    (And ((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Bound result start source)
-      ((state: s) → (cost: Nat) → result.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-        Graph.Bound result (cost + weight) next))
+  ((state: s) → (cost: Nat) → result.get state = Some cost → reach state cost) ∧ (((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Bound result start source) ∧ ((state: s) → (cost: Nat) → result.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
+    Graph.Bound result (cost + weight) next))
 
 --| Along any walk, a search's bound grows by no more than the walk's cost.
 theorem Graph.boundAlong [auto ord: Ord s] (graph: Graph s) (result: Map s Nat)
@@ -117,9 +115,8 @@ theorem Graph.boundAlong [auto ord: Ord s] (graph: Graph s) (result: Map s Nat)
 --| Each cost found is a walk's from a source, and no walk from a source
 --| costs less.
 def Graph.Shortest [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (result: Map s Nat): Prop :=
-  And ((state: s) → (cost: Nat) → result.get state = Some cost → graph.Reached sources state cost)
-    ((source: s) → (start: Nat) → (source, start) ∈ sources → (path: List (s, Nat)) → (state: s) → graph.Walk source path state →
-      Graph.Bound result (start + Graph.cost path) state)
+  ((state: s) → (cost: Nat) → result.get state = Some cost → graph.Reached sources state cost) ∧ ((source: s) → (start: Nat) → (source, start) ∈ sources → (path: List (s, Nat)) → (state: s) → graph.Walk source path state →
+    Graph.Bound result (start + Graph.cost path) state)
 
 theorem Graph.shortestOfResult [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (result: Map s Nat)
     (correct: Graph.SearchResult graph sources (graph.Reached sources) result): Graph.Shortest graph sources result :=
@@ -170,7 +167,7 @@ theorem Graph.containsPushedEdge [auto ord: Ord s] (cost: Nat): (edges: List (s,
 --| Pushing edges adds nothing but each edge's state at `cost` plus its cost.
 theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (total: Nat) → (state: s) →
     (Graph.pushEdges cost edges queue).contains (total, state) = True →
-    Or (queue.contains (total, state) = True) (Exists Nat (weight => And ((state, weight) ∈ edges) (total = cost + weight)))
+    (queue.contains (total, state) = True) ∨ (Exists Nat (weight => ((state, weight) ∈ edges) ∧ (total = cost + weight)))
   | Nil, queue, total, state, there => Inl there
   | Cons (next, weight) rest, queue, total, state, there =>
     match Graph.containsPushed cost rest (queue.insert (cost + weight, next)) total state there with
@@ -184,7 +181,7 @@ theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat
             Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
 
 --| `Less` then anything is never a first comparison of `Greater`.
-theorem Graph.notGreaterOfThen: (first: Ordering) → (second: Ordering) → Ordering.andThen first second = Less → Not (first = Greater)
+theorem Graph.notGreaterOfThen: (first: Ordering) → (second: Ordering) → Ordering.andThen first second = Less → first ≠ Greater
   | Less, second, less, same => Ordering.lessNotGreater same
   | Equal, second, less, same => Ordering.equalNotGreater same
   | Greater, second, less, same => Ordering.greaterNotLess less
@@ -267,7 +264,7 @@ def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)):
 --| A cost the search still has to account for: the pair is queued, or the
 --| state is settled for no more.
 def Graph.Pending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s): Prop :=
-  Or (queue.contains (cost, state) = True) (Graph.Bound settled cost state)
+  (queue.contains (cost, state) = True) ∨ (Graph.Bound settled cost state)
 
 --| What holds at each step of the search.
 --| Every queued pair and settled state is reached for its cost; each source,
@@ -275,21 +272,16 @@ def Graph.Pending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (
 --| costs more than anything queued.
 def Graph.SearchState [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (queue: Set (Nat, s))
     (settled: Map s Nat): Prop :=
-  And ((cost: Nat) → (state: s) → queue.contains (cost, state) = True → reach state cost)
-    (And ((state: s) → (cost: Nat) → settled.get state = Some cost → reach state cost)
-      (And ((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Pending queue settled start source)
-        (And
-          ((state: s) → (cost: Nat) → settled.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-            Graph.Pending queue settled (cost + weight) next)
-          ((state: s) → (cost: Nat) → settled.get state = Some cost → (other: Nat) → (otherState: s) →
-            queue.contains (other, otherState) = True → cost ≤ other))))
+  ((cost: Nat) → (state: s) → queue.contains (cost, state) = True → reach state cost) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → reach state cost) ∧ (((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Pending queue settled start source) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
+    Graph.Pending queue settled (cost + weight) next) ∧ ((state: s) → (cost: Nat) → settled.get state = Some cost → (other: Nat) → (otherState: s) →
+    queue.contains (other, otherState) = True → cost ≤ other))))
 
 --| A pending cost stays pending when the queue keeps all but the popped
 --| pair, the settled states stay, and the popped state is settled for no
 --| more than the popped cost.
 theorem Graph.pendingKept [auto ord: Ord s] (queue: Set (Nat, s)) (newQueue: Set (Nat, s)) (settled: Map s Nat) (newSettled: Map s Nat)
     (poppedCost: Nat) (poppedState: s) (poppedFound: Nat)
-    (kept: (entry: (Nat, s)) → queue.contains entry = True → Not (entry = (poppedCost, poppedState)) → newQueue.contains entry = True)
+    (kept: (entry: (Nat, s)) → queue.contains entry = True → entry ≠ (poppedCost, poppedState) → newQueue.contains entry = True)
     (stays: (state: s) → (found: Nat) → settled.get state = Some found → newSettled.get state = Some found)
     (popped: newSettled.get poppedState = Some poppedFound) (cheaper: poppedFound ≤ poppedCost) (cost: Nat) (state: s)
     (pending: Graph.Pending queue settled cost state): Graph.Pending newQueue newSettled cost state :=
@@ -471,8 +463,7 @@ theorem Graph.visitListed [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat))
 --| What visiting edges settles anew is at `depth`, and put on the list.
 theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (cost: Nat) → (Graph.visitEdges depth edges settled next).fst.get state = Some cost →
-    Or (settled.get state = Some cost)
-      (And (cost = depth) (And (state ∈ (Graph.visitEdges depth edges settled next).snd) (Exists Nat (weight => (state, weight) ∈ edges))))
+    (settled.get state = Some cost) ∨ ((cost = depth) ∧ ((state ∈ (Graph.visitEdges depth edges settled next).snd) ∧ (Exists Nat (weight => (state, weight) ∈ edges))))
   | Nil, settled, next, state, cost, got => Inl got
   | Cons (target, weight) rest, settled, next, state, cost, got =>
     match there: settled.contains target with
@@ -496,9 +487,7 @@ theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) �
 --| before and is now, at `depth`, an edge's state.
 theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     state ∈ (Graph.visitEdges depth edges settled next).snd →
-    Or (state ∈ next)
-      (And (settled.contains state = False)
-        (And ((Graph.visitEdges depth edges settled next).fst.get state = Some depth) (Exists Nat (weight => (state, weight) ∈ edges))))
+    (state ∈ next) ∨ ((settled.contains state = False) ∧ (((Graph.visitEdges depth edges settled next).fst.get state = Some depth) ∧ (Exists Nat (weight => (state, weight) ∈ edges))))
   | Nil, settled, next, state, member => Inl member
   | Cons (target, weight) rest, settled, next, state, member =>
     match there: settled.contains target with
@@ -602,12 +591,8 @@ theorem Graph.breadthStep [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settl
 --| settled at 0.
 def Graph.BreadthState [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop) (depth: Nat) (settled: Map s Nat)
     (frontier: List s): Prop :=
-  And ((state: s) → (cost: Nat) → settled.get state = Some cost → And (reach state cost) (cost ≤ depth))
-    (And ((state: s) → Iff (state ∈ frontier) (settled.get state = Some depth))
-      (And
-        ((state: s) → (cost: Nat) → settled.get state = Some cost → cost < depth → (next: s) → (weight: Nat) →
-          (next, weight) ∈ graph.edges state → Graph.Bound settled (cost + 1) next)
-        ((source: s) → source ∈ sources → Graph.Bound settled 0 source)))
+  ((state: s) → (cost: Nat) → settled.get state = Some cost → (reach state cost) ∧ (cost ≤ depth)) ∧ (((state: s) → (state ∈ frontier) ↔ (settled.get state = Some depth)) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → cost < depth → (next: s) → (weight: Nat) →
+    (next, weight) ∈ graph.edges state → Graph.Bound settled (cost + 1) next) ∧ ((source: s) → source ∈ sources → Graph.Bound settled 0 source)))
 
 --| A bound survives visiting.
 theorem Graph.visitBound [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (cost: Nat) (state: s)
@@ -677,7 +662,7 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
   -- What is settled now was settled before, or is new at `depth + 1` and
   -- on the next frontier.
   let origin: (state: s) → (cost: Nat) → more.get state = Some cost →
-      Or (settled.get state = Some cost) (And (cost = depth + 1) (And (state ∈ nextFrontier) (Exists Nat (weight => (state, weight) ∈ edges)))) :=
+      (settled.get state = Some cost) ∨ ((cost = depth + 1) ∧ ((state ∈ nextFrontier) ∧ (Exists Nat (weight => (state, weight) ∈ edges)))) :=
     state cost got => rewrite <- nextIs in Graph.visitNew (depth + 1) edges settled Nil state cost (rewrite moreIs in got)
   Both
     (state cost got =>
@@ -686,7 +671,7 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
           let (Both reached below) := settledReach state cost old
           Both reached (omega [below])
         | Inr (Both costs (Both listed (Witness weight edge))) =>
-          List.anyElim (from => (state, weight) ∈ graph.edges from) (And (reach state cost) (cost ≤ depth + 1)) frontier
+          List.anyElim (from => (state, weight) ∈ graph.edges from) ((reach state cost) ∧ (cost ≤ depth + 1)) frontier
             (List.memFlatMapElim graph.edges (state, weight) frontier edge) (from inFrontier fromEdge =>
               let fromGot := (atFrontier from).forward inFrontier
               let reached := edgesReach from depth (And.left (settledReach from depth fromGot)) state weight fromEdge
@@ -751,7 +736,7 @@ theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: L
       List.anyElim (source => (source, 0) = (state, weight)) (state ∈ sources) sources (List.memMapAny sources (source => (source, 0)) (state, weight) member)
         (source inSources same => rewrite <- Eq.cong Pair.fst same in inSources)
   let origin: (state: s) → (cost: Nat) → start.fst.get state = Some cost →
-      And (cost = 0) (And (state ∈ start.snd) (state ∈ sources)) :=
+      (cost = 0) ∧ ((state ∈ start.snd) ∧ (state ∈ sources)) :=
     state cost got =>
       match Graph.visitNew 0 edges Map.empty Nil state cost got with
         | Inl none => Void.exfalso (Option.noneNotSome cost none)

@@ -26,7 +26,7 @@ theorem Float.Theory.pow2FromPow: (fuel: Nat) → (k: Nat) → Float.Model.pow2F
             let e: d + d = k := omega [Nat.equalSound (k - d * 2) 0 odd]
             Eq.trans (Eq.sym (Nat.powAdd 2 d d)) (Eq.cong (Nat.pow 2) e)
           | False =>
-            let ne: Not (k - d * 2 = 0) := Nat.equalFalse (k - d * 2) 0 odd
+            let ne: k - d * 2 ≠ 0 := Nat.equalFalse (k - d * 2) 0 odd
             let e: Succ (d + d) = k := omega
             Eq.trans (Eq.cong (t => t * 2) (Eq.sym (Nat.powAdd 2 d d))) (Eq.cong (Nat.pow 2) e)
 
@@ -41,7 +41,7 @@ theorem Float.Theory.ltPow: (n: Nat) → n < Nat.pow 2 n
   | Succ n => omega [Float.Theory.ltPow n]
 
 --| `b` is the number of binary digits of a positive `n`: `n < 2^b <= 2n`.
-def Float.Theory.IsBitLength (n: Nat) (b: Nat): Prop := And (n < Nat.pow 2 b) (Nat.pow 2 b ≤ n + n)
+def Float.Theory.IsBitLength (n: Nat) (b: Nat): Prop := (n < Nat.pow 2 b) ∧ (Nat.pow 2 b ≤ n + n)
 
 theorem Float.Theory.bitLengthSlowZero: (fuel: Nat) → Float.Model.bitLengthSlow fuel 0 = 0
   | Zero => rfl
@@ -58,7 +58,7 @@ theorem Float.Theory.bitLengthSlowSpec: (fuel: Nat) → (n: Nat) → 0 < n → n
       | True =>
         rewrite Nat.equalSound (Nat.divFuel n n 2) 0 z, Float.Theory.bitLengthSlowZero fuel in Both omega omega
       | False =>
-        let ne: Not (Nat.divFuel n n 2 = 0) := Nat.equalFalse (Nat.divFuel n n 2) 0 z
+        let ne: Nat.divFuel n n 2 ≠ 0 := Nat.equalFalse (Nat.divFuel n n 2) 0 z
         let ih: Float.Theory.IsBitLength (Nat.divFuel n n 2) (Float.Model.bitLengthSlow fuel (Nat.divFuel n n 2)) :=
           Float.Theory.bitLengthSlowSpec fuel (Nat.divFuel n n 2) omega omega
         Both (omega [And.left ih]) (omega [And.right ih])
@@ -84,7 +84,7 @@ theorem Float.Theory.bitLengthBySpec: (powers: List Nat) → (width: Nat) → (n
     match z: Nat.equal (Nat.divFuel n n p) 0 with
       | True => Float.Theory.bitLengthBySpec rest (Nat.divFuel width width 2) n restFit pos
       | False =>
-        let ne: Not (Nat.divFuel n n p = 0) := Nat.equalFalse (Nat.divFuel n n p) 0 z
+        let ne: Nat.divFuel n n p ≠ 0 := Nat.equalFalse (Nat.divFuel n n p) 0 z
         let low: Nat.divFuel n n p * p ≤ n := Nat.divFuelLe n n p
         let high: n < Succ (Nat.divFuel n n p) * p := Nat.divFuelBound n n p (Nat.nonzeroOfPos p ppos) (Nat.leRefl n)
         let ih: Float.Theory.IsBitLength (Nat.divFuel n n p)
@@ -262,7 +262,7 @@ theorem Float.Theory.magUnitsInjective (m: Nat) (n: Nat) (e: Float.Theory.magUni
 --| The pattern `e × 2^52 + q`, for `q ≤ 2^53` with its leading bit unless
 --| `e` is 0, is `2^e × q` units.
 theorem Float.Theory.magUnitsGrid (e: Nat) (q: Nat) (hq: q ≤ 9007199254740992)
-    (lead: Or (e = 0) (4503599627370496 ≤ q)):
+    (lead: (e = 0) ∨ (4503599627370496 ≤ q)):
     Float.Theory.magUnits (e * 4503599627370496 + q) = Nat.pow 2 e * q :=
   match c: Nat.leq 4503599627370496 q with
     | False =>
@@ -302,7 +302,7 @@ type Float.Theory.RoundsTo (t: Nat) (d: Nat) (r: Nat): Prop = {
   inRange: r < 9218868437227405312 → t < d * Float.Theory.overflowUnits,
   nearest: (m: Nat) → m < 9218868437227405312 → r < 9218868437227405312
     → Nat.absDiff (Float.Theory.magUnits r * d) t ≤ Nat.absDiff (Float.Theory.magUnits m * d) t,
-  tiesEven: (m: Nat) → m < 9218868437227405312 → r < 9218868437227405312 → Not (m = r)
+  tiesEven: (m: Nat) → m < 9218868437227405312 → r < 9218868437227405312 → m ≠ r
     → Nat.absDiff (Float.Theory.magUnits r * d) t = Nat.absDiff (Float.Theory.magUnits m * d) t
     → Float.Theory.IsEven r
 }
@@ -313,22 +313,18 @@ def Float.Theory.clamp (r: Nat): Nat := if Nat.leq 9218868437227405312 r then 92
 --| Between patterns `p` and `p + 1`, taking the lower: the value is at most
 --| halfway, and even `p` at halfway.
 def Float.Theory.PickLow (t: Nat) (b: Nat) (p: Nat) (r: Nat): Prop :=
-  And (r = p)
-    (And (t + t ≤ Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b)
-      (t + t = Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b → Float.Theory.IsEven p))
+  (r = p) ∧ ((t + t ≤ Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b) ∧ (t + t = Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b → Float.Theory.IsEven p))
 
 --| Between patterns `p` and `p + 1`, taking the upper: the value is at least
 --| halfway, and even `p + 1` at halfway.
 def Float.Theory.PickHigh (t: Nat) (b: Nat) (p: Nat) (r: Nat): Prop :=
-  And (r = Succ p)
-    (And (Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b ≤ t + t)
-      (t + t = Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b → Float.Theory.IsEven (Succ p)))
+  (r = Succ p) ∧ ((Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b ≤ t + t) ∧ (t + t = Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b → Float.Theory.IsEven (Succ p)))
 
 theorem Float.Theory.unitsAtInfinity: Float.Theory.magUnits 9218868437227405312 = Float.Model.pow2 2098 := rfl
 
 theorem Float.Theory.unitsAtLargest: Float.Theory.magUnits 9218868437227405311 = Float.Model.pow2 2045 * 9007199254740991 := rfl
 
-theorem Float.Theory.largestOdd: Not (Float.Theory.IsEven 9218868437227405311) := Bool.falseNotTrue
+theorem Float.Theory.largestOdd: ¬(Float.Theory.IsEven 9218868437227405311) := Bool.falseNotTrue
 
 --| The threshold, times `b`, is halfway between the two patterns' values.
 theorem Float.Theory.overflowHalf (b: Nat):
@@ -366,7 +362,7 @@ theorem Float.Theory.scaledLess (m: Nat) (p: Nat) (b: Nat) (h: m < p) (pos: 0 < 
 theorem Float.Theory.halfLe (x: Nat) (y: Nat) (z: Nat) (w: Nat) (e: x + y = z + z) (h: x + y ≤ w + w): z ≤ w := omega
 
 theorem Float.Theory.halfLess (x: Nat) (y: Nat) (z: Nat) (w: Nat) (e: x + y = z + z) (h: w + w ≤ x + y)
-    (ne: Not (w + w = x + y)): w < z :=
+    (ne: w + w ≠ x + y): w < z :=
   omega
 
 theorem Float.Theory.notLessSelf (n: Nat) (h: n < n): Void := omega
@@ -375,7 +371,7 @@ theorem Float.Theory.notLessSelf (n: Nat) (h: n < n): Void := omega
 --| infinity's pattern.
 theorem Float.Theory.roundsToInfinity (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 < b)
     (low: Float.Theory.magUnits p * b ≤ t) (hr: 9218868437227405312 ≤ r)
-    (pick: Or (Float.Theory.PickLow t b p r) (Float.Theory.PickHigh t b p r)):
+    (pick: (Float.Theory.PickLow t b p r) ∨ (Float.Theory.PickHigh t b p r)):
     Float.Theory.RoundsTo t b 9218868437227405312 :=
   let beyond: 9218868437227405312 ≤ p → b * Float.Theory.overflowUnits ≤ t := hp =>
     Nat.leTrans (b * Float.Theory.overflowUnits) (Float.Theory.magUnits p * b) t
@@ -408,7 +404,7 @@ theorem Float.Theory.roundsToInfinity (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 
 theorem Float.Theory.roundsToFinite (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 < b)
     (low: Float.Theory.magUnits p * b ≤ t) (high: t < Float.Theory.magUnits (Succ p) * b)
     (hr: r < 9218868437227405312)
-    (pick: Or (Float.Theory.PickLow t b p r) (Float.Theory.PickHigh t b p r)):
+    (pick: (Float.Theory.PickLow t b p r) ∨ (Float.Theory.PickHigh t b p r)):
     Float.Theory.RoundsTo t b r :=
   let below: Succ p ≤ 9218868437227405311 → t < b * Float.Theory.overflowUnits := hp =>
     Nat.lessTrans t (Float.Theory.magUnits 9218868437227405311 * b) (b * Float.Theory.overflowUnits)
@@ -517,7 +513,7 @@ theorem Float.Theory.roundsToFinite (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 
 --| Rounding to one of two neighbouring patterns, clamped at infinity.
 theorem Float.Theory.roundsToNeighbour (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 < b)
     (low: Float.Theory.magUnits p * b ≤ t) (high: t < Float.Theory.magUnits (Succ p) * b)
-    (pick: Or (Float.Theory.PickLow t b p r) (Float.Theory.PickHigh t b p r)):
+    (pick: (Float.Theory.PickLow t b p r) ∨ (Float.Theory.PickHigh t b p r)):
     Float.Theory.RoundsTo t b (Float.Theory.clamp r) :=
   match c: Nat.leq 9218868437227405312 r with
     | True =>
@@ -543,7 +539,7 @@ theorem Float.Theory.evenShift (e: Nat) (q: Nat) (h: Float.Theory.IsEven q): Flo
 --| What `roundsUp` decides: down when below halfway, or at it with `q`
 --| even; up when above, or at it with `q` odd.
 theorem Float.Theory.locateDown (q: Nat) (rem: Nat) (b: Nat) (pos: 0 < b) (h: Float.Model.roundsUp q (Float.Model.locate rem b) = False):
-    Or (rem + rem < b) (And (rem + rem = b) (Float.Theory.IsEven q)) :=
+    (rem + rem < b) ∨ ((rem + rem = b) ∧ (Float.Theory.IsEven q)) :=
   match c0: Nat.equal rem 0 with
     | True => Inl (omega [Nat.equalSound rem 0 c0, pos])
     | False =>
@@ -558,7 +554,7 @@ theorem Float.Theory.locateDown (q: Nat) (rem: Nat) (b: Nat) (pos: 0 < b) (h: Fl
             | False => Void.exfalso (Bool.trueNotFalse h)
 
 theorem Float.Theory.locateUp (q: Nat) (rem: Nat) (b: Nat) (h: Float.Model.roundsUp q (Float.Model.locate rem b) = True):
-    Or (b < rem + rem) (And (rem + rem = b) (Float.Theory.IsEven (Succ q))) :=
+    (b < rem + rem) ∨ ((rem + rem = b) ∧ (Float.Theory.IsEven (Succ q))) :=
   match c0: Nat.equal rem 0 with
     | True => Void.exfalso (Bool.falseNotTrue h)
     | False =>
@@ -576,7 +572,7 @@ theorem Float.Theory.locateUp (q: Nat) (rem: Nat) (b: Nat) (h: Float.Model.round
 --| range it assumes.
 theorem Float.Theory.roundCoreAt (e: Nat) (top: Nat) (b: Nat) (q: Nat) (rem: Nat) (pos: 0 < b)
     (split: top = q * b + rem) (hr: rem < b) (hq: q < 9007199254740992)
-    (lead: Or (e = 0) (4503599627370496 ≤ q)):
+    (lead: (e = 0) ∨ (4503599627370496 ≤ q)):
     Float.Theory.RoundsTo (Nat.pow 2 e * top) b (Float.Model.roundCore False e q (Float.Model.locate rem b)) :=
   let xpos: 0 < Nat.pow 2 e := Nat.powSuccPos 1 e
   let gl: Float.Theory.magUnits (e * 4503599627370496 + q) * b = Nat.pow 2 e * q * b :=
@@ -851,7 +847,7 @@ theorem Float.Theory.shiftCross (n: Nat) (den: Nat) (u: Nat) (v: Nat) (us: Nat) 
 theorem Float.Theory.finishAt (n: Nat) (den: Nat) (s: Int) (sh: Int) (e: Nat) (pn: 0 < n) (pd: 0 < den)
     (hs: Int.add sh (OfNat e) = s)
     (qhi: n * Float.Theory.upPow sh < den * Float.Theory.downPow sh * 9007199254740992)
-    (lead: Or (e = 0) (den * Float.Theory.downPow sh * 4503599627370496 ≤ n * Float.Theory.upPow sh)):
+    (lead: (e = 0) ∨ (den * Float.Theory.downPow sh * 4503599627370496 ≤ n * Float.Theory.upPow sh)):
     Float.Theory.RoundsTo (Float.Model.scaleUp n s) (Float.Model.scaleDown den s) (Float.Theory.roundAt n den e sh) :=
   let top: Nat := Float.Model.scaleUp n sh
   let bottom: Nat := Float.Model.scaleDown den sh
@@ -1171,7 +1167,7 @@ theorem Float.Theory.roundRatioOfNeg (den: Nat) (scale: Int) (z: Bool): (x: Nat)
   | Zero, p => Void.exfalso (Bool.falseNotTrue p)
   | Succ k, p => rfl
 
-theorem Float.Theory.zeroOrPos: (m: Nat) → Or (m = 0) (0 < m)
+theorem Float.Theory.zeroOrPos: (m: Nat) → (m = 0) ∨ (0 < m)
   | Zero => Inl rfl
   | Succ k => Inr rfl
 
@@ -1242,7 +1238,7 @@ theorem Float.Theory.roundRatioUnitsBits (bits: Nat) (fin: Float.Theory.FiniteBi
 
 -- Addition on bit patterns
 
-theorem Float.Theory.boolCases: (b: Bool) → Or (b = True) (b = False)
+theorem Float.Theory.boolCases: (b: Bool) → (b = True) ∨ (b = False)
   | True => Inl rfl
   | False => Inr rfl
 
@@ -1352,7 +1348,7 @@ theorem Float.Theory.addInfComm (a: Nat) (b: Nat) (ia: Float.Model.isInfinite a 
 
 --| A case split that leaves the goal as it is, for goals that are costly to
 --| search.
-theorem Float.Theory.orCase [p: Prop] [q: Prop] [goal: Prop] (h: Or p q) (l: p → goal) (r: q → goal): goal :=
+theorem Float.Theory.orCase [p: Prop] [q: Prop] [goal: Prop] (h: p ∨ q) (l: p → goal) (r: q → goal): goal :=
   match h with
     | Inl a => l a
     | Inr b => r b
@@ -1432,7 +1428,7 @@ theorem Float.Theory.keyLeInf (a: Nat) (fin: Float.Theory.FiniteBits a):
       (omega [fin, (rewrite c in rfl: Float.Model.magnitude a = a)]: Nat.leq a 9218868437227405312 = True))
 
 --| The keys of the two zeros' patterns are at most `0.0`'s.
-theorem Float.Theory.zeroLeZeroBits (a: Nat) (h: Or (a = 0) (a = 9223372036854775808)):
+theorem Float.Theory.zeroLeZeroBits (a: Nat) (h: (a = 0) ∨ (a = 9223372036854775808)):
     Int.leq (Float.Theory.key a) (OfNat 0) = True :=
   match h with
     | Inl e => J (y w => Int.leq (Float.Theory.key y) (OfNat 0) = True) rfl (Eq.sym e)
@@ -1446,7 +1442,7 @@ theorem Float.Theory.signedZero: (s: Bool) → (x: Nat) → Int.signed s x = OfN
   | True, Succ k, h => Void.exfalso (Int.negSuccNotOfNat k 0 h)
 
 --| A pattern with no units is a zero.
-theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNat 0): Or (a = 0) (a = 9223372036854775808) :=
+theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNat 0): (a = 0) ∨ (a = 9223372036854775808) :=
   let m0: Float.Model.magnitude a = 0 :=
     Float.Theory.magUnitsInjective (Float.Model.magnitude a) 0
       (Float.Theory.signedZero (Float.Model.signBit a) (Float.Theory.magUnits (Float.Model.magnitude a)) h)
@@ -1467,7 +1463,7 @@ theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNa
         ]))
 
 --| The two zeros' patterns have no units.
-theorem Float.Theory.unitsZeroBits (a: Nat) (h: Or (a = 0) (a = 9223372036854775808)): Float.Model.units a = OfNat 0 :=
+theorem Float.Theory.unitsZeroBits (a: Nat) (h: (a = 0) ∨ (a = 9223372036854775808)): Float.Model.units a = OfNat 0 :=
   match h with
     | Inl e => J (y w => Float.Model.units y = OfNat 0) rfl (Eq.sym e)
     | Inr e => J (y w => Float.Model.units y = OfNat 0) rfl (Eq.sym e)
@@ -1475,12 +1471,12 @@ theorem Float.Theory.unitsZeroBits (a: Nat) (h: Or (a = 0) (a = 9223372036854775
 --| The zero sign matters only for a zero
 --| numerator.
 theorem Float.Theory.roundRatioSignIrrelevant (den: Nat) (scale: Int) (z1: Bool) (z2: Bool):
-    (num: Int) → Not (num = OfNat 0) → Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2
+    (num: Int) → num ≠ OfNat 0 → Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2
   | OfNat Zero, ne => Void.exfalso (ne rfl)
   | OfNat (Succ k), ne => rfl
   | NegSucc k, ne => rfl
 
-theorem Float.Theory.intZeroCases: (x: Int) → Or (x = OfNat 0) (Not (x = OfNat 0))
+theorem Float.Theory.intZeroCases: (x: Int) → (x = OfNat 0) ∨ (x ≠ OfNat 0)
   | OfNat Zero => Inl rfl
   | OfNat (Succ k) => Inr (h => Bool.falseNotTrue (Eq.cong (y => Nat.equal (Int.toNat y) 0) h))
   | NegSucc k => Inr (Int.negSuccNotOfNat k 0)
@@ -1658,7 +1654,7 @@ theorem Float.Theory.finiteNotInfinite (a: Nat) (fin: Float.Theory.FiniteBits a)
     (h => omega [fin, Nat.equalSound (Float.Model.magnitude a) 9218868437227405312 h])
 
 --| The patterns of a zero.
-theorem Float.Theory.zeroBits (x: Float) (h: Float.isZero x = True): Or (x.bits = 0) (x.bits = 9223372036854775808) :=
+theorem Float.Theory.zeroBits (x: Float) (h: Float.isZero x = True): (x.bits = 0) ∨ (x.bits = 9223372036854775808) :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.equal x.bits 0))
     (e => Inl (Nat.equalSound x.bits 0 e))
     (e =>
@@ -1666,7 +1662,7 @@ theorem Float.Theory.zeroBits (x: Float) (h: Float.isZero x = True): Or (x.bits 
         (Nat.equalSound x.bits 9223372036854775808
           (J (y w => (y ∨ Nat.equal x.bits 9223372036854775808) = True) h e)))
 
-theorem Float.Theory.zeroOfBits (x: Float) (h: Or (x.bits = 0) (x.bits = 9223372036854775808)): Float.isZero x = True :=
+theorem Float.Theory.zeroOfBits (x: Float) (h: (x.bits = 0) ∨ (x.bits = 9223372036854775808)): Float.isZero x = True :=
   match h with
     | Inl e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) rfl (Eq.sym e)
     | Inr e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) rfl (Eq.sym e)

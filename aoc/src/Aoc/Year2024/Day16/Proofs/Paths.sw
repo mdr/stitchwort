@@ -49,7 +49,7 @@ theorem lastCons: (first: a) → (rest: List a) → (last: a) → rest.last = So
 
 --| `follow` ends where `final` does.
 theorem followFinal (maze: Maze): (reindeer: Reindeer) → (moves: List Move) → (standings: List Reindeer) →
-    follow maze reindeer moves = Some standings → Exists Reindeer (last => And (final maze reindeer moves = Some last) (standings.last = Some last))
+    follow maze reindeer moves = Some standings → Exists Reindeer (last => (final maze reindeer moves = Some last) ∧ (standings.last = Some last))
   | reindeer, Nil, standings, followed => rewrite <- Option.someInjective _ _ followed in Witness reindeer (Both rfl rfl)
   | reindeer, Cons way rest, standings, followed =>
     match moved: move maze reindeer way with
@@ -64,7 +64,7 @@ theorem followFinal (maze: Maze): (reindeer: Reindeer) → (moves: List Move) �
 
 --| Moves that don't run into a wall have standings ending where they do.
 theorem finalFollow (maze: Maze): (reindeer: Reindeer) → (moves: List Move) → (last: Reindeer) → final maze reindeer moves = Some last →
-    Exists (List Reindeer) (standings => And (follow maze reindeer moves = Some standings) (standings.last = Some last))
+    Exists (List Reindeer) (standings => (follow maze reindeer moves = Some standings) ∧ (standings.last = Some last))
   | reindeer, Nil, last, ended => rewrite <- Option.someInjective _ _ ended in Witness [reindeer] (Both rfl rfl)
   | reindeer, Cons way rest, last, ended =>
     match moved: move maze reindeer way with
@@ -106,7 +106,7 @@ theorem followSplits (maze: Maze): (reindeer: Reindeer) → (moves: List Move) �
     follow maze reindeer moves = Some standings → (middle: Reindeer) → middle ∈ standings →
     Exists (List Move) (before =>
       Exists (List Move) (after =>
-        And (moves = before ++ after) (And (final maze reindeer before = Some middle) (final maze middle after = final maze reindeer moves))))
+        (moves = before ++ after) ∧ ((final maze reindeer before = Some middle) ∧ (final maze middle after = final maze reindeer moves))))
   | reindeer, Nil, standings, followed, middle, member =>
     rewrite <- Option.someInjective _ _ followed at member in
       match member with

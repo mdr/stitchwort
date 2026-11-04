@@ -171,7 +171,7 @@ theorem Vec.toListFromListN: (n: Nat) → (xs: List a) → (ok: List.length xs =
 theorem Vec.toListFromList (xs: List a): Vec.toList (Vec.fromList xs) = xs := Vec.toListFromListN (List.length xs) xs rfl
 
 theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k): (m: Option (Vec a k)) →
-    Option.map m (rest => VCons x rest) = Some (VCons y ys) → And (x = y) (m = Some ys)
+    Option.map m (rest => VCons x rest) = Some (VCons y ys) → (x = y) ∧ (m = Some ys)
   | None, h => Void.exfalso (Option.noneNotSome (VCons y ys) h)
   | Some w, h =>
     let e := Eq.cong (.getOrElse (VCons x w)) h
@@ -255,7 +255,7 @@ theorem Vec.traverseOptionVCons (f: a → Option b) (x: a) (xs: Vec a k):
 
 --| What `traverseOption` accepts is `f` of each element.
 theorem Vec.traverseOptionCons (f: a → Option b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Option b) → f x = m →
-    Vec.traverseOption (VCons x xs) f = Some (VCons y ys) → And (f x = Some y) (Vec.traverseOption xs f = Some ys)
+    Vec.traverseOption (VCons x xs) f = Some (VCons y ys) → (f x = Some y) ∧ (Vec.traverseOption xs f = Some ys)
   | None, e, h =>
     Void.exfalso (Option.noneNotSome (VCons y ys)
       (Eq.trans (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) (Eq.sym e))

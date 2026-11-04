@@ -11,10 +11,10 @@ def List.IsNil: List a → Prop
   | Nil => Unit
   | Cons x xs => Void
 
-theorem List.nilNotCons (x: a) (xs: List a): Not (Nil = Cons x xs)
+theorem List.nilNotCons (x: a) (xs: List a): Nil ≠ Cons x xs
   | p => J (y q => List.IsNil y) Trivial p
 
-theorem List.consNotNil (x: a) (xs: List a): Not (Cons x xs = Nil)
+theorem List.consNotNil (x: a) (xs: List a): Cons x xs ≠ Nil
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list.
@@ -61,10 +61,10 @@ def Option.IsNone: Option a → Prop
   | None => Unit
   | Some x => Void
 
-theorem Option.noneNotSome (x: a): Not (None = Some x)
+theorem Option.noneNotSome (x: a): None ≠ Some x
   | p => J (y q => Option.IsNone y) Trivial p
 
-theorem Option.someNotNone (x: a): Not (Some x = None)
+theorem Option.someNotNone (x: a): Some x ≠ None
   | p => Option.noneNotSome x (Eq.sym p)
 
 --| The value, or `fallback` if there isn't one.
@@ -95,13 +95,13 @@ def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) →
 @[noReceiver]
 def List.All (p: a → Prop): List a → Prop
   | Nil => Unit
-  | Cons x xs => And (p x) (List.All p xs)
+  | Cons x xs => (p x) ∧ (List.All p xs)
 
 --| Some element of the list satisfies `p`.
 @[noReceiver]
 def List.Any (p: a → Prop): List a → Prop
   | Nil => Void
-  | Cons x xs => Or (p x) (List.Any p xs)
+  | Cons x xs => (p x) ∨ (List.Any p xs)
 
 --| `x` is an element of the list.
 @[noReceiver]
@@ -116,7 +116,7 @@ def Option.All (p: a → Prop): Option a → Prop
 --| Both halves satisfy their predicates.
 @[noReceiver]
 def Pair.All (p: a → Prop) (q: b → Prop): Pair a b → Prop
-  | MkPair x y => And (p x) (q y)
+  | MkPair x y => (p x) ∧ (q y)
 
 --| What holds of every element holds of each one.
 theorem List.memOfAll (p: a → Prop): (xs: List a) → List.All p xs → (x: a) → List.Mem x xs → p x

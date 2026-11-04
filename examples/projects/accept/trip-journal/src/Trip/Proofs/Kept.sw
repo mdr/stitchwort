@@ -33,7 +33,7 @@ theorem remotePinsKeptAsTheyWere (local: Trip) (remote: Trip) (wr: WellFormed re
 
 -- Every stop id and album id of either copy is in the merge.
 theorem stopIdsKept (local: Trip) (remote: Trip) (id: Nat)
-    (m: Or (id ∈ local.stops.map (stop => stop.id)) (id ∈ remote.stops.map (stop => stop.id))):
+    (m: (id ∈ local.stops.map (stop => stop.id)) ∨ (id ∈ remote.stops.map (stop => stop.id))):
     id ∈ (merge local remote).stops.map (stop => stop.id) :=
   let legs := mergeLegs local.legs remote.legs
   let replaced := planReplaced local.itinerary remote.itinerary
@@ -57,7 +57,7 @@ theorem stopIdsKept (local: Trip) (remote: Trip) (id: Nat)
             (List.memMap remote.stops stop inStops (s => (s, locate remote.legs s.start))))
 
 theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
-    (m: Or (id ∈ local.albums.map (album => album.id)) (id ∈ remote.albums.map (album => album.id))):
+    (m: (id ∈ local.albums.map (album => album.id)) ∨ (id ∈ remote.albums.map (album => album.id))):
     id ∈ (merge local remote).albums.map (album => album.id) :=
   let legs := mergeLegs local.legs remote.legs
   let fromLocal := local.albums.map (album => (withPhotosOf remote.albums album, locate local.legs album.start))
@@ -83,8 +83,7 @@ theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
 -- The summary, if there is one, is a copy's summary whose legs are exactly
 -- the merged legs.
 theorem summaryMatches (local: Trip) (remote: Trip) (summary: Summary) (h: (merge local remote).summary = Some summary):
-    Or (And (remote.summary = Some summary) (remote.legs = (merge local remote).legs))
-      (And (local.summary = Some summary) (local.legs = (merge local remote).legs)) :=
+    ((remote.summary = Some summary) ∧ (remote.legs = (merge local remote).legs)) ∨ ((local.summary = Some summary) ∧ (local.legs = (merge local remote).legs)) :=
   let legs := mergeLegs local.legs remote.legs
   match c: remote.legs == legs with
     | True => Inl (Both h (DecEq.sound remote.legs legs c))

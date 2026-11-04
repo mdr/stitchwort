@@ -19,7 +19,7 @@ theorem nextOfA: (c: Char) → c = 'a' → next c = 'b'
   | _, h => J (y e => next y = 'b') rfl (Eq.sym h)
 
 -- The matched character by name in a `match`.
-theorem isItself (c: Char): Or (c = 'x') (c = c) :=
+theorem isItself (c: Char): (c = 'x') ∨ (c = c) :=
   match c with
     | 'x' => Inl (rfl: c = 'x')
     | _ => Inr rfl
@@ -39,25 +39,25 @@ def bitChar: Nat → Char
   | 0 => '0'
   | _ => '1'
 
-theorem bitRoundTrip: (c: Char) → Or (c = '0') (c = '1') → bitChar (bitValue c) = c
+theorem bitRoundTrip: (c: Char) → (c = '0') ∨ (c = '1') → bitChar (bitValue c) = c
   | '0', o => rfl
   | '1', o => rfl
   | _, Inl h => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
   | _, Inr h => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
 
-theorem bitIsBit: (c: Char) → Or (c = '0') (c = '1') → isBit c = True
+theorem bitIsBit: (c: Char) → (c = '0') ∨ (c = '1') → isBit c = True
   | '0', o => rfl
   | '1', o => rfl
   | _, Inl h => Eq.cong isBit h
   | _, Inr h => Eq.cong isBit h
 
 -- A hypothesis about the character, refined in the arm.
-theorem hypothesisRefined: (c: Char) → next c = 'b' → Or (c = 'a') (next c = 'b')
+theorem hypothesisRefined: (c: Char) → next c = 'b' → (c = 'a') ∨ (next c = 'b')
   | 'a', h => Inl rfl
   | _, h => Inr h
 
 -- Two characters at once, nested in a pair.
-theorem pairOfChars: (p: Pair Char Char) → Or (p = ('a', 'b')) (p = p)
+theorem pairOfChars: (p: Pair Char Char) → (p = ('a', 'b')) ∨ (p = p)
   | ('a', 'b') => Inl rfl
   | q => Inr rfl
 
@@ -86,21 +86,21 @@ theorem nestedReturnD: (c d: Char) → c = 'a' → d = 'b' → d = 'b'
       | _ => hd
   | c, d, hc, hd => hd
 
-theorem nestedBoth: (c d: Char) → c = 'a' → d = 'b' → And (c = 'a') (d = 'b')
+theorem nestedBoth: (c d: Char) → c = 'a' → d = 'b' → (c = 'a') ∧ (d = 'b')
   | 'a', d, hc, hd =>
     match d with
       | 'b' => Both rfl rfl
       | _ => Both rfl hd
   | c, d, hc, hd => Both hc hd
 
-theorem nestedSame: (c: Char) → Or (c = 'x') (c = c)
+theorem nestedSame: (c: Char) → (c = 'x') ∨ (c = c)
   | 'a' => Inr rfl
   | c =>
     match c with
       | 'x' => Inl rfl
       | _ => Inr rfl
 
-theorem nestedOnlySame: (c: Char) → Or (c = 'x') (c = c)
+theorem nestedOnlySame: (c: Char) → (c = 'x') ∨ (c = c)
   | c =>
     match c with
       | 'x' => Inl rfl

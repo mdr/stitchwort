@@ -20,10 +20,10 @@ def Nat.IsZero: Nat → Prop
   | Zero => Unit
   | Succ n => Void
 
-theorem Nat.zeroNotSucc (n: Nat): Not (0 = Succ n)
+theorem Nat.zeroNotSucc (n: Nat): 0 ≠ Succ n
   | p => J (y q => Nat.IsZero y) Trivial p
 
-theorem Nat.succNotZero (n: Nat): Not (Succ n = 0)
+theorem Nat.succNotZero (n: Nat): Succ n ≠ 0
   | p => Nat.zeroNotSucc n (Eq.sym p)
 
 theorem Nat.succInjective (m: Nat) (n: Nat) (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
@@ -33,7 +33,7 @@ def Bool.IsFalse: Bool → Prop
   | False => Unit
   | True => Void
 
-theorem Bool.falseNotTrue: Not (False = True)
+theorem Bool.falseNotTrue: False ≠ True
   | p => J (y q => Bool.IsFalse y) Trivial p
 
 --| Whether two numbers are equal, as a `Bool`.
@@ -55,5 +55,5 @@ theorem Nat.equalSound: (m: Nat) → (n: Nat) → Nat.equal m n = True → m = n
   | Succ m, Succ n, h => Eq.cong Succ (Nat.equalSound m n h)
 
 --| Numbers that [`Nat.equal`] says differ are different.
-theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): Not (m = n)
+theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): m ≠ n
   | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))

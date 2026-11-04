@@ -71,7 +71,7 @@ theorem Quot.boolEq: (b: Bool) → (c: Bool) → (b = True → c = True) → (c 
 -- y`, and `r x x` is `True`. It proves an equation between `Bool`s, never
 -- between propositions, so it needs no more than the quotient rules.
 theorem Quot.exactDec (a: Type) (rel: a → a → Prop) (r: a → a → Bool)
-    (decides: (x: a) → (y: a) → Iff (r x y = True) (rel x y))
+    (decides: (x: a) → (y: a) → (r x y = True) ↔ (rel x y))
     (refl: (x: a) → rel x x)
     (symm: (x: a) → (y: a) → rel x y → rel y x)
     (trans: (x: a) → (y: a) → (z: a) → rel x y → rel y z → rel x z)

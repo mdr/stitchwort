@@ -25,7 +25,7 @@ def Legal (start: List Token): Prop := exists (ending: List Token) => Balanced (
 --| legal start is legal, so no earlier character is illegal:
 --| `legalOfLonger` in the proofs.)
 type FirstIllegal: List Token → Token → Prop =
-  | At (before: List Token) (token: Token) (after: List Token) (legal: Legal before) (illegal: Not (Legal (before ++ [token]))):
+  | At (before: List Token) (token: Token) (after: List Token) (legal: Legal before) (illegal: ¬(Legal (before ++ [token]))):
     FirstIllegal (before ++ Cons token after) token
 
 --| The syntax error score of each illegal closer.
@@ -47,7 +47,7 @@ type Part1Answer: List (List Token) → Nat → Prop =
   | NextLine (line: ErrorScore first score) (rest: Part1Answer lines total): Part1Answer (Cons first lines) (score + total)
 
 --| An incomplete line: not corrupted, but not balanced either.
-def Incomplete (line: List Token): Prop := Legal line ∧ Not (Balanced line)
+def Incomplete (line: List Token): Prop := Legal line ∧ ¬(Balanced line)
 
 --| A completion of a line: closers, in order, that make it balanced. A
 --| line has at most one (`completionUnique` in the proofs).
@@ -70,7 +70,7 @@ type CompletionScores: List (List Token) → List Nat → Prop =
   | NoneLeft: CompletionScores Nil Nil
   | Scored (incomplete: Incomplete first) (completes: Completes first closers) (rest: CompletionScores lines scores):
     CompletionScores (Cons first lines) (Cons (completionTotal 0 closers) scores)
-  | Skipped (complete: Not (Incomplete first)) (rest: CompletionScores lines scores): CompletionScores (Cons first lines) scores
+  | Skipped (complete: ¬(Incomplete first)) (rest: CompletionScores lines scores): CompletionScores (Cons first lines) scores
 
 --| The middle score: one of the scores, with at most half of them smaller
 --| and at most half larger. With an odd number of scores, as the puzzle

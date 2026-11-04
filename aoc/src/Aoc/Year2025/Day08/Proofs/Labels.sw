@@ -56,7 +56,7 @@ theorem memLast (e: (Nat, Nat)) (xs: List (Nat, Nat)): List.Mem e (List.append x
 
 --| A connection of `xs` then `e` is one of `xs`, or `e`.
 theorem memSnoc (a: Nat) (b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat)) (m: List.Mem (a, b) (List.append xs [e])) (goal: Prop)
-    (old: List.Mem (a, b) xs → goal) (new: And (a = e.fst) (b = e.snd) → goal): goal :=
+    (old: List.Mem (a, b) xs → goal) (new: (a = e.fst) ∧ (b = e.snd) → goal): goal :=
   match List.memAppend (a, b) xs [e] m with
     | Inl o => old o
     | Inr (Inl h) => new (Both (Eq.sym (Eq.cong Pair.fst h)) (Eq.sym (Eq.cong Pair.snd h)))
@@ -68,7 +68,7 @@ theorem memSnoc (a: Nat) (b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat)) (m: List
 --| connections `done` (the four facts at the top).
 type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop = {
   stored: (b: Nat) → b < n → Map.get circuits.labels b = Some (circuits.labelOf b),
-  inRange: (a: Nat) → (b: Nat) → List.Mem (a, b) done → And (a < n) (b < n),
+  inRange: (a: Nat) → (b: Nat) → List.Mem (a, b) done → (a < n) ∧ (b < n),
   agree: (a: Nat) → (b: Nat) → List.Mem (a, b) done → circuits.labelOf a = circuits.labelOf b,
   labelJoined: (b: Nat) → b < n → Joined done b (circuits.labelOf b)
 }
@@ -145,8 +145,8 @@ theorem relabelFrom (from: Nat) (to: Nat): relabel from to from = to := rewrite 
 
 theorem labelledMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s: Nat) (hf: f < n) (hs: s < n)
     (differ: (c.labelOf f == c.labelOf s) = False) (inv: Labelled n done c): Labelled n (List.append done [(f, s)]) (moved c f s) :=
-  let ranged: (a: Nat) → (b: Nat) → List.Mem (a, b) (List.append done [(f, s)]) → And (a < n) (b < n) :=
-    a b m => memSnoc a b (f, s) done m (And (a < n) (b < n)) (o => inv.inRange a b o)
+  let ranged: (a: Nat) → (b: Nat) → List.Mem (a, b) (List.append done [(f, s)]) → (a < n) ∧ (b < n) :=
+    a b m => memSnoc a b (f, s) done m ((a < n) ∧ (b < n)) (o => inv.inRange a b o)
       (e => Both (rewrite And.left e in hf) (rewrite And.right e in hs))
   let more: (a: Nat) → (b: Nat) → Joined done a b → Joined (List.append done [(f, s)]) a b := a b j => joinedAppend done [(f, s)] a b j
   {
@@ -176,7 +176,7 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
       -- The two boxes are already in one circuit: the labels stay.
       {
         stored = inv.stored,
-        inRange = a b m => memSnoc a b (f, s) done m (And (a < n) (b < n)) (o => inv.inRange a b o)
+        inRange = a b m => memSnoc a b (f, s) done m ((a < n) ∧ (b < n)) (o => inv.inRange a b o)
           (ab => Both (rewrite And.left ab in hf) (rewrite And.right ab in hs)),
         agree = a b m => memSnoc a b (f, s) done m (c.labelOf a = c.labelOf b) (o => inv.agree a b o)
           (ab => rewrite And.left ab, And.right ab in DecEq.sound (c.labelOf f) (c.labelOf s) e),

@@ -37,11 +37,11 @@ theorem andHyp (a: Nat) (b: Nat) (c: Nat) (h: (a ≤ b ∧ b ≤ c) = True): a �
 theorem absorbTrue (lastFrom: Nat) (id: Nat) (lastTo: Nat) (rFrom: Nat) (i: (lastFrom ≤ id ∧ id ≤ lastTo) = True)
     (e: Nat.leq rFrom (lastTo + 1) = False): id < rFrom := omega
 
-theorem notLe (a: Nat) (b: Nat) (h: Not (a ≤ b)): b < a := omega
+theorem notLe (a: Nat) (b: Nat) (h: ¬(a ≤ b)): b < a := omega
 
-theorem notLt (a: Nat) (b: Nat) (h: Not (a < b)): b ≤ a := omega
+theorem notLt (a: Nat) (b: Nat) (h: ¬(a < b)): b ≤ a := omega
 
-theorem propAnd (a: Nat) (b: Nat) (c: Nat) (h: And (a ≤ b) (b ≤ c)): a ≤ c := omega
+theorem propAnd (a: Nat) (b: Nat) (c: Nat) (h: (a ≤ b) ∧ (b ≤ c)): a ≤ c := omega
 
 -- Equations are facts too.
 theorem eqHyp (a: Nat) (b: Nat) (c: Nat) (h1: a = b + 1) (h2: b = c + 1): a = c + 2 := omega
@@ -55,11 +55,11 @@ theorem antisym (a: Nat) (b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := omega
 
 theorem closedGoal: 2 < 3 := omega
 
-theorem notGoal (x: Nat) (y: Nat) (h: x < y): Not (y ≤ x) := omega
+theorem notGoal (x: Nat) (y: Nat) (h: x < y): ¬(y ≤ x) := omega
 
 theorem leqFalseGoal (x: Nat) (y: Nat) (h: x < y): Nat.leq y x = False := omega
 
-theorem andGoal (a: Nat) (b: Nat) (h: a < b): And (a ≤ b) (a + 1 ≤ b) := omega
+theorem andGoal (a: Nat) (b: Nat) (h: a < b): (a ≤ b) ∧ (a + 1 ≤ b) := omega
 
 theorem boolAndGoal (a: Nat) (b: Nat) (h: a < b): (a ≤ b ∧ a + 1 ≤ b) = True := omega
 

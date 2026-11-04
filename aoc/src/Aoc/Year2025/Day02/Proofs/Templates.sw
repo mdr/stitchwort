@@ -18,9 +18,7 @@ import Std.Each (each, require)
 --| A template fits a range when it is a block of one or more digits written
 --| two or more times, with no more digits than the range's end has.
 def Fits (range: Range) (template: RepetitionTemplate): Prop :=
-  And (1 ≤ template.blockLength)
-    (And (2 ≤ template.copies)
-      (template.blockLength * template.copies ≤ List.length (Nat.digits range.to)))
+  (1 ≤ template.blockLength) ∧ ((2 ≤ template.copies) ∧ (template.blockLength * template.copies ≤ List.length (Nat.digits range.to)))
 
 --| The template of `blockLength` and `copies` if it fits in `size` digits,
 --| otherwise nothing.
@@ -181,7 +179,7 @@ theorem keptIfFitsDistinct (size: Nat) (blockLength: Nat) (copies: Nat): List.Di
     | False => Trivial
 
 theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (template: RepetitionTemplate)
-    (kept: List.Mem template (keptIfFits size blockLength copies)): And (template.blockLength = blockLength) (template.copies = copies) :=
+    (kept: List.Mem template (keptIfFits size blockLength copies)): (template.blockLength = blockLength) ∧ (template.copies = copies) :=
   match Nat.leq (blockLength * copies) size with
     | True =>
       match kept with

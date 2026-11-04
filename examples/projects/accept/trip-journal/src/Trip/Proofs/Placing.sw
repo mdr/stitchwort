@@ -14,7 +14,7 @@ theorem legOfMem (legs: List Leg) (pos: Position) (leg: Leg) (h: legOf legs pos 
     | None => Void.exfalso (Option.noneNotSome leg h)
 
 theorem firstCoveringMem (legs: List Leg) (t: Float) (leg: Leg) (h: firstCovering legs t = Some leg):
-    And (leg.covers t = True) (leg ∈ legs) :=
+    (leg.covers t = True) ∧ (leg ∈ legs) :=
   List.findSome legs (l => l.covers t) leg h
 
 -- An item in a leg that didn't move gets back exactly its old time.

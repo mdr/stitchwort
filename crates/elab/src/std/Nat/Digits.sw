@@ -77,9 +77,9 @@ theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (List.length (Nat.digits h
 --| Every element is a decimal digit.
 def Nat.Digits: List Nat → Prop
   | Nil => Unit
-  | Cons digit digits => And (digit < 10) (Nat.Digits digits)
+  | Cons digit digits => (digit < 10) ∧ (Nat.Digits digits)
 
-theorem Or.andWith: [p q r: Prop] → r → Or p q → Or p (And q r)
+theorem Or.andWith: [p q r: Prop] → r → p ∨ q → p ∨ (q ∧ r)
   | hr, Inl a => Inl a
   | hr, Inr b => Inr (Both b hr)
 

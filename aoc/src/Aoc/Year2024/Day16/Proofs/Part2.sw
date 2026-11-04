@@ -13,9 +13,8 @@ import Std (And, Bool, DecEq, Eq, Exists, Graph, Iff, List, Map, Nat, Option, Or
 --| From `reindeer`, on an open tile, some moves end on the end tile,
 --| scoring `cost`.
 def ReachesEnd (maze: Maze) (reindeer: Reindeer) (cost: Nat): Prop :=
-  And (maze.holds reindeer = True)
-    (Exists (List Move) (moves =>
-      Exists Reindeer (last => And (final maze reindeer moves = Some last) (And (last.position = maze.end) (score moves = cost)))))
+  (maze.holds reindeer = True) ∧ (Exists (List Move) (moves =>
+    Exists Reindeer (last => (final maze reindeer moves = Some last) ∧ ((last.position = maze.end) ∧ (score moves = cost)))))
 
 --| Edges into a way of standing on an open tile come from open tiles.
 theorem beforeHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (previous: Reindeer) → (weight: Nat) →
@@ -40,7 +39,7 @@ def endSources (maze: Maze): List (Reindeer, Nat) := maze.endReindeer.map (reind
 
 --| A source of the search back is a way of standing on the end tile, at 0.
 theorem endSource (maze: Maze) (source: Reindeer) (start: Nat) (member: (source, start) ∈ endSources maze):
-    And (source.position = maze.end) (start = 0) :=
+    (source.position = maze.end) ∧ (start = 0) :=
   Exists.elim (List.memMapElim (reindeer => (reindeer, 0)) (source, start) maze.endReindeer member) (reindeer both =>
     rewrite <- Eq.cong Pair.fst (And.right both), <- Eq.cong Pair.snd (And.right both) in Both (listedAtEnd maze reindeer (And.left both)) rfl)
 
@@ -69,7 +68,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
 --| they end, scoring the same.
 theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
-    Exists (List (Reindeer, Nat)) (path => And ((maze.graph True).Walk last path reindeer) (Graph.cost path = score moves))
+    Exists (List (Reindeer, Nat)) (path => ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
   | reindeer, holds, Nil, last, ended => Witness Nil (Both (Eq.sym (Option.someInjective _ _ ended)) rfl)
   | reindeer, holds, Cons way rest, last, ended =>
     match moved: move maze reindeer way with
@@ -107,7 +106,7 @@ theorem joinedPath (maze: Maze) (reindeer: Reindeer) (fromStart: Nat) (toEnd: Na
     (reaches: ReachesEnd maze reindeer toEnd):
     Exists (List Move) (moves =>
       Exists (List Reindeer) (standings =>
-        And (IsPath maze moves standings) (And (score moves = fromStart + toEnd) (reindeer ∈ standings)))) :=
+        (IsPath maze moves standings) ∧ ((score moves = fromStart + toEnd) ∧ (reindeer ∈ standings)))) :=
   Exists.elim reached (first parts =>
     Exists.elim (And.right reaches) (second rest =>
       Exists.elim rest (last others =>
@@ -127,8 +126,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
     Exists Reindeer (reindeer =>
       Exists Nat (first =>
         Exists Nat (second =>
-          And (fromStart.get reindeer = Some first)
-            (And (toEnd.get reindeer = Some second) (And (first + second = best) (reindeer.position = tile)))))) :=
+          (fromStart.get reindeer = Some first) ∧ ((toEnd.get reindeer = Some second) ∧ ((first + second = best) ∧ (reindeer.position = tile)))))) :=
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
   let listed := (Set.containsFromListIff _ tile).forward there
   Exists.elim (List.memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
@@ -153,7 +151,7 @@ theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
 --| On a maze whose S and E are open, with lowest score `best`, the tiles
 --| the program counts are exactly those on a best path.
 theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True) (endOpen: maze.isOpen maze.end = True) (best: Nat)
-    (lowest: IsLowestScore maze best) (tile: Position): Iff (maze.bestTiles.contains tile = True) (OnBestPath maze best tile) :=
+    (lowest: IsLowestScore maze best) (tile: Position): (maze.bestTiles.contains tile = True) ↔ (OnBestPath maze best tile) :=
   let reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings)) :=
     Exists.elim (And.left lowest) (moves rest => Exists.elim rest (standings both => Witness moves (Witness standings (And.left both))))
   let (Both reachedAll (Both startBounds closedForward)) := fromStartCorrect maze

@@ -41,7 +41,7 @@ theorem part1Output (debugger: Debugger) (output: List Nat) (finished: outcome d
 theorem lowestNil (output: Nat → List Nat): lowestOutputting output Nil = None := rfl
 
 --| Part 2: the value found is positive, and outputs the program.
-theorem part2Sound (debugger: Debugger) (a: Nat) (found: solvePart2 debugger = Some a): And (0 < a) (OutputsItself debugger a) :=
+theorem part2Sound (debugger: Debugger) (a: Nat) (found: solvePart2 debugger = Some a): (0 < a) ∧ (OutputsItself debugger a) :=
   let facts := lowestSound debugger.outputFor debugger.program a found
   match finished: outcome { debugger.registers | a } debugger.program with
     | Finished output => Both (And.left facts) (rewrite And.right facts at outcomeHalts { debugger.registers | a } debugger.program output finished)

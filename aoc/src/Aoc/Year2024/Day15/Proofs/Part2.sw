@@ -14,14 +14,14 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 
 --| A cell a box covers after a step is one it moves into, or one of its own.
 theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cell ∈ cellsOf (box.step direction)):
-    Or (cell ∈ frontOf box direction) (cell ∈ cellsOf box) :=
+    (cell ∈ frontOf box direction) ∨ (cell ∈ cellsOf box) :=
   match DecEq.decide cell box with
     | Yes atBox => Inr (Inl (Eq.sym atBox))
     | No notBox =>
       match DecEq.decide cell (box.step Right) with
         | Yes atRight => Inr (Inr (Inl (Eq.sym atRight)))
         | No notRight =>
-          let notOwn: Not (cell ∈ cellsOf box) := own =>
+          let notOwn: ¬(cell ∈ cellsOf box) := own =>
             match own with
               | Inl same => notBox (Eq.sym same)
               | Inr (Inl same) => notRight (Eq.sym same)
@@ -33,19 +33,18 @@ theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cel
 --| A cell some boxes move into is free for them: not a wall, and every box
 --| covering it is in `group`, so moves too.
 def Clear (warehouse: Warehouse) (group: Set Cell) (cell: Cell): Prop :=
-  And (warehouse.walls.contains cell = False) ((box: Cell) → warehouse.boxes.contains box = True → Covers box cell → group.contains box = True)
+  (warehouse.walls.contains cell = False) ∧ ((box: Cell) → warehouse.boxes.contains box = True → Covers box cell → group.contains box = True)
 
 --| `group` is a set of boxes, and every cell one of them moves into is free.
 def GroupOk (warehouse: Warehouse) (direction: Direction) (group: Set Cell): Prop :=
   (box: Cell) → group.contains box = True →
-    And (warehouse.boxes.contains box = True) ((cell: Cell) → cell ∈ frontOf box direction → Clear warehouse group cell)
+    (warehouse.boxes.contains box = True) ∧ ((cell: Cell) → cell ∈ frontOf box direction → Clear warehouse group cell)
 
 --| `gather`'s invariant: every cell a box of `group` moves into is free, or
 --| still to be looked at in `pending`.
 def GatherInvariant (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (pending: List Cell): Prop :=
   (box: Cell) → group.contains box = True →
-    And (warehouse.boxes.contains box = True)
-      ((cell: Cell) → cell ∈ frontOf box direction → Or (cell ∈ pending) (Clear warehouse group cell))
+    (warehouse.boxes.contains box = True) ∧ ((cell: Cell) → cell ∈ frontOf box direction → (cell ∈ pending) ∨ (Clear warehouse group cell))
 
 theorem clearMono (warehouse: Warehouse) (group: Set Cell) (larger: Set Cell) (cell: Cell) (clear: Clear warehouse group cell)
     (grows: (box: Cell) → group.contains box = True → larger.contains box = True): Clear warehouse larger cell :=
@@ -62,7 +61,7 @@ theorem coversInBoxesAt (warehouse: Warehouse) (box: Cell) (cell: Cell) (boxed: 
   List.memFilterIntro [cell, cell.step Left] (other => warehouse.boxes.contains other) box near boxed
 
 theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: box ∈ warehouse.boxesAt cell):
-    And (warehouse.boxes.contains box = True) (Covers box cell) :=
+    (warehouse.boxes.contains box = True) ∧ (Covers box cell) :=
   match List.memFilter [cell, cell.step Left] (other => warehouse.boxes.contains other) box found with
     | Both near boxed =>
       Both boxed
@@ -75,8 +74,7 @@ theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: 
 --| only into free cells, and the cells it was asked to look at are free.
 theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → (group: Set Cell) → (pending: List Cell) →
     (result: Set Cell) → warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
-    And ((box: Cell) → group.contains box = True → result.contains box = True)
-      (And (GroupOk warehouse direction result) ((cell: Cell) → cell ∈ pending → Clear warehouse result cell))
+    ((box: Cell) → group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ ((cell: Cell) → cell ∈ pending → Clear warehouse result cell))
   | fuel, group, Nil, result, found, invariant =>
     rewrite <- Option.someInjective _ _ found in
       Both (box held => held)
@@ -98,7 +96,7 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
         let pending := found.flatMap (box => frontOf box direction) ++ rest
         let grows: (box: Cell) → group.contains box = True → larger.contains box = True :=
           box held => Iff.backward (Set.containsFoldInsertMap (x => x) found group box) (Inl held)
-        let newOrOld: (box: Cell) → larger.contains box = True → Or (group.contains box = True) (box ∈ found) :=
+        let newOrOld: (box: Cell) → larger.contains box = True → (group.contains box = True) ∨ (box ∈ found) :=
           box held =>
             match Iff.forward (Set.containsFoldInsertMap (x => x) found group box) held with
               | Inl old => Inl old
@@ -144,7 +142,7 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
 --| robot's next cell is free.
 theorem gatherStart (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (group: Set Cell)
     (gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] fuel = Some group):
-    And (GroupOk warehouse direction group) (Clear warehouse group (warehouse.robot.step direction)) :=
+    (GroupOk warehouse direction group) ∧ (Clear warehouse group (warehouse.robot.step direction)) :=
   let after :=
     gatherOk warehouse direction fuel Set.empty [warehouse.robot.step direction] group gathered (box held => Void.exfalso (Bool.falseNotTrue held))
   Both (And.left (And.right after)) (And.right (And.right after) (warehouse.robot.step direction) (Inl rfl))
@@ -205,8 +203,7 @@ theorem blockedMovesNothing (warehouse: Warehouse) (direction: Direction) (separ
 --| The boxes after a move of `group`: each moved box, or a box that stayed.
 theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (position: Cell)
     (held: ((warehouse.boxes.difference group).union (group.map (box => box.step direction))).contains position = True):
-    Or (∃ (box: Cell) => group.contains box = True ∧ box.step direction = position)
-      (And (warehouse.boxes.contains position = True) (group.contains position = False)) :=
+    (∃ (box: Cell) => group.contains box = True ∧ box.step direction = position) ∨ ((warehouse.boxes.contains position = True) ∧ (group.contains position = False)) :=
   Bool.orElim ((warehouse.boxes.difference group).contains position) ((group.map (box => box.step direction)).contains position) _
     (Eq.trans (Eq.sym (Set.containsUnion (warehouse.boxes.difference group) position (group.map (box => box.step direction)))) held)
     (stayed => Inr (stayedElim warehouse group position stayed))
@@ -214,7 +211,7 @@ theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set 
 
 --| A box that stayed was a box and wasn't gathered.
 theorem stayedElim (warehouse: Warehouse) (group: Set Cell) (position: Cell) (stayed: (warehouse.boxes.difference group).contains position = True):
-    And (warehouse.boxes.contains position = True) (group.contains position = False) :=
+    (warehouse.boxes.contains position = True) ∧ (group.contains position = False) :=
   let both: (warehouse.boxes.contains position ∧ ¬(group.contains position)) = True :=
     rewrite <- Set.containsDifference warehouse.boxes position group in stayed
   Both (Bool.andLeft _ _ both)

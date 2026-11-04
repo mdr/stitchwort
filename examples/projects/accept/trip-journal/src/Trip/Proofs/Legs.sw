@@ -19,7 +19,7 @@ theorem atLeLastEnd: (s0: Float) → (leg: Leg) → (rest: List Leg) → Contigu
 
 -- Each leg starts no earlier than `at`, and ends no later than the trip.
 theorem legBounds: (s0: Float) → (legs: List Leg) → ContiguousFrom s0 legs → List.All LegOk legs → (leg: Leg) → leg ∈ legs
-    → And (Float.leq s0 leg.start = True) (Float.leq leg.end (lastEnd legs) = True)
+    → (Float.leq s0 leg.start = True) ∧ (Float.leq leg.end (lastEnd legs) = True)
   | s0, Nil, c, oks, leg, m => Void.exfalso m
   | s0, Cons first Nil, Both e c, oks, leg, Inl same =>
     rewrite <- same in Both (rewrite e in floatLeRefl s0) (floatLeRefl first.end)

@@ -24,7 +24,7 @@ theorem aheadWith (lab: Lab) (blocker: Position) (guard: Guard): (lab.withObstru
 --| The lab with an obstruction added steps as before, wherever she doesn't
 --| walk onto it.
 theorem stepWithSame (lab: Lab) (blocker: Position) (guard: Guard)
-    (fresh: (ahead: Position) → lab.ahead guard = Some ahead → lab.obstructions.contains ahead = False → Not (ahead = blocker)):
+    (fresh: (ahead: Position) → lab.ahead guard = Some ahead → lab.obstructions.contains ahead = False → ahead ≠ blocker):
     (lab.withObstruction blocker).step guard = lab.step guard :=
   rewrite aheadWith lab blocker guard in
   match inFront: lab.ahead guard with
@@ -54,7 +54,7 @@ theorem walkWithSame (lab: Lab) (blocker: Position): (steps: Nat) → (guard: Op
 
 --| A new obstruction off the route of a guard who leaves can't trap her.
 theorem offRouteFree (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None) (blocker: Position)
-    (absent: onRoute lab (Some lab.startGuard) steps blocker = False): Not (Loops (lab.withObstruction blocker)) :=
+    (absent: onRoute lab (Some lab.startGuard) steps blocker = False): ¬(Loops (lab.withObstruction blocker)) :=
   loops =>
     let longer: onRoute lab (Some lab.startGuard) (Succ steps) blocker = False :=
       Eq.trans (Eq.cong (positions => positions.any (other => Map.Spec.sameKey blocker other)) (routeAfterGone lab steps (Some lab.startGuard) gone (Succ steps) omega)) absent
@@ -136,7 +136,7 @@ theorem positionsHas (lab: Lab) (position: Position):
         | False => rfl
 
 --| Two Bools true together are equal.
-theorem boolOfIff (one: Bool) (other: Bool) (same: Iff (one = True) (other = True)): one = other :=
+theorem boolOfIff (one: Bool) (other: Bool) (same: (one = True) ↔ (other = True)): one = other :=
   match isOne: one, isOther: other with
     | True, True => rfl
     | False, False => rfl

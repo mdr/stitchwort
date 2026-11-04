@@ -77,7 +77,7 @@ theorem zerosOfAllFlash (levels: List (List Nat)) (k: Nat) (spec: AllFlashIn lev
 
 --| The search from step k + 1, with no step up to k an all-flash step.
 theorem syncFound (levels: List (List Nat)) (answer: Nat): (m: Nat) → (k: Nat) →
-    ((earlier: Nat) → earlier < Succ k → Not (AllFlashIn levels earlier)) →
+    ((earlier: Nat) → earlier < Succ k → ¬(AllFlashIn levels earlier)) →
     firstSync (stepsFrom levels k) (Succ k) m = Some answer → Part2Answer levels answer
   | Zero, k, noneBefore, found => Void.exfalso (Option.noneNotSome answer found)
   | Succ m, k, noneBefore, found =>
@@ -102,7 +102,7 @@ theorem part2Correct (levels: List (List Nat)) (answer: Nat) (found: solvePart2 
 
 --| The search from step k + 1 finding nothing in m steps.
 theorem syncNone (levels: List (List Nat)): (m: Nat) → (k: Nat) → firstSync (stepsFrom levels k) (Succ k) m = None →
-    (number: Nat) → Succ k ≤ number → number ≤ k + m → Not (AllFlashIn levels number)
+    (number: Nat) → Succ k ≤ number → number ≤ k + m → ¬(AllFlashIn levels number)
   | Zero, k, none, number, low, high, flashes => omega
   | Succ m, k, none, number, low, high, flashes =>
     match e: (cells (step (stepsFrom levels k))).all (cell => cell.snd == 0) with
@@ -116,5 +116,5 @@ theorem syncNone (levels: List (List Nat)): (m: Nat) → (k: Nat) → firstSync 
 
 --| ...and if it answers nothing, no step up to `syncLimit` is one.
 theorem part2None (levels: List (List Nat)) (none: solvePart2 levels = None) (number: Nat) (high: number ≤ syncLimit):
-    Not (AllFlashIn levels number) :=
+    ¬(AllFlashIn levels number) :=
   flashes => syncNone levels syncLimit 0 none number (And.left flashes) (omega) flashes

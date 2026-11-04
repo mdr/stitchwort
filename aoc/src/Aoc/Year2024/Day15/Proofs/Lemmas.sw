@@ -40,8 +40,7 @@ theorem aheadAddOne (position: Cell) (direction: Direction) (count: Nat):
 
 --| Whether `position` is one of the `count` positions after `start`.
 theorem decideAhead (start: Cell) (direction: Direction) (count: Nat) (position: Cell):
-    Or (∃ (j: Nat) => j < count ∧ position = ahead start direction (j + 1))
-      ((i: Nat) → i < count → Not (position = ahead start direction (i + 1))) :=
+    (∃ (j: Nat) => j < count ∧ position = ahead start direction (j + 1)) ∨ ((i: Nat) → i < count → position ≠ ahead start direction (i + 1)) :=
   match found: (List.range count).any (i => position == ahead start direction (i + 1)) with
     | True =>
       List.anyTrueElim (List.range count) _ _ found

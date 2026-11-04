@@ -10,7 +10,7 @@
 --| `No` exists at runtime; the proofs inside are erased.
 type Decidable (p: Prop): Type =
   | Yes (proof: p)
-  | No (refutation: Not p)
+  | No (refutation: ¬p)
 
 --| `Decidable.IsYes d` is `Unit` (provable) exactly when `d` is `Yes`.
 def Decidable.IsYes: Decidable p → Prop
@@ -29,14 +29,14 @@ def Decidable.toBool: [p: Prop] → Decidable p → Bool
   | No r => False
 
 --| `yes` of the proof if the decision is `Yes`, `no` of the refutation if it is `No`: what `if h: p then a else b` means.
-def Decidable.elim: [p: Prop] → [a: Type] → Decidable p → (p → a) → (Not p → a) → a
+def Decidable.elim: [p: Prop] → [a: Type] → Decidable p → (p → a) → (¬p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
 --| An `if` gives equal results when its branches do, whichever way it goes.
 -- The proofs that `decreasing` generates (`f.unfold`) take a step through an
 -- `if` with these (docs/proposals/well-founded-recursion.md §6.2).
-theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1: p → a) → (y2: p → a) → (n1: Not p → a) → (n2: Not p → a) → ((h: p) → y1 h = y2 h) → ((r: Not p) → n1 r = n2 r) → Decidable.elim d y1 n1 = Decidable.elim d y2 n2
+theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1: p → a) → (y2: p → a) → (n1: ¬p → a) → (n2: ¬p → a) → ((h: p) → y1 h = y2 h) → ((r: ¬p) → n1 r = n2 r) → Decidable.elim d y1 n1 = Decidable.elim d y2 n2
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
@@ -44,14 +44,14 @@ theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1
 --| theorem with `decreasing (m1, m2)` makes its recursive calls through it.
 -- (SW-1015)
 -- (docs/proposals/well-founded-recursion.md, stage 3d)
-theorem Decidable.elimProof: [p: Prop] → [a: Prop] → Decidable p → (p → a) → (Not p → a) → a
+theorem Decidable.elimProof: [p: Prop] → [a: Prop] → Decidable p → (p → a) → (¬p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
 --| An `if` equals `z` when both its branches do.
 -- What `decreasing (m1, m2)` generates proves `f.unfold` with it
 -- (docs/proposals/well-founded-recursion.md, stage 3d).
-theorem Decidable.elimEq: [p: Prop] → [a: Type] → (d: Decidable p) → (y: p → a) → (n: Not p → a) → (z: a) → ((h: p) → y h = z) → ((r: Not p) → n r = z) → Decidable.elim d y n = z
+theorem Decidable.elimEq: [p: Prop] → [a: Type] → (d: Decidable p) → (y: p → a) → (n: ¬p → a) → (z: a) → ((h: p) → y h = z) → ((r: ¬p) → n r = z) → Decidable.elim d y n = z
   | Yes h, y, n, z, ey, en => ey h
   | No r, y, n, z, ey, en => en r
 
@@ -87,7 +87,7 @@ def Nat.decEq: (m: Nat) → (n: Nat) → Decidable (m = n)
   | Succ m, Zero => No (Nat.equalFalse (Succ m) 0 rfl)
   | Succ m, Succ n => Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
 
-theorem Bool.trueNotFalse: Not (True = False)
+theorem Bool.trueNotFalse: True ≠ False
   | p => Bool.falseNotTrue (Eq.sym p)
 
 --| Decides whether two booleans are equal.
@@ -98,20 +98,20 @@ def Bool.decEq: (a: Bool) → (b: Bool) → Decidable (a = b)
   | True, True => Yes rfl
 
 --| `!p` is decided from a decision of `p`.
-instance Decidable.not: [p: Prop] → Decidable p → Decidable (Not p)
+instance Decidable.not: [p: Prop] → Decidable p → Decidable (¬p)
   | Yes h => No (n => n h)
   | No r => Yes r
 
 --| `p && q` is decided from decisions of each side. Both are worked out before
 --| this is called, so `if h: p && q` decides `q` even when `p` is false
 --| (`if p && q`, without a name, doesn't).
-instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidable (And p q)
+instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidable (p ∧ q)
   | Yes a, Yes b => Yes (Both a b)
   | Yes a, No r => No (h => r (And.right h))
   | No r, d => No (h => r (And.left h))
 
 --| `p || q` is decided from decisions of each side, both worked out first, as for [`Decidable.and`].
-instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (Or p q)
+instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (p ∨ q)
   | Yes a, d => Yes (Inl a)
   | No r, Yes b => Yes (Inr b)
   | No r, No s => No (Or.neither r s)

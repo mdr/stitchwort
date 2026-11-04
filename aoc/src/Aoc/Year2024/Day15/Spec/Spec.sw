@@ -25,8 +25,7 @@ def pastLine (warehouse: Warehouse) (direction: Direction) (length: Nat): Cell :
 --| is a box at `position` when a box of the line moved one step to it, or a
 --| box not in the line was already there.
 def BoxAfterPush (warehouse: Warehouse) (direction: Direction) (length: Nat) (position: Cell): Prop :=
-  Or (∃ (i: Nat) => i < length ∧ position = (ahead warehouse.robot direction (i + 1)).step direction)
-    (warehouse.boxes.contains position = True ∧ ((i: Nat) → i < length → Not (position = ahead warehouse.robot direction (i + 1))))
+  (∃ (i: Nat) => i < length ∧ position = (ahead warehouse.robot direction (i + 1)).step direction) ∨ (warehouse.boxes.contains position = True ∧ ((i: Nat) → i < length → position ≠ ahead warehouse.robot direction (i + 1)))
 
 --| The boxes the puzzle counts.
 def boxCount (warehouse: Warehouse): Nat := warehouse.boxes.size
@@ -58,7 +57,7 @@ def wideTile (warehouse: Warehouse) (position: Cell): WideTile :=
 --| "Boxes are now twice as wide": every `[` has its `]` to the right, and
 --| every `]` its `[` to the left.
 def Whole (warehouse: Warehouse): Prop :=
-  (position: Cell) → Iff (wideTile warehouse position = BoxLeft) (wideTile warehouse (position.step Right) = BoxRight)
+  (position: Cell) → (wideTile warehouse position = BoxLeft) ↔ (wideTile warehouse (position.step Right) = BoxRight)
 
 --| A wide warehouse where nothing overlaps: no box covers a wall or another
 --| box's cells, and neither covers the robot.
@@ -87,5 +86,4 @@ def MustMove (warehouse: Warehouse) (direction: Direction) (box: Cell): Prop :=
 --| "If this action would cause the robot or a box to move into a wall,
 --| nothing moves instead": the robot would, or a box that must move would.
 def Blocked (warehouse: Warehouse) (direction: Direction): Prop :=
-  Or (warehouse.walls.contains (warehouse.robot.step direction) = True)
-    (∃ (box: Cell) => MustMove warehouse direction box ∧ (∃ (cell: Cell) => cell ∈ cellsOf (box.step direction) ∧ warehouse.walls.contains cell = True))
+  (warehouse.walls.contains (warehouse.robot.step direction) = True) ∨ (∃ (box: Cell) => MustMove warehouse direction box ∧ (∃ (cell: Cell) => cell ∈ cellsOf (box.step direction) ∧ warehouse.walls.contains cell = True))

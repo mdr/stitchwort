@@ -62,4 +62,4 @@ def AllFlashIn (levels: List (List Nat)) (number: Nat): Prop :=
 
 --| Part 2: "the first step during which all octopuses flash".
 def Part2Answer (levels: List (List Nat)) (answer: Nat): Prop :=
-  AllFlashIn levels answer ∧ ((earlier: Nat) → earlier < answer → Not (AllFlashIn levels earlier))
+  AllFlashIn levels answer ∧ ((earlier: Nat) → earlier < answer → ¬(AllFlashIn levels earlier))

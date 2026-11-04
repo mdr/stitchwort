@@ -9,11 +9,11 @@ type Iff (p: Prop) (q: Prop): Prop = {
   backward: q → p
 }
 
-theorem Iff.refl (p: Prop): Iff p p := { forward = x => x, backward = x => x }
+theorem Iff.refl (p: Prop): p ↔ p := { forward = x => x, backward = x => x }
 
-theorem Iff.symm [p q: Prop] (h: Iff p q): Iff q p := { forward = h.backward, backward = h.forward }
+theorem Iff.symm [p q: Prop] (h: p ↔ q): q ↔ p := { forward = h.backward, backward = h.forward }
 
-theorem Iff.trans [p q r: Prop] (h: Iff p q) (k: Iff q r): Iff p r :=
+theorem Iff.trans [p q r: Prop] (h: p ↔ q) (k: q ↔ r): p ↔ r :=
   { forward = x => k.forward (h.forward x), backward = x => h.backward (k.backward x) }
 
 --| Some value of `a` satisfies `p`: a witness, and a proof that it does.
@@ -28,7 +28,7 @@ theorem Exists.elim [p: a → Prop] [goal: Prop] (h: Exists a p) (use: (x: a) �
     | Witness x proof => use x proof
 
 --| If something satisfies `p`, it's not the case that nothing does.
-theorem Exists.notNone [p: a → Prop] (some: Exists a p) (none: (x: a) → Not (p x)): Void :=
+theorem Exists.notNone [p: a → Prop] (some: Exists a p) (none: (x: a) → ¬(p x)): Void :=
   Exists.elim some none
 
 --| A witness for `q` wherever there was one for `p`.
@@ -38,11 +38,11 @@ theorem Exists.map [p: a → Prop] [q: a → Prop] (f: (x: a) → p x → q x) (
 
 -- Examples ------------------------------------------------------------------
 
-theorem Iff.example: Iff (1 + 1 = 2) (2 = 1 + 1) := { forward = Eq.sym, backward = Eq.sym }
+theorem Iff.example: (1 + 1 = 2) ↔ (2 = 1 + 1) := { forward = Eq.sym, backward = Eq.sym }
 
 theorem Iff.applyExample: 2 = 1 + 1 := Iff.forward Iff.example rfl
 
-theorem Iff.transExample: Iff (1 + 1 = 2) (1 + 1 = 2) := Iff.trans Iff.example (Iff.symm Iff.example)
+theorem Iff.transExample: (1 + 1 = 2) ↔ (1 + 1 = 2) := Iff.trans Iff.example (Iff.symm Iff.example)
 
 theorem Exists.example: Exists Nat ((n: Nat) => n * n = 49) := Witness 7 rfl
 

@@ -11,8 +11,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
 --| `isOrthogonalStep` as a proposition.
 def Orthogonal (from: Position) (to: Position): Prop :=
-  Or (And (from.row = to.row) (Or (from.column + 1 = to.column) (to.column + 1 = from.column)))
-    (And (from.column = to.column) (Or (from.row + 1 = to.row) (to.row + 1 = from.row)))
+  ((from.row = to.row) ∧ ((from.column + 1 = to.column) ∨ (to.column + 1 = from.column))) ∨ ((from.column = to.column) ∧ ((from.row + 1 = to.row) ∨ (to.row + 1 = from.row)))
 
 theorem eqTrue (x: Nat) (y: Nat) (same: x = y): (x == y) = True := rewrite same in DecEq.refl y
 
@@ -84,7 +83,7 @@ theorem memDirections: (side: Direction) → side ∈ directions
 
 --| `growSame` as an equation.
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):
-    Exists Char (plant => And (garden.plantAt plot = Some plant) (garden.plantAt other = Some plant)) :=
+    Exists Char (plant => (garden.plantAt plot = Some plant) ∧ (garden.plantAt other = Some plant)) :=
   match grows: garden.plantAt plot with
     | Some plant => Witness plant (Both rfl (DecEq.sound _ _ same))
     | None => Void.exfalso (Bool.falseNotTrue same)
@@ -101,7 +100,7 @@ theorem touchesSymmetric (garden: Garden) (plot: Position) (other: Position) (to
 --| The neighbours a fill pushes are exactly the plots touching `plot` that
 --| grow `plant`.
 theorem memNeighboursGrowing (garden: Garden) (plant: Char) (plot: Position) (other: Position):
-    other ∈ garden.neighboursGrowing plant plot ↔ And (Orthogonal plot other) (garden.plantAt other = Some plant) := {
+    other ∈ garden.neighboursGrowing plant plot ↔ (Orthogonal plot other) ∧ (garden.plantAt other = Some plant) := {
   forward = member =>
     let both := List.memFilter (directions.filterMap plot.step) (next => garden.plantAt next == Some plant) other member
     Both

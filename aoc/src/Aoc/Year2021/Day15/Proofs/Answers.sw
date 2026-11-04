@@ -19,8 +19,8 @@ theorem part1Correct (cave: Cave) (rectangle: Rectangle cave): Part1Answer cave 
 
 --| The full cave is five times the cave's size each way.
 theorem tiledSize (cave: Cave) (rectangle: Rectangle cave): cave.tiled.height = 5 * cave.height ∧ cave.tiled.width = 5 * cave.width :=
-  let wide: Not (cave.width = 0) := omega [And.left rectangle]
-  let tall: Not (cave.height = 0) := heightNotZero cave rectangle
+  let wide: cave.width ≠ 0 := omega [And.left rectangle]
+  let tall: cave.height ≠ 0 := heightNotZero cave rectangle
   match h: Nat.decEq cave.height 0 with
     | Yes zero => Void.exfalso (tall zero)
     | No _ =>

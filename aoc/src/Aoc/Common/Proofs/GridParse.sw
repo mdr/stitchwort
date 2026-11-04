@@ -32,7 +32,7 @@ theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() =
           let same: rows = grid.rows := Eq.cong Grid.rows (Result.okInjective _ grid h)
           let notRagged :=
             List.findNoneAll rows (row => row.length != firstWidth rows) (List.findWithIndexFromNone (row => row.length != firstWidth rows) 0 rows e)
-          let wide: Not (firstWidth rows = 0) := Decidable.toBoolFalse _ empty
+          let wide: firstWidth rows ≠ 0 := Decidable.toBoolFalse _ empty
           rewrite <- same in
             Both (row member => DecEq.neFalse row.length (firstWidth rows) (Bool.notTrue _ (List.allMem _ row rows (List.allToAll _ rows notRagged) member)))
               (Both (omega [wide]) (tallOfWide rows (omega [wide])))

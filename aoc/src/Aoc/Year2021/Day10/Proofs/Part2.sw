@@ -86,7 +86,7 @@ theorem scoredOfIncomplete (line: List Token) (incomplete: Incomplete line): exi
     | Unclosed (Cons top below) => Witness (completionScore (Cons top below)) rfl
 
 --| A list with an element `f` keeps has a nonempty `filterMap`.
-theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): (xs: List a) → x ∈ xs → Not (xs.filterMap f = Nil)
+theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): (xs: List a) → x ∈ xs → xs.filterMap f ≠ Nil
   | Nil, member, empty => Void.exfalso member
   | Cons z rest, Inl same, empty =>
     rewrite same, kept at empty in cases

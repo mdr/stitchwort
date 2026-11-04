@@ -13,13 +13,11 @@ import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 
 --| On track, and some moves from the start reach `position` in `time`.
 def FromStart (racetrack: Racetrack) (position: Position) (time: Nat): Prop :=
-  And (onTrack racetrack position = True)
-    (Exists (List Direction) (moves => And (race racetrack racetrack.start moves = Some position) (moves.length = time)))
+  (onTrack racetrack position = True) ∧ (Exists (List Direction) (moves => (race racetrack racetrack.start moves = Some position) ∧ (moves.length = time)))
 
 --| On track, and some moves from `position` reach the end in `time`.
 def ToEnd (racetrack: Racetrack) (position: Position) (time: Nat): Prop :=
-  And (onTrack racetrack position = True)
-    (Exists (List Direction) (moves => And (race racetrack position moves = Some racetrack.end) (moves.length = time)))
+  (onTrack racetrack position = True) ∧ (Exists (List Direction) (moves => (race racetrack position moves = Some racetrack.end) ∧ (moves.length = time)))
 
 --| The only source is `source`.
 theorem onlySource (source: Position) (state: Position) (member: state ∈ [source]): state = source :=
@@ -99,7 +97,7 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
 --| The search's time from the start is the fastest, to a position on track.
 theorem fromStartFastest (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True) (position: Position) (time: Nat)
     (found: racetrack.fromStart.get position = Some time):
-    And (IsFastest racetrack racetrack.start position time) (onTrack racetrack position = True) :=
+    (IsFastest racetrack racetrack.start position time) ∧ (onTrack racetrack position = True) :=
   let (Both reachedAll (Both sourcesBound closed)) := fromStartResult racetrack startOnTrack
   let (Both onIt reached) := reachedAll position time found
   Both
@@ -129,7 +127,7 @@ theorem fastestFromStart (racetrack: Racetrack) (startOnTrack: onTrack racetrack
 --| The search's time to the end is the fastest, from a position on track.
 theorem toEndFastest (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetrack.end = True) (position: Position) (time: Nat)
     (found: racetrack.toEnd.get position = Some time):
-    And (IsFastest racetrack position racetrack.end time) (onTrack racetrack position = True) :=
+    (IsFastest racetrack position racetrack.end time) ∧ (onTrack racetrack position = True) :=
   let (Both reachedAll (Both sourcesBound closed)) := toEndResult racetrack endOnTrack
   let (Both onIt reached) := reachedAll position time found
   Both

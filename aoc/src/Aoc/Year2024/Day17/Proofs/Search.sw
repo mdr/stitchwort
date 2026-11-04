@@ -35,7 +35,7 @@ theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output):
           (rewrite outputs in DecEq.refl (Cons value rest))
 
 --| What the search returns is positive and outputs the target.
-theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): And (0 < a) (output a = target) :=
+theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): (0 < a) ∧ (output a = target) :=
   let kept := And.right (List.memFilter _ _ a (And.left (List.minimumSome _ a found)))
   Both (Bool.andLeft _ _ kept) (DecEq.sound (output a) target (Bool.andRight _ _ kept))
 

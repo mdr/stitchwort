@@ -6,20 +6,20 @@
 -- If none of the first `n` equals the last value, swap the values `n - 1`
 -- and `f n` in them: they are then all below `n - 1`.
 theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n → f i < n) →
-    Exists Nat (i => Exists Nat (j => And (i < j) (And (j ≤ n) (f i = f j))))
+    Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ n) ∧ (f i = f j))))
   | Zero, f, small => Void.exfalso (omega [small 0 rfl])
   | Succ n, f, small =>
     match found: (List.range (Succ n)).any (i => f i == f (Succ n)) with
       | True =>
         List.anyTrueElim (List.range (Succ n)) (i => f i == f (Succ n))
-          (Exists Nat (i => Exists Nat (j => And (i < j) (And (j ≤ Succ n) (f i = f j))))) found
+          (Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ Succ n) ∧ (f i = f j))))) found
           (i inRange hit =>
             Witness i
               (Witness (Succ n)
                 (Both (omega [And.right (List.memRangeFrom i (Succ n) 0 inRange)])
                   (Both (Nat.leRefl (Succ n)) (DecEq.sound (f i) (f (Succ n)) hit)))))
       | False =>
-        let missed: (i: Nat) → i ≤ n → Not (f i = f (Succ n)) :=
+        let missed: (i: Nat) → i ≤ n → f i ≠ f (Succ n) :=
           i le same =>
             Bool.falseNotTrue
               (Eq.trans (Eq.sym found)
@@ -30,7 +30,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
           i le =>
             match atLast: f i == n with
               | True =>
-                let notLast: Not (f (Succ n) = n) := same => missed i le (Eq.trans (DecEq.sound (f i) n atLast) (Eq.sym same))
+                let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans (DecEq.sound (f i) n atLast) (Eq.sym same))
                 omega [small (Succ n) (Nat.leRefl (Succ n)), notLast]
               | False => omega [small i (omega [le]), DecEq.soundFalse (f i) n atLast]
         Exists.elim (Nat.pigeonhole n swapped swappedSmall) (i rest =>

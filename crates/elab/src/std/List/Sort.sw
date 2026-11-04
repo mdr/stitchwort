@@ -104,13 +104,13 @@ def List.LeHead (le: a → a → Bool) (bound: a): List a → Prop
 @[noReceiver]
 def List.Sorted (le: a → a → Bool): List a → Prop
   | Nil => Unit
-  | Cons x xs => And (List.LeHead le x xs) (List.Sorted le xs)
+  | Cons x xs => (List.LeHead le x xs) ∧ (List.Sorted le xs)
 
 --| `rel` holds of each element and every later one.
 @[noReceiver]
 def List.Pairwise (rel: a → a → Prop): List a → Prop
   | Nil => Unit
-  | Cons x xs => And (List.All (y => rel x y) xs) (List.Pairwise rel xs)
+  | Cons x xs => (List.All (y => rel x y) xs) ∧ (List.Pairwise rel xs)
 
 test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] == [3, 3, 2, 1]
 

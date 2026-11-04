@@ -71,7 +71,7 @@ theorem ProtoMap.toListInjective: (m: ProtoMap k v [ord := o]) → (n: ProtoMap 
 
 -- Equal maps have the same entries, and maps with the same entries are equal.
 theorem ProtoMap.eqIffToListEq (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o]):
-    Iff (m = n) (ProtoMap.toList m = ProtoMap.toList n) := {
+    (m = n) ↔ (ProtoMap.toList m = ProtoMap.toList n) := {
   forward = same => Eq.cong ProtoMap.toList same,
   backward = ProtoMap.toListInjective m n
 }

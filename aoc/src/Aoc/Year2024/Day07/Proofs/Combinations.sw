@@ -18,7 +18,7 @@ theorem combinationsComplete (operators: List Operator): (chosen: List Operator)
 
 --| Every combination has the length asked for and only allowed operators.
 theorem combinationsSound (operators: List Operator): (count: Nat) → (chosen: List Operator) → chosen ∈ combinations operators count →
-    And (chosen.length = count) ((operator: Operator) → operator ∈ chosen → operator ∈ operators)
+    (chosen.length = count) ∧ ((operator: Operator) → operator ∈ chosen → operator ∈ operators)
   | Zero, chosen, listed =>
     match listed with
       | Inl same => rewrite <- same in Both rfl (operator none => Void.exfalso none)

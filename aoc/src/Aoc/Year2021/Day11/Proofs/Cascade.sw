@@ -88,7 +88,7 @@ theorem stableOfCount (levels: List (List Nat)) (k: Nat) (same: flashedCount lev
         Void.exfalso (omega)
 
 --| After k rounds, k have flashed, or a round has added nobody.
-theorem stableOrCount (levels: List (List Nat)): (k: Nat) → Or (Stable levels k) (k + 1 ≤ flashedCount levels (Succ k))
+theorem stableOrCount (levels: List (List Nat)): (k: Nat) → (Stable levels k) ∨ (k + 1 ≤ flashedCount levels (Succ k))
   | Zero =>
     match Nat.decLessEq (flashedCount levels 1) (flashedCount levels 0) with
       | Yes same => Inl (stableOfCount levels 0 same)
@@ -125,7 +125,7 @@ theorem cascadeStep (levels: List (List Nat)) (flashed: List (List Bool)) (m: Na
 --| `cascade` from round k with `m` rounds to go stops at a round that adds
 --| nobody, or after all `m`.
 theorem cascadeAfter (levels: List (List Nat)): (m: Nat) → (k: Nat) →
-    ∃ (j: Nat) => cascade levels (flashedAfter levels k) m = flashedAfter levels j ∧ Or (Stable levels j) (j = k + m)
+    ∃ (j: Nat) => cascade levels (flashedAfter levels k) m = flashedAfter levels j ∧ ((Stable levels j) ∨ (j = k + m))
   | Zero, k => Witness k (Both rfl (Inr (omega)))
   | Succ m, k =>
     rewrite cascadeStep levels (flashedAfter levels k) m in

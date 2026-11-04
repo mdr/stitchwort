@@ -41,6 +41,6 @@ theorem part1FromInput (input: Text) (target: Target) (parsed: Fail.toResult (()
   part1Correct target placedOk.left placedOk.right height found
 
 theorem part1NoneFromInput (input: Text) (target: Target) (parsed: Fail.toResult (() => parseTarget input) = Ok target)
-    (found: solvePart1 target = None) (velocity: Velocity): Not (Hits target velocity) :=
+    (found: solvePart1 target = None) (velocity: Velocity): ¬(Hits target velocity) :=
   let placedOk := parseTargetPlaced input target parsed
   part1None target placedOk.left placedOk.right found velocity

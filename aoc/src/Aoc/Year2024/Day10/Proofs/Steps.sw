@@ -28,7 +28,7 @@ theorem higherOnMap (map: TopographicMap) (from: Position) (to: Position) (highe
     | None => Void.exfalso (Bool.falseNotTrue higher)
 
 --| `uphill` is the spec's steps from `from`.
-theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ map.uphill from ↔ And (to ∈ map.positions) (isStep map from to = True) := {
+theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ map.uphill from ↔ (to ∈ map.positions) ∧ (isStep map from to = True) := {
   forward = member =>
     let both := List.memFilter from.neighbours (map.isOneHigher from) to member
     Both (higherOnMap map from to (And.right both)) (Bool.andIntro _ _ (neighbourAdjacent from to (And.left both)) (And.right both)),

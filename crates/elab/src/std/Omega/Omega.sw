@@ -135,23 +135,23 @@ def Omega.Fact.holds (env: Omega.Env): Omega.Fact → Prop
   | FLe a b => Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b
   | FLt a b => Omega.NTerm.eval env a < Omega.NTerm.eval env b
   | FEq a b => Omega.NTerm.eval env a = Omega.NTerm.eval env b
-  | FNotLe a b => Not (Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b)
-  | FNotLt a b => Not (Omega.NTerm.eval env a < Omega.NTerm.eval env b)
+  | FNotLe a b => ¬(Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b)
+  | FNotLt a b => ¬(Omega.NTerm.eval env a < Omega.NTerm.eval env b)
   | FSub t a b => Omega.NTerm.eval env t = Omega.NTerm.eval env a - Omega.NTerm.eval env b
   | FMax t a b => Omega.NTerm.eval env t = Nat.max (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
   | FMin t a b => Omega.NTerm.eval env t = Nat.min (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
-  | FNe a b => Not (Omega.NTerm.eval env a = Omega.NTerm.eval env b)
+  | FNe a b => Omega.NTerm.eval env a ≠ Omega.NTerm.eval env b
   | FILe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
   | FINotLe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
   | FILt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
   | FINotLt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
   | FIEq a b => Omega.ITerm.eval env a = Omega.ITerm.eval env b
-  | FINe a b => Not (Omega.ITerm.eval env a = Omega.ITerm.eval env b)
+  | FINe a b => Omega.ITerm.eval env a ≠ Omega.ITerm.eval env b
 
 --| The facts' proofs, as `Both h1 (Both h2 Trivial)`.
 def Omega.Facts.holds (env: Omega.Env): List Omega.Fact → Prop
   | Nil => Unit
-  | Cons f fs => And (Omega.Fact.holds env f) (Omega.Facts.holds env fs)
+  | Cons f fs => (Omega.Fact.holds env f) ∧ (Omega.Facts.holds env fs)
 
 --| A quoted goal, as the checker reads it. An equation is two `GLe` goals ([`Omega.proveEq`]), or two `GILe`
 --| goals on `Int` ([`Omega.proveIntEq`]); `GVoid` says the facts contradict

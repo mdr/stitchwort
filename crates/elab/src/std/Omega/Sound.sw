@@ -233,7 +233,7 @@ theorem Omega.ileRowHolds (env: Omega.Env) (a: Omega.ITerm) (b: Omega.ITerm) (h:
 --| Every row holds in `env`.
 def Omega.RowsHold (env: Omega.Env): List Omega.Row → Prop
   | Nil => Unit
-  | Cons r rs => And (Omega.Row.Holds env r) (Omega.RowsHold env rs)
+  | Cons r rs => (Omega.Row.Holds env r) ∧ (Omega.RowsHold env rs)
 
 --| The row, if there is one, holds in `env`.
 def Omega.OptHolds (env: Omega.Env): Option Omega.Row → Prop
@@ -271,31 +271,31 @@ theorem Omega.subLeAdd (t: Nat) (a: Nat) (b: Nat) (h: t = a - b): a ≤ t + b :=
   Nat.leCongRight a ((a - b) + b) (t + b) (Eq.cong (x => x + b) (Eq.sym h)) (Omega.leSubAdd a b)
 
 theorem Omega.subCases (t: Nat) (a: Nat) (b: Nat) (h: t = a - b)
-    (kl: And (b ≤ a) (And (t + b = a) Unit) → Void) (kr: And (a < b) (And (t = 0) Unit) → Void): Void :=
+    (kl: (b ≤ a) ∧ ((t + b = a) ∧ Unit) → Void) (kr: (a < b) ∧ ((t = 0) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq b a) (x => Void)
     (e => kl (Both e (Both (Eq.trans (Eq.cong (x => x + b) h) (Eq.trans (Nat.addComm (a - b) b) (Nat.addSubCancel b a e))) Trivial)))
     (e => kr (Both (Nat.leqFalse b a e) (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b (Nat.leqFalse b a e)))) Trivial)))
 
 theorem Omega.maxCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.max a b)
-    (kl: And (a ≤ b) (And (t = b) Unit) → Void) (kr: And (b < a) (And (t = a) Unit) → Void): Void :=
+    (kl: (a ≤ b) ∧ ((t = b) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = a) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.maxRight a b e)) Trivial)))
     (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.maxLeft a b (Nat.lessLe b a (Nat.leqFalse a b e)))) Trivial)))
 
 theorem Omega.minCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.min a b)
-    (kl: And (a ≤ b) (And (t = a) Unit) → Void) (kr: And (b < a) (And (t = b) Unit) → Void): Void :=
+    (kl: (a ≤ b) ∧ ((t = a) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = b) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.minLeft a b e)) Trivial)))
     (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.minRight a b e)) Trivial)))
 
-theorem Omega.neCases (a: Nat) (b: Nat) (h: Not (a = b))
-    (kl: And (a < b) Unit → Void) (kr: And (b < a) Unit → Void): Void :=
+theorem Omega.neCases (a: Nat) (b: Nat) (h: a ≠ b)
+    (kl: (a < b) ∧ Unit → Void) (kr: (b < a) ∧ Unit → Void): Void :=
   Bool.inspect (Nat.leq (Succ a) b) (x => Void)
     (e => kl (Both e Trivial))
     (e => kr (Both (Nat.leNeSucc b a (Nat.leqFalse (Succ a) b e) (p => h (Eq.sym p))) Trivial))
 
-theorem Omega.ineCases (a: Int) (b: Int) (h: Not (a = b))
-    (kl: And (Int.less a b = True) Unit → Void) (kr: And (Int.less b a = True) Unit → Void): Void :=
+theorem Omega.ineCases (a: Int) (b: Int) (h: a ≠ b)
+    (kl: (Int.less a b = True) ∧ Unit → Void) (kr: (Int.less b a = True) ∧ Unit → Void): Void :=
   Bool.inspect (Int.less a b) (x => Void)
     (e => kl (Both e Trivial))
     (e => Bool.inspect (Int.less b a) (x => Void)

@@ -142,7 +142,7 @@ theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: L
     | True => rfl
     | False => h
 
-theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: Not (x = y)) (h: List.any seen (== y) = False):
+theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: x ≠ y) (h: List.any seen (== y) = False):
     List.any (Cons x seen) (== y) = False :=
   match d: x == y with
     | True => Void.exfalso (ne (DecEq.sound x y d))
@@ -163,7 +163,7 @@ theorem List.distinctFromSeen [auto eq: DecEq a]: (seen: List a) → (ys: List a
   | seen, Cons y ys, h => rewrite h y (Inl rfl) in List.distinctFromSeen seen ys (z m => h z (Inr m))
 
 theorem List.distinctFromAppendSeen [auto eq: DecEq a]: (seen: List a) → (xs: List a) → (ys: List a) →
-    ((y: a) → List.Mem y ys → Or (List.any seen (== y) = True) (List.Mem y xs)) →
+    ((y: a) → List.Mem y ys → (List.any seen (== y) = True) ∨ (List.Mem y xs)) →
     List.distinctFrom seen (List.append xs ys) = List.distinctFrom seen xs
   | seen, Nil, ys, cov =>
     List.distinctFromSeen seen ys (y m =>
@@ -187,7 +187,7 @@ theorem List.distinctFromAppendSeen [auto eq: DecEq a]: (seen: List a) → (xs: 
               | Inr (Inl q) => Inl (rewrite <- q in List.anyConsSelf x seen)
               | Inr (Inr later) => Inr later))
 
-theorem List.distinctFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs: List a) → Not (List.Mem y xs) →
+theorem List.distinctFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs: List a) → ¬(List.Mem y xs) →
     List.any seen (== y) = False → List.distinctFrom seen (List.append xs (Cons y Nil)) = List.append (List.distinctFrom seen xs) (Cons y Nil)
   | seen, Nil, out, fresh => rewrite fresh in rfl
   | seen, Cons x xs, out, fresh =>
@@ -213,7 +213,7 @@ theorem List.distinctAppendSeen [auto ord: Ord a] (xs: List a) (ys: List a) (sub
   List.distinctFromAppendSeen [eq := ord.eq] Nil xs ys (y m => Inr (sub y m))
 
 --| Appending a new element appends it to the list's `distinct`.
-theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: Not (List.Mem y xs)):
+theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: ¬(List.Mem y xs)):
     List.distinct (List.append xs (Cons y Nil)) = List.append (List.distinct xs) (Cons y Nil) :=
   rewrite List.distinctIsDistinctEq (List.append xs (Cons y Nil)), List.distinctIsDistinctEq xs in
   List.distinctFromSnoc [eq := ord.eq] y Nil xs out rfl
@@ -234,7 +234,7 @@ def List.allDistinct [auto ord: Ord a] (xs: List a): Bool := List.allDistinctFro
 
 --| What has been seen is not ahead in a list that passes.
 theorem List.allDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True):
-    (xs: List a) → List.allDistinctFrom seen xs = True → Not (List.Mem x xs)
+    (xs: List a) → List.allDistinctFrom seen xs = True → ¬(List.Mem x xs)
   | Nil, ok, member => member
   | Cons next rest, ok, member =>
     match c: Set.contains seen next with

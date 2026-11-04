@@ -28,7 +28,7 @@ def middlesOfOrdered (queue: PrintQueue): Nat := queue.updates.filter (rightOrde
 --| "Use the page ordering rules to put the page numbers in the right order":
 --| the same pages, in the right order.
 def CorrectOrdering (rules: List Rule) (update: Update) (ordered: Update): Prop :=
-  And (List.Perm ordered.pages update.pages) (rightOrder rules ordered = True)
+  (List.Perm ordered.pages update.pages) ∧ (rightOrder rules ordered = True)
 
 --| "Find the updates which are not in the correct order. What do you get if
 --| you add up the middle page numbers after correctly ordering just those
@@ -49,11 +49,11 @@ def Asymmetric (rules: List Rule) (pages: List Nat): Prop :=
   (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → ruleSays rules x y = True → ruleSays rules y x = False
 
 def Total (rules: List Rule) (pages: List Nat): Prop :=
-  (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → Not (x = y) → ruleSays rules x y = False → ruleSays rules y x = True
+  (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → x ≠ y → ruleSays rules x y = False → ruleSays rules y x = True
 
 def Transitive (rules: List Rule) (pages: List Nat): Prop :=
   (x: Nat) → (y: Nat) → (z: Nat) → x ∈ pages → y ∈ pages → z ∈ pages →
     ruleSays rules x y = True → ruleSays rules y z = True → ruleSays rules x z = True
 
 def StrictTotalOrderOn (rules: List Rule) (pages: List Nat): Prop :=
-  And (Asymmetric rules pages) (And (Total rules pages) (Transitive rules pages))
+  (Asymmetric rules pages) ∧ ((Total rules pages) ∧ (Transitive rules pages))

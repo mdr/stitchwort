@@ -12,7 +12,7 @@ import Std (Char, Eq, Exists, Fail, List, Parse, Text)
 
 --| Decimal digits, at least one, with the value `n`.
 def Digits (read: List Char) (n: Nat): Prop :=
-  Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read
+  read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read
 
 --| `line` is `entry` written out: its low number, a dash, its high number, a
 --| space, its lowercase letter, a colon and a space, and its password, of at
@@ -21,7 +21,7 @@ def Written (line: List Char) (entry: Entry): Prop :=
   ∃ (low: List Char) => ∃ (high: List Char) =>
     line = low ++ ['-'] ++ high ++ [' ', entry.letter, ':', ' '] ++ entry.password.toList
       ∧ Digits low entry.low ∧ Digits high entry.high ∧ entry.letter.isAsciiLowercase = True
-      ∧ Not (entry.password.toList = []) ∧ entry.password.toList.all Char.isAsciiLowercase = True
+      ∧ entry.password.toList ≠ [] ∧ entry.password.toList.all Char.isAsciiLowercase = True
 
 theorem readsLine: Parse.Reads line Written :=
   Parse.readsThen Parse.nat _ _ _ Parse.readsNat (lowRead low lowDigits =>

@@ -63,10 +63,10 @@ def Int.IsOfNat: Int → Prop
   | OfNat n => Unit
   | NegSucc n => Void
 
-theorem Int.ofNatNotNegSucc (m: Nat) (n: Nat): Not (OfNat m = NegSucc n)
+theorem Int.ofNatNotNegSucc (m: Nat) (n: Nat): OfNat m ≠ NegSucc n
   | p => J (y q => Int.IsOfNat y) Trivial p
 
-theorem Int.negSuccNotOfNat (m: Nat) (n: Nat): Not (NegSucc m = OfNat n)
+theorem Int.negSuccNotOfNat (m: Nat) (n: Nat): NegSucc m ≠ OfNat n
   | p => Int.ofNatNotNegSucc n m (Eq.sym p)
 
 theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p

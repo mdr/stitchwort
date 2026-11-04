@@ -18,7 +18,7 @@ def connected (network: Network) (one: Computer) (other: Computer): Bool :=
 --| "each computer in the set is connected to the other two computers" (or,
 --| in part 2, "to every other computer").
 def AllConnected (network: Network) (set: Set Computer): Prop :=
-  (one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → Not (one = other) →
+  (one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → one ≠ other →
     connected network one other = True
 
 --| "sets of three computers where each computer in the set is connected to
@@ -33,7 +33,7 @@ def hasT (set: Set Computer): Bool := set.any (computer => computer.startsWith "
 --| of such sets, the size of the set holding exactly them.
 def IsPart1 (network: Network) (count: Nat): Prop :=
   ∃ (sets: Set (Set Computer)) =>
-    ((set: Set Computer) → Iff (sets.contains set = True) (InterConnectedThree network set ∧ hasT set = True)) ∧ sets.size = count
+    ((set: Set Computer) → (sets.contains set = True) ↔ (InterConnectedThree network set ∧ hasT set = True)) ∧ sets.size = count
 
 --| The computers on the network map: those in some connection.
 def computers (network: Network): List Computer := network.connections.flatMap (connection => [connection.fst, connection.snd])

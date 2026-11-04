@@ -30,7 +30,7 @@ theorem cellAtOfMemCells (rows: List (List a)) (position: Position) (x: a) (memb
             rewrite <- samePosition, <- sameCell in rewrite atRow in atColumn))
 
 --| ...and the other way round.
-theorem memCells (rows: List (List a)) (position: Position) (x: a): Iff ((position, x) ∈ cells rows) (cellAt rows position = Some x) := {
+theorem memCells (rows: List (List a)) (position: Position) (x: a): ((position, x) ∈ cells rows) ↔ (cellAt rows position = Some x) := {
   forward = member => cellAtOfMemCells rows position x member,
   backward = found => memCellsOfCellAt rows position x found
 }
@@ -169,7 +169,7 @@ theorem columnsDistinct (s: Nat): (t: Nat) → (xs: List a) → List.Distinct (L
 
 --| The positions within `height` rows and `width` columns are exactly
 --| `positions height width`.
-theorem memPositions (height: Nat) (width: Nat) (position: Position): Iff (position ∈ positions height width) (position.within height width = True) := {
+theorem memPositions (height: Nat) (width: Nat) (position: Position): (position ∈ positions height width) ↔ (position.within height width = True) := {
   forward = member => withinOfMemPositions height width position member,
   backward = inside => memPositionsOfWithin height width position inside
 }

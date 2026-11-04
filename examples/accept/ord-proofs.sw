@@ -16,19 +16,19 @@ theorem keepsLength [auto ord: Ord a] (xs: List a): List.length (List.sort xs) =
 theorem numbersSorted (xs: List Nat): List.Sorted Nat.leq (List.sort xs) := List.sortSortedNat xs
 
 -- Nothing comes before itself.
-theorem lessIrreflexive [auto ord: Ord a] (x: a): Not (Ord.compare x x = Less)
+theorem lessIrreflexive [auto ord: Ord a] (x: a): Ord.compare x x ≠ Less
   | h => Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf x)) h)
 
 -- `Less` is asymmetric: from `flip`.
-theorem lessAsymmetric [auto ord: Ord a] (x: a) (y: a) (h: Ord.compare x y = Less): Not (Ord.compare y x = Less)
+theorem lessAsymmetric [auto ord: Ord a] (x: a) (y: a) (h: Ord.compare x y = Less): Ord.compare y x ≠ Less
   | e => Ordering.greaterNotLess (Eq.trans (Eq.sym (Eq.cong Ordering.flip h)) (Eq.trans (Eq.sym (ord.flip x y)) e))
 
 -- The relation agrees with the comparison, by the law that says so.
-theorem notBack [auto ord: Ord a] (x: a) (y: a) (h: Ord.lessThan x y): Not (Ord.lessThan y x)
+theorem notBack [auto ord: Ord a] (x: a) (y: a) (h: Ord.lessThan x y): ¬(Ord.lessThan y x)
   | back => lessAsymmetric x y (ord.lessThanTo x y h) (ord.lessThanTo y x back)
 
 -- `Ord.max` is one of its arguments.
-theorem maxIsOne [auto ord: Ord a] (x: a) (y: a): Or (Ord.max x y = y) (Ord.max x y = x) :=
+theorem maxIsOne [auto ord: Ord a] (x: a) (y: a): (Ord.max x y = y) ∨ (Ord.max x y = x) :=
   match Ord.compare [ord := ord] x y with
     | Less => Inl rfl
     | Equal => Inr rfl
