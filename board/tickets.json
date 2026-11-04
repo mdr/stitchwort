@@ -1,5 +1,5 @@
 {
-  "next": 1224,
+  "next": 1225,
   "tickets": [
     {
       "id": 47,
@@ -5451,6 +5451,20 @@
         "lsp"
       ],
       "body": "D2315 (Matt, 4 Nov 2026): yes, after the @[tailrec] lane.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1224,
+      "title": "Flaky under load: lsp a_code_action_edit_names_its_document_version_when_the_client_can_use_it failed at 61.8 s (load average ~120) after the 8e merge, passed alone in 16.4 s; find what it waits for and whether 16 s is expected",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
