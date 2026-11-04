@@ -119,6 +119,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   Don't narrate the next line, restate names or types, or describe what
   just changed (that goes in the commit message). The standard library
   still gets full API docs (D2351, Matt, 4 Nov 2026).
+- In application code (aoc/, games/rogue), talk in the problem's language:
+  give its nouns small domain types (a record such as `Pass`, not a bare
+  `List Bool`) with their operations as methods (`pass.seatId`), and state
+  specs and proofs about those types (Matt, 4 Nov 2026).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 

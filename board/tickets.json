@@ -1,5 +1,5 @@
 {
-  "next": 1283,
+  "next": 1284,
   "tickets": [
     {
       "id": 47,
@@ -6304,6 +6304,21 @@
         "aoc"
       ],
       "body": "The problem: day 5 passes a pass around as a bare List Bool (pass(): {Parse} List Bool, seatId (pass: List Bool), solvePart1 (passes: List (List Bool))), so the reader has to work out what the list means. Matt, 4 Nov 2026: 'wrap list of bool with a pass record … add things like seat ID as a method … small domain models like this rather than passing the raw types around, for ease of comprehension'.\n\nThe change: a small domain type (a record or one-field wrapper, e.g. type Pass = { bits: List Bool } or { row: List Bool, column: List Bool } if that reads better) with the operations as Pass.* definitions used by dot notation (pass.seatId, and the row/column if natural); the parser returns Pass, the solvers take List Pass; the spec and proofs state their theorems about Pass. Keep the proofs' content; adjust statements and helpers.\n\nWhat it should do: Day05.sw reads in the puzzle's nouns; day 5 still checks, its 17 tests pass, its audit has 0 failures, and the answers stay 813 / 612. Before SW-1273 (it moves day 5's fromBits lemmas into std, same files).\n\nD2362 (Matt, 4 Nov 2026): yes: add List.maximumOf xs f and List.minimumOf xs f (Option b, the largest/smallest value of f; std has maxBy/minBy for the element) with lemmas tying each to (xs.map f).maximum / minimum, and full std docs; use them in day 5 (passes.maximumOf (.seatId)) and anywhere else in application code they fit ('no worries if not'). Opus, expected: 60 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1283,
+      "title": "Survey AoC solutions for raw data that should be a domain type (puzzle's language, methods on it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "design"
+      ],
+      "body": "The problem: many AoC solutions pass raw structures around (List Bool, List Nat, Pair Nat Nat, List (List Char), tuples) where the puzzle has a noun (a pass, a seat, a cave, a bag rule). The reader has to reconstruct the meaning, and there's no natural home for helper methods. Matt, 4 Nov 2026, generalising day 5's Pass (SW-1282): 'review all of our Advent of Code solutions and see what might be candidates for promoting raw data structures into … a domain object with more significant meaning for that domain … talking about things in the puzzle's language rather than lists of bools or nats … helps make the code more understandable, but possibly also serves as a nice type on which to put helper methods.'\n\nThe change: a read-only survey of aoc/src (2020, 2021, 2024, 2025 and Aoc.Common) listing candidates: for each, the raw type and where it flows (program, spec, proofs), the proposed domain type and its methods, a before/after sketch of a few lines, the expected benefit (readability, helper methods, proofs stated in puzzle terms), and the cost/risk (proof churn). Rank them; group shared shapes that belong in Aoc.Common.\n\nWhat it should do: a ranked list Matt can pick from; each picked candidate becomes its own refactor lane (as SW-1282 did for day 5).\n\nRule added to CLAUDE.md the same day (lane agents: domain types in application code).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
