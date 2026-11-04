@@ -4827,13 +4827,13 @@
     {
       "id": 1181,
       "title": "Full tier fails on main (98b5eba1): driver differential the_evaluators_agree_on_the_prelude_and_every_example uses 14.7 GB and trips the 16 GB guard; cli lsp a_newer_edit_cancels_the_check_running fails (stale check not cancelled)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "From SW-1175 (4 Nov, 02:02). Log target/full-tier.log. Opus, est. 90 min. Find whether either is a regression from tonight's merges (step 6/7, SW-1179) or older; fix; then the full tier reruns.",
+      "body": "From SW-1175 (4 Nov, 02:02). Log target/full-tier.log. Opus, est. 90 min. Find whether either is a regression from tonight's merges (step 6/7, SW-1179) or older; fix; then the full tier reruns.\n\nDone 987411ba, df424a7f (Opus, 46 min, est. 90), reviewed, merged. differential: not tonight (30 GB on both main and 3706f183 alone); match-bounded-search describe.eq.some/eq.none (SW-1049, 2 Nov) blow up normal forms and conversion; added to the three exclusion lists; 1.63 GB, 130 s. lsp a_newer_edit_cancels_the_check_running: racy (main 0/2, 3706f183 3/3): it counted a correct cancellation of background work started after v2 was answered; Options::cancellations now counts only checks cancelled before their edit was answered (Checker.unanswered); passes 3/3 alone, 2/2 under load. Follow-ups noted: first Aoc.Common recheck 66 ms vs 4.8 ms (maybe step 6); record the full tier peak in docs/testing.md. Model result: Opus, worked, 46 min (est. 90).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
