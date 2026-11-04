@@ -5359,13 +5359,13 @@
     {
       "id": 1217,
       "title": "Day 2 friction: Text.count/get/any/all with a lemma each; search finds generic DecEq.refl from a concrete ((?a: Nat) == ?a) = True; W-LAMBDA-SHADOW not for a function taking no arguments",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
-      "where": "scratch-sw-1217",
+      "where": "",
       "labels": [
         "aoc-friction"
       ],
-      "body": "D2330 (Matt, 4 Nov 2026): yes. From aoc/NOTES-2020.md day 2 items 2-4. Starts at the next free slot, ahead of SW-1209/SW-1212.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1217, expected: 60 min.\n",
+      "body": "D2330 (Matt, 4 Nov 2026): yes. From aoc/NOTES-2020.md day 2 items 2-4. Starts at the next free slot, ahead of SW-1209/SW-1212.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1217, expected: 60 min.\n\n\nMerged. Model result: DeepSeek, worked (then a second run to port onto SW-1190), about 50 + 25 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
