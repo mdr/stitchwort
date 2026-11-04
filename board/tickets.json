@@ -6466,16 +6466,23 @@
     {
       "id": 1294,
       "title": "Clause lambdas, match some and matches (partial-lambdas note stages 1-2)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1294",
       "labels": [
         "language"
       ],
-      "body": "Implement stages 1 and 2 of docs/proposals/partial-lambdas.md per D2370: spelling match | …, match some | … (the note's match?), matches | …; some and matches contextual keywords (some only between match and |; matches only before |). Parser desugaring to an ordinary match with a syntax-tree flag for printer/formatter round-trip; definition-body form keeps generated equations (P4); W-MATCH-TOTAL warning (P5); 'match some makes an Option' mismatch note; arms without a result in matches mean True (P10); List.memFilterMap (P6); docs (syntax.md, guide ch. 4) and accept/reject examples. Update the note's spelling first. Sonnet, est. 3h45 (one lane). Guards (P3) separate, pending D2371.",
+      "body": "Implement stages 1 and 2 of docs/proposals/partial-lambdas.md per D2370: spelling match | …, match some | … (the note's match?), matches | …; some and matches contextual keywords (some only between match and |; matches only before |). Parser desugaring to an ordinary match with a syntax-tree flag for printer/formatter round-trip; definition-body form keeps generated equations (P4); W-MATCH-TOTAL warning (P5); 'match some makes an Option' mismatch note; arms without a result in matches mean True (P10); List.memFilterMap (P6); docs (syntax.md, guide ch. 4) and accept/reject examples. Update the note's spelling first. Sonnet, est. 3h45 (one lane). Guards (P3) separate, pending D2371.\n\nProgress (Sonnet lane, ~1h50): note updated to D2370; parser desugaring (MatchKind::Clause/ClauseSome/ClauseMatches, lambda over match; def-body = arms form); W-MATCH-TOTAL; \"gives an Option/Bool\" mismatch note; List.memFilterMap; docs (syntax.md, guide ch.4), editor words, accept/reject examples; demos operationOf (2021 D16), Day 10 illegal chars, isDont (2024 D3). Checks passed: syntax and elab lanes, examples, hash_stability (prelude +memFilterMap), fmt/guide, AoC tests+audit for the three days.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "718478342",
+        "87da3b1cf",
+        "1b97bd7fa",
+        "574721378",
+        "d3b879bc1",
+        "6444e3988"
+      ]
     },
     {
       "id": 1295,
