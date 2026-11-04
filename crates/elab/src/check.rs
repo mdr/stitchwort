@@ -990,6 +990,15 @@ impl<'e> Ctx<'e> {
             Some(note) => d.with_note(note),
             None => d,
         };
+        let d = if bool_function_found_prop(&expected_shown, &found_shown) {
+            d.with_note(format!(
+                "a comparison such as `<` in a function written without its type is a `Prop`, \
+                 since nothing asked for a `Bool`: annotate it, `let f: {expected_shown} := …`, \
+                 or write the function where a `Bool` function is expected"
+            ))
+        } else {
+            d
+        };
         let mut notes = Vec::new();
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
@@ -1171,6 +1180,16 @@ impl<'e> Ctx<'e> {
 /// How deep inside the two types [`Ctx::alias_notes`] looks for an alias
 /// that hides their difference.
 const ALIAS_NOTE_DEPTH: usize = 4;
+
+/// Whether the two shown types are the same function type but for its
+/// result: `Bool` expected, `Prop` found (a lambda `x => x < n` with no
+/// type is inferred as returning the proposition).
+fn bool_function_found_prop(expected: &str, found: &str) -> bool {
+    matches!(
+        (expected.rsplit_once(" → "), found.rsplit_once(" → ")),
+        (Some((e, "Bool")), Some((f, "Prop"))) if e == f
+    )
+}
 
 /// Whether two forced types are built by the same outermost former (the
 /// same data type, both functions, both equations, the same stuck head, …),

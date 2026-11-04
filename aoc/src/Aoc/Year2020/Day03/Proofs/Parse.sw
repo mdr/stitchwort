@@ -5,8 +5,8 @@
 --| a parsed input are the puzzle's.
 
 namespace Aoc.Year2020.Day03.Proofs
-import Aoc.Common (Grid, checkGrid, firstRagged, firstWidth, parseGrid)
-import Aoc.Common.Proofs (parseGridRectangle)
+import Aoc.Common (Grid, checkGrid, parseGrid)
+import Aoc.Common.Proofs (checkGridRows, isRectangleIff, parseGridRectangle)
 import Aoc.Year2020.Day03 (..)
 import Aoc.Year2020.Day03.Spec (..)
 import Std (DecEq, Eq, Exists, Fail, List, Parse, Result, Text, Void)
@@ -38,15 +38,6 @@ theorem eachSquare: (read: List Char) → (row: List Square) → Parse.Each (rea
   | read, [square, ..rest], Witness first (Witness after (Both split (Both one more))) =>
     rewrite split, one, eachSquare after rest more in rfl
 
---| `checkGrid` passes its rows on unchanged.
-theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid): rows = grid.rows :=
-  match empty: firstWidth rows == 0 with
-    | True => Void.exfalso (Result.errNotOk _ grid h)
-    | False =>
-      match ragged: firstRagged rows with
-        | Some (index, _) => Void.exfalso (Result.errNotOk _ grid h)
-        | None => Eq.cong Grid.rows (Result.okInjective _ grid h)
-
 --| Every line of the input is its row of the map written out.
 theorem parseWritten (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
     List.All2 (line row => line = row.map symbol) (input.lines.map Text.toList) map.rows :=
@@ -59,5 +50,5 @@ theorem parseWritten (input: Text) (map: Grid Square) (parsed: Fail.toResult (()
 --| On any input the parser reads, both answers are the puzzle's.
 theorem answersCorrect (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
     solvePart1 map = part1Answer map ∧ solvePart2 map = part2Answer map :=
-  let rectangle := And.left (parseGridRectangle input square map parsed)
+  let rectangle := (isRectangleIff map).backward (And.left (parseGridRectangle input square map parsed))
   Both (part1Correct map rectangle) (part2Correct map rectangle)

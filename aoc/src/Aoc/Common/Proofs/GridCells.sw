@@ -5,7 +5,7 @@
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Bool, Eq, Exists, Fin, Iff, List, Map, Nat, Option, Void)
+import Std (Bool, DecEq, Eq, Exists, Fin, Iff, List, Map, Nat, Option, Void)
 
 -- Rows of cells
 
@@ -231,13 +231,17 @@ theorem lookupOrAt (grid: Grid a) (fallback: a) (position: Position): grid.looku
       | None => rfl
       | Some line => rewrite Map.getOrByPosition line position.column fallback in List.getOrGet line position.column fallback
 
+--| `isRectangle` is `Rectangle`.
+theorem isRectangleIff (grid: Grid a): grid.isRectangle = True ↔ grid.Rectangle := {
+  forward = all row member => DecEq.sound row.length grid.width (List.allMember (row => row.length == grid.width) grid.rows all row member),
+  backward = rectangle =>
+    List.allOfAll (row => row.length == grid.width) grid.rows
+      (List.allOfMem (row => (row.length == grid.width) = True) grid.rows (row member => rewrite rectangle row member in DecEq.refl grid.width))
+}
+
 --| A grid mapped is as wide and as tall...
 theorem mapWidth (grid: Grid a) (f: Position → a → b): (grid.map f).width = grid.width ∧ (grid.map f).height = grid.height :=
   Both (mapFirstWidth grid.rows f) (List.lengthMapWithIndex grid.rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)))
-
-theorem mapFirstWidth: (rows: List (List a)) → (f: Position → a → b) → firstWidth (mapCells rows f) = firstWidth rows
-  | Nil, f => rfl
-  | Cons first rest, f => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
 
 --| ...and a rectangle mapped is a rectangle.
 theorem mapRectangle (grid: Grid a) (rectangle: grid.Rectangle) (f: Position → a → b): (grid.map f).Rectangle

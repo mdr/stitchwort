@@ -1694,6 +1694,26 @@ theorem List.takeWhileDropWhile (p: a → Bool): (xs: List a) → List.append (L
       | True => Eq.cong (Cons x) (List.takeWhileDropWhile p xs)
       | False => rfl
 
+--| Taking from a mapped list while `p` holds is mapping what is taken from the
+--| list while `p` of the mapped element holds.
+theorem List.takeWhileMap (f: a → b) (p: b → Bool): (xs: List a) →
+    List.takeWhile (List.map xs f) p = List.map (List.takeWhile xs (x => p (f x))) f
+  | [] => rfl
+  | [x, ..rest] => rewrite List.takeWhileMap f p rest in cases
+
+--| Counting up from `start`, `takeWhile` stops by `cutoff` when nothing from
+--| `cutoff` on passes, so any count reaching it gives the same.
+theorem List.takeWhileRangeCutoff (p: Nat → Bool) (cutoff: Nat) (fails: (k: Nat) → cutoff ≤ k → p k = False):
+    (n: Nat) → (m: Nat) → (start: Nat) → cutoff ≤ start + n → cutoff ≤ start + m →
+    List.takeWhile (List.rangeFrom n start) p = List.takeWhile (List.rangeFrom m start) p
+  | Zero, Zero, start, reachesN, reachesM => rfl
+  | Zero, Succ m, start, reachesN, reachesM => rewrite fails start omega in rfl
+  | Succ n, Zero, start, reachesN, reachesM => rewrite fails start omega in rfl
+  | Succ n, Succ m, start, reachesN, reachesM =>
+    match passes: p start with
+      | True => rewrite List.takeWhileRangeCutoff p cutoff fails n m (Succ start) omega omega in rfl
+      | False => rfl
+
 --| Everything `takeWhile` takes passes.
 theorem List.allTakeWhile (p: a → Bool): (xs: List a) → List.all (List.takeWhile xs p) p = True
   | Nil => rfl
