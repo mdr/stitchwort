@@ -4855,13 +4855,13 @@
     {
       "id": 1183,
       "title": "bench repeat: a second run in one process allocates once less on abilities-edge.sw (full tier)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-1183 (lane/SW-1183)",
       "labels": [
         "elab"
       ],
-      "body": "Full tier at 1cef1def (SW-1175): stitchwort-bench repeat counts_repeat_within_a_process failed: run 2 differed from run 1 by one allocation (4618791826 vs 4618791825; peak bytes 230708565 vs 230708541), all in accept/abilities-edge.sw (1598106 vs 1598105). Something carries state between two runs in one process. Suspects: tonight's state work (Logged shrink after rewind, SW-1179; Caches; Arc-shared session maps, 6b). Find it and make runs deterministic (or fix the cause), not loosen the test. Expected: 60 min.\n",
+      "body": "Full tier at 1cef1def (SW-1175): stitchwort-bench repeat counts_repeat_within_a_process failed: run 2 differed from run 1 by one allocation (4618791826 vs 4618791825; peak bytes 230708565 vs 230708541), all in accept/abilities-edge.sw (1598106 vs 1598105). Something carries state between two runs in one process. Suspects: tonight's state work (Logged shrink after rewind, SW-1179; Caches; Arc-shared session maps, 6b). Find it and make runs deterministic (or fix the cause), not loosen the test. Expected: 60 min.\n\nProgress (lane, 4 Nov 05:00-05:10): reproduced with abilities-edge.sw alone, checked twice in one process (1598116 then 1598115). Logging allocation sizes in the counting allocator and diffing the two runs found one extra 24-byte allocation in run 1; its backtrace: Session::run_selected -> Cache::put -> Cache::key -> build_fingerprint's OnceLock<String> (filled on first use since SW-1136, 5e60fd18, 3 Nov). Not tonight's elaborator-state work. abilities-edge.sw is just the first file of the sweep. Cause: Cache::put built the key before checking which cache it was, so even Cache::disabled() formatted a key per test. Fix (bb7d65fb): only the memory cache builds the key. After the fix both runs match (1597530 each, about 586 fewer allocations per run for this file), and so do 11 other example files, each checked first in its own process. Tests: driver memory_cache unit tests (2 ok), bench repeat fast tier (ok, 4 s), clippy on driver clean.\n\nModel result: Opus, worked, 9 min (est. 60)\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
