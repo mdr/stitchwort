@@ -20,6 +20,8 @@ struct Client {
     next: i32,
     /// Notifications received while waiting for something else.
     queue: VecDeque<Notification>,
+    /// Responses received while waiting for another (`response`).
+    responses: Vec<lsp_server::Response>,
 }
 
 impl Client {
@@ -28,6 +30,10 @@ impl Client {
     }
 
     fn start_with(options: Options) -> Client {
+        Client::start_with_capabilities(options, json!({}))
+    }
+
+    fn start_with_capabilities(options: Options, capabilities: Value) -> Client {
         let (server, conn) = Connection::memory();
         let handle = std::thread::Builder::new()
             .stack_size(8 * 1024 * 1024)
@@ -38,13 +44,14 @@ impl Client {
             server: Some(handle),
             next: 1,
             queue: VecDeque::new(),
+            responses: Vec::new(),
         };
         let reply = client.request(
             "initialize",
             json!({
                 "processId": null,
                 "rootUri": null,
-                "capabilities": {},
+                "capabilities": capabilities,
                 "initializationOptions": { "debounceMs": 0 }
             }),
         );
@@ -63,6 +70,34 @@ impl Client {
         }
         client.notify("initialized", json!({}));
         client
+    }
+
+    /// Sends a request without waiting for its response.
+    fn send(&mut self, method: &str, params: Value) -> RequestId {
+        let id = RequestId::from(self.next);
+        self.next += 1;
+        let r = Request::new(id.clone(), method.to_string(), params);
+        self.conn.sender.send(r.into()).unwrap();
+        id
+    }
+
+    /// Waits for the response to `id`: its result, or its error code.
+    fn response(&mut self, id: &RequestId) -> Result<Value, i32> {
+        loop {
+            if let Some(at) = self.responses.iter().position(|r| &r.id == id) {
+                let resp = self.responses.remove(at);
+                return match resp.error {
+                    Some(e) => Err(e.code),
+                    None => Ok(resp.result.unwrap_or(Value::Null)),
+                };
+            }
+            match self.conn.receiver.recv_timeout(Duration::from_secs(60)) {
+                Ok(Message::Response(resp)) => self.responses.push(resp),
+                Ok(Message::Notification(n)) => self.queue.push_back(n),
+                Ok(other) => panic!("unexpected {other:?}"),
+                Err(e) => panic!("no response to {id:?}: {e}"),
+            }
+        }
     }
 
     fn notify(&self, method: &str, params: Value) {
@@ -2325,6 +2360,130 @@ fn record_updates_hover_as_written() {
         let shown = hover["contents"]["value"].as_str().unwrap_or_default();
         assert!(shown.contains(expected), "{hover}");
     }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---- proof actions: versions, supersession, a bounded pool (SW-1125) ----
+
+const SWAP: &str = "import Std (Nat)\n\ntheorem swap (m: Nat) (n: Nat): m + n = n + m := ?\n";
+
+/// A code action request at the `?` of `SWAP`.
+fn swap_action(client: &mut Client, uri: &str) -> RequestId {
+    let at = json!({"line": 2, "character": 50});
+    client.send(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
+               "context": {"diagnostics": []}}),
+    )
+}
+
+/// A client that applies versioned edits gets `documentChanges` naming the
+/// version the search read; one that doesn't gets plain `changes`.
+#[test]
+fn a_code_action_edit_names_its_document_version_when_the_client_can_use_it() {
+    let dir = temp_dir("action-versioned");
+    let file = dir.join("swap.sw");
+    std::fs::write(&file, SWAP).unwrap();
+    let uri = uri(&file);
+    let caps = json!({"workspace": {"workspaceEdit": {"documentChanges": true}}});
+    let mut client = Client::start_with_capabilities(Options::new(STACK), caps);
+    client.open(&uri, SWAP);
+    client.diagnostics(&uri, 1);
+    let id = swap_action(&mut client, &uri);
+    let found = client.response(&id).unwrap();
+    let first = &found.as_array().expect("actions")[0];
+    assert!(first["edit"]["changes"].is_null(), "{first}");
+    let change = &first["edit"]["documentChanges"][0];
+    assert_eq!(change["textDocument"], json!({"uri": uri, "version": 1}));
+    assert!(change["edits"][0]["newText"].is_string(), "{change}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A document edited while its search runs gets no stale edit: the request
+/// is answered with no action, at once.
+#[test]
+fn a_document_edited_during_a_search_gets_no_stale_edit() {
+    let dir = temp_dir("action-stale");
+    let file = dir.join("swap.sw");
+    std::fs::write(&file, SWAP).unwrap();
+    let uri = uri(&file);
+    let mut options = Options::new(STACK);
+    options.search_delay = Duration::from_secs(30);
+    let mut client = Client::start_with(options);
+    client.open(&uri, SWAP);
+    client.diagnostics(&uri, 1);
+    let id = swap_action(&mut client, &uri);
+    client.change(&uri, 2, &format!("\n{SWAP}"));
+    let started = Instant::now();
+    assert_eq!(client.response(&id), Ok(Value::Null));
+    assert!(started.elapsed() < Duration::from_secs(10));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A newer request for a document supersedes the older one (no action for
+/// it), and `$/cancelRequest` answers a request with `RequestCancelled`.
+#[test]
+fn a_newer_action_request_supersedes_and_a_cancelled_one_is_answered() {
+    let dir = temp_dir("action-cancel");
+    let file = dir.join("swap.sw");
+    std::fs::write(&file, SWAP).unwrap();
+    let uri = uri(&file);
+    let mut options = Options::new(STACK);
+    options.search_delay = Duration::from_secs(30);
+    let mut client = Client::start_with(options);
+    client.open(&uri, SWAP);
+    client.diagnostics(&uri, 1);
+    let first = swap_action(&mut client, &uri);
+    let second = swap_action(&mut client, &uri);
+    assert_eq!(client.response(&first), Ok(Value::Null));
+    client.notify("$/cancelRequest", json!({"id": second}));
+    // RequestCancelled.
+    assert_eq!(client.response(&second), Err(-32800));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Searches for several documents run at most `search_workers` at a time.
+#[test]
+fn proof_searches_are_bounded_by_the_pool() {
+    let dir = temp_dir("action-pool");
+    let options = {
+        let mut o = Options::new(STACK);
+        o.search_workers = 2;
+        o.search_delay = Duration::from_secs(30);
+        o
+    };
+    let peak = options.search_peak.clone();
+    let mut client = Client::start_with(options);
+    let uris: Vec<String> = (0..4)
+        .map(|n| {
+            let file = dir.join(format!("swap{n}.sw"));
+            std::fs::write(&file, SWAP).unwrap();
+            let u = uri(&file);
+            client.open(&u, SWAP);
+            client.diagnostics(&u, 1);
+            u
+        })
+        .collect();
+    let ids: Vec<_> = uris.iter().map(|u| swap_action(&mut client, u)).collect();
+    // Two searches start, the other two wait; cancel them all (a real
+    // search would take seconds).
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while peak.load(Ordering::SeqCst) < 2 {
+        assert!(Instant::now() < deadline, "two searches never ran");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    std::thread::sleep(Duration::from_millis(200));
+    for id in &ids {
+        client.notify("$/cancelRequest", json!({"id": id}));
+    }
+    for id in &ids {
+        assert_eq!(client.response(id), Err(-32800));
+    }
+    assert_eq!(peak.load(Ordering::SeqCst), 2);
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
