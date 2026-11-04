@@ -5422,13 +5422,13 @@
     {
       "id": 1221,
       "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": "scratch-sw-1221",
       "labels": [
         "cleanup"
       ],
-      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.",
+      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1221, expected: 90 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
