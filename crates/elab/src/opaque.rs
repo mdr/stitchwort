@@ -269,9 +269,17 @@ impl Elaborator {
             Term::Refl
         };
         let name: Name = format!("{display}.%body").into();
-        let copy = kernel::declare_def(&mut self.globals, &name, &def_ty, false, false, span)?;
+        let copy = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &def_ty,
+            false,
+            false,
+            span,
+        )?;
         kernel::mark_folded(&mut self.globals, copy);
-        kernel::define_group(&mut self.globals, &[(copy, (*body).clone())])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(copy, (*body).clone())])?;
         let ty = pis(
             &binders,
             Term::Eq(
@@ -281,11 +289,23 @@ impl Elaborator {
             ),
         );
         let name: Name = format!("{display}.unfold").into();
-        let unfold = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let unfold = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         kernel::mark_opaque(&mut self.globals, unfold);
         kernel::set_unfolding(&mut self.globals, unfold, &[f]);
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
-        kernel::define_group(&mut self.globals, &[(unfold, lams(&names, proof))])?;
+        kernel::define_group(
+            &mut self.globals,
+            &self.tables,
+            &[(unfold, lams(&names, proof))],
+        )?;
         if let Some(item) = self.unit.module.item {
             for id in [copy, unfold] {
                 self.unit.module.def_items.insert(id, item);

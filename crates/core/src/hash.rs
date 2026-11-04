@@ -347,7 +347,7 @@ impl<'g> Hasher<'g> {
     /// change the JS (each field's default key) and, for records, which field
     /// `p.name` means (docs/proposals/records.md §12); the record flag
     /// because it changes the JS representation. The `js.*` attributes
-    /// (`Data::js`) aren't hashed (D598, docs/proposals/attributes.md §6).
+    /// (the elaborator's `js` table) aren't hashed (D598, docs/proposals/attributes.md §6).
     fn ctors(&mut self, data: &Data) -> Result<()> {
         self.bool(data.record);
         self.usize(data.ctors.len());

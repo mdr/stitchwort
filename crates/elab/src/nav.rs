@@ -1054,7 +1054,7 @@ impl Elaborator {
     /// one: its helper's body, in the names of the parameters it takes.
     pub(crate) fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
         let g = &self.globals;
-        let table = g.def(id).param_defaults.clone()?;
+        let table = self.tables.param_defaults.get(&id)?;
         let default = table.params.get(i)?.as_ref()?;
         let mut body: Term = (**g.def(default.helper).body()?).clone();
         let mut names: Vec<Name> = Vec::new();
@@ -1070,7 +1070,7 @@ impl Elaborator {
     fn defaulted_header(&self, id: DefId) -> Option<String> {
         let g = &self.globals;
         let def = g.def(id);
-        let table = def.param_defaults.clone()?;
+        let table = self.tables.param_defaults.get(&id)?;
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
         let mut ty = def.ty().clone();

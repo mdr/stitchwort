@@ -604,7 +604,9 @@ impl Elaborator {
             let repr = js_repr::names(data, &requested);
             clash_diagnostic(data, &repr, &clashes[0], ctors, &sites, name.span)
         })?;
-        self.globals.set_data_js(d, Rc::new(repr));
+        self.tables
+            .js_repr
+            .insert(&self.session.owners, d, Rc::new(repr));
         Ok(())
     }
 }

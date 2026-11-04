@@ -291,8 +291,16 @@ impl Elaborator {
         }
         let name: Name = format!("{}.{member}", data.name()).into();
         let span = data.span();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
-        kernel::define_def(&mut self.globals, id, &body)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())

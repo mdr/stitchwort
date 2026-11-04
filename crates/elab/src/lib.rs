@@ -288,7 +288,6 @@ impl SidesCapture {
     }
 }
 
-#[derive(Default)]
 pub struct Elaborator {
     pub globals: Globals,
     /// Every declaration, by its full name (`scope.rs`).
@@ -315,6 +314,27 @@ pub struct Elaborator {
     /// What the editor and `search` read back: navigation, the goals
     /// shown, the counterexample logs (`state::Presentation`).
     pub present: state::Presentation,
+}
+
+impl Default for Elaborator {
+    fn default() -> Self {
+        let globals = Globals::default();
+        let mut tables = state::Tables::default();
+        tables.share_print_hints(&globals.print_hints);
+        Elaborator {
+            globals,
+            scope: Default::default(),
+            attempt: Default::default(),
+            decl: Default::default(),
+            unit: Default::default(),
+            options: Default::default(),
+            session: Default::default(),
+            caches: Default::default(),
+            tables,
+            goals: Default::default(),
+            present: Default::default(),
+        }
+    }
 }
 
 /// A pattern that matches a constructor.
@@ -629,6 +649,27 @@ impl Elaborator {
     /// something it uses, has an open goal (`?`).
     pub fn is_unfinished(&self, id: DefId) -> bool {
         self.globals.def(id).state() != stitchwort_core::globals::State::Final
+    }
+
+    /// Whether the elaborator gave up on declaration `key` for an open
+    /// goal (`?`) rather than an error.
+    pub fn marked_unfinished(&self, key: stitchwort_core::globals::HashKey) -> bool {
+        self.tables.is_unfinished(key)
+    }
+
+    /// Definition `id`'s parameters' default values, if it has any
+    /// (docs/proposals/signature-defaults.md §7.1).
+    pub fn param_defaults_of(
+        &self,
+        id: DefId,
+    ) -> Option<Rc<stitchwort_core::globals::ParamDefaults>> {
+        self.tables.param_defaults.get(&id)
+    }
+
+    /// The session's declarations with the elaborator's facts about them
+    /// that the extraction backends read (`stitchwort_core::backend`).
+    pub fn backend(&self) -> stitchwort_core::backend::View<'_> {
+        stitchwort_core::backend::View::new(&self.globals, &self.tables)
     }
 
     /// Whether anything at all has key `key`.
@@ -1245,8 +1286,16 @@ impl Elaborator {
         };
         *self.decl.sides_capture.borrow_mut() = SidesCapture::default();
         self.decl.local_helpers.clear();
-        let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
-        kernel::define_def(&mut self.globals, id, &body)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &label,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
         self.tables.tests.push(TestDecl {
             library: self.unit.loading_prelude,
             name: name.to_string(),
@@ -2180,7 +2229,8 @@ impl Elaborator {
         self.decl.preadmitted.borrow_mut().clear();
         let (body, mut members) = self.lifted_body(id, def_name, equations)?;
         members.insert(0, (id, body));
-        kernel::define_group(&mut self.globals, &members).map_err(|d| self.explain_lifted(d))?;
+        kernel::define_group(&mut self.globals, &self.tables, &members)
+            .map_err(|d| self.explain_lifted(d))?;
         self.bind_local_helpers()?;
         self.after_definition(signature, id)
     }
@@ -2218,7 +2268,8 @@ impl Elaborator {
             bodies.push((*id, body));
             bodies.extend(members);
         }
-        kernel::define_group(&mut self.globals, &bodies).map_err(|d| self.explain_lifted(d))?;
+        kernel::define_group(&mut self.globals, &self.tables, &bodies)
+            .map_err(|d| self.explain_lifted(d))?;
         self.bind_local_helpers()?;
         for ((signature, _), id) in group.iter().zip(&ids) {
             self.after_definition(signature, *id)?;
@@ -2514,7 +2565,7 @@ impl Elaborator {
         }
         self.unit.module.item = Some(members[0].0);
         bodies.extend(helpers);
-        if let Err(d) = kernel::define_group(&mut self.globals, &bodies) {
+        if let Err(d) = kernel::define_group(&mut self.globals, &self.tables, &bodies) {
             let d = self.explain_lifted(d);
             out.push((members[0].0, d));
             return out;
@@ -2606,6 +2657,7 @@ impl Elaborator {
         self.check_redundant(&ty, def_name.span)?;
         let id = kernel::declare_def(
             &mut self.globals,
+            &self.tables,
             &scope::display(&key).into(),
             &ty,
             *theorem,
@@ -2668,7 +2720,7 @@ impl Elaborator {
             .map(|(t, _)| t);
         self.decl.total_rows_only.set(false);
         self.unit.warnings.truncate(warnings);
-        kernel::retype_def(&mut self.globals, id, &retyped?)?;
+        kernel::retype_def(&mut self.globals, &self.tables, id, &retyped?)?;
         self.unit.module.phase = Phase::Body;
         Ok(true)
     }

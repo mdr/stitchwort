@@ -119,6 +119,31 @@ The check cache already writes the first four as "side facts of the
 unit's declarations" (elaborator-state.md §4.2, "As built"), so moving them
 into `OwnedBy` tables needn't change the entry's bytes.
 
+*As built (SW-1187, step 8b).* The six facts (with `unfinished`, as two
+tables, one per id kind) are `Tables` fields; the entry's bytes are the
+same (466 entries of the example projects written by the build before and
+after, equal apart from the key and salt). Four things differ from the
+table above:
+
+- **The printer reads `param_defaults` too** (`Printer::call_with_defaults`),
+  not only `update_shown`. Both are read through `&Globals`, and the
+  `Shown` trait (§3.5) doesn't exist until 8e. So `Globals::print_hints`
+  (`PrintHints`) holds the two maps, and the `Tables` fields
+  (`SharedOwnedBy`, the `OwnedBy` kind over a shared map) write the same
+  maps: one set of rows, two readers. 8e deletes `PrintHints` when the
+  printer takes `Shown`.
+- **`unfinished` is read through `&Globals` too**, by the kernel wrappers'
+  `goals::unfinished_dependency` (`elab/src/kernel.rs`), so those wrappers
+  (`define_def`, `define_group`, `declare_def`, `retype_def`) take
+  `&Tables`.
+- **`param_default`** is set by `check::mark_param_default`, while the
+  helper is pending (between its `declare_def` and `define_def`, in
+  `make_helper`), and on a cache replay as the helper is admitted
+  (`cache::submit`, from the entry's `param_defaults` rows).
+- The backend reads `js` and `defaults` through
+  `core::backend::View` (`Deref` to `Globals`, plus `js(d)` and
+  `defaults(d)`), made by `Elaborator::backend()` over `Tables`.
+
 ### 2.2 Where the code differs from elaborator-state.md
 
 - **`erasure` isn't a backend side table** (Appendix B says

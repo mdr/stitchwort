@@ -722,7 +722,9 @@ impl Elaborator {
                 if let Some(update) = &d.update {
                     let shown = self.update_shown(d, &ordered[i], update);
                     if let Some(shown) = shown {
-                        self.globals.set_update_shown(id, Rc::new(shown));
+                        self.tables
+                            .update_shown
+                            .insert(&self.session.owners, id, Rc::new(shown));
                     }
                 }
                 let g = &self.globals;
@@ -804,7 +806,7 @@ impl Elaborator {
                 joined_ids.extend(ids);
                 joined.extend(bodies);
             } else {
-                kernel::define_group(&mut self.globals, &bodies)
+                kernel::define_group(&mut self.globals, &self.tables, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
                 for (_, id) in &members {
                     self.opaque_helper_admitted(*id);
@@ -881,6 +883,7 @@ impl Elaborator {
         // kernel refuses it, that's why (§4.4).
         kernel::declare_def(
             &mut self.globals,
+            &self.tables,
             &name.into(),
             ty,
             theorem,

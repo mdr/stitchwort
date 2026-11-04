@@ -828,7 +828,15 @@ impl Elaborator {
         }
         let name: Name = format!("{}.{member}", g.data(owner).name()).into();
         let span = g.data(st.d).span();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
         // The body.
         let params_v = vars(0..np);
         let mut pred_of_param = vec![Pred::Unit; np];
@@ -875,7 +883,7 @@ impl Elaborator {
         for (x, _) in self.globals.data(e).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &[(id, body)])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
         self.bind_generated(owner, member, id);
         Ok(id)
     }
@@ -988,7 +996,15 @@ impl Elaborator {
         ty = self.wrap_indices_pi(st, d, np, ty)?;
         ty = self.wrap_params_pi(d, ty);
         let name: Name = format!("{}.{SIZE}", data.name()).into();
-        let size_id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
+        let size_id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
         let sized: Vec<usize> = (0..st.members.len())
             .filter(|m| st.members[*m].preds.iter().any(Pred::involves_motive))
             .collect();
@@ -996,7 +1012,15 @@ impl Elaborator {
         for &m in &sized {
             let ty = self.member_size_type(st, m)?;
             let name: Name = format!("{}.%m{}%{SIZE}", self.globals.data(d).name(), m + 1).into();
-            let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
+            let id = kernel::declare_def(
+                &mut self.globals,
+                &self.tables,
+                &name,
+                &ty,
+                false,
+                false,
+                span,
+            )?;
             member_ids[m] = Some(id);
         }
         let sizes = Sizes {
@@ -1050,7 +1074,7 @@ impl Elaborator {
             let body = self.member_size_body(st, &sizes, m)?;
             bodies.push((sizes.members[m].expect("declared"), body));
         }
-        kernel::define_group(&mut self.globals, &bodies)?;
+        kernel::define_group(&mut self.globals, &self.tables, &bodies)?;
         self.bind_generated(d, SIZE, size_id);
         for &m in &sized {
             let member = format!("%m{}%{SIZE}", m + 1);
@@ -1520,7 +1544,15 @@ impl Elaborator {
         ty = self.wrap_params_pi(st.d, ty);
         let name: Name = format!("{}.%m{}%sizeMem", g.data(st.d).name(), m + 1).into();
         let span = g.data(st.d).span();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         let g = &self.globals;
         // The body: cases on xs, then on h.
         // Nil: h is `Void`.
@@ -1643,7 +1675,7 @@ impl Elaborator {
         for (x, _) in g.data(st.d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &[(id, body)])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
         let member = format!("%m{}%sizeMem", m + 1);
         self.bind_generated(st.d, &member, id);
         Ok(id)
@@ -1792,7 +1824,15 @@ impl Elaborator {
         let name: Name = format!("{}.{member}", g.data(d).name()).into();
         let span = g.data(d).span();
         let field_names: Vec<Name> = kept.iter().map(|k| ctor.fields[*k].0.clone()).collect();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         // The proof: lessLe of the list's lemma, then into the sum.
         let g = &self.globals;
         let s_i = comps[at].clone();
@@ -1834,7 +1874,7 @@ impl Elaborator {
         for (x, _) in g.data(d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &[(id, body)])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
         self.bind_generated(d, &member, id);
         Ok(())
     }
@@ -1870,13 +1910,22 @@ impl Elaborator {
             self.wrap_params_pi(d, ty)
         };
         let name: Name = format!("{}.{INDUCT}", self.globals.data(d).name()).into();
-        let induct = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let induct = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         let mut ids = Vec::new();
         for m in 0..st.members.len() {
             let ty = self.member_induct_type(st, m)?;
             let name: Name = format!("{}.%m{}%{INDUCT}", self.globals.data(d).name(), m + 1).into();
             ids.push(kernel::declare_def(
                 &mut self.globals,
+                &self.tables,
                 &name,
                 &ty,
                 true,
@@ -1937,7 +1986,7 @@ impl Elaborator {
             let body = self.member_induct_body(st, &inducts, m)?;
             bodies.push((inducts.members[m], body));
         }
-        kernel::define_group(&mut self.globals, &bodies)?;
+        kernel::define_group(&mut self.globals, &self.tables, &bodies)?;
         self.bind_generated(d, INDUCT, induct);
         for m in 0..st.members.len() {
             let member = format!("%m{}%{INDUCT}", m + 1);
@@ -2343,7 +2392,15 @@ impl Elaborator {
         };
         let span = self.globals.data(d).span();
         let name: Name = format!("{}.{INDUCT_MEM}", self.globals.data(d).name()).into();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         // induct [params] motive (case adapters…) [indices] x
         let motive = np;
         let first_index = np + 1 + nc;
@@ -2365,7 +2422,7 @@ impl Elaborator {
         let mut extra: Vec<Name> = vec!["motive".into()];
         extra.extend(self.case_names(d));
         let body = self.wrap_lams(d, ni, Some(&extra), body);
-        kernel::define_group(&mut self.globals, &[(id, body)])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
         self.bind_generated(d, INDUCT_MEM, id);
         Ok(())
     }

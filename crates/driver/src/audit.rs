@@ -154,7 +154,7 @@ impl Session {
         let g = &self.elab.globals;
         let status = match g.def(id).state() {
             State::Final => Status::Checked,
-            _ if g.unfinished.borrow().contains(&HashKey::Def(id)) => Status::Unfinished,
+            _ if self.elab.marked_unfinished(HashKey::Def(id)) => Status::Unfinished,
             _ => Status::Failed,
         };
         let mut audit = TheoremAudit {

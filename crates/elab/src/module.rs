@@ -44,7 +44,7 @@ use std::collections::BinaryHeap;
 
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::globals::{HashKey, State};
+use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId, ResourceError};
 use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
@@ -705,23 +705,29 @@ impl Elaborator {
     /// those its items declared, and the ones made while checking it (from
     /// definition `defs` and data type `datas` on) that aren't final: failed,
     /// or pending until the component is abandoned.
-    fn mark_unfinished(&self, component: &[usize], defs: usize, datas: usize) {
+    fn mark_unfinished(&mut self, component: &[usize], defs: usize, datas: usize) {
         let g = &self.globals;
-        let mut unfinished = g.unfinished.borrow_mut();
+        let mut def_ids: Vec<DefId> = Vec::new();
         for (id, item) in &self.unit.module.def_items {
             if component.contains(item) && g.def(*id).state() != State::Final {
-                unfinished.insert(HashKey::Def(*id));
+                def_ids.push(*id);
             }
         }
-        for id in defs..g.env.defs().len() {
-            if g.env.defs()[id].state() != State::Final {
-                unfinished.insert(HashKey::Def(DefId(id)));
-            }
+        def_ids.extend(
+            (defs..g.env.defs().len())
+                .filter(|&id| g.env.defs()[id].state() != State::Final)
+                .map(DefId),
+        );
+        let data_ids: Vec<DataId> = (datas..g.env.datas().len())
+            .filter(|&d| g.env.datas()[d].state() != State::Final)
+            .map(DataId)
+            .collect();
+        let owners = &self.session.owners;
+        for id in def_ids {
+            self.tables.unfinished_defs.insert(owners, id, ());
         }
-        for d in datas..g.env.datas().len() {
-            if g.env.datas()[d].state() != State::Final {
-                unfinished.insert(HashKey::Data(DataId(d)));
-            }
+        for d in data_ids {
+            self.tables.unfinished_datas.insert(owners, d, ());
         }
     }
 

@@ -667,7 +667,8 @@ impl Session {
         if errors(diagnostics) {
             return;
         }
-        let g = &self.elab.globals;
+        let view = self.elab.backend();
+        let g = &view;
         let _op = g
             .budget
             .operation(Limits::stack_only(self.elab.options.limits.stack));
@@ -732,7 +733,7 @@ impl Session {
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
         let g = &self.elab.globals;
         self.refuse_unfinished((0..g.env.defs().len()).map(stitchwort_core::DefId))?;
-        stitchwort_js::generate(g, self.elab.options.limits)
+        stitchwort_js::generate(&self.elab.backend(), self.elab.options.limits)
     }
 
     /// An error if any of the exports among `ids` is unfinished (it, or
@@ -771,7 +772,7 @@ impl Session {
             .collect();
         self.refuse_unfinished(ids.iter().copied())?;
         stitchwort_js::generate_exports(
-            g,
+            &self.elab.backend(),
             self.elab.options.limits,
             stitchwort_js::Options::default(),
             &ids,
@@ -785,7 +786,7 @@ impl Session {
         main: &crate::run::Main,
     ) -> Result<stitchwort_js::run::Program, Diagnostic> {
         stitchwort_js::run::generate_program(
-            &self.elab.globals,
+            &self.elab.backend(),
             self.elab.options.limits,
             main.term(),
         )

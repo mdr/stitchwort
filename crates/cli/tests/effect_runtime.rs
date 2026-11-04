@@ -34,7 +34,7 @@ fn module() -> String {
         effect_counters: true,
         ..Options::default()
     };
-    stitchwort_js::generate_with(&session.elab.globals, Limits::default(), options)
+    stitchwort_js::generate_with(&session.elab.backend(), Limits::default(), options)
         .expect("extraction succeeds")
         .js
 }
@@ -306,7 +306,7 @@ fn partial_forwarding_program() -> stitchwort_js::run::Program {
         ..Options::default()
     };
     stitchwort_js::run::generate_program_with(
-        &session.elab.globals,
+        &session.elab.backend(),
         session.elab.options.limits,
         main.term(),
         options,

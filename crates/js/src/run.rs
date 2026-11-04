@@ -28,9 +28,10 @@
 
 use std::fmt::Write;
 
+use stitchwort_core::backend::View;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, Globals, Limits, Term};
+use stitchwort_core::{DataId, Limits, Term};
 use stitchwort_syntax::Diagnostic;
 
 use super::{
@@ -98,7 +99,7 @@ fn internal(message: String) -> Diagnostic {
 /// (`Main`'s term in the driver). Constructors are tagged by name here, so
 /// the runner tells a `Fail` operation from an `IO` one by its tag, in
 /// either row.
-pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Program, Diagnostic> {
+pub fn generate_program(g: &View<'_>, limits: Limits, main: &Term) -> Result<Program, Diagnostic> {
     generate_program_with(g, limits, main, Options::default())
 }
 
@@ -111,7 +112,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
 /// standard error at the
 /// end as a line `stitchwort-route-counts {"operations":…,…}`, for tests.
 pub fn generate_program_with(
-    g: &Globals,
+    g: &View<'_>,
     limits: Limits,
     main: &Term,
     options: Options,
@@ -245,7 +246,7 @@ struct Shapes {
 }
 
 impl Shapes {
-    fn new(g: &Globals) -> Result<Shapes, Diagnostic> {
+    fn new(g: &View<'_>) -> Result<Shapes, Diagnostic> {
         let data = |b: Builtin| -> Result<DataId, Diagnostic> {
             g.env
                 .registry()

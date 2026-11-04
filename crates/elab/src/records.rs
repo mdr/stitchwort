@@ -1078,7 +1078,7 @@ fn literal(
         }
         return Err(error);
     }
-    if cx.g().data(d).defaults.is_some() {
+    if cx.e.tables.field_defaults.contains_key(&d) {
         // Fields left out are their defaults (docs/proposals/named-arguments.md
         // §5.1); a record with defaults isn't an interface, so none is a
         // superclass.

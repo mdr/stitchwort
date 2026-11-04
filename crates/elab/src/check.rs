@@ -879,7 +879,7 @@ impl<'e> Ctx<'e> {
             for term in terms.iter().flatten() {
                 for (t, _) in term.subterms() {
                     if let Term::Def(id) = t
-                        && g.def(*id).update_shown.is_some()
+                        && self.e.tables.update_shown.contains(id)
                         && !helpers.contains(id)
                     {
                         helpers.push(*id);

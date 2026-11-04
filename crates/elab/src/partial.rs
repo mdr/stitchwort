@@ -337,13 +337,14 @@ impl Elaborator {
             );
             let id = kernel::declare_def(
                 &mut self.globals,
+                &self.tables,
                 &format!("{}.Response", first.name).into(),
                 &ty,
                 false,
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, id, &body)?;
+            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
             id
         };
         let response_at = |depth: usize| {
@@ -420,16 +421,18 @@ impl Elaborator {
             );
             let recur = kernel::declare_def(
                 &mut self.globals,
+                &self.tables,
                 &format!("{}.recur", m.name).into(),
                 &ty,
                 false,
                 false,
                 m.span,
             )?;
-            kernel::define_def(&mut self.globals, recur, &body)?;
+            kernel::define_def(&mut self.globals, &self.tables, recur, &body)?;
             recurs.push(recur);
             descriptions.push(kernel::declare_def(
                 &mut self.globals,
+                &self.tables,
                 &format!("{}.description", m.name).into(),
                 &ty,
                 false,
@@ -521,7 +524,7 @@ impl Elaborator {
             // (Each on its own, which keeps the descriptions' hashes.)
             for ((&(item, _, _), body), desc) in members.iter().zip(bodies).zip(&descriptions) {
                 self.unit.module.item = Some(item);
-                if let Err(d) = kernel::define_def(&mut self.globals, *desc, &body) {
+                if let Err(d) = kernel::define_def(&mut self.globals, &self.tables, *desc, &body) {
                     out.push((item, d));
                 }
             }
@@ -530,7 +533,7 @@ impl Elaborator {
             let mut group = pending_helpers;
             group.extend(descriptions.iter().copied().zip(bodies));
             self.unit.module.item = Some(members[0].0);
-            if let Err(d) = kernel::define_group(&mut self.globals, &group) {
+            if let Err(d) = kernel::define_group(&mut self.globals, &self.tables, &group) {
                 out.push((members[0].0, d));
             }
         }
@@ -575,13 +578,14 @@ impl Elaborator {
             );
             let id = kernel::declare_def(
                 &mut self.globals,
+                &self.tables,
                 &format!("{}.body", first.name).into(),
                 &ty,
                 false,
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, id, &body)?;
+            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
             id
         };
 
@@ -612,7 +616,7 @@ impl Elaborator {
             );
             wrappers.push((m.id, body));
         }
-        kernel::define_group(&mut self.globals, &wrappers)?;
+        kernel::define_group(&mut self.globals, &self.tables, &wrappers)?;
         for (&(item, signature, _), id) in members.iter().zip(ids) {
             self.unit.module.item = Some(item);
             if let Err(d) = self.after_definition(signature, *id) {

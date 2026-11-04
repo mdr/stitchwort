@@ -67,7 +67,7 @@ fn run_js(name: &str, text: &str) -> Run {
         ..Options::default()
     };
     let program = stitchwort_js::run::generate_program_with(
-        &session.elab.globals,
+        &session.elab.backend(),
         session.elab.options.limits,
         main.term(),
         options,
