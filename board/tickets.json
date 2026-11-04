@@ -1,5 +1,5 @@
 {
-  "next": 1291,
+  "next": 1292,
   "tickets": [
     {
       "id": 47,
@@ -6416,7 +6416,21 @@
       "labels": [
         "std"
       ],
-      "body": "D2367 (Matt, 4 Nov 2026): yes. Every non-std use of Parse.repeat is 'exactly n' (repeat 7 7, repeat 3 3 in 2020 day 5; repeat 10 10, repeat 4 4 in 2021 day 8), which reads oddly. Add Parse.exactly n parser (defined as repeat n n) with Parse.readsExactly, use it wherever repeat has equal bounds (programs and proofs). Remaining range calls name their bounds: Parse.repeat (atLeast := 1) (atMost := 3) p. Matt: when a call passes several numbers or booleans, name them so the call site is clear without reading the definition.",
+      "body": "D2367 (Matt, 4 Nov 2026): yes. Every non-std use of Parse.repeat is 'exactly n' (repeat 7 7, repeat 3 3 in 2020 day 5; repeat 10 10, repeat 4 4 in 2021 day 8), which reads oddly. Add Parse.exactly n parser (defined as repeat n n) with Parse.readsExactly, use it wherever repeat has equal bounds (programs and proofs). Remaining range calls name their bounds: Parse.repeat (atLeast := 1) (atMost := 3) p. Matt: when a call passes several numbers or booleans, name them so the call site is clear without reading the definition.\n\nStarted on DeepSeek in scratch-sw-1290, 22:02. Expected: 40 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1291,
+      "title": "Audit AoC code for bracket-heavy expressions that read better as dot/pipe chains",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 4 Nov 2026: day 5's 'passes.map .seatId |> .sort |> gap' (was '(passes.map (.seatId)).sort |> gap') is the style he likes: minimise bracketing by chaining forward with dots and pipes, not always but where it reads more naturally. Audit all AoC programs (not proofs, at first): find nested-bracket expressions that read better as forward chains, and positional runs of numbers/booleans that would be clearer as named arguments (D2367). Survey first (a list with before/after per site and a rewrite-or-leave verdict), then a mechanical rewrite lane. Proofs that unfold a rewritten definition must still check; |> is plain application, so the terms usually don't change.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

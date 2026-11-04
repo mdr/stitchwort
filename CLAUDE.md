@@ -132,6 +132,12 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   `List Bool`) with their operations as methods (`pass.seatId`), and state
   specs and proofs about those types; an alias only where a type would add
   nothing, in a simple day (D2363, Matt, 4 Nov 2026).
+- Make call sites read on their own. Where a call passes several numbers
+  or booleans, name them: `Parse.repeat (atLeast := 1) (atMost := 3) p`
+  (D2367). Prefer chaining forward with dots and pipes to nested brackets
+  where it reads more naturally: `passes.map .seatId |> .sort |> gap`, not
+  `(passes.map (.seatId)).sort |> gap`. Neither is absolute; brackets are
+  fine where they read better (Matt, 4 Nov 2026).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 
