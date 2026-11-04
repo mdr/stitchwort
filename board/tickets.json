@@ -5623,16 +5623,18 @@
     {
       "id": 1235,
       "title": "Day 3 friction: Aoc.Common Grid is non-empty (carries width ≠ 0, so column % map.width works); a Bool rectangle check; List.takeWhileMap and takeWhile-over-a-range lemmas; checkGrid keeps its rows; two messages",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc-friction"
       ],
-      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).\n\nMatt, 4 Nov 2026: \"I can't imagine that any Advent of Code puzzle is going to have an empty grid ... fair to assume that they're all not empty.\" So instead of Nat.wrap: make Aoc.Common's Grid non-empty (the parser rejects an empty map; the grid carries a proof its width is not 0) so that `column % map.width` works directly, and Day 3 drops its wrap helper. Keep the Bool rectangle check, the lemmas and the two messages.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n",
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).\n\nMatt, 4 Nov 2026: \"I can't imagine that any Advent of Code puzzle is going to have an empty grid ... fair to assume that they're all not empty.\" So instead of Nat.wrap: make Aoc.Common's Grid non-empty (the parser rejects an empty map; the grid carries a proof its width is not 0) so that `column % map.width` works directly, and Day 3 drops its wrap helper. Keep the Bool rectangle check, the lemmas and the two messages.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n\nProgress (lane/SW-1235, 4 Nov 2026, about 45 min): done and committed. Grid carries `nonEmpty: (firstWidth rows == 0) = False` (an equation, so `==` and the counterexample search still work); `Grid.widthNonZero`, `Grid.of`, `Grid.isRectangle` + `isRectangleIff`; Day 3 uses `%` with `let nonZero := map.widthNonZero`; 2021 day 15's Cave carries the same field; std gains List.takeWhileMap and List.takeWhileRangeCutoff; checkGridRows in Aoc.Common.Proofs; two messages (reject examples with snapshots). Awaiting Opus review.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "6c842c97"
+      ]
     },
     {
       "id": 1236,
