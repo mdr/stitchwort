@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/matches-not-bool.sw:10:36 ]
+    │
+ 10 │ def illegal: Scan → Nat := matches | Corrupted _
+    │                                    │ 
+    │                                    ╰─ expected `Nat`, but this has type `Bool`
+────╯
+[E-TYPE-MISMATCH] Error: `matches` gives a `Bool`, but a `Nat` is expected here
+    ╭─[ reject/matches-not-bool.sw:10:28 ]
+    │
+ 10 │ def illegal: Scan → Nat := matches | Corrupted _
+    │                            │ 
+    │                            ╰─ gives a `Bool`: `True` where an arm matches, `False` otherwise
+    │ 
+    │ Note: write `match` to give the results as they are, with an arm for every case, or `match some` for an `Option`
+────╯

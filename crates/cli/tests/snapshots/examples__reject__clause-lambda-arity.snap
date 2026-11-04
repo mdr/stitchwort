@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: this alternative has 1 pattern, but the first has 2
+   ╭─[ reject/clause-lambda-arity.sw:8:3 ]
+   │
+ 7 │   | 0, y => y
+   │     ┬  
+   │     ╰── the first alternative has 2
+ 8 │   | x => x
+   │   ─┬─  
+   │    ╰─── this alternative has 1 pattern, but the first has 2
+   │ 
+   │ Note: every alternative of a clause lambda has one pattern for each parameter
+───╯

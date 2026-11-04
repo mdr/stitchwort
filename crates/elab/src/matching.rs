@@ -338,9 +338,9 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     result
 }
 
-/// The result the parser wrote into a clause lambda: `Some e` and `None`
-/// for `match some`, `True` and `False` for `matches`. They have empty
-/// spans, since there is nothing in the source for them; what is wrong
+/// A result the parser wrote into a clause lambda: `Some e` and the last
+/// arm's `None` for `match some`, the last arm's `False` for `matches`.
+/// They have empty spans, since there is nothing in the source for them; what is wrong
 /// with them is the keyword's (`Option` or `Bool`).
 fn clause_result(expr: &Expr) -> Option<(&'static str, &'static str)> {
     let hidden = |name: &ast::Name| name.span.start == name.span.end;
@@ -354,7 +354,7 @@ fn clause_result(expr: &Expr) -> Option<(&'static str, &'static str)> {
     };
     match (&*name.text, arg) {
         ("Std.Option.Some", true) | ("Std.Option.None", false) => Some(("Option", "match some")),
-        ("Std.Bool.True" | "Std.Bool.False", false) => Some(("Bool", "matches")),
+        ("Std.Bool.False", false) => Some(("Bool", "matches")),
         _ => None,
     }
 }
