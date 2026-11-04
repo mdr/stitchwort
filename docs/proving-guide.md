@@ -310,8 +310,12 @@ Each was run on the example named; the output is quoted, shortened.
   - `E-REWRITE-NOTHING`: the left side isn't in the goal as it computes. The
     notes show the goal "as written" and "as it computes", and say when the
     goal already holds by computing (`examples/reject/rewrite-nothing.sw`).
-    Usually the goal unfolded the definition first: rewrite with a lemma
-    about the unfolded form, or state the step with `calc`.
+    A `match c: e` refines the hypotheses that mention `e` as well as the
+    goal, so inside its arm a hypothesis already has the branch's form: use
+    it as it is rather than rewriting it
+    (`examples/reject/rewrite-refined-by-match.sw`). Usually the goal
+    unfolded the definition first: rewrite with a lemma about the unfolded
+    form, or state the step with `calc`.
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
     because an `auto` proof (the `d != 0` in `x % d`) is about it. Rewrite a
     larger term (`x % d`), or use `calc` (`examples/reject/rewrite-motive-auto.sw`).

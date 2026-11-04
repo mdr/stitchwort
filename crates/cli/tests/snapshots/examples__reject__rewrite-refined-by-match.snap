@@ -13,13 +13,13 @@ expression: output
     │                                                  ┬  
     │                                                  ╰── looking for `isBig n`
     │ 
-    │ Note 1: `found`: `Some n = Some m`
+    │ Note 1: inside the `match`, `isBig n` is replaced with `False` in the goal, in the hypotheses and in the `let`-bound lemmas from before the `match`, so `found` is already refined: use it as it is
     │ 
-    │ Note 2: the search compares what terms compute to: it looked for `11 <= n`, what `isBig n` computes to, in what the type of `found` computes to
+    │ Note 2: `found`: `Some n = Some m`
     │ 
-    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ Note 3: the search compares what terms compute to: it looked for `11 <= n`, what `isBig n` computes to, in what the type of `found` computes to
     │ 
-    │ Note 4: to replace the right side by the left, write `rewrite <- …`
+    │ Note 4: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 
-    │ Note 5: inside the `match`, `isBig n` is replaced with `False` in the goal, in the hypotheses and in the `let`-bound lemmas from before the `match`, so `found` is already refined: use it as it is
+    │ Note 5: to replace the right side by the left, write `rewrite <- …`
 ────╯

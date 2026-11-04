@@ -837,15 +837,20 @@ fn replaced_by_match(cx: &Ctx, lhs: &Value, place: Place, error: Diagnostic) -> 
             }
             _ => String::new(),
         };
-        return error
-            .with_label(
-                *span,
-                format!("this `match` replaced `{shown_lhs}` with {with}"),
-            )
-            .with_note(format!(
+        let mut error = error.with_label(
+            *span,
+            format!("this `match` replaced `{shown_lhs}` with {with}"),
+        );
+        // This note says what to do, so it comes before the notes about how
+        // the search compares terms (aoc/NOTES-2020.md, Day 1 item 6).
+        error.notes.insert(
+            0,
+            format!(
                 "inside the `match`, `{shown_lhs}` is replaced with {with} in the goal, in the \
                  hypotheses and in the `let`-bound lemmas from before the `match`{rest}"
-            ));
+            ),
+        );
+        return error;
     }
     error
 }
