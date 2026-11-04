@@ -5197,14 +5197,14 @@
     {
       "id": 1206,
       "title": "AoC 2020 day 1 in Stitchwort (spec, solution, proof where natural, input test, NOTES-2020.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": "lane/SW-1206",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
+      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\nDone 4 Nov 2026 (lane/SW-1206, 8a5e5089, about 20 min of the 120 estimated). Answers: example 514579 / 241861950, input 1016619 / 218767230, all matching Matt's Scala. Both parts proved sound and complete against a brute-force spec (`part1Correct`, `part2Correct` when the answer is unique). Audit: 29 theorems, 0 failed, 2 warnings (narrow hypotheses `solvePart1 entries = Some answer`, not vacuous). Tests: 14 aoc tests pass; aoc_answers `year2020_day01` added and passing. Friction notes in aoc/NOTES-2020.md (ranked list at the end).\n\n\nMerged. Answers match the Scala (1016619, 218767230); both parts proved against the brute-force spec. 20 min (est. 120). Friction review with Matt pending before day 2.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
