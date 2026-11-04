@@ -1,7 +1,6 @@
 --| A binary number, written as the puzzles do: the most significant bit
 --| first, `True` for a 1. Its proofs are in `Aoc.Common.Proofs`
---| (Proofs/Bits.sw), which are `Nat.fromBits`'s and `Nat.toBits`'s lemmas
---| said of `Bits`.
+--| (Proofs/Bits.sw).
 
 namespace Aoc.Common
 import Std (Bool, List, Nat, Option)
@@ -15,8 +14,9 @@ def Bits.value (number: Bits): Nat := Nat.fromBits number.bits
 --| How many bits there are, leading zeros included.
 def Bits.width (number: Bits): Nat := number.bits.length
 
---| The `width` bits of `n`, the most significant first (`n` mod 2^`width`).
-def Bits.ofNat (width: Nat) (n: Nat): Bits := { bits = Nat.toBits width n }
+--| The number whose bits come lowest first, as a machine's wires number
+--| them: `[True, False, True]` is 1 + 4, written `101`.
+def Bits.fromLowFirst (lowFirst: List Bool): Bits := { bits = lowFirst.reverse }
 
 --| Every bit flipped: with `width` bits, the number that adds to this one
 --| to make 2^`width` - 1.

@@ -5,6 +5,7 @@
 --| in the spec, and the wires it feeds carry nothing in either.
 
 namespace Aoc.Year2024.Day24.Proofs
+import Aoc.Common (Bits)
 import Aoc.Year2024.Day24 (..)
 import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Ord, Void)

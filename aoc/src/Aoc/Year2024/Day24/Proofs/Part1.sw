@@ -3,6 +3,7 @@
 --| read from the z wires is the one the device outputs (`part1Sound`).
 
 namespace Aoc.Year2024.Day24.Proofs
+import Aoc.Common (Bits)
 import Aoc.Year2024.Day24 (..)
 import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Void)
@@ -90,7 +91,7 @@ theorem settledSound (device: Device): Sound device device.settled :=
 theorem part1Sound (device: Device) (number: Nat) (solved: solvePart1 device = Some number): Outputs device number :=
   let count := bitCount Wire.zBit device.wires
   let zValue := (bit: Nat) => if device.wires.contains (Z bit) then device.settled.get (Z bit) else Some False
-  Option.mapEqSome (device.zBits device.settled) fromBits number solved (bits bitsAre isNumber =>
+  Option.mapEqSome (device.zBits device.settled) (bits => (Bits.fromLowFirst bits).value) number solved (bits bitsAre isNumber =>
     Both
       (bit member =>
         let below := countFromAbove Wire.zBit (Z bit) bit rfl device.wires 0 member

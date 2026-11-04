@@ -1,26 +1,14 @@
---| Facts about `Bits`, mostly `Nat.fromBits`'s and `Nat.toBits`'s lemmas said
---| of the record, and how appending moves `get` and `width`.
+--| Facts about `Bits`: `Nat.fromBits`'s lemmas said of the record, a number
+--| and its complement, and how appending moves `get` and `width`.
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Eq, List, Nat, Option)
+import Std (Bool, Eq, List, Nat, Option)
 
 --| A number and its complement add up to the number with a 1 in every
 --| position, 2^`width` - 1.
 theorem Bits.complementValue (number: Bits): number.value + number.complement.value + 1 = Nat.pow 2 number.width :=
   Nat.fromBitsFlipped number.bits
-
---| A number is below 2^`width`.
-theorem Bits.valueBelow (number: Bits): number.value < Nat.pow 2 number.width := Nat.fromBitsBelow number.bits
-
-theorem Bits.widthOfNat (width: Nat) (n: Nat): (Bits.ofNat width n).width = width := Nat.toBitsLength width n
-
---| The `width` bits of a number that fits in them spell it.
-theorem Bits.valueOfNat (width: Nat) (n: Nat) (fits: n < Nat.pow 2 width): (Bits.ofNat width n).value = n := Nat.fromBitsToBits width n fits
-
---| The bits of `Bits.ofNat` read back.
-theorem Bits.ofNatValue: (number: Bits) → Bits.ofNat number.width number.value = number
-  | { bits } => Eq.cong (bits => { bits }) (Nat.toBitsFromBits bits)
 
 --| The first bit is the bit at position 0.
 theorem Bits.getZero: (number: Bits) → number.get 0 = number.first
@@ -48,7 +36,7 @@ theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → List.get
 theorem Bits.getAppendWidth (number: Bits) (prefix: Bits): (prefix.append number).get prefix.width = number.first :=
   Bits.getAppendList number.bits prefix.bits
 
---| The value of a prefix followed by `other`: the prefix's, shifted left by
---| `other`'s width, plus `other`'s.
-theorem Bits.valueAppend (number: Bits) (other: Bits): (number.append other).value = number.value * Nat.pow 2 other.width + other.value :=
-  Nat.fromBitsAppend number.bits other.bits
+--| A lowest bit in front of the others doubles their number and adds itself.
+theorem Bits.valueFromLowFirst (bit: Bool) (rest: List Bool):
+    (Bits.fromLowFirst [bit, ..rest]).value = Bool.toNat bit + (Bits.fromLowFirst rest).value * 2 :=
+  rewrite List.reverseCons bit rest, Nat.fromBitsSnoc (List.reverse rest) bit in omega
