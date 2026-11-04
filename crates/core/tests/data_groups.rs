@@ -37,7 +37,10 @@ fn try_group(
         g,
         params.into_iter().map(|(x, t)| (x.into(), t)).collect(),
         sort,
-        names.iter().map(|n| (Name::from(*n), span())).collect(),
+        names
+            .iter()
+            .map(|n| (Name::from(*n), Name::from(*n), span()))
+            .collect(),
     )
 }
 
@@ -357,6 +360,7 @@ fn a_pending_member_is_not_empty_and_has_no_constructors() {
     let tree_to_void = arrow(Term::Data(tree, vec![]), Term::Data(void, vec![]));
     let r = check::declare_def(
         &mut p.g,
+        &"impossible".into(),
         &"impossible".into(),
         &tree_to_void,
         false,
@@ -740,6 +744,7 @@ fn propositions_defined_together_eliminate_only_into_propositions() {
     let fe = check::declare_def(
         &mut p.g,
         &"evenTrivial".into(),
+        &"evenTrivial".into(),
         &to_unit(even),
         true,
         false,
@@ -747,6 +752,7 @@ fn propositions_defined_together_eliminate_only_into_propositions() {
     );
     let fo = check::declare_def(
         &mut p.g,
+        &"oddTrivial".into(),
         &"oddTrivial".into(),
         &to_unit(odd),
         true,

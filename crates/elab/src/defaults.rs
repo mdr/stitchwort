@@ -326,6 +326,7 @@ impl Elaborator {
         let helper = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &label,
             &ty,
             false,

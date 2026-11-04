@@ -312,7 +312,7 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     e.scope.dump(&mut out);
 
     e.tables.dump(&mut out);
-    let _ = writeln!(out, "module {:?}", g.module);
+    let _ = writeln!(out, "module {:?}", e.unit.module_path);
     let _ = writeln!(out, "library {:?}", e.loaded_library_files());
     // What navigation recorded, which its index is made from.
     e.present

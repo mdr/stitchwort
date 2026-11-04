@@ -707,6 +707,7 @@ impl Elaborator {
             let id = kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &name,
                 &ty,
                 false,
@@ -861,6 +862,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             false,
@@ -896,6 +898,7 @@ impl Elaborator {
         let id = kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name,
             &ty,
             false,

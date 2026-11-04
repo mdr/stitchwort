@@ -260,7 +260,7 @@ fn a_signature_cannot_mention_a_sibling() {
         p.nat_ty(),
         eq(None, app(Term::Def(g), [v(0)]), app(Term::Def(g), [v(0)])),
     );
-    let r = check::declare_def(&mut p.g, &"f".into(), &ty, true, false, span());
+    let r = check::declare_def(&mut p.g, &"f".into(), &"f".into(), &ty, true, false, span());
     assert_eq!(code(r), "E-MALFORMED");
 }
 

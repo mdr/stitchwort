@@ -247,7 +247,8 @@ fn a_constant_is_admitted_once() {
     // A second `now`, with exactly the right type: refused, since `now` is
     // admitted already.
     let ty = g.def(prim(g, Primitive::Now)).ty().clone();
-    let again = check::declare_def(g, &"now2".into(), &ty, false, false, span()).unwrap();
+    let again =
+        check::declare_def(g, &"now2".into(), &"now2".into(), &ty, false, false, span()).unwrap();
     assert_eq!(
         code(partial::define_primitive(g, again, Primitive::Now)),
         "E-BUILTIN"
@@ -274,7 +275,16 @@ fn a_delay_cant_be_matched_on() {
         delay(g, r.no_op.clone(), r.no_res.clone(), r.nat.clone()),
         r.nat.clone(),
     );
-    let f = check::declare_def(g, &"drain".into(), &ty, false, false, span()).unwrap();
+    let f = check::declare_def(
+        g,
+        &"drain".into(),
+        &"drain".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     let zero = || Term::Ctor(nat, 0, vec![]);
     let body = lam(
         "d",
@@ -297,7 +307,8 @@ fn a_delay_cant_be_matched_on() {
     assert_eq!(code(check::define_def(g, f, &body)), "E-TYPE-MISMATCH");
     // Neighbour: the same match on a `Nat` is fine.
     let ty = arrow(r.nat.clone(), r.nat.clone());
-    let f = check::declare_def(g, &"fine".into(), &ty, false, false, span()).unwrap();
+    let f =
+        check::declare_def(g, &"fine".into(), &"fine".into(), &ty, false, false, span()).unwrap();
     assert_eq!(code(check::define_def(g, f, &body)), "ok");
 }
 
@@ -311,7 +322,8 @@ fn a_description_calling_its_own_wrapper_is_refused() {
     let g = &mut session.elab.globals;
     let r = rows(g);
     let ty = nat_to_delay(g, &r);
-    let bad = check::declare_def(g, &"bad".into(), &ty, false, false, span()).unwrap();
+    let bad =
+        check::declare_def(g, &"bad".into(), &"bad".into(), &ty, false, false, span()).unwrap();
     // bad x = pfix (\y -> mapSig sigRight (bad y)) x
     let calls_itself = wrapper(
         g,
@@ -325,7 +337,8 @@ fn a_description_calling_its_own_wrapper_is_refused() {
     assert_eq!(g.def(bad).state(), State::Failed);
 
     // good x = pfix (\y -> lift (Call (L (Recur y)) (\v -> Done v))) x
-    let good = check::declare_def(g, &"good".into(), &ty, false, false, span()).unwrap();
+    let good =
+        check::declare_def(g, &"good".into(), &"good".into(), &ty, false, false, span()).unwrap();
     let comp = data(g, "Effect.Comp");
     let request = Term::ctor(
         data(g, "Effect.Plus"),
@@ -360,8 +373,26 @@ fn a_description_calling_an_unfinished_wrapper_is_refused() {
     let g = &mut session.elab.globals;
     let r = rows(g);
     let ty = nat_to_delay(g, &r);
-    let first = check::declare_def(g, &"first".into(), &ty, false, false, span()).unwrap();
-    let second = check::declare_def(g, &"second".into(), &ty, false, false, span()).unwrap();
+    let first = check::declare_def(
+        g,
+        &"first".into(),
+        &"first".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
+    let second = check::declare_def(
+        g,
+        &"second".into(),
+        &"second".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     let calls_second = wrapper(
         g,
         &r,
@@ -422,7 +453,8 @@ fn a_data_type_recursing_through_delay_is_refused() {
     let mut session = Session::new();
     let g = &mut session.elab.globals;
     let r = rows(g);
-    let bad = check::declare_data(g, "Bad".into(), vec![], Sort::Type(0), span()).unwrap();
+    let bad =
+        check::declare_data(g, "Bad".into(), "Bad".into(), vec![], Sort::Type(0), span()).unwrap();
     let field = delay(
         g,
         r.no_op.clone(),

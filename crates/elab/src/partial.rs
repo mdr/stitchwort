@@ -288,7 +288,7 @@ impl Elaborator {
                 .map(|p| (p.name.clone(), p.ty.clone()))
                 .collect(),
             Sort::Type(0),
-            vec![(req_name, span)],
+            vec![(req_name.clone(), self.unit.path(&req_name), span)],
         )?[0];
         let ctors = infos
             .iter()
@@ -338,6 +338,7 @@ impl Elaborator {
             let id = kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &format!("{}.Response", first.name).into(),
                 &ty,
                 false,
@@ -422,6 +423,7 @@ impl Elaborator {
             let recur = kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &format!("{}.recur", m.name).into(),
                 &ty,
                 false,
@@ -433,6 +435,7 @@ impl Elaborator {
             descriptions.push(kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &format!("{}.description", m.name).into(),
                 &ty,
                 false,
@@ -579,6 +582,7 @@ impl Elaborator {
             let id = kernel::declare_def(
                 &mut self.globals,
                 &self.tables,
+                &self.unit,
                 &format!("{}.body", first.name).into(),
                 &ty,
                 false,

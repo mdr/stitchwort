@@ -814,7 +814,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
     );
     // Kernel declarations outside an operation have no limits.
     let define = |g: &mut Globals, name: &str, recurse: Term| {
-        let id = declare_def(g, &name.into(), &ty, false, false, span()).unwrap();
+        let id = declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
         // cs => case cs of Nil -> 0 | Cons c rest -> self <recurse>
         let body = Term::Lam(
             "cs".into(),
@@ -857,7 +857,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
     let text = data(g, "Text");
     let declare = |g: &mut Globals, name: &str, chars: Term| {
         let ty = Term::Data(text, Vec::new());
-        let id = declare_def(g, &name.into(), &ty, false, false, span()).unwrap();
+        let id = declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
         define_def(g, id, &Term::ctor(text, 0, vec![chars])).unwrap();
         def_hash(g, id).unwrap().unwrap()
     };

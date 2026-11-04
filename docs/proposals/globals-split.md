@@ -438,10 +438,24 @@ Every step that generates or admits kernel terms is reviewed by Opus
 |---|---|---|---|
 | 8a | **Read views.** `Def`'s and `Data`'s kernel-written fields `pub(crate)` with getters; `Env` as a type inside `Globals` (`globals.env`) with private fields; the test bypasses behind the `test-bypass` feature. Mechanical; a sweep of driver (104 `defs` reads), rt, js, cli | the §1.5 bypass: nothing outside core writes a type, body or state | everything builds; `test:lane AREA=core`; core's `kernel.rs`, `admission.rs`; `hash_stability`, `pinned_hashes` |
 | 8b | **The elaborator's facts out of `Env`.** `Data::js`, `Data::defaults`, `Def::param_defaults`, `Def::update_shown`, `unfinished` into `Tables` as `OwnedBy`; the JS backend and cli read them through a view the session hands over; `param_default` through a kernel function | backend changes stop editing core; the facts get table kinds (rewind, encode, dump by kind) | `check_cache.rs` (entries byte for byte the same as before, as step 5 checked), `rewind.rs` (normal sample), `test:lane AREA=js`, `navigation.rs` |
-| 8c | **`module` out.** `declare_def` and `declare_*data_group*` take the declaration's path; `module` into `Unit`; `library::Context`'s swap of it goes | the kernel stops reading unit state | `hash_stability`, `pinned_hashes` (hashes unchanged), `namespaces.rs`, `std_library.rs` |
+| 8c | (done) **`module` out.** `declare_def` and `declare_*data_group*` take the declaration's path; `module` into `Unit`; `library::Context`'s swap of it goes | the kernel stops reading unit state | `hash_stability`, `pinned_hashes` (hashes unchanged), `namespaces.rs`, `std_library.rs` |
 | 8d | **`Machine` and the caches.** `budget`, `glue`, `transparent`, erasure mode, `apart_sets` into `core::Machine`; `hashes` and erasure's per-definition cache into a core `EvalCaches`; `failed_mentioned` into `Decl`. `Globals` is now `{ env, machine, caches, metas.. }` | `GlobalsMark` keeps only lengths; modes have one home | `rewind.rs`, `resources.rs`, `test:lane AREA=core`, core's `glue.rs` |
 | 8e | **`Ev` and `Metas`.** Core's evaluator, printer and checker take `&Ev` instead of `&Globals`. Admission takes `(&mut Env, &Machine)` and builds `Ev` with `NoMetas` and kernel modes. The 9 meta fields move into `Attempt` as `MetaStore: Metas`, and `Globals` is deleted. Two lanes if the diff is too large: 8e-1 introduces `Ev` with all fields still borrowed from `Globals`, a mechanical sweep; 8e-2 moves the store | the trust boundary (§3.6, §4); undo and reset destructure the store; the erasure gap | the new kernel test (a solved metavariable submitted is refused); elab's `undo` unit tests; `postponement.rs`, `rewind.rs`, `check_cache.rs`, `fuzz_elab.rs`'s rejection checks; `STITCHWORT_TIMINGS` on aoc before and after (a background run of about a minute each, an estimate) |
 | 8f | **The meta store's own mechanisms.** `Attempt::mark`/`restore` destructure `MetaStore`; the three queue mirrors become views of the queue, or are restored by it, whichever its lane finds simpler | undo completeness for the store (see finding G2) | `undo` unit tests, `postponement.rs`, a new test per mirror |
+
+*As built (SW-1188, step 8c).* `Globals::module` and `Globals::path` are
+gone. `declare_def`, `admit_trusted_def` take the declaration's `path`
+beside its `name`; `DataDecl` has a `path` field, and
+`declare_data(_group(_as))` take it in their member tuples. The elaborator's
+`Unit` has `module_path` (set by `elaborate_namespace` and the cache's
+namespace replay; kept by `Unit::mark`/`rewind`; a nested library unit starts
+at `Std`) and `Unit::path(name)`. The `elab::kernel` wrapper `declare_def`
+takes `&Unit` and computes the path, so its call sites pass `&self.unit`. The
+cache replay passes each entry's own `path` to the trusted admissions, so its
+save and restore of the module is gone (`module_of` stays as a check that the
+path is the name in a module). `GlobalsMark` lost `module`; the library
+loader's `Outer` lost `globals_module`. Hashes unchanged (`hash_stability`,
+`pinned_hashes`, `check_cache`, `std_library` pass).
 
 **Order** (an implementation decision, made here). 8a-8f run one at a
 time: every one edits core and its callers. 8a can start any time after

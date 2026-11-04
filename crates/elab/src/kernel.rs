@@ -12,7 +12,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 pub use k::*;
 
-use crate::state::Tables;
+use crate::state::{Tables, Unit};
 use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -86,17 +86,22 @@ pub fn define_group(g: &mut Globals, tables: &Tables, members: &[(DefId, Term)])
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn declare_def(
     g: &mut Globals,
     tables: &Tables,
+    unit: &Unit,
     name: &Name,
     ty: &Term,
     theorem: bool,
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    unglued(g, |g| k::declare_def(g, name, ty, theorem, export, span))
-        .map_err(|d| crate::goals::unfinished_dependency(g, tables, [ty], &[], d))
+    let path = unit.path(name);
+    unglued(g, |g| {
+        k::declare_def(g, name, &path, ty, theorem, export, span)
+    })
+    .map_err(|d| crate::goals::unfinished_dependency(g, tables, [ty], &[], d))
 }
 
 pub fn retype_def(g: &mut Globals, tables: &Tables, id: DefId, ty: &Term) -> Result<()> {
@@ -108,7 +113,7 @@ pub fn declare_data_group(
     g: &mut Globals,
     params: Vec<(Name, Term)>,
     sort: Sort,
-    members: Vec<(Name, Span)>,
+    members: Vec<(Name, Name, Span)>,
 ) -> Result<Vec<DataId>> {
     unglued(g, |g| k::declare_data_group(g, params, sort, members))
 }
@@ -134,11 +139,14 @@ pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>)
 pub fn admit_trusted_def(
     g: &mut Globals,
     name: &Name,
+    path: &Name,
     ty: &Term,
     theorem: bool,
     span: Span,
 ) -> Result<DefId> {
-    unglued(g, |g| k::admit_trusted_def(g, name, ty, theorem, span))
+    unglued(g, |g| {
+        k::admit_trusted_def(g, name, path, ty, theorem, span)
+    })
 }
 
 pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {

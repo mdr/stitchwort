@@ -605,10 +605,6 @@ pub struct Globals {
     /// Whether running erases proofs and types, and what each definition
     /// erases (`erase.rs`). Never in effect while checking.
     pub erasure: crate::erase::Erasure,
-    /// The logical name of the module whose data types are being declared
-    /// (`Std` for the prelude, `Main` for a program), which their [`Data::path`]
-    /// starts with. Empty: the path is the name.
-    pub module: Name,
     /// Whether evaluation keeps a definition applied to all its arguments
     /// as the call, a [`Value::Call`], unfolding it only when something
     /// looks inside (glued evaluation, docs/proposals/folded-calls.md).
@@ -771,16 +767,6 @@ impl Globals {
         });
     }
 
-    /// The full logical name of a declaration named `name` in the module
-    /// being declared.
-    pub fn path(&self, name: &Name) -> Name {
-        if self.module.is_empty() {
-            name.clone()
-        } else {
-            format!("{}.{name}", self.module).into()
-        }
-    }
-
     pub fn find_data(&self, name: &str) -> Option<DataId> {
         self.env
             .datas()
@@ -869,7 +855,6 @@ impl Globals {
             datas: self.env.datas().len(),
             builtins: self.env.builtins().mark(),
             failed_mentioned: self.failed_mentioned.get(),
-            module: self.module.clone(),
             glue: self.glue.get(),
         }
     }
@@ -901,7 +886,6 @@ impl Globals {
             budget,
             failed_mentioned,
             erasure,
-            module,
             glue,
             meta_epoch: _,
             transparent,
@@ -921,7 +905,6 @@ impl Globals {
         budget.reset();
         failed_mentioned.set(mark.failed_mentioned);
         erasure.forget_from(mark.defs);
-        *module = mark.module.clone();
         glue.set(mark.glue);
         *transparent.0.borrow_mut() = Rc::default();
         // Bumps the epoch, so no kept unfolding is trusted.
@@ -936,7 +919,6 @@ pub struct GlobalsMark {
     datas: usize,
     builtins: crate::native::BuiltinsMark,
     failed_mentioned: bool,
-    module: Name,
     glue: bool,
 }
 

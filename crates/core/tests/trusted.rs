@@ -27,6 +27,7 @@ fn trusted_copy(a: &Globals) -> Globals {
             assert_eq!(data.group().len(), 1);
             let decl = DataDecl {
                 name: data.name().clone(),
+                path: data.name().clone().clone(),
                 span: data.span(),
                 record: data.record(),
                 indices: data.indices().to_vec(),
@@ -55,9 +56,15 @@ fn trusted_copy(a: &Globals) -> Globals {
         } else {
             let def = &a.env.defs()[i];
             assert_eq!(def.group().as_ref().map(|g| g.len()), Some(1));
-            let id =
-                check::admit_trusted_def(&mut b, def.name(), def.ty(), def.theorem(), def.span())
-                    .expect("declared");
+            let id = check::admit_trusted_def(
+                &mut b,
+                def.name(),
+                def.path(),
+                def.ty(),
+                def.theorem(),
+                def.span(),
+            )
+            .expect("declared");
             assert_eq!(id, DefId(i));
             if def.fold() {
                 check::mark_folded(&mut b, id);
@@ -166,7 +173,15 @@ fn trusted_admission_does_not_check() {
         code(check::define_def(&mut p.g, checked, &looping(checked))),
         "ok"
     );
-    let trusted = check::admit_trusted_def(&mut p.g, &"loop2".into(), &ty, false, span()).unwrap();
+    let trusted = check::admit_trusted_def(
+        &mut p.g,
+        &"loop2".into(),
+        &"loop2".into(),
+        &ty,
+        false,
+        span(),
+    )
+    .unwrap();
     check::admit_trusted_group(&mut p.g, &[(trusted, looping(trusted))]).unwrap();
     assert_eq!(p.g.def(trusted).state(), State::Final);
 }
@@ -177,7 +192,8 @@ fn trusted_admission_still_refuses_what_isnt_there() {
     let ty = arrow(p.nat_ty(), p.nat_ty());
     // A body naming another pending definition.
     let pending = declare(&mut p.g, "pending", ty.clone());
-    let f = check::admit_trusted_def(&mut p.g, &"f".into(), &ty, false, span()).unwrap();
+    let f =
+        check::admit_trusted_def(&mut p.g, &"f".into(), &"f".into(), &ty, false, span()).unwrap();
     let calls = lam("n", app(Term::Def(pending), [v(0)]));
     assert_eq!(
         code(check::admit_trusted_group(&mut p.g, &[(f, calls)])),
@@ -189,6 +205,7 @@ fn trusted_admission_still_refuses_what_isnt_there() {
     assert_eq!(
         code(check::admit_trusted_def(
             &mut p.g,
+            &"g".into(),
             &"g".into(),
             &unknown,
             false,
@@ -214,6 +231,7 @@ fn a_trusted_constructor_of_the_wrong_shape_is_refused() {
         Sort::Type(0),
         vec![DataDecl {
             name: "Box".into(),
+            path: "Box".into(),
             span: span(),
             record: false,
             indices: vec![],

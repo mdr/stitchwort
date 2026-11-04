@@ -17,8 +17,16 @@ fn hash(
 ) -> ContentHash {
     let mut p = Prelude::new();
     let (ty, body) = (ty(&p), body(&p));
-    let id = check::declare_def(&mut p.g, &"x".into(), &ty, theorem, false, span())
-        .expect("type checks");
+    let id = check::declare_def(
+        &mut p.g,
+        &"x".into(),
+        &"x".into(),
+        &ty,
+        theorem,
+        false,
+        span(),
+    )
+    .expect("type checks");
     check::define_def(&mut p.g, id, &body).expect("body checks");
     def_hash(&p.g, id).unwrap().expect("defined")
 }
@@ -92,7 +100,16 @@ fn hashes_distinguish_which_data_type_is_used() {
     assert_ne!(data_hash(&p.g, a).unwrap(), data_hash(&p.g, b).unwrap());
     let mut identity_on = |d: DataId| {
         let ty = arrow(Term::Data(d, vec![]), Term::Data(d, vec![]));
-        let id = check::declare_def(&mut p.g, &"f".into(), &ty, false, false, span()).unwrap();
+        let id = check::declare_def(
+            &mut p.g,
+            &"f".into(),
+            &"f".into(),
+            &ty,
+            false,
+            false,
+            span(),
+        )
+        .unwrap();
         check::define_def(&mut p.g, id, &lam("x", v(0))).unwrap();
         def_hash(&p.g, id).unwrap().unwrap()
     };
@@ -131,7 +148,8 @@ fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
     stitchwort_core::native::register_nat(&mut g, nat).expect("Nat");
     let three = || Term::Nat(Rc::new(3u32.into()));
     let ty = eq(None, three(), three());
-    let id = check::declare_def(&mut g, &"x".into(), &ty, true, false, span()).expect("type");
+    let id = check::declare_def(&mut g, &"x".into(), &"x".into(), &ty, true, false, span())
+        .expect("type");
     check::define_def(&mut g, id, &Term::Refl).expect("body");
     def_hash(&g, id).unwrap().expect("defined")
 }

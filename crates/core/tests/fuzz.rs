@@ -123,7 +123,16 @@ fn the_kernel_never_panics_on_random_terms() {
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let mut p = Prelude::new();
             let _ = infer_closed(&p.g, &body, span());
-            let id = check::declare_def(&mut p.g, &"f".into(), &ty, false, false, span()).ok()?;
+            let id = check::declare_def(
+                &mut p.g,
+                &"f".into(),
+                &"f".into(),
+                &ty,
+                false,
+                false,
+                span(),
+            )
+            .ok()?;
             check::define_def(&mut p.g, id, &body).ok()
         }));
         match outcome {

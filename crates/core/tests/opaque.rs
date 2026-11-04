@@ -60,8 +60,16 @@ fn submit(
     ty: Term,
     body: Term,
 ) -> Result<DefId, &'static str> {
-    let id =
-        check::declare_def(g, &name.into(), &ty, how.theorem, false, span()).map_err(|d| d.code)?;
+    let id = check::declare_def(
+        g,
+        &name.into(),
+        &name.into(),
+        &ty,
+        how.theorem,
+        false,
+        span(),
+    )
+    .map_err(|d| d.code)?;
     if how.opaque {
         check::mark_opaque(g, id);
     }
@@ -234,7 +242,16 @@ fn unfolding_names_only_final_declarations() {
     let mut p = Prelude::new();
     // A failed opaque definition: its users fail too.
     let ty = p.nat_ty();
-    let bad = check::declare_def(&mut p.g, &"bad".into(), &ty, false, false, span()).unwrap();
+    let bad = check::declare_def(
+        &mut p.g,
+        &"bad".into(),
+        &"bad".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     check::mark_opaque(&mut p.g, bad);
     assert!(check::define_def(&mut p.g, bad, &ty).is_err());
     let zero = p.num(0);
@@ -243,8 +260,16 @@ fn unfolding_names_only_final_declarations() {
         Err("E-FAILED-DEPENDENCY")
     );
     // A pending one, or one that doesn't exist, is malformed.
-    let pending =
-        check::declare_def(&mut p.g, &"pending".into(), &ty, false, false, span()).unwrap();
+    let pending = check::declare_def(
+        &mut p.g,
+        &"pending".into(),
+        &"pending".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
     check::mark_opaque(&mut p.g, pending);
     let statement = nat_eq(&p, zero.clone(), zero.clone());
     for named in [pending, DefId(10_000)] {
@@ -466,7 +491,16 @@ fn an_opaque_dictionary_isnt_compared_unfolded() {
     let mut p = Prelude::new();
     let (nat, two) = (p.nat_ty(), p.num(2));
     let folded = |p: &mut Prelude, name: &str, opaque: bool| {
-        let id = check::declare_def(&mut p.g, &name.into(), &nat, false, false, span()).unwrap();
+        let id = check::declare_def(
+            &mut p.g,
+            &name.into(),
+            &name.into(),
+            &nat,
+            false,
+            false,
+            span(),
+        )
+        .unwrap();
         check::mark_folded(&mut p.g, id);
         if opaque {
             check::mark_opaque(&mut p.g, id);

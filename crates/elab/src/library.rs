@@ -691,11 +691,9 @@ pub(crate) struct LibraryState {
 /// What a nested load sets aside and puts back: the outer unit
 /// ([`Unit::nested`], [`Unit::leave`]), and the parts of its state that
 /// live elsewhere so far (docs/proposals/elaborator-state.md §7: the
-/// module's name moves with the `Globals` split, the imports with
-/// `Tables`).
+/// imports move with `Tables`).
 struct Outer {
     unit: Unit,
-    globals_module: stitchwort_core::Name,
     imports: scope::SavedImports,
     /// The warnings noted where only a shared reference is at hand, which
     /// are drained with [`Unit::warnings`]. In `Attempt`, for its undo
@@ -1106,8 +1104,7 @@ impl Elaborator {
             .expect("a library is installed");
         lib.state[f] = LoadState::Loading;
         lib.stack.push(f);
-        // (The file's module sets `Globals::module` itself.)
-        let saved = self.enter_nested_unit(self.globals.module.clone());
+        let saved = self.enter_nested_unit();
         self.scope.loading = Some(f);
         let name = format!("std/{}", file.path);
         let unit = SourceUnit {
@@ -1163,9 +1160,9 @@ impl Elaborator {
         // The file loading is in its own scope already (its own proofs
         // naming its equations), with its later declarations unchecked.
         if self.scope.loading == Some(f) {
-            let saved = std::mem::replace(&mut self.globals.module, "Std".into());
+            let saved = std::mem::replace(&mut self.unit.module_path, "Std".into());
             let result = run(self);
-            self.globals.module = saved;
+            self.unit.module_path = saved;
             return result;
         }
         let lib = self
@@ -1180,7 +1177,7 @@ impl Elaborator {
             fresh: self.globals.env.defs().len(),
             ..lib.core
         });
-        let saved = self.enter_nested_unit("Std".into());
+        let saved = self.enter_nested_unit();
         self.unit.module = ModuleState {
             files: vec![crate::module::FileInfo {
                 id: Some(file.id),
@@ -1204,13 +1201,12 @@ impl Elaborator {
         result
     }
 
-    /// Sets the unit being elaborated aside for a library file's, with
-    /// `module` as `Globals::module`, until [`Self::leave_nested_unit`].
-    fn enter_nested_unit(&mut self, module: stitchwort_core::Name) -> Outer {
+    /// Sets the unit being elaborated aside for a library file's, until
+    /// [`Self::leave_nested_unit`].
+    fn enter_nested_unit(&mut self) -> Outer {
         let inner = self.unit.nested();
         let outer = Outer {
             unit: std::mem::replace(&mut self.unit, inner),
-            globals_module: std::mem::replace(&mut self.globals.module, module),
             imports: self.scope.take_imports(),
             lambda_warnings: self.attempt.lambda_warnings.take(),
             unit_id: self.session.owners.enter(self.ids()),
@@ -1223,7 +1219,6 @@ impl Elaborator {
     fn leave_nested_unit(&mut self, outer: Outer) {
         let Outer {
             unit,
-            globals_module,
             imports,
             lambda_warnings,
             unit_id,
@@ -1231,7 +1226,6 @@ impl Elaborator {
         self.session.owners.leave(self.ids(), unit_id);
         self.unit_changed();
         self.unit.leave(unit);
-        self.globals.module = globals_module;
         self.scope.restore_imports(imports);
         self.attempt.lambda_warnings.replace(lambda_warnings);
     }

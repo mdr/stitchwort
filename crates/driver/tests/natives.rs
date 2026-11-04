@@ -464,7 +464,16 @@ fn unfolded_once(g: &mut Globals, op: Native) -> DefId {
     let d = g.def(id);
     let (ty, body, span) = (d.ty().clone(), d.body().cloned().unwrap(), d.span());
     let name = format!("{}Once", op.name());
-    let copy = declare_def(g, &name.as_str().into(), &ty, d.theorem(), false, span).unwrap();
+    let copy = declare_def(
+        g,
+        &name.as_str().into(),
+        &name.as_str().into(),
+        &ty,
+        d.theorem(),
+        false,
+        span,
+    )
+    .unwrap();
     define_def(g, copy, &body).unwrap();
     copy
 }

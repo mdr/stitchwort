@@ -82,6 +82,7 @@ fn refuses_a_field_of_the_largest_level() {
 fn refuses_a_data_type_in_a_universe_with_no_type() {
     let decl = || DataDecl {
         name: "Big".into(),
+        path: "Big".into(),
         span: span(),
         record: false,
         indices: Vec::new(),

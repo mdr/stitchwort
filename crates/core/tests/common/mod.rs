@@ -165,6 +165,7 @@ pub fn data(g: &mut Globals, name: &str, params: Vec<(&str, Term)>, sort: Sort) 
     check::declare_data(
         g,
         name.into(),
+        name.into(),
         params.into_iter().map(|(x, t)| (x.into(), t)).collect(),
         sort,
         span(),
@@ -185,13 +186,15 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
 }
 
 pub fn declare(g: &mut Globals, name: &str, ty: Term) -> DefId {
-    check::declare_def(g, &name.into(), &ty, false, false, span()).expect("type checks")
+    check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())
+        .expect("type checks")
 }
 
 /// Declares and defines `name : ty = body`, returning the error code if the
 /// kernel rejects it.
 pub fn define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId, &'static str> {
-    let id = check::declare_def(g, &name.into(), &ty, false, false, span()).map_err(|d| d.code)?;
+    let id = check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())
+        .map_err(|d| d.code)?;
     check::define_def(g, id, &body).map_err(|d| d.code)?;
     Ok(id)
 }
@@ -212,6 +215,7 @@ pub fn try_family(
         sort,
         vec![check::DataDecl {
             name: name.into(),
+            path: name.into(),
             span: span(),
             record: false,
             indices: indices.into_iter().map(|(x, t)| (x.into(), t)).collect(),

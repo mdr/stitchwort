@@ -43,7 +43,7 @@ fn declare(
         g,
         Vec::new(),
         Sort::Type(0),
-        vec![(name.into(), span(), record)],
+        vec![(name.into(), name.into(), span(), record)],
     )
     .map_err(|d| d.code)?;
     let ctors = ctors

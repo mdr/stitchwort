@@ -884,6 +884,7 @@ impl Elaborator {
         kernel::declare_def(
             &mut self.globals,
             &self.tables,
+            &self.unit,
             &name.into(),
             ty,
             theorem,
