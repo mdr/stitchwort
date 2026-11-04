@@ -5373,14 +5373,14 @@
     {
       "id": 1218,
       "title": "Design note + investigation: proofs about named definitions (parser proofs copy the parser's body for Parse.readsBind); why readsLine takes 4.6 s to check",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "proofs"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
+      "body": "D2331 (Matt, 4 Nov 2026): yes to all. Matt: copying program code into proofs 'feels weird and brittle ... a bad anti-feature that we need to fix'. Questions: how do comparable proof assistants (Lean, Agda, Idris, Coq/Rocq, F*, Dafny) handle it; is it one case of a broader class (higher-order unification against a definition that isn't unfolded) needing a general fix, or a local one; options (unfold on demand, automation proving Reads for straight-line parsers, a converse 'well-formed text parses' lemma). Also measure: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw is 4.6 s of a 5.8 s cold check; time 2/4/8/16-step parsers, profile, find the cause. Measure first; the timing may shape the design. Opus, expected: 120 min.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\n\nDone 4 Nov 2026 (about 65 min): docs/proposals/proofs-about-definitions.md, with reads-then.sw, opaque-steps.sw and bench.py beside it (all check). Findings: time grows about 2.7x per parser step (8 steps: 73 M evaluation steps; readsLine 20.5 M), from two elaborator causes: comparing unfolded handler runs bind by bind with no memo, and nested lambdas checked in place then again (2^n). `_` fails because the unifier never unfolds `line` one step to `Effect.bind (nat ()) k`; with std's leaf parsers opaque every `_` solves (measured). Decisions D2340-D2345 in §7: std readsThen now (yes), compare conclusion first when it depends only on `_` (yes, first), lazy delta (yes, after), call-pair memo (later), drop SW-1219 (drop), completeness direction (backlog).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
