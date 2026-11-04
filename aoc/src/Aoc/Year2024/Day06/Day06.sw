@@ -49,7 +49,7 @@ def parseLab (lines: List Text): {Fail} Lab :=
       |> .map (((index, line)) => Fail.context "line ${index + 1}" (() => parseRow width line))
       |> .gridCells
       |> .map ((((row, column), cell)) => (({ row, column }: Position), cell))
-  let positionsOf := (wanted: Cell) => cells.filter (cell => cell.snd == wanted) |> .map (cell => cell.fst)
+  let positionsOf := (wanted: Cell) => cells.filter (.snd == wanted) |> .map .fst
   match positionsOf GuardStart with
     | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }
     | [] => Fail.fail "expected a guard (^) on the map, found none"

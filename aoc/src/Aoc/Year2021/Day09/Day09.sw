@@ -54,7 +54,7 @@ def HeightMap.lowPoints (map: HeightMap): List (Position, Nat) := map.cells.filt
 def solvePart1 (map: HeightMap): Nat := map.lowPoints.sumBy (((_, height)) => height + 1)
 
 --| On the map and not a 9: a location some basin has.
-def HeightMap.isOpen (map: HeightMap) (position: Position): Bool := map.heightAt position |> .any (height => height != 9)
+def HeightMap.isOpen (map: HeightMap) (position: Position): Bool := map.heightAt position |> .any (!= 9)
 
 --| Entering a location that isn't a 9 takes a step.
 def enterOpen (position: Position) (height: Fin 10): Option Nat := if height.toNat != 9 then Some 1 else None

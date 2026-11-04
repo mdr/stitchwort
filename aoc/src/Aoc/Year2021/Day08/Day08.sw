@@ -72,7 +72,7 @@ def display: List Pattern :=
 def digitPattern (digit: Nat): Pattern := display.getOr digit (Pattern.ofLetters "")
 
 --| How many of the patterns have wire `wire` on.
-def litIn (patterns: List Pattern) (wire: Segment): Nat := patterns.count (pattern => pattern.has wire)
+def litIn (patterns: List Pattern) (wire: Segment): Nat := patterns.count (.has wire)
 
 --| The pattern's score among `patterns`: for each wire it has on, how many
 --| of `patterns` have it on, added up.
@@ -130,9 +130,9 @@ def showsRead (wiring: Wiring) (patterns: List Pattern) (pattern: Pattern): Bool
 --| the digit read from it.
 def Entry.wired (entry: Entry): Bool :=
   let wiring := entry.wiring
-  (segments.map wiring.at).sort == segments
-    ∧ (entry.patterns.map (decodeDigit entry.patterns)).sort == List.range 10
-    ∧ (entry.patterns ++ entry.outputs).all (showsRead wiring entry.patterns)
+  segments.map wiring.at |> .sort == segments
+    ∧ entry.patterns.map (decodeDigit entry.patterns) |> .sort == List.range 10
+    ∧ entry.patterns ++ entry.outputs |> .all (showsRead wiring entry.patterns)
 
 --| One display, `p1 … p10 | o1 o2 o3 o4`, each pattern its wires' letters.
 def Entry.parse(): {Parse} Entry :=

@@ -35,7 +35,7 @@ def tile(): {Parse} Tile :=
 
 --| The one position holding `wanted`.
 def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
-  match tiles.filter (entry => entry.snd == wanted) |> .map (entry => entry.fst) with
+  match tiles.filter (.snd == wanted) |> .map .fst with
     | [position] => position
     | [] => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
@@ -45,7 +45,7 @@ def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} 
 def parseMaze (input: Text): {Fail} Maze :=
   let tiles := cells (parseGrid input tile).rows
   {
-    openTiles = tiles.filter (entry => entry.snd != Wall) |> .map (entry => entry.fst) |> Set.fromList,
+    openTiles = tiles.filter (.snd != Wall) |> .map .fst |> Set.fromList,
     start = onlyTile tiles Start "S",
     end = onlyTile tiles End "E"
   }
@@ -198,10 +198,10 @@ def Maze.graph (maze: Maze) (backwards: Bool): Graph Reindeer := {
 }
 
 --| The lowest score from the start to each reachable way of standing.
-def Maze.fromStart (maze: Maze): Map Reindeer Nat := (maze.graph False).distances [(maze.startReindeer, 0)]
+def Maze.fromStart (maze: Maze): Map Reindeer Nat := maze.graph (backwards := False) |> .distances [(maze.startReindeer, 0)]
 
 --| The lowest score from each way of standing to the end, facing any way.
-def Maze.toEnd (maze: Maze): Map Reindeer Nat := (maze.graph True).distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
+def Maze.toEnd (maze: Maze): Map Reindeer Nat := maze.graph (backwards := True) |> .distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
 
 --| The lowest score at the end, facing any way, from the start's scores.
 def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat := maze.endReindeer.filterMap fromStart.get |> .minimum
@@ -211,7 +211,7 @@ def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat := m
 def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat): Set Position :=
   fromStart.toList
     |> .filter (entry => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False)
-    |> .map (entry => entry.fst.position)
+    |> .map .fst.position
     |> Set.fromList
 
 --| The tiles on best paths, from the start's scores.

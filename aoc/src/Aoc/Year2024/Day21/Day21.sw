@@ -196,7 +196,7 @@ def DirectionKey.index (key: DirectionKey): Nat :=
 
 --| The same costs, worked out once for every pair of keys.
 def Costs.tabulate (costs: Costs): Costs :=
-  let table := directionKeys.map (from => directionKeys.map (to => costs from to))
+  let table := directionKeys.map (from => directionKeys.map (costs from))
   from to => table.getOr from.index [] |> .getOr to.index 0
 
 --| The costs one keypad further from yours: the cheapest route on that

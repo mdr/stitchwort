@@ -21,7 +21,7 @@ def main(): {IO, Fail} () :=
 type Garden = { plots: Map Position Char }
 
 --| One plot: its plant, a letter.
-def plantLetter(): {Parse} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
+def plantLetter(): {Parse} Char := Parse.satisfy "a letter" .isAsciiLetter
 
 --| One row per line, all as long as the first.
 def parseGarden (input: Text): {Fail} Garden :=
@@ -112,7 +112,7 @@ def quadrants: List (Direction, Direction) := [(Up, Left), (Up, Right), (Down, L
 
 --| The grid point diagonally across a plot's corner.
 def Position.diagonal (position: Position) (vertical: Direction) (horizontal: Direction): Option Position :=
-  position.step vertical |> .flatMap (next => next.step horizontal)
+  position.step vertical |> .flatMap (.step horizontal)
 
 --| A corner of the region's fence at a plot: outside, where neither side
 --| faces the same plant, or inside, where both do but the plot diagonally

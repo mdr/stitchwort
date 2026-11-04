@@ -23,7 +23,7 @@ import Std.Parse (char, nat, token)
 
 def main(): {IO, Fail} () :=
   let boxes := parseBoxes IO.readAll()
-  IO.print "Part 1: ${solvePart1 1000 boxes}"
+  IO.print "Part 1: ${solvePart1 (connections := 1000) boxes}"
   match solvePart2 boxes with
     | None => IO.print "Part 2: the boxes are already in one circuit."
     | Some answer => IO.print "Part 2: ${answer}"

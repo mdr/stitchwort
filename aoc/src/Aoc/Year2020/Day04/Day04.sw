@@ -59,7 +59,7 @@ def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
 
 def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
 
-def Passport.has (passport: Passport) (key: Key): Bool := passport.fields.any (field => field.key == key)
+def Passport.has (passport: Passport) (key: Key): Bool := passport.fields.any (.key == key)
 
 def required: List Key := [BirthYear, IssueYear, ExpirationYear, Height, HairColor, EyeColor, PassportId]
 
@@ -73,10 +73,10 @@ def yearBetween (low: Nat) (high: Nat) (value: Text): Bool := value.length == 4 
 
 def heightValid (value: Text): Bool :=
   match value.stripSuffix "cm" with
-    | Some number => between 150 193 number.toNat
+    | Some number => between (low := 150) (high := 193) number.toNat
     | None =>
       match value.stripSuffix "in" with
-        | Some number => between 59 76 number.toNat
+        | Some number => between (low := 59) (high := 76) number.toNat
         | None => False
 
 def isHexDigit (char: Char): Bool := char.digitValue.isSome ∨ ('a' <= char ∧ char <= 'f')
@@ -90,9 +90,9 @@ def eyeColors: List Text := ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
 
 def Key.valid (key: Key) (value: Text): Bool :=
   match key with
-    | BirthYear => yearBetween 1920 2002 value
-    | IssueYear => yearBetween 2010 2020 value
-    | ExpirationYear => yearBetween 2020 2030 value
+    | BirthYear => yearBetween (low := 1920) (high := 2002) value
+    | IssueYear => yearBetween (low := 2010) (high := 2020) value
+    | ExpirationYear => yearBetween (low := 2020) (high := 2030) value
     | Height => heightValid value
     | HairColor => hairColorValid value
     | EyeColor => eyeColors.contains value

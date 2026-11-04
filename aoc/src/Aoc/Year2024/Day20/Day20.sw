@@ -42,7 +42,7 @@ def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E",
 
 --| The one position holding `wanted`.
 def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
-  match tiles.filter (entry => entry.snd == wanted) |> .map (entry => entry.fst) with
+  match tiles.filter (.snd == wanted) |> .map .fst with
     | [position] => position
     | [] => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
@@ -54,7 +54,7 @@ def parseRacetrack (input: Text): {Fail} Racetrack :=
       |> .gridCells
       |> .map ((((row, column), kind)) => (({ row, column }: Position), kind))
   {
-    track = tiles.filter (entry => entry.snd != Wall) |> .map (entry => entry.fst) |> Set.fromList,
+    track = tiles.filter (.snd != Wall) |> .map .fst |> Set.fromList,
     start = onlyTile tiles Start "S",
     end = onlyTile tiles End "E"
   }

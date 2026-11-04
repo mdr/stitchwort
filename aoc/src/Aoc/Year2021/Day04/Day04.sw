@@ -46,7 +46,7 @@ def parseGame (input: Text): {Fail} Game :=
     | Some (index, _) => Fail.fail "board ${index + 1} isn't 5 by 5"
     | None => game
 
-def isFiveByFive (board: Board): Bool := board.length == 5 ∧ board.all (row => row.length == 5)
+def isFiveByFive (board: Board): Bool := board.length == 5 ∧ board.all (.length == 5)
 
 --| A board's rows and columns.
 def Board.lines (board: Board): List (List Nat) := board ++ board.transpose

@@ -114,11 +114,11 @@ def settle (values: Values) (waiting: List Gate): Values
     decreasing waiting.length
 :=
   let stillWaiting := waiting.filter (gate => ¬(gate.ready values))
-  if fewer: stillWaiting.length < waiting.length then settle (fireAll values (waiting.filter (gate => gate.ready values))) stillWaiting
+  if fewer: stillWaiting.length < waiting.length then settle (fireAll values (waiting.filter (.ready values))) stillWaiting
   else values
 
 def Device.wires (device: Device): List Wire :=
-  List.append (device.initial.map (.fst)) (device.gates.flatMap (gate => [gate.left, gate.right, gate.output]))
+  device.initial.map .fst |> .append (device.gates.flatMap (gate => [gate.left, gate.right, gate.output]))
 
 --| One more than the highest bit `bitOf` finds among the wires.
 def bitCount (bitOf: Wire → Option Nat) (wires: List Wire): Nat :=
@@ -166,7 +166,7 @@ def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .m
 --| The output of the gate doing `operation` on `a` and `b`, either way round.
 def outputOf (gates: List Gate) (operation: Operation) (a: Wire) (b: Wire): Option Wire :=
   gates.find (gate => gate.operation == operation ∧ (gate.left == a ∧ gate.right == b ∨ gate.left == b ∧ gate.right == a))
-    |> .map (.output)
+    |> .map .output
 
 --| The other input of a gate doing `operation` with `input` as one input.
 def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wire :=
@@ -198,7 +198,7 @@ def bitOutputs (gates: List Gate) (bit: Nat) (carry: Wire): List Wire :=
   let generated := outputOf gates And (X bit) (Y bit)
   let sum := partial.flatMap (known => outputOf gates Xor known carry)
   let passed := partial.flatMap (known => outputOf gates And known carry)
-  let carryOut := generated.flatMap (made => passed.flatMap (kept => outputOf gates Or made kept))
+  let carryOut := generated.flatMap (made => passed.flatMap (outputOf gates Or made))
   [partial, generated, sum, passed, carryOut].filterMap (found => found)
 
 --| Bit 0, the half adder.
@@ -248,7 +248,7 @@ def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps
 --| Each wire is the output of at most one gate, and no gate outputs onto an
 --| x or y wire.
 def wellWired (gates: List Gate): Bool :=
-  gates.map (.output) |> .allDistinct && gates.all (gate => (gate.output.xBit.isNone ∧ gate.output.yBit.isNone))
+  gates.map .output |> .allDistinct && gates.all (gate => (gate.output.xBit.isNone ∧ gate.output.yBit.isNone))
 
 def Wire.yBit (wire: Wire): Option Nat :=
   match wire with
