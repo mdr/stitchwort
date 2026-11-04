@@ -95,6 +95,7 @@ pub fn parse_module_recovering(
     let mut decls = Vec::new();
     let mut errors: Vec<Diagnostic> = Vec::new();
     let mut failed = Vec::new();
+    let mut fieldless = prelude_fieldless();
     let groups = match split_decls(&tokens) {
         Ok(groups) => groups,
         Err(d) => return (Module::default(), vec![*d]),
@@ -178,10 +179,12 @@ pub fn parse_module_recovering(
             }
             continue;
         }
-        match parser
+        parser.fieldless = std::mem::take(&mut fieldless);
+        let parsed = parser
             .decl()
-            .and_then(|parsed| parser.finish().map(|()| parsed))
-        {
+            .and_then(|parsed| parser.finish().map(|()| parsed));
+        fieldless = std::mem::take(&mut parser.fieldless);
+        match parsed {
             Ok(mut parsed) => {
                 // A declaration with attributes is a data type or a
                 // definition (the others are refused above): its first part.
@@ -539,11 +542,22 @@ struct Parser<'t> {
     /// Built once per declaration, so that skipping a bracketed group is one
     /// lookup (the lambda scan and `is_pi_binder`).
     matching: Vec<u32>,
+    /// Constructors with no explicit fields declared earlier in this file
+    /// (the error for braces after one says it has nothing to build by
+    /// field).
+    fieldless: Vec<String>,
     /// How deep the recursion may go.
     stack: StackLimit,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
+
+/// The prelude's constructors with no fields, which a file doesn't declare.
+fn prelude_fieldless() -> Vec<String> {
+    ["None", "Nil", "True", "False", "Zero"]
+        .map(String::from)
+        .to_vec()
+}
 
 /// Whether the `{` at `tokens[open]`, where a result type starts (after a
 /// declaration's `:` or an arrow), is a record literal or update rather
@@ -691,6 +705,7 @@ impl<'t> Parser<'t> {
             rewrite_at: false,
             let_value: None,
             matching: match_brackets(tokens),
+            fieldless: prelude_fieldless(),
             stack,
         }
     }
@@ -1752,6 +1767,9 @@ impl<'t> Parser<'t> {
                     };
                     if defaults.iter().all(Option::is_none) {
                         defaults.clear();
+                    }
+                    if implicit.iter().all(|implicit| *implicit) {
+                        self.fieldless.push(name.text.clone());
                     }
                     ctors.push(CtorDecl {
                         attrs,
@@ -3963,11 +3981,19 @@ impl<'t> Parser<'t> {
                 brace,
                 format!("braces after `{}` as an argument need brackets", ctor.text),
             )
-            .with_note(format!(
-                "write `({0} {{ … }})` to build a `{0}` by its fields, or `{0} ({{ … }})` to \
-                 pass `{0}` and a record",
-                ctor.text
-            ))
+            .with_note(if self.fieldless.contains(&ctor.text) {
+                format!(
+                    "`{0}` has no fields to build it by, so write the record in brackets, \
+                     `({{ … }})`, to pass it as an argument",
+                    ctor.text
+                )
+            } else {
+                format!(
+                    "write `({0} {{ … }})` to build a `{0}` by its fields, or `{0} ({{ … }})` to \
+                     pass `{0}` and a record",
+                    ctor.text
+                )
+            })
             .into());
         }
         let Expr::Record { base, fields, span } = &mut self.record_expr()? else {

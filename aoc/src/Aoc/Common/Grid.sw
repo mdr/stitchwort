@@ -13,7 +13,7 @@
 --| (Offset.sw).
 
 namespace Aoc.Common
-import Std (Fail, Fin, List, Map, Nat, Option, Parse, Text)
+import Std (Decidable, DecEq, Fail, Fin, List, Map, Nat, Option, Parse, Text)
 import Std.Parse (many1)
 
 --| A position on a grid: row 0 is the top row, column 0 the left column.
@@ -119,17 +119,35 @@ def mapCells (rows: List (List a)) (f: Position → a → b): List (List b) :=
 
 -- Rectangular grids
 
---| A grid, row by row. A rectangle when every row is as long as the first
---| (`Grid.Rectangle`), as `parseGrid`'s grids are.
-type Grid (a: Type) = { rows: List (List a) }
+--| The first row's length.
+def firstWidth (rows: List (List a)): Nat := rows.headOr [] |> .length
+
+--| A grid, row by row, with a first row that has a cell: the puzzles' grids
+--| are never empty, so a width is never 0 (`Grid.widthNonZero`). A
+--| rectangle when every row is as long as the first (`Grid.Rectangle`), as
+--| `parseGrid`'s grids are. The proof is an equation, so that grids have
+--| `==` and the counterexample search can make them. A grid written out as
+--| a literal needs it, `{ rows, nonEmpty = … }`; `Grid.of` finds it.
+type Grid (a: Type) = { rows: List (List a), nonEmpty: (firstWidth rows == 0) = False }
+
+--| A grid of `rows`, whose first row has a cell.
+def Grid.of (rows: List (List a)) [auto nonEmpty: (firstWidth rows == 0) = False]: Grid a := { rows, nonEmpty }
 
 def Grid.height (grid: Grid a): Nat := grid.rows.length
 
 --| The first row's length.
-def Grid.width (grid: Grid a): Nat := grid.rows.headOr [] |> .length
+def Grid.width (grid: Grid a): Nat := firstWidth grid.rows
+
+--| A grid has a column, so `column % grid.width` can be written with this
+--| in scope: `let nonZero := grid.widthNonZero`.
+theorem Grid.widthNonZero (grid: Grid a): grid.width ≠ 0 := same => DecEq.soundFalse grid.width 0 grid.nonEmpty same
 
 --| Every row is as long as the first.
 def Grid.Rectangle (grid: Grid a): Prop := (row: List a) → row ∈ grid.rows → row.length = grid.width
+
+--| `Rectangle`, as a `Bool` that can be computed and searched
+--| (`Aoc.Common.Proofs.isRectangleIff`).
+def Grid.isRectangle (grid: Grid a): Bool := grid.rows.all (row => row.length == grid.width)
 
 --| The cell at `position`; `None` off the grid. O(row + column): for many
 --| lookups, `lookup`.
@@ -150,8 +168,14 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
     | Some next => if grid.contains next then Some next else None
     | None => None
 
+--| Mapping the cells keeps the first row's length.
+theorem mapFirstWidth: (rows: List (List a)) → (f: Position → a → b) → firstWidth (mapCells rows f) = firstWidth rows
+  | [], f => rfl
+  | [first, ..rest], f => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
+
 --| `f` of every cell and its position.
-def Grid.map (grid: Grid a) (f: Position → a → b): Grid b := { rows = mapCells grid.rows f }
+def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=
+  { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f in grid.nonEmpty }
 
 --| `at`, through a table built once: `let find := grid.lookup` and then
 --| `find position` takes O(log n). (`lookupAt` says it is `at`.)
@@ -176,14 +200,11 @@ def parseGrid (input: Text) (cell: () → {Parse} a): {Fail} Grid a := checkGrid
 --| The grid, if its first row has a cell and every row is as long as the
 --| first; otherwise fail, saying why.
 def checkGrid (rows: List (List a)): {Fail} Grid a :=
-  if firstWidth rows == 0 then Fail.fail "expected a grid, got no cells"
+  if empty: firstWidth rows = 0 then Fail.fail "expected a grid, got no cells"
   else
     match firstRagged rows with
       | Some (index, row) => Fail.fail "line ${index + 1}: expected ${firstWidth rows} cells, as on the first line, got ${row.length}"
-      | None => { rows }
-
---| The first row's length.
-def firstWidth (rows: List (List a)): Nat := rows.headOr [] |> .length
+      | None => { rows, nonEmpty = Decidable.toBoolOfNot (DecEq.decide (firstWidth rows) 0) empty }
 
 --| The first row not as long as the first, with its index.
 def firstRagged (rows: List (List a)): Option (Nat, List a) := rows.withIndex.find (((_, row)) => row.length != firstWidth rows)
