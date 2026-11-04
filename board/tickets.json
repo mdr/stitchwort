@@ -6522,13 +6522,13 @@
     {
       "id": 1298,
       "title": "Std follow-ups from day 6: Parse.SepBy first value, Set size/unions/intersect lemmas, Bool.andAssoc",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1298",
       "labels": [
         "std"
       ],
-      "body": "From SW-1278 (day 6) friction notes: (1) Parse.SepBy doesn't tie values' first element to the first read; day 4's parseWritten is silent about its first passport for the same reason. Fix SepBy in std and update day 4's proofs (~1h). (2) Set.size from members (day 6's local sizeCount), membership through Set.unions and the intersect fold (~40 min). (3) Bool.andAssoc (5 min). Move day 6's local versions into std and use them.",
+      "body": "From SW-1278 (day 6) friction notes: (1) Parse.SepBy doesn't tie values' first element to the first read; day 4's parseWritten is silent about its first passport for the same reason. Fix SepBy in std and update day 4's proofs (~1h). (2) Set.size from members (day 6's local sizeCount), membership through Set.unions and the intersect fold (~40 min). (3) Bool.andAssoc (5 min). Move day 6's local versions into std and use them.\n\nMerged 0e17fe0b; verified: hashes and std tests, whole aoc and rogue check, merge tier 1066, full audit clean. Model result: Sonnet, worked, 25 min (est. 105).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
