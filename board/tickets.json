@@ -5984,13 +5984,13 @@
     {
       "id": 1260,
       "title": "Std: lemmas for Text.toNat, Text.stripSuffix (sameChar bridge), List contains-on-distinct, heads of equal lists",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "From AoC 2020 day 4's friction review (SW-1249, NOTES-2020.md items 1 and 8, ranked 1 and 8). Part 2's proofs spent ~50 lines on text plumbing because std proves nothing about Text.toNat or Text.stripSuffix, and stripSuffix compares by Text.sameChar, not ==. Wanted: Text.toNatSome (cf. day 4's toNatDigits / readDigitsAll), Text.stripSuffixSome: text.stripSuffix suffix = Some rest ↔ text = rest ++ suffix (and stripPrefix's), a sameChar bridge (sameCharEq: Text.sameChar c d = (c == d)) or stripPrefix/stripSuffix defined via ==; List: contains on a list of distinct values (count ≤ 1 / exactly one), and the heads of equal lists are equal (List.consInjective covers tails). Day 4's Proofs/Rules.sw lemmas are candidates to move. Afterwards day 4's proofs should shrink to a few rewrites.\n\nD2356 (Matt, 4 Nov): yes to the small std lemmas and the text lemmas.",
+      "body": "From AoC 2020 day 4's friction review (SW-1249, NOTES-2020.md items 1 and 8, ranked 1 and 8). Part 2's proofs spent ~50 lines on text plumbing because std proves nothing about Text.toNat or Text.stripSuffix, and stripSuffix compares by Text.sameChar, not ==. Wanted: Text.toNatSome (cf. day 4's toNatDigits / readDigitsAll), Text.stripSuffixSome: text.stripSuffix suffix = Some rest ↔ text = rest ++ suffix (and stripPrefix's), a sameChar bridge (sameCharEq: Text.sameChar c d = (c == d)) or stripPrefix/stripSuffix defined via ==; List: contains on a list of distinct values (count ≤ 1 / exactly one), and the heads of equal lists are equal (List.consInjective covers tails). Day 4's Proofs/Rules.sw lemmas are candidates to move. Afterwards day 4's proofs should shrink to a few rewrites.\n\nD2356 (Matt, 4 Nov): yes to the small std lemmas and the text lemmas.\n\nLane notes (Sonnet, commit 1b2a75a1b on lane/SW-1260): added Text.toNatDigits, Text.readDigitsAll, Text.sameCharEq, Text.beqFromList, Text.stripPrefixSome/stripSuffixSome (iffs), Text.stripPrefixTake/stripSuffixDrop, List.consInjectiveHead, List.reverseAppend, List.countEqDistinct. sameChar kept (bridge instead of redefining with ==). Day04/Proofs 228 -> 150 lines. Audit Std.Text/Std.List/Day04 clean, std lane and hash_stability pass (prelude snapshot gains 27 names, nothing changed).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
