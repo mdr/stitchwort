@@ -38,3 +38,14 @@ theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toRe
       input.toList = read ++ ending ∧ Parse.SepBy PassportWritten (read u => Parse.BlankLine read) read passports
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input (() => Parse.sections passport) _ passports parsed (Parse.readsSections passport _ readsPassport)
+
+--| The first passport is written too: the input starts with it, field by
+--| field as in `PassportWritten`.
+theorem firstPassportWritten (input: Text) (first: Passport) (rest: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok [first, ..rest]):
+    ∃ (read: List Char) => ∃ (after: List Char) => input.toList = read ++ after ∧ PassportWritten read first :=
+  match parseWritten input [first, ..rest] parsed with
+    | Witness read (Witness ending (Both text (Both (Witness head (Witness tail (Both same (Witness firstRead (Witness restRead (Witness value (Both split (Both written (Both isHead each)))))))))
+        done))) =>
+      let firstIs: first = head := List.consInjectiveHead first head rest tail same
+      Witness firstRead (Witness (restRead ++ ending)
+        (Both (rewrite text, split, List.appendAssoc firstRead restRead ending in rfl) (rewrite firstIs, <- isHead in written)))

@@ -24,6 +24,17 @@ theorem Bool.orComm: (a: Bool) → (b: Bool) → (a ∨ b) = (b ∨ a)
   | False, True => rfl
   | False, False => rfl
 
+--| `&&` on `Bool`s groups and commutes, as `||` does.
+theorem Bool.andAssoc: (a: Bool) → (b: Bool) → (c: Bool) → ((a ∧ b) ∧ c) = (a ∧ (b ∧ c))
+  | True, b, c => rfl
+  | False, b, c => rfl
+
+theorem Bool.andComm: (a: Bool) → (b: Bool) → (a ∧ b) = (b ∧ a)
+  | True, True => rfl
+  | True, False => rfl
+  | False, True => rfl
+  | False, False => rfl
+
 --| `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
 --| are equal when each implies the other.
 theorem Bool.andIntro: (a: Bool) → (b: Bool) → a = True → b = True → (a ∧ b) = True
