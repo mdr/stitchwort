@@ -1,5 +1,5 @@
 {
-  "next": 1214,
+  "next": 1215,
   "tickets": [
     {
       "id": 47,
@@ -5309,6 +5309,21 @@
         "design"
       ],
       "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1214,
+      "title": "Design note: list-building syntax, [x, ..xs] spread in list expressions (symmetric with list patterns) rather than an infix ::",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "syntax"
+      ],
+      "body": "D2309 (Matt, 4 Nov 2026): yes, likes the spread; write the design note. Today: list patterns have [x, ..rest]; expressions have no spread and no :: (docs/syntax.md). Opus, expected: 60 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
