@@ -5585,13 +5585,13 @@
     {
       "id": 1232,
       "title": "Mark std functions @[tailrec] (tailrec note §6.3): pins List.lengthOnto, foldLeft, Nat.digitsAcc etc. as loops, so a regression is an error",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "language"
       ],
-      "body": "Follow-up to SW-1222. Mark the std loops and fix any that the checker (or the JS assertion) rejects.",
+      "body": "Follow-up to SW-1222. Mark the std loops and fix any that the checker (or the JS assertion) rejects.\n\nQueued by Matt, 4 Nov 2026. DeepSeek (mechanical: mark the loops, fix rejections; review line by line), next free slot.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6111,13 +6111,13 @@
     {
       "id": 1269,
       "title": "AoC 2020 day 5 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1269",
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track. Day 4 friction review done 4 Nov 2026 (D2356, D2357; tickets SW-1260 to SW-1267). Started 4 Nov 2026 on Opus, expected: 120 min.",
+      "body": "D2305 track. Day 4 friction review done 4 Nov 2026 (D2356, D2357; tickets SW-1260 to SW-1267). Started 4 Nov 2026 on Opus, expected: 120 min.\n\nProgress (Opus, 4 Nov 2026): 20:28 started; 20:34 program and tests (813, 612, matching Scala); 20:46 all proofs checked; 20:52 notes done. Commit 330c3d179 on lane/SW-1269. Proved: seat ID = spec halving for every pass (narrowBits, seatIdSpec), parseWritten, part1Correct, part2Sound/part2Complete, part2Correct under the puzzle's one-seat promise (`part2Answers … = [seat]`, checked on the input by a test). Audit: 46 theorems, 0 failed, 1 warning (generated `Spec.seat.eq.ifTrue.alt1`, false vacuity, as SW-1261). Friction in aoc/NOTES-2020.md \"Day 5\": top items are std missing Nat.fromBitsAppend/fromBitsBelow (already duplicated in 2021 day 16), no Eq.subst (rewrite hit its budget, J by hand), a concrete `128 * 8` making a 500k-node proof term (7.7 s to 3.2 s by generalising), List.Sorted not decidable for the counterexample search.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
