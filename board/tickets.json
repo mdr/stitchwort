@@ -4969,14 +4969,14 @@
     {
       "id": 1190,
       "title": "Globals split 8e: Ev context with &dyn Metas; admission with NoMetas and kernel modes; meta store into Attempt; Globals deleted",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Opus (the trust boundary), expected: 180 min (8e-1 then 8e-2 as separate commits). Applies D2291, D2294.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
