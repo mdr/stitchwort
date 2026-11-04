@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
@@ -66,6 +66,15 @@ pub struct Options {
     /// The journal's statistics (`JournalStats`) of the project checked last,
     /// written after each check, for the measurements (`dev/measure-state`).
     pub journal: Arc<std::sync::Mutex<stitchwort_elab::JournalStats>>,
+    /// How many proof searches (code actions) run at once; the rest queue,
+    /// and a newer request for a document supersedes its older ones.
+    pub search_workers: usize,
+    /// A pause at the start of each proof search, in which a cancelled one
+    /// stops: for a test to edit the document or send a request while a
+    /// search is running, rather than racing it. Zero in use.
+    pub search_delay: Duration,
+    /// The most proof searches seen running at once, for a test.
+    pub search_peak: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl Options {
@@ -75,6 +84,9 @@ impl Options {
             stack,
             cancellations: Arc::default(),
             journal: Arc::default(),
+            search_workers: 1,
+            search_delay: Duration::ZERO,
+            search_peak: Arc::default(),
         }
     }
 }
@@ -117,6 +129,10 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
     {
         options.debounce = Duration::from_millis(ms);
     }
+    let document_changes = params
+        .pointer("/capabilities/workspace/workspaceEdit/documentChanges")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
     let reply = serde_json::json!({
         "capabilities": capabilities(),
         "serverInfo": { "name": "stitchwort", "version": env!("CARGO_PKG_VERSION") }
@@ -151,6 +167,22 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
             .spawn(move || Checker::new(options, sender, nav, cancel).run(edits))
             .map_err(|e| e.to_string())?
     };
+    let searches = Arc::new(Searches::default());
+    let (to_searches, jobs) = crossbeam_channel::unbounded::<SearchJob>();
+    let workers = (0..options.search_workers.max(1))
+        .map(|n| {
+            let jobs = jobs.clone();
+            let sender = connection.sender.clone();
+            let searches = searches.clone();
+            let options = options.clone();
+            std::thread::Builder::new()
+                .name(format!("stitchwort-search-{n}"))
+                .stack_size(options.stack)
+                .spawn(move || search_worker(jobs, sender, searches, options))
+                .map_err(|e| e.to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(jobs);
     let main = Main {
         connection: &connection,
         nav,
@@ -158,9 +190,15 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         to_checker,
         texts: Default::default(),
         stack: options.stack,
+        searches,
+        to_searches,
+        document_changes,
     };
     let result = main.run();
     drop(main);
+    for worker in workers {
+        let _ = worker.join();
+    }
     checker
         .join()
         .map_err(|_| "the checker thread panicked".to_string())?;
@@ -272,6 +310,90 @@ enum Edit {
     },
 }
 
+/// A proof search for a code action, queued for a worker.
+struct SearchJob {
+    id: lsp_server::RequestId,
+    pending: Arc<PendingSearch>,
+    /// The document version the search is computed from.
+    version: i32,
+    run: Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+}
+
+/// A code action request not answered yet. Whoever swaps `answered` first
+/// (a worker with the result, or the main thread on a cancellation, an
+/// edit or a newer request) sends the one response.
+struct PendingSearch {
+    uri: Url,
+    /// Stops a search that is running (the project path honours it) and
+    /// skips one still queued.
+    cancel: Arc<AtomicBool>,
+    answered: AtomicBool,
+}
+
+impl PendingSearch {
+    fn answer(&self, sender: &Sender<Message>, response: Response) {
+        if !self.answered.swap(true, Ordering::SeqCst) {
+            let _ = sender.send(response.into());
+        }
+    }
+}
+
+/// What the main thread and the search workers share: the requests not
+/// answered, and the version of each open document now.
+#[derive(Default)]
+struct Searches {
+    pending: Mutex<HashMap<lsp_server::RequestId, Arc<PendingSearch>>>,
+    versions: Mutex<HashMap<Url, i32>>,
+    running: std::sync::atomic::AtomicUsize,
+}
+
+fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// A worker of the proof-search pool: separate from the checker, so a
+/// search never delays diagnostics and the number running is bounded. A
+/// result is sent only if its request wasn't cancelled and its document is
+/// still at the version it was computed from.
+fn search_worker(
+    jobs: Receiver<SearchJob>,
+    sender: Sender<Message>,
+    searches: Arc<Searches>,
+    options: Options,
+) {
+    for job in jobs {
+        let done = |searches: &Searches| {
+            lock(&searches.pending).remove(&job.id);
+        };
+        if job.pending.cancel.load(Ordering::Relaxed) {
+            done(&searches);
+            continue;
+        }
+        let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
+        options.search_peak.fetch_max(now, Ordering::SeqCst);
+        let deadline = std::time::Instant::now() + options.search_delay;
+        while std::time::Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let result = if job.pending.cancel.load(Ordering::Relaxed) {
+            serde_json::Value::Null
+        } else {
+            (job.run)(job.pending.cancel.clone())
+        };
+        searches.running.fetch_sub(1, Ordering::SeqCst);
+        let current = lock(&searches.versions).get(&job.pending.uri).copied();
+        let result = if current == Some(job.version) && !job.pending.cancel.load(Ordering::Relaxed)
+        {
+            result
+        } else {
+            serde_json::Value::Null
+        };
+        job.pending
+            .answer(&sender, Response::new_ok(job.id.clone(), result));
+        done(&searches);
+    }
+}
+
 struct Main<'a> {
     connection: &'a Connection,
     nav: Arc<RwLock<Nav>>,
@@ -281,6 +403,10 @@ struct Main<'a> {
     texts: std::cell::RefCell<HashMap<Url, String>>,
     /// The stack of a thread that searches for what closes a goal.
     stack: usize,
+    searches: Arc<Searches>,
+    to_searches: Sender<SearchJob>,
+    /// Whether the client applies versioned `documentChanges` edits.
+    document_changes: bool,
 }
 
 impl Main<'_> {
@@ -361,23 +487,62 @@ impl Main<'_> {
                 .collect();
             (root, path_in, open)
         });
-        let sender = self.connection.sender.clone();
-        let stack = self.stack;
-        let reply = id.clone();
-        let spawned = std::thread::Builder::new()
-            .name("stitchwort-search-at".into())
-            .stack_size(stack)
-            .spawn(move || {
-                let actions = match project {
-                    Some((root, relative, open)) => {
-                        project_closing_actions(stack, &uri, &root, &relative, open, range)
-                    }
-                    None => closing_actions(stack, &uri, &path, &text, range),
-                };
-                let _ = sender.send(Response::new_ok(reply, actions).into());
-            });
-        if spawned.is_err() {
+        // A newer request for the document supersedes the older ones.
+        self.supersede(&uri);
+        let Some(version) = lock(&self.searches.versions).get(&uri).copied() else {
             let _ = self.connection.sender.send(empty().into());
+            return;
+        };
+        let versioned = self.document_changes.then_some(version);
+        let stack = self.stack;
+        let pending = Arc::new(PendingSearch {
+            uri: uri.clone(),
+            cancel: Arc::new(AtomicBool::new(false)),
+            answered: AtomicBool::new(false),
+        });
+        lock(&self.searches.pending).insert(id.clone(), pending.clone());
+        let job = SearchJob {
+            id: id.clone(),
+            pending,
+            version,
+            run: Box::new(move |cancel| match project {
+                Some((root, relative, open)) => project_closing_actions(
+                    stack, &uri, &root, &relative, open, range, versioned, cancel,
+                ),
+                None => closing_actions(stack, &uri, &path, &text, range, versioned),
+            }),
+        };
+        if self.to_searches.send(job).is_err() {
+            lock(&self.searches.pending).remove(&id);
+            let _ = self.connection.sender.send(empty().into());
+        }
+    }
+
+    /// A document's text changed (to `version`) or closed (`None`): the
+    /// searches computing from the old text are stopped, answered with no
+    /// action.
+    fn document_moved(&self, uri: &Url, version: Option<i32>) {
+        match version {
+            Some(v) => lock(&self.searches.versions).insert(uri.clone(), v),
+            None => lock(&self.searches.versions).remove(uri),
+        };
+        self.supersede(uri);
+    }
+
+    /// Stops the searches for `uri` not answered yet, answering them with
+    /// no action (`null`).
+    fn supersede(&self, uri: &Url) {
+        let old: Vec<_> = lock(&self.searches.pending)
+            .iter()
+            .filter(|(_, p)| &p.uri == uri)
+            .map(|(id, p)| (id.clone(), p.clone()))
+            .collect();
+        for (id, p) in old {
+            p.cancel.store(true, Ordering::Relaxed);
+            p.answer(
+                &self.connection.sender,
+                Response::new_ok(id, serde_json::Value::Null),
+            );
         }
     }
 
@@ -407,6 +572,7 @@ impl Main<'_> {
                 self.texts
                     .borrow_mut()
                     .insert(p.text_document.uri.clone(), p.text_document.text.clone());
+                self.document_moved(&p.text_document.uri, Some(p.text_document.version));
                 if let Some(path) = path(&p.text_document.uri) {
                     self.edit(Edit::Open {
                         path,
@@ -426,6 +592,7 @@ impl Main<'_> {
                     self.texts
                         .borrow_mut()
                         .insert(p.text_document.uri.clone(), change.text.clone());
+                    self.document_moved(&p.text_document.uri, Some(p.text_document.version));
                 }
                 if let (Some(path), Some(change)) = (
                     path(&p.text_document.uri),
@@ -438,6 +605,27 @@ impl Main<'_> {
                     });
                 }
             }
+            "$/cancelRequest" => {
+                let Ok(p) = serde_json::from_value::<lsp_types::CancelParams>(n.params) else {
+                    return;
+                };
+                let id = match p.id {
+                    NumberOrString::Number(n) => lsp_server::RequestId::from(n),
+                    NumberOrString::String(s) => lsp_server::RequestId::from(s),
+                };
+                let pending = lock(&self.searches.pending).get(&id).cloned();
+                if let Some(pending) = pending {
+                    pending.cancel.store(true, Ordering::Relaxed);
+                    pending.answer(
+                        &self.connection.sender,
+                        Response::new_err(
+                            id,
+                            ErrorCode::RequestCanceled as i32,
+                            "cancelled".to_string(),
+                        ),
+                    );
+                }
+            }
             notification::DidCloseTextDocument::METHOD => {
                 let Ok(p) =
                     serde_json::from_value::<lsp_types::DidCloseTextDocumentParams>(n.params)
@@ -445,6 +633,7 @@ impl Main<'_> {
                     return;
                 };
                 self.texts.borrow_mut().remove(&p.text_document.uri);
+                self.document_moved(&p.text_document.uri, None);
                 if let Some(path) = path(&p.text_document.uri) {
                     self.edit(Edit::Close { path });
                 }
@@ -1663,6 +1852,7 @@ fn closing_actions(
     path: &Path,
     text: &str,
     range: lsp_types::Range,
+    versioned: Option<i32>,
 ) -> serde_json::Value {
     use stitchwort_driver::search_at::{GoalAt, search_at_text};
     let options = action_options();
@@ -1681,7 +1871,7 @@ fn closing_actions(
     let Ok(report) = search_at_text(stack, name, text, at, &options, cache.as_deref()) else {
         return serde_json::Value::Null;
     };
-    actions_for(&report, uri, text, range)
+    actions_for(&report, uri, text, range, versioned)
 }
 
 /// Options for the code action's search: the top three, within 5 s.
@@ -1698,6 +1888,7 @@ fn action_options() -> stitchwort_driver::search_at::AtOptions {
 /// (`open`, by path in the project): the project's namespaces through its
 /// check cache, the goal read and the proofs checked in the file's
 /// namespace, as `search --at` does.
+#[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
     uri: &Url,
@@ -1705,6 +1896,8 @@ fn project_closing_actions(
     relative: &str,
     open: BTreeMap<String, String>,
     range: lsp_types::Range,
+    versioned: Option<i32>,
+    cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
     use stitchwort_driver::search_at::{GoalAt, Overlay, ProjectGoal};
     let Some(text) = open.get(relative).cloned() else {
@@ -1732,10 +1925,11 @@ fn project_closing_actions(
         ),
     };
     let mut session = Session::for_stack(stack);
+    session.share_cancel_flag(cancel);
     let found = session.search_at_project(&goal, &action_options());
     drop(session);
     match found {
-        Ok(report) => actions_for(&report, uri, &text, range),
+        Ok(report) => actions_for(&report, uri, &text, range, versioned),
         Err(_) => serde_json::Value::Null,
     }
 }
@@ -1749,15 +1943,23 @@ fn actions_for(
     uri: &Url,
     text: &str,
     range: lsp_types::Range,
+    versioned: Option<i32>,
 ) -> serde_json::Value {
     use stitchwort_driver::search_at::{paste_text, tactic_proof};
     let span = (offset_at(text, range.start), offset_at(text, range.end));
     let action = |title: String, proof: &str| {
-        serde_json::json!({
-            "title": title,
-            "kind": "quickfix",
-            "edit": {"changes": {uri.as_str(): [{"range": range, "newText": paste_text(text, span, proof)}]}},
-        })
+        let edits = [serde_json::json!({"range": range, "newText": paste_text(text, span, proof)})];
+        // A client that applies versioned edits checks the version itself;
+        // the others get the plain form (the server has already dropped a
+        // result for text that moved on).
+        let edit = match versioned {
+            Some(version) => serde_json::json!({"documentChanges": [{
+                "textDocument": {"uri": uri.as_str(), "version": version},
+                "edits": edits,
+            }]}),
+            None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+        };
+        serde_json::json!({"title": title, "kind": "quickfix", "edit": edit})
     };
     let mut actions: Vec<serde_json::Value> = (report.tactics.iter())
         .map(|t| {
