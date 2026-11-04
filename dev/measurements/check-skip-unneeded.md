@@ -1,5 +1,8 @@
 # Loading only the namespaces `check` needs (SW-1193, D2300)
 
+The implementation (D2301) is described under "As built" at the end; the
+rest is the investigation that led to it.
+
 Measured on 4 Nov 2026, release build, `aoc/` of this worktree, warm check
 cache. The machine was shared and busy (load average 30-80 during the runs,
 about 65 on average; 10 cores), so **CPU time (user+sys) is the number to
@@ -240,3 +243,49 @@ nix develop -c cargo build --release -p stitchwort-cli   # base binary, then the
 python3 dev/check-skip-unneeded/measure.py BASE PROTO aoc 3
 ```
 Machine: 10-core Mac, load 30-80 (`uptime`: 61-70 at the end).
+
+## As built (D2301, 4 Nov 2026)
+
+Measured the same way (`measure.py`, 3 rounds per edit, medians of CPU =
+user+sys), base = `main` at 06bd6c0d, new = `lane/SW-1193`, both release.
+The machine was quieter than for the investigation: load 16 falling to 9
+(`uptime` at the end: 7.39, 23.26, 40.64). Raw output:
+`dev/check-skip-unneeded/results-as-built-2026-11-04.log`.
+
+| edit | loaded (new) | base CPU | new CPU | saved |
+|---|---:|---:|---:|---:|
+| a `Tests` namespace | 4 | 3.15 s | **0.57 s** | 2.6 s (5.5x) |
+| a `Proofs` namespace | 5 | 2.90 s | **0.56 s** | 2.3 s (5.2x) |
+| a day's code namespace | 6 | 3.14 s | **0.62 s** | 2.5 s (5.1x) |
+| `Aoc.Common` | 59 | 18.83 s | **16.60 s** | 2.2 s (12%) |
+
+The real implementation costs no more than the prototype did (0.56-0.69 s
+then): reading the warnings from the entry head and the rewind mark are
+lost in the noise.
+
+What differs from the plan in section 5:
+
+- **Errors and goals fall back.** An error's notes can name a namespace
+  that isn't imported but was loaded before (`E-UNKNOWN-FIELD`: "`P.Spec`
+  adds `Grid.probe`; import it", examples/projects/reject/extension-not-imported).
+  So when a namespace checked after one left out reports an error or a goal,
+  the session is rewound to before the loop and everything is loaded, as
+  today. The differential test found this. Cost, measured on aoc with an
+  error in `Day05/Tests/Examples.sw`: 2.89 s against 2.69 s with
+  `STITCHWORT_SKIP_UNNEEDED=0` (median of 3, the same binary): 0.2 s, 8%
+  slower than today, for a run with an error or open goal.
+- **Uses of a miss load too.** A hit that uses a miss, or a namespace with
+  syntax errors, is loaded, so a failure blocks it exactly as today. In a
+  normal edit those are misses anyway (the keys chain), so this costs
+  nothing; it matters only for a corrupt entry or a namespace that is never
+  cached.
+- **Exports need no flag:** a namespace with an exported definition is
+  never cached, so it is always loaded.
+- **Doc links:** a namespace with any `[`...`]` link is loaded (and what it
+  uses); the syntax-only resolver is not used. aoc has none.
+- **Syntax errors:** a namespace with them can have an entry (the part that
+  parsed is clean), so it is always loaded, to report them.
+- The format bump (23) moves only the warnings into the head.
+
+Output: on aoc, a warm `check` and one with an error print byte for byte the
+same with and without skipping (checked by hand). Tests: see the commit.

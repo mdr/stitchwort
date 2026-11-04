@@ -284,3 +284,227 @@ fn a_warm_test_run_elaborates_and_runs_nothing() {
     let _ = std::fs::remove_dir_all(&project);
     let _ = std::fs::remove_dir_all(&cache);
 }
+
+// ---- A plain `check` leaves out what it doesn't need (SW-1193) ------------
+
+/// `check` of `project` with a cache in `cache`: with `skip`, as it runs
+/// by default (it reports the namespaces it doesn't need to load from their
+/// entries); without, as `STITCHWORT_SKIP_UNNEEDED=0` (it loads them all).
+fn plain_check(project: &Path, cache: &Path, skip: bool, debug: bool) -> Output {
+    let mut env = vec![("STITCHWORT_SKIP_UNNEEDED", if skip { "1" } else { "0" })];
+    if debug {
+        env.push(("STITCHWORT_CACHE_DEBUG", "1"));
+    }
+    stitchwort(
+        &[
+            "check",
+            "--project",
+            project.to_str().unwrap(),
+            "--cache-dir",
+            cache.to_str().unwrap(),
+        ],
+        &env,
+    )
+}
+
+/// The namespaces a debug run of [`plain_check`] says it didn't load.
+fn skipped(output: &Output) -> Vec<String> {
+    let mut names: Vec<String> = String::from_utf8_lossy(&output.stderr)
+        .lines()
+        .filter_map(|l| {
+            l.strip_prefix("check cache: ")?
+                .strip_suffix(": reported from its entry, not loaded")
+                .map(str::to_string)
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+/// Runs a plain `check` of `project` with and without leaving out the
+/// namespaces it doesn't need, each with its own cache, and asserts they
+/// print the same. The namespaces left out.
+fn assert_skipping_unchanged(
+    project: &Path,
+    skipping: &Path,
+    loading: &Path,
+    what: &str,
+) -> Vec<String> {
+    let with = plain_check(project, skipping, true, true);
+    let without = plain_check(project, loading, false, false);
+    let left_out = skipped(&with);
+    // The debug lines aside.
+    let with_err: String = String::from_utf8_lossy(&with.stderr)
+        .lines()
+        .filter(|l| !l.starts_with("check cache: "))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let with_shown = format!(
+        "status {:?}\nstdout:\n{}\nstderr:\n{}",
+        with.status.code(),
+        String::from_utf8_lossy(&with.stdout),
+        with_err
+    );
+    assert!(
+        with_shown == shown(&without),
+        "{} ({what}): skipping {left_out:?} printed something else: {}\n{with_shown}",
+        project.display(),
+        first_difference(&shown(&without), &with_shown)
+    );
+    left_out
+}
+
+/// Every example project (a sample outside the slow tier), warm: the
+/// plain `check` that leaves out what it can prints what loading
+/// everything prints.
+#[test]
+fn plain_check_skipping_unneeded_namespaces_is_the_same_for_the_example_projects() {
+    let projects = example_projects();
+    par_map(1024 * 1024, &projects, |project| {
+        let skipping = temp_dir("skip-examples-on");
+        let loading = temp_dir("skip-examples-off");
+        for what in ["cold", "warm"] {
+            assert_skipping_unchanged(project, &skipping, &loading, what);
+        }
+        let _ = std::fs::remove_dir_all(&skipping);
+        let _ = std::fs::remove_dir_all(&loading);
+    });
+}
+
+/// A small project through a series of edits: a plain `check` that leaves
+/// out the namespaces nothing re-checked needs prints what loading them
+/// all prints, each time, and leaves out what it should. `Base` and
+/// `Other` have a warning, kept in their entries; `Mid` has doc links,
+/// one into `Leaf`, which can change without `Mid`'s key changing.
+#[test]
+fn plain_check_skipping_unneeded_namespaces_is_the_same_after_edits() {
+    let project = temp_dir("skip-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    let shadow = "import Std (List)\nimport List (map)\n\n\
+                  def shadowed: (Nat → Nat) → List Nat → List Nat := map xs => List.map xs map\n";
+    let base = format!("namespace Base\n{shadow}\ndef one: Nat := 1\n");
+    let mid = "namespace Mid\nimport Base (one)\n\n\
+               --| Twice [`one`]; see [`Leaf.thing`].\ndef two: Nat := one + one\n";
+    let leaf = "namespace Leaf\nimport Mid (two)\n\ntheorem twoIsTwo: two = 2 := rfl\n";
+    let other = format!("namespace Other\n{shadow}\ndef three: Nat := 3\n");
+    let other_tests =
+        "namespace Other.Tests\nimport Other (three)\n\ntest \"three\" := three == 3\n";
+    write("stitchwort.yaml", "sources: [src]\n");
+    write("src/Base.sw", &base);
+    write("src/Mid/Mid.sw", mid);
+    write("src/Leaf/Leaf.sw", leaf);
+    write("src/Other/Other.sw", &other);
+    write("src/Other/Tests/Tests.sw", other_tests);
+    let skipping = temp_dir("skip-cache-on");
+    let loading = temp_dir("skip-cache-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(check("cold"), names(&[]));
+    // Warm: all but `Mid` (doc links) and `Base` (which it uses).
+    assert_eq!(check("warm"), names(&["Leaf", "Other", "Other.Tests"]));
+    write("src/Leaf/Leaf.sw", &format!("{leaf}-- touched\n"));
+    assert_eq!(check("a leaf edited"), names(&["Other", "Other.Tests"]));
+    // `Mid`'s link to `Leaf.thing` resolves now, though its key is the same.
+    write(
+        "src/Leaf/Leaf.sw",
+        &format!("{leaf}\ndef thing: Nat := 4\n"),
+    );
+    assert_eq!(
+        check("a linked name added"),
+        names(&["Other", "Other.Tests"])
+    );
+    write("src/Base.sw", &format!("{base}-- touched\n"));
+    assert_eq!(check("the base edited"), names(&["Other", "Other.Tests"]));
+    write(
+        "src/Other/Other.sw",
+        &format!("{other}\ndef bad: Nat := thing\n"),
+    );
+    // `Leaf` comes before `Other`, whose error's notes may name any
+    // namespace checked before it, so everything is loaded.
+    assert_eq!(check("an error"), names(&[]));
+    write("src/Other/Other.sw", &other);
+    write(
+        "src/Mid/Mid.sw",
+        &format!("{mid}\ntheorem open: one = 1 := ?\n"),
+    );
+    assert_eq!(check("a goal"), names(&["Other", "Other.Tests"]));
+    write("src/Mid/Mid.sw", mid);
+    write("src/Other/Other.sw", &format!("{other}\ndef := \n"));
+    // `Leaf`'s entry is for the `Mid` with a goal: the cache keeps one
+    // entry per namespace.
+    assert_eq!(check("a syntax error"), names(&[]));
+    write("src/Other/Other.sw", &other);
+    assert_eq!(check("fixed"), names(&["Leaf", "Other", "Other.Tests"]));
+    // The project's namespaces are part of every key.
+    std::fs::remove_file(project.join("src/Other/Tests/Tests.sw")).unwrap();
+    assert_eq!(check("a file deleted"), names(&[]));
+    assert_eq!(check("warm again"), names(&["Leaf", "Other"]));
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
+/// A namespace entry that can't be read is a miss when the plain `check`
+/// plans what to load: the namespace is checked again, not left out, and
+/// so is what uses it; what is printed is what loading everything prints.
+#[test]
+fn plain_check_checks_a_namespace_whose_entry_is_corrupt() {
+    let project = temp_dir("skip-corrupt-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write(
+        "src/Lib.sw",
+        "namespace Lib\n\ndef double (n: Nat): Nat := n + n\n",
+    );
+    write(
+        "src/App.sw",
+        "namespace App\nimport Lib (double)\n\ntheorem four: double 2 = 4 := rfl\n",
+    );
+    write("src/Solo.sw", "namespace Solo\n\ndef five: Nat := 5\n");
+    let skipping = temp_dir("skip-corrupt-on");
+    let loading = temp_dir("skip-corrupt-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+    check("cold");
+    assert_eq!(check("warm"), names(&["App", "Lib", "Solo"]));
+    let entry = |ns: &str| -> PathBuf {
+        let found: Vec<PathBuf> = std::fs::read_dir(skipping.join("check"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| (p.file_name().unwrap().to_string_lossy()).contains(&format!("-ns.{ns}-")))
+            .collect();
+        assert_eq!(found.len(), 1, "{found:?}");
+        found[0].clone()
+    };
+    // A byte flipped in the middle of `Solo`'s entry (each run rewrites it).
+    let flip = |path: &Path| {
+        let mut bytes = std::fs::read(path).unwrap();
+        let middle = bytes.len() / 2;
+        bytes[middle] ^= 0xff;
+        std::fs::write(path, &bytes).unwrap();
+    };
+    flip(&entry("Solo"));
+    assert_eq!(check("Solo's entry corrupt"), names(&["App", "Lib"]));
+    // Cut short.
+    let lib = entry("Lib");
+    let bytes = std::fs::read(&lib).unwrap();
+    std::fs::write(&lib, &bytes[..bytes.len() / 3]).unwrap();
+    assert_eq!(check("Lib's entry cut short"), names(&["Solo"]));
+    // Gone.
+    std::fs::remove_file(entry("App")).unwrap();
+    assert_eq!(check("App's entry gone"), names(&["Solo"]));
+    assert_eq!(check("warm again"), names(&["App", "Lib", "Solo"]));
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}

@@ -68,7 +68,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 22;
+pub const FORMAT: u32 = 23;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -115,6 +115,10 @@ pub struct Stats {
     /// elaborated in what the replay left. Never expected; the differential
     /// test checks there are none.
     pub late_misses: usize,
+    /// Namespaces a plain `check` reported from their entries without
+    /// loading them, because nothing it checked needed them (SW-1193).
+    /// Not counted in `namespace_hits`.
+    pub namespace_skipped: usize,
 }
 
 /// Why a namespace's entry wasn't used: found before anything changed, or
@@ -387,6 +391,77 @@ impl Elaborator {
     /// cached.
     pub fn set_namespace_sources(&mut self, sources: HashMap<String, Key>) {
         self.session.namespace_sources = std::sync::Arc::new(sources);
+    }
+
+    /// For a plain `check` that may leave out namespaces nothing it checks
+    /// needs (SW-1193): whether project namespace `ns`, with the namespaces
+    /// `closure` before it, has an entry that its replay would accept as far
+    /// as can be told without loading anything, and if so the warnings
+    /// replaying it would report (doc links aside: they are never cached).
+    /// Records `ns`'s key either way, for the namespaces after it. Runs the
+    /// checks the replay runs before it changes anything: the entry's seal
+    /// and key, its files and library files exist, and the files it
+    /// included are as they were.
+    pub fn plan_namespace(&mut self, ns: &str, closure: &[String]) -> Option<Vec<Diagnostic>> {
+        let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure))?;
+        self.session.namespace_keys.insert(ns.to_string(), key);
+        if self.options.fail_replays_late
+            || stitchwort_core::registry::check_complete_core(&self.globals).is_err()
+        {
+            return None;
+        }
+        let store = self.options.check_cache.clone()?;
+        let bytes = store.read(&unit, &key)?;
+        let why = match self.plan_entry(&bytes, &key, store.salt()) {
+            Ok(warnings) => return Some(warnings),
+            Err(Bad(why)) => why,
+        };
+        debug(&format!("{ns}: not skipped: {why}"));
+        None
+    }
+
+    fn plan_entry(&self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<Vec<Diagnostic>> {
+        let (_, body) = open(bytes, key, salt)?;
+        let file_ids: HashMap<String, FileId> = self
+            .namespace_file_names()
+            .into_iter()
+            .map(|(id, name)| (name, id))
+            .collect();
+        let head = self.read_head(body, &file_ids)?;
+        self.includes_unchanged(&head.pre)?;
+        let mut warnings = head.pre.warnings;
+        warnings.retain(|d| d.code != crate::doc_links::CODE);
+        Ok(warnings)
+    }
+
+    /// Whether the files a namespace's entry says it included are as they
+    /// were.
+    fn includes_unchanged(&self, pre: &Pre) -> Read<()> {
+        for (path, hash) in &pre.includes {
+            let same = self
+                .session
+                .include_files
+                .as_ref()
+                .and_then(|files| files.read(path).ok())
+                .is_some_and(|text| blake3::hash(text.as_bytes()).as_bytes() == hash);
+            if !same {
+                return bad(format!("the included `{path}` changed"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Counts namespace `ns` as one a plain `check` reported from its entry
+    /// without loading it ([`Self::plan_namespace`]).
+    pub fn count_skipped_namespace(&mut self, ns: &str) {
+        debug(&format!("{ns}: reported from its entry, not loaded"));
+        self.session.cache_stats.namespace_skipped += 1;
+    }
+
+    /// Says, under `STITCHWORT_CACHE_DEBUG`, that a plain `check` that
+    /// left namespaces out is checking everything again, loading them.
+    pub fn note_skipping_undone(&self) {
+        debug("a namespace after one left out has an error or a goal: loading everything");
     }
 
     /// Whether this elaborator keeps results in a check cache.
@@ -708,18 +783,7 @@ impl Elaborator {
             .map(|(id, name)| (name, id))
             .collect();
         let mut head = self.read_head(body, &file_ids).map_err(early)?;
-        // The files it included must be as they were.
-        for (path, hash) in &head.pre.includes {
-            let same = self
-                .session
-                .include_files
-                .as_ref()
-                .and_then(|files| files.read(path).ok())
-                .is_some_and(|text| blake3::hash(text.as_bytes()).as_bytes() == hash);
-            if !same {
-                return Err(Miss::Early(format!("the included `{path}` changed")));
-            }
-        }
+        self.includes_unchanged(&head.pre).map_err(early)?;
 
         // From here on, as `elaborate_namespace_untimed` does.
         self.unit.namespace_root = format!("{ns}.");
@@ -740,7 +804,7 @@ impl Elaborator {
         };
         self.scope.clear_imports();
         self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
-        let pre = std::mem::take(&mut head.pre);
+        let mut pre = std::mem::take(&mut head.pre);
         for (k, span, follower) in &pre.early {
             self.scope.insert(k, Global::Failed, *span, *follower);
         }
@@ -761,8 +825,8 @@ impl Elaborator {
         if self.options.fail_replays_late {
             return Err(Miss::Late("a test made it fail".to_string()));
         }
-        let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
-        let warnings = std::mem::take(&mut d.rest.warnings);
+        let d = self.decode(&deps, head, &pre.early).map_err(late)?;
+        let warnings = std::mem::take(&mut pre.warnings);
         let base_defs = self.globals.env.defs().len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)
             .map_err(late)?;
@@ -1317,6 +1381,26 @@ impl Elaborator {
             e.span(*span);
             e.w.bool(*follower);
         }
+        // The warnings, in the order they are reported: here, so that a
+        // plain `check` can report a namespace it doesn't load from its
+        // head alone (SW-1193).
+        e.w.usize(warnings.len());
+        for d in warnings {
+            if d.severity != Severity::Warning {
+                return Err("an error".to_string());
+            }
+            e.str(d.code);
+            e.str(&d.message);
+            e.w.usize(d.labels.len());
+            for label in &d.labels {
+                e.span(label.span);
+                e.str(&label.message);
+            }
+            e.w.usize(d.notes.len());
+            for note in &d.notes {
+                e.str(note);
+            }
+        }
         let pre_bytes = std::mem::take(&mut e.w.bytes);
 
         // The kernel's declarations.
@@ -1466,25 +1550,6 @@ impl Elaborator {
             .encode_since(&before.tables, &writes.tables, &mut e, |e| {
                 self.encode_extensions(e, unit)
             })?;
-
-        // The warnings, in the order they are reported.
-        e.w.usize(warnings.len());
-        for d in warnings {
-            if d.severity != Severity::Warning {
-                return Err("an error".to_string());
-            }
-            e.str(d.code);
-            e.str(&d.message);
-            e.w.usize(d.labels.len());
-            for label in &d.labels {
-                e.span(label.span);
-                e.str(&label.message);
-            }
-            e.w.usize(d.notes.len());
-            for note in &d.notes {
-                e.str(note);
-            }
-        }
 
         // What code navigation recorded in the unit's files.
         let own = |file: &FileId| unit.own_files.contains(file);
@@ -1793,7 +1858,6 @@ struct Rest {
     tables: state::TablesDelta,
     /// Extensions, and the keys they stand for.
     extensions: Vec<(String, String)>,
-    warnings: Vec<Diagnostic>,
     nav: Option<NavEntry>,
 }
 
@@ -1943,6 +2007,7 @@ struct Pre {
     needs: Needs,
     includes: Vec<(String, Key)>,
     early: Vec<(String, Span, bool)>,
+    warnings: Vec<Diagnostic>,
 }
 
 impl Pre {
@@ -1952,6 +2017,7 @@ impl Pre {
             && self.needs.equations.is_empty()
             && self.includes.is_empty()
             && self.early.is_empty()
+            && self.warnings.is_empty()
     }
 }
 
@@ -2040,6 +2106,10 @@ impl Elaborator {
         for _ in 0..n {
             pre.early
                 .push((body.string()?, body.span()?, body.r.bool()?));
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.warnings.push(read_warning(&mut body)?);
         }
         if !body.r.done() {
             return bad("bytes after what replay reads first");
@@ -2298,8 +2368,8 @@ impl Elaborator {
             return bad("a library file's entry with a namespace's parts");
         }
         let d = self.decode(&deps, head, &[])?;
-        if !d.rest.tables.tests.is_empty() || !d.rest.warnings.is_empty() {
-            return bad("a library file's entry with tests or warnings");
+        if !d.rest.tables.tests.is_empty() {
+            return bad("a library file's entry with tests");
         }
         self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)?;
         self.replay_tables(d.rest, &[]);
@@ -2727,6 +2797,23 @@ fn module_of(name: &str, path: &str) -> Read<Name> {
     }
 }
 
+/// A warning, as `encode` writes it.
+fn read_warning(b: &mut Body) -> Read<Diagnostic> {
+    let mut d = Diagnostic::warning(static_code(&b.string()?), b.string()?);
+    let k = b.count()?;
+    for _ in 0..k {
+        d.labels.push(Label {
+            span: b.span()?,
+            message: b.string()?,
+        });
+    }
+    let k = b.count()?;
+    for _ in 0..k {
+        d.notes.push(b.string()?);
+    }
+    Ok(d)
+}
+
 /// The side tables of an entry, read; any ability a name refers to must
 /// be one known after replay.
 fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
@@ -2737,7 +2824,6 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         members: Vec::new(),
         tables: state::TablesDelta::default(),
         extensions: Vec::new(),
-        warnings: Vec::new(),
         nav: None,
     };
     let n = b.count()?;
@@ -2763,22 +2849,6 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         }
         Ok(())
     })?;
-    let n = b.count()?;
-    for _ in 0..n {
-        let mut d = Diagnostic::warning(static_code(&b.string()?), b.string()?);
-        let k = b.count()?;
-        for _ in 0..k {
-            d.labels.push(Label {
-                span: b.span()?,
-                message: b.string()?,
-            });
-        }
-        let k = b.count()?;
-        for _ in 0..k {
-            d.notes.push(b.string()?);
-        }
-        t.warnings.push(d);
-    }
     if b.r.bool()? {
         let mut nav = NavEntry {
             refs: Vec::new(),

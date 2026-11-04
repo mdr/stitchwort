@@ -1,0 +1,33 @@
+tests   base  #0 wall   7.16s cpu  3.27s load  14.1 | core+std     283ms replayed    6023ms (206) checked     199ms (1)
+tests   proto #0 wall   0.78s cpu  0.62s load  15.6 | core+std     261ms replayed      55ms (3) checked      53ms (1)
+tests   base  #1 wall   3.60s cpu  3.11s load  15.6 | core+std     481ms replayed    2707ms (206) checked      45ms (1)
+tests   proto #1 wall   0.59s cpu  0.56s load  15.5 | core+std     193ms replayed      53ms (3) checked      50ms (1)
+tests   base  #2 wall   3.52s cpu  3.15s load  15.5 | core+std     251ms replayed    2928ms (206) checked      48ms (1)
+tests   proto #2 wall   0.61s cpu  0.57s load  15.4 | core+std     208ms replayed      58ms (3) checked      52ms (1)
+== tests   base  median wall 3.60s cpu 3.15s
+== tests   proto median wall 0.61s cpu 0.57s
+proofs  base  #0 wall   3.26s cpu  3.09s load  16.2 | core+std     295ms replayed    2573ms (206) checked      85ms (1)
+proofs  proto #0 wall   0.59s cpu  0.58s load  16.2 | core+std     194ms replayed      62ms (4) checked      67ms (1)
+proofs  base  #1 wall   2.91s cpu  2.90s load  15.4 | core+std     228ms replayed    2348ms (206) checked      67ms (1)
+proofs  proto #1 wall   0.56s cpu  0.55s load  15.4 | core+std     178ms replayed      60ms (4) checked      66ms (1)
+proofs  base  #2 wall   2.89s cpu  2.88s load  15.4 | core+std     225ms replayed    2341ms (206) checked      70ms (1)
+proofs  proto #2 wall   0.56s cpu  0.56s load  14.6 | core+std     181ms replayed      62ms (4) checked      74ms (1)
+== proofs  base  median wall 2.91s cpu 2.90s
+== proofs  proto median wall 0.56s cpu 0.56s
+code    base  #0 wall   3.59s cpu  3.14s load  14.0 | core+std     243ms replayed    2801ms (203) checked     235ms (4)
+code    proto #0 wall   0.79s cpu  0.67s load  14.0 | core+std     261ms replayed      61ms (2) checked     117ms (4)
+code    base  #1 wall   3.06s cpu  3.03s load  13.5 | core+std     236ms replayed    2442ms (203) checked     112ms (4)
+code    proto #1 wall   0.65s cpu  0.62s load  13.5 | core+std     204ms replayed      62ms (2) checked     112ms (4)
+code    base  #2 wall   3.37s cpu  3.14s load  13.5 | core+std     247ms replayed    2725ms (203) checked     120ms (4)
+code    proto #2 wall   0.63s cpu  0.61s load  12.9 | core+std     186ms replayed      62ms (2) checked     127ms (4)
+== code    base  median wall 3.37s cpu 3.14s
+== code    proto median wall 0.65s cpu 0.62s
+common  base  #0 wall  19.45s cpu 18.83s load  12.1 | core+std     247ms replayed    2179ms (148) checked   16711ms (59)
+common  proto #0 wall  17.46s cpu 16.77s load  11.2 | core+std     203ms replayed       0ms (0) checked   16950ms (59)
+common  base  #1 wall  20.06s cpu 19.14s load  10.6 | core+std     265ms replayed    2297ms (148) checked   17106ms (59)
+common  proto #1 wall  17.35s cpu 16.60s load   9.8 | core+std     220ms replayed       0ms (0) checked   16753ms (59)
+common  base  #2 wall  18.83s cpu 18.27s load   9.4 | core+std     304ms replayed    2209ms (148) checked   15961ms (59)
+common  proto #2 wall  16.63s cpu 16.15s load   8.8 | core+std     188ms replayed       0ms (0) checked   16146ms (59)
+== common  base  median wall 19.45s cpu 18.83s
+== common  proto median wall 17.35s cpu 16.60s
+ 10:36:55  up 10 days  1:40,  6 users,  load average: 7.39, 23.26, 40.64

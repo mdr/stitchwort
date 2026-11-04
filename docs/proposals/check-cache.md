@@ -951,6 +951,43 @@ does, and here that builds the list of all 130,321 change sequences. Fixing
 it would mean evaluating `ty_value` lazily, which is outside the cache.
 Every other cached declaration takes well under a millisecond to admit.
 
+## A plain `check` loads only what it needs (SW-1193)
+
+4 November 2026 (D2300, D2301; the measurements are in
+[dev/measurements/check-skip-unneeded.md](../../dev/measurements/check-skip-unneeded.md)).
+A plain `stitchwort check` of a project (no `--index`, no
+`--counterexamples`) only reports diagnostics, so it doesn't replay a
+namespace whose entry fits unless something it checks again needs it
+(`Load::Diagnostics`, `Session::plan_skips` in `crates/driver/src/project.rs`):
+
+- **The plan.** Before anything is loaded, each namespace's key is worked out
+  in canonical order (the keys chain, so this needs no replay), and
+  `Elaborator::plan_namespace` runs the checks a replay runs before it
+  changes anything: the seal and key, its files and library files exist, its
+  included files are unchanged. Loaded: the misses, the namespaces with
+  syntax errors or doc links, the namespaces that use a miss or one with
+  syntax errors, and everything those use. The rest are left out: counted as
+  checked, with the warnings their entries hold, in canonical order.
+- **Format 23.** The warnings moved from the end of an entry's body to the
+  part replay reads first, so a namespace left out costs one file read and a
+  head parse.
+- **The fallback.** An error's or goal's notes can name any namespace loaded
+  before it (`E-UNKNOWN-FIELD` says which namespace adds the missing
+  function), so if a namespace checked after one left out has an error or a
+  goal, the session is rewound and everything is loaded as before. A
+  namespace that wasn't checked because one it uses failed
+  (`E-NAMESPACE-FAILED`) doesn't count.
+- **Not needed for exports:** a namespace with an exported definition is never
+  cached (`encode`), so it is always a miss.
+- `STITCHWORT_SKIP_UNNEEDED=0` loads everything, for comparison;
+  `STITCHWORT_CACHE_DEBUG` names each namespace left out
+  (`Stats::namespace_skipped` counts them). Every other command, `check
+  --index`, `check --counterexamples` and the editor load everything.
+- **Tests:** `crates/cli/tests/check_cache.rs` (`plain_check_*`): the
+  example projects and a small project through a series of edits print the
+  same with and without leaving namespaces out, and a corrupt, cut-short or
+  deleted entry is a miss at planning time.
+
 ## Decisions
 
 | ID | Question | Recommendation |

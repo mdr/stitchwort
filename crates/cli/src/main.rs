@@ -7,7 +7,8 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
-    DiskFiles, Target, analyse, find_project, namespace_of, project_sources, run_unknown_namespace,
+    DiskFiles, Load, Target, analyse, find_project, namespace_of, project_sources,
+    run_unknown_namespace,
 };
 use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
@@ -929,7 +930,7 @@ fn load_project_into(
     target: &Target,
     reported: &mut Vec<Diagnostic>,
 ) -> bool {
-    load_project_counting(session, project, target, reported).is_some()
+    load_project_counting(session, project, target, Load::Everything, reported).is_some()
 }
 
 /// [`load_project_into`], giving the number of namespaces checked.
@@ -937,9 +938,10 @@ fn load_project_counting(
     session: &mut Session,
     project: &Project,
     target: &Target,
+    load: Load,
     reported: &mut Vec<Diagnostic>,
 ) -> Option<usize> {
-    match session.load_project(&project.files, &project.name, target) {
+    match session.load_project_for(&project.files, &project.name, target, load) {
         Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
             report(&session.sources, reported);
@@ -1136,7 +1138,14 @@ fn check(
     let mut session = new_session(index.is_some());
     use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
-    let checked = load_project_counting(&mut session, &project, &target, &mut reported);
+    // Only the diagnostics are wanted, unless the loaded namespaces are
+    // indexed or searched.
+    let load = if index.is_none() && !counterexamples.counterexamples {
+        Load::Diagnostics
+    } else {
+        Load::Everything
+    };
+    let checked = load_project_counting(&mut session, &project, &target, load, &mut reported);
     let goals = goals_open(&reported);
     report_goals(goals);
     let mut ok = checked.is_some() && goals == 0;
