@@ -122,6 +122,6 @@ def paths (passages: List (Text, Text)) (spare: Bool): List (List Text) :=
   let unvisited := smallCaves passages
   routesFrom (lookupNeighbours table) unvisited spare "start" (3 * unvisited.length + 4) |> .map (Cons "start")
 
-def solvePart1 (passages: List (Text, Text)): Nat := (paths passages False).length
+def solvePart1 (passages: List (Text, Text)): Nat := paths passages (spare := False) |> .length
 
-def solvePart2 (passages: List (Text, Text)): Nat := (paths passages True).length
+def solvePart2 (passages: List (Text, Text)): Nat := paths passages (spare := True) |> .length

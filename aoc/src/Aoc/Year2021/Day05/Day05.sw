@@ -78,7 +78,7 @@ def Line.points (line: Line): List Point :=
 
 --| The number of points covered by at least two of the lines.
 def overlaps (lines: List Line): Nat :=
-  Map.counts (lines.flatMap Line.points) |> .count (_ times => 2 ≤ times)
+  lines.flatMap Line.points |> Map.counts |> .count (_ times => 2 ≤ times)
 
 --| Part 1: the horizontal and vertical lines only.
 def solvePart1 (lines: List Line): Nat := overlaps (lines.filter Line.isStraight)
