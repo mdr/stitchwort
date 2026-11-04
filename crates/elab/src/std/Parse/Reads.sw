@@ -976,6 +976,9 @@ theorem Parse.lineEnding (ending: List Char): (found: Option ()) → Parse.Maybe
   | None, none => Inl none
   | Some u, breaks => Inr breaks
 
+theorem Parse.readsExtraBlankLine (start: Parse.Mark) (spec: List Char → () → Prop): Parse.Reads (() => Parse.extraBlankLine start) spec :=
+  Parse.readsThenStop (() => (Parse.reset start; Parse.newline(); Parse.note (Message "expected the end of the input, got a blank line"))) spec
+
 --| `withFinalLineBreaks (() => v)` reads final line breaks, and gives `v`.
 theorem Parse.readsFinalLineBreaks (v: a):
     Parse.Reads (() => Parse.withFinalLineBreaks (() => v))
@@ -988,7 +991,7 @@ theorem Parse.readsFinalLineBreaks (v: a):
         else if finalLineBreaks == ['\n'] then ()
         else if finalLineBreaks == ['\r', '\n'] then ()
         else if start.left == finalLineBreaks.length then ()
-        else (Parse.reset start; Parse.expected "the end")
+        else Parse.extraBlankLine start
         v)
       (read m => read = []) (start read w => read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v)
       Parse.readsMark
@@ -1000,7 +1003,7 @@ theorem Parse.readsFinalLineBreaks (v: a):
               else if breaks == ['\n'] then ()
               else if breaks == ['\r', '\n'] then ()
               else if start.left == breaks.length then ()
-              else (Parse.reset start; Parse.expected "the end")
+              else Parse.extraBlankLine start
               v)
             _ (breaks read w => read = [] ∧ w = v) (Parse.readsSpan _)
             (breaks =>
@@ -1011,7 +1014,7 @@ theorem Parse.readsFinalLineBreaks (v: a):
                     else if breaks == ['\n'] then ()
                     else if breaks == ['\r', '\n'] then ()
                     else if start.left == breaks.length then ()
-                    else (Parse.reset start; Parse.expected "the end"))
+                    else Parse.extraBlankLine start)
                   (u => v)
                   (read u => read = [])
                   (u read w => read = [] ∧ w = v)
@@ -1021,7 +1024,7 @@ theorem Parse.readsFinalLineBreaks (v: a):
                       if breaks == ['\n'] then ()
                       else if breaks == ['\r', '\n'] then ()
                       else if start.left == breaks.length then ()
-                      else (Parse.reset start; Parse.expected "the end"))
+                      else Parse.extraBlankLine start)
                     (read u => read = [])
                     (Parse.readsNote (Expected "a line break"))
                     (Parse.readsIf (breaks == ['\n'])
@@ -1029,22 +1032,22 @@ theorem Parse.readsFinalLineBreaks (v: a):
                       (() =>
                         if breaks == ['\r', '\n'] then ()
                         else if start.left == breaks.length then ()
-                        else (Parse.reset start; Parse.expected "the end"))
+                        else Parse.extraBlankLine start)
                       (read u => read = [])
                       (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
                       (Parse.readsIf (breaks == ['\r', '\n'])
                         (() => ())
                         (() =>
                           if start.left == breaks.length then ()
-                          else (Parse.reset start; Parse.expected "the end"))
+                          else Parse.extraBlankLine start)
                         (read u => read = [])
                         (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
                         (Parse.readsIf (start.left == breaks.length)
                           (() => ())
-                          (() => (Parse.reset start; Parse.expected "the end"))
+                          (() => Parse.extraBlankLine start)
                           (read u => read = [])
                           (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u h => And.left h))
-                          (state value after honest h => Void.exfalso (Result.errNotOk _ _ h))))))
+                          (Parse.readsExtraBlankLine start _)))))
                   (u => Parse.readsPure v))
                 (read w h =>
                   match h with

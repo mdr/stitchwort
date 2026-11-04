@@ -701,10 +701,17 @@ def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
     | Ok value => value
     | Err failure => Fail.fail (Parse.allMessage chars failure)
 
+--| Fails after the first line break from `start`, with a message of its own
+--| for `Parse.all`: a failure the parser's own attempt to go on got further
+--| than is reported instead.
+def Parse.extraBlankLine (start: Parse.Mark): {Parse} () :=
+  (Parse.reset start; Parse.newline(); Parse.note (Message "expected the end of the input, got a blank line"))
+  Empty.absurd Parse.stop()
+
 --| `parser`, then any line breaks at the end of the input; if there are none,
 --| a line break is expected there too, for the message. One line break is
---| allowed before more input; further ones fail there, where the next thing
---| should have started.
+--| allowed before more input; a further one fails after it, as "got a blank
+--| line", unless the parser's own attempt to go on got further.
 def Parse.withFinalLineBreaks (parser: () → {Parse} a): {Parse} a :=
   let value := parser()
   let start := Parse.mark()
@@ -713,7 +720,7 @@ def Parse.withFinalLineBreaks (parser: () → {Parse} a): {Parse} a :=
   else if finalLineBreaks == ['\n'] then ()
   else if finalLineBreaks == ['\r', '\n'] then ()
   else if start.left == finalLineBreaks.length then ()
-  else (Parse.reset start; Parse.expected "the end")
+  else Parse.extraBlankLine start
   value
 
 --| `Parse.all`'s message for `failure`.
@@ -1075,6 +1082,12 @@ test "Parse: sections, no blank line" :=
 test "Parse: sections, two blank lines" :=
   Parse.Tests.allResult "a\n\n\nb" (() => Parse.sections (() => Parse.lines (() => Parse.pick [("a", 1), ("b", 2)]))) ==
     Err "line 3, column 1: expected 'a' or 'b', got the end of the line"
+--| Blank lines before more input that nothing else reads: the blank line is
+--| what is wrong.
+test "Parse: all, blank line before extra input" :=
+  Parse.Tests.allResult "1\n\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got a blank line"
+test "Parse: all, one line break before extra input" :=
+  Parse.Tests.allResult "1\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got 'f'"
 test "Parse: grid" :=
   Parse.Tests.allResult "@.\n.@\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [False, True]]
 test "Parse: grid, error" :=
