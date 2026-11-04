@@ -1801,7 +1801,8 @@ fn io_crossing_translations_runs_alike_in_js() {
             .load("crossing.sw", CROSSING)
             .expect("crossing.sw checks");
         let main = session.main().expect("a `main`");
-        let g = &session.elab.globals;
+        let view = session.elab.backend();
+        let g = &view;
         let def = |name: &str| {
             DefId(
                 g.env

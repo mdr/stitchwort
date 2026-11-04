@@ -377,7 +377,8 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
         };
         let params = parameters(g.env.defs()[id].ty());
         // Positional arguments skip the parameters with defaults.
-        let defaults = g.env.defs()[id].param_defaults.as_deref();
+        let defaults = session.elab.param_defaults_of(DefId(id));
+        let defaults = defaults.as_deref();
         let defaulted =
             |k: usize| defaults.is_some_and(|d| d.params.get(k).is_some_and(Option::is_some));
         let mut explicit = params

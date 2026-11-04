@@ -649,7 +649,15 @@ impl Elaborator {
         // The proof: the row's splits, then the definition's tree.
         let name: Name = format!("{}.induct", d.display).into();
         let span = d.rows[cases[0].row].span;
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         let mut splits: HashMap<DataId, DefId> = HashMap::default();
         let mut row_proofs: HashMap<usize, RowProof> = HashMap::default();
         for k in 0..d.rows.len() {
@@ -715,7 +723,7 @@ impl Elaborator {
                 id, &display, params, conclusion, measure, second, span, tree,
             )?;
         } else {
-            kernel::define_group(&mut self.globals, &[(id, lams(&names, tree))])?;
+            kernel::define_group(&mut self.globals, &self.tables, &[(id, lams(&names, tree))])?;
         }
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
@@ -1277,8 +1285,16 @@ impl Elaborator {
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
         let name: Name = format!("{}.induct.%split{n}", d.display).into();
         let span = d.rows[0].span;
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
-        kernel::define_group(&mut self.globals, &[(id, lams(&names, tree))])?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, lams(&names, tree))])?;
         Ok(id)
     }
 
@@ -1887,8 +1903,8 @@ impl Tree<'_> {
         let name: Name = format!("{}.induct.%apart{}", self.d.display, self.discs.len() + 1).into();
         let span = self.d.rows[0].span;
         let e = &mut *self.e;
-        let id = kernel::declare_def(&mut e.globals, &name, &ty, false, false, span)?;
-        kernel::define_group(&mut e.globals, &[(id, lams(&names, tree))])?;
+        let id = kernel::declare_def(&mut e.globals, &e.tables, &name, &ty, false, false, span)?;
+        kernel::define_group(&mut e.globals, &e.tables, &[(id, lams(&names, tree))])?;
         self.discs.insert(key, id);
         self.made.push(id);
         Ok(id)

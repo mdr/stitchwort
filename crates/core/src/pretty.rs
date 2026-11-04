@@ -1833,7 +1833,13 @@ impl<'g> Printer<'g> {
             return None;
         };
         let def = self.g.def(*id);
-        let table = def.param_defaults.as_ref()?;
+        let table = self
+            .g
+            .print_hints
+            .param_defaults
+            .borrow()
+            .get(id)
+            .cloned()?;
         let mut ty = def.ty.strip_loc();
         let mut params = Vec::with_capacity(table.header);
         for default in table.params.iter().take(table.header) {
@@ -1939,14 +1945,14 @@ impl<'g> Printer<'g> {
             })
     }
 
-    /// A call of an update's helper (`Def::update_shown`), as the update:
+    /// A call of an update's helper (`PrintHints::update_shown`), as the update:
     /// `{ x | f = s, g = t }`.
     fn update(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
         let (head, args) = term.spine();
         let Term::Def(id) = head else {
             return None;
         };
-        let shown = self.g.def(*id).update_shown.clone()?;
+        let shown = self.g.print_hints.update_shown.borrow().get(id).cloned()?;
         if args.len() != shown.params {
             return None;
         }

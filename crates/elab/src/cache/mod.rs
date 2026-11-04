@@ -45,14 +45,12 @@ mod dump;
 mod rows;
 
 use std::collections::BTreeSet;
-use std::ops::Range;
 use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{Ctor, State};
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
-use stitchwort_core::js_repr::{JsCtor, JsRepr};
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
@@ -66,7 +64,6 @@ use crate::state::{self, Transaction, UnitId};
 use crate::{Elaborator, Global};
 pub(crate) use codec::Read;
 use codec::{Bad, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
-use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults, UpdateShown};
 use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
@@ -163,9 +160,6 @@ pub(crate) struct Before {
     defs: usize,
     datas: usize,
     tables: state::TablesMark,
-    /// How many data types had fields' defaults: a unit adds them only to
-    /// its own.
-    defaults: usize,
     nav: Option<(usize, usize, usize)>,
 }
 
@@ -346,20 +340,11 @@ impl Elaborator {
             defs: self.globals.env.defs().len(),
             datas: self.globals.env.datas().len(),
             tables: self.tables.mark(self.ids()),
-            defaults: self.with_defaults(),
             nav: self.present.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
                 (nav.locals.len(), nav.binders.len(), nav.outline.len())
             }),
         }
-    }
-
-    /// How many data types have fields' defaults.
-    fn with_defaults(&self) -> usize {
-        let g = &self.globals;
-        (0..g.env.datas().len())
-            .filter(|d| g.data(DataId(*d)).defaults.is_some())
-            .count()
     }
 
     /// After library file `f` loaded: writes its entry, if it checked and
@@ -515,7 +500,7 @@ impl Elaborator {
             library_loaded: 0,
             segments: 0,
         });
-        let unfinished = self.globals.unfinished.borrow().len();
+        let unfinished = self.tables.unfinished_count();
         let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
         let capture = self
             .unit
@@ -530,7 +515,7 @@ impl Elaborator {
         let ok = !diagnostics
             .iter()
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
-            && self.globals.unfinished.borrow().len() == unfinished
+            && self.tables.unfinished_count() == unfinished
             && !self.globals.budget.cancelled();
         if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
@@ -779,7 +764,7 @@ impl Elaborator {
         let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut d.rest.warnings);
         let base_defs = self.globals.env.defs().len();
-        self.admit_replayed(&d.defs, &d.datas, &d.bound)
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)
             .map_err(late)?;
         self.replay_tables(d.rest, &pre.early);
         self.tables
@@ -1268,12 +1253,6 @@ impl Elaborator {
         if tests.iter().any(|t| t.library) || (unit.library && !tests.is_empty()) {
             return Err("a library test was kept".to_string());
         }
-        let old_defaults = (0..before.datas)
-            .filter(|d| g.data(DataId(*d)).defaults.is_some())
-            .count();
-        if old_defaults != before.defaults {
-            return Err("a row for an older data type changed".to_string());
-        }
 
         let mut def_paths: HashMap<&str, usize> = HashMap::default();
         for def in g.env.defs() {
@@ -1481,15 +1460,12 @@ impl Elaborator {
             e.str(k);
         }
 
-        // The elaborator's tables, and the two parts the format puts
-        // between them.
-        self.tables.encode_since(
-            &before.tables,
-            &writes.tables,
-            &mut e,
-            |e| self.encode_side_facts(e, defs.clone(), datas.clone()),
-            |e| self.encode_extensions(e, unit),
-        )?;
+        // The elaborator's tables, and the part the format puts between
+        // them.
+        self.tables
+            .encode_since(&before.tables, &writes.tables, &mut e, |e| {
+                self.encode_extensions(e, unit)
+            })?;
 
         // The warnings, in the order they are reported.
         e.w.usize(warnings.len());
@@ -1621,108 +1597,6 @@ impl Elaborator {
         body.raw(&e.terms.nodes.bytes);
         body.raw(&e.w.bytes);
         Ok(seal(key, salt, &e.out.deps, &body.bytes))
-    }
-
-    /// The side facts of the unit's declarations, which their hashes
-    /// don't cover.
-    fn encode_side_facts(&self, e: &mut Encoding, defs: Range<usize>, datas: Range<usize>) {
-        let g = &self.globals;
-        // Fields' defaults (docs/proposals/named-arguments.md §5.2): for
-        // each constructor and field, its helper and what the helper takes.
-        let defaults: Vec<(DataId, &FieldDefaults)> = datas
-            .clone()
-            .map(DataId)
-            .filter_map(|d| g.data(d).defaults.as_deref().map(|t| (d, t)))
-            .collect();
-        e.w.usize(defaults.len());
-        for (d, ctors) in defaults {
-            e.data(d);
-            e.w.usize(ctors.len());
-            for fields in ctors {
-                e.w.usize(fields.len());
-                for field in fields {
-                    e.w.bool(field.is_some());
-                    if let Some(field) = field {
-                        e.def(field.helper);
-                        e.w.usize(field.captures.len());
-                        for &l in &field.captures {
-                            e.w.usize(l);
-                        }
-                    }
-                }
-            }
-        }
-        // Parameters' defaults (docs/proposals/signature-defaults.md §7.3):
-        // for each definition with any, its header's length and, for each
-        // parameter, its helper and what the helper takes.
-        let param_defaults: Vec<(DefId, &ParamDefaults)> = defs
-            .clone()
-            .map(DefId)
-            .filter_map(|id| g.def(id).param_defaults.as_deref().map(|t| (id, t)))
-            .collect();
-        e.w.usize(param_defaults.len());
-        for (id, table) in param_defaults {
-            e.def(id);
-            e.w.usize(table.header);
-            e.w.usize(table.params.len());
-            for param in &table.params {
-                e.w.bool(param.is_some());
-                if let Some(param) = param {
-                    e.def(param.helper);
-                    e.w.usize(param.captures.len());
-                    for &l in &param.captures {
-                        e.w.usize(l);
-                    }
-                }
-            }
-        }
-        // How the unit's update helpers are shown: each one's parameter
-        // count, record and new values.
-        let update_shown: Vec<(DefId, &UpdateShown)> = defs
-            .clone()
-            .map(DefId)
-            .filter_map(|id| g.def(id).update_shown.as_deref().map(|s| (id, s)))
-            .collect();
-        e.w.usize(update_shown.len());
-        for (id, shown) in update_shown {
-            e.def(id);
-            e.w.usize(shown.params);
-            e.term(&shown.base);
-            e.w.usize(shown.fields.len());
-            for (field, value) in &shown.fields {
-                e.str(field);
-                e.term(value);
-            }
-        }
-        // `js_repr`: how the unit's attributed data types cross the JS
-        // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
-        // only this table carries it; it travels with the type's unit.
-        let js: Vec<(DataId, &JsRepr)> = datas
-            .clone()
-            .map(DataId)
-            .filter_map(|d| g.data(d).js.as_deref().map(|r| (d, r)))
-            .collect();
-        e.w.usize(js.len());
-        for (d, repr) in js {
-            e.data(d);
-            e.str(&repr.tag_key);
-            e.w.bool(repr.string_enum);
-            e.w.bool(repr.unboxed);
-            e.w.usize(repr.ctors.len());
-            for ctor in &repr.ctors {
-                e.str(&ctor.tag);
-                e.w.usize(ctor.keys.len());
-                for key in &ctor.keys {
-                    e.w.bool(key.is_some());
-                    if let Some(key) = key {
-                        e.str(key);
-                    }
-                }
-                for &optional in &ctor.optional {
-                    e.w.bool(optional);
-                }
-            }
-        }
     }
 
     fn encode_extensions(&self, e: &mut Encoding, unit: &UnitOut) {
@@ -1917,21 +1791,10 @@ struct Rest {
     members: Vec<String>,
     /// What `state::Tables` holds.
     tables: state::TablesDelta,
-    facts: SideFacts,
     /// Extensions, and the keys they stand for.
     extensions: Vec<(String, String)>,
     warnings: Vec<Diagnostic>,
     nav: Option<NavEntry>,
-}
-
-/// The side facts of an entry's declarations, read.
-#[derive(Default)]
-struct SideFacts {
-    field_defaults: Vec<(DataId, FieldDefaults)>,
-    param_defaults: Vec<(DefId, ParamDefaults)>,
-    update_shown: Vec<(DefId, UpdateShown)>,
-    /// How attributed data types cross the JS boundary.
-    js_repr: Vec<(DataId, JsRepr)>,
 }
 
 /// Where a reference leads: a span, or the declaration with that key.
@@ -2438,7 +2301,7 @@ impl Elaborator {
         if !d.rest.tables.tests.is_empty() || !d.rest.warnings.is_empty() {
             return bad("a library file's entry with tests or warnings");
         }
-        self.admit_replayed(&d.defs, &d.datas, &d.bound)?;
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)?;
         self.replay_tables(d.rest, &[]);
         Ok(())
     }
@@ -2463,12 +2326,14 @@ impl Elaborator {
         defs: &[DefEntry],
         datas: &[DataEntry],
         bound: &[(u8, usize, Builtin)],
+        tables: &state::TablesDelta,
     ) -> Read<()> {
+        let param_defaults: HashSet<DefId> = tables.param_default_helpers().collect();
         let base_defs = self.globals.env.defs().len();
         let base_datas = self.globals.env.datas().len();
         let module = self.globals.module.clone();
         let result = self
-            .submit(defs, datas, base_defs, base_datas)
+            .submit(defs, datas, &param_defaults, base_defs, base_datas)
             .and_then(|()| {
                 if bound_builtins(&self.globals, base_defs, base_datas) != bound {
                     return bad("other built-ins were bound");
@@ -2493,6 +2358,7 @@ impl Elaborator {
         &mut self,
         defs: &[DefEntry],
         datas: &[DataEntry],
+        param_defaults: &HashSet<DefId>,
         base_defs: usize,
         base_datas: usize,
     ) -> Read<()> {
@@ -2739,6 +2605,9 @@ impl Elaborator {
                 if def.opaque {
                     kernel::mark_opaque(&mut self.globals, id);
                 }
+                if param_defaults.contains(&id) {
+                    kernel::mark_param_default(&mut self.globals, id);
+                }
                 if !def.unfolding.is_empty() {
                     kernel::set_unfolding(&mut self.globals, id, &def.unfolding);
                 }
@@ -2796,18 +2665,6 @@ impl Elaborator {
         }
         for key in t.members {
             self.scope.mark_member(&key);
-        }
-        for (d, table) in t.facts.field_defaults {
-            self.globals.set_data_defaults(d, Rc::new(table));
-        }
-        for (id, table) in t.facts.param_defaults {
-            self.globals.set_param_defaults(id, table);
-        }
-        for (id, shown) in t.facts.update_shown {
-            self.globals.set_update_shown(id, Rc::new(shown));
-        }
-        for (d, repr) in t.facts.js_repr {
-            self.globals.set_data_js(d, Rc::new(repr));
         }
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
@@ -2879,7 +2736,6 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         early: Vec::new(),
         members: Vec::new(),
         tables: state::TablesDelta::default(),
-        facts: SideFacts::default(),
         extensions: Vec::new(),
         warnings: Vec::new(),
         nav: None,
@@ -2900,17 +2756,13 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
     for _ in 0..n {
         t.members.push(b.string()?);
     }
-    t.tables = state::Tables::decode(
-        b,
-        |b| read_side_facts(b, &mut t.facts),
-        |b| {
-            let n = b.count()?;
-            for _ in 0..n {
-                t.extensions.push((b.string()?, b.string()?));
-            }
-            Ok(())
-        },
-    )?;
+    t.tables = state::Tables::decode(b, |b| {
+        let n = b.count()?;
+        for _ in 0..n {
+            t.extensions.push((b.string()?, b.string()?));
+        }
+        Ok(())
+    })?;
     let n = b.count()?;
     for _ in 0..n {
         let mut d = Diagnostic::warning(static_code(&b.string()?), b.string()?);
@@ -2975,102 +2827,6 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         t.nav = Some(nav);
     }
     Ok(t)
-}
-
-/// What [`Elaborator::encode_side_facts`] wrote.
-fn read_side_facts(b: &mut Body, f: &mut SideFacts) -> Read<()> {
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let k = b.count()?;
-        let mut ctors = Vec::with_capacity(k);
-        for _ in 0..k {
-            let m = b.count()?;
-            let mut fields = Vec::with_capacity(m);
-            for _ in 0..m {
-                fields.push(if b.r.bool()? {
-                    let helper = b.def()?;
-                    let c = b.count()?;
-                    let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
-                    Some(FieldDefault { helper, captures })
-                } else {
-                    None
-                });
-            }
-            ctors.push(fields);
-        }
-        f.field_defaults.push((d, ctors));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let id = b.def()?;
-        let header = b.count()?;
-        let m = b.count()?;
-        let mut params = Vec::with_capacity(m);
-        for _ in 0..m {
-            params.push(if b.r.bool()? {
-                let helper = b.def()?;
-                let c = b.count()?;
-                let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
-                Some(FieldDefault { helper, captures })
-            } else {
-                None
-            });
-        }
-        f.param_defaults
-            .push((id, ParamDefaults { header, params }));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let id = b.def()?;
-        let params = b.count()?;
-        let base = b.term()?;
-        let m = b.count()?;
-        let mut fields = Vec::with_capacity(m);
-        for _ in 0..m {
-            fields.push((b.str()?, b.term()?));
-        }
-        f.update_shown.push((
-            id,
-            UpdateShown {
-                params,
-                base,
-                fields,
-            },
-        ));
-    }
-    let n = b.count()?;
-    for _ in 0..n {
-        let d = b.data()?;
-        let tag_key = b.string()?;
-        let string_enum = b.r.bool()?;
-        let unboxed = b.r.bool()?;
-        let k = b.count()?;
-        let mut ctors = Vec::with_capacity(k);
-        for _ in 0..k {
-            let tag = b.string()?;
-            let m = b.count()?;
-            let keys = (0..m)
-                .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
-                .collect::<Read<_>>()?;
-            let optional = (0..m).map(|_| b.r.bool()).collect::<Read<_>>()?;
-            ctors.push(JsCtor {
-                tag,
-                keys,
-                optional,
-            });
-        }
-        f.js_repr.push((
-            d,
-            JsRepr {
-                tag_key,
-                ctors,
-                string_enum,
-                unboxed,
-            },
-        ));
-    }
-    Ok(())
 }
 
 #[doc(hidden)]

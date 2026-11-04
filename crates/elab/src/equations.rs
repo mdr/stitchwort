@@ -2618,7 +2618,15 @@ impl Elaborator {
     ) -> R<()> {
         // Declared and checked by the kernel like any theorem.
         let name: Name = format!("{}.{suffix}", d.display).into();
-        let id = kernel::declare_def(&mut self.globals, &name, ty, true, false, d.rows[k].span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            ty,
+            true,
+            false,
+            d.rows[k].span,
+        )?;
         let opaque = matches!(d.kind, Kind::Opaque);
         if opaque || !unfolding.is_empty() {
             let mut all: Vec<DefId> = opaque.then_some(d.f).into_iter().collect();
@@ -2628,7 +2636,7 @@ impl Elaborator {
             }
             stitchwort_core::check::set_unfolding(&mut self.globals, id, &all);
         }
-        kernel::define_group(&mut self.globals, &[(id, proof)])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, proof)])?;
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
         }
@@ -3656,11 +3664,19 @@ impl Elaborator {
     /// branch equation whose proof uses it.
     fn helper_lemma(&mut self, h: DefId, suffix: &str, he: &HelperEq, span: Span) -> R<DefId> {
         let name: Name = format!("{}.{suffix}", self.globals.def(h).name()).into();
-        let id = kernel::declare_def(&mut self.globals, &name, &he.ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &he.ty,
+            true,
+            false,
+            span,
+        )?;
         if self.globals.def(h).opaque() {
             stitchwort_core::check::set_unfolding(&mut self.globals, id, &[h]);
         }
-        kernel::define_group(&mut self.globals, &[(id, he.proof.clone())])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(id, he.proof.clone())])?;
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
         }

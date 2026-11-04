@@ -5,6 +5,8 @@
 
 use std::rc::Rc;
 
+use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults, UpdateShown};
+use stitchwort_core::js_repr::{JsCtor, JsRepr};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
@@ -265,5 +267,144 @@ impl Codec for TestDecl {
             span,
             probe,
         })
+    }
+}
+
+impl Codec for () {
+    fn encode(&self, _: &mut Encoding<'_>) {}
+    fn decode(_: &mut Body<'_>) -> Read<Self> {
+        Ok(())
+    }
+}
+
+/// A default's helper and the parameters it takes (`None`: no default).
+fn encode_default(e: &mut Encoding<'_>, default: &Option<FieldDefault>) {
+    e.w.bool(default.is_some());
+    if let Some(default) = default {
+        e.def(default.helper);
+        e.w.usize(default.captures.len());
+        for &l in &default.captures {
+            e.w.usize(l);
+        }
+    }
+}
+
+fn decode_default(b: &mut Body<'_>) -> Read<Option<FieldDefault>> {
+    Ok(if b.r.bool()? {
+        let helper = b.def()?;
+        let c = b.count()?;
+        let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
+        Some(FieldDefault { helper, captures })
+    } else {
+        None
+    })
+}
+
+impl Codec for Rc<FieldDefaults> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.w.usize(self.len());
+        for fields in self.iter() {
+            e.w.usize(fields.len());
+            fields.iter().for_each(|field| encode_default(e, field));
+        }
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let m = b.count()?;
+            ctors.push((0..m).map(|_| decode_default(b)).collect::<Read<_>>()?);
+        }
+        Ok(Rc::new(ctors))
+    }
+}
+
+impl Codec for Rc<ParamDefaults> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.w.usize(self.header);
+        e.w.usize(self.params.len());
+        self.params
+            .iter()
+            .for_each(|param| encode_default(e, param));
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let header = b.count()?;
+        let m = b.count()?;
+        let params = (0..m).map(|_| decode_default(b)).collect::<Read<_>>()?;
+        Ok(Rc::new(ParamDefaults { header, params }))
+    }
+}
+
+impl Codec for Rc<UpdateShown> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.w.usize(self.params);
+        e.term(&self.base);
+        e.w.usize(self.fields.len());
+        for (field, value) in &self.fields {
+            e.str(field);
+            e.term(value);
+        }
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let params = b.count()?;
+        let base = b.term()?;
+        let m = b.count()?;
+        let mut fields = Vec::with_capacity(m);
+        for _ in 0..m {
+            fields.push((b.str()?, b.term()?));
+        }
+        Ok(Rc::new(UpdateShown {
+            params,
+            base,
+            fields,
+        }))
+    }
+}
+
+impl Codec for Rc<JsRepr> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.str(&self.tag_key);
+        e.w.bool(self.string_enum);
+        e.w.bool(self.unboxed);
+        e.w.usize(self.ctors.len());
+        for ctor in &self.ctors {
+            e.str(&ctor.tag);
+            e.w.usize(ctor.keys.len());
+            for key in &ctor.keys {
+                e.w.bool(key.is_some());
+                if let Some(key) = key {
+                    e.str(key);
+                }
+            }
+            for &optional in &ctor.optional {
+                e.w.bool(optional);
+            }
+        }
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let tag_key = b.string()?;
+        let string_enum = b.r.bool()?;
+        let unboxed = b.r.bool()?;
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let tag = b.string()?;
+            let m = b.count()?;
+            let keys = (0..m)
+                .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
+                .collect::<Read<_>>()?;
+            let optional = (0..m).map(|_| b.r.bool()).collect::<Read<_>>()?;
+            ctors.push(JsCtor {
+                tag,
+                keys,
+                optional,
+            });
+        }
+        Ok(Rc::new(JsRepr {
+            tag_key,
+            ctors,
+            string_enum,
+            unboxed,
+        }))
     }
 }

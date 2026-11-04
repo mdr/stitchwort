@@ -382,7 +382,8 @@ fn the_cache_replays_parameter_defaults() {
         warm.stats.namespace_hits >= 1,
         "`Layout` wasn't loaded from the cache"
     );
-    assert!(warm.dump.contains("param defaults ParamDefaults"));
+    assert!(warm.dump.contains("\nparam defaults "));
+    assert!(warm.dump.contains(" ParamDefaults {"));
 }
 
 #[test]

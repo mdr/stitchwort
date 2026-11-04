@@ -27,6 +27,7 @@ use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
 use crate::Elaborator;
 use crate::check::Ctx;
 use crate::scope::Resolved;
+use crate::state::Tables;
 
 /// The code of the error that stands for "unfinished": a term with an open
 /// goal in it, or one that uses an unfinished declaration. The module turns
@@ -369,14 +370,14 @@ pub(crate) fn uses_unfinished(span: Option<Span>) -> Diagnostic {
 /// declarations being admitted, failed by the refusal itself.
 pub(crate) fn unfinished_dependency<'t>(
     g: &Globals,
+    tables: &Tables,
     terms: impl IntoIterator<Item = &'t Term>,
     own: &[HashKey],
     error: Diagnostic,
 ) -> Diagnostic {
-    if error.code != "E-FAILED-DEPENDENCY" || g.unfinished.borrow().is_empty() {
+    if error.code != "E-FAILED-DEPENDENCY" || tables.unfinished_count() == 0 {
         return error;
     }
-    let unfinished = g.unfinished.borrow();
     let mut any = false;
     for term in terms {
         for (t, _) in term.subterms() {
@@ -394,7 +395,7 @@ pub(crate) fn unfinished_dependency<'t>(
             if state != State::Failed || own.contains(&key) {
                 continue;
             }
-            if !unfinished.contains(&key) {
+            if !tables.is_unfinished(key) {
                 return error;
             }
             any = true;

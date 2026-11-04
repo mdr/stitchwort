@@ -277,8 +277,16 @@ impl Elaborator {
             // were before records shared this generator, so their hashes
             // don't move.
             let theorem = !data.record() && first.field_sorts[positions[0]] == Sort::Prop;
-            let id = kernel::declare_def(&mut self.globals, &name, &ty, theorem, false, span)?;
-            kernel::define_def(&mut self.globals, id, &body)?;
+            let id = kernel::declare_def(
+                &mut self.globals,
+                &self.tables,
+                &name,
+                &ty,
+                theorem,
+                false,
+                span,
+            )?;
+            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
             // In the type's namespace, but not visible by its short name:
             // reached through a value (`a.id`), or written in full
             // (`Shape.id`).

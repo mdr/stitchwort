@@ -1839,9 +1839,7 @@ fn push_def(
         export,
         validators: Vec::new(),
         run_body: None,
-        param_defaults: None,
         param_default: false,
-        update_shown: None,
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
@@ -1940,6 +1938,17 @@ pub fn mark_folded(g: &mut Globals, id: DefId) {
     let def = &mut g.env.defs_mut()[id.0];
     if def.state == State::Pending {
         def.fold = true;
+    }
+}
+
+/// Marks pending definition `id` as the helper of a parameter's default
+/// value ([`Def::param_default`]): a constant one stays folded while
+/// gluing, so a call that left the default out reads back as written. How
+/// calls are shown, not what they mean; not hashed.
+pub fn mark_param_default(g: &mut Globals, id: DefId) {
+    let def = &mut g.env.defs_mut()[id.0];
+    if def.state == State::Pending {
+        def.param_default = true;
     }
 }
 
@@ -2242,8 +2251,6 @@ fn push_data_group(
             ctors: Vec::new(),
             record,
             validators: Vec::new(),
-            js: None,
-            defaults: None,
             group: group.clone(),
             nestable: Rc::from([]),
             defs_before,

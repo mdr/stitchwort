@@ -105,25 +105,16 @@ pub struct Def {
     /// have the definition's type and arity, but not for termination; never
     /// unfolded by the kernel, and not hashed (it's determined by the body).
     pub(crate) run_body: Option<Rc<Term>>,
-    /// The default values of its header's parameters, `(step: Nat := 1)`,
-    /// if any has one (docs/proposals/signature-defaults.md §7.1). Kept by
-    /// declaration and never hashed, as [`Data::defaults`] is: the kernel
-    /// never reads it; the elaborator fills calls that leave a defaulted
-    /// parameter out with its helper.
-    pub param_defaults: Option<Rc<ParamDefaults>>,
     /// It's the helper of a definition's parameter default. A constant one
     /// stays folded while gluing, as a constant written in the source does,
-    /// so a call that left the default out reads back as written. Set with
-    /// the owner's [`Def::param_defaults`]; never hashed.
+    /// so a call that left the default out reads back as written. Set by
+    /// [`crate::check::mark_param_default`] while it is pending, for the
+    /// helpers of the elaborator's parameter defaults; never hashed.
     pub(crate) param_default: bool,
-    /// For the helper a record update `{ x | f = s }` of a type with several
-    /// constructors is lifted to: how the printer shows a call of it, as the
-    /// update. Only messages read it, so it isn't hashed.
-    pub update_shown: Option<Rc<UpdateShown>>,
     pub(crate) span: Span,
 }
 
-/// How a call of an update's helper is shown (see [`Def::update_shown`]):
+/// How a call of an update's helper is shown (see [`PrintHints`]):
 /// the record updated and each field's new value, in the order written, as
 /// terms in the helper's parameters (all explicit, the innermost last).
 #[derive(Clone, Debug)]
@@ -368,22 +359,6 @@ pub struct Data {
     /// Decision procedures for proof fields, which extracted JS runs to
     /// establish them for decoded input. Added once the type is final.
     pub(crate) validators: Vec<FieldValidator>,
-    /// How the type crosses the JS boundary, when `js.*` attributes on it
-    /// say (docs/proposals/attributes.md §4.6): resolved and checked by the
-    /// elaborator once the type is final. `None` for a type without them,
-    /// whose default the JS backend resolves when an export reaches it.
-    /// Only the JS backend reads it; it isn't hashed (D598) and the kernel
-    /// never sees it.
-    pub js: Option<std::rc::Rc<crate::js_repr::JsRepr>>,
-    /// Its fields' default values (docs/proposals/named-arguments.md §5.1,
-    /// §5.2): for each constructor and field, the generated helper that
-    /// computes the default, if the field has one. Set by the elaborator once
-    /// the type is admitted (or loaded from the check cache); `None` for a
-    /// type without defaults. Kept by declaration, never hashed (D1099), and
-    /// never seen by the kernel: the elaborator reads it for literals that
-    /// leave fields out, and the JS backend for decoders that fill absent
-    /// properties (§5.3).
-    pub defaults: Option<Rc<FieldDefaults>>,
     /// The data group this type was declared in (`declare_data_group`), in
     /// declaration order, including itself: a group of one for a type on its
     /// own. Every member has the same parameters and universe. Set once, when
@@ -616,6 +591,8 @@ pub struct Globals {
     /// not the lifted call with its captures. Cleared with `metas`. Only
     /// affects messages.
     pub print_labels: RefCell<Vec<PrintLabel>>,
+    /// The elaborator's facts the printer reads (see [`PrintHints`]).
+    pub print_hints: PrintHints,
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<crate::collections::HashMap<HashKey, crate::hash::ContentHash>>,
@@ -625,12 +602,6 @@ pub struct Globals {
     /// definition since the elaborator last cleared this: its errors are
     /// then fallout of that failure, not the declaration's own.
     pub failed_mentioned: Cell<bool>,
-    /// The failed declarations the elaborator gave up on because they, or
-    /// something they use, have an open goal (`?`,
-    /// docs/proposals/lsp-goal-holes.md) rather than an error. To the
-    /// kernel they're failed like any other, and it never reads this: only
-    /// how they're reported differs (*unfinished*, not "has errors").
-    pub unfinished: RefCell<crate::collections::HashSet<HashKey>>,
     /// Whether running erases proofs and types, and what each definition
     /// erases (`erase.rs`). Never in effect while checking.
     pub erasure: crate::erase::Erasure,
@@ -664,6 +635,22 @@ pub struct Globals {
     /// (docs/proposals/literal-match-facts.md). Only added to, so a name
     /// never changes what it stands for. Each set is sorted.
     pub apart_sets: RefCell<Vec<Rc<[num_bigint::BigUint]>>>,
+}
+
+/// The elaborator's facts about declarations that the printer reads, for
+/// messages: how a call of a defaulted function and of a record update's
+/// helper are shown. The rows belong to the elaborator's `Tables`
+/// (`OwnedBy` tables, keyed by definition), which share these maps, so
+/// that the printer finds them through `&Globals`; they go when the
+/// printer takes its hints as an argument (globals-split.md §3.5).
+#[derive(Clone, Default)]
+pub struct PrintHints {
+    /// The default values of a definition's header's parameters,
+    /// `(step: Nat := 1)` (docs/proposals/signature-defaults.md §7.1).
+    pub param_defaults: Rc<RefCell<crate::collections::HashMap<DefId, Rc<ParamDefaults>>>>,
+    /// For the helper a record update `{ x | f = s }` of a type with several
+    /// constructors is lifted to: how a call of it is shown, as the update.
+    pub update_shown: Rc<RefCell<crate::collections::HashMap<DefId, Rc<UpdateShown>>>>,
 }
 
 /// The current transparency set ([`Globals::transparent`]).
@@ -770,33 +757,6 @@ impl Globals {
 
     pub fn data(&self, id: DataId) -> &Data {
         self.env.data(id)
-    }
-
-    /// Gives definition `id` its parameter defaults `table`, marking each
-    /// default's helper ([`Def::param_default`]).
-    pub fn set_param_defaults(&mut self, id: DefId, table: ParamDefaults) {
-        for default in table.params.iter().flatten() {
-            self.env.defs_mut()[default.helper.0].param_default = true;
-        }
-        self.env.defs_mut()[id.0].param_defaults = Some(Rc::new(table));
-    }
-
-    /// Records the JS representation `repr` of data type `d` (see
-    /// [`Data::js`]): an elaborator fact, not a declaration.
-    pub fn set_data_js(&mut self, d: DataId, repr: Rc<crate::js_repr::JsRepr>) {
-        self.env.datas_mut()[d.0].js = Some(repr);
-    }
-
-    /// Records data type `d`'s field defaults (see [`Data::defaults`]): an
-    /// elaborator fact, not a declaration.
-    pub fn set_data_defaults(&mut self, d: DataId, table: Rc<FieldDefaults>) {
-        self.env.datas_mut()[d.0].defaults = Some(table);
-    }
-
-    /// Records how the printer shows calls of record-update helper `id` (see
-    /// [`Def::update_shown`]): an elaborator fact, not a declaration.
-    pub fn set_update_shown(&mut self, id: DefId, shown: Rc<UpdateShown>) {
-        self.env.defs_mut()[id.0].update_shown = Some(shown);
     }
 
     /// Removes the definitions from `defs` on and the data types from
@@ -935,10 +895,11 @@ impl Globals {
             placeholder_syntax: _,
             waiting_literals: _,
             print_labels: _,
+            // Rows of the elaborator's tables, which it rewinds.
+            print_hints: _,
             hashes,
             budget,
             failed_mentioned,
-            unfinished,
             erasure,
             module,
             glue,
@@ -954,10 +915,6 @@ impl Globals {
         );
         env.rewind(mark.defs, mark.datas, &mark.builtins);
         hashes.borrow_mut().retain(|k, _| match k {
-            HashKey::Def(id) => id.0 < mark.defs,
-            HashKey::Data(d) => d.0 < mark.datas,
-        });
-        unfinished.borrow_mut().retain(|k| match k {
             HashKey::Def(id) => id.0 < mark.defs,
             HashKey::Data(d) => d.0 < mark.datas,
         });

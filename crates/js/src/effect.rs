@@ -24,8 +24,9 @@
 
 use stitchwort_core::collections::HashMap;
 
+use stitchwort_core::backend::View;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Term};
 use stitchwort_rt::erasure::def_shape;
 use stitchwort_rt::fusion::{Fused, StateFusion};
 
@@ -90,7 +91,7 @@ impl Effect {
     /// The runtime for `g`, if the core's effect machinery is loaded with the
     /// shapes the runtime was written for. All four functions or none: a
     /// generated `foldComp` couldn't take apart a `Bind` node.
-    pub(crate) fn new(g: &Globals, counters: bool) -> Option<Effect> {
+    pub(crate) fn new(g: &View<'_>, counters: bool) -> Option<Effect> {
         let r = &g.env.registry();
         let mut natives = HashMap::default();
         for (b, native) in [
@@ -200,7 +201,7 @@ impl Effect {
     /// empty row ([`stitchwort_rt::fusion`]).
     pub(crate) fn fuse(
         &self,
-        g: &Globals,
+        g: &View<'_>,
         args: &[&Term],
     ) -> stitchwort_core::budget::Result<Option<Fused>> {
         match &self.fusion {

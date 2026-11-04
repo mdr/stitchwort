@@ -12,6 +12,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 pub use k::*;
 
+use crate::state::Tables;
 use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -69,23 +70,25 @@ pub fn without_glue<T>(g: &Globals, f: impl FnOnce() -> T) -> T {
     out
 }
 
-pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    define_group(g, &[(id, body.clone())])
+pub fn define_def(g: &mut Globals, tables: &Tables, id: DefId, body: &Term) -> Result<()> {
+    define_group(g, tables, &[(id, body.clone())])
 }
 
 /// Defines a group, with every partial occurrence of a member first applied
 /// to all its parameters (`saturate.rs`).
-pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+pub fn define_group(g: &mut Globals, tables: &Tables, members: &[(DefId, Term)]) -> Result<()> {
     let (members, expanded) = crate::saturate::saturate(g, members)?;
     unglued(g, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
-        let d = crate::goals::unfinished_dependency(g, members.iter().map(|(_, t)| t), &own, d);
+        let d =
+            crate::goals::unfinished_dependency(g, tables, members.iter().map(|(_, t)| t), &own, d);
         crate::saturate::explain(d, &expanded)
     })
 }
 
 pub fn declare_def(
     g: &mut Globals,
+    tables: &Tables,
     name: &Name,
     ty: &Term,
     theorem: bool,
@@ -93,12 +96,12 @@ pub fn declare_def(
     span: Span,
 ) -> Result<DefId> {
     unglued(g, |g| k::declare_def(g, name, ty, theorem, export, span))
-        .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
+        .map_err(|d| crate::goals::unfinished_dependency(g, tables, [ty], &[], d))
 }
 
-pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
+pub fn retype_def(g: &mut Globals, tables: &Tables, id: DefId, ty: &Term) -> Result<()> {
     unglued(g, |g| k::retype_def(g, id, ty))
-        .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
+        .map_err(|d| crate::goals::unfinished_dependency(g, tables, [ty], &[], d))
 }
 
 pub fn declare_data_group(

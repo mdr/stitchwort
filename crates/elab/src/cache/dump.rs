@@ -11,6 +11,8 @@
 
 use std::fmt::Write;
 
+use stitchwort_core::globals::{FieldDefaults, ParamDefaults, UpdateShown};
+use stitchwort_core::js_repr::JsRepr;
 use stitchwort_core::{Icit, Term};
 use stitchwort_syntax::Span;
 
@@ -239,17 +241,6 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             let _ = write!(out, "\n  validator {} ", v.param);
             term(&mut out, &v.decision);
         }
-        if let Some(table) = &def.param_defaults {
-            let _ = write!(out, "\n  param defaults {table:?}");
-        }
-        if let Some(shown) = &def.update_shown {
-            let _ = write!(out, "\n  update shown {} ", shown.params);
-            term(&mut out, &shown.base);
-            for (field, value) in &shown.fields {
-                let _ = write!(out, " {field} = ");
-                term(&mut out, value);
-            }
-        }
         out.push('\n');
     }
     for (i, data) in g.env.datas().iter().enumerate() {
@@ -293,9 +284,6 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         for v in data.validators() {
             let _ = write!(out, "\n  validator {} {} ", v.ctor, v.field);
             term(&mut out, &v.decision);
-        }
-        if let Some(js) = &data.js {
-            let _ = write!(out, "\n  js {js:?}");
         }
         out.push('\n');
     }
@@ -407,6 +395,39 @@ impl Dump for InstanceInfo {
             self.def.0, self.name, self.params, self.valid
         );
         span(out, self.span);
+    }
+}
+
+impl Dump for () {
+    fn dump(&self, _: &mut String) {}
+}
+
+impl Dump for Rc<FieldDefaults> {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{:?}", **self);
+    }
+}
+
+impl Dump for Rc<ParamDefaults> {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{:?}", **self);
+    }
+}
+
+impl Dump for Rc<UpdateShown> {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{} ", self.params);
+        term(out, &self.base);
+        for (field, value) in &self.fields {
+            let _ = write!(out, " {field} = ");
+            term(out, value);
+        }
+    }
+}
+
+impl Dump for Rc<JsRepr> {
+    fn dump(&self, out: &mut String) {
+        let _ = write!(out, "{:?}", **self);
     }
 }
 

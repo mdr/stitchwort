@@ -1793,7 +1793,7 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
         if path.starts_with("Std.")
             || path.contains('%')
             || def.state() != State::Final
-            || g.unfinished.borrow().contains(&HashKey::Def(id))
+            || session.elab.marked_unfinished(HashKey::Def(id))
         {
             continue;
         }

@@ -20,8 +20,10 @@
 //! copied at a mark until §7 step 6b), and the derived ones are
 //! [`super::Caches`].
 
+use std::cell::RefCell;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DataId, DefId};
@@ -230,13 +232,6 @@ impl<I: Id, V> OwnedBy<I, V> {
         owned(owners, *id);
         self.rows.remove(id)
     }
-
-    /// The rows sorted by id.
-    fn sorted(&self) -> Vec<(&I, &V)> {
-        let mut rows: Vec<(&I, &V)> = self.rows.iter().collect();
-        rows.sort_by_key(|(id, _)| id.index());
-        rows
-    }
 }
 
 impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
@@ -244,44 +239,19 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     type Rows = Vec<(I, V)>;
 
     fn mark(&self, ids: Ids) -> OwnedMark {
-        OwnedMark {
-            cut: I::count(ids),
-            rows: self.rows.len(),
-        }
+        mark_rows(&self.rows, ids)
     }
 
     fn rewind(&mut self, m: &OwnedMark) {
-        self.rows.retain(|id, _| id.index() < m.cut);
+        rewind_rows(&mut self.rows, m);
     }
 
     fn encode_since(&self, m: &OwnedMark, e: &mut Encoding<'_>) -> Result<(), String> {
-        let (old, new): (Vec<_>, Vec<_>) = self
-            .sorted()
-            .into_iter()
-            .partition(|(id, _)| id.index() < m.cut);
-        // Only the unit that made a declaration writes its row, and a
-        // unit's entry is written against a mark taken once the library
-        // files it needs have loaded: no row below the cut is the unit's.
-        // (Still refused in a build without debug assertions.)
-        debug_assert_eq!(
-            old.len(),
-            m.rows,
-            "a row for an older declaration was added"
-        );
-        if old.len() != m.rows {
-            return Err("a row for an older declaration changed".to_string());
-        }
-        e.count(new.len());
-        for (id, row) in new {
-            id.encode(e);
-            row.encode(e);
-        }
-        Ok(())
+        encode_rows(&self.rows, m, e)
     }
 
     fn decode(b: &mut Body<'_>) -> Read<Vec<(I, V)>> {
-        let n = b.count()?;
-        (0..n).map(|_| Ok((I::decode(b)?, V::decode(b)?))).collect()
+        decode_rows(b)
     }
 
     fn replay(&mut self, rows: Vec<(I, V)>, owners: &Owners) {
@@ -291,14 +261,136 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     }
 
     fn dump(&self, name: &str, out: &mut String) {
-        for (id, row) in self.sorted() {
-            let mut s = format!("{name} ");
-            id.dump(&mut s);
-            s.push(' ');
-            row.dump(&mut s);
-            s.push('\n');
-            out.push_str(&s);
+        dump_rows(&self.rows, name, out);
+    }
+}
+
+/// An [`OwnedBy`] table whose rows are also held by core's `Globals`, for
+/// what the printer reads through `&Globals` (`PrintHints`): the same kind
+/// in every other way. The rows are `Clone` handles (`Rc`s).
+pub(crate) struct SharedOwnedBy<I, V> {
+    rows: Rc<RefCell<HashMap<I, V>>>,
+}
+
+impl<I, V> Default for SharedOwnedBy<I, V> {
+    fn default() -> Self {
+        SharedOwnedBy {
+            rows: Rc::default(),
         }
+    }
+}
+
+impl<I: Id, V: Clone> SharedOwnedBy<I, V> {
+    /// Holds the rows of `rows` from now on (the table is empty).
+    pub(crate) fn share(&mut self, rows: Rc<RefCell<HashMap<I, V>>>) {
+        debug_assert!(self.rows.borrow().is_empty(), "shared after rows were set");
+        self.rows = rows;
+    }
+
+    /// Sets `id`'s row, as [`OwnedBy::insert`].
+    pub(crate) fn insert(&mut self, owners: &Owners, id: I, row: V) -> Option<V> {
+        owned(owners, id);
+        self.rows.borrow_mut().insert(id, row)
+    }
+
+    pub(crate) fn get(&self, id: &I) -> Option<V> {
+        self.rows.borrow().get(id).cloned()
+    }
+
+    pub(crate) fn contains(&self, id: &I) -> bool {
+        self.rows.borrow().contains_key(id)
+    }
+}
+
+impl<I: Id, V: Clone + Codec + Dump> Table for SharedOwnedBy<I, V> {
+    type Mark = OwnedMark;
+    type Rows = Vec<(I, V)>;
+
+    fn mark(&self, ids: Ids) -> OwnedMark {
+        mark_rows(&self.rows.borrow(), ids)
+    }
+
+    fn rewind(&mut self, m: &OwnedMark) {
+        rewind_rows(&mut self.rows.borrow_mut(), m);
+    }
+
+    fn encode_since(&self, m: &OwnedMark, e: &mut Encoding<'_>) -> Result<(), String> {
+        encode_rows(&self.rows.borrow(), m, e)
+    }
+
+    fn decode(b: &mut Body<'_>) -> Read<Vec<(I, V)>> {
+        decode_rows(b)
+    }
+
+    fn replay(&mut self, rows: Vec<(I, V)>, owners: &Owners) {
+        for (id, row) in rows {
+            self.insert(owners, id, row);
+        }
+    }
+
+    fn dump(&self, name: &str, out: &mut String) {
+        dump_rows(&self.rows.borrow(), name, out);
+    }
+}
+
+fn mark_rows<I: Id, V>(rows: &HashMap<I, V>, ids: Ids) -> OwnedMark {
+    OwnedMark {
+        cut: I::count(ids),
+        rows: rows.len(),
+    }
+}
+
+fn rewind_rows<I: Id, V>(rows: &mut HashMap<I, V>, m: &OwnedMark) {
+    rows.retain(|id, _| id.index() < m.cut);
+}
+
+fn sorted_rows<I: Id, V>(rows: &HashMap<I, V>) -> Vec<(&I, &V)> {
+    let mut rows: Vec<(&I, &V)> = rows.iter().collect();
+    rows.sort_by_key(|(id, _)| id.index());
+    rows
+}
+
+fn encode_rows<I: Id, V: Codec>(
+    rows: &HashMap<I, V>,
+    m: &OwnedMark,
+    e: &mut Encoding<'_>,
+) -> Result<(), String> {
+    let (old, new): (Vec<_>, Vec<_>) = sorted_rows(rows)
+        .into_iter()
+        .partition(|(id, _)| id.index() < m.cut);
+    // Only the unit that made a declaration writes its row, and a
+    // unit's entry is written against a mark taken once the library
+    // files it needs have loaded: no row below the cut is the unit's.
+    // (Still refused in a build without debug assertions.)
+    debug_assert_eq!(
+        old.len(),
+        m.rows,
+        "a row for an older declaration was added"
+    );
+    if old.len() != m.rows {
+        return Err("a row for an older declaration changed".to_string());
+    }
+    e.count(new.len());
+    for (id, row) in new {
+        id.encode(e);
+        row.encode(e);
+    }
+    Ok(())
+}
+
+fn decode_rows<I: Id, V: Codec>(b: &mut Body<'_>) -> Read<Vec<(I, V)>> {
+    let n = b.count()?;
+    (0..n).map(|_| Ok((I::decode(b)?, V::decode(b)?))).collect()
+}
+
+fn dump_rows<I: Id, V: Dump>(rows: &HashMap<I, V>, name: &str, out: &mut String) {
+    for (id, row) in sorted_rows(rows) {
+        let mut s = format!("{name} ");
+        id.dump(&mut s);
+        s.push(' ');
+        row.dump(&mut s);
+        s.push('\n');
+        out.push_str(&s);
     }
 }
 

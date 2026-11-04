@@ -9,6 +9,7 @@ use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Write;
 use std::rc::Rc;
 
+use stitchwort_core::backend::View;
 use stitchwort_core::check::{is_type_former, telescope};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::FieldDefault;
@@ -19,8 +20,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval, expand_step, quot_mk_rep, quote};
 use stitchwort_core::{
-    BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value,
-    pretty,
+    BigUint, DataId, DefId, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value, pretty,
 };
 use stitchwort_rt::erasure::{def_shape, text_literal};
 use stitchwort_rt::hoist::SigMaps;
@@ -184,7 +184,7 @@ pub struct Check {
 /// data with a codec, and have no type parameters. Each proof parameter must
 /// have a decision procedure (found by the elaborator), which becomes a
 /// runtime check.
-pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
+pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
     let def = g.def(id);
     let refuse = |why: String| {
         Diagnostic::error("E-EXPORT", format!("`{}` can't be exported", def.name()))
@@ -288,7 +288,7 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
 /// How `ty` crosses the boundary. In a data type's fields' types, its first
 /// `params` variables are the type's parameters.
 fn boundary(
-    g: &Globals,
+    g: &View<'_>,
     ty: &Value,
     params: usize,
     visiting: &mut HashSet<DataId>,
@@ -417,7 +417,7 @@ fn boundary(
 
 /// Whether `order` is the library's `Text.instOrd`, the ordering a map that
 /// crosses as an object is sorted by.
-fn is_text_order(g: &Globals, order: &Value) -> bool {
+fn is_text_order(g: &View<'_>, order: &Value) -> bool {
     let Some(text_order) = g.env.registry().loaded_def(Builtin::TextInstOrd) else {
         return false;
     };
@@ -430,9 +430,9 @@ fn is_text_order(g: &Globals, order: &Value) -> bool {
 
 /// Whether `d` is a `js.unboxed` record whose one field is the prelude's
 /// `Text`: a map key that crosses as a string (D1068).
-fn unboxed_over_text(g: &Globals, d: DataId) -> bool {
+fn unboxed_over_text(g: &View<'_>, d: DataId) -> bool {
     let data = g.data(d);
-    if !data.js.as_ref().is_some_and(|r| r.unboxed) {
+    if !g.js(d).is_some_and(|r| r.unboxed) {
         return false;
     }
     let Some(i) = data.unboxed_field() else {
@@ -450,7 +450,7 @@ fn unboxed_over_text(g: &Globals, d: DataId) -> bool {
 /// (derive_ord.rs; no program can write a name with `%`). For a record over
 /// `Text` it compares the field by `Text.instOrd`, so it sorts keys as a
 /// `Map Text V` does.
-fn is_derived_order(g: &Globals, d: DataId, order: &Value) -> bool {
+fn is_derived_order(g: &View<'_>, d: DataId, order: &Value) -> bool {
     let id = match order {
         Value::Call(id, spine, _) if spine.is_empty() => *id,
         Value::Neutral(Head::Def(id), spine) if spine.is_empty() => *id,
@@ -463,7 +463,7 @@ fn is_derived_order(g: &Globals, d: DataId, order: &Value) -> bool {
 /// fields all cross the boundary, whatever data the parameters stand for.
 /// A type with parameters is described once, and its fields' types are
 /// filled in with its arguments as a value is decoded or encoded.
-fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), String> {
+fn check_codec(g: &View<'_>, d: DataId, visiting: &mut HashSet<DataId>) -> Result<(), String> {
     if !visiting.insert(d) {
         return Ok(());
     }
@@ -538,7 +538,7 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
 /// `T | undefined` (an `Option` through a synonym: the attribute check
 /// refuses one written as such), and it isn't `d` again, directly or through
 /// other unboxed records, which would be a value that is only itself.
-fn unboxed_field_crosses(g: &Globals, d: DataId, field: &str, b: &Boundary) -> Result<(), String> {
+fn unboxed_field_crosses(g: &View<'_>, d: DataId, field: &str, b: &Boundary) -> Result<(), String> {
     let name = g.data(d).name();
     if matches!(b, Boundary::Option(..)) {
         return Err(format!(
@@ -575,7 +575,7 @@ fn unboxed_field_crosses(g: &Globals, d: DataId, field: &str, b: &Boundary) -> R
 
 /// Names and types of the runtime fields (those not erased) of each
 /// constructor of a data type, with its parameters as the first variables.
-fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
+fn data_fields(g: &View<'_>, d: DataId) -> Vec<Vec<(String, Value)>> {
     let data = g.data(d);
     data.ctors()
         .iter()
@@ -596,7 +596,11 @@ fn data_fields(g: &Globals, d: DataId) -> Vec<Vec<(String, Value)>> {
 
 /// For each constructor of a data type that crosses the boundary, its fields'
 /// names and boundary types, for the given arguments of its parameters.
-pub fn field_boundaries(g: &Globals, d: DataId, args: &[Boundary]) -> Vec<Vec<(String, Boundary)>> {
+pub fn field_boundaries(
+    g: &View<'_>,
+    d: DataId,
+    args: &[Boundary],
+) -> Vec<Vec<(String, Boundary)>> {
     generic_field_boundaries(g, d)
         .into_iter()
         .map(|fields| {
@@ -609,7 +613,7 @@ pub fn field_boundaries(g: &Globals, d: DataId, args: &[Boundary]) -> Vec<Vec<(S
 }
 
 /// [`field_boundaries`] with the parameters left as [`Boundary::Param`].
-fn generic_field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary)>> {
+fn generic_field_boundaries(g: &View<'_>, d: DataId) -> Vec<Vec<(String, Boundary)>> {
     let params = g.data(d).params().len();
     data_fields(g, d)
         .into_iter()
@@ -678,7 +682,7 @@ impl Default for Options {
 /// (docs/proposals/namespaces.md §7.3), so two with the same short name
 /// can't both be exported. The same type reached twice is one type. The
 /// data types at the boundary, in the order they're reached.
-fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagnostic> {
+fn check_names(g: &View<'_>, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagnostic> {
     let mut short_exports: HashMap<&str, DefId> = HashMap::default();
     for sig in exports {
         if let Some(other) = short_exports.insert(&sig.name, sig.id) {
@@ -708,7 +712,7 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
     // that never crosses may have a field `__proto__`.
     for &d in &boundary_datas {
         let data = g.data(d);
-        if data.js.is_some() {
+        if g.js(d).is_some() {
             continue;
         }
         let repr = repr(g, d);
@@ -753,14 +757,14 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
 
 /// Checks that the exports loaded so far can be named in JS and TypeScript
 /// together: [`exportable`] checks each on its own.
-pub fn exports_fit_together(g: &Globals) -> Result<(), Diagnostic> {
+pub fn exports_fit_together(g: &View<'_>) -> Result<(), Diagnostic> {
     exports_fit_together_among(g, (0..g.env.defs().len()).map(DefId))
 }
 
 /// [`exports_fit_together`] for the exports among `ids` only: one
 /// namespace's.
 pub fn exports_fit_together_among(
-    g: &Globals,
+    g: &View<'_>,
     ids: impl Iterator<Item = DefId>,
 ) -> Result<(), Diagnostic> {
     let exports = ids
@@ -771,12 +775,12 @@ pub fn exports_fit_together_among(
     input_datas(g, &boundary_datas).map(|_| ())
 }
 
-pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
+pub fn generate(g: &View<'_>, limits: Limits) -> Result<Output, Diagnostic> {
     generate_with(g, limits, Options::default())
 }
 
 /// [`generate`], with the given representation options.
-pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
+pub fn generate_with(g: &View<'_>, limits: Limits, options: Options) -> Result<Output, Diagnostic> {
     let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
         .filter(|id| g.def(*id).export())
@@ -786,7 +790,7 @@ pub fn generate_with(g: &Globals, limits: Limits, options: Options) -> Result<Ou
 
 /// [`generate_with`] for the exports `ids` only: one namespace's.
 pub fn generate_exports(
-    g: &Globals,
+    g: &View<'_>,
     limits: Limits,
     options: Options,
     ids: &[DefId],
@@ -819,9 +823,8 @@ pub fn generate_exports(
             _ => None,
         })
         .chain(boundary_datas.iter().flat_map(|d| {
-            g.data(*d)
-                .defaults
-                .iter()
+            g.defaults(*d)
+                .into_iter()
                 .flat_map(|table| table.iter().flatten().flatten())
                 .map(|default| default.helper)
         }));
@@ -1046,7 +1049,7 @@ pub fn generate_exports(
 
 /// Whether `b` has the prelude's `Option` as a tagged data type in it: a
 /// nested one (not counting the fields of data types).
-fn names_option(g: &Globals, b: &Boundary) -> bool {
+fn names_option(g: &View<'_>, b: &Boundary) -> bool {
     match b {
         Boundary::List(elem) | Boundary::Map(_, _, elem) => names_option(g, elem),
         Boundary::Option(..) => names_option(g, &b.payload()),
@@ -1074,7 +1077,7 @@ const INPUT_SUFFIX: &str = "Input";
 /// A `js.unboxed` record is its one field at the boundary, so its own
 /// default never applies there. Each input shape's name must be free among
 /// the boundary's types.
-fn input_datas(g: &Globals, boundary_datas: &[DataId]) -> Result<HashSet<DataId>, Diagnostic> {
+fn input_datas(g: &View<'_>, boundary_datas: &[DataId]) -> Result<HashSet<DataId>, Diagnostic> {
     let own_default = |d: DataId| {
         let data = g.data(d);
         !repr(g, d).unboxed
@@ -1145,7 +1148,7 @@ fn input_datas(g: &Globals, boundary_datas: &[DataId]) -> Result<HashSet<DataId>
     Ok(inputs)
 }
 
-fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
+fn collect_datas(g: &View<'_>, b: &Boundary, out: &mut Vec<DataId>) {
     match b {
         Boundary::Nat
         | Boundary::Int
@@ -1954,7 +1957,7 @@ const encodeFast = (fast, t, v) => {
 "#;
 
 struct Gen<'g> {
-    g: &'g Globals,
+    g: &'g View<'g>,
     /// The prelude's `Nat`, if the `bigint` representation applies
     /// ([`nat_data`]).
     nat: Option<DataId>,
@@ -2164,7 +2167,7 @@ impl SelfCall {
 }
 
 impl<'g> Gen<'g> {
-    fn new(g: &'g Globals, options: Options) -> Result<Self, Diagnostic> {
+    fn new(g: &'g View<'g>, options: Options) -> Result<Self, Diagnostic> {
         let Representation {
             nat,
             text,
@@ -5049,7 +5052,7 @@ fn written_param_type(ty: &Term, i: usize) -> Option<&Term> {
 /// eliminator and its constants no computation rules. A definition is how
 /// the kernel would give one a rule, so a `Delay` constant with a body means
 /// erasure must be replaced by a real representation.
-fn erasable(g: &Globals) -> Result<(), Diagnostic> {
+fn erasable(g: &View<'_>) -> Result<(), Diagnostic> {
     for prim in Primitive::ALL {
         // Each of these builds a `Delay` (or is the type): none observes one.
         let builds = match prim {
@@ -5645,10 +5648,10 @@ fn short_name(name: &str) -> &str {
 /// reports before any code is generated. The codec tables
 /// ([`Gen::define`]), the declarations ([`Gen::ts_alias`]) and
 /// [`boundary_literal`] all read this, never names of their own.
-fn repr(g: &Globals, d: DataId) -> Rc<JsRepr> {
+fn repr(g: &View<'_>, d: DataId) -> Rc<JsRepr> {
     let data = g.data(d);
-    data.js
-        .clone()
+    g.js(d)
+        .cloned()
         .unwrap_or_else(|| Rc::new(js_repr::names(data, &js_repr::Requested::default())))
 }
 
@@ -5677,7 +5680,7 @@ fn external_optional(repr: &JsRepr, c: usize) -> Vec<bool> {
 
 /// The indices, among all of constructor `c`'s fields, of those that have a
 /// key (not erased), in order: alongside [`external_keys`].
-fn runtime_fields(g: &Globals, d: DataId, c: usize) -> Vec<usize> {
+fn runtime_fields(g: &View<'_>, d: DataId, c: usize) -> Vec<usize> {
     let ctor = &g.data(d).ctors()[c];
     (0..ctor.fields.len())
         .filter(|&i| !ctor.field_erased[i])
@@ -5686,8 +5689,8 @@ fn runtime_fields(g: &Globals, d: DataId, c: usize) -> Vec<usize> {
 
 /// The default of field `i` of constructor `c` of `d`, if it has one
 /// (docs/proposals/named-arguments.md §5.1).
-fn field_default(g: &Globals, d: DataId, c: usize, i: usize) -> Option<&FieldDefault> {
-    g.data(d).defaults.as_ref()?.get(c)?.get(i)?.as_ref()
+fn field_default<'a>(g: &View<'a>, d: DataId, c: usize, i: usize) -> Option<&'a FieldDefault> {
+    g.defaults(d)?.get(c)?.get(i)?.as_ref()
 }
 
 /// Whether field `i` of constructor `c` of `d`, whose boundary type is `b`,
@@ -5696,7 +5699,14 @@ fn field_default(g: &Globals, d: DataId, c: usize, i: usize) -> Option<&FieldDef
 /// or a variant's with `js.optional` (`flag`). A field with a default never
 /// is: a missing property is its default, and a defaulted `Option` field is
 /// always present on output, `None` as `undefined` (D1114).
-fn optional_property(g: &Globals, d: DataId, c: usize, i: usize, b: &Boundary, flag: bool) -> bool {
+fn optional_property(
+    g: &View<'_>,
+    d: DataId,
+    c: usize,
+    i: usize,
+    b: &Boundary,
+    flag: bool,
+) -> bool {
     field_default(g, d, c, i).is_none()
         && (flag || (g.data(d).record() && matches!(b, Boundary::Option(..))))
 }
@@ -5736,7 +5746,7 @@ pub fn record_key(name: &str) -> String {
 /// generated code: [`key`], unless the constructor has two fields of that
 /// name (a partial definition's request type has a field `_` for each
 /// unnamed parameter), when it's `$i`, which no name's key can be.
-pub(crate) fn field_key_at(g: &Globals, d: DataId, c: usize, i: usize) -> String {
+pub(crate) fn field_key_at(g: &View<'_>, d: DataId, c: usize, i: usize) -> String {
     let fields = &g.data(d).ctors()[c].fields;
     let name = &fields[i].0;
     if fields.iter().filter(|(n, _)| n == name).count() > 1 {
@@ -5747,7 +5757,7 @@ pub(crate) fn field_key_at(g: &Globals, d: DataId, c: usize, i: usize) -> String
 }
 
 /// The key of field `name` of data type `d`.
-fn key(g: &Globals, d: DataId, name: &str) -> String {
+fn key(g: &View<'_>, d: DataId, name: &str) -> String {
     if g.data(d).record() {
         record_key(name)
     } else {
@@ -5873,7 +5883,7 @@ const OUTSIDE_LIMITS: &str = "internal error: evaluating a checked type ran out 
 
 /// A JS expression for `value`, encoded as it would cross the boundary. Used by
 /// differential tests to compare the reference evaluator with generated JS.
-pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<String, String> {
+pub fn boundary_literal(g: &View<'_>, b: &Boundary, value: &Value) -> Result<String, String> {
     let stuck = || format!("not a fully evaluated value: {value:?}");
     match (b, value) {
         (Boundary::Bool, Value::Ctor(_, c, _)) => Ok((*c == 1).to_string()),
@@ -6024,7 +6034,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
 /// The entries of a map's tree, in key order, as JS `[key, value]` pairs. A
 /// balanced tree is as deep as the logarithm of its size.
 fn map_entries(
-    g: &Globals,
+    g: &View<'_>,
     key_type: &Boundary,
     element: &Boundary,
     tree: Value,
@@ -6045,7 +6055,7 @@ fn map_entries(
 }
 
 /// The character a `Char` value stands for.
-fn char_value(g: &Globals, value: &Value) -> Result<Option<char>, String> {
+fn char_value(g: &View<'_>, value: &Value) -> Result<Option<char>, String> {
     let Value::Ctor(_, 0, fields) = value else {
         return Ok(None);
     };

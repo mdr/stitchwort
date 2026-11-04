@@ -650,7 +650,7 @@ impl crate::queue::Check for DotCall {
 /// For hover on `field`, a dot call of `f` with `args`: the defaults it
 /// used.
 fn note_left_out(cx: &Ctx, field: &AstName, f: DefId, args: &[Arg]) -> Result<()> {
-    if cx.e.present.nav.is_some() && cx.g().def(f).param_defaults.is_some() {
+    if cx.e.present.nav.is_some() && cx.e.tables.param_defaults.contains(&f) {
         let head = (Term::Def(f), crate::kernel::def_ty(cx.g(), f)?);
         crate::defaults::note_left_out(cx, field.span, &head, args);
     }

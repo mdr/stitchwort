@@ -1229,10 +1229,22 @@ impl Elaborator {
         });
         let ty = pis(&binders, plan.result_at(g, n + 1, &|l| l)?);
         let step_name: Name = format!("{name}.%step").into();
-        let step_id = kernel::declare_def(&mut self.globals, &step_name, &ty, true, false, span)?;
+        let step_id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &step_name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         let mut names = plan.lam_names();
         names.push((REC.into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &[(step_id, lams(&names, step))])?;
+        kernel::define_group(
+            &mut self.globals,
+            &self.tables,
+            &[(step_id, lams(&names, step))],
+        )?;
         let go = self.decreasing_go(&plan, step_id)?;
         let made = [step_id, go];
         self.decreasing_wrapper(&plan, go)?;
@@ -1320,6 +1332,7 @@ impl Elaborator {
         let step_key = format!("{key}.%step");
         let step = kernel::declare_def(
             &mut self.globals,
+            &self.tables,
             &scope::display(&step_key).into(),
             &ty,
             plan.theorem,
@@ -1387,7 +1400,7 @@ impl Elaborator {
                 "a `match` in a definition with `decreasing` refers to it directly",
             ));
         }
-        kernel::define_group(&mut self.globals, &[(step, body)])
+        kernel::define_group(&mut self.globals, &self.tables, &[(step, body)])
             .map_err(|d| self.explain_lifted(d))?;
         Ok((step, first_helper))
     }
@@ -1403,7 +1416,8 @@ impl Elaborator {
     }
 
     fn generated_admit(&mut self, plan: &Plan, members: &[(DefId, Term)]) -> Result<()> {
-        kernel::define_group(&mut self.globals, members).map_err(|d| self.generator_failed(plan, d))
+        kernel::define_group(&mut self.globals, &self.tables, members)
+            .map_err(|d| self.generator_failed(plan, d))
     }
 
     fn generator_failed(&self, plan: &Plan, d: Diagnostic) -> Diagnostic {
@@ -1452,6 +1466,7 @@ impl Elaborator {
         let name: Name = format!("{}.%go", plan.name).into();
         let go = kernel::declare_def(
             &mut self.globals,
+            &self.tables,
             &name,
             &ty,
             plan.theorem,
@@ -1490,7 +1505,7 @@ impl Elaborator {
         let mut names = vec![("k".into(), Icit::Explicit)];
         names.extend(plan.lam_names());
         names.push(("h".into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &[(go, lams(&names, tree))])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(go, lams(&names, tree))])?;
         Ok(go)
     }
 
@@ -1548,7 +1563,15 @@ impl Elaborator {
         };
         let ty = pis(&binders, goal(n + 4));
         let name: Name = format!("{}.%irrel", plan.name).into();
-        let irrel = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
+        let irrel = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            plan.span,
+        )?;
         let g = &self.globals;
         // Case on k (level 0); in its `Succ` branch k' is at n + 4, then a
         // case on j (level 1), whose `Succ` branch has j' at n + 5.
@@ -1633,7 +1656,11 @@ impl Elaborator {
         names.extend(plan.lam_names());
         names.push(("h".into(), Icit::Explicit));
         names.push(("g".into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &[(irrel, lams(&names, tree))])?;
+        kernel::define_group(
+            &mut self.globals,
+            &self.tables,
+            &[(irrel, lams(&names, tree))],
+        )?;
         Ok(irrel)
     }
 
@@ -1665,7 +1692,15 @@ impl Elaborator {
             Term::Eq(None, Rc::new(lhs), Rc::new(step_call(r_f.clone()))),
         );
         let name: Name = format!("{}.unfold", plan.name).into();
-        let unfold = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
+        let unfold = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            plan.span,
+        )?;
         // Of an opaque `f`, it unfolds `f`, so it's opaque too
         // (docs/proposals/opaque-definitions.md §6.3).
         if self.globals.def(plan.f).opaque() {
@@ -1687,6 +1722,7 @@ impl Elaborator {
         );
         kernel::define_group(
             &mut self.globals,
+            &self.tables,
             &[(unfold, lams(&plan.lam_names(), proof))],
         )?;
         Ok(unfold)
@@ -1828,7 +1864,15 @@ impl Elaborator {
         );
         let name: Name = format!("{}.%respects", def.name()).into();
         let span = def.span();
-        let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            span,
+        )?;
         st.respects.insert(d, id);
         st.made.push(id);
         let g = &self.globals;
@@ -1842,7 +1886,11 @@ impl Elaborator {
         };
         let proof = self.tree_proofs(st, &tree, &result, a, &map, leaf)?;
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
-        kernel::define_group(&mut self.globals, &[(id, lams(&names, proof))])?;
+        kernel::define_group(
+            &mut self.globals,
+            &self.tables,
+            &[(id, lams(&names, proof))],
+        )?;
         Ok(id)
     }
 
@@ -2796,6 +2844,7 @@ impl Elaborator {
         let name: Name = format!("{}.%go", plan.name).into();
         let go = kernel::declare_def(
             &mut self.globals,
+            &self.tables,
             &name,
             &ty,
             plan.theorem,
@@ -2837,7 +2886,7 @@ impl Elaborator {
         names.extend(plan.lam_names());
         names.push(("h1".into(), Icit::Explicit));
         names.push(("h2".into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &[(go, lams(&names, tree))])?;
+        kernel::define_group(&mut self.globals, &self.tables, &[(go, lams(&names, tree))])?;
         Ok(go)
     }
 
@@ -2896,7 +2945,15 @@ impl Elaborator {
         };
         let ty = pis(&binders, goal(n + 8));
         let name: Name = format!("{}.%irrel", plan.name).into();
-        let irrel = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
+        let irrel = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &name,
+            &ty,
+            true,
+            false,
+            plan.span,
+        )?;
         let g = &self.globals;
         // The fuels' predecessors: k1' k2' j1' j2' at n + 8 … n + 11.
         let depth = n + 12;
@@ -2978,7 +3035,11 @@ impl Elaborator {
         for name in ["h1", "h2", "g1", "g2"] {
             names.push((name.into(), Icit::Explicit));
         }
-        kernel::define_group(&mut self.globals, &[(irrel, lams(&names, tree))])?;
+        kernel::define_group(
+            &mut self.globals,
+            &self.tables,
+            &[(irrel, lams(&names, tree))],
+        )?;
         Ok(irrel)
     }
 }

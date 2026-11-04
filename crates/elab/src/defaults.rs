@@ -97,7 +97,9 @@ impl Elaborator {
                 .expect("the constructor has the field it declares");
             table[c][i] = Some(self.default_helper(d, c, i, value)?);
         }
-        self.globals.set_data_defaults(d, Rc::new(table));
+        self.tables
+            .field_defaults
+            .insert(&self.session.owners, d, Rc::new(table));
         Ok(())
     }
 
@@ -166,7 +168,9 @@ impl Elaborator {
         let owner = def.name().clone();
         let telescope = telescope(def.ty());
         let table = self.header_helpers(&owner, &telescope, front, defaults)?;
-        self.globals.set_param_defaults(id, table);
+        self.tables
+            .param_defaults
+            .insert(&self.session.owners, id, Rc::new(table));
         Ok(())
     }
 
@@ -319,20 +323,25 @@ impl Elaborator {
             ty = Term::Pi(x.clone(), icit, Rc::new(dom), Rc::new(ty));
             lam = Term::Lam(x.clone(), icit, Rc::new(lam));
         }
-        let helper = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
-        kernel::define_def(&mut self.globals, helper, &lam)?;
+        let helper = kernel::declare_def(
+            &mut self.globals,
+            &self.tables,
+            &label,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        if of == Of::Param {
+            kernel::mark_param_default(&mut self.globals, helper);
+        }
+        kernel::define_def(&mut self.globals, &self.tables, helper, &lam)?;
         Ok(FieldDefault { helper, captures })
     }
 
     /// The default of field `i` of constructor `c` of `d`, if it has one.
     pub(crate) fn field_default(&self, d: DataId, c: usize, i: usize) -> Option<&FieldDefault> {
-        self.globals
-            .data(d)
-            .defaults
-            .as_ref()?
-            .get(c)?
-            .get(i)?
-            .as_ref()
+        self.tables.field_defaults.get(&d)?.get(c)?.get(i)?.as_ref()
     }
 
     /// The names of the fields of constructor `c` of `d` that have defaults.
@@ -407,7 +416,7 @@ fn helper_error(of: Of, e: Diagnostic, earlier: &[String], later: &[String]) -> 
 }
 
 /// What a default belongs to, for its messages.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Of {
     Field,
     Param,
@@ -785,15 +794,14 @@ pub(crate) struct DefaultRef {
 pub(crate) fn of_head(cx: &Ctx, head: &Term) -> Option<HeadDefaults> {
     let (h, args) = head.spine();
     match h {
-        Term::Def(id) if args.is_empty() && cx.g().def(*id).param_defaults.is_some() => {
-            let def = cx.g().def(*id);
-            let table = def.param_defaults.as_ref()?;
+        Term::Def(id) if args.is_empty() && cx.e.tables.param_defaults.contains(id) => {
+            let table = cx.e.tables.param_defaults.get(id)?;
             Some(HeadDefaults {
                 of: DefaultsOf::Def(*id),
                 prefix: 0,
                 header: table.header,
                 defaulted: table.params.iter().map(Option::is_some).collect(),
-                name: crate::scope::display(def.name()).to_string(),
+                name: crate::scope::display(cx.g().def(*id).name()).to_string(),
             })
         }
         Term::Meta(m) => local_of(cx, LocalHead::Meta(*m), args.len()),
@@ -841,9 +849,8 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
     match r.of {
         DefaultsOf::Def(id) => {
             let g = cx.g();
-            let found = g
-                .def(id)
-                .param_defaults
+            let table = cx.e.tables.param_defaults.get(&id);
+            let found = table
                 .as_ref()
                 .and_then(|t| t.params.get(r.param)?.as_ref())
                 .ok_or_else(internal)?;

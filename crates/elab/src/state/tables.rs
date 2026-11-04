@@ -22,12 +22,15 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 use std::rc::Rc;
 
+use stitchwort_core::backend::DataFacts;
+use stitchwort_core::globals::{FieldDefaults, HashKey, ParamDefaults, PrintHints, UpdateShown};
+use stitchwort_core::js_repr::JsRepr;
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
 use super::journal::{Logged, LoggedSet, Logs};
 use super::owners::Owners;
-use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table, owned};
+use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, SharedOwnedBy, Table, owned};
 use crate::TestDecl;
 use crate::cache::{Body, Encoding, Read};
 use crate::effects::AbilityInfo;
@@ -76,6 +79,39 @@ pub(crate) struct Tables {
     /// The definitions checked again with their bare row variables total
     /// (D1215), with where the first check failed.
     pub(crate) total_rows: OwnedBy<DefId, Span>,
+    /// A data type's fields' default values (docs/proposals/named-arguments.md
+    /// §5.1, §5.2): for each constructor and field, the generated helper that
+    /// computes the default, if it has one. Set once the type is admitted (or
+    /// replayed); a type without defaults has no row. Never hashed (D1099) and
+    /// never seen by the kernel: the elaborator reads it for literals that leave
+    /// fields out, and the JS backend ([`stitchwort_core::backend`]) for decoders
+    /// that fill absent properties (§5.3).
+    pub(crate) field_defaults: OwnedBy<DataId, Rc<FieldDefaults>>,
+    /// The default values of a definition's header's parameters,
+    /// `(step: Nat := 1)` (docs/proposals/signature-defaults.md §7.1): the
+    /// header's length and each parameter's helper. Never hashed; the kernel
+    /// never reads it. Shared with the printer's `PrintHints`.
+    pub(crate) param_defaults: SharedOwnedBy<DefId, Rc<ParamDefaults>>,
+    /// For the helper a record update `{ x | f = s }` of a type with several
+    /// constructors is lifted to: how the printer shows a call of it, as the
+    /// update. Only messages read it, so it isn't hashed. Shared with the
+    /// printer's `PrintHints`.
+    pub(crate) update_shown: SharedOwnedBy<DefId, Rc<UpdateShown>>,
+    /// How a data type crosses the JS boundary, when `js.*` attributes on it
+    /// say (docs/proposals/attributes.md §4.6): resolved and checked once the
+    /// type is final. A type without them has no row; the backend resolves
+    /// its default when an export reaches it. Not hashed (D598); the kernel
+    /// never sees it.
+    pub(crate) js_repr: OwnedBy<DataId, Rc<JsRepr>>,
+    /// The failed definitions the elaborator gave up on because they, or
+    /// something they use, have an open goal (`?`,
+    /// docs/proposals/lsp-goal-holes.md) rather than an error. To the kernel
+    /// they're failed like any other: only how they're reported differs
+    /// (*unfinished*, not "has errors"). Never in an entry: a unit with one
+    /// isn't cached.
+    pub(crate) unfinished_defs: OwnedBy<DefId, ()>,
+    /// The same for data types.
+    pub(crate) unfinished_datas: OwnedBy<DataId, ()>,
     /// The global instances, by interface and head (interfaces.md §5.6).
     pub(crate) instances: Instances,
     /// Every local definition's key, so dot notation never finds one
@@ -106,6 +142,12 @@ pub(crate) struct Mark {
     generated_alls: OwnedMark,
     match_columns: OwnedMark,
     total_rows: OwnedMark,
+    field_defaults: OwnedMark,
+    param_defaults: OwnedMark,
+    update_shown: OwnedMark,
+    js_repr: OwnedMark,
+    unfinished_defs: OwnedMark,
+    unfinished_datas: OwnedMark,
     namespace_defs: BTreeMap<String, Range<usize>>,
     prelude_defs: usize,
 }
@@ -129,8 +171,23 @@ pub(crate) struct Delta {
     generated_alls: Vec<(DataId, DefId)>,
     match_columns: Vec<(DefId, Rc<MatchColumns>)>,
     total_rows: Vec<(DefId, Span)>,
+    field_defaults: Vec<(DataId, Rc<FieldDefaults>)>,
+    param_defaults: Vec<(DefId, Rc<ParamDefaults>)>,
+    update_shown: Vec<(DefId, Rc<UpdateShown>)>,
+    js_repr: Vec<(DataId, Rc<JsRepr>)>,
     instances: Vec<((DataId, DataId), InstanceInfo)>,
     helper_keys: Vec<String>,
+}
+
+impl Delta {
+    /// The helpers of the parameter defaults the entry holds: the kernel
+    /// marks them ([`stitchwort_core::check::mark_param_default`]) as it
+    /// admits them.
+    pub(crate) fn param_default_helpers(&self) -> impl Iterator<Item = DefId> + '_ {
+        self.param_defaults
+            .iter()
+            .flat_map(|(_, table)| table.params.iter().flatten().map(|p| p.helper))
+    }
 }
 
 impl Mark {
@@ -141,6 +198,27 @@ impl Mark {
 }
 
 impl Tables {
+    /// Shares the rows the printer reads with `hints`, which the session's
+    /// `Globals` holds (the tables are empty).
+    pub(crate) fn share_print_hints(&mut self, hints: &PrintHints) {
+        self.param_defaults.share(hints.param_defaults.clone());
+        self.update_shown.share(hints.update_shown.clone());
+    }
+
+    /// Whether definition `id` or data type `d` (as `key`) is one the
+    /// elaborator gave up on for an open goal.
+    pub(crate) fn is_unfinished(&self, key: HashKey) -> bool {
+        match key {
+            HashKey::Def(id) => self.unfinished_defs.contains_key(&id),
+            HashKey::Data(d) => self.unfinished_datas.contains_key(&d),
+        }
+    }
+
+    /// How many declarations are unfinished.
+    pub(crate) fn unfinished_count(&self) -> usize {
+        self.unfinished_defs.len() + self.unfinished_datas.len()
+    }
+
     /// Where the tables are, with `ids` declarations made so far.
     pub(crate) fn mark(&self, ids: Ids) -> Mark {
         let Tables {
@@ -160,6 +238,12 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
+            unfinished_defs,
+            unfinished_datas,
             // Logged ([`Tables::logged`]).
             instances: _,
             helper_keys: _,
@@ -183,6 +267,12 @@ impl Tables {
             generated_alls: generated_alls.mark(ids),
             match_columns: match_columns.mark(ids),
             total_rows: total_rows.mark(ids),
+            field_defaults: field_defaults.mark(ids),
+            param_defaults: param_defaults.mark(ids),
+            update_shown: update_shown.mark(ids),
+            js_repr: js_repr.mark(ids),
+            unfinished_defs: unfinished_defs.mark(ids),
+            unfinished_datas: unfinished_datas.mark(ids),
             namespace_defs: namespace_defs.clone(),
             prelude_defs: *prelude_defs,
         }
@@ -207,6 +297,12 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
+            unfinished_defs,
+            unfinished_datas,
             // Put back by the journal.
             instances: _,
             helper_keys: _,
@@ -229,22 +325,26 @@ impl Tables {
         generated_alls.rewind(&m.generated_alls);
         match_columns.rewind(&m.match_columns);
         total_rows.rewind(&m.total_rows);
+        field_defaults.rewind(&m.field_defaults);
+        param_defaults.rewind(&m.param_defaults);
+        update_shown.rewind(&m.update_shown);
+        js_repr.rewind(&m.js_repr);
+        unfinished_defs.rewind(&m.unfinished_defs);
+        unfinished_datas.rewind(&m.unfinished_datas);
         *namespace_defs = m.namespace_defs.clone();
         *prelude_defs = m.prelude_defs;
     }
 
     /// Writes what the unit being encoded added since `m`, and the new rows
     /// of its write-set `writes` of the logged tables, in the entry
-    /// format's order (`cache::FORMAT`), which puts two parts that aren't
-    /// tables between them: `kernel`, the side facts of the unit's
-    /// declarations (after the records), and `extensions`, the extensions
-    /// the namespace declares (before the tests).
+    /// format's order (`cache::FORMAT`), which puts a part that isn't a
+    /// table between them: `extensions`, the extensions the namespace
+    /// declares (before the tests).
     pub(crate) fn encode_since(
         &self,
         m: &Mark,
         writes: &Writes<'_>,
         e: &mut Encoding<'_>,
-        kernel: impl FnOnce(&mut Encoding<'_>),
         extensions: impl FnOnce(&mut Encoding<'_>),
     ) -> Result<(), String> {
         let Tables {
@@ -264,6 +364,13 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
+            // Not in an entry (see the field's comment).
+            unfinished_defs: _,
+            unfinished_datas: _,
             instances,
             helper_keys,
             // Not in an entry (see the module's comment).
@@ -292,7 +399,10 @@ impl Tables {
             }
         }
         records.encode_since(&m.records, e)?;
-        kernel(e);
+        field_defaults.encode_since(&m.field_defaults, e)?;
+        param_defaults.encode_since(&m.param_defaults, e)?;
+        update_shown.encode_since(&m.update_shown, e)?;
+        js_repr.encode_since(&m.js_repr, e)?;
         interfaces.encode_since(&m.interfaces, e)?;
         new.sort_by_key(|(k, _)| (k.0.0, k.1.0));
         e.count(new.len());
@@ -323,15 +433,17 @@ impl Tables {
         Ok(())
     }
 
-    /// Reads what [`Tables::encode_since`] wrote, with the parts between
-    /// the tables read by `kernel` and `extensions`.
+    /// Reads what [`Tables::encode_since`] wrote, with the part between
+    /// the tables read by `extensions`.
     pub(crate) fn decode(
         b: &mut Body<'_>,
-        kernel: impl FnOnce(&mut Body<'_>) -> Read<()>,
         extensions: impl FnOnce(&mut Body<'_>) -> Read<()>,
     ) -> Read<Delta> {
         let records = OwnedBy::decode(b)?;
-        kernel(b)?;
+        let field_defaults = OwnedBy::decode(b)?;
+        let param_defaults = SharedOwnedBy::decode(b)?;
+        let update_shown = SharedOwnedBy::decode(b)?;
+        let js_repr = OwnedBy::decode(b)?;
         let interfaces = OwnedBy::decode(b)?;
         let n = b.count()?;
         let instances = (0..n)
@@ -371,6 +483,10 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
             instances,
             helper_keys,
         })
@@ -395,6 +511,13 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
+            // Not in an entry.
+            unfinished_defs: _,
+            unfinished_datas: _,
             instances,
             helper_keys,
             // Set by the replay of a namespace (`replay_namespace`).
@@ -418,6 +541,10 @@ impl Tables {
             generated_alls: d_generated_alls,
             match_columns: d_match_columns,
             total_rows: d_total_rows,
+            field_defaults: d_field_defaults,
+            param_defaults: d_param_defaults,
+            update_shown: d_update_shown,
+            js_repr: d_js_repr,
             instances: d_instances,
             helper_keys: d_helper_keys,
         } = d;
@@ -437,6 +564,10 @@ impl Tables {
         generated_alls.replay(d_generated_alls, owners);
         match_columns.replay(d_match_columns, owners);
         total_rows.replay(d_total_rows, owners);
+        field_defaults.replay(d_field_defaults, owners);
+        param_defaults.replay(d_param_defaults, owners);
+        update_shown.replay(d_update_shown, owners);
+        js_repr.replay(d_js_repr, owners);
         for (k, info) in d_instances {
             instances.insert(owners, k, info);
         }
@@ -464,6 +595,12 @@ impl Tables {
             generated_alls,
             match_columns,
             total_rows,
+            field_defaults,
+            param_defaults,
+            update_shown,
+            js_repr,
+            unfinished_defs,
+            unfinished_datas,
             instances,
             helper_keys,
             namespace_defs,
@@ -480,6 +617,12 @@ impl Tables {
         generated_alls.dump("generated_all", out);
         match_columns.dump("match columns", out);
         total_rows.dump("total_row", out);
+        field_defaults.dump("field defaults", out);
+        param_defaults.dump("param defaults", out);
+        update_shown.dump("update shown", out);
+        js_repr.dump("js repr", out);
+        unfinished_defs.dump("unfinished def", out);
+        unfinished_datas.dump("unfinished data", out);
         let mut lines: Vec<String> = instances
             .iter()
             .map(|((i, h), info)| {
@@ -559,6 +702,12 @@ impl Tables {
             generated_alls: _,
             match_columns: _,
             total_rows: _,
+            field_defaults: _,
+            param_defaults: _,
+            update_shown: _,
+            js_repr: _,
+            unfinished_defs: _,
+            unfinished_datas: _,
             namespace_defs: _,
             prelude_defs: _,
         } = self;
@@ -650,6 +799,16 @@ impl Instances {
             f(info);
             assert_eq!(info.def, def, "an instance's definition changed");
         })
+    }
+}
+
+impl DataFacts for Tables {
+    fn js(&self, d: DataId) -> Option<&Rc<JsRepr>> {
+        self.js_repr.get(&d)
+    }
+
+    fn defaults(&self, d: DataId) -> Option<&Rc<FieldDefaults>> {
+        self.field_defaults.get(&d)
     }
 }
 

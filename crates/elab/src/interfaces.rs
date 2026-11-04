@@ -325,8 +325,16 @@ impl Elaborator {
                 )),
             );
             let method: Name = format!("{name}.{field}").into();
-            let id = kernel::declare_def(&mut self.globals, &method, &ty, false, false, span)?;
-            kernel::define_def(&mut self.globals, id, &body)?;
+            let id = kernel::declare_def(
+                &mut self.globals,
+                &self.tables,
+                &method,
+                &ty,
+                false,
+                false,
+                span,
+            )?;
+            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
             // `Ord.compare` is the compiler's (crates/js).
             if self.unit.loading_prelude {
                 self.bind_builtin_def(id)?;
