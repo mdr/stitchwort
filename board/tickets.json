@@ -1,5 +1,5 @@
 {
-  "next": 1260,
+  "next": 1268,
   "tickets": [
     {
       "id": 47,
@@ -5977,6 +5977,118 @@
         "std"
       ],
       "body": "Matt, 4 Nov 2026: \"PrefixSums is in stdlib, I dunno if that's stdlib material.\" Added to std by SW-13 (24 Oct 2026, AoC 2025 day 9) with BlockSum.sw (its correctness proof). Only users: aoc/src/Aoc/Year2025/Day09 (program, Proofs/Floor.sw, tests). Other std modules worth the same question: Graph, Random, Terminal, Omega (tactic support?), Finite, Ring. Output: a short rule for what belongs in std (general, widely reusable, part of the language's story) vs a project library (aoc Common, games), then moves. Migration cost doesn't count.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1260,
+      "title": "Std: lemmas for Text.toNat, Text.stripSuffix (sameChar bridge), List contains-on-distinct, heads of equal lists",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From AoC 2020 day 4's friction review (SW-1249, NOTES-2020.md items 1 and 8, ranked 1 and 8). Part 2's proofs spent ~50 lines on text plumbing because std proves nothing about Text.toNat or Text.stripSuffix, and stripSuffix compares by Text.sameChar, not ==. Wanted: Text.toNatSome (cf. day 4's toNatDigits / readDigitsAll), Text.stripSuffixSome: text.stripSuffix suffix = Some rest ↔ text = rest ++ suffix (and stripPrefix's), a sameChar bridge (sameCharEq: Text.sameChar c d = (c == d)) or stripPrefix/stripSuffix defined via ==; List: contains on a list of distinct values (count ≤ 1 / exactly one), and the heads of equal lists are equal (List.consInjective covers tails). Day 4's Proofs/Rules.sw lemmas are candidates to move. Afterwards day 4's proofs should shrink to a few rewrites.\n\nD2356 (Matt, 4 Nov): yes to the small std lemmas and the text lemmas.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1261,
+      "title": "Audit vacuity check: false warnings on generated equations; is random search viable?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1262,
+      "title": "Parse.all: a failure after an extra blank line is reported a line late as 'expected the end of the input'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 3 (ranked 3). parsed \"cid:1\\n\\n\\ncid:2\" gives 'line 4, column 1: expected the end of the input'; the mistake is line 3. The furthest failure (a key expected, line 3) loses to the final line breaks. Parse.all could prefer a failure inside the last section, or add 'another section' as an expectation after a blank line.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1263,
+      "title": "cases after rewrite, in an arm, fails with E-MATCH-MOTIVE and 'rfl can't prove this'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 2 (ranked 4). In Day04 yearChars, 'rewrite betweenToNat low high [char, ..rest] in cases' fails; the same cases as a separate lemma (andShape) checks. Probably splits something stuck in a fold whose generalisation is ill-typed. Message points at 'this match' though the user wrote cases, and doesn't say what it split. Needs a minimal repro; then skip untypeable splits or name the split.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1264,
+      "title": "cases on two enumeration values splits stuck comparisons before the second variable (E-CASES-BUDGET)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 5). codeEq (a b: Key): (a.code == b.code) = (a == b) := cases split a, then four List.decEq comparisons, before b; splitting b first closes all 64 cases by computing. Prefer splitting variables over stuck terms. Workaround used: Finite.check plus DecEq.sound.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1265,
+      "title": "Name errors: BirthYear.valid has no note; Passport.mk's error printed three times",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 5 (ranked 6). 'BirthYear.valid \"2002\"' is E-UNKNOWN-NAME 'not in scope' with no note; could say '`BirthYear` is a `Key`: write `Key.valid BirthYear`' (or resolve as dot notation on the constructor's value). Passport.mk (…) for a record: E-UNKNOWN-NAME printed three times for one use (bug).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1266,
+      "title": "pick's expectation lists 'a' or 'b' or … or 'h'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 4 (ranked 7). 'expected 'byr' or 'iyr' or … or 'cid'' should read 'expected 'byr', 'iyr', …, 'pid' or 'cid''. Affects every pick-parsed enumeration.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1267,
+      "title": "First stitchwort search in a fresh worktree took over two minutes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 9). 'List.filter (List.map _ _) _ = _' took >2 min wall clock the first time, 3.4 s user the second, under load average ~70. Time it on an idle machine first; likely a cold index or cache build.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
