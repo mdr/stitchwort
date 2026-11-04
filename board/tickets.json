@@ -1,5 +1,5 @@
 {
-  "next": 1295,
+  "next": 1296,
   "tickets": [
     {
       "id": 47,
@@ -6444,7 +6444,7 @@
       "labels": [
         "design"
       ],
-      "body": "D2368 (Matt, 4 Nov 2026): a match whose result is Option does NOT silently default missing cases to None; keep the exhaustiveness check, be explicit. But Matt wants Scala's partial-function vibe ('map with a partial function based on your match, emit things that don't match ... very high expressivity'): xs.collect { case ... => ... }. Orchestrator's sketch: (1) clause lambdas, a lambda written as match arms; (2) an explicitly marked partial form that desugars to a match whose arms are wrapped in Some with a final _ => None, so it fits List.filterMap / a new List.collect (a → Option b); partiality is opt-in and visible, so the exhaustiveness check stays everywhere else. Questions for the note: syntax (fits lambda-syntax.md's grammar, the | ambiguity in one-line matches), how it reads in pipelines, Option vs a dedicated PartialFn with isDefinedAt, guards, other uses (Map.collect, Parse alternatives, orElse chaining), what proofs see (it is an ordinary match; collect membership lemma), and survey of AoC sites that would use it.\nProgress (lane, 4 Nov 22:18): note written, docs/proposals/partial-lambdas.md (commit 3665220a1 on lane/SW-1292). Recommends design B: `match | …` clause lambdas (total), `match? | …` (arms wrapped in Some, rest None; for filterMap/findMap), `matches | …` (Boolean side, Scala's cond; rest False, body-less arm = True); guards `| p if c => e` as a later stage. Rejects C (partial by callee type) and D (PartialFn record). Decisions P1-P10 for Matt. Survey: 10 pipeline sites (5 need guards), 10 Option tables, 12 total clause lambdas, Boolean form 6 aoc + 13 std.\n\nMerged as a proposal; awaiting Matt's decisions P1–P10 (asked as D2370: accept the recommendations?). Model result: Opus, worked, 11 min (+ the cond addition) (est. 60).\n\nD2370 (Matt, 4 Nov 2026): 'I really like this.' Spelling: match | … (total clause lambda), match some | … (Some for listed cases, None otherwise), matches | … (true for listed cases, false otherwise); replaces the note's match?. Other recommendations accepted; guards (P3) being discussed as D2371.",
+      "body": "D2368 (Matt, 4 Nov 2026): a match whose result is Option does NOT silently default missing cases to None; keep the exhaustiveness check, be explicit. But Matt wants Scala's partial-function vibe ('map with a partial function based on your match, emit things that don't match ... very high expressivity'): xs.collect { case ... => ... }. Orchestrator's sketch: (1) clause lambdas, a lambda written as match arms; (2) an explicitly marked partial form that desugars to a match whose arms are wrapped in Some with a final _ => None, so it fits List.filterMap / a new List.collect (a → Option b); partiality is opt-in and visible, so the exhaustiveness check stays everywhere else. Questions for the note: syntax (fits lambda-syntax.md's grammar, the | ambiguity in one-line matches), how it reads in pipelines, Option vs a dedicated PartialFn with isDefinedAt, guards, other uses (Map.collect, Parse alternatives, orElse chaining), what proofs see (it is an ordinary match; collect membership lemma), and survey of AoC sites that would use it.\nProgress (lane, 4 Nov 22:18): note written, docs/proposals/partial-lambdas.md (commit 3665220a1 on lane/SW-1292). Recommends design B: `match | …` clause lambdas (total), `match? | …` (arms wrapped in Some, rest None; for filterMap/findMap), `matches | …` (Boolean side, Scala's cond; rest False, body-less arm = True); guards `| p if c => e` as a later stage. Rejects C (partial by callee type) and D (PartialFn record). Decisions P1-P10 for Matt. Survey: 10 pipeline sites (5 need guards), 10 Option tables, 12 total clause lambdas, Boolean form 6 aoc + 13 std.\n\nMerged as a proposal; awaiting Matt's decisions P1–P10 (asked as D2370: accept the recommendations?). Model result: Opus, worked, 11 min (+ the cond addition) (est. 60).\n\nD2370 (Matt, 4 Nov 2026): 'I really like this.' Spelling: match | … (total clause lambda), match some | … (Some for listed cases, None otherwise), matches | … (true for listed cases, false otherwise); replaces the note's match?. Other recommendations accepted; guards (P3) being discussed as D2371.\n\nD2371 (Matt): guards yes, as a follow-on stage after SW-1294 (ticket filed).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6473,6 +6473,20 @@
         "language"
       ],
       "body": "Implement stages 1 and 2 of docs/proposals/partial-lambdas.md per D2370: spelling match | …, match some | … (the note's match?), matches | …; some and matches contextual keywords (some only between match and |; matches only before |). Parser desugaring to an ordinary match with a syntax-tree flag for printer/formatter round-trip; definition-body form keeps generated equations (P4); W-MATCH-TOTAL warning (P5); 'match some makes an Option' mismatch note; arms without a result in matches mean True (P10); List.memFilterMap (P6); docs (syntax.md, guide ch. 4) and accept/reject examples. Update the note's spelling first. Sonnet, est. 3h45 (one lane). Guards (P3) separate, pending D2371.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1295,
+      "title": "Pattern guards (| p if c => e) in every match; follows SW-1294",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "D2371 (Matt, 4 Nov 2026): yes, as a follow-on stage after SW-1294. Stage 4 of docs/proposals/partial-lambdas.md (§6): | p if c => e in match … with, definition arms, and the three new forms (match, match some, matches). When the guard is false the arms below are tried; a guarded arm covers nothing for exhaustiveness (E-NONEXHAUSTIVE), so ordinary matches still need an unguarded arm, while match some / matches' hidden default covers the rest. Compiles to an if in the case tree whose else continues with the remaining arms; W-REDUNDANT with guarded arms; proofs see an ordinary if. Revives SW-237 (pruned without a note). Plan: Opus checks the design (a short note revising SW-237), then Sonnet implements; then migrate the five guarded pipeline sites (2024 days 6, 15, 20; 2021 day 18). Est. 3-4 h. Starts after SW-1294 merges.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
