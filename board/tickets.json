@@ -1,5 +1,5 @@
 {
-  "next": 1222,
+  "next": 1224,
   "tickets": [
     {
       "id": 47,
@@ -5423,6 +5423,34 @@
         "cleanup"
       ],
       "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1222,
+      "title": "@[tailrec]: checked attribute (E-TAILREC naming the non-tail call and what waits on it), on definitions, exports and local defs; true tail calls only; mutual recursion 'not covered yet'; effectful code same rule; JS fails loudly if it can't loop a marked definition; per docs/proposals/tailrec.md",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "D2310-D2314 (Matt, 4 Nov 2026): accepted as recommended. One Sonnet lane, half a day to a day (note's estimate). First check (note's risk): effectful recursive calls may be wrapped in row conversions and wrongly look non-tail; test on the effects examples early. Opus reviews (touches elaboration).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1223,
+      "title": "Editor hint for recursive functions: 'runs as a loop' or 'a frame per call (line N, under +)', no warning",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "D2315 (Matt, 4 Nov 2026): yes, after the @[tailrec] lane.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
