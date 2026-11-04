@@ -6480,9 +6480,9 @@
     {
       "id": 1295,
       "title": "Pattern guards (| p if c => e) in every match; follows SW-1294",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1295",
       "labels": [
         "language"
       ],
@@ -6508,9 +6508,9 @@
     {
       "id": 1297,
       "title": "Std: named parameters on Nat.iterate, List.rangeFrom, Vec.shiftRight; add id, Option.flatten, List.somes, uncurry",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1297",
       "labels": [
         "std"
       ],
