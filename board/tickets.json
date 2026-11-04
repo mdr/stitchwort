@@ -1,5 +1,5 @@
 {
-  "next": 1258,
+  "next": 1259,
   "tickets": [
     {
       "id": 47,
@@ -5949,6 +5949,20 @@
         "elab"
       ],
       "body": "Found by SW-1221, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1258,
+      "title": "Std: give every public function's parameters revealing names, for self-documentation (signatures, hover, stitchwort doc) and so callers can use named arguments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 4 Nov 2026, from SW-1251 (List.rangeFrom count start). A signature written as a type (`def List.rangeFrom: Nat → Nat → List Nat` with match arms) leaves parameters unnamed, so `List.rangeFrom (count := n) (start := 1)` is impossible and the signature doesn't say which Nat is which. Naming them in the type keeps the match arms unchanged: `def List.rangeFrom: (count: Nat) → (start: Nat) → List Nat` (checked 4 Nov: named arguments then work in either order; positional calls unchanged). Rough count by grep: about 71 defs and 284 theorems in std have at least one unnamed explicit parameter. Scope: defs first (theorems: names help hover and named use too, judge which). Also check that existing named parameters reveal meaning (`n`, `i`, `x` where a role name says more). Hash changes don't count. Comment style: std's full API docs (D2351). SW-1251 (rangeFrom's order) can be folded in. Probably a mechanical lane (DeepSeek) from a name-choosing pass by a stronger model, or Sonnet end to end.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
