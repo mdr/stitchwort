@@ -5273,14 +5273,14 @@
     {
       "id": 1211,
       "title": "AoC 2020 day 2 in Stitchwort",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": "lane/SW-1211 (.claude/worktrees/SW-1211)",
       "labels": [
         "aoc",
         "proof"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n",
+      "body": "D2306 (Matt, 4 Nov 2026): next 2020 day when a slot frees; same shape as day 1 (SW-1206); inputs/answers from ~/repos/mdr/aoc/2020.\n\nStarted 4 Nov 2026 on Opus, expected: 120 min.\n\n\nProgress (lane, 4 Nov 2026): done on lane/SW-1211, commit ed7f733d. Answers 603 / 404 (example 2 / 1), matching Matt's Scala (sbt) and awk. Proved: both checks = spec for every entry (validByCountSpec, validByPositionSpec, letterAtSpec), both answers = spec for every list (part1Correct, part2Correct), parser soundness (parseWritten: each line is its entry written out). Not proved: parser completeness. Audit (task audit:touched): 13 theorems, 0 failed, 0 warnings. Breaking the program (low < times; 0-based get; text \":\") fails the proofs. Tests: stitchwort test (17 passed), task test:one -- year2020_day02 (passed). Friction in aoc/NOTES-2020.md \"Day 2\" (top: named parser must be restated for Parse.readsBind; Text lacks count/get/any/all; search misses DecEq.refl at Nat). Clippy not run (only a two-line edit to aoc_answers.rs; rustfmt --check clean). Took about 25 min by `date` (the machine's load was over 100, the test:one build took 8 min).\n\n\nMerged. Answers match the Scala (603, 404); both parts proved equal to the spec for every list; parser shown to read the format (not that every well-formed line parses). Friction review with Matt pending before day 3.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
