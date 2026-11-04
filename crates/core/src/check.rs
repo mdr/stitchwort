@@ -929,13 +929,25 @@ fn check_case(
         // as defined together with (a copy of) that type
         // (docs/proposals/nested-data-types.md §5.4).
         let nested = nested_field(&g, d);
-        let subsingleton = data.group.len() == 1
-            && nested.is_none()
-            && data.ctors.len() <= 1
+        // A proposition with a field holding a proof of itself (`MkLoop
+        // (next: Loop)`) is refused too (D1980, Lean's rule). In the
+        // proof-irrelevant model every `l: Loop` is `MkLoop (Loop.inv l)`, so
+        // data computed by recursion on `l` could always be unfolded once
+        // more, and an irrelevant comparison would be undecidable (Carneiro;
+        // docs/proposals/proof-irrelevance.md §5.1, §7.11).
+        let recursive = data.ctors.iter().enumerate().find_map(|(c, ctor)| {
+            ctor.fields
+                .iter()
+                .position(|(_, ty)| occurs(ty, &[d]).is_some())
+                .map(|f| (c, f))
+        });
+        let only_proofs = data.ctors.len() <= 1
             && data
                 .ctors
                 .iter()
                 .all(|c| c.field_sorts.iter().all(|s| *s == Sort::Prop));
+        let subsingleton =
+            data.group.len() == 1 && nested.is_none() && recursive.is_none() && only_proofs;
         // A case whose every branch is impossible is never reached, so it
         // may produce anything (docs/proposals/indexed-families.md §6.4).
         if !subsingleton && !every_branch_impossible(cx, x, d, &args, branches, &goal_term)? {
@@ -953,6 +965,14 @@ fn check_case(
                      with that type, and matching on a proof of it can only produce another \
                      proof.",
                     data.name, data.ctors[c].fields[f].0, data.ctors[c].name, data.name
+                )
+            } else if let (true, Some((c, f))) = (only_proofs, recursive) {
+                format!(
+                    "`{}` is a proposition, so its proofs are erased at runtime. Its field `{}` \
+                     holds a proof of `{}` itself, and matching on such a proof can only produce \
+                     another proof: otherwise checking whether two of its uses are equal could go \
+                     on forever.",
+                    data.name, data.ctors[c].fields[f].0, data.name
                 )
             } else {
                 format!(
