@@ -1,5 +1,5 @@
 {
-  "next": 1181,
+  "next": 1182,
   "tickets": [
     {
       "id": 47,
@@ -4820,6 +4820,20 @@
         "perf"
       ],
       "body": "From SW-1179 (4 Nov).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1181,
+      "title": "Full tier fails on main (98b5eba1): driver differential the_evaluators_agree_on_the_prelude_and_every_example uses 14.7 GB and trips the 16 GB guard; cli lsp a_newer_edit_cancels_the_check_running fails (stale check not cancelled)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "From SW-1175 (4 Nov, 02:02). Log target/full-tier.log. Opus, est. 90 min. Find whether either is a regression from tonight's merges (step 6/7, SW-1179) or older; fix; then the full tier reruns.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
