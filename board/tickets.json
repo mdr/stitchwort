@@ -1,5 +1,5 @@
 {
-  "next": 1206,
+  "next": 1207,
   "tickets": [
     {
       "id": 47,
@@ -3921,15 +3921,15 @@
     {
       "id": 1116,
       "title": "Editor foundation: position-based answers (goal at cursor, hover, signature, quick fixes) in crates/driver, shared by the LSP and the playground; elaborator probe for expected type and locals at a cursor",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 1; unblocks most later items. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2304 (Matt, 4 Nov 2026): keep in next; may pick up soon.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -5190,6 +5190,21 @@
         "perf"
       ],
       "body": "SW-1199 finding 6; not investigated.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1206,
+      "title": "AoC 2020 day 1 in Stitchwort (spec, solution, proof where natural, input test, NOTES-2020.md)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proof"
+      ],
+      "body": "D2305 (Matt, 4 Nov 2026): start the 2020 track, one day per lane, in order; next free lane. Inputs and examples from ~/repos/mdr/aoc/2020/src/main/resources/day1/, answers cross-checked with Matt's Scala (2020/src/main/scala/aoc/day1). After the day, review the friction notes with Matt before day 2.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
