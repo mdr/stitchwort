@@ -62,7 +62,7 @@ use crate::library::{Needs, PendingKind};
 use crate::nav::{LocalUse, Noted};
 use crate::project::SourceUnit;
 use crate::scope::ScopeOp;
-use crate::state;
+use crate::state::{self, Transaction, UnitId};
 use crate::{Elaborator, Global};
 pub(crate) use codec::Read;
 use codec::{Bad, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
@@ -130,33 +130,51 @@ enum Miss {
 /// While a project namespace that may be cached is elaborated: what its
 /// entry is worked out against (`elaborate_namespace_cached`).
 pub(crate) struct Capture {
-    /// Before anything: the names there were, and the members marked.
-    start_keys: HashSet<String>,
-    start_members: state::Copied<String, ()>,
+    /// Begun before anything, with the namespace's unit: its entry is the
+    /// write-set of the unit's own segments since (§4.8.3), which leaves
+    /// out the library files loaded inside it.
+    transaction: Transaction,
+    unit: UnitId,
     /// The names the namespace declared before its library files loaded
     /// (`collect`), and what it needs from the library.
     early: Option<Vec<String>>,
     needs: Option<Needs>,
     /// Once its library files have loaded: what it is compared against,
-    /// and how many library files had loaded.
+    /// how many library files had loaded, and how many segments the
+    /// journal had.
     before: Option<Before>,
     library_loaded: usize,
+    segments: usize,
 }
 
-/// What a library file's load is compared against, to see what it added.
+/// While a library file that may be cached loads: its transaction, begun
+/// before it, and what it is compared against. Its entry is the write-set
+/// of the units begun since (`after`): the file's, and any nested in it.
+pub(crate) struct LibraryCapture {
+    transaction: Transaction,
+    after: UnitId,
+    before: Before,
+}
+
+/// What a unit's load is compared against, to see what it added: where the
+/// tables that only grow were. (What it did to the logged tables is its
+/// write-set, [`WriteSet`].)
 pub(crate) struct Before {
     defs: usize,
     datas: usize,
     tables: state::TablesMark,
-    /// Copies of the logged tables an entry holds the new rows of, until
-    /// entries are made from write-sets (docs/proposals/elaborator-state.md
-    /// §4.8.3, step 6c).
-    copies: state::TablesCopies,
-    scope: state::Copied<String, (Global, Span)>,
     /// How many data types had fields' defaults: a unit adds them only to
     /// its own.
     defaults: usize,
     nav: Option<(usize, usize, usize)>,
+}
+
+/// A unit's write-set (docs/proposals/elaborator-state.md §4.8.3): the keys
+/// the journal's segments of the unit logged since its transaction began,
+/// each with its row before, in the logged tables an entry holds rows of.
+struct WriteSet<'a> {
+    scope: crate::scope::Writes<'a>,
+    tables: state::TablesWrites<'a>,
 }
 
 impl Elaborator {
@@ -289,11 +307,37 @@ impl Elaborator {
         }
     }
 
-    /// What to compare with once library file `f` has loaded, to see what
-    /// it added; and starts noting the names it declares.
-    pub(crate) fn cache_before(&mut self) -> Before {
+    /// Before library file `f` loads, to see what it added once it has:
+    /// begins its transaction, and starts noting the names it declares.
+    pub(crate) fn cache_before(&mut self) -> LibraryCapture {
         self.scope.log = Some(Vec::new());
-        self.snapshot()
+        LibraryCapture {
+            transaction: self.with_journal(|journal, logs| journal.begin(logs)),
+            after: self.session.owners.last(),
+            before: self.snapshot(),
+        }
+    }
+
+    /// The write-set of the units `own` picks since `t` began.
+    fn write_set(&self, t: &Transaction, own: impl Fn(UnitId) -> bool) -> WriteSet<'_> {
+        let segments = self.session.journal.segments_since(t, own);
+        WriteSet {
+            scope: self.scope.writes(|pick| {
+                (segments.iter())
+                    .map(|(at, end)| (pick(at.scope()), end.map(|end| pick(end.scope()))))
+                    .collect()
+            }),
+            tables: self.tables.writes(|pick| {
+                (segments.iter())
+                    .map(|(at, end)| (pick(at.tables()), end.map(|end| pick(end.tables()))))
+                    .collect()
+            }),
+        }
+    }
+
+    /// Ends a unit's transaction: what it did stays.
+    fn commit(&mut self, t: Transaction) {
+        self.with_journal(|journal, logs| journal.commit(t, logs));
     }
 
     /// What a unit's load is compared against.
@@ -302,8 +346,6 @@ impl Elaborator {
             defs: self.globals.defs.len(),
             datas: self.globals.datas.len(),
             tables: self.tables.mark(self.ids()),
-            copies: self.tables.copies(),
-            scope: self.scope.copy_entries(),
             defaults: self.with_defaults(),
             nav: self.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
@@ -325,28 +367,28 @@ impl Elaborator {
     pub(crate) fn cache_after(
         &mut self,
         f: usize,
-        before: Before,
+        capture: LibraryCapture,
         ok: bool,
         unit: &str,
         key: &Key,
     ) {
         let log = self.scope.log.take().unwrap_or_default();
         // A cancelled check isn't a result, even where it reported nothing.
-        if !ok || self.globals.budget.cancelled() {
-            return;
-        }
-        let store = self.options.check_cache.clone().expect("a cache is set");
-        let entry = self.encode_library_file(f, &before, &log, key, store.salt());
-        if let Err(why) = &entry {
-            debug(&format!("std file {f} can't be cached: {why}"));
-        }
-        match entry {
-            Ok(entry) => {
-                store.write(unit, key, &entry);
-                self.session.cache_stats.written += 1;
+        if ok && !self.globals.budget.cancelled() {
+            let store = self.options.check_cache.clone().expect("a cache is set");
+            let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
+            match entry {
+                Ok(entry) => {
+                    store.write(unit, key, &entry);
+                    self.session.cache_stats.written += 1;
+                }
+                Err(why) => {
+                    debug(&format!("std file {f} can't be cached: {why}"));
+                    self.session.cache_stats.uncacheable += 1;
+                }
             }
-            Err(_why) => self.session.cache_stats.uncacheable += 1,
         }
+        self.commit(capture.transaction);
     }
 }
 
@@ -434,8 +476,9 @@ impl Elaborator {
     ) -> (Vec<Diagnostic>, bool) {
         self.session.namespace_keys.insert(ns.to_string(), *key);
         let store = self.options.check_cache.clone().expect("a cache is set");
-        let start_keys: HashSet<String> = self.scope.keys().cloned().collect();
-        let start_members = self.scope.copy_members();
+        // Before the replay, so that if it fails part way, the namespace's
+        // write-set holds what it did as well as what elaborating does.
+        let transaction = self.with_journal(|journal, logs| journal.begin(logs));
         if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
             && let Some(bytes) = store.read(unit, key)
         {
@@ -449,6 +492,7 @@ impl Elaborator {
                     // them, so they are dropped here too.
                     warnings.retain(|d| d.code != crate::doc_links::CODE);
                     warnings.extend(self.doc_link_warnings(files));
+                    self.commit(transaction);
                     return (warnings, true);
                 }
                 Err(Miss::Early(why)) => debug(&format!("{ns}: a miss: {why}")),
@@ -463,16 +507,21 @@ impl Elaborator {
         self.session.cache_stats.namespace_misses += 1;
         self.unit.include_trace.borrow_mut().clear();
         self.unit.namespace_capture = Some(Capture {
-            start_keys,
-            start_members,
+            transaction,
+            unit: self.session.owners.current(),
             early: None,
             needs: None,
             before: None,
             library_loaded: 0,
+            segments: 0,
         });
         let unfinished = self.globals.unfinished.borrow().len();
         let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
-        let capture = self.unit.namespace_capture.take();
+        let capture = self
+            .unit
+            .namespace_capture
+            .take()
+            .expect("the namespace's capture is there until it ends");
         self.unit.skip_navigation_walk = false;
         // A namespace with open goals is unfinished, like one with errors:
         // checked again each time, so its goals are always fresh. So is one
@@ -483,12 +532,12 @@ impl Elaborator {
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             && self.globals.unfinished.borrow().len() == unfinished
             && !self.globals.budget.cancelled();
-        if ok && let Some(capture) = capture {
+        if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)
                 .cloned()
                 .collect();
-            match self.encode_namespace(files, capture, &cached, key, store.salt()) {
+            match self.encode_namespace(files, &capture, &cached, key, store.salt()) {
                 Ok(entry) => {
                     store.write(unit, key, &entry);
                     self.session.cache_stats.namespace_written += 1;
@@ -499,6 +548,7 @@ impl Elaborator {
                 }
             }
         }
+        self.commit(capture.transaction);
         (diagnostics, false)
     }
 
@@ -514,11 +564,13 @@ impl Elaborator {
         if c.early.is_some() {
             return;
         }
-        let early: Vec<String> = self
+        // The names new in its write-set so far.
+        let early: Vec<String> = (self.write_set(&c.transaction, |u| u == c.unit))
             .scope
-            .keys()
-            .filter(|k| !c.start_keys.contains(*k))
-            .cloned()
+            .entries
+            .into_iter()
+            .filter(|(k, old)| old.is_none() && self.scope.has(k))
+            .map(|(k, _)| k.clone())
             .collect();
         let c = self.unit.namespace_capture.as_mut().expect("checked above");
         c.early = Some(early);
@@ -539,9 +591,11 @@ impl Elaborator {
         }
         let before = self.snapshot();
         let loaded = self.loaded_library_files().len();
+        let segments = self.session.journal.segments();
         let c = self.unit.namespace_capture.as_mut().expect("checked above");
         c.before = Some(before);
         c.library_loaded = loaded;
+        c.segments = segments;
     }
 
     /// The names entries give the files a namespace's entry may refer to:
@@ -559,31 +613,41 @@ impl Elaborator {
     fn encode_namespace(
         &self,
         files: &[SourceUnit],
-        capture: Capture,
+        capture: &Capture,
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
         let (Some(before), Some(early), Some(needs)) =
-            (capture.before, capture.early, capture.needs)
+            (&capture.before, &capture.early, &capture.needs)
         else {
             return Err("checking stopped early".to_string());
         };
         if self.loaded_library_files().len() != capture.library_loaded {
             return Err("a library file loaded part way through".to_string());
         }
+        // Nor anything else nested (equations made on demand): its
+        // declarations would be the entry's, and its names not.
+        if (self.session.journal.units_from(capture.segments)).any(|u| u != capture.unit) {
+            return Err("a nested unit ran part way through".to_string());
+        }
+        let writes = self.write_set(&capture.transaction, |u| u == capture.unit);
         // The names: each new one is added after those of its short name
         // that were added before it (the followers' order).
         let early_keys: HashSet<&str> = early.iter().map(String::as_str).collect();
         let mut changed = Vec::new();
-        for (k, old) in before.scope.iter() {
+        let mut late = Vec::new();
+        for &(k, old) in &writes.scope.entries {
             if early_keys.contains(k.as_str()) {
                 continue;
             }
-            match self.scope.stored(k) {
-                Some(now) if now == old => {}
-                Some(_) => changed.push(k.clone()),
-                None => return Err(format!("`{k}` was removed")),
+            match (old, self.scope.stored(k)) {
+                (None, Some(_)) => late.push(k.clone()),
+                // Declared and withdrawn.
+                (None, None) => {}
+                (Some(old), Some(now)) if now == old => {}
+                (Some(_), Some(_)) => changed.push(k.clone()),
+                (Some(_), None) => return Err(format!("`{k}` was removed")),
             }
         }
         changed.sort();
@@ -596,20 +660,14 @@ impl Elaborator {
                 })
                 .collect()
         };
-        let mut early = early;
+        let mut early = early.clone();
         early.sort_by_key(order);
-        let mut late: Vec<String> = self
-            .scope
-            .keys()
-            .filter(|k| !before.scope.contains_key(*k))
-            .cloned()
-            .collect();
         late.sort_by_key(order);
-        let mut members: Vec<String> = self
-            .scope
-            .members()
-            .filter(|k| !capture.start_members.contains_key(*k))
-            .cloned()
+        // The members it marked: not those of the library files loaded
+        // inside it, which are theirs.
+        let mut members: Vec<String> = (writes.scope.members.iter())
+            .filter(|(k, old)| old.is_none() && self.scope.is_member(k))
+            .map(|(k, _)| (*k).clone())
             .collect();
         members.sort();
         let names = NamesOut {
@@ -637,7 +695,7 @@ impl Elaborator {
         if unit.own_files.len() != files.len() {
             return Err("a file without an id".to_string());
         }
-        self.encode(&unit, &before, &names, &pre, warnings, key, salt)
+        self.encode(&unit, before, &writes, &names, &pre, warnings, key, salt)
     }
 
     /// Loads project namespace `ns`, whose files are `files`, from its
@@ -1096,20 +1154,24 @@ impl Elaborator {
     fn encode_library_file(
         &self,
         f: usize,
-        before: &Before,
+        capture: &LibraryCapture,
         log: &[ScopeOp],
         key: &Key,
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
         let index = self.library_index().expect("a library is installed");
+        let writes = self.write_set(&capture.transaction, |u| u > capture.after);
         // The names: those that changed, then the new ones in the order
-        // they were declared, then the members marked.
-        let mut changed: Vec<String> = self
-            .scope
-            .rows()
-            .filter(|(k, v)| before.scope.get(*k).is_some_and(|old| old != *v))
-            .map(|(k, _)| k.clone())
-            .collect();
+        // they were declared, then the members marked. (The journal's log
+        // doesn't keep that order: `ScopeOp`.)
+        let mut changed = Vec::new();
+        for &(k, old) in &writes.scope.entries {
+            match (old, self.scope.stored(k)) {
+                (Some(old), Some(now)) if now != old => changed.push(k.clone()),
+                (Some(_), None) => return Err(format!("`{k}` was removed")),
+                _ => {}
+            }
+        }
         changed.sort();
         let names = NamesOut {
             changed,
@@ -1134,7 +1196,17 @@ impl Elaborator {
             own_files: HashSet::from_iter([index.files[f].id]),
             library: true,
         };
-        self.encode(&unit, before, &names, &PreOut::default(), &[], key, salt)
+        let before = &capture.before;
+        self.encode(
+            &unit,
+            before,
+            &writes,
+            &names,
+            &PreOut::default(),
+            &[],
+            key,
+            salt,
+        )
     }
 
     /// The entry for a unit that has just loaded without errors, or why it
@@ -1147,6 +1219,7 @@ impl Elaborator {
         &self,
         unit: &UnitOut,
         before: &Before,
+        writes: &WriteSet<'_>,
         names: &NamesOut,
         pre: &PreOut,
         warnings: &[Diagnostic],
@@ -1404,7 +1477,7 @@ impl Elaborator {
         // between them.
         self.tables.encode_since(
             &before.tables,
-            &before.copies,
+            &writes.tables,
             &mut e,
             |e| self.encode_side_facts(e, defs.clone(), datas.clone()),
             |e| self.encode_extensions(e, unit),

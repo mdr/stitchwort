@@ -1034,7 +1034,6 @@ impl Elaborator {
             .as_mut()
             .expect("a library is installed");
         let index = lib.index.clone();
-        let file = &index.files[f];
         match lib.state[f] {
             LoadState::Loaded => return Ok(()),
             LoadState::Loading => {
@@ -1043,6 +1042,29 @@ impl Elaborator {
             }
             LoadState::NotLoaded => {}
         }
+        // A unit of its own, whether it is elaborated or replayed, for what
+        // loading it does outside the file's own elaboration: replaying its
+        // entry, dropping the index's entries it didn't declare. So none of
+        // it is the write-set of the unit it loads in (§4.8.3), as it isn't
+        // the entry's of a namespace it loads inside.
+        let outer = self.session.owners.enter(self.ids());
+        self.unit_changed();
+        let loaded = self.load_library_file_in_unit(f);
+        self.session.owners.leave(self.ids(), outer);
+        self.unit_changed();
+        loaded
+    }
+
+    /// [`Self::load_library_file`], once it is known to load, in the unit
+    /// of its own that it begins.
+    fn load_library_file_in_unit(&mut self, f: usize) -> Result<(), Vec<Diagnostic>> {
+        let lib = self
+            .session
+            .library
+            .as_mut()
+            .expect("a library is installed");
+        let index = lib.index.clone();
+        let file = &index.files[f];
         // The equations of other files it names, before its entry is
         // looked up or written, so they are never part of it.
         let _ = self.ensure_equations(&file.equation_needs);
@@ -1186,13 +1208,15 @@ impl Elaborator {
     /// `module` as `Globals::module`, until [`Self::leave_nested_unit`].
     fn enter_nested_unit(&mut self, module: stitchwort_core::Name) -> Outer {
         let inner = self.unit.nested();
-        Outer {
+        let outer = Outer {
             unit: std::mem::replace(&mut self.unit, inner),
             globals_module: std::mem::replace(&mut self.globals.module, module),
             imports: self.scope.take_imports(),
             lambda_warnings: self.attempt.lambda_warnings.take(),
             unit_id: self.session.owners.enter(self.ids()),
-        }
+        };
+        self.unit_changed();
+        outer
     }
 
     /// Back to the unit [`Self::enter_nested_unit`] set aside.
@@ -1205,6 +1229,7 @@ impl Elaborator {
             unit_id,
         } = outer;
         self.session.owners.leave(self.ids(), unit_id);
+        self.unit_changed();
         self.unit.leave(unit);
         self.globals.module = globals_module;
         self.scope.restore_imports(imports);

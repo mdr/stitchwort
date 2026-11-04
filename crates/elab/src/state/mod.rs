@@ -44,7 +44,7 @@ pub(crate) use caches::Caches;
 pub(crate) use caches::Mark as CachesMark;
 pub(crate) use decl::Decl;
 pub use journal::JournalStats;
-pub(crate) use journal::{Checkpoint, Copied, Journal, Logged, LoggedSet, Logs};
+pub(crate) use journal::{Checkpoint, Journal, Logged, LoggedSet, Logs, Transaction};
 pub use options::Options;
 pub(crate) use owners::UnitId;
 pub(crate) use session::Mark as SessionMark;
@@ -55,7 +55,7 @@ pub(crate) use table::{Codec, Dump, Ids};
 pub(crate) use tables::Delta as TablesDelta;
 pub(crate) use tables::Mark as TablesMark;
 pub(crate) use tables::Tables;
-pub(crate) use tables::{Copies as TablesCopies, Positions as TablesPositions};
+pub(crate) use tables::{Parts, Positions as TablesPositions, Writes as TablesWrites};
 pub(crate) use unit::Mark as UnitMark;
 pub(crate) use unit::Unit;
 

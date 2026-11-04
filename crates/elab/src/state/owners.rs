@@ -18,7 +18,9 @@
 use super::table::Ids;
 
 /// A unit of elaboration (see the module's comment).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+/// Given out in increasing order: a unit begun after another has a greater
+/// id.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct UnitId(u32);
 
 #[derive(Default)]
@@ -43,6 +45,11 @@ pub(crate) struct Mark {
 impl Owners {
     pub(crate) fn current(&self) -> UnitId {
         self.current
+    }
+
+    /// The last unit given out: those begun from now on are greater.
+    pub(crate) fn last(&self) -> UnitId {
+        UnitId(self.last)
     }
 
     pub(crate) fn of_def(&self, id: usize) -> UnitId {

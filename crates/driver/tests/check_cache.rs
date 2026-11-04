@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
+use stitchwort_elab::JournalStats;
 use stitchwort_elab::cache::{Stats, canonical_dump};
 use stitchwort_syntax::Diagnostic;
 
@@ -70,6 +71,8 @@ struct Run {
     /// How many of those can't be cached: `Float/Float.sw`, which declares
     /// primitives and binds natives (docs/proposals/float.md, "As built").
     uncacheable: usize,
+    /// What the session's journal did and holds at the end.
+    journal: JournalStats,
 }
 
 /// The library files that can't be cached.
@@ -126,6 +129,7 @@ fn run_here(source: &Source, nav: bool, cache: Option<&Path>, glue: Option<bool>
             .iter()
             .filter(|f| UNCACHEABLE.contains(&f.as_str()))
             .count(),
+        journal: session.elab.journal_stats(),
     }
 }
 
@@ -774,6 +778,7 @@ fn run_target_here(
         stats: session.elab.check_cache_stats(),
         loaded: session.elab.loaded_library_files().len(),
         uncacheable: 0,
+        journal: session.elab.journal_stats(),
     };
     (run, checked)
 }
@@ -1315,5 +1320,172 @@ fn a_replayed_function_keeps_needing_its_row_total() {
     );
     let warm = assert_replay_changes_nothing(&dir);
     assert!(warm.contains("takes only total callbacks"), "{warm}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---- Entries from write-sets (docs/proposals/elaborator-state.md §4.8.3) --
+
+/// The entry of the namespace named `unit` (`ns.A`) in a cache directory.
+fn entry_of(cache: &Path, unit: &str) -> PathBuf {
+    let found: Vec<PathBuf> = (entries(cache).into_iter())
+        .filter(|p| {
+            let name = p.file_name().unwrap().to_str().unwrap();
+            name.contains(&format!("-{unit}-")) || name.contains(&format!("-{unit}+"))
+        })
+        .collect();
+    assert_eq!(found.len(), 1, "one entry for {unit}: {found:?}");
+    found.into_iter().next().unwrap()
+}
+
+/// A copy of the cache directory `from`, without the entries of `drop`.
+fn copy_cache(from: &Path, name: &str, drop: &[&str]) -> PathBuf {
+    let to = temp_dir(name);
+    std::fs::create_dir_all(to.join("check")).unwrap();
+    std::fs::copy(from.join("check/header"), to.join("check/header")).unwrap();
+    let dropped: Vec<PathBuf> = drop.iter().map(|u| entry_of(from, u)).collect();
+    for e in entries(from) {
+        if !dropped.contains(&e) {
+            std::fs::copy(&e, to.join("check").join(e.file_name().unwrap())).unwrap();
+        }
+    }
+    to
+}
+
+/// A namespace that loads a library file inside it writes the same entry
+/// whether the file comes from the cache, is elaborated because the cache
+/// hasn't got it, or is elaborated because its entry is corrupt: the file's
+/// load, replayed or elaborated, is its own unit's write-set, not the
+/// namespace's (§4.8.6 item 2). Each run is as a fresh one.
+#[test]
+fn a_namespace_writes_the_same_entry_whether_its_library_files_hit_or_miss() {
+    let dir = temp_project(
+        "nested",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\nimport Std (Fin)\n\ndef two: Fin 3 := Fin.ofNat 2\n\n\
+                 test \"two\" := Fin.toNat two == 2\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\nimport A (two)\nimport Std (Fin)\n\ndef again: Fin 3 := two\n",
+            ),
+        ],
+    );
+    let source = Source::Project("p".to_string(), dir.clone());
+    let fresh = run(&source, true, None);
+    let check = |cache: &Path, what: &str| {
+        let r = run(&source, true, Some(cache));
+        assert!(
+            r.dump == fresh.dump,
+            "{what}: the cache changed the result: {}",
+            first_difference(&fresh.dump, &r.dump)
+        );
+        (r.stats, std::fs::read(entry_of(cache, "ns.A")).unwrap())
+    };
+    let cold = temp_dir("nested-cold");
+    let (stats, written) = check(&cold, "no entries");
+    assert_eq!((stats.hits, stats.namespace_written), (0, 2));
+    // The library's entries, not the namespaces'.
+    let hits = copy_cache(&cold, "nested-hits", &["ns.A", "ns.B"]);
+    let (stats, with_hits) = check(&hits, "the library files' entries");
+    assert!(stats.hits > 0 && stats.written == 0, "{stats:?}");
+    assert_eq!(stats.namespace_misses, 2);
+    assert!(
+        with_hits == written,
+        "the entry changed when its library files hit"
+    );
+    // The same, with the entry of the file `A` loads corrupt.
+    let corrupt = copy_cache(&cold, "nested-corrupt", &["ns.A", "ns.B"]);
+    let fin = entry_of(&corrupt, "std.Fin.Fin");
+    let mut bytes = std::fs::read(&fin).unwrap();
+    let middle = bytes.len() / 2;
+    bytes[middle] ^= 0xff;
+    std::fs::write(&fin, bytes).unwrap();
+    let (stats, with_corrupt) = check(&corrupt, "a corrupt library entry");
+    assert!(stats.misses > 0 && stats.written > 0, "{stats:?}");
+    assert!(
+        with_corrupt == written,
+        "the entry changed when a library file missed"
+    );
+    for d in [&dir, &cold, &hits, &corrupt] {
+        let _ = std::fs::remove_dir_all(d);
+    }
+}
+
+/// A check with the cache logs one unit's writes at a time: each unit's
+/// transaction is all that is open, and when it ends the log is dropped
+/// (§4.8.2), so a command-line check holds no log of the whole project.
+#[test]
+fn a_check_with_the_cache_holds_no_log_between_units() {
+    let dir = temp_project("journal", ABC);
+    let cache = temp_dir("journal-cache");
+    let source = Source::Project("p".to_string(), dir.clone());
+    for run in [
+        run(&source, false, Some(&cache)),
+        run(&source, false, Some(&cache)),
+    ] {
+        let j = run.journal;
+        assert_eq!((j.open, j.held, j.checkpoints), (0, 0, 0), "{j:?}");
+        assert!(j.transactions >= 3, "a transaction per namespace: {j:?}");
+        assert!(j.peak_entries < j.entries, "{j:?}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A namespace's instance and extension of an older namespace's type, and
+/// its names, come back from its entry usable: a namespace elaborated after
+/// its replay uses them as after a fresh check (§4.8.6 item 2).
+#[test]
+fn a_replayed_namespaces_instances_and_extensions_are_usable() {
+    let dir = temp_project(
+        "replay-then-depend",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\n\ninterface Size (a: Type) =\n  { size: a → Nat }\n\n\
+                 type Box = { width: Nat }\n\n\
+                 instance Box.instSize: Size Box :=\n  { size = b => b.width }\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\n\nimport A (Box, Size)\n\n\
+                 def Box.double (box: Box): Nat := box.width * 2\n\n\
+                 def sample: Box := { width = 3 }\n\n\
+                 test \"instance\" := Size.size sample == 3\n\
+                 test \"extension\" := sample.double == 6\n",
+            ),
+            (
+                "src/C.sw",
+                "namespace C\n\nimport A (Box, Size)\nimport B (..)\n\n\
+                 def bigger: Box := { width = sample.double }\n\n\
+                 test \"both\" := Size.size bigger == 6\n\
+                 test \"full name\" := B.Box.double bigger == 12\n",
+            ),
+        ],
+    );
+    let source = Source::Project("p".to_string(), dir.clone());
+    for (edit, replayed) in [("src/C.sw", 2), ("src/B.sw", 1)] {
+        let cache = temp_dir("replay-then-depend-cache");
+        let cold = run(&source, false, Some(&cache));
+        assert_eq!(cold.stats.namespace_written, 3);
+        let text = std::fs::read_to_string(dir.join(edit)).unwrap();
+        write_file(&dir, edit, &format!("-- edited\n{text}"));
+        let fresh = run(&source, false, None);
+        let warm = run(&source, false, Some(&cache));
+        let _ = std::fs::remove_dir_all(&cache);
+        assert_eq!(
+            (warm.stats.namespace_hits, warm.stats.namespace_misses),
+            (replayed, 3 - replayed),
+            "{edit}"
+        );
+        assert!(
+            warm.dump == fresh.dump,
+            "{edit}: replaying changed the result: {}",
+            first_difference(&fresh.dump, &warm.dump)
+        );
+        assert!(fresh.dump.contains("accepted true"), "{}", fresh.dump);
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }

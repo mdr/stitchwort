@@ -164,6 +164,13 @@ impl Elaborator {
         self.with_journal(|journal, logs| journal.release(checkpoint, logs));
     }
 
+    /// Tells the journal the unit being elaborated has changed (`Owners`
+    /// says which it is now): a new segment begins (§4.8.3).
+    pub(crate) fn unit_changed(&mut self) {
+        let unit = self.session.owners.current();
+        self.with_journal(|journal, logs| journal.set_unit(unit, logs));
+    }
+
     /// `f` with the session's journal and the tables it covers.
     pub(crate) fn with_journal<T>(
         &mut self,
@@ -206,6 +213,16 @@ pub(crate) struct LogPositions {
     scope: scope::Positions,
     tables: TablesPositions,
     session: SessionPositions,
+}
+
+impl LogPositions {
+    pub(crate) fn scope(&self) -> &scope::Positions {
+        &self.scope
+    }
+
+    pub(crate) fn tables(&self) -> &TablesPositions {
+        &self.tables
+    }
 }
 
 impl Logs for LoggedTables<'_> {
