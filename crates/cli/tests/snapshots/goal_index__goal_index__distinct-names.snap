@@ -48,10 +48,6 @@ expression: json
     "goal": {
       "hypotheses": [
         {
-          "name": "h",
-          "type": "x✝¹ = x✝"
-        },
-        {
           "name": "x✝¹",
           "type": "Nat"
         },
@@ -64,6 +60,10 @@ expression: json
           "type": "Nat"
         },
         {
+          "name": "h",
+          "type": "x✝¹ = x✝"
+        },
+        {
           "name": "y✝",
           "type": "Nat"
         }
@@ -73,7 +73,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "h: x✝¹ = x✝\nx✝¹: Nat\ny✝¹: Nat\nx✝: Nat\ny✝: Nat\n⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }",
+        "message": "x✝¹: Nat\ny✝¹: Nat\nx✝: Nat\nh: x✝¹ = x✝\ny✝: Nat\n⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }",
         "range": [
           14,
           42,
@@ -98,10 +98,6 @@ expression: json
     "goal": {
       "hypotheses": [
         {
-          "name": "same",
-          "type": "Pair left1 right1 = Pair left2 right2"
-        },
-        {
           "name": "left1",
           "type": "Tree"
         },
@@ -116,14 +112,19 @@ expression: json
         {
           "name": "right2",
           "type": "Tree"
+        },
+        {
+          "name": "same",
+          "type": "Pair left1 right1 = Pair left2 right2"
         }
       ],
+      "lemma": "theorem symmetricGoal1 (left1: Tree) (right1: Tree) (left2: Tree) (right2: Tree) (same: Pair left1 right1 = Pair left2 right2): Pair left2 right2 = Pair left1 right1 := ?",
       "target": "Pair left2 right2 = Pair left1 right1"
     },
     "labels": [
       {
         "file": 0,
-        "message": "same: Pair left1 right1 = Pair left2 right2\nleft1: Tree\nright1: Tree\nleft2: Tree\nright2: Tree\n⊢ Pair left2 right2 = Pair left1 right1",
+        "message": "left1: Tree\nright1: Tree\nleft2: Tree\nright2: Tree\nsame: Pair left1 right1 = Pair left2 right2\n⊢ Pair left2 right2 = Pair left1 right1",
         "range": [
           25,
           50,

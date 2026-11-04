@@ -2,7 +2,7 @@
 source: crates/cli/tests/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-50 lemmas, 15 goals without one
+54 lemmas, 12 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
@@ -20,7 +20,7 @@ decreasing-callback-argument goal 1: theorem gGoal1 (xs: List Nat) (k: Nat) (oth
 decreasing-callback-argument goal 2: no lemma
 distinct-names goal 1: theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?
 distinct-names goal 2: no lemma
-distinct-names goal 3: no lemma
+distinct-names goal 3: theorem symmetricGoal1 (left1: Tree) (right1: Tree) (left2: Tree) (right2: Tree) (same: Pair left1 right1 = Pair left2 right2): Pair left2 right2 = Pair left1 right1 := ?
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
@@ -31,14 +31,15 @@ lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 let-proofs goal 1: no lemma
 let-values goal 1: no lemma
 logic-notation goal 1: theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x ≠ y) (out: y ∉ xs) (np: ¬p): (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y) := ?
+match-arm-pattern-order goal 1: def sumRestOrZeroGoal1 (xs: List Nat) (x: Nat) (rest: List Nat) (h: xs = [x, ..rest]): Nat := ?
 match-branches goal 1: theorem addZeroGoal1: 0 = 0 := ?
 match-branches goal 2: theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?
-match-hypothesis goal 1: no lemma
+match-hypothesis goal 1: def describeGoal1 (xs: List Nat) (k: Nat) (h: Std.List.length xs = Succ k): Text := ?
 match-hypothesis-folded goal 1: theorem steppedGoal1 (row: Nat) (column: Nat) (wall: isWall row column = False): row = row := ?
 match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: None = Some y): 10 ≤ y := ?
 match-induct goal 2: theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?
 match-induct goal 3: theorem firstBigIsBigGoal3 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: (10 <= x) = False) (ih: firstBig rest = Some y → 10 ≤ y) (found: firstBig rest = Some y): 10 ≤ y := ?
-match-unnamed-fields goal 1: no lemma
+match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next = True): next = True := ?
 match-unnamed-fields goal 2: no lemma
 operators-and-names goal 1: theorem onNatGoal1 (a: Nat) (b: Nat): (a < b && b <= a + 3 || b < a) = (gentle a b || b < a) := ?
 operators-and-names goal 2: theorem onIntGoal1 (a: Int) (b: Int) (h: a < b) (k: a ≤ b): (a < b && a <= b) = True := ?
