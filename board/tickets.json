@@ -6480,13 +6480,13 @@
     {
       "id": 1295,
       "title": "Pattern guards (| p if c => e) in every match; follows SW-1294",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "language"
       ],
-      "body": "D2371 (Matt, 4 Nov 2026): yes, as a follow-on stage after SW-1294. Stage 4 of docs/proposals/partial-lambdas.md (§6): | p if c => e in match … with, definition arms, and the three new forms (match, match some, matches). When the guard is false the arms below are tried; a guarded arm covers nothing for exhaustiveness (E-NONEXHAUSTIVE), so ordinary matches still need an unguarded arm, while match some / matches' hidden default covers the rest. Compiles to an if in the case tree whose else continues with the remaining arms; W-REDUNDANT with guarded arms; proofs see an ordinary if. Revives SW-237 (pruned without a note). Plan: Opus checks the design (a short note revising SW-237), then Sonnet implements; then migrate the five guarded pipeline sites (2024 days 6, 15, 20; 2021 day 18). Est. 3-4 h. Starts after SW-1294 merges.",
+      "body": "D2371 (Matt, 4 Nov 2026): yes, as a follow-on stage after SW-1294. Stage 4 of docs/proposals/partial-lambdas.md (§6): | p if c => e in match … with, definition arms, and the three new forms (match, match some, matches). When the guard is false the arms below are tried; a guarded arm covers nothing for exhaustiveness (E-NONEXHAUSTIVE), so ordinary matches still need an unguarded arm, while match some / matches' hidden default covers the rest. Compiles to an if in the case tree whose else continues with the remaining arms; W-REDUNDANT with guarded arms; proofs see an ordinary if. Revives SW-237 (pruned without a note). Plan: Opus checks the design (a short note revising SW-237), then Sonnet implements; then migrate the five guarded pipeline sites (2024 days 6, 15, 20; 2021 day 18). Est. 3-4 h. Starts after SW-1294 merges.\n\nPart 1 (Opus, 4 Nov 23:40-23:55, est. 60 min): design note docs/proposals/pattern-guards.md, commit 9ef848fd7 on lane/SW-1295. Key choices: Tree::Guard node where a guarded row becomes a leaf, else = remaining rows compiled at depth + 1, checked through check_if (so the term and the facts are exactly an if's); guard covers a whole or-pattern / several-pattern arm; `if h: P` allowed, the Not P below unnamed; pure guards only (E-ABILITY); equations unchanged before the first guarded arm, skipped from it on (stage 2 for Opus); a cap on guard nodes (E-MATCH-SIZE) against 2^n blow-up. AoC: migrate 2024 day 15 positionsOf and 2021 day 18 orderedPairs (with its proofs); days 6, 16, 20 stay (sections shorter). Plan in §10 for a Sonnet lane, 3-4 h.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
