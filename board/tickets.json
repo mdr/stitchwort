@@ -5643,13 +5643,13 @@
     {
       "id": 1236,
       "title": "Type mismatch errors show the first difference between the two sides, instead of hiding it behind …",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1236",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 3); helps every proof.",
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 3); helps every proof.\n\nMerged ee4039cf, verified (selection 760 pass, merge tier 1066 pass, audit clean). Orchestrator check on day 3's real breakage (<= for <): note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`' (<= shows desugared as Succ _ <). Model result: Sonnet, worked, 8 min (est. 60).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
