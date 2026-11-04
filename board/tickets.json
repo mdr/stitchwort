@@ -4952,14 +4952,14 @@
     {
       "id": 1189,
       "title": "Globals split 8d: core::Machine (budget, glue, transparency, erasure, apart_sets) and EvalCaches; failed_mentioned into Decl",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
