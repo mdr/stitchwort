@@ -326,12 +326,7 @@ pub struct Elaborator {
 /// updates (in its tables), and the failed-mention flag (in `Decl`).
 impl stitchwort_core::Shown for Elaborator {
     fn placeholder(&self, m: usize) -> Option<stitchwort_core::globals::PlaceholderSyntax> {
-        self.attempt
-            .store
-            .placeholder_syntax
-            .borrow()
-            .get(&m)
-            .cloned()
+        self.attempt.store.mirrors.syntax(m)
     }
 
     fn has_print_labels(&self) -> bool {
