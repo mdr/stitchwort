@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `double` is marked @[tailrec], but a recursive call isn't in tail position
+   ╭─[ reject/tailrec-constructor.sw:9:28 ]
+   │
+ 9 │   | [x, ..xs] => [x * 2, ..double xs]
+   │                            ────┬────  
+   │                                ╰────── its result goes into a field of `Cons`, which is built after it returns
+   │ 
+   │ Note 1: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+   │ 
+   │ Note 2: building a list or a tree around the call is cheap on `stitchwort run` and in JavaScript, but @[tailrec] promises only true tail calls: carry the result in an extra parameter and reverse it at the end
+───╯

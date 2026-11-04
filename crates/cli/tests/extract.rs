@@ -5053,3 +5053,58 @@ fn list_functions_at_the_empty_row_are_their_pure_loops() {
         "{caller}"
     );
 }
+
+/// `@[tailrec]` promises a loop (docs/proposals/tailrec.md §3): a marked
+/// definition the generator can't make a loop of is an internal error naming
+/// it, not a frame per call. The elaborator would refuse a marked definition
+/// that isn't a tail call, so the flag is set on a definition built in the
+/// kernel directly: `f n = n + 1`, which has nothing to loop.
+#[test]
+fn a_tailrec_definition_that_is_not_a_loop_is_an_internal_error() {
+    use std::rc::Rc;
+    use stitchwort_core::Icit;
+    use stitchwort_core::check::{declare_def, define_def, mark_tailrec};
+
+    let mut session = Session::new();
+    session
+        .load("empty.sw", "")
+        .expect("an empty module checks");
+    let g = &mut session.elab.kernel;
+    let nat = g.find_data("Nat").expect("Nat");
+    let add = DefId(
+        g.env
+            .defs()
+            .iter()
+            .position(|d| &**d.name() == "Nat.add")
+            .expect("Nat.add"),
+    );
+    let span = g.def(add).span();
+    let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
+    let ty = Term::Pi("n".into(), Icit::Explicit, nat_ty(), nat_ty());
+    let f = declare_def(g, &"f".into(), &"Main.f".into(), &ty, false, true, span).unwrap();
+    mark_tailrec(g, f);
+    let app = |f: Term, a: Term| Term::App(Rc::new(f), Rc::new(a), Icit::Explicit);
+    let one = Term::Nat(Rc::new(BigUint::from(1u32)));
+    let body = Term::Lam(
+        "n".into(),
+        Icit::Explicit,
+        Rc::new(app(app(Term::Def(add), Term::Var(0)), one)),
+    );
+    define_def(g, f, &body).unwrap();
+
+    let backend = session.elab.backend();
+    let limits = session.elab.options.limits;
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = stitchwort_js::generate(&backend, limits);
+    }))
+    .expect_err("the generator refuses a marked definition that isn't a loop");
+    let message = panic
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| panic.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(
+        message.contains("`Main.f` is marked @[tailrec]"),
+        "{message}"
+    );
+}

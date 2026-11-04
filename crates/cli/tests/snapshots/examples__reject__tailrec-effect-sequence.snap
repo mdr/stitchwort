@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `f` is marked @[tailrec], but a recursive call isn't in tail position
+    ╭─[ reject/tailrec-effect-sequence.sw:12:7 ]
+    │
+ 12 │     f n
+    │       ┬  
+    │       ╰── the rest of the block goes on after this call returns, using its result
+    │ 
+    │ Note 1: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+    │ 
+    │ Note 2: to use the result, carry it along in an extra parameter (an accumulator) that the call updates
+────╯

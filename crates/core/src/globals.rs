@@ -110,6 +110,11 @@ pub struct Def {
     /// [`crate::check::mark_param_default`] while it is pending, for the
     /// helpers of the elaborator's parameter defaults; never hashed.
     pub(crate) param_default: bool,
+    /// Declared `@[tailrec]` (docs/proposals/tailrec.md): the elaborator has
+    /// checked that every recursive call is a tail call, and the JavaScript
+    /// backend must make a loop of it. Set once, on a pending definition
+    /// ([`crate::check::mark_tailrec`]); never hashed (it changes no term).
+    pub(crate) tailrec: bool,
     pub(crate) span: Span,
 }
 
@@ -207,6 +212,11 @@ impl Def {
     /// Whether it is the helper of a definition's parameter default.
     pub fn param_default(&self) -> bool {
         self.param_default
+    }
+
+    /// Whether it is declared `@[tailrec]`.
+    pub fn tailrec(&self) -> bool {
+        self.tailrec
     }
 
     /// Where it was declared.

@@ -32,6 +32,10 @@ pub(crate) enum Target {
     Record,
     /// A plain definition (not a theorem, instance, synonym or export).
     Definition,
+    /// An exported definition.
+    Export,
+    /// A local `def` (a theorem can't have attributes).
+    Local,
 }
 
 impl Target {
@@ -42,6 +46,8 @@ impl Target {
             Target::Field => "a field",
             Target::Record => "a record",
             Target::Definition => "a definition",
+            Target::Export => "an exported definition",
+            Target::Local => "a local definition",
         }
     }
 }
@@ -50,6 +56,10 @@ impl Target {
 /// be called with `.` or `|>`, so `W-RECEIVER-NOT-FIRST` doesn't apply to
 /// it (D309): a helper, or a `Prop` whose order reads better as it is.
 pub(crate) const NO_RECEIVER: &str = "noReceiver";
+
+/// `@[tailrec]`: every recursive call of the definition must be a tail call
+/// (docs/proposals/tailrec.md), checked by `tailrec.rs`.
+pub(crate) const TAILREC: &str = "tailrec";
 
 /// One attribute the compiler knows.
 pub(crate) struct Spec {
@@ -74,6 +84,13 @@ pub(crate) const REGISTRY: &[Spec] = &[
         doc: "a definition in a type's namespace that isn't called with `.` or `|>` (a helper, \
               or a `Prop`), so it may take the type's value after another parameter without \
               the warning `W-RECEIVER-NOT-FIRST`",
+    },
+    Spec {
+        name: TAILREC,
+        targets: &[Target::Definition, Target::Export, Target::Local],
+        argument: "",
+        doc: "every recursive call of the definition is a tail call, so it runs as a loop \
+              (constant frames) on every backend; a call that isn't one is `E-TAILREC`",
     },
     Spec {
         name: "js.tag",
@@ -113,6 +130,15 @@ pub(crate) const REGISTRY: &[Spec] = &[
               its TypeScript type is an alias of the field's",
     },
 ];
+
+/// What a definition's attributes say.
+#[derive(Default)]
+pub(crate) struct DefinitionAttributes {
+    /// `@[noReceiver]`.
+    pub(crate) no_receiver: bool,
+    /// Where `@[tailrec]` is written, if it is.
+    pub(crate) tailrec: Option<Span>,
+}
 
 /// Where a group of attributes is written, for checking and for messages.
 #[derive(Clone, Copy)]
@@ -275,10 +301,10 @@ type FieldSites<'a> = Vec<Vec<(Span, &'a [Attribute])>>;
 
 impl Elaborator {
     /// A definition (or theorem, instance, synonym, export) with attributes:
-    /// only `noReceiver` applies, to a plain definition (`js.name` on an
-    /// export is stage 3 of docs/proposals/attributes.md); any other is
-    /// refused, or unknown. Whether the definition has `noReceiver`.
-    pub(crate) fn definition_attributes(&self, signature: &Decl) -> Result<bool> {
+    /// `noReceiver` applies to a plain definition and `tailrec` to a plain
+    /// or exported one (`js.name` on an export is stage 3 of
+    /// docs/proposals/attributes.md); any other is refused, or unknown.
+    pub(crate) fn definition_attributes(&self, signature: &Decl) -> Result<DefinitionAttributes> {
         let Decl::Signature {
             attrs,
             theorem,
@@ -288,23 +314,44 @@ impl Elaborator {
             ..
         } = signature
         else {
-            return Ok(false);
+            return Ok(DefinitionAttributes::default());
         };
         if attrs.is_empty() {
-            return Ok(false);
+            return Ok(DefinitionAttributes::default());
         }
         let place = if *synonym {
             Place::Other("a type synonym")
         } else if *instance {
             Place::Other("an instance")
         } else if *export {
-            Place::Other("an exported definition")
+            Place::Target(Target::Export)
         } else if *theorem {
             Place::Other("a theorem")
         } else {
             Place::Target(Target::Definition)
         };
-        Ok(check(attrs, place)?.get(NO_RECEIVER).is_some())
+        let checked = check(attrs, place)?;
+        Ok(DefinitionAttributes {
+            no_receiver: checked.get(NO_RECEIVER).is_some(),
+            tailrec: checked.get(TAILREC).map(|(a, _)| a.span),
+        })
+    }
+
+    /// A local definition's attributes: only `tailrec` applies. Where
+    /// `@[tailrec]` was written, if it was.
+    pub(crate) fn local_attributes(&self, signature: &Decl) -> Result<Option<Span>> {
+        let Decl::Signature { attrs, theorem, .. } = signature else {
+            return Ok(None);
+        };
+        if attrs.is_empty() {
+            return Ok(None);
+        }
+        let place = if *theorem {
+            Place::Other("a local theorem")
+        } else {
+            Place::Target(Target::Local)
+        };
+        Ok(check(attrs, place)?.get(TAILREC).map(|(a, _)| a.span))
     }
 
     /// After data type `d` is admitted: checks the attributes on it, its

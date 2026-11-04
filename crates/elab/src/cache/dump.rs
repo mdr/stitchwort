@@ -201,7 +201,7 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     for (i, def) in g.env.defs().iter().enumerate() {
         let _ = write!(
             out,
-            "def {i} {} {} {:?} arity {} group {:?} theorem {} instance {} fold {} export {} opaque {} unfolding {:?} ",
+            "def {i} {} {} {:?} arity {} group {:?} theorem {} instance {} fold {} export {} opaque {} tailrec {} unfolding {:?} ",
             def.name(),
             def.path(),
             def.state(),
@@ -214,6 +214,7 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             def.fold(),
             def.export(),
             def.opaque(),
+            def.tailrec(),
             def.unfolding().iter().map(|d| d.0).collect::<Vec<_>>(),
         );
         span(&mut out, def.span());

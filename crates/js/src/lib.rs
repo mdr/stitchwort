@@ -2592,6 +2592,9 @@ impl<'g> Gen<'g> {
             {
                 return Ok(format!("const {name} = {params}{block};\n"));
             }
+            if !params.is_empty() {
+                self.tailrec_not_looped(id, tree);
+            }
             let block = self.tree(tree, &mut env, 1, None)?;
             match convention {
                 Convention::Thunk => format!("() => {{\n{block}}}"),
@@ -2608,6 +2611,9 @@ impl<'g> Gen<'g> {
             {
                 return Ok(format!("const {name} = {params}{block};\n"));
             }
+            if !params.is_empty() {
+                self.tailrec_not_looped(id, tree);
+            }
             // After `=>`, leading `let`s are `const`s in a block.
             let rhs = if convention == Convention::Value {
                 self.expr(tree, &mut env)?
@@ -2620,6 +2626,30 @@ impl<'g> Gen<'g> {
             }
         };
         Ok(format!("const {name} = {params}{rhs};\n"))
+    }
+
+    /// `@[tailrec]` promises a loop (docs/proposals/tailrec.md §3): a marked
+    /// definition whose body didn't become one is a compiler bug, not a
+    /// frame per call. Its recursion goes through the effect runtime's loop
+    /// instead when its body binds effects, so those are exempt.
+    fn tailrec_not_looped(&self, id: DefId, body: &Term) {
+        let def = self.g.def(id);
+        if !def.tailrec() {
+            return;
+        }
+        let binds_effects = body.subterms().any(|(t, _)| {
+            matches!(t, Term::Def(d) if {
+                let path = self.g.def(*d).path();
+                path.starts_with("Std.Effect.bind")
+            })
+        });
+        if !binds_effects {
+            panic!(
+                "internal error: `{}` is marked @[tailrec], but the JavaScript backend could not \
+                 make a loop of it, so it would use a frame per call (this is a bug in the compiler)",
+                def.path()
+            );
+        }
     }
 
     /// If the definition `id`, with case tree `tree`, calls itself in tail

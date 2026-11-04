@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `tailrec` can't be used on a partial definition yet
+   ╭─[ reject/tailrec-partial.sw:5:3 ]
+   │
+ 5 │ @[tailrec]
+   │   ───┬───  
+   │      ╰───── on a definition with `{Partial}` in its type
+   │ 
+   │ Note: a partial definition is run by its own machine, which loops its tail calls already (docs/proposals/partial.md); @[tailrec] checks terms of a different shape, which it doesn't cover yet
+───╯

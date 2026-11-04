@@ -1847,6 +1847,7 @@ fn push_def(
         validators: Vec::new(),
         run_body: None,
         param_default: false,
+        tailrec: false,
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
@@ -1953,6 +1954,18 @@ pub fn mark_folded(g: &mut Kernel, id: DefId) {
         let def = &mut g.env.defs_mut()[id.0];
         if def.state == State::Pending {
             def.fold = true;
+        }
+    })
+}
+
+/// Marks pending definition `id` `@[tailrec]` ([`Def::tailrec`]): the
+/// elaborator checks its recursive calls, and the JavaScript backend makes a
+/// loop of it. Not hashed.
+pub fn mark_tailrec(g: &mut Kernel, id: DefId) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.tailrec = true;
         }
     })
 }

@@ -70,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 24;
+pub const FORMAT: u32 = 25;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1420,6 +1420,7 @@ impl Elaborator {
             // Opacity, and the `unfolding` list as written, each name as a
             // reference (docs/proposals/opaque-definitions.md §6.4).
             e.w.bool(def.opaque());
+            e.w.bool(def.tailrec());
             let refs = &unfolding_refs[id.0 - before.defs];
             e.w.usize(refs.len());
             for reference in refs.iter() {
@@ -1809,6 +1810,7 @@ struct DefEntry {
     instance: bool,
     fold: bool,
     opaque: bool,
+    tailrec: bool,
     /// Its `unfolding` list as written.
     unfolding: Vec<DefId>,
     span: Span,
@@ -2206,6 +2208,7 @@ impl Elaborator {
                 instance: body.r.bool()?,
                 fold: body.r.bool()?,
                 opaque: body.r.bool()?,
+                tailrec: body.r.bool()?,
                 unfolding: {
                     let k = body.count()?;
                     let mut unfolding = Vec::with_capacity(k);
@@ -2704,6 +2707,9 @@ impl Elaborator {
                 }
                 if def.opaque {
                     kernel::mark_opaque(&mut self.kernel, id);
+                }
+                if def.tailrec {
+                    kernel::mark_tailrec(&mut self.kernel, id);
                 }
                 if param_defaults.contains(&id) {
                     kernel::mark_param_default(&mut self.kernel, id);

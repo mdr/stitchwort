@@ -2079,6 +2079,28 @@ impl<'t> Parser<'t> {
                 }
             }
             Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(),
+            // `@[tailrec] def go …`: the `def` may be on the next line, at
+            // the block's column.
+            Some(Tok::At) => {
+                let attrs = self.attributes()?;
+                if self.limit.is_some_and(|column| self.starts_line_at(column)) {
+                    self.allow = Some(self.pos);
+                }
+                if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
+                    return Err(misplaced_attributes(
+                        &attrs[0],
+                        "a statement that isn't a local definition",
+                    )
+                    .into());
+                }
+                let Stmt::Def(mut def, span) = self.local_def()? else {
+                    unreachable!("a local definition")
+                };
+                if let Decl::Signature { attrs: a, .. } = &mut def.signature {
+                    *a = attrs;
+                }
+                Ok(Stmt::Def(def, span))
+            }
             Some(Tok::KwExport) => Err(error(
                 self.here(),
                 "local definitions can't be exported: only top-level ones are",
@@ -7837,6 +7859,28 @@ mod tests {
     }
 
     #[test]
+    fn attributes_before_a_local_definition_belong_to_it() {
+        // On the line before it, and on the same line.
+        for text in [
+            "def f (n: Nat): Nat :=\n  @[tailrec]\n  def g (m: Nat): Nat := m\n  g n\n",
+            "def f (n: Nat): Nat :=\n  @[tailrec] def g (m: Nat): Nat := m\n  g n\n",
+        ] {
+            let module = parse(text);
+            let Decl::Equation {
+                rhs: Some(Expr::LocalDefs { defs, .. }),
+                ..
+            } = &module.decls[1]
+            else {
+                panic!("{text}: {:?}", module.decls[1])
+            };
+            let Decl::Signature { attrs, .. } = &defs[0].signature else {
+                panic!()
+            };
+            assert_eq!(attr_texts(attrs), ["tailrec"], "{text}");
+        }
+    }
+
+    #[test]
     fn misplaced_attributes_are_refused() {
         for (text, code) in [
             // Attributes always attach to the next declaration, never drift.
@@ -7858,7 +7902,7 @@ mod tests {
             ),
             ("type T (@[js.name \"x\"] a: Type) = | A\n", "E-ATTRIBUTE"),
             (
-                "def f (n: Nat): Nat :=\n  @[js.name \"x\"] def g (m: Nat): Nat := m\n  g n\n",
+                "def f (n: Nat): Nat :=\n  @[tailrec] let m := n\n  m\n",
                 "E-ATTRIBUTE",
             ),
             // The grammar: one name, then at most one plain string.

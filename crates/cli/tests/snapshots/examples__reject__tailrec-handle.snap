@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `f` is marked @[tailrec], but a recursive call isn't in tail position
+    ╭─[ reject/tailrec-handle.sw:13:21 ]
+    │
+ 13 │     handle (bump(); f n) with
+    │                     ─┬─  
+    │                      ╰─── it's inside `handle … with`: the handler waits for its result, so each call adds a handler
+    │ 
+    │ Note: a call is in tail position when its result is the function's result, with nothing left to do after it returns; then each call is a turn of a loop, not a new frame
+────╯

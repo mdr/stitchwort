@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `tailrec` takes no argument
+   ╭─[ reject/tailrec-argument-given.sw:4:3 ]
+   │
+ 4 │ @[tailrec "loop"]
+   │   ───────┬──────  
+   │          ╰──────── has an argument
+   │ 
+   │ Note: write `@[tailrec]`: every recursive call of the definition is a tail call, so it runs as a loop (constant frames) on every backend; a call that isn't one is `E-TAILREC`
+───╯

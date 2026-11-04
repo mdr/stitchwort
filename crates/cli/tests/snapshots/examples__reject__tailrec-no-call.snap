@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TAILREC] Error: `f` is marked @[tailrec], but never calls itself
+   ╭─[ reject/tailrec-no-call.sw:6:1 ]
+   │
+ 6 │ def f (n: Nat): Nat := n + 1
+   │ ─────────┬─────────  
+   │          ╰─────────── marked @[tailrec]
+   │ 
+   │ Note: if the recursion moved into a helper, mark the helper; otherwise remove @[tailrec]
+───╯
