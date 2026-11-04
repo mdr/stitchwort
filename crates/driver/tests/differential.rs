@@ -63,7 +63,10 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
 /// `answer xs` is `search` on an unknown list unfolded through all of its
 /// 1,000,000,000 steps, each an `if` stuck on `xs`, and `describe` matches on
 /// it (the example is about not reading that back; with them compared, the
-/// test passed 14 GB, SW-1052). An entry is a name, or `example:
+/// test passed 14 GB, SW-1052). Its branch equations `describe.eq.some` and
+/// `describe.eq.none` (SW-1049) mention `answer xs` in their types, so they
+/// are left out here, of their types' normal forms and of conversion too
+/// (the full tier passed 30 GB, SW-1181). An entry is a name, or `example:
 /// name` for one example's definition. Their closed uses (the module's and the
 /// example's tests) are still compared, except the tests listed here.
 const NORMAL_FORM_TOO_BIG: &[&str] = &[
@@ -78,17 +81,22 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/lemma-on-large-normal-form.sw: keep",
     "accept/match-bounded-search.sw: answer",
     "accept/match-bounded-search.sw: describe",
+    "accept/match-bounded-search.sw: describe.eq.some",
+    "accept/match-bounded-search.sw: describe.eq.none",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
 /// their types' conversion is compared: in kernel-same-call-arguments.sw,
 /// `mix 16 seed` on an unknown seed mentions the seed 3^16 times; in
 /// lemma-on-large-normal-form.sw, `applied`'s type mentions `keep x key`
-/// (see [`NORMAL_FORM_TOO_BIG`]).
+/// (see [`NORMAL_FORM_TOO_BIG`]); match-bounded-search.sw's branch
+/// equations mention `answer xs`.
 const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: descendMakes",
     "accept/kernel-same-call-arguments.sw: descendCells",
     "accept/lemma-on-large-normal-form.sw: applied",
+    "accept/match-bounded-search.sw: describe.eq.some",
+    "accept/match-bounded-search.sw: describe.eq.none",
 ];
 
 /// Definitions left out of [`compare_conversion`], because the reference's
@@ -96,9 +104,14 @@ const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
 /// to compare one with itself, while the machine's takes under a
 /// microsecond. In lemma-on-large-normal-form.sw, `applied`'s type, compared
 /// with itself, reaches `keep x key`, which has the 2^30 nodes of
-/// `grow 30 (Leaf x)` on each side. Its type is still compared by the
-/// machine in [`compare_definitions`].
-const CONVERSION_TOO_SLOW: &[&str] = &["accept/lemma-on-large-normal-form.sw: applied"];
+/// `grow 30 (Leaf x)` on each side; match-bounded-search.sw's branch
+/// equations reach `answer xs`'s billion steps. Their types are still
+/// compared by the machine in [`compare_definitions`].
+const CONVERSION_TOO_SLOW: &[&str] = &[
+    "accept/lemma-on-large-normal-form.sw: applied",
+    "accept/match-bounded-search.sw: describe.eq.some",
+    "accept/match-bounded-search.sw: describe.eq.none",
+];
 
 /// Whether `list` names definition `name` of `what` (the prelude or an
 /// example): by its name alone, or as `what: name`.
