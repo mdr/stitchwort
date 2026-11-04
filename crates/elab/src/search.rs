@@ -1038,6 +1038,31 @@ impl Elaborator {
                                 let hole = Term::Meta(self.metas().new_meta(span));
                                 Some(Term::App(f.clone(), Rc::new(hole), Icit::Auto))
                             }
+                            // A concrete instance the elaborator unfolded
+                            // to its field (`Nat.decEq` for `Nat.instDecEq`):
+                            // the generic reading names the interface's
+                            // method with the dictionary a hole, so a lemma
+                            // that takes its dictionary as an argument
+                            // (`DecEq.refl`) can match too.
+                            Term::Def(id) => {
+                                let (method, dict_ty) = self.instance_method_for(*id)?;
+                                let Term::Data(_, args) = dict_ty.strip_loc() else {
+                                    return None;
+                                };
+                                let [ty_arg] = args.as_slice() else {
+                                    return None;
+                                };
+                                let hole = self.metas().new_meta(span);
+                                self.metas()
+                                    .set_meta_type(hole, eval(g, &[], &dict_ty).ok()?, 0);
+                                made.set(true);
+                                let call = Term::app_icit(
+                                    Term::Def(method),
+                                    (**ty_arg).clone(),
+                                    Icit::Implicit,
+                                );
+                                Some(Term::app_icit(call, Term::Meta(hole), Icit::Auto))
+                            }
                             _ => None,
                         },
                     )
@@ -1062,6 +1087,50 @@ impl Elaborator {
         self.kernel.machine.budget.restore(saved);
         self.kernel.machine.glue.set(was);
         result
+    }
+
+    /// If `field` is the implementation a parameterless global instance
+    /// supplies (`Nat.decEq` is `Nat.instDecEq`'s `decide`), the interface
+    /// method that projects it (`DecEq.decide`) and the dictionary's type
+    /// (`DecEq Nat`). A pattern that names such a function can be searched
+    /// again with the dictionary a hole, as one that names the method is.
+    fn instance_method_for(&self, field: DefId) -> Option<(DefId, Term)> {
+        let g = &self.ev();
+        for (key, info) in self.tables.instances.iter() {
+            if !info.valid || !info.params.is_empty() {
+                continue;
+            }
+            let interface = key.0;
+            let Some(known) = self.tables.interfaces.get(&interface) else {
+                continue;
+            };
+            let Ok(value) = eval(g, &[], &Term::Def(info.def)) else {
+                continue;
+            };
+            let Ok(value) = force(g, value) else {
+                continue;
+            };
+            let value = stitchwort_core::value::unfold_folded(g, &value)
+                .ok()
+                .flatten()
+                .unwrap_or(value);
+            let Value::Ctor(_, _, fields) = value else {
+                continue;
+            };
+            for (i, value) in fields.iter().enumerate() {
+                if let Value::Neutral(Head::Def(id), _) = force(g, value.clone()).ok()?
+                    && id == field
+                {
+                    let method = *known.methods.get(i)?;
+                    let mut ty = g.def(info.def).ty().strip_loc();
+                    while let Term::Pi(_, _, _, cod) = ty {
+                        ty = cod.strip_loc();
+                    }
+                    return Some((method, ty.clone()));
+                }
+            }
+        }
+        None
     }
 
     /// A pattern made from theorem `id` itself: its conclusion (or the left

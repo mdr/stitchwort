@@ -586,7 +586,10 @@ impl Session {
         let mut mentions_data = BTreeSet::new();
         for name in &query.mentions {
             let expr = self.parse_expression("<search>", name)?;
-            for p in self.elab.search_pattern(&expr, &[])? {
+            // The name as written, not the generic reading a pattern gets:
+            // a mention asks for what its type names, not for the interface
+            // an instance of it would name.
+            if let Some(p) = self.elab.search_pattern(&expr, &[])?.into_iter().next() {
                 mentions_defs.extend(p.constants.iter().copied());
                 mentions_data.extend(p.data.iter().copied());
             }
@@ -600,7 +603,8 @@ impl Session {
             && let Ok(expr) = self.parse_expression("<search>", &p)
             && let Ok(found) = self.elab.search_pattern(&expr, &[])
         {
-            for found in found {
+            // The name as written, not the generic reading.
+            if let Some(found) = found.into_iter().next() {
                 mentions_defs.extend(found.constants.iter().copied());
                 mentions_data.extend(found.data.iter().copied());
             }
