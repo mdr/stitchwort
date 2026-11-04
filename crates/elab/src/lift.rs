@@ -352,7 +352,7 @@ fn go_replace(
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
 ) -> Result<Term> {
-    g.budget.nesting(crate::check::PASS)?;
+    g.machine.budget.nesting(crate::check::PASS)?;
     if let Some(t) = hook(term, under) {
         return Ok(t);
     }
@@ -1128,7 +1128,7 @@ impl Elaborator {
         passed: &BTreeSet<usize>,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
-        self.globals.budget.nesting(crate::check::PASS)?;
+        self.globals.machine.budget.nesting(crate::check::PASS)?;
         let go = |t: &Term, under, params| {
             self.recreate(draft, t, under, params, passed, keep)
                 .map(Rc::new)

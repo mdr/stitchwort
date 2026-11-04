@@ -135,7 +135,7 @@ pub(crate) fn map_vars(
     depth: usize,
     f: &dyn Fn(usize, usize) -> Result<Term>,
 ) -> Result<Term> {
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     let go = |t: &Rc<Term>, d: usize| -> Result<Rc<Term>> { Ok(Rc::new(map_vars(g, t, d, f)?)) };
     let scrutinee = |ix: usize| -> Result<usize> {
         match f(ix, depth)? {
@@ -258,7 +258,7 @@ fn instantiate(g: &Globals, body: &Term, value: &Term) -> Result<Term> {
 /// `t` with every `let` replaced by its value (they're transparent, so this
 /// changes no meaning): the proofs rewrite under them.
 fn zeta(g: &Globals, t: &Term) -> Result<Term> {
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     let go = |t: &Rc<Term>| -> Result<Rc<Term>> { Ok(Rc::new(zeta(g, t)?)) };
     Ok(match t {
         Term::Let(_, _, v, b, _) => {
@@ -1911,7 +1911,7 @@ impl Elaborator {
         map: &dyn Fn(usize) -> usize,
         leaf: Leaf,
     ) -> Result<Term> {
-        self.globals.budget.nesting(PASS)?;
+        self.globals.machine.budget.nesting(PASS)?;
         Ok(match tree {
             Term::Loc(span, inner) => Term::Loc(
                 *span,
@@ -2016,7 +2016,7 @@ impl Elaborator {
         sites: &mut Vec<Site>,
         span: Option<Span>,
     ) -> Result<Tpl> {
-        self.globals.budget.nesting(PASS)?;
+        self.globals.machine.budget.nesting(PASS)?;
         if !leaf.mentions(t) {
             return Ok(Tpl::Plain(t.clone()));
         }
@@ -2519,7 +2519,7 @@ fn rebuild(
     shift: usize,
     hole: &Term,
 ) -> Result<Term> {
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     let go = |t: &Tpl| rebuild(g, t, sites, leaf, choose, shift, hole);
     Ok(match tpl {
         Tpl::Plain(t) => t.shift(g, shift, 0)?,

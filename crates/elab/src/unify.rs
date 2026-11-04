@@ -225,7 +225,7 @@ fn literal_seen_through(g: &Globals, m: usize, other: &Value) -> Option<(Value, 
 /// build on it).
 fn run(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
     while let Some(task) = work.pop() {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let same = match task {
             Task::Values(level, a, b) => {
                 if unify_step(g, level, &a, &b, &mut work)? {
@@ -1522,7 +1522,7 @@ fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
 /// unfolding, except that a call whose unfolding is a function isn't
 /// eta-expanded first; the two are convertible.
 fn meta_against_call(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    if !g.glue.get()
+    if !g.machine.glue.get()
         || !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
         || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
     {
@@ -1653,7 +1653,7 @@ fn rename(
     value: &Value,
     in_call: bool,
 ) -> Renamed<Term> {
-    g.budget.step()?;
+    g.machine.budget.step()?;
     let go = |v: &Value| rename(g, m, renaming, dom, cod, v, in_call);
     let under = |closure: &Closure| -> Renamed<Term> {
         let mut renaming = renaming.clone();
@@ -1906,7 +1906,7 @@ pub(crate) fn fold_back(
     under: usize,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
 ) -> Result<Option<Term>> {
-    g.budget.nesting(crate::check::PASS)?;
+    g.machine.budget.nesting(crate::check::PASS)?;
     if let Some(t) = hook(term, under) {
         return Ok(Some(t));
     }
@@ -2032,7 +2032,7 @@ pub(crate) fn fold_back(
 ///
 /// [`Budget::attempt`]: stitchwort_core::budget::Budget::attempt
 pub(crate) fn cheaply<T>(g: &Globals, f: impl FnOnce() -> Result<T>) -> Option<T> {
-    let _op = g.budget.attempt(stitchwort_core::Limits {
+    let _op = g.machine.budget.attempt(stitchwort_core::Limits {
         work: 100_000,
         stack: 128 * 1024,
         size: 10_000,
@@ -2063,7 +2063,7 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// found on the unfolded goal (D484).
 pub(crate) fn both_forms(g: &Globals, level: usize, value: &Value) -> Result<Vec<Term>> {
     let unfolded = quote(g, level, value)?;
-    if !g.glue.get() {
+    if !g.machine.glue.get() {
         // No calls: the two are the same.
         return Ok(vec![unfolded]);
     }
@@ -2207,7 +2207,7 @@ fn zonk_changed(
     keep: &dyn Fn(usize) -> bool,
     lets: &[Around],
 ) -> std::result::Result<Option<Term>, ZonkError> {
-    g.budget.step()?;
+    g.machine.budget.step()?;
     // A child, zonked; `None` if unchanged.
     let go = |t: &Rc<Term>, level| -> std::result::Result<Option<Rc<Term>>, ZonkError> {
         Ok(zonk_changed(g, level, t, keep, lets)?.map(Rc::new))
@@ -2243,7 +2243,7 @@ fn zonk_changed(
             // a call's arguments mention an unsolved metavariable its
             // unfolding may not: then unfolded, as without gluing.
             let mut solved = quote_folded(g, level, &value)?;
-            if g.glue.get() && unsolved(&solved).is_some() {
+            if g.machine.glue.get() && unsolved(&solved).is_some() {
                 solved = quote(g, level, &value)?;
             }
             if let Some(m) = unsolved(&solved) {
@@ -2522,7 +2522,7 @@ mod tests {
             Rc::new(Term::Lam("b".into(), Icit::Explicit, Rc::new(Term::Var(1)))),
         );
         stitchwort_core::check::define_def(g, id, &body).expect("defined");
-        g.glue.set(true);
+        g.machine.glue.set(true);
         (fresh, id)
     }
 
@@ -3103,9 +3103,13 @@ mod tests {
                 },
             )
         };
-        let before = g.budget.total_work();
+        let before = g.machine.budget.total_work();
         assert!(unify(&g, 4, &lam(0), &lam(1)).unwrap());
-        assert_eq!(g.budget.total_work() - before, 1, "one step: the shortcut");
+        assert_eq!(
+            g.machine.budget.total_work() - before,
+            1,
+            "one step: the shortcut"
+        );
         assert!(g.meta_solution(m).is_none());
     }
 

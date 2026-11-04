@@ -291,7 +291,7 @@ fn list_theorem(n: usize, proof: &str) -> String {
 
 /// What `session`'s budget has counted so far.
 fn work(session: &Session) -> Work {
-    let budget = &session.elab.globals.budget;
+    let budget = &session.elab.globals.machine.budget;
     Work {
         steps: budget.total_work(),
         visits: budget.total_visits(),

@@ -97,7 +97,7 @@ pub fn term_in_full(g: &Globals, names: &[Name], term: &Term) -> Result<String> 
     let printer = Printer::new(g, None);
     let text = printer.print(&mut names, term, Prec::Arrow);
     if printer.elided.get() {
-        return Err(g.budget.too_deep(PASS));
+        return Err(g.machine.budget.too_deep(PASS));
     }
     Ok(text)
 }
@@ -570,7 +570,7 @@ impl<'g> Printer<'g> {
 
     #[inline(always)]
     fn go_node(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
-        if self.g.budget.stack_exhausted() {
+        if self.g.machine.budget.stack_exhausted() {
             self.elided.set(true);
             return ("…".into(), Prec::Atom);
         }
@@ -2330,7 +2330,7 @@ fn mismatch_within(
     explicit_only: bool,
     path: &mut Path,
 ) -> Compared {
-    if g.budget.stack_exhausted() {
+    if g.machine.budget.stack_exhausted() {
         return Err(TooDeep);
     }
     let (a, b) = (bare(a), bare(b));
@@ -2692,7 +2692,7 @@ fn list_literal<'t>(g: &Globals, term: &'t Term) -> Option<Vec<&'t Term>> {
 /// `Globals::failed_mentioned`). Looks at the whole term, whatever the
 /// message elides.
 fn note_failed_mention(g: &Globals, term: &Term) {
-    if g.failed_mentioned.get() || g.budget.stack_exhausted() {
+    if g.failed_mentioned.get() || g.machine.budget.stack_exhausted() {
         return;
     }
     if let Term::Def(d) = term

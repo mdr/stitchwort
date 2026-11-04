@@ -530,20 +530,20 @@ def fib: Nat → Nat
             "{diagnostics:?}"
         );
         let limit = std::time::Duration::from_millis(300);
-        (session.elab.globals.budget).set_deadline(Some(std::time::Instant::now() + limit));
+        (session.elab.globals.machine.budget).set_deadline(Some(std::time::Instant::now() + limit));
         let slow = session
             .parse_expression("<test>", "((rfl): fib 36 = 14930352)")
             .unwrap();
         let started = std::time::Instant::now();
         let stopped = session.elab.check_proof(&slow);
         let took = started.elapsed();
-        (session.elab.globals.budget).set_deadline(None);
+        (session.elab.globals.machine.budget).set_deadline(None);
         let Err(error) = stopped else {
             panic!("the check can't finish in 300 ms");
         };
         assert_eq!(error.code, "E-RESOURCE", "{error:?}");
         assert!(
-            session.elab.globals.budget.take_timed_out(),
+            session.elab.globals.machine.budget.take_timed_out(),
             "the deadline didn't stop it"
         );
         assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
@@ -551,6 +551,6 @@ def fib: Nat → Nat
             .parse_expression("<test>", "((rfl): fib 10 = 55)")
             .unwrap();
         assert!(session.elab.check_proof(&quick).is_ok());
-        assert!(!session.elab.globals.budget.take_timed_out());
+        assert!(!session.elab.globals.machine.budget.take_timed_out());
     });
 }

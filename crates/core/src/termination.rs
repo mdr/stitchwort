@@ -227,7 +227,7 @@ fn check_members(
             .call(call.from, call.to, &call.arcs)
             .expect("internal error: a call's arcs are within the arities");
     }
-    match group.check(&g.budget, max_graphs) {
+    match group.check(&g.machine.budget, max_graphs) {
         Ok(Outcome::Terminates) => Ok(()),
         Ok(Outcome::NoDescent { path, graph }) => Err(no_descent(
             g,
@@ -384,7 +384,7 @@ fn pins_var(g: &Globals, ty: &Term, ix: usize, pins: Pins) -> bool {
 
 impl Walker<'_> {
     fn walk(&mut self, term: &Term) -> Result<(), Diagnostic> {
-        self.g.budget.nesting("termination checker")?;
+        self.g.machine.budget.nesting("termination checker")?;
         match term {
             Term::Loc(span, inner) => {
                 let saved = self.span;

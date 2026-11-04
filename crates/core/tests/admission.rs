@@ -390,9 +390,9 @@ fn running_out_of_resources_leaves_a_definition_failed() {
             work: 10,
             ..Limits::default()
         };
-        let saved = p.g.budget.start(tiny);
+        let saved = p.g.machine.budget.start(tiny);
         let r = check::define_def(&mut p.g, big, &Term::Refl);
-        p.g.budget.restore(saved);
+        p.g.machine.budget.restore(saved);
         r
     };
     assert_eq!(code(r), "E-RESOURCE");

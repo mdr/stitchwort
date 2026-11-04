@@ -2224,7 +2224,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
 /// [`may_perform`] for `expr` checked against `expected`, which may say
 /// that parts of a list, tuple or record literal are computations.
 pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
-    cx.g().budget.nesting(crate::check::PASS)?;
+    cx.g().machine.budget.nesting(crate::check::PASS)?;
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
             if may_perform(cx, item)? {
@@ -2621,7 +2621,7 @@ fn comp_check_in(
     t: &Value,
     as_written: bool,
 ) -> Result<Term> {
-    cx.g().budget.nesting(crate::check::PASS)?;
+    cx.g().machine.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Interpolated(text, _) => comp_check_in(cx, text, row, t, as_written),
         Expr::LocalDefs { defs, body, .. } => {
@@ -3081,7 +3081,7 @@ fn run_scrutinees(
 
 /// Elaborates `expr` as a computation in `row`, inferring its result type.
 pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
-    cx.g().budget.nesting(crate::check::PASS)?;
+    cx.g().machine.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Interpolated(text, _) => comp_infer(cx, text, row),
         Expr::LocalDefs { defs, body, .. } => {

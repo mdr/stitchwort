@@ -2070,12 +2070,12 @@ impl Elaborator {
             frames: ATTEMPT.frames,
             ..self.options.limits
         };
-        let saved = self.globals.budget.start_attempt(limits);
+        let saved = self.globals.machine.budget.start_attempt(limits);
         let result = f(self);
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         match result {
             Err(Stop::Error(e))
-                if e.code == "E-RESOURCE" && self.globals.budget.exhausted().is_none() =>
+                if e.code == "E-RESOURCE" && self.globals.machine.budget.exhausted().is_none() =>
             {
                 Err(Stop::Skip(
                     "checking it takes more than the generator allows for one equation (its \
@@ -3960,7 +3960,7 @@ fn generalise(
         images: &[&(usize, Term)],
         cache: &mut Vec<Vec<Term>>,
     ) -> stitchwort_core::budget::Result<Term> {
-        g.budget.nesting("equations")?;
+        g.machine.budget.nesting("equations")?;
         while cache.len() <= under {
             let by = at + cache.len() - from;
             let shifted = images
@@ -4068,7 +4068,7 @@ fn instantiate(g: &Globals, t: &Term, from: usize, vals: &[(Term, usize)], to: u
 /// `t` (under `by` binders more than `e` and `ty`) with each untyped
 /// equation `e = p` given the type `ty`.
 fn typed_equations(g: &Globals, t: &Term, e: &Term, ty: &Term, by: usize) -> R<Term> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     if let Term::Eq(None, a, b) = t {
         let e = e.shift(g, by, 0)?;
         if stitchwort_core::value::same_term(a, &e) {
@@ -4271,7 +4271,7 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
 
 /// `t` with every `let` substituted.
 fn zeta(g: &Globals, t: &Term) -> stitchwort_core::budget::Result<Term> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     if let Term::Let(_, _, v, b, _) = t {
         let v = zeta(g, v)?;
         let b = zeta(g, b)?;
@@ -4285,7 +4285,7 @@ fn zeta(g: &Globals, t: &Term) -> stitchwort_core::budget::Result<Term> {
 /// Empty a` is `a`), so an effect-polymorphic definition's equation reads
 /// as pure code (§3.2).
 fn pure_at_empty(g: &Globals, t: &Term, depth: usize) -> stitchwort_core::budget::Result<Term> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     let r = &g.env.registry();
     let plumbing = [
         Builtin::CompIn,
@@ -4366,7 +4366,7 @@ fn remap(
         from: usize,
         map: &dyn Fn(usize) -> Option<Term>,
     ) -> stitchwort_core::budget::Result<std::result::Result<Term, Missing>> {
-        g.budget.nesting("equations")?;
+        g.machine.budget.nesting("equations")?;
         macro_rules! sub {
             ($t:expr, $k:expr) => {
                 match go(g, $t, $k, from, map)? {
@@ -4480,7 +4480,7 @@ fn rec_term(d: &Def, depth: usize) -> Term {
 
 /// Applications of `%rec`'s lambda, reduced: `((y => f y) a)` is `f a`.
 fn beta_rec(g: &Globals, t: Term) -> stitchwort_core::budget::Result<Term> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     let (head, args) = {
         let (h, a) = t.spine();
         (h.clone(), a.into_iter().cloned().collect::<Vec<Term>>())
@@ -4525,7 +4525,7 @@ fn unmark(g: &Globals, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Ter
     let n = d.binders.len();
     let f = d.f;
     fn go(g: &Globals, f: DefId, n: usize, t: &Term) -> stitchwort_core::budget::Result<Term> {
-        g.budget.nesting("equations")?;
+        g.machine.budget.nesting("equations")?;
         if let Term::App(head, _, Icit::Auto) = t {
             let (h, args) = t.spine();
             if matches!(h.strip_loc(), Term::Def(x) if *x == f) && args.len() == n + 1 {
@@ -4582,7 +4582,7 @@ fn find_rhs(
     path: &mut Vec<u32>,
     found: &mut Found,
 ) -> R<()> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     if matches!(found, Found::Rhs(..)) {
         return Ok(());
     }
@@ -5432,7 +5432,7 @@ impl<'a> Walk<'a> {
     /// The proof for the tree `t` (in a context of the definition's
     /// `fvals`), here.
     fn go(&mut self, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
-        self.g().budget.nesting("equations")?;
+        self.g().machine.budget.nesting("equations")?;
         if let Some(row) = self.d.row_at(path)
             && (row == self.k || !self.d.is_ancestor(row, self.k))
         {

@@ -294,14 +294,14 @@ impl Elaborator {
     ) -> (SearchLog, Option<String>) {
         let started = clock::now();
         let theorem = self.globals.def(def).name().to_string();
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let datas = (
             self.globals.env.defs().len(),
             self.globals.env.datas().len(),
         );
         let built = self.build_checker(def);
         self.clear_metas();
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         let mut log = SearchLog {
             theorem,
             ..SearchLog::default()
@@ -335,10 +335,10 @@ impl Elaborator {
     /// `Err` says why not. For measuring (the proposal's §12); leaves the
     /// metavariables cleared.
     pub fn counterexample_scope(&mut self, def: DefId) -> Result<(), String> {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let built = self.build_checker(def).and_then(|checker| {
             let g = &self.globals;
-            let _op = g.budget.operation(self.options.limits);
+            let _op = g.machine.budget.operation(self.options.limits);
             let mut inputs = Inputs::new(g, 4 * MAX_INPUTS);
             for (name, ty) in &checker.params {
                 if inputs.plan(ty).is_none() {
@@ -348,7 +348,7 @@ impl Elaborator {
             Ok(())
         });
         self.clear_metas();
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         built
     }
 
@@ -506,7 +506,7 @@ impl Elaborator {
         let mut inputs = Inputs::new(g, 4 * budget.inputs);
         let mut plans = Vec::new();
         {
-            let _op = g.budget.operation(self.options.limits);
+            let _op = g.machine.budget.operation(self.options.limits);
             for (name, ty) in &checker.params {
                 match inputs.plan(ty) {
                     Some(plan) => plans.push(plan),
@@ -521,7 +521,7 @@ impl Elaborator {
         // Phase 1: every input up to a size, in at most two fifths of the
         // time.
         let (enumerated, largest, exhaustive) = {
-            let _op = g.budget.operation(self.options.limits);
+            let _op = g.machine.budget.operation(self.options.limits);
             inputs.enumerate(&plans, budget.inputs.div_ceil(2))
         };
         log.inputs = enumerated.len();
@@ -562,7 +562,7 @@ impl Elaborator {
             // past it, the batch would run none of them anyway (SW-900).
             // Each with the size it was drawn at.
             let (random, drawn): (Vec<Vec<Term>>, Vec<usize>) = {
-                let _op = g.budget.operation(self.options.limits);
+                let _op = g.machine.budget.operation(self.options.limits);
                 (0..more)
                     .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
                     .filter_map(|i| {
@@ -613,7 +613,7 @@ impl Elaborator {
                     break;
                 }
                 let candidates = {
-                    let _op = g.budget.operation(self.options.limits);
+                    let _op = g.machine.budget.operation(self.options.limits);
                     inputs.shrink_tuple(&plans, &input)
                 };
                 let batch = self.run_batch(
@@ -741,19 +741,19 @@ impl Elaborator {
         steps: u64,
     ) -> Result<Option<u64>, ()> {
         let g = &self.globals;
-        let _op = g.budget.operation(Limits {
+        let _op = g.machine.budget.operation(Limits {
             work: steps,
             ..self.options.limits
         });
-        let _erasing = g.erasure.running();
+        let _erasing = g.machine.erasure.running();
         let call = input
             .iter()
             .fold(checker.term.clone(), |f, a| Term::app(f, a.clone()));
         // A step per word of a big number, so that the steps bound the
         // input's time and memory, as on the fast runtime (SW-907).
-        let counted = g.budget.count_number_words(true);
+        let counted = g.machine.budget.count_number_words(true);
         let result = eval(g, &[], &call).and_then(|v| force(g, v));
-        g.budget.count_number_words(counted);
+        g.machine.budget.count_number_words(counted);
         match result {
             Ok(Value::Nat(k)) => Ok(u64::try_from(k.as_ref().clone()).ok()),
             Ok(Value::Ctor(_, 0, _)) => Ok(Some(0)),
@@ -796,7 +796,7 @@ impl Elaborator {
     /// A closed term's value, printed and cut.
     fn show_closed(&self, term: &Term) -> String {
         let g = &self.globals;
-        let _op = g.budget.operation(Limits {
+        let _op = g.machine.budget.operation(Limits {
             size: shown::SHOWN_NODES,
             work: CONFIRM_STEPS,
             ..self.options.limits
@@ -807,7 +807,7 @@ impl Elaborator {
         {
             return shown::cut(&stitchwort_core::pretty::term(g, &[], &t));
         }
-        let _erasing = g.erasure.running();
+        let _erasing = g.machine.erasure.running();
         self.shown_value(eval(g, &[], term).ok()).0
     }
 
@@ -865,7 +865,7 @@ impl Elaborator {
             // fixed.
             let mut env: Vec<Value> = Vec::new();
             for slot in &checker.slots {
-                let _op = g.budget.operation(Limits {
+                let _op = g.machine.budget.operation(Limits {
                     work: CONFIRM_STEPS,
                     ..self.options.limits
                 });
@@ -887,20 +887,20 @@ impl Elaborator {
                     ..self.options.limits
                 };
                 let in_full = {
-                    let _op = g.budget.operation(limits);
+                    let _op = g.machine.budget.operation(limits);
                     eval(g, &env, term).and_then(|v| quote(g, 0, &v))
                 };
                 if let Ok(t) = in_full
                     && is_data(&t)
                 {
-                    let _op = g.budget.operation(limits);
+                    let _op = g.machine.budget.operation(limits);
                     return (
                         shown::cut(&stitchwort_core::pretty::term(g, &[], &t)),
                         Some(t),
                     );
                 }
-                let _op = g.budget.operation(limits);
-                let _erasing = g.erasure.running();
+                let _op = g.machine.budget.operation(limits);
+                let _erasing = g.machine.erasure.running();
                 self.shown_value(eval(g, &env, term).ok())
             };
             let (left, left_term) = side(left);

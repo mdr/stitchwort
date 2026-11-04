@@ -795,7 +795,7 @@ pub fn generate_exports(
     options: Options,
     ids: &[DefId],
 ) -> Result<Output, Diagnostic> {
-    let _op = g.budget.operation(Limits::stack_only(limits.stack));
+    let _op = g.machine.budget.operation(Limits::stack_only(limits.stack));
     let exports = ids
         .iter()
         .map(|id| exportable(g, *id))
@@ -2775,7 +2775,7 @@ impl<'g> Gen<'g> {
         depth: usize,
         self_call: Option<&SelfCall>,
     ) -> Fallible<String> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
         if let Term::NumCase(ix, arms, default) = term.strip_loc() {
             // Each arm ends in `return` (or `continue`), so nothing falls
@@ -2977,7 +2977,7 @@ impl<'g> Gen<'g> {
         depth: usize,
         call: &SelfCall,
     ) -> Fallible<String> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
         if let Term::Let(_, _, value, body, erased) = term.strip_loc() {
             let mut out = self.let_statement(value, *erased, env, &pad)?;
@@ -3783,7 +3783,7 @@ impl<'g> Gen<'g> {
     }
 
     fn expr(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         Ok(match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t, env)?,
             Term::Var(ix) => {

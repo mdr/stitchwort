@@ -123,7 +123,7 @@ impl Saturator<'_> {
 
     /// `term` rewritten, or `None` if nothing in it changes.
     fn expand(&mut self, term: &Rc<Term>) -> Result<Option<Rc<Term>>> {
-        self.g.budget.nesting("elaborator")?;
+        self.g.machine.budget.nesting("elaborator")?;
         Ok(match &**term {
             Term::Loc(span, inner) => {
                 let saved = self.span.replace(*span);

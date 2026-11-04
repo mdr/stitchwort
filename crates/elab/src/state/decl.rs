@@ -2,7 +2,7 @@
 //! typed in) being elaborated. It starts empty and is emptied again when
 //! the declaration is done (`Elaborator::glued`), by `Decl::default()`, so
 //! nothing is listed by hand and nothing one declaration leaves reaches the
-//! next. It is empty at every rewind mark, and a rewind empties it.
+//! next. It is empty at every rewind mark (but for the `failed_mentioned` flag), and a rewind empties it.
 //!
 //! Unlike [`super::Attempt`], none of it is taken back when an attempt is
 //! undone: what's here is either set and put back around one call (a
@@ -15,6 +15,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::globals::FailedMention;
 use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast;
@@ -23,6 +24,14 @@ use crate::{SidesCapture, decreasing, effects, equations, families, lift};
 
 #[derive(Default)]
 pub(crate) struct Decl {
+    /// Whether an error message has shown a term that uses a failed
+    /// definition since the component's check began: its errors are then
+    /// fallout of that failure, not its own (`blame_failed_dependency`). The
+    /// printer sets it through the handle `Globals` shares. Unlike the
+    /// rest, it outlives the `glued` call it is set in: the component's
+    /// blame is decided after it. So [`Decl::reset`] keeps it, the
+    /// component's start clears it, and a rewind empties it.
+    pub(crate) failed_mentioned: FailedMention,
     /// While a test is checked: the comparisons in it whose sides are
     /// shown when it fails (`probe.rs`).
     pub(crate) sides_capture: RefCell<SidesCapture>,
@@ -145,10 +154,28 @@ pub(crate) struct Decl {
 }
 
 impl Decl {
+    /// Empties everything but [`Self::failed_mentioned`] (and the sharing of
+    /// its cell with the printer).
+    pub(crate) fn reset(&mut self) {
+        let failed_mentioned = self.failed_mentioned.clone();
+        *self = Decl {
+            failed_mentioned,
+            ..Decl::default()
+        };
+    }
+
+    /// Empties everything, the flag too: a rewind.
+    pub(crate) fn rewind(&mut self) {
+        self.reset();
+        self.failed_mentioned.set(false);
+    }
+
     /// The first field that isn't empty, if any: none should be between
     /// declarations, where a rewind mark is taken.
     pub(crate) fn leftover(&self) -> Option<&'static str> {
         let Decl {
+            // Kept between declarations on purpose (see its doc).
+            failed_mentioned: _,
             sides_capture,
             arm_reach,
             no_propagation,

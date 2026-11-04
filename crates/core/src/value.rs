@@ -138,7 +138,7 @@ impl Apart {
 
     /// The set `numbers` (sorted, without duplicates), named in `g`.
     pub fn new(g: &Globals, numbers: Rc<[BigUint]>) -> Apart {
-        let mut sets = g.apart_sets.borrow_mut();
+        let mut sets = g.machine.apart_sets.borrow_mut();
         sets.push(numbers);
         Apart(u32::try_from(sets.len()).expect("fewer than 2^32 number cases"))
     }
@@ -147,7 +147,7 @@ impl Apart {
     pub fn numbers(self, g: &Globals) -> Rc<[BigUint]> {
         match self.0 {
             0 => Rc::from([]),
-            i => g.apart_sets.borrow()[i as usize - 1].clone(),
+            i => g.machine.apart_sets.borrow()[i as usize - 1].clone(),
         }
     }
 
@@ -533,7 +533,7 @@ pub fn force_ref<'v>(g: &Globals, value: &'v Value) -> Result<std::borrow::Cow<'
 /// reading back folded ([`quote_folded`]). Without gluing, it's [`force`]
 /// except on a call itself.
 pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
-    if !g.glue.get() {
+    if !g.machine.glue.get() {
         // Nothing is glued now, so `force` as usual (taking the same steps);
         // but a call kept from while gluing (a goal's context, printed
         // afterwards) is still written as the call.
@@ -877,7 +877,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
     RUNS.with(|r| r.set(r.get() + 1));
     let mut stack: Vec<Frame> = Vec::new();
     loop {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         control = match control {
             Control::Eval(term, env) => eval_step(g, term, env, &mut stack)?,
             Control::Apply(application) => {
@@ -891,7 +891,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
-                    g.budget.enter_definition(id.0);
+                    g.machine.budget.enter_definition(id.0);
                 }
                 let node = Term::strip_loc_rc(&node);
                 match &*node {
@@ -960,7 +960,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
 }
 
 fn push(g: &Globals, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
-    if let Err(e) = g.budget.frames(stack.len() + 1) {
+    if let Err(e) = g.machine.budget.frames(stack.len() + 1) {
         if e == ResourceError::Depth {
             note_deepest(g, stack);
         }
@@ -996,11 +996,11 @@ fn note_deepest(g: &Globals, stack: &[Frame]) {
     // Calls that are pending as frames name themselves; otherwise the
     // definition running when the limit was hit is the best guess.
     if counts.is_empty()
-        && let Some(id) = g.budget.last_entered()
+        && let Some(id) = g.machine.budget.last_entered()
     {
         counts.push((id, stack.len()));
     }
-    g.budget.set_deepest(counts);
+    g.machine.budget.set_deepest(counts);
 }
 
 /// The value of `term` if it takes no evaluation steps (a variable, a
@@ -1049,7 +1049,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
                 Some(_)
                     if def.arity == 0
                         && !folds(g, *id)
-                        && g.glue.get()
+                        && g.machine.glue.get()
                         && glues(g, *id)
                         && (def.param_default || !def.name.contains('%')) =>
                 {
@@ -1097,7 +1097,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             },
         )),
         Term::App(f, a, i)
-            if g.erasure.active() && quick(g, a, &env).is_none() && erased_arg(g, f) =>
+            if g.machine.erasure.active() && quick(g, a, &env).is_none() && erased_arg(g, f) =>
         {
             match quick(g, f, &env) {
                 Some(f) => apply_step(f, erased(), *i),
@@ -1125,7 +1125,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         // which sees it in its environment (docs/proposals/let.md §A.2).
         // While running, a skipped `let` (a proof, a type, or unused; see
         // `Term::Let`) isn't computed: the placeholder takes its slot.
-        Term::Let(_, _, _, body, true) if g.erasure.active() => {
+        Term::Let(_, _, _, body, true) if g.machine.erasure.active() => {
             Control::Eval(body.clone(), extend(&env, erased()))
         }
         Term::Let(_, _, value, body, _) => match quick(g, value, &env) {
@@ -1168,12 +1168,12 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         // base on (rule 4). A `Quot.mk` whose representative is erased
         // (its carrier's elements are types) has the placeholder for it.
         Term::Quot(QuotForm::Lift, _, true) | Term::Quot(QuotForm::Ind | QuotForm::Sound, ..)
-            if g.erasure.active() =>
+            if g.machine.erasure.active() =>
         {
             Control::Return(erased())
         }
         Term::Quot(QuotForm::Mk, args, true)
-            if g.erasure.active() && args.len() == QuotForm::Mk.arity() =>
+            if g.machine.erasure.active() && args.len() == QuotForm::Mk.arity() =>
         {
             quot_args(g, term.clone(), env, Vec::new(), Some(erased()), stack)?
         }
@@ -1221,7 +1221,9 @@ fn fields(
         unreachable!("fields of a data type or constructor")
     };
     let field_erased = match &*term {
-        Term::Ctor(d, c, _) if g.erasure.active() => Some(&g.data(*d).ctors[*c].field_erased),
+        Term::Ctor(d, c, _) if g.machine.erasure.active() => {
+            Some(&g.data(*d).ctors[*c].field_erased)
+        }
         _ => None,
     };
     while let Some(arg) = args.get(done.len()) {
@@ -1623,7 +1625,7 @@ fn branch(
         // An impossible branch is never reached by a well-typed value
         // (docs/proposals/indexed-families.md §6.8). A run that reaches one
         // anyway fails loudly; checking leaves the definition folded.
-        if g.erasure.program_running() {
+        if g.machine.erasure.program_running() {
             panic!("internal error: unreachable: an impossible branch was reached");
         }
         return stuck_tree(g, stuck);
@@ -1672,7 +1674,7 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
 #[cold]
 #[inline(never)]
 fn glues(g: &Globals, id: DefId) -> bool {
-    !g.erasure.program_running() && g.env.builtins().native(id).is_none()
+    !g.machine.erasure.program_running() && g.env.builtins().native(id).is_none()
 }
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
@@ -1686,7 +1688,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     }
     if g.env
         .builtins()
-        .float_def(id, g.erasure.program_running())
+        .float_def(id, g.machine.erasure.program_running())
         .is_some()
         && let Some(value) = crate::float::run(g, id, &spine, force)?
     {
@@ -1715,7 +1717,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
             })
             .collect();
         if let Some(args) = args {
-            if glue && g.glue.get() && glues(g, id) {
+            if glue && g.machine.glue.get() && glues(g, id) {
                 return Ok(Control::Return(Value::Call(id, spine, Rc::default())));
             }
             let tree = Term::peel_lams_rc(body, def.arity);
@@ -1734,7 +1736,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
 /// doesn't change, only when it's computed.
 fn folds(g: &Globals, id: DefId) -> bool {
     let def = g.def(id);
-    (def.fold || def.theorem) && !g.erasure.program_running()
+    (def.fold || def.theorem) && !g.machine.erasure.program_running()
 }
 
 /// Whether definition `id` is opaque and its body can't be used now
@@ -1744,7 +1746,7 @@ fn folds(g: &Globals, id: DefId) -> bool {
 /// unfolds (not even by a native implementation), and no shortcut of
 /// conversion or matching looks at its body ([`body_seen`]).
 pub fn hidden(g: &Globals, id: DefId) -> bool {
-    g.def(id).opaque && !g.erasure.program_running() && !g.transparent.contains(id)
+    g.def(id).opaque && !g.machine.erasure.program_running() && !g.machine.transparent.contains(id)
 }
 
 /// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
@@ -1802,7 +1804,7 @@ pub fn is_folded(g: &Globals, value: &Value) -> bool {
 /// when it reaches a `case` that can't step: so a goal shows `Map.get k m`,
 /// not the lift it unfolds to. Except while a program runs.
 fn folds_on_lift(g: &Globals, id: DefId) -> bool {
-    g.def(id).lift_leaf && !g.erasure.program_running()
+    g.def(id).lift_leaf && !g.machine.erasure.program_running()
 }
 
 /// Whether case tree `tree` (a definition's body under its parameters) has a
@@ -1873,7 +1875,9 @@ pub fn unfold_folded(g: &Globals, value: &Value) -> Result<Option<Value>> {
 /// Whether, while erasing, definition `id` (with a body) applied to all its
 /// parameters is erased rather than run (`erase.rs`).
 fn erases_result(g: &Globals, id: DefId) -> bool {
-    g.erasure.active() && g.def(id).body.is_some() && erase::of_def(g, id).is_some_and(|e| e.result)
+    g.machine.erasure.active()
+        && g.def(id).body.is_some()
+        && erase::of_def(g, id).is_some_and(|e| e.result)
 }
 
 /// Whether, while erasing, the argument applied to `f` is erased: `f` is a
@@ -1981,19 +1985,19 @@ fn quote_as(
         Value::Neutral(Head::Def(id), _) | Value::Call(id, ..) => Some(id.0),
         _ => None,
     };
-    let limit = g.budget.size_limit();
+    let limit = g.machine.budget.size_limit();
     let cap = cap.filter(|&cap| cap < limit);
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
         match task {
             QuoteTask::Visit(level, value) => {
-                g.budget.step()?;
+                g.machine.budget.step()?;
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
                     return Ok(None);
                 }
                 if size > limit {
-                    g.budget.set_too_large(root_def);
+                    g.machine.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
                 }
                 visit(g, level, value, mode, &mut tasks, &mut done)?;
@@ -2273,7 +2277,7 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
 fn conv_with(g: &Globals, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(task) = work.pop() {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let same = match task {
             ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo)?,
             // Function types' codomains, compared once their domains are.
@@ -2705,7 +2709,7 @@ enum TreeEnd {
 /// selects, to the first `case` that's stuck or to a leaf.
 fn walk_tree(g: &Globals, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd> {
     loop {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
         match &*node {
             Term::Case(ix, _, branches) => {
@@ -3054,7 +3058,7 @@ fn shape_hash(g: &Globals, cache: &mut ShapeCache, value: &Value) -> Result<u64>
                     results.push(*hash);
                     continue;
                 }
-                g.budget.step()?;
+                g.machine.budget.step()?;
                 let mut h = QuickHasher::default();
                 let mut parts: Vec<Part> = Vec::new();
                 match part {
@@ -3631,14 +3635,14 @@ mod tests {
     /// `conv` with and without the shortcut, which must agree; and the steps
     /// each took.
     fn conv_both(g: &Globals, a: &Value, b: &Value) -> (bool, u64, u64) {
-        let before = g.budget.total_work();
+        let before = g.machine.budget.total_work();
         let with = conv(g, 0, a, b).unwrap();
-        let middle = g.budget.total_work();
+        let middle = g.machine.budget.total_work();
         set_shortcuts_disabled(true);
         let without = conv(g, 0, a, b);
         set_shortcuts_disabled(false);
         let without = without.unwrap();
-        let after = g.budget.total_work();
+        let after = g.machine.budget.total_work();
         assert_eq!(with, without, "the shortcut changed conv's answer");
         (with, middle - before, after - middle)
     }

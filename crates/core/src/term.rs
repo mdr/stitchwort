@@ -530,7 +530,7 @@ impl Term {
         var: &dyn Fn(usize, usize) -> Result<Term>,
         f: &dyn Fn(usize, usize) -> usize,
     ) -> Result<Term> {
-        g.budget.nesting("elaborator")?;
+        g.machine.budget.nesting("elaborator")?;
         let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.map_vars_with(g, cutoff, var, f)?));
         Ok(match self {
             Term::Var(ix) => var(*ix, cutoff)?,

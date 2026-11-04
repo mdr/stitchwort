@@ -363,7 +363,7 @@ impl Elaborator {
     ) {
         let log = self.scope.log.take().unwrap_or_default();
         // A cancelled check isn't a result, even where it reported nothing.
-        if ok && !self.globals.budget.cancelled() {
+        if ok && !self.globals.machine.budget.cancelled() {
             let store = self.options.check_cache.clone().expect("a cache is set");
             let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
             match entry {
@@ -591,7 +591,7 @@ impl Elaborator {
             .iter()
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             && self.tables.unfinished_count() == unfinished
-            && !self.globals.budget.cancelled();
+            && !self.globals.machine.budget.cancelled();
         if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)
@@ -1278,7 +1278,7 @@ impl Elaborator {
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
         let g = &self.globals;
-        let _op = g.budget.operation(self.options.limits);
+        let _op = g.machine.budget.operation(self.options.limits);
         let (defs, datas) = (
             before.defs..g.env.defs().len(),
             before.datas..g.env.datas().len(),
@@ -2127,7 +2127,7 @@ impl Elaborator {
     fn decode(&self, deps: &[Dep], head: Head, early: &[(String, Span, bool)]) -> Read<Decoded> {
         let index = self.library_index().expect("a library is installed");
         let g = &self.globals;
-        let _op = g.budget.operation(self.options.limits);
+        let _op = g.machine.budget.operation(self.options.limits);
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
@@ -2703,9 +2703,9 @@ impl Elaborator {
     /// Runs one kernel call as its own operation, with its own resource
     /// limits, as elaborating each component does.
     fn kernel_op<T>(&mut self, f: impl FnOnce(&mut Globals) -> T) -> T {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let result = f(&mut self.globals);
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         result
     }
 

@@ -128,7 +128,7 @@ fn a_duplicate_is_reported_and_the_first_definition_kept() {
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-DUPLICATE"]);
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let use_id = def_named(&session, "use");
     let value = stitchwort_core::value::eval(g, &[], &stitchwort_core::Term::Def(use_id)).unwrap();
     assert_eq!(session.elab.show(&value), "2");
@@ -201,7 +201,7 @@ fn abilities_are_ordered_by_where_they_are_written() {
         let (session, result) = load(&text);
         result.unwrap();
         let g = &session.elab.globals;
-        let _op = g.budget.operation(Limits::default());
+        let _op = g.machine.budget.operation(Limits::default());
         def_hash(g, def_named(&session, "f")).unwrap().unwrap()
     };
     assert_eq!(module(true), module(false));

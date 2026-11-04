@@ -384,15 +384,15 @@ pub fn conjuncts(g: &Globals, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
         _ => return Vec::new(),
     }
     let level = binders.len();
-    let was = g.glue.replace(true);
+    let was = g.machine.glue.replace(true);
     let mut out = Vec::new();
     let found = (|| -> Res<()> {
-        let _op = g.budget.attempt(ATTEMPT);
+        let _op = g.machine.budget.attempt(ATTEMPT);
         let env: Vec<Value> = (0..level).map(Value::var).collect();
         let concl = eval(g, &env, t)?;
         split_conjunction(g, concl, level, and, Part { bits: 0, len: 0 }, &mut out)
     })();
-    g.glue.set(was);
+    g.machine.glue.set(was);
     if found.is_err() {
         return Vec::new();
     }
@@ -914,7 +914,7 @@ impl Drop for Restore<'_> {
         g.frozen_metas.borrow_mut().truncate(self.frozen);
         crate::unify::undo_since(g, self.trail);
         g.metas.borrow_mut().truncate(self.metas);
-        g.glue.set(self.glue);
+        g.machine.glue.set(self.glue);
     }
 }
 
@@ -928,8 +928,8 @@ impl Elaborator {
     /// elaborate, or that is a hole on its own (it would match everything).
     pub fn search_pattern(&mut self, expr: &Expr, holes: &[String]) -> Result<Vec<Pattern>> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.options.glue);
-        let saved = self.globals.budget.start(self.options.limits);
+        let was = self.globals.machine.glue.replace(self.options.glue);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Vec<Pattern>> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -1055,8 +1055,8 @@ impl Elaborator {
                 _ => Ok(vec![make(value, None)]),
             }
         })();
-        self.globals.budget.restore(saved);
-        self.globals.glue.set(was);
+        self.globals.machine.budget.restore(saved);
+        self.globals.machine.glue.set(was);
         result
     }
 
@@ -1074,9 +1074,9 @@ impl Elaborator {
     ) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.globals;
-        let was = g.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let def = g.def(id);
             let mut env: Vec<Value> = Vec::new();
             let mut t = def.ty().strip_loc();
@@ -1102,7 +1102,7 @@ impl Elaborator {
             };
             self.finish_pattern(value, ty)
         })();
-        g.glue.set(was);
+        g.machine.glue.set(was);
         made.ok().flatten()
     }
 
@@ -1114,9 +1114,9 @@ impl Elaborator {
     pub fn use_pattern(&mut self, lemma: DefId, args: &[&Term], depth: usize) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.globals;
-        let was = g.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.options.glue);
         let made = (|| -> Res<Option<Pattern>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let def = g.def(lemma);
             let mut env: Vec<Value> = Vec::new();
             for _ in 0..depth {
@@ -1159,7 +1159,7 @@ impl Elaborator {
             }
             self.finish_pattern(ty, Some(Ty::Type))
         })();
-        g.glue.set(was);
+        g.machine.glue.set(was);
         made.ok().flatten()
     }
 
@@ -1245,13 +1245,13 @@ impl Elaborator {
     /// written.
     pub fn type_index(&self, ty: &Term) -> Index {
         let g = &self.globals;
-        let was = g.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.options.glue);
         let found = (|| {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let v = eval(g, &[], ty)?;
             stitchwort_core::value::quote_folded(g, 0, &v)
         })();
-        g.glue.set(was);
+        g.machine.glue.set(was);
         let mut index = Index {
             ty: constants(ty),
             data: data_types(ty),
@@ -1379,12 +1379,12 @@ impl Elaborator {
             metas: g.metas.borrow().len().max(pattern.metas),
             trail: g.meta_trail.borrow().len(),
             frozen,
-            glue: g.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let mode = opts.mode;
         let found = (|| -> Res<Option<Hit>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             // Frozen for a one-way match the pattern's way.
             let rigid: &[usize] = if pattern.distinct {
                 &pattern.free

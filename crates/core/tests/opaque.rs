@@ -79,7 +79,7 @@ fn submit(
 }
 
 fn hash_of(g: &Globals, id: DefId) -> ContentHash {
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     def_hash(g, id).unwrap().expect("final")
 }
 
@@ -300,7 +300,7 @@ fn a_type_that_needs_an_unfolding_is_refused() {
     let code = submit(&mut p.g, "Code", OPAQUE, ty(), nat).unwrap();
     let statement = eq(Some(Term::Def(code)), p.num(0), p.num(0));
     let set: Rc<[DefId]> = Rc::from([code]);
-    let _ambient = p.g.transparent.set(set);
+    let _ambient = p.g.machine.transparent.set(set);
     assert_eq!(
         submit(&mut p.g, "x", unfolding(&[code]), statement, Term::Refl),
         Err("E-TYPE-MISMATCH")
@@ -309,7 +309,7 @@ fn a_type_that_needs_an_unfolding_is_refused() {
     let statement = nat_eq(&p, p.num(0), p.num(0));
     assert!(submit(&mut p.g, "x", unfolding(&[code]), statement, Term::Refl).is_ok());
     // And the caller's set is still in place.
-    assert!(p.g.transparent.contains(code));
+    assert!(p.g.machine.transparent.contains(code));
 }
 
 // Transitivity: Danielsson and Geng's counterexample (§5)
@@ -556,14 +556,14 @@ fn conversion_treats_an_opaque_call_as_neutral() {
     let mut p = Prelude::new();
     let f = double(&mut p, "f", OPAQUE);
     let call = app(Term::Def(f), [p.num(2)]);
-    let _op = p.g.budget.operation(Limits::default());
+    let _op = p.g.machine.budget.operation(Limits::default());
     let value = eval(&p.g, &[], &call).unwrap();
     assert!(matches!(&value, Value::Neutral(Head::Def(id), spine) if *id == f && spine.len() == 1));
     let four = eval(&p.g, &[], &p.num(4)).unwrap();
     assert!(!conv(&p.g, 0, &value, &four).unwrap());
     // In the transparency set, it computes.
     let set: Rc<[DefId]> = Rc::from([f]);
-    let in_set = p.g.transparent.set(set);
+    let in_set = p.g.machine.transparent.set(set);
     let value = eval(&p.g, &[], &call).unwrap();
     assert!(conv(&p.g, 0, &value, &four).unwrap());
     drop(in_set);
@@ -580,8 +580,8 @@ fn a_running_program_unfolds_opaque_definitions() {
     let mut p = Prelude::new();
     let f = double(&mut p, "f", OPAQUE);
     let two = self::two(&mut p, OPAQUE);
-    let _op = p.g.budget.operation(Limits::default());
-    let _running = p.g.erasure.running();
+    let _op = p.g.machine.budget.operation(Limits::default());
+    let _running = p.g.machine.erasure.running();
     for (term, expected) in [(app(Term::Def(f), [p.num(3)]), 6), (Term::Def(two), 2)] {
         let value = eval(&p.g, &[], &term).unwrap();
         let read = quote(&p.g, 0, &value).unwrap();

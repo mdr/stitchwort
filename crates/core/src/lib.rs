@@ -6,6 +6,7 @@
 
 pub mod backend;
 pub mod budget;
+pub mod caches;
 pub mod chars;
 pub mod check;
 pub mod collections;
@@ -15,6 +16,7 @@ pub mod float;
 pub mod globals;
 pub mod hash;
 pub mod js_repr;
+pub mod machine;
 pub mod nat_add;
 pub mod native;
 pub mod partial;

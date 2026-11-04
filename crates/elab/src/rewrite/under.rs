@@ -334,7 +334,10 @@ fn by_lemma(
         return Ok(None);
     };
     let call_value = cx.eval(call)?;
-    let unified = g.budget.limited(remaining, || cx.unify(&lhs, &call_value));
+    let unified = g
+        .machine
+        .budget
+        .limited(remaining, || cx.unify(&lhs, &call_value));
     let foreign = snapshot.solved_since(cx).into_iter().any(|m| m < metas);
     match unified {
         Ok(Some(true)) if !foreign => {}

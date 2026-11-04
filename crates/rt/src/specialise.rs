@@ -371,7 +371,7 @@ impl<'g> Specialiser<'g> {
     /// `term` with the row eliminators applied to `Empty` inlined and the
     /// redexes that makes reduced.
     fn simp(&self, term: &Term, fuel: &mut usize) -> Step<Term> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         let go =
             |t: &Rc<Term>, fuel: &mut usize| -> Step<Rc<Term>> { Ok(Rc::new(self.simp(t, fuel)?)) };
         Ok(match term {
@@ -580,7 +580,7 @@ impl<'g> Specialiser<'g> {
         var: &dyn Fn(usize, usize) -> Step<Term>,
         scrutinee: &dyn Fn(usize, usize) -> Step<Scrutinee>,
     ) -> Step<Term> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         let go = |t: &Rc<Term>, depth: usize| -> Step<Rc<Term>> {
             Ok(Rc::new(self.subst(t, depth, var, scrutinee)?))
         };

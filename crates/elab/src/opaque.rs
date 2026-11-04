@@ -176,7 +176,7 @@ impl Elaborator {
         // A glued call keeps its unfolding for as long as the metavariable
         // epoch stands; a different set may unfold it differently.
         self.globals.metas_taken_back();
-        let guard = self.globals.transparent.set(set);
+        let guard = self.globals.machine.transparent.set(set);
         let result = body(self);
         drop(guard);
         self.globals.metas_taken_back();
@@ -332,7 +332,7 @@ const MAX_NUMBER_SPLIT: usize = 64;
 /// down to one past its largest number, where both calls take the default.
 /// `None` if a number is too large for that.
 fn refl_tree(g: &Globals, tree: &Term) -> Result<Option<Term>> {
-    g.budget.nesting("elaborator")?;
+    g.machine.budget.nesting("elaborator")?;
     Ok(Some(match tree {
         Term::Loc(span, inner) => match refl_tree(g, inner)? {
             Some(proof) => Term::Loc(*span, Rc::new(proof)),

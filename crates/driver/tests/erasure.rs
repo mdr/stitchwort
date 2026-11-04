@@ -31,11 +31,11 @@ fn outcomes(session: &mut Session) -> Vec<(String, &'static str)> {
 /// Runs `f` with erasure on, then off: each result with the steps it took.
 fn both<T>(session: &mut Session, mut f: impl FnMut(&mut Session) -> T) -> ((T, u64), (T, u64)) {
     let mut measure = |session: &mut Session, disabled: bool| {
-        session.elab.globals.erasure.set_disabled(disabled);
-        let before = session.elab.globals.budget.total_work();
+        session.elab.globals.machine.erasure.set_disabled(disabled);
+        let before = session.elab.globals.machine.budget.total_work();
         let result = f(session);
-        let steps = session.elab.globals.budget.total_work() - before;
-        session.elab.globals.erasure.set_disabled(false);
+        let steps = session.elab.globals.machine.budget.total_work() - before;
+        session.elab.globals.machine.erasure.set_disabled(false);
         (result, steps)
     };
     let with = measure(session, false);

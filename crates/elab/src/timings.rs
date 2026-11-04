@@ -82,7 +82,7 @@ impl Frame {
             child_nodes: 0,
             child_decls: 0,
             child_steps: 0,
-            steps_before: g.budget.total_work(),
+            steps_before: g.machine.budget.total_work(),
             defs_before: g.env.defs().len(),
             datas_before: g.env.datas().len(),
             decl_depth: DECLS.with(|d| d.borrow().len()),
@@ -147,7 +147,11 @@ pub(crate) fn end(g: &Globals, label: String) {
     };
     let total = frame.start.elapsed();
     let (nodes, decls) = made(g, &frame);
-    let steps = g.budget.total_work().saturating_sub(frame.steps_before);
+    let steps = g
+        .machine
+        .budget
+        .total_work()
+        .saturating_sub(frame.steps_before);
     STACK.with(|s| {
         if let Some(parent) = s.borrow_mut().last_mut() {
             parent.children += total;
@@ -189,7 +193,11 @@ pub(crate) fn decl_end(g: &Globals, label: String) {
     };
     let total = frame.start.elapsed();
     let (nodes, _) = made(g, &frame);
-    let steps = g.budget.total_work().saturating_sub(frame.steps_before);
+    let steps = g
+        .machine
+        .budget
+        .total_work()
+        .saturating_sub(frame.steps_before);
     DECL_ROWS.lock().unwrap().push(DeclRow {
         label,
         elab: total.saturating_sub(frame.kernel + frame.children),

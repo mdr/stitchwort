@@ -155,6 +155,7 @@ pub fn binding(g: &Globals, list: DataId, char: DataId) -> Binding {
     // Hashing a reference hashes what it refers to first, which needs an
     // operation for its depth guard.
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hex = |d| data_hash(g, d).ok().flatten().map(|h| h.hex());

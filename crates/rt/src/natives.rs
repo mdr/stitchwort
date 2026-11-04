@@ -158,6 +158,7 @@ fn bind_natives<N: Copy>(
     table: &[(Builtin, N, &str)],
 ) -> Result<Vec<NativeBinding<N>>, ResourceError> {
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     table
@@ -238,6 +239,7 @@ pub struct IntBinding {
 /// integer native with the definition it replaces, by content hash.
 pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let data = g.env.registry().data(Builtin::Int);
@@ -259,6 +261,7 @@ pub fn bind_int(g: &Globals) -> Result<IntBinding, ResourceError> {
 pub fn int_data(g: &Globals) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Int)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `Int` ran out of resources")?;
@@ -271,6 +274,7 @@ pub fn int_data(g: &Globals) -> Option<DataId> {
 pub fn nat_data(g: &Globals) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Nat)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `Nat` ran out of resources")?;
@@ -283,6 +287,7 @@ pub fn nat_data(g: &Globals) -> Option<DataId> {
 pub fn text_data(g: &Globals) -> Option<DataId> {
     let d = g.env.registry().data(Builtin::Text)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `Text` ran out of resources")?;
@@ -305,6 +310,7 @@ pub const SAFE_INT_HASH: &str = "f83abb645b0b44d517077c186e28726771d9394db538538
 pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
     let d = g.env.registry().loaded_data(Builtin::SafeNat)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `SafeNat` ran out of resources")?;
@@ -316,6 +322,7 @@ pub fn safe_nat_data(g: &Globals) -> Option<DataId> {
 pub fn safe_int_data(g: &Globals) -> Option<DataId> {
     let d = g.env.registry().loaded_data(Builtin::SafeInt)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     let hash = data_hash(g, d).expect("internal error: hashing `SafeInt` ran out of resources")?;

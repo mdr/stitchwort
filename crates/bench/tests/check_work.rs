@@ -40,7 +40,10 @@ fn measure(program: String) -> Measured {
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
         let g = &session.elab.globals;
-        let (steps, visits) = (g.budget.total_work(), g.budget.total_visits());
+        let (steps, visits) = (
+            g.machine.budget.total_work(),
+            g.machine.budget.total_visits(),
+        );
         let defs = g.env.defs().len();
         if let Err(ds) = session.load("work.sw", &program) {
             let shown: String = ds
@@ -59,8 +62,8 @@ fn measure(program: String) -> Measured {
             }
         }
         Measured {
-            steps: g.budget.total_work() - steps,
-            visits: g.budget.total_visits() - visits,
+            steps: g.machine.budget.total_work() - steps,
+            visits: g.machine.budget.total_visits() - visits,
             size,
             depth,
         }

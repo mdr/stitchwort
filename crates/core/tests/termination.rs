@@ -63,7 +63,7 @@ fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<Term> {
         })
     };
     let term = app(Term::Def(f), args.iter().map(|n| num(*n)));
-    let _op = g.budget.operation(Limits {
+    let _op = g.machine.budget.operation(Limits {
         work,
         ..Limits::default()
     });
@@ -654,22 +654,22 @@ fn running_out_of_steps_while_deciding_termination_leaves_the_definition_failed(
     let probe = declare(&mut p.g, "probe", ty.clone());
     let body = many_calls(&p, Term::Def(probe));
     let checking = {
-        let _op = p.g.budget.operation(Limits::default());
-        let before = p.g.budget.total_work();
+        let _op = p.g.machine.budget.operation(Limits::default());
+        let before = p.g.machine.budget.total_work();
         let def = p.g.def(probe);
         let mut cx = check::Ctx::new(&p.g, def.span());
         check::check(&mut cx, &body, def.ty_value()).expect("the body type-checks");
-        p.g.budget.total_work() - before
+        p.g.machine.budget.total_work() - before
     };
     let id = declare(&mut p.g, "f", ty);
     let body = many_calls(&p, Term::Def(id));
     let r = {
-        let saved = p.g.budget.start(Limits {
+        let saved = p.g.machine.budget.start(Limits {
             work: checking + 1,
             ..Limits::default()
         });
         let r = define_def(&mut p.g, id, &body);
-        p.g.budget.restore(saved);
+        p.g.machine.budget.restore(saved);
         r
     };
     let e = r.unwrap_err();

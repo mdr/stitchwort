@@ -252,7 +252,7 @@ fn walk_index(
     bound: &mut Vec<String>,
     uses: &mut Vec<Use>,
 ) -> Result<()> {
-    e.globals.budget.nesting(crate::check::PASS)?;
+    e.globals.machine.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Var(_) => walk_at(e, expr, bound, Position::Index, uses),
         Expr::App(a, b) | Expr::Binary(_, a, b) => {
@@ -290,7 +290,7 @@ fn walk_at(
     position: Position,
     uses: &mut Vec<Use>,
 ) -> Result<()> {
-    e.globals.budget.nesting(crate::check::PASS)?;
+    e.globals.machine.budget.nesting(crate::check::PASS)?;
     let is_type = position == Position::Type;
     match expr {
         Expr::Var(name) => {

@@ -117,7 +117,7 @@ pub fn generate_program_with(
     main: &Term,
     options: Options,
 ) -> Result<Program, Diagnostic> {
-    let _op = g.budget.operation(Limits::stack_only(limits.stack));
+    let _op = g.machine.budget.operation(Limits::stack_only(limits.stack));
     erasable(g)?;
     let counters = options.effect_counters;
     let mut codegen = Gen::new(g, options)?;

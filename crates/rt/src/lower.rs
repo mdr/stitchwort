@@ -71,7 +71,7 @@ fn lower_program(g: &Globals, limits: Limits, entry: &Term) -> Result<Program> {
 }
 
 fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Result<Program> {
-    let _op = g.budget.operation(Limits::stack_only(limits.stack));
+    let _op = g.machine.budget.operation(Limits::stack_only(limits.stack));
     let mut cx = Lowerer::new(g)?;
     // What the entry uses, as the JS backend finds it: an erased definition
     // or a native one is opaque. A call at the empty row uses the callee's
@@ -574,7 +574,7 @@ impl<'g> Lowerer<'g> {
     // -------------------------------------------------------- expressions
 
     fn expr(&mut self, term: &Term) -> Result<Expr> {
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         Ok(match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t)?,
             Term::Var(ix) => self.var(*ix),

@@ -153,7 +153,7 @@ impl<'g> Ctx<'g> {
         let Some(value) = self.pending[level].clone() else {
             return Ok(());
         };
-        self.g.budget.nesting(PASS)?;
+        self.g.machine.budget.nesting(PASS)?;
         self.force_mentioned(&value, level)?;
         let computed = eval(self.g, &self.env[..level], &value)?;
         self.env[level] = computed;
@@ -230,7 +230,7 @@ const PASS: &str = "type checker";
 
 pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     match term {
         Term::Loc(span, inner) => {
             let saved = std::mem::replace(&mut cx.span, *span);
@@ -418,7 +418,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 
 pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     // A type the elaborator passed in may be a call (`Value::Call`); the
     // kernel's own values never are, so this changes nothing for them.
     let expected = &*force_ref(g, expected)?;
@@ -856,7 +856,7 @@ fn check_case(
     goal: &Value,
 ) -> Result<Term> {
     let g = cx.g;
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     if ix >= cx.level() {
         return Err(malformed(cx, format!("variable {ix} is out of scope")));
     }
@@ -1198,7 +1198,7 @@ fn check_num_case(
     goal: &Value,
 ) -> Result<Term> {
     let g = cx.g;
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     if ix >= cx.level() {
         return Err(malformed(cx, format!("variable {ix} is out of scope")));
     }
@@ -1446,7 +1446,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
     pub(crate) fn check(&mut self, value: &Value) -> bool {
         self.added.clear();
         // Evaluation drops erased fields then (`value::fields`).
-        let clean = !self.g.erasure.active() && self.look(value);
+        let clean = !self.g.machine.erasure.active() && self.look(value);
         if !clean {
             for ptr in self.added.drain(..) {
                 self.seen.remove(&ptr);
@@ -1504,7 +1504,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
                 }
                 // Evaluated again to the call only while gluing.
                 Value::Call(_, spine, _) => {
-                    if !self.g.glue.get() {
+                    if !self.g.machine.glue.get() {
                         return false;
                     }
                     self.push_spine(spine, &mut todo);
@@ -1584,7 +1584,7 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
 /// type is evaluated again, so that call computes (a type `Code`, with
 /// `Code` unfolded, is `Nat`).
 pub fn def_type(g: &Globals, def: &Def) -> budget::Result<Value> {
-    if g.transparent.is_empty() {
+    if g.machine.transparent.is_empty() {
         Ok(def.ty_value.clone())
     } else {
         eval(g, &[], &def.ty)
@@ -1631,7 +1631,10 @@ fn install_group(
     members: &[(DefId, Term)],
     bodies: impl FnOnce(&Globals, &[(DefId, Term)]) -> Result<Vec<Term>>,
 ) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
+    debug_assert!(
+        !g.machine.glue.get(),
+        "the kernel is entered unglued (D483)"
+    );
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
     if members.is_empty() {
@@ -1730,7 +1733,7 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         let def = g.def(*id);
         let mut cx = Ctx::new(g, def.span);
         // Its body sees the opaque definitions it unfolds (`transparency`).
-        let _set = g.transparent.set(def.transparent.clone());
+        let _set = g.machine.transparent.set(def.transparent.clone());
         let ty = def_type(g, def)?;
         // Checking keeps every location and lambda, so the checked body has
         // the same parameters; the termination checker refuses it if not.
@@ -1742,9 +1745,9 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         // with parameters is a function type whose codomain is evaluated
         // now, glued; one without (`f 5 = f 5`) was evaluated unglued, so
         // its calls are already unfolded.
-        let was = g.glue.replace(true);
+        let was = g.machine.glue.replace(true);
         let result = check(&mut cx, body, &ty);
-        g.glue.set(was);
+        g.machine.glue.set(was);
         checked.push(result?);
     }
     let group: Vec<termination::Member> = ids
@@ -1776,9 +1779,12 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
+    debug_assert!(
+        !g.machine.glue.get(),
+        "the kernel is entered unglued (D483)"
+    );
     // A type is checked with every opaque definition hidden.
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     let mut cx = Ctx::new(g, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
@@ -1853,8 +1859,11 @@ fn push_def(
 /// has been admitted against the old type; the body is then checked
 /// against this one, as always.
 pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
-    let _set = g.transparent.set(Rc::default());
+    debug_assert!(
+        !g.machine.glue.get(),
+        "the kernel is entered unglued (D483)"
+    );
+    let _set = g.machine.transparent.set(Rc::default());
     let span = g.env.defs()[id.0].span;
     let mut cx = Ctx::new(g, span);
     if g.env.defs()[id.0].state != State::Pending {
@@ -1898,7 +1907,7 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     run_body_shape(g, id, body)?;
     let def = g.def(id);
     let mut cx = Ctx::new(g, def.span);
-    let _set = g.transparent.set(def.transparent.clone());
+    let _set = g.machine.transparent.set(def.transparent.clone());
     let ty = def_type(g, def)?;
     let checked = check(&mut cx, body, &ty)?;
     g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
@@ -2155,7 +2164,7 @@ pub fn declare_indexed_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     let Some(span) = members.first().map(|m| m.span) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
@@ -2310,7 +2319,7 @@ fn install_data_group<C>(
     members: Vec<(DataId, Vec<C>)>,
     admit: impl FnOnce(&Globals, &[DataId], Vec<(DataId, Vec<C>)>) -> Result<Vec<(DataId, Vec<Ctor>)>>,
 ) -> Result<()> {
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     // Refused before anything changes: an empty group, or an id that isn't
     // a data type at all.
     if members.is_empty() {
@@ -2621,8 +2630,11 @@ pub fn admit_trusted_def(
     theorem: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
-    let _set = g.transparent.set(Rc::default());
+    debug_assert!(
+        !g.machine.glue.get(),
+        "the kernel is entered unglued (D483)"
+    );
+    let _set = g.machine.transparent.set(Rc::default());
     let cx = Ctx::new(g, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
@@ -2680,7 +2692,7 @@ pub fn admit_trusted_data_decls(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     let Some(span) = members.first().map(|m| m.span) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
@@ -3527,7 +3539,7 @@ pub fn add_validator(
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     let Some(def) = g.env.defs().get(id.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
@@ -3580,7 +3592,7 @@ pub fn add_field_validator(
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
-    let _set = g.transparent.set(Rc::default());
+    let _set = g.machine.transparent.set(Rc::default());
     let Some(data) = g.env.datas().get(d.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",

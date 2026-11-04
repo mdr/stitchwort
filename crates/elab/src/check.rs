@@ -1265,7 +1265,7 @@ pub(crate) struct Piped {
 }
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    cx.g().budget.nesting(PASS)?;
+    cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_inner(cx, expr)?;
@@ -1280,7 +1280,7 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 /// run, though anything in it that performs is (stage 0 of
 /// docs/proposals/effect-polymorphism.md).
 pub(crate) fn infer_unrun(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    cx.g().budget.nesting(PASS)?;
+    cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_value(cx, expr)?;
@@ -3541,7 +3541,7 @@ fn check_binder_lambda(
 }
 
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    cx.g().budget.nesting(PASS)?;
+    cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
         let term = check_inner(cx, expr, expected)
@@ -5100,7 +5100,7 @@ fn propagate(
     // As `infer` and then `insert` would, for the application.
     let span = expr.span();
     let result = (|| -> Result<Term> {
-        cx.g().budget.nesting(PASS)?;
+        cx.g().machine.budget.nesting(PASS)?;
         let (term, found) = apply_args_with(cx, head, args, &mut supply)?;
         let term = Term::Loc(span, Rc::new(term));
         let (term, found) = insert_with(cx, term, found, &mut supply)?;
@@ -5978,7 +5978,7 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
 pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let (shown_a, shown_b) = (cx.show(a), cx.show(b));
     // What the sides compute to: their normal forms, calls unfolded.
-    let (normal_a, normal_b) = if cx.g().glue.get() {
+    let (normal_a, normal_b) = if cx.g().machine.glue.get() {
         (cx.show_unfolded(a), cx.show_unfolded(b))
     } else {
         (shown_a.clone(), shown_b.clone())

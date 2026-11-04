@@ -473,17 +473,17 @@ impl Elaborator {
         }
         let g = &self.globals;
         // Printing a goal that mentions a failed declaration isn't an error
-        // message showing it (`Globals::failed_mentioned`).
-        let mentioned = g.failed_mentioned.get();
+        // message showing it (`Decl::failed_mentioned`).
+        let mentioned = self.decl.failed_mentioned.get();
         let printed: Vec<Found> = pending
             .iter()
             .map(|p| {
                 // With gluing, as while checking: calls stay folded, also
                 // under binders.
-                let was = g.glue.replace(self.options.glue);
+                let was = g.machine.glue.replace(self.options.glue);
                 let printed = self.print_goal(p);
                 let snapshot = self.goal_snapshot_of(p);
-                g.glue.set(was);
+                g.machine.glue.set(was);
                 if let Some(snapshot) = snapshot {
                     let mut kept = self.present.goal_snapshots.borrow_mut();
                     kept.retain(|(span, _)| *span != p.span);
@@ -495,7 +495,7 @@ impl Elaborator {
                 printed
             })
             .collect();
-        g.failed_mentioned.set(mentioned);
+        self.decl.failed_mentioned.set(mentioned);
         let mut goals = self.goals.borrow_mut();
         for found in printed {
             goals.found.retain(|f| f.span != found.span);

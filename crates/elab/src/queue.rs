@@ -2321,7 +2321,7 @@ mod tests {
             .collect();
         assert!(errors.is_empty(), "{errors:#?}");
         e.unit.loading_prelude = false;
-        e.globals.glue.set(true);
+        e.globals.machine.glue.set(true);
         let n = DataId(
             (e.globals.env.datas().iter())
                 .position(|d| d.path().rsplit('.').next() == Some("N"))
@@ -2587,7 +2587,7 @@ mod tests {
         assert!(errors.is_empty(), "{errors:#?}");
         // Still as the prelude, so that its names are in scope by their
         // short names, as in a declaration after them.
-        e.globals.glue.set(true);
+        e.globals.machine.glue.set(true);
         let data = |e: &Elaborator, name: &str| {
             let d = (e.globals.env.datas().iter())
                 .position(|d| d.path().rsplit('.').next() == Some(name))

@@ -141,7 +141,7 @@ impl Elaborator {
         tables.rewind(&mark.tables);
         scope.rewind(&mark.scope);
         attempt.rewind();
-        *decl = crate::state::Decl::default();
+        decl.rewind();
         unit.rewind(&mark.unit);
         session.rewind(&mark.session);
         caches.rewind(&mark.caches, defs);

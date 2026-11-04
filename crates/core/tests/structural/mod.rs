@@ -121,7 +121,7 @@ fn is_recursive_fn(ty: &Term, d: DataId) -> bool {
 
 impl Walker<'_> {
     fn walk(&mut self, term: &Term) -> Fallible<()> {
-        self.g.budget.nesting("termination checker")?;
+        self.g.machine.budget.nesting("termination checker")?;
         match term {
             Term::Loc(span, inner) => {
                 let saved = self.span;

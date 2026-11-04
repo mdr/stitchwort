@@ -593,44 +593,36 @@ pub struct Globals {
     pub print_labels: RefCell<Vec<PrintLabel>>,
     /// The elaborator's facts the printer reads (see [`PrintHints`]).
     pub print_hints: PrintHints,
-    /// Content hashes computed so far. Declarations never change once
-    /// checked, so these never go stale.
-    pub hashes: RefCell<crate::collections::HashMap<HashKey, crate::hash::ContentHash>>,
-    /// Resource limits for the operation in progress.
-    pub budget: crate::budget::Budget,
+    /// The evaluator's modes and operation state (`machine.rs`).
+    pub machine: crate::machine::Machine,
+    /// What is derived from the environment, and can be worked out again
+    /// (`caches.rs`).
+    pub caches: crate::caches::EvalCaches,
     /// Whether an error message has shown a term that uses a failed
     /// definition since the elaborator last cleared this: its errors are
-    /// then fallout of that failure, not the declaration's own.
-    pub failed_mentioned: Cell<bool>,
-    /// Whether running erases proofs and types, and what each definition
-    /// erases (`erase.rs`). Never in effect while checking.
-    pub erasure: crate::erase::Erasure,
-    /// Whether evaluation keeps a definition applied to all its arguments
-    /// as the call, a [`Value::Call`], unfolding it only when something
-    /// looks inside (glued evaluation, docs/proposals/folded-calls.md).
-    /// Off unless the elaborator turns it on; the kernel is entered with it
-    /// off and turns it on only to check a definition's body (D483,
-    /// `check.rs` `admit_group`); never while a program runs.
-    pub glue: Cell<bool>,
+    /// then fallout of that failure, not the declaration's own. The elaborator's
+    /// `Decl` owns it; this handle is shared with the printer, which sets
+    /// it (until it takes the hints as an argument, globals-split.md §3.5).
+    pub failed_mentioned: FailedMention,
     /// Counts the times metavariable solutions were taken back (undone or
     /// cleared). A call's kept unfolding records the count it was computed
     /// at, and is computed again if the count has moved since: it may have
     /// used a solution that's gone.
     pub meta_epoch: Cell<u64>,
-    /// The opaque definitions whose bodies may be used now, sorted: the
-    /// transparency set of the declaration being checked
-    /// (docs/proposals/opaque-definitions.md §6.4). Any other opaque
-    /// definition is neutral while checking ([`crate::value::hidden`]). The
-    /// kernel sets it for each check it makes ([`Transparency::set`]), and puts
-    /// back what was there. Shared, so a guard can hold it while `Globals` is
-    /// borrowed mutably.
-    pub transparent: Transparency,
-    /// The sets of numbers a variable is known not to be, which
-    /// [`crate::value::Apart`] names: in a number case's default arm, the
-    /// matched variable is none of its arms' numbers
-    /// (docs/proposals/literal-match-facts.md). Only added to, so a name
-    /// never changes what it stands for. Each set is sorted.
-    pub apart_sets: RefCell<Vec<Rc<[num_bigint::BigUint]>>>,
+}
+
+/// The flag [`Globals::failed_mentioned`]: a handle on one shared cell.
+#[derive(Clone, Default)]
+pub struct FailedMention(Rc<Cell<bool>>);
+
+impl FailedMention {
+    pub fn get(&self) -> bool {
+        self.0.get()
+    }
+
+    pub fn set(&self, mentioned: bool) {
+        self.0.set(mentioned);
+    }
 }
 
 /// The elaborator's facts about declarations that the printer reads, for
@@ -647,47 +639,6 @@ pub struct PrintHints {
     /// For the helper a record update `{ x | f = s }` of a type with several
     /// constructors is lifted to: how a call of it is shown, as the update.
     pub update_shown: Rc<RefCell<crate::collections::HashMap<DefId, Rc<UpdateShown>>>>,
-}
-
-/// The current transparency set ([`Globals::transparent`]).
-#[derive(Clone, Default)]
-pub struct Transparency(Rc<RefCell<Rc<[DefId]>>>);
-
-impl Transparency {
-    /// Makes `set` (sorted) the transparency set until the guard returned is
-    /// dropped, when the set there was comes back.
-    #[must_use]
-    pub fn set(&self, set: Rc<[DefId]>) -> TransparencyGuard {
-        let was = self.0.replace(set);
-        TransparencyGuard {
-            cell: self.clone(),
-            was: Some(was),
-        }
-    }
-
-    /// Whether the set is empty now: every opaque definition is hidden.
-    pub fn is_empty(&self) -> bool {
-        self.0.borrow().is_empty()
-    }
-
-    /// Whether `id` is in the set now.
-    pub fn contains(&self, id: DefId) -> bool {
-        self.0.borrow().binary_search(&id).is_ok()
-    }
-}
-
-/// Puts back the transparency set there was ([`Transparency::set`]).
-pub struct TransparencyGuard {
-    cell: Transparency,
-    was: Option<Rc<[DefId]>>,
-}
-
-impl Drop for TransparencyGuard {
-    fn drop(&mut self) {
-        if let Some(was) = self.was.take() {
-            *self.cell.0.borrow_mut() = was;
-        }
-    }
 }
 
 /// How the printer shows an unfilled placeholder (see
@@ -761,10 +712,7 @@ impl Globals {
     /// refused part of it. Nothing may refer to them yet.
     pub fn forget_declarations_from(&mut self, defs: usize, datas: usize) {
         self.env.truncate(defs, datas);
-        self.hashes.borrow_mut().retain(|k, _| match k {
-            HashKey::Def(id) => id.0 < defs,
-            HashKey::Data(d) => d.0 < datas,
-        });
+        self.caches.forget_from(defs, datas);
     }
 
     pub fn find_data(&self, name: &str) -> Option<DataId> {
@@ -854,8 +802,6 @@ impl Globals {
             defs: self.env.defs().len(),
             datas: self.env.datas().len(),
             builtins: self.env.builtins().mark(),
-            failed_mentioned: self.failed_mentioned.get(),
-            glue: self.glue.get(),
         }
     }
 
@@ -882,31 +828,19 @@ impl Globals {
             print_labels: _,
             // Rows of the elaborator's tables, which it rewinds.
             print_hints: _,
-            hashes,
-            budget,
-            failed_mentioned,
-            erasure,
-            glue,
+            machine,
+            caches,
+            // The elaborator's `Decl` owns it, and its rewind empties it.
+            failed_mentioned: _,
             meta_epoch: _,
-            transparent,
-            // Kept: a name never changes what it stands for, and a variable
-            // apart from some numbers only lives while a case is checked.
-            apart_sets: _,
         } = self;
         assert!(
             mark.defs <= env.defs().len() && mark.datas <= env.datas().len(),
             "a mark from after the point the session was rewound to"
         );
         env.rewind(mark.defs, mark.datas, &mark.builtins);
-        hashes.borrow_mut().retain(|k, _| match k {
-            HashKey::Def(id) => id.0 < mark.defs,
-            HashKey::Data(d) => d.0 < mark.datas,
-        });
-        budget.reset();
-        failed_mentioned.set(mark.failed_mentioned);
-        erasure.forget_from(mark.defs);
-        glue.set(mark.glue);
-        *transparent.0.borrow_mut() = Rc::default();
+        caches.forget_from(mark.defs, mark.datas);
+        machine.reset();
         // Bumps the epoch, so no kept unfolding is trusted.
         self.clear_metas();
     }
@@ -918,8 +852,6 @@ pub struct GlobalsMark {
     defs: usize,
     datas: usize,
     builtins: crate::native::BuiltinsMark,
-    failed_mentioned: bool,
-    glue: bool,
 }
 
 impl GlobalsMark {

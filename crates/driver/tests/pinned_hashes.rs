@@ -98,9 +98,12 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
             .loaded_data(builtin)
             .unwrap_or_else(|| panic!("the library declares `{name}`"));
         let hash = {
-            let _op = g.budget.operation(stitchwort_core::Limits::stack_only(
-                stitchwort_core::Limits::default().stack,
-            ));
+            let _op = g
+                .machine
+                .budget
+                .operation(stitchwort_core::Limits::stack_only(
+                    stitchwort_core::Limits::default().stack,
+                ));
             stitchwort_core::hash::data_hash(g, d)
                 .expect("hashes")
                 .map(|h| h.hex())

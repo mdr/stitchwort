@@ -382,7 +382,7 @@ impl Elaborator {
 
         for component in order {
             // Each component is one operation, with its own resource limits.
-            let saved = self.globals.budget.start(self.options.limits);
+            let saved = self.globals.machine.budget.start(self.options.limits);
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
             let (defs_before, datas_before) = (
@@ -392,13 +392,13 @@ impl Elaborator {
             // Goals from before (an expression typed in) aren't this
             // component's.
             self.clear_goals();
-            self.globals.failed_mentioned.set(false);
+            self.decl.failed_mentioned.set(false);
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.globals);
             }
             self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
-            self.globals.budget.restore(saved);
+            self.globals.machine.budget.restore(saved);
             if timed {
                 let label = self.component_label(&items, &component);
                 crate::timings::decl_end(&self.globals, label);
@@ -443,8 +443,8 @@ impl Elaborator {
                 kernel::abandon_pending(&mut self.globals);
                 // Running out of resources is reported where it happened
                 // only as precisely as the declaration.
-                let too_large = self.globals.budget.take_too_large();
-                let ran_out_in = self.globals.budget.take_ran_out_in();
+                let too_large = self.globals.machine.budget.take_too_large();
+                let ran_out_in = self.globals.machine.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
                     if d.code == "E-RESOURCE" {
                         d.notes.push(self.while_checking_note(&component));
@@ -475,11 +475,11 @@ impl Elaborator {
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
             if !self.unit.module.ord_after_dec_eq.is_empty() {
-                let saved = self.globals.budget.start(self.options.limits);
+                let saved = self.globals.machine.budget.start(self.options.limits);
                 if let Err(d) = self.glued(|e| e.derive_pending_ord(&component)) {
                     diagnostics.push((position, d));
                 }
-                self.globals.budget.restore(saved);
+                self.globals.machine.budget.restore(saved);
                 self.clear_metas();
             }
         }
@@ -745,7 +745,7 @@ impl Elaborator {
     }
 
     /// When a message of this component showed a term that uses a failed
-    /// definition (`Globals::failed_mentioned`, decided from the terms, not
+    /// definition (`Decl::failed_mentioned`, decided from the terms, not
     /// the text: messages elide), its errors are fallout of that failure (a
     /// failed definition is stuck, so a proof about it won't check): they
     /// become one saying the failed declaration has errors, which goes
@@ -767,7 +767,7 @@ impl Elaborator {
             })
             .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
-        if failed.is_empty() || !self.globals.failed_mentioned.get() {
+        if failed.is_empty() || !self.decl.failed_mentioned.get() {
             return;
         }
         // Blamed on a declaration with errors if there is one; if they're

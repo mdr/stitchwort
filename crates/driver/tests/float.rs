@@ -94,7 +94,7 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     use stitchwort_core::registry::Builtin;
     let session = loaded();
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let mul = g
         .env
         .registry()

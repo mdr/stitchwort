@@ -564,7 +564,7 @@ fn head_needs_no_vnil_branch() {
     let call = app(Term::Def(head), [f.nat(), f.p.num(1), xs]);
     assert_eq!(nat_of(&f.p.g, &call), Some(5));
     // And while running, with erasure.
-    let _running = f.p.g.erasure.running();
+    let _running = f.p.g.machine.erasure.running();
     let (call, _) = infer_closed(&f.p.g, &call, span()).unwrap();
     let value = eval(&f.p.g, &[], &call).unwrap();
     assert!(matches!(value, Value::Nat(n) if n.to_string() == "5"));
@@ -1465,6 +1465,6 @@ fn running_into_an_impossible_branch_fails_loudly() {
     let mut f = Fams::new();
     let head = f.head("head", None).unwrap();
     let call = app(Term::Def(head), [f.nat(), f.p.num(0), f.vnil()]);
-    let _running = f.p.g.erasure.running();
+    let _running = f.p.g.machine.erasure.running();
     let _ = eval(&f.p.g, &[], &call);
 }

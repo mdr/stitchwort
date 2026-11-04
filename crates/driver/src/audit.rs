@@ -253,9 +253,9 @@ impl Session {
     ) -> TheoremSearch {
         let (log, note) = self.elab.search_counterexample(id, budget);
         let g = &self.elab.globals;
-        let saved = g.budget.start(self.elab.options.limits);
+        let saved = g.machine.budget.start(self.elab.options.limits);
         let refutes = concludes_empty(g, id);
-        g.budget.restore(saved);
+        g.machine.budget.restore(saved);
         TheoremSearch {
             name: name.to_string(),
             checked,

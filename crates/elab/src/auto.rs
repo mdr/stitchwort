@@ -358,7 +358,7 @@ pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Ter
 /// for `Nat.pow (Succ b) e ≠ 0` decides `Nat.pow 2 (Succ k) ≠ 0`, which
 /// computes to `Nat.pow 2 k * 2 ≠ 0`, which it doesn't fit.
 fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
-    if !cx.g().glue.get() || depth > MAX_DEPTH {
+    if !cx.g().machine.glue.get() || depth > MAX_DEPTH {
         return Ok(None);
     }
     let decidable = decidable(cx)?;
@@ -686,15 +686,15 @@ fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
 /// elaborated terms, would depend on gluing.
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let g = cx.g();
-    if !g.glue.get() {
+    if !g.machine.glue.get() {
         return decide_unglued(cx, prop, depth);
     }
     let written = cx.quote(prop)?;
-    g.glue.set(false);
+    g.machine.glue.set(false);
     let found = cx
         .eval(&written)
         .and_then(|prop| decide_unglued(cx, &prop, depth));
-    g.glue.set(true);
+    g.machine.glue.set(true);
     found
 }
 

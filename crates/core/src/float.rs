@@ -604,6 +604,7 @@ fn hex_of(
     f: impl FnOnce() -> budget::Result<Option<crate::hash::ContentHash>>,
 ) -> Option<String> {
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     f().ok().flatten().map(|h| h.hex())
@@ -799,7 +800,11 @@ fn known_bits(
 /// all its arguments, and their bits are known: `None` otherwise (it's
 /// stuck, or its definition unfolds).
 pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Option<Value>> {
-    let Some(def) = g.env.builtins().float_def(id, g.erasure.program_running()) else {
+    let Some(def) = g
+        .env
+        .builtins()
+        .float_def(id, g.machine.erasure.program_running())
+    else {
         return Ok(None);
     };
     let Some(data) = g.env.builtins().float.data else {

@@ -69,6 +69,7 @@ fn outcome(session: &Session, result: &Result<(), Vec<Diagnostic>>) -> String {
     let mut out = canonical_dump(&session.elab);
     let g = &session.elab.globals;
     let _op = g
+        .machine
         .budget
         .operation(stitchwort_core::Limits::for_stack(STACK));
     for id in 0..g.env.defs().len() {

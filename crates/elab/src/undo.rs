@@ -273,17 +273,17 @@ mod tests {
     fn obligations_and_context_are_restored_but_work_is_not_refunded() {
         let e = Elaborator::new();
         let mut cx = Ctx::new(&e, span());
-        let _op = cx.g().budget.operation(Limits::default());
+        let _op = cx.g().machine.budget.operation(Limits::default());
         let level = cx.level();
-        let work = cx.g().budget.total_work();
+        let work = cx.g().machine.budget.total_work();
         // The work done inside, whatever implicit_arg itself spends.
         let spent = std::cell::Cell::new(0);
         let found: Option<()> = transaction(&mut cx, |cx| {
             cx.bind("y", ty(0));
             crate::check::implicit_arg(cx, Icit::Auto, &ty(0));
             assert_eq!(cx.e.attempt.obligations.borrow().len(), 1);
-            cx.g().budget.step().unwrap();
-            spent.set(cx.g().budget.total_work());
+            cx.g().machine.budget.step().unwrap();
+            spent.set(cx.g().machine.budget.total_work());
             Ok(None)
         })
         .unwrap();
@@ -293,7 +293,7 @@ mod tests {
         assert!(cx.e.attempt.obligations.borrow().is_empty());
         assert!(cx.g().metas.borrow().is_empty());
         assert!(spent.get() > work);
-        assert_eq!(cx.g().budget.total_work(), spent.get());
+        assert_eq!(cx.g().machine.budget.total_work(), spent.get());
     }
 
     #[test]
@@ -323,12 +323,12 @@ mod tests {
             work: 3,
             ..Limits::default()
         };
-        let _op = cx.g().budget.operation(limits);
+        let _op = cx.g().machine.budget.operation(limits);
         let (a, _) = meta(&cx, &[]);
         let result: Result<Option<()>> = transaction(&mut cx, |cx| {
             cx.g().solve_meta(a, ty(0));
             loop {
-                cx.g().budget.step()?;
+                cx.g().machine.budget.step()?;
             }
         });
         assert_eq!(result.unwrap_err().code, "E-RESOURCE");
