@@ -120,3 +120,112 @@ fn natives_never_read_inert_positions() {
         }
     }
 }
+
+/// One definition for each rule of the analysis (§7.1), to keep or to
+/// clear a mark, with the reason it's cleared.
+const RULES: &str = r#"
+import Std (Nat, Void)
+
+type Box (a: Prop): Type =
+  | MkBox (h: a)
+
+type PBox (a: Prop) (h: a): Type =
+  | MkPBox
+
+def passOn (n: Nat) (h: 0 ≠ n): Nat := n
+def toInert (n: Nat) (h: 0 ≠ n): Nat := passOn n h
+def inLetType (n: Nat) (h: 0 ≠ n): Nat :=
+  let k: PBox (0 ≠ n) h := MkPBox
+  n
+def absurdly (h: 0 ≠ 0): Nat := Void.absurd (h rfl)
+def ignored (n: Nat) (h: 0 = 0): Nat := n
+
+def takenApart (h: 0 = 0): Nat := J (y e => Nat) 0 h
+def applied (h: 0 ≠ 0): Void := h rfl
+def returned (h: 0 = 0): 0 = 0 := h
+def stored (h: 0 = 0): Box (0 = 0) := MkBox h
+def toLocal (h: 0 = 0): Box (0 = 0) := (x => MkBox x) h
+def toRelevant (h: 0 = 0): Box (0 = 0) := stored h
+def letValue (h: 0 = 0): Nat :=
+  let k := h
+  0
+def inType (h: 0 = 0): Type := PBox (0 = 0) h
+
+-- An alias hiding the proof's arrow: `hidden`'s arity is 1 (its body binds
+-- `h`), and its type is a `Pi` only once the alias unfolds.
+def Hides: Type := 0 = 0 → Nat
+def hidden: Hides := h => 0
+"#;
+
+#[test]
+fn each_rule_keeps_or_clears_a_mark() {
+    let mut session = Session::eager();
+    session.load("rules.sw", RULES).expect("loads");
+    let g = &session.elab.ev();
+    let marks = |name: &str| g.def(find(g, name)).inert_params().to_vec();
+    // Kept: passed only to an inert position, in a `let`'s type, the
+    // scrutinee of an impossible `case`, or unused.
+    assert_eq!(marks("passOn"), [false, true]);
+    assert_eq!(marks("toInert"), [false, true]);
+    assert_eq!(marks("inLetType"), [false, true]);
+    assert_eq!(marks("absurdly"), [true]);
+    assert_eq!(marks("ignored"), [false, true]);
+    // The alias unfolds while the candidates are found, so `h` is one.
+    assert_eq!(marks("hidden"), [true]);
+    // Cleared, each for its reason.
+    let why_cleared = |name: &str| {
+        let id = find(g, name);
+        let (_, cleared) = inert::analyse(g, &[id]).expect("within budget");
+        assert_eq!(
+            g.def(id).inert_params().iter().filter(|m| **m).count(),
+            0,
+            "`{name}`"
+        );
+        cleared.into_iter().map(|c| c.why).collect::<Vec<_>>()
+    };
+    assert_eq!(why_cleared("takenApart"), [Why::JProof]);
+    assert_eq!(why_cleared("applied"), [Why::Applied]);
+    assert_eq!(why_cleared("returned"), [Why::Returned]);
+    assert_eq!(why_cleared("stored"), [Why::Field]);
+    assert_eq!(why_cleared("toLocal"), [Why::LocalFunction]);
+    assert_eq!(
+        why_cleared("toRelevant"),
+        [Why::NotInert(find(g, "stored"), 0)]
+    );
+    assert_eq!(why_cleared("letValue"), [Why::LetValue]);
+    assert_eq!(why_cleared("inType"), [Why::Type]);
+}
+
+/// Every mark in the library sits on a parameter whose type is a
+/// proposition, below the definition's arity.
+#[test]
+fn marks_sit_on_proof_parameters() {
+    let session = Session::eager();
+    let g = &session.elab.ev();
+    for (i, def) in g.env.defs().iter().enumerate() {
+        if !def.inert_params().iter().any(|m| *m) {
+            continue;
+        }
+        let candidates = inert::candidates(g, DefId(i)).expect("within budget");
+        assert_eq!(def.inert_params().len(), def.arity(), "`{}`", def.name());
+        for (k, mark) in def.inert_params().iter().enumerate() {
+            assert!(!mark || candidates[k], "`{}`'s parameter {k}", def.name());
+        }
+    }
+}
+
+/// The validator refuses a mark the body doesn't justify.
+#[test]
+#[should_panic(expected = "is marked inert")]
+fn the_validator_refuses_an_unjustified_mark() {
+    let mut session = Session::eager();
+    session.load("rules.sw", RULES).expect("loads");
+    let id = find(&session.elab.ev(), "stored");
+    session
+        .elab
+        .kernel
+        .env
+        .def_mut_for_tests(id)
+        .set_inert_params_unchecked_for_tests([true].into());
+    stitchwort_core::reference::validate_inert(&session.elab.kernel.ev(), &[id]);
+}

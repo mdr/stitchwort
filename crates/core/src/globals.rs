@@ -293,6 +293,13 @@ impl Def {
     pub fn set_arity_unchecked_for_tests(&mut self, arity: usize) {
         self.arity = arity;
     }
+
+    /// Bypasses the inert analysis: for tests that build deliberately
+    /// broken states only (a mark the validator must refuse).
+    #[cfg(feature = "test-bypass")]
+    pub fn set_inert_params_unchecked_for_tests(&mut self, marks: Rc<[bool]>) {
+        self.inert_params = marks;
+    }
 }
 
 /// A decision procedure for an exported function's proof parameter `param`,
