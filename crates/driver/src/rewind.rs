@@ -69,7 +69,7 @@ impl Session {
     /// else looks at it, so printing or running tests afterwards never
     /// stops; and checking outside `cancellable` costs nothing extra.
     pub fn cancel_flag(&mut self) -> Arc<AtomicBool> {
-        let budget = &self.elab.globals.budget;
+        let budget = &self.elab.globals.machine.budget;
         if let Some(flag) = budget.cancel_flag() {
             return flag;
         }
@@ -100,10 +100,10 @@ impl Session {
         f: impl FnOnce(&mut Session) -> T,
     ) -> Result<T, Cancelled> {
         self.cancel_flag().store(false, Ordering::Relaxed);
-        self.elab.globals.budget.watch_cancel(true);
+        self.elab.globals.machine.budget.watch_cancel(true);
         let result = f(self);
-        self.elab.globals.budget.watch_cancel(false);
-        if self.elab.globals.budget.cancelled() {
+        self.elab.globals.machine.budget.watch_cancel(false);
+        if self.elab.globals.machine.budget.cancelled() {
             self.rewind(mark);
             return Err(Cancelled);
         }
@@ -114,6 +114,6 @@ impl Session {
     /// one [`Session::cancel_flag`] makes): one flag can then stop whichever
     /// of several sessions is checking.
     pub fn share_cancel_flag(&mut self, flag: Arc<AtomicBool>) {
-        self.elab.globals.budget.set_cancel_flag(flag);
+        self.elab.globals.machine.budget.set_cancel_flag(flag);
     }
 }

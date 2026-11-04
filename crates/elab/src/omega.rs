@@ -2090,7 +2090,7 @@ impl Quoter {
             if a.int != int {
                 continue;
             }
-            let _op = g.budget.attempt(Limits {
+            let _op = g.machine.budget.attempt(Limits {
                 work: 20_000,
                 stack: 128 * 1024,
                 size: 10_000,
@@ -2111,7 +2111,7 @@ impl Quoter {
             {
                 continue;
             }
-            let _op = cx.g().budget.attempt(Limits {
+            let _op = cx.g().machine.budget.attempt(Limits {
                 work: 1_000_000,
                 stack: 128 * 1024,
                 size: 10_000,

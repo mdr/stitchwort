@@ -155,7 +155,7 @@ pub fn unify<'g>(
     }];
     let mut solutions = Vec::new();
     loop {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let level = scope.level();
         let Some(top) = stack.last() else {
             return Ok(Outcome::Solved(solutions));

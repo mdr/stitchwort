@@ -289,7 +289,7 @@ fn deep_terms_in_later_passes() {
         let g = &session.elab.globals;
         let body = g.def(id).body().unwrap();
         {
-            let _op = g.budget.operation(Limits::default());
+            let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
             let mut cx = kernel::Ctx::new(g, def.span());
             let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
@@ -297,7 +297,7 @@ fn deep_terms_in_later_passes() {
             assert!(e.message.contains("type checker"), "{}", e.message);
         }
         {
-            let _op = g.budget.operation(Limits::default());
+            let _op = g.machine.budget.operation(Limits::default());
             assert_eq!(
                 pretty::term_in_full(g, &[], body),
                 Err(ResourceError::Nesting("printer"))
@@ -305,11 +305,11 @@ fn deep_terms_in_later_passes() {
         }
         {
             // For an error message, the part it can't reach is `…`.
-            let _op = g.budget.operation(Limits::default());
+            let _op = g.machine.budget.operation(Limits::default());
             assert!(pretty::term(g, &[], body).contains('…'));
         }
         {
-            let _op = g.budget.operation(Limits::default());
+            let _op = g.machine.budget.operation(Limits::default());
             let span = g.def(id).span();
             let e = stitchwort_core::termination::check(g, body, id, "g", span).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
@@ -317,7 +317,7 @@ fn deep_terms_in_later_passes() {
         }
         {
             // Hashing walks a term with a work list, so any depth hashes.
-            let _op = g.budget.operation(Limits::default());
+            let _op = g.machine.budget.operation(Limits::default());
             assert!(def_hash(g, id).unwrap().is_some());
         }
         let e = session.extract().err().expect("too deep to generate");
@@ -341,7 +341,7 @@ fn long_chains_of_definitions_to_hash() {
                 .push_copy_unchecked_for_tests(DefId(first), format!("chain{i}").into(), body);
         }
         let g = &session.elab.globals;
-        let _op = g.budget.operation(Limits::default());
+        let _op = g.machine.budget.operation(Limits::default());
         assert_eq!(
             def_hash(g, DefId(g.env.defs().len() - 1)),
             Err(ResourceError::Nesting("hasher"))

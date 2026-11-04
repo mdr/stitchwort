@@ -552,7 +552,7 @@ impl Checker<'_> {
                     hyps.push((name.clone(), ty));
                 }
                 let recursive = self.recursive.as_deref();
-                (self.session.elab.globals.budget).set_deadline(Some(limit));
+                (self.session.elab.globals.machine.budget).set_deadline(Some(limit));
                 (self.session.elab).check_proof_at(snapshot, &hyps, recursive, &expr)
             }
             None if self.recursive.is_some() => return Outcome::Failed,
@@ -561,12 +561,12 @@ impl Checker<'_> {
                 let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
                     return Outcome::Failed;
                 };
-                (self.session.elab.globals.budget).set_deadline(Some(limit));
+                (self.session.elab.globals.machine.budget).set_deadline(Some(limit));
                 self.session.elab.check_proof(&expr)
             }
         };
-        (self.session.elab.globals.budget).set_deadline(None);
-        if self.session.elab.globals.budget.take_timed_out() {
+        (self.session.elab.globals.machine.budget).set_deadline(None);
+        if self.session.elab.globals.machine.budget.take_timed_out() {
             self.gave_up.push(proof.to_string());
         }
         debug_time(&format!("checked `{body}`"), began);

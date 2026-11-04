@@ -22,9 +22,9 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 /// body, to compare two calls of the same definition by their arguments
 /// first; D483, docs/proposals/folded-calls.md §7 stage 4).
 fn unglued<T>(g: &mut Globals, f: impl FnOnce(&mut Globals) -> Result<T>) -> Result<T> {
-    let was = g.glue.replace(false);
+    let was = g.machine.glue.replace(false);
     let out = kernel_call(|| f(g));
-    g.glue.set(was);
+    g.machine.glue.set(was);
     if let Err(d) = &out
         && RECORDING.get()
     {
@@ -64,9 +64,9 @@ pub fn take_rejections() -> Vec<(&'static str, String)> {
 /// `f` with gluing off: for the kernel's inference, which `rewrite` and
 /// matching use on the elaborator's terms.
 pub fn without_glue<T>(g: &Globals, f: impl FnOnce() -> T) -> T {
-    let was = g.glue.replace(false);
+    let was = g.machine.glue.replace(false);
     let out = f();
-    g.glue.set(was);
+    g.machine.glue.set(was);
     out
 }
 
@@ -203,7 +203,7 @@ pub fn substitute_folded(
 /// evaluated again.
 pub fn def_ty(g: &Globals, id: DefId) -> stitchwort_core::budget::Result<stitchwort_core::Value> {
     let def = g.def(id);
-    if g.glue.get() && def.ty().subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
+    if g.machine.glue.get() && def.ty().subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
         stitchwort_core::value::eval(g, &[], def.ty())
     } else {
         k::def_type(g, def)

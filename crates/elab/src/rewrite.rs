@@ -590,7 +590,7 @@ fn by_hypothesis(
         let hypothesis = cx.types[level].clone();
         let proof = cx.env[level].clone();
         let snapshot = Snapshot::take(cx);
-        let outcome = g.budget.limited(remaining, || -> Result<bool> {
+        let outcome = g.machine.budget.limited(remaining, || -> Result<bool> {
             Ok(cx.unify(ty, &hypothesis)? && cx.unify(value, &proof)?)
         });
         match outcome {
@@ -1142,34 +1142,37 @@ impl Search<'_, '_> {
         self.stats.borrow_mut().conversions += 1;
         let snapshot = Snapshot::take(cx);
         let mut remaining = self.remaining.get();
-        let outcome = g.budget.limited(&mut remaining, || -> Result<bool> {
-            let value = eval(g, &cx.env, &candidate)?;
-            if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
-                return Ok(false);
-            }
-            if self.by_instances {
-                // The candidate's type has fixed the carrier: the rule's
-                // instances whose types are now known are found, and the
-                // projections stuck on them compute.
-                let only: Vec<usize> = (self.rule_metas..g.metas.borrow().len()).collect();
-                cx.e.solve_ready_instances_keeping(&[], Some(&only))?;
-                let lhs = crate::interfaces::refresh(cx, self.lhs)?;
-                return Ok(crate::undo::unify(cx, &value, &lhs)?
-                    || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
-            }
-            if crate::undo::unify(cx, &value, self.lhs)? {
-                return Ok(true);
-            }
-            // A `match` in the rule not lifted yet: an occurrence if it turns
-            // out to be the same as the one here.
-            Ok(crate::lift::mentions_draft(cx, &self.lhs_term.borrow())
-                && crate::lift::await_helpers(
-                    cx,
-                    &value,
-                    self.lhs,
-                    crate::lift::Failure::Mismatch,
-                )?)
-        });
+        let outcome = g
+            .machine
+            .budget
+            .limited(&mut remaining, || -> Result<bool> {
+                let value = eval(g, &cx.env, &candidate)?;
+                if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
+                    return Ok(false);
+                }
+                if self.by_instances {
+                    // The candidate's type has fixed the carrier: the rule's
+                    // instances whose types are now known are found, and the
+                    // projections stuck on them compute.
+                    let only: Vec<usize> = (self.rule_metas..g.metas.borrow().len()).collect();
+                    cx.e.solve_ready_instances_keeping(&[], Some(&only))?;
+                    let lhs = crate::interfaces::refresh(cx, self.lhs)?;
+                    return Ok(crate::undo::unify(cx, &value, &lhs)?
+                        || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
+                }
+                if crate::undo::unify(cx, &value, self.lhs)? {
+                    return Ok(true);
+                }
+                // A `match` in the rule not lifted yet: an occurrence if it turns
+                // out to be the same as the one here.
+                Ok(crate::lift::mentions_draft(cx, &self.lhs_term.borrow())
+                    && crate::lift::await_helpers(
+                        cx,
+                        &value,
+                        self.lhs,
+                        crate::lift::Failure::Mismatch,
+                    )?)
+            });
         self.remaining.set(remaining);
         match outcome {
             Ok(Some(true)) => {
@@ -1418,7 +1421,7 @@ fn round_trip(
     remaining: &mut u64,
 ) -> Result<Option<bool>> {
     let g = cx.g();
-    g.budget.limited(remaining, || -> Result<bool> {
+    g.machine.budget.limited(remaining, || -> Result<bool> {
         let motive = cx.eval(motive)?;
         let back = apply(g, apply(g, motive, lhs.clone())?, proof.clone())?;
         cx.unify(&back, goal)
@@ -1518,7 +1521,11 @@ fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result
         return Ok(false);
     };
     let snapshot = Snapshot::take(cx);
-    match g.budget.limited(remaining, || cx.unify(&left, &right)) {
+    match g
+        .machine
+        .budget
+        .limited(remaining, || cx.unify(&left, &right))
+    {
         Err(e) if fatal(&e) => Err(e),
         outcome => {
             let solved_nothing = snapshot.solved_since(cx).is_empty();

@@ -88,10 +88,10 @@ const PASS: &str = "hasher";
 
 /// `None` for a definition that isn't final (pending, or failed).
 pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
-    if let Some(hash) = g.hashes.borrow().get(&HashKey::Def(id)) {
+    if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Def(id)) {
         return Ok(Some(*hash));
     }
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     let def = g.def(id);
     if def.state == State::Final
         && let Some(prim) = g.env.builtins().primitive(id)
@@ -103,13 +103,13 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
         h.str(prim.name());
         h.term(&def.ty)?;
         let hash = h.finish();
-        g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
     if def.state == State::Final && g.env.builtins().float_primitive(id).is_some() {
         let hash =
             float_primitive_hash(g, id, crate::float::FLOAT_CONTRACT)?.expect("a float primitive");
-        g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
     let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
@@ -117,7 +117,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     };
     if let Some(members) = def.group.as_ref().filter(|m| m.len() > 1) {
         group_hashes(g, members)?;
-        return Ok(g.hashes.borrow().get(&HashKey::Def(id)).copied());
+        return Ok(g.caches.hashes.borrow().get(&HashKey::Def(id)).copied());
     }
     let mut h = Hasher::new(g, Itself::Def(id));
     h.tag("def");
@@ -129,7 +129,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     h.term(&def.ty)?;
     h.term(body)?;
     let hash = h.finish();
-    g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+    g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
     Ok(Some(hash))
 }
 
@@ -157,17 +157,17 @@ pub fn float_primitive_hash(g: &Globals, id: DefId, contract: u32) -> Result<Opt
 /// `None` for a data type that isn't final: without its constructors, it
 /// isn't yet the type it will be.
 pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
-    if let Some(hash) = g.hashes.borrow().get(&HashKey::Data(id)) {
+    if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Data(id)) {
         return Ok(Some(*hash));
     }
-    g.budget.nesting(PASS)?;
+    g.machine.budget.nesting(PASS)?;
     let data = g.data(id);
     if data.state != State::Final {
         return Ok(None);
     }
     if data.group.len() > 1 {
         data_group_hashes(g, &data.group)?;
-        return Ok(g.hashes.borrow().get(&HashKey::Data(id)).copied());
+        return Ok(g.caches.hashes.borrow().get(&HashKey::Data(id)).copied());
     }
     let mut h = Hasher::new(g, Itself::Data(id));
     h.tag("data");
@@ -181,7 +181,7 @@ pub fn data_hash(g: &Globals, id: DataId) -> Result<Option<ContentHash>> {
     h.indices(data)?;
     h.ctors(data)?;
     let hash = h.finish();
-    g.hashes.borrow_mut().insert(HashKey::Data(id), hash);
+    g.caches.hashes.borrow_mut().insert(HashKey::Data(id), hash);
     Ok(Some(hash))
 }
 
@@ -246,7 +246,8 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
         h.tag("member");
         h.bytes(&group.0);
         h.usize(index);
-        g.hashes
+        g.caches
+            .hashes
             .borrow_mut()
             .insert(HashKey::Def(members[m]), h.finish());
     }
@@ -292,7 +293,8 @@ fn data_group_hashes(g: &Globals, members: &[DataId]) -> Result<()> {
         h.tag("data-member");
         h.bytes(&group.0);
         h.usize(index);
-        g.hashes
+        g.caches
+            .hashes
             .borrow_mut()
             .insert(HashKey::Data(members[m]), h.finish());
     }

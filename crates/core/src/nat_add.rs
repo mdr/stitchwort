@@ -189,6 +189,7 @@ fn refused(span: Span, why: &str) -> Diagnostic {
 pub fn add_hash(g: &Globals) -> Option<String> {
     let id = g.env.registry().def(Builtin::Add)?;
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     def_hash(g, id).ok().flatten().map(|h| h.hex())

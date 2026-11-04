@@ -321,11 +321,15 @@ impl Default for Elaborator {
         let globals = Globals::default();
         let mut tables = state::Tables::default();
         tables.share_print_hints(&globals.print_hints);
+        let decl = state::Decl {
+            failed_mentioned: globals.failed_mentioned.clone(),
+            ..Default::default()
+        };
         Elaborator {
             globals,
             scope: Default::default(),
             attempt: Default::default(),
-            decl: Default::default(),
+            decl,
             unit: Default::default(),
             options: Default::default(),
             session: Default::default(),
@@ -607,9 +611,9 @@ impl Elaborator {
     /// Elaborates a closed expression, and infers its type with the kernel.
     /// One operation, with its own resource limits.
     pub fn infer_expr(&mut self, expr: &Expr) -> Result<(Term, Value)> {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let result = self.infer_expr_in_operation(expr);
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
     }
 
@@ -771,7 +775,7 @@ impl Elaborator {
     /// printed. One operation, with its own resource limits, including
     /// printing the value.
     pub fn eval_expr(&mut self, expr: &Expr) -> Result<(String, String)> {
-        let saved = self.globals.budget.start(self.options.limits);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let inferred = self.infer_expr_in_operation(expr);
         let run = || -> Result<(String, String)> {
             let (term, ty) = inferred?;
@@ -783,7 +787,7 @@ impl Elaborator {
             Ok((show(&value)?, show(&ty)?))
         };
         let result = run();
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
     }
 
@@ -803,14 +807,14 @@ impl Elaborator {
     /// the environment) never sees a glued call. `f` starts with an empty
     /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
-        self.decl = state::Decl::default();
+        self.decl.reset();
         if self.options.clear_caches_per_declaration {
             self.caches.clear();
         }
-        let was = self.globals.glue.replace(self.options.glue);
+        let was = self.globals.machine.glue.replace(self.options.glue);
         let out = f(self);
-        self.globals.glue.set(was);
-        self.decl = state::Decl::default();
+        self.globals.machine.glue.set(was);
+        self.decl.reset();
         out
     }
 
@@ -836,9 +840,9 @@ impl Elaborator {
     /// a file's are ([`Checked::Goals`]), and nothing reaches the kernel.
     /// One operation, with its own resource limits.
     pub fn check_proof(&mut self, expr: &Expr) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.proof_limits());
+        let saved = self.globals.machine.budget.start(self.proof_limits());
         let result = self.glued(|e| e.check_proof_glued(expr));
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         self.clear_metas();
         self.clear_goals();
         result.map_err(|d| self.locate(d, expr.span()))
@@ -899,9 +903,9 @@ impl Elaborator {
         recursive: Option<&str>,
         body: &Expr,
     ) -> Result<Checked> {
-        let saved = self.globals.budget.start(self.proof_limits());
+        let saved = self.globals.machine.budget.start(self.proof_limits());
         let result = self.glued(|e| e.check_proof_at_glued(snapshot, extra, recursive, body));
-        self.globals.budget.restore(saved);
+        self.globals.machine.budget.restore(saved);
         self.clear_metas();
         self.clear_goals();
         result.map_err(|d| self.locate(d, body.span()))
@@ -1009,7 +1013,7 @@ impl Elaborator {
     /// Prints a closed value, as one operation: a part too large or nested
     /// too deeply to print within its limits is shown as `…`.
     pub fn show(&self, value: &Value) -> String {
-        let _op = self.globals.budget.operation(self.options.limits);
+        let _op = self.globals.machine.budget.operation(self.options.limits);
         pretty::value(&self.globals, &[], value)
     }
 
@@ -3341,7 +3345,7 @@ impl Elaborator {
         types: &[Option<Value>],
         span: Span,
     ) -> Result<Tree<'a>> {
-        self.globals.budget.nesting(check::PASS)?;
+        self.globals.machine.budget.nesting(check::PASS)?;
         if rows
             .iter()
             .any(|row| row.pats.iter().any(|p| matches!(**p, Pattern::Or(..))))
@@ -4276,7 +4280,7 @@ fn check_tree_from(cx: &mut Ctx, start: usize, tree: &Tree, goal: &Value) -> Res
 /// branches, which don't depend on it, so one run reports every bad branch.
 /// Running out of resources stops everything instead.
 fn branch_failed(cx: &Ctx, error: Diagnostic, failed: &mut Vec<Diagnostic>) -> Result<()> {
-    if error.code == "E-RESOURCE" || cx.g().budget.exhausted().is_some() {
+    if error.code == "E-RESOURCE" || cx.g().machine.budget.exhausted().is_some() {
         return Err(error);
     }
     failed.push(error);
@@ -4296,7 +4300,7 @@ fn report_failed_branches(cx: &Ctx, failed: Vec<Diagnostic>) -> Result<()> {
 }
 
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
-    cx.g().budget.nesting(check::PASS)?;
+    cx.g().machine.budget.nesting(check::PASS)?;
     match tree {
         Tree::Leaf {
             aliases,

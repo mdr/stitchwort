@@ -486,7 +486,7 @@ fn deeply_nested_lets_finish_under_the_budget() {
         (same, ["ok", "E-RESOURCE"]),
         (wrong, ["E-REFL", "E-RESOURCE"]),
     ] {
-        let _op = g.budget.operation(Limits::default());
+        let _op = g.machine.budget.operation(Limits::default());
         let started = Instant::now();
         let r = infer_closed(g, &term, span())
             .err()
@@ -531,10 +531,10 @@ fn lit(n: u32) -> Term {
 
 /// The work checking `term` takes, and its result.
 fn work(g: &Globals, term: &Term) -> (u64, &'static str) {
-    let _op = g.budget.operation(Limits::default());
-    let before = g.budget.total_work();
+    let _op = g.machine.budget.operation(Limits::default());
+    let before = g.machine.budget.total_work();
     let r = infer_code(g, term);
-    (g.budget.total_work() - before, r)
+    (g.machine.budget.total_work() - before, r)
 }
 
 #[test]

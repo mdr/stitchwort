@@ -17,7 +17,10 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
         panic!("{errors:#?}");
     }
     let g = &session.elab.globals;
-    let _op = g.budget.operation(stitchwort_core::Limits::default());
+    let _op = g
+        .machine
+        .budget
+        .operation(stitchwort_core::Limits::default());
     let hash = |name: &str| {
         let id = (0..g.env.defs().len())
             .map(DefId)

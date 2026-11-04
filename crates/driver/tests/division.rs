@@ -118,7 +118,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
     for shortcuts in [true, false] {
         with_session(STACK, Session::for_stack, |session| {
             set_shortcuts_disabled(!shortcuts);
-            let before = session.elab.globals.budget.total_work();
+            let before = session.elab.globals.machine.budget.total_work();
             let loaded = session.load(
                 "sw920.sw",
                 &format!(
@@ -129,7 +129,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             set_shortcuts_disabled(false);
             assert!(loaded.is_ok(), "{loaded:?}");
             let g = &session.elab.globals;
-            let work = g.budget.total_work() - before;
+            let work = g.machine.budget.total_work() - before;
             eprintln!("shortcuts {shortcuts}: work {work}");
             assert!(
                 work < 2_000_000,

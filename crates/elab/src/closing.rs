@@ -188,8 +188,8 @@ impl Elaborator {
     /// An error if the statement doesn't elaborate here.
     pub fn open_goal(&mut self, expr: &Expr, hyps: usize) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.options.glue);
-        let saved = self.globals.budget.start(self.options.limits);
+        let was = self.globals.machine.glue.replace(self.options.glue);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
@@ -202,8 +202,8 @@ impl Elaborator {
             let v = cx.eval(&term)?;
             self.open_from(&cx, Vec::new(), hyps, v, span)
         })();
-        self.globals.budget.restore(saved);
-        self.globals.glue.set(was);
+        self.globals.machine.budget.restore(saved);
+        self.globals.machine.glue.set(was);
         result
     }
 
@@ -217,8 +217,8 @@ impl Elaborator {
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.globals.glue.replace(self.options.glue);
-        let saved = self.globals.budget.start(self.options.limits);
+        let was = self.globals.machine.glue.replace(self.options.glue);
+        let saved = self.globals.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let g = &self.globals;
             let cx = Ctx::new(self, span);
@@ -245,8 +245,8 @@ impl Elaborator {
             goal.owner_args = owner_args;
             Ok(goal)
         })();
-        self.globals.budget.restore(saved);
-        self.globals.glue.set(was);
+        self.globals.machine.budget.restore(saved);
+        self.globals.machine.glue.set(was);
         result
     }
 
@@ -460,11 +460,11 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Vec<Plan>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &candidate.ty, span)?;
             let conclusion = eval(g, &opened.env, &opened.conclusion)?;
             if !crate::unify::unify_solving_arguments(g, 0, target, &conclusion)? {
@@ -664,7 +664,7 @@ impl Elaborator {
             // compute it (a closed list of 130,000 sequences in AoC 2024 day
             // 22 took minutes and gigabytes): under a comparison's budget.
             let opened = {
-                let _op = g.budget.attempt(ATTEMPT);
+                let _op = g.machine.budget.attempt(ATTEMPT);
                 self.call_pattern(&call).map(|p| {
                     let shown = eval(g, &[], &call).map(|v| self.show_with_vars(&goal.vars, &v));
                     (p, shown)
@@ -749,11 +749,11 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.options.glue),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Option<Plan>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &candidate.ty, span)?;
             let side = match opened.conclusion.strip_loc() {
                 Term::Eq(_, l, r) => if backwards { r } else { l }.clone(),
@@ -809,10 +809,10 @@ impl Elaborator {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             frozen: g.frozen_metas.borrow().len(),
-            glue: g.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.options.glue),
         };
         let made = (|| -> Res<Vec<RecursivePlan>> {
-            let _op = g.budget.attempt(ATTEMPT);
+            let _op = g.machine.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &ty, span)?;
             let conclusion = eval(g, &opened.env, &opened.conclusion)?;
             // The arguments at the goal: what its parameters stand for in

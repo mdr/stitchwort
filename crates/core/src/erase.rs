@@ -51,7 +51,7 @@
 //! open terms, where proofs do matter for typing. Erasure is set only by the
 //! driver around running a program or a test.
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::check;
@@ -89,9 +89,6 @@ pub struct Erasure {
     program: Cell<bool>,
     /// Off only to compare runs with and without erasure, in tests.
     disabled: Cell<bool>,
-    /// Each definition's, worked out on first use (from its type, which
-    /// never changes once it's final).
-    defs: RefCell<Vec<Option<Rc<DefErasure>>>>,
 }
 
 /// Erasure in effect until dropped.
@@ -109,12 +106,6 @@ impl Drop for Running<'_> {
 }
 
 impl Erasure {
-    /// Forgets what was worked out for the definitions from `defs` on, when
-    /// they are removed again ([`Globals::rewind`]).
-    pub(crate) fn forget_from(&self, defs: usize) {
-        self.defs.borrow_mut().truncate(defs);
-    }
-
     /// Erases until the result is dropped: for running a program or test.
     pub fn running(&self) -> Running<'_> {
         let was = self.active.replace(!self.disabled.get());
@@ -148,7 +139,7 @@ impl Erasure {
 
 /// Which parts of definition `id` are erased, or `None` if it isn't final.
 pub fn of_def(g: &Globals, id: DefId) -> Option<Rc<DefErasure>> {
-    if let Some(Some(known)) = g.erasure.defs.borrow().get(id.0) {
+    if let Some(Some(known)) = g.caches.erasure_defs.borrow().get(id.0) {
         return Some(known.clone());
     }
     let def = g.def(id);
@@ -157,9 +148,9 @@ pub fn of_def(g: &Globals, id: DefId) -> Option<Rc<DefErasure>> {
     }
     // The type is evaluated normally: erasing inside it would change what
     // the telescope sees.
-    let was = g.erasure.active.replace(false);
+    let was = g.machine.erasure.active.replace(false);
     let tel = check::telescope(g, &def.ty_value, def.span);
-    g.erasure.active.set(was);
+    g.machine.erasure.active.set(was);
     let Ok(tel) = tel else {
         // Out of resources (nothing else can fail: the type is checked).
         // Erasing nothing is safe, and the machine stops at its next step.
@@ -172,7 +163,7 @@ pub fn of_def(g: &Globals, id: DefId) -> Option<Rc<DefErasure>> {
         params: tel.params.iter().map(|(_, _, e)| *e).collect(),
         result: tel.result_erased,
     });
-    let mut defs = g.erasure.defs.borrow_mut();
+    let mut defs = g.caches.erasure_defs.borrow_mut();
     if defs.len() <= id.0 {
         defs.resize(id.0 + 1, None);
     }

@@ -301,9 +301,9 @@ impl Session {
         let (term, _) = self.elab.infer_expr(&expr)?;
         let g = &self.elab.globals;
         let s = Shapes::new(self);
-        let _op = g.budget.operation(self.elab.options.limits);
+        let _op = g.machine.budget.operation(self.elab.options.limits);
         // Proofs and types aren't computed (`erase.rs`).
-        let _erasing = g.erasure.running();
+        let _erasing = g.machine.erasure.running();
         let run = || -> Result<Vec<String>, ResourceError> {
             let mut printed = Vec::new();
             let mut list = force(g, eval(g, &[], &term)?)?;
@@ -472,7 +472,7 @@ impl Session {
         let g = &self.elab.globals;
         match result {
             Err(RunError::Resource(ResourceError::Depth)) => {
-                let deepest = g.budget.take_deepest();
+                let deepest = g.machine.budget.take_deepest();
                 if deepest.is_empty() {
                     return result;
                 }
@@ -501,16 +501,16 @@ impl Session {
         let g = &self.elab.globals;
         let s = Shapes::new(self);
         // Proofs and types aren't computed (`erase.rs`).
-        let _erasing = g.erasure.running();
+        let _erasing = g.machine.erasure.running();
         let mut lines = 0;
         let mut ticks = 0;
         let mut machine = {
-            let _op = g.budget.operation(self.elab.options.limits);
+            let _op = g.machine.budget.operation(self.elab.options.limits);
             Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
             let mut obs = {
-                let _op = g.budget.operation(self.elab.options.limits);
+                let _op = g.machine.budget.operation(self.elab.options.limits);
                 machine.step(g)?
             };
             // Perform operations until the step ends.
@@ -530,10 +530,10 @@ impl Session {
                     }
                     Obs::Call(o, pending) => {
                         let reply = {
-                            let _op = g.budget.operation(self.elab.options.limits);
+                            let _op = g.machine.budget.operation(self.elab.options.limits);
                             self.perform(&s, o, input, output, terminal, &mut lines, trace)?
                         };
-                        let _op = g.budget.operation(self.elab.options.limits);
+                        let _op = g.machine.budget.operation(self.elab.options.limits);
                         obs = pending.reply(g, reply)?;
                     }
                 }
@@ -547,13 +547,13 @@ impl Session {
     /// its own resource limits, and there's no tick limit.
     pub(crate) fn run_partial(&self, term: &Term) -> Result<Value, ResourceError> {
         let g = &self.elab.globals;
-        let _erasing = g.erasure.running();
+        let _erasing = g.machine.erasure.running();
         let mut machine = {
-            let _op = g.budget.operation(self.elab.options.limits);
+            let _op = g.machine.budget.operation(self.elab.options.limits);
             Machine::start(g, force(g, eval(g, &[], term)?)?)
         };
         loop {
-            let _op = g.budget.operation(self.elab.options.limits);
+            let _op = g.machine.budget.operation(self.elab.options.limits);
             match machine.step(g)? {
                 Obs::Now(v) => return force(g, v),
                 Obs::Later(rest) => machine = rest,

@@ -1323,7 +1323,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         if self.visits > VISITS {
             return Ok(None);
         }
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let forced = force(g, value.clone())?;
         match &forced {
             Value::Neutral(Head::Def(_), spine) => {
@@ -1673,7 +1673,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
     }
     let mut tree = Term::peel_lams_rc(body, def.arity());
     loop {
-        g.budget.step()?;
+        g.machine.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
         match &*node {
             Term::Case(ix, d, branches) => {

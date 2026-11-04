@@ -65,7 +65,7 @@ fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<usize> {
         })
     };
     let term = app(Term::Def(f), args.iter().map(|n| num(*n)));
-    let _op = g.budget.operation(Limits {
+    let _op = g.machine.budget.operation(Limits {
         work,
         ..Limits::default()
     });
@@ -83,7 +83,7 @@ fn nat_of(term: &Term) -> Option<usize> {
 }
 
 fn hash_of(g: &Globals, id: DefId) -> Option<stitchwort_core::hash::ContentHash> {
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     def_hash(g, id).unwrap()
 }
 
@@ -501,14 +501,14 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
     );
     let probe = many_calls(&p, pf, pg);
     let checking = {
-        let _op = p.g.budget.operation(Limits::default());
-        let before = p.g.budget.total_work();
+        let _op = p.g.machine.budget.operation(Limits::default());
+        let before = p.g.machine.budget.total_work();
         for (id, body) in &probe {
             let def = p.g.def(*id);
             let mut cx = check::Ctx::new(&p.g, def.span());
             check::check(&mut cx, body, def.ty_value()).expect("the body type-checks");
         }
-        p.g.budget.total_work() - before
+        p.g.machine.budget.total_work() - before
     };
     // With enough graphs, it terminates; with too few, inconclusive.
     let (f, g) = (
@@ -526,7 +526,7 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
         .map(|(id, body)| termination::Member { id: *id, body })
         .collect();
     {
-        let _op = p.g.budget.operation(Limits::default());
+        let _op = p.g.machine.budget.operation(Limits::default());
         termination::check_group(&p.g, &group, stitchwort_core::sct::MAX_GRAPHS).unwrap();
         let e = termination::check_group(&p.g, &group, 3).unwrap_err();
         assert_eq!(e.code, "E-RESOURCE");
@@ -539,12 +539,12 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
     }
     // Through the kernel, running out of steps in the termination check.
     let r = {
-        let saved = p.g.budget.start(Limits {
+        let saved = p.g.machine.budget.start(Limits {
             work: checking + 1,
             ..Limits::default()
         });
         let r = define_group(&mut p.g, &members);
-        p.g.budget.restore(saved);
+        p.g.machine.budget.restore(saved);
         r
     };
     let e = r.unwrap_err();

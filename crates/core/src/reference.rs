@@ -307,14 +307,14 @@ fn seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
 /// all its arguments, except while a program runs.
 fn folds(g: &Globals, id: DefId) -> bool {
     let def = g.def(id);
-    (def.fold || def.theorem) && !g.erasure.program_running()
+    (def.fold || def.theorem) && !g.machine.erasure.program_running()
 }
 
 /// Whether a definition with all its arguments stays folded when its case
 /// tree reaches a `Quot.lift` on a quotient that isn't a `Quot.mk`, except
 /// while a program runs.
 fn folds_on_lift(g: &Globals, id: DefId) -> bool {
-    g.def(id).lift_leaf && !g.erasure.program_running()
+    g.def(id).lift_leaf && !g.machine.erasure.program_running()
 }
 
 /// Whether `value` is a folded definition with all its arguments (or may

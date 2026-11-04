@@ -230,8 +230,8 @@ impl Machine {
     fn run(mut self, g: &Globals) -> Result<Obs> {
         let s = self.shapes;
         loop {
-            g.budget.step()?;
-            g.budget.frames(self.frames.len())?;
+            g.machine.budget.step()?;
+            g.machine.budget.frames(self.frames.len())?;
             self.focus = match std::mem::replace(&mut self.focus, Focus::Ret(Value::Refl)) {
                 Focus::Eval(d) => {
                     let (prim, args) = match constant(g, &s, d)? {

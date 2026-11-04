@@ -215,7 +215,7 @@ pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) 
 /// The recursive calls in `t` (at `depth`, under `under` binders of its
 /// own), innermost first, as terms at `depth - under`.
 fn calls(g: &Globals, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih>) -> R<()> {
-    g.budget.nesting("equations")?;
+    g.machine.budget.nesting("equations")?;
     let n = d.binders.len();
     let decreasing = matches!(d.kind, Kind::Decreasing { .. });
     let (head, args) = spine_icit(t);
@@ -1956,7 +1956,7 @@ impl Tree<'_> {
     }
 
     fn go(&mut self, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
-        self.g().budget.nesting("equations")?;
+        self.g().machine.budget.nesting("equations")?;
         match t.strip_loc() {
             Term::Case(ix, data, branches) => {
                 let x = fvals.len() - 1 - ix;

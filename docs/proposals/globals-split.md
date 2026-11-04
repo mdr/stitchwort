@@ -439,7 +439,7 @@ Every step that generates or admits kernel terms is reviewed by Opus
 | 8a | **Read views.** `Def`'s and `Data`'s kernel-written fields `pub(crate)` with getters; `Env` as a type inside `Globals` (`globals.env`) with private fields; the test bypasses behind the `test-bypass` feature. Mechanical; a sweep of driver (104 `defs` reads), rt, js, cli | the §1.5 bypass: nothing outside core writes a type, body or state | everything builds; `test:lane AREA=core`; core's `kernel.rs`, `admission.rs`; `hash_stability`, `pinned_hashes` |
 | 8b | **The elaborator's facts out of `Env`.** `Data::js`, `Data::defaults`, `Def::param_defaults`, `Def::update_shown`, `unfinished` into `Tables` as `OwnedBy`; the JS backend and cli read them through a view the session hands over; `param_default` through a kernel function | backend changes stop editing core; the facts get table kinds (rewind, encode, dump by kind) | `check_cache.rs` (entries byte for byte the same as before, as step 5 checked), `rewind.rs` (normal sample), `test:lane AREA=js`, `navigation.rs` |
 | 8c | (done) **`module` out.** `declare_def` and `declare_*data_group*` take the declaration's path; `module` into `Unit`; `library::Context`'s swap of it goes | the kernel stops reading unit state | `hash_stability`, `pinned_hashes` (hashes unchanged), `namespaces.rs`, `std_library.rs` |
-| 8d | **`Machine` and the caches.** `budget`, `glue`, `transparent`, erasure mode, `apart_sets` into `core::Machine`; `hashes` and erasure's per-definition cache into a core `EvalCaches`; `failed_mentioned` into `Decl`. `Globals` is now `{ env, machine, caches, metas.. }` | `GlobalsMark` keeps only lengths; modes have one home | `rewind.rs`, `resources.rs`, `test:lane AREA=core`, core's `glue.rs` |
+| 8d | (done) **`Machine` and the caches.** `budget`, `glue`, `transparent`, erasure mode, `apart_sets` into `core::Machine`; `hashes` and erasure's per-definition cache into a core `EvalCaches`; `failed_mentioned` into `Decl`. `Globals` is now `{ env, machine, caches, metas.. }` | `GlobalsMark` keeps only lengths; modes have one home | `rewind.rs`, `resources.rs`, `test:lane AREA=core`, core's `glue.rs` |
 | 8e | **`Ev` and `Metas`.** Core's evaluator, printer and checker take `&Ev` instead of `&Globals`. Admission takes `(&mut Env, &Machine)` and builds `Ev` with `NoMetas` and kernel modes. The 9 meta fields move into `Attempt` as `MetaStore: Metas`, and `Globals` is deleted. Two lanes if the diff is too large: 8e-1 introduces `Ev` with all fields still borrowed from `Globals`, a mechanical sweep; 8e-2 moves the store | the trust boundary (§3.6, §4); undo and reset destructure the store; the erasure gap | the new kernel test (a solved metavariable submitted is refused); elab's `undo` unit tests; `postponement.rs`, `rewind.rs`, `check_cache.rs`, `fuzz_elab.rs`'s rejection checks; `STITCHWORT_TIMINGS` on aoc before and after (a background run of about a minute each, an estimate) |
 | 8f | **The meta store's own mechanisms.** `Attempt::mark`/`restore` destructure `MetaStore`; the three queue mirrors become views of the queue, or are restored by it, whichever its lane finds simpler | undo completeness for the store (see finding G2) | `undo` unit tests, `postponement.rs`, a new test per mirror |
 
@@ -456,6 +456,28 @@ save and restore of the module is gone (`module_of` stays as a check that the
 path is the name in a module). `GlobalsMark` lost `module`; the library
 loader's `Outer` lost `globals_module`. Hashes unchanged (`hash_stability`,
 `pinned_hashes`, `check_cache`, `std_library` pass).
+
+*As built (SW-1189, step 8d).* `core::machine::Machine` holds `budget`,
+`glue`, `transparent` (with `Transparency`), `erasure` (the `Erasure` modes
+only: `active`, `program`, `disabled`) and `apart_sets`; `core::caches::EvalCaches`
+holds `hashes` and `erasure_defs` (erasure's per-definition cache, which left
+`Erasure`), with one `forget_from(defs, datas)` that `Globals::rewind` and
+`forget_declarations_from` both use. `Globals` is `{ env, machine, caches,
+metas.., print_hints, failed_mentioned, meta_epoch }`; callers read
+`g.machine.glue`, `g.caches.hashes`, and so on. `Machine::reset` (budget reset,
+transparency emptied) is what a rewind does to it; `apart_sets` and the erasure
+switches stay. `GlobalsMark` keeps only lengths and the built-ins mark: it no
+longer holds `glue`, so `rewind_globals` no longer sets the mode back. That
+changes nothing observable: every setter of `glue` is a `replace`/`set` pair
+around a call that returns a `Result` (no unwinding), so the mode is back
+before any rewind. `failed_mentioned` is `Decl::failed_mentioned`, a
+`FailedMention` handle on a cell `Globals` shares with the printer (the same
+device as `PrintHints`, deleted by 8e). It differs from the other `Decl`
+fields in one way: `Decl::reset` (what `glued` calls) keeps it, because the
+component's blame is decided after `glued` returns; the start of a component
+clears it, and `Decl::rewind` clears it (before, a rewind put back the mark's
+value, which the next component's start overwrote anyway). Modes' behaviour
+under admission is untouched (8e).
 
 **Order** (an implementation decision, made here). 8a-8f run one at a
 time: every one edits core and its callers. 8a can start any time after

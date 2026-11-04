@@ -780,7 +780,7 @@ impl Elaborator {
         use stitchwort_core::registry::Builtin;
         use stitchwort_core::{DefId, Value};
         let g = &self.globals;
-        let _op = g.budget.operation(self.options.limits);
+        let _op = g.machine.budget.operation(self.options.limits);
         let decidable = g.env.registry().data(Builtin::Decidable);
         let mut found = Vec::new();
         for id in self.tables.prelude_defs..g.env.defs().len() {

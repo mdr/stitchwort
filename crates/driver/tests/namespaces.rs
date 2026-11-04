@@ -47,7 +47,10 @@ fn types_are_hashed_with_their_full_names() {
          type UI.Shape : Type =\n  | Square (side : Nat)\n",
     );
     let g = &session.elab.globals;
-    let _op = g.budget.operation(stitchwort_core::Limits::default());
+    let _op = g
+        .machine
+        .budget
+        .operation(stitchwort_core::Limits::default());
     let library = g.env.registry().data(Builtin::List).unwrap();
     let find = |path: &str| {
         (0..g.env.datas().len())

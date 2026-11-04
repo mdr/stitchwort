@@ -103,7 +103,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
     session.elab.globals.env.set_disable_compact_text(false);
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.options.limits);
+    let _op = g.machine.budget.operation(session.elab.options.limits);
     let value = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap();
     (term, value)
 }
@@ -112,7 +112,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
 /// list expanded (by the reference evaluator, not `chars`).
 fn normal(session: &Session, value: &Value) -> String {
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.options.limits);
+    let _op = g.machine.budget.operation(session.elab.options.limits);
     let term = value::quote(g, 0, value).unwrap();
     format!("{:?}", reference::expand_term(g, &term))
 }
@@ -214,7 +214,7 @@ fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (_, xa) = value_of(session, &la, false);
     let (_, xb) = value_of(session, &lb, false);
     let g = &session.elab.globals;
-    let _op = g.budget.operation(session.elab.options.limits);
+    let _op = g.machine.budget.operation(session.elab.options.limits);
     let conv = |x: &Value, y: &Value| value::conv(g, 0, x, y).unwrap();
     let equal = a == b;
     assert_eq!(conv(&ca, &cb), equal, "{la} ~ {lb}, both compact");
@@ -388,7 +388,7 @@ fn medium_texts() {
         // up in a type for the elaborator to finish.
         let call = |session: &Session, f: &str, args: &[&Value]| {
             let g = &session.elab.globals;
-            let _op = g.budget.operation(session.elab.options.limits);
+            let _op = g.machine.budget.operation(session.elab.options.limits);
             let mut v = value::eval(g, &[], &Term::Def(def(g, f))).unwrap();
             for arg in args {
                 v = value::apply(g, v, (*arg).clone()).unwrap();
@@ -424,7 +424,7 @@ fn medium_texts() {
         let answer = |session: &Session, a: &Value, b: &Value| {
             let decision = call(session, "Text.decEq", &[a, b]);
             let g = &session.elab.globals;
-            let _op = g.budget.operation(session.elab.options.limits);
+            let _op = g.machine.budget.operation(session.elab.options.limits);
             let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
             let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
             normal(session, &value::apply(g, to_bool, decision).unwrap())
@@ -537,7 +537,7 @@ fn laws_hold_on_long_texts() {
 fn a_range_means_the_list_of_its_characters() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let (list, char) = (data(g, "List"), data(g, "Char"));
     let buffer: Rc<[char]> = "xabcdy".chars().collect();
     let expansion = |text: &str| {
@@ -598,7 +598,7 @@ fn quoting_a_suffix_shares_or_copies_it() {
             true,
         );
         let g = &session.elab.globals;
-        let _op = g.budget.operation(Limits::default());
+        let _op = g.machine.budget.operation(Limits::default());
         value::quote(g, 0, &v).unwrap()
     };
     // Six of ten characters: shared, from offset 4.
@@ -619,7 +619,7 @@ fn quoting_a_suffix_shares_or_copies_it() {
     assert!(matches!(quoted(&mut session, 10), Term::Ctor(d, 0, _) if d == g_list));
     // The quoted suffixes check, and mean what they say.
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let suffix = quoted_check(g, &Term::Chars(suffix));
     assert_eq!(suffix, "['i', 'j']");
 }
@@ -641,7 +641,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
         true,
     );
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let Value::Chars(range) = &v else {
         panic!("dropping from a compact list leaves a compact list")
     };
@@ -661,7 +661,7 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
 fn a_proof_variable_is_not_rfl() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let (list, char, bool) = (data(g, "List"), data(g, "Char"), data(g, "Bool"));
     let is_scalar = def(g, "Char.isScalar");
     let a = Term::Chars(Chars::whole(Rc::from(['a'])));
@@ -871,7 +871,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
         "other",
         Term::Chars(Chars::whole("abd".chars().collect())),
     );
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let plain = def_hash(g, def(g, "plain")).unwrap().unwrap();
     assert_eq!(plain, in_middle);
     assert_ne!(plain, other);
@@ -879,7 +879,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
     cons.elab.globals.env.set_disable_compact_text(true);
     load(&mut cons, "def plain : Text := \"abc\"\n");
     let g = &cons.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     assert_ne!(plain, def_hash(g, def(g, "plain")).unwrap().unwrap());
 }
 
@@ -958,6 +958,7 @@ fn is_scalar_agrees_with_rust_on_every_code_point() {
     let g = &session.elab.globals;
     let is_scalar = def(g, "Char.isScalar");
     let _op = g
+        .machine
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
     for code in 0..0x11_0100u32 {
@@ -1022,7 +1023,7 @@ fn a_changed_builtin_isnt_bound() {
     assert_eq!(results[0].outcome, Outcome::Passed);
     // And the kernel refuses a compact list.
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let abc = Term::Chars(Chars::whole("abc".chars().collect()));
     assert_eq!(
         infer_closed(g, &abc, span())
@@ -1047,7 +1048,7 @@ fn text_blocks_hash_like_the_one_line_text() {
          def interpLine (n: Nat): Text := \"n = ${n}\\n\"\n",
     );
     let g = &session.elab.globals;
-    let _op = g.budget.operation(Limits::default());
+    let _op = g.machine.budget.operation(Limits::default());
     let hash = |name: &str| def_hash(g, def(g, name)).unwrap().unwrap();
     assert_eq!(hash("block"), hash("line"));
     assert_eq!(hash("tight"), hash("tightLine"));

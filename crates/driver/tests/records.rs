@@ -70,10 +70,16 @@ fn the_record_flag_is_hashed() {
     let gb = &mut b.elab.globals;
     let r = declare(ga, "Point", true, &[("Point.mk", &["x", "y"])]).unwrap();
     let d = declare(gb, "Point", false, &[("Point.mk", &["x", "y"])]).unwrap();
-    let _op = ga.budget.operation(stitchwort_core::Limits::default());
+    let _op = ga
+        .machine
+        .budget
+        .operation(stitchwort_core::Limits::default());
     let ha = data_hash(ga, r).unwrap();
     drop(_op);
-    let _op = gb.budget.operation(stitchwort_core::Limits::default());
+    let _op = gb
+        .machine
+        .budget
+        .operation(stitchwort_core::Limits::default());
     let hb = data_hash(gb, d).unwrap();
     assert!(ha.is_some() && hb.is_some());
     assert_ne!(

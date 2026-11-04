@@ -707,7 +707,7 @@ pub(crate) fn op_text(op: BinOp) -> &'static str {
 
 impl<'a> Group<'a> {
     fn tree(&mut self, cx: &Ctx, expr: &'a Expr, op: &'static str) -> Result<Node> {
-        cx.g().budget.nesting(PASS)?;
+        cx.g().machine.budget.nesting(PASS)?;
         match expr {
             Expr::Binary(o, a, b) if is_arith(*o) => {
                 self.arith = true;
@@ -815,7 +815,7 @@ pub(crate) fn map_leaves(
         expr: &Expr,
         f: &mut dyn FnMut(&mut Ctx, &Expr) -> Result<Expr>,
     ) -> Result<Expr> {
-        cx.g().budget.nesting(PASS)?;
+        cx.g().machine.budget.nesting(PASS)?;
         match expr {
             Expr::Binary(op, a, b) if is_arith(*op) => {
                 let a = tree(cx, a, f)?;
@@ -1778,7 +1778,7 @@ fn build(
     kind: Option<Kind>,
     leaves: &mut [Option<Term>],
 ) -> Result<Term> {
-    cx.g().budget.nesting(PASS)?;
+    cx.g().machine.budget.nesting(PASS)?;
     match node {
         Node::Leaf(i) => Ok(leaves[i].take().expect("each leaf is used once")),
         Node::Op(op, a, b, span) => {

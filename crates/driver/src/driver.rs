@@ -670,6 +670,7 @@ impl Session {
         let view = self.elab.backend();
         let g = &view;
         let _op = g
+            .machine
             .budget
             .operation(Limits::stack_only(self.elab.options.limits.stack));
         for id in first_new_def..g.env.defs().len() {
@@ -1284,7 +1285,7 @@ impl Session {
             .iter()
             .filter(|test| selected(test))
             .filter(|test| {
-                let _op = g.budget.operation(self.elab.options.limits);
+                let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
                     Ok(Some(hash)) => cache
                         .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
@@ -1338,7 +1339,7 @@ impl Session {
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
-                let _op = g.budget.operation(self.elab.options.limits);
+                let _op = g.machine.budget.operation(self.elab.options.limits);
                 let hash = match def_hash(g, test.def) {
                     Ok(hash) => hash.expect("tests are checked before they run"),
                     Err(e) => {
@@ -1378,7 +1379,7 @@ impl Session {
                         self.run_partial(&Term::Def(test.def))
                     } else {
                         // Proofs and types aren't computed (`erase.rs`).
-                        let _erasing = g.erasure.running();
+                        let _erasing = g.machine.erasure.running();
                         eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v))
                     };
                     match value {
@@ -1438,8 +1439,8 @@ impl Session {
     fn holds(&self, probe: &stitchwort_elab::Probe) -> Option<bool> {
         let g = &self.elab.globals;
         let term = probe.truth.as_ref()?;
-        let _op = g.budget.operation(self.elab.options.limits);
-        let _erasing = g.erasure.running();
+        let _op = g.machine.budget.operation(self.elab.options.limits);
+        let _erasing = g.machine.erasure.running();
         match eval(g, &[], term).and_then(|v| force(g, v)) {
             Ok(Value::Ctor(_, c, _)) => Some(c == 1),
             _ => None,
@@ -1485,8 +1486,8 @@ impl Session {
             ..self.elab.options.limits
         };
         let show = |term: &Term| -> (String, Option<Term>) {
-            let _op = g.budget.operation(limits);
-            let _erasing = g.erasure.running();
+            let _op = g.machine.budget.operation(limits);
+            let _erasing = g.machine.erasure.running();
             let Ok(v) = eval(g, &[], term) else {
                 return ("…".to_string(), None);
             };

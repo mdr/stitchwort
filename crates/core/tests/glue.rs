@@ -84,11 +84,11 @@ fn defs() -> Defs {
 /// read-backs must be the same.
 fn both_ways(g: &Globals, level: usize, term: &Term) -> (Value, Value) {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     let off = eval(g, &env, term).unwrap();
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let on = eval(g, &env, term).unwrap();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     assert_eq!(
         format!("{:?}", quote(g, level, &off).unwrap()),
         format!("{:?}", quote(g, level, &on).unwrap()),
@@ -127,14 +127,14 @@ fn a_call_stuck_on_a_variable_unfolds_to_the_folded_definition() {
 fn copies_share_the_unfolding_until_metavariables_are_taken_back() {
     let d = defs();
     let g = &d.p.g;
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let call = eval(g, &[], &app(Term::Def(d.double), [d.p.num(20)])).unwrap();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     let copy = call.clone();
     let steps = |v: Value| {
-        let before = g.budget.total_work();
+        let before = g.machine.budget.total_work();
         force(g, v).unwrap();
-        g.budget.total_work() - before
+        g.machine.budget.total_work() - before
     };
     let first = steps(call.clone());
     assert!(first > 20, "unfolding runs the definition: {first} steps");
@@ -163,11 +163,11 @@ fn looking_inside_forces_a_call_everywhere() {
         "applied, so unfolded: {on:?}"
     );
     // And applying a glued call value to an argument afterwards.
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let partial = eval(g, &[], &app(Term::Def(d.pick), [d.p.num(1)])).unwrap();
     assert!(matches!(partial, Value::Call(..)));
     let applied = apply(g, partial, eval(g, &[], &d.p.num(5)).unwrap()).unwrap();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     assert!(conv(g, 0, &applied, &eval(g, &[], &d.p.num(0)).unwrap()).unwrap());
 }
 
@@ -179,9 +179,9 @@ fn natives_never_glue() {
     register_native(&mut d.p.g, d.p.add, Native::Add).expect("add");
     let g = &d.p.g;
     // A native computes on numbers at once, as without gluing.
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let sum = eval(g, &[], &d.p.plus(d.p.num(2), d.p.num(3))).unwrap();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     assert!(!matches!(sum, Value::Call(..)), "{sum:?}");
 }
 
@@ -189,10 +189,10 @@ fn natives_never_glue() {
 /// folded; checked convertible with its value without gluing.
 fn folded(g: &Globals, level: usize, term: &Term) -> Term {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let on = eval(g, &env, term).unwrap();
     let written = quote_folded(g, level, &on).unwrap();
-    g.glue.set(false);
+    g.machine.glue.set(false);
     let off = eval(g, &env, term).unwrap();
     let again = eval(g, &env, &written).unwrap();
     assert!(conv(g, level, &off, &again).unwrap(), "convertible");
@@ -259,13 +259,13 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
         extra: Vec::new(),
         rigid: Vec::new(),
     };
-    g.glue.set(true);
+    g.machine.glue.set(true);
     let big = d.p.num(2_000);
     let closed = eval(g, &[], &app(Term::Def(d.double), [big])).unwrap();
     assert!(matches!(closed, Value::Call(..)));
-    let before = g.budget.total_work();
+    let before = g.machine.budget.total_work();
     let found = occurs(g, &scope, 0, &closed).unwrap();
-    let steps = g.budget.total_work() - before;
+    let steps = g.machine.budget.total_work() - before;
     let env = [Value::var(0)];
     let on_y = eval(g, &env, &app(Term::Def(d.double), [v(0)])).unwrap();
     let succ_y = Term::ctor(d.p.nat, 1, vec![v(0)]);
@@ -275,7 +275,7 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
         occurs(g, &scope, 0, &on_y).unwrap(),
         occurs(g, &scope, 0, &dropped).unwrap(),
     );
-    g.glue.set(false);
+    g.machine.glue.set(false);
     assert!(!found);
     assert!(steps < 100, "the occurs check took {steps} steps");
     assert!(on_y, "`double y` mentions `y`");

@@ -596,7 +596,7 @@ pub fn folds_mul(g: &Globals, id: DefId, spine: &[Elim]) -> bool {
         ] => {
             !k.is_zero()
                 && g.env.builtins().native(id) == Some(Native::Mul)
-                && !g.erasure.program_running()
+                && !g.machine.erasure.program_running()
         }
         _ => false,
     }
@@ -928,7 +928,9 @@ pub fn run(
         }
     }
     // Charged before the work is done, when it counts.
-    g.budget.number_words(|| number_words(native, &args))?;
+    g.machine
+        .budget
+        .number_words(|| number_words(native, &args))?;
     Ok(run_numbers(g, native, &args).map(Outcome::Done))
 }
 

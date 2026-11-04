@@ -1574,7 +1574,7 @@ fn chains_of_helpers_calling_the_next_in_both_branches_are_compared_once_per_lev
     let a = define_chain(&mut p, "a", zero.clone(), 40);
     let b = define_chain(&mut p, "b", zero, 40);
     let c = define_chain(&mut p, "c", one, 40);
-    let _op = p.g.budget.operation(Limits {
+    let _op = p.g.machine.budget.operation(Limits {
         work: 1_000_000,
         ..Limits::default()
     });
@@ -1628,12 +1628,12 @@ fn define_konst(p: &mut Prelude) -> stitchwort_core::DefId {
 /// [`define`], within a budget far too small to compare two copies of
 /// `mix 40 s` part by part.
 fn define_small(p: &mut Prelude, name: &str, ty: Term, body: Term) -> Result<(), &'static str> {
-    let saved = p.g.budget.start(stitchwort_core::Limits {
+    let saved = p.g.machine.budget.start(stitchwort_core::Limits {
         work: 100_000,
         ..stitchwort_core::Limits::default()
     });
     let verdict = define(&mut p.g, name, ty, body).map(|_| ());
-    p.g.budget.restore(saved);
+    p.g.machine.budget.restore(saved);
     verdict
 }
 
@@ -1788,9 +1788,9 @@ fn same_call_failures_do_not_repeat_work() {
             p.nat_ty(),
             pi("y", p.nat_ty(), eq(None, tower(v(1)), tower(v(0)))),
         );
-        let before = p.g.budget.total_work();
+        let before = p.g.machine.budget.total_work();
         let verdict = define_small(&mut p, "towers", statement, lam("x", lam("y", Term::Refl)));
-        (verdict, p.g.budget.total_work() - before)
+        (verdict, p.g.machine.budget.total_work() - before)
     };
     let (verdict, steps) = run();
     assert_eq!(verdict, Err("E-REFL"));
@@ -1830,15 +1830,15 @@ fn kept_call_cases(rounds: usize, budget: u64) -> (Vec<Result<(), &'static str>>
     let mut p = Prelude::new();
     let big = define_big(&mut p, rounds);
     let big_of = |t: Term| app(Term::Def(big), [t]);
-    let before = p.g.budget.total_work();
+    let before = p.g.machine.budget.total_work();
     let mut verdicts = Vec::new();
     let mut run = |p: &mut Prelude, name: &str, ty: Term, body: Term| {
-        let saved = p.g.budget.start(stitchwort_core::Limits {
+        let saved = p.g.machine.budget.start(stitchwort_core::Limits {
             work: budget,
             ..stitchwort_core::Limits::default()
         });
         verdicts.push(define(&mut p.g, name, ty, body).map(|_| ()));
-        p.g.budget.restore(saved);
+        p.g.machine.budget.restore(saved);
     };
     let goal = pi(
         "n",
@@ -1858,7 +1858,7 @@ fn kept_call_cases(rounds: usize, budget: u64) -> (Vec<Result<(), &'static str>>
     );
     let body = lam("s", lam("h", lam("n", on_nat(&p, 0, p.num(0), v(1)))));
     run(&mut p, "inContext", context, body);
-    (verdicts, p.g.budget.total_work() - before)
+    (verdicts, p.g.machine.budget.total_work() - before)
 }
 
 #[test]

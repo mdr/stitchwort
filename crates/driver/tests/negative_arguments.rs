@@ -35,7 +35,10 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
         panic!("{errors:#?}");
     }
     let g = &session.elab.globals;
-    let _op = g.budget.operation(stitchwort_core::Limits::default());
+    let _op = g
+        .machine
+        .budget
+        .operation(stitchwort_core::Limits::default());
     let hash = |name: &str| {
         let id = (0..g.env.defs().len())
             .map(DefId)

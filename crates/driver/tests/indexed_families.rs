@@ -31,11 +31,11 @@ fn run_both_ways(source: &str) -> (usize, u64, u64) {
         panic!("{errors:#?}");
     }
     let run = |disabled: bool| {
-        session.elab.globals.erasure.set_disabled(disabled);
-        let before = session.elab.globals.budget.total_work();
+        session.elab.globals.machine.erasure.set_disabled(disabled);
+        let before = session.elab.globals.machine.budget.total_work();
         let results = session.run_tests(&Cache::disabled());
-        let steps = session.elab.globals.budget.total_work() - before;
-        session.elab.globals.erasure.set_disabled(false);
+        let steps = session.elab.globals.machine.budget.total_work() - before;
+        session.elab.globals.machine.erasure.set_disabled(false);
         for r in &results {
             assert!(
                 matches!(r.outcome, Outcome::Passed),
@@ -142,14 +142,14 @@ fn steps(source: &str) -> u64 {
     if let Err(errors) = session.load("t.sw", source) {
         panic!("{errors:#?}");
     }
-    let before = session.elab.globals.budget.total_work();
+    let before = session.elab.globals.machine.budget.total_work();
     let results = session.run_tests(&Cache::disabled());
     assert!(
         results.iter().all(|r| matches!(r.outcome, Outcome::Passed)),
         "{:?}",
         results.iter().map(|r| &r.name).collect::<Vec<_>>()
     );
-    session.elab.globals.budget.total_work() - before
+    session.elab.globals.machine.budget.total_work() - before
 }
 
 /// §8.1's linear `fromList`: it passes the length down, so every stored `n`

@@ -337,7 +337,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         .env
         .set_float_natives_outside_runs(mode == Mode::NativesOn);
     let g = &session.elab.globals;
-    let _op = g.budget.operation(limits);
+    let _op = g.machine.budget.operation(limits);
     let value_of = |name: &str| -> Result<Value, String> {
         eval(g, &[], &Term::Def(def(g, name)?)).map_err(|e| format!("{e:?}"))
     };
