@@ -805,15 +805,15 @@
     {
       "id": 790,
       "title": "Consider D1427: Handler note: steps C then A first, decide B (evidence passing) after measuring",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Design note docs/proposals/tail-resumptive-handlers.md on branch worktree-agent-a8049d1cc701aac1f (SW-737). Rec: yes.",
+      "body": "Design note docs/proposals/tail-resumptive-handlers.md on branch worktree-agent-a8049d1cc701aac1f (SW-737). Rec: yes.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes, as recommended: the handler note exists (docs/proposals/tail-resumptive-handlers.md, SW-737) and the fusion work is done (SW-861, SW-738); deciding option B continues on SW-791.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -861,15 +861,15 @@
     {
       "id": 794,
       "title": "Consider D1431: rewrite/match keep the goal folded when nothing is lost, falling back to unfolded",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Folded goals note on branch worktree-agent-a4d41ce184555fffb (SW-742; stage 1 merged). Lean's simpler rule breaks std and ~55 AoC proofs. Rec: yes.",
+      "body": "Folded goals note on branch worktree-agent-a4d41ce184555fffb (SW-742; stage 1 merged). Lean's simpler rule breaks std and ~55 AoC proofs. Rec: yes.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes: goals stay folded in rewrite/match (docs/proposals/folded-goals.md; SW-742, SW-1052, SW-1106).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -903,29 +903,29 @@
     {
       "id": 797,
       "title": "Consider D1434: Print a statement's match as a match in goals, not owner.%match1",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Rec: yes, shortened like other long terms.",
+      "body": "Rec: yes, shortened like other long terms.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes: SW-1000 prints statements' matches readably; the remaining lifted-match names are SW-1004.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 798,
       "title": "Consider D1435: Transparency levels (Lean's reducible/default/all) now?",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Rec: no; with D1431's fallback nothing needs them.",
+      "body": "Rec: no; with D1431's fallback nothing needs them.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: no: transparency levels not needed; nobody has needed them since.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -959,15 +959,15 @@
     {
       "id": 802,
       "title": "Consider D1439: Per-branch equation lemmas for recursive functions (as Lean)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "A recursive function matching on a Bool or queue.min and keeping the equation can't be unfolded in proofs; days 12 and 16 got E-MATCH-MOTIVE. Rec: yes, after a short design note.",
+      "body": "A recursive function matching on a Bool or queue.min and keeping the equation can't be unfolded in proofs; days 12 and 16 got E-MATCH-MOTIVE. Rec: yes, after a short design note.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes: per-arm equations f.eqK and f.induct built (docs/proposals/function-equations.md; SW-1035, SW-1057, SW-1074).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -987,15 +987,15 @@
     {
       "id": 806,
       "title": "Consider D1443: Compare terms up to a match arm's equation everywhere in the arm",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Day 16 needed a bridging lemma; workaround rewrite moved in rfl; Lean behaves as Stitchwort does today. Rec: no; have the error suggest the workaround.",
+      "body": "Day 16 needed a bridging lemma; workaround rewrite moved in rfl; Lean behaves as Stitchwort does today. Rec: no; have the error suggest the workaround.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: no, as recommended: the error suggests the workaround instead (SW-1219's error note; lazy delta SW-1227 addresses the cause).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1025,15 +1025,15 @@
     {
       "id": 810,
       "title": "Consider a std grid-position module (Position, step in four directions, neighbours, Manhattan distance, step-back lemma)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Nine AoC 2024 days (6, 8, 10, 12, 14, 15, 16, 18, 20) each define their own Position, step and step-back lemma (day 20 finding 6). List.gridCells exists but returns plain pairs because each day has its own Position type.",
+      "body": "Nine AoC 2024 days (6, 8, 10, 12, 14, 15, 16, 18, 20) each define their own Position, step and step-back lemma (day 20 finding 6). List.gridCells exists but returns plain pairs because each day has its own Position type.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: grid positions live in aoc as Aoc.Common.Grid and Offset (SW-984, SW-992); whether such modules belong in std is SW-1259.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1091,15 +1091,15 @@
     {
       "id": 815,
       "title": "Consider holes (_) for function arguments being solved from later uses",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Day 12 finding 5: a _ standing for a function argument wasn't solved; the day wrote the lambdas out. Day 22 finding 5 is similar: _ for List.memFlatMapIntro's function never finished against a big list (1.6 s with the lambdas written).",
+      "body": "Day 12 finding 5: a _ standing for a function argument wasn't solved; the day wrote the lambdas out. Day 22 finding 5 is similar: _ for List.memFlatMapIntro's function never finished against a big list (1.6 s with the lambdas written).\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: covered by postponement (stage 7, SW-1010; SW-1008, SW-1009, SW-1014); reopen with a failing case if one appears.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
