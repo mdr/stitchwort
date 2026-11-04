@@ -56,9 +56,12 @@ pub struct Options {
     pub debounce: Duration,
     /// The checker thread's stack, for the sessions' limits.
     pub stack: usize,
-    /// How many checks have been stopped because an edit made them stale.
-    /// The server only adds to it; a test holds a clone to see that a
-    /// stale check was cancelled, rather than timing the answer.
+    /// How many checks have been stopped because an edit made them stale,
+    /// of those still answering an edit (its diagnostics not yet published):
+    /// not the checks of the rest of a project that follow an answer, which
+    /// the next edit stops or not depending on timing. The server only adds
+    /// to it; a test holds a clone to see that a stale check was cancelled,
+    /// rather than timing the answer.
     pub cancellations: Arc<std::sync::atomic::AtomicUsize>,
     /// The journal's statistics (`JournalStats`) of the project checked last,
     /// written after each check, for the measurements (`dev/measure-state`).
@@ -1191,6 +1194,9 @@ struct Checker {
     last: Option<PathBuf>,
     /// The diagnostics last published for each file, and its version then.
     published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
+    /// An edit's diagnostics are still to be published (for
+    /// `Options::cancellations`).
+    unanswered: bool,
 }
 
 impl Checker {
@@ -1209,6 +1215,7 @@ impl Checker {
             versions: HashMap::default(),
             last: None,
             published: HashMap::default(),
+            unanswered: false,
         }
     }
 
@@ -1295,7 +1302,7 @@ impl Checker {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = p.live.session.elab.journal_stats();
         }
-        if progress.is_err() {
+        if progress.is_err() && self.unanswered {
             self.options
                 .cancellations
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -1311,6 +1318,7 @@ impl Checker {
             let project = matches!(work, Work::Project(_));
             let answered = started.elapsed();
             self.publish(key, project, answers);
+            self.unanswered = false;
             trace(|| {
                 format!(
                     "answers in {answered:?}, published in {:?}",
@@ -1400,6 +1408,7 @@ impl Checker {
     }
 
     fn apply(&mut self, edit: Edit) {
+        self.unanswered = true;
         match edit {
             Edit::Open {
                 path,

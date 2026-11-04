@@ -1031,8 +1031,11 @@ fn implicit_lambda_parameters_hover_with_their_types() {
 
 /// A check made stale by an edit stops, and what it would have said is never
 /// published: the edit's check answers instead. The server counts the checks
-/// it cancelled (`Options::cancellations`), so this asserts on that, not on
-/// how long anything takes (which varies with the machine's load).
+/// it cancelled while they were answering an edit (`Options::cancellations`),
+/// so this asserts on that, not on how long anything takes (which varies with
+/// the machine's load). The checks of the rest of the project after an
+/// answer aren't counted: whether the next edit stops one of them depends on
+/// timing (SW-1181).
 #[test]
 fn a_newer_edit_cancels_the_check_running() {
     let project = aoc();
@@ -1050,8 +1053,7 @@ fn a_newer_edit_cancels_the_check_running() {
     client.change(&uri, 2, &format!("{text}\n-- one\n"));
     assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
     let one = started.elapsed();
-    // Under load the opening check may still be running at the first edit and
-    // be cancelled by it; count only what the next two edits cancel.
+    // Count only what the next two edits cancel.
     let before = cancellations.load(Ordering::SeqCst);
 
     // An error, then (while its check is running) a fix.
