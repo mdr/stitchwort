@@ -1,5 +1,5 @@
 {
-  "next": 1256,
+  "next": 1258,
   "tickets": [
     {
       "id": 47,
@@ -5422,13 +5422,13 @@
     {
       "id": 1221,
       "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "scratch-sw-1221",
       "labels": [
         "cleanup"
       ],
-      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1221, expected: 90 min.\n",
+      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1221, expected: 90 min.\n\n\nDeepSeek finished 4 Nov 2026 18:2x: 2234 rewrites (1482 patterns, 752 expressions) in 336 files, hashes and audit unchanged. Fetched to lane/SW-1221; review and merge after the hold. Model result: DeepSeek, worked, about 55 min (est. 90).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5921,6 +5921,34 @@
         "elab"
       ],
       "body": "Found by SW-1226 (D2342 B), 4 Nov 2026. Measurements in the SW-1226 report.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1256,
+      "title": "Cons sweep leftovers: list expressions whose elements perform abilities, and 4 aoc constructor result types, still use Cons (SW-1221 kept them because a list literal elaborates them differently, changing hashes). Convert them (hash changes are fine; verify by audit and tests instead)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Found by SW-1221, 4 Nov 2026. Remaining full Cons applications: std 46, aoc 9, games 3, examples/accept 18, goals 1.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1257,
+      "title": "Elab: a variable bound only by a constructor's result type isn't auto-bound through a list literal ([x, ..xs] in a result type), though it is through Cons x xs (aoc 2021 days 10 and 18 Spec)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Found by SW-1221, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
