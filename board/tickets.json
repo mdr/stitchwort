@@ -1,5 +1,5 @@
 {
-  "next": 1225,
+  "next": 1230,
   "tickets": [
     {
       "id": 47,
@@ -5388,13 +5388,13 @@
     {
       "id": 1219,
       "title": "Error message: when matching fails because a name wasn't unfolded (e.g. Parse.readsBind against a named parser like Day02's line), say which name and how to proceed",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n\n\nNot merged (orchestrator, 4 Nov 2026): the note fires in a small repro but not usefully on the real readsLine case (it names Parse.Reads, not line, and the error lands at an inner argument), and it also fires on real type errors (unify-bool-argument). Branch lane/SW-1219 kept for SW-1218 to reuse or drop. Model result: Sonnet, needed fixes (target case not helped; the cause is a unification limit), 25 min (est. 60).\n",
+      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n\n\nNot merged (orchestrator, 4 Nov 2026): the note fires in a small repro but not usefully on the real readsLine case (it names Parse.Reads, not line, and the error lands at an inner argument), and it also fires on real type errors (unify-bool-argument). Branch lane/SW-1219 kept for SW-1218 to reuse or drop. Model result: Sonnet, needed fixes (target case not helped; the cause is a unification limit), 25 min (est. 60).\n\n\nDropped (D2344, Matt, 4 Nov 2026). examples/reject/not-unfolded-argument.sw kept for the unifier lane (copied into its ticket notes).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5465,6 +5465,79 @@
         "tests"
       ],
       "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1225,
+      "title": "Std: Parse.readsThen and Parse.readsDone (from docs/proposals/proofs-about-definitions/reads-then.sw); move AoC 2020 day 2 and 2021 day 16 parser proofs to them",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std",
+        "proofs"
+      ],
+      "body": "D2340. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). Opus reviews. Day 2's proof should drop from 39 to 13 lines and 20.5 M to 12.9 M evaluation steps (measured in the note).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1226,
+      "title": "Elaborator: when a lemma's arguments depend only on _, compare its conclusion with the goal before checking its proof arguments (removes the doubling re-checks)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab",
+        "performance"
+      ],
+      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1227,
+      "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab",
+        "unify"
+      ],
+      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1228,
+      "title": "Unifier: memoise compared call pairs within one comparison, only if a profile still shows the Effect.bind comparison path after D2342 and D2341",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "D2343. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1229,
+      "title": "Design note: completeness of parsers (well-formed text parses), after one-step unfolding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2345. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
