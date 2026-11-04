@@ -5545,13 +5545,13 @@
     {
       "id": 1230,
       "title": "Fix: extract test names its kernel-built group with bare paths since SW-1188",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1230",
       "labels": [
         "bug"
       ],
-      "body": "`a_group_member_with_only_erased_parameters_is_a_thunk` (crates/cli/tests/extract.rs) failed in SW-1220's post-merge check: output.js had `const $k = () => ...`, not `const $Main$dk = () => ...`. The thunk itself was right; only its name changed.\n\nCause: daa3bcd5 (SW-1188, Globals split 8c) moved path qualification out of the kernel (`push_def` no longer calls `g.path(name)`), and updated this test to pass bare paths (`k`, `f`, `useK`) where the kernel used to make `Main.k` etc. Not bc57c4e8 (8e) or eb553dbb (SW-1220). Earlier verifiers didn't run binary(extract).\n\nFix (lane/SW-1230, 9b866ea6): the test passes `Main.k`, `Main.f`, `Main.useK`, as the elaborator would. Test-only; no kernel change.\n\nExpected: 60 min. Started 14:52.\n",
+      "body": "`a_group_member_with_only_erased_parameters_is_a_thunk` (crates/cli/tests/extract.rs) failed in SW-1220's post-merge check: output.js had `const $k = () => ...`, not `const $Main$dk = () => ...`. The thunk itself was right; only its name changed.\n\nCause: daa3bcd5 (SW-1188, Globals split 8c) moved path qualification out of the kernel (`push_def` no longer calls `g.path(name)`), and updated this test to pass bare paths (`k`, `f`, `useK`) where the kernel used to make `Main.k` etc. Not bc57c4e8 (8e) or eb553dbb (SW-1220). Earlier verifiers didn't run binary(extract).\n\nFix (lane/SW-1230, 9b866ea6): the test passes `Main.k`, `Main.f`, `Main.useK`, as the elaborator would. Test-only; no kernel change.\n\nExpected: 60 min. Started 14:52.\n\n\nMerged. Model result: Opus, worked, 7 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
