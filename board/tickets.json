@@ -6410,13 +6410,13 @@
     {
       "id": 1290,
       "title": "Parse.exactly n parser for exactly n repetitions; named arguments on Parse.repeat ranges",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1290",
       "labels": [
         "std"
       ],
-      "body": "D2367 (Matt, 4 Nov 2026): yes. Every non-std use of Parse.repeat is 'exactly n' (repeat 7 7, repeat 3 3 in 2020 day 5; repeat 10 10, repeat 4 4 in 2021 day 8), which reads oddly. Add Parse.exactly n parser (defined as repeat n n) with Parse.readsExactly, use it wherever repeat has equal bounds (programs and proofs). Remaining range calls name their bounds: Parse.repeat (atLeast := 1) (atMost := 3) p. Matt: when a call passes several numbers or booleans, name them so the call site is clear without reading the definition.\n\nStarted on DeepSeek in scratch-sw-1290, 22:02. Expected: 40 min.",
+      "body": "D2367 (Matt, 4 Nov 2026): yes. Every non-std use of Parse.repeat is 'exactly n' (repeat 7 7, repeat 3 3 in 2020 day 5; repeat 10 10, repeat 4 4 in 2021 day 8), which reads oddly. Add Parse.exactly n parser (defined as repeat n n) with Parse.readsExactly, use it wherever repeat has equal bounds (programs and proofs). Remaining range calls name their bounds: Parse.repeat (atLeast := 1) (atMost := 3) p. Matt: when a call passes several numbers or booleans, name them so the call site is clear without reading the definition.\n\nStarted on DeepSeek in scratch-sw-1290, 22:02. Expected: 40 min.\n\nMerged 7c6a8a41; verified: hashes, selection 609 (the one failure, no_library_file_declares_a_decision_procedure, came from SW-1273's Sorted instances: allowed in a follow-up commit), audits, merge tier 1066, full audit clean. Model result: DeepSeek, needed fixes (readsExactly stated readsRepeat's shape, Nat.max count count; Sonnet restated it as values.length = count in 3 min), ~10 min (est. 40).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
