@@ -7,8 +7,8 @@
 //! each mechanism does with it.
 //!
 //! The components planned (§4.1), of which [`Options`], [`Session`],
-//! [`Unit`], [`Decl`], [`Attempt`], [`Caches`] and [`Tables`] exist so far (§7
-//! steps 1 to 5); the rest of the state is still fields of the `Elaborator`
+//! [`Unit`], [`Decl`], [`Attempt`], [`Caches`], [`Tables`] and [`Presentation`] exist so far (§7
+//! steps 1 to 5 and 7); the rest of the state is still fields of the `Elaborator`
 //! and of `Globals`:
 //!
 //! - [`Options`]: settings and test switches, and the cache key;
@@ -25,7 +25,7 @@
 //! - [`Decl`]: per-declaration scratch, rebuilt by `Default`;
 //! - [`Attempt`]: the inference state a failed attempt takes back;
 //! - [`Caches`]: tables that can be emptied at any time;
-//! - `Presentation`: navigation, goals shown, logs.
+//! - [`Presentation`]: navigation, goals shown, logs.
 
 mod attempt;
 mod caches;
@@ -33,6 +33,7 @@ mod decl;
 mod journal;
 mod options;
 mod owners;
+mod presentation;
 mod session;
 mod table;
 mod tables;
@@ -47,6 +48,8 @@ pub use journal::JournalStats;
 pub(crate) use journal::{Checkpoint, Journal, Logged, LoggedSet, Logs, Transaction};
 pub use options::Options;
 pub(crate) use owners::UnitId;
+pub(crate) use presentation::Mark as PresentationMark;
+pub use presentation::Presentation;
 pub(crate) use session::Mark as SessionMark;
 pub use session::Session;
 pub(crate) use session::Stats;

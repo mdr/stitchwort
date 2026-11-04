@@ -1192,11 +1192,11 @@ impl Elaborator {
         // Errors were reported when the file loaded, and its imports aren't
         // the program's to navigate. (Only here: `clear_metas` flushes what
         // navigation has pending, which needs it in place.)
-        let nav = self.nav.take();
+        let nav = self.present.nav.take();
         let mut errors = Vec::new();
         self.add_imports(&file.module.imports, false, &mut errors);
         self.add_imports(&file.module.imports, true, &mut errors);
-        self.nav = nav;
+        self.present.nav = nav;
         let saved_core_only = std::mem::replace(&mut self.scope.core_only, core_only);
         let result = run(self);
         self.scope.core_only = saved_core_only;

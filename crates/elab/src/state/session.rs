@@ -9,7 +9,7 @@
 //! keeps a pointer to it; the maps a load adds to are [`Logged`], put back
 //! by the journal ([`Session::logged`]); the rest is small and copied.
 
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, OnceCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_syntax::FileId;
 
 use super::journal::{Logged, Logs};
-use crate::{cache, counterexample, library, project};
+use crate::{cache, library, project};
 
 #[derive(Default)]
 pub struct Session {
@@ -73,8 +73,6 @@ pub struct Session {
     /// A hash of the whole standard library's text, for the keys of
     /// project namespaces. Computed once.
     pub(crate) library_digest: OnceCell<cache::Key>,
-    /// What each counterexample search did, in this session. Only grows.
-    pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,
     /// Which unit made each declaration, and which is being elaborated
@@ -120,7 +118,6 @@ impl Session {
             instance_waits: _,
             cache_stats: _,
             library_digest: _,
-            counterexample_log: _,
             stats: _,
         } = self;
         Mark {
@@ -154,7 +151,6 @@ impl Session {
             instance_waits: _,
             cache_stats: _,
             library_digest: _,
-            counterexample_log: _,
             stats: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

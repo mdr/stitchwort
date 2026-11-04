@@ -482,7 +482,7 @@ impl Elaborator {
                 let snapshot = self.goal_snapshot_of(p);
                 g.glue.set(was);
                 if let Some(snapshot) = snapshot {
-                    let mut kept = self.goal_snapshots.borrow_mut();
+                    let mut kept = self.present.goal_snapshots.borrow_mut();
                     kept.retain(|(span, _)| *span != p.span);
                     if kept.len() >= MAX_SNAPSHOTS {
                         kept.remove(0);
@@ -909,7 +909,7 @@ impl Elaborator {
     /// The snapshot of the goal whose `?` is at `span`, if one was taken
     /// (among the latest goals this elaborator printed).
     pub fn goal_snapshot(&self, span: Span) -> Option<std::rc::Rc<GoalSnapshot>> {
-        (self.goal_snapshots.borrow().iter())
+        (self.present.goal_snapshots.borrow().iter())
             .rev()
             .find(|(s, _)| *s == span)
             .map(|(_, snapshot)| snapshot.clone())

@@ -1171,7 +1171,7 @@ fn left_out(cx: &Ctx, head: &(Term, Value), args: &[Arg]) -> Vec<(Name, DefaultR
 /// For hover on the head of a call written at `at`, `head` applied to
 /// `args`: each default the call used, "`step` left out: its default `1`".
 pub(crate) fn note_left_out(cx: &Ctx, at: Span, head: &(Term, Value), args: &[Arg]) {
-    if cx.e.nav.is_none() {
+    if cx.e.present.nav.is_none() {
         return;
     }
     let lines: Vec<String> = left_out(cx, head, args)

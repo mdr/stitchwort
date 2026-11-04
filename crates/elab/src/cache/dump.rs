@@ -327,10 +327,8 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     let _ = writeln!(out, "module {:?}", g.module);
     let _ = writeln!(out, "library {:?}", e.loaded_library_files());
     // What navigation recorded, which its index is made from.
-    if let Some(nav) = &e.nav {
-        nav.borrow()
-            .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
-    }
+    e.present
+        .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
     out
 }
 

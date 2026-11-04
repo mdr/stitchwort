@@ -40,7 +40,7 @@ fn search(name: &str, fast: bool) -> (Vec<String>, Vec<SearchLog>) {
             .filter(|n| n.contains("this statement is false") || n.contains("internal error"))
             .cloned()
             .collect();
-        let log = session.elab.session.counterexample_log.borrow().clone();
+        let log = session.elab.present.counterexample_log.borrow().clone();
         (notes, log)
     })
 }

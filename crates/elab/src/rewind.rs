@@ -71,7 +71,7 @@ pub struct Mark {
     tables: crate::state::TablesMark,
     scope: scope::Mark,
     caches: crate::state::CachesMark,
-    nav: Option<nav::NavMark>,
+    present: crate::state::PresentationMark,
 }
 
 impl Mark {
@@ -102,7 +102,7 @@ impl Elaborator {
             tables: self.tables.mark(self.ids()),
             scope: self.scope.mark(),
             caches: self.caches.mark(),
-            nav: self.nav.as_ref().map(|n| n.borrow_mut().mark()),
+            present: self.present.mark(),
         }
     }
 
@@ -123,14 +123,13 @@ impl Elaborator {
             session,
             caches,
             goals,
-            goal_snapshots,
-            nav,
+            present,
         } = self;
         let (journal, session_logs) = session.logged();
         journal.rewind(
             &mark.checkpoint,
             &mut LoggedTables {
-                nav: nav.as_mut().map(|n| n.get_mut()),
+                nav: present.logged(),
                 scope,
                 tables,
                 session: session_logs,
@@ -146,11 +145,7 @@ impl Elaborator {
         session.rewind(&mark.session);
         caches.rewind(&mark.caches, defs);
         *goals.get_mut() = Default::default();
-        // Their terms may name what is forgotten.
-        goal_snapshots.get_mut().clear();
-        if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
-            nav.get_mut().rewind(at_mark);
-        }
+        present.rewind(&mark.present);
     }
 }
 
@@ -180,14 +175,14 @@ impl Elaborator {
             scope,
             tables,
             session,
-            nav,
+            present,
             ..
         } = self;
         let (journal, session) = session.logged();
         f(
             journal,
             &mut LoggedTables {
-                nav: nav.as_mut().map(|n| n.get_mut()),
+                nav: present.logged(),
                 scope,
                 tables,
                 session,

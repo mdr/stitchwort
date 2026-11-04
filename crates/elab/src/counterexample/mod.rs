@@ -246,7 +246,7 @@ impl Elaborator {
             return None;
         }
         let (log, note) = self.search_counterexample(def, ON_FAILURE);
-        self.session.counterexample_log.borrow_mut().push(log);
+        self.present.counterexample_log.borrow_mut().push(log);
         note.map(|note| self.with_opaque_counterexample_note(def, note))
     }
 

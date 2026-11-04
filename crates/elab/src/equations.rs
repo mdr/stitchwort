@@ -2155,7 +2155,7 @@ impl Elaborator {
             start: span.end,
             end: span.end,
         };
-        let nav = self.nav.take();
+        let nav = self.present.nav.take();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
         *self.decl.arm_probe.borrow_mut() = ProbeState {
@@ -2249,7 +2249,7 @@ impl Elaborator {
                 Some(r) => r.map(|_| Some(())),
             }
         })();
-        self.nav = nav;
+        self.present.nav = nav;
         self.attempt
             .lambda_warnings
             .borrow_mut()
@@ -4850,7 +4850,7 @@ impl Elaborator {
         let g = &self.globals;
         let n = d.binders.len();
         let pred_ty = eval(g, &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
-        let nav = self.nav.take();
+        let nav = self.present.nav.take();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
         let drafts = self.attempt.drafts.borrow().len();
@@ -4919,7 +4919,7 @@ impl Elaborator {
                 Some(r) => r.map(|_| Some(())),
             }
         })();
-        self.nav = nav;
+        self.present.nav = nav;
         self.attempt
             .lambda_warnings
             .borrow_mut()

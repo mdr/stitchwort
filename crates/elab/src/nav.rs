@@ -393,14 +393,14 @@ impl Elaborator {
     /// Starts recording what the index needs. Call before loading anything
     /// that should be in it.
     pub fn enable_navigation(&mut self) {
-        self.nav = Some(RefCell::new(Recorder::default()));
+        self.present.nav = Some(RefCell::new(Recorder::default()));
     }
 
     /// Also records the type of every expression elaborated, for the
     /// language server's hover over a selection. Call right after
     /// [`Elaborator::enable_navigation`].
     pub fn enable_expression_types(&mut self) {
-        if let Some(nav) = &mut self.nav {
+        if let Some(nav) = &mut self.present.nav {
             nav.get_mut().exprs = true;
         }
     }
@@ -410,7 +410,7 @@ impl Elaborator {
         if span.start == span.end {
             return;
         }
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
             if nav.exprs && nav.generated == 0 {
                 nav.pending.push((span, ty.clone(), cx.names.clone(), true));
@@ -419,7 +419,7 @@ impl Elaborator {
     }
 
     pub(crate) fn note(&self, at: Span, noted: Noted) {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
             if nav.generated == 0 {
                 nav.refs.insert(at, noted);
@@ -431,11 +431,11 @@ impl Elaborator {
     /// notes (references, types) is kept, as the generated code is written
     /// nowhere (its spans are the declaration's).
     pub(crate) fn unnoted<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             nav.borrow_mut().generated += 1;
         }
         let out = f(self);
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             nav.borrow_mut().generated -= 1;
         }
         out
@@ -447,11 +447,11 @@ impl Elaborator {
         cx: &mut crate::check::Ctx<'e>,
         f: impl FnOnce(&mut crate::check::Ctx<'e>) -> T,
     ) -> T {
-        if let Some(nav) = &cx.e.nav {
+        if let Some(nav) = &cx.e.present.nav {
             nav.borrow_mut().generated += 1;
         }
         let out = f(cx);
-        if let Some(nav) = &cx.e.nav {
+        if let Some(nav) = &cx.e.present.nav {
             nav.borrow_mut().generated -= 1;
         }
         out
@@ -459,7 +459,7 @@ impl Elaborator {
 
     /// The defaults a call whose head is written at `at` used, for hover.
     pub(crate) fn note_call_defaults(&self, at: Span, used: String) {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
             if nav.generated == 0 {
                 nav.call_defaults.insert(at, used);
@@ -472,7 +472,7 @@ impl Elaborator {
     /// found by its key, not by scope: the library's names aren't all in
     /// scope in a program, and these mean the built-in wherever they're written.
     pub(crate) fn note_builtin(&self, name: &ast::Name) {
-        if self.nav.is_none() {
+        if self.present.nav.is_none() {
             return;
         }
         let key = format!("{}.{}", crate::scope::STD, name.text);
@@ -483,7 +483,7 @@ impl Elaborator {
 
     /// `name`, written, resolved to a declaration.
     pub(crate) fn note_name(&self, name: &ast::Name) {
-        if self.nav.is_none() {
+        if self.present.nav.is_none() {
             return;
         }
         if let Resolved::Found {
@@ -510,7 +510,7 @@ impl Elaborator {
 
     /// A name found already: by `resolve_exact`.
     pub(crate) fn note_found(&self, at: Span, key: &str, global: Global, target: Span) {
-        if self.nav.is_some() && !matches!(global, Global::Unchecked(_) | Global::Failed) {
+        if self.present.nav.is_some() && !matches!(global, Global::Unchecked(_) | Global::Failed) {
             self.note(
                 at,
                 Noted {
@@ -525,7 +525,7 @@ impl Elaborator {
 
     /// `.field` found the definition `id` by the type of what's before it.
     pub(crate) fn note_dot(&self, field: &ast::Name, id: DefId) {
-        if self.nav.is_none() {
+        if self.present.nav.is_none() {
             return;
         }
         let def = self.globals.def(id);
@@ -551,7 +551,7 @@ impl Elaborator {
     /// The field `name` of record type `d`, written in a literal, update or
     /// pattern.
     pub(crate) fn note_field(&self, d: stitchwort_core::DataId, name: &ast::Name) {
-        if self.nav.is_none() {
+        if self.present.nav.is_none() {
             return;
         }
         let owner = self.data_key(d);
@@ -576,7 +576,7 @@ impl Elaborator {
     /// pattern `C { name = … }` (docs/proposals/variant-fields.md §4.3):
     /// its target is the field's binder in the constructor's declaration.
     pub(crate) fn note_ctor_field(&self, ctor_at: Span, name: &ast::Name) {
-        let Some(nav) = &self.nav else {
+        let Some(nav) = &self.present.nav else {
             return;
         };
         let noted = nav.borrow().refs.get(&ctor_at).cloned();
@@ -597,7 +597,7 @@ impl Elaborator {
 
     /// A local variable used at `name`, of type `ty` in `cx`.
     pub(crate) fn note_local(&self, cx: &Ctx, name: &ast::Name, ty: &Value) {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
             if nav.generated == 0 {
                 nav.pending
@@ -610,7 +610,7 @@ impl Elaborator {
     /// `ty` in a context with `names`. It's noted as a local variable that
     /// is its own binder, so hover shows the parameter's type.
     pub(crate) fn note_parameter(&self, name: &ast::Name, ty: &Value, names: Vec<Name>) {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             let mut nav = nav.borrow_mut();
             if nav.generated == 0 {
                 nav.pending.push((name.span, ty.clone(), names, false));
@@ -631,7 +631,8 @@ impl Elaborator {
     /// [`crate::undo::Snapshot`] keeps it, to drop the ones an undone
     /// attempt noted.
     pub(crate) fn pending_local_types(&self) -> usize {
-        self.nav
+        self.present
+            .nav
             .as_ref()
             .map_or(0, |nav| nav.borrow().pending.len())
     }
@@ -641,7 +642,7 @@ impl Elaborator {
     /// can't be printed (a later metavariable may reuse the number of one
     /// in them, with a different solution).
     pub(crate) fn drop_local_types_since(&self, len: usize) {
-        if let Some(nav) = &self.nav {
+        if let Some(nav) = &self.present.nav {
             nav.borrow_mut().pending.truncate(len);
         }
     }
@@ -649,7 +650,7 @@ impl Elaborator {
     /// Prints the types noted, while the metavariables in them still have
     /// their solutions.
     pub(crate) fn flush_navigation(&self) {
-        let Some(nav) = &self.nav else {
+        let Some(nav) = &self.present.nav else {
             return;
         };
         let mut nav = nav.borrow_mut();
@@ -666,7 +667,7 @@ impl Elaborator {
 
     /// An import's item `item`, resolved to `key`.
     pub(crate) fn note_import(&self, item: &ast::Name, key: &str) {
-        if self.nav.is_none() {
+        if self.present.nav.is_none() {
             return;
         }
         if let Some((global, span)) = self.scope.get(key) {
@@ -676,7 +677,7 @@ impl Elaborator {
 
     /// Walks the syntax of the files of a module about to be elaborated.
     pub(crate) fn walk_for_navigation(&self, modules: &[&Module]) {
-        let Some(nav) = &self.nav else {
+        let Some(nav) = &self.present.nav else {
             return;
         };
         let library = self.unit.loading_prelude || !self.library_stack_is_empty();
@@ -700,7 +701,7 @@ impl Elaborator {
     /// (the others' definitions are still there as targets).
     pub fn navigation_index(&self, wanted: &dyn Fn(Span, Option<&str>) -> bool) -> NavIndex {
         self.flush_navigation();
-        let Some(nav) = &self.nav else {
+        let Some(nav) = &self.present.nav else {
             return NavIndex {
                 symbols: Vec::new(),
                 refs: Vec::new(),

@@ -269,7 +269,7 @@ impl Elaborator {
     /// What navigation records, as part of a cache key: entries made with
     /// less aren't used.
     fn nav_tag(&self) -> &'static str {
-        match &self.nav {
+        match &self.present.nav {
             None => "",
             Some(nav) if nav.borrow().exprs => "+nav+ty",
             Some(_) => "+nav",
@@ -347,7 +347,7 @@ impl Elaborator {
             datas: self.globals.datas.len(),
             tables: self.tables.mark(self.ids()),
             defaults: self.with_defaults(),
-            nav: self.nav.as_ref().map(|nav| {
+            nav: self.present.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
                 (nav.locals.len(), nav.binders.len(), nav.outline.len())
             }),
@@ -1504,7 +1504,7 @@ impl Elaborator {
 
         // What code navigation recorded in the unit's files.
         let own = |file: &FileId| unit.own_files.contains(file);
-        match (&self.nav, before.nav) {
+        match (&self.present.nav, before.nav) {
             (Some(nav), Some((locals, binders, outline))) => {
                 let nav = nav.borrow();
                 if !nav.pending.is_empty() || nav.outline.len() != outline {
@@ -2370,7 +2370,7 @@ impl Elaborator {
         if !body.r.done() {
             return bad("bytes after the tables");
         }
-        if rest.nav.is_some() != self.nav.is_some() {
+        if rest.nav.is_some() != self.present.nav.is_some() {
             return bad("navigation recorded or not");
         }
         // Every ability a name refers to is one there will be.
@@ -2810,7 +2810,7 @@ impl Elaborator {
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);
         }
-        if let (Some(nav), Some(entry)) = (&self.nav, t.nav) {
+        if let (Some(nav), Some(entry)) = (&self.present.nav, t.nav) {
             for (at, key, target, g, dot) in entry.refs {
                 let global = global(self, g);
                 let target = match target {

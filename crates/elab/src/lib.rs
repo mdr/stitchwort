@@ -312,11 +312,9 @@ pub struct Elaborator {
     pub(crate) tables: state::Tables,
     /// The open goals, `?`, of the declaration being checked (`goals.rs`).
     pub(crate) goals: RefCell<goals::Goals>,
-    /// The latest goals printed, as terms, by where their `?` is: what
-    /// `search --at` searches (SW-989).
-    pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
-    /// What the code navigation index records, when it's on (`nav.rs`).
-    nav: Option<RefCell<nav::Recorder>>,
+    /// What the editor and `search` read back: navigation, the goals
+    /// shown, the counterexample logs (`state::Presentation`).
+    pub present: state::Presentation,
 }
 
 /// A pattern that matches a constructor.

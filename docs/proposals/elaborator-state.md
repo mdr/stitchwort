@@ -327,7 +327,7 @@ is unclear or mixed. Appendix B does the same for `Globals`. In summary:
 | `Decl` | 23 (+2 unclear) | one declaration (or group) | `Default` at each declaration; asserted empty at marks | no |
 | `Attempt` | 18 (+ 8 from `Globals`, + 7 thread-locals) | one declaration, with speculative sub-scopes | trail / lengths | no |
 | `Caches` | 6 (+ `Globals::hashes`) | any; derivable | the dot-call tables copied; the rest cut by id or emptied | never |
-| `Presentation` | 2 (+ `goals`, shared with `Attempt`) | the session (nav, goals shown, logs) | `nav::Logged` | nav only |
+| `Presentation` | 3 (`goals` stays with `Attempt`) | the session (nav, goals shown, logs) | `nav`'s lists by length, its maps on the journal; `goal_snapshots` emptied; the log left | nav only (dumped: nav) |
 
 **Fields flagged** (lifetime unclear or mixed; each is a question for the
 lane that moves it, not a known bug):
@@ -1578,7 +1578,7 @@ orchestrator.
 | 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first. *Done (SW-1171): §4.8.8, §4.8.9; `Owners` in `Session`, tagged at unit changes; marks are checkpoints; nothing releases one until 6b* | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
 | 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s. *Done (SW-1173): §4.8.10; the host's whole-set maps shared (`Arc`) rather than logged; marks released by `LiveProject`, `cancellable` and the rewind test's hook; a mark on `aoc` 1.04 → 0.26 ms, 3.7 → 2.1 MB (the rest is the dot-call cache)* | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
 | 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements. *Done (SW-1176): §4.8.11; a library load is a unit of its own, replayed or elaborated; `ScopeOp` stays; every entry the same but 14 namespace entries, which no longer list the members of library files loaded inside them (F8); the measurements are a lane of their own* | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
-| 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
+| 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log`. *Done (SW-1178): `state::Presentation`, `Elaborator::present`; each field keeps the rules it had (`nav`: maps on the journal, lists cut by length, encoded and dumped; `goal_snapshots`: emptied by a rewind; `counterexample_log`: left by a rewind, so it left `Session`); `Presentation::{mark, rewind, logged, dump}` destructure exhaustively; the check cache still reads `nav` for its entries; `goals` stayed with `Attempt` (a rewind resets it in `Elaborator::rewind`). The `Elaborator` is now 11 fields, every one a component but `globals` (step 8), `scope` (§4.8.5) and `goals`; cache bytes unchanged* | last loose fields | `navigation.rs`, `search_at.rs` |
 | 8 | **The `Globals` split** (review step 9; design in [globals-split.md](globals-split.md)): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
 | 9 | **Frozen base** (optional, after measuring): its own short design note with the fork's measured value | SW-1109, search's second session | per that note |
 
@@ -1814,8 +1814,8 @@ by hand where a regex missed (`records` is dumped).
 | `operator_dictionaries` | `UCr--` | Attempt | meta-keyed |  |
 | `local_dictionaries` | `UCr--` | Attempt | trail-keyed |  |
 | `local_defaults` | `UCr--` | Attempt | meta-keyed |  |
-| `goals` | `U-r--` | Attempt / Presentation | trail |  |
-| `goal_snapshots` | `--r--` | Presentation | log |  |
+| `goals` | `U-r--` | Elaborator (with `Attempt`'s rules) | trail | stays a field of the `Elaborator`: reset by a rewind and per declaration, not presentation state (step 7) |
+| `goal_snapshots` | `--r--` | Presentation | log | in `state::Presentation`; emptied by a rewind (their terms may name what is forgotten); not encoded or dumped |
 | `proof_holes` | `UCr--` | Attempt | meta-keyed |  |
 | `parameter_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `hole_log` | `--s--` | Decl | dynamic extent | ignored by rewind (only set inside one rewrite) |
@@ -1833,7 +1833,7 @@ by hand where a regex missed (`records` is dumped).
 | `uniform_operators` | `--sE-` | Options | setting |  |
 | `instance_waits` | `--s--` | Session | statistic |  |
 | `in_instance_signature` | `--r--` | Decl | dynamic extent |  |
-| `nav` | `--RED` | Presentation | logged (`state::Logged`) | its five maps on the session's journal since step 6a; its lists cut back by length |
+| `nav` | `--RED` | Presentation | logged (`state::Logged`) | in `state::Presentation`; its five maps on the session's journal since step 6a (reached by `Presentation::logged`); its lists cut back by length |
 | `check_cache` | `--sE-` | Options | setting (host) |  |
 | `cache_stats` | `--sE-` | Session | statistic |  |
 | `namespace_sources` | `--RE-` | Session | set once | 6b: set whole by the host, so an `Arc` shared with the marks rather than logged |
@@ -1852,7 +1852,7 @@ by hand where a regex missed (`records` is dumped).
 | `counterexample_runner` | `--s--` | Options | setting (host) |  |
 | `no_counterexamples` | `--s--` | Options | test switch |  |
 | `untimed_counterexamples` | `--s--` | Options | setting |  |
-| `counterexample_log` | `--s--` | Session | log | grows forever; ignored by rewind; goes to `Presentation` in step 7 |
+| `counterexample_log` | `--s--` | Presentation | log | in `state::Presentation`; grows forever; ignored by rewind and not encoded or dumped |
 | `tuple_matches` | `--R--` | Decl | scratch | read only for termination errors; empty at a mark |
 | `leaf_log` | `--r--` | Decl | scratch |  |
 | `arm_probe` | `--r--` | Decl | scratch |  |

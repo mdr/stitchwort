@@ -605,7 +605,7 @@ impl Elaborator {
         };
         // The note as data, for the index: the search's log has its bindings.
         let data = self
-            .session
+            .present
             .counterexample_log
             .borrow()
             .last()
