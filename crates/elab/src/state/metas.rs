@@ -61,23 +61,9 @@ pub struct MetaStore {
     /// unfold to. The queued checks keep the term each filled its
     /// placeholder with here too, for the same reason. Cleared with `metas`.
     pub lifted_calls: RefCell<HashMap<usize, (usize, Rc<Term>)>>,
-    /// The placeholders of the queued checks that their checks haven't
-    /// filled yet (`queue.rs`): frozen to unification, as `frozen_metas`
-    /// are, until filled (docs/proposals/postponement.md, D2016, stage 6).
-    /// Kept in step with the queue; cleared with `metas`.
-    pub unfilled_placeholders: RefCell<HashSet<usize>>,
-    /// How the printer shows a placeholder of those while it is unfilled:
-    /// as the source its check stands for (`r.items`, a record literal),
-    /// not as an unknown (D2091), with the names of the variables it is
-    /// applied to: it is shown so only while applied to those, which then
-    /// aren't shown. Kept in step with the queue; cleared with `metas`.
-    /// Only affects messages.
-    pub placeholder_syntax: RefCell<HashMap<usize, PlaceholderSyntax>>,
-    /// The unfilled placeholders of number literals waiting for their type
-    /// (K4, step 4.3): the literal, and the type it waits on. A comparison
-    /// meeting one against the same numeral at a known type takes that type
-    /// (D2110; `unify`). Kept in step with the queue; cleared with `metas`.
-    pub waiting_literals: RefCell<HashMap<usize, (Rc<BigUint>, Value)>>,
+    /// What the queue tells the unifier and the printer of its
+    /// placeholders ([`QueueMirrors`]). Written only by the queue.
+    pub mirrors: QueueMirrors,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -99,9 +85,7 @@ impl Default for MetaStore {
             meta_trail: Default::default(),
             frozen_metas: Default::default(),
             lifted_calls: Default::default(),
-            unfilled_placeholders: Default::default(),
-            placeholder_syntax: Default::default(),
-            waiting_literals: Default::default(),
+            mirrors: Default::default(),
             print_labels: Default::default(),
             meta_epoch: Cell::new(1),
         }
@@ -124,6 +108,9 @@ impl stitchwort_core::Metas for MetaStore {
 pub(crate) struct MetasMark {
     pub(crate) metas: usize,
     pub(crate) trail: usize,
+    /// How many were frozen: a list that only grows, so cut to its length
+    /// (a freeze of an older metavariable inside the attempt goes too).
+    frozen: usize,
 }
 
 impl MetaStore {
@@ -190,14 +177,14 @@ impl MetaStore {
         MetasMark {
             metas: self.metas.borrow().len(),
             trail: self.meta_trail.borrow().len(),
+            frozen: self.frozen_metas.borrow().len(),
         }
     }
 
     /// Takes back the solutions made since `mark` and drops the
     /// metavariables made since, with the entries of the tables keyed by
-    /// them. The queue's mirrors (`unfilled_placeholders`,
-    /// `placeholder_syntax`, `waiting_literals`) are put back by the queue's
-    /// own restore (`Attempt::restore`).
+    /// them. The queue's [`QueueMirrors`] are put back by the queue's own
+    /// restore (`Attempt::restore`).
     pub(crate) fn restore(&self, mark: MetasMark) {
         let MetaStore {
             metas,
@@ -205,10 +192,9 @@ impl MetaStore {
             frozen_metas,
             lifted_calls,
             print_labels,
-            // The queue's mirrors: see above.
-            unfilled_placeholders: _,
-            placeholder_syntax: _,
-            waiting_literals: _,
+            // Put back by the queue's own restore, item by item
+            // (`Queue::restore`, which `Attempt::restore` calls next).
+            mirrors: _,
             meta_epoch: _,
         } = self;
         let mut metas = metas.borrow_mut();
@@ -225,7 +211,7 @@ impl MetaStore {
             }
         }
         metas.truncate(mark.metas);
-        frozen_metas.borrow_mut().retain(|m| *m < mark.metas);
+        frozen_metas.borrow_mut().truncate(mark.frozen);
         lifted_calls.borrow_mut().retain(|m, _| *m < mark.metas);
         print_labels
             .borrow_mut()
@@ -239,9 +225,7 @@ impl MetaStore {
             meta_trail,
             frozen_metas,
             lifted_calls,
-            unfilled_placeholders,
-            placeholder_syntax,
-            waiting_literals,
+            mirrors,
             print_labels,
             // Bumped: no kept unfolding is trusted after.
             meta_epoch: _,
@@ -250,10 +234,140 @@ impl MetaStore {
         metas.borrow_mut().clear();
         frozen_metas.borrow_mut().clear();
         lifted_calls.borrow_mut().clear();
-        unfilled_placeholders.borrow_mut().clear();
-        placeholder_syntax.borrow_mut().clear();
-        waiting_literals.borrow_mut().clear();
+        mirrors.clear();
         meta_trail.borrow_mut().clear();
         print_labels.borrow_mut().clear();
+    }
+}
+
+/// What the queue (`queue.rs`) keeps in the store for the unifier and the
+/// printer about its placeholders, one entry per placeholder whose check
+/// hasn't filled it. All of it is a function of the queue's items and
+/// states, written by `Queue::sync_item` alone and put back by
+/// `Queue::restore`, which syncs each item whose state went back and
+/// forgets those dropped (globals-split.md step 8f, G2; the tests in
+/// `queue.rs` check that an attempt undone leaves each table as it was).
+/// The fields are private so that a new table has to say how it is
+/// written, forgotten and emptied: [`QueueMirrors::set`], `forget` and
+/// `clear` destructure the struct.
+#[derive(Default)]
+pub struct QueueMirrors {
+    /// The placeholders of the queued checks that their checks haven't
+    /// filled yet: frozen to unification, as `frozen_metas` are, until
+    /// filled (docs/proposals/postponement.md, D2016, stage 6).
+    unfilled: RefCell<HashSet<usize>>,
+    /// How the printer shows a placeholder of those while it is unfilled:
+    /// as the source its check stands for (`r.items`, a record literal),
+    /// not as an unknown (D2091), with the names of the variables it is
+    /// applied to: it is shown so only while applied to those, which then
+    /// aren't shown. Only affects messages.
+    syntax: RefCell<HashMap<usize, PlaceholderSyntax>>,
+    /// The unfilled placeholders of number literals waiting for their type
+    /// (K4, step 4.3): the literal, and the type it waits on. A comparison
+    /// meeting one against the same numeral at a known type takes that type
+    /// (D2110; `unify`).
+    literals: RefCell<HashMap<usize, (Rc<BigUint>, Value)>>,
+}
+
+impl QueueMirrors {
+    /// Whether placeholder `m` is unfilled.
+    pub fn is_unfilled(&self, m: usize) -> bool {
+        self.unfilled.borrow().contains(&m)
+    }
+
+    /// Whether any placeholder is unfilled.
+    pub fn any_unfilled(&self) -> bool {
+        !self.unfilled.borrow().is_empty()
+    }
+
+    /// How `m` is shown while unfilled, if as source.
+    pub fn syntax(&self, m: usize) -> Option<PlaceholderSyntax> {
+        self.syntax.borrow().get(&m).cloned()
+    }
+
+    /// The literal `m` stands for and the type it waits on.
+    pub fn literal(&self, m: usize) -> Option<(Rc<BigUint>, Value)> {
+        self.literals.borrow().get(&m).cloned()
+    }
+
+    /// Whether `m` is the placeholder of a waiting number literal.
+    pub fn is_literal(&self, m: usize) -> bool {
+        self.literals.borrow().contains_key(&m)
+    }
+
+    /// Notes `m` as unfilled, with how it is shown and the literal it
+    /// stands for (replacing what was noted of it).
+    pub(crate) fn set(
+        &self,
+        m: usize,
+        syntax: Option<PlaceholderSyntax>,
+        literal: Option<(Rc<BigUint>, Value)>,
+    ) {
+        let QueueMirrors {
+            unfilled,
+            syntax: shown,
+            literals,
+        } = self;
+        unfilled.borrow_mut().insert(m);
+        match syntax {
+            Some(syntax) => {
+                shown.borrow_mut().insert(m, syntax);
+            }
+            None => {
+                shown.borrow_mut().remove(&m);
+            }
+        }
+        match literal {
+            Some(literal) => {
+                literals.borrow_mut().insert(m, literal);
+            }
+            None => {
+                literals.borrow_mut().remove(&m);
+            }
+        }
+    }
+
+    /// Notes that `m`'s check is filling it: it is no longer frozen, and
+    /// the rest of what is noted stays until the check's state is set
+    /// (`Queue::set`), which syncs it.
+    pub(crate) fn filling(&self, m: usize) {
+        self.unfilled.borrow_mut().remove(&m);
+    }
+
+    /// Takes `m` out of every table.
+    pub(crate) fn forget(&self, m: usize) {
+        let QueueMirrors {
+            unfilled,
+            syntax,
+            literals,
+        } = self;
+        unfilled.borrow_mut().remove(&m);
+        syntax.borrow_mut().remove(&m);
+        literals.borrow_mut().remove(&m);
+    }
+
+    fn clear(&self) {
+        let QueueMirrors {
+            unfilled,
+            syntax,
+            literals,
+        } = self;
+        unfilled.borrow_mut().clear();
+        syntax.borrow_mut().clear();
+        literals.borrow_mut().clear();
+    }
+
+    /// The keys of the three tables, sorted, for tests.
+    #[cfg(test)]
+    pub(crate) fn keys(&self) -> [Vec<usize>; 3] {
+        let sorted = |mut v: Vec<usize>| {
+            v.sort();
+            v
+        };
+        [
+            sorted(self.unfilled.borrow().iter().copied().collect()),
+            sorted(self.syntax.borrow().keys().copied().collect()),
+            sorted(self.literals.borrow().keys().copied().collect()),
+        ]
     }
 }

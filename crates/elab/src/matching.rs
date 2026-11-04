@@ -776,7 +776,7 @@ impl crate::queue::Check for WaitingMatch {
         // Still waiting at the end on an unknown no check of the queue
         // fills: what finishing reports for it (a lambda parameter's type).
         let m = blocker?;
-        (!e.attempt.store.unfilled_placeholders.borrow().contains(&m)).then(|| e.unsolved_error(m))
+        (!e.attempt.store.mirrors.is_unfilled(m)).then(|| e.unsolved_error(m))
     }
 
     fn display(&self, _cx: &Ctx) -> Option<String> {
