@@ -5514,9 +5514,9 @@
     {
       "id": 1227,
       "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-1227",
       "labels": [
         "elab",
         "unify"
