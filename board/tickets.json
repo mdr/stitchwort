@@ -5462,13 +5462,13 @@
     {
       "id": 1224,
       "title": "Flaky under load: lsp a_code_action_edit_names_its_document_version_when_the_client_can_use_it failed at 61.8 s (load average ~120) after the 8e merge, passed alone in 16.4 s; find what it waits for and whether 16 s is expected",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tests"
       ],
-      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.",
+      "body": "Seen 4 Nov 2026 in the SW-1190 verifier's targeted run.\n\nStarted 4 Nov 2026 on Sonnet, expected: 45 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
