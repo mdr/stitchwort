@@ -5643,13 +5643,13 @@
     {
       "id": 1236,
       "title": "Type mismatch errors show the first difference between the two sides, instead of hiding it behind …",
-      "status": "next",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 3); helps every proof.",
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 3); helps every proof.\n\nLane notes: E-TYPE-MISMATCH already had a \"they first differ at\" note, but only when both sides printed identically. It now also fires when either side contains a `…` (same test E-REFL uses). New example reject/mismatch-first-difference. No other snapshot changed (all 786 reject examples pass).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
