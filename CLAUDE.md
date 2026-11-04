@@ -114,6 +114,11 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   (`{Fail} List Nat`); build and match lists with brackets (`[x, ..xs]`),
   not `Cons x xs`, except `Cons` used as a function; see "Writing
   statements" in the proving guide.
+- Comments are for a reader seeing the code fresh, who never saw the old
+  version or the change: say what the code can't (why, invariants, units).
+  Don't narrate the next line, restate names or types, or describe what
+  just changed (that goes in the commit message). The standard library
+  still gets full API docs (D2351, Matt, 4 Nov 2026).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 
