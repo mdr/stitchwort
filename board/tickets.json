@@ -5296,7 +5296,7 @@
       "labels": [
         "fmt"
       ],
-      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1212 (formatter, golden tests and docs only; the repo-wide reformat is a later step), expected: 60 min.\n",
+      "body": "D2307 (Matt, 4 Nov 2026): yes; still clear without them. A row applies to the whole type after it, so {Fail} (List Nat) = {Fail} List Nat (checked). Lane: the formatter change + its tests + docs; the repository-wide reformat run once, mechanically, after the std/aoc lanes in flight have merged (to avoid conflicts).\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1212 (formatter, golden tests and docs only; the repo-wide reformat is a later step), expected: 60 min.\n\n\nFirst run done (fc770eef in scratch-sw-1212): formatter change, golden test, docs. Orchestrator review: keep parentheses around a function type after a row ({e} (A -> B) stays), for readability; the rest is good. Can only merge together with the repo-wide reformat (62 files), since the sources-are-formatted test fails otherwise; that second run waits for SW-1225 to merge, then rebases, reformats and merges in one go. Model result so far: DeepSeek, worked, about 35 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
