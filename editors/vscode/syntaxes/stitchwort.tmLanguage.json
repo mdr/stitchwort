@@ -38,6 +38,11 @@
           "match": "\\b(type|theorem|def|export|test|interface|instance|if|then|else|ability|where|handle|with|match|return|let|import|include|namespace|calc|rewrite|omega|ring|cases|decreasing|opaque|unfolding)(?![A-Za-z0-9_'])"
         },
         {
+          "comment": "`some` between `match` and `|`, and `matches` before a `|`, are keywords; anywhere else they are names",
+          "match": "(?<=\\bmatch\\s)\\s*(some)(?=\\s*\\|(?![|>]))|\\b(matches)(?=\\s*\\|(?![|>]))",
+          "captures": { "1": { "name": "keyword.control.stitchwort" }, "2": { "name": "keyword.control.stitchwort" } }
+        },
+        {
           "comment": "`in` (or `∈`, an operator below) and `exists` (or `∃`); `exists` after a `.` is a call, `opt.exists p`",
           "name": "keyword.control.stitchwort",
           "match": "(?<![.A-Za-z0-9_'!])(in|exists)(?![A-Za-z0-9_'])|∃"

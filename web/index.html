@@ -2380,7 +2380,11 @@ export def area: Shape -> Nat
       } else if (isWordStart(c)) {
         while (i < text.length && isWord(text[i])) i++;
         const word = text.slice(start, i);
-        const k = (KEYWORDS.has(word) && !(word === "exists" && previous === "."))
+        // `some` after `match` and `matches`, when a `|` follows, are keywords
+        // (clause lambdas); anywhere else they are names.
+        const bar = (word === "some" && previous === "match") || word === "matches"
+          ? /^\s*\|(?![|>])/.test(text.slice(i, i + 40)) : false;
+        const k = (KEYWORDS.has(word) && !(word === "exists" && previous === ".")) || bar
             || (word === "auto" && previous === "[") ? "keyword"
           : word !== "_" && (previous === "def" || previous === "theorem" || previous === "instance") ? "defined"
           : c >= "A" && c <= "Z" ? "name"

@@ -1972,6 +1972,38 @@ When the alternatives of a `match`, or the arms of a definition, leave out some 
 
 A missing case is the whole row of patterns, one for each scrutinee or argument, separated by commas, so a `match` on `(Option a, Bool)` with two arms can be told `| (None, False) => ?` and `| (Some _, True) => ?`. A field the arm doesn't need is `_`, and implicit fields aren't written. A list is `[]`, `[_, .._]` (`Cons _ _`) and so on, as a list pattern is written, and a pair `(a, b)`. On an indexed family a constructor that can't be there (`VCons` in a `Vec a 0`) isn't listed, as it isn't an error. At most 20 cases are listed, then `and N more`; add those and check again to see the rest. Where what's missing is numbers or characters (`Nat`, `Int`, `Char`, `Fin`), the message says which (`numbers other than 0 and 1`), and the fix is an arm with a variable or `_`. In `check --index`, the diagnostic has a `missing` member with the same cases (docs/proposals/code-navigation.md).
 
+#### Clause lambdas: `match |`, `match some |` and `matches |`
+
+A lambda whose body is a `match` on its parameters can be written as the alternatives alone, with no `match … with` and no parameter names. Three spellings; each is a lambda over an ordinary `match`, so the checker and proofs see nothing new (`docs/proposals/partial-lambdas.md`):
+
+```
+operators.any (match
+  | Add => last <= target
+  | Multiply => last * 2 <= target)          -- x => match x with | Add => … | Multiply => …
+
+lines.filterMap (match some | Corrupted illegal => illegal)
+                                             -- x => match x with | Corrupted illegal => Some illegal | _ => None
+
+xs.filter (matches | [_, 'x', .._])          -- x => match x with | [_, 'x', .._] => True | _ => False
+```
+
+- **`match | p => e | …`** is total, and checked like any `match` (`E-NONEXHAUSTIVE` for a missing case). Several patterns in an alternative (`| acc, Do => …`) make a lambda of several parameters, and every alternative has as many patterns as the first (`E-PARSE` otherwise).
+- **`match some | p => e | …`** keeps what matches. Each result is wrapped in `Some`, and a last alternative `_ => None` is added, so it is an `a → Option b`, for `List.filterMap` (Scala's `collect`), `List.findMap` (`collectFirst`), `Option.flatMap`, `Map.filterMap` and any function of your own. The word `some` is the mark that values can be dropped; a plain `match` never drops a case. Where the type expected is not an `Option`, the error says that `match some` makes one. An alternative whose result is already an `Option` makes an `Option (Option …)`: write a `match` there. If the alternatives you wrote match every value, the added one is never used, and `W-MATCH-TOTAL` says to write `match` (and `map`).
+- **`matches | p => c | …`** gives a `Bool`: the result of the alternative that matches, and `False` for the values none matches. An alternative may leave out `=> c`, which then means `True`: `matches | 133 | 160 | 5760`. `W-MATCH-TOTAL` warns when the alternatives cover every value.
+
+`some` is a keyword only between `match` and `|`, and `matches` only in front of a `|` that starts an alternative: `match some with …` still matches on a variable called `some`, and `matches + 1` uses a variable called `matches`. Because the form is an expression, a value can be fed to it with a pipe, `Key.next [27] |> matches | Incomplete` and `scan |> match some | Corrupted c => c`, and as an argument it needs brackets like any lambda.
+
+As a definition's whole body the form is the written arms. `def f: A → Option B := match some | p => e` is `def f: A → Option B | p => Some e | _ => None`, with the same generated equations (`f.eq1`, …) and case tree; `:= matches | p` and `:= match | …` likewise, so a lookup table can drop its `Some`s and its last line:
+
+```
+def operationOf: Nat → Option Operation := match some
+  | 0 => Sum
+  | 1 => Product
+  | 7 => EqualTo
+```
+
+The rules of `|` are those of `match … with`. On one line a `|` before `=>` continues an or-pattern (`matches | A | B` is true for both), and one after a result starts the next alternative, so alternatives with different results go on their own lines, lined up. An inner `match` on one line takes the alternatives after it: bracket it, or use lines (`examples/reject/clause-lambda-nested-one-line.sw`). Not covered here: guards (`| p if c => e`). Examples: `examples/accept/clause-lambda.sw`, `match-some.sw`, `matches.sw`, `match-some-covers-every-value.sw`; `examples/reject/match-some-not-option.sw`, `matches-not-bool.sw`, `clause-lambda-arity.sw`. The lemma for proofs about `filterMap` is `List.memFilterMap`.
+
 ### `calc`
 
 `calc` writes a proof as a chain of steps, one per line. Each step is `_ R e`, where `R` is `=`, `<=`, `<`, `>=` or `>`, followed by `:= proof`:

@@ -208,6 +208,42 @@ test "named from outside" := sumOfSquares.go 2 0 == 5
 
 There is no `where` clause; write local definitions before the line that uses them.
 
+## Taking a value apart in a lambda
+
+A lambda that does nothing but `match` on its parameter can be written as the cases alone: `match | Valid value => value | _ => 0` is `x => match x with | Valid value => value | _ => 0`. Written as a definition's whole body (`:= match` and the cases on the lines below), it is the same as writing the cases under the signature.
+
+Two variations are for the commonest uses of a lambda like this. `match some` is for picking out the values of one shape, as Scala's `collect` does: each result is wrapped in `Some`, and the values no case matches give `None`, so it fits `filterMap`, `findMap` and any other function that takes an `a -> Option b`. `matches` is for testing: it gives `True` for the values a case matches (a case may leave out its `=> result`, which means `True`) and `False` for the rest.
+
+<!-- snippet: functions.sw#clauses -->
+```stitchwort
+type Reading =
+  | Valid (value: Nat)
+  | Garbled (text: Text)
+  | Missing
+
+def Reading.score: Reading → Nat := match
+  | Valid value => value
+  | Garbled text => text.length
+  | Missing => 0
+
+def valid: Reading → Option Nat := match some
+  | Valid value => value
+
+def isMissing: Reading → Bool := matches | Missing
+
+def sample: List Reading := [Valid 4, Garbled "xx", Missing, Valid 9]
+
+test "a lambda written as its cases" := sample.map (match | Valid value => value | _ => 0) == [4, 0, 0, 9]
+test "a definition written as cases" := sample.map Reading.score == [4, 2, 0, 9]
+test "keeping what matches" := sample.filterMap valid == [4, 9]
+test "inline" := sample.filterMap (match some | Garbled text => text.length) == [2]
+test "the first match" := sample.findMap (match some | Valid value => value * 10) == Some 40
+test "testing a value" := sample.filter (matches | Valid _ | Missing) == [Valid 4, Missing, Valid 9]
+test "a name is tested" := sample.count isMissing == 1
+```
+
+A plain `match` still has to cover every case; the `some` and `matches` are what say that the values left out are dropped or false. If the cases you write already cover every value, the compiler warns (`W-MATCH-TOTAL`), since a `match` says that better. The words `some` and `matches` are special only in these places, so a variable of that name works anywhere else. On one line, a `|` before `=>` joins patterns, so put cases that give different results on lines of their own.
+
 ## Functions as values
 
 Functions can be stored in lists and records, passed and returned like any other value:
