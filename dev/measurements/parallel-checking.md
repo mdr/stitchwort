@@ -187,6 +187,7 @@ are rough; the CPU figures are the reliable ones.
 | scenario | sequential (`check`, 1 process) | prototype, N=8 | model |
 |---|---|---|---|
 | library cached, every namespace cold | 112.0 s wall, 65.6 s CPU (load 60-80) | **34.9 s** wall, **160 s CPU** (load 40-60) | 59.7 s work → 19.2 s at N=8, 153 s CPU |
+| the same, repeated at load 26-43 (09:24-09:28; sequential, N=8, sequential) | 107.7 s and 73.1 s wall; 67.5 s and 62.4 s CPU | **29.7 s** wall, **156 s CPU**, summed RSS 4.1 GB | as above |
 | empty cache (cold full check) | 259 s wall, 81 s CPU (load 65) | **64.7 s** wall, **179 s CPU** (load 45-70) | 67.4 s → 20-24 s at N=8 (A/B), 179 s CPU (A) |
 | `Aoc.Common` edited (59 namespaces cold, the rest cached) | whole project: 62.5 s wall, 21.1 s CPU; only the 59: 56.7 s wall, 18.6 s CPU | **16.1 s** wall, **46 s CPU** | today 19.1 s, one process 16.2 s, 10 processes 9.7 s |
 
@@ -195,9 +196,10 @@ are rough; the CPU figures are the reliable ones.
   process.
 - In the library-cached case the sequential run's wall/CPU inflation (1.7x)
   applied to the model's 19.2 s gives 33 s; the prototype took 34.9 s.
-  Quiet-machine wall times were not measured: the load never fell below 40
-  after 08:40 (to rerun when quiet: the commands in §1; each pair takes
-  about two minutes).
+  The repeat at load about 30 gave 29.7 s against 73-108 s sequential
+  (2.5-3.6x). Quiet-machine wall times were not measured: the load never
+  fell below 25 after 08:40 (to rerun when quiet: the commands in §1; each
+  pair takes about two minutes).
 - On a loaded machine the speedups in the wall column look better than
   they would on a quiet one (259 s → 65 s is 4x), because 8 processes get 8
   shares of the CPU where one gets one. That is the "steals cores from other
