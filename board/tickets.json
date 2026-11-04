@@ -6175,7 +6175,7 @@
       "labels": [
         "std"
       ],
-      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' ranked items 1, 2, 4. (1) Nat.fromBitsAppend and Nat.fromBitsBelow from Day05/Proofs/Seat.sw into std (2021 day 16 carries an identical fromBitsBelow: switch it to std's), plus Nat.toBits with its round trip if natural. (2) Eq.subst: move a fact along an equation with the motive inferred (day 5 wrote J with an explicit motive three times after rewrite hit E-REWRITE-BUDGET). (3) A Decidable instance for List.Sorted, so the counterexample search can test sorted-list lemmas (today 'not applicable'). Then use them in day 5 and 2021 day 16 and delete the local copies.\n\nD2359 (Matt, 4 Nov): yes. Sonnet, with an Opus review; expected: 60 min.",
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' ranked items 1, 2, 4. (1) Nat.fromBitsAppend and Nat.fromBitsBelow from Day05/Proofs/Seat.sw into std (2021 day 16 carries an identical fromBitsBelow: switch it to std's), plus Nat.toBits with its round trip if natural. (2) Eq.subst: move a fact along an equation with the motive inferred (day 5 wrote J with an explicit motive three times after rewrite hit E-REWRITE-BUDGET). (3) A Decidable instance for List.Sorted, so the counterexample search can test sorted-list lemmas (today 'not applicable'). Then use them in day 5 and 2021 day 16 and delete the local copies.\n\nD2359 (Matt, 4 Nov): yes. Sonnet, with an Opus review; expected: 60 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6245,7 +6245,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.",
+      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

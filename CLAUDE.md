@@ -55,13 +55,21 @@ does not do significant work itself:
 Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 2 Nov 2026), from the SW-1084 experiment (three tasks, one run each):
 
-- **Opus:** work that needs design or real intelligence: design notes,
-  the kernel and soundness, proofs, tricky bugs, and specs for other models.
-  It also reviews every change that generates kernel terms or touches
-  proofs, whichever model wrote it.
-- **Sonnet:** work near the kernel or proof generation, tasks where
-  generality and design judgement matter, and changes across several crates
-  where a wrong guess would spread.
+- **Opus:** the hardest, deepest thinking: design decisions and design
+  notes, the kernel and soundness, the tricky implementation parts of the
+  code base, tricky bugs, specs for other models, and a proof only when it
+  is genuinely hard. It also reviews changes that generate kernel terms, or
+  that add or weaken a theorem; a refactor that only re-types statements is
+  checked by the orchestrator, statement by statement, that each keeps its
+  meaning (D2364, Matt, 4 Nov 2026).
+- **Sonnet:** routine work, AoC days and their proofs, refactors, std
+  lemmas, work near the kernel or proof generation, tasks where generality
+  and design judgement matter, and changes across several crates where a
+  wrong guess would spread. Try Sonnet first unless the work needs Opus as
+  above (D2365, Matt, 4 Nov 2026).
+- **Escalating:** a lane that finds its work too hard stops and says so
+  (what it tried, where it's stuck); the orchestrator may then rerun it on
+  Opus, from the lane's branch (D2365).
 - **DeepSeek via OpenCode:** the default for well-bounded tasks up to medium
   difficulty, from a goal-level brief (the goal, a repro, the limits):
   diagnostics, small features, elaborator changes with a clear goal, and
