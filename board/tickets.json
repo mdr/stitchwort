@@ -5302,13 +5302,13 @@
     {
       "id": 1213,
       "title": "Design note: a checked @[tailrec] attribute (error naming any recursive call not in tail position); what each backend (JS, interpreter, native) does with tail calls; performance as well as stack safety",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n\n4 Nov 2026 (lane, Opus): note written, docs/proposals/tailrec.md, commit eb7b028e on lane/SW-1213. Measured (user CPU, loaded machine): loops vs non-tail recursion 1.1-1.2x faster on run, 3.4-14x on --native, 2.8x on JS; JS non-tail recursion overflows at 6,000-8,000 deep. Machine and native already eliminate every tail call; JS loops self-calls and inlined forms. Recommendation: add it (one Sonnet lane, half a day to a day). Decisions D2310-D2315 in the note §7. Moved to review.\n",
+      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n\n4 Nov 2026 (lane, Opus): note written, docs/proposals/tailrec.md, commit eb7b028e on lane/SW-1213. Measured (user CPU, loaded machine): loops vs non-tail recursion 1.1-1.2x faster on run, 3.4-14x on --native, 2.8x on JS; JS non-tail recursion overflows at 6,000-8,000 deep. Machine and native already eliminate every tail call; JS loops self-calls and inlined forms. Recommendation: add it (one Sonnet lane, half a day to a day). Decisions D2310-D2315 in the note §7. Moved to review.\n\n\nMerged: docs/proposals/tailrec.md. Recommends @[tailrec] (one Sonnet lane, half a day to a day). Decisions D2310-D2315. Model result: Opus, worked, 20 min (est. 90).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5388,13 +5388,13 @@
     {
       "id": 1219,
       "title": "Error message: when matching fails because a name wasn't unfolded (e.g. Parse.readsBind against a named parser like Day02's line), say which name and how to proceed",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.",
+      "body": "D2331 (Matt, 4 Nov 2026): small fix now, ahead of the design note. Repro: readsLine in aoc/src/Aoc/Year2020/Day02/Proofs/Parse.sw with the j argument given as _ instead of the copied body.\n\nStarted 4 Nov 2026 on Sonnet, expected: 60 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
