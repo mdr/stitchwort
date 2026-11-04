@@ -4914,14 +4914,14 @@
     {
       "id": 1187,
       "title": "Globals split 8b: the elaborator's facts (js, defaults, param_defaults, update_shown, unfinished) out of Env into Tables",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 150 min. Applies D2292 (note recommendation).\n\n\nDone on lane/SW-1187 (~65 min). Six facts are Tables fields (field_defaults, js_repr, unfinished_defs/datas as OwnedBy; param_defaults, update_shown as SharedOwnedBy). Backend reads js/defaults through core::backend::View (Elaborator::backend()). mark_param_default is the kernel function. Entries byte for byte the same (466 entries, 27 projects, old vs new binary). Findings: the printer reads param_defaults too, and the kernel wrappers read unfinished through &Globals, so Globals::print_hints (shared maps) is an interim until 8e's Shown trait, and four kernel wrappers take &Tables. See the 8b note in globals-split.md section 2.1.\nTests: check_cache, rewind, navigation (69/69); lane js (14), lane core (173); hash_stability, pinned_hashes, named_arguments, extract subset (24/24).\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 150 min. Applies D2292 (note recommendation).\n\n\nDone on lane/SW-1187 (~65 min). Six facts are Tables fields (field_defaults, js_repr, unfinished_defs/datas as OwnedBy; param_defaults, update_shown as SharedOwnedBy). Backend reads js/defaults through core::backend::View (Elaborator::backend()). mark_param_default is the kernel function. Entries byte for byte the same (466 entries, 27 projects, old vs new binary). Findings: the printer reads param_defaults too, and the kernel wrappers read unfinished through &Globals, so Globals::print_hints (shared maps) is an interim until 8e's Shown trait, and four kernel wrappers take &Tables. See the 8b note in globals-split.md section 2.1.\nTests: check_cache, rewind, navigation (69/69); lane js (14), lane core (173); hash_stability, pinned_hashes, named_arguments, extract subset (24/24).\n\n\nModel result: Sonnet, worked, 45 min (est. 150). Orchestrator (Opus) reviewed mark_param_default and the replay marking. Note for 8e: the Shown trait must cover param_defaults as well as update_shown (interim Globals::print_hints).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": [
