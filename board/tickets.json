@@ -6522,9 +6522,9 @@
     {
       "id": 1298,
       "title": "Std follow-ups from day 6: Parse.SepBy first value, Set size/unions/intersect lemmas, Bool.andAssoc",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1298",
       "labels": [
         "std"
       ],
