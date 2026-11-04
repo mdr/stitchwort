@@ -5302,13 +5302,13 @@
     {
       "id": 1213,
       "title": "Design note: a checked @[tailrec] attribute (error naming any recursive call not in tail position); what each backend (JS, interpreter, native) does with tail calls; performance as well as stack safety",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.",
+      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
