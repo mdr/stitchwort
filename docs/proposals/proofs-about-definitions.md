@@ -515,3 +515,90 @@ and it helps every proof that compares large unfolded computations.
   the unifier changes.
 - The survey's [remembered] rows: I checked only Lean's lazy delta and
   `mvcgen` pages for this note.
+
+## As built: D2342 (SW-1226, 4 November 2026)
+
+**What changed** (`crates/elab/src/check.rs`: `by_holes`, called from
+`propagate`; `apply_args_postponing`; three cells in `state/decl.rs`). An
+application qualifies when its result type mentions only arguments written
+`_` (where `propagate` gives up on it today) and a lambda is among its
+arguments: `Parse.readsBind _ _ _ _ reads (x => …)`. Its lambdas' checks in
+place are *limited*: inside them, a qualifying application checks its own
+lambdas once, in place, and not a second time after its expected type. So a
+check in place that is going to fail fails at once below the first such
+level, and only the check after the conclusion goes deeper. Each level costs
+one cheap failed try and one real check, not two full ones. If a qualifying
+application fails and a limit was used in it, it is elaborated again
+exactly as before, with nothing limited inside, so its message is the old
+one; if no limit was used, the attempt was the old one, and its result
+stands.
+
+**Not what §5 B says, on purpose.** The literal B (each `_` an unknown, the
+conclusion compared with the goal before any argument is checked) was built
+first and measured. It is fast (8 opaque steps 0.13 M, 16 steps 0.38 M), but
+the `_`s are then solved from the goal rather than from the arguments:
+convertible terms of another shape, so content hashes moved. It changed 106
+std declarations' hashes and one example's (`let-proof-pattern-unfold`).
+Only with a lambda among the arguments, still 50 (roots `readsSpanNonEmpty`,
+`Nat.partitionPointBounds`, the example's `firstBlockedSplit`). A version
+that first tried the old way with no second checks anywhere, then the
+lambdas after the conclusion, still moved `readsNatDigits` and
+`readsLooseRow`. The built version moves none: a limited check in place
+that succeeds never needed a second check, so it went exactly as the
+unlimited one would. Only failed tries are cut short.
+
+**Measured** (evaluation steps, `STITCHWORT_TIMINGS=decls`, release build;
+before = `main` at 6c14ed72). `copy N` is `bench.py N copy` (the body copied
+as the outer `j`). `opaque N` is the same parser with opaque `nat` and
+`char` leaves and `_` for every parser and spec, as in `opaque-steps.sw`;
+the 12-step one is now `examples/accept/reads-nested-binds.sw`.
+
+| proof | before | after |
+|---|---|---|
+| copy 2 | 0.20 M | 0.20 M |
+| copy 4 | 1.37 M | 1.25 M |
+| copy 6 | 9.03 M | 8.61 M |
+| copy 8 | 73.1 M | 72.2 M |
+| copy 10 | 651 M | 649 M |
+| copy 12, 16 | not run (over 3 min) | over 3 min |
+| opaque 2 | 0.12 M | 0.10 M |
+| opaque 4 | 0.59 M | 0.21 M |
+| opaque 6 | 2.68 M | 0.35 M |
+| opaque 8 | 12.1 M | 0.54 M |
+| opaque 10 | 54.0 M | 0.77 M |
+| opaque 12 | 240 M | 1.06 M |
+| opaque 16 | not run (hours) | 1.82 M |
+| `opaque-steps.sw` `readsLine` | 7.98 M | 2.69 M |
+| `reads-then.sw` `readsLine` | 12.90 M | 12.90 M |
+| Day 2 `readsLine` (readsBind form) | 20.47 M | 19.84 M |
+
+The doubling is gone: the opaque proofs now grow by about 0.1 M per step.
+The copy-shaped proofs, Day 2's included, barely move. Their cost is the
+first cause in §1.2, comparing two handler runs `bind` by `bind`, which
+triples per step and isn't touched here. §0's estimate for B (8 steps
+under 1 M) assumed the retry was most of their cost, and it isn't. That
+part is D2343 (a memo of compared call pairs) or D2341 (lazy delta, after
+which `_` for `j` works and the proofs take the opaque shape, which is now
+linear).
+
+All of aoc (`check --no-cache`, one run each): the evaluation steps summed
+over its 7,708 declarations went from 1,147.3 M to 1,146.7 M. Only one
+declaration takes more (`Day12.Proofs.neighboursOfMem`, 346 K to 354 K);
+Day 2's `readsLine` takes 0.64 M fewer.
+Instructions retired (`/usr/bin/time -l`, both built by `task build`): 695.1
+G and 699.5 G before (two runs: the noise is about 0.6%), 699.0 G after.
+
+**Behaviour otherwise.** Same terms: `hash_stability` (the prelude, and the
+lane's sample of examples) passes unchanged. Same programs accepted, as far
+as the tests run reach, and a failing qualifying application gives its old
+message. What could still differ, in principle: a program that worked only
+because, inside a check in place, a nested qualifying application needed
+its second check. That check in place now fails, the lambda is checked
+after the conclusion instead, and that may solve its `_`s another way (or,
+if it fails, the application is elaborated the old way). Nothing in std,
+aoc or the examples sampled does this.
+
+**Not done.** Only plain lambdas count: a lambda with typed parameters
+(`(x: T) => …`) and the other arguments that are checked again after a
+failed check in place (a proof term such as `snocStep moved`) still go
+through both checks, nested or not. Nothing measured needs them.
