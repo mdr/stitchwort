@@ -27,7 +27,7 @@ def main(): {IO, Fail} () :=
 
 --| One depth per line, spaces around it allowed. Anything else fails, naming
 --| the line and column.
-def parseDepths (input: Text): {Fail} (List Nat) := Parse.eachLine input (() => token nat)
+def parseDepths (input: Text): {Fail} List Nat := Parse.eachLine input (() => token nat)
 
 --| Part 1: each measurement against the one before it.
 def solvePart1 (depths: List Nat): Nat := increasesOver 1 depths

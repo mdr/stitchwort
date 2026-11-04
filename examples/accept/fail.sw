@@ -20,7 +20,7 @@ def turn (line: Text): {Fail} Turn :=
     | _ => fail "expected a turn like L68 3 red, got '${line}'"
 
 -- Every line, or the first line's failure, with its line number in front.
-def turns (lines: List Text): {Fail} (List Turn) :=
+def turns (lines: List Text): {Fail} List Turn :=
   List.zip (List.range lines.length) lines |> .map (p =>
     context "line ${p.fst + 1}" (() => turn p.snd))
 

@@ -78,10 +78,10 @@ def hexValue: Char → Option Nat
 def digitBits (value: Nat): List Bool := [Nat.testBit value 3, Nat.testBit value 2, Nat.testBit value 1, Nat.testBit value 0]
 
 --| The transmission's bits.
-def readBits (input: Text): {Fail} (List Bool) := bitsOfDigits (readDigits input)
+def readBits (input: Text): {Fail} List Bool := bitsOfDigits (readDigits input)
 
 --| The value of each hexadecimal digit of the (trimmed) input.
-def readDigits (input: Text): {Fail} (List Nat) := Parse.line input.trim (() => Parse.many hexDigit)
+def readDigits (input: Text): {Fail} List Nat := Parse.line input.trim (() => Parse.many hexDigit)
 
 --| One hexadecimal digit's value.
 def hexDigit(): {Parse} Nat :=

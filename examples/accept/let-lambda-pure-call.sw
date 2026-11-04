@@ -27,7 +27,7 @@ def onlyOneInline (input: List Nat) (wanted: Nat): {Fail} Found :=
 def applyPure (f: Nat → List Nat) (n: Nat): List Nat := f n
 
 -- Called in the failing body, then passed where a pure function is wanted.
-def callThenPass (input: List Nat): {Fail} (List Nat) :=
+def callThenPass (input: List Nat): {Fail} List Nat :=
   let digits := input.map parseDigit
   let equalTo := (target: Nat) => digits.filter (digit => digit == target)
   let ones := equalTo 1

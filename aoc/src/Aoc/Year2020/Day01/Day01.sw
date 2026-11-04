@@ -26,7 +26,7 @@ def main(): {IO, Fail} () :=
 
 --| One entry per line, spaces around it allowed. Anything else fails, naming
 --| the line and column.
-def parseEntries (input: Text): {Fail} (List Nat) := Parse.eachLine input (() => token nat)
+def parseEntries (input: Text): {Fail} List Nat := Parse.eachLine input (() => token nat)
 
 def solvePart1 (entries: List Nat): Option Nat := findPair 2020 entries |> .map (((a, b)) => a * b)
 

@@ -52,7 +52,7 @@ test "a line is read whole" :=
 test "no input: None" := isNone (result (IO.simulate [] (u => IO.readLine())))
 
 -- Reads three times from one line of input.
-def readThree(): {IO} (List (Option Text)) :=
+def readThree(): {IO} List (Option Text) :=
   let a := IO.readLine()
   let b := IO.readLine()
   let c := IO.readLine()

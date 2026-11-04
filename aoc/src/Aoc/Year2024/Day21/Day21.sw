@@ -64,9 +64,9 @@ def numericKey(): {Parse} NumericKey :=
     ])
 
 --| One code per line.
-def codes(): {Parse} (List Code) := lines (() => many1 numericKey)
+def codes(): {Parse} List Code := lines (() => many1 numericKey)
 
-def parseCodes (input: Text): {Fail} (List Code) := Parse.all input codes
+def parseCodes (input: Text): {Fail} List Code := Parse.all input codes
 
 --| The digit on a key, if it has one.
 def NumericKey.digit (key: NumericKey): Option Nat :=

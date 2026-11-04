@@ -144,7 +144,7 @@ test "an effectful argument" :=
 
 -- A function using `Choose` stored in `State`: fine, because its effects
 -- don't refer back to the state's own ability.
-def storeAndRun(): {State (Nat → {Choose} Nat)} (List Nat) :=
+def storeAndRun(): {State (Nat → {Choose} Nat)} List Nat :=
   put (n => if choose() then n + 10 else n)
   let g := get()
   allResults (v => g 5)

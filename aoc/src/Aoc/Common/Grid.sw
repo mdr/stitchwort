@@ -171,11 +171,11 @@ def Grid.lookupOr (grid: Grid a) (fallback: a): Position → a :=
 --| One row per line, each line one or more cells read by `cell`, and every
 --| row as long as the first, which has a cell (the puzzle's grids are
 --| rectangles). A successful parse is a rectangle (`parseGridRectangle`).
-def parseGrid (input: Text) (cell: () → {Parse} a): {Fail} (Grid a) := checkGrid (Parse.eachLine input (() => many1 cell))
+def parseGrid (input: Text) (cell: () → {Parse} a): {Fail} Grid a := checkGrid (Parse.eachLine input (() => many1 cell))
 
 --| The grid, if its first row has a cell and every row is as long as the
 --| first; otherwise fail, saying why.
-def checkGrid (rows: List (List a)): {Fail} (Grid a) :=
+def checkGrid (rows: List (List a)): {Fail} Grid a :=
   if firstWidth rows == 0 then Fail.fail "expected a grid, got no cells"
   else
     match firstRagged rows with

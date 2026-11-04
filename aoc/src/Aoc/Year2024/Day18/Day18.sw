@@ -42,7 +42,7 @@ def byte(): {Parse} Position :=
   { row = y, column = x }
 
 --| One byte per line, in the order they fall.
-def parseBytes (input: Text): {Fail} (List Position) := Parse.eachLine input byte
+def parseBytes (input: Text): {Fail} List Position := Parse.eachLine input byte
 
 --| The memory space, `size` positions each way, and its corrupted positions.
 type MemorySpace = { size: Nat, corrupted: Set Position }

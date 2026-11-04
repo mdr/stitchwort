@@ -34,7 +34,7 @@ type Line = { x1: Nat, y1: Nat, x2: Nat, y2: Nat }
 
 --| One line of vents per line of the input, `x1,y1 -> x2,y2`. A line that
 --| isn't horizontal, vertical or diagonal at 45 degrees fails, naming it.
-def parseLines (input: Text): {Fail} (List Line) := checkShapes (Parse.eachLine input Line.parse)
+def parseLines (input: Text): {Fail} List Line := checkShapes (Parse.eachLine input Line.parse)
 
 --| One line of vents, `x1,y1 -> x2,y2`.
 def Line.parse(): {Parse} Line :=
@@ -49,7 +49,7 @@ def Line.parse(): {Parse} Line :=
 
 --| The lines, if each is horizontal, vertical or diagonal at 45 degrees;
 --| otherwise fail, naming the first that isn't.
-def checkShapes (lines: List Line): {Fail} (List Line) :=
+def checkShapes (lines: List Line): {Fail} List Line :=
   match firstBent lines with
     | Some (index, _) => Fail.fail "line ${index + 1} isn't horizontal, vertical or diagonal"
     | None => lines

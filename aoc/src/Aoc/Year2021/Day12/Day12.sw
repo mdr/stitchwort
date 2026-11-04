@@ -36,7 +36,7 @@ def isBig (cave: Text): Bool :=
 
 --| One passage per line, `a-b`, each name made of letters; fails unless no
 --| passage joins two big caves.
-def parsePassages (input: Text): {Fail} (List (Text, Text)) := checkPassages (Parse.eachLine input passage)
+def parsePassages (input: Text): {Fail} List (Text, Text) := checkPassages (Parse.eachLine input passage)
 
 def passage(): {Parse} (Text, Text) :=
   let from := takeWhile1 "a cave name" Char.isAsciiLetter
@@ -46,7 +46,7 @@ def passage(): {Parse} (Text, Text) :=
 
 --| The passages, if none joins two big caves; otherwise fail, naming the
 --| first that does.
-def checkPassages (passages: List (Text, Text)): {Fail} (List (Text, Text)) :=
+def checkPassages (passages: List (Text, Text)): {Fail} List (Text, Text) :=
   match firstBigPair passages with
     | Some (index, (from, to)) => Fail.fail "line ${index + 1}: ${from}-${to} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
     | None => passages

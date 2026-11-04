@@ -25,7 +25,7 @@ def main(): {IO, Fail} () :=
 
 --| One bank per line. Spaces around a bank are allowed; anything else fails,
 --| naming the line and column.
-def parseBanks (input: Text): {Fail} (List Bank) := Parse.eachLine input bank
+def parseBanks (input: Text): {Fail} List Bank := Parse.eachLine input bank
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (.maxJoltage 2)
 

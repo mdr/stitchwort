@@ -22,7 +22,7 @@ theorem parseLinesShapes (input: Text) (lines: List Line) (parsed: Fail.toResult
 
 --| Whatever reads the lines, `checkShapes` passes on only lines of the
 --| shapes the puzzle allows.
-theorem checkedShapes (read: () → {Fail} (List Line)) (lines: List Line) (parsed: Fail.toResult (() => checkShapes (read ())) = Ok lines):
+theorem checkedShapes (read: () → {Fail} List Line) (lines: List Line) (parsed: Fail.toResult (() => checkShapes (read ())) = Ok lines):
     lines.all (line => horizontalOrVertical line ∨ diagonal line) = True :=
   let split := rewrite Fail.toResultThen read checkShapes at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkShapes x)) lines split

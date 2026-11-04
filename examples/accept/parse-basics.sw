@@ -16,7 +16,7 @@ def point(): {Parse} Point :=
   let z := nat()
   { x, y, z }
 
-def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
+def parsePoints (input: Text): {Fail} List Point := Parse.eachLine input point
 
 test "points" := toResult (() => parsePoints "162,817,812\n57,618,57\n") ==
   Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
@@ -55,7 +55,7 @@ test "a bad robot" := toResult (() => Parse.line "p=0,4 w=3,-3" robot) == Err "c
 -- expected there.
 type Cell = | Roll | Floor
 
-def cells(): {Parse} (List (List Cell)) := Parse.grid (() => pick [("@", Roll), (".", Floor)])
+def cells(): {Parse} List (List Cell) := Parse.grid (() => pick [("@", Roll), (".", Floor)])
 
 test "grid" := toResult (() => Parse.all "@.\n.@\n" cells) == Ok [[Roll, Floor], [Floor, Roll]]
 test "a bad grid" := toResult (() => Parse.all "@.\n.x\n" cells) ==

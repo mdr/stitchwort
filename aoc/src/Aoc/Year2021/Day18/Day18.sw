@@ -130,9 +130,9 @@ def solvePart2 (numbers: List Number): Option Nat :=
 
 --| One number per line. Fails unless each is already reduced, as the
 --| puzzle's are: no pair inside four pairs, no regular number above 9.
-def parseNumbers (input: Text): {Fail} (List Number) := checkNumbers (readNumbers input)
+def parseNumbers (input: Text): {Fail} List Number := checkNumbers (readNumbers input)
 
-def readNumbers (input: Text): {Fail} (List Number) :=
+def readNumbers (input: Text): {Fail} List Number :=
   input.trim.lines.map (line => Parse.line line (() => number line.length))
 
 --| A regular number or a pair; `room` bounds the nesting, and
@@ -151,7 +151,7 @@ def number: Nat → {Parse} Number
         Pair left right
     ]
 
-def checkNumbers (numbers: List Number): {Fail} (List Number) :=
+def checkNumbers (numbers: List Number): {Fail} List Number :=
   match firstUnreduced numbers with
     | Some line => Fail.fail "line ${line + 1} isn't a reduced snailfish number"
     | None => numbers

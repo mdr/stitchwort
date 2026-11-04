@@ -47,7 +47,7 @@ def clawMachine(): {Parse} Machine :=
   { buttonA, buttonB, prize }
 
 --| Machines separated by blank lines.
-def parseMachines (input: Text): {Fail} (List Machine) := Parse.all input (() => sections clawMachine)
+def parseMachines (input: Text): {Fail} List Machine := Parse.all input (() => sections clawMachine)
 
 --| What pressing A `aPresses` times and B `bPresses` times costs.
 def tokens (aPresses: Nat) (bPresses: Nat): Nat := 3 * aPresses + bPresses

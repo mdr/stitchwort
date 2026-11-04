@@ -16,7 +16,7 @@ theorem checkPassagesOk (passages: List (Text, Text)) (result: List (Text, Text)
     | None => Both (Eq.sym (Result.okInjective _ result h)) (List.findNoneAll passages joinsBig (List.findWithIndexFromNone joinsBig 0 passages e))
 
 --| ...whatever reads them.
-theorem parsedChecked (read: () → {Fail} (List (Text, Text))) (passages: List (Text, Text))
+theorem parsedChecked (read: () → {Fail} List (Text, Text)) (passages: List (Text, Text))
     (parsed: Fail.toResult (() => checkPassages (read ())) = Ok passages): passages.all (passage => not (joinsBig passage)) = True :=
   let split := rewrite Fail.toResultThen read checkPassages at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkPassages x)) passages split

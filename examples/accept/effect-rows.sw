@@ -98,7 +98,7 @@ def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagg
 
 -- `answer`'s type is `Tagged ?flag -> Answer ?flag` when the callback is
 -- checked; `?flag` is solved by the list, after it.
-def logged (numbers: List (Tagged True)): {Log} (List Nat) := List.map numbers answer
+def logged (numbers: List (Tagged True)): {Log} List Nat := List.map numbers answer
 
 test "a callback whose type becomes a computation later" :=
   Log.collect (() => logged [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
@@ -109,7 +109,7 @@ test "a callback whose type computes to a plain type later" := notLogged [Tag 3,
 
 -- The same callbacks eta-expanded: the body's type goes through the same
 -- rule, so the row waits for `?flag` as it does for `answer` itself.
-def loggedLambda (numbers: List (Tagged True)): {Log} (List Nat) := List.map numbers (tagged => answer tagged)
+def loggedLambda (numbers: List (Tagged True)): {Log} List Nat := List.map numbers (tagged => answer tagged)
 
 test "an eta-expanded callback whose type becomes a computation later" :=
   Log.collect (() => loggedLambda [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
@@ -131,7 +131,7 @@ test "a pure handler for an effectful program" :=
   Log.collect (() => (recovered 0, recovered 7)) == MkPair (4, 7) [0, 7]
 
 -- An effectful callback: the row is its row.
-def sayAll (numbers: List Nat): {Log} (List Nat) := List.map numbers sayAndDouble
+def sayAll (numbers: List Nat): {Log} List Nat := List.map numbers sayAndDouble
 
 test "an effectful callback" := Log.collect (() => sayAll [1, 2]) == MkPair [2, 4] [1, 2]
 
@@ -160,7 +160,7 @@ def cellAt (flag: Bool): Cell flag := applyDep cellOf flag
 test "a type family stuck on a variable" := cellAt True == 1
 
 -- A callback that is itself effect-polymorphic: the rows are the same.
-def mapTwice (f: Nat → {e} Nat) (numbers: List Nat): {e} (List Nat) :=
+def mapTwice (f: Nat → {e} Nat) (numbers: List Nat): {e} List Nat :=
   List.map (List.map numbers f) f
 
 test "a row-polymorphic callback, pure" := mapTwice (n => n + 1) [1] == [3]

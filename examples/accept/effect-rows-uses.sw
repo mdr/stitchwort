@@ -60,7 +60,7 @@ def Tagged.number [flag: Bool]: Tagged flag → Nat
 
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number
 
-def loggedLet (numbers: List (Tagged True)): {Log} (List Nat) :=
+def loggedLet (numbers: List (Tagged True)): {Log} List Nat :=
   let mapped := List.map numbers answer
   mapped
 
@@ -68,7 +68,7 @@ test "a let-bound effectful use" :=
   Log.collect (() => loggedLet [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
 
 -- Used before it's returned.
-def loggedLetUsed (numbers: List (Tagged True)): {Log} (List Nat) :=
+def loggedLetUsed (numbers: List (Tagged True)): {Log} List Nat :=
   let mapped := List.map numbers answer
   say (List.length mapped)
   mapped
@@ -88,7 +88,7 @@ test "a let-bound pure use" := notLoggedLet [Tag 3, Tag 4] == [3, 4]
 -- type is known (`record-literal-in-partial-ctor.sw` for the pure call).
 type Hit = { row: Nat, column: Nat }
 
-def prefixed (c: Nat) (paths: List (List Hit)): {Fail} (List (List Hit)) :=
+def prefixed (c: Nat) (paths: List (List Hit)): {Fail} List (List Hit) :=
   Fail.ensure (c < 10) "too far"
   paths.map (Cons ({ row = 0, column = c }))
 

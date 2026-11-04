@@ -17,7 +17,7 @@ def mapPure (step: Nat → Nat) (numbers: List Nat): List Nat := List.map number
 def mapEmptyRow (step: Nat → {} Nat) (numbers: List Nat): List Nat := List.map numbers step
 
 -- In a computation that may fail, a pure callback performs nothing.
-def doubledOrFail (numbers: List Nat): {Fail} (List Nat) :=
+def doubledOrFail (numbers: List Nat): {Fail} List Nat :=
   let doubledNumbers := List.map numbers double
   if doubledNumbers == [] then Fail.fail "no numbers" else doubledNumbers
 

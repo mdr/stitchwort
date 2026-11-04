@@ -28,7 +28,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${describe (solvePart2 levels)}"
 
 --| One row of digits per line, every row as long as the first.
-def parseLevels (input: Text): {Fail} (List (List Nat)) := numbers (parseGrid input digit)
+def parseLevels (input: Text): {Fail} List (List Nat) := numbers (parseGrid input digit)
 
 --| The digits as numbers.
 def numbers (grid: Grid (Fin 10)): List (List Nat) := grid.rows.map (row => row.map Fin.toNat)

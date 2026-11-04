@@ -22,7 +22,7 @@ type Report = { levels: List Nat }
 
 --| One report per line, its levels separated by spaces: "7 6 4 2 1". A failure
 --| names the line and column.
-def parseReports (input: Text): {Fail} (List Report) := Parse.eachLine input reportLine
+def parseReports (input: Text): {Fail} List Report := Parse.eachLine input reportLine
 
 --| At least one level. Two numbers next to each other must have spaces
 --| between them, or they would be one number.

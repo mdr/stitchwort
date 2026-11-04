@@ -19,7 +19,7 @@ def turn (line: Text): {Abort} Turn :=
     | _ => abort()
 
 -- Every line, or give up if any line is bad.
-def turns: List Text → {Abort} (List Turn)
+def turns: List Text → {Abort} List Turn
   | [] => []
   | [l, ..ls] => Cons (turn l) (turns ls)
 

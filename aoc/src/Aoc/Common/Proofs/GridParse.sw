@@ -14,7 +14,7 @@ theorem parseGridRectangle (input: Text) (cell: () → {Parse} a) (grid: Grid a)
 
 --| Whatever reads the rows, `checkGrid` passes on only a rectangle with a
 --| cell.
-theorem checkedGrid (read: () → {Fail} (List (List a))) (grid: Grid a) (parsed: Fail.toResult (() => checkGrid (read ())) = Ok grid):
+theorem checkedGrid (read: () → {Fail} List (List a)) (grid: Grid a) (parsed: Fail.toResult (() => checkGrid (read ())) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   let split := rewrite Fail.toResultThen read checkGrid at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkGrid x)) grid split (rows _ checked => checkGridOk rows grid checked)

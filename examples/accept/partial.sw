@@ -86,14 +86,14 @@ def stepper (n: Nat): {Partial} Nat := drive (MkHandlers (m => stepper (m - 1)) 
 def retryWith (n: Nat): {Partial} (Nat → {Partial} Nat) := x => collatzSteps (x + n)
 
 -- Type parameters are fixed: each recursive call passes them on.
-def mapP (f: a → {Partial | e} b): List a → {Partial | e} (List b)
+def mapP (f: a → {Partial | e} b): List a → {Partial | e} List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (mapP f xs)
 
 -- A total function is passed where a partial one is expected.
-def incrementAll (xs: List Nat): {Partial} (List Nat) := mapP (x => x + 1) xs
+def incrementAll (xs: List Nat): {Partial} List Nat := mapP (x => x + 1) xs
 
-def stepsOfAll (xs: List Nat): {Partial} (List Nat) := mapP collatzSteps xs
+def stepsOfAll (xs: List Nat): {Partial} List Nat := mapP collatzSteps xs
 
 -- Partial code may perform abilities, and handlers' clauses may run partial
 -- code (the computation a handler handles must be total).

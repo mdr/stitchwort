@@ -35,7 +35,7 @@ theorem checkNumbersOk (numbers: List Number) (checked: List Number) (h: Fail.to
     | None => rewrite <- Result.okInjective numbers checked h in findUnreducedNone 0 numbers e
 
 --| Whatever reads the numbers, `checkNumbers` passes on only reduced ones.
-theorem checkedReduced (read: () → {Fail} (List Number)) (numbers: List Number) (parsed: Fail.toResult (() => checkNumbers (read ())) = Ok numbers):
+theorem checkedReduced (read: () → {Fail} List Number) (numbers: List Number) (parsed: Fail.toResult (() => checkNumbers (read ())) = Ok numbers):
     List.All IsReduced numbers :=
   let split := rewrite Fail.toResultThen read checkNumbers at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkNumbers x)) numbers split (u _ checked => checkNumbersOk u numbers checked)

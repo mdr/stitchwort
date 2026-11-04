@@ -27,7 +27,7 @@ theorem parseTimersBounded (input: Text) (fish: List Nat) (parsed: Fail.toResult
 
 --| Whatever reads the timers, `checkTimers` passes on only timers of at
 --| most 8.
-theorem checkedBounded (read: () → {Fail} (List Nat)) (fish: List Nat) (parsed: Fail.toResult (() => checkTimers (read ())) = Ok fish):
+theorem checkedBounded (read: () → {Fail} List Nat) (fish: List Nat) (parsed: Fail.toResult (() => checkTimers (read ())) = Ok fish):
     fish.all (t => t ≤ 8) = True :=
   let split := rewrite Fail.toResultThen read checkTimers at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkTimers x)) fish split
