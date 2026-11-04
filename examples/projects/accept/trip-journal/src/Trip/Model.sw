@@ -107,16 +107,16 @@ def photoIds (albums: List Album): List Nat := albums.flatMap (album => album.ph
 -- Each leg starts where the one before it ends, the first at `at`.
 def ContiguousFrom: Float → List Leg → Prop
   | at, Nil => Unit
-  | at, Cons leg rest => And (leg.start = at) (ContiguousFrom (at + leg.duration) rest)
+  | at, Cons leg rest => (leg.start = at) ∧ (ContiguousFrom (at + leg.duration) rest)
 
 -- A duration is not negative in the total order, which rules out `-0.0`
 -- (below `0.0` there), and finite, which rules out the NaN and the
 -- infinities (`0.0 <= Float.nan` holds in the total order).
-def GoodDuration (leg: Leg): Prop := And (0.0 <= leg.duration) (Float.isFinite leg.duration = True)
+def GoodDuration (leg: Leg): Prop := (0.0 <= leg.duration) ∧ (Float.isFinite leg.duration = True)
 
 -- What each leg needs on its own: distinct track point ids, and a good
 -- duration.
-def LegOk (leg: Leg): Prop := And (List.Distinct (leg.points.map (point => point.id))) (GoodDuration leg)
+def LegOk (leg: Leg): Prop := (List.Distinct (leg.points.map (point => point.id))) ∧ (GoodDuration leg)
 
 def PlaceIdsDistinct: Option Itinerary → Prop
   | None => Unit
