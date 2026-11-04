@@ -1,5 +1,5 @@
 {
-  "next": 1184,
+  "next": 1185,
   "tickets": [
     {
       "id": 47,
@@ -4862,6 +4862,20 @@
         "elab"
       ],
       "body": "Full tier at 1cef1def (SW-1175): stitchwort-bench repeat counts_repeat_within_a_process failed: run 2 differed from run 1 by one allocation (4618791826 vs 4618791825; peak bytes 230708565 vs 230708541), all in accept/abilities-edge.sw (1598106 vs 1598105). Something carries state between two runs in one process. Suspects: tonight's state work (Logged shrink after rewind, SW-1179; Caches; Arc-shared session maps, 6b). Find it and make runs deterministic (or fix the cause), not loosen the test. Expected: 60 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1184,
+      "title": "rewind a_check_cancelled_part_way_rewinds peaks at 9.6 GB in the full tier",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "body": "Full tier 4 Nov 2026 (SW-1175): memguard's peak 10.95 GB, of which this one test 9.6 GB (249 s). Find out whether it's the test's design (many checks kept alive), the allocator keeping freed blocks, or a leak in rewind; it leaves only ~6 GB headroom under the 16 GB cap.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
