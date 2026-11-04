@@ -4043,15 +4043,15 @@
     {
       "id": 1125,
       "title": "Background proof actions: document-version guard and a bounded worker pool",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "Review §1.4: suggestions can refer to old text; repeated requests start overlapping expensive searches. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.",
+      "body": "Review §1.4: suggestions can refer to old text; repeated requests start overlapping expensive searches. From docs/research/rust-codebase-review.md (1 Nov 2026); D2238 (Matt, 3 Nov): file and start.\n\nD2297 (Matt, 4 Nov 2026): start beside 8a and SW-1170. Sonnet, expected: 90 min.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
