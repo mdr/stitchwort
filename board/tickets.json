@@ -1,5 +1,5 @@
 {
-  "next": 1279,
+  "next": 1280,
   "tickets": [
     {
       "id": 47,
@@ -11,9 +11,9 @@
         "playground",
         "tooling"
       ],
-      "body": "`web/test.sh` (docs/testing.md:57-70) runs the playground tests in headless Chrome only, locally; they are not in `nix flake check` because Chrome isn't in the Nix build sandbox and one test waits out the real 15 s timeout. Firefox and Safari are untested. The goal is a public static site (see the playground notes), so other browsers will be used.\n\nFirst step: decide (a) a manual cross-browser checklist run before a public release, (b) Firefox via WebDriver BiDi/Playwright in the same script, (c) leave as is. Safari can only be tested on a Mac.\n\nDone when: the decision is recorded in docs/testing.md, plus the script/checklist if (a) or (b).\n",
+      "body": "`web/test.sh` (docs/testing.md, \"Browser tests\") runs the playground tests in headless Chrome only, locally; they are not in `nix flake check` because Chrome isn't in the Nix build sandbox and one test waits out the real 15 s timeout. Firefox and Safari are untested. The goal is a public static site (see the playground notes), so other browsers will be used.\n\nFirst step: decide (a) a manual cross-browser checklist run before a public release, (b) Firefox via WebDriver BiDi/Playwright in the same script, (c) leave as is. Safari can only be tested on a Mac.\n\nDone when: the decision is recorded in docs/testing.md, plus the script/checklist if (a) or (b).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -26,23 +26,23 @@
         "kernel",
         "proof"
       ],
-      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n\n22 Oct 2026: D503 (Matt: yes) — build record eta after generated ext lemmas and glued values stage 1 land (both touch conversion).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n",
+      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n\n22 Oct 2026: D503 (Matt: yes) — build record eta after generated ext lemmas and glued values stage 1 land (both touch conversion).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nFrom SW-568 (merged, backlog review 4 Nov 2026): 'No eta for records in conversion': `p = { row = p.row, column = p.column }` needs a match on p. Sightings: rogue PROOFS.md, SW-960 (4), SW-990 (4), SW-999 (3). The D1981 reminder above is the same text. SW-789 stays as the decision; its 'D8: not now' is overtaken because at least four lanes have now needed eta, so SW-789 is the live question.",
       "created": "2026-10-19",
-      "updated": "2026-10-30",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 76,
-      "title": "Re-record benchmark times on a quiet machine",
+      "title": "Re-record benchmark times (bench baseline, native vs JS vs interpreter) on a quiet machine",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "Problem: the last `cargo run --release -p stitchwort-bench -- --update` ran under heavy load, so bench/baseline.toml's `time_ms` values (e.g. examples 38601.8 ms) were taken from earlier runs; steps, visits and allocations are current and deterministic.\n\nChange: on an otherwise idle machine, run the update once and commit baseline.toml. Run only when asked and with limited memory use.\n\nDone when: baseline.toml's time_ms values come from a single quiet-machine run and the commit message says so.\n\nHistory: none.\n",
+      "body": "Problem: the last `cargo run --release -p stitchwort-bench -- --update` ran under heavy load, so bench/baseline.toml's `time_ms` values (e.g. examples 38601.8 ms) were taken from earlier runs; steps, visits and allocations are current and deterministic.\n\nChange: on an otherwise idle machine, run the update once and commit baseline.toml. Run only when asked and with limited memory use.\n\nDone when: baseline.toml's time_ms values come from a single quiet-machine run and the commit message says so.\n\nHistory: none.\n\nFrom SW-659 (merged, backlog review 4 Nov 2026): D1380 (Matt, 26 Oct): not yet. Also compare native, JS and interpreter, not only the Rust bench's `time_ms`.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -54,9 +54,9 @@
       "labels": [
         "playground"
       ],
-      "body": "Problem: each call uses stack in linear memory (which the guard measures) and the engine's own call stack (about 1 MiB in V8); the engine's runs out first, so the guard is 128 KiB (crates/web/build.rs:19, override STITCHWORT_GUARD at :33), calibrated in Node and Chrome only. Firefox and Safari are unmeasured. 128 KiB gives about 25 levels of nesting and list literals of about 200 elements; 256 KiB would roughly double that with a 2x margin in Node. The parser's stack use per level could also be cut (e.g. boxing `Diagnostic` in its `Result`): that is SW-126.\n\nChange, one campaign: measure in all four engines with web/stress.html: nesting depth, long list/text literals (including compact `List Char` literals, d4d3626, which were only measured natively: the limit before E-RESOURCE and the time), then pick the guard size.\n\nEliminating recursion (stack-safe-evaluation steps 3 and 4, docs/proposals/stack-safe-evaluation.md) is the real fix; see also SW-62 (long literals) and SW-57 (JS limits in browsers, different subject: generated code).\n\nDone when: a table of limits per browser (nesting, literal length, compact text) is in docs/evaluator-speed.md or compact-text.md and the guard is set from it.\n\nHistory: split 19 Oct into SW-126; merged SW-61 (guard size) and SW-52 (compact text in WASM).\n",
+      "body": "Problem: each call uses stack in linear memory (which the guard measures) and the engine's own call stack (about 1 MiB in V8); the engine's runs out first, so the guard is 256 KiB (crates/web/build.rs, WASM_GUARD; override STITCHWORT_GUARD; it was 128 KiB until games/rogue's 11-field `State` was bundled), calibrated in Node and Chrome only. Firefox and Safari are unmeasured. 256 KiB gives about 25 levels of nesting and list literals of about 200 elements, with a margin of 2 only in Node/Chrome. The parser's stack use per level could also be cut (e.g. boxing `Diagnostic` in its `Result`): that is SW-126.\n\nChange, one campaign: measure in all four engines with web/stress.html: nesting depth, long list/text literals (including compact `List Char` literals, d4d3626, which were only measured natively: the limit before E-RESOURCE and the time), then pick the guard size.\n\nEliminating recursion (stack-safe-evaluation steps 3 and 4, docs/proposals/stack-safe-evaluation.md) is the real fix; see also SW-62 (long literals) and SW-57 (JS limits in browsers, different subject: generated code).\n\nDone when: a table of limits per browser (nesting, literal length, compact text) is in docs/evaluator-speed.md or compact-text.md and the guard is set from it.\n\nHistory: split 19 Oct into SW-126; merged SW-61 (guard size) and SW-52 (compact text in WASM).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -85,9 +85,9 @@
         "aoc",
         "design"
       ],
-      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.\n\n24 Oct 2026 (board review): wording update. `sweep` (Day04.sw:112) no longer exists: Day 4 now settles with settleRows over Vec (aoc/src/Aoc/Day04/Day04.sw:99, decreasing, SW-276). Days 4 to 9 all exist, so the \"measure first\" step can be answered from them.",
+      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.\n\n24 Oct 2026 (board review): wording update. `sweep` (Day04.sw:112) no longer exists: Day 4 now settles with settleRows over Vec (aoc/src/Aoc/Day04/Day04.sw:99, decreasing, SW-276). Days 4 to 9 all exist, so the \"measure first\" step can be answered from them.\n\nBacklog review, 4 Nov 2026: the motivating paragraph above is out of date. `sweep` and Aoc/Day04/Day04.sw:112 no longer exist (Day 4 is now under aoc/src/Aoc/Year2024/Day04/; `settle` became `decreasing`, 904029fba, SW-276); the 5 s figure is from before. First step now: re-measure Day 4 part 2 (2024) and 2025 days 4/8/9. SW-808 now lists 'array with constant-time indexing' as a DUPLICATE of this ticket, so this is the survivor. Related motivation: SW-813, SW-814 (interpreter and Map speed).",
       "created": "2026-10-19",
-      "updated": "2026-10-24",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -116,9 +116,9 @@
         "kernel",
         "proof"
       ],
-      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.\n\n22 Oct 2026: note docs/proposals/well-founded-recursion.md merged; D473-D475 asked.\n\n22 Oct 2026: D473 (option B, build stages 1-2), D474 (syntax: decreasing e after the result type; [decreasing := proof] at a call, else auto; also on theorems), D475 (AoC programs use the guard style) — Matt: yes. Stage 1 lane started; stage 2 (Nat.digits, List.chunksOf, day 4 off fuel) after the Nat.pow and day 4 port lanes land.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ae8ad06b9de0ac8ec (branch worktree-agent-ae8ad06b9de0ac8ec, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.\n\n24 Oct 2026 (board review): of the fuel users listed under Problem, Nat.digitsFuel, the day 4 settle and day 2 weightFuel are off fuel (SW-276, SW-285); Nat.divFuel (crates/elab/src/std/core/Division.sw:11, now not std/core.sw:366) and transposeN remain, on their triggers.",
+      "body": "Problem: recursion that isn't structural is written with fuel today: of the fuel-based recursions listed on 21 Oct, only Nat.divFuel (`/` and `%`, crates/elab/src/std/core/Division.sw:11) is left in std, plus transposeN (Nat.digitsFuel, the day 4 settle and day 2 weightFuel are gone: Digits.sw now uses `decreasing n`, 904029fba, SW-276). It needs fuel-enough and fuel-irrelevant lemmas. Stages 1, 2, 3a-3d are done; remaining stage-3 items: mutual groups, Nat.div (f.induct: SW-1057, done).\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel is rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.\n\n22 Oct 2026: note docs/proposals/well-founded-recursion.md merged; D473-D475 asked.\n\n22 Oct 2026: D473 (option B, build stages 1-2), D474 (syntax: decreasing e after the result type; [decreasing := proof] at a call, else auto; also on theorems), D475 (AoC programs use the guard style) — Matt: yes. Stage 1 lane started; stage 2 (Nat.digits, List.chunksOf, day 4 off fuel) after the Nat.pow and day 4 port lanes land.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ae8ad06b9de0ac8ec (branch worktree-agent-ae8ad06b9de0ac8ec, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.\n\n24 Oct 2026 (board review): of the fuel users listed under Problem, Nat.digitsFuel, the day 4 settle and day 2 weightFuel are off fuel (SW-276, SW-285); Nat.divFuel (crates/elab/src/std/core/Division.sw:11, now not std/core.sw:366) and transposeN remain, on their triggers.",
       "created": "2026-10-21",
-      "updated": "2026-10-24",
+      "updated": "2026-11-04",
       "commits": [
         "7c27c8a0",
         "afa4d4d2",
@@ -136,9 +136,9 @@
         "design",
         "js"
       ],
-      "body": "",
+      "body": "Problem: we want to know whether a real TypeScript app's core logic can be written in Stitchwort, proved, and used from TS as generated JS.\n\nThe change: port it (private repo, nothing committed here).\n\nDone when: a short note in this repo lists what worked and the friction found (the numbered findings already feed SW-578, 597, 608, 622, 623, 627, 629, 642).\n\nBacklog review, 4 Nov 2026: no activity since 26 Oct; SW-595 and SW-647 are the same private-port family and sit in backlog. Status left as `doing` pending Matt's answer.",
       "created": "2026-10-22",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -159,110 +159,112 @@
     },
     {
       "id": 467,
-      "title": "Partial stage 3b: runners execute partial callbacks inside map (native, JS, reference), stack-safe, ticks as specified",
+      "title": "Partial callbacks inside List.map run on native, --js and the reference runner, stack-safe",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: A function marked {Partial} (it might run forever) can only be called from other partial code. `List.map` with a partial callback is not yet supported by the runners (native, `--js`, the reference evaluator), so a partial function cannot be mapped over a list. This is lane 3b of docs/proposals/partial-stage-3.md (section 7.4).\n\nThe change: make the three runners execute partial callbacks inside `map`, without growing the stack, and counting ticks exactly as the note specifies. The 4e generator gets partial callbacks through `map`.\n\nWhat it should do: tick counts and traces agree across the runners; the 1M-element speed figures from the note are met; the `partial.rs` tick tests, `run_js`/`run_reference` on the new example and `effect_runtime` pass. Sonnet. Depends on 3a (library and elaborator part) being merged first.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 469,
-      "title": "Partial stage 3d: runner fast paths + cheaper request node for partial calls; keep only with >=1.5x and identical tick traces (D1219)",
+      "title": "Make calls to partial functions cheaper in the runners (about 3x slower than ordinary calls today)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: calls to {Partial} functions are about 3x slower than ordinary ones natively and about 2x in JS; half of the native cost is the request node a partial call builds (D1182, docs/proposals/partial-stage-3.md section 5.4).\n\nThe change: runner fast paths plus a cheaper request node for partial calls, in both backends (D1182 A+B, lane 3d of the note, section 7.4).\n\nWhat it should do: keep the change only if it gives at least 1.5x on `p2-collatz` (or the note's model comparison in `partial.rs`) with identical tick traces (D1219). If the gain is smaller, drop it and record the measurement on this ticket. Sonnet.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 470,
-      "title": "Partial stage 3e: direct loop for tail self-calls in partial functions; >=1.5x, identical ticks (D1219)",
+      "title": "Run a partial function's tail self-calls as a loop",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: a partial function that calls itself in tail position still builds a request and a frame per call (D1182 C, lane 3e of docs/proposals/partial-stage-3.md).\n\nThe change: compile tail self-calls of partial functions to a direct loop in the runners, after SW-469.\n\nWhat it should do: at least 1.5x faster on the loop shapes in the note (4e loop shapes, `p2-collatz`) with identical tick counts (D1219); otherwise drop it. Sonnet.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 509,
       "title": "Inference gap from the roguelike: a record literal needs a type when one record type fits (design question). Done 27 Oct: let-bound lambdas inferred; '_' for an inline record in a proof",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Closed 4 Nov 2026 (backlog review): superseded: the field-name rule (one record type in scope with exactly these fields) exists (SW-805/D1442 done; examples/accept/postpone-record-literal-argument.sw) and the body already recorded the let-lambda and '_' fixes; no open part remained.",
       "created": "2026-10-25",
-      "updated": "2026-10-27",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 510,
-      "title": "Think about how constructors are namespaced (nested inside their union type? resolve by expected type?); rogue renamed Quit to GaveUp because of D2 ambiguity (NOTES stage 1 #8). Discuss with Matt",
+      "title": "Constructor names: should they live inside their type (Quit vs GaveUp ambiguity), or be resolved by expected type?",
       "status": "backlog",
       "agent": "",
       "where": "",
-      "labels": [],
-      "body": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "The problem: constructors of different union types share one namespace, so two types cannot both have a constructor `Quit`. The roguelike renamed its `Quit` to `GaveUp` for this reason (D2, NOTES stage 1 #8; unchecked wording).\n\nThe change: a design discussion with Matt first. Options: constructors nested in their type (`Outcome.Quit`), or resolving a bare name by the expected type, or leaving as is and documenting the rename trick.\n\nWhat it should do: Matt picks one; if the answer is not \"leave as is\", a design note in docs/proposals/ follows. Label it `decision` so it shows up.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 513,
-      "title": "Parameter untupling (Scala 3): a two-parameter lambda where a function on pairs is expected splits each pair, so .map ((row, chars) => …) works; https://docs.scala-lang.org/scala3/reference/other-new-features/parameter-untupling.html (NOTES stage 1 #10)",
+      "title": "Parameter untupling: ((row, chars) => ...) where a function on pairs is expected",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: a lambda written with two parameters is refused where a function on pairs is expected, so `.map ((row, chars) => ...)` needs `.map (((row, chars)) => ...)` (extra brackets). Scala 3 splits the pair automatically (\"parameter untupling\", https://docs.scala-lang.org/scala3/reference/other-new-features/parameter-untupling.html). Found in the roguelike port (NOTES stage 1 #10).\n\nThe change: when a lambda with n>1 parameters is checked against a one-argument function on an n-tuple, treat it as a pattern lambda over the tuple.\n\nWhat it should do: `[(1, \"a\")].map ((n, s) => ...)` is accepted and means the same as the bracketed form; arities that don't match still give the usual error. Needs Matt's go-ahead because it is a syntax rule.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 536,
-      "title": "Terminal.simulate: expose frame accumulator so proofs can induct over loop turns (rogue PROOFS.md)",
+      "title": "Terminal.simulate: make the frame accumulator visible so proofs can do induction over turns",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "D1376 (26 Oct): left on backlog by Matt",
+      "body": "The problem: the roguelike proofs (PROOFS.md) cannot induct over the turns of a terminal run because `Terminal.simulate` hides its accumulated frames.\n\nThe change: expose the frame accumulator (a loop function with the accumulator as an argument and a lemma relating it to `simulate`), as the roguelike proof needs.\n\nWhat it should do: a theorem about the whole run can be proved by induction over the turn list.\n\nD1376 (26 Oct): left on backlog by Matt",
       "created": "2026-10-25",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 548,
-      "title": "Std Effect.bindAssoc relies on an axiom; a proved monad law under handlers would remove rogue's draw-then-plan restructuring (rogue PROOFS.md gap 2)",
+      "title": "Std Effect.bindAssoc is an axiom: prove the monad law so proofs under handlers can use it",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: `Effect.bindAssoc` (associativity of bind) is assumed as an axiom in std. Every theorem that uses it shows up in `stitchwort audit` with an axiom, and the roguelike had to restructure its code (draw first, then plan) to avoid needing a proved monad law under handlers (rogue PROOFS.md gap 2).\n\nThe change: prove it (probably needs a computation-equality/extensionality principle for Comp), or restrict it to the handler-free case.\n\nWhat it should do: no axiom left in std for the effect monad laws; `audit` clean on the roguelike generation theorems. Related: SW-570 (symbolic stepping through handlers), SW-660.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 553,
-      "title": "Inference: unannotated lambda inside an {IO} body makes effect-polymorphic List functions run at {IO} instead of the empty row (pure inline folds in main pay effect dispatch) — for Matt",
+      "title": "An unannotated lambda inside an {IO} body makes List.map/fold run at {IO} instead of pure",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: in a `main : {IO} ...` body, a lambda without a type annotation passed to an effect-polymorphic List function (map, foldLeft) is given the {IO} row, not the empty row, so a pure fold in main pays effect dispatch (the interpreter builds effect nodes it does not need).\n\nThe change: when the lambda body performs no effects, infer the empty row for the lambda (docs/proposals/effect-polymorphic-list.md covers the design; unchecked whether this is already on its roadmap).\n\nWhat it should do: a pure inline fold inside main costs the same as outside it; a test in the bench or a step-count example shows no effect dispatch. \"For Matt\": asks for his go-ahead on the inference rule.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -272,21 +274,21 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Backlog review, 4 Nov 2026: re-test before keeping. SW-922 (done, 42d6e4540 'Nat.divFuel's step is a call stuck on its comparison') changed how `x % D` unfolds. Re-check whether `Random.xorBits` normal forms still grow ~4x per bit, and whether the differential test still skips them. Related: SW-199 (divFuel), SW-1238 (total %).",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 555,
-      "title": "Effect runtime option B: state loop at an open row (design note + soundness argument) — D1291 for Matt",
+      "title": "Effect runtime option B: run state-handler loops at an open effect row (design note and soundness argument)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: the effect runtime handles a state loop by capturing a resumption per operation. Option B in docs/proposals/effect-runtime.md section 9.11 (D1291) runs such loops directly when the handler's row is open.\n\nThe change: write the design note with a soundness argument and a measured cost model; no code until Matt agrees. Related: SW-593 (effect representation change, D1297 trigger met) and SW-1087 (report on handler fast paths).\n\nWhat it should do: Matt decides D1291 from the note.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -303,62 +305,62 @@
     },
     {
       "id": 562,
-      "title": "Revisit D1298: compile IO directly (native code calls the OS for print/read, no Delay value or Rust runner) instead of keeping the Rust IO runner in native binaries; Matt asked to revisit (26 Oct). Measure the runner's share on an IO-heavy program first (native-only.md §2)",
+      "title": "Compile IO directly in native binaries instead of going through the Rust IO runner (revisit D1298)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: native executables keep a Rust runner for IO (print/read), so every IO operation builds a Delay value and goes through the runner. D1298 kept it; Matt asked on 26 Oct to revisit.\n\nThe change: first measure the runner's share on an IO-heavy program (docs/proposals/native-only.md section 2). If large, generate code that calls the OS directly.\n\nWhat it should do: a measured number on this ticket; then Matt decides. Related: SW-593.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 564,
       "title": "Revisit: prove the generation theorems (generatedReachable, generatedFramed, newGameSound, drawn*) over the free-style {Random} generator — e.g. a list handler + one seeded-equals-list lemma; blocked today by symbolic handler stepping (E-RESOURCE) and Effect.bindAssoc's axiom (PROOFS.md gaps #2-3). Matt asked to revisit, 26 Oct",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Merged into SW-570 (backlog review, 4 Nov 2026)",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 568,
       "title": "No eta for records in conversion: 'p = { row = p.row, column = p.column }' needs a match on p (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n",
+      "body": "\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nMerged into SW-55 (backlog review, 4 Nov 2026)",
       "created": "2026-10-26",
-      "updated": "2026-10-30",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 570,
-      "title": "Proofs through a handler step symbolically and run out of resources (rogue: generator under seeded; the reason turns use one next() + index-hashed Dice). Find what the checker needs so effectful code is provable as written (rogue PROOFS.md 'Tried')",
+      "title": "Proofs about effectful code run out of resources stepping through handlers symbolically (E-RESOURCE)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: when a theorem is about code that runs under a handler (for example the roguelike generator under `seeded`), the checker steps through the handler symbolically and hits E-RESOURCE. The roguelike therefore uses one `next()` per turn and derives every roll from an index hash (the \"Dice\" workaround, SW-571 text below), so its invariants are proved on the pure `resolve` function only.\n\nThe change: find out what the checker needs so effectful code can be proved as written (rogue PROOFS.md \"Tried\" section lists the attempts). Candidate pieces: Effect.bindAssoc without an axiom (SW-548), a lemma \"seeded equals list handler\", cheaper symbolic stepping.\n\nWhat it should do: the generation theorems (generatedReachable, generatedFramed, newGameSound, drawn*) are proved over the free-style {Random} generator, and the roguelike goes back to calling `roll` freely, deleting the index-hashing.\n\nMerged in from SW-564 (backlog review, 4 Nov 2026): prove those generation theorems over the free-style generator; blocked by symbolic handler stepping (E-RESOURCE) and the Effect.bindAssoc axiom (PROOFS.md gaps #2-3). Matt asked to revisit, 26 Oct.\nMerged in from SW-571 (backlog review, 4 Nov 2026): per-turn Dice is a provability workaround: `step` calls `next()` once and derives every roll by index hashing (dice.upTo (3*index+1) ..., Dice.upTo = lcg(lcg(seed+index*7919)), Turn.sw/Random.sw) instead of calling `roll` freely. Then `seeded seed (step s c) = resolve dice s c` by rfl (Proofs/Step.sw), so all core invariants are proved about pure `resolve` for every seed. Revert to free `roll` once provable (D1305, Matt 26 Oct). Idea, untested: state invariants for any answers to `roll`, not via `seeded`.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 571,
       "title": "Roguelike per-turn Dice is a provability workaround: step calls next() once and derives every roll by index hashing (dice.upTo (3*index+1) …, Dice.upTo = lcg(lcg(seed+index*7919)), Turn.sw/Random.sw) instead of calling roll freely. Why: then seeded seed (step s c) = resolve dice s c by rfl (Proofs/Step.sw), so all core invariants (walls, HP, occupancy, stepValid, replayValid) are proved about pure resolve for every seed. Free roll would lose them until proofs through a handler stop stepping symbolically into E-RESOURCE (see the handler-stepping ticket; Effect.bindAssoc axiom). Idea (untested): state invariants for any answers to roll rather than via seeded. Revert to free roll once provable (D1305, Matt 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Merged into SW-570 (backlog review, 4 Nov 2026)",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -411,14 +413,14 @@
     },
     {
       "id": 605,
-      "title": "run --native under Linux strict overcommit (mode 2) is refused: it reserves the full 64 GiB on the CLI thread; fix by sizing before the thread starts (needs the JIT code and terminal to be movable across threads) (NO6/NO7 open item)",
+      "title": "run --native refuses to start under Linux strict overcommit (mode 2): it reserves 64 GiB on the CLI thread",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: with vm.overcommit_memory=2, `stitchwort run --native` reserves its full 64 GiB up front on the CLI thread and the OS refuses.\n\nThe change: size the reservation before the thread starts. That needs the JIT code and the terminal to be movable across threads (open item from NO6/NO7).\n\nWhat it should do: `run --native` starts under mode 2 on a machine with ordinary memory, reserving only what the program needs, or giving a clear error naming the limit.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -435,26 +437,26 @@
     },
     {
       "id": 622,
-      "title": "Signature defaults stage 2: JS options object for exported defaults (D1355)",
+      "title": "Signature defaults, stage 2: exported functions with defaults take a JS options object",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: functions with default arguments (docs/proposals/signature-defaults.md) are exported to JavaScript with positional parameters, so a JS caller cannot omit defaults or name arguments.\n\nThe change: generate an options-object entry point for exported defaults (D1355).\n\nWhat it should do: from JS, `f({ x: 1 })` works with the declared defaults, positional calls still work, and the generated TypeScript types show the optional fields.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 623,
-      "title": "Signature defaults stage 3: constructor calls use field defaults (D1346)",
+      "title": "Signature defaults, stage 3: constructor calls use field defaults",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: fields can't have default values at construction: every constructor call must write every field.\n\nThe change: constructor calls use the defaults declared on the fields (D1346, docs/proposals/signature-defaults.md stage 3).\n\nWhat it should do: `T (a := 1)` fills missing fields from their declared defaults, the same rules as functions, and hashes of existing code don't change.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -471,14 +473,14 @@
     },
     {
       "id": 628,
-      "title": "Naming (D1367, to consider): the always-true proposition is called Unit (type Unit: Prop = | Trivial, core/Logic.sw:12), which misleads Scala/Kotlin readers; the data unit type has no name, only () (Builtin.UnitType, core/Effect.sw:94). True is taken by Bool's constructor. Proposal: prop → Truth (proof Trivial), data () named Unit; alternatives Top / ⊤. ~113 uses in std+examples",
+      "title": "Rename the always-true proposition Unit to something else (Truth/Top) and give the data unit type the name Unit",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: `Unit` is a proposition (type Unit: Prop = | Trivial, core/Logic.sw:12), which misleads readers from Scala/Kotlin where Unit is the data type with one value. The data unit type has no name, only `()` (Builtin.UnitType, core/Effect.sw:94). `True` is taken by Bool's constructor. About 113 uses in std + examples (D1367, to consider).\n\nThe change: rename the proposition to `Truth` (proof `Trivial`); alternatives `Top` or the symbol `⊤`. Name the data type `Unit`. Hashes change; that is fine (migration cost does not count).\n\nWhat it should do: `Unit` means the one-value data type everywhere in docs and std; the proposition has its own name; a sweep of std/examples/aoc compiles and audits clean. Needs Matt's choice of name.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -495,26 +497,26 @@
     },
     {
       "id": 638,
-      "title": "Float laws stage 3: mul, ofInt, ofNat via roundScaled",
+      "title": "Float laws stage 3: mul, ofInt, ofNat defined through roundScaled (docs/proposals/float-laws.md)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 639,
-      "title": "Float laws stage 4: div (roundRatio), rem, floor, ceil, trunc, round as definitions; no float primitive left with a reduction rule",
+      "title": "Float laws stage 4: div, rem, floor, ceil, trunc, round as definitions; no float primitive keeps a reduction rule",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -543,14 +545,14 @@
     },
     {
       "id": 649,
-      "title": "auto: membership in a 1000-element literal list takes ~22 s (roughly quadratic); 100 elements is 0.21 s. Only if a program needs huge literal lists (auto-depth lane, 26 Oct)",
+      "title": "auto: membership in a 1000-element literal list takes ~22 s (about quadratic)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: `auto` proving `x` is a member of a literal list with 1000 elements takes about 22 s; with 100 elements, 0.21 s. Growth is roughly quadratic (found by the auto-depth lane, 26 Oct).\n\nThe change: only if a program needs it: make the membership search linear (a decision procedure for List.Mem on literals).\n\nWhat it should do: 1000 elements in under about 1 s. Leave in backlog until a real program needs huge literal lists.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -568,13 +570,13 @@
     {
       "id": 659,
       "title": "Re-record benchmarks native vs JS vs interpreter on a quiet machine (D1380: not yet, Matt 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Merged into SW-76 (backlog review, 4 Nov 2026)",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -615,14 +617,14 @@
     },
     {
       "id": 676,
-      "title": "Or-patterns that bind variables (Rust-style: every alternative binds the same names, https://doc.rust-lang.org/reference/patterns.html#or-patterns). D1401 (Matt, 27 Oct): or-patterns ship without binding first; consider binding when a program needs it",
+      "title": "Or-patterns that bind variables (Rust-style): every alternative binds the same names",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "The problem: or-patterns (`A | B => ...`) currently shipped without binding variables (D1401, Matt 27 Oct). A program may want `Left x | Right x => ...`.\n\nThe change: allow bindings if every alternative binds the same names at the same types (Rust reference, patterns, or-patterns).\n\nWhat it should do: such arms are accepted, and the proof side (equations and f.induct) sees one case per alternative. Consider only when a real program needs it.",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -676,13 +678,13 @@
     {
       "id": 704,
       "title": "Nested data types: Packets (items: List Packet) is refused with E-POSITIVITY; tree-shaped puzzle input needs it (parser research, 27 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "stages 1-3 and leftovers merged (0fa93057); stage 4 (AoC 2022 day 13) ON HOLD: Matt, 30 Oct",
       "labels": [],
-      "body": "\n\nExternal review (29 Oct) of docs/proposals/nested-data-types.md: approve in principle, revise the rule before coding: base it on the 2026 Lamiaux-Forster-Sozeau-Tabareau nestable-parameter criterion (not old Rocq nested positivity); fix the translation-argument tension (later fields using List functions); derive the parameter side condition; earlier mutual outer types; termination as concrete subvalue containment; keep quotients refused; property-style translation oracle; All-predicate induction. D1820 (Matt): yes, research lane to rethink.\n\nDraft 2 merged 29 Oct (LFST nestable-parameter rule; prototype changed only reject/nested-data.sw across 1,075 examples). Open: D1821 adopt rule incl. mutual outer types / earlier-field indices / predicate parameters in stage 1; D1822 nested Prop eliminates into data? (rec no); D1823 T.induct with All hypotheses + membership corollary. Prototype patch on branch worktree-agent-a7f334dd0df947551 (a6cecfd1, dev/scratch, not merged).\n\nD1821 (Matt, 29 Oct): yes, adopt the draft 2 rule for stage 1, incl. earlier mutual outer types, earlier-field indices (List (Tree n)) and predicate parameters. Stage 1 lane started.\n\nStage 1 merged 29 Oct (50299c69 + b03773d2): kernel rule, examples, must-reject pairs, oracle (4000 cases: no unsound acceptance). D1822 taken conservatively (nested Prop eliminates only into proofs). Next: stage 2 derived ==/</Show; stage 3 All/induct/size; stage 4 dogfood (AoC 2022 day 13, 2021 day 18). Open (As built): §5.3 checks fields, not constructor result indices.\n\nD1840 (Matt, 29 Oct): yes, stage 2 (derived ==, <, Show for nested types).\n\nStage 2 merged 29 Oct (305fbfdc): derived ==, compare/<, Show through List, Option and pairs (nested combinations too); generated per-container helpers, structural. Not derived: Vec, user containers, earlier mutual groups, mutual nested types, indexed types. Untested: user-written DecEq then derived Ord. Next: stage 3 (All, T.induct, size/membership lemma, auto for decreasing), stage 4 dogfood.\n\nD1870 (Matt, 29 Oct): yes, stage 3 (generated All, T.induct with All hypotheses + T.inductMem corollary per the note §9 / D1823 recommendation, size and membership lemma, auto for decreasing).\n\n== Stage 3 progress log (one lane at a time; every step checked) ==\n29 Oct, resumed after stop. Branch worktree-agent-ae70fd73172506d46: 4 commits (0a11bfce, f2a3d967 WIP, f063ee17, 86faca57), working tree clean. Main is 15 commits ahead but only docs/research and board: no code conflict.\nChecked by Claude: task build OK; nested-data.sw and nested-data-induction.sw tests pass with --no-cache (3/3, 3/3); nested-data-derived 34/34; shapes checks. Packet.depth (attach.map, decreasing Packet.size p) checks with no hand-written lemma. run / --js / --reference / --native print identical output for both examples.\nNot yet done: test lanes, fmt, clippy, docs (syntax.md, core.md, note As built stage 3, D1823 resolved), timing check.\n29 Oct: stage 3 clippy fixed (390be1e1: type aliases Extra/OwnedExtra, iterate lemma slots; no behaviour change). Branch also failed cargo fmt --check (36 hunks in auto.rs, derive_induct.rs; main clean), fixed by cargo fmt (5a86e7c8). Now pass: clippy --deny warnings for stitchwort-elab and --workspace, cargo fmt --all --check, task build, lanes elab (77/77), hashes (3/3), examples NAME=nested (7/7).\n29 Oct: stage 3 docs (0585b936): note As built (stage 3) with REPL-printed signatures of Packet.size/induct/inductMem, Ranked.induct, Bag.All, Wide.%Vec%All, and the size lemma's statement read from derive_induct.rs (% names can't be written in source, so not run); status line; D1823 marked adopted (D1870). syntax.md: generated declarations under nested types. core.md: the core's new List/Option/Pair All, memOfAll, Nat.leAddOf*; List.Mem core built-in (registry.rs, the only crates/core change). Found while checking: (1) an [auto] argument Packet.size q < Packet.size (Packets items) with h: List.Mem q items is NOT proved (E-AUTO-STUCK, message shows hidden Packet.%m1%size); decreasing obligations are. (2) PRE-EXISTING ON MAIN, not stage 3: Packet + theorem (items: List Packet) (q: Packet) (h: List.Mem q items): q = q := nope + type Wide = WLeaf | WNode (kids: Vec Wide 2) makes check use 28 GB in 8 s (memguard kill at 2 GB on main's binary too); needs a ticket.\n30 Oct: stage 3 timing ((note: 789645fb)), min/median of 3, branch vs main 6a3f4b19: whole std eager no cache (Session::eager, scratch binary) 4.40/4.45 s vs 4.39/4.43 s (load 7-8); main's examples/accept 316 files check --no-cache one at a time 98.2/98.5 s vs 96.4/96.6 s (+2%, 0 failures, load 4-7); aoc check --no-cache CPU user+sys 33.0/33.1 s vs 32.9/33.3 s, peak 1.39 GB both. Caveat: the machine slept during some aoc runs (wall 931 s and 1021 s for 33 s of CPU), so aoc is reported as CPU time; clean runs were 33-35 s wall either way. Stage 3 lane tasks done; not merged, not pushed.\n30 Oct, leftovers lane (D1977, branch worktree-agent-ad05ea268d897e6a2): a9042499 dead code out of derive_induct.rs; 4cdcfc4b [auto] size argument from h: List.Mem q items now proved (cause: membership_facts took only glued List.Any calls, a List.Mem hypothesis is a glued List.Mem call; the goal was the same form as decreasing's), E-AUTO-STUCK adds a note for %-names. Lanes/clippy next.\n30 Oct: leftovers lane done, 2fc2fe26 snapshots (hash_stability nested-data-induction: 6 new defs only; new reject nested-data-auto-other-list). Lanes elab 78/78, std 21/21, core 153/153, hashes 3/3, examples NAME=nested 7/7; clippy --workspace --deny warnings, cargo fmt, stitchwort fmt clean. No aoc timing (change only runs on stuck goals). Not merged, not pushed.\n",
+      "body": "\n\nExternal review (29 Oct) of docs/proposals/nested-data-types.md: approve in principle, revise the rule before coding: base it on the 2026 Lamiaux-Forster-Sozeau-Tabareau nestable-parameter criterion (not old Rocq nested positivity); fix the translation-argument tension (later fields using List functions); derive the parameter side condition; earlier mutual outer types; termination as concrete subvalue containment; keep quotients refused; property-style translation oracle; All-predicate induction. D1820 (Matt): yes, research lane to rethink.\n\nDraft 2 merged 29 Oct (LFST nestable-parameter rule; prototype changed only reject/nested-data.sw across 1,075 examples). Open: D1821 adopt rule incl. mutual outer types / earlier-field indices / predicate parameters in stage 1; D1822 nested Prop eliminates into data? (rec no); D1823 T.induct with All hypotheses + membership corollary. Prototype patch on branch worktree-agent-a7f334dd0df947551 (a6cecfd1, dev/scratch, not merged).\n\nD1821 (Matt, 29 Oct): yes, adopt the draft 2 rule for stage 1, incl. earlier mutual outer types, earlier-field indices (List (Tree n)) and predicate parameters. Stage 1 lane started.\n\nStage 1 merged 29 Oct (50299c69 + b03773d2): kernel rule, examples, must-reject pairs, oracle (4000 cases: no unsound acceptance). D1822 taken conservatively (nested Prop eliminates only into proofs). Next: stage 2 derived ==/</Show; stage 3 All/induct/size; stage 4 dogfood (AoC 2022 day 13, 2021 day 18). Open (As built): §5.3 checks fields, not constructor result indices.\n\nD1840 (Matt, 29 Oct): yes, stage 2 (derived ==, <, Show for nested types).\n\nStage 2 merged 29 Oct (305fbfdc): derived ==, compare/<, Show through List, Option and pairs (nested combinations too); generated per-container helpers, structural. Not derived: Vec, user containers, earlier mutual groups, mutual nested types, indexed types. Untested: user-written DecEq then derived Ord. Next: stage 3 (All, T.induct, size/membership lemma, auto for decreasing), stage 4 dogfood.\n\nD1870 (Matt, 29 Oct): yes, stage 3 (generated All, T.induct with All hypotheses + T.inductMem corollary per the note §9 / D1823 recommendation, size and membership lemma, auto for decreasing).\n\n== Stage 3 progress log (one lane at a time; every step checked) ==\n29 Oct, resumed after stop. Branch worktree-agent-ae70fd73172506d46: 4 commits (0a11bfce, f2a3d967 WIP, f063ee17, 86faca57), working tree clean. Main is 15 commits ahead but only docs/research and board: no code conflict.\nChecked by Claude: task build OK; nested-data.sw and nested-data-induction.sw tests pass with --no-cache (3/3, 3/3); nested-data-derived 34/34; shapes checks. Packet.depth (attach.map, decreasing Packet.size p) checks with no hand-written lemma. run / --js / --reference / --native print identical output for both examples.\nNot yet done: test lanes, fmt, clippy, docs (syntax.md, core.md, note As built stage 3, D1823 resolved), timing check.\n29 Oct: stage 3 clippy fixed (390be1e1: type aliases Extra/OwnedExtra, iterate lemma slots; no behaviour change). Branch also failed cargo fmt --check (36 hunks in auto.rs, derive_induct.rs; main clean), fixed by cargo fmt (5a86e7c8). Now pass: clippy --deny warnings for stitchwort-elab and --workspace, cargo fmt --all --check, task build, lanes elab (77/77), hashes (3/3), examples NAME=nested (7/7).\n29 Oct: stage 3 docs (0585b936): note As built (stage 3) with REPL-printed signatures of Packet.size/induct/inductMem, Ranked.induct, Bag.All, Wide.%Vec%All, and the size lemma's statement read from derive_induct.rs (% names can't be written in source, so not run); status line; D1823 marked adopted (D1870). syntax.md: generated declarations under nested types. core.md: the core's new List/Option/Pair All, memOfAll, Nat.leAddOf*; List.Mem core built-in (registry.rs, the only crates/core change). Found while checking: (1) an [auto] argument Packet.size q < Packet.size (Packets items) with h: List.Mem q items is NOT proved (E-AUTO-STUCK, message shows hidden Packet.%m1%size); decreasing obligations are. (2) PRE-EXISTING ON MAIN, not stage 3: Packet + theorem (items: List Packet) (q: Packet) (h: List.Mem q items): q = q := nope + type Wide = WLeaf | WNode (kids: Vec Wide 2) makes check use 28 GB in 8 s (memguard kill at 2 GB on main's binary too); needs a ticket.\n30 Oct: stage 3 timing ((note: 789645fb)), min/median of 3, branch vs main 6a3f4b19: whole std eager no cache (Session::eager, scratch binary) 4.40/4.45 s vs 4.39/4.43 s (load 7-8); main's examples/accept 316 files check --no-cache one at a time 98.2/98.5 s vs 96.4/96.6 s (+2%, 0 failures, load 4-7); aoc check --no-cache CPU user+sys 33.0/33.1 s vs 32.9/33.3 s, peak 1.39 GB both. Caveat: the machine slept during some aoc runs (wall 931 s and 1021 s for 33 s of CPU), so aoc is reported as CPU time; clean runs were 33-35 s wall either way. Stage 3 lane tasks done; not merged, not pushed.\n30 Oct, leftovers lane (D1977, branch worktree-agent-ad05ea268d897e6a2): a9042499 dead code out of derive_induct.rs; 4cdcfc4b [auto] size argument from h: List.Mem q items now proved (cause: membership_facts took only glued List.Any calls, a List.Mem hypothesis is a glued List.Mem call; the goal was the same form as decreasing's), E-AUTO-STUCK adds a note for %-names. Lanes/clippy next.\n30 Oct: leftovers lane done, 2fc2fe26 snapshots (hash_stability nested-data-induction: 6 new defs only; new reject nested-data-auto-other-list). Lanes elab 78/78, std 21/21, core 153/153, hashes 3/3, examples NAME=nested 7/7; clippy --workspace --deny warnings, cargo fmt, stitchwort fmt clean. No aoc timing (change only runs on stuck goals). Not merged, not pushed.\n\nClosed 4 Nov 2026 (backlog review): stages 1-3 and the leftovers lane are merged (0fa93057f, 4cdcfc4bc, 2fc2fe265; examples nested-data*.sw accepted). The 'Not merged, not pushed' lines above are stale. The 28 GB `Vec Wide 2` finding now has its own ticket SW-1279.",
       "created": "2026-10-27",
-      "updated": "2026-10-30",
+      "updated": "2026-11-04",
       "commits": [
         "96bece69",
         "0c5b5466",
@@ -823,23 +825,23 @@
       "labels": [
         "decision"
       ],
-      "body": "The compiler already detects them in state handlers; Effekt detects them too. Rec: automatically.\n\n2 Nov 2026 (SW-1085, D2206): one more data point for declaring the mode. Osprey declares it per operation (a value operation, or `control` with abort/once/many resumptions; a handler can't change it), as Koka does with fun/ctl and Lexa does. A declaration would let the runtime take the in-place path without detection, and would give JS extraction the at-most-once guarantee it needs (DESIGN §16 Q9). `many` adds nothing here (every resumption is multi-shot already). SW-1087 (report/assert the fast path) addresses the silent-detection risk if detection stays.\n",
+      "body": "The compiler already detects them in state handlers; Effekt detects them too. Rec: automatically.\n\n2 Nov 2026 (SW-1085, D2206): one more data point for declaring the mode. Osprey declares it per operation (a value operation, or `control` with abort/once/many resumptions; a handler can't change it), as Koka does with fun/ctl and Lexa does. A declaration would let the runtime take the in-place path without detection, and would give JS extraction the at-most-once guarantee it needs (DESIGN §16 Q9). `many` adds nothing here (every resumption is multi-shot already). SW-1087 (report/assert the fast path) addresses the silent-detection risk if detection stays.\n\nFrom SW-792 (merged, backlog review 4 Nov 2026), D1429: if B goes ahead, limit in-place clauses to empty-row handlers at first. It avoids the subtle part Koka first got wrong, and still covers the parser's handler and every state loop. Rec: yes.",
       "created": "2026-10-28",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 792,
       "title": "Consider D1429: If B goes ahead, limit in-place clauses to empty-row handlers at first",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Avoids the subtle part Koka first got wrong; still covers the parser's handler and every state loop. Rec: yes.",
+      "body": "Avoids the subtle part Koka first got wrong; still covers the parser's handler and every state loop. Rec: yes.\n\nMerged into SW-791 (backlog review, 4 Nov 2026)",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -971,15 +973,15 @@
     {
       "id": 803,
       "title": "Consider D1440: Definitional proof irrelevance in the kernel",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Day 13 changed its program around \"yes y and yes h aren't equal\"; ring treats x % d from two places as different because of hidden proofs (day 13, Int lemmas). Rec: yes, after a design note (trusted code).",
+      "body": "Day 13 changed its program around \"yes y and yes h aren't equal\"; ring treats x % d from two places as different because of hidden proofs (day 13, Int lemmas). Rec: yes, after a design note (trusted code).\n\nClosed 4 Nov 2026 (backlog review): answered yes: docs/proposals/proof-irrelevance.md draft 5 (688de314c); implemented in SW-93 (doing, stage 1) with SW-1226, SW-1268, SW-1250 done.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1003,9 +1005,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- DONE since: hangs name their declaration (SW-843), 'f -2' message (SW-840).\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1015,9 +1017,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n\nBacklog review, 4 Nov 2026: nothing newer than the triage above; the OPEN items are the list of what is left (the pair.fst message may be fixed by the SW-822 lane: re-test).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1107,23 +1109,21 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items.\n\n\nClarified 30 Oct (orchestrator, checked against aoc/NOTES-2024.md and Proofs/Part2.sw): the 'repair misses' item is incompleteness, not wrong answers. part2Sound/part2Correct prove that any answer returned is a correct repair (at most four swaps, adds for every x and y). After SW-830, 117 of 120 generated cases are found; the 3 misses return None, all with swaps spread across bits. Not proved: completeness (false today) and uniqueness (false in general). Day 24 has no real input in the repo (Matt's inputs stop at day 10). Backlog, not urgent (Matt): to close it, make repair backtrack across bits within the four-swap budget, then prove completeness.\n\n\nUpdate 1 Nov 2026 (SW-1006): the Text.padLeft, Option.toList and list-of-options sequence item is done — all three are in std: Text.padLeft (std/Text/Text.sw:21), Option.toList (std/Option/Option.sw:87), List.allSome (std/List/Toolkit.sw:318).\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program; see the 30 Oct clarification); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type (search exists since SW-915/989; re-test).\n- DONE since (backlog review, 4 Nov 2026): 'List builders (map, filter, append, …) overflow the stack on 3M items' was SW-863 (done); the {IO}-callback case is SW-868.\n\n\nClarified 30 Oct (orchestrator, checked against aoc/NOTES-2024.md and Proofs/Part2.sw): the 'repair misses' item is incompleteness, not wrong answers. part2Sound/part2Correct prove that any answer returned is a correct repair (at most four swaps, adds for every x and y). After SW-830, 117 of 120 generated cases are found; the 3 misses return None, all with swaps spread across bits. Not proved: completeness (false today) and uniqueness (false in general). Day 24 has no real input in the repo (Matt's inputs stop at day 10). Backlog, not urgent (Matt): to close it, make repair backtrack across bits within the four-swap budget, then prove completeness.\n\n\nUpdate 1 Nov 2026 (SW-1006): the Text.padLeft, Option.toList and list-of-options sequence item is done — all three are in std: Text.padLeft (std/Text/Text.sw:21), Option.toList (std/Option/Option.sw:87), List.allSome (std/List/Toolkit.sw:318).\n",
       "created": "2026-10-28",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "step 4.3 K4 lane (D2103)",
-      "labels": [
-        "decision"
-      ],
-      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).\n30 Oct: design lane for D1990 (one postponement queue) started; repros for SW-817/847/885 written under docs/proposals/postponement/.\n30 Oct: sources read (Lean 0f852cc8, Agda df8c3885, Idris2 c35a6bd1, Rocq 3fb9a904, OmniML 2511.10343v2); P1 measured with a scratch counter (dropped): queueable E-CANNOT-INFER sites fire 1,073 times in accepted code (std, examples, aoc, rogue), always caught, so stage 1 will be a second pass for failing declarations only.\n30 Oct: note written, docs/proposals/postponement.md (commit 7b751873 on worktree-agent-a35c1abaca4753b47); decisions D2010 (second pass), D2011 (SW-847 by a queued field access, not let_delayed).\n30 Oct (D2012 lane): queue prototype behind STITCHWORT_QUEUE=1 (worktree-agent-a90adb251a628a470): accepts all three repros; std needs resume points at application ends (fails at Map/Spec.sw:1862 without); measuring std/examples/aoc/rogue.\n30 Oct (D2012 lane): draft 2 written (single queue in the one pass; resume at each application's end, scoped, before lifting, at finish; SW-805 rule as a ladder default before a Nat default for numbers). Prototype measured: 1 acceptance change (record-literal-inferred 'in a list'), 26 hashes (7 direct, statements identical), no error message changed, 914 AoC + 100 rogue tests pass, aoc 5% faster; prototype dropped, patch kept. Review brief at docs/proposals/postponement/review-brief.md. Decisions D2013, D2014.\n\n30 Oct (D2015 lane): draft 3 started; review copied to docs/proposals/postponement/review-1.md; investigating receivers (R1), snapshot sites (R2), shape consumers (R7).\n\n30 Oct (D2015 lane): prototype re-run with counters (scratch, dropped): K2 receivers 131 variables with blocker made outside, 28 with it inside, none defaulted or chose a dictionary; receiver as syntax when its blocker is outside gives identical outcomes and hashes; placeholders frozen breaks 1 example + 4 aoc proofs (14 placeholders solved by unification before their item).\n\n30 Oct (D2015 lane): draft 3 committed (61cae6c4 on worktree-agent-a972f6ed00a33678a): invariants, receiver rule, termination from the attempt sites, opaque placeholders with consumer list, root-grouped errors, stage 6 = tri-state unification; new decision D2016 (placeholders solvable by unification until stage 6); D2013, D2014 still open, reviewer agrees. Scratch prototype worktree removed.\n\n\n30 Oct (stage 1 lane, worktree-agent-ac8a282a0a4dcccec): started fresh on main ec69866e; baseline hash dumps (std+aoc 10,420 lines, std+rogue 5,164) taken before any change.\n\n\n30 Oct (stage 1 lane): queue machinery built (crates/elab/src/queue.rs; W1-W4, states + resumption log in snapshots, placeholder fills via lifted_calls, root-grouped stuck report, counters in STITCHWORT_TIMINGS); 12 unit tests pass in release and debug; identity: std+aoc and std+rogue hash dumps byte-identical to main, hash_stability and examples (full sample) unchanged.\n\n\n30 Oct (stage 1 lane): machinery committed (0cfa7b6b); aoc check + 914 tests and rogue check + 100 tests pass; aoc check CPU 35.96 s mean of 3 vs main 36.09 s (no cost). Next: operator dictionaries chosen at zonk (§5.10), separate commit.\n\n\n30 Oct (stage 1 lane): operator-dictionary projection at finish committed (cded0c9b): one hash changes in the whole corpus (effect-rows-uses.sw test 'a pure use on a computed receiver', DecEq.decide [List.instDecEq ..] -> List.decEq/Nat.decEq); aoc 914 + rogue 100 tests pass. Writing the As-built section.\n\n\n30 Oct (stage 1 lane): done on worktree-agent-ac8a282a0a4dcccec: 0cfa7b6b (queue), cded0c9b (projection at finish), c1f58fd9 (As built (stage 1) in the note, with 9 deviations). Not merged.\n30 Oct (stage 2 lane): done on worktree-agent-a0aa020bf904664ef: 0caa1f93 (SW-906), b0ea8c3b (K1+K2), ffcff48e (inv 6/8 asserts, met-unfilled counter), 9c95bf57 (tests, 3 accept examples), 1d8fea0f (As built (stage 2)). 13 hashes changed, all harmless (Ann placement, folded motive, lambda as written, 7 dependents); aoc 914 + rogue 100 pass; no error message changed; aoc check ~6% less CPU. Finding: decide_to_bool decides a Bool-expected proposition before a waiting .field inside it resumes (question for Matt). Not merged.\n30 Oct (stage 3 lane, worktree-agent-a51171d6f546633ec): rebased on main d031ca0c; baseline hash dumps taken (std+aoc 10,420, std+rogue 5,164).\n30 Oct (stage 3 lane): K3 (sections wait whole, checked at their type once known; D506 kept) and D2035 (decide_to_bool waits for an unfilled placeholder) built; std+aoc and std+rogue hash dumps identical to baseline; aoc lambda try-then-postpone 6 -> 0. Running tests.\n30 Oct (stage 3 lane): committed b2143de1 (K3 + D2035, tests, examples). Hashes: std+aoc, std+rogue byte-identical; all accepted/extract examples unchanged at full tier (2 new). No error message changed. aoc 914 + rogue 100 pass. Deviation: K3 queues the section whole (not x => x.f with K2 body) to keep D506's partial form; the literal reading changes 12 Day24 hashes. Writing As built (stage 3).\n30 Oct (stage 3 lane): done on worktree-agent-a51171d6f546633ec, rebased on main 06865190: 40651819 (K3 + D2035), 936da6b9 (inferred section's result type, so (.length) \"abcd\" is accepted), d8caa824/d803aa09/cb5a5a06/73bd0c1a (docs). 0 hashes changed (std+aoc 10,450, std+rogue identical to main); no error message changed except the planned move; aoc 914 + rogue 100 pass; lambda try-then-postpone 0 in accepted code; aoc CPU no measurable change. Deviation for Matt: sections queued whole to keep D506 (literal lambda+K2 reading changes 12 Day24 hashes). SW-910 behaviour unchanged by stage 3. Not merged.\n30 Oct (stage 4 lane, worktree-agent-ad23d886de28b173a): rebased on main 64794202; baseline hash dumps taken (std+aoc 10,657, std+rogue 5,228 lines).\n30 Oct (stage 4 lane): STOPPED for a design decision. 03d76458 adds the retried counter (base: aoc 0, rogue 0, accepted 14, rejected 3). 27f66005 (EXPERIMENT, not for merge) builds K4 as designed (literals + undecided number groups wait, Nat default at W4 only): 'in a list' passes unannotated, but std no longer loads: 7 std + 4 aoc proofs accepted on main are rejected (a literal only the default types, computed by a proof in the same declaration before W4; the unifier can't wait). Repro docs/proposals/postponement/k4-proof.sw. Defaulting numbers at their own application's end (W1, against inv. 7) leaves 2 of 11 and the repro failing. Needs Matt: stage 6 first, or a narrower K4.\n30 Oct (stage 6+4 lane, worktree-agent-a01330929f0f8ac4d): rebased on main edd5243b, cherry-picked 03d76458 (retried counter); design pass committed 8f24df0f (caller table, Blocked only at compare's and rfl's last step, waits only on unknowns the queue owns, freeze placeholders now). Prototype: std+aoc hashes and all examples unchanged, frozen or not; aoc waits 17 times frozen. Building stage 6.\n30 Oct (stage 6+4 lane): stage 6 done (37352546 + fixes 2907420d, 18762a20): comparisons wait on the queue's unknowns, placeholders frozen; 0 hashes changed (std+aoc, std+rogue, examples full tier), no message changed, aoc 914 + rogue 100 pass, audit clean, aoc waits 17 (solved first/lossy 16/11 -> 0); merge-ready alone. Stage 4 STOPPED (ac4587c9, experiment): 10/11 proofs + k4-proof + 'in a list' pass, but 3 reject outcomes change (int-binding-nat, match-bad-motive accepted; calc-step-callback code), 2 messages show unknowns, Day17 Search:46 fails again; needs Matt: defaults before W4 in closed sub-elaborations (rewrite rule, match scrutinee, W2), match generalisation as a §5.10 consumer. Docs afe9ddd2.\n\n\nD2084 (Matt, 31 Oct 2026): yes, `let m := 3 - 5` followed by `m + i` (i: Int) should make m an Int (stage 4 intent; syntax.md \"a let keeps its own type\" changes; examples/reject/int-binding-nat.sw moves to accept). Checked the same program in Lean 4 (nixpkgs) and GHC: both accept, with m an Int (f 2 = true / True, so 3 - 5 = -2). Still open before a third stage 4 attempt: the match-generalisation consumer missing from section 5.10 (match-bad-motive.sw accepted), and errors from waiting checks (wrong code in calc, unknowns shown).\n\n\nD2086 (Matt, 31 Oct 2026): design lane for stage 4 problems 2 and 3 (match generalisation of a waiting scrutinee; errors from waiting checks: right construct, right code, no unknowns shown). Output: a design section in postponement.md before any third attempt.\n\n\n31 Oct (D2086 design lane, worktree-agent-a1f5e4964c6803384): rebased on main 8b75b5c7; read the note and ticket; reproducing the experiment ac4587c9 failures (match-bad-motive, calc-step-callback, let-refutable, quot-of-proposition).\n\n31 Oct (D2086 lane): match-bad-motive reproduced on ac4587c9; cause found [run, scratch debug]: the occurrence test does match (the scrutinee computes to 2), but check_motive skips its check when the scrutinee holds an unsolved unknown (\"checked when it is admitted\"), and admission never checks the unused copy. Main has the same gap without K4: a scrutinee holding a waiting .field, or a lambda parameter of unknown type, generalising a hypothesis is accepted where the annotated twin is E-MATCH-MOTIVE. Lean 4.34.1 run: match and rw find occurrences by unification (a pending numeral takes Int from the occurrence); Lean prints pending numerals as written but their types as ?m. Prototype on branch d2086-prototype (match waits, scrutinee kept) rejects both; corpus run under way.\n\n\n31 Oct (D2086 lane, resumed after the quota stop): rebuilt the prototype (9ca412a0); all switches on (match waits on any unsolved unknown, error frames, waiting numbers printed as written) against stage 6's base: examples change only record-literal-inferred (fixed) and int-binding-nat (D2084); calc-step-callback, let-refutable, quot-of-proposition and match-bad-motive keep base's messages; aoc: only Day17 Search:46 (as the experiment), rogue checks. Writing the design section.\n\n\n31 Oct (D2086 lane): design done. Doc commit 10b12434 on branch d2086-design (from main 7d9544dc, mergeable on main): \"Stage 4: design for the third attempt\" in postponement.md + repros/Lean runs in docs/proposals/postponement/d2086/. Prototype stays on d2086-prototype (71d5f1fd, 9ca412a0; not for merge). Main bug found: a match whose scrutinee holds an unsolved unknown skips its motive check (motive-field-later.sw, motive-param-later.sw accepted; twins E-MATCH-MOTIVE) - step 4.0 fixes it before K4. Decisions: D2087 (invariant 7: defaults at W4, W2 and in a rewrite rule only), D2090 (match waits on any unsolved unknown it reads), D2091 (error frames, placeholders printed as syntax, accept 2 re-blamed messages). D2088/D2089 skipped (SW-915's).\n\n\nD2090 (Matt, 31 Oct 2026): yes. Step 4.0 on main: a generalising match waits while what it reads holds an unsolved unknown (fixes motive-field-later/motive-param-later accepted on main while annotated twins are E-MATCH-MOTIVE).\n\n\n\n31 Oct (D2090 step 4.0 lane): built on main. A match waits (WaitingMatch, queue) on any unsolved unknown in its scrutinee, and on the queue's unknowns in the goal and hypotheses; an ordinary unknown in the goal is not waited for (an inferred match's type is solved by its own alternatives, so waiting would deadlock): its motive check runs when the helper is lifted instead of being skipped. Both later-repros now E-MATCH-MOTIVE like their twins; examples (full tier) and elab lane pass. Measuring hashes/aoc/rogue next.\n\n\n\n31 Oct (D2090 lane): step 4.0 done, commit 4e765fba on worktree-agent-aa28b39c6170aac95. Match waits on unsolved unknowns in scrutinee and in-scope types, and on queue unknowns in the goal; goal-only ordinary unknowns get the motive check at lifting instead of skipped. motive-field/param-later + hypothesis-later + goal-later now E-MATCH-MOTIVE like twins. Hashes: rogue identical, aoc 8 changed (Day15 Part2, a folded call becomes its unfolding in a waited helper type). 8 waits, 23 motive-at-lifting in std+aoc, 0 stuck; aoc time unchanged; audit passes. Found M3 counterexample (let g := acc => match List.length [acc] ... with g unused: main accepts, now E-CANNOT-INFER) - decision for Matt.\n\n\nD2095 (Matt, 31 Oct 2026): step 4.0 merged, accepting that a never-used lambda whose parameter type only its own match fixes is now rejected (E-CANNOT-INFER); Lean-style last resort filed separately.\n\n\nD2091 (Matt, 31 Oct 2026): yes. Step 4.1 on main: error frames (a waiting check carries the error mappings of the constructs it was made in), placeholders print as their source syntax, type unknowns never printed (the construct waits instead), and an allowlist test failing on ?N in messages outside today's files; accept K4's two re-blamed messages when K4 lands.\n\n\n31 Oct (D2091 step 4.1 lane, worktree-agent-a061d9b7b0e84223d): rebased on main b6d3626a; baseline hash dumps taken (std+aoc 10,658, std+rogue 5,229 lines); 16 reject messages print ?N on main today. Building error frames.\n\n\n31 Oct (D2091 lane): error frames built (queue::framed, ErrorFrame; items keep frames of constructs that returned while they waited, and inherit a resumed item's), placeholders print as source (Check::display, Globals::placeholder_syntax), allowlist test (16 files) in examples.rs. Frames for calc step, callback argument, call's last comparison, Comp check, group leaf, negated argument, named/rigid call, left-out field default, local param default, record update, autobind signature, match alternatives, decreasing measure, shadowing lambda. Hash dumps std+aoc and std+rogue byte-identical; all examples (daily tier) unchanged; 8 new reject examples reproduce 8 mappings through a waiting check. Running remaining tiers.\n\n\n31 Oct (D2091 lane): step 4.1 done on worktree-agent-a061d9b7b0e84223d: a8a7f0f7 (frames, placeholder display, allowlist, 8 reject examples, As built (step 4.1)), eebef7f9 (doc: time, debug build). No existing message/code/hash changed; hash dumps byte-identical; task audit passes; aoc time unchanged within noise. 6 frames (call's last comparison, Comp, local param default, autobind, match alternatives, shadowing lambda) have no reachable example found; covered by the mechanism's unit tests. Not merged.\n\n\nD2087 (Matt, 31 Oct 2026): yes. Invariant 7 restated: defaults apply only at W4 (end of declaration), at W2 (end of a part, before lifting), and inside a rewrite rule before its search, scoped to the rule. Step 4.2 lane started.\n\n\n\n31 Oct (D2087 step 4.2 lane, worktree-agent-ac2e628ad5d1a659f): rebased on main a4638278. Built: rule settled (defaults scoped to the rule), W2 defaults, rewrite/cases try-then-wait on a pending set that includes obligation unknowns, omega/ring/auto counters; 5 accept + 1 reject example, each rejected on main. Day17 hypothesis refuted on the experiment [run]: the rewrite goal there is `?9 ... = True`, ?9 an ordinary unknown (Bool.andIntro _), no dictionary in it; counting obligations as pending (tactics only, or globally) leaves the same E-REWRITE-NOTHING. Measuring hashes/aoc.\n\n\n\n31 Oct (D2087 lane): step 4.2 done, commit 32ff38fd on worktree-agent-ac2e628ad5d1a659f. Hash dumps std+aoc (10,897) and std+rogue (5,240) byte-identical; examples full tier unchanged (only new files); new counters (rule settled/defaulted, tactic waited, omega/ring/auto on pending) all 0 in std/aoc/rogue; aoc 944 + rogue 100 tests, task audit pass; aoc time unchanged within noise. Day17 for 4.3: the Bool.andIntro argument is checked against a bare unknown (?0 ...), so propagate is skipped; cause with K4 not established. Not merged.\n\n\nD2103 (Matt, 31 Oct 2026): yes. Step 4.3 (K4) lane: first find the Day17 cause (an argument checked against a bare unknown with K4 on), land the experiment's additions 1, 5, 6 properly, then number literals wait (D2084). Stop and report if Day17 can't be explained or outcomes change beyond the planned ones.\n\n\n31 Oct (D2103 step 4.3 lane, worktree-agent-acd1a9e4928ec210f): rebased on main 8208cff5. Reading the experiment ac4587c9; Day17 cause first.\n\n\n31 Oct (D2103 lane): Day17 cause found [run, scratch traces]: with K4 the filter lambda's 0 < a is a group at an unknown type, so its < is the generic Ord form, and the && operand's decision (logic.rs condition, not D2035's Decide) is made at once from that form: Ord.decLessThan [?d], later Nat.decLessThan, wrapped in toBool. Main decides Nat.lessThan by search and writes Nat.leq 1 a (bind.rs comparison). The proof 'positive: 0 < other' matches main's form, so Bool.andIntro's result can't be compared with the expected type and ?9 stays unknown for the rewrite. Fix: a decision waits while its proposition holds an unfilled placeholder or an operator dictionary not found yet, and decides the specialised form (decide_or_wait/decision_blocker; condition's Waiting). K4 + additions 1,5,6 + rule dictionaries in: aoc and rogue check; examples: only int-binding-nat accepted and the two planned messages. Hash dumps next.\n\n\n31 Oct (D2103 lane): examples (accept/reject/soundness, every message) vs main c3d51826: only int-binding-nat (now accept), record-literal-inferred unannotated, and the two planned re-blamed messages. Hash dumps: std+aoc 17 changed, std+rogue 4, all statements identical; 5 own-term changes, each a call kept folded where main has its unfolding (sumByOne, PrefixSums.atOf, memDifferenceByExample, 2025 Day08 oneAfterTells, Day09 allRedOrGreenKeys.%match1), 12 dependents. Found on the way: a waiting == decision scanned its value and ran bananasBySequence (Day22 tests hung); now scans the term as written. Running aoc/rogue tests.\n\n\n1 Nov (D2103 lane): STOPPED. Built on c3d51826: K4 + additions 1,5,6 + rule dictionaries; Day17 fixed (decisions wait for their form: placeholder or unfound operator dictionary; condition/==/if included; fills specialised). Examples: only planned changes; hashes std+aoc 17 / rogue 4 / 4 example files, all statements identical, all folded-vs-unfolded or Ann/alias/let-refold; aoc 998 + rogue 100 tests, audit pass; retried 0 in aoc/rogue. After rebase on a937906d: 2021 Day08 Proofs.sw:54 fails (foldLeftCongMem ... 0 _ _; checks with (0: Nat)) - needs a waiting literal seen through (design option (c)), a decision for Matt. Commits 69c83d0b, a658d461 on worktree-agent-acd1a9e4928ec210f; not for merge. Main itself fails if-guard-bracketed-true.sw and lacks bool-constant-branches goal snapshot.\n\n\n1 Nov (SW-986, D2110): step 4.3 finished on worktree-agent-acd1a9e4928ec210f, rebased on 68805026: 63a58371 (K4), 23801313 (stop note), 80853a48 (see-through: unify_step solves a frozen waiting-literal placeholder with the same numeral at Nat/Int and compares its type). aoc 207 namespaces + 1239 tests, audit (2397/2116/190), rogue 100; examples only planned changes; hashes vs 93eab0f8: std+aoc 21 (5 own terms, statements identical), rogue 2. 2021 Day17 (17,-4) still needs its annotation (inferred literals don't wait; widening breaks calc.sw/let-patterns.sw). Ready for review.\n\n\n1 Nov (SW-986): merge-tier search failures fixed on the lane (3b1db963): search patterns are settled as closed patterns (settle_pattern), and an undecided group with no literal defaults its type to Nat (GroupType). Rebased onto 24db19f5: search lane tier (30) and search_match/search_bench pass; aoc 207 namespaces + 1246 tests; hashes vs 8f632914 std+aoc 24 (6 own terms, folded/unfolded calls, statements identical), rogue 2; examples only planned changes. Ready for review again.\n\n\nStage 7 decisions (Matt, 1 Nov 2026): D2126-D2129 as recommended, D2130 backlog (SW-1008, SW-1009). Build: SW-1010.\n\nD2140 (Matt, 1 Nov 2026): D2128 part (a) only in stage 7; part (b) needs the after-expected rework, backlog.\n",
+      "labels": [],
+      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).\n30 Oct: design lane for D1990 (one postponement queue) started; repros for SW-817/847/885 written under docs/proposals/postponement/.\n30 Oct: sources read (Lean 0f852cc8, Agda df8c3885, Idris2 c35a6bd1, Rocq 3fb9a904, OmniML 2511.10343v2); P1 measured with a scratch counter (dropped): queueable E-CANNOT-INFER sites fire 1,073 times in accepted code (std, examples, aoc, rogue), always caught, so stage 1 will be a second pass for failing declarations only.\n30 Oct: note written, docs/proposals/postponement.md (commit 7b751873 on worktree-agent-a35c1abaca4753b47); decisions D2010 (second pass), D2011 (SW-847 by a queued field access, not let_delayed).\n30 Oct (D2012 lane): queue prototype behind STITCHWORT_QUEUE=1 (worktree-agent-a90adb251a628a470): accepts all three repros; std needs resume points at application ends (fails at Map/Spec.sw:1862 without); measuring std/examples/aoc/rogue.\n30 Oct (D2012 lane): draft 2 written (single queue in the one pass; resume at each application's end, scoped, before lifting, at finish; SW-805 rule as a ladder default before a Nat default for numbers). Prototype measured: 1 acceptance change (record-literal-inferred 'in a list'), 26 hashes (7 direct, statements identical), no error message changed, 914 AoC + 100 rogue tests pass, aoc 5% faster; prototype dropped, patch kept. Review brief at docs/proposals/postponement/review-brief.md. Decisions D2013, D2014.\n\n30 Oct (D2015 lane): draft 3 started; review copied to docs/proposals/postponement/review-1.md; investigating receivers (R1), snapshot sites (R2), shape consumers (R7).\n\n30 Oct (D2015 lane): prototype re-run with counters (scratch, dropped): K2 receivers 131 variables with blocker made outside, 28 with it inside, none defaulted or chose a dictionary; receiver as syntax when its blocker is outside gives identical outcomes and hashes; placeholders frozen breaks 1 example + 4 aoc proofs (14 placeholders solved by unification before their item).\n\n30 Oct (D2015 lane): draft 3 committed (61cae6c4 on worktree-agent-a972f6ed00a33678a): invariants, receiver rule, termination from the attempt sites, opaque placeholders with consumer list, root-grouped errors, stage 6 = tri-state unification; new decision D2016 (placeholders solvable by unification until stage 6); D2013, D2014 still open, reviewer agrees. Scratch prototype worktree removed.\n\n\n30 Oct (stage 1 lane, worktree-agent-ac8a282a0a4dcccec): started fresh on main ec69866e; baseline hash dumps (std+aoc 10,420 lines, std+rogue 5,164) taken before any change.\n\n\n30 Oct (stage 1 lane): queue machinery built (crates/elab/src/queue.rs; W1-W4, states + resumption log in snapshots, placeholder fills via lifted_calls, root-grouped stuck report, counters in STITCHWORT_TIMINGS); 12 unit tests pass in release and debug; identity: std+aoc and std+rogue hash dumps byte-identical to main, hash_stability and examples (full sample) unchanged.\n\n\n30 Oct (stage 1 lane): machinery committed (0cfa7b6b); aoc check + 914 tests and rogue check + 100 tests pass; aoc check CPU 35.96 s mean of 3 vs main 36.09 s (no cost). Next: operator dictionaries chosen at zonk (§5.10), separate commit.\n\n\n30 Oct (stage 1 lane): operator-dictionary projection at finish committed (cded0c9b): one hash changes in the whole corpus (effect-rows-uses.sw test 'a pure use on a computed receiver', DecEq.decide [List.instDecEq ..] -> List.decEq/Nat.decEq); aoc 914 + rogue 100 tests pass. Writing the As-built section.\n\n\n30 Oct (stage 1 lane): done on worktree-agent-ac8a282a0a4dcccec: 0cfa7b6b (queue), cded0c9b (projection at finish), c1f58fd9 (As built (stage 1) in the note, with 9 deviations). Not merged.\n30 Oct (stage 2 lane): done on worktree-agent-a0aa020bf904664ef: 0caa1f93 (SW-906), b0ea8c3b (K1+K2), ffcff48e (inv 6/8 asserts, met-unfilled counter), 9c95bf57 (tests, 3 accept examples), 1d8fea0f (As built (stage 2)). 13 hashes changed, all harmless (Ann placement, folded motive, lambda as written, 7 dependents); aoc 914 + rogue 100 pass; no error message changed; aoc check ~6% less CPU. Finding: decide_to_bool decides a Bool-expected proposition before a waiting .field inside it resumes (question for Matt). Not merged.\n30 Oct (stage 3 lane, worktree-agent-a51171d6f546633ec): rebased on main d031ca0c; baseline hash dumps taken (std+aoc 10,420, std+rogue 5,164).\n30 Oct (stage 3 lane): K3 (sections wait whole, checked at their type once known; D506 kept) and D2035 (decide_to_bool waits for an unfilled placeholder) built; std+aoc and std+rogue hash dumps identical to baseline; aoc lambda try-then-postpone 6 -> 0. Running tests.\n30 Oct (stage 3 lane): committed b2143de1 (K3 + D2035, tests, examples). Hashes: std+aoc, std+rogue byte-identical; all accepted/extract examples unchanged at full tier (2 new). No error message changed. aoc 914 + rogue 100 pass. Deviation: K3 queues the section whole (not x => x.f with K2 body) to keep D506's partial form; the literal reading changes 12 Day24 hashes. Writing As built (stage 3).\n30 Oct (stage 3 lane): done on worktree-agent-a51171d6f546633ec, rebased on main 06865190: 40651819 (K3 + D2035), 936da6b9 (inferred section's result type, so (.length) \"abcd\" is accepted), d8caa824/d803aa09/cb5a5a06/73bd0c1a (docs). 0 hashes changed (std+aoc 10,450, std+rogue identical to main); no error message changed except the planned move; aoc 914 + rogue 100 pass; lambda try-then-postpone 0 in accepted code; aoc CPU no measurable change. Deviation for Matt: sections queued whole to keep D506 (literal lambda+K2 reading changes 12 Day24 hashes). SW-910 behaviour unchanged by stage 3. Not merged.\n30 Oct (stage 4 lane, worktree-agent-ad23d886de28b173a): rebased on main 64794202; baseline hash dumps taken (std+aoc 10,657, std+rogue 5,228 lines).\n30 Oct (stage 4 lane): STOPPED for a design decision. 03d76458 adds the retried counter (base: aoc 0, rogue 0, accepted 14, rejected 3). 27f66005 (EXPERIMENT, not for merge) builds K4 as designed (literals + undecided number groups wait, Nat default at W4 only): 'in a list' passes unannotated, but std no longer loads: 7 std + 4 aoc proofs accepted on main are rejected (a literal only the default types, computed by a proof in the same declaration before W4; the unifier can't wait). Repro docs/proposals/postponement/k4-proof.sw. Defaulting numbers at their own application's end (W1, against inv. 7) leaves 2 of 11 and the repro failing. Needs Matt: stage 6 first, or a narrower K4.\n30 Oct (stage 6+4 lane, worktree-agent-a01330929f0f8ac4d): rebased on main edd5243b, cherry-picked 03d76458 (retried counter); design pass committed 8f24df0f (caller table, Blocked only at compare's and rfl's last step, waits only on unknowns the queue owns, freeze placeholders now). Prototype: std+aoc hashes and all examples unchanged, frozen or not; aoc waits 17 times frozen. Building stage 6.\n30 Oct (stage 6+4 lane): stage 6 done (37352546 + fixes 2907420d, 18762a20): comparisons wait on the queue's unknowns, placeholders frozen; 0 hashes changed (std+aoc, std+rogue, examples full tier), no message changed, aoc 914 + rogue 100 pass, audit clean, aoc waits 17 (solved first/lossy 16/11 -> 0); merge-ready alone. Stage 4 STOPPED (ac4587c9, experiment): 10/11 proofs + k4-proof + 'in a list' pass, but 3 reject outcomes change (int-binding-nat, match-bad-motive accepted; calc-step-callback code), 2 messages show unknowns, Day17 Search:46 fails again; needs Matt: defaults before W4 in closed sub-elaborations (rewrite rule, match scrutinee, W2), match generalisation as a §5.10 consumer. Docs afe9ddd2.\n\n\nD2084 (Matt, 31 Oct 2026): yes, `let m := 3 - 5` followed by `m + i` (i: Int) should make m an Int (stage 4 intent; syntax.md \"a let keeps its own type\" changes; examples/reject/int-binding-nat.sw moves to accept). Checked the same program in Lean 4 (nixpkgs) and GHC: both accept, with m an Int (f 2 = true / True, so 3 - 5 = -2). Still open before a third stage 4 attempt: the match-generalisation consumer missing from section 5.10 (match-bad-motive.sw accepted), and errors from waiting checks (wrong code in calc, unknowns shown).\n\n\nD2086 (Matt, 31 Oct 2026): design lane for stage 4 problems 2 and 3 (match generalisation of a waiting scrutinee; errors from waiting checks: right construct, right code, no unknowns shown). Output: a design section in postponement.md before any third attempt.\n\n\n31 Oct (D2086 design lane, worktree-agent-a1f5e4964c6803384): rebased on main 8b75b5c7; read the note and ticket; reproducing the experiment ac4587c9 failures (match-bad-motive, calc-step-callback, let-refutable, quot-of-proposition).\n\n31 Oct (D2086 lane): match-bad-motive reproduced on ac4587c9; cause found [run, scratch debug]: the occurrence test does match (the scrutinee computes to 2), but check_motive skips its check when the scrutinee holds an unsolved unknown (\"checked when it is admitted\"), and admission never checks the unused copy. Main has the same gap without K4: a scrutinee holding a waiting .field, or a lambda parameter of unknown type, generalising a hypothesis is accepted where the annotated twin is E-MATCH-MOTIVE. Lean 4.34.1 run: match and rw find occurrences by unification (a pending numeral takes Int from the occurrence); Lean prints pending numerals as written but their types as ?m. Prototype on branch d2086-prototype (match waits, scrutinee kept) rejects both; corpus run under way.\n\n\n31 Oct (D2086 lane, resumed after the quota stop): rebuilt the prototype (9ca412a0); all switches on (match waits on any unsolved unknown, error frames, waiting numbers printed as written) against stage 6's base: examples change only record-literal-inferred (fixed) and int-binding-nat (D2084); calc-step-callback, let-refutable, quot-of-proposition and match-bad-motive keep base's messages; aoc: only Day17 Search:46 (as the experiment), rogue checks. Writing the design section.\n\n\n31 Oct (D2086 lane): design done. Doc commit 10b12434 on branch d2086-design (from main 7d9544dc, mergeable on main): \"Stage 4: design for the third attempt\" in postponement.md + repros/Lean runs in docs/proposals/postponement/d2086/. Prototype stays on d2086-prototype (71d5f1fd, 9ca412a0; not for merge). Main bug found: a match whose scrutinee holds an unsolved unknown skips its motive check (motive-field-later.sw, motive-param-later.sw accepted; twins E-MATCH-MOTIVE) - step 4.0 fixes it before K4. Decisions: D2087 (invariant 7: defaults at W4, W2 and in a rewrite rule only), D2090 (match waits on any unsolved unknown it reads), D2091 (error frames, placeholders printed as syntax, accept 2 re-blamed messages). D2088/D2089 skipped (SW-915's).\n\n\nD2090 (Matt, 31 Oct 2026): yes. Step 4.0 on main: a generalising match waits while what it reads holds an unsolved unknown (fixes motive-field-later/motive-param-later accepted on main while annotated twins are E-MATCH-MOTIVE).\n\n\n\n31 Oct (D2090 step 4.0 lane): built on main. A match waits (WaitingMatch, queue) on any unsolved unknown in its scrutinee, and on the queue's unknowns in the goal and hypotheses; an ordinary unknown in the goal is not waited for (an inferred match's type is solved by its own alternatives, so waiting would deadlock): its motive check runs when the helper is lifted instead of being skipped. Both later-repros now E-MATCH-MOTIVE like their twins; examples (full tier) and elab lane pass. Measuring hashes/aoc/rogue next.\n\n\n\n31 Oct (D2090 lane): step 4.0 done, commit 4e765fba on worktree-agent-aa28b39c6170aac95. Match waits on unsolved unknowns in scrutinee and in-scope types, and on queue unknowns in the goal; goal-only ordinary unknowns get the motive check at lifting instead of skipped. motive-field/param-later + hypothesis-later + goal-later now E-MATCH-MOTIVE like twins. Hashes: rogue identical, aoc 8 changed (Day15 Part2, a folded call becomes its unfolding in a waited helper type). 8 waits, 23 motive-at-lifting in std+aoc, 0 stuck; aoc time unchanged; audit passes. Found M3 counterexample (let g := acc => match List.length [acc] ... with g unused: main accepts, now E-CANNOT-INFER) - decision for Matt.\n\n\nD2095 (Matt, 31 Oct 2026): step 4.0 merged, accepting that a never-used lambda whose parameter type only its own match fixes is now rejected (E-CANNOT-INFER); Lean-style last resort filed separately.\n\n\nD2091 (Matt, 31 Oct 2026): yes. Step 4.1 on main: error frames (a waiting check carries the error mappings of the constructs it was made in), placeholders print as their source syntax, type unknowns never printed (the construct waits instead), and an allowlist test failing on ?N in messages outside today's files; accept K4's two re-blamed messages when K4 lands.\n\n\n31 Oct (D2091 step 4.1 lane, worktree-agent-a061d9b7b0e84223d): rebased on main b6d3626a; baseline hash dumps taken (std+aoc 10,658, std+rogue 5,229 lines); 16 reject messages print ?N on main today. Building error frames.\n\n\n31 Oct (D2091 lane): error frames built (queue::framed, ErrorFrame; items keep frames of constructs that returned while they waited, and inherit a resumed item's), placeholders print as source (Check::display, Globals::placeholder_syntax), allowlist test (16 files) in examples.rs. Frames for calc step, callback argument, call's last comparison, Comp check, group leaf, negated argument, named/rigid call, left-out field default, local param default, record update, autobind signature, match alternatives, decreasing measure, shadowing lambda. Hash dumps std+aoc and std+rogue byte-identical; all examples (daily tier) unchanged; 8 new reject examples reproduce 8 mappings through a waiting check. Running remaining tiers.\n\n\n31 Oct (D2091 lane): step 4.1 done on worktree-agent-a061d9b7b0e84223d: a8a7f0f7 (frames, placeholder display, allowlist, 8 reject examples, As built (step 4.1)), eebef7f9 (doc: time, debug build). No existing message/code/hash changed; hash dumps byte-identical; task audit passes; aoc time unchanged within noise. 6 frames (call's last comparison, Comp, local param default, autobind, match alternatives, shadowing lambda) have no reachable example found; covered by the mechanism's unit tests. Not merged.\n\n\nD2087 (Matt, 31 Oct 2026): yes. Invariant 7 restated: defaults apply only at W4 (end of declaration), at W2 (end of a part, before lifting), and inside a rewrite rule before its search, scoped to the rule. Step 4.2 lane started.\n\n\n\n31 Oct (D2087 step 4.2 lane, worktree-agent-ac2e628ad5d1a659f): rebased on main a4638278. Built: rule settled (defaults scoped to the rule), W2 defaults, rewrite/cases try-then-wait on a pending set that includes obligation unknowns, omega/ring/auto counters; 5 accept + 1 reject example, each rejected on main. Day17 hypothesis refuted on the experiment [run]: the rewrite goal there is `?9 ... = True`, ?9 an ordinary unknown (Bool.andIntro _), no dictionary in it; counting obligations as pending (tactics only, or globally) leaves the same E-REWRITE-NOTHING. Measuring hashes/aoc.\n\n\n\n31 Oct (D2087 lane): step 4.2 done, commit 32ff38fd on worktree-agent-ac2e628ad5d1a659f. Hash dumps std+aoc (10,897) and std+rogue (5,240) byte-identical; examples full tier unchanged (only new files); new counters (rule settled/defaulted, tactic waited, omega/ring/auto on pending) all 0 in std/aoc/rogue; aoc 944 + rogue 100 tests, task audit pass; aoc time unchanged within noise. Day17 for 4.3: the Bool.andIntro argument is checked against a bare unknown (?0 ...), so propagate is skipped; cause with K4 not established. Not merged.\n\n\nD2103 (Matt, 31 Oct 2026): yes. Step 4.3 (K4) lane: first find the Day17 cause (an argument checked against a bare unknown with K4 on), land the experiment's additions 1, 5, 6 properly, then number literals wait (D2084). Stop and report if Day17 can't be explained or outcomes change beyond the planned ones.\n\n\n31 Oct (D2103 step 4.3 lane, worktree-agent-acd1a9e4928ec210f): rebased on main 8208cff5. Reading the experiment ac4587c9; Day17 cause first.\n\n\n31 Oct (D2103 lane): Day17 cause found [run, scratch traces]: with K4 the filter lambda's 0 < a is a group at an unknown type, so its < is the generic Ord form, and the && operand's decision (logic.rs condition, not D2035's Decide) is made at once from that form: Ord.decLessThan [?d], later Nat.decLessThan, wrapped in toBool. Main decides Nat.lessThan by search and writes Nat.leq 1 a (bind.rs comparison). The proof 'positive: 0 < other' matches main's form, so Bool.andIntro's result can't be compared with the expected type and ?9 stays unknown for the rewrite. Fix: a decision waits while its proposition holds an unfilled placeholder or an operator dictionary not found yet, and decides the specialised form (decide_or_wait/decision_blocker; condition's Waiting). K4 + additions 1,5,6 + rule dictionaries in: aoc and rogue check; examples: only int-binding-nat accepted and the two planned messages. Hash dumps next.\n\n\n31 Oct (D2103 lane): examples (accept/reject/soundness, every message) vs main c3d51826: only int-binding-nat (now accept), record-literal-inferred unannotated, and the two planned re-blamed messages. Hash dumps: std+aoc 17 changed, std+rogue 4, all statements identical; 5 own-term changes, each a call kept folded where main has its unfolding (sumByOne, PrefixSums.atOf, memDifferenceByExample, 2025 Day08 oneAfterTells, Day09 allRedOrGreenKeys.%match1), 12 dependents. Found on the way: a waiting == decision scanned its value and ran bananasBySequence (Day22 tests hung); now scans the term as written. Running aoc/rogue tests.\n\n\n1 Nov (D2103 lane): STOPPED. Built on c3d51826: K4 + additions 1,5,6 + rule dictionaries; Day17 fixed (decisions wait for their form: placeholder or unfound operator dictionary; condition/==/if included; fills specialised). Examples: only planned changes; hashes std+aoc 17 / rogue 4 / 4 example files, all statements identical, all folded-vs-unfolded or Ann/alias/let-refold; aoc 998 + rogue 100 tests, audit pass; retried 0 in aoc/rogue. After rebase on a937906d: 2021 Day08 Proofs.sw:54 fails (foldLeftCongMem ... 0 _ _; checks with (0: Nat)) - needs a waiting literal seen through (design option (c)), a decision for Matt. Commits 69c83d0b, a658d461 on worktree-agent-acd1a9e4928ec210f; not for merge. Main itself fails if-guard-bracketed-true.sw and lacks bool-constant-branches goal snapshot.\n\n\n1 Nov (SW-986, D2110): step 4.3 finished on worktree-agent-acd1a9e4928ec210f, rebased on 68805026: 63a58371 (K4), 23801313 (stop note), 80853a48 (see-through: unify_step solves a frozen waiting-literal placeholder with the same numeral at Nat/Int and compares its type). aoc 207 namespaces + 1239 tests, audit (2397/2116/190), rogue 100; examples only planned changes; hashes vs 93eab0f8: std+aoc 21 (5 own terms, statements identical), rogue 2. 2021 Day17 (17,-4) still needs its annotation (inferred literals don't wait; widening breaks calc.sw/let-patterns.sw). Ready for review.\n\n\n1 Nov (SW-986): merge-tier search failures fixed on the lane (3b1db963): search patterns are settled as closed patterns (settle_pattern), and an undecided group with no literal defaults its type to Nat (GroupType). Rebased onto 24db19f5: search lane tier (30) and search_match/search_bench pass; aoc 207 namespaces + 1246 tests; hashes vs 8f632914 std+aoc 24 (6 own terms, folded/unfolded calls, statements identical), rogue 2; examples only planned changes. Ready for review again.\n\n\nStage 7 decisions (Matt, 1 Nov 2026): D2126-D2129 as recommended, D2130 backlog (SW-1008, SW-1009). Build: SW-1010.\n\nD2140 (Matt, 1 Nov 2026): D2128 part (a) only in stage 7; part (b) needs the after-expected rework, backlog.\n\nClosed 4 Nov 2026 (backlog review): the work was done through the postponement stages (merges 25d1c9f2e step 4.3, dfed74771 stage 5, 259a54f9f stage 7); examples/accept/postpone-record-literal-argument.sw is the ticket's repro and is accepted. Remaining gaps are SW-929, SW-1003, SW-1008, SW-1009, SW-1014. See docs/proposals/postponement.md 'As built'.",
       "created": "2026-10-28",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": [
         "8cd3cdd6",
         "bb9e432a",
@@ -1146,15 +1146,15 @@
     {
       "id": 833,
       "title": "Consider D1448–D1452: nested data types (note on branch worktree-agent-a5e6df84938efc2a5, docs/proposals/nested-data-types.md)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "D1448 positivity check through List's fields (Rocq) vs Lean's mutual translation [rec: positivity check]; D1449 generated induction principle per nested type [rec: yes]; D1450 auto proves list-member-smaller in decreasing [rec: yes]; D1451 keep Map/Set nesting refused [rec: yes]; D1452 allow earlier field as index, List (Tree n) [rec: allow]. Not urgent: needed only for tree-shaped input (AoC 2022 day 13, 2021 day 18). D1448 gates stage 1.",
+      "body": "D1448 positivity check through List's fields (Rocq) vs Lean's mutual translation [rec: positivity check]; D1449 generated induction principle per nested type [rec: yes]; D1450 auto proves list-member-smaller in decreasing [rec: yes]; D1451 keep Map/Set nesting refused [rec: yes]; D1452 allow earlier field as index, List (Tree n) [rec: allow]. Not urgent: needed only for tree-shaped input (AoC 2022 day 13, 2021 day 18). D1448 gates stage 1.\n\nClosed 4 Nov 2026 (backlog review): superseded by the nested-data-types design (SW-704: external review 29 Oct, D1820-D1823, D1870 'yes, stage 3'; docs/proposals/nested-data-types.md draft 2). The branch worktree-agent-a5e6df84938efc2a5 is obsolete.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1186,15 +1186,15 @@
     {
       "id": 847,
       "title": "A let-bound unannotated lambda over a pair can't use dot on a component (AoC 2024 day 3 proofs)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "Separate from SW-822: 'let counted := ((index, item)) => if index < 3 then item.value else 0' then 'List.sumBy pairs counted' gives E-CANNOT-INFER on item, since a let-bound lambda isn't an argument and has no later argument to postpone against. Day 3's Proofs.sw:64 annotates the pair pattern instead. Needs a design decision (annotate, or defer let-bound lambdas until first use); not fixed.",
+      "body": "Separate from SW-822: 'let counted := ((index, item)) => if index < 3 then item.value else 0' then 'List.sumBy pairs counted' gives E-CANNOT-INFER on item, since a let-bound lambda isn't an argument and has no later argument to postpone against. Day 3's Proofs.sw:64 annotates the pair pattern instead. Needs a design decision (annotate, or defer let-bound lambdas until first use); not fixed.\n\nClosed 4 Nov 2026 (backlog review): examples/accept/postpone-let-lambda-field.sw (SW-847) added in 9c95bf570 (postponement stage 2) is this repro and is accepted.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1236,9 +1236,9 @@
         "decision",
         "runtime"
       ],
-      "body": "From SW-863 (28 Oct): List.map xs f with f performing {IO} gives E-RESOURCE '1999999 frames pending' on a 3M list (interpreter, --native; JS passes). The generic-row map's recursive call sits in a continuation (bindIn e (f x) (y => Cons y (map xs f))), so TRMC doesn't apply (docs/core.md, after 'Tail calls as loops'); the limit is the 2,000,000-frame budget (crates/core/src/budget.rs:97), ~750 B/frame. Options for Matt: (a) close: the pure case was the AoC need (day 24's builders unconfirmed); (b) extend TRMC through effect continuations in interpreter and native (trmc.rs documents this as excluded for soundness); (c) std builders accumulate-and-reverse like partitionOnto (List.map is referenced 81x in List/Lemmas.sw, 43x in SortLemmas.sw, all would need re-proving); (d) raise Limits.frames for run (memory-bound, 3M frames ~2 GB) and/or a CLI flag. Lane recommendation: none given; orchestrator's: (a) unless a real program needs it.",
+      "body": "From SW-863 (28 Oct): List.map xs f with f performing {IO} gives E-RESOURCE '1999999 frames pending' on a 3M list (interpreter, --native; JS passes). The generic-row map's recursive call sits in a continuation (bindIn e (f x) (y => Cons y (map xs f))), so TRMC doesn't apply (docs/core.md, after 'Tail calls as loops'); the limit is the 2,000,000-frame budget (crates/core/src/budget.rs, `frames: 2_000_000`, line 104 on 4 Nov), ~750 B/frame. Options for Matt: (a) close: the pure case was the AoC need (day 24's builders unconfirmed); (b) extend TRMC through effect continuations in interpreter and native (trmc.rs documents this as excluded for soundness); (c) std builders accumulate-and-reverse like partitionOnto (List.map is referenced 81x in List/Lemmas.sw, 43x in SortLemmas.sw, all would need re-proving); (d) raise Limits.frames for run (memory-bound, 3M frames ~2 GB) and/or a CLI flag. Lane recommendation: none given; orchestrator's: (a) unless a real program needs it.\n\nBacklog review, 4 Nov 2026: SW-863 (done) fixed the pure case; this is the {IO}-callback case.",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1251,23 +1251,23 @@
         "decision",
         "kernel"
       ],
-      "body": "From SW-862 (29 Oct): value::conv (crates/core/src/value.rs ~102) compares metas by number and never follows a solution, so elaborator values computed before a meta was solved compare unequal after. SW-862 added Ctx::conv_now (check.rs: conv, then refresh both and conv again if anything is solved) and used it in cases.rs. Sites left alone as harmless or contrived: cases.rs take_apart (587, 602), omega.rs:212 and 2008, ring.rs:927, data_auto.rs:209. Option A: make conv force solved metas at each step (kernel terms are zonked, so the code never runs in the kernel; fixes every elaborator call at once) at the soundness boundary. Option B: keep conv kernel-only and move elaborator sites to conv_now one at a time. Lane's D1545.",
+      "body": "From SW-862 (29 Oct): value::conv (`pub fn conv`, crates/core/src/value.rs:2266 on 4 Nov) compares metas by number and never follows a solution, so elaborator values computed before a meta was solved compare unequal after. SW-862 added Ctx::conv_now (check.rs: conv, then refresh both and conv again if anything is solved) and used it in cases.rs. Sites left alone as harmless or contrived: cases.rs take_apart (587, 602), omega.rs:212 and 2008, ring.rs:927, data_auto.rs:209. Option A: make conv force solved metas at each step (kernel terms are zonked, so the code never runs in the kernel; fixes every elaborator call at once) at the soundness boundary. Option B: keep conv kernel-only and move elaborator sites to conv_now one at a time. Lane's D1545.\n\nBacklog review, 4 Nov 2026: since the Globals split (step 8e) the evaluator takes `&Ev` with `&dyn Metas` (SW-1190), so the elaborator can now pass a meta view to the checker. That weakens the premise 'kernel terms are zonked, so the code never runs in the kernel'. Open question: is Option A now cheap?",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 885,
       "title": "Record literal with an effectful field is E-CANNOT-INFER as an argument, tuple part or nested field",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw. Blocks the natural AoC 2024 day 14 grammar rewrite without ': Position' annotations.",
+      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw. Blocks the natural AoC 2024 day 14 grammar rewrite without ': Position' annotations.\n\nClosed 4 Nov 2026 (backlog review): examples/accept/postpone-effectful-record.sw (SW-885: argument, tuple part, nested field) from 9c95bf570. Not rechecked: whether the day 14 grammar rewrite without `: Position` annotations works; file a narrower ticket if not.",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1362,16 +1362,16 @@
     {
       "id": 912,
       "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "stage 1 merged, wired at merge (D2043); stage 2 (--base statement hash) and 3: backlog (Matt, 30 Oct)",
       "labels": [
         "tooling",
         "research"
       ],
-      "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n\n\nLane log (audit stage 1):\n- 30 Oct: audit command working in file mode (axioms/unfinished/vacuous verdicts, --json, --strict); GaveUp split into NeverHeld (0 of N) and GaveUp (<10%). Next: corpus runs, tests, docs.\n- 30 Oct: done on branch worktree-agent-a1f5cb6bb55d21fec (47eb1e13, 2b6fc4f7). Corpus: std 2322 thms 5 warn, aoc 1366 thms 16 warn, rogue 190 thms 3 warn, 0 fail; all warnings narrow hypotheses, none found really vacuous. Full-corpus cost with search ~340 s (aoc 222, std 99, rogue 20); --no-search warm 3 s for aoc. Lane tiers cli/elab/examples/hashes pass; clippy, fmt clean.",
+      "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n\n\nLane log (audit stage 1):\n- 30 Oct: audit command working in file mode (axioms/unfinished/vacuous verdicts, --json, --strict); GaveUp split into NeverHeld (0 of N) and GaveUp (<10%). Next: corpus runs, tests, docs.\n- 30 Oct: done on branch worktree-agent-a1f5cb6bb55d21fec (47eb1e13, 2b6fc4f7). Corpus: std 2322 thms 5 warn, aoc 1366 thms 16 warn, rogue 190 thms 3 warn, 0 fail; all warnings narrow hypotheses, none found really vacuous. Full-corpus cost with search ~340 s (aoc 222, std 99, rogue 20); --no-search warm 3 s for aoc. Lane tiers cli/elab/examples/hashes pass; clippy, fmt clean.\n\nClosed 4 Nov 2026 (backlog review): audit stage 1 shipped (c2b8e0f96, merged 47eb1e137; crates/driver/src/audit.rs). Stages 2-3 are covered by SW-1029.",
       "created": "2026-10-30",
-      "updated": "2026-10-30",
+      "updated": "2026-11-04",
       "commits": [
         "c2b8e0f9"
       ]
@@ -1457,16 +1457,16 @@
     },
     {
       "id": 942,
-      "title": "search: say when a pattern computes to a hole; --at should try cases; 'ran out of steps' warnings on every --at",
+      "title": "search: premise pattern '(?a < ?b) = not (?b <= ?a)' falls to the relaxed pass with unrelated results (item 4 of SW-942)",
       "status": "backlog",
       "agent": "",
       "where": "(1)-(3) done in 5cb4b8ff; (4) premise-pattern relaxed pass, (5) naming left",
       "labels": [
         "tooling"
       ],
-      "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\n31 Oct (search lane, in 5cb4b8ff with SW-915 2b): (1) a pattern that computes to a hole says so; (2) cases tried as a closer (alone, obligations, after a rewrite), kernel-checked; (3) the 3 comparisons are always Std.Float.Theory overflowHalf/largestBelow/infinityAbove (magUnits 9218868437227405311 runs out of depth vs any Nat sum): the warning now names them. Not done: (4) relaxed pass for premise patterns.\n",
+      "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\n31 Oct (search lane, in 5cb4b8ff with SW-915 2b): (1) a pattern that computes to a hole says so; (2) cases tried as a closer (alone, obligations, after a rewrite), kernel-checked; (3) the 3 comparisons are always Std.Float.Theory overflowHalf/largestBelow/infinityAbove (magUnits 9218868437227405311 runs out of depth vs any Nat sum): the warning now names them. Not done: (4) relaxed pass for premise patterns.\n\nBacklog review, 4 Nov 2026: items (1)-(3) were done in 5cb4b8ff6 and (5) is fine as is; only (4) is open: premise pattern '(?a < ?b) = not (?b <= ?a)' falls to the relaxed pass with unrelated results.",
       "created": "2026-10-31",
-      "updated": "2026-10-31",
+      "updated": "2026-11-04",
       "commits": [
         "5cb4b8ff"
       ]
@@ -1831,9 +1831,9 @@
         "aoc",
         "friction"
       ],
-      "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint. Fix: note suggesting brackets (small).\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n",
+      "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) [seen twice: also SW-995 item 1, from SW-992] omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint.~~\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -1926,7 +1926,7 @@
     },
     {
       "id": 985,
-      "title": "cases spends ~100 s splitting Nat.divStep internals before E-CASES-BUDGET",
+      "title": "cases splits inside library arithmetic (Nat.divStep, Float.Theory): ~100 s or 1.2 GB before giving up",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -1934,9 +1934,9 @@
         "elab",
         "tactics"
       ],
-      "body": "Seen by the SW-975 lane (1 Nov 2026): after the panic fix, the 74-line day 16 repro (scratchpad cases-panic-repro.sw; in-repo: flip 'if more' in Day16 readGroups) ends with E-CASES-BUDGET (more than 64 cases) after about 100 s on a release build, because cases keeps splitting on Nat.divStep's internals. Should give up fast, or not split inside library arithmetic.",
+      "body": "Seen by the SW-975 lane (1 Nov 2026): after the panic fix, the 74-line day 16 repro (scratchpad cases-panic-repro.sw; in-repo: flip 'if more' in Day16 readGroups) ends with E-CASES-BUDGET (more than 64 cases) after about 100 s on a release build, because cases keeps splitting on Nat.divStep's internals. Should give up fast, or not split inside library arithmetic.\n\nFrom SW-994 (merged, backlog review 4 Nov 2026): the same problem in Float. Found by SW-989: `cases` on Std.Float.Theory.magUnitsLeReflect's premise uses about 1.2 GB and a few seconds, and a smaller step budget per check did not stop it. search --at's lane tests skip the lemma to stay under the 3 GB tier cap.",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -2064,15 +2064,15 @@
     {
       "id": 994,
       "title": "cases on Std.Float.Theory.magUnitsLeReflect's premise takes ~1.2 GB",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tactics"
       ],
-      "body": "Found by SW-989: checking cases on that premise uses about 1.2 GB and a few seconds; a smaller step budget per check didn't stop it. search --at's lane tests skip the lemma to stay under the 3 GB tier cap. Related: SW-985 (cases splitting library arithmetic).",
+      "body": "Found by SW-989: checking cases on that premise uses about 1.2 GB and a few seconds; a smaller step budget per check didn't stop it. search --at's lane tests skip the lemma to stay under the 3 GB tier cap. Related: SW-985 (cases splitting library arithmetic).\n\nMerged into SW-985 (backlog review, 4 Nov 2026)",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -2144,9 +2144,9 @@
       "labels": [
         "friction"
       ],
-      "body": "From SW-996, 1 Nov 2026. (1) Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5). (2) if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool). (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields. (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).",
+      "body": "From SW-996, 1 Nov 2026. (1) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5).~~ (2) DONE (SW-1015, SW-373-style): ~~if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool).~~ (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) DONE (SW-1015): ~~The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields.~~ (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3121,11 +3121,12 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "diagnostics"
+        "diagnostics",
+        "decision"
       ],
       "body": "D2166 (not decided; from the language-productivity report, docs/research/language-productivity.md). When a definition fails with E-TERMINATION, try likely termination measures under a work limit (`b - a`, sizes, lexicographic pairs) and suggest one only if it checks, in the message and in JSON. Recommendation: [yes; small, Sonnet with a short spec]. Follows D2165 (SW-1027, done).\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3136,11 +3137,12 @@
       "where": "",
       "labels": [
         "design",
-        "correctness"
+        "correctness",
+        "decision"
       ],
       "body": "D2168 (not decided; from the language-productivity report). Custom input generators for counterexample search (a program supplies how to make valid inputs of a type), to cut false \"no input met the hypotheses\" warnings from `audit`/`check --counterexamples`. Recommendation: [yes, after SW-1029 (audit stage 2); Opus for the interface]. Note D2188 (2 Nov): generated f.eqK equations are not searched.\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3151,11 +3153,12 @@
       "where": "",
       "labels": [
         "design",
-        "correctness"
+        "correctness",
+        "decision"
       ],
       "body": "D2169 (not decided; from the language-productivity report). An automated mutation check: break the program (flip a comparison, drop a case, change a constant) and require some proof or test to fail, so a theorem that says nothing useful is caught. Lanes do this by hand today. Recommendation: [yes, as a design ticket after SW-1029 (audit stage 2); Opus].\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3165,11 +3168,12 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "design"
+        "design",
+        "decision"
       ],
       "body": "D2171 (not decided; from the language-productivity report). Construction privacy / abstract types: stop code outside a namespace from building a value that breaks its invariant (e.g. a 2025 day 8 `Boxes` that isn't valid), so invariants needn't be re-proved at every use. Recommendation: [later: one Opus design note after function equations (D2163) and audit stage 2 (SW-1029)]. Also D2170 (not decided): the report's human-editor features (no agent evidence) get no tickets; recommendation [yes, note them as \"no agent evidence\" only].\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3182,9 +3186,9 @@
         "kernel",
         "performance"
       ],
-      "body": "From SW-1053 (2 Nov 2026). The kernel refines the whole context at every case: check_num_case (crates/core/src/check.rs:1241-1245, the `refined` closure) runs substitute_in over the whole environment and every context type — a read-back and re-evaluation per entry — at each number; check_case (1124-1135) does the same per constructor. So a case split with many hypotheses in scope costs O(cases x context). This is why a catch-all equation after N number arms costs N^2 (SW-1053 capped it at 64).\n\nIdea: record the pending substitution per branch (variable, value, environment) and apply it to an entry's type only when it is looked up (variable type lookup ~line 243; the matched variable's type ~870, ~1215; nested case refinement and the index unifier apply what's pending first). Entries that are just their own variable can be skipped outright (cheap and safe on its own). Effect: each arm of an equation proof touches only its hypothesis and the goal, so the cap could be lifted.\n\nCost/risk: trusted kernel. Must stay equivalent to eager refinement (eval(quote_folded(v)) gives the same value), keep checked terms and hashes (Term::Eq's filled-in type is read back from these types), and compose nested refinements in order. Skipping entries that don't mention the variable doesn't help here (every hypothesis mentions it).\n\nAlso from SW-1053: the 64 cap counts only Nat hypotheses — Int literal hypotheses aren't counted, and a big character table's merged notListed is one hypothesis with the same N^2 proof cost. Cover those with the cap (small) unless this kernel change lands first.\n",
+      "body": "From SW-1053 (2 Nov 2026). The kernel refines the whole context at every case: check_num_case (crates/core/src/check.rs:1195 on 4 Nov, its `refined` closure at :1249-1254) runs substitute_in over the whole environment and every context type — a read-back and re-evaluation per entry — at each number; check_case (begins at :853) does the same per constructor. So a case split with many hypotheses in scope costs O(cases x context). This is why a catch-all equation after N number arms costs N^2 (SW-1053 capped it at 64).\n\nIdea: record the pending substitution per branch (variable, value, environment) and apply it to an entry's type only when it is looked up (variable type lookup ~line 243; the matched variable's type ~870, ~1215; nested case refinement and the index unifier apply what's pending first). Entries that are just their own variable can be skipped outright (cheap and safe on its own). Effect: each arm of an equation proof touches only its hypothesis and the goal, so the cap could be lifted.\n\nCost/risk: trusted kernel. Must stay equivalent to eager refinement (eval(quote_folded(v)) gives the same value), keep checked terms and hashes (Term::Eq's filled-in type is read back from these types), and compose nested refinements in order. Skipping entries that don't mention the variable doesn't help here (every hypothesis mentions it).\n\nAlso from SW-1053: the 64 cap counts only Nat hypotheses — Int literal hypotheses aren't counted, and a big character table's merged notListed is one hypothesis with the same N^2 proof cost. Cover those with the cap (small) unless this kernel change lands first.\n\nBacklog review, 4 Nov 2026: SW-1106 (done, 20f98102d 'a branch's refinement returns values that don't mention the matched variable as they are') already removed part of the cost. What remains: the per-entry read-back and re-evaluation for entries whose type does mention the variable; re-measure before building.",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3279,7 +3283,7 @@
     },
     {
       "id": 1073,
-      "title": "f.induct follow-ups: split lifted matches with a catch-all or nested pattern (6 skips: 4 std, 2 AoC) on %split/%apart; doc header says 'N equations and f.induct'",
+      "title": "f.induct: lifted-match alternatives with a catch-all or a literal pattern get no case (6 skips: 4 std, 2 AoC)",
       "status": "next",
       "agent": "Sonnet",
       "where": "",
@@ -3287,9 +3291,9 @@
         "elaborator",
         "proof"
       ],
-      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n2 Nov: the doc wording part is done by SW-1077 (f.induct listed apart: \"N generated equations and f.induct\").\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n",
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3374,15 +3378,13 @@
     {
       "id": 1079,
       "title": "Session state 2 Nov 2026: what's pushed, tests at push, open work, Matt's test-budget rules",
-      "status": "backlog",
+      "status": "done",
       "agent": "Claude",
       "where": "",
-      "labels": [
-        "decision"
-      ],
-      "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n\nUpdate 2 Nov 2026 (moved to Speedwell): SW-1078 fixed in the working tree, uncommitted (see the ticket); hashes lane tier passed 5/5. Done tickets updated before 1 Nov archived to board/archive/2026-10.json.\n",
+      "labels": [],
+      "body": "State at end of session (2 Nov 2026), for picking up later.\n\nPushed: everything on main, including function equations stages 1a-2b (docs/proposals/function-equations.md \"As built\" sections), SW-1050-1056 (daily/full fallout), SW-1068/1069/1071/1072/1077 fixes.\n\nTests at push (Matt set a strict test budget; no daily/full since the afternoon daily):\n- After SW-1077 + de25c46e: audit std 2544 / AoC 3260 / rogue 329, 0 failed; merge tier 1052/1052 (with --test-threads 6, see SW-1076); full-tier check_cache examples sweep passed; daily-tier equation/induct/doc binaries 46/47.\n- Known failure: SW-1078 (deeper.eq2.some.nil). The next daily will show it; nothing else daily/full-only has run since this afternoon's daily (which had the six failures SW-1077 fixed).\n\nRules from Matt (2 Nov): don't run daily or full without asking; never chain them; lanes rerun only the failing tests; spend test time by risk within a stated budget.\n\nFunction equations track (delegated to Claude by Matt): built 1a, 1b, 1c, 1d, 2a, 2b. Open: SW-1078 (failing test), SW-1073 (f.induct for lifted matches with catch-all/nested patterns; doc wording done), SW-1074 (match on several expressions), SW-1075 (f.induct for per-leaf/refined equations: explode, readPackets, repair), SW-1066 (kernel lazy context refinement; held: trusted kernel), §9 later row (IH under binders, mutual groups, gcd/Mod.ofNat else branches after proof irrelevance). Suggested next: sweep AoC proofs onto equations/f.induct (Sonnet, batches of days), then SW-1073+SW-1074.\n\nOther open: SW-1076 (merge tier at its 3 GB cap), SW-921 (memory; LSP part fixed by SW-1052), SW-1029 (audit stage 2), SW-1057-1065 language-report and AoC decision tickets (D2157-D2159, D2166, D2168-D2171 undecided, in backlog), SW-839 (42-min lowering test).\n\nUpdate 2 Nov 2026 (moved to Speedwell): SW-1078 fixed in the working tree, uncommitted (see the ticket); hashes lane tier passed 5/5. Done tickets updated before 1 Nov archived to board/archive/2026-10.json.\n\nClosed 4 Nov 2026 (backlog review): obsolete session-state snapshot of 2 Nov; every ticket it lists is done and the test-budget rules are in CLAUDE.md.",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3600,16 +3602,16 @@
     {
       "id": 1094,
       "title": "Measure lsp a_newer_edit_cancels_the_check_running on a quiet machine (from SW-921, D2214): it took 298 s and 8.4 GB once, under load (31 Oct), never re-measured. If it still holds GBs or minutes, find whether that's inherent or held longer than needed",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tests",
         "perf"
       ],
-      "body": "",
+      "body": "Merged into SW-1242 (backlog review, 4 Nov 2026)",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3621,9 +3623,9 @@
       "labels": [
         "tests"
       ],
-      "body": "",
+      "body": "From SW-1104 (closed, backlog review 4 Nov 2026; merged 7f44deed8, lane 04f66ce47). Leftovers:\n- D2231 item 3: sampling of the heavy sweeps (search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering; ~1500 CPU-s, costs coverage) was decided after the other items; still open.\n- Item 4: Session::eager_for_stack costs ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary does not work under nextest (process per test); options are an on-disk snapshot of the loaded library or fewer test processes.\n- Item 6: restate the budget for the 10-core M1 Pro (SW-1104 measured 20.7 min on 2 Nov before the fixes).\n- The orchestrator should run one daily tier after SW-1104's merge to measure (needs Matt's agreement on the number); docs/testing.md's daily memory row is out of date until then.\n- Also noted: the merge-tier selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh.",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -3736,27 +3738,27 @@
     {
       "id": 1103,
       "title": "Morning summary: overnight 2-3 Nov",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Overnight 2-3 Nov 2026 (D2227). Everything is on local main, not pushed.\n\nMerged (each verified: selection + merge tier + audit):\n- SW-1099: the commenting rule (docs/syntax.md \"What to write\"): std comprehensive, application code parsimonious.\n- SW-1100 + SW-1045: doc --coverage a target only for Std.*; doc links resolve through the file's imports; W-DOC-LINK no longer cached.\n- SW-1074: equations for a match on several expressions (all 9 AoC skips now have equations; no AoC proof changed: none needed them). Opus review found the match columns were found by name (misfired on a variable named `s`); fixed by having the lifter record them. Cache FORMAT 20.\n\nFor you to judge (branches, not merged):\n- lane/SW-1101: std List docs pilot (54 definitions, 52 with checked examples).\n- lane/SW-1102: AoC 2024 day 6 comments pilot (81 restating comments deleted, 36 kept, 2 shortened). Review: git diff main...lane/SW-1102.\n- Open point from SW-1099: under the rule, should std theorems whose name and statement say everything still need a doc?\n\nFindings:\n- SW-1097 (OpenCode hang): cause found. opencode run waits for stdin EOF; an open pipe hangs it (upstream anomalyco/opencode#59287, open). Fixed with </dev/null, now in CLAUDE.md and docs/workflow.md.\n- SW-1096 (Parse memory): not the runtime. The checker fully evaluates a match scrutinee in main (matching::generalised_now -> normals) with the unfused core evaluator: 7.36 GB at check time for 1M ops vs 69.5 MB when the match is in a helper. SW-861/SW-738's memory comparisons measured the checker. Fix proposed, not started (D2229).\n- Selector trial (SW-1098): 2 of ~10 merges done, nothing missed; selections 94 s and 56 s. Gap: EXAMPLES takes one substring.\n- audit:touched on 2021 d16/d18, 2024 d12: 35 vacuity warnings, probably older (not checked).\n\nDaily tier, 23:54-00:15: 1956 / 1956 passed. 20.7 min wall (nextest 1057 s), against \"under 5 minutes\" in the Taskfile. Its timings are folded into the selector inventory: 1956 of 1969 tests now have a known time (was ~1070).\n\nOpen D questions:\n- D2228: close SW-1097 after 2-3 clean DeepSeek starts with </dev/null? [rec: yes]\n- D2229: SW-1096 fix as an Opus lane (skip evaluating a scrutinee that can't occur in the goal, memory regression test, Opus review)? [rec: yes]\n- D2230: the daily tier takes 20 min vs its \"under 5 minutes\": investigate (as SW-1092 did for merge) or restate the budget? [rec: investigate, Sonnet]\n",
+      "body": "Overnight 2-3 Nov 2026 (D2227). Everything is on local main, not pushed.\n\nMerged (each verified: selection + merge tier + audit):\n- SW-1099: the commenting rule (docs/syntax.md \"What to write\"): std comprehensive, application code parsimonious.\n- SW-1100 + SW-1045: doc --coverage a target only for Std.*; doc links resolve through the file's imports; W-DOC-LINK no longer cached.\n- SW-1074: equations for a match on several expressions (all 9 AoC skips now have equations; no AoC proof changed: none needed them). Opus review found the match columns were found by name (misfired on a variable named `s`); fixed by having the lifter record them. Cache FORMAT 20.\n\nFor you to judge (branches, not merged):\n- lane/SW-1101: std List docs pilot (54 definitions, 52 with checked examples).\n- lane/SW-1102: AoC 2024 day 6 comments pilot (81 restating comments deleted, 36 kept, 2 shortened). Review: git diff main...lane/SW-1102.\n- Open point from SW-1099: under the rule, should std theorems whose name and statement say everything still need a doc?\n\nFindings:\n- SW-1097 (OpenCode hang): cause found. opencode run waits for stdin EOF; an open pipe hangs it (upstream anomalyco/opencode#59287, open). Fixed with </dev/null, now in CLAUDE.md and docs/workflow.md.\n- SW-1096 (Parse memory): not the runtime. The checker fully evaluates a match scrutinee in main (matching::generalised_now -> normals) with the unfused core evaluator: 7.36 GB at check time for 1M ops vs 69.5 MB when the match is in a helper. SW-861/SW-738's memory comparisons measured the checker. Fix proposed, not started (D2229).\n- Selector trial (SW-1098): 2 of ~10 merges done, nothing missed; selections 94 s and 56 s. Gap: EXAMPLES takes one substring.\n- audit:touched on 2021 d16/d18, 2024 d12: 35 vacuity warnings, probably older (not checked).\n\nDaily tier, 23:54-00:15: 1956 / 1956 passed. 20.7 min wall (nextest 1057 s), against \"under 5 minutes\" in the Taskfile. Its timings are folded into the selector inventory: 1956 of 1969 tests now have a known time (was ~1070).\n\nOpen D questions:\n- D2228: close SW-1097 after 2-3 clean DeepSeek starts with </dev/null? [rec: yes]\n- D2229: SW-1096 fix as an Opus lane (skip evaluating a scrutinee that can't occur in the goal, memory regression test, Opus review)? [rec: yes]\n- D2230: the daily tier takes 20 min vs its \"under 5 minutes\": investigate (as SW-1092 did for merge) or restate the budget? [rec: investigate, Sonnet]\n\nClosed 4 Nov 2026 (backlog review): a morning report, no work. The two items for Matt (lane/SW-1101, lane/SW-1102) have their own tickets, still in review.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 1104,
       "title": "Daily tier takes 20.7 min against its 5-minute budget: what is slowing it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.\n\nFindings (Sonnet, 3 Nov, 26 min, est. 40). Wall 1244 s: nextest 1057 s (85%), builtins debug 84 s, web:pkg 37 s, fmt/clippy ~25 s. CPU 9293 s, ~870 s wall at perfect packing on 10 cores (82% efficient); 5 min needs ~70% less CPU.\n- Critical path: corpus-sweeps group (max-threads 1), 38 tests, 999 s serial, 36 s -> 1057 s; last 400 s ran on 1-3 cores. lsp group (lsp-aoc-copy, max-threads 1): 680 s; a_newer_edit_cancels_the_check_running 342 s, aoc_navigation_matches_check_index 245 s.\n- Tests >= 10 s: 133 tests, 76% of test time. Top CPU: search_at_on_aoc_goals 500, rewind examples 467, accepted_examples_check 292, erasure 288, every_day_from_the_whole_projects_cache 159 (one thread).\n- Since the budget (25 Oct, 3adb2672): it was never met after that; 606 s on 31 Oct (14 cores), 1057 s now. Tests 1766 -> 1956; search_at_aoc + soundness_fuzz added ~185 s to the serial group; the other sweeps ~2.2x (machine change + 8-thread pools contending; split not measured).\nProposals, ranked: (1) overlap the sweep chain (max-threads 2 or smaller pools; nextest priority), ~150-190 s, no coverage cost, needs a memory check; (2) LSP chain: priority, drop the group for tests not using the AoC copy, smaller namespace (SW-1094), up to 340 s off the path; (3) sample/move to full: search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering: ~1500 CPU-s, costs coverage; (4) share Session::eager_for_stack per binary (136 tests, ~1136 s test time; unmeasured); (5) builtins debug: move the two 60 s hash tests to release, skip web:pkg when fresh, ~70-80 s; (6) restate the budget for a 10-core M1 Pro after the above.\n\n\nD2231 (Matt, 3 Nov): do 1 (overlap sweeps), 2 (LSP chain), 5 (builtins debug, web:pkg) and measure 4 (shared eager session); 3 (sampling) decided after. Test budget: targeted runs and the merge tier in the lane; the orchestrator runs one daily tier after merging to measure. Sonnet lane.\n\n\nImplementation (Sonnet, 43 min, est. 60), merged 7f44deed (lane 04f66ce4):\n(1) corpus-sweeps max-threads 2 in every profile (merge too: measured 2.75 GB peak vs 4 GB cap, 1032 passed); STITCHWORT_TEST_THREADS=5 for daily/full (Taskfile, flake nextestArgs); priority 100/50 overrides for the longest tests (checked to work inside a group). Pair of biggest sweeps on pools of 5: 2.95 GB.\n(2) lsp-aoc-copy only for the three tests calling aoc(); the other 28 run freely. Cancel test quiet: 107 s / 1.8 GB (342 s was contention); smaller namespaces finish before the edit arrives, so it stays on Rounds. Navigation 195 s / 3.25 GB.\n(3) builtins debug kept in debug (its purpose, SW-962) but built first and run beside nextest under one cap (~65-70 s saved). web:pkg already skips when fresh; no change.\n(4) eager_for_stack: ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary doesn't work under nextest (process per test); options: on-disk snapshot of the loaded library, or fewer test processes.\nFollow-ups noted: selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh; docs/testing.md daily memory row out of date until the next daily run.\nModel result: Sonnet, worked (one judgement call against the brief, explained: builtins kept in debug), 43 min (est. 60).\n",
+      "body": "Daily run 2 Nov 23:54-00:15 on a quiet machine: 1956/1956 passed, 20.7 min wall, nextest Summary 1056.9 s; the Taskfile says under 5 minutes. The machine went from 14 to 10 cores (SW-1090). D2230 (Matt, 3 Nov): Sonnet investigation of what is slowing it. Data: target/nextest/daily/junit.xml, copy in the orchestrator's scratchpad junit-daily-1.xml; log daily.log.\n\nFindings (Sonnet, 3 Nov, 26 min, est. 40). Wall 1244 s: nextest 1057 s (85%), builtins debug 84 s, web:pkg 37 s, fmt/clippy ~25 s. CPU 9293 s, ~870 s wall at perfect packing on 10 cores (82% efficient); 5 min needs ~70% less CPU.\n- Critical path: corpus-sweeps group (max-threads 1), 38 tests, 999 s serial, 36 s -> 1057 s; last 400 s ran on 1-3 cores. lsp group (lsp-aoc-copy, max-threads 1): 680 s; a_newer_edit_cancels_the_check_running 342 s, aoc_navigation_matches_check_index 245 s.\n- Tests >= 10 s: 133 tests, 76% of test time. Top CPU: search_at_on_aoc_goals 500, rewind examples 467, accepted_examples_check 292, erasure 288, every_day_from_the_whole_projects_cache 159 (one thread).\n- Since the budget (25 Oct, 3adb2672): it was never met after that; 606 s on 31 Oct (14 cores), 1057 s now. Tests 1766 -> 1956; search_at_aoc + soundness_fuzz added ~185 s to the serial group; the other sweeps ~2.2x (machine change + 8-thread pools contending; split not measured).\nProposals, ranked: (1) overlap the sweep chain (max-threads 2 or smaller pools; nextest priority), ~150-190 s, no coverage cost, needs a memory check; (2) LSP chain: priority, drop the group for tests not using the AoC copy, smaller namespace (SW-1094), up to 340 s off the path; (3) sample/move to full: search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering: ~1500 CPU-s, costs coverage; (4) share Session::eager_for_stack per binary (136 tests, ~1136 s test time; unmeasured); (5) builtins debug: move the two 60 s hash tests to release, skip web:pkg when fresh, ~70-80 s; (6) restate the budget for a 10-core M1 Pro after the above.\n\n\nD2231 (Matt, 3 Nov): do 1 (overlap sweeps), 2 (LSP chain), 5 (builtins debug, web:pkg) and measure 4 (shared eager session); 3 (sampling) decided after. Test budget: targeted runs and the merge tier in the lane; the orchestrator runs one daily tier after merging to measure. Sonnet lane.\n\n\nImplementation (Sonnet, 43 min, est. 60), merged 7f44deed (lane 04f66ce4):\n(1) corpus-sweeps max-threads 2 in every profile (merge too: measured 2.75 GB peak vs 4 GB cap, 1032 passed); STITCHWORT_TEST_THREADS=5 for daily/full (Taskfile, flake nextestArgs); priority 100/50 overrides for the longest tests (checked to work inside a group). Pair of biggest sweeps on pools of 5: 2.95 GB.\n(2) lsp-aoc-copy only for the three tests calling aoc(); the other 28 run freely. Cancel test quiet: 107 s / 1.8 GB (342 s was contention); smaller namespaces finish before the edit arrives, so it stays on Rounds. Navigation 195 s / 3.25 GB.\n(3) builtins debug kept in debug (its purpose, SW-962) but built first and run beside nextest under one cap (~65-70 s saved). web:pkg already skips when fresh; no change.\n(4) eager_for_stack: ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary doesn't work under nextest (process per test); options: on-disk snapshot of the loaded library, or fewer test processes.\nFollow-ups noted: selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh; docs/testing.md daily memory row out of date until the next daily run.\nModel result: Sonnet, worked (one judgement call against the brief, explained: builtins kept in debug), 43 min (est. 60).\n\nClosed 4 Nov 2026 (backlog review): merged 7f44deed8 (lane 04f66ce47); leftovers moved to SW-1095.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4107,15 +4109,15 @@
     {
       "id": 1129,
       "title": "Session state held as globals: queue.rs's 26 global counters and unify.rs's thread-local inference state",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "architecture"
       ],
-      "body": "Found by SW-1115: these are really per-session state; two sessions on one thread (the language server alongside a proof-action search) can interfere. Move into the session's state components (see the review's target architecture).",
+      "body": "Found by SW-1115: these are really per-session state; two sessions on one thread (the language server alongside a proof-action search) can interfere. Move into the session's state components (see the review's target architecture).\n\nClosed 4 Nov 2026 (backlog review): done by the elaborator-state steps: 8615295dd (unify.rs thread-locals become state::Attempt fields, SW-1144); `git grep thread_local crates/elab/src` leaves only a test-only recorder in kernel.rs and timings.rs; queue.rs has no statics; globals split 8a-8f (SW-1186..SW-1191) done.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4281,9 +4283,9 @@
       "labels": [
         "perf"
       ],
-      "body": "From SW-1137 (F3): LiveProject keeps a full copy of scope, module, instances, library and about ten more tables in each namespace's mark; estimated several hundred MB on aoc, the same failure as SW-1052. Measure first. Also F5: aoc check --no-cache peaks at 1.59 GB against 162 MB in language-server.md.",
+      "body": "From SW-1137 (F3): LiveProject keeps a full copy of scope, module, instances, library and about ten more tables in each namespace's mark; estimated several hundred MB on aoc, the same failure as SW-1052. Measure first. Also F5: aoc check --no-cache peaks at 1.59 GB against 162 MB in language-server.md.\n\nFrom SW-1180 (merged, backlog review 4 Nov 2026), from SW-1179: the language server holds ~170-185 MB more than its LiveProject on aoc (answers, navigation per file?); measure what it keeps per file. Also make state_edit_loop sample only when the server is idle.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4554,7 +4556,7 @@
     },
     {
       "id": 1161,
-      "title": "Elaborator unifier compares numbers eagerly (unify.rs:1029 native::compare), the cost SW-1153 removed from the kernel; mind the lone-number-base assign case",
+      "title": "Elaborator unifier compares numbers eagerly (unify.rs:1021 native::compare), the cost SW-1153 removed from the kernel; mind the lone-number-base assign case",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -4563,7 +4565,7 @@
       ],
       "body": "From SW-1153.\n\nD2282 (Matt, 3 Nov): not now (\"hard to understand the impact/benefit... maybe another time\"). If raised again, lead with a measured user-visible effect (which real programs check slower, by how much).\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4681,13 +4683,13 @@
     {
       "id": 1170,
       "title": "Parallel checking (deprioritised, D2299): measured ceiling 5.9x cold on aoc, ~3.4x with processes at 1.6-2.7x CPU, no gain for a typical edit",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "research"
       ],
-      "body": "Parallel checking: deprioritised (D2299, Matt, 4 Nov 2026). Measured in SW-1170; full write-up and scripts in dev/measurements/parallel-checking.md and dev/parallel-check/.\n\nFindings (aoc unless noted; work from measured CPU, wall times under load 30+):\n- Cold full check: 67.4 s of work, 11.5 s critical path, so the ceiling is 5.9x (reached at 8 cores). The critical path is two Proofs namespaces of ~8 s; one is mostly a single 6.4 s declaration group. Beyond ~6x needs parallelism inside a namespace.\n- One process per namespace (model): ~3.4x (67 s -> 20 s); per day group ~4.0x (17 s). Costs 1.6-2.7x the CPU: each process spends 0.3-0.45 s re-elaborating the core, parsing the project and replaying a median of 30 library files from the cache (112 s CPU over 266 jobs).\n- Prototype, 8 processes, library cached: CPU 156-160 s vs 153 s predicted; wall 29.7 s vs 73-108 s sequential (loaded machine, no quiet run).\n- Typical edit: no gain (one Proofs/Tests namespace re-checked); a day's code namespace 0.56x (slower); Aoc.Common (59 namespaces) ~1.7x.\n- Memory: a worker 130-190 MB after replay, heavy namespaces 0.8-1.3 GB (Day06.Proofs 1.25 GB); 8 workers summed 4.1 GB vs 1.6 GB sequential.\n- games/rogue: ceiling 1.76x, processes at most 1.15x. Standard library alone: ceiling 2.2x (deep file chain).\n- In-process threads on a frozen shared base (reasoning only): near 5.9x at sequential CPU, but need Rc -> Arc for core terms and Send elaborator state; same critical-path ceiling.\n\nWhy deprioritised: cold checks mostly happen in lanes and test tiers on an already saturated machine, where 2.5x the CPU mostly takes cores from other work, and the edit loop doesn't gain.\n\nIf revisited: cheapest first step is `check --jobs N` in the driver, one child process per day group along the import graph after the library is checked once, sharing the check cache; est. ~4x cold on a quiet machine, a day or two, no elaborator changes. The Globals split (D2290) keeps the in-process route open.\n\nRelated, better value for the edit loop: SW-1193 (warm check replays untouched namespaces, 3.8 s vs 0.5-1.7 s), SW-1194 (0.3 s CPU per process start), SW-1195 (six Proofs namespaces are 59% of a cold check).\n",
+      "body": "Parallel checking: deprioritised (D2299, Matt, 4 Nov 2026). Measured in SW-1170; full write-up and scripts in dev/measurements/parallel-checking.md and dev/parallel-check/.\n\nFindings (aoc unless noted; work from measured CPU, wall times under load 30+):\n- Cold full check: 67.4 s of work, 11.5 s critical path, so the ceiling is 5.9x (reached at 8 cores). The critical path is two Proofs namespaces of ~8 s; one is mostly a single 6.4 s declaration group. Beyond ~6x needs parallelism inside a namespace.\n- One process per namespace (model): ~3.4x (67 s -> 20 s); per day group ~4.0x (17 s). Costs 1.6-2.7x the CPU: each process spends 0.3-0.45 s re-elaborating the core, parsing the project and replaying a median of 30 library files from the cache (112 s CPU over 266 jobs).\n- Prototype, 8 processes, library cached: CPU 156-160 s vs 153 s predicted; wall 29.7 s vs 73-108 s sequential (loaded machine, no quiet run).\n- Typical edit: no gain (one Proofs/Tests namespace re-checked); a day's code namespace 0.56x (slower); Aoc.Common (59 namespaces) ~1.7x.\n- Memory: a worker 130-190 MB after replay, heavy namespaces 0.8-1.3 GB (Day06.Proofs 1.25 GB); 8 workers summed 4.1 GB vs 1.6 GB sequential.\n- games/rogue: ceiling 1.76x, processes at most 1.15x. Standard library alone: ceiling 2.2x (deep file chain).\n- In-process threads on a frozen shared base (reasoning only): near 5.9x at sequential CPU, but need Rc -> Arc for core terms and Send elaborator state; same critical-path ceiling.\n\nWhy deprioritised: cold checks mostly happen in lanes and test tiers on an already saturated machine, where 2.5x the CPU mostly takes cores from other work, and the edit loop doesn't gain.\n\nIf revisited: cheapest first step is `check --jobs N` in the driver, one child process per day group along the import graph after the library is checked once, sharing the check cache; est. ~4x cold on a quiet machine, a day or two, no elaborator changes. The Globals split (D2290) keeps the in-process route open.\n\nRelated, better value for the edit loop: SW-1193 (warm check replays untouched namespaces, 3.8 s vs 0.5-1.7 s), SW-1194 (0.3 s CPU per process start), SW-1195 (six Proofs namespaces are 59% of a cold check).\n\nClosed 4 Nov 2026 (backlog review): the measurement is the deliverable (merged 10d98d97d; dev/measurements/parallel-checking.md). Matt deprioritised it (D2299). Follow-ups: SW-1193 (done), SW-1194, SW-1195; the `check --jobs N` idea is noted on SW-1194.",
       "created": "2026-11-03",
       "updated": "2026-11-04",
       "commits": []
@@ -4737,15 +4739,15 @@
     {
       "id": 1174,
       "title": "Design note: the Globals split (elaborator-state.md §4.6, step 8): Kernel/Env private, the meta store into Attempt, erasure and js as owned tables, how eval reads metavariable solutions; keep parallel checking possible",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2288 (Matt, 3 Nov): yes, overnight, docs only; decisions for Matt in the morning; implementation waits for his answers. Opus, est. 90 min.\n\nDone abe49104 (Opus, 15 min, est. 90), docs/proposals/globals-split.md merged (docs only). Field destinations; meta lookup options benchmarked in a toy evaluator (no option slower than today; rec A, a context struct with &dyn Metas); admission runs with no meta store (soundness by signature); migration 8a-8f (~7 lanes), 8a-8c after 6c. Decisions for Matt in the morning: D2290-D2295. Findings G1-G5 (§9): G1 admission doesn't reset the erasure mode (no caller found; one-line kernel fix), G2 undo may leave frozen_metas/lifted_calls entries for older metas (unverified), G3 wrong doc on Globals::metas, G4 the state note's Appendix B wrong on erasure/module/unfinished/apart_sets, G5 no test submits a solved meta to admission. Orchestrator's call: G1-G5 wait for Matt's review of the note (kernel-adjacent).\n",
+      "body": "D2288 (Matt, 3 Nov): yes, overnight, docs only; decisions for Matt in the morning; implementation waits for his answers. Opus, est. 90 min.\n\nDone abe49104 (Opus, 15 min, est. 90), docs/proposals/globals-split.md merged (docs only). Field destinations; meta lookup options benchmarked in a toy evaluator (no option slower than today; rec A, a context struct with &dyn Metas); admission runs with no meta store (soundness by signature); migration 8a-8f (~7 lanes), 8a-8c after 6c. Decisions for Matt in the morning: D2290-D2295. Findings G1-G5 (§9): G1 admission doesn't reset the erasure mode (no caller found; one-line kernel fix), G2 undo may leave frozen_metas/lifted_calls entries for older metas (unverified), G3 wrong doc on Globals::metas, G4 the state note's Appendix B wrong on erasure/module/unfinished/apart_sets, G5 no test submits a solved meta to admission. Orchestrator's call: G1-G5 wait for Matt's review of the note (kernel-adjacent).\n\nClosed 4 Nov 2026 (backlog review): the note is merged (5f3250fbe, docs/proposals/globals-split.md) and steps 8a-8f built and merged (SW-1186..SW-1191, 2bd54e185 'Globals deleted'). Findings in section 9 checked: G1 closed by 8e (admission_ignores_a_running_program), G2 closed by 8f (SW-1191), G3 gone with the field, G4 corrected in elaborator-state.md Appendix B, G5 has a test (kernel::tests::admission_refuses_a_solved_metavariable). No new tickets needed.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
@@ -4821,13 +4823,13 @@
     {
       "id": 1180,
       "title": "Language server memory beyond LiveProject: the server holds ~170-185 MB more than its LiveProject on aoc (answers, navigation per file?); measure what it keeps per file; also make state_edit_loop sample only when the server is idle",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "From SW-1179 (4 Nov).",
+      "body": "From SW-1179 (4 Nov).\n\nMerged into SW-1141 (backlog review, 4 Nov 2026)",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5041,7 +5043,7 @@
       "labels": [
         "perf"
       ],
-      "body": "SW-1170 finding 2. Adds up for tools and tests that start the CLI many times.",
+      "body": "SW-1170 finding 2. Adds up for tools and tests that start the CLI many times.\n\nFirst concrete step, from SW-1203 (merged, backlog review 4 Nov 2026), from SW-1199 finding 4: build the standard library's index once, not by parsing all 66 library files in every process (~0.11 s of the 0.22 s floor); every CLI process (tests start many) gains ~0.1 s.\nFrom SW-1170 (closed): the `check --jobs N` idea (parallel checking inside one process; ceiling measured at 5.9x, dev/measurements/parallel-checking.md) stays here if Matt wants it; deprioritised by D2299.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5163,13 +5165,13 @@
     {
       "id": 1203,
       "title": "Build the standard library's index once, not by parsing all 66 library files in every process (~0.11 s of the 0.22 s floor)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 finding 4. Every CLI process (tests start many) gains ~0.1 s.",
+      "body": "SW-1199 finding 4. Every CLI process (tests start many) gains ~0.1 s.\n\nMerged into SW-1194 (backlog review, 4 Nov 2026)",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5264,14 +5266,14 @@
     {
       "id": 1210,
       "title": "Counterexample search: satisfy hypotheses of the form f x = y / f x = Some y by computing y from generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "audit",
         "aoc"
       ],
-      "body": "D2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings). From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.",
+      "body": "D2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings). From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\n\nMerged into SW-1261 (backlog review, 4 Nov 2026)",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5735,7 +5737,7 @@
       "labels": [
         "tests"
       ],
-      "body": "Found by SW-1224, 4 Nov 2026.",
+      "body": "Found by SW-1224, 4 Nov 2026.\n\nFrom SW-1094 (merged, backlog review 4 Nov 2026): `a_newer_edit_cancels_the_check_running` once took 298 s and 8.4 GB under load (31 Oct, SW-921, D2214); after SW-1104 it measured 107 s / 1.8 GB on a quiet machine (342 s was contention). SW-1104's lane already narrowed the lsp group, so the 267-347 s figures above are probably from before it: re-measure first. If it still holds GBs or minutes, find whether that is inherent or held longer than needed.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5857,27 +5859,27 @@
     {
       "id": 1251,
       "title": "Std: reconsider List.rangeFrom's argument order: `List.rangeFrom count start` reads backwards (day 3's `List.rangeFrom map.height 1` is 1, 2, … map.height steps). Options: start first (`List.rangeFrom 1 map.height`), named arguments, or a from/until form like `List.range 1 (map.height + 1)` / `1 ..< n`",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "Matt, 4 Nov 2026: finds the order unintuitive. Today: `def List.rangeFrom: Nat → Nat → List Nat`, `List.rangeFrom 3 5` is `[5, 6, 7]` (crates/elab/src/std/List/Toolkit.sw:227). Count first because `List.range n = List.rangeFrom n 0` and recursion is on the count. Uses across std, aoc, games, examples: see grep -w rangeFrom. Migration cost doesn't count (hashes, sweep); judge by the end state, including how lemmas like List.lengthRangeFrom and List.mapRangeShift read.\n\nMatt, 4 Nov 2026: \"it might just be a matter of picking a better name or using it with named arguments.\" Note: rangeFrom's parameters are unnamed today (`Nat → Nat → List Nat`), so named arguments need them named first (e.g. `(count: Nat) (start: Nat)`, then `List.rangeFrom (count := map.height) (start := 1)`). Name candidates that say the count comes first: e.g. `List.countUp n from`. Prefer the smallest change that reads right.\n\nMore evidence (SW-1236, 4 Nov): the lane's first example used List.rangeFrom 0 1 meaning 'from 1', got the empty list, and the theorem was accepted for that reason; it looked like a soundness bug until the order was noticed.",
+      "body": "Matt, 4 Nov 2026: finds the order unintuitive. Today: `def List.rangeFrom: Nat → Nat → List Nat`, `List.rangeFrom 3 5` is `[5, 6, 7]` (crates/elab/src/std/List/Toolkit.sw:227). Count first because `List.range n = List.rangeFrom n 0` and recursion is on the count. Uses across std, aoc, games, examples: see grep -w rangeFrom. Migration cost doesn't count (hashes, sweep); judge by the end state, including how lemmas like List.lengthRangeFrom and List.mapRangeShift read.\n\nMatt, 4 Nov 2026: \"it might just be a matter of picking a better name or using it with named arguments.\" Note: rangeFrom's parameters are unnamed today (`Nat → Nat → List Nat`), so named arguments need them named first (e.g. `(count: Nat) (start: Nat)`, then `List.rangeFrom (count := map.height) (start := 1)`). Name candidates that say the count comes first: e.g. `List.countUp n from`. Prefer the smallest change that reads right.\n\nMore evidence (SW-1236, 4 Nov): the lane's first example used List.rangeFrom 0 1 meaning 'from 1', got the empty list, and the theorem was accepted for that reason; it looked like a soundness bug until the order was noticed.\n\nMerged into SW-1258 (backlog review, 4 Nov 2026)",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 1252,
-      "title": "Kernel: set_shortcuts_disabled doesn't turn off the folded-by-name shortcut (value.rs ~2432), so shortcuts-off differential tests only half-cover the shortcuts",
+      "title": "Kernel: set_shortcuts_disabled (crates/core/src/value.rs:3248) doesn't turn off the folded-by-name shortcut, so shortcuts-off differential tests only half-cover the shortcuts",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "Found by SW-1250, 4 Nov 2026.",
+      "body": "Found by SW-1250, 4 Nov 2026.\n\nBacklog review, 4 Nov 2026: the function moved (value.rs:3248 on 4 Nov); re-read it to see whether it still misses the folded-by-name shortcut.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5962,7 +5964,7 @@
       "labels": [
         "std"
       ],
-      "body": "Matt, 4 Nov 2026, from SW-1251 (List.rangeFrom count start). A signature written as a type (`def List.rangeFrom: Nat → Nat → List Nat` with match arms) leaves parameters unnamed, so `List.rangeFrom (count := n) (start := 1)` is impossible and the signature doesn't say which Nat is which. Naming them in the type keeps the match arms unchanged: `def List.rangeFrom: (count: Nat) → (start: Nat) → List Nat` (checked 4 Nov: named arguments then work in either order; positional calls unchanged). Rough count by grep: about 71 defs and 284 theorems in std have at least one unnamed explicit parameter. Scope: defs first (theorems: names help hover and named use too, judge which). Also check that existing named parameters reveal meaning (`n`, `i`, `x` where a role name says more). Hash changes don't count. Comment style: std's full API docs (D2351). SW-1251 (rangeFrom's order) can be folded in. Probably a mechanical lane (DeepSeek) from a name-choosing pass by a stronger model, or Sonnet end to end.",
+      "body": "Matt, 4 Nov 2026, from SW-1251 (List.rangeFrom count start). A signature written as a type (`def List.rangeFrom: Nat → Nat → List Nat` with match arms) leaves parameters unnamed, so `List.rangeFrom (count := n) (start := 1)` is impossible and the signature doesn't say which Nat is which. Naming them in the type keeps the match arms unchanged: `def List.rangeFrom: (count: Nat) → (start: Nat) → List Nat` (checked 4 Nov: named arguments then work in either order; positional calls unchanged). Rough count by grep: about 71 defs and 284 theorems in std have at least one unnamed explicit parameter. Scope: defs first (theorems: names help hover and named use too, judge which). Also check that existing named parameters reveal meaning (`n`, `i`, `x` where a role name says more). Hash changes don't count. Comment style: std's full API docs (D2351). SW-1251 (rangeFrom's order) can be folded in. Probably a mechanical lane (DeepSeek) from a name-choosing pass by a stronger model, or Sonnet end to end.\n\nFrom SW-1251 (merged, backlog review 4 Nov 2026), the original question: List.rangeFrom's argument order reads backwards (`List.rangeFrom map.height 1` is 1, 2, … map.height steps; `List.rangeFrom 3 5` is `[5, 6, 7]`, crates/elab/src/std/List/Toolkit.sw:227). Count first because `List.range n = List.rangeFrom n 0` and recursion is on the count. Options: start first, named arguments, or a from/until form like `List.range 1 (map.height + 1)` / `1 ..< n`.\nMatt, 4 Nov 2026: finds the order unintuitive; \"it might just be a matter of picking a better name or using it with named arguments.\" Name candidates that say the count comes first: e.g. `List.countUp n from`. Prefer the smallest change that reads right.\nMigration cost doesn't count (hashes, sweep); judge by the end state, including how lemmas like List.lengthRangeFrom and List.mapRangeShift read.\nMore evidence (SW-1236, 4 Nov): the lane's first example used List.rangeFrom 0 1 meaning 'from 1', got the empty list, and the theorem was accepted for that reason; it looked like a soundness bug until the order was noticed.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6004,7 +6006,7 @@
       "labels": [
         "audit"
       ],
-      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.",
+      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6244,6 +6246,20 @@
         "aoc"
       ],
       "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1279,
+      "title": "Nested type through Vec (type Wide = WLeaf | WNode (kids: Vec Wide 2)) makes check use 28 GB in 8 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "The problem: checking `type Wide = WLeaf | WNode (kids: Vec Wide 2)` (a nested data type through a fixed-length vector) makes `stitchwort check` use about 28 GB in 8 s; the memory guard kills it at 2 GB. It is on main's binary too, so it predates nested-data stage 3.\n\nRepro: a file containing only `type Wide = WLeaf | WNode (kids: Vec Wide 2)` and `stitchwort check` on it.\n\nThe change: find which generated declaration (the induction principle or the All predicate for the nested occurrence under Vec) blows up, and either fix it or refuse the type with a clear error.\n\nWhat it should do: the type is accepted within normal memory, or refused with a message; no 28 GB spike.\n\nSource: the SW-704 log, 29 Oct entry (found while checking stage 3; recorded there as needing a ticket).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
