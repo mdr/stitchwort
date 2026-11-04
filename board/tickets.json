@@ -5561,13 +5561,13 @@
     {
       "id": 1231,
       "title": "AoC 2020 day 3 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track (one day per lane; friction review with Matt after). Day 2's friction review done 4 Nov 2026 (D2330, D2331). Started 4 Nov 2026 on Opus, expected: 120 min.",
+      "body": "D2305 track (one day per lane; friction review with Matt after). Day 2's friction review done 4 Nov 2026 (D2330, D2331). Started 4 Nov 2026 on Opus, expected: 120 min.\n\nProgress (lane, 4 Nov 2026, 15:34-16:05, about 30 min): Day03 program, spec, proofs (Proofs.sw, Parse.sw), tests, input, aoc_answers entry, NOTES-2020 \"Day 3\" section. Answers 276 / 7812180000 (example 7 / 336), match Matt's Scala. Proved treesOnSpec for every rectangular map and every slope, part1Correct, part2Correct, parseWritten, answersCorrect, visitedEnough. Audit: 35 theorems, 0 failed, 1 warning (answersCorrect: random text never parses; not vacuous). Top friction: `%` by the map width needs a proof and `if h:` loses ifTrue (wrap helper); a parser written `let x := p(); if` isn't the restated `f (p())` term; Grid.Rectangle makes the main theorems unsearchable for counterexamples.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
