@@ -5402,13 +5402,13 @@
     {
       "id": 1220,
       "title": "List spread: [a, ..xs, b, ..ys] in expressions (.. anywhere; non-final means ++), goals print open Cons chains as [a, ..xs], patterns .. last only, no ::; per docs/proposals/list-spread.md and D2325",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "syntax"
       ],
-      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).\n\nD2325 (Matt, 4 Nov 2026), revising D2321: allow .. in any position in list expressions with the obvious meaning ([..xs, y] = xs ++ [y], [..xs, ..ys] = xs ++ ys, [a, ..xs, b] = Cons a (xs ++ [b])); a final spread stays a plain Cons chain; goals print ++ as ++. Patterns stay .. last only for now (a pattern [..init, last] gets an error explaining why). Update docs/proposals/list-spread.md to match. Estimate now about 2.5 h.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 150 min.\n\n\nProgress (Sonnet, 4 Nov 2026): built; Expr::Spread item in lists, check.rs builds Cons/append from the right, printer open_list, fmt spacing, pattern and :: errors, docs/note/examples, snapshots (13 examples, 5 goal_index, 4 driver test expectations). hash_stability/pinned_hashes unchanged apart from the new example. Branch lane/SW-1220.\n",
+      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).\n\nD2325 (Matt, 4 Nov 2026), revising D2321: allow .. in any position in list expressions with the obvious meaning ([..xs, y] = xs ++ [y], [..xs, ..ys] = xs ++ ys, [a, ..xs, b] = Cons a (xs ++ [b])); a final spread stays a plain Cons chain; goals print ++ as ++. Patterns stay .. last only for now (a pattern [..init, last] gets an error explaining why). Update docs/proposals/list-spread.md to match. Estimate now about 2.5 h.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 150 min.\n\n\nProgress (Sonnet, 4 Nov 2026): built; Expr::Spread item in lists, check.rs builds Cons/append from the right, printer open_list, fmt spacing, pattern and :: errors, docs/note/examples, snapshots (13 examples, 5 goal_index, 4 driver test expectations). hash_stability/pinned_hashes unchanged apart from the new example. Branch lane/SW-1220.\n\n\nMerged. Model result: Sonnet, worked, 36 min (est. 150). Follow-ups: guide chapters 4 and 10 mention lists; simp [..] spread not specially refused.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
