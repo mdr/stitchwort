@@ -25,9 +25,7 @@ import Std.Parse (int, text)
 
 def main(): {IO, Fail} () :=
   let target := parseTarget IO.readAll()
-  match solvePart1 target with
-    | Some height => IO.print "Part 1: ${height}"
-    | None => IO.print "Part 1: no velocity hits"
+  IO.print "Part 1: ${solvePart1 target |> .orFail "no velocity hits the target"}"
   IO.print "Part 2: ${solvePart2 target}"
 
 --| The target area: x from `left` to `right`, y from `bottom` to `top`,

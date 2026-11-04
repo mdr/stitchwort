@@ -31,7 +31,7 @@ import Std.Abort (toOption)
 import Std.Parse (looseGrid, pick)
 
 def main(): {IO, Fail} () :=
-  let manifold := (checkManifold IO.readAllLines()).orFail
+  let manifold := checkManifold IO.readAllLines() |> .orFail
   IO.print "Part 1: ${solvePart1 manifold}"
   IO.print "Part 2: ${solvePart2 manifold}"
 
