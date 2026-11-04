@@ -1,5 +1,5 @@
 {
-  "next": 1200,
+  "next": 1206,
   "tickets": [
     {
       "id": 47,
@@ -5099,13 +5099,97 @@
     {
       "id": 1199,
       "title": "Measure where commands that load a project from the cache spend their time (aoc: test, run, audit, check --index, LSP open; ~2.8 s replay), and list clear optimisations",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "lane/SW-1199",
       "labels": [
         "perf"
       ],
       "body": "D2302 (Matt, 4 Nov 2026): measure where different Stitchwort tasks cost time when reading from the cache, and whether there are clear, obvious optimisations. Measurement only; fixes proposed from the numbers. Opus, expected: 60 min.\n\nProgress (Opus lane, 4 Nov 2026, 10:50-11:30, load 120-155): measured on lane/SW-1199, write-up dev/measurements/cache-load-profile.md. Warm aoc CPU: test 3.3 s, check --index 3.9 s, audit --no-search 4.7 s, search 3.8 s, floor 0.22 s. Biggest: evaluating replayed declarations' types at admission (ty_value) is 47-55% of a whole load, mostly Day22.Proofs.digitChangesPossible plus 8 Tests `rfl` theorems (lazy ty_value: ~1.5-1.8 s saved); audit's axiom walk is 35% of audit (memoise: ~1.5 s); decode's per-namespace path map and dependency hashes ~0.25 s. Reading is decode-bound (46 MB, ~0.06 s of syscalls). Moved to review.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1200,
+      "title": "Lazy ty_value: a cached declaration's type is evaluated on load (push_def -> eval), ~1.8 s of test / check --index on aoc (47-55%)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 item 1 (dev/measurements/cache-load-profile.md). Mostly Day22.Proofs.digitChangesPossible (76% of slow loads) and eight Year2021 Tests examplePartN rfl theorems. Change: evaluate ty_value on first use (or only for replayed declarations). Est. test 3.3 -> ~1.5 s, check --index 3.9 -> ~2.1 s. Core, ~100 call sites; design note and Opus review; after Globals split 8e (both change core's evaluator entry points).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1201,
+      "title": "audit: memoise the axiom walk across theorems (35% of audit --no-search on aoc, ~1.6 s of 4.7 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1202,
+      "title": "Cache decode repeats work per namespace: name->id map rebuilt 207 times (quadratic, ~0.13 s) and dependency hashes recomputed (~0.13 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1203,
+      "title": "Build the standard library's index once, not by parsing all 66 library files in every process (~0.11 s of the 0.22 s floor)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 finding 4. Every CLI process (tests start many) gains ~0.1 s.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1204,
+      "title": "std/Float/Float.sw is never cached: Std.Float.mul isn't admitted with a body",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1205,
+      "title": "Main checkout's aoc/.stitchwort/cache holds 1.7 GB vs 96 MB fresh: old builds' entries may not be evicted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "SW-1199 finding 6; not investigated.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
