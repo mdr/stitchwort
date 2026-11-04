@@ -4785,13 +4785,13 @@
     {
       "id": 1178,
       "title": "State step 7: Presentation (nav, goal_snapshots, counterexample_log) (elaborator-state.md §7 row 7)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "Overnight plan (Matt, 3 Nov). Sonnet, est. 60 min.",
+      "body": "Overnight plan (Matt, 3 Nov). Sonnet, est. 60 min.\n\nDone 960d2729 (Sonnet, 12 min, est. 60), reviewed, merged. state::Presentation (present: nav, goal_snapshots, counterexample_log from Session); mark/rewind/dump destructure it; nav stays on the journal; behaviour unchanged (goal_snapshots emptied by a rewind, counterexample_log grows only). goals stays with Attempt. Elaborator 11 fields. Tests: navigation, search_at, counterexamples 59; search, goal_index, lsp, check_cache, hash_stability 71; lane elab 141; lane lsp 6. Orchestrator ran navigation, counterexamples, search_at, core: 412 passed. Verifier deferred until SW-1177's measurement run ends (keeps its numbers clean); the next merge waits for it. Model result: Sonnet, worked, 12 min (est. 60).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
