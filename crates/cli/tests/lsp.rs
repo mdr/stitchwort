@@ -2083,6 +2083,76 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// `stitchwort/contextAt`: the type and the names in scope at a cursor that
+/// is not on a `?`, for a file on its own and for a project's file (the
+/// editor's text, not the disk's).
+#[test]
+fn context_at_answers_anywhere_in_an_expression() {
+    let dir = temp_dir("context-at");
+    let file = dir.join("ctx.sw");
+    let text = "def total (xs: List Nat) (start: Nat): Nat :=\n  match xs with\n    | [] => start\n    | Cons y rest =>\n      let next := start + y\n      total rest next\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    let found = context_at(&mut client, 5, 13);
+    assert_eq!(found["type"], "Nat", "{found:?}");
+    let names: Vec<&str> = (found["locals"].as_array().expect("locals").iter())
+        .map(|l| l["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["start", "y", "rest", "next"], "{found:?}");
+    let next = &found["locals"][3];
+    assert_eq!(next["type"], "Nat");
+    assert_eq!(next["value"], "start + y");
+    assert_eq!(found["range"]["start"]["line"], 5);
+    // Nothing in the `match` arm's pattern, or in the signature's name.
+    assert_eq!(context_at(&mut client, 0, 5), Value::Null);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn context_at_in_a_projects_file_reads_the_editors_text() {
+    let dir = temp_dir("context-at-project");
+    use_shared_cache(&dir);
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the context test\n");
+    write(
+        "src/Shop/Spec/Spec.sw",
+        "namespace Shop.Spec\nimport Std (Nat)\n\ndef double (n: Nat): Nat := n + n\n",
+    );
+    let saved =
+        "namespace Shop.Proofs\nimport Shop.Spec (double)\nimport Std (Nat)\n\ndef one: Nat := 1\n";
+    write("src/Shop/Proofs/Proofs.sw", saved);
+    let uri = uri(&dir.join("src/Shop/Proofs/Proofs.sw"));
+    let text = format!("{saved}\ndef four (a: Nat): Nat :=\n  let b := double a\n  double b\n");
+    let mut client = Client::start();
+    client.open(&uri, &text);
+    client.diagnostics(&uri, 1);
+    let found = client.request(
+        "stitchwort/contextAt",
+        json!({"textDocument": {"uri": uri}, "position": {"line": 8, "character": 9}}),
+    );
+    assert_eq!(found["type"], "Nat", "{found:?}");
+    let names: Vec<&str> = (found["locals"].as_array().expect("locals").iter())
+        .map(|l| l["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["a", "b"], "{found:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The code action at a `?` (SW-915 stage 2): replace it with what closes
 /// it, kernel-checked by `search --at`; none away from a goal.
 #[test]

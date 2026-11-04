@@ -17,7 +17,7 @@ pub struct Call {
 }
 
 /// A parameter of a printed function type.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Parameter {
     pub name: String,
     pub implicit: bool,

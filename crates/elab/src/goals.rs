@@ -22,7 +22,7 @@ use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
 use stitchwort_core::{Ev, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
+use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span};
 
 use crate::Elaborator;
 use crate::check::Ctx;
@@ -104,6 +104,41 @@ pub(crate) struct Goals {
     pending: Vec<Pending>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
+    /// The context asked for at a position ([`Elaborator::probe_context`]).
+    probe: Probe,
+}
+
+/// The context at a position, asked for before checking: the smallest
+/// expression containing it notes its type and the names in scope, printed
+/// at the end of the declaration with the goals.
+#[derive(Clone, Default)]
+struct Probe {
+    want: Option<(FileId, u32)>,
+    pending: Option<ProbePending>,
+    found: Option<ContextAt>,
+}
+
+#[derive(Clone)]
+struct ProbePending {
+    span: Span,
+    ty: Value,
+    checked: bool,
+    names: Vec<Name>,
+    context: Vec<Entry>,
+}
+
+/// What is known at a position of a file: see [`Elaborator::probe_context`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContextAt {
+    /// The smallest expression containing the position (or touching it).
+    pub span: Span,
+    /// Its type: the one it was checked against (`checked`), else the one
+    /// found for it.
+    pub ty: String,
+    pub checked: bool,
+    /// The names in scope there, as a goal lists them (a variable before
+    /// anything whose type mentions it).
+    pub locals: Vec<Hypothesis>,
 }
 
 /// The names in scope where a goal at `span` is printed: the file's, as for
@@ -224,8 +259,6 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let m = cx.metas().new_meta(cx.span);
     cx.metas().freeze_meta(m);
     let mut term = Term::Meta(m);
-    let mut context = Vec::new();
-    let mut hidden = Vec::new();
     // Each variable as its hypothesis is named, `n✝` for one that can't be
     // referred to here, numbered where two would be alike (SW-1000).
     let shown_names = cx.shown_names(true);
@@ -235,28 +268,8 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         if own {
             term = Term::app(term, Term::Var(cx.level() - 1 - level));
         }
-        let is_let = cx.lets[level].is_some();
-        let name = &cx.names[level];
-        // A variable a case split has replaced by a constructor is gone; a
-        // compiler-made one (`%…`), or one bound as `_`, means nothing to the
-        // reader.
-        if !(own || is_let) || name.starts_with('%') || &**name == "_" {
-            if own {
-                hidden.push((level, cx.types[level].clone()));
-            }
-            continue;
-        }
-        let name = shown_names[level].to_string();
-        let ty = cx.types[level].clone();
-        // A proof's value is its proof term: only its statement is shown.
-        let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
-        context.push(Entry {
-            name,
-            ty,
-            value: shows_value.then(|| value.clone()),
-            level,
-        });
     }
+    let (mut context, mut hidden) = scope_entries(cx, &shown_names);
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
     let context = dependency_order(&g, cx.level(), context);
     let prop = match force(&g, expected.clone()) {
@@ -294,6 +307,40 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         owner_args,
     });
     term
+}
+
+/// The variables in scope at `cx` as a goal lists them (not yet in
+/// dependency order), and the context's own variables it leaves out:
+/// each one's level and type.
+fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Value)>) {
+    let mut context = Vec::new();
+    let mut hidden = Vec::new();
+    for (level, value) in cx.env.iter().enumerate() {
+        let own =
+            matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+        let is_let = cx.lets[level].is_some();
+        let name = &cx.names[level];
+        // A variable a case split has replaced by a constructor is gone; a
+        // compiler-made one (`%…`), or one bound as `_`, means nothing to the
+        // reader.
+        if !(own || is_let) || name.starts_with('%') || &**name == "_" {
+            if own {
+                hidden.push((level, cx.types[level].clone()));
+            }
+            continue;
+        }
+        let name = shown_names[level].to_string();
+        let ty = cx.types[level].clone();
+        // A proof's value is its proof term: only its statement is shown.
+        let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
+        context.push(Entry {
+            name,
+            ty,
+            value: shows_value.then(|| value.clone()),
+            level,
+        });
+    }
+    (context, hidden)
 }
 
 /// Takes out of `context` the hypotheses a later one of the same name
@@ -516,6 +563,7 @@ impl Elaborator {
     /// Prints the goals noted, while the metavariables in them still have
     /// their solutions. A goal at a span already printed replaces it.
     pub(crate) fn flush_goals(&self) {
+        self.flush_probe();
         let pending = std::mem::take(&mut self.goals.borrow_mut().pending);
         if pending.is_empty() {
             return;
@@ -552,6 +600,117 @@ impl Elaborator {
         }
     }
 
+    /// `context` printed, each type with the alias it was named by, if any
+    /// (`counts: Counts`, SW-858).
+    fn print_hypotheses(
+        &self,
+        scope: &GoalScope,
+        names: &[Name],
+        context: &[Entry],
+    ) -> Vec<Hypothesis> {
+        let g = &self.ev();
+        let show = |v: &Value| pretty::value_for_goal(g, scope, names, v);
+        context
+            .iter()
+            .map(|e| Hypothesis {
+                name: e.name.clone(),
+                ty: show(
+                    &(crate::dot::meta_name_in(self, names.len(), &e.ty)
+                        .ok()
+                        .flatten())
+                    .unwrap_or_else(|| e.ty.clone()),
+                ),
+                value: e.value.as_ref().map(show),
+            })
+            .collect()
+    }
+
+    /// Asks for the context at byte `offset` of `file` (docs/proposals/
+    /// editor-and-playground-roadmap.md §2, item 2): while the file is
+    /// checked, the smallest expression containing the offset notes its
+    /// type and the names in scope there, as a goal does. Call before
+    /// loading the file; read the answer with
+    /// [`Elaborator::take_probed_context`] after.
+    pub fn probe_context(&self, file: FileId, offset: u32) {
+        let mut goals = self.goals.borrow_mut();
+        goals.probe = Probe {
+            want: Some((file, offset)),
+            ..Probe::default()
+        };
+    }
+
+    /// Whether a context is asked for in one of `files`.
+    pub(crate) fn probes_one_of(&self, files: &[crate::project::SourceUnit]) -> bool {
+        let Some((probed, _)) = self.goals.borrow().probe.want else {
+            return false;
+        };
+        files.iter().any(|f| f.file == Some(probed))
+    }
+
+    /// What [`Elaborator::probe_context`] found, once: none if no
+    /// expression checked contains the position (it is in a signature, a
+    /// comment, a pattern, a declaration that didn't parse).
+    pub fn take_probed_context(&self) -> Option<ContextAt> {
+        self.flush_goals();
+        std::mem::take(&mut self.goals.borrow_mut().probe).found
+    }
+
+    /// The expression at `span`, of type `ty` (checked against it if
+    /// `checked`), in `cx`: kept if it is the smallest so far to contain
+    /// the probed position.
+    pub(crate) fn note_probe(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
+        let Some((file, at)) = self.goals.borrow().probe.want else {
+            return;
+        };
+        if span.file != file || span.start > at || at > span.end {
+            return;
+        }
+        // What a declaration generates is written nowhere.
+        if (self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0) {
+            return;
+        }
+        let mut goals = self.goals.borrow_mut();
+        if let Some(p) = &goals.probe.pending
+            && p.span.end - p.span.start < span.end - span.start
+        {
+            return;
+        }
+        let names = cx.shown_names(true);
+        let (mut context, mut hidden) = scope_entries(cx, &names);
+        drop_superseded(cx, ty, &mut context, &mut hidden);
+        let context = dependency_order(&cx.g(), cx.level(), context);
+        goals.probe.pending = Some(ProbePending {
+            span,
+            ty: ty.clone(),
+            checked,
+            names,
+            context,
+        });
+    }
+
+    /// Prints the context a probe noted, while its metavariables have their
+    /// solutions.
+    fn flush_probe(&self) {
+        let Some(p) = self.goals.borrow_mut().probe.pending.take() else {
+            return;
+        };
+        let g = &self.ev();
+        let scope = GoalScope {
+            e: self,
+            span: p.span,
+        };
+        let was = g.machine.glue.replace(self.options.glue);
+        let locals = self.print_hypotheses(&scope, &p.names, &p.context);
+        let ty = pretty::value_for_goal(g, &scope, &p.names, &p.ty);
+        g.machine.glue.set(was);
+        self.goals.borrow_mut().probe.found = Some(ContextAt {
+            span: p.span,
+            ty,
+            checked: p.checked,
+            locals,
+        });
+    }
+
     fn print_goal(&self, p: &Pending) -> Found {
         let g = &self.ev();
         let scope = GoalScope {
@@ -559,22 +718,7 @@ impl Elaborator {
             span: p.span,
         };
         let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, v);
-        let hypotheses: Vec<Hypothesis> = p
-            .context
-            .iter()
-            .map(|e| Hypothesis {
-                name: e.name.clone(),
-                // With the alias its type was named by, if any (`counts:
-                // Counts`, SW-858).
-                ty: show(
-                    &(crate::dot::meta_name_in(self, p.names.len(), &e.ty)
-                        .ok()
-                        .flatten())
-                    .unwrap_or_else(|| e.ty.clone()),
-                ),
-                value: e.value.as_ref().map(show),
-            })
-            .collect();
+        let hypotheses = self.print_hypotheses(&scope, &p.names, &p.context);
         let mut lines: Vec<String> = hypotheses
             .iter()
             .map(|h| match &h.value {
@@ -793,7 +937,13 @@ impl Elaborator {
 
     /// Forgets every goal, noted or printed.
     pub(crate) fn clear_goals(&self) {
-        *self.goals.borrow_mut() = Goals::default();
+        // The probe outlives the goals: it spans the declarations of a file.
+        let mut goals = self.goals.borrow_mut();
+        let probe = std::mem::take(&mut goals.probe);
+        *goals = Goals {
+            probe,
+            ..Goals::default()
+        };
     }
 }
 

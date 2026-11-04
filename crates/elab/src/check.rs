@@ -1276,7 +1276,7 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_inner(cx, expr)?;
-        cx.e.note_expr(cx, span, &ty);
+        cx.e.note_expr(cx, span, &ty, false);
         Ok((Term::Loc(span, Rc::new(term)), ty))
     })
 }
@@ -1291,7 +1291,7 @@ pub(crate) fn infer_unrun(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let span = expr.span();
     with_span(cx, span, |cx| {
         let (term, ty) = infer_value(cx, expr)?;
-        cx.e.note_expr(cx, span, &ty);
+        cx.e.note_expr(cx, span, &ty, false);
         Ok((Term::Loc(span, Rc::new(term)), ty))
     })
 }
@@ -1301,7 +1301,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     // point at all of it; the pieces' own span is still noted.
     if let Expr::Interpolated(text, _) = expr {
         let (term, ty) = infer_inner(cx, text)?;
-        cx.e.note_expr(cx, text.span(), &ty);
+        cx.e.note_expr(cx, text.span(), &ty, false);
         return Ok((term, ty));
     }
     // Code that performs operations, in a pure context: it may only perform
@@ -1459,7 +1459,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Bracketed(call, _) => infer(cx, call),
         Expr::Interpolated(text, _) => {
             let (term, ty) = infer_value(cx, text)?;
-            cx.e.note_expr(cx, text.span(), &ty);
+            cx.e.note_expr(cx, text.span(), &ty, false);
             Ok((term, ty))
         }
         Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
@@ -3558,7 +3558,7 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     with_span(cx, span, |cx| {
         let term = check_inner(cx, expr, expected)
             .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
-        cx.e.note_expr(cx, span, expected);
+        cx.e.note_expr(cx, span, expected, true);
         Ok(Term::Loc(span, Rc::new(term)))
     })
 }
@@ -3577,7 +3577,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     if let Expr::Interpolated(text, _) = expr {
         let term = check_inner(cx, text, expected)?;
-        cx.e.note_expr(cx, text.span(), expected);
+        cx.e.note_expr(cx, text.span(), expected, true);
         return Ok(term);
     }
     let g = cx.g();

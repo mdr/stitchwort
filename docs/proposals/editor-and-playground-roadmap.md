@@ -96,6 +96,29 @@ English that a client re-parses. **Open check:** whether `driver::live`
 (`LiveFile`, `LiveProject`) builds for wasm32; `crates/web` does not use it,
 and the thread and file access it assumes is unverified.
 
+**As built (SW-1116, 4 November 2026).** `crates/driver/src/at.rs` is the home
+of the answers, as functions over `FileAnswers` or a `Session` returning plain
+serde structs: `goals_of`/`goal_at` (`Goal`, `Local`), `reference_at`,
+`hover_at`/`hover_of` (`Hover`), `signature_at` (`Signature`, with the moved
+`completion.rs`), `actions_from`/`actions_at_text`/`Session::actions_at_project`
+(`Action`, `action_options`), the text helpers (`offset_at`, `position_at`,
+`word_at`, `trimmed`) and `Session::context_at_text`/`context_at_project`
+(`Context`). The goal now comes from the diagnostic's `GoalData`
+(`LiveDiagnostic::goal`), not from re-parsing its message. `lsp.rs` is the
+adapter: `stitchwort/goalAt` and the code actions answer from these structs,
+and the new request `stitchwort/contextAt` (a custom request, not hover: hover
+is about the name under the cursor, and the payload is structured) runs on the
+search threads. Context at a position is an elaborator probe
+(`Elaborator::probe_context`, `goals.rs`): `note_expr` offers each expression
+to the probe, which keeps the smallest one containing the offset with its type
+and the names in scope, printed at the end of the declaration with the goals,
+so the list is the one a goal shows. It costs a check of the file (the file's
+namespace is not replayed from the check cache). Limits: positions in
+signatures, patterns, comments and declarations that do not parse have no
+expression, so no answer; the probe is not yet kept by the live session, so
+each request re-checks (the persistent-session step, P4, removes that). Not
+done here: `crates/web` still has its own JS equivalents.
+
 Known LSP gaps already filed: **SW-1113** (names in library test bodies do
 not navigate; library tests are not elaborated on load, so it also limits
 Test Explorer for library files, and is cheapest after item 2 as the probe
