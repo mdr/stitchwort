@@ -1,5 +1,5 @@
 {
-  "next": 1177,
+  "next": 1179,
   "tickets": [
     {
       "id": 47,
@@ -4757,7 +4757,7 @@
     {
       "id": 1176,
       "title": "State step 6c: cache entries from write-sets (segments by unit, entries from Journal::began_at and Logged::changed_since; Before.scope, Before.copies, start_keys, start_members go; entries byte for byte unchanged) (elaborator-state.md §4.8.3, §7 row 6c)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4765,6 +4765,34 @@
       ],
       "body": "Part of step 6 (D2283-D2287). Opus, est. 150 min. Overnight plan (Matt, 3 Nov).\n\nDone a1929133, 8642b43c (Opus, 43 min, est. 150), reviewed, merged. Segments by unit (Journal::set_unit at every unit change, checkpoint and transaction); entries from the unit's write-set (segments_since, changed_in); Before.scope, Before.copies, start_keys, start_members, Scope::copy_*, Logged::copy removed. A library load is a unit of its own (deviation: replay and drop_unconfirmed used to run in the outer unit; without it 29 namespaces were refused). ScopeOp stays (order and follower flags). Bytes: 498 entries (aoc 266, rogue 32, 26 projects 200); 484 identical apart from key and checksum; 14 namespaces that load library files inside them are shorter by 1-31 repeated Std. members (F8 fix; with the old members computation all 498 identical); rekeyed base entries all hit. Orchestrator's call: accept without a FORMAT bump (the reader is unchanged and old entries hit; entries are keyed by build). JournalStats on an aoc CLI check: 266 transactions, 16,501 entries, peak 4,313, held 0 between units. Tests: check_cache 39 (3 new), hash_stability 2, rewind 7, navigation 23, journal 6, lane elab 141. Orchestrator ran check_cache, navigation, journal: 64 passed. Possible follow-up: other loaders (prepare_expr) may run load work in the outer unit; harmless (no entries). Model result: Opus, worked, 43 min (est. 150).\n",
       "created": "2026-11-03",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1177,
+      "title": "Step 6 after-measurements: fix the harness's first-check wait, print JournalStats, run task measure:state on main after 6c, compare with dev/measurements/state-step6-before.md against §4.8.7's criteria (heap and CPU, not RSS)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "D2287 (approved). Overnight plan. Sonnet, est. 75 min.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1178,
+      "title": "State step 7: Presentation (nav, goal_snapshots, counterexample_log) (elaborator-state.md §7 row 7)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Overnight plan (Matt, 3 Nov). Sonnet, est. 60 min.",
+      "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
     }
