@@ -116,8 +116,11 @@ so the list is the one a goal shows. It costs a check of the file (the file's
 namespace is not replayed from the check cache). Limits: positions in
 signatures, patterns, comments and declarations that do not parse have no
 expression, so no answer; the probe is not yet kept by the live session, so
-each request re-checks (the persistent-session step, P4, removes that). Not
-done here: `crates/web` still has its own JS equivalents.
+each request re-checks (the persistent-session step, P4, removes that). `cargo check -p stitchwort-driver --target wasm32-unknown-unknown` passes
+with `live` and `at` in (no thread, file, clock or environment use in `live.rs`
+or `at.rs`; only `search_at` reads a clock, as `crates/web` already does), so
+the open check of section 3 is answered for compiling; running it in a worker
+is untried. Not done here: `crates/web` still has its own JS equivalents.
 
 Known LSP gaps already filed: **SW-1113** (names in library test bodies do
 not navigate; library tests are not elaborated on load, so it also limits
