@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# For each namespace of a project, check it alone against a warm check cache
+# (every entry a hit) and record what a worker process for that namespace
+# would pay before doing any work: CPU time, peak memory, and the standard
+# library files its closure replays. SW-1170, dev/measurements/parallel-checking.md.
+#
+#   dev/parallel-check/warm-each PROJECT_DIR GRAPH_TSV CACHE_DIR OUT_DIR
+#
+# GRAPH_TSV is ns_graph's output; CACHE_DIR must be warm (run `check
+# --cache-dir CACHE_DIR` once). Writes OUT_DIR/warm-each.tsv:
+# namespace, user s, sys s, max RSS bytes, std files (comma-separated).
+set -euo pipefail
+project=$1 graph=$2 cache=$3 out=$4
+sw=${SW:-$(cd "$(dirname "$0")/../.." && pwd)/target/release/stitchwort}
+mkdir -p "$out"
+: > "$out/warm-each.tsv"
+cd "$project"
+cut -f1 "$graph" | while read -r ns; do
+  err=$(/usr/bin/time -l env STITCHWORT_TIMINGS=1 "$sw" check --cache-dir "$cache" "$ns" 2>&1 >/dev/null)
+  user=$(awk '/ real /{print $3}' <<<"$err")
+  sys=$(awk '/ real /{print $5}' <<<"$err")
+  rss=$(awk '/maximum resident set size/{print $1}' <<<"$err")
+  std=$(grep -oE '^std/[^ ]+' <<<"$err" | paste -sd, -)
+  printf '%s\t%s\t%s\t%s\t%s\n' "$ns" "$user" "$sys" "$rss" "$std" >> "$out/warm-each.tsv"
+done
