@@ -4984,14 +4984,14 @@
     {
       "id": 1191,
       "title": "Globals split 8f: the meta store's mark/restore destructure it; queue mirrors become views (G2)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n\n\nProgress (lane): G2 tests found no mirror leak before the change. Mirrors now one QueueMirrors in the store (private fields); frozen_metas cut to a mark. Tests: new queue/undo tests, postponement/rewind/check_cache (61 pass), undo (10 pass). Commit 3ebd7f2f.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet, expected: 90 min.\n\n\nProgress (lane): G2 tests found no mirror leak before the change. Mirrors now one QueueMirrors in the store (private fields); frozen_metas cut to a mark. Tests: new queue/undo tests, postponement/rewind/check_cache (61 pass), undo (10 pass). Commit 3ebd7f2f.\n\n\nMerged. Model result: Sonnet, worked, 23 min (est. 90). Globals split (D2290) complete.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": [
