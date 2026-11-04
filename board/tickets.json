@@ -1,5 +1,5 @@
 {
-  "next": 1255,
+  "next": 1256,
   "tickets": [
     {
       "id": 47,
@@ -5506,7 +5506,7 @@
         "elab",
         "performance"
       ],
-      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n\nProgress (lane, 4 Nov 2026, 15:06-17:53, about 165 min):\n- Done on lane/SW-1226, commit c5048507. As built: the note's \"As built: D2342\" section.\n- Built as a limit on checks in place, not the literal B: the literal B (and two narrower variants) changed std content hashes (106, then 50, then 2 declarations), because `_`s got solved from the goal instead of from the arguments. The built version changes no hash.\n- Opaque-leaf proofs: 8 steps 12.1 M -> 0.54 M, 12 steps 240 M -> 1.06 M, 16 steps 1.8 M. Copy-shaped proofs (Day 2, bench.py copy) barely move (Day 2 20.47 M -> 19.84 M): their cost is cause 1 (D2343/D2341).\n- aoc whole: decl steps 1,147.3 M -> 1,146.7 M; instructions 695-700 G before, 699 G after (noise ~0.6%).\n- Tests: elab lane, goals lane, postponement + hash_stability + pinned_hashes, std's own tests, examples lane NAME=reads-nested-binds,parse, audit Day02 and 2021 Day16 (same as before): all pass.\n",
+      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n\nProgress (lane, 4 Nov 2026, 15:06-17:53, about 165 min):\n- Done on lane/SW-1226, commit c5048507. As built: the note's \"As built: D2342\" section.\n- Built as a limit on checks in place, not the literal B: the literal B (and two narrower variants) changed std content hashes (106, then 50, then 2 declarations), because `_`s got solved from the goal instead of from the arguments. The built version changes no hash.\n- Opaque-leaf proofs: 8 steps 12.1 M -> 0.54 M, 12 steps 240 M -> 1.06 M, 16 steps 1.8 M. Copy-shaped proofs (Day 2, bench.py copy) barely move (Day 2 20.47 M -> 19.84 M): their cost is cause 1 (D2343/D2341).\n- aoc whole: decl steps 1,147.3 M -> 1,146.7 M; instructions 695-700 G before, 699 G after (noise ~0.6%).\n- Tests: elab lane, goals lane, postponement + hash_stability + pinned_hashes, std's own tests, examples lane NAME=reads-nested-binds,parse, audit Day02 and 2021 Day16 (same as before): all pass.\n\n\nProgress (lane, 4 Nov 2026, 17:54-18:20, about 26 min, after the orchestrator's correction that hash changes don't count):\n- Replaced the limit mechanism with the literal B: commit 4a2ee231 (on top of c5048507). The limit cells are gone; one cell, `no_hole_propagation`. As-built section rewritten.\n- Opaque: 8 steps 0.13 M, 12 steps 0.24 M, 16 steps 0.38 M (about 35 K per step). Copy: 8 steps 70.8 M (cause 1). Day 2 readsLine 20.47 M -> 18.80 M.\n- aoc whole (std included): decl steps 1,203.1 M -> 1,195.6 M; instructions 695.5 G -> 693.0 G. Largest rise: 2024 Day06 keepsTrapsAt 32.9 M -> 39.5 M.\n- Hashes: 106 std declarations, examples let-proof-pattern-unfold and reads-nested-binds (snapshots updated). No message changes: check on all 1,274 example files prints the same before and after.\n- Tests: elab lane, goals lane, postponement + hash_stability + pinned_hashes, std's own tests: pass. std, aoc, games/rogue check. Audits of 2020 Day02, 2021 Day08 and Day16, 2024 Day06 match main.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5906,6 +5906,21 @@
         "lsp"
       ],
       "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1255,
+      "title": "Elab: 2024 day 6 keepsTrapsAt got 20% slower under conclusion-first checking (32.9 M → 39.5 M steps; 2021 day 8 scoreDrawn 3.17 → 3.64 M): probably a _ solved from the goal in a costlier shape",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance",
+        "elab"
+      ],
+      "body": "Found by SW-1226 (D2342 B), 4 Nov 2026. Measurements in the SW-1226 report.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
