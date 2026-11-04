@@ -938,6 +938,8 @@ theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
 Characters are Unicode scalar values, as for `Text.length`. The text comes last.
 
 - `Text.take t n`, `Text.drop t n`: the first `n` characters, and the rest (all of `t`, or `""`, if it is shorter).
+- `Text.get t i`: the character at index `i`, counting from 0, or `None` past the end.
+- `Text.count t p`, `Text.any t p`, `Text.all t p`: how many characters satisfy `p`, whether some do, and whether all do; each is the `List` version on `Text.toList`, and a lemma says so.
 - `Text.startsWith t p`, `Text.endsWith t s`, `Text.contains t p`: `Bool`s. The empty text starts, ends and occurs in every text.
 - `Text.stripPrefix t p`, `Text.stripSuffix t s`: `Some` of `t` without `p` (or `s`), or `None`.
 - `Text.splitOn t sep`: splits at each whole occurrence of `sep`, left to right without overlaps: `"a, b".splitOn ", "` is `["a", "b"]`, `"aaa"` on `"aa"` is `["", "a"]`. There is always at least one piece. An empty `sep` doesn't split: the result is `[t]` (as Lean's `String.splitOn`). `Text.split` splits on one `Char`.

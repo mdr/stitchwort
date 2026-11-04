@@ -5,6 +5,40 @@
 
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 
+--| The character at index `i`, counting from 0, or `None` past the end: as
+--| [`List.get`] on [`Text.toList`] ([`Text.getToList`]).
+def Text.get (text: Text) (i: Nat): Option Char := text.toList.get i
+
+theorem Text.getToList (text: Text) (i: Nat): Text.get text i = List.get text.toList i := rfl
+
+--| How many characters satisfy `p`: as [`List.count`] on [`Text.toList`]
+--| ([`Text.countToList`]).
+def Text.count (text: Text) (p: Char → Bool): Nat := text.toList.count p
+
+theorem Text.countToList (text: Text) (p: Char → Bool):
+    Text.count text p = List.count text.toList p := rfl
+
+--| Whether some character satisfies `p`: as [`List.any`] on [`Text.toList`]
+--| ([`Text.anyToList`]).
+def Text.any (text: Text) (p: Char → Bool): Bool := text.toList.any p
+
+theorem Text.anyToList (text: Text) (p: Char → Bool):
+    Text.any text p = List.any text.toList p := rfl
+
+--| Whether every character satisfies `p`: as [`List.all`] on [`Text.toList`]
+--| ([`Text.allToList`]).
+def Text.all (text: Text) (p: Char → Bool): Bool := text.toList.all p
+
+theorem Text.allToList (text: Text) (p: Char → Bool):
+    Text.all text p = List.all text.toList p := rfl
+
+test "Text.get" := Text.get "abc" 0 == Some 'a' ∧ Text.get "abc" 2 == Some 'c' ∧ Text.get "abc" 3 == None
+
+test "Text.count" := Text.count "banana" (== 'a') == 3 ∧ Text.count "abc" (== 'z') == 0 ∧ Text.count "" (== 'a') == 0
+
+test "Text.any and Text.all" :=
+  Text.any "abc" (== 'b') ∧ ¬(Text.any "abc" (== 'z')) ∧ Text.all "aaa" (== 'a') ∧ ¬(Text.all "aba" (== 'a'))
+
 theorem Text.lengthAppend (a: Text) (b: Text):
     Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
