@@ -1,5 +1,5 @@
 {
-  "next": 1216,
+  "next": 1217,
   "tickets": [
     {
       "id": 47,
@@ -5338,6 +5338,20 @@
         "std"
       ],
       "body": "SW-1208 findings.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1216,
+      "title": "Sweep: rewrite prefix connectives (And/Or/Not/Iff, Not (x = y)) as operators (∧ ∨ ¬ ↔ ≠) across std, aoc, games and examples",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "cleanup"
+      ],
+      "body": "Matt, 4 Nov 2026: standing rule (proving guide 'Writing statements', CLAUDE.md) and sweep existing code to favour the shorthand. About 950 sites (Or ( 306, And ( 283, Not ( 278, Iff ( 78). Same terms, so the check is that no hash changes: hash_stability/pinned_hashes snapshots unchanged, audit unchanged. Leave Or.elim/And.left etc. and partial applications (e.g. a bare Or passed as a function) alone; mind precedence (add parentheses where needed). After SW-1212 (fmt drops row parentheses) so the two repo-wide edits don't collide.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

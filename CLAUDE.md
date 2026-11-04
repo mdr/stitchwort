@@ -109,6 +109,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   estimate, stuck or not); at 3×, stop regardless.
 - Proof lanes read [docs/proving-guide.md](docs/proving-guide.md) first and
   finish as in "How a proof lane finishes" in `docs/workflow.md`.
+- In `.sw` code, write propositions with operators (`∧`, `∨`, `¬`, `↔`,
+  `≠`), not `And`/`Or`/`Not`/`Iff`, and ability rows without parentheses
+  (`{Fail} List Nat`); see "Writing statements" in the proving guide.
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 
