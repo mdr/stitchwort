@@ -26,6 +26,7 @@ ability Each where
 
 --| Each element of `xs` in turn: the rest of the computation runs once for
 --| each. On `[]` it runs no more.
+@[tailrec]
 def Each.each: List a → {Each} a
   | [] => Empty.absurd Each.stop()
   | [x, ..xs] => if Each.fork() then x else Each.each xs

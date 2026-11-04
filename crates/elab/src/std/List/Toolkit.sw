@@ -33,6 +33,7 @@ def List.map: List a → (f: a → {e} b) → {e} List b
 
 --| `f` on each element, in order, for what it performs: `rows.forEach (row =>
 --| Fail.ensure …)` checks every row, stopping at the first that fails.
+@[tailrec]
 def List.forEach: List a → (f: a → {e} ()) → {e} ()
   | [], f => ()
   | [x, ..xs], f =>
@@ -60,6 +61,7 @@ def List.filter: List a → (p: a → {e} Bool) → {e} List a
 
 --| Left fold, tail-recursive: `List.foldLeft [x, y] initial f` is `f (f initial x) y`.
 --| `f` may perform abilities, which run in list order.
+@[tailrec]
 def List.foldLeft: List a → (initial: b) → (f: b → a → {e} b) → {e} b
   | [], initial, f => initial
   | [x, ..xs], initial, f => List.foldLeft xs (f initial x) f
@@ -137,6 +139,7 @@ def List.zipWithNext: List a → List (Pair a a)
 --| Whether `holds` is true of each element and the next:
 --| `[1, 2, 4].chain (x y => x < y)` is true. True for fewer than two elements.
 --| `List.Sorted le xs` says the same as a `Prop` ([`List.sortedOfChain`]).
+@[tailrec]
 def List.chain: List a → (holds: a → a → Bool) → Bool
   | [], holds => True
   | [x], holds => True
@@ -159,12 +162,14 @@ def List.take: List a → Nat → List a
   | [x, ..xs], Succ n => [x, ..List.take xs n]
 
 --| All but the first n elements; after `List.take` of the same n, the whole list ([`List.appendTakeDrop`]).
+@[tailrec]
 def List.drop: List a → Nat → List a
   | xs, Zero => xs
   | [], Succ n => []
   | [x, ..xs], Succ n => List.drop xs n
 
 --| The element at index i, counting from 0, or `None` past the end.
+@[tailrec]
 def List.get: List a → Nat → Option a
   | [], i => None
   | [x, ..xs], Zero => Some x
@@ -172,12 +177,14 @@ def List.get: List a → Nat → Option a
 
 --| Whether some element satisfies `p`. `p` may perform abilities: it runs in
 --| list order and isn't called after the first element that satisfies it.
+@[tailrec]
 def List.any: List a → (p: a → {e} Bool) → {e} Bool
   | [], p => False
   | [x, ..xs], p => if p x then True else List.any xs p
 
 --| Whether every element satisfies `p`. `p` may perform abilities: it runs in
 --| list order and isn't called after the first element that fails it.
+@[tailrec]
 def List.all: List a → (p: a → {e} Bool) → {e} Bool
   | [], p => True
   | [x, ..xs], p => if p x then List.all xs p else False
@@ -197,6 +204,7 @@ def List.count (xs: List a) (p: a → {e} Bool): {e} Nat := List.foldLeft xs 0 (
 --| The first element satisfying `p`, which is in the list ([`List.findSome`]).
 --| `p` may perform abilities: it runs in list order and isn't called after the
 --| element found.
+@[tailrec]
 def List.find: List a → (p: a → {e} Bool) → {e} Option a
   | [], p => None
   | [x, ..xs], p => if p x then Some x else List.find xs p
@@ -241,6 +249,7 @@ test "List.between, empty and single" := List.between 5 0 == [] ∧ List.between
 def List.reverse (xs: List a): List a := List.reverseOnto xs []
 
 --| The last element, or `None` for an empty list.
+@[tailrec]
 def List.last: List a → Option a
   | [] => None
   | [x] => Some x
@@ -258,6 +267,7 @@ def List.init: List a → List a
   | [x, y, ..ys] => [x, ..List.init [y, ..ys]]
 
 --| Membership, given a decision for equality (as `List.decEq` takes).
+@[tailrec]
 def List.elem: List a → (target: a) → (decEq: (x: a) → (y: a) → Decidable (x = y)) → Bool
   | [], target, decEq => False
   | [x, ..xs], target, decEq => if Decidable.toBool (decEq target x) then True else List.elem xs target decEq
@@ -272,6 +282,7 @@ def List.isEmpty: List a → Bool
   | [x, ..xs] => False
 
 --| Whether `xs` begins with `prefix`. Every list starts with `[]`.
+@[tailrec]
 def List.startsWith [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → Bool
   | xs, [] => True
   | [], [p, ..ps] => False
@@ -279,6 +290,7 @@ def List.startsWith [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → Bo
 
 --| The rest of `xs` after `prefix`, or `None` if `xs` doesn't start with it.
 --| The empty prefix gives `Some xs`.
+@[tailrec]
 def List.stripPrefix [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → Option (List a)
   | xs, [] => Some xs
   | [], [p, ..ps] => None
@@ -302,6 +314,7 @@ def List.partitionStep (x: a) (sides: Pair (List a) (List a)): Bool → Pair (Li
 --| `List.partition`'s loop: `sides` holds what has been sorted so far, each
 --| side reversed.
 @[noReceiver]
+@[tailrec]
 def List.partitionOnto (p: a → {e} Bool): List a → (sides: Pair (List a) (List a)) → {e} Pair (List a) (List a)
   | [], sides => MkPair (List.reverse (Pair.fst sides)) (List.reverse (Pair.snd sides))
   | [x, ..xs], sides =>
@@ -316,6 +329,7 @@ def List.partition (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) 
 test "List.partition" := List.partition [1, 5, 2, 7] (x => x > 4) == MkPair [5, 7] [1, 2] ∧ List.partition ([]: List Nat) (x => x > 4) == MkPair [] []
 
 --| The value for the first pair whose key equals `key`, or `None` if there is none.
+@[tailrec]
 def List.lookup [auto eq: DecEq k]: List (Pair k v) → (key: k) → Option v
   | [], key => None
   | [MkPair entryKey value, ..rest], key => if entryKey == key then Some value else rest.lookup key
@@ -521,6 +535,7 @@ theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFr
 --| mapped element; the result is the final state and the mapped list.
 --| A loop: `done` holds the mapped elements so far, newest first.
 @[noReceiver]
+@[tailrec]
 def List.mapAccumLeftGo (f: s → a → Pair s b) (state: s) (done: List b): List a → Pair s (List b)
   | [] => MkPair state (List.reverseOnto done [])
   | [x, ..xs] =>
@@ -630,6 +645,7 @@ def List.takeWhile (xs: List a) (p: a → {e} Bool): {e} List a :=
 
 --| What is left after `List.takeWhile`: from the first element not satisfying `p`
 --| ([`List.takeWhileDropWhile`]).
+@[tailrec]
 def List.dropWhile (xs: List a) (p: a → Bool): List a :=
   match xs with
     | [] => []
@@ -637,6 +653,7 @@ def List.dropWhile (xs: List a) (p: a → Bool): List a :=
 
 --| `List.span`'s loop: `taken` is the prefix so far, reversed.
 @[noReceiver]
+@[tailrec]
 def List.spanOnto (taken: List a) (p: a → {e} Bool): List a → {e} Pair (List a) (List a)
   | [] => MkPair (List.reverse taken) []
   | [x, ..xs] => if p x then List.spanOnto (Cons x taken) p xs else MkPair (List.reverse taken) (Cons x xs)
@@ -685,6 +702,7 @@ test "List.windows" :=
 
 --| The index of the first element satisfying `p`, counting from `i`.
 @[noReceiver]
+@[tailrec]
 def List.findIndexFrom (i: Nat) (p: a → Bool): List a → Option Nat
   | [] => None
   | [x, ..xs] => if p x then Some i else List.findIndexFrom (Succ i) p xs

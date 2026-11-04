@@ -78,6 +78,7 @@ def Char.isWhitespaceCode (code: Nat): Bool :=
 def Char.isWhitespace (char: Char): Bool := char.toNat |> Char.isWhitespaceCode
 
 --| The characters without the whitespace at their start.
+@[tailrec]
 def Text.dropSpaces: List Char → List Char
   | [] => []
   | [char, ..chars] => if Char.isWhitespace char then Text.dropSpaces chars else [char, ..chars]
@@ -197,6 +198,7 @@ def Text.wordsStep (char: Char): Bool → Pair (List Char) (List (List Char)) �
 
 --| Reads `reversed`, the characters last first, onto `st`: a loop, so it is
 --| stack-safe on long texts.
+@[tailrec]
 def Text.wordsFrom (st: Pair (List Char) (List (List Char))): List Char → Pair (List Char) (List (List Char))
   | [] => st
   | [char, ..reversed] => Text.wordsFrom (Text.wordsStep char (Char.isWhitespace char) st) reversed

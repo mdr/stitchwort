@@ -34,6 +34,7 @@ def Result.traverse (xs: List a) (f: a → Result b e): Result (List b) e := Res
 
 --| The loop of `Result.traverse`: `done` holds the values so far, last first.
 --| It stops at the first error.
+@[tailrec]
 def Result.traverseLoop (f: a → Result b e) (done: List b): List a → Result (List b) e
   | [] => Ok (List.reverseOnto done [])
   | [x, ..xs] =>

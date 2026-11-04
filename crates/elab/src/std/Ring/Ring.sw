@@ -31,12 +31,14 @@ type Ring.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
 --| The `i`th entry, or 0 past the end.
+@[tailrec]
 def Ring.natAt: List Nat → Nat → Nat
   | [], i => 0
   | [x, ..xs], Zero => x
   | [x, ..xs], Succ i => Ring.natAt xs i
 
 --| The `i`th entry of a list of integers, or 0 past the end.
+@[tailrec]
 def Ring.intAt: List Int → Nat → Int
   | [], i => OfNat 0
   | [x, ..xs], Zero => x
@@ -135,6 +137,7 @@ def Ring.intTail: List Int → List Int
   | [x, ..xs] => xs
 
 --| The value of variable `v`: `Nat` atom `v / 2` for an even `v`, `Int` atom `v / 2` for an odd one.
+@[tailrec]
 def Ring.lookup: List Nat → List Int → Nat → Int
   | ns, is, Zero => OfNat (Ring.natAt ns 0)
   | ns, is, Succ Zero => Ring.intAt is 0
@@ -165,6 +168,7 @@ def Ring.Poly.eval (env: Ring.Env): List Ring.Mono → Int
   | [m, ..p] => Int.add (Ring.Mono.eval env m) (Ring.Poly.eval env p)
 
 --| The order of monomials: by their variable lists, lexicographically.
+@[tailrec]
 def Ring.cmp: List Nat → List Nat → Ordering
   | [], [] => Equal
   | [], [w, ..ws] => Less

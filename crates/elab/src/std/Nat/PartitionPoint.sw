@@ -9,6 +9,7 @@
 --| fails, if `p` holds before it and fails after; `high` if `p` holds
 --| throughout. Each step halves the range, so `p` is tried about log2
 --| (high - low) times.
+@[tailrec]
 def Nat.partitionPoint (low: Nat) (high: Nat) (p: Nat → Bool): Nat
     decreasing high - low :=
   if apart: low < high then

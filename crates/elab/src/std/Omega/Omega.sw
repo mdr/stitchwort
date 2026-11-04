@@ -36,12 +36,14 @@ type Omega.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
 --| The `i`th entry, or 0 past the end.
+@[tailrec]
 def Omega.natAt: Nat → List Nat → Nat
   | i, [] => 0
   | Zero, [x, ..xs] => x
   | Succ i, [x, ..xs] => Omega.natAt i xs
 
 --| The `i`th entry of a list of integers, or 0 past the end.
+@[tailrec]
 def Omega.intAt: Nat → List Int → Int
   | i, [] => OfNat 0
   | Zero, [x, ..xs] => x
@@ -366,12 +368,14 @@ type Omega.Cert: Type =
   | Cases (f: Nat) (left: Omega.Cert) (right: Omega.Cert)
 
 --| Fact `i`, or `0 <= 0` (which has no cases) if there is none.
+@[tailrec]
 def Omega.getFact: List Omega.Fact → Nat → Omega.Fact
   | [], i => FLe (NLit 0) (NLit 0)
   | [f, ..fs], Zero => f
   | [f, ..fs], Succ i => Omega.getFact fs i
 
 --| Row `i`, or the zero row (`0 <= 0`) if there is none.
+@[tailrec]
 def Omega.getRow: List Omega.Row → Nat → Omega.Row
   | [], i => Omega.Row.zero
   | [r, ..rs], Zero => r
@@ -391,6 +395,7 @@ def Omega.combine (ctx: List Omega.Row): List (Pair Nat Nat) → Omega.Row
   | [MkPair k r, ..ts] => Omega.Row.add (Omega.Row.scale (OfNat k) (Omega.getRow ctx r)) (Omega.combine ctx ts)
 
 --| Whether every row named in the `MkPair k r`s exists.
+@[tailrec]
 def Omega.allRefs (ctx: List Omega.Row): List (Pair Nat Nat) → Bool
   | [] => True
   | [MkPair k r, ..ts] => Omega.hasRow ctx r ∧ Omega.allRefs ctx ts
@@ -402,11 +407,13 @@ def Omega.isZero: Int → Bool
   | NegSucc n => False
 
 --| Whether every coefficient is 0.
+@[tailrec]
 def Omega.allZero: List Int → Bool
   | [] => True
   | [a, ..as] => Omega.isZero a ∧ Omega.allZero as
 
 --| Every coefficient is a multiple of `d + 1`.
+@[tailrec]
 def Omega.allDiv (d: Nat): List Int → Bool
   | [] => True
   | [a, ..as] => Omega.isZero (a % OfNat (Succ d)) ∧ Omega.allDiv d as

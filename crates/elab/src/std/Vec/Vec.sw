@@ -58,6 +58,7 @@ def Vec.zipWith3: Vec a n → Vec b n → Vec c n → (f: a → b → c → d) �
   | VCons x xs, VCons y ys, VCons z zs, f => VCons (f x y z) (Vec.zipWith3 xs ys zs f)
 
 --| Left fold, tail-recursive: `Vec.foldLeft [x, y] initial f` is `f (f initial x) y`.
+@[tailrec]
 def Vec.foldLeft: Vec a n → (initial: b) → (f: b → a → b) → b
   | VNil, initial, f => initial
   | VCons x xs, initial, f => Vec.foldLeft xs (f initial x) f
@@ -109,6 +110,7 @@ def Vec.traverseOption (v: Vec a n) (f: a → Option b): Option (Vec b n) :=
 --| The loop of `Vec.traverseOption`: `done` holds the values so far, last
 --| first. It stops at the first `None`.
 @[noReceiver]
+@[tailrec]
 def Vec.traverseOptionLoop (f: a → Option b) (done: List b): Vec a k → Option (List b)
   | VNil => Some (List.reverseOnto done [])
   | VCons x xs =>
@@ -117,6 +119,7 @@ def Vec.traverseOptionLoop (f: a → Option b) (done: List b): Vec a k → Optio
       | None => None
 
 --| The element at a position.
+@[tailrec]
 def Vec.get: Vec a n → Fin n → a
   | VCons x _, FZero => x
   | VCons _ xs, FSucc i => Vec.get xs i
@@ -132,6 +135,7 @@ def Vec.getLt (v: Vec a n) (i: Nat) [auto ok: i < n]: a := Vec.get v (Fin.ofNatL
 def Vec.getOr (v: Vec a n) (i: Nat) (d: a): a := List.getOr (Vec.toList v) i d
 
 --| Whether some element satisfies `p`.
+@[tailrec]
 def Vec.any: Vec a n → (p: a → Bool) → Bool
   | VNil, p => False
   | VCons x xs, p => p x ∨ Vec.any xs p

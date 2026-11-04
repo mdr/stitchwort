@@ -71,6 +71,7 @@ def Show.quoteText (text: Text): Text :=
 def Show.quoteChar (char: Char): Text := MkText ['\'', ..Show.escapeChar '\'' char ['\'']]
 
 --| Whether the characters include a space.
+@[tailrec]
 def Show.hasSpace: List Char → Bool
   | [] => False
   | [char, ..chars] => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars

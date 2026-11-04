@@ -24,6 +24,7 @@ def Nat.add: Nat → Nat → Nat
   | Succ m, n => Succ (Nat.add m n)
 
 --| `a - b`, stopping at zero: `3 - 5 = 0`.
+@[tailrec]
 def Nat.sub: Nat → Nat → Nat
   | m, Zero => m
   | Zero, Succ n => Zero
@@ -58,6 +59,7 @@ def Bool.ifThenElse: [a: Type] → Bool → (Unit → a) → (Unit → a) → a
   | False, thenBranch, elseBranch => elseBranch Trivial
 
 --| Whether `m <= n`, as a `Bool`.
+@[tailrec]
 def Nat.leq: Nat → Nat → Bool
   | Zero, n => True
   | Succ m, Zero => False
@@ -79,6 +81,7 @@ type List (a: Type): Type =
 --| `n` plus the length of `xs`, counted in a loop. The runtimes run it for
 --| [`List.length`], so a long list doesn't run out of stack
 --| (`List.lengthOntoEq` proves them equal).
+@[tailrec]
 def List.lengthOnto: List a → Nat → Nat
   | [], n => n
   | [x, ..xs], n => List.lengthOnto xs (Succ n)
@@ -105,6 +108,7 @@ type Pair (a: Type) (b: Type): Type =
   | MkPair (fst: a) (snd: b)
 
 --| `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`.
+@[tailrec]
 def List.reverseOnto: List a → List a → List a
   | [], acc => acc
   | [x, ..xs], acc => List.reverseOnto xs [x, ..acc]

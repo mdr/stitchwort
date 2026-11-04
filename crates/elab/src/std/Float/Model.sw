@@ -36,6 +36,7 @@ def Float.Model.bitLengthSlow: Nat → Nat → Nat
   | Succ fuel, n => if Nat.equal n 0 then 0 else Succ (Float.Model.bitLengthSlow fuel (Nat.divFuel n n 2))
 
 --| `p`, `p^2`, `p^4`, … (`k` of them), last first, onto `acc`.
+@[tailrec]
 def Float.Model.squaresFrom: Nat → Nat → List Nat → List Nat
   | Zero, p, acc => acc
   | Succ k, p, acc => Float.Model.squaresFrom k (p * p) [p, ..acc]

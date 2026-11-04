@@ -163,6 +163,7 @@ def Key.afterEscape: List Nat → Key.Decoded
 --| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence
 --| as `Unknown`, and starts the next key.
+@[tailrec]
 def Key.csi (parameters: List Nat): List Nat → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
@@ -215,6 +216,7 @@ def Key.utf8Lead (lead: Nat) (rest: List Nat): Key.Decoded :=
 --| `code`. A code below `minimum` is an overlong form, so `Unknown`. A byte
 --| that isn't a continuation ends the character as `Unknown`, and starts the
 --| next key.
+@[tailrec]
 def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
   | 0, rest =>
     if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest

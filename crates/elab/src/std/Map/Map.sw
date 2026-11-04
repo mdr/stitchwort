@@ -738,6 +738,7 @@ theorem Map.getUnion [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v):
 
 --| What `Map.fromListWith xs f` keeps at `key`: each value with the key in turn,
 --| combined by `f new old` with what was found before.
+@[tailrec]
 def Map.lookupWithOnto [auto ord: Ord k] (f: v → v → v) (key: k): Option v → List (k, v) → Option v
   | found, [] => found
   | found, [(kk, vv), ..rest] => match Ord.compare key kk with
