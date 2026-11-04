@@ -25,7 +25,4 @@ def enabledAfter (earlier: List Instruction): Bool :=
 def enabledResults (instructions: List Instruction): Nat :=
   instructions.withIndex.sumBy (((index, instruction)) => if enabledAfter (instructions.take index) then instruction.result else 0)
 
-def isDont: Instruction → Bool
-  | Dont => True
-  | Mul left right => False
-  | Do => False
+def isDont: Instruction → Bool := matches | Dont

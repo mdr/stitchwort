@@ -22,13 +22,8 @@ test "parse the example" := example.length == 10 ∧ example.headOr [] == tokens
 test "a stray character" := parsed "()\n(x)\n" == Err "line 2, column 2: expected a bracket or the end of the line, got 'x'"
 test "an empty line is no tokens" := parsed "()\n\n[]\n" == Ok [[Opener Round, Closer Round], [], [Opener Square, Closer Square]]
 
---| The closer a scan stopped at.
-def illegalOf: Scan → Option Bracket
-  | Corrupted illegal => Some illegal
-  | Unclosed _ => None
-
 test "the example's first illegal characters" :=
-  example.filterMap (line => illegalOf (scan [] line)) == [Curly, Round, Square, Round, Angle]
+  example.map (scan []) |> .filterMap (match some | Corrupted illegal => illegal) == [Curly, Round, Square, Round, Angle]
 test "example, part 1" := solvePart1 example == 26397
 
 test "a completion" := scan [] (tokens "[({(<(())[]>[[{[]{<()<>>") == Unclosed [Curly, Curly, Square, Square, Round, Curly, Round, Square]
