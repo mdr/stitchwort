@@ -461,11 +461,13 @@ fn implicit_parameters_count_towards_the_arity() {
     };
     let id = define_rec(&mut p, "len", ty.clone(), |f| len(f, |g| app(g, [v(0)])))
         .expect("len terminates");
-    assert_eq!(p.g.def(id).arity, 2);
+    assert_eq!(p.g.def(id).arity(), 2);
     // `len [a]`, given only the implicit argument, is partial. (It isn't
     // type-checked: the termination checker is what refuses it.)
     let id = declare(&mut p.g, "len2", ty);
-    p.g.defs[id.0].arity = 2;
+    p.g.env
+        .def_mut_for_tests(id)
+        .set_arity_unchecked_for_tests(2);
     let body = len(Term::Def(id), |g| g);
     let e = termination::check(&p.g, &body, id, "len2", span()).unwrap_err();
     assert_eq!(e.code, "E-TERMINATION");
@@ -491,7 +493,7 @@ fn the_arity_comes_from_the_body_not_the_type() {
         )
     })
     .expect("`f m` is saturated: f has one entry parameter");
-    assert_eq!(p.g.def(id).arity, 1);
+    assert_eq!(p.g.def(id).arity(), 1);
 }
 
 /// Arguments beyond the arity get no entry in the graph, but they're walked
@@ -574,7 +576,7 @@ fn the_arity_is_set_before_the_body_is_checked() {
         ),
     );
     assert_eq!(code(define_def(&mut p.g, id, &body)), "E-TERMINATION");
-    assert_eq!(p.g.def(id).arity, 2);
+    assert_eq!(p.g.def(id).arity(), 2);
 }
 
 #[test]
@@ -582,7 +584,9 @@ fn a_body_that_disagrees_with_the_stored_arity_is_malformed() {
     let mut p = Prelude::new();
     let ty = nats_to_nat(&p, 1);
     let id = declare(&mut p.g, "f", ty);
-    p.g.defs[id.0].arity = 2;
+    p.g.env
+        .def_mut_for_tests(id)
+        .set_arity_unchecked_for_tests(2);
     let body = lam("n", v(0));
     let e = termination::check(&p.g, &body, id, "f", span()).unwrap_err();
     assert_eq!(e.code, "E-MALFORMED");
@@ -630,7 +634,9 @@ fn running_out_while_deciding_termination_is_inconclusive() {
     let ty = nats_to_nat(&p, 3);
     let id = declare(&mut p.g, "f", ty.clone());
     let body = many_calls(&p, Term::Def(id));
-    p.g.defs[id.0].arity = 3;
+    p.g.env
+        .def_mut_for_tests(id)
+        .set_arity_unchecked_for_tests(3);
     // Enough graphs: it terminates (a permutation of the arguments with one
     // made smaller, repeated, always shrinks something).
     assert!(termination::check(&p.g, &body, id, "f", span()).is_ok());
@@ -651,8 +657,8 @@ fn running_out_of_steps_while_deciding_termination_leaves_the_definition_failed(
         let _op = p.g.budget.operation(Limits::default());
         let before = p.g.budget.total_work();
         let def = p.g.def(probe);
-        let mut cx = check::Ctx::new(&p.g, def.span);
-        check::check(&mut cx, &body, &def.ty_value).expect("the body type-checks");
+        let mut cx = check::Ctx::new(&p.g, def.span());
+        check::check(&mut cx, &body, def.ty_value()).expect("the body type-checks");
         p.g.budget.total_work() - before
     };
     let id = declare(&mut p.g, "f", ty);
@@ -845,7 +851,9 @@ fn accepts_everything_the_structural_checker_accepted() {
         let params: Vec<usize> = (0..arity).collect();
         let tree = generator.tree(arity, &params, 2);
         let body = (0..arity).fold(tree, |b, i| lam(&format!("p{}", arity - 1 - i), b));
-        p.g.defs[id.0].arity = arity;
+        p.g.env
+            .def_mut_for_tests(id)
+            .set_arity_unchecked_for_tests(arity);
         let old = structural::check(&p.g, &body, id, "f", span()).is_ok();
         let is_recursive = mentions(&body, id);
         recursive += usize::from(is_recursive);

@@ -64,7 +64,7 @@ fn mentions(source: &str, name: &str) -> Vec<String> {
         let g = &session.elab.globals;
         (g.def(id).body().expect("a body").subterms())
             .filter_map(|(t, _)| match t {
-                stitchwort_core::Term::Def(d) => Some(g.def(*d).name.to_string()),
+                stitchwort_core::Term::Def(d) => Some(g.def(*d).name().to_string()),
                 _ => None,
             })
             .collect()

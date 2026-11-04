@@ -15,10 +15,11 @@ fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
     }
     let g = &session.elab.globals;
     let (id, def) = g
-        .defs
+        .env
+        .defs()
         .iter()
         .enumerate()
-        .find(|(_, d)| &*d.name == "t")
+        .find(|(_, d)| &**d.name() == "t")
         .expect("def t");
     let printed = pretty::term(g, &[], def.body().expect("a body"));
     let hash = def_hash(g, stitchwort_core::DefId(id))

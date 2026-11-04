@@ -121,9 +121,9 @@ fn unfold(g: &Globals, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
     // Not an opaque definition's hidden body
     // (docs/proposals/opaque-definitions.md §6.4).
     if let Some(body) = stitchwort_core::value::body_seen(g, id)
-        && def.arity == args.len()
+        && def.arity() == args.len()
     {
-        let inner = Term::peel_lams_rc(body, def.arity);
+        let inner = Term::peel_lams_rc(body, def.arity());
         if !matches!(inner.strip_loc(), Term::Case(..) | Term::NumCase(..)) {
             let mut values = Vec::new();
             for arg in &args {
@@ -195,7 +195,7 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
                 None => return Ok(None),
             }
         }
-        Term::Def(id) => (Rc::new(g.def(*id).ty.clone()), Vec::new()),
+        Term::Def(id) => (Rc::new(g.def(*id).ty().clone()), Vec::new()),
         _ => return Ok(None),
     };
     for arg in args {
@@ -288,10 +288,10 @@ fn namespace(cx: &Ctx, h: TyHead) -> String {
         TyHead::Data(d) => cx.e.data_key(d),
         TyHead::Def(id) => {
             let def = cx.g().def(id);
-            if def.path.starts_with("Std.") {
-                def.path.to_string()
+            if def.path().starts_with("Std.") {
+                def.path().to_string()
             } else {
-                def.name.to_string()
+                def.name().to_string()
             }
         }
         TyHead::Eq => format!("{}.Eq", scope::STD),
@@ -429,7 +429,7 @@ fn dot_on(
             "E-DECREASING",
             format!(
                 "write this recursive call as `{} …`, not with a dot",
-                cx.g().def(f).name
+                cx.g().def(f).name()
             ),
             "a recursive call with `[decreasing := …]` is written in prefix form",
         ));
@@ -882,7 +882,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // the method of that name (docs/proposals/interfaces.md §5.1).
                 if let TyHead::Data(d) = h
                     && let Some(info) = cx.e.tables.interfaces.get(&d)
-                    && let Some(i) = g.data(d).ctors[0]
+                    && let Some(i) = g.data(d).ctors()[0]
                         .fields
                         .iter()
                         .position(|(n, _)| **n == *field.text)
@@ -945,8 +945,8 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                     None => {}
                 }
                 if let TyHead::Data(d) = h
-                    && g.data(d).record
-                    && g.data(d).ctors[0]
+                    && g.data(d).record()
+                    && g.data(d).ctors()[0]
                         .fields
                         .iter()
                         .any(|(n, _)| **n == *field.text)
@@ -956,7 +956,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                         format!("can't take field `{}` out of a proof", field.text),
                         format!(
                             "`{}` is a proposition, and `{}` is data",
-                            g.data(d).name,
+                            g.data(d).name(),
                             field.text
                         ),
                     ));
@@ -964,7 +964,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field some constructors have, that isn't shared
                 // (docs/proposals/variant-fields.md §5.3).
                 if let TyHead::Data(d) = h
-                    && !g.data(d).record
+                    && !g.data(d).record()
                     && let Some((message, note)) =
                         cx.e.unshared_member(d, &field.text, &shown(recv))
                 {
@@ -1027,7 +1027,7 @@ pub(crate) fn section_partial(
     }
     // The arguments in their places, the receiver's last (named-arguments.md
     // §4.4): every explicit parameter before it must be given.
-    let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+    let sig = crate::named::signature(cx, g.def(f).ty_value())?;
     let Ok(slots) = crate::named::plan(cx, &sig, &written, Some(k)) else {
         return Ok(None);
     };
@@ -1158,9 +1158,9 @@ fn is_computation_head(cx: &Ctx, h: TyHead) -> bool {
     };
     let g = cx.g();
     [
-        g.registry.def(Builtin::CompIn),
-        g.registry.def(Builtin::CompD),
-        g.builtins.primitive_id(Primitive::Delay),
+        g.env.registry().def(Builtin::CompIn),
+        g.env.registry().def(Builtin::CompD),
+        g.env.builtins().primitive_id(Primitive::Delay),
     ]
     .contains(&Some(id))
 }
@@ -1248,9 +1248,9 @@ fn unknown_member(
         d = d.with_note(format!("did you mean `{best}`?"));
     }
     if let TyHead::Data(dd) = last
-        && g.data(dd).record
+        && g.data(dd).record()
     {
-        let fields: Vec<String> = g.data(dd).ctors[0]
+        let fields: Vec<String> = g.data(dd).ctors()[0]
             .fields
             .iter()
             .map(|(f, _)| format!("`{f}`"))
@@ -1446,7 +1446,7 @@ struct Param {
 /// `T.f`'s parameters, as far as its signature as written spells them out.
 fn params(g: &Globals, f: DefId) -> Vec<Param> {
     let mut out = Vec::new();
-    let mut ty = g.def(f).ty.clone();
+    let mut ty = g.def(f).ty().clone();
     while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
         out.push(Param {
             icit: *icit,
@@ -1482,10 +1482,10 @@ pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Optio
     // in the library, the scope key elsewhere (`Meter.scale`, not
     // `Main.Meter.scale`).
     let def = g.def(f);
-    let path = if def.path.starts_with("Std.") {
-        def.path.to_string()
+    let path = if def.path().starts_with("Std.") {
+        def.path().to_string()
     } else {
-        def.name.to_string()
+        def.name().to_string()
     };
     // An extension is looked up in the namespace of the type it extends.
     let target = cx.e.scope.extended(&path).unwrap_or(&path);
@@ -1632,7 +1632,7 @@ pub(crate) fn prefix_form<'a>(
         // Named arguments in their places, the receiver first in its
         // (named-arguments.md §4.4), and defaults in theirs; only if that's
         // a positional call.
-        let mut sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        let mut sig = crate::named::signature(cx, g.def(f).ty_value())?;
         if let Some(defaults) = defaults {
             sig = sig.with_defaults(defaults);
         }
@@ -1688,7 +1688,7 @@ fn call(
     let ordered;
     let defaults = crate::defaults::of_head(cx, &Term::Def(f));
     let args = if crate::named::any(args) || defaults.is_some() {
-        let mut sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        let mut sig = crate::named::signature(cx, g.def(f).ty_value())?;
         if let Some(defaults) = defaults {
             sig = sig.with_defaults(defaults);
         }
@@ -1778,7 +1778,7 @@ fn no_receiver(
 ) -> Diagnostic {
     let g = cx.g();
     let ns = scope::display(&namespace(cx, owner)).to_string();
-    let shown_ty = cx.show(&g.def(f).ty_value);
+    let shown_ty = cx.show(g.def(f).ty_value());
     let (call, value) = match recv {
         Expr::Var(n) if written(n) => (
             format!("`{}.{}`", n.text, field.text),
@@ -1909,8 +1909,8 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         }
     } else {
         match cx.e.named(&name.text) {
-            Some((Global::Def(id), _)) if !matches!(&g.def(*id).ty_value, Value::Pi(_, i, _, _) if i.is_implicit()) => {
-                Ty::Term(Rc::new(g.def(*id).ty.clone()), Vec::new())
+            Some((Global::Def(id), _)) if !matches!(g.def(*id).ty_value(), Value::Pi(_, i, _, _) if i.is_implicit()) => {
+                Ty::Term(Rc::new(g.def(*id).ty().clone()), Vec::new())
             }
             _ => return Ok(None),
         }
@@ -1938,7 +1938,7 @@ fn annotation_type(cx: &Ctx, ty: &Expr) -> Result<Option<Ty>> {
     Ok(match cx.e.named(&name.text) {
         Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new()))),
         Some((Global::Def(id), _))
-            if !applied && !matches!(&g.def(*id).ty_value, Value::Pi(..)) =>
+            if !applied && !matches!(g.def(*id).ty_value(), Value::Pi(..)) =>
         {
             Some(Ty::Term(Rc::new(Term::Def(*id)), Vec::new()))
         }
@@ -1986,7 +1986,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
     // nickname (`Thunk`) is tried before what it stands for. The bound
     // variables are stand-ins: only the head matters.
     {
-        let mut term = Rc::new(g.def(id).ty.clone());
+        let mut term = Rc::new(g.def(id).ty().clone());
         let mut env: Vec<Value> = Vec::new();
         let mut left = explicit;
         let mut level = cx.level();

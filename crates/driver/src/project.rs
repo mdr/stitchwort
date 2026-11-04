@@ -189,7 +189,7 @@ impl Session {
             self.rewind(&mark);
             self.release(mark);
         }
-        let first_new_def = self.elab.globals.defs.len();
+        let first_new_def = self.elab.globals.env.defs().len();
         let mut found = self
             .elab
             .elaborate_namespace(Some(name), &units, Some(&dependencies));

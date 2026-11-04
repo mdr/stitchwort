@@ -25,9 +25,10 @@ const LCG: &str = "def lcg (seed: Nat): Nat := (seed * 1103515245 + 12345) % 214
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == name)
+            .position(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("`{name}` is defined")),
     )
 }
@@ -134,7 +135,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
                 work < 2_000_000,
                 "shortcuts {shortcuts}: checking took {work} steps"
             );
-            let ty = &g.def(def(g, "t")).ty_value;
+            let ty = &g.def(def(g, "t")).ty_value();
             assert_eq!(
                 stitchwort_core::pretty::value(g, &[], ty),
                 "(seed: Nat) → (seed * 1103515245 + 12345) % 2147483648 ≤ 2147483647"

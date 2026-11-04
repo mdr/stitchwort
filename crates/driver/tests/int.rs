@@ -26,15 +26,19 @@ const STACK: usize = 64 << 20;
 /// The prelude's definition `name` (`Int.add`).
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == name)
+            .position(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}` in the prelude")),
     )
 }
 
 fn int_data(g: &Globals) -> DataId {
-    g.registry.data(Builtin::Int).expect("`Int` is registered")
+    g.env
+        .registry()
+        .data(Builtin::Int)
+        .expect("`Int` is registered")
 }
 
 fn nat(n: u64) -> Value {
@@ -113,14 +117,14 @@ fn slow(g: &Globals, f: DefId, args: &[Arg], level: usize) -> String {
 /// must give the same normal form: the machine's value with natives on, and
 /// that normal form. `level` variables are free in `args`.
 fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
-    let name = g.def(f).name.clone();
+    let name = g.def(f).name().clone();
     let what = || format!("{name} {:?}", args.iter().map(|a| &a.0).collect::<Vec<_>>());
     let (v, on) = machine(g, f, args, level);
     let on_slow = slow(g, f, args, level);
-    g.builtins.disable_natives = true;
+    g.env.set_disable_natives(true);
     let (v_off, off) = machine(g, f, args, level);
     let off_slow = slow(g, f, args, level);
-    g.builtins.disable_natives = false;
+    g.env.set_disable_natives(false);
     assert_eq!(
         on,
         on_slow,
@@ -231,7 +235,7 @@ fn decisions_agree_in_both_modes() {
         let mut session = Session::eager();
         let g = &mut session.elab.globals;
         let dec_eq = def(g, "Int.decEq");
-        let (_, yes) = g.registry.ctor(Builtin::Yes).expect("`Yes`");
+        let (_, yes) = g.env.registry().ctor(Builtin::Yes).expect("`Yes`");
         for a in -6..=6i64 {
             for b in -6..=6i64 {
                 let (v, nf) = run(g, dec_eq, &[ex(int(g, a)), ex(int(g, b))], 0);
@@ -393,7 +397,7 @@ fn load(
     natives: bool,
 ) -> Vec<&'static str> {
     session.rewind(mark);
-    session.elab.globals.builtins.disable_natives = !natives;
+    session.elab.globals.env.set_disable_natives(!natives);
     match session.load("int.sw", source) {
         Ok(_) => Vec::new(),
         Err(ds) => ds.iter().map(|d| d.code).collect(),
@@ -607,7 +611,7 @@ fn big_values_agree_with_an_independent_implementation() {
     ];
     let ops: Vec<(&str, DefId)> = names.iter().map(|op| (*op, def(g, op))).collect();
     let dec_eq = def(g, "Int.decEq");
-    let (_, yes) = g.registry.ctor(Builtin::Yes).unwrap();
+    let (_, yes) = g.env.registry().ctor(Builtin::Yes).unwrap();
     // The largest normal form of a decision seen so far, not counting the
     // digits of the numbers in it: for `Yes`, and for `No` by the signs.
     let mut sizes = [None::<usize>; 5];

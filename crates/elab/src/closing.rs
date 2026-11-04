@@ -573,7 +573,7 @@ impl Elaborator {
                 unreachable!("a part")
             };
             let mut own = 0;
-            let mut t = self.globals.def(id).ty.strip_loc();
+            let mut t = self.globals.def(id).ty().strip_loc();
             while let Term::Pi(_, icit, _, cod) = t {
                 own += usize::from(*icit == Icit::Explicit);
                 t = cod.strip_loc();
@@ -802,7 +802,7 @@ impl Elaborator {
     ) -> Vec<RecursivePlan> {
         let g = &self.unifier();
         let item = Item::Def(owner);
-        let ty = g.def(owner).ty.clone();
+        let ty = g.def(owner).ty().clone();
         let span = item.span(g);
         let _restore = Restore {
             g: *g,

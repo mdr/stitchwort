@@ -1124,13 +1124,13 @@ impl Session {
     pub fn declared_type(&self, path: &str) -> Option<String> {
         let g = &self.elab.globals;
         let ty = match def_named(g, path) {
-            Some(id) => g.def(id).ty.clone(),
+            Some(id) => g.def(id).ty().clone(),
             None => {
                 let (data, ctor) = path.rsplit_once('.')?;
-                let d = (0..g.datas.len())
+                let d = (0..g.env.datas().len())
                     .map(DataId)
-                    .find(|d| &*g.data(*d).path == data)?;
-                let c = g.data(d).ctors.iter().position(|c| &*c.name == ctor)?;
+                    .find(|d| &**g.data(*d).path() == data)?;
+                let c = g.data(d).ctors().iter().position(|c| &*c.name == ctor)?;
                 stitchwort_elab::search::Item::Ctor(d, c).ty(g)
             }
         };
@@ -1172,9 +1172,9 @@ impl Session {
         };
         let g = &self.elab.globals;
         let target = def_named(g, path);
-        let iff = (0..g.datas.len())
+        let iff = (0..g.env.datas().len())
             .map(DataId)
-            .find(|d| &*g.data(*d).path == "Std.Iff");
+            .find(|d| &**g.data(*d).path() == "Std.Iff");
         let mut seen = BTreeSet::new();
         let mut groups: [Vec<TheoremJson>; 3] = Default::default();
         for r in &report.results {
@@ -1186,7 +1186,7 @@ impl Session {
             if example || r.generated || !seen.insert(r.name.clone()) {
                 continue;
             }
-            let ty = def_named(g, &r.name).map(|id| g.def(id).ty.clone());
+            let ty = def_named(g, &r.name).map(|id| g.def(id).ty().clone());
             let named = named_after(&r.name, path);
             let group = match (&ty, target) {
                 (Some(ty), Some(x)) if named && rewrites(ty, x, iff) => 0,
@@ -1243,24 +1243,25 @@ impl Session {
         };
         // `f.eq2`, `f.eq2.or1`: the owner's path, then the reserved suffix.
         let found = generated_equations(g).remove(path).unwrap_or_default();
-        let transparent_tree = def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque;
+        let transparent_tree =
+            def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque();
         let shown_name = |p: &str| shown(p).to_string();
         let mut induct = None;
         let mut equations: Vec<EquationJson> = Vec::new();
         for (_, id) in &found {
             let json = {
                 let d = g.def(*id);
-                let (file, line) = crate::render::location(&self.sources, d.span);
+                let (file, line) = crate::render::location(&self.sources, d.span());
                 EquationJson {
-                    name: shown_name(&d.path),
-                    statement: statement(g, &d.ty),
+                    name: shown_name(d.path()),
+                    statement: statement(g, d.ty()),
                     line,
                     file,
-                    stuck: !stitchwort_elab::is_function_induct(g, &d.name)
-                        && (!transparent_tree || has_overlap_hypothesis(&d.ty)),
+                    stuck: !stitchwort_elab::is_function_induct(g, d.name())
+                        && (!transparent_tree || has_overlap_hypothesis(d.ty())),
                 }
             };
-            if stitchwort_elab::is_function_induct(g, &g.def(*id).name) {
+            if stitchwort_elab::is_function_induct(g, g.def(*id).name()) {
                 induct = Some(json);
             } else {
                 equations.push(json);
@@ -1270,7 +1271,7 @@ impl Session {
         // suffix (the latest reason), unless it was made since.
         let mut skipped: Vec<SkippedEquation> = Vec::new();
         for (owner, suffix, why) in self.elab.equation_skips().iter().rev() {
-            if *owner != f || g.def(*owner).path.as_ref() != path {
+            if *owner != f || g.def(*owner).path().as_ref() != path {
                 continue;
             }
             let name = format!("{path}.{suffix}");
@@ -1307,10 +1308,13 @@ impl Session {
 /// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
 pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
-    for id in (0..g.defs.len()).map(DefId) {
+    for id in (0..g.env.defs().len()).map(DefId) {
         let d = g.def(id);
         // Not the hidden lemmas branches use (`f.%match1.eq2`).
-        if !d.theorem || !stitchwort_elab::is_generated_name(g, &d.name) || d.path.contains('%') {
+        if !d.theorem()
+            || !stitchwort_elab::is_generated_name(g, d.name())
+            || d.path().contains('%')
+        {
             continue;
         }
         // The owner is what precedes the first `.eqK` (or `.eq`, below a
@@ -1318,8 +1322,8 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
         let mut at = 0;
         let mut owner_end = None;
         // `f.induct`, before the equations (stage 2a): listed first, never cut.
-        if stitchwort_elab::is_function_induct(g, &d.name)
-            && let Some(owner) = d.path.strip_suffix(".induct")
+        if stitchwort_elab::is_function_induct(g, d.name())
+            && let Some(owner) = d.path().strip_suffix(".induct")
         {
             by_owner
                 .entry(owner.to_string())
@@ -1327,8 +1331,8 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
                 .push((Vec::new(), id));
             continue;
         }
-        let parts = d.path.split('.').count();
-        for (i, part) in d.path.split('.').enumerate() {
+        let parts = d.path().split('.').count();
+        for (i, part) in d.path().split('.').enumerate() {
             let digits = part.strip_prefix("eq");
             if at > 0
                 && digits.is_some_and(|n| {
@@ -1341,13 +1345,13 @@ pub(crate) fn generated_equations(g: &Globals) -> BTreeMap<String, Vec<(Vec<usiz
             at += part.len() + 1;
         }
         let Some(end) = owner_end else { continue };
-        let order = d.path[end + 1..]
+        let order = d.path()[end + 1..]
             .split('.')
             .map(|p| p.trim_start_matches(|c: char| c.is_ascii_alphabetic()))
             .filter_map(|n| n.parse().ok())
             .collect();
         by_owner
-            .entry(d.path[..end].to_string())
+            .entry(d.path()[..end].to_string())
             .or_default()
             .push((order, id));
     }
@@ -1363,7 +1367,7 @@ pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> Strin
     const HOVER_SHOWN: usize = 4;
     // `f.induct`, listed first, isn't an equation: not counted (SW-1073).
     let inducts = (ids.iter())
-        .filter(|(_, id)| stitchwort_elab::is_function_induct(g, &g.def(*id).name))
+        .filter(|(_, id)| stitchwort_elab::is_function_induct(g, g.def(*id).name()))
         .count();
     let and_induct = if inducts > 0 { " and `f.induct`" } else { "" };
     let mut out = format!(
@@ -1372,7 +1376,7 @@ pub(crate) fn equations_hover(g: &Globals, ids: &[(Vec<usize>, DefId)]) -> Strin
     );
     for (_, id) in ids.iter().take(HOVER_SHOWN) {
         let d = g.def(*id);
-        out.push_str(&format!("\n- `{}`: `{}`", d.name, statement(g, &d.ty)));
+        out.push_str(&format!("\n- `{}`: `{}`", d.name(), statement(g, d.ty())));
     }
     if ids.len() > HOVER_SHOWN {
         out.push_str(&format!("\n- … and {} more", ids.len() - HOVER_SHOWN));
@@ -1414,9 +1418,9 @@ fn has_overlap_hypothesis(ty: &Term) -> bool {
 
 /// The definition with full name `path`.
 fn def_named(g: &Globals, path: &str) -> Option<DefId> {
-    (0..g.defs.len())
+    (0..g.env.defs().len())
         .map(DefId)
-        .find(|id| &*g.def(*id).path == path)
+        .find(|id| &**g.def(*id).path() == path)
 }
 
 /// Whether `ty`, after its parameters, is an equation or an `Iff` whose left

@@ -139,7 +139,7 @@ fn a_tree_and_a_forest_are_admitted_together() {
     let (tree, forest) = tree_forest(&mut p);
     for d in [tree, forest] {
         assert_eq!(state(&p.g, d), State::Final);
-        assert_eq!(&*p.g.data(d).group, &[tree, forest]);
+        assert_eq!(&**p.g.data(d).group(), &[tree, forest]);
     }
     // Functions over them, by structural recursion across the group.
     let nat = p.nat_ty();
@@ -231,7 +231,7 @@ fn a_negative_occurrence_through_a_sibling_is_refused() {
     // Every member failed: no constructors, no matches, no hash.
     for d in &ids {
         assert_eq!(state(&p.g, *d), State::Failed);
-        assert!(p.g.data(*d).ctors.is_empty());
+        assert!(p.g.data(*d).ctors().is_empty());
         assert_eq!(data_hash(&p.g, *d).unwrap(), None);
     }
     let to_void = arrow(Term::Data(ids[0], vec![]), Term::Data(void, vec![]));
@@ -437,8 +437,8 @@ fn a_group_is_defined_whole_or_not_at_all() {
         vec![ctor("MkExtra", vec![("t", Term::Data(ids[0], vec![]))])],
     ));
     assert_eq!(code(define_data_group(&mut p.g, ctors)), "E-MALFORMED");
-    assert_eq!(&*p.g.data(ids[0]).group, &ids[..]);
-    assert_eq!(&*p.g.data(extra).group, &[extra]);
+    assert_eq!(&**p.g.data(ids[0]).group(), &ids[..]);
+    assert_eq!(&**p.g.data(extra).group(), &[extra]);
     for d in [ids[0], ids[1], extra] {
         assert_eq!(state(&p.g, d), State::Failed);
     }
@@ -464,7 +464,7 @@ fn a_group_is_defined_whole_or_not_at_all() {
         "E-MALFORMED"
     );
     assert_eq!(code(define_data_group(&mut p.g, vec![])), "E-MALFORMED");
-    let unknown = DataId(p.g.datas.len());
+    let unknown = DataId(p.g.env.datas().len());
     assert_eq!(
         code(define_data_group(&mut p.g, vec![(unknown, vec![])])),
         "E-MALFORMED"
@@ -477,7 +477,7 @@ fn a_header_cannot_mention_a_member_or_anything_unknown() {
     // further on, or a definition that doesn't exist: refused before
     // anything is added.
     let mut p = Prelude::new();
-    let (datas, defs) = (p.g.datas.len(), p.g.defs.len());
+    let (datas, defs) = (p.g.env.datas().len(), p.g.env.defs().len());
     for forged in [
         Term::Data(DataId(datas), vec![]),
         Term::Data(DataId(datas + 1), vec![]),
@@ -485,7 +485,7 @@ fn a_header_cannot_mention_a_member_or_anything_unknown() {
     ] {
         let r = try_group(&mut p.g, &["A", "B"], vec![("x", forged)], Sort::Type(0));
         assert_eq!(code(r), "E-MALFORMED");
-        assert_eq!((p.g.datas.len(), p.g.defs.len()), (datas, defs));
+        assert_eq!((p.g.env.datas().len(), p.g.env.defs().len()), (datas, defs));
     }
     // A pending data type, or definition.
     let pending = data(&mut p.g, "Pending", vec![], Sort::Type(0));
@@ -504,7 +504,7 @@ fn a_header_cannot_mention_a_member_or_anything_unknown() {
         Sort::Type(0),
     );
     assert_eq!(code(r), "E-MALFORMED");
-    assert_eq!(p.g.datas.len(), datas + 1);
+    assert_eq!(p.g.env.datas().len(), datas + 1);
     // Neighbour: a final one, and an earlier parameter.
     let r = try_group(
         &mut p.g,
@@ -513,8 +513,8 @@ fn a_header_cannot_mention_a_member_or_anything_unknown() {
         Sort::Type(0),
     );
     let ids = r.unwrap();
-    assert_eq!(p.g.data(ids[0]).params.len(), 2);
-    assert_eq!(p.g.data(ids[1]).params.len(), 2);
+    assert_eq!(p.g.data(ids[0]).params().len(), 2);
+    assert_eq!(p.g.data(ids[1]).params().len(), 2);
 }
 
 #[test]
@@ -675,7 +675,7 @@ fn members_share_one_universe() {
         ],
     );
     assert_eq!(code(r), "ok");
-    assert_eq!(p.g.data(ids[1]).sort, Sort::Type(1));
+    assert_eq!(p.g.data(ids[1]).sort(), Sort::Type(1));
 }
 
 /// `EvenP = EvenZero | EvenSucc (o : OddP)`, `OddP = OddSucc (e : EvenP)`,

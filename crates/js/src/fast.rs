@@ -195,11 +195,11 @@ impl Gen<'_> {
     /// `None`'s tag and `Some`'s tag, as JS literals, and the key of `Some`'s
     /// field, as it's written in an object literal (`OPTION_SHAPE`).
     fn option_names(&self, d: DataId) -> (String, String, String) {
-        debug_assert!(self.g.registry.is_data(Builtin::Option, d));
+        debug_assert!(self.g.env.registry().is_data(Builtin::Option, d));
         let data = self.g.data(d);
         (
-            js_string_literal(&data.ctors[0].name),
-            js_string_literal(&data.ctors[1].name),
+            js_string_literal(&data.ctors()[0].name),
+            js_string_literal(&data.ctors()[1].name),
             field_key_at(self.g, d, 1, 0),
         )
     }
@@ -312,9 +312,9 @@ impl Gen<'_> {
         let entry = self.dec_expr(value, "r");
         // A `js.unboxed` key is the string, if its proof fields hold.
         let checks = match key {
-            Boundary::Data(d, _) if !self.g.data(*d).validators.is_empty() => format!(
+            Boundary::Data(d, _) if !self.g.data(*d).validators().is_empty() => format!(
                 "\n    for (const [, holds] of {}.checks) if (!holds(k)) throw FAIL;",
-                info_name(&self.g.data(*d).path)
+                info_name(self.g.data(*d).path())
             ),
             _ => String::new(),
         };
@@ -456,7 +456,7 @@ impl Gen<'_> {
         let codecs = self.field_codecs(d, args);
         if repr.string_enum {
             let mut out = format!("function {name}(x) {{\n  switch (x) {{\n");
-            for (c, ctor) in data.ctors.iter().enumerate() {
+            for (c, ctor) in data.ctors().iter().enumerate() {
                 let _ = writeln!(
                     out,
                     "    case {}: return {{ tag: {} }};",
@@ -475,11 +475,11 @@ impl Gen<'_> {
                 "function {name}(x) {{\n  const o = {};\n",
                 self.dec_expr(&self.unboxed_field(d), "x")
             );
-            if data.validators.iter().any(|v| v.ctor == 0) {
+            if data.validators().iter().any(|v| v.ctor == 0) {
                 let _ = writeln!(
                     out,
                     "  for (const [, holds] of {}.checks) if (!holds(o)) throw FAIL;",
-                    info_name(&data.path)
+                    info_name(data.path())
                 );
             }
             out.push_str("  return o;\n}\n");
@@ -488,14 +488,14 @@ impl Gen<'_> {
         let ty = self.type_const(b);
         // A constructor that isn't flat is remembered while it's decoded and
         // after, and counts as a level of nesting.
-        let flat: Vec<bool> = (0..data.ctors.len())
+        let flat: Vec<bool> = (0..data.ctors().len())
             .map(|c| self.flat_ctor(d, c))
             .collect();
         let enter = "  done.set(x, INSIDE);\n  depth++;\n";
         let mut out = format!(
             "function {name}(x) {{\n  if (typeof x !== \"object\" || x === null || Array.isArray(x)) throw FAIL;\n"
         );
-        if data.record {
+        if data.record() {
             let (reads, props) = self.dec_fields(&codecs[0], "  ");
             if !flat[0] {
                 out.push_str(&Self::memo_lookup(&ty, "  "));
@@ -509,11 +509,11 @@ impl Gen<'_> {
             } else {
                 let _ = writeln!(out, "  const o = {{ {} }};", props.join(", "));
             }
-            if data.validators.iter().any(|v| v.ctor == 0) {
+            if data.validators().iter().any(|v| v.ctor == 0) {
                 let _ = writeln!(
                     out,
                     "  for (const [, holds] of {}.checks) if (!holds(o)) throw FAIL;",
-                    info_name(&data.path)
+                    info_name(data.path())
                 );
             }
             if !flat[0] {
@@ -531,7 +531,7 @@ impl Gen<'_> {
             "  if (!hasOwn(x, {tag_key})) throw FAIL;\n  switch (x{}) {{",
             member(&repr.tag_key)
         );
-        for (c, ctor) in data.ctors.iter().enumerate() {
+        for (c, ctor) in data.ctors().iter().enumerate() {
             let (reads, mut props) = self.dec_fields(&codecs[c], "      ");
             props.insert(0, format!("tag: {}", js_string_literal(&ctor.name)));
             let (open, close) = if flat[c] {
@@ -608,7 +608,7 @@ impl Gen<'_> {
         let codecs = self.field_codecs(d, args);
         if repr.string_enum {
             let mut out = format!("function {name}(v) {{\n  switch (v.tag) {{\n");
-            for (c, ctor) in data.ctors.iter().enumerate() {
+            for (c, ctor) in data.ctors().iter().enumerate() {
                 let _ = writeln!(
                     out,
                     "    case {}: return {};",
@@ -633,13 +633,13 @@ impl Gen<'_> {
             "  if (++depth > MAX_DEPTH) throw FAIL;\n"
         };
         let unguard = if shallow { "" } else { "depth--; " };
-        if data.record {
+        if data.record() {
             let unboxed = self.unboxed(d).is_some();
             let body = self.enc_fields(None, &codecs[0], unboxed, "  ");
             return format!("function {name}(v) {{\n{guard}{body}  {unguard}return o;\n}}\n");
         }
         let mut out = format!("function {name}(v) {{\n{guard}  switch (v.tag) {{\n");
-        for (c, ctor) in data.ctors.iter().enumerate() {
+        for (c, ctor) in data.ctors().iter().enumerate() {
             let tag = format!(
                 "{}: {}",
                 literal_key(&repr.tag_key),

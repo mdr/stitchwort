@@ -75,15 +75,15 @@ impl Elaborator {
     pub(crate) fn shared_fields(&self, d: DataId) -> Result<SharedFields> {
         let g = &self.globals;
         let data = g.data(d);
-        let np = data.params.len();
+        let np = data.params().len();
         let mut out = SharedFields {
             shared: Vec::new(),
             unshared: Vec::new(),
         };
-        let Some(first) = data.ctors.first() else {
+        let Some(first) = data.ctors().first() else {
             return Ok(out);
         };
-        let implicit = |c: usize, j: usize| data.ctors[c].implicit.get(j).copied() == Some(true);
+        let implicit = |c: usize, j: usize| data.ctors()[c].implicit.get(j).copied() == Some(true);
         // Every name each constructor has, in the first constructor's order,
         // with its position in each.
         let candidates: Vec<(Name, Vec<usize>)> = first
@@ -91,7 +91,7 @@ impl Elaborator {
             .iter()
             .filter_map(|(f, _)| {
                 let positions: Option<Vec<usize>> = data
-                    .ctors
+                    .ctors()
                     .iter()
                     .map(|c| c.fields.iter().position(|(x, _)| x == f))
                     .collect();
@@ -106,7 +106,7 @@ impl Elaborator {
         let mut deps: Vec<Vec<usize>> = vec![Vec::new(); candidates.len()];
         for (k, (_, positions)) in candidates.iter().enumerate() {
             for (c, &pos) in positions.iter().enumerate() {
-                let ctor = &data.ctors[c];
+                let ctor = &data.ctors()[c];
                 if implicit(c, pos) {
                     status[k].get_or_insert(Err(Unshared::Implicit {
                         ctor: ctor.name.clone(),
@@ -152,7 +152,7 @@ impl Elaborator {
                 continue;
             }
             let positions = &candidates[k].1;
-            if data.sort == Sort::Prop && first.field_sorts[positions[0]] != Sort::Prop {
+            if data.sort() == Sort::Prop && first.field_sorts[positions[0]] != Sort::Prop {
                 status[k] = Some(Err(Unshared::PropElim));
                 continue;
             }
@@ -160,7 +160,7 @@ impl Elaborator {
             // shared fields.
             let level = np + level_of.len();
             let declared = |c: usize| -> Result<Value> {
-                let ctor = &data.ctors[c];
+                let ctor = &data.ctors()[c];
                 let mut env: Vec<Value> = (0..np).map(Value::var).collect();
                 for (x, _) in &ctor.fields[..positions[c]] {
                     env.push(match index_of(x).and_then(|i| level_of.get(&i)) {
@@ -171,9 +171,9 @@ impl Elaborator {
                 Ok(eval(g, &env, &ctor.fields[positions[c]].1)?)
             };
             let mut differs = None;
-            if data.ctors.len() > 1 {
+            if data.ctors().len() > 1 {
                 let in_first = declared(0)?;
-                for c in 1..data.ctors.len() {
+                for c in 1..data.ctors().len() {
                     if !conv(g, level, &in_first, &declared(c)?)? {
                         differs = Some(c);
                         break;
@@ -182,8 +182,9 @@ impl Elaborator {
             }
             if let Some(c) = differs {
                 let shown = |c: usize| {
-                    let ctor = &data.ctors[c];
-                    let mut names: Vec<Name> = data.params.iter().map(|(x, _)| x.clone()).collect();
+                    let ctor = &data.ctors()[c];
+                    let mut names: Vec<Name> =
+                        data.params().iter().map(|(x, _)| x.clone()).collect();
                     names.extend(ctor.fields.iter().map(|(x, _)| x.clone()));
                     names.truncate(np + positions[c]);
                     let ty = stitchwort_core::pretty::term(g, &names, &ctor.fields[positions[c]].1);
@@ -229,9 +230,9 @@ impl Elaborator {
         for (field, positions) in shared {
             let g = &self.globals;
             let data = g.data(d);
-            let (np, ni) = (data.params.len(), data.indices.len());
+            let (np, ni) = (data.params().len(), data.indices().len());
             let n = np + ni;
-            let first = &data.ctors[0];
+            let first = &data.ctors()[0];
             // In the context of the parameters, indices and `r`: the earlier
             // fields as accessors of `r`.
             let with_r: Vec<Value> = (0..=n).map(Value::var).collect();
@@ -251,7 +252,7 @@ impl Elaborator {
                 Rc::new(result),
             );
             let branches: Vec<Branch> = data
-                .ctors
+                .ctors()
                 .iter()
                 .zip(&positions)
                 .map(|(ctor, &pos)| Branch {
@@ -264,18 +265,18 @@ impl Elaborator {
                 Icit::Explicit,
                 Rc::new(Term::Case(0, d, branches.into())),
             );
-            for (x, t) in data.params.iter().chain(&data.indices).rev() {
+            for (x, t) in data.params().iter().chain(data.indices()).rev() {
                 ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
                 body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
             }
-            let name: Name = format!("{}.{hidden}{field}", data.name).into();
-            let span = data.span;
+            let name: Name = format!("{}.{hidden}{field}", data.name()).into();
+            let span = data.span();
             // A proof field's accessor is a theorem, as one written by hand
             // would be (the core's `And.left` was): it isn't unfolded while
             // checking. A record's projections stay definitions, as they
             // were before records shared this generator, so their hashes
             // don't move.
-            let theorem = !data.record && first.field_sorts[positions[0]] == Sort::Prop;
+            let theorem = !data.record() && first.field_sorts[positions[0]] == Sort::Prop;
             let id = kernel::declare_def(&mut self.globals, &name, &ty, theorem, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
             // In the type's namespace, but not visible by its short name:
@@ -341,7 +342,7 @@ impl Elaborator {
         let g = &self.globals;
         let data = g.data(d);
         let has = |c: &&stitchwort_core::globals::Ctor| c.fields.iter().any(|(x, _)| **x == *f);
-        if !data.ctors.iter().any(|c| has(&c)) {
+        if !data.ctors().iter().any(|c| has(&c)) {
             return None;
         }
         let message = format!(
@@ -349,13 +350,13 @@ impl Elaborator {
             crate::scope::display(&self.data_key(d))
         );
         let lacking: Vec<&Name> = data
-            .ctors
+            .ctors()
             .iter()
             .filter(|c| !has(c))
             .map(|c| &c.name)
             .collect();
         if !lacking.is_empty() {
-            let holders: Vec<&Name> = data.ctors.iter().filter(has).map(|c| &c.name).collect();
+            let holders: Vec<&Name> = data.ctors().iter().filter(has).map(|c| &c.name).collect();
             let who = if holders.len() == 1 {
                 format!("only {} has `{f}`", listed(&holders))
             } else if lacking.len() == 1 {
@@ -415,7 +416,7 @@ impl Elaborator {
             ),
             Unshared::MentionsOwn { dep, .. } => {
                 let holders: Vec<&Name> = data
-                    .ctors
+                    .ctors()
                     .iter()
                     .filter(|c| c.fields.iter().any(|(x, _)| x == dep))
                     .map(|c| &c.name)
@@ -450,7 +451,7 @@ impl Elaborator {
             Unshared::PropElim => (
                 format!(
                     "`{}` is a proposition, and `{f}` is data, which can't be taken out of a proof",
-                    data.name
+                    data.name()
                 ),
                 None,
             ),
@@ -536,7 +537,7 @@ pub(crate) fn variant_update(
         };
         return Err(crate::error("E-UNKNOWN-FIELD", name.span, message).with_note(note));
     }
-    if !data.indices.is_empty() {
+    if !data.indices().is_empty() {
         return Err(cx
             .error(
                 "E-RECORD-UPDATE",
@@ -551,7 +552,7 @@ pub(crate) fn variant_update(
     let named = |f: &Name| fields.iter().any(|(n, _)| *n.text == **f);
     closed(cx, d, &shared, &named, &type_name)?;
 
-    let params: Vec<Value> = args[..data.params.len()].to_vec();
+    let params: Vec<Value> = args[..data.params().len()].to_vec();
     let mark = cx.mark();
     let mut bound: Vec<Bound> = Vec::new();
     let result = update_match(cx, d, base, ty, &params, &shared, fields, &mut bound);
@@ -603,7 +604,7 @@ fn update_match(
     // The new values, in the shared fields' order: a field's type mentions
     // only earlier ones, each its new value if replaced and its accessor of
     // the base if kept.
-    let first = &data.ctors[0];
+    let first = &data.ctors()[0];
     for (field, positions) in shared {
         let Some((_, expr)) = fields.iter().find(|(n, _)| *n.text == **field) else {
             continue;
@@ -650,7 +651,7 @@ fn update_match(
     let owner = cx.e.data_key(d);
     let old = |k: usize| format!("%old%{k}");
     let alts: Vec<Alt> = data
-        .ctors
+        .ctors()
         .iter()
         .map(|ctor| {
             let key = format!(
@@ -736,7 +737,7 @@ fn closed(
     type_name: &str,
 ) -> Result<()> {
     let data = cx.g().data(d);
-    for ctor in &data.ctors {
+    for ctor in data.ctors() {
         // For each field: if it's replaced, the named field that forces it.
         let mut forced: Vec<Option<Name>> = Vec::new();
         for (j, (field, field_ty)) in ctor.fields.iter().enumerate() {

@@ -48,14 +48,14 @@ fn types_are_hashed_with_their_full_names() {
     );
     let g = &session.elab.globals;
     let _op = g.budget.operation(stitchwort_core::Limits::default());
-    let library = g.registry.data(Builtin::List).unwrap();
+    let library = g.env.registry().data(Builtin::List).unwrap();
     let find = |path: &str| {
-        (0..g.datas.len())
+        (0..g.env.datas().len())
             .map(stitchwort_core::DataId)
-            .find(|d| &*g.data(*d).path == path)
+            .find(|d| &**g.data(*d).path() == path)
             .unwrap_or_else(|| panic!("no `{path}`"))
     };
-    assert_eq!(&*g.data(library).path, "Std.List");
+    assert_eq!(&**g.data(library).path(), "Std.List");
     let own = find("Main.List");
     assert_ne!(own, library);
     let hash = |d| data_hash(g, d).unwrap().unwrap();
@@ -183,9 +183,10 @@ fn an_imported_name_in_a_type_is_not_a_type_variable() {
 fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
     let g = &session.elab.globals;
     let id = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .position(|d| &*d.path == path)
+        .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
     stitchwort_core::hash::def_hash(g, stitchwort_core::DefId(id))
         .unwrap()
@@ -194,9 +195,9 @@ fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHas
 
 fn data_path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
     let g = &session.elab.globals;
-    let id = (0..g.datas.len())
+    let id = (0..g.env.datas().len())
         .map(stitchwort_core::DataId)
-        .find(|d| &*g.data(*d).path == path)
+        .find(|d| &**g.data(*d).path() == path)
         .unwrap_or_else(|| panic!("no type `{path}`"));
     data_hash(g, id).unwrap().unwrap()
 }

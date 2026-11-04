@@ -96,7 +96,7 @@ impl Elaborator {
     /// one can be derived, or else why not.
     pub(crate) fn derive_data_finite(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
-        let generated = !data.record && data.ctors.iter().any(|c| c.name.starts_with('%'));
+        let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         let Some(finite) = interfaces::finite(self) else {
             return Ok(());
         };
@@ -113,7 +113,7 @@ impl Elaborator {
         let ctors: Vec<usize> = self
             .globals
             .data(d)
-            .ctors
+            .ctors()
             .iter()
             .map(|c| c.fields.len())
             .collect();
@@ -151,34 +151,34 @@ impl Elaborator {
     ) -> Result<std::result::Result<Plan, String>> {
         let g = &self.globals;
         let data = g.data(d);
-        let name = data.name.to_string();
-        let np = data.params.len();
-        if data.group.len() > 1 {
+        let name = data.name().to_string();
+        let np = data.params().len();
+        if data.group().len() > 1 {
             return Ok(Err(format!(
                 "`{name}` is defined together with other types, which `Finite` isn't derived \
                  for yet"
             )));
         }
-        if data.sort == Sort::Prop {
+        if data.sort() == Sort::Prop {
             return Ok(Err(format!("`{name}` is a proposition")));
         }
-        if !data.indices.is_empty() {
+        if !data.indices().is_empty() {
             return Ok(Err(format!(
                 "`{name}` has indices, which `Finite` isn't derived for yet; declare an instance"
             )));
         }
-        if data.ctors.is_empty() {
+        if data.ctors().is_empty() {
             return Ok(Err(format!(
                 "`{name}` has no constructors, which `Finite` isn't derived for yet"
             )));
         }
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
-        let param_is_type: Vec<bool> = data.params.iter().map(|(_, t)| is_type(t)).collect();
+        let param_is_type: Vec<bool> = data.params().iter().map(|(_, t)| is_type(t)).collect();
         let mut dicts = vec![false; np];
         let mut to_find: Vec<(Value, String)> = Vec::new();
-        for ctor in &data.ctors {
+        for ctor in data.ctors() {
             for (i, (field, ty)) in ctor.fields.iter().enumerate() {
-                let what = if data.record {
+                let what = if data.record() {
                     format!("its field `{field}`")
                 } else {
                     format!("the field `{field}` of `{}`", ctor.name)
@@ -227,13 +227,13 @@ impl Elaborator {
             }
         }
         self.clear_metas();
-        let span = self.globals.data(d).span;
-        let params = self.globals.data(d).params.clone();
+        let span = self.globals.data(d).span();
+        let params = self.globals.data(d).params().to_vec();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
-            for (x, ty) in &params {
-                let ty = cx.eval(ty)?;
+            for (x, ty) in params {
+                let ty = cx.eval(&ty)?;
                 cx.bind_hidden(x.clone(), ty);
             }
             for (j, is_type) in param_is_type.iter().enumerate() {
@@ -272,13 +272,13 @@ impl Elaborator {
     /// name it (as `T.%C%P%k` does for a proof field, `derive.rs`).
     fn derive_field_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
         let data = self.globals.data(d);
-        let ctor = &data.ctors[c];
+        let ctor = &data.ctors()[c];
         let member = format!("%{}%F%{k}", ctor.name);
         if self.has_member(d, &member) {
             return Ok(());
         }
         let binders: Vec<(Name, Term)> = data
-            .params
+            .params()
             .iter()
             .chain(&ctor.fields[..k])
             .cloned()
@@ -289,8 +289,8 @@ impl Elaborator {
             ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
             body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
         }
-        let name: Name = format!("{}.{member}", data.name).into();
-        let span = data.span;
+        let name: Name = format!("{}.{member}", data.name()).into();
+        let span = data.span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
@@ -304,10 +304,10 @@ impl Elaborator {
     /// where each uses only those before it.
     fn finite_source(&self, d: DataId, plan: &Plan) -> Vec<Definition> {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let s = Src { span: data.span };
-        let np = data.params.len();
-        let ctors = &data.ctors;
+        let ty_name = self.relative_to_root(data.name());
+        let s = Src { span: data.span() };
+        let np = data.params().len();
+        let ctors = data.ctors();
         let n = ctors.len();
         let dicts: Vec<usize> = (0..np).filter(|j| plan.dicts[*j]).collect();
         let param = |j: usize| format!("%p{j}");
@@ -315,7 +315,7 @@ impl Elaborator {
             if dicts.len() == 1 {
                 "fin".to_string()
             } else {
-                let p = data.params[j].0.to_string();
+                let p = data.params()[j].0.to_string();
                 let mut chars = p.chars();
                 match chars.next() {
                     Some(ch) => format!("fin{}{}", ch.to_uppercase(), chars.as_str()),

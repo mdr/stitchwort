@@ -255,26 +255,26 @@ impl Elaborator {
     /// unfolds it (docs/proposals/opaque-definitions.md §6.10).
     fn with_opaque_counterexample_note(&self, def: DefId, note: String) -> String {
         let g = &self.globals;
-        let Ok(statement) = quote(g, 0, &g.def(def).ty_value) else {
+        let Ok(statement) = quote(g, 0, g.def(def).ty_value()) else {
             return note;
         };
         let ids: Vec<DefId> = crate::opaque::declined_in(g, [&statement])
             .into_iter()
-            .filter(|id| !g.def(def).unfolding.contains(id))
+            .filter(|id| !g.def(def).unfolding().contains(id))
             .collect();
         if ids.is_empty() {
             return note;
         }
         let names: Vec<String> = ids
             .iter()
-            .map(|id| format!("`{}`", g.def(*id).name))
+            .map(|id| format!("`{}`", g.def(*id).name()))
             .collect();
         let (are, its) = if ids.len() == 1 {
             ("is", "its")
         } else {
             ("are", "their")
         };
-        let clause: Vec<String> = ids.iter().map(|id| g.def(*id).name.to_string()).collect();
+        let clause: Vec<String> = ids.iter().map(|id| g.def(*id).name().to_string()).collect();
         format!(
             "{note}\nthe search ran the real code, but {} {are} opaque, so a proof can't use \
              {its} body unless the theorem says `unfolding {}`",
@@ -293,9 +293,12 @@ impl Elaborator {
         budget: Budget,
     ) -> (SearchLog, Option<String>) {
         let started = clock::now();
-        let theorem = self.globals.def(def).name.to_string();
+        let theorem = self.globals.def(def).name().to_string();
         let saved = self.globals.budget.start(self.options.limits);
-        let datas = (self.globals.defs.len(), self.globals.datas.len());
+        let datas = (
+            self.globals.env.defs().len(),
+            self.globals.env.datas().len(),
+        );
         let built = self.build_checker(def);
         self.clear_metas();
         self.globals.budget.restore(saved);
@@ -312,7 +315,12 @@ impl Elaborator {
         };
         // Building a checker declares nothing (§12); were it ever to, the
         // search stops there.
-        if datas != (self.globals.defs.len(), self.globals.datas.len()) {
+        if datas
+            != (
+                self.globals.env.defs().len(),
+                self.globals.env.datas().len(),
+            )
+        {
             log.out_of_scope = Some("building the checker declared something".to_string());
             return (log, None);
         }
@@ -347,12 +355,12 @@ impl Elaborator {
     /// The checker of theorem `def`'s statement, or why there's none.
     fn build_checker(&self, def: DefId) -> Result<Checker, String> {
         let g = &self.globals;
-        let span = g.def(def).span;
+        let span = g.def(def).span();
         let mut cx = Ctx::new(self, span);
         let failed = |e: stitchwort_syntax::Diagnostic| e.message;
         let nat = builtin_data(&cx, Builtin::Nat).map_err(failed)?;
         let nat_ty = Value::Data(nat, Vec::new());
-        let erased = stitchwort_core::check::telescope(g, &g.def(def).ty_value, span)
+        let erased = stitchwort_core::check::telescope(g, g.def(def).ty_value(), span)
             .map_err(failed)?
             .params
             .into_iter()
@@ -366,7 +374,7 @@ impl Elaborator {
         // The statement as written, for showing its parts: its binders'
         // names and types, and its conclusion.
         let mut written_binders: Vec<(Name, Term)> = Vec::new();
-        let mut written = g.def(def).ty.strip_loc();
+        let mut written = g.def(def).ty().strip_loc();
         while let Term::Pi(x, _, dom, cod) = written {
             written_binders.push((x.clone(), (**dom).clone()));
             written = cod.strip_loc();
@@ -379,7 +387,7 @@ impl Elaborator {
                 .collect();
             stitchwort_core::pretty::term_for_message_in(g, self, &names, term)
         };
-        let mut ty = force(g, g.def(def).ty_value.clone()).map_err(|e| e.to_string())?;
+        let mut ty = force(g, g.def(def).ty_value().clone()).map_err(|e| e.to_string())?;
         let mut position = 0;
         while let Value::Pi(x, icit, dom, cod) = ty.clone() {
             let dom = force(g, (*dom).clone()).map_err(|e| e.to_string())?;

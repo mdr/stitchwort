@@ -53,17 +53,17 @@ struct Summary {
 fn summarize(session: &Session, first: (usize, usize, usize)) -> Summary {
     let g = &session.elab.globals;
     let mut decls = Vec::new();
-    for i in first.0..g.datas.len() {
+    for i in first.0..g.env.datas().len() {
         decls.push((
-            format!("data {}", g.datas[i].path),
+            format!("data {}", g.env.datas()[i].path()),
             show(data_hash(g, DataId(i))),
         ));
     }
-    for i in first.1..g.defs.len() {
-        let d = &g.defs[i];
+    for i in first.1..g.env.defs().len() {
+        let d = &g.env.defs()[i];
         decls.push((
-            format!("def {}", d.path),
-            format!("{} export={}", show(def_hash(g, DefId(i))), d.export),
+            format!("def {}", d.path()),
+            format!("{} export={}", show(def_hash(g, DefId(i))), d.export()),
         ));
     }
     let tests = session.elab.tests()[first.2..]
@@ -83,8 +83,8 @@ fn start() -> (Session, (usize, usize, usize)) {
     let mut session = Session::new();
     session.elab.options.limits = stitchwort_core::Limits::for_stack(STACK);
     let first = (
-        session.elab.globals.datas.len(),
-        session.elab.globals.defs.len(),
+        session.elab.globals.env.datas().len(),
+        session.elab.globals.env.defs().len(),
         session.elab.tests().len(),
     );
     (session, first)

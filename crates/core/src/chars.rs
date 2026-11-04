@@ -191,7 +191,7 @@ pub fn register(g: &mut Globals, list: DataId, char: DataId) -> bool {
     if !(shaped(list, 1, &[0, 2]) && shaped(char, 0, &[2]) && binding(g, list, char).bound) {
         return false;
     }
-    g.builtins.text = Some(CompactText::new(list, char));
+    g.env.builtins_mut().text = Some(CompactText::new(list, char));
     true
 }
 

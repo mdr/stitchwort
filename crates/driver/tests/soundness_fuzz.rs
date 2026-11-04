@@ -1755,7 +1755,7 @@ fn void_attempts() -> Vec<Attempt> {
 fn closed_empty(g: &Globals, id: DefId) -> bool {
     use stitchwort_core::Value;
     use stitchwort_core::value::force;
-    matches!(force(g, g.def(id).ty_value.clone()), Ok(Value::Data(d, _)) if g.data(d).ctors.is_empty())
+    matches!(force(g, g.def(id).ty_value().clone()), Ok(Value::Data(d, _)) if g.data(d).ctors().is_empty())
 }
 
 /// What a program's check found.
@@ -1772,7 +1772,7 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
     use stitchwort_core::globals::{HashKey, State};
     let mut session = session();
     session.use_check_cache(cache);
-    let first = session.elab.globals.defs.len();
+    let first = session.elab.globals.env.defs().len();
     let result = session.load("attempt.sw", text);
     let (accepted, codes) = match &result {
         Ok(_) => (true, Vec::new()),
@@ -1787,9 +1787,9 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
     let g = &session.elab.globals;
     let mut findings = Vec::new();
     let mut theorems = Vec::new();
-    for id in (first..g.defs.len()).map(DefId) {
+    for id in (first..g.env.defs().len()).map(DefId) {
         let def = g.def(id);
-        let path = def.path.to_string();
+        let path = def.path().to_string();
         if path.starts_with("Std.")
             || path.contains('%')
             || def.state() != State::Final
@@ -1797,13 +1797,13 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
         {
             continue;
         }
-        let name = def.name.to_string();
+        let name = def.name().to_string();
         if name == "boom" {
             findings.push("`boom` was accepted".to_string());
         } else if closed_empty(g, id) {
             findings.push(format!("`{name}` proves an empty type"));
         }
-        if def.theorem {
+        if def.theorem() {
             theorems.push((id, path));
         }
     }

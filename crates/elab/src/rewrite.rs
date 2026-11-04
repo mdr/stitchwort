@@ -568,7 +568,7 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {
         Value::Neutral(Head::Def(d), spine) => {
-            let (params, result) = crate::decreasing::split_pis(&g.def(d).ty, None);
+            let (params, result) = crate::decreasing::split_pis(g.def(d).ty(), None);
             params.len() == spine.len()
                 && matches!(result.strip_loc(), Term::Sort(stitchwort_core::Sort::Prop))
         }

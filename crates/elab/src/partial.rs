@@ -111,10 +111,10 @@ impl Elaborator {
     /// arity `n` is partial, as opposed to returning partial functions.
     fn partial_after(&self, id: DefId, n: usize) -> Result<bool> {
         let g = &self.globals;
-        let Some(delay) = g.builtins.primitive_id(Primitive::Delay) else {
+        let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) else {
             return Ok(false);
         };
-        let mut ty = g.def(id).ty_value.clone();
+        let mut ty = g.def(id).ty_value().clone();
         let mut level = 0;
         loop {
             match force(g, ty)? {
@@ -144,7 +144,7 @@ impl Elaborator {
             Some(Decl::Equation { patterns, .. }) => patterns.len(),
             _ => 0,
         };
-        let (mut ty, mut level, mut seen) = (g.def(id).ty_value.clone(), 0, 0);
+        let (mut ty, mut level, mut seen) = (g.def(id).ty_value().clone(), 0, 0);
         loop {
             match force(g, ty)? {
                 Value::Pi(_, icit, _, cod) if icit.is_implicit() || seen < explicit => {
@@ -242,14 +242,19 @@ impl Elaborator {
         // already reported that; there is nothing to describe against.
         if [Primitive::Delay, Primitive::Lift, Primitive::Pfix]
             .into_iter()
-            .any(|p| g.builtins.primitive_id(p).is_none())
+            .any(|p| g.env.builtins().primitive_id(p).is_none())
         {
             return Ok(Vec::new());
         }
         let names = {
-            let prim = |p: Primitive| g.builtins.primitive_id(p).expect("partial types exist");
-            let data = |b: Builtin| g.registry.data(b).expect("the prelude declares it");
-            let def = |b: Builtin| g.registry.def(b).expect("the prelude declares it");
+            let prim = |p: Primitive| {
+                g.env
+                    .builtins()
+                    .primitive_id(p)
+                    .expect("partial types exist")
+            };
+            let data = |b: Builtin| g.env.registry().data(b).expect("the prelude declares it");
+            let def = |b: Builtin| g.env.registry().def(b).expect("the prelude declares it");
             Names {
                 delay: prim(Primitive::Delay),
                 lift: prim(Primitive::Lift),
@@ -626,7 +631,7 @@ impl Elaborator {
         let g = &self.globals;
         let n = self.entry_params(id, equations)?;
         let mut params = Vec::new();
-        let mut ty = g.def(id).ty_value.clone();
+        let mut ty = g.def(id).ty_value().clone();
         for level in 0..n {
             let Value::Pi(x, icit, dom, cod) = force(g, ty)? else {
                 unreachable!("`entry_params` counted these")
@@ -671,7 +676,7 @@ impl Elaborator {
                     ty = cod.apply(g, Value::var(level))?;
                     level += 1;
                 }
-                Value::Data(d, _) => return Ok(matches!(g.data(d).sort, Sort::Type(i) if i > 0)),
+                Value::Data(d, _) => return Ok(matches!(g.data(d).sort(), Sort::Type(i) if i > 0)),
                 _ => return Ok(false),
             }
         }

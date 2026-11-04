@@ -123,12 +123,12 @@ pub struct Options {
 /// declared, with their full names. Local definitions lifted out of a
 /// theorem (`%` names) aren't theorems of their own.
 pub fn theorems(g: &Globals, keep: &dyn Fn(&str) -> bool) -> Vec<(DefId, String)> {
-    (0..g.defs.len())
+    (0..g.env.defs().len())
         .map(DefId)
         .filter_map(|id| {
             let def = g.def(id);
-            let path = def.path.to_string();
-            (def.theorem && !path.contains('%') && keep(&path)).then_some((id, path))
+            let path = def.path().to_string();
+            (def.theorem() && !path.contains('%') && keep(&path)).then_some((id, path))
         })
         .collect()
 }
@@ -272,7 +272,7 @@ impl Session {
 /// it claims, not a sign it's vacuous (`someNotNone (found: Some m = None):
 /// Void`).
 pub fn concludes_empty(g: &Globals, id: DefId) -> bool {
-    let Ok(mut ty) = force(g, g.def(id).ty_value.clone()) else {
+    let Ok(mut ty) = force(g, g.def(id).ty_value().clone()) else {
         return false;
     };
     let mut level = 0;
@@ -283,5 +283,5 @@ pub fn concludes_empty(g: &Globals, id: DefId) -> bool {
         level += 1;
         ty = next;
     }
-    matches!(ty, Value::Data(d, _) if g.data(d).ctors.is_empty())
+    matches!(ty, Value::Data(d, _) if g.data(d).ctors().is_empty())
 }

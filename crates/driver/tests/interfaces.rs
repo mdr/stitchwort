@@ -251,9 +251,10 @@ fn a_types_auto_parameters_are_hashed() {
         session.load("test.sw", &source).expect("loads");
         let g = &session.elab.globals;
         let id = g
-            .datas
+            .env
+            .datas()
             .iter()
-            .position(|d| &*d.name == "Map")
+            .position(|d| &**d.name() == "Map")
             .expect("declared");
         stitchwort_core::hash::data_hash(g, stitchwort_core::DataId(id))
             .expect("in budget")
@@ -276,9 +277,9 @@ fn body_of(source: &str, name: &str) -> (Vec<String>, Vec<String>) {
     let mut records = Vec::new();
     for (t, _) in body.subterms() {
         match t {
-            stitchwort_core::Term::Def(d) => defs.push(g.def(*d).name.to_string()),
-            stitchwort_core::Term::Ctor(d, _, _) if g.data(*d).record => {
-                records.push(g.data(*d).name.to_string())
+            stitchwort_core::Term::Def(d) => defs.push(g.def(*d).name().to_string()),
+            stitchwort_core::Term::Ctor(d, _, _) if g.data(*d).record() => {
+                records.push(g.data(*d).name().to_string())
             }
             _ => {}
         }

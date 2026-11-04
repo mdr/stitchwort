@@ -46,15 +46,16 @@ fn session_with(text: &str) -> Session {
 /// The last definition called `name`.
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .rposition(|d| &*d.name == name)
+            .rposition(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}`")),
     )
 }
 
 fn nat(g: &Globals) -> DataId {
-    g.builtins.nat.expect("the prelude's `Nat`")
+    g.env.builtins().nat.expect("the prelude's `Nat`")
 }
 
 fn nat_ty(g: &Globals) -> Term {
@@ -276,7 +277,9 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
     // A number case on a `Nat` that isn't finished (not expressible through
     // the elaborator, which only registers a finished `Nat`).
     let nat = nat(g);
-    g.datas[nat.0].set_state_unchecked_for_tests(State::Pending);
+    g.env
+        .data_mut_for_tests(nat)
+        .set_state_unchecked_for_tests(State::Pending);
     assert_eq!(
         define(g, nat_to_nat, |_| lam(num_case(
             0,
@@ -540,10 +543,13 @@ fn has_num_case(term: &Term) -> bool {
 /// Defines the expansion of `f` alongside it, which the kernel must accept.
 fn define_expansion(g: &mut Globals, f: DefId) -> DefId {
     let def = g.def(f);
-    let (ty, body) = (def.ty.clone(), expand(g, def.body().unwrap()));
+    let (ty, body) = (def.ty().clone(), expand(g, def.body().unwrap()));
     let id = declare_def(g, &"expanded".into(), &ty, false, false, span()).unwrap();
     if let Err(d) = define_def(g, id, &body) {
-        panic!("the expansion of `{}` doesn't check: {d:#?}", g.def(f).name);
+        panic!(
+            "the expansion of `{}` doesn't check: {d:#?}",
+            g.def(f).name()
+        );
     }
     id
 }
@@ -861,7 +867,7 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
             let mut session = Session::eager();
             load(&mut session, &text);
             let g = &mut session.elab.globals;
-            for i in 0..g.defs.len() {
+            for i in 0..g.env.defs().len() {
                 let id = DefId(i);
                 // A number case in another's default on the same variable,
                 // which the expansion can't follow: there the variable is
@@ -870,7 +876,7 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
                 // variable a number, or `k + p` past every number, so what
                 // the default knows holds there; the oracle just can't
                 // check it.)
-                if &*g.def(id).name == "kindNested" {
+                if &**g.def(id).name() == "kindNested" {
                     continue;
                 }
                 let small = g.def(id).body().is_some_and(|b| {

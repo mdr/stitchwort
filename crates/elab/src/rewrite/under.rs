@@ -306,7 +306,7 @@ fn by_lemma(
     let metas = g.metas.borrow().len();
     // The lemma's parameters: each function compared the call's own (twice,
     // for now), the others unknowns for the call to determine.
-    let mut ty = eval(g, &[], &g.def(desc.lemma).ty)?;
+    let mut ty = eval(g, &[], g.def(desc.lemma).ty())?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
     for level in 0..desc.params {
         let Value::Pi(_, icit, _, rest) = force(g, ty)? else {
@@ -423,7 +423,7 @@ pub(super) fn written_key(cx: &Ctx, lhs: &Value) -> Option<Key> {
 }
 
 fn note(skipped: &mut Skipped, g: &Globals, f: DefId, lemma: String, why: Option<String>) {
-    let function = g.def(f).name.to_string();
+    let function = g.def(f).name().to_string();
     // A function the compiler made (an effect's handler, `Each.%elim`) is
     // nothing the program wrote, so no lemma for it can be asked for.
     if function.contains('%') {

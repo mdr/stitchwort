@@ -39,7 +39,7 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
     let Some(mut term) = def.body().map(|b| &**b) else {
         return icits;
     };
-    for _ in 0..def.arity {
+    for _ in 0..def.arity() {
         let Term::Lam(_, icit, body) = term.strip_loc() else {
             break;
         };
@@ -125,7 +125,7 @@ fn listed(list: &[&str], what: &str, name: &str) -> bool {
 /// application), and each definition's type.
 fn compare_definitions(g: &Globals, what: &str) -> usize {
     let mut compared = 0;
-    for i in 0..g.defs.len() {
+    for i in 0..g.env.defs().len() {
         let id = DefId(i);
         let def = g.def(id);
         if def.body().is_none() {
@@ -135,7 +135,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         // Applied to every prefix of its parameters, so partial
         // applications are covered too; none for a definition whose normal
         // form on variables is too big to build (its type is still compared).
-        let too_big = listed(NORMAL_FORM_TOO_BIG, what, &def.name);
+        let too_big = listed(NORMAL_FORM_TOO_BIG, what, def.name());
         let prefixes = if too_big { 0..0 } else { 0..icits.len() + 1 };
         for n in prefixes {
             let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
@@ -148,7 +148,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
                 normal(g, n, &fast),
                 normal(g, n, &slow),
                 "{what}: `{}` applied to {n} variable(s)",
-                def.name
+                def.name()
             );
             // The machine's quote (a work list) against the reference's,
             // which expands compact lists: quotation commutes with expansion.
@@ -159,25 +159,25 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
                 ),
                 normal(g, n, &fast),
                 "{what}: quoting `{}` applied to {n} variable(s)",
-                def.name
+                def.name()
             );
             assert!(
                 value::conv(g, n, &fast, &slow).expect("no limits"),
                 "{what}: `{}` applied to {n} variable(s) isn't convertible with itself",
-                def.name
+                def.name()
             );
             compared += 1;
         }
-        let ty = reference::eval(g, &[], &def.ty).expect("no limits");
-        assert!(value::conv(g, 0, &def.ty_value, &ty).expect("no limits"));
-        if listed(TYPE_NORMAL_FORM_TOO_BIG, what, &def.name) {
+        let ty = reference::eval(g, &[], def.ty()).expect("no limits");
+        assert!(value::conv(g, 0, def.ty_value(), &ty).expect("no limits"));
+        if listed(TYPE_NORMAL_FORM_TOO_BIG, what, def.name()) {
             continue;
         }
         assert_eq!(
-            normal(g, 0, &def.ty_value),
+            normal(g, 0, def.ty_value()),
             normal(g, 0, &ty),
             "{what}: the type of `{}`",
-            def.name
+            def.name()
         );
     }
     compared
@@ -189,13 +189,13 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
 /// are covered) with every other definition's whose type is convertible
 /// with its own, and each definition's type with the next few types.
 fn compare_conversion(g: &Globals, what: &str) -> usize {
-    let defs: Vec<(String, Value, Value)> = (0..g.defs.len())
-        .filter(|&i| g.defs[i].body().is_some())
-        .filter(|&i| !listed(CONVERSION_TOO_SLOW, what, &g.defs[i].name))
+    let defs: Vec<(String, Value, Value)> = (0..g.env.defs().len())
+        .filter(|&i| g.env.defs()[i].body().is_some())
+        .filter(|&i| !listed(CONVERSION_TOO_SLOW, what, g.env.defs()[i].name()))
         .map(|i| {
-            let def = &g.defs[i];
+            let def = &g.env.defs()[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
-            (def.name.to_string(), value, def.ty_value.clone())
+            (def.name().to_string(), value, def.ty_value().clone())
         })
         .collect();
     let agree = |x: &Value, y: &Value, what: &str| {
@@ -268,7 +268,7 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             compare_definitions(g, name);
             compare_conversion(g, name);
             for test in session.elab.tests() {
-                if listed(NORMAL_FORM_TOO_BIG, name, &g.def(test.def).name) {
+                if listed(NORMAL_FORM_TOO_BIG, name, g.def(test.def).name()) {
                     continue;
                 }
                 let term = Term::Def(test.def);
@@ -291,9 +291,10 @@ fn span() -> Span {
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == name)
+            .position(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}`")),
     )
 }
@@ -345,7 +346,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
         )
     );
     // `?m := x => Succ (Succ x)`: now `pred (?m 3)` is 4.
-    let nat = g.builtins.nat.unwrap();
+    let nat = g.env.builtins().nat.unwrap();
     let solution = value::eval(
         g,
         &[],
@@ -371,7 +372,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
 fn j_with_reflexive_and_stuck_proofs() {
     let session = Session::new();
     let g = &session.elab.globals;
-    let nat = g.builtins.nat.unwrap();
+    let nat = g.env.builtins().nat.unwrap();
     let zero = Term::ctor(nat, 0, vec![]);
     let motive = Term::Lam(
         "y".into(),
@@ -525,7 +526,7 @@ fn the_evaluators_agree_on_let() {
     with_stack(STACK, || {
         let session = Session::eager_for_stack(STACK);
         let g = &session.elab.globals;
-        let nat = g.builtins.nat.unwrap();
+        let nat = g.env.builtins().nat.unwrap();
         let nat_ty = || Term::data(nat, vec![]);
         let num = |n: u32| Term::Nat(std::rc::Rc::new(n.into()));
         let add = |a: Term, b: Term| Term::app(Term::app(Term::Def(def(g, "Nat.add")), a), b);

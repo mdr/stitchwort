@@ -102,13 +102,14 @@ fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
 fn generated(session: &Session, name: &str) -> String {
     let g = &session.elab.globals;
     let def = g
-        .defs
+        .env
+        .defs()
         .iter()
         .rev()
-        .find(|d| &*d.name == name)
+        .find(|d| &**d.name() == name)
         .unwrap_or_else(|| panic!("`{name}` isn't generated"));
-    assert!(def.theorem, "`{name}` is a theorem");
-    statement(g, &def.ty)
+    assert!(def.theorem(), "`{name}` is a theorem");
+    statement(g, def.ty())
 }
 
 fn skipped(session: &Session, name: &str) -> String {
@@ -117,7 +118,7 @@ fn skipped(session: &Session, name: &str) -> String {
         .elab
         .equation_skips()
         .iter()
-        .find(|(id, s, _)| format!("{}.{s}", g.defs[id.0].name) == name)
+        .find(|(id, s, _)| format!("{}.{s}", g.env.defs()[id.0].name()) == name)
         .map(|(_, _, why)| why.clone())
         .unwrap_or_else(|| panic!("`{name}` isn't recorded as skipped"))
 }
@@ -323,11 +324,12 @@ fn the_librarys_equations() {
             session.elab.generate_deferred_equations().unwrap();
             let g = &session.elab.globals;
             let made: Vec<&str> = g
-                .defs
+                .env
+                .defs()
                 .iter()
-                .filter(|d| d.theorem && stitchwort_elab::is_equation_name(&d.name))
-                .filter(|d| !d.name.contains('%'))
-                .map(|d| &*d.name)
+                .filter(|d| d.theorem() && stitchwort_elab::is_equation_name(d.name()))
+                .filter(|d| !d.name().contains('%'))
+                .map(|d| &**d.name())
                 .collect();
             let branches = made
                 .iter()
@@ -342,7 +344,7 @@ fn the_librarys_equations() {
                 reasons
                     .entry(why.clone())
                     .or_default()
-                    .push(format!("{}.{s}", g.defs[id.0].name));
+                    .push(format!("{}.{s}", g.env.defs()[id.0].name()));
             }
             for (why, names) in &reasons {
                 eprintln!("{} skipped: {why}\n    {}", names.len(), names.join(" "));
@@ -936,14 +938,14 @@ fn box_equations(session: &Session) -> Vec<(String, String, [u8; 32])> {
         .iter()
         .map(|s| {
             let name = format!("Box.Tree.count.{s}");
-            let id = (0..g.defs.len())
+            let id = (0..g.env.defs().len())
                 .map(stitchwort_core::DefId)
-                .find(|id| *g.def(*id).name == *name)
+                .find(|id| **g.def(*id).name() == *name)
                 .unwrap_or_else(|| panic!("`{name}` isn't generated"));
             let hash = stitchwort_core::hash::def_hash(g, id)
                 .unwrap()
                 .expect("final");
-            (name, statement(g, &g.def(id).ty), hash.0)
+            (name, statement(g, g.def(id).ty()), hash.0)
         })
         .collect()
 }
@@ -1019,7 +1021,7 @@ fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
         let g = &session.elab.globals;
         let unseen: Vec<String> = (session.elab.equation_skips().iter())
             .filter(|(_, _, why)| why.contains("couldn't be compiled again"))
-            .map(|(id, s, why)| format!("{}.{s}: {why}", g.defs[id.0].name))
+            .map(|(id, s, why)| format!("{}.{s}: {why}", g.env.defs()[id.0].name()))
             .collect();
         assert!(unseen.is_empty(), "{unseen:#?}");
     });
@@ -1042,7 +1044,7 @@ fn a_projects_equations() {
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
             let mut session = Session::eager_for_stack(256 << 20);
-            let first = session.elab.globals.defs.len();
+            let first = session.elab.globals.env.defs().len();
             if let Err(errors) = session.load_project(
                 &files,
                 &name,
@@ -1051,11 +1053,11 @@ fn a_projects_equations() {
                 panic!("{project} doesn't load: {errors:#?}");
             }
             let g = &session.elab.globals;
-            let made: Vec<&str> = g.defs[first..]
+            let made: Vec<&str> = g.env.defs()[first..]
                 .iter()
-                .filter(|d| d.theorem && stitchwort_elab::is_equation_name(&d.name))
-                .filter(|d| !d.name.contains('%') && !d.name.starts_with("Std."))
-                .map(|d| &*d.name)
+                .filter(|d| d.theorem() && stitchwort_elab::is_equation_name(d.name()))
+                .filter(|d| !d.name().contains('%') && !d.name().starts_with("Std."))
+                .map(|d| &**d.name())
                 .collect();
             let branches = made
                 .iter()
@@ -1073,7 +1075,7 @@ fn a_projects_equations() {
                 reasons
                     .entry(why.clone())
                     .or_default()
-                    .push(format!("{}.{s}", g.defs[id.0].name));
+                    .push(format!("{}.{s}", g.env.defs()[id.0].name()));
             }
             for (why, names) in &reasons {
                 eprintln!("{} skipped: {why}\n    {}", names.len(), names.join(" "));
@@ -1116,7 +1118,7 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
         let g = &s.elab.globals;
         let refused: Vec<String> = (s.elab.equation_skips().iter())
             .filter(|(_, _, why)| why.contains("kernel refused"))
-            .map(|(id, suffix, why)| format!("{}.{suffix}: {why}", g.defs[id.0].name))
+            .map(|(id, suffix, why)| format!("{}.{suffix}: {why}", g.env.defs()[id.0].name()))
             .collect();
         assert!(refused.is_empty(), "{refused:#?}");
         for name in ["lenZero.eq.zero", "lenZero.eq.succ"] {

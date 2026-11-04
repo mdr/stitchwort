@@ -814,14 +814,17 @@ fn hashes(session: &Session) -> BTreeMap<String, String> {
             _ => "<none>".to_string(),
         };
     let mut out = BTreeMap::new();
-    for i in 0..g.datas.len() {
+    for i in 0..g.env.datas().len() {
         out.insert(
-            format!("data {}", g.datas[i].path),
+            format!("data {}", g.env.datas()[i].path()),
             show(data_hash(g, DataId(i))),
         );
     }
-    for i in 0..g.defs.len() {
-        out.insert(g.defs[i].path.to_string(), show(def_hash(g, DefId(i))));
+    for i in 0..g.env.defs().len() {
+        out.insert(
+            g.env.defs()[i].path().to_string(),
+            show(def_hash(g, DefId(i))),
+        );
     }
     out
 }

@@ -417,7 +417,7 @@ fn rejects_a_recursive_occurrence_with_different_parameters() {
 fn accepts_a_nested_occurrence_at_a_nestable_parameter() {
     let mut p = Prelude::new();
     let list = p.list;
-    assert_eq!(p.g.data(list).nestable.as_ref(), &[Ok(())]);
+    assert_eq!(p.g.data(list).nestable(), &[Ok(())]);
     let code = data_code(&mut p.g, "Rose", vec![], Sort::Type(0), |d| {
         vec![("children", Term::data(list, vec![Term::Data(d, vec![])]))]
     });
@@ -439,7 +439,7 @@ fn a_parameter_taken_as_input_isnt_nestable() {
     let mut p = Prelude::new();
     let neg = neg(&mut p);
     assert_eq!(
-        p.g.data(neg).nestable.as_ref(),
+        p.g.data(neg).nestable(),
         &[Err(NotNestable::Field {
             data: neg,
             ctor: 0,
@@ -480,7 +480,7 @@ fn a_parameter_of_a_type_wrapping_a_non_nestable_one_isnt_nestable() {
     )
     .expect("Wrap");
     assert_eq!(
-        p.g.data(wrap).nestable.as_ref(),
+        p.g.data(wrap).nestable(),
         &[Err(NotNestable::Field {
             data: wrap,
             ctor: 0,
@@ -507,7 +507,7 @@ fn a_parameter_in_a_later_parameters_type_isnt_nestable() {
     stitchwort_core::check::define_ctors(&mut p.g, dep, vec![ctor("MkDep", vec![("y", v(1))])])
         .expect("Dep");
     assert_eq!(
-        p.g.data(dep).nestable.as_ref(),
+        p.g.data(dep).nestable(),
         &[
             Err(NotNestable::LaterParameter(1)),
             Err(NotNestable::NotAType)
@@ -1052,7 +1052,7 @@ fn records_which_fields_are_erased() {
     ];
     stitchwort_core::check::define_ctors(&mut p.g, d, vec![ctor("C", fields)]).expect("checks");
     assert_eq!(
-        p.g.data(d).ctors[0].field_erased,
+        p.g.data(d).ctors()[0].field_erased,
         vec![false, true, true, true, false]
     );
 }
@@ -1197,7 +1197,7 @@ fn accepts_a_validator_that_decides_the_precondition() {
     // `Yes rfl`, in the context [n].
     let yes = Term::ctor(decidable, 0, vec![Term::Refl]);
     assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
-    assert_eq!(p.g.def(f).validators.len(), 1);
+    assert_eq!(p.g.def(f).validators().len(), 1);
 }
 
 #[test]

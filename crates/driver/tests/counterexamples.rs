@@ -472,13 +472,13 @@ fn scope() {
         if let Err(errors) = session.load_project(&DiskFiles { root }, "aoc", &Target::Everything) {
             panic!("aoc doesn't load: {errors:#?}");
         }
-        let theorems: Vec<(DefId, String)> = (0..session.elab.globals.defs.len())
+        let theorems: Vec<(DefId, String)> = (0..session.elab.globals.env.defs().len())
             .map(DefId)
             .filter(|id| {
                 let def = session.elab.globals.def(*id);
-                def.theorem && def.state() == State::Final && !def.path.contains('%')
+                def.theorem() && def.state() == State::Final && !def.path().contains('%')
             })
-            .map(|id| (id, session.elab.globals.def(id).path.to_string()))
+            .map(|id| (id, session.elab.globals.def(id).path().to_string()))
             .collect();
         let mut tally: BTreeMap<(&str, String), usize> = BTreeMap::new();
         for (id, path) in theorems {

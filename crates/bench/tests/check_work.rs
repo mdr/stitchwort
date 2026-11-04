@@ -41,7 +41,7 @@ fn measure(program: String) -> Measured {
         let mut session = Session::for_stack(STACK);
         let g = &session.elab.globals;
         let (steps, visits) = (g.budget.total_work(), g.budget.total_visits());
-        let defs = g.defs.len();
+        let defs = g.env.defs().len();
         if let Err(ds) = session.load("work.sw", &program) {
             let shown: String = ds
                 .iter()
@@ -51,8 +51,8 @@ fn measure(program: String) -> Measured {
         }
         let g = &session.elab.globals;
         let (mut size, mut depth) = (0, 0);
-        for def in &g.defs[defs..] {
-            for term in std::iter::once(&def.ty).chain(def.body().map(|b| &**b)) {
+        for def in &g.env.defs()[defs..] {
+            for term in std::iter::once(def.ty()).chain(def.body().map(|b| &**b)) {
                 let (s, d) = size_and_depth(term);
                 size += s;
                 depth = depth.max(d);

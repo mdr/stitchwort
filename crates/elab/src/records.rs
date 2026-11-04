@@ -78,7 +78,7 @@ impl Elaborator {
     /// the way of its methods (`interfaces.rs`).
     fn projections(&mut self, d: DataId, interface: bool) -> Result<Vec<Option<DefId>>> {
         let made = self.accessors(d, if interface { "%" } else { "" })?;
-        Ok(self.globals.data(d).ctors[0]
+        Ok(self.globals.data(d).ctors()[0]
             .fields
             .iter()
             .map(|(f, _)| made.get(f).copied())
@@ -105,32 +105,35 @@ impl Elaborator {
             // The library's `Map` is no record to decode field by field: a
             // `Map Text V` crosses as an object, built by `Map.fromList`, and
             // any other map is refused by the extractor, saying so.
-            if self.globals.registry.loaded_data(Builtin::Map) == Some(d) {
+            if self.globals.env.registry().loaded_data(Builtin::Map) == Some(d) {
                 continue;
             }
             if !seen.insert(d) {
                 continue;
             }
             let data = self.globals.data(d);
-            let (np, ctors) = (data.params.len(), data.ctors.len());
+            let (np, ctors) = (data.params().len(), data.ctors().len());
             for c in 0..ctors {
                 // The parameters and fields, as variables, and their types.
                 let mut env: Vec<Value> = Vec::new();
                 let mut types: Vec<Value> = Vec::new();
                 for k in 0..np {
-                    let param_ty = &self.globals.data(d).params[k].1;
+                    let param_ty = &self.globals.data(d).params()[k].1;
                     types.push(eval(&self.globals, &env, param_ty)?);
                     env.push(Value::var(k));
                 }
-                let fields = self.globals.data(d).ctors[c].fields.len();
+                let fields = self.globals.data(d).ctors()[c].fields.len();
                 for i in 0..fields {
                     let data = self.globals.data(d);
-                    let ctor = &data.ctors[c];
+                    let ctor = &data.ctors()[c];
                     let ty = eval(&self.globals, &env, &ctor.fields[i].1)?;
                     let erased = ctor.field_erased[i];
-                    let missing = data.record
+                    let missing = data.record()
                         && ctor.field_sorts[i] == Sort::Prop
-                        && !data.validators.iter().any(|v| v.ctor == c && v.field == i);
+                        && !data
+                            .validators()
+                            .iter()
+                            .any(|v| v.ctor == c && v.field == i);
                     if missing {
                         self.field_validator(d, c, i, &env, &types, what, span)?;
                     } else if !erased {
@@ -158,14 +161,14 @@ impl Elaborator {
         what: &str,
         span: Span,
     ) -> Result<()> {
-        let Some(decidable) = self.globals.registry.data(Builtin::Decidable) else {
+        let Some(decidable) = self.globals.env.registry().data(Builtin::Decidable) else {
             return Ok(());
         };
         let data = self.globals.data(d);
-        let (record, field) = (data.name.clone(), data.ctors[c].fields[i].0.clone());
-        let mut names: Vec<Name> = data.params.iter().map(|(x, _)| x.clone()).collect();
-        names.extend(data.ctors[c].fields[..i].iter().map(|(x, _)| x.clone()));
-        let field_ty = data.ctors[c].fields[i].1.clone();
+        let (record, field) = (data.name().clone(), data.ctors()[c].fields[i].0.clone());
+        let mut names: Vec<Name> = data.params().iter().map(|(x, _)| x.clone()).collect();
+        names.extend(data.ctors()[c].fields[..i].iter().map(|(x, _)| x.clone()));
+        let field_ty = data.ctors()[c].fields[i].1.clone();
         self.clear_metas();
         let shown = stitchwort_core::pretty::term(&self.globals, &names, &field_ty);
         let mut cx = Ctx::from_parts(self, env.to_vec(), types.to_vec(), names, span);
@@ -204,14 +207,14 @@ impl Elaborator {
     ) -> Result<CtorPattern<'a>> {
         let g = &self.globals;
         let d = match ty.map(|t| force(g, t.clone())).transpose()? {
-            Some(Value::Data(d, _)) if g.data(d).record => d,
+            Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
                 return Err(error(
                     "E-NOT-A-RECORD",
                     span,
                     format!(
                         "this is a record pattern, but it matches a `{}`, which isn't a record",
-                        g.data(d).name
+                        g.data(d).name()
                     ),
                 ));
             }
@@ -228,7 +231,7 @@ impl Elaborator {
                 ));
             }
         };
-        let ctor = &g.data(d).ctors[0];
+        let ctor = &g.data(d).ctors()[0];
         check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
         fields.iter().for_each(|(n, _)| self.note_field(d, n));
         let mut args = Vec::new();
@@ -273,7 +276,7 @@ impl Elaborator {
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
         let g = &self.globals;
-        let ctor = &g.data(d).ctors[c];
+        let ctor = &g.data(d).ctors()[c];
         let explicit: Vec<usize> = (0..ctor.fields.len())
             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
             .collect();
@@ -343,7 +346,7 @@ impl Elaborator {
                         "`{}`'s field holds the record type `{}`, which has fields of these names; to match \
                          those, write `{} ({{ … }})`; to keep this meaning, write `{} p`",
                         ctor.name,
-                        g.data(r).name,
+                        g.data(r).name(),
                         written.text,
                         written.text
                     )),
@@ -370,7 +373,7 @@ impl Elaborator {
     ) -> Result<Option<DataId>> {
         Ok(self
             .held_data(d, c, explicit, ty)?
-            .filter(|&r| self.globals.data(r).record))
+            .filter(|&r| self.globals.data(r).record()))
     }
 
     /// The data type of constructor `c`'s one explicit field, if it has
@@ -392,7 +395,7 @@ impl Elaborator {
             return Ok(None);
         };
         Ok(match force(g, field_ty.clone())? {
-            Value::Data(r, _) if g.data(r).ctors.len() == 1 => Some(r),
+            Value::Data(r, _) if g.data(r).ctors().len() == 1 => Some(r),
             _ => None,
         })
     }
@@ -411,7 +414,7 @@ impl Elaborator {
         verb: &str,
     ) -> Diagnostic {
         let g = &self.globals;
-        let ctor = &g.data(d).ctors[c];
+        let ctor = &g.data(d).ctors()[c];
         if ctor.fields.iter().any(|(f, _)| **f == *name.text) {
             return error(
                 "E-UNKNOWN-FIELD",
@@ -443,15 +446,15 @@ impl Elaborator {
         if let Some(r) = argument
             && names.iter().all(|n| record_has(g, r, &n.text))
         {
-            let braces = if g.data(r).record {
+            let braces = if g.data(r).record() {
                 "({ … })".to_string()
             } else {
-                format!("({} {{ … }})", g.data(r).ctors[0].name)
+                format!("({} {{ … }})", g.data(r).ctors()[0].name)
             };
             e = e.with_note(format!(
                 "braces right after a constructor name its own fields; to {verb} the `{}` \
                  it holds, write `{} {braces}`",
-                g.data(r).name,
+                g.data(r).name(),
                 ctor.name
             ));
         }
@@ -483,7 +486,7 @@ pub(crate) fn ctor_fields(
         Err(e) => return Err(e),
     };
     let g = cx.g();
-    let ctor = &g.data(d).ctors[c];
+    let ctor = &g.data(d).ctors()[c];
     let explicit: Vec<usize> = (0..ctor.fields.len())
         .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
         .collect();
@@ -575,7 +578,7 @@ fn not_a_ctor(
 ) -> Result<Expr> {
     if matches!(
         cx.e.resolve_exact(written),
-        Ok((crate::Global::Data(d), ..)) if cx.g().data(d).record
+        Ok((crate::Global::Data(d), ..)) if cx.g().data(d).record()
     ) {
         return Err(e.with_note(format!(
             "`{0}` is a record type: a literal is written without its name, \
@@ -599,7 +602,10 @@ fn not_a_ctor(
 
 /// Whether record type `r` has a field `name`.
 fn record_has(g: &stitchwort_core::Globals, r: DataId, name: &str) -> bool {
-    g.data(r).ctors[0].fields.iter().any(|(f, _)| **f == *name)
+    g.data(r).ctors()[0]
+        .fields
+        .iter()
+        .any(|(f, _)| **f == *name)
 }
 
 /// Refuses a field name that `d` doesn't have, or one given twice.
@@ -611,7 +617,11 @@ fn check_field_names<'n>(
     let data = g.data(d);
     let mut seen: Vec<&ast::Name> = Vec::new();
     for name in names {
-        if !data.ctors[0].fields.iter().any(|(f, _)| **f == *name.text) {
+        if !data.ctors()[0]
+            .fields
+            .iter()
+            .any(|(f, _)| **f == *name.text)
+        {
             return Err(unknown_field(g, d, name));
         }
         if let Some(first) = seen.iter().find(|s| s.text == name.text) {
@@ -629,7 +639,7 @@ fn check_field_names<'n>(
 
 fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> Diagnostic {
     let data = g.data(d);
-    let fields: Vec<String> = data.ctors[0]
+    let fields: Vec<String> = data.ctors()[0]
         .fields
         .iter()
         .map(|(f, _)| format!("`{f}`"))
@@ -642,7 +652,7 @@ fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> D
     error(
         "E-UNKNOWN-FIELD",
         name.span,
-        format!("`{}` has no field `{}`", data.name, name.text),
+        format!("`{}` has no field `{}`", data.name(), name.text),
     )
     .with_note(listed)
 }
@@ -652,7 +662,7 @@ fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> D
 fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)> {
     let g = cx.g();
     match force(g, ty.clone())? {
-        Value::Data(d, params) if g.data(d).record => Ok((d, params)),
+        Value::Data(d, params) if g.data(d).record() => Ok((d, params)),
         Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
             .error(
                 "E-CANNOT-INFER",
@@ -672,7 +682,7 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
 /// rebuilds by their constructor (docs/proposals/variant-fields.md §6).
 fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record))
+    Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record()))
 }
 
 /// The record types a literal with these fields may be, when nothing says
@@ -684,16 +694,16 @@ fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, Stri
     if written.len() != fields.len() {
         return Vec::new();
     }
-    (0..g.datas.len())
+    (0..g.env.datas().len())
         .map(DataId)
         .filter(|&d| {
             let data = g.data(d);
             // A record still being declared has no constructor yet.
-            let Some(ctor) = data.ctors.first() else {
+            let Some(ctor) = data.ctors().first() else {
                 return false;
             };
-            data.record
-                && data.indices.is_empty()
+            data.record()
+                && data.indices().is_empty()
                 && !cx.e.tables.interfaces.contains_key(&d)
                 && ctor.fields.len() == written.len()
                 && ctor.fields.iter().all(|(f, _)| written.contains(&**f))
@@ -764,7 +774,7 @@ impl crate::queue::Check for Literal {
         let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
             return Ok(false);
         };
-        let params = (0..cx.g().data(d).params.len())
+        let params = (0..cx.g().data(d).params().len())
             .map(|_| {
                 let meta = cx.fresh_meta();
                 cx.eval(&meta)
@@ -772,7 +782,7 @@ impl crate::queue::Check for Literal {
             .collect::<Result<Vec<_>>>()?;
         let chosen = cx.unify(&Value::Data(d, params), &self.expected)?;
         if chosen {
-            let name = cx.g().data(d).name.to_string();
+            let name = cx.g().data(d).name().to_string();
             cx.e.attempt
                 .defaulted_records
                 .borrow_mut()
@@ -911,8 +921,8 @@ fn param_uses(
     fields: &[(ast::Name, Expr)],
 ) -> Vec<ParamUse> {
     let data = g.data(d);
-    let np = data.params.len();
-    let ctor = &data.ctors[0];
+    let np = data.params().len();
+    let ctor = &data.ctors()[0];
     let replaced = |f: &str| fields.iter().any(|(n, _)| n.text == f);
     (0..np)
         .map(|k| {
@@ -924,8 +934,8 @@ fn param_uses(
             if let Some(j) = kept {
                 return ParamUse::KeptField(ctor.fields[j].0.to_string());
             }
-            if let Some(p) = (k + 1..np).find(|&p| data.params[p].1.mentions(p - 1 - k)) {
-                return ParamUse::Parameter(data.params[p].0.to_string());
+            if let Some(p) = (k + 1..np).find(|&p| data.params()[p].1.mentions(p - 1 - k)) {
+                return ParamUse::Parameter(data.params()[p].0.to_string());
             }
             if (0..ctor.fields.len()).any(|j| replaced(&ctor.fields[j].0) && in_field(j)) {
                 ParamUse::Free
@@ -953,11 +963,11 @@ fn changing_update(
         return Ok(None);
     };
     let data = g.data(d);
-    if !data.record
-        || data.params.is_empty()
+    if !data.record()
+        || data.params().is_empty()
         || fields
             .iter()
-            .any(|(n, _)| !data.ctors[0].fields.iter().any(|(f, _)| **f == *n.text))
+            .any(|(n, _)| !data.ctors()[0].fields.iter().any(|(f, _)| **f == *n.text))
     {
         return Ok(None);
     }
@@ -984,11 +994,11 @@ fn changing_update(
     let Some((_, have)) = learnt.filter(|_| !same) else {
         return Ok(None);
     };
-    for k in 0..data.params.len() {
+    for k in 0..data.params().len() {
         if matches!(uses[k], ParamUse::Free) || crate::undo::unify(cx, &have[k], &wanted[k])? {
             continue;
         }
-        let name = &data.params[k].0;
+        let name = &data.params()[k].0;
         let (old, new) = (cx.show(&have[k]), cx.show(&wanted[k]));
         let why = match &uses[k] {
             ParamUse::KeptField(kept) => format!(
@@ -1030,7 +1040,7 @@ fn literal(
     let g = cx.g();
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
     fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
-    let ctor = &g.data(d).ctors[0];
+    let ctor = &g.data(d).ctors()[0];
     // An interface's superclass fields may be left out: they're filled in
     // (docs/proposals/interfaces.md §5.8 (a)).
     let supers: Vec<usize> = match cx.e.tables.interfaces.get(&d) {
@@ -1054,7 +1064,7 @@ fn literal(
             "E-RECORD-FIELD",
             format!(
                 "this `{}` is missing {}",
-                g.data(d).name,
+                g.data(d).name(),
                 missing.join(", ")
             ),
             if defaulted.is_empty() {
@@ -1125,7 +1135,7 @@ fn update(
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
     fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let data = g.data(d);
-    let ctor = &data.ctors[0];
+    let ctor = &data.ctors()[0];
     let replaced = |f: &str| fields.iter().any(|(n, _)| n.text == f);
     for (j, (field, field_ty)) in ctor.fields.iter().enumerate() {
         if replaced(field) {
@@ -1219,7 +1229,7 @@ fn update_fields(
 ) -> Result<Term> {
     let g = cx.g();
     let data = g.data(d);
-    let ctor = &data.ctors[0];
+    let ctor = &data.ctors()[0];
     let np = params.len();
     // The replaced fields are checked against the new parameters, the others
     // taken from `base` at its own.
@@ -1237,7 +1247,7 @@ fn update_fields(
                     // didn't fit.
                     let pinned = (0..np).find_map(|k| match &uses[k] {
                         ParamUse::KeptField(kept) if field_ty.mentions(i + np - 1 - k) => {
-                            Some((data.params[k].0.to_string(), kept.to_string()))
+                            Some((data.params()[k].0.to_string(), kept.to_string()))
                         }
                         _ => None,
                     });
@@ -1249,7 +1259,7 @@ fn update_fields(
                     return Err(cx.error(
                         "E-PROP-ELIM",
                         format!("can't take field `{field}` out of a proof"),
-                        format!("`{}` is a proposition, so give `{field}` here", data.name),
+                        format!("`{}` is a proposition, so give `{field}` here", data.name()),
                     ));
                 };
                 let mut term = Term::Def(proj);

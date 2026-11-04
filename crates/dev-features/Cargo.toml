@@ -15,8 +15,9 @@ publish.workspace = true
 # bundle) don't depend on it and keep their own features.
 [dependencies]
 # The reference evaluator, for the differential tests; and the stack-limit
-# check.
-stitchwort-core = { workspace = true, features = ["reference", "stack-check"] }
+# check; and the test-only functions that write a declaration without
+# admission (D2295).
+stitchwort-core = { workspace = true, features = ["reference", "stack-check", "test-bypass"] }
 stitchwort-syntax = { workspace = true, features = ["stack-check"] }
 # The bring-up allocation trace (recorded only when a run asks for it).
 stitchwort-rt = { workspace = true, features = ["alloc-trace"] }

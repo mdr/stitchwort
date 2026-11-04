@@ -214,7 +214,7 @@ fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
     let Term::Def(id) = head else {
         return None;
     };
-    let reg = &cx.g().registry;
+    let reg = &cx.g().env.registry();
     let [m, n] = args[..] else {
         return None;
     };
@@ -267,7 +267,7 @@ pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
 /// has already turned `Float.less` into `Int.less` of order keys, and it
 /// decides that instead, as `Int`s (bigints in JS).
 fn float_decider(cx: &Ctx, prop: &Term) -> Option<Term> {
-    let reg = &cx.g().registry;
+    let reg = &cx.g().env.registry();
     let (head, args) = prop.strip_loc().spine();
     let Term::Def(id) = head.strip_loc() else {
         return None;

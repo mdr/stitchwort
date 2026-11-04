@@ -261,14 +261,22 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
         )
         .expect("checks");
     let g = &mut session.elab.globals;
-    let f = DefId(g.defs.iter().position(|d| &*d.name == "f").unwrap());
-    let id = DefId(g.defs.len() - 1);
+    let f = DefId(
+        g.env
+            .defs()
+            .iter()
+            .position(|d| &**d.name() == "f")
+            .unwrap(),
+    );
+    let id = DefId(g.env.defs().len() - 1);
     let body = deep_term(Term::Def(f), Term::Var(0), depth);
-    g.defs[id.0].set_body_unchecked_for_tests(Some(Rc::new(Term::Lam(
-        "n".into(),
-        stitchwort_core::Icit::Explicit,
-        Rc::new(body),
-    ))));
+    g.env
+        .def_mut_for_tests(id)
+        .set_body_unchecked_for_tests(Some(Rc::new(Term::Lam(
+            "n".into(),
+            stitchwort_core::Icit::Explicit,
+            Rc::new(body),
+        ))));
     (session, id)
 }
 
@@ -283,8 +291,8 @@ fn deep_terms_in_later_passes() {
         {
             let _op = g.budget.operation(Limits::default());
             let def = g.def(id);
-            let mut cx = kernel::Ctx::new(g, def.span);
-            let e = kernel::check(&mut cx, body, &def.ty_value).unwrap_err();
+            let mut cx = kernel::Ctx::new(g, def.span());
+            let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
         }
@@ -302,7 +310,7 @@ fn deep_terms_in_later_passes() {
         }
         {
             let _op = g.budget.operation(Limits::default());
-            let span = g.def(id).span;
+            let span = g.def(id).span();
             let e = stitchwort_core::termination::check(g, body, id, "g", span).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("termination"), "{}", e.message);
@@ -326,27 +334,19 @@ fn long_chains_of_definitions_to_hash() {
     isolated("long_chains_of_definitions_to_hash", || {
         let (mut session, _) = with_deep_definition(1);
         let g = &mut session.elab.globals;
-        let first = g.defs.len() - 1;
+        let first = g.env.defs().len() - 1;
         for i in 0..1_000_000 {
-            let mut def = clone_def(g.def(DefId(first)));
-            def.name = format!("chain{i}").into();
-            def.set_body_unchecked_for_tests(Some(Rc::new(Term::Def(DefId(g.defs.len() - 1)))));
-            g.defs.push(def);
+            let body = Some(Rc::new(Term::Def(DefId(g.env.defs().len() - 1))));
+            g.env
+                .push_copy_unchecked_for_tests(DefId(first), format!("chain{i}").into(), body);
         }
         let g = &session.elab.globals;
         let _op = g.budget.operation(Limits::default());
         assert_eq!(
-            def_hash(g, DefId(g.defs.len() - 1)),
+            def_hash(g, DefId(g.env.defs().len() - 1)),
             Err(ResourceError::Nesting("hasher"))
         );
     });
-}
-
-fn clone_def(def: &stitchwort_core::globals::Def) -> stitchwort_core::globals::Def {
-    let mut def = def.clone();
-    def.export = false;
-    def.validators = Vec::new();
-    def
 }
 
 /// An expression typed in, too deep to parse or to print.

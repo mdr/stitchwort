@@ -725,7 +725,7 @@ impl Elaborator {
     }
 
     pub fn install_library(&mut self, index: Arc<LibraryIndex>) {
-        self.globals.registry.install_library();
+        stitchwort_core::registry::install_library(&mut self.globals);
         let mut state = vec![LoadState::NotLoaded; index.files.len()];
         state[0] = LoadState::Loaded;
         for (f, file) in index.files.iter().enumerate().skip(1) {
@@ -749,8 +749,8 @@ impl Elaborator {
             stack: Vec::new(),
             order: Vec::new(),
             core: scope::CoreExtent {
-                defs: self.globals.defs.len(),
-                datas: self.globals.datas.len(),
+                defs: self.globals.env.defs().len(),
+                datas: self.globals.env.datas().len(),
                 abilities: self.tables.abilities.len(),
                 fresh: usize::MAX,
             },
@@ -783,10 +783,10 @@ impl Elaborator {
         use stitchwort_core::{DefId, Value};
         let g = &self.globals;
         let _op = g.budget.operation(self.options.limits);
-        let decidable = g.registry.data(Builtin::Decidable);
+        let decidable = g.env.registry().data(Builtin::Decidable);
         let mut found = Vec::new();
-        for id in self.tables.prelude_defs..g.defs.len() {
-            let mut ty = g.def(DefId(id)).ty_value.clone();
+        for id in self.tables.prelude_defs..g.env.defs().len() {
+            let mut ty = g.def(DefId(id)).ty_value().clone();
             let mut level = 0;
             while let Value::Pi(_, _, _, cod) = &ty {
                 let Ok(next) = cod
@@ -799,7 +799,7 @@ impl Elaborator {
                 level += 1;
             }
             if matches!(ty, Value::Data(d, _) if Some(d) == decidable) {
-                found.push(g.def(DefId(id)).path.to_string());
+                found.push(g.def(DefId(id)).path().to_string());
             }
         }
         found
@@ -1177,7 +1177,7 @@ impl Elaborator {
         let file = &index.files[f];
         // The core loaded before the library's names were there.
         let core_only = (f == 0).then_some(scope::CoreExtent {
-            fresh: self.globals.defs.len(),
+            fresh: self.globals.env.defs().len(),
             ..lib.core
         });
         let saved = self.enter_nested_unit("Std".into());

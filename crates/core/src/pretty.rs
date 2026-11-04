@@ -257,7 +257,7 @@ fn difference(
     // whole side.
     let printer = Printer::new(g, scope);
     let operator =
-        |id: DefId| printer.infix(id).is_some() || g.registry.is_def(Builtin::IfThenElse, id);
+        |id: DefId| printer.infix(id).is_some() || g.env.registry().is_def(Builtin::IfThenElse, id);
     let within = calls
         .into_iter()
         .rev()
@@ -537,7 +537,7 @@ impl<'g> Printer<'g> {
                     ops = args[1].strip_loc();
                 }
                 Term::Data(d, _) if is(self.g, Builtin::NoOp, *d) => break None,
-                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if self.g.registry.is_def(Builtin::RowOp, *id)) =>
+                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if self.g.env.registry().is_def(Builtin::RowOp, *id)) =>
                 {
                     break Some(self.print(names, e, Prec::App));
                 }
@@ -694,7 +694,7 @@ impl<'g> Printer<'g> {
             // value read back from a runtime has none (SW-1000: a list of
             // them printed as `{ bits = …, valid = ?1 }`).
             Term::Ctor(d, 0, args)
-                if Some(*d) == self.g.builtins.float.data
+                if Some(*d) == self.g.env.builtins().float.data
                     && let [bits, _witness] = args.as_slice()
                     && let Term::Nat(n) = bits.strip_loc()
                     && let Some(bits) = num_traits::ToPrimitive::to_u64(&**n)
@@ -751,8 +751,13 @@ impl<'g> Printer<'g> {
                 // `-(n + 1)`, is `-(n + 1).toInt`, which computes to it.
                 if is(self.g, Builtin::Int, *d)
                     && let [n] = &args[..]
-                    && (self.g.registry.loaded_def(Builtin::NatToInt).is_some()
-                        || self.g.registry.library_installed())
+                    && (self
+                        .g
+                        .env
+                        .registry()
+                        .loaded_def(Builtin::NatToInt)
+                        .is_some()
+                        || self.g.env.registry().library_installed())
                 {
                     if *c == 0 {
                         return (self.to_int(names, n), Prec::Atom);
@@ -899,12 +904,12 @@ impl<'g> Printer<'g> {
                     // At the empty row, a computation is its value: `CompIn
                     // Empty a` is `a`, and `doneIn Empty v` is `v`, as a pure
                     // callback of an effect-polymorphic function has it.
-                    if (self.g.registry.is_def(Builtin::CompIn, *id)
-                        || self.g.registry.is_def(Builtin::DoneIn, *id))
+                    if (self.g.env.registry().is_def(Builtin::CompIn, *id)
+                        || self.g.env.registry().is_def(Builtin::DoneIn, *id))
                         && let [row, value] = &args[..]
                         && let Term::Ctor(d, c, fields) = row.strip_loc()
                         && fields.is_empty()
-                        && self.g.registry.ctor(Builtin::RowEmpty) == Some((*d, *c))
+                        && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c))
                     {
                         return self.go(names, value);
                     }
@@ -913,10 +918,10 @@ impl<'g> Printer<'g> {
                     // compiler's, unless the hidden arguments are asked for.
                     if !self.show_hidden.get()
                         && let Some(value) = match &args[..] {
-                            [_, value] if self.g.registry.is_def(Builtin::DoneIn, *id) => {
+                            [_, value] if self.g.env.registry().is_def(Builtin::DoneIn, *id) => {
                                 Some(value)
                             }
-                            [_, _, value] if self.g.registry.is_def(Builtin::DoneD, *id) => {
+                            [_, _, value] if self.g.env.registry().is_def(Builtin::DoneD, *id) => {
                                 Some(value)
                             }
                             _ => None,
@@ -929,8 +934,8 @@ impl<'g> Printer<'g> {
                     // `{e} a`, as written; at `Total` it's `CompIn e a`, and
                     // at `MayDiverge` `{Partial | e} a`. `doneD Total e v`
                     // is `doneIn e v`.
-                    if (self.g.registry.is_def(Builtin::CompD, *id)
-                        || self.g.registry.is_def(Builtin::DoneD, *id))
+                    if (self.g.env.registry().is_def(Builtin::CompD, *id)
+                        || self.g.env.registry().is_def(Builtin::DoneD, *id))
                         && let [div, row, result] = &args[..]
                     {
                         let ctor = match div.strip_loc() {
@@ -939,11 +944,12 @@ impl<'g> Printer<'g> {
                         };
                         let empty = matches!(row.strip_loc(), Term::Ctor(d, c, fields)
                             if fields.is_empty()
-                                && self.g.registry.ctor(Builtin::RowEmpty) == Some((*d, *c)));
+                                && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c)));
                         let total =
-                            ctor.is_some() && ctor == self.g.registry.ctor(Builtin::DivTotal);
-                        let may = ctor.is_some() && ctor == self.g.registry.ctor(Builtin::DivMay);
-                        if self.g.registry.is_def(Builtin::DoneD, *id) {
+                            ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivTotal);
+                        let may =
+                            ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivMay);
+                        if self.g.env.registry().is_def(Builtin::DoneD, *id) {
                             if total && empty {
                                 return self.go(names, result);
                             }
@@ -959,7 +965,7 @@ impl<'g> Printer<'g> {
                             // (docs/proposals/partial-handlers.md §4):
                             // `{A | e} a`, or `{A, Partial | e} a`.
                             if let Term::Ctor(d, c, fields) = row.strip_loc()
-                                && self.g.registry.ctor(Builtin::RowOps) == Some((*d, *c))
+                                && self.g.env.registry().ctor(Builtin::RowOps) == Some((*d, *c))
                                 && let [op, _] = &fields[..]
                                 && let Some(row) = self.row_with(names, op, may)
                             {
@@ -973,7 +979,7 @@ impl<'g> Printer<'g> {
                         }
                     }
                     // A computation in a row variable's row: `{e} a`.
-                    if self.g.registry.is_def(Builtin::CompIn, *id)
+                    if self.g.env.registry().is_def(Builtin::CompIn, *id)
                         && let [row, result] = &args[..]
                     {
                         let row = self.print(names, row, Prec::App);
@@ -989,10 +995,10 @@ impl<'g> Printer<'g> {
                     }
                     // `-x` and `n.toInt`, as they're written (SW-937).
                     if let [arg] = &args[..] {
-                        if self.g.registry.loaded_def(Builtin::IntNeg) == Some(*id) {
+                        if self.g.env.registry().loaded_def(Builtin::IntNeg) == Some(*id) {
                             return self.int_negation(names, arg);
                         }
-                        if self.g.registry.loaded_def(Builtin::NatToInt) == Some(*id) {
+                        if self.g.env.registry().loaded_def(Builtin::NatToInt) == Some(*id) {
                             return (self.to_int(names, arg), Prec::Atom);
                         }
                     }
@@ -1000,7 +1006,7 @@ impl<'g> Printer<'g> {
                         return shown;
                     }
                     // `if c then a else b`.
-                    if self.g.registry.is_def(Builtin::IfThenElse, *id)
+                    if self.g.env.registry().is_def(Builtin::IfThenElse, *id)
                         && let [cond, then, otherwise] = &args[..]
                         && let Some(then) = self.unused_branch(names, then)
                         && let Some(otherwise) = self.unused_branch(names, otherwise)
@@ -1016,7 +1022,8 @@ impl<'g> Printer<'g> {
                         );
                     }
                     // A partial computation: `{IO, Partial} a`.
-                    if self.g.builtins.primitive(*id) == Some(crate::partial::Primitive::Delay)
+                    if self.g.env.builtins().primitive(*id)
+                        == Some(crate::partial::Primitive::Delay)
                         && let [ops, _, result] = &args[..]
                         && let Some(row) = self.row_with(names, ops, true)
                     {
@@ -1047,7 +1054,7 @@ impl<'g> Printer<'g> {
                         let rhs = self.print(names, rhs, right);
                         return (format!("{lhs} {op} {rhs}"), prec);
                     }
-                    if self.g.registry.is_def(Builtin::Not, *id)
+                    if self.g.env.registry().is_def(Builtin::Not, *id)
                         && let [prop] = &args[..]
                     {
                         return self.not(names, prop);
@@ -1066,7 +1073,7 @@ impl<'g> Printer<'g> {
                     // x y`).
                     // `toBool (DecEq.%decide d a b)`, `d` a dictionary in
                     // scope, is `a == b` as it elaborates there.
-                    if self.g.registry.loaded_def(Builtin::ToBool) == Some(*id)
+                    if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id)
                         && let [decision] = &args[..]
                         && let Some((lhs, rhs)) = self.decide_in_scope(decision)
                     {
@@ -1185,7 +1192,7 @@ impl<'g> Printer<'g> {
 
     /// The operator a call of `id` is shown with, and its precedence.
     fn infix(&self, id: DefId) -> Option<(&'static str, Prec)> {
-        match self.g.registry.def_builtin(id)? {
+        match self.g.env.registry().def_builtin(id)? {
             Builtin::Add | Builtin::IntAdd => Some(("+", Prec::Add)),
             Builtin::Sub | Builtin::IntSub => Some(("-", Prec::Add)),
             Builtin::Mul | Builtin::IntMul => Some(("*", Prec::Mul)),
@@ -1213,10 +1220,10 @@ impl<'g> Printer<'g> {
     ) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {
         if let (Some((op, prec)), [lhs, rhs]) = (self.infix(id), args) {
             // `n - n / d * d`, as `Nat.mod` unfolds, is `n % d`.
-            if self.g.registry.is_def(Builtin::Sub, id)
+            if self.g.env.registry().is_def(Builtin::Sub, id)
                 && let Term::App(..) = rhs.strip_loc()
                 && let (Term::Def(product), factors) = explicit_spine(rhs)
-                && self.g.registry.is_def(Builtin::Mul, *product)
+                && self.g.env.registry().is_def(Builtin::Mul, *product)
                 && let [quotient, divisor] = factors[..]
                 && let Some((n, d)) = self.quotient(quotient)
                 && same_term(n, lhs)
@@ -1250,7 +1257,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.registry.is_def(Builtin::Div, *id)
+        if self.g.env.registry().is_def(Builtin::Div, *id)
             && let [n, d] = args[..]
         {
             return Some((n, d));
@@ -1268,11 +1275,13 @@ impl<'g> Printer<'g> {
     /// (docs/proposals/division.md).
     fn quotient_args<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<(&'t Term, &'t Term)> {
         match args {
-            [fuel, n, d] if self.g.registry.is_def(Builtin::DivFuel, id) && same_term(fuel, n) => {
+            [fuel, n, d]
+                if self.g.env.registry().is_def(Builtin::DivFuel, id) && same_term(fuel, n) =>
+            {
                 Some((n, d))
             }
             [fits, fuel, n, d]
-                if self.g.registry.is_def(Builtin::DivStep, id)
+                if self.g.env.registry().is_def(Builtin::DivStep, id)
                     && self.first_step(fits, fuel, n, d) =>
             {
                 Some((n, d))
@@ -1295,7 +1304,7 @@ impl<'g> Printer<'g> {
         let (Term::Def(leq), [a, b]) = (head, &compared[..]) else {
             return false;
         };
-        if !self.g.registry.is_def(Builtin::Leq, *leq) {
+        if !self.g.env.registry().is_def(Builtin::Leq, *leq) {
             return false;
         }
         let (kd, bd) = self.nat_parts(d);
@@ -1321,7 +1330,9 @@ impl<'g> Printer<'g> {
                 _ => {
                     let (head, args) = explicit_spine(term);
                     match (head, &args[..]) {
-                        (Term::Def(add), [x, y]) if self.g.registry.is_def(Builtin::Add, *add) => {
+                        (Term::Def(add), [x, y])
+                            if self.g.env.registry().is_def(Builtin::Add, *add) =>
+                        {
                             match (x.strip_loc(), y.strip_loc()) {
                                 (Term::Nat(n), rest) | (rest, Term::Nat(n)) => {
                                     k += &**n;
@@ -1340,7 +1351,7 @@ impl<'g> Printer<'g> {
     /// Whether `t` is the constructor `ctor` with no fields.
     fn is_ctor(&self, t: &Term, ctor: Builtin) -> bool {
         matches!(t.strip_loc(), Term::Ctor(d, c, fields)
-            if fields.is_empty() && self.g.registry.ctor(ctor) == Some((*d, *c)))
+            if fields.is_empty() && self.g.env.registry().ctor(ctor) == Some((*d, *c)))
     }
 
     /// `a && b` and `a || b` on `Bool`s, as they elaborate: `if a then b
@@ -1390,7 +1401,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if !self.g.registry.is_def(Builtin::IfThenElse, *id) {
+        if !self.g.env.registry().is_def(Builtin::IfThenElse, *id) {
             return None;
         }
         let [
@@ -1431,7 +1442,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.registry.loaded_def(Builtin::ToBool) == Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id) {
             let [decision] = args[..] else {
                 return None;
             };
@@ -1444,7 +1455,7 @@ impl<'g> Printer<'g> {
         let [lhs, rhs] = args[..] else {
             return None;
         };
-        let op = match self.g.registry.def_builtin(*id)? {
+        let op = match self.g.env.registry().def_builtin(*id)? {
             Builtin::Leq => match lhs.strip_loc() {
                 Term::Ctor(d, 1, m) if is(self.g, Builtin::Nat, *d) && m.len() == 1 => {
                     return Some(("<", &m[0], rhs));
@@ -1491,7 +1502,7 @@ impl<'g> Printer<'g> {
                 };
                 let sign = BigUint::from(1u64 << 63);
                 let is_sign = |t: &Term| matches!(t.strip_loc(), Term::Nat(n) if **n == sign);
-                (self.g.registry.is_def(Builtin::Leq, *leq)
+                (self.g.env.registry().is_def(Builtin::Leq, *leq)
                     && matches!(compared[..], [k, b] if is_sign(k) && of_bits(b).is_some_and(|y| same_term(x, y))))
                 .then_some(x)
             }
@@ -1516,7 +1527,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.registry.loaded_def(Builtin::ToBool) != Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::ToBool) != Some(*id) {
             return None;
         }
         let [(prop, Icit::Implicit), (decision, Icit::Explicit)] = args[..] else {
@@ -1628,7 +1639,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        let reg = &self.g.registry;
+        let reg = &self.g.env.registry();
         if reg.loaded_def(Builtin::ToBool) == Some(*id) {
             let [(prop, Icit::Implicit), (_, Icit::Explicit)] = args[..] else {
                 return None;
@@ -1675,7 +1686,7 @@ impl<'g> Printer<'g> {
                 Some(p)
             }
             prop => match explicit_spine(prop) {
-                (Term::Def(id), args) if self.g.registry.is_def(Builtin::Not, *id) => {
+                (Term::Def(id), args) if self.g.env.registry().is_def(Builtin::Not, *id) => {
                     match args[..] {
                         [p] => Some(p),
                         _ => None,
@@ -1709,7 +1720,7 @@ impl<'g> Printer<'g> {
     /// element is under (none, or the lambda's one, which it doesn't
     /// mention).
     fn membership<'t>(&self, term: &'t Term) -> Option<(&'t Term, usize, &'t Term)> {
-        let id = self.g.registry.loaded_def(Builtin::ListMem)?;
+        let id = self.g.env.registry().loaded_def(Builtin::ListMem)?;
         let (head, args) = explicit_spine(term.strip_loc());
         match (head, &args[..]) {
             (Term::Def(d), [x, xs]) if *d == id => Some((x, 0, xs)),
@@ -2039,7 +2050,7 @@ impl<'g> Printer<'g> {
     /// field (docs/proposals/variant-fields.md §9.3), such as the prelude's
     /// `Pair.fst` or `Pair.snd`.
     fn projection_field(&self, id: DefId) -> Option<String> {
-        match self.g.registry.def_builtin(id) {
+        match self.g.env.registry().def_builtin(id) {
             Some(Builtin::Fst) => return Some("fst".into()),
             Some(Builtin::Snd) => return Some("snd".into()),
             _ => {}
@@ -2050,7 +2061,8 @@ impl<'g> Printer<'g> {
         // An accessor is declared at its type's declaration.
         let (ix, data) = self
             .g
-            .datas
+            .env
+            .datas()
             .iter()
             .enumerate()
             .find(|(_, d)| &*d.name == owner && (d.record || d.span == def.span))?;
@@ -2354,7 +2366,7 @@ fn mismatch_within(
         (Term::Refl, Term::Refl) => true,
         (Term::Nat(n), Term::Ctor(d, c, fields)) | (Term::Ctor(d, c, fields), Term::Nat(n)) => {
             let ctor = Some((*d, *c));
-            let registry = &g.registry;
+            let registry = &g.env.registry();
             if n.bits() == 0 {
                 ctor == registry.loaded_ctor(Builtin::Zero)
             } else if ctor == registry.loaded_ctor(Builtin::Succ)
@@ -2529,12 +2541,12 @@ fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {
 /// Whether `d` is the prelude's `b`, which the printer shows specially. By
 /// identity, so a user's own `List` prints as written.
 fn is(g: &Globals, b: Builtin, d: DataId) -> bool {
-    g.registry.is_data(b, d)
+    g.env.registry().is_data(b, d)
 }
 
 /// Whether `d` is the library built-in `b`, if its file is loaded.
 fn is_loaded(g: &Globals, b: Builtin, d: DataId) -> bool {
-    g.registry.loaded_data(b) == Some(d)
+    g.env.registry().loaded_data(b) == Some(d)
 }
 
 /// Whether two bases of [`Printer::nat_parts`] are the same: both absent (the

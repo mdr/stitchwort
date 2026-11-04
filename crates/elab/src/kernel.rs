@@ -192,8 +192,8 @@ pub fn substitute_folded(
 /// evaluated again.
 pub fn def_ty(g: &Globals, id: DefId) -> stitchwort_core::budget::Result<stitchwort_core::Value> {
     let def = g.def(id);
-    if g.glue.get() && def.ty.subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
-        stitchwort_core::value::eval(g, &[], &def.ty)
+    if g.glue.get() && def.ty().subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
+        stitchwort_core::value::eval(g, &[], def.ty())
     } else {
         k::def_type(g, def)
     }

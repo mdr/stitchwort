@@ -4897,17 +4897,19 @@
     {
       "id": 1186,
       "title": "Globals split 8a: read views; Env inside Globals with private fields; test bypasses behind test-bypass",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab",
         "core"
       ],
-      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet (cross-crate API sweep where a wrong guess would spread), expected: 150 min. D2291-D2295 taken at the note's recommendations unless Matt objects; this lane applies D2295.\n",
+      "body": "docs/proposals/globals-split.md §6. D2290 approved by Matt, 4 Nov 2026 (\"kick off this track\"). Lanes run one at a time.\n\nStarted 4 Nov 2026 on Sonnet (cross-crate API sweep where a wrong guess would spread), expected: 150 min. D2291-D2295 taken at the note's recommendations unless Matt objects; this lane applies D2295.\n\n8a done (Sonnet lane, ~60 min wall incl. waiting on a loaded machine). Env in core/src/env.rs; Def/Data kernel fields pub(crate) with getters; test-bypass feature; sweep of all crates. core lane 173/173 pass; driver hash/pinned/nesting selection: failures identical to db8efe38 baseline (stack-depth E-RESOURCE, pre-existing).\n\nModel result: Sonnet, worked, ~60 min wall on a loaded machine (est. 150). Its driver tests ran as debug builds and failed on stack depth (as main does in debug); the orchestrator reran them in release: 82 passed.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "d58ce579"
+      ]
     },
     {
       "id": 1187,

@@ -409,7 +409,7 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
     let below = cx.fresh_meta();
     let divisor = cx.fresh_meta();
-    let mut ty = g.def(lemma).ty_value.clone();
+    let mut ty = g.def(lemma).ty_value().clone();
     for arg in [&below, &divisor] {
         let Value::Pi(_, _, _, cod) = force(g, ty)? else {
             return Ok(None);
@@ -472,7 +472,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
             let found = attempt(cx, |cx| {
                 let g = cx.g();
                 let mut term = Term::Def(lemma);
-                let mut lemma_ty = g.def(lemma).ty_value.clone();
+                let mut lemma_ty = g.def(lemma).ty_value().clone();
                 let mut metas = Vec::new();
                 // Every parameter but the last, the membership, is unknown.
                 loop {
@@ -536,7 +536,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
         };
         for projection in info.projections.iter().flatten() {
             let mut term = Term::Def(*projection);
-            let mut ty = g.def(*projection).ty_value.clone();
+            let mut ty = g.def(*projection).ty_value().clone();
             let mut params = params.iter();
             loop {
                 let Value::Pi(_, icit, _, cod) = force(g, ty.clone())? else {
@@ -566,7 +566,7 @@ fn size_lemmas(cx: &Ctx, t: DataId) -> Vec<DefId> {
     let e = cx.e;
     let key = e.data_key(t);
     let mut found = Vec::new();
-    for ctor in &cx.g().data(t).ctors {
+    for ctor in cx.g().data(t).ctors() {
         for i in 0..ctor.fields.len() {
             let member = format!("%{}%{i}%sizeMem", ctor.name);
             if let Some((Global::Def(id), _)) = e.scope.get(&Elaborator::member_key(&key, &member))
@@ -590,8 +590,8 @@ const LISTED_SHOWN: usize = 10;
 /// `None` for any other goal, or a list shorter than [`LISTED_MEMBERSHIP`].
 fn not_in_list(cx: &Ctx, goal: &Value) -> Result<Option<String>> {
     let (Some(or), Some(void)) = (
-        cx.g().registry.data(Builtin::Or),
-        cx.g().registry.data(Builtin::Void),
+        cx.g().env.registry().data(Builtin::Or),
+        cx.g().env.registry().data(Builtin::Void),
     ) else {
         return Ok(None);
     };
@@ -638,7 +638,7 @@ fn not_in_list(cx: &Ctx, goal: &Value) -> Result<Option<String>> {
 /// `a1` the same as `b1` and `a2 < b2`, each found the way any goal is.
 /// `None` for any other goal, or when neither is found.
 fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
-    let Some(lex) = cx.g().registry.data(Builtin::LexLess) else {
+    let Some(lex) = cx.g().env.registry().data(Builtin::LexLess) else {
         return Ok(None);
     };
     let (a1, a2, b1, b2) = match goal {
@@ -732,7 +732,7 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let error = match force(cx.g(), prop.clone())? {
         Value::Data(d, _) if cx.e.tables.no_decide.contains_key(&d) => error.with_note(format!(
             "`{}` has no derived decision: {}",
-            cx.e.relative_to_root(&cx.g().data(d).name),
+            cx.e.relative_to_root(cx.g().data(d).name()),
             cx.e.tables.no_decide[&d]
         )),
         _ => error,
@@ -782,12 +782,12 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     // Until the core has declared `DecEq`, every procedure is a candidate,
     // as before D163: the core's own uses of `==` come before it.
     let bootstrap = interfaces::dec_eq(cx.e).is_none();
-    let first_def = cx.e.unit.module.first_def.min(g.defs.len());
+    let first_def = cx.e.unit.module.first_def.min(g.env.defs().len());
     let earlier = earlier_candidates(cx.e, first_def, bootstrap);
-    let own = (first_def..g.defs.len()).rev().map(DefId);
+    let own = (first_def..g.env.defs().len()).rev().map(DefId);
     let mut found = Vec::new();
     for id in own.chain(earlier.iter().copied()) {
-        if !(g.def(id).instance || bootstrap) || !cx.e.auto_eligible(id) {
+        if !(g.def(id).instance() || bootstrap) || !cx.e.auto_eligible(id) {
             continue; // not marked, not checked yet, or below the use
         }
         if result_head(cx, id)? == Some(decidable) {
@@ -852,7 +852,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
                     continue;
                 };
                 let mut ids: Vec<DefId> = range.clone().map(DefId).collect();
-                ids.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
+                ids.sort_by(|a, b| g.def(*a).path().cmp(g.def(*b).path()));
                 all.extend(ids);
             }
             // The library files' few procedures (`List.decMem`, the
@@ -866,7 +866,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
                 .filter(|id| !project.iter().any(|range| range.contains(id)))
                 .map(DefId)
                 .collect();
-            library.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
+            library.sort_by(|a, b| g.def(*a).path().cmp(g.def(*b).path()));
             all.extend(library);
             all.extend((0..e.tables.prelude_defs).rev().map(DefId));
             all
@@ -876,7 +876,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         .into_iter()
         .filter(|id| {
             let def = g.def(*id);
-            def.instance || bootstrap || def.state() == State::Pending
+            def.instance() || bootstrap || def.state() == State::Pending
         })
         .collect();
     *e.caches.decision_order.borrow_mut() = Some(DecisionOrder {
@@ -915,13 +915,13 @@ fn unrelated_hints(
             .collect();
     for (namespace, range) in namespaces {
         let mut ids: Vec<DefId> = range.map(DefId).collect();
-        ids.sort_by(|a, b| cx.g().def(*a).path.cmp(&cx.g().def(*b).path));
+        ids.sort_by(|a, b| cx.g().def(*a).path().cmp(cx.g().def(*b).path()));
         for id in ids {
             if hints == 3 {
                 return Ok(error);
             }
             if cx.g().def(id).body().is_none()
-                || !cx.g().def(id).instance
+                || !cx.g().def(id).instance()
                 || result_head(cx, id)? != Some(decidable)
             {
                 continue;
@@ -932,7 +932,7 @@ fn unrelated_hints(
                 Ok(None::<()>)
             })?;
             if fits {
-                let name = cx.g().def(id).name.to_string();
+                let name = cx.g().def(id).name().to_string();
                 let short = name
                     .strip_prefix(&format!("{namespace}."))
                     .unwrap_or(&name)
@@ -956,7 +956,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
         return Ok(*head);
     }
     let g = cx.g();
-    let mut ty = g.def(id).ty_value.clone();
+    let mut ty = g.def(id).ty_value().clone();
     let mut level = 0;
     while let Value::Pi(_, _, _, cod) = &ty {
         ty = force(g, cod.apply(g, Value::var(level))?)?;
@@ -968,7 +968,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
     };
     let mut heads = e.caches.result_heads.borrow_mut();
     if heads.len() <= id.0 {
-        heads.resize(g.defs.len(), None);
+        heads.resize(g.env.defs().len(), None);
     }
     heads[id.0] = Some(head);
     Ok(head)
@@ -989,7 +989,7 @@ fn instantiate(
 ) -> Result<Option<Term>> {
     let g = &cx.u();
     let mut term = Term::Def(id);
-    let mut ty = g.def(id).ty_value.clone();
+    let mut ty = g.def(id).ty_value().clone();
     let mut args = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
         let meta = cx.fresh_meta();

@@ -44,7 +44,7 @@ fn internal(message: impl Into<String>) -> Diagnostic {
 /// `limits.stack` bytes of stack: a definition nested too deeply for that
 /// is an `E-RESOURCE` error.
 pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Result<Program> {
-    if row == MainRow::FailIo && g.registry.loaded_data(Builtin::Fail).is_none() {
+    if row == MainRow::FailIo && g.env.registry().loaded_data(Builtin::Fail).is_none() {
         return Err(internal("a `main` that may fail, with `Fail` not loaded"));
     }
     let mut program = lower_program(g, limits, main)?;
@@ -91,7 +91,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
     // The globals, in declaration order (dependency order), each variant
     // just after its definition's place.
     let mut plans = Vec::new();
-    for id in (0..g.defs.len())
+    for id in (0..g.env.defs().len())
         .map(DefId)
         .filter(|id| used[id.0] || reach.empty[id.0])
     {
@@ -106,18 +106,19 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
             if op.arity() != params {
                 return Err(internal(format!(
                     "`{}` takes {params} runtime arguments, but its native operation {}",
-                    g.def(id).name,
+                    g.def(id).name(),
                     op.arity()
                 )));
             }
         } else if g.def(id).body().is_none() {
-            return Err(
-                Diagnostic::error("E-RUNTIME", format!("can't run `{}`", g.def(id).name))
-                    .with_label(
-                        g.def(id).span,
-                        "it hasn't been checked successfully, so it has no definition to run",
-                    ),
-            );
+            return Err(Diagnostic::error(
+                "E-RUNTIME",
+                format!("can't run `{}`", g.def(id).name()),
+            )
+            .with_label(
+                g.def(id).span(),
+                "it hasn't been checked successfully, so it has no definition to run",
+            ));
         }
         if used[id.0] {
             let gid = GlobalId(u32::try_from(plans.len()).expect("globals fit"));
@@ -144,7 +145,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
                 } else {
                     cx.def_body(id)
                 }
-                .map_err(|e| e.with_label(def.span, "while lowering this for the runtime"))?;
+                .map_err(|e| e.with_label(def.span(), "while lowering this for the runtime"))?;
                 if params == 0 {
                     GlobalKind::Constant { body }
                 } else {
@@ -154,9 +155,9 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         };
         globals.push(Global {
             name: if variant {
-                format!("{}[empty]", def.path).into()
+                format!("{}[empty]", def.path()).into()
             } else {
-                def.path.clone()
+                def.path().clone()
             },
             def: id,
             kind,
@@ -166,8 +167,12 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
     globals.append(&mut cx.hoisted);
     // The simplifier needs to recognise, and build, `Bool` and `Decidable`.
     let types = Types {
-        bool_: g.registry.data(Builtin::Bool).map(|d| cx.type_id(d)),
-        decidable: g.registry.data(Builtin::Decidable).map(|d| cx.type_id(d)),
+        bool_: g.env.registry().data(Builtin::Bool).map(|d| cx.type_id(d)),
+        decidable: g
+            .env
+            .registry()
+            .data(Builtin::Decidable)
+            .map(|d| cx.type_id(d)),
     };
     let mut program = Program {
         globals,
@@ -191,15 +196,15 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
 fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
     let data = g.data(d);
     let ctor = data
-        .ctors
+        .ctors()
         .get(c)
-        .ok_or_else(|| internal(format!("`{}` has no constructor {c}", data.name)))?;
+        .ok_or_else(|| internal(format!("`{}` has no constructor {c}", data.name())))?;
     // The runtime takes these apart as cells, so none may be a record stored
     // as its field (D866).
     if data.unboxed_field().is_some() {
         return Err(internal(format!(
             "`{}` is stored unboxed, not as a cell",
-            data.name
+            data.name()
         )));
     }
     let runtime = ctor.field_erased.iter().filter(|erased| !**erased).count();
@@ -215,12 +220,12 @@ fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
 fn shapes(g: &Globals) -> Result<Shapes> {
     let missing = |b: Builtin| internal(format!("the prelude doesn't declare `{}`", b.name()));
     let ctor = |b: Builtin, fields: usize| -> Result<u32> {
-        let (d, c) = g.registry.ctor(b).ok_or_else(|| missing(b))?;
+        let (d, c) = g.env.registry().ctor(b).ok_or_else(|| missing(b))?;
         shape(g, d, c, fields)
     };
     // For the constructors the registry doesn't name: by index.
     let nth = |b: Builtin, c: usize, fields: usize| -> Result<u32> {
-        let d = g.registry.data(b).ok_or_else(|| missing(b))?;
+        let d = g.env.registry().data(b).ok_or_else(|| missing(b))?;
         shape(g, d, c, fields)
     };
     Ok(Shapes {
@@ -238,8 +243,10 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         done: ctor(Builtin::Done, 1)?,
         call: ctor(Builtin::Call, 2)?,
         bind_node: ctor(Builtin::Done, 1)?.max(ctor(Builtin::Call, 2)?) + 1,
-        row_empty: match g.registry.ctor(Builtin::RowEmpty) {
-            Some((d, c)) if g.registry.loaded_data(Builtin::Row) == Some(d) => shape(g, d, c, 0)?,
+        row_empty: match g.env.registry().ctor(Builtin::RowEmpty) {
+            Some((d, c)) if g.env.registry().loaded_data(Builtin::Row) == Some(d) => {
+                shape(g, d, c, 0)?
+            }
             _ => u32::MAX,
         },
         left: nth(Builtin::Plus, 0, 1)?,
@@ -256,7 +263,7 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         console_record: nth(Builtin::Console, 0, 4)?,
         random_seed: ctor(Builtin::RandomSeed, 1)?,
         args: ctor(Builtin::Args, 1)?,
-        stop: match g.registry.loaded_data(Builtin::Fail) {
+        stop: match g.env.registry().loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
             None => u32::MAX,
         },
@@ -341,9 +348,9 @@ impl<'g> Lowerer<'g> {
         Ok(Lowerer {
             g,
             repr,
-            shapes: g.defs.iter().map(|_| OnceCell::new()).collect(),
-            if_then_else: g.registry.def(Builtin::IfThenElse),
-            to_bool: g.registry.def(Builtin::ToBool),
+            shapes: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
+            if_then_else: g.env.registry().def(Builtin::IfThenElse),
+            to_bool: g.env.registry().def(Builtin::ToBool),
             effect: EffectNatives::new(g),
             fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
             global_of: HashMap::default(),
@@ -376,7 +383,7 @@ impl<'g> Lowerer<'g> {
 
     /// The native operation that replaces `id`, if any.
     fn native_op(&self, id: DefId) -> Option<PrimOp> {
-        if let Some(prim) = self.g.builtins.primitive(id) {
+        if let Some(prim) = self.g.env.builtins().primitive(id) {
             return Some(PrimOp::Delay(prim));
         }
         if let Some(op) = self.repr.kernel_native(self.g, id) {
@@ -400,7 +407,7 @@ impl<'g> Lowerer<'g> {
         }
         let data = self.g.data(d);
         let ctors = data
-            .ctors
+            .ctors()
             .iter()
             .map(|ctor| CtorInfo {
                 name: ctor.name.clone(),
@@ -416,8 +423,8 @@ impl<'g> Lowerer<'g> {
         let t = TypeId(u32::try_from(self.types.len()).expect("types fit"));
         self.types.push(TypeInfo {
             data: d,
-            name: data.name.clone(),
-            record: data.record,
+            name: data.name().clone(),
+            record: data.record(),
             ctors,
         });
         self.type_of.insert(d, t);
@@ -539,10 +546,10 @@ impl<'g> Lowerer<'g> {
         let def = self.g.def(id);
         let body = def.run_body().expect("checked by lower_program").clone();
         let mask = self.shape(id)?.mask().to_vec();
-        let params: Vec<bool> = (0..def.arity)
+        let params: Vec<bool> = (0..def.arity())
             .map(|i| mask.get(i).copied().unwrap_or(false))
             .collect();
-        let arity = def.arity;
+        let arity = def.arity();
         // Its calls of row eliminators with `Empty` inlined, if it has any.
         let simplified = self.spec.generic_body(id)?;
         let tree = simplified
@@ -558,7 +565,7 @@ impl<'g> Lowerer<'g> {
             .empty_body(id)?
             .ok_or_else(|| internal("an empty-row variant that can't be made"))?;
         let mask = self.empty_of[&id].2.clone();
-        let params: Vec<bool> = (0..self.g.def(id).arity)
+        let params: Vec<bool> = (0..self.g.def(id).arity())
             .map(|i| mask.get(i).copied().unwrap_or(false))
             .collect();
         self.frame_body(&params, |cx| cx.expr(&body))
@@ -707,7 +714,7 @@ impl<'g> Lowerer<'g> {
             let index = self.hoisted_base + self.hoisted.len();
             let gid = GlobalId(u32::try_from(index).expect("globals fit"));
             self.hoisted.push(Global {
-                name: format!("{}[map {}]", self.g.def(id).path, self.hoisted.len()).into(),
+                name: format!("{}[map {}]", self.g.def(id).path(), self.hoisted.len()).into(),
                 def: id,
                 kind: GlobalKind::Constant { body },
             });
@@ -875,14 +882,14 @@ impl<'g> Lowerer<'g> {
             return Some(body);
         }
         let def = self.g.def(id);
-        Some(Term::peel_lams_rc(def.run_body()?, def.arity))
+        Some(Term::peel_lams_rc(def.run_body()?, def.arity()))
     }
 
     fn global(&self, id: DefId) -> Result<(GlobalId, u32, Option<PrimOp>)> {
         self.global_of.get(&id).copied().ok_or_else(|| {
             internal(format!(
                 "`{}` is used but wasn't found to be reachable",
-                self.g.def(id).name
+                self.g.def(id).name()
             ))
         })
     }
@@ -967,7 +974,7 @@ impl<'g> Lowerer<'g> {
 
     fn ctor(&mut self, term: &Term, d: DataId, c: usize, args: &[Rc<Term>]) -> Result<Expr> {
         let data = self.g.data(d);
-        if data.sort == Sort::Prop {
+        if data.sort() == Sort::Prop {
             return Ok(Expr::Erased);
         }
         if Some(d) == self.repr.text {
@@ -1032,7 +1039,7 @@ impl<'g> Lowerer<'g> {
         }
         let t = self.type_id(d);
         let mut fields = Vec::new();
-        for (erased, arg) in data.ctors[c].field_erased.iter().zip(args) {
+        for (erased, arg) in data.ctors()[c].field_erased.iter().zip(args) {
             if !erased {
                 fields.push(self.expr(arg)?);
             }
@@ -1062,7 +1069,7 @@ impl<'g> Lowerer<'g> {
 
     fn case(&mut self, ix: usize, d: DataId, branches: &[Branch]) -> Result<Expr> {
         let data = self.g.data(d);
-        if data.sort == Sort::Prop {
+        if data.sort() == Sort::Prop {
             // The proof doesn't exist at runtime. Matching on it into data is
             // only allowed for at most one constructor with only proof
             // fields, so that branch is taken.
@@ -1070,7 +1077,7 @@ impl<'g> Lowerer<'g> {
                 return Ok(Expr::Unreachable);
             };
             let mark = self.mark();
-            for _ in &data.ctors[0].fields {
+            for _ in &data.ctors()[0].fields {
                 self.env.push(Bind::Erased);
             }
             let out = match &branch.body {
@@ -1091,7 +1098,7 @@ impl<'g> Lowerer<'g> {
             };
             let bound = self.env[self.env.len() - 1 - ix];
             let mark = self.mark();
-            for i in 0..data.ctors[0].fields.len() {
+            for i in 0..data.ctors()[0].fields.len() {
                 self.env.push(if i == field { bound } else { Bind::Erased });
             }
             let out = match &branch.body {
@@ -1142,7 +1149,7 @@ impl<'g> Lowerer<'g> {
             let mark = self.mark();
             let mut fields = Vec::new();
             let mut runtime = 0u32;
-            for erased in &data.ctors[c].field_erased {
+            for erased in &data.ctors()[c].field_erased {
                 if *erased {
                     self.env.push(Bind::Erased);
                 } else {

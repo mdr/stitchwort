@@ -355,7 +355,7 @@ fn a_step_returns_operations_without_performing_them() {
     let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
-    assert_eq!(&*g.data(d).ctors[c].name, "%readLine");
+    assert_eq!(&*g.data(d).ctors()[c].name, "%readLine");
     // Reply `None`: `echo` finishes with 0, then `main` prints it, which
     // is again returned rather than performed.
     let nothing =
@@ -369,7 +369,7 @@ fn a_step_returns_operations_without_performing_them() {
     let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
-    assert_eq!(&*g.data(d).ctors[c].name, "%print");
+    assert_eq!(&*g.data(d).ctors()[c].name, "%print");
 }
 
 /// Building a recursive call runs nothing: `spin 0` evaluates at once, to a
@@ -654,7 +654,8 @@ fn a_loop_under_a_handler_runs_in_constant_frames() {
         let main = main_value(&mut session);
         let g = &session.elab.globals;
         let unit = stitchwort_core::Value::Ctor(
-            g.registry
+            g.env
+                .registry()
                 .data(stitchwort_core::registry::Builtin::UnitType)
                 .unwrap(),
             0,

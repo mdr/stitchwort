@@ -216,7 +216,7 @@ pub(crate) fn member_prefix(ty_name: &str, m: usize) -> String {
 fn known_container(g: &stitchwort_core::Globals, e: DataId) -> bool {
     [Builtin::List, Builtin::Option, Builtin::Pair]
         .iter()
-        .any(|b| g.registry.data(*b) == Some(e))
+        .any(|b| g.env.registry().data(*b) == Some(e))
 }
 
 impl Elaborator {
@@ -226,7 +226,7 @@ impl Elaborator {
         // Nor for a type the compiler declared, whose constructors' names
         // source can't write: an ability's operations (`effects.rs`).
         let data = self.globals.data(d);
-        let generated = !data.record && data.ctors.iter().any(|c| c.name.starts_with('%'));
+        let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         if self.unit.loading_prelude || generated || interfaces::dec_eq(self).is_none() {
             return Ok(());
         }
@@ -243,7 +243,7 @@ impl Elaborator {
                 return Ok(());
             }
         };
-        let ctors = self.globals.data(d).ctors.len();
+        let ctors = self.globals.data(d).ctors().len();
         if ctors > 1 {
             self.derive_tag(d)?;
         }
@@ -301,8 +301,8 @@ impl Elaborator {
     ) -> Result<std::result::Result<Vec<Member>, String>> {
         let g = &self.globals;
         let data = g.data(d);
-        let name = data.name.to_string();
-        let np = data.params.len();
+        let name = data.name().to_string();
+        let np = data.params().len();
         let mut members = vec![Member {
             data: d,
             args: (0..np).map(Value::var).collect(),
@@ -312,7 +312,7 @@ impl Elaborator {
         while next < members.len() {
             let here = &members[next];
             let (container, args) = (here.data, here.args.clone());
-            for ctor in &g.data(container).ctors {
+            for ctor in g.data(container).ctors() {
                 for (i, (field, ty)) in ctor.fields.iter().enumerate() {
                     if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
                         continue;
@@ -338,7 +338,7 @@ impl Elaborator {
                     }
                     let what = if next > 0 {
                         members[next].origin.clone()
-                    } else if data.record {
+                    } else if data.record() {
                         format!("its field `{field}`")
                     } else {
                         format!("the field `{field}` of `{}`", ctor.name)
@@ -353,7 +353,7 @@ impl Elaborator {
                         }
                         other => {
                             let inside = match other {
-                                Value::Data(e, _) => format!("`{}`", g.data(*e).name),
+                                Value::Data(e, _) => format!("`{}`", g.data(*e).name()),
                                 _ => "another type".to_string(),
                             };
                             return Ok(Err(format!(
@@ -409,22 +409,22 @@ impl Elaborator {
     ) -> Result<std::result::Result<Plan, String>> {
         let g = &self.globals;
         let data = g.data(d);
-        let name = data.name.to_string();
-        let np = data.params.len();
-        if data.group.len() > 1 {
+        let name = data.name().to_string();
+        let np = data.params().len();
+        if data.group().len() > 1 {
             return Ok(Err(format!(
                 "`{name}` is defined together with other types, which {label} isn't derived for yet"
             )));
         }
-        if data.sort == Sort::Prop {
+        if data.sort() == Sort::Prop {
             return Ok(Err(format!("`{name}` is a proposition")));
         }
-        if !data.indices.is_empty() {
+        if !data.indices().is_empty() {
             return Ok(Err(format!(
                 "`{name}` has indices, which {label} isn't derived for yet"
             )));
         }
-        if data.ctors.is_empty() {
+        if data.ctors().is_empty() {
             return Ok(Err(format!("`{name}` has no constructors")));
         }
         // `T` and the containers it's nested in, when fields are compared.
@@ -439,18 +439,18 @@ impl Elaborator {
         let g = &self.globals;
         let data = g.data(d);
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
-        let param_is_type: Vec<bool> = data.params.iter().map(|(_, t)| is_type(t)).collect();
+        let param_is_type: Vec<bool> = data.params().iter().map(|(_, t)| is_type(t)).collect();
         // Each field, classified; the types to find instances for are
         // checked below.
         let mut deciders = vec![false; np];
         let mut fields = Vec::new();
         // Each with whether it's a proof field's carrier (needing `DecEq`).
         let mut to_decide: Vec<(Value, String, bool)> = Vec::new();
-        for ctor in &data.ctors {
+        for ctor in data.ctors() {
             let mut kinds: Vec<Field> = Vec::new();
             for (i, (field, ty)) in ctor.fields.iter().enumerate() {
                 let what = format!("the field `{field}` of `{}`", ctor.name);
-                let what = if data.record {
+                let what = if data.record() {
                     format!("its field `{field}`")
                 } else {
                     what
@@ -563,14 +563,14 @@ impl Elaborator {
         for member in members.iter().skip(1) {
             let container = g.data(member.data);
             let mut member_fields = Vec::new();
-            for ctor in &container.ctors {
+            for ctor in container.ctors() {
                 let mut kinds = Vec::new();
                 for (i, (_, ty)) in ctor.fields.iter().enumerate() {
                     let what = &member.origin;
                     if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
                         return Ok(Err(format!(
                             "{what} has `{name}` inside `{}`, whose fields {label} can't compare",
-                            container.name
+                            container.name()
                         )));
                     }
                     let env: Vec<Value> = member
@@ -583,7 +583,7 @@ impl Elaborator {
                     if matches!(value, Value::Pi(..)) {
                         return Ok(Err(format!(
                             "{what} has a function inside `{}`, and functions can't be compared",
-                            container.name
+                            container.name()
                         )));
                     }
                     if let Some(m) = member_of(g, np, &members, &value)? {
@@ -608,14 +608,14 @@ impl Elaborator {
         let Some(dec_eq) = interfaces::dec_eq(self) else {
             return Ok(Err("there's no prelude".into()));
         };
-        let interface_name = |e: &Self, i: DataId| e.globals.data(i).name.to_string();
+        let interface_name = |e: &Self, i: DataId| e.globals.data(i).name().to_string();
         let names = (
             interface_name(self, interface),
             interface_name(self, dec_eq),
         );
         self.clear_metas();
-        let span = self.globals.data(d).span;
-        let params: Vec<(Name, Term)> = self.globals.data(d).params.clone();
+        let span = self.globals.data(d).span();
+        let params: Vec<(Name, Term)> = self.globals.data(d).params().to_vec();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
@@ -695,22 +695,22 @@ impl Elaborator {
         let ty_member = format!("{prefix}type");
         if !self.has_member(d, &ty_member) {
             let data = self.globals.data(d);
-            let np = data.params.len();
+            let np = data.params().len();
             let mut body = quote(&self.globals, np, &member.ty())?;
-            let mut ty = Term::Sort(data.sort);
-            for (x, t) in data.params.iter().rev() {
+            let mut ty = Term::Sort(data.sort());
+            for (x, t) in data.params().iter().rev() {
                 ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
                 body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
             }
-            let name: Name = format!("{}.{ty_member}", data.name).into();
-            let span = data.span;
+            let name: Name = format!("{}.{ty_member}", data.name()).into();
+            let span = data.span();
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
             let key = Self::member_key(&self.data_key(d), &ty_member);
             self.scope.insert(&key, Global::Def(id), span, false);
         }
         let container = self.globals.data(member.data);
-        let ctors: Vec<usize> = container.ctors.iter().map(|c| c.fields.len()).collect();
+        let ctors: Vec<usize> = container.ctors().iter().map(|c| c.fields.len()).collect();
         let tag = format!("{prefix}tag");
         if ctors.len() > 1 && !self.has_member(d, &tag) {
             self.derive_tag_in(d, member.data, &tag)?;
@@ -720,7 +720,7 @@ impl Elaborator {
                 for k in 0..*count {
                     let name = format!(
                         "{prefix}{}%{k}",
-                        self.globals.data(member.data).ctors[c].name
+                        self.globals.data(member.data).ctors()[c].name
                     );
                     if !self.has_member(d, &name) {
                         self.derive_field_in(d, member.data, &prefix, c, k)?;
@@ -734,11 +734,11 @@ impl Elaborator {
     /// Declares `T.member : [params] -> D params -> Nat`, for `D` (`d`) `T`
     /// itself or a container of it.
     fn derive_tag_in(&mut self, owner: DataId, d: DataId, member: &str) -> Result<()> {
-        let Some(nat) = self.globals.registry.data(Builtin::Nat) else {
+        let Some(nat) = self.globals.env.registry().data(Builtin::Nat) else {
             return Ok(());
         };
         let data = self.globals.data(d);
-        let np = data.params.len();
+        let np = data.params().len();
         let params: Vec<Term> = (0..np).map(|k| Term::Var(np - 1 - k)).collect();
         let ty = Term::Pi(
             "r".into(),
@@ -747,7 +747,7 @@ impl Elaborator {
             Rc::new(Term::data(nat, Vec::new())),
         );
         let branches: Vec<Branch> = data
-            .ctors
+            .ctors()
             .iter()
             .enumerate()
             .map(|(c, ctor)| Branch {
@@ -781,8 +781,8 @@ impl Elaborator {
     ) -> Result<()> {
         let g = &self.globals;
         let data = g.data(d);
-        let np = data.params.len();
-        let ctor = &data.ctors[c];
+        let np = data.params().len();
+        let ctor = &data.ctors()[c];
         let env: Vec<Value> = (0..np)
             .map(Value::var)
             .chain((0..k).map(|_| unused()))
@@ -801,7 +801,7 @@ impl Elaborator {
             )),
         );
         let branches: Vec<Branch> = data
-            .ctors
+            .ctors()
             .iter()
             .enumerate()
             .map(|(other, o)| {
@@ -834,9 +834,9 @@ impl Elaborator {
     /// of proof field `k` of `C`, all its arguments explicit.
     pub(crate) fn derive_proof_type(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
         let data = self.globals.data(d);
-        let ctor = &data.ctors[c];
+        let ctor = &data.ctors()[c];
         let binders: Vec<(Name, Term)> = data
-            .params
+            .params()
             .iter()
             .chain(&ctor.fields[..k])
             .cloned()
@@ -848,8 +848,8 @@ impl Elaborator {
             body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
         }
         let member = format!("%{}%P%{k}", ctor.name);
-        let name: Name = format!("{}.{member}", data.name).into();
-        let span = data.span;
+        let name: Name = format!("{}.{member}", data.name()).into();
+        let span = data.span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
@@ -870,13 +870,13 @@ impl Elaborator {
     ) -> Result<()> {
         let data = self.globals.data(d);
         let (mut ty, mut body) = (ty, body);
-        for (x, t) in data.params.iter().rev() {
+        for (x, t) in data.params().iter().rev() {
             ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
             body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
         }
         let owner_data = self.globals.data(owner);
-        let name: Name = format!("{}.{member}", owner_data.name).into();
-        let span = owner_data.span;
+        let name: Name = format!("{}.{member}", owner_data.name()).into();
+        let span = owner_data.span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         let key = Self::member_key(&self.data_key(owner), member);
@@ -890,8 +890,8 @@ impl Elaborator {
     /// `decEq`s defined together.
     fn eq_source(&self, d: DataId, plan: &Plan) -> Source {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let span = data.span;
+        let ty_name = self.relative_to_root(data.name());
+        let span = data.span();
         let n = |text: &str| ast::Name {
             text: text.to_string(),
             span,
@@ -928,7 +928,7 @@ impl Elaborator {
             span,
         };
         let decidable = |p: Expr| apps(var("Std.Decidable"), vec![p]);
-        let np = data.params.len();
+        let np = data.params().len();
         let param = |j: usize| format!("%p{j}");
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
@@ -941,7 +941,7 @@ impl Elaborator {
             if deciders.len() == 1 {
                 "decEq".to_string()
             } else {
-                let p = data.params[j].0.to_string();
+                let p = data.params()[j].0.to_string();
                 let mut chars = p.chars();
                 match chars.next() {
                     Some(c) => format!("decEq{}{}", c.to_uppercase(), chars.as_str()),
@@ -969,9 +969,9 @@ impl Elaborator {
             var(&ty_name),
             (0..np)
                 .map(|j| {
-                    if data.auto_params.get(j) == Some(&true) {
+                    if data.auto_params().get(j) == Some(&true) {
                         Expr::NamedArg(
-                            n(&data.params[j].0),
+                            n(&data.params()[j].0),
                             Box::new(var(&param(j))),
                             span,
                             Bracket::Square,
@@ -995,14 +995,14 @@ impl Elaborator {
                 let container = plan.nested[m - 1].member.data;
                 (
                     container,
-                    self.globals.data(container).path.to_string(),
+                    self.globals.data(container).path().to_string(),
                     apps(
                         var(&format!("{prefix}type")),
                         (0..np).map(|j| var(&param(j))).collect(),
                     ),
                 )
             };
-            let ctors = &self.globals.data(matched).ctors;
+            let ctors = self.globals.data(matched).ctors();
             let member_fields = plan.member_fields(m);
 
             // T.%decEq : … -> (%r %s : T %p0 …) -> Decidable (%r = %s)

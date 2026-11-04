@@ -67,7 +67,10 @@ fn random_inputs_agree_with_the_reference_evaluator() {
     for (name, _, session) in examples().sampled(2) {
         let g = &session.elab.globals;
         let mut cases = Vec::new();
-        for id in (0..g.defs.len()).map(DefId).filter(|id| g.def(*id).export) {
+        for id in (0..g.env.defs().len())
+            .map(DefId)
+            .filter(|id| g.def(*id).export())
+        {
             let sig = exportable(g, id).expect("exports check");
             let arity = sig.params.len() + sig.checks.len();
             for _ in 0..RANDOM_CASES_PER_EXPORT {
@@ -409,9 +412,9 @@ fn rejected_call(session: &mut Session, source: &str) -> String {
         panic!("`{source}` must be a call to an exported function");
     };
     let g = &session.elab.globals;
-    let id = (0..g.defs.len())
+    let id = (0..g.env.defs().len())
         .map(DefId)
-        .find(|id| *g.def(*id).name == *name.text)
+        .find(|id| **g.def(*id).name() == *name.text)
         .unwrap_or_else(|| panic!("no export called `{}`", name.text));
     let sig = exportable(g, id).unwrap_or_else(|d| panic!("{}", d.message));
     assert_eq!(
@@ -468,7 +471,8 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             ];
             let bits = EDGES[rng.below(EDGES.len())];
             Value::Ctor(
-                g.builtins
+                g.env
+                    .builtins()
                     .float
                     .data
                     .expect("a `Float` crosses only when bound"),
@@ -547,7 +551,7 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             // Erased fields (a record's proofs) are placeholders: they're
             // checked by the record's decision procedures, not read.
             let mut runtime = ctors[c].iter();
-            let fields = g.data(*d).ctors[c]
+            let fields = g.data(*d).ctors()[c]
                 .field_erased
                 .iter()
                 .map(|erased| match erased {
@@ -587,7 +591,7 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             // it, whose type and relation nothing looks at.
             let raw = g.find_data("Map.Raw").expect("library type");
             let mut fields = vec![balanced_tree(g, key_type, &entries)];
-            fields.resize(g.data(raw).ctors[0].fields.len(), Value::Refl);
+            fields.resize(g.data(raw).ctors()[0].fields.len(), Value::Refl);
             let class = quot_value(
                 QuotForm::Mk,
                 vec![Value::Refl, Value::Refl, Value::Ctor(raw, 0, fields.into())],
@@ -640,7 +644,7 @@ fn as_key(g: &Globals, key_type: &Boundary, text: Value) -> Value {
         Boundary::Text => text,
         Boundary::Data(k, _) => {
             let mut text = Some(text);
-            let fields = g.data(*k).ctors[0]
+            let fields = g.data(*k).ctors()[0]
                 .field_erased
                 .iter()
                 .map(|erased| match erased {
@@ -686,8 +690,8 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);
             // Parameters are types, which nothing at runtime looks at.
-            let params: Vec<Value> = data.params.iter().map(|_| Value::Refl).collect();
-            let checked = data.validators.iter().filter(|v| v.ctor == *c).all(|v| {
+            let params: Vec<Value> = data.params().iter().map(|_| Value::Refl).collect();
+            let checked = data.validators().iter().filter(|v| v.ctor == *c).all(|v| {
                 let mut env = params.clone();
                 env.extend(fields[..v.field].iter().cloned());
                 let decision = force(g, eval(g, &env, &v.decision).unwrap()).unwrap();
@@ -695,7 +699,7 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
             });
             let runtime = fields
                 .iter()
-                .zip(&data.ctors[*c].field_erased)
+                .zip(&data.ctors()[*c].field_erased)
                 .filter(|(_, erased)| !**erased);
             checked
                 && field_boundaries(g, *d, args)[*c]
@@ -2119,9 +2123,9 @@ export def f (n : Nat) : Nat := helper n
     let mut session = Session::new();
     assert!(session.load("broken.sw", source).is_err());
     let g = &session.elab.globals;
-    let helper = (0..g.defs.len())
+    let helper = (0..g.env.defs().len())
         .map(DefId)
-        .find(|id| &*g.def(*id).name == "helper")
+        .find(|id| &**g.def(*id).name() == "helper")
         .expect("`helper` is declared");
     assert!(g.def(helper).body().is_none());
     let e = stitchwort_js::generate(g, session.elab.options.limits)
@@ -3125,7 +3129,10 @@ fn awkward_names_never_collide() {
             counts.join(", ")
         );
         let mut typescript = String::from("import * as m from \"./module\";\n");
-        for id in (0..g.defs.len()).map(DefId).filter(|id| g.def(*id).export) {
+        for id in (0..g.env.defs().len())
+            .map(DefId)
+            .filter(|id| g.def(*id).export())
+        {
             let sig = exportable(g, id).expect("exports check");
             let (_, b) = &sig.params[0];
             for _ in 0..CASES_PER_EXPORT {
@@ -3233,7 +3240,8 @@ fn nat_and_text_are_bound_to_the_prelude() {
         ("Text", Builtin::Text, stitchwort_js::TEXT_DATA_HASH),
     ] {
         let d = g
-            .registry
+            .env
+            .registry()
             .data(builtin)
             .unwrap_or_else(|| panic!("the prelude declares {name}"));
         let hash = data_hash(g, d).expect("hashes").expect("checked").hex();
@@ -3265,7 +3273,8 @@ fn safe_numbers_are_bound_to_the_library() {
         ("SafeInt", Builtin::SafeInt, stitchwort_js::SAFE_INT_HASH),
     ] {
         let d = g
-            .registry
+            .env
+            .registry()
             .data(builtin)
             .unwrap_or_else(|| panic!("the library declares {name}"));
         let hash = data_hash(g, d).expect("hashes").expect("checked").hex();
@@ -3484,13 +3493,14 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
     let g = &mut session.elab.globals;
     let nat = g.find_data("Nat").expect("Nat");
     let add = DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == "Nat.add")
+            .position(|d| &**d.name() == "Nat.add")
             .expect("Nat.add"),
     );
     let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
-    let span = g.def(add).span;
+    let span = g.def(add).span();
     let num = |n: u32| Term::Nat(Rc::new(BigUint::from(n)));
     let app = |f: Term, a: Term| Term::App(Rc::new(f), Rc::new(a), Icit::Explicit);
     // k : [a : Type] -> Nat;  k = f 3

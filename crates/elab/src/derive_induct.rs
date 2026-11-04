@@ -276,7 +276,7 @@ impl Elaborator {
             return Ok(());
         }
         let data = self.globals.data(d);
-        if data.group.len() != 1 || data.sort != Sort::Type(0) || data.ctors.is_empty() {
+        if data.group().len() != 1 || data.sort() != Sort::Type(0) || data.ctors().is_empty() {
             return Ok(());
         }
         let Some(lib) = self.nested_lib() else {
@@ -284,7 +284,7 @@ impl Elaborator {
         };
         let mut st = Gen {
             d,
-            np: data.params.len(),
+            np: data.params().len(),
             lib,
             shapes: Vec::new(),
             members: Vec::new(),
@@ -296,7 +296,7 @@ impl Elaborator {
             Ok(()) | Err(Stop::Unsupported) => Ok(()),
             Err(Stop::Error(e)) if e.code == "E-RESOURCE" => Err(e),
             Err(Stop::Error(e)) => {
-                let name = self.globals.data(d).name.to_string();
+                let name = self.globals.data(d).name().to_string();
                 Err(Diagnostic::error(
                     "E-INTERNAL",
                     format!(
@@ -304,7 +304,7 @@ impl Elaborator {
                         e.message
                     ),
                 )
-                .with_label(self.globals.data(d).span, "generated for this type")
+                .with_label(self.globals.data(d).span(), "generated for this type")
                 .with_note(
                     "this is a bug in the compiler (docs/proposals/nested-data-types.md, stage 3)",
                 ))
@@ -314,7 +314,7 @@ impl Elaborator {
 
     /// The declarations the generated terms use, once the core has them.
     fn nested_lib(&self) -> Option<Lib> {
-        let reg = &self.globals.registry;
+        let reg = &self.globals.env.registry();
         let def = |name: &str| match self.named(name) {
             Some((Global::Def(id), _)) => Some(*id),
             _ => None,
@@ -348,14 +348,14 @@ impl Elaborator {
         let d = st.d;
         let np = st.np;
         // How each field holds `T`.
-        let ctor_count = self.globals.data(d).ctors.len();
+        let ctor_count = self.globals.data(d).ctors().len();
         let nestable_t = self.view(d, false);
         let mut nested = false;
         for c in 0..ctor_count {
-            let fields = self.globals.data(d).ctors[c].fields.len();
+            let fields = self.globals.data(d).ctors()[c].fields.len();
             let mut row = Vec::new();
             for i in 0..fields {
-                if self.globals.data(d).ctors[c].field_erased[i] {
+                if self.globals.data(d).ctors()[c].field_erased[i] {
                     row.push(None);
                     continue;
                 }
@@ -408,12 +408,12 @@ impl Elaborator {
     /// the nestable ones that are types.
     fn view(&self, d: DataId, preds: bool) -> Vec<bool> {
         let data = self.globals.data(d);
-        data.params
+        data.params()
             .iter()
             .enumerate()
             .map(|(j, (_, ty))| {
                 preds
-                    && data.nestable.get(j).is_some_and(|n| n.is_ok())
+                    && data.nestable().get(j).is_some_and(|n| n.is_ok())
                     && matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)))
             })
             .collect()
@@ -424,8 +424,8 @@ impl Elaborator {
     fn field_type(&self, d: DataId, c: usize, i: usize) -> R<Term> {
         let g = &self.globals;
         let data = g.data(d);
-        let depth = data.params.len() + i;
-        let value = eval(g, &vars(0..depth), &data.ctors[c].fields[i].1)?;
+        let depth = data.params().len() + i;
+        let value = eval(g, &vars(0..depth), &data.ctors()[c].fields[i].1)?;
         Ok(quote(g, depth, &value)?)
     }
 
@@ -433,7 +433,7 @@ impl Elaborator {
     /// first) holds `owner`, with `preds` saying which parameters count.
     fn classify(&self, owner: DataId, preds: &[bool], ty: &Term, depth: usize) -> R<Option<Shape>> {
         let g = &self.globals;
-        let np = g.data(owner).params.len();
+        let np = g.data(owner).params().len();
         let counted = |l: usize| l < np && preds[l];
         let relevant =
             |t: &Term| mentions(t, depth, depth, Some(owner)) || mentions_level(t, depth, &counted);
@@ -458,8 +458,8 @@ impl Elaborator {
                     return Ok(None);
                 }
                 let inner = g.data(*e);
-                let ne = inner.params.len();
-                if inner.group.len() != 1 || inner.sort != Sort::Type(0) {
+                let ne = inner.params().len();
+                if inner.group().len() != 1 || inner.sort() != Sort::Type(0) {
                     return Err(Stop::Unsupported);
                 }
                 let can = self.view(*e, true);
@@ -665,12 +665,12 @@ impl Elaborator {
     fn member_parts(&mut self, st: &mut Gen, m: usize) -> R<()> {
         let (data, scope) = (st.members[m].data, st.members[m].scope);
         let base = st.np + st.members[m].scope_len();
-        let ctors = self.globals.data(data).ctors.len();
+        let ctors = self.globals.data(data).ctors().len();
         for c in 0..ctors {
             let parts = self.member_fields_preds(st, m, c, base)?;
             for pred in parts.into_iter().flatten() {
                 if let Pred::All { .. } = pred {
-                    let depth = base + self.globals.data(data).ctors[c].fields.len();
+                    let depth = base + self.globals.data(data).ctors()[c].fields.len();
                     self.add_member(st, &pred, scope, depth)?;
                 }
             }
@@ -689,9 +689,9 @@ impl Elaborator {
         base: usize,
     ) -> R<Vec<Option<Pred>>> {
         let data = st.members[m].data;
-        let ne = self.globals.data(data).params.len();
+        let ne = self.globals.data(data).params().len();
         let view = self.view(data, true);
-        let fields = self.globals.data(data).ctors[c].fields.len();
+        let fields = self.globals.data(data).ctors()[c].fields.len();
         let params = st.members[m].params.clone();
         let preds = st.members[m].preds.clone();
         let me = Me::All {
@@ -702,7 +702,7 @@ impl Elaborator {
         };
         let mut out = Vec::new();
         for i in 0..fields {
-            if self.globals.data(data).ctors[c].field_erased[i] {
+            if self.globals.data(data).ctors()[c].field_erased[i] {
                 out.push(None);
                 continue;
             }
@@ -741,14 +741,15 @@ impl Elaborator {
             return Ok(*id);
         }
         let data = self.globals.data(e);
-        if data.group.len() != 1 || data.sort != Sort::Type(0) {
+        if data.group().len() != 1 || data.sort() != Sort::Type(0) {
             return Err(Stop::Unsupported);
         }
-        let ours = !data.path.starts_with("Std.") && data.defs_before >= self.unit.module.first_def;
+        let ours =
+            !data.path().starts_with("Std.") && data.defs_before() >= self.unit.module.first_def;
         let (owner, member) = if ours && !self.has_member(e, "All") {
             (e, "All".to_string())
         } else {
-            (st.d, format!("%{}%All", data.name))
+            (st.d, format!("%{}%All", data.name()))
         };
         let id = self.define_all(st, e, owner, &member)?;
         if owner == e {
@@ -764,8 +765,8 @@ impl Elaborator {
     /// `And` (`Unit` for none), as `List.All` is written.
     fn define_all(&mut self, st: &mut Gen, e: DataId, owner: DataId, member: &str) -> R<DefId> {
         let data = self.globals.data(e);
-        let np = data.params.len();
-        let ni = data.indices.len();
+        let np = data.params().len();
+        let ni = data.indices().len();
         let view = self.view(e, true);
         let preds: Vec<usize> = (0..np).filter(|j| view[*j]).collect();
         let names = ["p", "q", "r", "s", "t", "u", "v", "w"];
@@ -774,12 +775,12 @@ impl Elaborator {
         }
         // Each constructor's fields' shapes, checked before anything is
         // declared: a container that's nested itself isn't covered.
-        let ctors = data.ctors.len();
+        let ctors = data.ctors().len();
         let mut shapes = Vec::new();
         for c in 0..ctors {
             let mut row = Vec::new();
-            for i in 0..self.globals.data(e).ctors[c].fields.len() {
-                if self.globals.data(e).ctors[c].field_erased[i] {
+            for i in 0..self.globals.data(e).ctors()[c].fields.len() {
+                if self.globals.data(e).ctors()[c].field_erased[i] {
                     row.push(None);
                     continue;
                 }
@@ -813,20 +814,20 @@ impl Elaborator {
                 .collect()
         };
         for k in (0..ni).rev() {
-            let value = eval(g, &index_env(k), &data.indices[k].1)?;
+            let value = eval(g, &index_env(k), &data.indices()[k].1)?;
             let dom = quote(g, np + preds.len() + k, &value)?;
-            ty = pi(&data.indices[k].0, Icit::Implicit, dom, ty);
+            ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         for (k, &j) in preds.iter().enumerate().rev() {
             let depth = np + k;
             let dom = pi("x", Icit::Explicit, var(depth, j), Term::Sort(Sort::Prop));
             ty = pi(names[k], Icit::Explicit, dom, ty);
         }
-        for (x, t) in data.params.iter().rev() {
+        for (x, t) in data.params().iter().rev() {
             ty = pi(x, Icit::Implicit, t.clone(), ty);
         }
-        let name: Name = format!("{}.{member}", g.data(owner).name).into();
-        let span = g.data(st.d).span;
+        let name: Name = format!("{}.{member}", g.data(owner).name()).into();
+        let span = g.data(st.d).span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         // The body.
         let params_v = vars(0..np);
@@ -844,7 +845,7 @@ impl Elaborator {
         let depth0 = x_level + 1;
         let mut branches = Vec::new();
         for (c, row) in shapes.iter().enumerate() {
-            let ctor = &self.globals.data(e).ctors[c];
+            let ctor = &self.globals.data(e).ctors()[c];
             let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
             let depth = depth0 + names.len();
             let mut parts = Vec::new();
@@ -866,12 +867,12 @@ impl Elaborator {
         let mut body = Term::Case(0, e, branches.into());
         body = lam("x", Icit::Explicit, body);
         for k in (0..ni).rev() {
-            body = lam(&self.globals.data(e).indices[k].0, Icit::Implicit, body);
+            body = lam(&self.globals.data(e).indices()[k].0, Icit::Implicit, body);
         }
         for k in (0..preds.len()).rev() {
             body = lam(names_at(k), Icit::Explicit, body);
         }
-        for (x, _) in self.globals.data(e).params.iter().rev() {
+        for (x, _) in self.globals.data(e).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         kernel::define_group(&mut self.globals, &[(id, body)])?;
@@ -882,7 +883,7 @@ impl Elaborator {
     /// Makes `T.member` name `id`.
     fn bind_generated(&mut self, owner: DataId, member: &str, id: DefId) {
         let key = Self::member_key(&self.data_key(owner), member);
-        let span = self.globals.data(owner).span;
+        let span = self.globals.data(owner).span();
         self.scope.insert(&key, Global::Def(id), span, false);
     }
 
@@ -973,9 +974,9 @@ impl Elaborator {
         let np = st.np;
         let g = &self.globals;
         let data = g.data(d);
-        let ni = data.indices.len();
+        let ni = data.indices().len();
         let nat = Term::data(st.lib.nat, Vec::new());
-        let span = data.span;
+        let span = data.span();
         // T.size : [params] → [indices] → (x: T params indices) → Nat
         let mut ty = nat.clone();
         ty = pi(
@@ -986,7 +987,7 @@ impl Elaborator {
         );
         ty = self.wrap_indices_pi(st, d, np, ty)?;
         ty = self.wrap_params_pi(d, ty);
-        let name: Name = format!("{}.{SIZE}", data.name).into();
+        let name: Name = format!("{}.{SIZE}", data.name()).into();
         let size_id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         let sized: Vec<usize> = (0..st.members.len())
             .filter(|m| st.members[*m].preds.iter().any(Pred::involves_motive))
@@ -994,7 +995,7 @@ impl Elaborator {
         let mut member_ids = vec![None; st.members.len()];
         for &m in &sized {
             let ty = self.member_size_type(st, m)?;
-            let name: Name = format!("{}.%m{}%{SIZE}", self.globals.data(d).name, m + 1).into();
+            let name: Name = format!("{}.%m{}%{SIZE}", self.globals.data(d).name(), m + 1).into();
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             member_ids[m] = Some(id);
         }
@@ -1007,7 +1008,7 @@ impl Elaborator {
         {
             let depth0 = np + ni + 1;
             let mut branches = Vec::new();
-            for c in 0..self.globals.data(d).ctors.len() {
+            for c in 0..self.globals.data(d).ctors().len() {
                 let names = self.ctor_names(d, c);
                 let depth = depth0 + names.len();
                 let mut parts = Vec::new();
@@ -1061,7 +1062,7 @@ impl Elaborator {
 
     /// The constructor's fields' names.
     fn ctor_names(&self, d: DataId, c: usize) -> Vec<Name> {
-        self.globals.data(d).ctors[c]
+        self.globals.data(d).ctors()[c]
             .fields
             .iter()
             .map(|(x, _)| x.clone())
@@ -1083,14 +1084,14 @@ impl Elaborator {
         let data = g.data(d);
         let np = st.np;
         let mut ty = rest;
-        for k in (0..data.indices.len()).rev() {
+        for k in (0..data.indices().len()).rev() {
             let env: Vec<Value> = vars(0..np)
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(first + j)))
                 .collect();
-            let value = eval(g, &env, &data.indices[k].1)?;
+            let value = eval(g, &env, &data.indices()[k].1)?;
             let dom = quote(g, first + k, &value)?;
-            ty = pi(&data.indices[k].0, Icit::Implicit, dom, ty);
+            ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         Ok(ty)
     }
@@ -1098,7 +1099,7 @@ impl Elaborator {
     /// `[params…] → ty`.
     fn wrap_params_pi(&self, d: DataId, ty: Term) -> Term {
         let mut ty = ty;
-        for (x, t) in self.globals.data(d).params.iter().rev() {
+        for (x, t) in self.globals.data(d).params().iter().rev() {
             ty = pi(x, Icit::Implicit, t.clone(), ty);
         }
         ty
@@ -1110,14 +1111,14 @@ impl Elaborator {
     fn wrap_lams(&self, d: DataId, ni: usize, extra: Option<&[Name]>, body: Term) -> Term {
         let mut body = lam("x", Icit::Explicit, body);
         for k in (0..ni).rev() {
-            body = lam(&self.globals.data(d).indices[k].0, Icit::Implicit, body);
+            body = lam(&self.globals.data(d).indices()[k].0, Icit::Implicit, body);
         }
         if let Some(extra) = extra {
             for x in extra.iter().rev() {
                 body = lam(x, Icit::Explicit, body);
             }
         }
-        for (x, _) in self.globals.data(d).params.iter().rev() {
+        for (x, _) in self.globals.data(d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         body
@@ -1281,7 +1282,7 @@ impl Elaborator {
         let np = st.np;
         let ns = member.scope_len();
         let e = g.data(member.data);
-        let ne_i = e.indices.len();
+        let ne_i = e.indices().len();
         let first_index = np + ns + extra.len();
         let x_level = first_index + ne_i;
         let mut ty = result(x_level + 1, x_level)?;
@@ -1299,9 +1300,9 @@ impl Elaborator {
                 .cloned()
                 .chain((0..k).map(|j| Value::var(first_index + j)))
                 .collect();
-            let value = eval(g, &env, &e.indices[k].1)?;
+            let value = eval(g, &env, &e.indices()[k].1)?;
             ty = pi(
-                &e.indices[k].0,
+                &e.indices()[k].0,
                 Icit::Implicit,
                 quote(g, first_index + k, &value)?,
                 ty,
@@ -1312,8 +1313,8 @@ impl Elaborator {
         }
         if let Some((c, n)) = member.scope {
             for k in (0..n).rev() {
-                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors[c].fields[k].1)?;
-                let x = &g.data(st.d).ctors[c].fields[k].0;
+                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
+                let x = &g.data(st.d).ctors()[c].fields[k].0;
                 ty = pi(x, Icit::Explicit, quote(g, np + k, &value)?, ty);
             }
         }
@@ -1326,18 +1327,18 @@ impl Elaborator {
         let member = &st.members[m];
         let e = g.data(member.data);
         let mut body = lam("x", Icit::Explicit, body);
-        for k in (0..e.indices.len()).rev() {
-            body = lam(&e.indices[k].0, Icit::Implicit, body);
+        for k in (0..e.indices().len()).rev() {
+            body = lam(&e.indices()[k].0, Icit::Implicit, body);
         }
         for x in extra.iter().rev() {
             body = lam(x, Icit::Explicit, body);
         }
         if let Some((c, n)) = member.scope {
             for k in (0..n).rev() {
-                body = lam(&g.data(st.d).ctors[c].fields[k].0, Icit::Explicit, body);
+                body = lam(&g.data(st.d).ctors()[c].fields[k].0, Icit::Explicit, body);
             }
         }
-        for (x, _) in g.data(st.d).params.iter().rev() {
+        for (x, _) in g.data(st.d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         body
@@ -1349,11 +1350,11 @@ impl Elaborator {
         let np = st.np;
         let ns = st.members[m].scope_len();
         let data = st.members[m].data;
-        let ne_i = self.globals.data(data).indices.len();
+        let ne_i = self.globals.data(data).indices().len();
         let depth0 = np + ns + ne_i + 1;
         let scope_levels: Vec<usize> = (np..np + ns).collect();
         let mut branches = Vec::new();
-        for c in 0..self.globals.data(data).ctors.len() {
+        for c in 0..self.globals.data(data).ctors().len() {
             let names = self.ctor_names(data, c);
             let depth = depth0 + names.len();
             let parts = self.member_fields_preds(st, m, c, depth0)?;
@@ -1403,7 +1404,7 @@ impl Elaborator {
             }
         }
         let d = st.d;
-        for c in 0..self.globals.data(d).ctors.len() {
+        for c in 0..self.globals.data(d).ctors().len() {
             for i in 0..st.shapes[c].len() {
                 let Some(shape) = st.shapes[c][i].clone() else {
                     continue;
@@ -1507,9 +1508,9 @@ impl Elaborator {
         ty = pi("q", Icit::Explicit, quote(g, q, &elem)?, ty);
         if let Some((c, n)) = st.members[m].scope {
             for k in (0..n).rev() {
-                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors[c].fields[k].1)?;
+                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
                 ty = pi(
-                    &g.data(st.d).ctors[c].fields[k].0,
+                    &g.data(st.d).ctors()[c].fields[k].0,
                     Icit::Explicit,
                     quote(g, np + k, &value)?,
                     ty,
@@ -1517,8 +1518,8 @@ impl Elaborator {
             }
         }
         ty = self.wrap_params_pi(st.d, ty);
-        let name: Name = format!("{}.%m{}%sizeMem", g.data(st.d).name, m + 1).into();
-        let span = g.data(st.d).span;
+        let name: Name = format!("{}.%m{}%sizeMem", g.data(st.d).name(), m + 1).into();
+        let span = g.data(st.d).span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
         let g = &self.globals;
         // The body: cases on xs, then on h.
@@ -1636,10 +1637,10 @@ impl Elaborator {
         );
         if let Some((c, n)) = st.members[m].scope {
             for k in (0..n).rev() {
-                body = lam(&g.data(st.d).ctors[c].fields[k].0, Icit::Explicit, body);
+                body = lam(&g.data(st.d).ctors()[c].fields[k].0, Icit::Explicit, body);
             }
         }
-        for (x, _) in g.data(st.d).params.iter().rev() {
+        for (x, _) in g.data(st.d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         kernel::define_group(&mut self.globals, &[(id, body)])?;
@@ -1696,7 +1697,7 @@ impl Elaborator {
         // Which fields the statement needs: those its sizes mention, and
         // what their types mention, closed.
         let g = &self.globals;
-        let ctor = &g.data(d).ctors[c];
+        let ctor = &g.data(d).ctors()[c];
         let mut needed = vec![false; nf];
         let mark = |t: &Term, depth: usize, needed: &mut Vec<bool>| {
             for (s, under) in t.subterms() {
@@ -1788,8 +1789,8 @@ impl Elaborator {
         ty = self.wrap_params_pi(d, ty);
         let ctor_name = ctor.name.to_string();
         let member = format!("%{ctor_name}%{i}%sizeMem");
-        let name: Name = format!("{}.{member}", g.data(d).name).into();
-        let span = g.data(d).span;
+        let name: Name = format!("{}.{member}", g.data(d).name()).into();
+        let span = g.data(d).span();
         let field_names: Vec<Name> = kept.iter().map(|k| ctor.fields[*k].0.clone()).collect();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
         // The proof: lessLe of the list's lemma, then into the sum.
@@ -1830,7 +1831,7 @@ impl Elaborator {
         for x in field_names.iter().rev() {
             body = lam(x, Icit::Explicit, body);
         }
-        for (x, _) in g.data(d).params.iter().rev() {
+        for (x, _) in g.data(d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         kernel::define_group(&mut self.globals, &[(id, body)])?;
@@ -1845,9 +1846,9 @@ impl Elaborator {
         let d = st.d;
         let np = st.np;
         let data = self.globals.data(d);
-        let ni = data.indices.len();
-        let nc = data.ctors.len();
-        let span = data.span;
+        let ni = data.indices().len();
+        let nc = data.ctors().len();
+        let span = data.span();
         // T.induct : [params] (motive) (cases…) [indices] (x) → motive is x
         let ty = {
             let motive = np;
@@ -1868,12 +1869,12 @@ impl Elaborator {
             ty = pi("motive", Icit::Explicit, self.motive_type(st, np)?, ty);
             self.wrap_params_pi(d, ty)
         };
-        let name: Name = format!("{}.{INDUCT}", self.globals.data(d).name).into();
+        let name: Name = format!("{}.{INDUCT}", self.globals.data(d).name()).into();
         let induct = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
         let mut ids = Vec::new();
         for m in 0..st.members.len() {
             let ty = self.member_induct_type(st, m)?;
-            let name: Name = format!("{}.%m{}%{INDUCT}", self.globals.data(d).name, m + 1).into();
+            let name: Name = format!("{}.%m{}%{INDUCT}", self.globals.data(d).name(), m + 1).into();
             ids.push(kernel::declare_def(
                 &mut self.globals,
                 &name,
@@ -1950,7 +1951,7 @@ impl Elaborator {
     fn case_names(&self, d: DataId) -> Vec<Name> {
         self.globals
             .data(d)
-            .ctors
+            .ctors()
             .iter()
             .map(|c| {
                 let name = c.name.to_string();
@@ -1968,7 +1969,7 @@ impl Elaborator {
     /// Prop`.
     fn motive_type(&self, st: &Gen, depth: usize) -> R<Term> {
         let d = st.d;
-        let ni = self.globals.data(d).indices.len();
+        let ni = self.globals.data(d).indices().len();
         let x = depth + ni;
         let ty = pi(
             "x",
@@ -1985,9 +1986,9 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
-            let value = eval(g, &env, &data.indices[k].1)?;
+            let value = eval(g, &env, &data.indices()[k].1)?;
             ty = pi(
-                &data.indices[k].0,
+                &data.indices()[k].0,
                 Icit::Explicit,
                 quote(g, depth + k, &value)?,
                 ty,
@@ -2013,7 +2014,7 @@ impl Elaborator {
         mem: bool,
     ) -> R<Term> {
         let d = st.d;
-        let nc = self.globals.data(d).ctors.len();
+        let nc = self.globals.data(d).ctors().len();
         let names = self.case_names(d);
         let mut tys = Vec::new();
         for c in 0..nc {
@@ -2060,7 +2061,7 @@ impl Elaborator {
             .collect();
         let g = &self.globals;
         let data = g.data(d);
-        let ctor = &data.ctors[c];
+        let ctor = &data.ctors()[c];
         let end = depth + nf + hyps.len();
         // motive (result indices) (C fields)
         let env: Vec<Value> = vars(0..np)
@@ -2086,7 +2087,7 @@ impl Elaborator {
             ty = pi(&format!("{}Ih", fields[*i]), Icit::Explicit, dom, ty);
         }
         let g = &self.globals;
-        let ctor = &g.data(d).ctors[c];
+        let ctor = &g.data(d).ctors()[c];
         for k in (0..nf).rev() {
             let env: Vec<Value> = vars(0..np)
                 .into_iter()
@@ -2203,7 +2204,7 @@ impl Elaborator {
     fn member_induct_type(&mut self, st: &mut Gen, m: usize) -> R<Term> {
         let np = st.np;
         let ns = st.members[m].scope_len();
-        let nc = self.globals.data(st.d).ctors.len();
+        let nc = self.globals.data(st.d).ctors().len();
         let motive = np + ns;
         // The extra binders' types, built ahead (they need `&mut self`).
         let motive_ty = self.motive_type(st, motive)?;
@@ -2231,7 +2232,7 @@ impl Elaborator {
             preds: member.preds.clone(),
             indices: Vec::new(),
         };
-        let ne_i = self.globals.data(member.data).indices.len();
+        let ne_i = self.globals.data(member.data).indices().len();
         let first_index = np + ns + 1 + nc;
         let result = |depth: usize, x: usize| -> R<Term> {
             let Pred::All {
@@ -2261,15 +2262,15 @@ impl Elaborator {
     fn member_induct_body(&mut self, st: &mut Gen, inducts: &Inducts, m: usize) -> R<Term> {
         let np = st.np;
         let ns = st.members[m].scope_len();
-        let nc = self.globals.data(st.d).ctors.len();
+        let nc = self.globals.data(st.d).ctors().len();
         let data = st.members[m].data;
-        let ne_i = self.globals.data(data).indices.len();
+        let ne_i = self.globals.data(data).indices().len();
         let motive = np + ns;
         let cases: Vec<usize> = (motive + 1..motive + 1 + nc).collect();
         let depth0 = motive + 1 + nc + ne_i + 1;
         let scope_levels: Vec<usize> = (np..np + ns).collect();
         let mut branches = Vec::new();
-        for c in 0..self.globals.data(data).ctors.len() {
+        for c in 0..self.globals.data(data).ctors().len() {
             let names = self.ctor_names(data, c);
             let depth = depth0 + names.len();
             let parts = self.member_fields_preds(st, m, c, depth0)?;
@@ -2303,8 +2304,8 @@ impl Elaborator {
     fn define_induct_mem(&mut self, st: &mut Gen) -> R<()> {
         let d = st.d;
         let np = st.np;
-        let nc = self.globals.data(d).ctors.len();
-        let ni = self.globals.data(d).indices.len();
+        let nc = self.globals.data(d).ctors().len();
+        let ni = self.globals.data(d).indices().len();
         // Is there such a field?
         let mut any = false;
         for c in 0..nc {
@@ -2340,8 +2341,8 @@ impl Elaborator {
             ty = pi("motive", Icit::Explicit, self.motive_type(st, np)?, ty);
             self.wrap_params_pi(d, ty)
         };
-        let span = self.globals.data(d).span;
-        let name: Name = format!("{}.{INDUCT_MEM}", self.globals.data(d).name).into();
+        let span = self.globals.data(d).span();
+        let name: Name = format!("{}.{INDUCT_MEM}", self.globals.data(d).name()).into();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
         // induct [params] motive (case adapters…) [indices] x
         let motive = np;

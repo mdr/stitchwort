@@ -108,9 +108,9 @@ export def opened (n: Nat): Nat := Count.open 0 (() => total 0 n)
 
 fn def_named(session: &Session, name: &str) -> DefId {
     let g = &session.elab.globals;
-    (0..g.defs.len())
+    (0..g.env.defs().len())
         .map(DefId)
-        .rfind(|id| &*g.def(*id).name == name)
+        .rfind(|id| &**g.def(*id).name() == name)
         .unwrap_or_else(|| panic!("no definition `{name}`"))
 }
 

@@ -43,14 +43,14 @@ impl Elaborator {
     pub(crate) fn derive_record_decidable(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
         if self.unit.loading_prelude
-            || data.sort != Sort::Prop
-            || data.group.len() > 1
-            || !data.indices.is_empty()
-            || data.ctors.len() != 1
+            || data.sort() != Sort::Prop
+            || data.group().len() > 1
+            || !data.indices().is_empty()
+            || data.ctors().len() != 1
         {
             return Ok(());
         }
-        let fields = &data.ctors[0].fields;
+        let fields = &data.ctors()[0].fields;
         if let Some(k) = (0..fields.len()).find(|&k| crate::cases::mentions_fields(&fields[k].1, k))
         {
             let why = format!(
@@ -63,7 +63,7 @@ impl Elaborator {
         // `T.%C%P%k`, the fields' types, unless made already.
         let count = fields.len();
         for k in 0..count {
-            let ctor = &self.globals.data(d).ctors[0].name;
+            let ctor = &self.globals.data(d).ctors()[0].name;
             let key = Self::member_key(&self.data_key(d), &format!("%{ctor}%P%{k}"));
             if self.scope.get(&key).is_none() {
                 self.derive_proof_type(d, 0, k)?;
@@ -104,10 +104,10 @@ impl Elaborator {
     /// `auto` finds (with the record's parameters as variables), if so.
     fn undecidable_field(&mut self, d: DataId) -> Result<Option<String>> {
         let data = self.globals.data(d);
-        let span = data.span;
-        let np = data.params.len();
-        let params: Vec<(Name, Term)> = data.params.clone();
-        let fields: Vec<Term> = data.ctors[0]
+        let span = data.span();
+        let np = data.params().len();
+        let params: Vec<(Name, Term)> = data.params().to_vec();
+        let fields: Vec<Term> = data.ctors()[0]
             .fields
             .iter()
             .map(|(_, t)| t.clone())
@@ -139,8 +139,8 @@ impl Elaborator {
     /// The signature and the equation of `T.%instDecidable`.
     fn decidable_source(&self, d: DataId) -> (Decl, Decl) {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let span = data.span;
+        let ty_name = self.relative_to_root(data.name());
+        let span = data.span();
         let n = |text: &str| ast::Name {
             text: text.to_string(),
             span,
@@ -150,12 +150,12 @@ impl Elaborator {
             args.into_iter()
                 .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
         };
-        let np = data.params.len();
-        let ctor = &data.ctors[0];
+        let np = data.params().len();
+        let ctor = &data.ctors()[0];
         let count = ctor.fields.len();
         // The parameters' own names, so a note about a field reads as the
         // field's type is written (`no way to decide `Even n``).
-        let param = |j: usize| data.params[j].0.to_string();
+        let param = |j: usize| data.params()[j].0.to_string();
         let h = |k: usize| format!("%h{k}");
         // An `auto` parameter is given by name (docs/proposals/interfaces.md
         // §7.5): `T p [ord := q]`.
@@ -163,9 +163,9 @@ impl Elaborator {
             var(&ty_name),
             (0..np)
                 .map(|j| {
-                    if data.auto_params.get(j) == Some(&true) {
+                    if data.auto_params().get(j) == Some(&true) {
                         Expr::NamedArg(
-                            n(&data.params[j].0),
+                            n(&data.params()[j].0),
                             Box::new(var(&param(j))),
                             span,
                             Bracket::Square,

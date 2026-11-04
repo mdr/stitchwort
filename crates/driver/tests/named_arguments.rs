@@ -43,14 +43,17 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
 fn hashes(session: &Session, first: (usize, usize)) -> Vec<(String, String)> {
     let g = &session.elab.globals;
     let mut out = Vec::new();
-    for i in first.0..g.datas.len() {
+    for i in first.0..g.env.datas().len() {
         out.push((
-            format!("data {}", g.datas[i].path),
+            format!("data {}", g.env.datas()[i].path()),
             show(data_hash(g, DataId(i))),
         ));
     }
-    for i in first.1..g.defs.len() {
-        out.push((g.defs[i].path.to_string(), show(def_hash(g, DefId(i)))));
+    for i in first.1..g.env.defs().len() {
+        out.push((
+            g.env.defs()[i].path().to_string(),
+            show(def_hash(g, DefId(i))),
+        ));
     }
     out
 }
@@ -75,8 +78,8 @@ fn load_session(name: &str, text: &str) -> Result<(Session, Vec<(String, String)
 /// the errors.
 fn load_in(session: &mut Session, name: &str, text: &str) -> Result<Vec<(String, String)>, String> {
     let first = (
-        session.elab.globals.datas.len(),
-        session.elab.globals.defs.len(),
+        session.elab.globals.env.datas().len(),
+        session.elab.globals.env.defs().len(),
     );
     match session.load(name, text) {
         Ok(_) => Ok(hashes(session, first)),
@@ -352,8 +355,8 @@ fn parameters(ty: &Term) -> Vec<(Icit, Option<String>)> {
 /// and how many arguments were named.
 fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
     let g = &session.elab.globals;
-    let by_path: BTreeMap<String, usize> = (0..g.defs.len())
-        .map(|i| (g.defs[i].path.to_string(), i))
+    let by_path: BTreeMap<String, usize> = (0..g.env.defs().len())
+        .map(|i| (g.env.defs()[i].path().to_string(), i))
         .collect();
     // Insertions, as (offset, order, text): an argument's opening comes
     // after the closings of those that end where it starts, and before
@@ -372,9 +375,9 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
         else {
             continue;
         };
-        let params = parameters(&g.defs[id].ty);
+        let params = parameters(g.env.defs()[id].ty());
         // Positional arguments skip the parameters with defaults.
-        let defaults = g.defs[id].param_defaults.as_deref();
+        let defaults = g.env.defs()[id].param_defaults.as_deref();
         let defaulted =
             |k: usize| defaults.is_some_and(|d| d.params.get(k).is_some_and(Option::is_some));
         let mut explicit = params
@@ -686,9 +689,10 @@ def unused (n: Nat): Twice := { x = n * 3, twice = 1 }
         let g = &session.elab.globals;
         let has_let = |name: &str| {
             let def = g
-                .defs
+                .env
+                .defs()
                 .iter()
-                .find(|d| d.name.as_ref() == name)
+                .find(|d| d.name().as_ref() == name)
                 .unwrap_or_else(|| panic!("{name} is defined"));
             let body = def.body().expect("checked");
             body.subterms().any(|(t, _)| matches!(t, Term::Let(..)))

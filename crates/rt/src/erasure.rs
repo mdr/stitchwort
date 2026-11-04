@@ -43,22 +43,22 @@ impl DefShape {
 /// arity): for backends that build `Delay` values rather than erasing them.
 pub fn def_shape(g: &Globals, id: DefId, primitives_whole: bool) -> Result<DefShape, Diagnostic> {
     let def = g.def(id);
-    let tel = telescope(g, &def.ty_value, def.span)?;
+    let tel = telescope(g, def.ty_value(), def.span())?;
     let partial = match (
         force(g, tel.result)?,
-        g.builtins.primitive_id(Primitive::Delay),
+        g.env.builtins().primitive_id(Primitive::Delay),
     ) {
         (Value::Neutral(Head::Def(d), spine), Some(delay)) => d == delay && spine.len() == 3,
         _ => false,
     };
     let params: Vec<bool> = tel.params.iter().map(|(_, _, erased)| *erased).collect();
     // A float primitive has no body either, and no parameter to erase.
-    let mask_len = if (primitives_whole && g.builtins.primitive(id).is_some())
-        || g.builtins.float_primitive(id).is_some()
+    let mask_len = if (primitives_whole && g.env.builtins().primitive(id).is_some())
+        || g.env.builtins().float_primitive(id).is_some()
     {
         params.len()
     } else {
-        def.arity
+        def.arity()
     };
     Ok(DefShape {
         params,
@@ -82,7 +82,7 @@ pub fn reachable(
             _ => None,
         }));
     }
-    let mut used = vec![false; g.defs.len()];
+    let mut used = vec![false; g.env.defs().len()];
     let mut stack: Vec<DefId> = roots.into_iter().collect();
     while let Some(id) = stack.pop() {
         if std::mem::replace(&mut used[id.0], true) {
@@ -94,7 +94,7 @@ pub fn reachable(
         {
             visit(body, &mut stack);
         }
-        for validator in &def.validators {
+        for validator in def.validators() {
             visit(&validator.decision, &mut stack);
         }
     }
@@ -122,7 +122,7 @@ pub fn is_done_continuation(g: &Globals, body: &Term) -> bool {
         body = t;
     }
     matches!(body, Term::Ctor(d, 0, fields)
-        if Some(*d) == g.registry.data(Builtin::Comp)
+        if Some(*d) == g.env.registry().data(Builtin::Comp)
             && matches!(&fields[..], [field] if matches!(field.strip_loc(), Term::Var(0))))
 }
 

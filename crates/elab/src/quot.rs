@@ -434,7 +434,7 @@ pub(crate) fn recursive_through_quotient(
                 _ => quotient_like(g, t, group, &mut seen) && mentions_group(t, group).is_some(),
             })?;
             let member = mentions_group(inner, group)?;
-            let name = &g.data(member).name;
+            let name = g.data(member).name();
             let direct = matches!(inner.strip_loc(), Term::Quot(QuotForm::Type, ..));
             let what = if direct {
                 "which is a quotient type"
@@ -517,7 +517,7 @@ fn data_reaches(g: &Globals, d: DataId, seen: &mut Seen) -> bool {
     }
     let fields: Vec<Term> = g
         .data(d)
-        .ctors
+        .ctors()
         .iter()
         .flat_map(|c| c.fields.iter().map(|(_, ty)| ty.clone()))
         .collect();
@@ -531,7 +531,7 @@ fn data_reaches(g: &Globals, d: DataId, seen: &mut Seen) -> bool {
 /// one.
 fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
     let def = g.def(f);
-    let mut ty = def.ty.strip_loc();
+    let mut ty = def.ty().strip_loc();
     while let Term::Pi(_, _, _, cod) = ty {
         ty = cod.strip_loc();
     }

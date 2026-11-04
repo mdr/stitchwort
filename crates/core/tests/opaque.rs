@@ -706,7 +706,7 @@ fn unfolding_one_member_of_a_group_unfolds_the_others() {
 #[test]
 fn a_member_cant_unfold_a_group_mate() {
     let mut p = Prelude::new();
-    let odd = DefId(p.g.defs.len() + 1); // declared second, below
+    let odd = DefId(p.g.env.defs().len() + 1); // declared second, below
     assert_eq!(
         even_odd(&mut p, [true, true], [&[odd], &[]]).err(),
         Some("E-UNFOLDING-GROUP")

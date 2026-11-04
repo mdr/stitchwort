@@ -20,22 +20,22 @@ fn codes(diagnostics: &[Diagnostic]) -> Vec<&'static str> {
 
 /// The definitions added after the prelude, in the kernel's order.
 fn new_defs(session: &Session) -> Vec<String> {
-    let prelude = Session::new().elab.globals.defs.len();
-    session.elab.globals.defs[prelude..]
+    let prelude = Session::new().elab.globals.env.defs().len();
+    session.elab.globals.env.defs()[prelude..]
         .iter()
-        .map(|d| d.name.to_string())
+        .map(|d| d.name().to_string())
         .collect()
 }
 
 fn def_named(session: &Session, name: &str) -> DefId {
-    let defs = &session.elab.globals.defs;
-    DefId(defs.iter().rposition(|d| &*d.name == name).expect(name))
+    let defs = &session.elab.globals.env.defs();
+    DefId(defs.iter().rposition(|d| &**d.name() == name).expect(name))
 }
 
 /// How many definitions are in `name`'s group.
 fn group_size(session: &Session, name: &str) -> usize {
     let def = session.elab.globals.def(def_named(session, name));
-    def.group.as_ref().map_or(0, |g| g.len())
+    def.group().as_ref().map_or(0, |g| g.len())
 }
 
 #[test]
@@ -209,10 +209,10 @@ fn abilities_are_ordered_by_where_they_are_written() {
 
 /// The data types added after the prelude, and the size of each one's group.
 fn new_datas(session: &Session) -> Vec<(String, usize)> {
-    let prelude = Session::new().elab.globals.datas.len();
-    session.elab.globals.datas[prelude..]
+    let prelude = Session::new().elab.globals.env.datas().len();
+    session.elab.globals.env.datas()[prelude..]
         .iter()
-        .map(|d| (d.name.to_string(), d.group.len()))
+        .map(|d| (d.name().to_string(), d.group().len()))
         .collect()
 }
 
@@ -252,15 +252,15 @@ fn a_failed_data_group_fails_every_member_without_cascading() {
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-UNKNOWN-NAME"], "{errors:#?}");
     let g = &session.elab.globals;
-    let prelude = Session::new().elab.globals.datas.len();
-    for data in &g.datas[prelude..] {
+    let prelude = Session::new().elab.globals.env.datas().len();
+    for data in &g.env.datas()[prelude..] {
         assert_eq!(
             data.state(),
             stitchwort_core::globals::State::Failed,
             "{}",
-            data.name
+            data.name()
         );
-        assert!(data.ctors.is_empty());
+        assert!(data.ctors().is_empty());
     }
     // Mistakes in both are both reported, in source order.
     let (_, result) = load(

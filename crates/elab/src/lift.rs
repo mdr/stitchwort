@@ -497,7 +497,7 @@ fn erased_type(e: &Elaborator, draft: &Draft, ty: &Value) -> Result<bool> {
                 at += 1;
             }
             Value::Sort(_) | Value::Eq(..) => return Ok(true),
-            Value::Data(d, _) => return Ok(g.data(d).sort == Sort::Prop),
+            Value::Data(d, _) => return Ok(g.data(d).sort() == Sort::Prop),
             _ => break,
         }
     }
@@ -721,7 +721,9 @@ impl Elaborator {
                 self.opaque_helper(id);
                 if let Some(update) = &d.update {
                     let shown = self.update_shown(d, &ordered[i], update);
-                    self.globals.defs[id.0].update_shown = shown.map(Rc::new);
+                    if let Some(shown) = shown {
+                        self.globals.set_update_shown(id, Rc::new(shown));
+                    }
                 }
                 let g = &self.globals;
                 let mut call = Term::Def(id);
@@ -1572,8 +1574,8 @@ impl Elaborator {
         };
         for (_, id, _) in helpers {
             let def = self.globals.def(*id);
-            let full = format!("`{}`", def.name);
-            let Some((_, short)) = def.name.rsplit_once('.') else {
+            let full = format!("`{}`", def.name());
+            let Some((_, short)) = def.name().rsplit_once('.') else {
                 continue;
             };
             let short = format!("`{short}`");
@@ -1590,7 +1592,7 @@ impl Elaborator {
             .tables
             .lifted
             .iter()
-            .map(|&(id, span)| (self.globals.def(id).name.to_string(), span))
+            .map(|&(id, span)| (self.globals.def(id).name().to_string(), span))
             .collect();
         lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
         let mut owners: Vec<String> = Vec::new();

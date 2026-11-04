@@ -2323,13 +2323,13 @@ mod tests {
         e.unit.loading_prelude = false;
         e.globals.glue.set(true);
         let n = DataId(
-            (e.globals.datas.iter())
-                .position(|d| d.path.rsplit('.').next() == Some("N"))
+            (e.globals.env.datas().iter())
+                .position(|d| d.path().rsplit('.').next() == Some("N"))
                 .expect("N"),
         );
         let def = |name: &str| {
-            let found =
-                (e.globals.defs.iter()).position(|d| d.path.rsplit('.').next() == Some(name));
+            let found = (e.globals.env.defs().iter())
+                .position(|d| d.path().rsplit('.').next() == Some(name));
             DefId(found.unwrap_or_else(|| panic!("{name} defined")))
         };
         let (two, pred) = (def("two"), def("pred"));
@@ -2589,8 +2589,8 @@ mod tests {
         // short names, as in a declaration after them.
         e.globals.glue.set(true);
         let data = |e: &Elaborator, name: &str| {
-            let d = (e.globals.datas.iter())
-                .position(|d| d.path.rsplit('.').next() == Some(name))
+            let d = (e.globals.env.datas().iter())
+                .position(|d| d.path().rsplit('.').next() == Some(name))
                 .unwrap_or_else(|| panic!("{name} declared"));
             Value::Data(DataId(d), Vec::new())
         };

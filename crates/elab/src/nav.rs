@@ -531,16 +531,16 @@ impl Elaborator {
         let def = self.globals.def(id);
         // The declaration's name, as a written name finds it; a definition's
         // own span covers all of it.
-        let path = def.path.to_string();
+        let path = def.path().to_string();
         let relative = path.strip_prefix("Main.").unwrap_or(&path);
         let target = match self.scope.get(&path).or_else(|| self.scope.get(relative)) {
             Some((Global::Def(found), span)) if found == id => span,
-            _ => def.span,
+            _ => def.span(),
         };
         self.note(
             field.span,
             Noted {
-                key: def.path.to_string(),
+                key: def.path().to_string(),
                 target,
                 global: Global::Def(id),
                 dot: Some(field.text.clone()),
@@ -970,9 +970,9 @@ impl Elaborator {
         match global {
             Global::Def(id) => {
                 let def = self.globals.def(id);
-                if def.theorem {
+                if def.theorem() {
                     "theorem"
-                } else if def.instance {
+                } else if def.instance() {
                     "instance"
                 } else {
                     "def"
@@ -981,7 +981,7 @@ impl Elaborator {
             Global::Data(d) => {
                 if self.tables.interfaces.contains_key(&d) {
                     "interface"
-                } else if self.globals.data(d).record {
+                } else if self.globals.data(d).record() {
                     "record"
                 } else {
                     "data"
@@ -1004,9 +1004,9 @@ impl Elaborator {
     fn ctor_field_type(&self, d: stitchwort_core::DataId, c: usize, name: &str) -> Option<String> {
         let g = &self.globals;
         let data = g.data(d);
-        let ctor = &data.ctors[c];
+        let ctor = &data.ctors()[c];
         let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
-        let mut names: Vec<Name> = data.params.iter().map(|(n, _)| n.clone()).collect();
+        let mut names: Vec<Name> = data.params().iter().map(|(n, _)| n.clone()).collect();
         names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
         Some(pretty::term(g, &names, &ctor.fields[i].1))
     }
@@ -1021,7 +1021,7 @@ impl Elaborator {
         let g = &self.globals;
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
-        let mut ty = g.def(id).ty.clone();
+        let mut ty = g.def(id).ty().clone();
         while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
             let shown = pretty::term(g, &names, dom);
             // A bare row's divergence index isn't written
@@ -1073,7 +1073,7 @@ impl Elaborator {
         let table = def.param_defaults.clone()?;
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
-        let mut ty = def.ty.clone();
+        let mut ty = def.ty().clone();
         while names.len() < table.header {
             let Term::Pi(name, icit, dom, cod) = ty.strip_loc() else {
                 return None;
@@ -1089,8 +1089,8 @@ impl Elaborator {
             names.push(name.clone());
             ty = (**cod).clone();
         }
-        let kind = if def.theorem { "theorem" } else { "def" };
-        let short = def.name.rsplit('.').next().unwrap_or(&def.name);
+        let kind = if def.theorem() { "theorem" } else { "def" };
+        let short = def.name().rsplit('.').next().unwrap_or(def.name());
         Some(format!(
             "{kind} {short} {}: {}",
             parts.join(" "),
@@ -1106,7 +1106,7 @@ impl Elaborator {
                     Some(header) => header,
                     // The type as elaborated, with calls as written
                     // (`Float.isValid a`): unfolded, it can run to megabytes.
-                    None => pretty::term(g, &[], &g.def(id).ty),
+                    None => pretty::term(g, &[], g.def(id).ty()),
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
@@ -1120,19 +1120,19 @@ impl Elaborator {
             }
             Global::Data(d) => {
                 let data = g.data(d);
-                let mut ty = Term::Sort(data.sort);
-                for (name, t) in data.indices.iter().rev() {
+                let mut ty = Term::Sort(data.sort());
+                for (name, t) in data.indices().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
                 }
-                for (name, t) in data.params.iter().rev() {
+                for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
                 }
                 Some(pretty::term(g, &[], &ty))
             }
             Global::Ctor(d, c) => {
                 let data = g.data(d);
-                let ctor = &data.ctors[c];
-                let (np, nf) = (data.params.len(), ctor.fields.len());
+                let ctor = &data.ctors()[c];
+                let (np, nf) = (data.params().len(), ctor.fields.len());
                 let mut args: Vec<Term> = (0..np).map(|k| Term::Var(np + nf - 1 - k)).collect();
                 args.extend(ctor.result.iter().cloned());
                 let mut ty = Term::data(d, args);
@@ -1144,7 +1144,7 @@ impl Elaborator {
                     };
                     ty = Term::Pi(name.clone(), icit, t.clone().into(), ty.into());
                 }
-                for (name, t) in data.params.iter().rev() {
+                for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Implicit, t.clone().into(), ty.into());
                 }
                 Some(pretty::term(g, &[], &ty))

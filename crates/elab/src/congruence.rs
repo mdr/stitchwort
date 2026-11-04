@@ -78,20 +78,20 @@ pub(crate) type Candidates = Rc<[Rc<Contextual>]>;
 /// [`lookup`], those whose statement fits ([`validate_contextual`]); looked
 /// up once per definition until another declaration is added.
 pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
-    let defs = e.globals.defs.len();
+    let defs = e.globals.env.defs().len();
     if let Some((at, found)) = e.caches.cong_candidates.borrow().get(&f)
         && *at == defs
     {
         return Ok(found.clone());
     }
     let g = &e.globals;
-    let r = &g.registry;
+    let r = &g.env.registry();
     let lemmas: Vec<DefId> = if Some(f) == r.def(Builtin::ElimDec) {
         r.def(Builtin::ElimDecCong).into_iter().collect()
     } else if Some(f) == r.def(Builtin::IfThenElse) {
         r.def(Builtin::IfCong).into_iter().collect()
     } else {
-        let name = g.def(f).name.to_string();
+        let name = g.def(f).name().to_string();
         let key = [format!("Std.{name}"), name]
             .into_iter()
             .find(|k| matches!(e.scope.get(k), Some((Global::Def(id), _)) if id == f));
@@ -136,8 +136,8 @@ pub(crate) fn validate_contextual(
     f: DefId,
     lemma: DefId,
 ) -> std::result::Result<Contextual, String> {
-    let f_name = g.def(f).name.to_string();
-    let (tel, res) = split_pis(&g.def(lemma).ty, None);
+    let f_name = g.def(f).name().to_string();
+    let (tel, res) = split_pis(g.def(lemma).ty(), None);
     let total = tel.len();
     let sides = format!("its result should be `{f_name} … = {f_name} …`");
     let Term::Eq(_, lhs, rhs) = res.strip_loc() else {
@@ -256,9 +256,9 @@ pub(crate) fn validate_contextual(
 /// `Bool.ifThenElse` have theirs in the prelude.
 pub(crate) fn lookup(e: &Elaborator, f: DefId) -> Result<Lookup> {
     let g = &e.globals;
-    let name = g.def(f).name.to_string();
+    let name = g.def(f).name().to_string();
     let lemma_name = format!("{name}Cong");
-    let r = &g.registry;
+    let r = &g.env.registry();
     let lemma = if Some(f) == r.def(Builtin::ElimDec) {
         r.def(Builtin::ElimDecCong)
     } else if Some(f) == r.def(Builtin::IfThenElse) {
@@ -327,7 +327,7 @@ fn fixed_params(g: &Globals) -> Vec<(DataId, (DataId, usize))> {
         (Builtin::Divergence, Builtin::DivTotal),
     ]
     .into_iter()
-    .filter_map(|(data, ctor)| Some((g.registry.data(data)?, g.registry.ctor(ctor)?)))
+    .filter_map(|(data, ctor)| Some((g.env.registry().data(data)?, g.env.registry().ctor(ctor)?)))
     .collect()
 }
 
@@ -413,12 +413,12 @@ pub(crate) fn validate_cong(
     f: DefId,
     lemma: DefId,
 ) -> Result<std::result::Result<CongDesc, String>> {
-    let f_name = g.def(f).name.to_string();
-    let (ftel, fres) = split_pis(&g.def(f).ty, None);
+    let f_name = g.def(f).name().to_string();
+    let (ftel, fres) = split_pis(g.def(f).ty(), None);
     // `F`'s effect-row parameters are the empty row's in a congruence lemma,
     // which is about `F`'s pure use (`List.map`'s `e`).
     let (ftel, fres, rows) = at_empty_row(g, ftel, fres)?;
-    let (ltel, lres) = split_pis(&g.def(lemma).ty, None);
+    let (ltel, lres) = split_pis(g.def(lemma).ty(), None);
     let n = ftel.len();
     let total = ltel.len();
     if total <= n || (total - n) % 2 != 0 {
@@ -608,9 +608,9 @@ pub(crate) fn validate_cong(
 /// `theorem FCong (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x): F f1 xs = F f2 xs`.
 /// Type parameters and effect rows are left to be bound automatically.
 pub(crate) fn sketch(g: &Globals, f: DefId) -> String {
-    let name = g.def(f).name.to_string();
-    let (tel, _) = split_pis(&g.def(f).ty, None);
-    let row = g.registry.data(Builtin::Row);
+    let name = g.def(f).name().to_string();
+    let (tel, _) = split_pis(g.def(f).ty(), None);
+    let row = g.env.registry().data(Builtin::Row);
     let print = |names: &[Name], t: &Term| stitchwort_core::pretty::term(g, names, t);
     let mut names: Vec<Name> = Vec::new();
     let mut params = String::new();

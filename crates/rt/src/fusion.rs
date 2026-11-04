@@ -116,13 +116,13 @@ pub struct Fused {
 
 impl StateFusion {
     pub fn new(g: &Globals) -> Option<StateFusion> {
-        let r = &g.registry;
+        let r = &g.env.registry();
         let run_pure = r.loaded_def(Builtin::RunPure)?;
         let run_pure_params = def_shape(g, run_pure, false).ok()?.mask().len();
         let handle_plus = r.loaded_def(Builtin::HandlePlus)?;
         let handle_plus_mask = def_shape(g, handle_plus, false).ok()?.mask().to_vec();
         let row = r.loaded_data(Builtin::Row).and_then(|d| {
-            let empty = g.data(d).ctors.iter().position(|c| &*c.name == "Empty")?;
+            let empty = g.data(d).ctors().iter().position(|c| &*c.name == "Empty")?;
             Some((d, empty))
         });
         Some(StateFusion {
@@ -447,7 +447,7 @@ impl StateFusion {
             && walk.inlined < MAX_INLINED
             && let Some((Term::Def(id), args)) = spine_icit(term)
             && is_lifted_match(g, *id)
-            && args.len() == g.def(*id).arity
+            && args.len() == g.def(*id).arity()
             && args.iter().any(|(arg, _)| arg.mentions(2 + depth))
         {
             let args: Vec<&Term> = args.iter().map(|(arg, _)| *arg).collect();
@@ -501,7 +501,7 @@ impl StateFusion {
 /// Whether `id` is a `match` lifted out of a definition (`f.%match1`).
 fn is_lifted_match(g: &Globals, id: DefId) -> bool {
     g.def(id)
-        .path
+        .path()
         .rsplit('.')
         .next()
         .is_some_and(|last| last.starts_with("%match"))

@@ -77,8 +77,8 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
     let Ok(Value::Data(d, _)) = force(cx.g(), ty.clone()) else {
         return;
     };
-    let divergence = cx.g().registry.is_data(Builtin::Divergence, d);
-    if !cx.g().registry.is_data(Builtin::Row, d) && !divergence {
+    let divergence = cx.g().env.registry().is_data(Builtin::Divergence, d);
+    if !cx.g().env.registry().is_data(Builtin::Row, d) && !divergence {
         return;
     }
     cx.e.attempt.row_metas.borrow_mut().push(RowMeta {
@@ -133,7 +133,7 @@ pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> R
 
 /// Whether `value`, forced, is the empty row.
 fn is_empty_row(g: &Globals, value: &Value) -> bool {
-    matches!(value, Value::Ctor(d, c, _) if Some((*d, *c)) == g.registry.ctor(Builtin::RowEmpty))
+    matches!(value, Value::Ctor(d, c, _) if Some((*d, *c)) == g.env.registry().ctor(Builtin::RowEmpty))
 }
 
 /// Why a row couldn't be built.
@@ -156,7 +156,7 @@ pub(crate) enum RowFault {
 /// `unify::row_rule` (a row unknown solved from a `Comp`) and
 /// `default_rows` (an unsolved row unknown set to the empty row).
 pub(crate) fn empty_row(g: &Globals) -> Option<Value> {
-    let (data, ctor) = g.registry.ctor(Builtin::RowEmpty)?;
+    let (data, ctor) = g.env.registry().ctor(Builtin::RowEmpty)?;
     Some(Value::Ctor(data, ctor, Vec::new().into()))
 }
 
@@ -169,8 +169,8 @@ pub(crate) fn empty_row(g: &Globals) -> Option<Value> {
 /// `force` of a term the caller just built.
 pub(crate) fn ops_row(g: &Globals, op: Value, res: Value) -> std::result::Result<Value, RowFault> {
     let (Some((data, ctor)), Some(no_op)) = (
-        g.registry.ctor(Builtin::RowOps),
-        g.registry.data(Builtin::NoOp),
+        g.env.registry().ctor(Builtin::RowOps),
+        g.env.registry().data(Builtin::NoOp),
     ) else {
         return Err(RowFault::Missing);
     };
@@ -426,15 +426,15 @@ enum SettledFirst {
 fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<SettledFirst> {
     let g = cx.g();
     let (Some(comp_in), Some(comp), Some(plus), Some(empty)) = (
-        g.registry.def(Builtin::CompIn),
-        g.registry.data(Builtin::Comp),
-        g.registry.data(Builtin::Plus),
-        g.registry.ctor(Builtin::RowEmpty),
+        g.env.registry().def(Builtin::CompIn),
+        g.env.registry().data(Builtin::Comp),
+        g.env.registry().data(Builtin::Plus),
+        g.env.registry().ctor(Builtin::RowEmpty),
     ) else {
         return Ok(SettledFirst::No);
     };
-    let comp_d = g.registry.def(Builtin::CompD);
-    let total = g.registry.ctor(Builtin::DivTotal);
+    let comp_d = g.env.registry().def(Builtin::CompD);
+    let total = g.env.registry().ctor(Builtin::DivTotal);
     for ((side, _), (_, other)) in [(a, b), (b, a)] {
         let Value::Neutral(Head::Def(d), spine) = side else {
             continue;
@@ -564,7 +564,7 @@ mod tests {
     }
 
     fn data(g: &Globals, builtin: Builtin, args: Vec<Value>) -> Value {
-        Value::Data(g.registry.data(builtin).expect("a built-in"), args)
+        Value::Data(g.env.registry().data(builtin).expect("a built-in"), args)
     }
 
     fn applied(head: Head, args: Vec<Value>) -> Value {
@@ -583,14 +583,14 @@ mod tests {
     /// A fresh row unknown `?e`, and `CompIn ?e result`.
     fn comp_in(g: &Globals, result: Value) -> (usize, Value) {
         let meta = g.new_meta(span());
-        let comp_in = g.registry.def(Builtin::CompIn).expect("CompIn");
+        let comp_in = g.env.registry().def(Builtin::CompIn).expect("CompIn");
         let row = applied(Head::Meta(meta), Vec::new());
         (meta, applied(Head::Def(comp_in), vec![row, result]))
     }
 
     /// Whether `?meta` was solved with the row constructor `which`.
     fn solved_with(g: &Globals, meta: usize, which: Builtin) -> bool {
-        let (d, c) = g.registry.ctor(which).expect("a constructor");
+        let (d, c) = g.env.registry().ctor(which).expect("a constructor");
         matches!(
             g.meta_solution(meta).map(|v| force(g, v)),
             Some(Ok(Value::Ctor(d2, c2, _))) if d2 == d && c2 == c
@@ -614,7 +614,7 @@ mod tests {
     fn a_function_type_a_sort_and_a_variable_make_the_row_empty() {
         with_core(|e| {
             let g = &e.unifier();
-            let nat_id = g.registry.data(Builtin::Nat).expect("Nat");
+            let nat_id = g.env.registry().data(Builtin::Nat).expect("Nat");
             let nat_term = Rc::new(Term::Data(nat_id, Vec::new()));
             let function = eval(
                 g,
@@ -675,7 +675,11 @@ mod tests {
     fn a_partial_computation_never_fits_a_row_variable() {
         with_core(|e| {
             let g = &e.unifier();
-            let delay = g.builtins.primitive_id(Primitive::Delay).expect("Delay");
+            let delay = g
+                .env
+                .builtins()
+                .primitive_id(Primitive::Delay)
+                .expect("Delay");
             let partial = applied(Head::Def(delay), vec![nat(g)]);
             let (meta, left) = comp_in(g, nat(g));
             assert!(!unify(g, 0, &left, &partial).unwrap());
@@ -714,7 +718,7 @@ mod tests {
         with_core(|e| {
             let g = &e.unifier();
             // `rowOp ?f`: a definition stuck on an unknown.
-            let row_op = g.registry.def(Builtin::RowOp).expect("rowOp");
+            let row_op = g.env.registry().def(Builtin::RowOp).expect("rowOp");
             let unknown = applied(Head::Meta(g.new_meta(span())), Vec::new());
             let stuck = applied(Head::Def(row_op), vec![unknown]);
             let (meta, left) = comp_in(g, nat(g));

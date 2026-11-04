@@ -25,12 +25,21 @@ fn errors(source: &str) -> Vec<Diagnostic> {
 fn lemmas(session: &Session, ty: &str) -> Vec<String> {
     let g = &session.elab.globals;
     let prefix = format!("{ty}.");
-    g.defs
+    g.env
+        .defs()
         .iter()
         .filter(|d| {
-            d.name.starts_with(&prefix) && d.name.contains(".update.") && !d.name.contains('%')
+            d.name().starts_with(&prefix)
+                && d.name().contains(".update.")
+                && !d.name().contains('%')
         })
-        .map(|d| format!("{} : {}", d.name, pretty::term_for_message(g, &[], &d.ty)))
+        .map(|d| {
+            format!(
+                "{} : {}",
+                d.name(),
+                pretty::term_for_message(g, &[], d.ty())
+            )
+        })
         .collect()
 }
 
@@ -187,9 +196,10 @@ fn every_lemma_of_the_core_checks() {
         session
             .elab
             .globals
-            .defs
+            .env
+            .defs()
             .iter()
-            .all(|d| !d.name.contains(".update.") || d.body().is_some()),
+            .all(|d| !d.name().contains(".update.") || d.body().is_some()),
         "a generated update lemma has no body"
     );
 }

@@ -59,7 +59,7 @@ pub fn cut_to(text: &str, limit: usize) -> String {
 
 /// The characters of a text.
 fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
-    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let Term::Ctor(d, 0, args) = term.strip_loc() else {
         return None;
     };
@@ -311,7 +311,7 @@ fn count(noun: &str, n: usize) -> String {
 /// The elements of a list (not a text), as terms, if it is a plain chain of
 /// `Cons`.
 fn list_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
-    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let mut out = Vec::new();
     let mut rest = term.strip_loc();
     loop {
@@ -328,7 +328,7 @@ fn list_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
 
 /// The parts of a tuple, `(a, b, c)` being `MkPair a (MkPair b c)`.
 fn tuple_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
-    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let is = |b: Builtin, d| g.env.registry().is_data(b, d);
     let mut out = Vec::new();
     let mut rest = term.strip_loc();
     while let Term::Ctor(d, 0, args) = rest
@@ -351,7 +351,12 @@ fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
     use Builtin::*;
     [Nat, Int, SafeNat, SafeInt, Text, Char, Map, Float]
         .iter()
-        .any(|b| g.registry.loaded_data(*b).is_some_and(|loaded| loaded == d))
+        .any(|b| {
+            g.env
+                .registry()
+                .loaded_data(*b)
+                .is_some_and(|loaded| loaded == d)
+        })
 }
 
 fn print(g: &Globals, term: &Term) -> String {
@@ -456,8 +461,8 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
         return Some(Found {
             note: Some(format!(
                 "different constructors: {} and {}",
-                data.ctors.get(*c)?.name,
-                data.ctors.get(*c2)?.name
+                data.ctors().get(*c)?.name,
+                data.ctors().get(*c2)?.name
             )),
             ..Found::parts(path, short(&print(g, left)), short(&print(g, right)))
         });
@@ -477,7 +482,7 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
         }
         return None;
     }
-    let ctor = data.ctors.get(*c)?;
+    let ctor = data.ctors().get(*c)?;
     if a.len() != b.len() || a.len() != ctor.fields.len() {
         return leaf(path);
     }
@@ -486,7 +491,7 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
             continue;
         }
         let field = &ctor.fields[i].0;
-        if data.record {
+        if data.record() {
             path.push_str(&format!(".{field}"));
         } else if field.is_empty() || field.starts_with('_') {
             path.push_str(&format!(".{}.{i}", ctor.name));

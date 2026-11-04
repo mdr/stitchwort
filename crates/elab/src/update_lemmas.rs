@@ -48,14 +48,14 @@ impl Elaborator {
     /// be read back. Source can't declare such a name itself.
     pub(crate) fn derive_update_lemmas(&mut self, d: DataId, decl: &Decl) -> Result<()> {
         let data = self.globals.data(d);
-        if data.record || data.sort == Sort::Prop || !data.indices.is_empty() {
+        if data.record() || data.sort() == Sort::Prop || !data.indices().is_empty() {
             return Ok(());
         }
         // Each is placed at its updated field's name in the first
         // constructor: navigation shows what it is from there.
         let at = |field: &str| -> Span {
             let Decl::Data { ctors, .. } = decl else {
-                return data.span;
+                return data.span();
             };
             ctors
                 .first()
@@ -65,7 +65,7 @@ impl Elaborator {
                         .flat_map(|b| &b.names)
                         .find(|n| n.text == field)
                 })
-                .map_or(data.span, |n| n.span)
+                .map_or(data.span(), |n| n.span)
         };
         let lemmas = self.update_lemmas_of(d)?;
         let spans: Vec<Span> = lemmas.iter().map(|l| at(&l.replaced[0])).collect();
@@ -117,7 +117,7 @@ impl Elaborator {
         let readable: Vec<&Name> = shared
             .iter()
             .filter(|(_, positions)| {
-                data.ctors.iter().zip(positions).all(|(ctor, &pos)| {
+                data.ctors().iter().zip(positions).all(|(ctor, &pos)| {
                     ctor.field_sorts[pos] != Sort::Prop
                         && (0..pos).all(|j| !ctor.fields[pos].1.mentions(j))
                 })
@@ -133,7 +133,7 @@ impl Elaborator {
             let mut grew = true;
             while grew && updatable {
                 grew = false;
-                for ctor in &data.ctors {
+                for ctor in data.ctors() {
                     for (j, (field, ty)) in ctor.fields.iter().enumerate() {
                         if replaced.contains(field) {
                             continue;
@@ -188,13 +188,13 @@ impl Elaborator {
         span: Span,
     ) -> (Decl, Vec<Decl>) {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
+        let ty_name = self.relative_to_root(data.name());
         let n = |text: &str| ast::Name {
             text: text.to_string(),
             span,
         };
         let var = |text: &str| Expr::Var(n(text));
-        let params: Vec<String> = data.params.iter().map(|(x, _)| x.to_string()).collect();
+        let params: Vec<String> = data.params().iter().map(|(x, _)| x.to_string()).collect();
         let mut taken: Vec<String> = params.clone();
         let mut fresh = |base: &str| {
             let mut name = base.to_string();
@@ -207,7 +207,7 @@ impl Elaborator {
         let base = fresh("x");
         let values: Vec<String> = lemma.replaced.iter().map(|f| fresh(f)).collect();
         let this = params.iter().enumerate().fold(var(&ty_name), |f, (j, p)| {
-            let arg = if data.auto_params.get(j) == Some(&true) {
+            let arg = if data.auto_params().get(j) == Some(&true) {
                 Expr::NamedArg(n(p), Box::new(var(p)), span, Bracket::Square)
             } else {
                 var(p)
@@ -264,7 +264,7 @@ impl Elaborator {
         // the type is declared doesn't matter.
         let owner = self.data_key(d);
         let equations = data
-            .ctors
+            .ctors()
             .iter()
             .map(|ctor| {
                 let key = format!(

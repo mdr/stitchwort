@@ -14,13 +14,14 @@ fn load(source: &str) -> Session {
 
 fn hash_of(session: &Session, name: &str) -> ContentHash {
     let g = &session.elab.globals;
-    if let Some(i) = g.defs.iter().position(|d| &*d.name == name) {
+    if let Some(i) = g.env.defs().iter().position(|d| &**d.name() == name) {
         return def_hash(g, DefId(i)).unwrap().expect("checked");
     }
     let d = g
-        .datas
+        .env
+        .datas()
         .iter()
-        .position(|d| &*d.name == name)
+        .position(|d| &**d.name() == name)
         .expect("declared");
     data_hash(g, DataId(d)).unwrap().expect("checked")
 }
@@ -179,8 +180,8 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let program = "import Std (Nat, Text)\ntest \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
     let run = |natives: bool, compact: bool| {
         let mut session = Session::new();
-        session.elab.globals.builtins.disable_natives = !natives;
-        session.elab.globals.builtins.disable_compact_text = !compact;
+        session.elab.globals.env.set_disable_natives(!natives);
+        session.elab.globals.env.set_disable_compact_text(!compact);
         session.load("test.sw", program).expect("checks");
         let results = session.run_tests(&cache);
         assert!(results.iter().all(|r| r.outcome == Outcome::Passed));

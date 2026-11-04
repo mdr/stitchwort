@@ -104,8 +104,8 @@ pub struct Specialiser<'g> {
 impl<'g> Specialiser<'g> {
     pub fn new(g: &'g Globals) -> Self {
         let driver = |b: Builtin, ctor: &str| {
-            g.registry.loaded_data(b).and_then(|d| {
-                let c = g.data(d).ctors.iter().position(|c| &*c.name == ctor)?;
+            g.env.registry().loaded_data(b).and_then(|d| {
+                let c = g.data(d).ctors().iter().position(|c| &*c.name == ctor)?;
                 Some((d, c))
             })
         };
@@ -167,16 +167,16 @@ impl<'g> Specialiser<'g> {
         if self.drivers.is_empty() {
             return Ok(none);
         }
-        if def.run_body().is_none() || def.arity == 0 {
+        if def.run_body().is_none() || def.arity() == 0 {
             return Ok(none);
         }
         let shape = def_shape(g, id, false)?;
         if shape.partial || shape.result_erased {
             return Ok(none);
         }
-        let tel = telescope(g, &def.ty_value, def.span)?;
+        let tel = telescope(g, def.ty_value(), def.span())?;
         let mut rows = Vec::new();
-        for (level, (_, ty, _)) in tel.params.iter().enumerate().take(def.arity) {
+        for (level, (_, ty, _)) in tel.params.iter().enumerate().take(def.arity()) {
             if matches!(force(g, ty.clone())?, Value::Data(d, _) if self.driver_of(d).is_some()) {
                 rows.push(level);
             }
@@ -236,14 +236,14 @@ impl<'g> Specialiser<'g> {
 
     fn make_body(&self, id: DefId, rows: &[usize]) -> Step<Term> {
         let def = self.g.def(id);
-        let arity = def.arity;
+        let arity = def.arity();
         let body = def.run_body().ok_or(Fail::Unsupported)?;
         let tree = body.peel_lams(arity);
         if nesting(tree) > MAX_NESTING {
             return Err(Fail::Unsupported);
         }
         // The constant each row parameter is specialised on, by level.
-        let tel = telescope(self.g, &def.ty_value, def.span).map_err(|_| Fail::Unsupported)?;
+        let tel = telescope(self.g, def.ty_value(), def.span()).map_err(|_| Fail::Unsupported)?;
         let mut constants: HashMap<usize, (DataId, usize)> = HashMap::default();
         for &level in rows {
             let (_, ty, _) = tel.params.get(level).ok_or(Fail::Unsupported)?;
@@ -288,7 +288,7 @@ impl<'g> Specialiser<'g> {
             return Ok(body.clone());
         }
         let def = self.g.def(id);
-        let tree = def.run_body().map(|b| b.peel_lams(def.arity));
+        let tree = def.run_body().map(|b| b.peel_lams(def.arity()));
         let body = match tree {
             Some(tree) if nesting(tree) <= MAX_NESTING && self.calls_empty_eliminator(tree) => {
                 let mut fuel = FUEL;
@@ -336,11 +336,11 @@ impl<'g> Specialiser<'g> {
 
     fn find_inline(&self, id: DefId) -> Option<Inline> {
         let def = self.g.def(id);
-        if def.group.as_ref().is_some_and(|m| m.len() > 1) {
+        if def.group().as_ref().is_some_and(|m| m.len() > 1) {
             return None;
         }
         let body = def.run_body()?;
-        let arity = def.arity;
+        let arity = def.arity();
         let Term::Case(ix, d, branches) = body.peel_lams(arity).strip_loc() else {
             return None;
         };
@@ -754,8 +754,8 @@ pub fn reachable(
 ) -> std::result::Result<Reach, Diagnostic> {
     let g = sp.g;
     let mut reach = Reach {
-        used: vec![false; g.defs.len()],
-        empty: vec![false; g.defs.len()],
+        used: vec![false; g.env.defs().len()],
+        empty: vec![false; g.env.defs().len()],
     };
     // (definition, whether its variant)
     let mut todo: Vec<(DefId, bool)> = roots.into_iter().map(|id| (id, false)).collect();
@@ -787,7 +787,7 @@ pub fn reachable(
                 scan(sp, &body, &opaque, &mut found)?;
             }
         }
-        for validator in &def.validators {
+        for validator in def.validators() {
             scan(sp, &validator.decision, &opaque, &mut found)?;
         }
         todo.append(&mut found);

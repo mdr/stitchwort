@@ -29,7 +29,7 @@ pub fn axioms(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
                     continue;
                 }
                 let def = globals.def(id);
-                terms.push(&def.ty);
+                terms.push(def.ty());
                 terms.extend(def.body().map(|b| &**b));
             }
             Node::Data(id) => {
@@ -37,9 +37,9 @@ pub fn axioms(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
                     continue;
                 }
                 let data = globals.data(id);
-                terms.extend(data.params.iter().map(|(_, t)| t));
-                terms.extend(data.indices.iter().map(|(_, t)| t));
-                for ctor in &data.ctors {
+                terms.extend(data.params().iter().map(|(_, t)| t));
+                terms.extend(data.indices().iter().map(|(_, t)| t));
+                for ctor in data.ctors() {
                     terms.extend(ctor.fields.iter().map(|(_, t)| t));
                     terms.extend(ctor.result.iter());
                 }
