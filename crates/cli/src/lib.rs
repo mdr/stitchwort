@@ -1,7 +1,6 @@
 //! The `stitchwort` command. The pipeline itself lives in `stitchwort-driver`;
 //! it's re-exported here for the tests. The language server is here.
 
-pub mod completion;
 pub mod lsp;
 #[cfg(unix)]
 pub mod node_wait;

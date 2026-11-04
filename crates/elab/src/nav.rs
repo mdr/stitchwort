@@ -406,7 +406,8 @@ impl Elaborator {
     }
 
     /// The expression written at `span` has type `ty` in `cx`.
-    pub(crate) fn note_expr(&self, cx: &Ctx, span: Span, ty: &Value) {
+    pub(crate) fn note_expr(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
+        self.note_probe(cx, span, ty, checked);
         if span.start == span.end {
             return;
         }

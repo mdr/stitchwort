@@ -541,7 +541,10 @@ impl Elaborator {
         // Before the replay, so that if it fails part way, the namespace's
         // write-set holds what it did as well as what elaborating does.
         let transaction = self.with_journal(|journal, logs| journal.begin(logs));
-        if stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
+        // A namespace with the probed position in it is checked, not
+        // replayed: only checking notes the context.
+        if !self.probes_one_of(files)
+            && stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
             && let Some(bytes) = store.read(unit, key)
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {

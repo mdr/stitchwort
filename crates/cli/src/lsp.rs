@@ -32,6 +32,7 @@ use lsp_types::{
     WorkspaceSymbolResponse, notification, request,
 };
 use stitchwort_core::collections::HashMap;
+use stitchwort_driver::at as pos;
 use stitchwort_driver::check_cache::CheckCache;
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
@@ -40,8 +41,6 @@ use stitchwort_driver::live::{
 use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_sources};
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
-
-use crate::completion;
 
 /// The URI scheme of the embedded library's files, which the client shows
 /// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
@@ -220,7 +219,7 @@ struct Nav {
     workspaces: BTreeMap<PathBuf, WorkspaceNav>,
     /// The open goals last published for each file (kept ones included):
     /// what `stitchwort/goalAt` answers from.
-    goals: HashMap<Url, Vec<lsp_types::Diagnostic>>,
+    goals: HashMap<Url, Vec<pos::Goal>>,
 }
 
 #[derive(Default)]
@@ -330,6 +329,8 @@ struct SearchJob {
 /// edit or a newer request) sends the one response.
 struct PendingSearch {
     uri: Url,
+    /// What it was asked for (`codeAction`, `contextAt`).
+    kind: &'static str,
     /// Stops a search that is running (the project path honours it) and
     /// skips one still queued.
     cancel: Arc<AtomicBool>,
@@ -400,6 +401,13 @@ fn search_worker(
     }
 }
 
+/// The document a search is about ([`Main::search_target`]).
+struct SearchTarget {
+    text: String,
+    path: PathBuf,
+    project: Option<(PathBuf, String, BTreeMap<String, String>)>,
+}
+
 struct Main<'a> {
     connection: &'a Connection,
     nav: Arc<RwLock<Nav>>,
@@ -433,6 +441,10 @@ impl Main<'_> {
                         self.code_action(request);
                         continue;
                     }
+                    if request.method == CONTEXT_AT {
+                        self.context_at(request);
+                        continue;
+                    }
                     let response = self.answer(request);
                     let _ = self.connection.sender.send(response.into());
                 }
@@ -453,39 +465,138 @@ impl Main<'_> {
     /// answer is empty at once.
     fn code_action(&self, request: Request) {
         let id = request.id.clone();
-        let empty = || Response::new_ok(id.clone(), serde_json::Value::Null);
         let Ok(p) = serde_json::from_value::<lsp_types::CodeActionParams>(request.params) else {
-            let _ = self.connection.sender.send(empty().into());
+            self.answer_null(id);
             return;
         };
         let uri = p.text_document.uri;
-        let (goal, project) = {
+        let goal = {
             let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
-            // A project's file: its folder and its path in it.
-            let project = locate(&nav, &uri).and_then(|(root, _, place)| match place {
-                Place::Program(relative) if root.is_dir() => Some((root.to_path_buf(), relative)),
-                _ => None,
-            });
             let key = |p: Position| (p.line, p.character);
-            let goal = nav.goals.get(&uri).and_then(|goals| {
+            nav.goals.get(&uri).and_then(|goals| {
                 goals
                     .iter()
-                    .find(|d| {
-                        key(d.range.start) <= key(p.range.end)
-                            && key(p.range.start) <= key(d.range.end)
-                    })
-                    .map(|d| d.range)
-            });
-            (goal, project)
+                    .map(|g| range(g.range))
+                    .find(|r| key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end))
+            })
         };
-        let text = self.texts.borrow().get(&uri).cloned();
-        let path = uri.to_file_path().ok();
-        let (Some(range), Some(text), Some(path)) = (goal, text, path) else {
-            let _ = self.connection.sender.send(empty().into());
+        let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
+            self.answer_null(id);
             return;
         };
-        // In a project, the other open files' text too, as the editor has
-        // it (by path in the project).
+        let stack = self.stack;
+        let search = pos::action_options(self.wanted);
+        let document_changes = self.document_changes;
+        self.queue_search(id, &uri.clone(), "codeAction", move |version| {
+            let versioned = document_changes.then_some(version);
+            Box::new(move |cancel| match target.project {
+                Some((root, relative, open)) => project_closing_actions(
+                    stack, &uri, &root, &relative, open, range, versioned, cancel, &search,
+                ),
+                None => closing_actions(
+                    stack,
+                    &uri,
+                    &target.path,
+                    &target.text,
+                    range,
+                    versioned,
+                    &search,
+                ),
+            })
+        });
+    }
+
+    /// `stitchwort/contextAt`: the expected type and the names in scope at
+    /// the cursor, anywhere in an expression ([`pos::Context`]). It checks
+    /// the file again with a probe at the position (a project's file
+    /// through its check cache, the file's own namespace unreplayed), so
+    /// like the code action it runs on a search thread, and a newer
+    /// request for the document, or an edit, supersedes it. The answer is
+    /// `{range, type, checked, locals: [{name, type, value?}]}`, or null.
+    fn context_at(&self, request: Request) {
+        let id = request.id.clone();
+        let Ok(p) = serde_json::from_value::<lsp_types::TextDocumentPositionParams>(request.params)
+        else {
+            self.answer_null(id);
+            return;
+        };
+        let uri = p.text_document.uri;
+        let Some(target) = self.search_target(&uri) else {
+            self.answer_null(id);
+            return;
+        };
+        let stack = self.stack;
+        let (line, character) = (p.position.line, p.position.character);
+        self.queue_search(id, &uri, "contextAt", move |_| {
+            Box::new(move |cancel| {
+                let mut session = Session::for_stack(stack);
+                session.share_cancel_flag(cancel);
+                let found = match target.project {
+                    Some((root, relative, open)) => {
+                        let disk = DiskFiles { root: root.clone() };
+                        let files = stitchwort_driver::search_at::Overlay {
+                            base: &disk,
+                            texts: open,
+                        };
+                        let name = root
+                            .file_name()
+                            .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+                        let cache = cache_dir(&root);
+                        session.context_at_project(
+                            &name,
+                            &files,
+                            &relative,
+                            cache.as_deref(),
+                            line,
+                            character,
+                        )
+                    }
+                    None => {
+                        let name = target
+                            .path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("file.sw");
+                        session.context_at_text(name, &target.text, line, character)
+                    }
+                };
+                drop(session);
+                match found {
+                    Some(c) => serde_json::json!({
+                        "range": range(c.range),
+                        "type": c.ty,
+                        "checked": c.checked,
+                        "locals": c.locals,
+                    }),
+                    None => serde_json::Value::Null,
+                }
+            })
+        });
+    }
+
+    fn answer_null(&self, id: lsp_server::RequestId) {
+        let _ = self
+            .connection
+            .sender
+            .send(Response::new_ok(id, serde_json::Value::Null).into());
+    }
+
+    /// What a search thread needs to work on the document `uri`: its text
+    /// as the editor has it, its path, and in a project's file the
+    /// project's folder, the file's path in it and the other open files'
+    /// text (by path in the project). None for a document that isn't a
+    /// file open in the editor.
+    fn search_target(&self, uri: &Url) -> Option<SearchTarget> {
+        let project = {
+            let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+            // A project's file: its folder and its path in it.
+            locate(&nav, uri).and_then(|(root, _, place)| match place {
+                Place::Program(relative) if root.is_dir() => Some((root.to_path_buf(), relative)),
+                _ => None,
+            })
+        };
+        let text = self.texts.borrow().get(uri).cloned()?;
+        let path = uri.to_file_path().ok()?;
         let project = project.map(|(root, path_in)| {
             let open: BTreeMap<String, String> = (self.texts.borrow().iter())
                 .filter_map(|(u, t)| {
@@ -495,17 +606,31 @@ impl Main<'_> {
                 .collect();
             (root, path_in, open)
         });
-        // A newer request for the document supersedes the older ones.
-        self.supersede(&uri);
-        let Some(version) = lock(&self.searches.versions).get(&uri).copied() else {
-            let _ = self.connection.sender.send(empty().into());
+        Some(SearchTarget {
+            text,
+            path,
+            project,
+        })
+    }
+
+    /// Queues a search for request `id` about `uri`, to a worker. A newer
+    /// request of the same `kind` for the document supersedes the older
+    /// ones. `make` gets the document's version and makes the work to do.
+    fn queue_search(
+        &self,
+        id: lsp_server::RequestId,
+        uri: &Url,
+        kind: &'static str,
+        make: impl FnOnce(i32) -> Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+    ) {
+        self.supersede(uri, Some(kind));
+        let Some(version) = lock(&self.searches.versions).get(uri).copied() else {
+            self.answer_null(id);
             return;
         };
-        let versioned = self.document_changes.then_some(version);
-        let stack = self.stack;
-        let search = action_options(self.wanted);
         let pending = Arc::new(PendingSearch {
             uri: uri.clone(),
+            kind,
             cancel: Arc::new(AtomicBool::new(false)),
             answered: AtomicBool::new(false),
         });
@@ -514,16 +639,11 @@ impl Main<'_> {
             id: id.clone(),
             pending,
             version,
-            run: Box::new(move |cancel| match project {
-                Some((root, relative, open)) => project_closing_actions(
-                    stack, &uri, &root, &relative, open, range, versioned, cancel, &search,
-                ),
-                None => closing_actions(stack, &uri, &path, &text, range, versioned, &search),
-            }),
+            run: make(version),
         };
         if self.to_searches.send(job).is_err() {
             lock(&self.searches.pending).remove(&id);
-            let _ = self.connection.sender.send(empty().into());
+            self.answer_null(id);
         }
     }
 
@@ -535,15 +655,15 @@ impl Main<'_> {
             Some(v) => lock(&self.searches.versions).insert(uri.clone(), v),
             None => lock(&self.searches.versions).remove(uri),
         };
-        self.supersede(uri);
+        self.supersede(uri, None);
     }
 
     /// Stops the searches for `uri` not answered yet, answering them with
     /// no action (`null`).
-    fn supersede(&self, uri: &Url) {
+    fn supersede(&self, uri: &Url, kind: Option<&str>) {
         let old: Vec<_> = lock(&self.searches.pending)
             .iter()
-            .filter(|(_, p)| &p.uri == uri)
+            .filter(|(_, p)| &p.uri == uri && kind.is_none_or(|k| p.kind == k))
             .map(|(id, p)| (id.clone(), p.clone()))
             .collect();
         for (id, p) in old {
@@ -686,27 +806,19 @@ impl Main<'_> {
     ) -> Option<Vec<lsp_types::CompletionItem>> {
         let texts = self.texts.borrow();
         let text = texts.get(uri)?;
-        let call = completion::call_at(text, offset_at(text, at));
-        let call = call?;
         let (_, ws, place) = locate(nav, uri)?;
         let file = ws.files.get(&place)?;
-        let last = call.head.rsplit('.').next().unwrap_or(&call.head);
-        let signature = file
-            .refs
-            .iter()
-            .filter(|r| r.name == last || r.name.ends_with(&format!(".{last}")))
-            .find_map(|r| r.signature.as_deref())?;
-        let items = completion::parameters(signature)
-            .into_iter()
-            .filter(|p| p.implicit == call.implicit && !call.given.contains(&p.name))
+        let signature = pos::signature_at(file, text, offset_at(text, at))?;
+        let items = signature
+            .wanted()
             .map(|p| lsp_types::CompletionItem {
                 insert_text: Some(format!("{} := ", p.name)),
                 detail: Some(match &p.default {
                     Some(default) => format!("{} := {default}", p.name),
-                    None => p.ty,
+                    None => p.ty.clone(),
                 }),
                 kind: Some(lsp_types::CompletionItemKind::VARIABLE),
-                label: p.name,
+                label: p.name.clone(),
                 ..Default::default()
             })
             .collect();
@@ -733,26 +845,27 @@ impl Main<'_> {
                     .get("range")
                     .and_then(|r| serde_json::from_value::<lsp_types::Range>(r.clone()).ok())
                     .filter(|r| r.start != r.end);
-                let selection =
-                    selection.map(|r| match self.texts.borrow().get(&at.text_document.uri) {
-                        Some(text) => trimmed(text, r),
-                        None => r,
-                    });
-                if let Some(selection) = selection
-                    && let Some(found) = selection_hover(
-                        &nav,
-                        &at.text_document.uri,
-                        self.texts
-                            .borrow()
-                            .get(&at.text_document.uri)
-                            .map(String::as_str),
-                        selection,
-                    )
-                {
-                    return serde_json::to_value(Some(found));
-                }
-                let found = lookup(&nav, &at.text_document.uri, at.position);
-                serde_json::to_value(found.map(|(_, _, r)| hover(&r)))
+                let uri = &at.text_document.uri;
+                let texts = self.texts.borrow();
+                let text = texts.get(uri).map(String::as_str);
+                let selection = selection
+                    .map(|r| [r.start.line, r.start.character, r.end.line, r.end.character]);
+                let (line, character) = (at.position.line, at.position.character);
+                let found = match std_path(uri) {
+                    // Any workspace that has a reference there.
+                    Some(std) => {
+                        let place = Place::Library(std);
+                        nav.workspaces.values().find_map(|ws| {
+                            let file = ws.files.get(&place)?;
+                            pos::hover_at(file, &place, text, line, character, selection)
+                        })
+                    }
+                    None => locate(&nav, uri).and_then(|(_, ws, place)| {
+                        let file = ws.files.get(&place)?;
+                        pos::hover_at(file, &place, text, line, character, selection)
+                    }),
+                };
+                serde_json::to_value(found.map(hover))
             }),
             request::Completion::METHOD => {
                 parse::<lsp_types::CompletionParams>(&request).map(|p| {
@@ -904,27 +1017,13 @@ fn decl_regions(text: &str) -> Option<Vec<std::ops::Range<usize>>> {
 
 /// The byte offset of an LSP position (UTF-16 columns), clamped to the text.
 fn offset_at(text: &str, at: Position) -> usize {
-    let (mut line, mut col) = (0u32, 0u32);
-    for (i, c) in text.char_indices() {
-        if line > at.line || (line == at.line && col >= at.character) {
-            return i;
-        }
-        if c == '\n' {
-            (line, col) = (line + 1, 0);
-        } else {
-            col += c.len_utf16() as u32;
-        }
-    }
-    text.len()
+    pos::offset_at(text, at.line, at.character)
 }
 
 /// The LSP position of a byte offset.
 fn position_at(text: &str, offset: usize) -> Position {
-    let before = &text[..offset];
-    let line = before.matches('\n').count() as u32;
-    let start = before.rfind('\n').map_or(0, |i| i + 1);
-    let col = before[start..].chars().map(|c| c.len_utf16() as u32).sum();
-    Position::new(line, col)
+    let (line, character) = pos::position_at(text, offset);
+    Position::new(line, character)
 }
 
 fn parse<P: serde::de::DeserializeOwned>(request: &Request) -> Result<P, String> {
@@ -976,125 +1075,13 @@ fn lookup<'n>(
     }
     let (root, ws, place) = locate(nav, uri)?;
     let file = ws.files.get(&place)?;
-    // A binder that is used is a reference too, found from its own name.
-    let r = match file.ref_at(at.line, at.character) {
-        Some(r) if r.kind == "local" && r.ty.is_none() => {
-            // A binder's own reference has no type: a use of it does.
-            let ty = file
-                .binder_exactly(&place, r.target.range)
-                .and_then(|b| b.ty);
-            LiveRef { ty, ..r.clone() }
-        }
-        Some(r) => r.clone(),
-        None => file.binder_at(&place, at.line, at.character)?,
-    };
+    let r = pos::reference_at(file, &place, at.line, at.character)?;
     Some((root, ws, r))
 }
 
-/// `selection` without the whitespace at its ends (a selection often takes
-/// in the space or the line break beside an expression). Unchanged if it is
-/// all whitespace.
-fn trimmed(text: &str, selection: lsp_types::Range) -> lsp_types::Range {
-    let mut first = None;
-    let mut last = None;
-    let (mut line, mut col) = (0u32, 0u32);
-    for c in text.chars() {
-        let here = Position::new(line, col);
-        if here >= selection.end {
-            break;
-        }
-        let after = Position::new(line, col + c.len_utf16() as u32);
-        if here >= selection.start && !c.is_whitespace() {
-            first.get_or_insert(here);
-            last = Some(after);
-        }
-        if c == '\n' {
-            (line, col) = (line + 1, 0);
-        } else {
-            col = after.character;
-        }
-    }
-    match (first, last) {
-        (Some(start), Some(end)) => lsp_types::Range::new(start, end),
-        _ => selection,
-    }
-}
-
-/// The identifier (letters, digits, `_` and `'`) the position is in or at
-/// the end of, as a range; none if it isn't on one.
+/// The identifier the position is in or at the end of, as a range.
 fn word_at(text: &str, at: Position) -> Option<lsp_types::Range> {
-    let line = text.split('\n').nth(at.line as usize)?;
-    let line = line.strip_suffix('\r').unwrap_or(line);
-    let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'';
-    // UTF-16 columns of each character's start, and the end of the line.
-    let mut columns = Vec::new();
-    let mut col = 0u32;
-    for c in line.chars() {
-        columns.push((col, c));
-        col += c.len_utf16() as u32;
-    }
-    let index = columns
-        .iter()
-        .position(|(c, _)| *c >= at.character)
-        .unwrap_or(columns.len());
-    let in_word = |i: usize| columns.get(i).is_some_and(|(_, c)| is_word(*c));
-    // The cursor sits between two characters: the word is the one it touches.
-    let mut at_i = if columns.get(index).is_some_and(|(c, _)| *c == at.character) && in_word(index)
-    {
-        index
-    } else if index > 0 && in_word(index - 1) {
-        index - 1
-    } else {
-        return None;
-    };
-    let mut start = at_i;
-    while start > 0 && in_word(start - 1) {
-        start -= 1;
-    }
-    while in_word(at_i + 1) {
-        at_i += 1;
-    }
-    let end_col = columns[at_i].0 + columns[at_i].1.len_utf16() as u32;
-    Some(lsp_types::Range::new(
-        Position::new(at.line, columns[start].0),
-        Position::new(at.line, end_col),
-    ))
-}
-
-/// The type of the smallest expression containing `selection`, for hover
-/// over a selection.
-fn selection_hover(
-    nav: &Nav,
-    uri: &Url,
-    text: Option<&str>,
-    selection: lsp_types::Range,
-) -> Option<Hover> {
-    let (_, ws, place) = locate(nav, uri)?;
-    let file = ws.files.get(&place)?;
-    let want = [
-        selection.start.line,
-        selection.start.character,
-        selection.end.line,
-        selection.end.character,
-    ];
-    // A name on its own: a binder gets its own type (or nothing, when it's
-    // unused); the expression around it isn't what was selected.
-    if text.and_then(|t| word_at(t, selection.start)) == Some(selection) {
-        if let Some(binder) = file.binder_exactly(&place, want) {
-            return Some(hover(&binder));
-        }
-        if file.exprs.iter().all(|(r, _)| *r != want) {
-            return None;
-        }
-    }
-    let (at, ty) = file.expr_covering(want)?;
-    Some(Hover {
-        contents: HoverContents::Markup(MarkupContent {
-            kind: MarkupKind::Markdown,
-            value: format!("```stitchwort\n{ty}\n```"),
-        }),
-        range: Some(range(at)),
-    })
+    pos::word_at(text, at.line, at.character).map(range)
 }
 
 /// The ranges around `at`, as Expand Selection steps through them: the
@@ -1140,29 +1127,14 @@ fn selection_range(
     *parent.expect("the chain has the position")
 }
 
-/// The hover of a reference: its type, then what it is, its doc, and the
-/// defaults a call left out.
-fn hover(r: &LiveRef) -> Hover {
-    let mut text = String::new();
-    if let Some(ty) = &r.ty {
-        text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
-    }
-    text.push_str(&format!("{} `{}`", r.kind, r.name));
-    if let Some(doc) = &r.doc {
-        text.push_str(&format!("\n\n{doc}"));
-    }
-    if let Some(defaults) = &r.defaults {
-        text.push_str(&format!("\n\n{defaults}"));
-    }
-    if let Some(equations) = &r.equations {
-        text.push_str(&format!("\n\n{equations}"));
-    }
+/// The hover for the client.
+fn hover(h: pos::Hover) -> Hover {
     Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
-            value: text,
+            value: h.markdown,
         }),
-        range: Some(range(r.range)),
+        range: Some(range(h.range)),
     }
 }
 
@@ -1549,13 +1521,19 @@ impl Checker {
                     .iter()
                     .map(|d| diagnostic(ws, key, d))
                     .collect();
+                let mut goals = pos::goals_of(&file);
                 if let Some((_, before)) = self.published.get(&uri) {
-                    diagnostics.extend(goals_kept(before, &file));
+                    let kept = goals_kept(before, &file);
+                    // The kept goals' data is what was last answered for them.
+                    let old = nav_goals.get(&uri).map(Vec::as_slice).unwrap_or_default();
+                    goals.extend(
+                        (kept.iter()).filter_map(|d| {
+                            old.iter().find(|g| range(g.range) == d.range).cloned()
+                        }),
+                    );
+                    diagnostics.extend(kept);
                 }
-                nav_goals.insert(
-                    uri.clone(),
-                    diagnostics.iter().filter(|d| is_goal(d)).cloned().collect(),
-                );
+                nav_goals.insert(uri.clone(), goals);
                 // Only what changed, or is for a newer version of the text.
                 let shown = (version, diagnostics.clone());
                 if self.published.get(&uri) == Some(&shown) {
@@ -1864,11 +1842,6 @@ fn closing_actions(
     versioned: Option<i32>,
     options: &stitchwort_driver::search_at::AtOptions,
 ) -> serde_json::Value {
-    use stitchwort_driver::search_at::{GoalAt, search_at_text};
-    let at = GoalAt::Line(
-        range.start.line as usize + 1,
-        Some(range.start.character as usize + 1),
-    );
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -1877,28 +1850,13 @@ fn closing_actions(
         .parent()
         .map(|dir| dir.join(".stitchwort").join("cache"))
         .filter(|dir| dir.is_dir());
-    let Ok(report) = search_at_text(stack, name, text, at, options, cache.as_deref()) else {
-        return serde_json::Value::Null;
-    };
-    actions_for(&report, uri, text, range, versioned)
-}
-
-/// Options for the code action's search: the top three, within 5 s, and
-/// no more candidates once `wanted` have closed the goal.
-fn action_options(wanted: usize) -> stitchwort_driver::search_at::AtOptions {
-    stitchwort_driver::search_at::AtOptions {
-        limit: 3,
-        stop_after_closing: Some(wanted),
-        time: Duration::from_secs(5),
-        ..Default::default()
-    }
+    let found = pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref());
+    code_actions(found, uri, range, versioned)
 }
 
 /// [`closing_actions`] for a goal in the file `relative` of the project in
 /// folder `root`, read from disk except for the files open in the editor
-/// (`open`, by path in the project): the project's namespaces through its
-/// check cache, the goal read and the proofs checked in the file's
-/// namespace, as `search --at` does.
+/// (`open`, by path in the project).
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
@@ -1911,7 +1869,7 @@ fn project_closing_actions(
     cancel: Arc<AtomicBool>,
     options: &stitchwort_driver::search_at::AtOptions,
 ) -> serde_json::Value {
-    use stitchwort_driver::search_at::{GoalAt, Overlay, ProjectGoal};
+    use stitchwort_driver::search_at::Overlay;
     let Some(text) = open.get(relative).cloned() else {
         return serde_json::Value::Null;
     };
@@ -1926,41 +1884,39 @@ fn project_closing_actions(
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
     let cache = cache_dir(root);
-    let goal = ProjectGoal {
-        project: &name,
-        files: &files,
-        path: relative,
-        cache: cache.as_deref(),
-        at: GoalAt::Line(
-            range.start.line as usize + 1,
-            Some(range.start.character as usize + 1),
-        ),
-    };
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
-    let found = session.search_at_project(&goal, options);
+    let found = session.actions_at_project(
+        &name,
+        &files,
+        relative,
+        cache.as_deref(),
+        &text,
+        ranged(range),
+        options,
+    );
     drop(session);
-    match found {
-        Ok(report) => actions_for(&report, uri, &text, range, versioned),
-        Err(_) => serde_json::Value::Null,
-    }
+    code_actions(found, uri, range, versioned)
 }
 
-/// The code actions for what `search --at` found at the `?` at `range` of
-/// `text`: each tactic that closes it alone, then the top three closing
-/// proofs, written as they go there (in brackets where the `?` is an
-/// argument).
-fn actions_for(
-    report: &stitchwort_driver::search_at::AtReport,
+/// A range as the driver has it.
+fn ranged(r: lsp_types::Range) -> [u32; 4] {
+    [r.start.line, r.start.character, r.end.line, r.end.character]
+}
+
+/// The code actions for the client: each edit replaces `range` of the
+/// document.
+fn code_actions(
+    found: Option<Vec<pos::Action>>,
     uri: &Url,
-    text: &str,
     range: lsp_types::Range,
     versioned: Option<i32>,
 ) -> serde_json::Value {
-    use stitchwort_driver::search_at::{paste_text, tactic_proof};
-    let span = (offset_at(text, range.start), offset_at(text, range.end));
-    let action = |title: String, proof: &str| {
-        let edits = [serde_json::json!({"range": range, "newText": paste_text(text, span, proof)})];
+    let Some(found) = found else {
+        return serde_json::Value::Null;
+    };
+    let action = |a: &pos::Action| {
+        let edits = [serde_json::json!({"range": range, "newText": a.new_text})];
         // A client that applies versioned edits checks the version itself;
         // the others get the plain form (the server has already dropped a
         // result for text that moved on).
@@ -1971,84 +1927,33 @@ fn actions_for(
             }]}),
             None => serde_json::json!({"changes": {uri.as_str(): edits}}),
         };
-        serde_json::json!({"title": title, "kind": "quickfix", "edit": edit})
+        serde_json::json!({"title": a.title, "kind": "quickfix", "edit": edit})
     };
-    let mut actions: Vec<serde_json::Value> = (report.tactics.iter())
-        .map(|t| {
-            let proof = tactic_proof(report, t);
-            action(
-                format!("Replace ? with `{proof}` (closes it alone)"),
-                &proof,
-            )
-        })
-        .collect();
-    for s in report
-        .results
-        .iter()
-        .filter(|s| s.class != "applicable")
-        .take(3)
-    {
-        actions.push(action(
-            format!("Replace ? with `{}` ({}, {})", s.proof, s.class, s.name),
-            &s.proof,
-        ));
-    }
-    serde_json::Value::Array(actions)
+    serde_json::Value::Array(found.iter().map(action).collect())
 }
 
 /// The custom request for the goal at the cursor (docs/proposals/
 /// lsp-goal-holes.md §5, D640).
 const GOAL_AT: &str = "stitchwort/goalAt";
 
-/// The open goal at `at`: the one whose `?` the position is on or touches,
-/// else the nearest one (by line) in the same declaration. Answers from the
-/// goals last published, kept ones included, so it is the goal the editor
-/// already shows as a diagnostic; there is no second check. The answer is
+/// The custom request for the expected type and the names in scope at the
+/// cursor, wherever it is in an expression.
+const CONTEXT_AT: &str = "stitchwort/contextAt";
+
+/// The open goal at `at` ([`pos::goal_at`]). Answers from the goals last
+/// published, kept ones included, so it is the goal the editor already
+/// shows as a diagnostic; there is no second check. The answer is
 /// `{range, owner, goal, context: [{name, type, value?}], text}`, or null.
-fn goal_at(nav: &Nav, uri: &Url, at: Position) -> Option<serde_json::Value> {
+fn goal_at(nav: &Nav, uri: &Url, position: Position) -> Option<serde_json::Value> {
     let goals = nav.goals.get(uri)?;
-    let key = |p: Position| (p.line, p.character);
-    let on =
-        |d: &&lsp_types::Diagnostic| key(d.range.start) <= key(at) && key(at) <= key(d.range.end);
-    let found = goals.iter().find(on).or_else(|| {
-        let file = locate(nav, uri).and_then(|(_, ws, place)| ws.files.get(&place))?;
-        let within = |r: [u32; 4], p: Position| (r[0], r[1]) <= key(p) && key(p) <= (r[2], r[3]);
-        let declaration = file
-            .outline
-            .iter()
-            .find(|item| item.parent.is_none() && within(item.full_range, at))?
-            .full_range;
-        goals
-            .iter()
-            .filter(|d| within(declaration, d.range.start))
-            .min_by_key(|d| d.range.start.line.abs_diff(at.line))
-    })?;
-    let (heading, body) = found
-        .message
-        .split_once('\n')
-        .unwrap_or((&found.message, ""));
-    let owner = heading.strip_prefix("in ").unwrap_or(heading);
-    let mut context = Vec::new();
-    let mut goal = String::new();
-    for line in body.lines() {
-        if let Some(rest) = line.strip_prefix('\u{22a2}') {
-            goal = rest.trim_start().to_string();
-        } else if !goal.is_empty() {
-            goal.push('\n');
-            goal.push_str(line);
-        } else if let Some((name, rest)) = line.split_once(": ") {
-            context.push(match rest.split_once(" := ") {
-                Some((ty, value)) => serde_json::json!({"name": name, "type": ty, "value": value}),
-                None => serde_json::json!({"name": name, "type": rest}),
-            });
-        }
-    }
+    let file = locate(nav, uri).and_then(|(_, ws, place)| ws.files.get(&place));
+    let found = pos::goal_at(goals, file, position.line, position.character)?;
     Some(serde_json::json!({
-        "range": found.range,
-        "owner": owner,
-        "goal": goal,
-        "context": context,
-        "text": body,
+        "range": range(found.range),
+        "owner": found.owner,
+        "goal": found.goal,
+        "context": found.context,
+        "text": found.text,
     }))
 }
 

@@ -88,6 +88,11 @@ impl SourceMap {
         Self::default()
     }
 
+    /// The id the next file added gets.
+    pub fn next_id(&self) -> FileId {
+        FileId(u32::try_from(self.files.len()).expect("too many source files"))
+    }
+
     pub fn add(&mut self, name: impl Into<String>, text: impl Into<String>) -> FileId {
         let id = FileId(u32::try_from(self.files.len()).expect("too many source files"));
         self.files.push(SourceFile {

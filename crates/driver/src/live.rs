@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
-    Diagnostic, Severity, SourceMap, parse_module_recovering, parse_namespace_line,
+    Diagnostic, GoalData, Severity, SourceMap, parse_module_recovering, parse_namespace_line,
 };
 
 use crate::driver::Session;
@@ -96,6 +96,8 @@ pub struct LiveDiagnostic {
     /// Every label, the first (where the diagnostic is) included.
     pub labels: Vec<(Loc, String)>,
     pub notes: Vec<String>,
+    /// For a goal: its hypotheses and target, each printed alone.
+    pub goal: Option<GoalData>,
 }
 
 /// Everything known about one file.
@@ -336,6 +338,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             range,
             labels,
             notes: d.notes.clone(),
+            goal: d.goal.clone(),
         });
     }
     out
