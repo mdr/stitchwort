@@ -5,7 +5,7 @@ expression: output
 [GOAL] Goal: in `memberOfTail`
     ╭─[ goals/readable-forms.sw:10:76 ]
     │
- 10 │ theorem memberOfTail (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?
+ 10 │ theorem memberOfTail (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
     │                                                                            ┬  
     │                                                                            ╰── y: Nat
     │                                                                                ys: List Nat
