@@ -1,5 +1,5 @@
 {
-  "next": 1282,
+  "next": 1283,
   "tickets": [
     {
       "id": 47,
@@ -6290,6 +6290,20 @@
         "tests"
       ],
       "body": "The problem: the keyword lists in editors/vscode/syntaxes/stitchwort.tmLanguage.json and web/index.html (KEYWORDS) are hand-copied from crates/syntax/src/lexer.rs; include was missing from both until 4 Nov 2026 (Matt noticed it coloured like a function). The change: a test (e.g. in crates/syntax or editors/vscode/test/grammar.test.js) that reads the lexer's keyword table and checks both lists contain every keyword. What it should do: adding a keyword to the lexer without the highlighters fails a test. DeepSeek candidate.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1282,
+      "title": "AoC 2020 day 5: a Pass type (wrapping the 10 bits) with Pass.seatId, used through the program, spec and proofs",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "The problem: day 5 passes a pass around as a bare List Bool (pass(): {Parse} List Bool, seatId (pass: List Bool), solvePart1 (passes: List (List Bool))), so the reader has to work out what the list means. Matt, 4 Nov 2026: 'wrap list of bool with a pass record … add things like seat ID as a method … small domain models like this rather than passing the raw types around, for ease of comprehension'.\n\nThe change: a small domain type (a record or one-field wrapper, e.g. type Pass = { bits: List Bool } or { row: List Bool, column: List Bool } if that reads better) with the operations as Pass.* definitions used by dot notation (pass.seatId, and the row/column if natural); the parser returns Pass, the solvers take List Pass; the spec and proofs state their theorems about Pass. Keep the proofs' content; adjust statements and helpers.\n\nWhat it should do: Day05.sw reads in the puzzle's nouns; day 5 still checks, its 17 tests pass, its audit has 0 failures, and the answers stay 813 / 612. Before SW-1273 (it moves day 5's fromBits lemmas into std, same files).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
