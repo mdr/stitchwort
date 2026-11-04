@@ -49,7 +49,7 @@ def risingSteps: List Nat → Nat
   | [a] => 0
   | [a, b, ..rest] =>
     match a < b with
-      | True => 1 + risingSteps (Cons b rest)
+      | True => 1 + risingSteps [b, ..rest]
       | False => risingSteps rest
 
 -- A `let` first, then two nested `match`es.

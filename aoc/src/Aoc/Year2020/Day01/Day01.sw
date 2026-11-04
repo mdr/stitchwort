@@ -38,15 +38,15 @@ def findPair (target: Nat) (entries: List Nat): Option (Nat, Nat) := findPairAft
 --| The first entry of `entries` whose partner, `target` minus it, is in
 --| `seen`, with that partner; each entry is added to `seen` as it is passed.
 def findPairAfter (target: Nat) (seen: Set Nat): List Nat → Option (Nat, Nat)
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     if x <= target ∧ seen.contains (target - x) then Some (target - x, x)
     else findPairAfter target (seen.insert x) rest
 
 --| Three entries summing to `target`, in the order they come.
 def findTriple (target: Nat): List Nat → Option (Nat, Nat, Nat)
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     match (if x <= target then findPair (target - x) rest else None) with
       | Some (b, c) => Some (x, b, c)
       | None => findTriple target rest

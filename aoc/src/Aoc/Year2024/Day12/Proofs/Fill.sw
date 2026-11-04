@@ -25,7 +25,7 @@ def FillResult (garden: Garden) (plant: Char) (start: Position) (stack: List Pos
 --| Popping a position already visited, or not growing `plant`, keeps the
 --| state.
 theorem popKeeps (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
-    (members: List Position) (state: FillState garden plant start (Cons position rest) visited members)
+    (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
     (skipped: (position ∈ members) ∨ (garden.plantAt position ≠ Some plant)): FillState garden plant start rest visited members :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
   Both visitedMembers
@@ -45,9 +45,9 @@ theorem popKeeps (garden: Garden) (plant: Char) (start: Position) (position: Pos
 --| Popping a position not yet visited that grows `plant`, and pushing its
 --| neighbours growing `plant`, keeps the state.
 theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
-    (members: List Position) (state: FillState garden plant start (Cons position rest) visited members)
+    (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
     (fresh: visited.contains position = False) (grows: garden.plantAt position = Some plant):
-    FillState garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members) :=
+    FillState garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members] :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
   let joinedHere := stacked position (Inl rfl)
   Both
@@ -93,8 +93,8 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
     decreasing (garden.unvisited visited, stack.length)
 :=
   match stack with
-    | Nil =>
-      rewrite Garden.fill.unfold garden plant Nil visited members in
+    | [] =>
+      rewrite Garden.fill.unfold garden plant [] visited members in
         let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
         Both distinct
           (Both sound
@@ -104,7 +104,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
                   | Inl inMembers => inMembers
                   | Inr none => Void.exfalso none)
               (Both (position member => member) (position none => Void.exfalso none))))
-    | Cons position rest =>
+    | [position, ..rest] =>
       let visitedMembers := And.left state
       match taken: visited.contains position with
         | True =>
@@ -127,7 +127,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
           | True =>
           let grows: garden.plantAt position = Some plant := DecEq.sound _ _ growing
           let result :=
-            fillCorrect garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+            fillCorrect garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
               (takeKeeps garden plant start position rest visited members state fresh grows)
               [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
           let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
@@ -158,8 +158,8 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
 
 --| The fill from `start` alone, with nothing visited.
 theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
-    FillResult garden plant start [start] Nil (Garden.fill garden plant [start] Set.empty Nil) :=
-  fillCorrect garden plant start [start] Set.empty Nil
+    FillResult garden plant start [start] [] (Garden.fill garden plant [start] Set.empty []) :=
+  fillCorrect garden plant start [start] Set.empty []
     (Both (position => { forward = contains => Void.exfalso (Bool.falseNotTrue contains), backward = none => Void.exfalso none })
       (Both Trivial
         (Both (position none => Void.exfalso none)
@@ -175,14 +175,14 @@ theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
     (sound: (position: Position) → position ∈ result → garden.plantAt position = Some plant)
     (closed: (member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result):
     (from: Position) → (chain: List Position) → (to: Position) → from ∈ result → isChain garden from chain to = True → to ∈ result
-  | from, Nil, to, member, same => rewrite <- DecEq.sound from to same in member
-  | from, Cons next rest, to, member, chained =>
+  | from, [], to, member, same => rewrite <- DecEq.sound from to same in member
+  | from, [next, ..rest], to, member, chained =>
     closedChain garden plant result sound closed next rest to
       (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft _ _ chained))) (Bool.andRight _ _ chained)
 
 --| From a plot growing `plant`, the region is a fill.
 theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
-    garden.regionOf start = Garden.fill garden plant [start] Set.empty Nil :=
+    garden.regionOf start = Garden.fill garden plant [start] Set.empty [] :=
   rewrite grows in rfl
 
 --| From a plot growing `plant`, the region the fill finds.
@@ -190,7 +190,7 @@ theorem regionOfIsRegion (garden: Garden) (start: Position) (plant: Char) (grows
     IsRegion garden start (garden.regionOf start) :=
   rewrite regionOfFill garden start plant grows in
     let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := fillFromStart garden plant start
-    let result := Garden.fill garden plant [start] Set.empty Nil
+    let result := Garden.fill garden plant [start] Set.empty []
     other => {
       forward = member => And.right (sound other member),
       backward = joined =>

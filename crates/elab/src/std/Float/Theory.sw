@@ -65,14 +65,14 @@ theorem Float.Theory.bitLengthSlowSpec: (fuel: Nat) → (n: Nat) → 0 < n → n
 
 --| `powers` are 2^width, 2^(width / 2), …, as `bitLengthBy` needs them.
 def Float.Theory.powersFit: List Nat → Nat → Bool
-  | Nil, width => True
-  | Cons p rest, width => Nat.equal p (Float.Model.pow2 width) ∧ Float.Theory.powersFit rest (Nat.divFuel width width 2)
+  | [], width => True
+  | [p, ..rest], width => Nat.equal p (Float.Model.pow2 width) ∧ Float.Theory.powersFit rest (Nat.divFuel width width 2)
 
 theorem Float.Theory.bitLengthBySpec: (powers: List Nat) → (width: Nat) → (n: Nat)
     → Float.Theory.powersFit powers width = True → 0 < n
     → Float.Theory.IsBitLength n (Float.Model.bitLengthBy powers width n)
-  | Nil, width, n, fit, pos => Float.Theory.bitLengthSlowSpec n n pos (Float.Theory.ltPow n)
-  | Cons p rest, width, n, fit, pos =>
+  | [], width, n, fit, pos => Float.Theory.bitLengthSlowSpec n n pos (Float.Theory.ltPow n)
+  | [p, ..rest], width, n, fit, pos =>
     let pe: p = Nat.pow 2 width :=
       Eq.trans
         (Nat.equalSound p (Float.Model.pow2 width)
@@ -103,7 +103,7 @@ theorem Float.Theory.bitLengthBySpec: (powers: List Nat) → (width: Nat) → (n
 theorem Float.Theory.bitLengthSpec (n: Nat) (pos: 0 < n): Float.Theory.IsBitLength n (Float.Model.bitLength n) :=
   match c: Nat.leq n 65535 with
     | True => Float.Theory.bitLengthSlowSpec 16 n pos omega
-    | False => Float.Theory.bitLengthBySpec (Float.Model.squaresFrom 13 2 Nil) 4096 n rfl pos
+    | False => Float.Theory.bitLengthBySpec (Float.Model.squaresFrom 13 2 []) 4096 n rfl pos
 
 -- Units
 

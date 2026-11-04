@@ -23,8 +23,8 @@ theorem countReplicate (x: Nat) (p: Nat → Bool): (n: Nat) → List.count (List
 --| together.
 theorem countSum (p: Nat → Bool) (q: Nat → Bool) (r: Nat → Bool) (each: (t: Nat) → Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)):
     (fish: List Nat) → List.count fish p = List.count fish q + List.count fish r
-  | Nil => rfl
-  | Cons x xs => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum p q r each xs]
+  | [] => rfl
+  | [x, ..xs] => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum p q r each xs]
 
 --| A day keeps every timer at most 8.
 theorem nextTimerBounded (t: Nat) (bounded: t ≤ 8): nextTimer t ≤ 8 := cases
@@ -97,8 +97,8 @@ theorem oneTimer (x: Nat) (bounded: x ≤ 8):
 
 --| The counts add up to the number of fish.
 theorem totalCounts: (fish: List Nat) → Bounded fish → Counts.total (Counts.ofTimers fish) = List.length fish
-  | Nil, _ => rfl
-  | Cons x xs, bounded =>
+  | [], _ => rfl
+  | [x, ..xs], bounded =>
     omega [
       List.countCons xs x (== 0),
       List.countCons xs x (== 1),

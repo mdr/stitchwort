@@ -16,12 +16,12 @@ theorem smallFive: small 5 = 5 := rewrite small.unfold in rfl
 
 opaque def size: List Nat -> Nat
   | [] => 0
-  | Cons _ rest => 1 + size rest
+  | [_, ..rest] => 1 + size rest
 
 theorem sizeNil: size [] = 0 := rewrite size.unfold in rfl
 
 -- Without `unfolding`, `size rest` is stuck: what's known is its type.
-theorem sizeCons (x: Nat) (rest: List Nat): size (Cons x rest) = 1 + size rest :=
+theorem sizeCons (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest :=
   rewrite size.unfold in rfl
 
 theorem sizeTwo (x: Nat) (y: Nat): size [x, y] = 2 unfolding size := rfl

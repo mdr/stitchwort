@@ -29,15 +29,15 @@ type Graph (s: Type) = {
 --| Edges followed from `start`, each one of the edges of the state before
 --| it, ending at `finish`.
 def Graph.Walk (graph: Graph s) (start: s): List (s, Nat) → s → Prop
-  | Nil, finish => start = finish
-  | Cons (next, weight) rest, finish => ((next, weight) ∈ graph.edges start) ∧ (graph.Walk next rest finish)
+  | [], finish => start = finish
+  | [(next, weight), ..rest], finish => ((next, weight) ∈ graph.edges start) ∧ (graph.Walk next rest finish)
 
 --| What a walk's edges cost together.
 def Graph.cost (path: List (s, Nat)): Nat := path.sumBy Pair.snd
 
-theorem Graph.costNil: Graph.cost (Nil: List (s, Nat)) = 0 := rfl
+theorem Graph.costNil: Graph.cost ([]: List (s, Nat)) = 0 := rfl
 
-theorem Graph.costCons (next: s) (weight: Nat) (rest: List (s, Nat)): Graph.cost (Cons (next, weight) rest) = weight + Graph.cost rest :=
+theorem Graph.costCons (next: s) (weight: Nat) (rest: List (s, Nat)): Graph.cost [(next, weight), ..rest] = weight + Graph.cost rest :=
   List.sumByCons rest (next, weight) Pair.snd
 
 theorem Graph.costAppend (path: List (s, Nat)) (more: List (s, Nat)): Graph.cost (path ++ more) = Graph.cost path + Graph.cost more :=
@@ -46,8 +46,8 @@ theorem Graph.costAppend (path: List (s, Nat)) (more: List (s, Nat)): Graph.cost
 --| A walk, then another from where it ends.
 theorem Graph.walkAppend (graph: Graph s) (more: List (s, Nat)) (finish: s): (start: s) → (path: List (s, Nat)) → (middle: s) →
     graph.Walk start path middle → graph.Walk middle more finish → graph.Walk start (path ++ more) finish
-  | start, Nil, middle, walked, after => rewrite walked in after
-  | start, Cons (next, weight) rest, middle, (Both edge later), after => Both edge (Graph.walkAppend graph more finish next rest middle later after)
+  | start, [], middle, walked, after => rewrite walked in after
+  | start, [(next, weight), ..rest], middle, (Both edge later), after => Both edge (Graph.walkAppend graph more finish next rest middle later after)
 
 --| A walk, then one more edge.
 theorem Graph.walkSnoc (graph: Graph s) (start: s) (path: List (s, Nat)) (middle: s) (walked: graph.Walk start path middle) (next: s) (weight: Nat)
@@ -63,7 +63,7 @@ def Graph.Reached (graph: Graph s) (sources: List (s, Nat)) (state: s) (cost: Na
 
 theorem Graph.reachedSources (graph: Graph s) (sources: List (s, Nat)) (source: s) (start: Nat) (member: (source, start) ∈ sources):
     graph.Reached sources source start :=
-  Witness source (Witness start (Witness Nil (Both member (Both rfl (omega: start + 0 = start)))))
+  Witness source (Witness start (Witness [] (Both member (Both rfl (omega: start + 0 = start)))))
 
 theorem Graph.reachedEdges (graph: Graph s) (sources: List (s, Nat)) (state: s) (cost: Nat) (reached: graph.Reached sources state cost)
     (next: s) (weight: Nat) (edge: (next, weight) ∈ graph.edges state): graph.Reached sources next (cost + weight) :=
@@ -76,7 +76,7 @@ theorem Graph.reachedEdges (graph: Graph s) (sources: List (s, Nat)) (state: s) 
             (Witness (path ++ [(next, weight)])
               (Both member
                 (Both (Graph.walkSnoc graph source path state walked next weight edge)
-                  (rewrite Graph.costAppend path [(next, weight)], Graph.costCons next weight Nil, Graph.costNil [s := s] in omega [costs]))))))))
+                  (rewrite Graph.costAppend path [(next, weight)], Graph.costCons next weight [], Graph.costNil [s := s] in omega [costs]))))))))
 
 -- The spec
 
@@ -103,13 +103,13 @@ theorem Graph.boundAlong [auto ord: Ord s] (graph: Graph s) (result: Map s Nat)
       Graph.Bound result (cost + weight) next):
     (start: s) → (cost: Nat) → Graph.Bound result cost start → (path: List (s, Nat)) → (finish: s) → graph.Walk start path finish →
       Graph.Bound result (cost + Graph.cost path) finish
-  | start, cost, bound, Nil, finish, walked => rewrite <- walked in Graph.boundWeaken result cost (cost + Graph.cost (Nil: List (s, Nat))) start bound (omega)
-  | start, cost, bound, Cons (next, weight) rest, finish, (Both edge later) =>
+  | start, cost, bound, [], finish, walked => rewrite <- walked in Graph.boundWeaken result cost (cost + Graph.cost ([]: List (s, Nat))) start bound (omega)
+  | start, cost, bound, [(next, weight), ..rest], finish, (Both edge later) =>
     Exists.elim bound (found both =>
       let stepped := closed start found (And.left both) next weight edge
       let along := Graph.boundAlong graph result closed next (cost + weight)
         (Graph.boundWeaken result (found + weight) (cost + weight) next stepped (omega [And.right both])) rest finish later
-      Graph.boundWeaken result (cost + weight + Graph.cost rest) (cost + Graph.cost (Cons (next, weight) rest)) finish along
+      Graph.boundWeaken result (cost + weight + Graph.cost rest) (cost + Graph.cost [(next, weight), ..rest]) finish along
         (rewrite Graph.costCons next weight rest in omega))
 
 --| Each cost found is a walk's from a source, and no walk from a source
@@ -143,33 +143,33 @@ theorem Graph.unsettledFewer [auto ord: Ord s] (universe: List s) (settled: Map 
 
 --| The queue with each edge's state added, at `cost` plus the edge's.
 def Graph.pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → Set (Nat, s)
-  | Nil, queue => queue
-  | Cons (next, weight) rest, queue => Graph.pushEdges cost rest (queue.insert (cost + weight, next))
+  | [], queue => queue
+  | [(next, weight), ..rest], queue => Graph.pushEdges cost rest (queue.insert (cost + weight, next))
 
 --| Pushing edges keeps what the queue had.
 theorem Graph.containsPushedKeeps [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (entry: (Nat, s)) →
     queue.contains entry = True → (Graph.pushEdges cost edges queue).contains entry = True
-  | Nil, queue, entry, there => there
-  | Cons (next, weight) rest, queue, entry, there =>
+  | [], queue, entry, there => there
+  | [(next, weight), ..rest], queue, entry, there =>
     Graph.containsPushedKeeps cost rest (queue.insert (cost + weight, next)) entry (Set.containsInsertMono queue (cost + weight, next) entry there)
 
 --| Pushing edges adds each edge's state at `cost` plus its cost.
 theorem Graph.containsPushedEdge [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (next: s) → (weight: Nat) →
     (next, weight) ∈ edges → (Graph.pushEdges cost edges queue).contains (cost + weight, next) = True
-  | Nil, queue, next, weight, member => Void.exfalso member
-  | Cons (first, firstWeight) rest, queue, next, weight, Inl here =>
+  | [], queue, next, weight, member => Void.exfalso member
+  | [(first, firstWeight), ..rest], queue, next, weight, Inl here =>
     rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in
       Graph.containsPushedKeeps cost rest (queue.insert (cost + firstWeight, first)) (cost + firstWeight, first)
         (Set.containsInsert (cost + firstWeight, first) queue)
-  | Cons (first, firstWeight) rest, queue, next, weight, Inr later =>
+  | [(first, firstWeight), ..rest], queue, next, weight, Inr later =>
     Graph.containsPushedEdge cost rest (queue.insert (cost + firstWeight, first)) next weight later
 
 --| Pushing edges adds nothing but each edge's state at `cost` plus its cost.
 theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (total: Nat) → (state: s) →
     (Graph.pushEdges cost edges queue).contains (total, state) = True →
     (queue.contains (total, state) = True) ∨ (Exists Nat (weight => ((state, weight) ∈ edges) ∧ (total = cost + weight)))
-  | Nil, queue, total, state, there => Inl there
-  | Cons (next, weight) rest, queue, total, state, there =>
+  | [], queue, total, state, there => Inl there
+  | [(next, weight), ..rest], queue, total, state, there =>
     match Graph.containsPushed cost rest (queue.insert (cost + weight, next)) total state there with
       | Inr (Witness found (Both member costs)) => Inr (Witness found (Both (Inr member) costs))
       | Inl inserted =>
@@ -190,8 +190,8 @@ theorem Graph.notGreaterOfThen: (first: Ordering) → (second: Ordering) → Ord
 theorem Graph.minLeast [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (other: Nat)
     (otherState: s) (there: queue.contains (other, otherState) = True): cost ≤ other :=
   match entries: Map.toList queue.items with
-    | Nil => Void.exfalso (Option.someNotNone (cost, state) (Eq.trans (Eq.sym found) (rewrite Map.minToList queue.items, entries in rfl)))
-    | Cons (key, unit) rest =>
+    | [] => Void.exfalso (Option.someNotNone (cost, state) (Eq.trans (Eq.sym found) (rewrite Map.minToList queue.items, entries in rfl)))
+    | [(key, unit), ..rest] =>
       let first: queue.min = Some key := rewrite Map.minToList queue.items, entries in rfl
       let same: key = (cost, state) := Option.someInjective _ _ (Eq.trans (Eq.sym first) found)
       let member := Map.memKeysOfContains queue.items (other, otherState) there
@@ -435,44 +435,44 @@ theorem Graph.distancesShortest [auto ord: Ord s] (graph: Graph s) (sources: Lis
 --| Each edge's state not settled yet: settled at `depth`, and put on
 --| `next`.
 def Graph.visitEdges [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (Map s Nat, List s)
-  | Nil, settled, next => (settled, next)
-  | Cons (state, weight) rest, settled, next =>
+  | [], settled, next => (settled, next)
+  | [(state, weight), ..rest], settled, next =>
     if settled.contains state then Graph.visitEdges depth rest settled next
-    else Graph.visitEdges depth rest (settled.insert state depth) (Cons state next)
+    else Graph.visitEdges depth rest (settled.insert state depth) [state, ..next]
 
 --| What visiting edges settled stays settled.
 theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (cost: Nat) → settled.get state = Some cost → (Graph.visitEdges depth edges settled next).fst.get state = Some cost
-  | Nil, settled, next, state, cost, got => got
-  | Cons (target, weight) rest, settled, next, state, cost, got =>
+  | [], settled, next, state, cost, got => got
+  | [(target, weight), ..rest], settled, next, state, cost, got =>
     match there: settled.contains target with
       | True => Graph.visitGrows depth rest settled next state cost got
       | False =>
-        Graph.visitGrows depth rest (settled.insert target depth) (Cons target next) state cost
+        Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] state cost
           (Map.getInsertKeeps settled target depth there state cost got)
 
 --| Visiting edges keeps what was on the list on it.
 theorem Graph.visitListed [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     state ∈ next → state ∈ (Graph.visitEdges depth edges settled next).snd
-  | Nil, settled, next, state, member => member
-  | Cons (target, weight) rest, settled, next, state, member =>
+  | [], settled, next, state, member => member
+  | [(target, weight), ..rest], settled, next, state, member =>
     match there: settled.contains target with
       | True => Graph.visitListed depth rest settled next state member
-      | False => Graph.visitListed depth rest (settled.insert target depth) (Cons target next) state (Inr member)
+      | False => Graph.visitListed depth rest (settled.insert target depth) [target, ..next] state (Inr member)
 
 --| What visiting edges settles anew is at `depth`, and put on the list.
 theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (cost: Nat) → (Graph.visitEdges depth edges settled next).fst.get state = Some cost →
     (settled.get state = Some cost) ∨ ((cost = depth) ∧ ((state ∈ (Graph.visitEdges depth edges settled next).snd) ∧ (Exists Nat (weight => (state, weight) ∈ edges))))
-  | Nil, settled, next, state, cost, got => Inl got
-  | Cons (target, weight) rest, settled, next, state, cost, got =>
+  | [], settled, next, state, cost, got => Inl got
+  | [(target, weight), ..rest], settled, next, state, cost, got =>
     match there: settled.contains target with
       | True =>
         match Graph.visitNew depth rest settled next state cost got with
           | Inl old => Inl old
           | Inr (Both costs (Both listed (Witness found edge))) => Inr (Both costs (Both listed (Witness found (Inr edge))))
       | False =>
-        match Graph.visitNew depth rest (settled.insert target depth) (Cons target next) state cost got with
+        match Graph.visitNew depth rest (settled.insert target depth) [target, ..next] state cost got with
           | Inr (Both costs (Both listed (Witness found edge))) => Inr (Both costs (Both listed (Witness found (Inr edge))))
           | Inl inserted =>
             match Map.getInsertCases settled target depth state cost inserted with
@@ -480,7 +480,7 @@ theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) �
               | Inl (Both same costs) =>
                 Inr
                   (Both costs
-                    (Both (Graph.visitListed depth rest (settled.insert target depth) (Cons target next) state (Inl (Eq.sym same)))
+                    (Both (Graph.visitListed depth rest (settled.insert target depth) [target, ..next] state (Inl (Eq.sym same)))
                       (Witness weight (Inl (rewrite same in rfl)))))
 
 --| What is on the list after visiting edges was on it, or wasn't settled
@@ -488,21 +488,21 @@ theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) �
 theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     state ∈ (Graph.visitEdges depth edges settled next).snd →
     (state ∈ next) ∨ ((settled.contains state = False) ∧ (((Graph.visitEdges depth edges settled next).fst.get state = Some depth) ∧ (Exists Nat (weight => (state, weight) ∈ edges))))
-  | Nil, settled, next, state, member => Inl member
-  | Cons (target, weight) rest, settled, next, state, member =>
+  | [], settled, next, state, member => Inl member
+  | [(target, weight), ..rest], settled, next, state, member =>
     match there: settled.contains target with
       | True =>
         match Graph.visitAdded depth rest settled next state member with
           | Inl old => Inl old
           | Inr (Both fresh (Both got (Witness found edge))) => Inr (Both fresh (Both got (Witness found (Inr edge))))
       | False =>
-        match Graph.visitAdded depth rest (settled.insert target depth) (Cons target next) state member with
+        match Graph.visitAdded depth rest (settled.insert target depth) [target, ..next] state member with
           | Inl (Inl same) =>
             rewrite <- same in
               Inr
                 (Both there
                   (Both
-                    (Graph.visitGrows depth rest (settled.insert target depth) (Cons target next) target depth
+                    (Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] target depth
                       (Map.getInsert target depth settled))
                     (Witness weight (Inl rfl))))
           | Inl (Inr old) => Inl old
@@ -516,8 +516,8 @@ theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) 
 --| After visiting edges, every edge's state is settled.
 theorem Graph.visitCovers [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (weight: Nat) → (state, weight) ∈ edges → (Graph.visitEdges depth edges settled next).fst.contains state = True
-  | Nil, settled, next, state, weight, member => Void.exfalso member
-  | Cons (target, targetWeight) rest, settled, next, state, weight, member =>
+  | [], settled, next, state, weight, member => Void.exfalso member
+  | [(target, targetWeight), ..rest], settled, next, state, weight, member =>
     let settles: (more: Map s Nat) → (added: List s) → more.contains state = True →
         (Graph.visitEdges depth rest more added).fst.contains state = True :=
       more added there =>
@@ -531,22 +531,22 @@ theorem Graph.visitCovers [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat))
       | False =>
         match member with
           | Inl here =>
-            settles (settled.insert target depth) (Cons target next)
+            settles (settled.insert target depth) [target, ..next]
               (rewrite <- Eq.cong Pair.fst here in Map.containsInsertSame settled target depth)
-          | Inr later => Graph.visitCovers depth rest (settled.insert target depth) (Cons target next) state weight later
+          | Inr later => Graph.visitCovers depth rest (settled.insert target depth) [target, ..next] state weight later
 
 --| One level of the search: the edges out of the frontier, visited.
 def Graph.visitFrontier [auto ord: Ord s] (graph: Graph s) (depth: Nat) (frontier: List s) (settled: Map s Nat): (Map s Nat, List s) :=
-  Graph.visitEdges depth (frontier.flatMap graph.edges) settled Nil
+  Graph.visitEdges depth (frontier.flatMap graph.edges) settled []
 
 --| A frontier visited with states added leaves fewer unsettled.
 theorem Graph.visitFewer [auto ord: Ord s] (graph: Graph s) (depth: Nat) (frontier: List s) (settled: Map s Nat) (more: Map s Nat)
-    (first: s) (rest: List s) (found: graph.visitFrontier depth frontier settled = (more, Cons first rest)):
+    (first: s) (rest: List s) (found: graph.visitFrontier depth frontier settled = (more, [first, ..rest])):
     Graph.unsettledIn graph.states more < Graph.unsettledIn graph.states settled :=
   let edges := frontier.flatMap graph.edges
-  let listedFirst: first ∈ (Graph.visitEdges depth edges settled Nil).snd := rewrite found in Inl rfl
-  let moreIs: (Graph.visitEdges depth edges settled Nil).fst = more := Eq.cong Pair.fst found
-  match Graph.visitAdded depth edges settled Nil first listedFirst with
+  let listedFirst: first ∈ (Graph.visitEdges depth edges settled []).snd := rewrite found in Inl rfl
+  let moreIs: (Graph.visitEdges depth edges settled []).fst = more := Eq.cong Pair.fst found
+  match Graph.visitAdded depth edges settled [] first listedFirst with
     | Inl none => Void.exfalso none
     | Inr (Both fresh (Both got (Witness weight edge))) =>
       List.anyElim (from => (first, weight) ∈ graph.edges from) (Graph.unsettledIn graph.states more < Graph.unsettledIn graph.states settled)
@@ -554,7 +554,7 @@ theorem Graph.visitFewer [auto ord: Ord s] (graph: Graph s) (depth: Nat) (fronti
           Graph.unsettledFewer graph.states settled more
             (state there =>
               Exists.elim (Map.getOfContains settled state there) (cost old =>
-                Map.containsOfGet more state cost (rewrite <- moreIs in Graph.visitGrows depth edges settled Nil state cost old)))
+                Map.containsOfGet more state cost (rewrite <- moreIs in Graph.visitGrows depth edges settled [] state cost old)))
             first (graph.listed from first weight fromEdge) fresh (Map.containsOfGet more first depth (rewrite <- moreIs in got)))
 
 --| Breadth-first search: `frontier` holds the states settled at `depth`.
@@ -563,26 +563,26 @@ theorem Graph.visitFewer [auto ord: Ord s] (graph: Graph s) (depth: Nat) (fronti
 def Graph.breadthFrom [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s):
     (visited: (Map s Nat, List s)) → graph.visitFrontier (depth + 1) frontier settled = visited → Map s Nat
     decreasing Graph.unsettledIn graph.states settled
-  | (more, Nil), found => more
-  | (more, Cons first rest), found =>
-    graph.breadthFrom (depth + 1) more (Cons first rest) (graph.visitFrontier (depth + 1 + 1) (Cons first rest) more) rfl
+  | (more, []), found => more
+  | (more, [first, ..rest]), found =>
+    graph.breadthFrom (depth + 1) more [first, ..rest] (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl
       [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
 
 --| The fewest edges from any of the sources to each state reachable from
 --| them, each edge counting 1 whatever its cost.
 def Graph.breadthFirst [auto ord: Ord s] (graph: Graph s) (sources: List s): Map s Nat :=
-  let start := Graph.visitEdges 0 (sources.map (source => (source, 0))) Map.empty Nil
+  let start := Graph.visitEdges 0 (sources.map (source => (source, 0))) Map.empty []
   graph.breadthFrom 0 start.fst start.snd (graph.visitFrontier (0 + 1) start.snd start.fst) rfl
 
 theorem Graph.breadthDone [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s) (more: Map s Nat)
-    (found: graph.visitFrontier (depth + 1) frontier settled = (more, Nil)): graph.breadthFrom depth settled frontier (more, Nil) found = more :=
-  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, Nil) found in rfl
+    (found: graph.visitFrontier (depth + 1) frontier settled = (more, [])): graph.breadthFrom depth settled frontier (more, []) found = more :=
+  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, []) found in rfl
 
 theorem Graph.breadthStep [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s) (more: Map s Nat) (first: s)
-    (rest: List s) (found: graph.visitFrontier (depth + 1) frontier settled = (more, Cons first rest)):
-    graph.breadthFrom depth settled frontier (more, Cons first rest) found
-      = graph.breadthFrom (depth + 1) more (Cons first rest) (graph.visitFrontier (depth + 1 + 1) (Cons first rest) more) rfl :=
-  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, Cons first rest) found in rfl
+    (rest: List s) (found: graph.visitFrontier (depth + 1) frontier settled = (more, [first, ..rest])):
+    graph.breadthFrom depth settled frontier (more, [first, ..rest]) found
+      = graph.breadthFrom (depth + 1) more [first, ..rest] (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl :=
+  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, [first, ..rest]) found in rfl
 
 --| What holds at each level of the search, for a `reach` that holds at the sources for 0 and along every edge for one more.
 --| Every settled state is reached for its cost, at most `depth`; the frontier
@@ -607,29 +607,29 @@ theorem Graph.frontierClosed [auto ord: Ord s] (graph: Graph s) (sources: List s
     Graph.Bound (graph.visitFrontier (depth + 1) frontier settled).fst (depth + 1) next :=
   let (Both settledReach rest) := invariant
   let edges := frontier.flatMap graph.edges
-  let covered := Graph.visitCovers (depth + 1) edges settled Nil next weight (List.memFlatMapIntro graph.edges state (next, weight) frontier inFrontier edge)
+  let covered := Graph.visitCovers (depth + 1) edges settled [] next weight (List.memFlatMapIntro graph.edges state (next, weight) frontier inFrontier edge)
   Exists.elim (Map.getOfContains _ next covered) (cost got =>
-    match Graph.visitNew (depth + 1) edges settled Nil next cost got with
+    match Graph.visitNew (depth + 1) edges settled [] next cost got with
       | Inl old => Witness cost (Both got (omega [And.right (settledReach next cost old)]))
       | Inr (Both costs others) => Witness cost (Both got (omega [costs])))
 
 --| With no next frontier, the search state is the search result.
 theorem Graph.breadthDoneCorrect [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop) (depth: Nat) (settled: Map s Nat)
-    (frontier: List s) (more: Map s Nat) (found: graph.visitFrontier (depth + 1) frontier settled = (more, Nil))
+    (frontier: List s) (more: Map s Nat) (found: graph.visitFrontier (depth + 1) frontier settled = (more, []))
     (invariant: Graph.BreadthState graph sources reach depth settled frontier)
     (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1):
     Graph.SearchResult graph (sources.map (source => (source, 0))) reach more :=
   let (Both settledReach (Both atFrontier (Both closedBelow sourcesBound))) := invariant
   let edges := frontier.flatMap graph.edges
-  let moreIs: (Graph.visitEdges (depth + 1) edges settled Nil).fst = more := Eq.cong Pair.fst found
-  let nextIs: (Graph.visitEdges (depth + 1) edges settled Nil).snd = Nil := Eq.cong Pair.snd found
+  let moreIs: (Graph.visitEdges (depth + 1) edges settled []).fst = more := Eq.cong Pair.fst found
+  let nextIs: (Graph.visitEdges (depth + 1) edges settled []).snd = [] := Eq.cong Pair.snd found
   let old: (state: s) → (cost: Nat) → more.get state = Some cost → settled.get state = Some cost :=
     state cost got =>
-      match Graph.visitNew (depth + 1) edges settled Nil state cost (rewrite moreIs in got) with
+      match Graph.visitNew (depth + 1) edges settled [] state cost (rewrite moreIs in got) with
         | Inl was => was
         | Inr (Both costs (Both listed others)) => Void.exfalso (rewrite nextIs at listed in listed)
   let grows: (cost: Nat) → (state: s) → Graph.Bound settled cost state → Graph.Bound more cost state :=
-    cost state bound => rewrite <- moreIs in Graph.visitBound (depth + 1) edges settled Nil cost state bound
+    cost state bound => rewrite <- moreIs in Graph.visitBound (depth + 1) edges settled [] cost state bound
   Both (state cost got => And.left (settledReach state cost (old state cost got)))
     (Both
       (source start member =>
@@ -655,15 +655,15 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
     (invariant: Graph.BreadthState graph sources reach depth settled frontier): Graph.BreadthState graph sources reach (depth + 1) more nextFrontier :=
   let (Both settledReach (Both atFrontier (Both closedBelow sourcesBound))) := invariant
   let edges := frontier.flatMap graph.edges
-  let moreIs: (Graph.visitEdges (depth + 1) edges settled Nil).fst = more := Eq.cong Pair.fst found
-  let nextIs: (Graph.visitEdges (depth + 1) edges settled Nil).snd = nextFrontier := Eq.cong Pair.snd found
+  let moreIs: (Graph.visitEdges (depth + 1) edges settled []).fst = more := Eq.cong Pair.fst found
+  let nextIs: (Graph.visitEdges (depth + 1) edges settled []).snd = nextFrontier := Eq.cong Pair.snd found
   let grows: (cost: Nat) → (state: s) → Graph.Bound settled cost state → Graph.Bound more cost state :=
-    cost state bound => rewrite <- moreIs in Graph.visitBound (depth + 1) edges settled Nil cost state bound
+    cost state bound => rewrite <- moreIs in Graph.visitBound (depth + 1) edges settled [] cost state bound
   -- What is settled now was settled before, or is new at `depth + 1` and
   -- on the next frontier.
   let origin: (state: s) → (cost: Nat) → more.get state = Some cost →
       (settled.get state = Some cost) ∨ ((cost = depth + 1) ∧ ((state ∈ nextFrontier) ∧ (Exists Nat (weight => (state, weight) ∈ edges)))) :=
-    state cost got => rewrite <- nextIs in Graph.visitNew (depth + 1) edges settled Nil state cost (rewrite moreIs in got)
+    state cost got => rewrite <- nextIs in Graph.visitNew (depth + 1) edges settled [] state cost (rewrite moreIs in got)
   Both
     (state cost got =>
       match origin state cost got with
@@ -679,7 +679,7 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
     (Both
       (state => {
         forward = listed =>
-          match Graph.visitAdded (depth + 1) edges settled Nil state (rewrite nextIs in listed) with
+          match Graph.visitAdded (depth + 1) edges settled [] state (rewrite nextIs in listed) with
             | Inl none => Void.exfalso none
             | Inr (Both fresh (Both got others)) => rewrite <- moreIs in got,
         backward = got =>
@@ -710,14 +710,14 @@ theorem Graph.breadthFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: Li
       Graph.BreadthState graph sources reach depth settled frontier →
       Graph.SearchResult graph (sources.map (source => (source, 0))) reach (graph.breadthFrom depth settled frontier visited found)
     decreasing Graph.unsettledIn graph.states settled
-  | (more, Nil), found, invariant =>
+  | (more, []), found, invariant =>
     rewrite Graph.breadthDone graph depth settled frontier more found in
       Graph.breadthDoneCorrect graph sources reach depth settled frontier more found invariant unit
-  | (more, Cons first rest), found, invariant =>
+  | (more, [first, ..rest]), found, invariant =>
     rewrite Graph.breadthStep graph depth settled frontier more first rest found in
-      Graph.breadthFromCorrect graph sources reach edgesReach unit (depth + 1) more (Cons first rest)
-        (graph.visitFrontier (depth + 1 + 1) (Cons first rest) more) rfl
-        (Graph.breadthKeeps graph sources reach edgesReach unit depth settled frontier more (Cons first rest) found invariant)
+      Graph.breadthFromCorrect graph sources reach edgesReach unit (depth + 1) more [first, ..rest]
+        (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl
+        (Graph.breadthKeeps graph sources reach edgesReach unit depth settled frontier more [first, ..rest] found invariant)
         [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
 
 --| Breadth-first search returns what `SearchResult` says, for a graph whose
@@ -730,7 +730,7 @@ theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: L
     (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1):
     Graph.SearchResult graph (sources.map (source => (source, 0))) reach (graph.breadthFirst sources) :=
   let edges := sources.map (source => (source, 0))
-  let start := Graph.visitEdges 0 edges Map.empty Nil
+  let start := Graph.visitEdges 0 edges Map.empty []
   let fromSource: (state: s) → (weight: Nat) → (state, weight) ∈ edges → state ∈ sources :=
     state weight member =>
       List.anyElim (source => (source, 0) = (state, weight)) (state ∈ sources) sources (List.memMapAny sources (source => (source, 0)) (state, weight) member)
@@ -738,7 +738,7 @@ theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: L
   let origin: (state: s) → (cost: Nat) → start.fst.get state = Some cost →
       (cost = 0) ∧ ((state ∈ start.snd) ∧ (state ∈ sources)) :=
     state cost got =>
-      match Graph.visitNew 0 edges Map.empty Nil state cost got with
+      match Graph.visitNew 0 edges Map.empty [] state cost got with
         | Inl none => Void.exfalso (Option.noneNotSome cost none)
         | Inr (Both costs (Both listed (Witness weight edge))) => Both costs (Both listed (fromSource state weight edge))
   let initial: Graph.BreadthState graph sources reach 0 start.fst start.snd :=
@@ -749,14 +749,14 @@ theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: L
       (Both
         (state => {
           forward = listed =>
-            match Graph.visitAdded 0 edges Map.empty Nil state listed with
+            match Graph.visitAdded 0 edges Map.empty [] state listed with
               | Inl none => Void.exfalso none
               | Inr (Both fresh (Both got others)) => got,
           backward = got => And.left (And.right (origin state 0 got))
         })
         (Both (state cost got below => Void.exfalso (omega [below]))
           (source member =>
-            let covered := Graph.visitCovers 0 edges Map.empty Nil source 0 (List.memMap sources source member (other => (other, 0)))
+            let covered := Graph.visitCovers 0 edges Map.empty [] source 0 (List.memMap sources source member (other => (other, 0)))
             Exists.elim (Map.getOfContains _ source covered) (cost got =>
               Witness cost (Both got (omega [And.left (origin source cost got)]))))))
   Graph.breadthFromCorrect graph sources reach edgesReach unit 0 start.fst start.snd (graph.visitFrontier (0 + 1) start.snd start.fst) rfl initial

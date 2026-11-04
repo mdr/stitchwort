@@ -55,7 +55,7 @@ theorem mulCommFact (k: Nat) (n: Nat) (t: Nat) (h: t + k * n ≤ 10) (h2: 3 ≤ 
 
 -- A goal that isn't arithmetic follows from facts that contradict each other:
 -- a proposition, a `Bool` equation, or data.
-theorem listGoal (xs: List Nat) (n: Nat) (h: n < 0): xs = Nil := omega
+theorem listGoal (xs: List Nat) (n: Nat) (h: n < 0): xs = [] := omega
 
 theorem boolGoal (b: Bool) (n: Nat) (h1: n < 3) (h2: 5 ≤ n): b = True := omega
 

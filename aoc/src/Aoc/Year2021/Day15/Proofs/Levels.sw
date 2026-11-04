@@ -83,8 +83,8 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
 
 --| A rectangle has a row.
 theorem heightNotZero: (cave: Cave) → Rectangle cave → cave.height ≠ 0
-  | { rows = Nil, .. }, rectangle, zero => omega [And.left rectangle]
-  | { rows = Cons first rest, .. }, rectangle, zero => omega [zero]
+  | { rows = [], .. }, rectangle, zero => omega [And.left rectangle]
+  | { rows = [first, ..rest], .. }, rectangle, zero => omega [zero]
 
 --| A level of the cave is a digit's.
 theorem levelBelow10 (cave: Cave) (position: Position) (level: Nat) (found: levelAt cave position = Some level): level < 10 :=

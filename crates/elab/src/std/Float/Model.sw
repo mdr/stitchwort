@@ -38,14 +38,14 @@ def Float.Model.bitLengthSlow: Nat → Nat → Nat
 --| `p`, `p^2`, `p^4`, … (`k` of them), last first, onto `acc`.
 def Float.Model.squaresFrom: Nat → Nat → List Nat → List Nat
   | Zero, p, acc => acc
-  | Succ k, p, acc => Float.Model.squaresFrom k (p * p) (Cons p acc)
+  | Succ k, p, acc => Float.Model.squaresFrom k (p * p) [p, ..acc]
 
 --| The number of binary digits of `n`, given `powers`, which are 2^width,
 --| 2^(width / 2), …, 2^1: at each, the top part of `n` is split off if it
 --| has one. For `n < 2^(2 × width)`, one step per power.
 def Float.Model.bitLengthBy: List Nat → Nat → Nat → Nat
-  | Nil, width, n => Float.Model.bitLengthSlow n n
-  | Cons p rest, width, n =>
+  | [], width, n => Float.Model.bitLengthSlow n n
+  | [p, ..rest], width, n =>
     let high: Nat := Nat.divFuel n n p
     if Nat.equal high 0 then Float.Model.bitLengthBy rest (Nat.divFuel width width 2) n
     else width + Float.Model.bitLengthBy rest (Nat.divFuel width width 2) high
@@ -58,7 +58,7 @@ def Float.Model.bitLength (n: Nat): Nat := Float.Model.bitLengthWhen (Nat.leq n 
 --| The number of binary digits of `n`, given whether `n` is at most 65535.
 def Float.Model.bitLengthWhen: Bool → Nat → Nat
   | True, n => Float.Model.bitLengthSlow 16 n
-  | False, n => Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 Nil) 4096 n
+  | False, n => Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 []) 4096 n
 
 --| The sign bit is set: `signBit` of `-0.0` is `True`.
 def Float.Model.signBit (bits: Nat): Bool := Nat.leq 9223372036854775808 bits

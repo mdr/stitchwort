@@ -47,5 +47,5 @@ theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (()
 
 --| Rows whose first has a cell are at least one.
 theorem tallOfWide: (rows: List (List a)) → 0 < firstWidth rows → 0 < rows.length
-  | Nil, wide => wide
-  | Cons first rest, wide => omega
+  | [], wide => wide
+  | [first, ..rest], wide => omega

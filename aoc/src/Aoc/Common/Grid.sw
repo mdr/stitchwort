@@ -90,8 +90,8 @@ def touching (at: Position) (other: Position): Bool :=
 --| Steps from `from` to `to`, the positions entered in turn: each adjacent
 --| to the one before, and `allowed`.
 def isPath (allowed: Position → Bool) (from: Position): (steps: List Position) → (to: Position) → Bool
-  | Nil, to => from == to
-  | Cons next rest, to => adjacent from next && allowed next && isPath allowed next rest to
+  | [], to => from == to
+  | [next, ..rest], to => adjacent from next && allowed next && isPath allowed next rest to
 
 --| In the first `height` rows and `width` columns.
 def Position.within (position: Position) (height: Nat) (width: Nat): Bool := position.row < height && position.column < width

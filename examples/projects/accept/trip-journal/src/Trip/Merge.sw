@@ -38,8 +38,8 @@ def resolveAgainst (local: List Leg) (remote: Leg): Leg :=
 
 -- The legs laid end to end from `at`.
 def layout (at: Float): List Leg → List Leg
-  | Nil => Nil
-  | Cons leg rest => Cons (moveLeg at leg) (layout (at + leg.duration) rest)
+  | [] => []
+  | [leg, ..rest] => [moveLeg at leg, ..layout (at + leg.duration) rest]
 
 -- The remote legs, each resolved against the local one with its id, then
 -- the local legs the remote copy doesn't have, laid end to end from 0.

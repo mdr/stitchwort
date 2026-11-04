@@ -75,14 +75,14 @@ theorem noneHeld (set: Set Computer) (found: set.popMin = None) (key: Computer) 
   let least := Set.popMinNone set found
   let listed := (Set.memToList set key).backward held
   match keys: set.toList with
-    | Nil => listed
-    | Cons first rest => Option.someNotNone first (Eq.trans (Eq.sym (rewrite Set.minToList set, keys in rfl)) least)
+    | [] => listed
+    | [first, ..rest] => Option.someNotNone first (Eq.trans (Eq.sym (rewrite Set.minToList set, keys in rfl)) least)
 
 theorem sizeNone (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
   rewrite Set.sizeToList set in
   match keys: set.toList with
-    | Nil => rfl
-    | Cons first rest => Void.exfalso (noneHeld set found first ((Set.memToList set first).forward (rewrite keys in Inl rfl)))
+    | [] => rfl
+    | [first, ..rest] => Void.exfalso (noneHeld set found first ((Set.memToList set first).forward (rewrite keys in Inl rfl)))
 
 --| The other candidates are the candidates other than the smallest.
 theorem othersElim (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)

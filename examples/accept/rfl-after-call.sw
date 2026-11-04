@@ -10,10 +10,10 @@ import Std (Eq, List, Nat, Option, Void)
 def firstOf (xs: List Nat): Option Nat := List.head xs
 
 type Starts: List Nat → Nat → Prop =
-  | Here (n: Nat) (rest: List Nat): Starts (Cons n rest) n
+  | Here (n: Nat) (rest: List Nat): Starts [n, ..rest] n
 
 theorem startsOf: (xs: List Nat) → (n: Nat) → firstOf xs = Some n → Starts xs n
-  | Nil, n, h => Void.exfalso (Option.noneNotSome n h)
-  | Cons m rest, n, h => rewrite <- Option.someInjective m n h in Here m rest
+  | [], n, h => Void.exfalso (Option.noneNotSome n h)
+  | [m, ..rest], n, h => rewrite <- Option.someInjective m n h in Here m rest
 
 theorem rflUnderHole: Starts [3, 4] 3 := startsOf _ 3 rfl

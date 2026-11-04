@@ -8,12 +8,12 @@ theorem getZeroHead (t: List Bool): List.get t 0 = List.head t := cases
 
 -- Under a prefix, by recursion on it; `cases` does the last step.
 theorem getAfterPrefix (t: List Bool): (prefix: List Bool) → List.get (List.append prefix t) (List.length prefix) = List.head t
-  | Nil => cases
-  | Cons first rest => getAfterPrefix t rest
+  | [] => cases
+  | [first, ..rest] => getAfterPrefix t rest
 
 def afterBit (bit: Bool): List Bool → Option (List Bool)
-  | Nil => None
-  | Cons first rest => if first == bit then Some rest else None
+  | [] => None
+  | [first, ..rest] => if first == bit then Some rest else None
 
 -- Both sides wait for `rest`; then for its first bit.
 theorem headAfterBit (rest: List Bool) (bit: Bool): (List.head rest == Some bit) = Option.isSome (afterBit bit rest) := cases

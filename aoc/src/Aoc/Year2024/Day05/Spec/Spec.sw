@@ -8,8 +8,8 @@ import Std (And, Bool, List, Nat, Not)
 --| "Page number X must be printed at some point before page number Y": no
 --| copy of Y comes before a copy of X.
 def printedBefore (x: Nat) (y: Nat): List Nat → Bool
-  | Nil => True
-  | Cons page later => (!(page == y) || !(later.any (== x))) && printedBefore x y later
+  | [] => True
+  | [page, ..later] => (!(page == y) || !(later.any (== x))) && printedBefore x y later
 
 --| "The notation X|Y means that if both page number X and page number Y are to
 --| be produced as part of an update, page number X must be printed at some

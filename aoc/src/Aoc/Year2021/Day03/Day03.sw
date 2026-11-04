@@ -56,8 +56,8 @@ def solvePart1 (numbers: List Bits): Nat :=
 
 --| The bits after the first, of a number whose first bit is `bit`.
 def afterBit (bit: Bool): Bits → Option Bits
-  | Nil => None
-  | Cons first rest => if first == bit then Some rest else None
+  | [] => None
+  | [first, ..rest] => if first == bit then Some rest else None
 
 --| The rating found from `numbers`, with `columns` columns left to filter on:
 --| the bits it starts with are chosen by `choose` from the numbers' first

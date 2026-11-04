@@ -17,7 +17,7 @@ def defaults: List Setting := [{ name = "width", value = 80 }, { name = "tabs", 
 
 test "the user's value wins" := List.map (withDefaults user defaults) (.value) == [120, 4]
 test "the defaults left" := List.map (untouched user defaults) (.name) == ["tabs"]
-test "merging with nothing" := List.map (withDefaults Nil defaults) (.value) == [80, 4]
+test "merging with nothing" := List.map (withDefaults [] defaults) (.value) == [80, 4]
 
 -- Merged settings have one value per name, when each list has.
 theorem withDefaultsDistinct (user: List Setting) (defaults: List Setting) (du: List.Distinct (List.map user (.name)))

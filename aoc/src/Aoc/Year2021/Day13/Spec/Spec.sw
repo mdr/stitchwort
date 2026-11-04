@@ -24,8 +24,8 @@ def AfterFold (fold: Fold) (marked: Dot → Prop) (spot: Dot): Prop := ∃ (dot:
 
 --| The dots after the folds, one after another.
 def AfterFolds: List Fold → (Dot → Prop) → Dot → Prop
-  | Nil, marked, spot => marked spot
-  | Cons fold rest, marked, spot => AfterFolds rest (AfterFold fold marked) spot
+  | [], marked, spot => marked spot
+  | [fold, ..rest], marked, spot => AfterFolds rest (AfterFold fold marked) spot
 
 --| The sheet's dots at the start: those the input lists (a dot listed twice
 --| is one dot).
@@ -41,8 +41,8 @@ def Clear (fold: Fold) (dot: Dot): Prop :=
     | AlongX line => dot.x ≠ line ∧ dot.x ≤ 2 * line
 
 def Promise: List Fold → (Dot → Prop) → Prop
-  | Nil, marked => Unit
-  | Cons fold rest, marked => ((dot: Dot) → marked dot → Clear fold dot) ∧ Promise rest (AfterFold fold marked)
+  | [], marked => Unit
+  | [fold, ..rest], marked => ((dot: Dot) → marked dot → Clear fold dot) ∧ Promise rest (AfterFold fold marked)
 
 --| Part 1's answer is how many dots there are: `count` of them, listed
 --| without repeats, exactly the dots.

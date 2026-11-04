@@ -8,20 +8,20 @@
 
 --| An element of the first list is in the two joined.
 theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs → x ∈ List.append xs ys
-  | Nil, ys, m => Void.exfalso m
-  | Cons z zs, ys, Inl e => Inl e
-  | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
+  | [], ys, m => Void.exfalso m
+  | [z, ..zs], ys, Inl e => Inl e
+  | [z, ..zs], ys, Inr m => Inr (List.memAppendLeft x zs ys m)
 
 --| An element of the second list is in the two joined.
 theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
-  | Nil, ys, m => m
-  | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)
+  | [], ys, m => m
+  | [z, ..zs], ys, m => Inr (List.memAppendRight x zs ys m)
 
 --| What `f` makes from an element of `xs` is in `List.concatMap xs f`.
 theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x ∈ xs → y ∈ f x → y ∈ List.concatMap xs f
-  | Nil, member, made => Void.exfalso member
-  | Cons z zs, Inl same, made => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made (Eq.sym same))
-  | Cons z zs, Inr later, made => List.memAppendRight y (f z) (List.concatMap zs f) (List.memConcatMap f x y zs later made)
+  | [], member, made => Void.exfalso member
+  | [z, ..zs], Inl same, made => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made (Eq.sym same))
+  | [z, ..zs], Inr later, made => List.memAppendRight y (f z) (List.concatMap zs f) (List.memConcatMap f x y zs later made)
 
 -- Finite types
 
@@ -56,7 +56,7 @@ instance Ordering.instFinite: Finite Ordering := {
 }
 
 --| Every option: `None`, then `Some` of every value.
-def Option.allFinite [auto fin: Finite a]: List (Option a) := Cons None (List.concatMap Finite.all (x => [Some x]))
+def Option.allFinite [auto fin: Finite a]: List (Option a) := [None, ..List.concatMap Finite.all (x => [Some x])]
 
 theorem Option.allFiniteComplete [auto fin: Finite a]: (o: Option a) → List.Mem o Option.allFinite
   | None => Inl rfl

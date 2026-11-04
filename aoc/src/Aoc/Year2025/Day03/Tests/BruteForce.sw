@@ -14,7 +14,7 @@ import Std (List, Nat, Result)
 def choices: Nat → Bank → List Bank
   | Zero, _ => [[]]
   | Succ _, [] => []
-  | Succ k, Cons d rest => (choices k rest).map (Cons d) ++ choices (Succ k) rest
+  | Succ k, [d, ..rest] => (choices k rest).map (Cons d) ++ choices (Succ k) rest
 
 def bruteForce (k: Nat) (bank: Bank): Nat :=
   choices k bank |> .map joltageOf |> .foldLeft 0 Nat.max

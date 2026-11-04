@@ -12,8 +12,8 @@ import Std (Eq, List, Nat, Option)
 --| Its 1s are the numbers whose bit is a 1.
 theorem onesInColumn (bitOf: Bits → Option Bool): (numbers: List Bits) →
     List.count (List.filterMap numbers bitOf) (bit => bit) = List.count numbers (number => bitOf number == Some True)
-  | Nil => rfl
-  | Cons number rest =>
+  | [] => rfl
+  | [number, ..rest] =>
     rewrite List.countCons rest number (number => bitOf number == Some True), <- onesInColumn bitOf rest in
       match bitOf number with
         | None => omega
@@ -23,8 +23,8 @@ theorem onesInColumn (bitOf: Bits → Option Bool): (numbers: List Bits) →
 theorem columnLength (bitOf: Bits → Option Bool): (numbers: List Bits) →
     List.length (List.filterMap numbers bitOf)
       = List.count numbers (number => bitOf number == Some True) + List.count numbers (number => bitOf number == Some False)
-  | Nil => rfl
-  | Cons number rest =>
+  | [] => rfl
+  | [number, ..rest] =>
     rewrite List.countCons rest number (number => bitOf number == Some True),
       List.countCons rest number (number => bitOf number == Some False) in
       match bitOf number with
@@ -89,21 +89,21 @@ theorem part1Correct (report: List Bits): solvePart1 report = powerConsumption r
 
 --| The bit after a shared prefix is the first bit of the rest.
 theorem getAfterPrefix (t: Bits): (prefix: Bits) → List.get (List.append prefix t) (List.length prefix) = List.head t
-  | Nil => cases
-  | Cons first rest => getAfterPrefix t rest
+  | [] => cases
+  | [first, ..rest] => getAfterPrefix t rest
 
 --| Keeping the numbers with `bit` after the prefix is keeping the rests that
 --| start with it, without it.
 theorem keepAfterPrefix (prefix: Bits) (bit: Bool): (rests: List Bits) →
     keep (List.map rests (rest => List.append prefix rest)) (List.length prefix) bit
-      = List.map (List.filterMap rests (afterBit bit)) (rest => List.append prefix (Cons bit rest))
-  | Nil => rfl
-  | Cons rest others =>
+      = List.map (List.filterMap rests (afterBit bit)) (rest => List.append prefix [bit, ..rest])
+  | [] => rfl
+  | [rest, ..others] =>
     rewrite getAfterPrefix rest prefix, keepAfterPrefix prefix bit others in cases
 
 --| The bit kept moves onto the prefix.
 theorem growPrefix (prefix: Bits) (bit: Bool) (rests: List Bits):
-    List.map rests (rest => List.append prefix (Cons bit rest)) = List.map rests (rest => List.append (List.append prefix [bit]) rest) :=
+    List.map rests (rest => List.append prefix [bit, ..rest]) = List.map rests (rest => List.append (List.append prefix [bit]) rest) :=
   List.mapCong _ _ _ (rest => Eq.sym (List.appendAssoc prefix [bit] rest))
 
 --| How many numbers have `bit` after the prefix: the rests that start with it.
@@ -146,13 +146,13 @@ theorem ratingStep (choose: List Bool → Bool) (criterion: List Bits → Nat �
       (keep (List.map rests (rest => List.append prefix rest)) (List.length prefix)
         (criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix)))
       (List.rangeFrom k (Succ (List.length prefix)))
-    _ = findRating criterion (List.map kept (rest => List.append prefix (Cons bit rest))) (List.rangeFrom k (Succ (List.length prefix))) :=
+    _ = findRating criterion (List.map kept (rest => List.append prefix [bit, ..rest])) (List.rangeFrom k (Succ (List.length prefix))) :=
       rewrite agree prefix rests, keepAfterPrefix prefix bit rests in rfl
     _ = findRating criterion (List.map kept (rest => List.append (List.append prefix [bit]) rest))
         (List.rangeFrom k (List.length (List.append prefix [bit]))) :=
       rewrite growPrefix prefix bit kept, List.lengthSnoc prefix bit in rfl
     _ = Option.map (rating choose k kept) (rest => List.append (List.append prefix [bit]) rest) := later (List.append prefix [bit]) kept
-    _ = Option.map (rating choose k kept) (rest => List.append prefix (Cons bit rest)) :=
+    _ = Option.map (rating choose k kept) (rest => List.append prefix [bit, ..rest]) :=
       Option.mapCong _ _ _ (rest => List.appendAssoc prefix [bit] rest)
     _ = Option.map (Option.map (rating choose k kept) (Cons bit)) (rest => List.append prefix rest) := Eq.sym (Option.mapMap _ _ _)
 
@@ -166,11 +166,11 @@ theorem ratingAfterPrefix (choose: List Bool → Bool) (criterion: List Bits →
     findRating criterion (List.map rests (rest => List.append prefix rest)) (List.rangeFrom k (List.length prefix))
       = Option.map (rating choose k rests) (rest => List.append prefix rest)
   | k, prefix, [rest] => rfl
-  | Zero, prefix, Nil => rfl
-  | Zero, prefix, Cons first (Cons second others) => rfl
-  | Succ k, prefix, Nil => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
-  | Succ k, prefix, Cons first (Cons second others) =>
-    ratingStep choose criterion agree k prefix (Cons first (Cons second others)) (ratingAfterPrefix choose criterion agree k)
+  | Zero, prefix, [] => rfl
+  | Zero, prefix, [first, second, ..others] => rfl
+  | Succ k, prefix, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
+  | Succ k, prefix, [first, second, ..others] =>
+    ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)
 
 --| From the whole report.
 theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)

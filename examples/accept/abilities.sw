@@ -17,13 +17,13 @@ def fromEmpty: Empty → a
   | ()
 
 def eqNats: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqNats xs ys else False
   | _, _ => False
 
 def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
-  | Nil, Nil => True
-  | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
+  | [], [] => True
+  | [MkPair a b, ..xs], [MkPair c d, ..ys] =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
@@ -69,7 +69,7 @@ def toOption (prog: () → {Abort | e} a): {e} Option a :=
 -- Collects what's said, in order.
 def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)

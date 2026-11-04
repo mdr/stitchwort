@@ -11,8 +11,8 @@ import Std (List, Nat)
 --| each with any of the patterns ("for any particular pattern, the staff can
 --| get you as many towels with that pattern as you need").
 def towelLists (patterns: List Pattern): (count: Nat) → List (List Pattern)
-  | Zero => [Nil]
-  | Succ count => Cons Nil (patterns.flatMap (first => towelLists patterns count |> .map (Cons first)))
+  | Zero => [[]]
+  | Succ count => [[], ..patterns.flatMap (first => towelLists patterns count |> .map (Cons first))]
 
 --| "all of the towels' stripes must exactly match the desired design": the
 --| lists of towels whose stripes, in order, are the design's. Every towel has

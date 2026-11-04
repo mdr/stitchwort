@@ -53,7 +53,7 @@ def homework: Text :=
     ]
     '\n'
 
-def homeworkNumbers: List Number := Fail.orElse Nil (() => parseNumbers homework)
+def homeworkNumbers: List Number := Fail.orElse [] (() => parseNumbers homework)
 
 test "the homework parses" := homeworkNumbers.length == 10
 test "the homework's total" := solvePart1 homeworkNumbers == Some 4140
@@ -82,7 +82,7 @@ def tenSplit: Number := Pair (Pair (Regular 5) (Regular 5)) (Regular 1)
 
 theorem exampleSplits: splitLeaves (leaves 0 tenAndOne) = Some (leaves 0 tenSplit) := splitSome tenAndOne tenSplit rfl
 
-theorem exampleSplitsAfter: splitLeaves (leaves 0 tenAndOne ++ Nil) = Some (leaves 0 tenSplit ++ Nil) := splitSomeLeaves 0 tenAndOne tenSplit rfl Nil
+theorem exampleSplitsAfter: splitLeaves (leaves 0 tenAndOne ++ []) = Some (leaves 0 tenSplit ++ []) := splitSomeLeaves 0 tenAndOne tenSplit rfl []
 
 theorem exampleSplitHeight: height tenSplit ≤ height tenAndOne + 1 := splitHeight tenAndOne tenSplit rfl
 

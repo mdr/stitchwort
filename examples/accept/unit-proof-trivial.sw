@@ -2,7 +2,7 @@
 -- `Trivial`, as it is the unit value where a value of `()` is expected.
 import Std (List)
 
-theorem distinctNil: List.Distinct (Nil: List Nat) := ()
+theorem distinctNil: List.Distinct ([]: List Nat) := ()
 
 theorem unitDirect: Unit := ()
 

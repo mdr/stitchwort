@@ -89,8 +89,8 @@ theorem Map.getKeepOnly [auto ord: Ord k] (m: Map k v) (ks: Set k) (key: k):
 theorem Set.minToList (s: Set k [ord := o]): Set.min s = List.head (Set.toList s) :=
   rewrite Map.minToList s.items in
   match c: Map.toList s.items with
-    | Nil => rfl
-    | Cons e rest => rfl
+    | [] => rfl
+    | [e, ..rest] => rfl
 
 theorem Set.maxToList (s: Set k [ord := o]): Set.max s = List.last (Set.toList s) :=
   rewrite Map.maxToList s.items in Set.lastMapFst (Map.toList s.items)
@@ -98,8 +98,8 @@ theorem Set.maxToList (s: Set k [ord := o]): Set.max s = List.last (Set.toList s
 --| The smallest key is in the set.
 theorem Set.containsMin [auto ord: Ord k] (s: Set k) (least: k) (found: Set.min s = Some least): Set.contains s least = True :=
   match entries: Map.toList s.items with
-    | Nil => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
-    | Cons entry rest =>
+    | [] => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
+    | [entry, ..rest] =>
       let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
       Map.containsOfMemToList s.items least entry (rewrite entries in Inl rfl) (Option.someInjective _ _ (Eq.trans (Eq.sym first) found))
 
@@ -141,8 +141,8 @@ theorem Set.missingOfMinNone [auto ord: Ord k] (s: Set k) (empty: Set.min s = No
     | True =>
       let member := Map.memKeysOfContains s.items key there
       match entries: Map.toList s.items with
-        | Nil => Void.exfalso member
-        | Cons entry rest =>
+        | [] => Void.exfalso member
+        | [entry, ..rest] =>
           let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
           Void.exfalso (Option.someNotNone entry.fst (Eq.trans (Eq.sym first) empty))
 
@@ -156,9 +156,9 @@ theorem Set.containsOfRemove [auto ord: Ord k] (s: Set k) (key: k) (other: k) (t
     | False => Eq.trans (Eq.sym (Set.containsRemoveOther s key other (DecEq.soundFalse other key same))) there
 
 theorem Set.lastMapFst: (xs: List (k, ())) → Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst)
-  | Nil => rfl
-  | Cons e Nil => rfl
-  | Cons e (Cons f rest) => Set.lastMapFst (Cons f rest)
+  | [] => rfl
+  | [e] => rfl
+  | [e, f, ..rest] => Set.lastMapFst [f, ..rest]
 
 --| What `below` finds: a member below `key`, and no member between the two.
 theorem Set.belowSome [auto ord: Ord k] (s: Set k) (key: k) (found: k) (h: Set.below s key = Some found):
@@ -269,11 +269,11 @@ theorem Set.containsInsertMonoExample (s: Set Nat) (h: Set.contains s 2 = True):
 --| Inserting the list's keys:`key` is there if it was, or if the list has it.
 theorem Set.containsFoldInsert [auto ord: Ord k]: (s: Set k) → (key: k) → (xs: List k) →
     Set.contains (List.foldLeft xs s (acc x => Set.insert acc x)) key = (Set.contains s key ∨ List.any xs (x => Map.Spec.sameKey key x))
-  | s, key, Nil =>
+  | s, key, [] =>
     match c: Set.contains s key with
       | True => rfl
       | False => rfl
-  | s, key, Cons x rest =>
+  | s, key, [x, ..rest] =>
     rewrite Set.containsFoldInsert (Set.insert s x) key rest in
     match e: Ord.compare key x with
       | Equal =>
@@ -302,9 +302,9 @@ theorem Set.containsFromListIff [auto ord: Ord k] (xs: List k) (key: k): (Set.co
 --| `all`'s fold over a set's entries is `List.all` over them.
 theorem Set.foldAll (q: k → Bool): (z: Bool) → (xs: List (k, ())) →
     Map.Spec.foldLeft (acc key unit => acc ∧ q key) z xs = (z ∧ List.all xs (e => q e.fst))
-  | True, Nil => rfl
-  | False, Nil => rfl
-  | z, Cons (kk, u) rest =>
+  | True, [] => rfl
+  | False, [] => rfl
+  | z, [(kk, u), ..rest] =>
     rewrite Set.foldAll q (z ∧ q kk) rest in
     match c: z with
       | False => rfl
@@ -314,8 +314,8 @@ theorem Set.foldAll (q: k → Bool): (z: Bool) → (xs: List (k, ())) →
           | False => rfl
 
 theorem Set.allEntriesElim (q: k → Bool) (key: k): (xs: List (k, ())) → List.all xs (e => q e.fst) = True → List.Mem (key, ()) xs → q key = True
-  | Nil, h, mem => Void.exfalso mem
-  | Cons (kk, u) rest, h, mem =>
+  | [], h, mem => Void.exfalso mem
+  | [(kk, u), ..rest], h, mem =>
     match c: q kk with
       | False => Void.exfalso (Bool.falseNotTrue h)
       | True =>
@@ -324,8 +324,8 @@ theorem Set.allEntriesElim (q: k → Bool) (key: k): (xs: List (k, ())) → List
           | Inr later => Set.allEntriesElim q key rest h later
 
 theorem Set.allEntriesIntro (q: k → Bool): (xs: List (k, ())) → ((key: k) → List.Mem (key, ()) xs → q key = True) → List.all xs (e => q e.fst) = True
-  | Nil, h => rfl
-  | Cons (kk, u) rest, h =>
+  | [], h => rfl
+  | [(kk, u), ..rest], h =>
     rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
     Set.allEntriesIntro q rest (key mem => h key (Inr mem))
 
@@ -361,8 +361,8 @@ theorem Set.isSubsetSpec [auto ord: Ord k] (a: Set k) (b: Set k):
 
 theorem Set.foldEntries (f: b → k → b): (entries: List (k, ())) → (initial: b) →
     Map.Spec.foldLeft (acc key unit => f acc key) initial entries = List.foldLeft (List.map entries Pair.fst) initial f
-  | Nil, initial => rfl
-  | Cons (key, unit) rest, initial => Set.foldEntries f rest (f initial key)
+  | [], initial => rfl
+  | [(key, unit), ..rest], initial => Set.foldEntries f rest (f initial key)
 
 --| A fold over a set is a fold over its keys in order.
 theorem Set.foldLeftToList (s: Set k [ord := o]) (initial: b) (f: b → k → b): Set.foldLeft s initial f = List.foldLeft (Set.toList s) initial f :=
@@ -438,8 +438,8 @@ theorem Set.containsFilterIff [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bo
 --| Removing each of `keys` leaves what the set held and `keys` doesn't.
 theorem Set.containsFoldRemove [auto ord: Ord k]: (keys: List k) → (s: Set k) → (key: k) →
     (Set.contains (List.foldLeft keys s Set.remove) key = True) ↔ ((Set.contains s key = True) ∧ (¬(List.Mem key keys)))
-  | Nil, s, key => { forward = held => Both held (none => none), backward = held => And.left held }
-  | Cons first rest, s, key =>
+  | [], s, key => { forward = held => Both held (none => none), backward = held => And.left held }
+  | [first, ..rest], s, key =>
     let later := Set.containsFoldRemove rest (Set.remove s first) key
     {
       forward = held =>
@@ -461,14 +461,14 @@ theorem Set.containsFoldRemove [auto ord: Ord k]: (keys: List k) → (s: Set k) 
 --| Inserting `f` of each of `keys` gives what the set held and `f` of each.
 theorem Set.containsFoldInsertMap [auto ord: Ord j] (f: k → j): (keys: List k) → (s: Set j) → (key: j) →
     (Set.contains (List.foldLeft keys s (acc x => Set.insert acc (f x))) key = True) ↔ ((Set.contains s key = True) ∨ (∃ (x: k) => List.Mem x keys ∧ f x = key))
-  | Nil, s, key => {
+  | [], s, key => {
     forward = held => Inl held,
     backward = held =>
       match held with
         | Inl inSet => inSet
         | Inr (Witness x (Both none same)) => Void.exfalso none
   }
-  | Cons first rest, s, key =>
+  | [first, ..rest], s, key =>
     let later := Set.containsFoldInsertMap f rest (Set.insert s (f first)) key
     {
       forward = held =>
@@ -546,8 +546,8 @@ theorem Set.sizeRemovePresent [auto ord: Ord k] (s: Set k) (key: k) (present: Se
 --| A set holding a key isn't empty.
 theorem Set.sizePositive [auto ord: Ord k] (s: Set k) (key: k) (present: Set.contains s key = True): 1 ≤ Set.size s :=
   match c: Set.toList s with
-    | Nil => Void.exfalso (rewrite c at ((Set.memToList s key).backward present: List.Mem key (Set.toList s)))
-    | Cons first rest => rewrite Set.sizeToList s, c in omega
+    | [] => Void.exfalso (rewrite c at ((Set.memToList s key).backward present: List.Mem key (Set.toList s)))
+    | [first, ..rest] => rewrite Set.sizeToList s, c in omega
 
 theorem Set.unionEmpty [auto ord: Ord k] (a: Set k): Set.union a Set.empty = a :=
   Set.ext (Set.union a Set.empty) a (key => rewrite Set.containsUnion a key Set.empty in Bool.orFalse (Set.contains a key))

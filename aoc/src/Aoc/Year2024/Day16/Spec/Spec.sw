@@ -37,8 +37,8 @@ def move (maze: Maze) (reindeer: Reindeer): Move → Option Reindeer
 --| How the reindeer stands before each move and after the last; `None` if a
 --| move runs into a wall.
 def follow (maze: Maze) (reindeer: Reindeer): List Move → Option (List Reindeer)
-  | Nil => Some [reindeer]
-  | Cons first rest =>
+  | [] => Some [reindeer]
+  | [first, ..rest] =>
     match move maze reindeer first with
       | Some next => follow maze next rest |> .map (Cons reindeer)
       | None => None

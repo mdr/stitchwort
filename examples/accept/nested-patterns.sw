@@ -14,11 +14,11 @@ def fib: Nat → Nat
   | Succ (Succ n) => fib n + fib (Succ n)
 
 def zipSum: List Nat → List Nat → List Nat
-  | Cons x xs, Cons y ys => Cons (x + y) (zipSum xs ys)
-  | _, _ => Nil
+  | [x, ..xs], [y, ..ys] => [x + y, ..zipSum xs ys]
+  | _, _ => []
 
 def hasTwo: List a → Bool
-  | Cons _ (Cons _ Nil) => True
+  | [_, _] => True
   | _ => False
 
 def describe: Nat → Nat

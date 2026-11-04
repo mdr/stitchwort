@@ -2,6 +2,6 @@
 
 import Std (Bool)
 
-test "annotated nil" := (Nil: List Nat) == Nil
+test "annotated nil" := ([]: List Nat) == []
 test "annotated brackets" := ([]: List Text) == []
 test "unannotated, from the other side" := ¬([] == [1])

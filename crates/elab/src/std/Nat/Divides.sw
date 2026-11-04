@@ -56,7 +56,7 @@ theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True
 def Nat.divisors (n: Nat): List Nat := List.rangeFrom n 1 |> .filter (divisor => Nat.divides divisor n)
 
 test "Nat.divisors" := Nat.divisors 12 == [1, 2, 3, 4, 6, 12] ∧ Nat.divisors 1 == [1] ∧ Nat.divisors 13 == [1, 13]
-test "Nat.divisors of zero" := Nat.divisors 0 == Nil
+test "Nat.divisors of zero" := Nat.divisors 0 == []
 
 --| Dividing by 2 or more makes a positive number smaller. (`Nat.divLe n k` is
 --| the plain `n / k ≤ n`, in Arith.sw.)

@@ -12,15 +12,15 @@ import Std (Int, List)
 --| Part 1: the horizontal position grows by the sum of the forward moves.
 theorem horizontalAfter (start: Submarine): (commands: List Command) →
     (List.foldLeft commands start Submarine.follow).horizontal = start.horizontal + horizontal commands
-  | Nil => rfl
-  | Cons command rest =>
+  | [] => rfl
+  | [command, ..rest] =>
     rewrite horizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
 
 --| And the depth by the downs less the ups.
 theorem depthAfter (start: Submarine): (commands: List Command) →
     (List.foldLeft commands start Submarine.follow).depth = start.depth + List.sumBy commands Command.down
-  | Nil => omega
-  | Cons command rest =>
+  | [] => omega
+  | [command, ..rest] =>
     rewrite depthAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
 
 def surface: Submarine := { horizontal = 0, depth = 0 }
@@ -32,29 +32,29 @@ theorem part1Correct (commands: List Command): solvePart1 commands = part1 comma
 --| The program's part 2 depth, one command at a time: the first command is
 --| made at the aim it starts with, and the rest at that aim moved by its down.
 theorem aimedDepthCons (aim: Int) (command: Command) (rest: List Command):
-    aimedDepth aim (Cons command rest) = aim * command.ahead.toInt + aimedDepth (aim + command.down) rest :=
+    aimedDepth aim [command, ..rest] = aim * command.ahead.toInt + aimedDepth (aim + command.down) rest :=
   List.sumCons _ _
 
 --| Part 2: the horizontal position is part 1's.
 theorem aimedHorizontalAfter (start: AimedSubmarine): (commands: List Command) →
     (List.foldLeft commands start AimedSubmarine.follow).horizontal = start.horizontal + horizontal commands
-  | Nil => rfl
-  | Cons command rest =>
+  | [] => rfl
+  | [command, ..rest] =>
     rewrite aimedHorizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
 
 --| The aim moves as part 1's depth does (the part 2 answer doesn't need this,
 --| but it is the program's reading of the aim).
 theorem aimAfter (start: AimedSubmarine): (commands: List Command) →
     (List.foldLeft commands start AimedSubmarine.follow).aim = start.aim + List.sumBy commands Command.down
-  | Nil => omega
-  | Cons command rest =>
+  | [] => omega
+  | [command, ..rest] =>
     rewrite aimAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
 
 --| The depth grows by each forward move times the aim it is made at.
 theorem aimedDepthAfter (start: AimedSubmarine): (commands: List Command) →
     (List.foldLeft commands start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands
-  | Nil => omega
-  | Cons command rest =>
+  | [] => omega
+  | [command, ..rest] =>
     rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in cases
 
 def aimedSurface: AimedSubmarine := { horizontal = 0, depth = 0, aim = 0 }

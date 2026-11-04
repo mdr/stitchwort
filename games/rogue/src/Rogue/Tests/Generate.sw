@@ -29,7 +29,7 @@ def reachableFrom (level: Level) (start: Position): Set Nat :=
 def explore (level: Level): Nat → List Position → Set Nat → Set Nat
   | 0, pending, seen => seen
   | Succ fuel, [], seen => seen
-  | Succ fuel, Cons cell pending, seen =>
+  | Succ fuel, [cell, ..pending], seen =>
     let fresh := [North, South, West, East].map cell.toward |> .filter (next => ¬isWall level next ∧ ¬seen.contains (keyOf next))
     explore level fuel (fresh ++ pending) (fresh.foldLeft seen (cells next => cells.insert (keyOf next)))
 

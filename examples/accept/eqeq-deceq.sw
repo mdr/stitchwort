@@ -14,8 +14,8 @@ test "trees differ" := Node Leaf [1] Leaf ≠ Node Leaf [2] Leaf
 
 -- Generic code asks for `DecEq` like any interface, and `==` uses it.
 def count [auto decEq: DecEq a] (x: a): List a → Nat
-  | Nil => 0
-  | Cons y ys => (if x == y then 1 else 0) + count x ys
+  | [] => 0
+  | [y, ..ys] => (if x == y then 1 else 0) + count x ys
 
 test "generic" := count (Node Leaf 1 Leaf) [Leaf, Node Leaf 1 Leaf, Node Leaf 1 Leaf] == 2
 

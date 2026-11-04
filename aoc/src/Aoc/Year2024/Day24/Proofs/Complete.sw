@@ -12,22 +12,22 @@ import Std (Bool, Eq, Exists, List, Map, Nat, Option, Ord, Void)
 --| Firing gates keeps every wire that had a value.
 theorem fireOntoKeeps (values: Values) (wire: Wire): (ready: List Gate) → (settled: Values) → settled.contains wire = True →
     (fireOnto values settled ready).contains wire = True
-  | Nil, settled, there => there
-  | Cons gate rest, settled, there =>
+  | [], settled, there => there
+  | [gate, ..rest], settled, there =>
     fireOntoKeeps values wire rest _ (Map.containsInsertKeeps settled gate.output ((gate.fire values).getOrElse False) wire there)
 
 --| Every gate fired puts a value on its output.
 theorem fireOntoAdds (values: Values) (gate: Gate): (ready: List Gate) → (settled: Values) → gate ∈ ready →
     (fireOnto values settled ready).contains gate.output = True
-  | Nil, settled, member => Void.exfalso member
-  | Cons first rest, settled, Inl same =>
+  | [], settled, member => Void.exfalso member
+  | [first, ..rest], settled, Inl same =>
     rewrite <- same in fireOntoKeeps values first.output rest _ (Map.containsInsertSame settled first.output ((first.fire values).getOrElse False))
-  | Cons first rest, settled, Inr later => fireOntoAdds values gate rest _ later
+  | [first, ..rest], settled, Inr later => fireOntoAdds values gate rest _ later
 
 --| A filter that drops nothing keeps every element.
 theorem filterFull (keep: a → Bool): (xs: List a) → Nat.leq (Succ (xs.filter keep).length) xs.length = False → (x: a) → x ∈ xs → keep x = True
-  | Nil, full, x, member => Void.exfalso member
-  | Cons first rest, full, x, member =>
+  | [], full, x, member => Void.exfalso member
+  | [first, ..rest], full, x, member =>
     match kept: keep first with
       | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (omega [List.lengthFilterLe rest keep]: Nat.leq (Succ (rest.filter keep).length) (Succ rest.length) = True)) full))
       | True =>
@@ -75,8 +75,8 @@ theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
 
 --| A key among the pairs is found by `Map.lookupLast`.
 theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → (key, value) ∈ pairs → ∃ (found: v) => Map.lookupLast key pairs = Some found
-  | Nil, member => Void.exfalso member
-  | Cons (other, otherValue) rest, member =>
+  | [], member => Void.exfalso member
+  | [(other, otherValue), ..rest], member =>
     match later: Map.lookupLast key rest with
       | Some laterValue => Witness laterValue rfl
       | None =>
@@ -112,8 +112,8 @@ theorem settledComplete (device: Device) (wellFormed: WellFormed device) (wire: 
 
 --| `allSome` of options that each have a value.
 theorem allSomeMap (f: a → Option b) (g: a → b): (xs: List a) → ((x: a) → x ∈ xs → f x = Some (g x)) → List.allSome (xs.map f) = Some (xs.map g)
-  | Nil, each => rfl
-  | Cons x rest, each => rewrite each x (Inl rfl), allSomeMap f g rest (other member => each other (Inr member)) in rfl
+  | [], each => rfl
+  | [x, ..rest], each => rewrite each x (Inl rfl), allSomeMap f g rest (other member => each other (Inr member)) in rfl
 
 --| Part 1, complete for well-formed devices: a number the device outputs is
 --| the program's answer.

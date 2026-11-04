@@ -7,8 +7,8 @@
 import Std (List, Nat)
 
 def increasing: List Nat → Bool
-  | Nil => True
-  | Cons _ Nil => True
-  | Cons a (Cons b rest) => a < b && increasing (Cons b rest)
+  | [] => True
+  | [_] => True
+  | [a, b, ..rest] => a < b && increasing [b, ..rest]
 
 theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6 := ?

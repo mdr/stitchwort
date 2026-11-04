@@ -74,8 +74,8 @@ def keyed: Char → List Char → Nat
   | 'k', [] => 1
   | c, xs => 2
 
-theorem keyedNonEmpty (c: Char) (x: Char) (xs: List Char): keyed c (Cons x xs) = 2 :=
-  keyed.eq2 c (Cons x xs) (ck nil => List.consNotNil x xs nil)
+theorem keyedNonEmpty (c: Char) (x: Char) (xs: List Char): keyed c [x, ..xs] = 2 :=
+  keyed.eq2 c [x, ..xs] (ck nil => List.consNotNil x xs nil)
 
 -- `Int` literals.
 def sign: Int → Nat
@@ -99,11 +99,11 @@ theorem orpPair (l: Num) (r: Num): orp (Pr l r) = 6 := orp.eq2 (Pr l r) cases ca
 -- equation is what states them.
 def takeFirst [a: Type] (xs: List a): Nat → List a
     decreasing List.length xs
-  | Zero => Nil
+  | Zero => []
   | Succ k =>
     match xs with
-      | Nil => Nil
-      | Cons x rest => Cons x (takeFirst rest k [decreasing := Nat.leRefl (List.length rest)])
+      | [] => []
+      | [x, ..rest] => [x, ..takeFirst rest k [decreasing := Nat.leRefl (List.length rest)]]
 
 theorem takeNone [a: Type] (xs: List a): takeFirst xs 0 = [] := takeFirst.eq1 xs
 
@@ -135,5 +135,5 @@ theorem isZeroOfPos (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n omega
 -- library's `List.filter.eq2` is `List.filter (Cons x xs) p = List.filterStep
 -- x (List.filter xs p) (p x)`.
 theorem filterCons (x: Nat) (xs: List Nat) (p: Nat → Bool) (h: p x = False):
-    List.filter (Cons x xs) p = List.filter xs p :=
+    List.filter [x, ..xs] p = List.filter xs p :=
   rewrite List.filter.eq2 x xs p, h in rfl

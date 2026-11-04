@@ -63,11 +63,11 @@ def Ansi.stripChars (scan: Ansi.Scan): List Char → List Char
       | _ => []
   | [char, ..rest] =>
     match scan with
-      | Plain => if char == '\u{1b}' then Ansi.stripChars AfterEscape rest else Cons char (Ansi.stripChars Plain rest)
+      | Plain => if char == '\u{1b}' then Ansi.stripChars AfterEscape rest else [char, ..Ansi.stripChars Plain rest]
       | AfterEscape =>
         if char == '[' then Ansi.stripChars InSequence rest
-        else if char == '\u{1b}' then Cons '\u{1b}' (Ansi.stripChars AfterEscape rest)
-        else Cons '\u{1b}' (Cons char (Ansi.stripChars Plain rest))
+        else if char == '\u{1b}' then ['\u{1b}', ..Ansi.stripChars AfterEscape rest]
+        else ['\u{1b}', char, ..Ansi.stripChars Plain rest]
       | InSequence =>
         let code := Char.toNat char
         if 64 ≤ code && code ≤ 126 then Ansi.stripChars Plain rest else Ansi.stripChars InSequence rest

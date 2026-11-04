@@ -53,7 +53,7 @@ theorem subShared (x: Nat): (500000 + x) - 500000 = x := rfl
 theorem leqShared (x: Nat): Nat.leq (1000000 + x) (1000000 + Succ x) = Nat.leq x (Succ x) := rfl
 
 def headOr0: List Nat → Nat
-  | Nil => 0
-  | Cons x _ => x
+  | [] => 0
+  | [x, .._] => x
 
 test "shifted" := headOr0 (shifted 5) == 1000005

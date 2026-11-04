@@ -18,8 +18,8 @@ def nested: ((Nat, Nat), Nat) → Nat
 
 -- Tuples inside other patterns.
 def firstOf: List (Nat, Nat) → Nat
-  | Nil => 0
-  | Cons (a, _) _ => a
+  | [] => 0
+  | [(a, _), .._] => a
 
 -- An inferred type tuple, and an inferred value tuple.
 def inferredType: Type := ((Nat, Bool): Type)

@@ -61,8 +61,8 @@ def keep (numbers: List Bits) (position: Nat) (bit: Bool): List Bits :=
 --| criterion picks at this position, and go on to the next bit to the right.
 def findRating (criterion: List Bits → Nat → Bool): List Bits → (positions: List Nat) → Option Bits
   | [number], _ => Some number
-  | numbers, Nil => None
-  | numbers, Cons position later => findRating criterion (keep numbers position (criterion numbers position)) later
+  | numbers, [] => None
+  | numbers, [position, ..later] => findRating criterion (keep numbers position (criterion numbers position)) later
 
 --| The oxygen generator rating keeps the most common bits, the CO2 scrubber
 --| rating the least common; each starts from the whole report at the first

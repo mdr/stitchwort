@@ -10,8 +10,8 @@ import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
 --| If no pair is listed again further on, the pairs are distinct.
 theorem firstRepeatedNone: (pairs: List (Char, Char)) → firstRepeated pairs = None → List.Distinct pairs
-  | Nil, none => ()
-  | Cons pair rest, none =>
+  | [], none => ()
+  | [pair, ..rest], none =>
     match c: List.contains rest pair with
       | True => Void.exfalso (Option.someNotNone pair none)
       | False =>

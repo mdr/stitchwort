@@ -9,26 +9,26 @@ import Std (Bool, Eq, List, Nat)
 --| Some one element removed, and `holds` of what is left: the spec's
 --| `removals` with `.any`, in a form that unfolds one element at a time.
 def anyRemoved (holds: List Nat → Bool): List Nat → Bool
-  | Nil => False
-  | Cons level rest => holds rest || anyRemoved (levels => holds (Cons level levels)) rest
+  | [] => False
+  | [level, ..rest] => holds rest || anyRemoved (levels => holds [level, ..levels]) rest
 
 theorem anyRemovedIsRemovals: (levels: List Nat) → (holds: List Nat → Bool) → anyRemoved holds levels = (removals levels |> .any holds)
-  | Nil, holds => rfl
-  | Cons level rest, holds =>
-    rewrite anyRemovedIsRemovals rest (levels => holds (Cons level levels)), List.anyMap (removals rest) holds (Cons level) in rfl
+  | [], holds => rfl
+  | [level, ..rest], holds =>
+    rewrite anyRemovedIsRemovals rest (levels => holds [level, ..levels]), List.anyMap (removals rest) holds (Cons level) in rfl
 
 theorem anyRemovedNever: (levels: List Nat) → (holds: List Nat → Bool) → ((rest: List Nat) → holds rest = False) → anyRemoved holds levels = False
-  | Nil, holds, never => rfl
-  | Cons level rest, holds, never =>
-    rewrite never rest, anyRemovedNever rest (levels => holds (Cons level levels)) (levels => never (Cons level levels)) in rfl
+  | [], holds, never => rfl
+  | [level, ..rest], holds, never =>
+    rewrite never rest, anyRemovedNever rest (levels => holds [level, ..levels]) (levels => never [level, ..levels]) in rfl
 
 --| After a good step from `before` to `level`, the one pass is "passes, or
 --| passes with one of `level` and the rest removed".
 theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) → (level: Nat) → (rest: List Nat) → ok before level = True →
     passesDampenedAfter ok before level rest =
-      ((Cons level rest).chain ok || anyRemoved (levels => (Cons before levels).chain ok) (Cons level rest))
-  | before, level, Nil, good => rfl
-  | before, level, Cons next rest, good =>
+      ([level, ..rest].chain ok || anyRemoved (levels => [before, ..levels].chain ok) [level, ..rest])
+  | before, level, [], good => rfl
+  | before, level, [next, ..rest], good =>
     match step: ok level next with
       | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
       | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
@@ -36,9 +36,9 @@ theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) →
 --| The one pass is "passes, or passes with one level removed".
 theorem passesDampenedCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
     passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels)
-  | Nil => rfl
-  | Cons level Nil => rfl
-  | Cons level (Cons next rest) =>
+  | [] => rfl
+  | [level] => rfl
+  | [level, next, ..rest] =>
     match step: ok level next with
       | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
       | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases

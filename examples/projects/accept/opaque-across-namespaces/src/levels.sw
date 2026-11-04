@@ -13,4 +13,4 @@ opaque def depthOf (code: Nat): Nat := code + 1
 
 opaque def size: List Nat -> Nat
   | [] => 0
-  | Cons _ rest => 1 + size rest
+  | [_, ..rest] => 1 + size rest

@@ -37,12 +37,12 @@ theorem mayPrecedeTransitive (precedes: Nat → Nat → Bool) (pages: List Nat)
 --| Pages each of which may come before every later one are in order.
 theorem inOrderOfPairwise (precedes: Nat → Nat → Bool):
     (pages: List Nat) → List.Pairwise (page next => mayPrecede precedes page next = True) pages → inOrder precedes pages = True
-  | Nil, pairwise => rfl
-  | Cons page later, Both first rest =>
+  | [], pairwise => rfl
+  | [page, ..later], Both first rest =>
     rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first, inOrderOfPairwise precedes later rest in rfl
 
 --| In pages in order, no later page must come before an earlier one.
-theorem inOrderLater (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat) (ordered: inOrder precedes (Cons page later) = True)
+theorem inOrderLater (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat) (ordered: inOrder precedes [page, ..later] = True)
     (laterPage: Nat) (isLater: laterPage ∈ later): precedes laterPage page = False :=
   let kept := List.allMem (other => !(precedes other page) = True) laterPage later
     (List.allToAll (other => !(precedes other page)) later (Bool.andLeft _ _ ordered)) isLater
@@ -85,15 +85,15 @@ theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
     (total: (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → x ≠ y → precedes x y = False → precedes y x = True):
     (first: List Nat) → (second: List Nat) → List.All (page => page ∈ pages) first → List.Perm first second →
       inOrder precedes first = True → inOrder precedes second = True → first = second
-  | Nil, Nil, inPages, same, firstOrdered, secondOrdered => rfl
-  | Nil, Cons y ys, inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength Nil (Cons y ys) same))
-  | Cons x xs, Nil, inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength (Cons x xs) Nil same))
-  | Cons x xs, Cons y ys, Both inX inPages, same, firstOrdered, secondOrdered =>
+  | [], [], inPages, same, firstOrdered, secondOrdered => rfl
+  | [], [y, ..ys], inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
+  | [x, ..xs], [], inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength [x, ..xs] [] same))
+  | [x, ..xs], [y, ..ys], Both inX inPages, same, firstOrdered, secondOrdered =>
     let heads: x = y :=
-      match List.memPerm (Cons y ys) (Cons x xs) (List.permSym (Cons x xs) (Cons y ys) same) y (Inl rfl) with
+      match List.memPerm [y, ..ys] [x, ..xs] (List.permSym [x, ..xs] [y, ..ys] same) y (Inl rfl) with
         | Inl equal => equal
         | Inr yLater =>
-          match List.memPerm (Cons x xs) (Cons y ys) same x (Inl rfl) with
+          match List.memPerm [x, ..xs] [y, ..ys] same x (Inl rfl) with
             | Inl equal => Eq.sym equal
             | Inr xLater =>
               match equal: x == y with

@@ -19,13 +19,13 @@ def sndOf: Pair a b → b
   | MkPair x y => y
 
 def eqNats: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqNats xs ys else False
   | _, _ => False
 
 def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
-  | Nil, Nil => True
-  | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
+  | [], [] => True
+  | [MkPair a b, ..xs], [MkPair c d, ..ys] =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
@@ -109,7 +109,7 @@ def replySCA: (o: Plus StateOp ChooseOp) → SCARes (intoSCA o) → PlusRes Stat
   | R o, x => x
 
 def fromSomeNil: Option (List a) → List a
-  | None => Nil
+  | None => []
   | Some xs => xs
 
 -- A program can't take a computation apart (docs/proposals/proof-reification.md,
@@ -124,7 +124,7 @@ theorem rowsBehave: Unit :=
   def trace [op: Type] [res: op → Type]
       (answer: (o: op) → Pair Nat (res o)): Comp op res Nat → List Nat
     | Done x => [1000 + x]
-    | Call o rest => Cons (fstOf (answer o)) (trace answer (rest (sndOf (answer o))))
+    | Call o rest => [fstOf (answer o), ..trace answer (rest (sndOf (answer o)))]
 
   def get: SC Nat := Call (L Get) (n => Done n)
 

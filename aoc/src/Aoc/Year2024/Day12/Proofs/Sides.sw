@@ -15,12 +15,12 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.contains { row, column }
 
 theorem countDirections (f: Direction → Bool): directions.count f = Bool.toNat (f Up) + Bool.toNat (f Down) + Bool.toNat (f Left) + Bool.toNat (f Right) :=
-  rewrite List.countCons [Right, Down, Left] Up f, List.countCons [Down, Left] Right f, List.countCons [Left] Down f, List.countCons Nil Left f in omega
+  rewrite List.countCons [Right, Down, Left] Up f, List.countCons [Down, Left] Right f, List.countCons [Left] Down f, List.countCons [] Left f in omega
 
 theorem countQuadrants (f: (Direction, Direction) → Bool):
     quadrants.count f = Bool.toNat (f (Up, Left)) + Bool.toNat (f (Up, Right)) + Bool.toNat (f (Down, Left)) + Bool.toNat (f (Down, Right)) :=
   rewrite List.countCons [(Up, Right), (Down, Left), (Down, Right)] (Up, Left) f, List.countCons [(Down, Left), (Down, Right)] (Up, Right) f,
-    List.countCons [(Down, Right)] (Down, Left) f, List.countCons Nil (Down, Right) f in omega
+    List.countCons [(Down, Right)] (Down, Left) f, List.countCons [] (Down, Right) f in omega
 
 --| The spec's first sections of fence at a plot are the grid's starts.
 theorem specSidesCell (region: List Position): (row: Nat) → (column: Nat) →

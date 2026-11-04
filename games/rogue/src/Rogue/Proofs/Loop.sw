@@ -16,11 +16,11 @@ import Std (Ansi, Key, List, Nat, Option, Pair, Terminal)
 
 theorem turnKey (seed: Nat) (state: State) (key: Key) (rest: List Key) (command: Command) (isCommand: commandOf key = Some command):
     let after := resolve { seed = lcg seed / 65536 } state command
-    Terminal.simulate (Cons key rest) (() => Random.withSeed seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
+    Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
   rewrite isCommand in rfl
 
 theorem turnOther (seed: Nat) (state: State) (key: Key) (rest: List Key) (notCommand: commandOf key = None):
-    Terminal.simulate (Cons key rest) (() => Random.withSeed seed (() => playTurn state)) = MkPair [] state :=
+    Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [] state :=
   rewrite notCommand in rfl
 
 theorem turnEnd (seed: Nat) (state: State):
@@ -31,7 +31,7 @@ theorem turnEnd (seed: Nat) (state: State):
 theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
     (keys: List Key) → Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd
   | [] => resolveValid { seed = lcg seed / 65536 } state Quit valid
-  | Cons key rest =>
+  | [key, ..rest] =>
     match isCommand: commandOf key with
       | Some command => resolveValid { seed = lcg seed / 65536 } state command valid
       | None => valid
@@ -39,6 +39,6 @@ theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
 --| So pressing an arrow, in the real turn under the test handlers, walks that way.
 theorem arrowWalks (seed: Nat) (state: State) (direction: Direction) (rest: List Key) (playing: state.phase = Playing)
     (vacant: monsterAt (state.player.toward direction) state.monsters = None) (open: isWall state.level (state.player.toward direction) = False):
-    (Terminal.simulate (Cons (arrow direction) rest) (() => Random.withSeed seed (() => playTurn state))).snd.player = state.player.toward direction :=
+    (Terminal.simulate [arrow direction, ..rest] (() => Random.withSeed seed (() => playTurn state))).snd.player = state.player.toward direction :=
   rewrite turnKey seed state (arrow direction) rest (Move direction) (arrowMoves direction) in
     resolveMoves { seed = lcg seed / 65536 } state direction playing vacant open

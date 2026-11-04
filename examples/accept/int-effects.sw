@@ -11,8 +11,8 @@ def sndOf: Pair a b → b
   | MkPair x y => y
 
 def eqNats: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqNats xs ys else False
   | _, _ => False
 
 ability Log where
@@ -20,7 +20,7 @@ ability Log where
 
 def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)

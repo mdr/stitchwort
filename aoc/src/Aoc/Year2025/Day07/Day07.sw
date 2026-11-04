@@ -88,8 +88,8 @@ def splitterRow (width: Nat) (line: Text): Vec Bool width := flagsOf width line.
 
 def flagsOf: (width: Nat) → List Char → Vec Bool width
   | Zero, _ => VNil
-  | Succ remaining, Nil => VCons False (flagsOf remaining Nil)
-  | Succ remaining, Cons ch rest => VCons (isSplitter ch) (flagsOf remaining rest)
+  | Succ remaining, [] => VCons False (flagsOf remaining [])
+  | Succ remaining, [ch, ..rest] => VCons (isSplitter ch) (flagsOf remaining rest)
 
 def isSplitter (ch: Char): Bool := ch == '^'
 
@@ -100,8 +100,8 @@ def solvePart1 (manifold: Manifold): Nat :=
 
 --| `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
-  | Nil => 0
-  | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
+  | [] => 0
+  | [row, ..rest] => splitsIn row beams + splitsBelow (fall row beams) rest
 
 --| The splitters of a row that beams reach.
 def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := Vec.zipWith row beams (∧) |> .count (hit => hit)

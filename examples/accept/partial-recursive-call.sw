@@ -24,11 +24,11 @@ theorem countDownTwo: countDown Succ 2 0 = 3 := rfl
 -- A local definition in a cycle with its owner, used unapplied: it's given
 -- what it captures, here the smaller `rest`.
 def addAll (f: Nat → Nat): List Nat → List Nat
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (addAll f xs)
+  | [] => []
+  | [x, ..xs] => [f x, ..addAll f xs]
 
 def owner: List Nat → List Nat
-  | Nil => Nil
-  | Cons _ rest =>
+  | [] => []
+  | [_, ..rest] =>
     def shift (n: Nat): Nat := n + List.length (owner rest)
     addAll shift rest

@@ -21,8 +21,8 @@ theorem reducedLeaves: (depth: Nat) → (number: Number) → depth ≤ 4 → red
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
 theorem findUnreducedNone: (i: Nat) → (numbers: List Number) → List.findIndexFrom i (x => not (reduced 0 x)) numbers = None → List.All IsReduced numbers
-  | i, Nil, _ => Trivial
-  | i, Cons x rest, none =>
+  | i, [], _ => Trivial
+  | i, [x, ..rest], none =>
     match e: reduced 0 x with
       | True => Both (reducedLeaves 0 x omega e) (findUnreducedNone (Succ i) rest none)
       | False => Void.exfalso (Option.someNotNone i none)

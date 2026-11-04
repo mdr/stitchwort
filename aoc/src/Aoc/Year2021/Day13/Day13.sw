@@ -76,8 +76,8 @@ def checkPaper (paper: Paper): {Fail} Paper :=
 def firstBlocked (dots: List Dot) (folds: List Fold): Option (Nat, Dot) := firstBlockedFrom 0 dots folds
 
 def firstBlockedFrom (index: Nat) (dots: List Dot): List Fold → Option (Nat, Dot)
-  | Nil => None
-  | Cons fold rest =>
+  | [] => None
+  | [fold, ..rest] =>
     match dots.find (dot => not (clears fold dot)) with
       | Some dot => Some (index, dot)
       | None => firstBlockedFrom (index + 1) (foldOnce dots fold) rest

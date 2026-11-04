@@ -149,7 +149,7 @@ def Machine.run (machine: Machine) (program: List Nat) (printed: List Nat): (fue
       | Halt => Finished printed.reverse
       | Fault => Faulted
       | Next after None => after.run program printed fuel
-      | Next after (Some value) => after.run program (Cons value printed) fuel
+      | Next after (Some value) => after.run program [value, ..printed] fuel
 
 --| Steps enough for a loop that shifts A right on each pass to finish.
 def fuelFor (registers: Registers) (program: List Nat): Nat := (registers.a + 1) * (program.length + 1)
@@ -176,11 +176,11 @@ def Debugger.outputFor (debugger: Debugger) (a: Nat): List Nat :=
 --| from the end: a value that outputs `value` then `rest` is one that
 --| outputs `rest`, times 8, plus a number below 8.
 def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
-  | Nil => [0]
-  | Cons value rest =>
+  | [] => [0]
+  | [value, ..rest] =>
     candidates output rest
       |> .flatMap (high => List.range 8 |> .map (low => high * 8 + low))
-      |> .filter (a => output a == Cons value rest)
+      |> .filter (a => output a == [value, ..rest])
 
 --| The lowest positive initial A for which `output` is `target`, among the
 --| candidates.

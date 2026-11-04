@@ -13,8 +13,8 @@ def Rose.count: Rose a → Nat
   | Bloom _ kids => Succ (Rose.countList kids)
 
 def Rose.countList: List (Rose a) → Nat
-  | Nil => 0
-  | Cons t rest => Rose.count t + Rose.countList rest
+  | [] => 0
+  | [t, ..rest] => Rose.count t + Rose.countList rest
 
 theorem roseCount: Rose.count (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) = 4 := rfl
 
@@ -31,12 +31,12 @@ def Nest.depth: Nest → Nat
   | Maybe (Some (MkPair n _)) => Succ (Nest.depth n)
 
 def Nest.depthRows: List (List Nest) → Nat
-  | Nil => 0
-  | Cons row rest => Nat.max (Nest.depthRow row) (Nest.depthRows rest)
+  | [] => 0
+  | [row, ..rest] => Nat.max (Nest.depthRow row) (Nest.depthRows rest)
 
 def Nest.depthRow: List Nest → Nat
-  | Nil => 0
-  | Cons n rest => Nat.max (Nest.depth n) (Nest.depthRow rest)
+  | [] => 0
+  | [n, ..rest] => Nat.max (Nest.depth n) (Nest.depthRow rest)
 
 theorem nestDepth: Nest.depth (Deep [[Leaf], [Maybe (Some (MkPair (Deep []) 3))]]) = 3 := rfl
 
@@ -73,8 +73,8 @@ def Stmt.size: Stmt → Nat
   | Seq stmts => Succ (Stmt.sizeList stmts)
 
 def Stmt.sizeList: List Stmt → Nat
-  | Nil => 0
-  | Cons s rest => Stmt.size s + Stmt.sizeList rest
+  | [] => 0
+  | [s, ..rest] => Stmt.size s + Stmt.sizeList rest
 
 theorem exprSize: Expr.size (Block [Assign 0 (Lit 1), Seq [Assign 1 (Block [])]]) = 6 := rfl
 
@@ -115,15 +115,15 @@ def Ranked.count: Ranked n → Nat
   | RNode _ kids => Succ (Ranked.countList kids)
 
 def Ranked.countList: List (Ranked n) → Nat
-  | Nil => 0
-  | Cons t rest => Ranked.count t + Ranked.countList rest
+  | [] => 0
+  | [t, ..rest] => Ranked.count t + Ranked.countList rest
 
 theorem rankedCount: Ranked.count (RNode 1 [RNode 0 [], RNode 0 []]) = 3 := rfl
 
 -- A predicate parameter: every branch is well typed, `All (t => Typed t r)`.
 type All (a: Type) (p: a → Prop): List a → Prop =
   | AllNil: All a p []
-  | AllCons (x: a) (xs: List a) (here: p x) (rest: All a p xs): All a p (Cons x xs)
+  | AllCons (x: a) (xs: List a) (here: p x) (rest: All a p xs): All a p [x, ..xs]
 
 type Term: Type =
   | Zero

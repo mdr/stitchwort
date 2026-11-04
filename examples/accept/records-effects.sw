@@ -23,8 +23,8 @@ def base(): {IO} Pair2 :=
 def updated(): {IO} Pair2 := { base() | a = next() }
 
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 test "fields run in the order written" :=

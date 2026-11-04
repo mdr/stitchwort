@@ -40,7 +40,7 @@ def down (position: Position): Position := { column = position.column, row = Nat
 def view (position: Position): List Text :=
   let wall := Text.repeat "#" (roomWidth + 2)
   let rows := List.range roomHeight |> .map (row => "#${rowText position row}#")
-  List.append (Cons wall (List.append rows [wall])) ["hjkl or arrows to move, q to stop"]
+  List.append [wall, ..List.append rows [wall]] ["hjkl or arrows to move, q to stop"]
 
 def rowText (position: Position) (row: Nat): Text :=
   if row == position.row then

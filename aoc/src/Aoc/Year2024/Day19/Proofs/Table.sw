@@ -11,30 +11,30 @@ import Std (Bool, Eq, List, Nat, Void)
 
 theorem tableCorrect (patterns: List Pattern) (striped: Striped patterns): (design: Design) → (index: Nat) → index ≤ design.length →
     (count: Nat) → design.length - index ≤ count → (waysForSuffixes patterns design).getOr index 0 = matching patterns count (design.drop index)
-  | Nil, Zero, inside, count, enough => Eq.sym (matchingEmpty patterns striped count)
-  | Nil, Succ index, inside, count, enough => Void.exfalso (omega [inside])
-  | Cons first rest, Succ index, inside, count, enough => tableCorrect patterns striped rest index (omega [inside]) count (omega [enough])
-  | Cons first rest, Zero, inside, Zero, enough => Void.exfalso (omega [enough])
-  | Cons first rest, Zero, inside, Succ count, enough =>
-    rewrite matchingSucc patterns count (Cons first rest) in
+  | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns striped count)
+  | [], Succ index, inside, count, enough => Void.exfalso (omega [inside])
+  | [first, ..rest], Succ index, inside, count, enough => tableCorrect patterns striped rest index (omega [inside]) count (omega [enough])
+  | [first, ..rest], Zero, inside, Zero, enough => Void.exfalso (omega [enough])
+  | [first, ..rest], Zero, inside, Succ count, enough =>
+    rewrite matchingSucc patterns count [first, ..rest] in
       List.sumByCongMem patterns
-        (pattern => if (Cons first rest).startsWith pattern then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
-        (pattern => if (Cons first rest).startsWith pattern then matching patterns count ((Cons first rest).drop pattern.length) else 0)
+        (pattern => if [first, ..rest].startsWith pattern then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
+        (pattern => if [first, ..rest].startsWith pattern then matching patterns count ([first, ..rest].drop pattern.length) else 0)
         (pattern member =>
           match pattern with
-            | Nil => Void.exfalso (Bool.falseNotTrue (striped Nil member))
-            | Cons stripe others =>
-              match starts: (Cons first rest).startsWith (Cons stripe others) with
+            | [] => Void.exfalso (Bool.falseNotTrue (striped [] member))
+            | [stripe, ..others] =>
+              match starts: [first, ..rest].startsWith [stripe, ..others] with
                 | True =>
-                  tableCorrect patterns striped rest others.length (omega [List.startsWithLength (Cons first rest) (Cons stripe others) starts]) count
+                  tableCorrect patterns striped rest others.length (omega [List.startsWithLength [first, ..rest] [stripe, ..others] starts]) count
                     (omega [enough])
                 | False => rfl)
 
 --| The table's first entry is its entry 0.
 theorem firstEntry (patterns: List Pattern): (design: Design) →
     (waysForSuffixes patterns design).headOr 0 = (waysForSuffixes patterns design).getOr 0 0
-  | Nil => rfl
-  | Cons first rest => rfl
+  | [] => rfl
+  | [first, ..rest] => rfl
 
 --| The program counts the puzzle's ways to make any design.
 theorem waysCorrect (patterns: List Pattern) (striped: Striped patterns) (design: Design): waysToMake patterns design = ways patterns design :=

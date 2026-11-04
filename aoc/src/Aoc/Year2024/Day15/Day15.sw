@@ -124,9 +124,9 @@ def frontOf (box: Cell) (direction: Direction): List Cell :=
 --| The boxes that move with `group` when the cells in `pending` must be
 --| emptied: `None` if one of those cells is a wall, or after `fuel` cells.
 def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Cell): (pending: List Cell) → (fuel: Nat) → Option (Set Cell)
-  | Nil, fuel => Some group
-  | Cons cell rest, Zero => None
-  | Cons cell rest, Succ fuel =>
+  | [], fuel => Some group
+  | [cell, ..rest], Zero => None
+  | [cell, ..rest], Succ fuel =>
     if warehouse.walls.contains cell then None
     else
       let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)

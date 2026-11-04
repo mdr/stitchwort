@@ -45,8 +45,8 @@ type Hit = { row: Nat, column: Nat, turn: Turn }
 --| are the rows from row r down: each is the list of the splitters it
 --| reaches, in order.
 def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) → List (List Hit)
-  | Nil => [Nil]
-  | Cons row rest =>
+  | [] => [[]]
+  | [row, ..rest] =>
     if splitterAt row c then
       List.append
         (match c with

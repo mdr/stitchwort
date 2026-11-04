@@ -29,14 +29,14 @@ theorem headsDistinct (h1: Hit) (h2: Hit) (ne: h1 ≠ h2) (xs: List (List Hit)) 
 
 --| Every timeline from a column is different from the others.
 theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) → List.Distinct (timelinesFrom r c rows)
-  | Nil => Both (m => m) Trivial
-  | Cons row rest =>
+  | [] => Both (m => m) Trivial
+  | [row, ..rest] =>
     match e: splitterAt row c with
       | True =>
         match c with
           | Zero =>
             headsDistinct { row = r, column = 0, turn = Left } { row = r, column = 0, turn = Right } (turnsDiffer r 0)
-              [Nil] (timelinesFrom (r + 1) 1 rest) (Both (m => m) Trivial) (timelinesFromDistinct (r + 1) 1 rest)
+              [[]] (timelinesFrom (r + 1) 1 rest) (Both (m => m) Trivial) (timelinesFromDistinct (r + 1) 1 rest)
           | Succ b =>
             headsDistinct { row = r, column = Succ b, turn = Left } { row = r, column = Succ b, turn = Right } (turnsDiffer r (Succ b))
               (timelinesFrom (r + 1) b rest) (timelinesFrom (r + 1) (Succ b + 1) rest)

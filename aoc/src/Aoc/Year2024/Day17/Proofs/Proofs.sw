@@ -38,7 +38,7 @@ theorem part1Output (debugger: Debugger) (output: List Nat) (finished: outcome d
   haltsUnique debugger.program (start debugger.registers) other output halts (part1Halts debugger output finished)
 
 --| No positive value outputs nothing.
-theorem lowestNil (output: Nat → List Nat): lowestOutputting output Nil = None := rfl
+theorem lowestNil (output: Nat → List Nat): lowestOutputting output [] = None := rfl
 
 --| Part 2: the value found is positive, and outputs the program.
 theorem part2Sound (debugger: Debugger) (a: Nat) (found: solvePart2 debugger = Some a): (0 < a) ∧ (OutputsItself debugger a) :=

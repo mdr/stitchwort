@@ -44,8 +44,8 @@ def replicate: (n: Nat) → a → Vec a n
   | Succ k, x => VCons x (replicate k x)
 
 def toList: Vec a n → List a
-  | VNil => Nil
-  | VCons x xs => Cons x (toList xs)
+  | VNil => []
+  | VCons x xs => [x, ..toList xs]
 
 -- An implicit field, by name: in a value and in a pattern.
 def length: Vec a n → Nat

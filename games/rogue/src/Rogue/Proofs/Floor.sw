@@ -14,7 +14,7 @@ def OnFloor (level: Level) (monsters: List Monster): Prop := List.All (monster =
 theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster):
     (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → isWall level destination = False
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
-  | Cons choice rest, destination, picked =>
+  | [choice, ..rest], destination, picked =>
     match wall: isWall level choice with
       | True => pickFreeOnFloor level player others rest destination picked
       | False =>
@@ -33,13 +33,13 @@ theorem onFloorSnoc (level: Level) (monster: Monster) (inside: isWall level mons
 theorem onFloorMap (level: Level) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):
     (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.map change)
   | [], onFloor => Trivial
-  | Cons first rest, Both inside others => Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
+  | [first, ..rest], Both inside others => Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
 
 --| Dropping monsters keeps the rest on the floor.
 theorem onFloorFilter (level: Level) (keep: Monster → Bool):
     (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.filter keep)
   | [], onFloor => Trivial
-  | Cons first rest, Both inside others =>
+  | [first, ..rest], Both inside others =>
     match kept: keep first with
       | True => Both inside (onFloorFilter level keep rest others)
       | False => onFloorFilter level keep rest others
@@ -51,7 +51,7 @@ theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position):
     (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
     OnFloor level outcome.moved → OnFloor level waiting → OnFloor level (actAll dice level player index outcome waiting).moved
   | index, outcome, [], moved, rest => moved
-  | index, outcome, Cons monster waiting, moved, Both inside rest =>
+  | index, outcome, [monster, ..waiting], moved, Both inside rest =>
     match next: monster.position.isNextTo player with
       | True => actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level monster inside outcome.moved moved) rest
       | False =>

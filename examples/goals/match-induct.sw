@@ -3,8 +3,8 @@
 import Std (Bool, Eq, List, Nat, Option, Or, Void)
 
 def firstBig: List Nat → Option Nat
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     match big: Nat.leq 10 x with
       | True => Some x
       | False => firstBig rest

@@ -124,10 +124,10 @@ type Roses (a: Type): Type =
   | MoreRoses (first: Rose a) (rest: Roses a)
 
 def flatten: Rose a → List a
-  | Bloom x kids => Cons x (flattenAll kids)
+  | Bloom x kids => [x, ..flattenAll kids]
 
 def flattenAll: Roses a → List a
-  | NoRoses => Nil
+  | NoRoses => []
   | MoreRoses r rs => (flatten r).append (flattenAll rs)
 
 test "flatten" := (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))).length == 3

@@ -26,8 +26,8 @@ def moveTo (racetrack: Racetrack) (position: Position) (direction: Direction): O
 
 --| Where some moves from `position` end; `None` if one can't be made.
 def race (racetrack: Racetrack) (position: Position): List Direction → Option Position
-  | Nil => Some position
-  | Cons direction rest =>
+  | [] => Some position
+  | [direction, ..rest] =>
     match moveTo racetrack position direction with
       | Some next => race racetrack next rest
       | None => None

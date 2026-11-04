@@ -20,12 +20,12 @@ import Std (Bool, Eq, Exists, List, Nat, Void)
 --| Walking `moves` from `origin` stays on floor and ends at `target`.
 def Walk (level: Level): Position → List Direction → Position → Prop
   | origin, [], target => origin = target
-  | origin, Cons direction rest, target => isWall level (origin.toward direction) = False ∧ Walk level (origin.toward direction) rest target
+  | origin, [direction, ..rest], target => isWall level (origin.toward direction) = False ∧ Walk level (origin.toward direction) rest target
 
 theorem walkAppend (level: Level) (second: List Direction) (target: Position):
     (origin: Position) → (first: List Direction) → (middle: Position) → Walk level origin first middle → Walk level middle second target → Walk level origin (first ++ second) target
   | origin, [], middle, same, rest => rewrite same in rest
-  | origin, Cons direction others, middle, Both open walk, rest => Both open (walkAppend level second target (origin.toward direction) others middle walk rest)
+  | origin, [direction, ..others], middle, Both open walk, rest => Both open (walkAppend level second target (origin.toward direction) others middle walk rest)
 
 theorem walkEast (level: Level) (row: Nat):
     (steps: Nat) → (column: Nat) → ((j: Nat) → column < j → j ≤ column + steps → isWall level { row, column = j } = False) →

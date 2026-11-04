@@ -36,7 +36,7 @@ def nextSecret (secret: Nat): Nat :=
 --| The initial secret and the `count` secrets after it.
 def secrets: (count: Nat) → (secret: Nat) → List Nat
   | Zero, secret => [secret]
-  | Succ count, secret => Cons secret (secrets count (nextSecret secret))
+  | Succ count, secret => [secret, ..secrets count (nextSecret secret)]
 
 def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (buyer => Nat.iterate 2000 nextSecret buyer)
 
@@ -53,7 +53,7 @@ def prices (count: Nat) (buyer: Nat): List Nat := secrets count buyer |> .map (%
 --| The changes into the fifth of `prices` and that price, if there are five.
 def sale (prices: List Nat): Option (Changes, Nat) :=
   match prices with
-    | Cons a (Cons b (Cons c (Cons d (Cons e rest)))) => Some ({ first = change a b, second = change b c, third = change c d, fourth = change d e }, e)
+    | [a, b, c, d, e, ..rest] => Some ({ first = change a b, second = change b c, third = change c d, fourth = change d e }, e)
     | _ => None
 
 --| Each sequence of changes in `prices`, with the price at its first

@@ -15,7 +15,7 @@ import Std (Bool, Eq, Fail, Int, List, Mod, Nat)
 
 --| The zeros after the first turn, then after the rest.
 theorem zerosLandedOnCons [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
-    zerosLandedOn (Cons t ts) dial = Bool.toNat (Dial.isZero (Dial.move dial t)) + zerosLandedOn ts (Dial.move dial t) :=
+    zerosLandedOn [t, ..ts] dial = Bool.toNat (Dial.isZero (Dial.move dial t)) + zerosLandedOn ts (Dial.move dial t) :=
   Eq.trans (Eq.cong (.count Dial.isZero) (List.scanLeftCons ts (Dial.move dial t) Dial.move))
     (List.countCons (List.drop (List.scanLeft ts (Dial.move dial t) Dial.move) 1) (Dial.move dial t) Dial.isZero)
 
@@ -32,13 +32,13 @@ theorem zerosPassedSplit [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
 
 theorem zerosPassedFrom [n: Nat] (dial: Dial n): (ts: List Turn) →
     zerosPassed ts dial = zerosLandedOn (List.concatMap ts Turn.clicks) dial
-  | Nil => rfl
-  | Cons t ts =>
-    calc zerosPassed (Cons t ts) dial
+  | [] => rfl
+  | [t, ..ts] =>
+    calc zerosPassed [t, ..ts] dial
       _ = Dial.zerosDuring dial t + zerosPassed ts (Dial.move dial t)
         := List.sumCons (Dial.zerosDuring dial t) (List.zipWith (List.scanLeft ts (Dial.move dial t) Dial.move) ts Dial.zerosDuring)
       _ = Dial.zerosDuring dial t + zerosLandedOn (List.concatMap ts Turn.clicks) (Dial.move dial t) := rewrite zerosPassedFrom (Dial.move dial t) ts
-      _ = zerosLandedOn (List.concatMap (Cons t ts) Turn.clicks) dial := Eq.sym (zerosPassedSplit dial t ts)
+      _ = zerosLandedOn (List.concatMap [t, ..ts] Turn.clicks) dial := Eq.sym (zerosPassedSplit dial t ts)
 
 -- Positions stay on the dial by the type `Mod n`, and part 1's code reads as
 -- the puzzle's own statement, so neither needs a theorem. The theorem,

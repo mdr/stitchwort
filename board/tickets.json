@@ -5499,7 +5499,7 @@
     {
       "id": 1226,
       "title": "Elaborator: when a lemma's arguments depend only on _, compare its conclusion with the goal before checking its proof arguments (removes the doubling re-checks)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [

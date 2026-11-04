@@ -14,8 +14,8 @@ theorem differ (x: Text) (y: Text) (ne: x ≠ y): (x == y) = False :=
 
 --| Looking a cave up in a table built from a list of caves.
 theorem lookupBuilt (f: Text → List Text) (cave: Text): (cs: List Text) → cave ∈ cs → List.lookup (cs.map (c => (c, f c))) cave = Some (f cave)
-  | Nil, member => Void.exfalso member
-  | Cons c rest, member =>
+  | [], member => Void.exfalso member
+  | [c, ..rest], member =>
     match e: c == cave with
       | True => rewrite DecEq.sound c cave e in rfl
       | False =>
@@ -24,8 +24,8 @@ theorem lookupBuilt (f: Text → List Text) (cave: Text): (cs: List Text) → ca
           | Inr later => lookupBuilt f cave rest later
 
 theorem lookupMissing (f: Text → List Text) (cave: Text): (cs: List Text) → ¬(cave ∈ cs) → List.lookup (cs.map (c => (c, f c))) cave = None
-  | Nil, missing => rfl
-  | Cons c rest, missing =>
+  | [], missing => rfl
+  | [c, ..rest], missing =>
     match e: c == cave with
       | True => Void.exfalso (missing (Inl (DecEq.sound c cave e)))
       | False => lookupMissing f cave rest (later => missing (Inr later))

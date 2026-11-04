@@ -10,24 +10,24 @@ import Std (Bool, Eq, List, Nat, Void)
 --| With the names distinct, a name starts with one value.
 theorem initialUnique (wire: Wire) (first: Bool) (second: Bool): (pairs: List (Wire, Bool)) → List.Distinct (pairs.map (.fst)) →
     (wire, first) ∈ pairs → (wire, second) ∈ pairs → first = second
-  | Nil, distinct, inFirst, inSecond => Void.exfalso inFirst
-  | Cons pair rest, Both fresh distinct, Inl isFirst, Inl isSecond => Eq.cong Pair.snd (Eq.trans (Eq.sym isFirst) isSecond)
-  | Cons pair rest, Both fresh distinct, Inl isFirst, Inr inSecond =>
+  | [], distinct, inFirst, inSecond => Void.exfalso inFirst
+  | [pair, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond => Eq.cong Pair.snd (Eq.trans (Eq.sym isFirst) isSecond)
+  | [pair, ..rest], Both fresh distinct, Inl isFirst, Inr inSecond =>
     Void.exfalso (fresh (rewrite isFirst in List.memMap rest (wire, second) inSecond (.fst)))
-  | Cons pair rest, Both fresh distinct, Inr inFirst, Inl isSecond =>
+  | [pair, ..rest], Both fresh distinct, Inr inFirst, Inl isSecond =>
     Void.exfalso (fresh (rewrite isSecond in List.memMap rest (wire, first) inFirst (.fst)))
-  | Cons pair rest, Both fresh distinct, Inr inFirst, Inr inSecond => initialUnique wire first second rest distinct inFirst inSecond
+  | [pair, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond => initialUnique wire first second rest distinct inFirst inSecond
 
 --| With the outputs distinct, a wire is the output of one gate.
 theorem gateUnique (first: Gate) (second: Gate): (gates: List Gate) → List.Distinct (gates.map (.output)) →
     first ∈ gates → second ∈ gates → first.output = second.output → first = second
-  | Nil, distinct, inFirst, inSecond, same => Void.exfalso inFirst
-  | Cons gate rest, Both fresh distinct, Inl isFirst, Inl isSecond, same => Eq.trans (Eq.sym isFirst) isSecond
-  | Cons gate rest, Both fresh distinct, Inl isFirst, Inr inSecond, same =>
+  | [], distinct, inFirst, inSecond, same => Void.exfalso inFirst
+  | [gate, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond, same => Eq.trans (Eq.sym isFirst) isSecond
+  | [gate, ..rest], Both fresh distinct, Inl isFirst, Inr inSecond, same =>
     Void.exfalso (fresh (rewrite isFirst, same in List.memMap rest second inSecond (.output)))
-  | Cons gate rest, Both fresh distinct, Inr inFirst, Inl isSecond, same =>
+  | [gate, ..rest], Both fresh distinct, Inr inFirst, Inl isSecond, same =>
     Void.exfalso (fresh (rewrite isSecond, <- same in List.memMap rest first inFirst (.output)))
-  | Cons gate rest, Both fresh distinct, Inr inFirst, Inr inSecond, same => gateUnique first second rest distinct inFirst inSecond same
+  | [gate, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond, same => gateUnique first second rest distinct inFirst inSecond same
 
 --| A wire carries at most one value.
 theorem carriesUnique (device: Device) (wellFormed: WellFormed device): (wire: Wire) → (first: Bool) → (second: Bool) →

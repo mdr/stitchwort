@@ -76,8 +76,8 @@ def hasLoopShape (debugger: Debugger) (count: Nat): Bool :=
   List.range count
     |> .all (a =>
       match debugger.outputFor a with
-        | Cons first rest => rest == (if a < 8 then [] else debugger.outputFor (a / 8))
-        | Nil => False)
+        | [first, ..rest] => rest == (if a < 8 then [] else debugger.outputFor (a / 8))
+        | [] => False)
 
 test "the written programs have the loop shape" := [loopA, loopB, loopC, loopNone, copyExample].all (debugger => hasLoopShape debugger 600)
 test "the part 1 example doesn't" := !(hasLoopShape (debuggerOf 0 0 0 [0, 1, 5, 4, 3, 0]) 600)

@@ -89,14 +89,14 @@ theorem rowCellsMapWithIndex (r: Nat) (row: List a) (f: Position → a → b):
 --| indices are the same.
 theorem withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b) →
     List.withIndexFrom s (List.map (List.withIndexFrom s xs) h) = List.map (List.withIndexFrom s xs) (p => (p.fst, h p))
-  | s, Nil, h => rfl
-  | s, Cons x rest, h => Eq.cong (Cons (s, h (s, x))) (withIndexFromMap (Succ s) rest h)
+  | s, [], h => rfl
+  | s, [x, ..rest], h => Eq.cong (Cons (s, h (s, x))) (withIndexFromMap (Succ s) rest h)
 
 --| `map` of a `concat` is the `concat` of the `map`s.
 -- (A std candidate.)
 theorem mapConcat: (xss: List (List a)) → (k: a → b) → List.map (List.concat xss) k = List.concat (List.map xss (xs => List.map xs k))
-  | Nil, k => rfl
-  | Cons xs rest, k => rewrite List.mapAppend xs (List.concat rest) k, mapConcat rest k in rfl
+  | [], k => rfl
+  | [xs, ..rest], k => rewrite List.mapAppend xs (List.concat rest) k, mapConcat rest k in rfl
 
 --| No position is a cell twice.
 theorem cellPositionsDistinct (rows: List (List a)): List.Distinct ((cells rows).map Pair.fst) :=
@@ -115,8 +115,8 @@ theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCel
 --| The positions of the cells of rows s, s + 1, …: no repeats.
 theorem rowsDistinct: (s: Nat) → (rows: List (List a)) →
     List.Distinct (List.map (List.concat (List.map (List.withIndexFrom s rows) (p => rowCells p.fst p.snd))) Pair.fst)
-  | s, Nil => Trivial
-  | s, Cons row rest =>
+  | s, [] => Trivial
+  | s, [row, ..rest] =>
     let later := List.concat (List.map (List.withIndexFrom (Succ s) rest) (p => rowCells p.fst p.snd))
     rewrite List.mapAppend (rowCells s row) later Pair.fst in
       List.distinctAppend (List.map (rowCells s row) Pair.fst) (List.map later Pair.fst)
@@ -147,16 +147,16 @@ theorem rowsAbove (s: Nat) (rows: List (List a)) (q: (Nat, Nat))
 
 --| Every index of `withIndexFrom t` is t or more.
 theorem indexFromAbove: (t: Nat) → (xs: List a) → (p: (Nat, a)) → p ∈ List.withIndexFrom t xs → t ≤ p.fst
-  | t, Nil, p, member => Void.exfalso member
-  | t, Cons x rest, p, Inl same => rewrite <- same in Nat.leRefl t
-  | t, Cons x rest, p, Inr later =>
+  | t, [], p, member => Void.exfalso member
+  | t, [x, ..rest], p, Inl same => rewrite <- same in Nat.leRefl t
+  | t, [x, ..rest], p, Inr later =>
     let above := indexFromAbove (Succ t) rest p later
     omega
 
 --| A row's positions, (s, t), (s, t + 1), …: no repeats.
 theorem columnsDistinct (s: Nat): (t: Nat) → (xs: List a) → List.Distinct (List.map (List.withIndexFrom t xs) (p => (s, p.fst)))
-  | t, Nil => Trivial
-  | t, Cons x rest =>
+  | t, [] => Trivial
+  | t, [x, ..rest] =>
     Both
       (member =>
         Exists.elim (List.memMapElim (p => (s, p.fst)) (s, t) (List.withIndexFrom (Succ t) rest) member) (p both =>

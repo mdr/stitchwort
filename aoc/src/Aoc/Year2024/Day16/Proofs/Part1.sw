@@ -16,10 +16,10 @@ def ReachedFromStart (maze: Maze) (reindeer: Reindeer) (cost: Nat): Prop :=
 --| Moves, then one more.
 theorem finalSnoc (maze: Maze) (reindeer: Reindeer) (moves: List Move) (middle: Reindeer) (ended: final maze reindeer moves = Some middle)
     (way: Move) (next: Reindeer) (moved: move maze middle way = Some next): final maze reindeer (moves ++ [way]) = Some next :=
-  Eq.trans (finalAppend maze [way] reindeer moves middle ended) (finalCons maze middle way next moved Nil)
+  Eq.trans (finalAppend maze [way] reindeer moves middle ended) (finalCons maze middle way next moved [])
 
 theorem scoreSnoc (moves: List Move) (way: Move): score (moves ++ [way]) = score moves + way.points :=
-  rewrite scoreAppend moves [way], scoreCons way Nil in omega
+  rewrite scoreAppend moves [way], scoreCons way [] in omega
 
 --| An edge of the maze's graph is a move from an open tile, forward or
 --| back.
@@ -41,7 +41,7 @@ theorem fromStartCorrect (maze: Maze):
   Graph.distancesCorrect (maze.graph False) [(maze.startReindeer, 0)] (ReachedFromStart maze)
     (source start member =>
       match member with
-        | Inl here => rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in Witness Nil (Both rfl rfl)
+        | Inl here => rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in Witness [] (Both rfl rfl)
         | Inr none => Void.exfalso none)
     (state cost reached next weight edge =>
       Exists.elim (afterSound maze state next weight (And.right (edgeHolds maze False state next weight edge))) (way both =>
@@ -55,13 +55,13 @@ theorem fromStartCorrect (maze: Maze):
 theorem movesWalk (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph False).Walk reindeer path last) ∧ (Graph.cost path = score moves))
-  | reindeer, holds, Nil, last, ended => Witness Nil (Both (Option.someInjective _ _ ended) rfl)
-  | reindeer, holds, Cons way rest, last, ended =>
+  | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective _ _ ended) rfl)
+  | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
         Exists.elim (movesWalk maze next (moveHolds maze reindeer holds way next moved) rest last ended) (path both =>
-          Witness (Cons (next, way.points) path)
+          Witness [(next, way.points), ..path]
             (Both (Both (edgeOfMove maze False reindeer holds next way.points (afterComplete maze reindeer way next moved)) (And.left both))
               (rewrite Graph.costCons next way.points path, scoreCons way rest, And.right both in rfl)))
 

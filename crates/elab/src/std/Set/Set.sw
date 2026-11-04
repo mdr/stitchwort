@@ -115,10 +115,10 @@ theorem Set.unitEq: (u: ()) → (w: ()) → u = w
 
 --| Entries whose values are all `()` are fixed by their keys.
 theorem Set.unitEntries: (xs: List (k, ())) → (ys: List (k, ())) → List.map xs Pair.fst = List.map ys Pair.fst → xs = ys
-  | Nil, Nil, h => rfl
-  | Nil, Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
-  | Cons (a, u) xs2, Nil, h => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
-  | Cons (a, u) xs2, Cons (b, w) ys2, h =>
+  | [], [], h => rfl
+  | [], [(b, w), ..ys2], h => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
+  | [(a, u), ..xs2], [], h => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
+  | [(a, u), ..xs2], [(b, w), ..ys2], h =>
     rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 
 --| Sets with the same keys in order are equal.
@@ -200,7 +200,7 @@ test "set: isSubset, edge cases" :=
   Set.isSubset Set.empty Set.example ∧ Set.isSubset Set.example Set.example ∧ ¬(Set.isSubset Set.example Set.empty)
 test "set: partition, all, foldRight" :=
   Set.toList (Set.partition Set.example (> 1)).fst == [2, 3] ∧ Set.toList (Set.partition Set.example (> 1)).snd == [1]
-    ∧ Set.all Set.example (> 0) ∧ ¬(Set.all Set.example (> 1)) ∧ Set.foldRight Set.example Nil (n acc => Cons n acc) == [1, 2, 3]
+    ∧ Set.all Set.example (> 0) ∧ ¬(Set.all Set.example (> 1)) ∧ Set.foldRight Set.example [] (n acc => [n, ..acc]) == [1, 2, 3]
 test "map: keySet, fromKeys" :=
   Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2] ∧ Map.toList (Map.fromKeys Set.example (* 10)) == [(1, 10), (2, 20), (3, 30)]
 test "map: removeAll, keepOnly" :=
