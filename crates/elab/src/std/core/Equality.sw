@@ -12,6 +12,15 @@ theorem Eq.sym [x y: a] (p: x = y): y = x := J (y' p' => y' = x) rfl p
 
 theorem Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z := J (z' q' => x = z') p q
 
+--| Moves a fact along an equation: from `h: x = y` and a fact about `x`, the
+--| same fact about `y`. `motive` says what the fact is about, as a function
+--| of the value: `Eq.subst (n => n < 10) h fact`. Use it in place of `J` when
+--| `rewrite` runs out of budget; unlike `J`'s motive it takes no proof
+--| argument, and the equation comes before the fact. Elaboration cannot
+--| find `motive` from the types (it would need higher-order unification), so
+--| it is always written out.
+theorem Eq.subst (motive: a → Prop) [x y: a] (h: x = y) (fact: motive x): motive y := J (y' p' => motive y') fact h
+
 -- Different constructors are different. Each proof transports along the
 -- equation into a family that's `Unit` at one constructor and `Void` at the other.
 

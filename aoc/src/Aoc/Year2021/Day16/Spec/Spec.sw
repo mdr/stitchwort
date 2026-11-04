@@ -9,12 +9,6 @@ namespace Aoc.Year2021.Day16.Spec
 import Aoc.Year2021.Day16 (LengthType, Operation, Packet)
 import Std (List, Nat, Option)
 
---| A number written in `width` bits, the most significant first: the last
---| bit says whether it is odd, and the bits before it are its half.
-def bitsOf: Nat → Nat → List Bool
-  | 0, _ => []
-  | Succ width, n => bitsOf width (n / 2) ++ [n % 2 == 1]
-
 --| The puzzle's hexadecimal digits and their bits.
 def hexDigitBits: Char → Option (List Bool)
   | '0' => Some [False, False, False, False]
@@ -58,19 +52,19 @@ def typeId: Operation → Nat
 --| last group's, which is 0.
 def groupBits: List Nat → List Bool
   | [] => []
-  | [group] => [False, ..bitsOf 4 group]
-  | [group, ..rest] => [True, ..bitsOf 4 group ++ groupBits rest]
+  | [group] => [False, ..Nat.toBits 4 group]
+  | [group, ..rest] => [True, ..Nat.toBits 4 group ++ groupBits rest]
 
 --| A packet's bits: its version in three bits, its type id in three bits (4
 --| for a literal), then a literal's groups; or an operator's length type id
 --| (0 or 1), the length of its sub-packets in 15 bits or their number in 11
 --| bits, and the sub-packets.
 def encode: Packet → List Bool
-  | Literal version groups => bitsOf 3 version ++ bitsOf 3 4 ++ groupBits groups
+  | Literal version groups => Nat.toBits 3 version ++ Nat.toBits 3 4 ++ groupBits groups
   | Operator version operation TotalLength subPackets =>
-    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ [False, ..bitsOf 15 (encodeAll subPackets).length ++ encodeAll subPackets]
+    Nat.toBits 3 version ++ Nat.toBits 3 (typeId operation) ++ [False, ..Nat.toBits 15 (encodeAll subPackets).length ++ encodeAll subPackets]
   | Operator version operation Count subPackets =>
-    bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ [True, ..bitsOf 11 subPackets.length ++ encodeAll subPackets]
+    Nat.toBits 3 version ++ Nat.toBits 3 (typeId operation) ++ [True, ..Nat.toBits 11 subPackets.length ++ encodeAll subPackets]
 
 --| Packets one after another.
 def encodeAll: List Packet → List Bool
@@ -127,7 +121,7 @@ def fitsOperation: Operation → Nat → Bool
 --| Part 2: a packet's value. A literal's is its groups' bits read as one
 --| binary number; an operator's is computed from its sub-packets' values.
 type HasValue: Packet → Nat → Prop =
-  | LiteralValue (version: Nat) (groups: List Nat): HasValue (Literal version groups) (Nat.fromBits (groups.flatMap (bitsOf 4)))
+  | LiteralValue (version: Nat) (groups: List Nat): HasValue (Literal version groups) (Nat.fromBits (groups.flatMap (Nat.toBits 4)))
   | OperatorValue (each: Values subPackets values) (computed: Computes operation values value):
     HasValue (Operator version operation lengthType subPackets) value
 

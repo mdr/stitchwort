@@ -82,14 +82,12 @@ theorem gapComplete: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat)
             | Inr later => later
         gapComplete [high, ..rest] sortedRest seat (member => missing (Inr member)) aboveRest belowRest
 
-theorem fromBitsBelow (bits: List Bool): Nat.fromBits bits < Nat.pow 2 bits.length := omega [Nat.fromBitsFlipped bits]
-
 --| "Every seat": no pass names a seat past the 128 × 8.
 theorem idsBelow: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → (id: Nat) → id ∈ passes.map .seatId → id < 128 * 8
   | [], [], all, id, member => Void.exfalso member
   | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest, id, Inl first =>
     let below: Nat.fromBits (pass.row ++ pass.column) < Nat.pow 2 (pass.row.length + pass.column.length) :=
-      rewrite <- List.lengthAppend pass.row pass.column in fromBitsBelow (pass.row ++ pass.column)
+      rewrite <- List.lengthAppend pass.row pass.column in Nat.fromBitsBelow (pass.row ++ pass.column)
     rewrite <- first in (rewrite rows, columns at below in below)
   | [line, ..lines], [pass, ..passes], Both written rest, id, Inr later => idsBelow lines passes rest id later
   | [], [_, .._], impossible, id, member => Void.exfalso impossible
@@ -129,9 +127,8 @@ theorem gapYours (count: Nat) (ids: List Nat) (bound: (id: Nat) → id ∈ ids �
 --| Part 2 finds only a seat that could be yours.
 theorem part2Sound (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes) (seat: Nat) (found: solvePart2 passes = Some seat):
     seat ∈ part2Answers (input.lines.map Text.toList) :=
-  J (written same => seat ∈ (List.range (128 * 8)).filter (isYourSeat written))
+  Eq.subst (written => seat ∈ (List.range (128 * 8)).filter (isYourSeat written)) (Eq.sym (idsWritten input passes parsed))
     (gapYours (128 * 8) (passes.map .seatId) (idsBelow (input.lines.map Text.toList) passes (parseWritten input passes parsed)) seat found)
-    (Eq.sym (idsWritten input passes parsed))
 
 theorem yoursGap (count: Nat) (ids: List Nat) (seat: Nat) (candidate: seat ∈ (List.range count).filter (isYourSeat ids)): ∃ (found: Nat) => gap ids.sort = Some found :=
   match yourSeatMembers ids seat (And.right (List.memFilter (List.range count) (isYourSeat ids) seat candidate)) with
@@ -142,7 +139,7 @@ theorem yoursGap (count: Nat) (ids: List Nat) (seat: Nat) (candidate: seat ∈ (
 theorem part2Complete (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes) (seat: Nat) (yours: seat ∈ part2Answers (input.lines.map Text.toList)):
     ∃ (found: Nat) => solvePart2 passes = Some found :=
   yoursGap (128 * 8) (passes.map .seatId) seat
-    (J (written same => seat ∈ (List.range (128 * 8)).filter (isYourSeat written)) yours (idsWritten input passes parsed))
+    (Eq.subst (written => seat ∈ (List.range (128 * 8)).filter (isYourSeat written)) (idsWritten input passes parsed) yours)
 
 theorem onlyAnswer (answers: List Nat) (seat: Nat) (result: Option Nat) (only: answers = [seat])
     (sound: (found: Nat) → result = Some found → found ∈ answers) (complete: seat ∈ answers → ∃ (found: Nat) => result = Some found): result = Some seat :=

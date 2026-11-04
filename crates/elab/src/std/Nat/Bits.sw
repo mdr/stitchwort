@@ -357,3 +357,88 @@ theorem Nat.fromBitsFlipped: (bits: List Bool) → Nat.fromBits bits + Nat.fromB
       match bit with
         | True => omega [Nat.fromBitsFlipped rest]
         | False => omega [Nat.fromBitsFlipped rest]
+
+--| Every bit string reads as less than `2 ^ n`, for its `n` bits.
+--| `Nat.fromBitsBelow [a, b, c, d]` is `Nat.fromBits [a, b, c, d] < 16`.
+theorem Nat.fromBitsBelow (bits: List Bool): Nat.fromBits bits < Nat.pow 2 (List.length bits) :=
+  omega [Nat.fromBitsFlipped bits]
+
+--| Joining two bit strings: the first one's number is shifted left past the
+--| second one's bits. Use it to split a field, such as a row and a column
+--| written as one number.
+theorem Nat.fromBitsAppend (high: List Bool) (low: List Bool):
+    Nat.fromBits (high ++ low) = Nat.fromBits high * Nat.pow 2 (List.length low) + Nat.fromBits low :=
+  Eq.trans (List.foldLeftAppend high 0 low (acc bit => acc * 2 + Bool.toNat bit)) (Nat.fromBitsFrom (Nat.fromBits high) low)
+
+--| A bit after the others doubles their number and adds itself.
+theorem Nat.fromBitsSnoc (bits: List Bool) (bit: Bool): Nat.fromBits (bits ++ [bit]) = Nat.fromBits bits * 2 + Bool.toNat bit :=
+  rewrite List.foldLeftAppend bits 0 [bit] (acc bit => acc * 2 + Bool.toNat bit) in rfl
+
+--| A number written in `width` bits, the most significant first, `True` for
+--| a 1, and cut off at the low `width` bits if it doesn't fit: the last bit
+--| says whether it is odd, and the bits before it are its half.
+--| `Nat.toBits 4 5` is `[False, True, False, True]`. The inverse of
+--| [`Nat.fromBits`] ([`Nat.fromBitsToBits`], [`Nat.toBitsFromBits`]).
+def Nat.toBits: Nat → Nat → List Bool
+  | 0, _ => []
+  | Succ width, n => Nat.toBits width (n / 2) ++ [n % 2 == 1]
+
+theorem Nat.toBitsExample: Nat.toBits 4 5 = [False, True, False, True] := rfl
+
+--| `Nat.toBits width n` is `width` bits long.
+theorem Nat.toBitsLength: (width: Nat) → (n: Nat) → List.length (Nat.toBits width n) = width
+  | 0, n => rfl
+  | Succ width, n => rewrite List.lengthSnoc (Nat.toBits width (n / 2)) (n % 2 == 1), Nat.toBitsLength width (n / 2) in rfl
+
+--| The last bit of a number is whether it is odd.
+theorem Nat.parityBit (n: Nat): Bool.toNat (n % 2 == 1) = n % 2 :=
+  let below := Nat.modLess n 2 (omega)
+  match e: n % 2 with
+    | 0 => rfl
+    | 1 => rfl
+    | Succ (Succ k) => omega
+
+--| A number that fits in `width` bits is read back from them:
+--| `Nat.fromBits (Nat.toBits width n) = n` when `n < 2 ^ width`.
+theorem Nat.fromBitsToBits: (width: Nat) → (n: Nat) → n < Nat.pow 2 width → Nat.fromBits (Nat.toBits width n) = n
+  | 0, n, small => omega
+  | Succ width, n, small =>
+    let split := Nat.divModEq n 2 (omega)
+    let half := Nat.fromBitsToBits width (n / 2) (omega [Nat.powSucc 2 width])
+    rewrite Nat.fromBitsSnoc (Nat.toBits width (n / 2)) (n % 2 == 1), half, Nat.parityBit n in omega
+
+--| Doubling a number and adding a bit: half of the result is the number.
+theorem Nat.halfOfDoubleBit (acc: Nat) (bit: Bool): (acc * 2 + Bool.toNat bit) / 2 = acc :=
+  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)
+  let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)
+  match bit with
+    | True => omega
+    | False => omega
+
+--| Doubling a number and adding a bit: the result is odd exactly when the
+--| bit is 1.
+theorem Nat.parityOfDoubleBit (acc: Nat) (bit: Bool): ((acc * 2 + Bool.toNat bit) % 2 == 1) = bit :=
+  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)
+  let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)
+  match bit with
+    | True =>
+      let odd: (acc * 2 + 1) % 2 = 1 := omega
+      rewrite odd in rfl
+    | False =>
+      let even: (acc * 2 + 0) % 2 = 0 := omega
+      rewrite even in rfl
+
+--| Reading bits after a number `acc`, then writing the result in as many
+--| more bits, gives `acc`'s `k` bits and then those bits.
+theorem Nat.toBitsFold (k: Nat): (acc: Nat) → (bits: List Bool) →
+    Nat.toBits (k + List.length bits) (List.foldLeft bits acc (acc bit => acc * 2 + Bool.toNat bit)) = Nat.toBits k acc ++ bits
+  | acc, [] => rewrite Nat.addZero k, List.appendNil (Nat.toBits k acc) in rfl
+  | acc, [bit, ..rest] =>
+    let more := Nat.toBitsFold (Succ k) (acc * 2 + Bool.toNat bit) rest
+    let step: Nat.toBits (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = Nat.toBits k acc ++ [bit, ..rest] :=
+      rewrite Nat.parityOfDoubleBit acc bit, Nat.halfOfDoubleBit acc bit, List.appendAssoc (Nat.toBits k acc) [bit] rest in rfl
+    Eq.trans more step
+
+--| Any bits are the number they read as, written in as many bits:
+--| `Nat.toBits bits.length (Nat.fromBits bits) = bits`.
+theorem Nat.toBitsFromBits (bits: List Bool): Nat.toBits (List.length bits) (Nat.fromBits bits) = bits := Nat.toBitsFold 0 0 bits

@@ -109,6 +109,22 @@ def List.Sorted (le: a → a → Bool): List a → Prop
   | [] => Unit
   | [x, ..xs] => (List.LeHead le x xs) ∧ (List.Sorted le xs)
 
+--| Decides `List.LeHead le bound xs` by computing `le bound` on the first
+--| element.
+-- Its type spells out `List.LeHead`, as `List.decDistinct`'s does for `List.Distinct`.
+instance List.decLeHead (le: a → a → Bool) (bound: a): (xs: List a) → Decidable (List.LeHead le bound xs)
+  | [] => Yes Trivial
+  | [y, ..ys] => Bool.decTrue (le bound y)
+
+--| Decides `List.Sorted le xs` by checking each element against the next, so
+--| `if List.Sorted Nat.leq xs` is a `Bool` where one is expected and
+--| `check --counterexamples` can test lemmas that assume a list is sorted.
+instance List.decSorted (le: a → a → Bool): (xs: List a) → Decidable (List.Sorted le xs)
+  | [] => Yes Trivial
+  | [x, ..xs] => Decidable.and (List.decLeHead le x xs) (List.decSorted le xs)
+
+test "List.decSorted" := List.Sorted Nat.leq [1, 2, 2, 5] ∧ ¬(List.Sorted Nat.leq [1, 3, 2]) ∧ List.Sorted Nat.leq ([]: List Nat)
+
 --| `rel` holds of each element and every later one.
 @[noReceiver]
 def List.Pairwise (rel: a → a → Prop): List a → Prop

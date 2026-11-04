@@ -4,7 +4,7 @@
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
-import Aoc.Year2021.Day16.Spec (bitsOf, groupBits, typeId)
+import Aoc.Year2021.Day16.Spec (groupBits, typeId)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Void)
 
 --| `Some` of two pairs: the same parts.
@@ -28,37 +28,37 @@ theorem splitFieldSome (count: Nat) (bits: List Bool) (field: List Bool) (rest: 
     | False => cases
 
 --| A number that fits its field is read back.
-theorem readNumberBits (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width): readNumber width (bitsOf width n ++ rest) = Some (n, rest) :=
-  rewrite splitFieldAppend (bitsOf width n) rest width (lengthBitsOf width n), fromBitsOf width n small in rfl
+theorem readNumberBits (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width): readNumber width (Nat.toBits width n ++ rest) = Some (n, rest) :=
+  rewrite splitFieldAppend (Nat.toBits width n) rest width (Nat.toBitsLength width n), Nat.fromBitsToBits width n small in rfl
 
 --| What `readNumber` reads is the number's bits, and the number fits.
 theorem readNumberSome (width: Nat) (bits: List Bool) (n: Nat) (rest: List Bool) (read: readNumber width bits = Some (n, rest)):
-    bits = bitsOf width n ++ rest ∧ n < Nat.pow 2 width :=
+    bits = Nat.toBits width n ++ rest ∧ n < Nat.pow 2 width :=
   match e: splitField width bits with
     | None => cases
     | Some (field, after) =>
       let parts := somePairInjective _ _ _ _ read
       let split := splitFieldSome width bits field after e
-      let written := bitsOfFromBits field
+      let written := Nat.toBitsFromBits field
       rewrite split.right, parts.left at written in
-        Both (rewrite <- parts.right, written in split.left) (rewrite <- parts.left in (rewrite split.right at (fromBitsBelow field)))
+        Both (rewrite <- parts.right, written in split.left) (rewrite <- parts.left in (rewrite split.right at (Nat.fromBitsBelow field)))
 
 --| A literal's groups, each below 16, are read back from their bits.
 theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ [] → groups.all (group => group < 16) = True → readGroups (groupBits groups ++ rest) = Some (groups, rest)
   | [], some, small => Void.exfalso (some rfl)
-  | [group], some, small => rewrite fromBitsOf 4 group (omega [small]) in rfl
+  | [group], some, small => rewrite Nat.fromBitsToBits 4 group (omega [small]) in rfl
   | [group, next, ..more], some, small =>
     let fits: group < 16 := omega [small]
     let others: [next, ..more].all (group => group < 16) = True := Bool.andRight _ _ small
-    rewrite readGroupsBits rest [next, ..more] (u => cases) others, fromBitsOf 4 group fits in rfl
+    rewrite readGroupsBits rest [next, ..more] (u => cases) others, Nat.fromBitsToBits 4 group fits in rfl
 
 --| What `readGroups` reads is the spec's bits for the groups it gives,
 --| at least one, each below 16.
 theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List Bool) → readGroups bits = Some (groups, rest) →
     bits = groupBits groups ++ rest ∧ groups ≠ [] ∧ groups.all (group => group < 16) = True
   | [more, a, b, c, d, ..tail], groups, rest, read =>
-    let written: bitsOf 4 (Nat.fromBits [a, b, c, d]) = [a, b, c, d] := bitsOfFromBits [a, b, c, d]
-    let fits: Nat.fromBits [a, b, c, d] < 16 := fromBitsBelow [a, b, c, d]
+    let written: Nat.toBits 4 (Nat.fromBits [a, b, c, d]) = [a, b, c, d] := Nat.toBitsFromBits [a, b, c, d]
+    let fits: Nat.fromBits [a, b, c, d] < 16 := Nat.fromBitsBelow [a, b, c, d]
     match more with
       | True =>
         match e: readGroups tail with
@@ -72,8 +72,8 @@ theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List
                 match gs with
                   | [] => Void.exfalso (some rfl)
                   | [next, ..more] =>
-                    let regrouped: bitsOf 4 group ++ tail = (bitsOf 4 group ++ groupBits [next, ..more]) ++ after :=
-                      rewrite split in Eq.sym (List.appendAssoc (bitsOf 4 group) (groupBits [next, ..more]) after)
+                    let regrouped: Nat.toBits 4 group ++ tail = (Nat.toBits 4 group ++ groupBits [next, ..more]) ++ after :=
+                      rewrite split in Eq.sym (List.appendAssoc (Nat.toBits 4 group) (groupBits [next, ..more]) after)
                     let same := Eq.trans (Eq.cong (bits => bits ++ tail) (Eq.sym written)) regrouped
                     rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => [True, ..bits]) same) (Both (u => cases) (Bool.andIntro _ _ first small))
       | False =>

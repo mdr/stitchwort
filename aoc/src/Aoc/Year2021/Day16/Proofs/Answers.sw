@@ -22,19 +22,19 @@ theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet :
 
 --| A literal's value: its groups, each below 16, read as one binary number.
 theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => group < 16) = True →
-    List.foldLeft groups acc (value group => value * 16 + group) = List.foldLeft (groups.flatMap (bitsOf 4)) acc (acc bit => acc * 2 + Bool.toNat bit)
+    List.foldLeft groups acc (value group => value * 16 + group) = List.foldLeft (groups.flatMap (Nat.toBits 4)) acc (acc bit => acc * 2 + Bool.toNat bit)
   | [], small => rfl
   | [group, ..rest], small =>
     let fits: group < Nat.pow 2 4 := omega [Bool.andLeft _ _ small]
     let ih := groupsValue (acc * 16 + group) rest (Bool.andRight _ _ small)
-    let inner: List.foldLeft (bitsOf 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
-      rewrite Nat.fromBitsFrom acc (bitsOf 4 group), fromBitsOf 4 group fits in rfl
-    let step: List.foldLeft (rest.flatMap (bitsOf 4)) (List.foldLeft (bitsOf 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) =
-        List.foldLeft (rest.flatMap (bitsOf 4)) (acc * 16 + group) (acc bit => acc * 2 + Bool.toNat bit) :=
-      Eq.cong (start => List.foldLeft (rest.flatMap (bitsOf 4)) start (acc bit => acc * 2 + Bool.toNat bit)) inner
-    let appended: List.foldLeft (bitsOf 4 group ++ rest.flatMap (bitsOf 4)) acc (acc bit => acc * 2 + Bool.toNat bit) =
-        List.foldLeft (rest.flatMap (bitsOf 4)) (List.foldLeft (bitsOf 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) :=
-      List.foldLeftAppend (bitsOf 4 group) acc (rest.flatMap (bitsOf 4)) (acc bit => acc * 2 + Bool.toNat bit)
+    let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
+      rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
+    let step: List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) =
+        List.foldLeft (rest.flatMap (Nat.toBits 4)) (acc * 16 + group) (acc bit => acc * 2 + Bool.toNat bit) :=
+      Eq.cong (start => List.foldLeft (rest.flatMap (Nat.toBits 4)) start (acc bit => acc * 2 + Bool.toNat bit)) inner
+    let appended: List.foldLeft (Nat.toBits 4 group ++ rest.flatMap (Nat.toBits 4)) acc (acc bit => acc * 2 + Bool.toNat bit) =
+        List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) :=
+      List.foldLeftAppend (Nat.toBits 4 group) acc (rest.flatMap (Nat.toBits 4)) (acc bit => acc * 2 + Bool.toNat bit)
     Eq.trans ih (Eq.trans (Eq.sym step) (Eq.sym appended))
 
 --| An operation computes the spec's value from the values it is given,
