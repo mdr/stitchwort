@@ -6424,9 +6424,9 @@
     {
       "id": 1291,
       "title": "Audit AoC code for bracket-heavy expressions that read better as dot/pipe chains",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1291",
       "labels": [
         "aoc"
       ],
