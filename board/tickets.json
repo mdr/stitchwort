@@ -1,5 +1,5 @@
 {
-  "next": 1199,
+  "next": 1200,
   "tickets": [
     {
       "id": 47,
@@ -5088,6 +5088,20 @@
         "perf"
       ],
       "body": "SW-1193 follow-up (SW-1045 link warnings can change without the namespace key).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1199,
+      "title": "Measure where commands that load a project from the cache spend their time (aoc: test, run, audit, check --index, LSP open; ~2.8 s replay), and list clear optimisations",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "D2302 (Matt, 4 Nov 2026): measure where different Stitchwort tasks cost time when reading from the cache, and whether there are clear, obvious optimisations. Measurement only; fixes proposed from the numbers. Opus, expected: 60 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
