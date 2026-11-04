@@ -5620,14 +5620,14 @@
     },
     {
       "id": 1235,
-      "title": "Day 3 friction: std Nat.wrap (n % d when d ≠ 0) with lemmas; a Bool rectangle check for Grid (so the counterexample search can run); List.takeWhileMap and takeWhile-over-a-range lemmas; Aoc.Common checkGrid keeps its rows; two messages (Bool hint for a lambda using <; 'braces after Open' for a fieldless constructor)",
+      "title": "Day 3 friction: Aoc.Common Grid is non-empty (carries width ≠ 0, so column % map.width works); a Bool rectangle check; List.takeWhileMap and takeWhile-over-a-range lemmas; checkGrid keeps its rows; two messages",
       "status": "next",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc-friction"
       ],
-      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).",
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).\n\nMatt, 4 Nov 2026: \"I can't imagine that any Advent of Code puzzle is going to have an empty grid ... fair to assume that they're all not empty.\" So instead of Nat.wrap: make Aoc.Common's Grid non-empty (the parser rejects an empty map; the grid carries a proof its width is not 0) so that `column % map.width` works directly, and Day 3 drops its wrap helper. Keep the Bool rectangle check, the lemmas and the two messages.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
