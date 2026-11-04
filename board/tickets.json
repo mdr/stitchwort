@@ -1,5 +1,5 @@
 {
-  "next": 1182,
+  "next": 1184,
   "tickets": [
     {
       "id": 47,
@@ -4834,6 +4834,34 @@
         "test"
       ],
       "body": "From SW-1175 (4 Nov, 02:02). Log target/full-tier.log. Opus, est. 90 min. Find whether either is a regression from tonight's merges (step 6/7, SW-1179) or older; fix; then the full tier reruns.\n\nDone 987411ba, df424a7f (Opus, 46 min, est. 90), reviewed, merged. differential: not tonight (30 GB on both main and 3706f183 alone); match-bounded-search describe.eq.some/eq.none (SW-1049, 2 Nov) blow up normal forms and conversion; added to the three exclusion lists; 1.63 GB, 130 s. lsp a_newer_edit_cancels_the_check_running: racy (main 0/2, 3706f183 3/3): it counted a correct cancellation of background work started after v2 was answered; Options::cancellations now counts only checks cancelled before their edit was answered (Checker.unanswered); passes 3/3 alone, 2/2 under load. Follow-ups noted: first Aoc.Common recheck 66 ms vs 4.8 ms (maybe step 6); record the full tier peak in docs/testing.md. Model result: Opus, worked, 46 min (est. 90).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1182,
+      "title": "fuzz_elab: kernel rejects an elaborated term from a mutated match.sw (full tier)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Full tier at 1cef1def (SW-1175): fuzz_elab mutated_examples_check_without_internal_errors failed. Oracle 3 (kernel rejected an elaborated term): case 1050, seed 0x5eede1ab00000685, rng state 0xe3a9eaefcf2cbaaa, from accept/match.sw: E-TYPE-MISMATCH. Input saved (copy outside target/) in the orchestrator's scratchpad as 5eede1ab00000685-1050.sw. Find whether this is new tonight (elaborator-state steps 6a-7, SW-1179) or older, minimise, and fix the elaborator so it reports an error or builds a well-typed term. Expected: 60 min.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1183,
+      "title": "bench repeat: a second run in one process allocates once less on abilities-edge.sw (full tier)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Full tier at 1cef1def (SW-1175): stitchwort-bench repeat counts_repeat_within_a_process failed: run 2 differed from run 1 by one allocation (4618791826 vs 4618791825; peak bytes 230708565 vs 230708541), all in accept/abilities-edge.sw (1598106 vs 1598105). Something carries state between two runs in one process. Suspects: tonight's state work (Logged shrink after rewind, SW-1179; Caches; Arc-shared session maps, 6b). Find it and make runs deterministic (or fix the cause), not loosen the test. Expected: 60 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
