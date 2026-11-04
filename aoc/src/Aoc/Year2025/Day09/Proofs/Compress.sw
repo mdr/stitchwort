@@ -21,7 +21,7 @@ import Std (Bool, Eq, List, Nat, Void)
 
 --| `v` and `w` compare the same way with each of `values`.
 def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
-  (c: Nat) → List.Mem c values → And (Nat.leq c v = Nat.leq c w) (Nat.leq v c = Nat.leq w c)
+  (c: Nat) → List.Mem c values → (Nat.leq c v = Nat.leq c w) ∧ (Nat.leq v c = Nat.leq w c)
 
 def columnsOf (tiles: List Tile): List Nat := tiles.map .x
 
@@ -39,7 +39,7 @@ theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m
 
 --| The ends of a straight line of the loop are red tiles.
 theorem connectionEnds (tiles: List Tile) (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
-    And (List.Mem ends.fst tiles) (List.Mem ends.snd tiles) :=
+    (List.Mem ends.fst tiles) ∧ (List.Mem ends.snd tiles) :=
   match List.memZip ends tiles (List.append (List.drop tiles 1) (List.take tiles 1)) m with
     | Both first second =>
       Both first
@@ -84,14 +84,14 @@ theorem redOrGreenSame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) 
 --| A value at or after the smallest of `values` compares with them as some
 --| key value does: a value or one just after one, from `low` up to it.
 theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
-    (use: (w: Nat) → Or (List.Mem w values) (List.Mem w (List.map values Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
+    (use: (w: Nat) → (List.Mem w values) ∨ (List.Mem w (List.map values Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
   let nearest := largest atMost
   let lowAtMost: List.Mem low atMost := List.memFilterIntro values (c => c ≤ v) low lowIn lowLe
   -- Every value up to v is at most the nearest.
   let below: (c: Nat) → List.Mem c values → c ≤ v → c ≤ nearest :=
     c m h => (largestIsLargest atMost).left c (List.memFilterIntro values (c => c ≤ v) c m h)
-  let nearestIn: And (List.Mem nearest values) (Nat.leq nearest v = True) :=
+  let nearestIn: (List.Mem nearest values) ∧ (Nat.leq nearest v = True) :=
     match largestInList atMost with
       | Inl m => List.memFilter values (c => c ≤ v) nearest m
       | Inr (Both empty zero) => Void.exfalso (rewrite empty at lowAtMost)
@@ -118,7 +118,7 @@ theorem keyLinesSorted (values: List Nat): List.Sorted Nat.leq (keyLines values)
   List.sortedDedup Nat.leq (List.sort (List.append values (List.map values Succ))) (List.sortSortedNat (List.append values (List.map values Succ)))
 
 --| Each value, and each one just after a value, is a key value.
-theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List.Mem v (List.map values Succ))): List.Mem v (keyLines values) :=
+theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (List.Mem v (List.map values Succ))): List.Mem v (keyLines values) :=
   let all := List.append values (List.map values Succ)
   let inAll: List.Mem v all :=
     match m with
@@ -129,9 +129,7 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List
 --| On a sorted list holding u and v, the elements at their positions, the
 --| lower position first, are the smaller and the larger of them.
 theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
-    And (And (List.getOr xs (Nat.min (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.min u v)
-        (List.getOr xs (Nat.max (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.max u v))
-      (Nat.max (List.indexOf xs u) (List.indexOf xs v) < List.length xs) :=
+    ((List.getOr xs (Nat.min (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.min u v) ∧ (List.getOr xs (Nat.max (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.max u v)) ∧ (Nat.max (List.indexOf xs u) (List.indexOf xs v) < List.length xs) :=
   let i := List.indexOf xs u
   let j := List.indexOf xs v
   let atI: List.getOr xs i 0 = u := List.getOrIndexOf xs 0 u mu
@@ -149,7 +147,7 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
 --| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k) (hi: k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v)):
-    And (Nat.min u v ≤ List.getOr xs k 0) (List.getOr xs k 0 ≤ Nat.max u v) :=
+    (Nat.min u v ≤ List.getOr xs k 0) ∧ (List.getOr xs k 0 ≤ Nat.max u v) :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
       let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)

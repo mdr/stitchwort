@@ -55,8 +55,8 @@ theorem iterateRaise: (count: Nat) → (level: Nat) → level ≤ 9 → level + 
 
 --| On a rectangle, the full cave's map has the spec's levels.
 theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position): tiledLevelAt cave position = cave.tiled.levelAt position :=
-  let wide: Not (cave.width = 0) := omega [And.left rectangle]
-  let tall: Not (cave.height = 0) := heightNotZero cave rectangle
+  let wide: cave.width ≠ 0 := omega [And.left rectangle]
+  let tall: cave.height ≠ 0 := heightNotZero cave rectangle
   match h: Nat.decEq cave.height 0 with
     | Yes zero => Void.exfalso (tall zero)
     | No _ =>
@@ -82,7 +82,7 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
                   rewrite found, raised in rfl
 
 --| A rectangle has a row.
-theorem heightNotZero: (cave: Cave) → Rectangle cave → Not (cave.height = 0)
+theorem heightNotZero: (cave: Cave) → Rectangle cave → cave.height ≠ 0
   | { rows = Nil }, rectangle, zero => omega [And.left rectangle]
   | { rows = Cons first rest }, rectangle, zero => omega [zero]
 

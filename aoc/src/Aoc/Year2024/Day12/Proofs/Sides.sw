@@ -170,7 +170,7 @@ theorem squareDistinct (last: Nat): List.Distinct (square last) :=
 --| A sum over a region's plots, of something that is 0 off the region, is
 --| the sum over a square of the grid that holds the region.
 theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (last: Nat)
-    (within: (plot: Position) → plot ∈ region → And (plot.row ≤ last) (plot.column ≤ last)) (f: Nat → Nat → Nat)
+    (within: (plot: Position) → plot ∈ region → (plot.row ≤ last) ∧ (plot.column ≤ last)) (f: Nat → Nat → Nat)
     (zero: (row: Nat) → (column: Nat) → insideOf region row column = False → f row column = 0):
     region.sumBy (plot => f plot.row plot.column) = total (Succ last) (row => total (Succ last) (column => f row column)) :=
   let isIn := (plot: Position) => region.contains plot
@@ -211,7 +211,7 @@ theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let last := region.sumBy (plot => plot.row + plot.column)
   let within := (plot: Position) => (member: plot ∈ region) =>
     let le := List.memLeSumBy (plot => plot.row + plot.column) region plot member
-    (Both (omega [le]) (omega [le]): And (plot.row ≤ last) (plot.column ≤ last))
+    (Both (omega [le]) (omega [le]): (plot.row ≤ last) ∧ (plot.column ≤ last))
   let right: (row: Nat) → inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
       | False => rfl

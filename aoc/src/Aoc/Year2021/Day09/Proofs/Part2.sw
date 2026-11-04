@@ -106,7 +106,7 @@ theorem nineOfClosed (height: Nat) (closed: (height != 9) = False): height = 9 :
   Decidable.elimProof (Nat.decEq height 9) (same => same) (other => Void.exfalso (Decidable.toBoolFalse _ closed other))
 
 --| ...and one that is "not 9" isn't.
-theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): Not (height = 9) := Decidable.toBoolSound _ open
+theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): height ≠ 9 := Decidable.toBoolSound _ open
 
 --| A low point that is a 9 has no neighbours on the map (they would be
 --| higher than 9), so no path leaves it, and it isn't in a basin itself.

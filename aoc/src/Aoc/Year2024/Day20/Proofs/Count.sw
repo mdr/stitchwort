@@ -75,7 +75,7 @@ theorem distinctCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (to
         | None => Void.exfalso inStart)
 
 --| A position listed by the track is on it, and the other way round.
-theorem listedOnTrack (racetrack: Racetrack) (position: Position): Iff (position ∈ racetrack.track.toList) (onTrack racetrack position = True) :=
+theorem listedOnTrack (racetrack: Racetrack) (position: Position): (position ∈ racetrack.track.toList) ↔ (onTrack racetrack position = True) :=
   Map.memKeys racetrack.track.items position
 
 --| Every cheat counted saves at least the threshold.

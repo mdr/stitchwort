@@ -16,7 +16,7 @@ theorem mustPrecedeCorrect (rules: List Rule) (x: Nat) (y: Nat): mustPrecede (ru
 
 --| A rule is broken only by an update with both of its pages.
 theorem brokenHasBoth (x: Nat) (y: Nat): (pages: List Nat) → printedBefore x y pages = False →
-    And (pages.any (== x) = True) (pages.any (== y) = True)
+    (pages.any (== x) = True) ∧ (pages.any (== y) = True)
   | Nil, broken => Void.exfalso (Bool.trueNotFalse broken)
   | Cons page later, broken =>
     match laterBroken: printedBefore x y later with

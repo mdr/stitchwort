@@ -75,8 +75,7 @@ theorem lengthCellRow (tiles: List Tile) (r: Nat) (hr: r < List.length (Floor.of
 
 --| Two corners whose key positions are inside the floor.
 def Inside (floor: Floor) (first: Corner) (second: Corner): Prop :=
-  And (And (first.column < List.length floor.columns) (second.column < List.length floor.columns))
-    (And (first.row < List.length floor.rows) (second.row < List.length floor.rows))
+  ((first.column < List.length floor.columns) ∧ (second.column < List.length floor.columns)) ∧ ((first.row < List.length floor.rows) ∧ (second.row < List.length floor.rows))
 
 --| Every key tile from one corner's key column and row to the other's.
 def allKeys (tiles: List Tile) (first: Corner) (second: Corner): Bool :=

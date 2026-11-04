@@ -81,6 +81,6 @@ theorem part1Correct (target: Target) (right: 0 < target.left) (below: target.to
 
 --| ... and none does when the program finds none.
 theorem part1None (target: Target) (right: 0 < target.left) (below: target.top < 0) (found: solvePart1 target = None) (velocity: Velocity):
-    Not (Hits target velocity) :=
+    ¬(Hits target velocity) :=
   hits => List.maximumNone (List.map (hitting target) peak) found (peak velocity)
     (List.memMap (hitting target) velocity ((hittingCorrect target right below velocity).forward hits) peak)

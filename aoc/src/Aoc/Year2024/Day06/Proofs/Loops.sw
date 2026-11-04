@@ -15,9 +15,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, Nat, Not, Option, Or, Set, Void)
 --| steps on, and when there is none, the walk leaves.
 def Simulates (sightlines: Sightlines) (lab: Lab): Prop :=
   (guard: Guard) → onMap lab guard.position = True →
-    And
-      ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => And (0 < steps) (walk lab (Some guard) steps = Some next)))
-      (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
+    ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => (0 < steps) ∧ (walk lab (Some guard) steps = Some next))) ∧ (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
 
 --| `steps` more steps from the state after `now`.
 theorem afterAdd (lab: Lab) (now: Nat) (guard: Guard) (reached: after lab now = Some guard) (steps: Nat):
@@ -26,11 +24,11 @@ theorem afterAdd (lab: Lab) (now: Nat) (guard: Guard) (reached: after lab now = 
 
 --| Seen once, at a step no later than `now`.
 def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
-  (guard: Guard) → seen.contains guard = True → Exists Nat (earlier => And (earlier ≤ now) (after lab earlier = Some guard))
+  (guard: Guard) → seen.contains guard = True → Exists Nat (earlier => (earlier ≤ now) ∧ (after lab earlier = Some guard))
 
 --| What a set has after an insert: the key, or what it had.
 theorem containsInsertEither (seen: Set Guard) (key: Guard) (guard: Guard) (has: (seen.insert key).contains guard = True):
-    Or (guard = key) (seen.contains guard = True) :=
+    (guard = key) ∨ (seen.contains guard = True) :=
   match same: guard == key with
     | True => Inl (DecEq.sound guard key same)
     | False => Inr (rewrite Set.containsInsertOther seen key guard (DecEq.soundFalse guard key same) at has)
@@ -89,7 +87,7 @@ theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=
 
 --| The program's loop test decides `Loops`.
 theorem loopsWithCorrect (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
-    Iff (lab.loopsWith sightlines = True) (Loops lab) := {
+    (lab.loopsWith sightlines = True) ↔ (Loops lab) := {
   forward = says =>
     loopsFromSound lab sightlines simulates inside lab.stateCount lab.startGuard (Set.singleton lab.startGuard) 0 rfl
       (Nat.leRefl lab.stateCount) (seenStart lab) says,

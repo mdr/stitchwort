@@ -12,7 +12,7 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 --| What `firstFree` finds: a position without a box, which is where it
 --| started or past a box there.
 theorem firstFreeSome (boxes: Set Cell) (direction: Direction): (start: Cell) → (fuel: Nat) → (free: Cell) →
-    firstFree boxes direction start fuel = Some free → And (boxes.contains free = False) (Or (free = start) (boxes.contains start = True))
+    firstFree boxes direction start fuel = Some free → (boxes.contains free = False) ∧ ((free = start) ∨ (boxes.contains start = True))
   | start, Zero, free, found => Void.exfalso (Option.noneNotSome free found)
   | start, Succ fuel, free, found =>
     match c: boxes.contains start with
@@ -39,7 +39,7 @@ theorem moveWalls (warehouse: Warehouse) (direction: Direction): (warehouse.move
 
 --| The robot's next position still holds a box once the free position has
 --| one: it is the free position, or held a box already.
-theorem nextAfterInsert (boxes: Set Cell) (free: Cell) (next: Cell) (found: Or (free = next) (boxes.contains next = True)):
+theorem nextAfterInsert (boxes: Set Cell) (free: Cell) (next: Cell) (found: (free = next) ∨ (boxes.contains next = True)):
     (boxes.insert free).contains next = True :=
   match found with
     | Inl same => rewrite same in Set.containsInsert next boxes
@@ -145,7 +145,7 @@ theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Na
   let free := pastLine warehouse direction length
   match after with
     | Inl (Witness i (Both below same)) =>
-      let notNext: Not (position = next) := atNext => omega [aheadInjective warehouse.robot direction (Succ (i + 1)) 1 (Eq.trans (Eq.sym same) atNext)]
+      let notNext: position ≠ next := atNext => omega [aheadInjective warehouse.robot direction (Succ (i + 1)) 1 (Eq.trans (Eq.sym same) atNext)]
       rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext in
         match DecEq.decide (i + 1) length with
           | Yes last =>
@@ -167,8 +167,7 @@ theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Na
 --| the line, the robot steps forward, and the boxes are the puzzle's.
 theorem pushMoves (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
     (open: warehouse.walls.contains (pastLine warehouse direction length) = False):
-    And ((warehouse.move direction).robot = warehouse.robot.step direction)
-      ((position: Cell) → Iff ((warehouse.move direction).boxes.contains position = True) (BoxAfterPush warehouse direction length position)) :=
+    ((warehouse.move direction).robot = warehouse.robot.step direction) ∧ ((position: Cell) → ((warehouse.move direction).boxes.contains position = True) ↔ (BoxAfterPush warehouse direction length position)) :=
   rewrite lineFree warehouse direction length line, open in
     Both rfl
       (position => {
@@ -179,8 +178,7 @@ theorem pushMoves (warehouse: Warehouse) (direction: Direction) (length: Nat) (l
 --| From `start`, either the boxes in a line end within `fuel` positions, or
 --| all `fuel` positions hold boxes.
 theorem boxesEndOrFill (boxes: Set Cell) (direction: Direction): (start: Cell) → (fuel: Nat) →
-    Or (∃ (length: Nat) => length < fuel ∧ ((i: Nat) → i < length → boxes.contains (ahead start direction i) = True) ∧ boxes.contains (ahead start direction length) = False)
-      ((i: Nat) → i < fuel → boxes.contains (ahead start direction i) = True)
+    (∃ (length: Nat) => length < fuel ∧ ((i: Nat) → i < length → boxes.contains (ahead start direction i) = True) ∧ boxes.contains (ahead start direction length) = False) ∨ ((i: Nat) → i < fuel → boxes.contains (ahead start direction i) = True)
   | start, Zero => Inr (i below => Void.exfalso (omega))
   | start, Succ fuel =>
     match here: boxes.contains start with

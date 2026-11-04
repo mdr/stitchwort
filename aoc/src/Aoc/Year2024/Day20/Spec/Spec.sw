@@ -73,5 +73,5 @@ def SavesAtLeast (racetrack: Racetrack) (length: Nat) (threshold: Nat) (cheat: C
 def IsCount (racetrack: Racetrack) (length: Nat) (threshold: Nat) (count: Nat): Prop :=
   ∃ (cheats: List Cheat) =>
     List.Distinct cheats
-      ∧ ((cheat: Cheat) → Iff (cheat ∈ cheats) (SavesAtLeast racetrack length threshold cheat))
+      ∧ ((cheat: Cheat) → (cheat ∈ cheats) ↔ (SavesAtLeast racetrack length threshold cheat))
       ∧ cheats.length = count

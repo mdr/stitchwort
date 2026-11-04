@@ -34,7 +34,7 @@ def Joined (garden: Garden) (plot: Position) (other: Position): Prop := Exists (
 
 --| The region containing `plot`, as a list: every plot joined to it is on
 --| the list, and nothing else.
-def IsRegion (garden: Garden) (plot: Position) (region: List Position): Prop := (other: Position) → Iff (other ∈ region) (Joined garden plot other)
+def IsRegion (garden: Garden) (plot: Position) (region: List Position): Prop := (other: Position) → (other ∈ region) ↔ (Joined garden plot other)
 
 --| Whether the side of `plot` facing `side` touches a plot of the region.
 def facesRegion (region: List Position) (plot: Position) (side: Direction): Bool :=

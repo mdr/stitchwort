@@ -23,13 +23,12 @@ def isSafe (size: Nat) (fallen: List Position) (position: Position): Bool := pos
 --| grid code's `isPath`: up, down, left or right) and safe, from a safe
 --| start to the exit. Each position entered is a step.
 def IsPath (size: Nat) (fallen: List Position) (steps: List Position): Prop :=
-  And (isSafe size fallen { row = 0, column = 0 } = True) (isPath (isSafe size fallen) { row = 0, column = 0 } steps { row = size - 1, column = size - 1 } = True)
+  (isSafe size fallen { row = 0, column = 0 } = True) ∧ (isPath (isSafe size fallen) { row = 0, column = 0 } steps { row = size - 1, column = size - 1 } = True)
 
 --| "what is the minimum number of steps needed to reach the exit?": some
 --| path takes `fewest` steps, and none takes fewer.
 def IsFewestSteps (size: Nat) (fallen: List Position) (fewest: Nat): Prop :=
-  And (Exists (List Position) (steps => And (IsPath size fallen steps) (steps.length = fewest)))
-    ((steps: List Position) → IsPath size fallen steps → fewest ≤ steps.length)
+  (Exists (List Position) (steps => (IsPath size fallen steps) ∧ (steps.length = fewest))) ∧ ((steps: List Position) → IsPath size fallen steps → fewest ≤ steps.length)
 
 --| The exit can be reached once the first `count` bytes have fallen.
 def HasPath (size: Nat) (bytes: List Position) (count: Nat): Prop := Exists (List Position) (steps => IsPath size (bytes.take count) steps)
@@ -40,5 +39,4 @@ def HasPath (size: Nat) (bytes: List Position) (count: Nat): Prop := Exists (Lis
 --| it has.
 def IsFirstBlocking (size: Nat) (bytes: List Position) (byte: Position): Prop :=
   Exists Nat (index =>
-    And (bytes.get index = Some byte)
-      (And (Not (HasPath size bytes (index + 1))) ((earlier: Nat) → earlier ≤ index → HasPath size bytes earlier)))
+    (bytes.get index = Some byte) ∧ ((¬(HasPath size bytes (index + 1))) ∧ ((earlier: Nat) → earlier ≤ index → HasPath size bytes earlier)))

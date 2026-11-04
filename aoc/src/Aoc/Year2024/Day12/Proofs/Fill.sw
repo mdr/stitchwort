@@ -13,28 +13,20 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Or,
 --| to `start`, as is every position on the stack; and each neighbour a
 --| member pushed is a member or still on the stack.
 def FillState (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position): Prop :=
-  And ((position: Position) → Iff (visited.contains position = True) (position ∈ members))
-    (And (List.Distinct members)
-      (And ((position: Position) → position ∈ members → And (garden.plantAt position = Some plant) (Joined garden start position))
-        (And ((position: Position) → position ∈ stack → Joined garden start position)
-          ((member: Position) → member ∈ members → (next: Position) → next ∈ garden.neighboursGrowing plant member →
-            Or (next ∈ members) (next ∈ stack)))))
+  ((position: Position) → (visited.contains position = True) ↔ (position ∈ members)) ∧ ((List.Distinct members) ∧ (((position: Position) → position ∈ members → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ (((position: Position) → position ∈ stack → Joined garden start position) ∧ ((member: Position) → member ∈ members → (next: Position) → next ∈ garden.neighboursGrowing plant member →
+    (next ∈ members) ∨ (next ∈ stack)))))
 
 --| What a fill returns: plots listed once, each growing `plant` and joined
 --| to `start`, with every neighbour growing `plant`; the members it started
 --| with, and the plots growing `plant` on its stack.
 def FillResult (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (members: List Position) (result: List Position): Prop :=
-  And (List.Distinct result)
-    (And ((position: Position) → position ∈ result → And (garden.plantAt position = Some plant) (Joined garden start position))
-      (And ((member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result)
-        (And ((position: Position) → position ∈ members → position ∈ result)
-          ((position: Position) → position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
+  (List.Distinct result) ∧ (((position: Position) → position ∈ result → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ (((member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result) ∧ (((position: Position) → position ∈ members → position ∈ result) ∧ ((position: Position) → position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
 
 --| Popping a position already visited, or not growing `plant`, keeps the
 --| state.
 theorem popKeeps (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
     (members: List Position) (state: FillState garden plant start (Cons position rest) visited members)
-    (skipped: Or (position ∈ members) (Not (garden.plantAt position = Some plant))): FillState garden plant start rest visited members :=
+    (skipped: (position ∈ members) ∨ (garden.plantAt position ≠ Some plant)): FillState garden plant start rest visited members :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
   Both visitedMembers
     (Both distinct
@@ -150,7 +142,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
                         | Inr later =>
                           fromStack other (List.memAppendRight other (garden.neighboursGrowing plant position) rest later) otherGrows))))
           | False =>
-          let other: Not (garden.plantAt position = Some plant) := same => Bool.falseNotTrue (Eq.trans (Eq.sym growing) (rewrite same in DecEq.refl (Some plant)))
+          let other: garden.plantAt position ≠ Some plant := same => Bool.falseNotTrue (Eq.trans (Eq.sym growing) (rewrite same in DecEq.refl (Some plant)))
           let result := fillCorrect garden plant start rest visited members (popKeeps garden plant start position rest visited members state (Inr other))
             [decreasing := Nat.LexLess.Second rfl (omega)]
           let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result

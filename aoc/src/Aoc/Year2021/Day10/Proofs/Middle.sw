@@ -35,7 +35,7 @@ theorem countAboveSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → 
     rewrite List.countCons rest x (score => rest.getOr k 0 < score), notBelow x (rest.getOr k 0) atMost in omega
 
 --| The program's middle is a middle score of any nonempty list.
-theorem middleIsMiddle (scores: List Nat) (some: Not (scores = Nil)): Middle scores (middle scores) :=
+theorem middleIsMiddle (scores: List Nat) (some: scores ≠ Nil): Middle scores (middle scores) :=
   let sorted := scores.sort
   let n := scores.length
   let k := n / 2

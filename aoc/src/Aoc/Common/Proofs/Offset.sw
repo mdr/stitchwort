@@ -36,7 +36,7 @@ theorem toNatCheckedNone: (x: Int) → x.toNatChecked = None → x < 0
 
 --| Where `offset` lands, as rows and columns.
 theorem offsetSome (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next):
-    And (next.row.toInt = position.row.toInt + offset.rows) (next.column.toInt = position.column.toInt + offset.columns) :=
+    (next.row.toInt = position.row.toInt + offset.rows) ∧ (next.column.toInt = position.column.toInt + offset.columns) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
     | None => Void.exfalso (Option.noneNotSome next landed)
     | Some row =>
@@ -56,7 +56,7 @@ theorem offsetOf (position: Position) (offset: Offset) (next: Position) (rows: n
 
 --| `None` exactly when the row or the column would be negative.
 theorem offsetNone (position: Position) (offset: Offset) (off: position.offset offset = None):
-    Or (position.row.toInt + offset.rows < 0) (position.column.toInt + offset.columns < 0) :=
+    (position.row.toInt + offset.rows < 0) ∨ (position.column.toInt + offset.columns < 0) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
     | None => Inl (toNatCheckedNone _ rowAt)
     | Some row =>
@@ -65,7 +65,7 @@ theorem offsetNone (position: Position) (offset: Offset) (off: position.offset o
         | Some column => Void.exfalso (Option.noneNotSome ({ row, column }: Position) (Eq.sym off))
 
 theorem offsetNoneOf (position: Position) (offset: Offset)
-    (negative: Or (position.row.toInt + offset.rows < 0) (position.column.toInt + offset.columns < 0)): position.offset offset = None :=
+    (negative: (position.row.toInt + offset.rows < 0) ∨ (position.column.toInt + offset.columns < 0)): position.offset offset = None :=
   match landed: position.offset offset with
     | None => rfl
     | Some next =>
@@ -136,7 +136,7 @@ theorem offsetStepOpposite (offset: Offset): (direction: Direction) → (offset.
 
 --| `Grid.offset` is `offset`, kept to the grid.
 theorem gridOffsetSome (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: grid.offset position offset = Some next):
-    And (position.offset offset = Some next) (grid.contains next = True) :=
+    (position.offset offset = Some next) ∧ (grid.contains next = True) :=
   match found: position.offset offset with
     | None => Void.exfalso (Option.noneNotSome next landed)
     | Some here =>

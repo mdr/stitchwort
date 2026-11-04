@@ -21,12 +21,12 @@ def Within (twice: Bool) (path: List Text): Prop :=
 --| rule; with the spare visit left, it visited no small cave twice; without
 --| it, either it's part 1 or some small cave was visited twice.
 def Tracks (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (spare: Bool) (sofar: List Text): Prop :=
-  ((c: Text) → c ∈ caves passages → isBig c = False → Not (c = "start") → Not (c = "end") → (unvisited.contains c = True ↔ visits sofar c = 0))
+  ((c: Text) → c ∈ caves passages → isBig c = False → c ≠ "start" → c ≠ "end" → (unvisited.contains c = True ↔ visits sofar c = 0))
     ∧ visits sofar "start" = 1
     ∧ visits sofar "end" = 0
     ∧ Within twice sofar
     ∧ (spare = True → twice = True ∧ ((c: Text) → isBig c = False → visits sofar c ≤ 1))
-    ∧ (spare = False → Or (twice = False) (∃ (d: Text) => isBig d = False ∧ 2 ≤ visits sofar d))
+    ∧ (spare = False → (twice = False) ∨ (∃ (d: Text) => isBig d = False ∧ 2 ≤ visits sofar d))
 
 --| `rest`, after `cave`, finishes a path whose caves so far are `sofar`.
 def Completes (passages: List (Text, Text)) (twice: Bool) (sofar: List Text) (cave: Text) (rest: List Text): Prop :=
@@ -49,7 +49,7 @@ theorem visitsSnoc (xs: List Text) (y: Text) (cave: Text): visits (xs ++ [y]) ca
 theorem visitsSelf (xs: List Text) (y: Text): visits (xs ++ [y]) y = visits xs y + 1 :=
   rewrite visitsSnoc xs y y, DecEq.refl y in rfl
 
-theorem visitsOther (xs: List Text) (y: Text) (cave: Text) (ne: Not (y = cave)): visits (xs ++ [y]) cave = visits xs cave :=
+theorem visitsOther (xs: List Text) (y: Text) (cave: Text) (ne: y ≠ cave): visits (xs ++ [y]) cave = visits xs cave :=
   rewrite visitsSnoc xs y cave, differ y cave ne in omega
 
 theorem visitsMember (cave: Text): (xs: List Text) → cave ∈ xs → 1 ≤ visits xs cave
@@ -61,10 +61,10 @@ theorem visitsMember (cave: Text): (xs: List Text) → cave ∈ xs → 1 ≤ vis
 theorem appendStep (sofar: List Text) (y: Text) (more: List Text): sofar ++ Cons y more = (sofar ++ [y]) ++ more :=
   Eq.sym (List.appendAssoc sofar [y] more)
 
-theorem endNotStart: Not ("end" = "start") := same => DecEq.soundFalse "end" "start" rfl same
+theorem endNotStart: "end" ≠ "start" := same => DecEq.soundFalse "end" "start" rfl same
 
 --| The caves but `y` are those of `caves` other than `y`.
-theorem withoutMem (caves: List Text) (y: Text) (c: Text): (without caves y).contains c = True ↔ (caves.contains c = True ∧ Not (c = y)) := {
+theorem withoutMem (caves: List Text) (y: Text) (c: Text): (without caves y).contains c = True ↔ (caves.contains c = True ∧ c ≠ y) := {
   forward = found =>
     let both := List.memFilter caves (x => not (x == y)) c ((List.memContains _ c).forward found)
     Both ((List.memContains caves c).backward (And.left both)) (same => Bool.falseNotTrue (rewrite same, DecEq.refl y at And.right both)),
@@ -104,18 +104,18 @@ theorem tracksBig (passages: List (Text, Text)) (twice: Bool) (unvisited: List T
     (c small => visitsOther sofar y c (same => Bool.trueNotFalse (rewrite <- same, big at small))) tracks
 
 --| A cave other than `y` is visited as often after a step to `y`.
-theorem visitsNot (sofar: List Text) (y: Text) (c: Text) (other: Not (c = y)): visits (sofar ++ [y]) c = visits sofar c :=
+theorem visitsNot (sofar: List Text) (y: Text) (c: Text) (other: c ≠ y): visits (sofar ++ [y]) c = visits sofar c :=
   visitsOther sofar y c (same => other (Eq.sym same))
 
 --| A step into a small cave not visited before: it is no longer unvisited.
 theorem tracksFresh (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (spare: Bool) (sofar: List Text) (y: Text)
-    (small: isBig y = False) (notStart: Not (y = "start")) (notEnd: Not (y = "end")) (named: y ∈ caves passages) (fresh: unvisited.contains y = True)
+    (small: isBig y = False) (notStart: y ≠ "start") (notEnd: y ≠ "end") (named: y ∈ caves passages) (fresh: unvisited.contains y = True)
     (tracks: Tracks passages twice unvisited spare sofar): Tracks passages twice (without unvisited y) spare (sofar ++ [y]) :=
   let (Both unseen (Both start (Both end (Both within (Both spared used))))) := tracks
   let (Both each (Both once (Both startOnce endOnce))) := within
   let zero: visits sofar y = 0 := (unseen y named small notStart notEnd).forward fresh
   let one: visits (sofar ++ [y]) y = 1 := rewrite visitsSelf sofar y, zero in rfl
-  let unseen2 := (c: Text) => (namedC: c ∈ caves passages) => (smallC: isBig c = False) => (startC: Not (c = "start")) => (endC: Not (c = "end")) =>
+  let unseen2 := (c: Text) => (namedC: c ∈ caves passages) => (smallC: isBig c = False) => (startC: c ≠ "start") => (endC: c ≠ "end") =>
     match Text.decEq c y with
       | Yes same =>
         ({
@@ -144,7 +144,7 @@ theorem tracksFresh (passages: List (Text, Text)) (twice: Bool) (unvisited: List
       match Text.decEq c y with
         | Yes same => (rewrite same, one in omega: visits (sofar ++ [y]) c ≤ 1)
         | No other => rewrite visitsNot sofar y c other in And.right (spared left) c smallC)
-  let used2: spare = False → Or (twice = False) (∃ (d: Text) => isBig d = False ∧ 2 ≤ visits (sofar ++ [y]) d) := none =>
+  let used2: spare = False → (twice = False) ∨ (∃ (d: Text) => isBig d = False ∧ 2 ≤ visits (sofar ++ [y]) d) := none =>
     match used none with
       | Inl part1 => Inl part1
       | Inr some => Inr (Exists.elim some (d both => Witness d (Both (And.left both) (rewrite visitsSnoc sofar y d in omega [And.right both]: 2 ≤ visits (sofar ++ [y]) d))))
@@ -156,14 +156,14 @@ theorem tracksFresh (passages: List (Text, Text)) (twice: Bool) (unvisited: List
 
 --| A second visit to a small cave uses up the spare visit.
 theorem tracksAgain (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (sofar: List Text) (y: Text)
-    (small: isBig y = False) (notStart: Not (y = "start")) (notEnd: Not (y = "end")) (named: y ∈ caves passages) (stale: unvisited.contains y = False)
+    (small: isBig y = False) (notStart: y ≠ "start") (notEnd: y ≠ "end") (named: y ∈ caves passages) (stale: unvisited.contains y = False)
     (tracks: Tracks passages twice unvisited True sofar): Tracks passages twice unvisited False (sofar ++ [y]) :=
   let (Both unseen (Both start (Both end (Both within (Both spared used))))) := tracks
   let (Both part2 atMostOnce) := spared rfl
   let (Both each (Both once (Both startOnce endOnce))) := within
-  let seen: Not (visits sofar y = 0) := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
+  let seen: visits sofar y ≠ 0 := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
   let two: visits (sofar ++ [y]) y = 2 := rewrite visitsSelf sofar y in omega [atMostOnce y small]
-  let unseen2 := (c: Text) => (namedC: c ∈ caves passages) => (smallC: isBig c = False) => (startC: Not (c = "start")) => (endC: Not (c = "end")) =>
+  let unseen2 := (c: Text) => (namedC: c ∈ caves passages) => (smallC: isBig c = False) => (startC: c ≠ "start") => (endC: c ≠ "end") =>
     match Text.decEq c y with
       | Yes same =>
         ({
@@ -224,7 +224,7 @@ theorem completesCons (passages: List (Text, Text)) (twice: Bool) (sofar: List T
 
 --| A path from the cave before `y` that isn't at its end goes on from `y`.
 theorem completesSplit (passages: List (Text, Text)) (twice: Bool) (sofar: List Text) (cave: Text) (y: Text) (more: List Text)
-    (notEnd: Not (y = "end")) (completes: Completes passages twice sofar cave (Cons y more)):
+    (notEnd: y ≠ "end") (completes: Completes passages twice sofar cave (Cons y more)):
     connected passages cave y = True ∧ Completes passages twice (sofar ++ [y]) y more :=
   let (Both last (Both follows within)) := completes
   let both := rewrite followsCons passages cave y more at follows
@@ -261,11 +261,11 @@ theorem startBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: Lis
 
 --| ...and a small cave visited before only if the spare visit is left.
 theorem smallBlocked (passages: List (Text, Text)) (twice: Bool) (unvisited: List Text) (sofar: List Text) (cave: Text) (y: Text) (more: List Text)
-    (small: isBig y = False) (notStart: Not (y = "start")) (notEnd: Not (y = "end")) (named: y ∈ caves passages) (stale: unvisited.contains y = False)
+    (small: isBig y = False) (notStart: y ≠ "start") (notEnd: y ≠ "end") (named: y ∈ caves passages) (stale: unvisited.contains y = False)
     (tracks: Tracks passages twice unvisited False sofar) (completes: Completes passages twice sofar cave (Cons y more)): Void :=
   let (Both unseen (Both _ (Both _ (Both _ (Both _ used))))) := tracks
   let (Both _ (Both _ (Both each (Both once _)))) := completes
-  let seen: Not (visits sofar y = 0) := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
+  let seen: visits sofar y ≠ 0 := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
   let total := visitsOnto sofar y more
   let bound := each y small
   match used rfl with

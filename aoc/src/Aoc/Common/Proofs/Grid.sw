@@ -79,7 +79,7 @@ theorem adjacentStep: (position: Position) → (next: Position) → adjacent pos
           (up => rewrite <- columns, <- DecEq.sound (r + 1) row up in Witness Up rfl))
 
 --| The neighbours are the positions a step away...
-theorem memNeighbours (position: Position) (next: Position): Iff (next ∈ position.neighbours) (∃ (direction: Direction) => position.step direction = Some next) := {
+theorem memNeighbours (position: Position) (next: Position): (next ∈ position.neighbours) ↔ (∃ (direction: Direction) => position.step direction = Some next) := {
   forward = member =>
     Exists.elim (List.anyMember (direction => position.step direction = Some next) directions (List.memFilterMapElim position.step next directions member))
       (direction both => Witness direction (And.right both)),

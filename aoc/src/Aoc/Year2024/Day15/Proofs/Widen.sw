@@ -24,7 +24,7 @@ theorem wideBox (warehouse: Warehouse) (box: Cell) (held: warehouse.widen.boxes.
 --| The two cells a tile becomes are in its row, at twice its column or one
 --| more.
 theorem cellOfWide (position: Cell) (cell: Cell) (half: cell ∈ cellsOf (Cell.widen position)):
-    And (cell.rows = position.rows) (Or (cell.columns = 2 * position.columns) (cell.columns = 2 * position.columns + 1)) :=
+    (cell.rows = position.rows) ∧ ((cell.columns = 2 * position.columns) ∨ (cell.columns = 2 * position.columns + 1)) :=
   match half with
     | Inl same => Both (Eq.sym (Eq.cong (here => here.rows) same)) (Inl (Eq.sym (Eq.cong (here => here.columns) same)))
     | Inr (Inl same) => Both (omega [Eq.cong (here => here.rows) same]) (Inr (omega [Eq.cong (here => here.columns) same]))
@@ -80,7 +80,7 @@ theorem widenSeparate (warehouse: Warehouse) (separate: Separate warehouse): Wid
 --| Part 2 from a warehouse where nothing overlaps: after every move the
 --| robot is on no wall or box, and every box is whole.
 theorem part2Whole (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse):
-    And (WideSeparate (warehouse.widen.moveAllWide moves)) (Whole (warehouse.widen.moveAllWide moves)) :=
+    (WideSeparate (warehouse.widen.moveAllWide moves)) ∧ (Whole (warehouse.widen.moveAllWide moves)) :=
   Both (moveAllWideSeparate warehouse.widen moves (widenSeparate warehouse separate))
     (moveAllWideWhole warehouse.widen moves (widenSeparate warehouse separate))
 

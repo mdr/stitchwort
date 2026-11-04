@@ -73,7 +73,7 @@ theorem madeConnected (network: Network) (set: Set Computer) (made: List.Mem set
 --| are different.
 theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
     (found: (first: Computer) → (second: Computer) → (third: Computer) → set = Set.fromList [first, second, third] →
-      Not (first = second) → Not (first = third) → Not (second = third) → goal):
+      first ≠ second → first ≠ third → second ≠ third → goal):
     goal :=
   let distinct: List.Distinct set.toList := Map.keysDistinct set.items
   let sized: set.toList.length = 3 := rewrite <- Set.sizeToList set in three
@@ -96,7 +96,7 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
 
 --| The program's sets of three are the puzzle's.
 theorem setsOfThreeIff (network: Network) (set: Set Computer):
-    Iff (network.links.setsOfThree.contains set = True) (InterConnectedThree network set) := {
+    (network.links.setsOfThree.contains set = True) ↔ (InterConnectedThree network set) := {
   forward = held =>
     let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) set (set => set.size == 3))) held
     let made := (Set.containsFromListIff (madeSets network.links) set).forward (Bool.andLeft _ _ kept)
@@ -107,7 +107,7 @@ theorem setsOfThreeIff (network: Network) (set: Set Computer):
         let inSet: (member: Computer) → List.Mem member [first, second, third] → set.contains member = True :=
           member listed => rewrite isSet in (Set.containsFromListIff [first, second, third] member).backward listed
         let linked: (one: Computer) → (other: Computer) → List.Mem one [first, second, third] → List.Mem other [first, second, third] →
-            Not (one = other) → (network.links.neighbours one).contains other = True :=
+            one ≠ other → (network.links.neighbours one).contains other = True :=
           one other oneListed otherListed different =>
             (linkedIff network one other).backward (connected one other (inSet one oneListed) (inSet other otherListed) different)
         let firstListed: List.Mem first [first, second, third] := Inl rfl

@@ -15,7 +15,7 @@ import Std (And, Exists, List, Nat)
 
 --| Some presses as many as the program's length type the code.
 theorem lengthAchieved (robots: Nat) (code: Code):
-    Exists (List DirectionKey) (presses => And (Types robots code presses) (presses.length = (robotCosts robots).shortestLength code)) :=
+    Exists (List DirectionKey) (presses => (Types robots code presses) ∧ (presses.length = (robotCosts robots).shortestLength code)) :=
   Witness (pressesFor robots code) (Both (pressesForTypes robots code) (pressesForLength robots code))
 
 --| No presses shorter than the program's length type the code. Proved for

@@ -135,7 +135,7 @@ theorem betweenFixed (a: Nat) (x: Nat) (b: Nat) (h: a = b) (inside: between a x 
 
 theorem absDiffFixed (a: Nat) (b: Nat) (h: a = b): Nat.absDiff a b = 0 := rewrite h in cases
 
-theorem absDiffPositive (a: Nat) (b: Nat) (h: Not (a = b)): Not (Nat.absDiff a b = 0) := zero => h (cases)
+theorem absDiffPositive (a: Nat) (b: Nat) (h: a ≠ b): Nat.absDiff a b ≠ 0 := zero => h (cases)
 
 theorem stepsFixedLeft (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max (Nat.absDiff a b) c): i ≤ c :=
   rewrite h at hi in cases

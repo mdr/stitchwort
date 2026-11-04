@@ -29,7 +29,7 @@ theorem neighboursStartingAt (network: Network) (one: Computer) (other: Computer
 
 --| The program's neighbours are the connections both ways round.
 theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
-    Iff ((network.links.neighbours one).contains other = True) ((one, other) ∈ network.bothWays) := {
+    ((network.links.neighbours one).contains other = True) ↔ ((one, other) ∈ network.bothWays) := {
   forward = held =>
     List.anyTrueElim ((startingAt network one).map Pair.snd) (x => Map.Spec.sameKey other x) ((one, other) ∈ network.bothWays)
       (rewrite <- neighboursStartingAt network one other in held)
@@ -50,7 +50,7 @@ theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
 
 --| The connections both ways round are the map's, read either way.
 theorem bothWaysIff (network: Network) (one: Computer) (other: Computer):
-    Iff ((one, other) ∈ network.bothWays) (connected network one other = True) := {
+    ((one, other) ∈ network.bothWays) ↔ (connected network one other = True) := {
   forward = inBoth =>
     List.anyElim ((pair: (Computer, Computer)) => (one, other) ∈ [pair, (pair.snd, pair.fst)]) (connected network one other = True) network.connections
       (List.memFlatMapElim ((pair: (Computer, Computer)) => [pair, (pair.snd, pair.fst)]) (one, other) network.connections inBoth)
@@ -79,7 +79,7 @@ theorem bothWaysIff (network: Network) (one: Computer) (other: Computer):
 
 --| `other` is a neighbour of `one` exactly when the map connects them.
 theorem linkedIff (network: Network) (one: Computer) (other: Computer):
-    Iff ((network.links.neighbours one).contains other = True) (connected network one other = True) := {
+    ((network.links.neighbours one).contains other = True) ↔ (connected network one other = True) := {
   forward = held => (bothWaysIff network one other).forward ((neighboursIff network one other).forward held),
   backward = joined => (neighboursIff network one other).backward ((bothWaysIff network one other).backward joined)
 }
@@ -138,7 +138,7 @@ theorem hasLinksOfLinked (network: Network) (one: Computer) (other: Computer) (h
 
 --| The computers with links are the computers on the map.
 theorem hasLinksIff (network: Network) (computer: Computer):
-    Iff (network.links.keySet.contains computer = True) (computer ∈ computers network) := {
+    (network.links.keySet.contains computer = True) ↔ (computer ∈ computers network) := {
   forward = keyed =>
     match found: Map.get network.links computer with
       | None => Void.exfalso (Bool.falseNotTrue (rewrite Map.containsKeySet network.links computer, found at keyed))

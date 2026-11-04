@@ -37,7 +37,7 @@ theorem stepBack: (position: Position) → (direction: Direction) → (next: Pos
 
 --| A move is a step onto track.
 theorem moveCases (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
-    (moved: moveTo racetrack position direction = Some next): And (position.step direction = Some next) (onTrack racetrack next = True) :=
+    (moved: moveTo racetrack position direction = Some next): (position.step direction = Some next) ∧ (onTrack racetrack next = True) :=
   match stepped: position.step direction with
     | None => Void.exfalso (Option.noneNotSome next moved)
     | Some found =>
@@ -60,7 +60,7 @@ theorem directionsComplete (direction: Direction): direction ∈ directions := m
 
 --| Each edge is a move, taking one picosecond.
 theorem edgesSound (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ racetrack.edges position):
-    And (Exists Direction (direction => moveTo racetrack position direction = Some next)) (weight = 1) :=
+    (Exists Direction (direction => moveTo racetrack position direction = Some next)) ∧ (weight = 1) :=
   let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
   Exists.elim (List.anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
     (direction both =>

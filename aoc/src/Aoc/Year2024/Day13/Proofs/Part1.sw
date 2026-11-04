@@ -46,7 +46,7 @@ theorem winListed (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: a
 --| Two wins are the same presses, with a nonzero determinant.
 theorem sameWin (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresses: Nat) (bPresses: Nat) (otherA: Nat) (otherB: Nat)
     (found: machine.onlyPresses nonzero = Some (aPresses, bPresses)) (won: machine.wins otherA otherB = True):
-    And (otherA = aPresses) (otherB = bPresses) :=
+    (otherA = aPresses) ∧ (otherB = bPresses) :=
   let same := Option.someInjective _ _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))
   Both (Eq.sym (Eq.cong (pair => pair.fst) same)) (Eq.sym (Eq.cong (pair => pair.snd) same))
 

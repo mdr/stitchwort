@@ -7,7 +7,7 @@ import Aoc.Year2021.Day12.Spec (connected)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Option, Void)
 
 --| `==` is false between different things.
-theorem differ (x: Text) (y: Text) (ne: Not (x = y)): (x == y) = False :=
+theorem differ (x: Text) (y: Text) (ne: x ≠ y): (x == y) = False :=
   match e: x == y with
     | True => Void.exfalso (ne (DecEq.sound x y e))
     | False => rfl
@@ -23,7 +23,7 @@ theorem lookupBuilt (f: Text → List Text) (cave: Text): (cs: List Text) → ca
           | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
           | Inr later => lookupBuilt f cave rest later
 
-theorem lookupMissing (f: Text → List Text) (cave: Text): (cs: List Text) → Not (cave ∈ cs) → List.lookup (cs.map (c => (c, f c))) cave = None
+theorem lookupMissing (f: Text → List Text) (cave: Text): (cs: List Text) → ¬(cave ∈ cs) → List.lookup (cs.map (c => (c, f c))) cave = None
   | Nil, missing => rfl
   | Cons c rest, missing =>
     match e: c == cave with

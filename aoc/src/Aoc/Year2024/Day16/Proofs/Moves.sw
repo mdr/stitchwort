@@ -30,7 +30,7 @@ theorem backwardOpen (maze: Maze) (position: Position) (facing: Heading) (behind
 
 --| Each edge out of a way of standing is a move, costing its points.
 theorem afterSound (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → (weight: Nat) → (next, weight) ∈ maze.after reindeer →
-    Exists Move (way => And (move maze reindeer way = Some next) (way.points = weight))
+    Exists Move (way => (move maze reindeer way = Some next) ∧ (way.points = weight))
   | { position, facing }, next, weight, edge =>
     match List.memAppend (next, weight) _ _ edge with
       | Inr (Inl turn) => Witness Clockwise (Both (Eq.cong Some (Eq.cong Pair.fst turn)) (Eq.cong Pair.snd turn))
@@ -68,7 +68,7 @@ theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (ne
 
 --| Each edge into a way of standing on an open tile is a move to it.
 theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (previous: Reindeer) → (weight: Nat) →
-    (previous, weight) ∈ maze.before reindeer → Exists Move (way => And (move maze previous way = Some reindeer) (way.points = weight))
+    (previous, weight) ∈ maze.before reindeer → Exists Move (way => (move maze previous way = Some reindeer) ∧ (way.points = weight))
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
       | Inr (Inl turn) =>

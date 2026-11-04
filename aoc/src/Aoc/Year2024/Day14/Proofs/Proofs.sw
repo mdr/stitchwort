@@ -53,7 +53,7 @@ theorem pictureAllDistinct (space: Space) (robots: List Robot) (inside: StartIns
 --| Part 2's answer is a picture, and no earlier second is.
 theorem part2First (space: Space) (robots: List Robot) (inside: StartInside space robots) (found: Nat)
     (h: solvePart2 space robots = Some found):
-    And (isPicture space robots found) ((earlier: Nat) → earlier < found → Not (isPicture space robots earlier)) :=
+    (isPicture space robots found) ∧ ((earlier: Nat) → earlier < found → ¬(isPicture space robots earlier)) :=
   match List.findRangeSome (seconds => List.allDistinct (space.positionsAfter seconds robots)) space.period found h with
     | Both passes (Both below first) =>
       Both (rewrite positionsCorrect space robots inside found in (List.allDistinctCorrect (space.positionsAfter found robots)).forward passes)
@@ -61,7 +61,7 @@ theorem part2First (space: Space) (robots: List Robot) (inside: StartInside spac
 
 --| When part 2 finds nothing, no second is a picture.
 theorem part2Never (space: Space) (robots: List Robot) (inside: StartInside space robots) (h: solvePart2 space robots = None)
-    (seconds: Nat): Not (isPicture space robots seconds) :=
+    (seconds: Nat): ¬(isPicture space robots seconds) :=
   picture =>
     let ok: space.period ≠ 0 := periodPositive space
     Bool.trueNotFalse

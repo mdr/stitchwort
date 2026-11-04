@@ -194,7 +194,7 @@ theorem part2Correct (map: TopographicMap): solvePart2 map = part2 map := sumOve
 --| A climb from height `height` has `9 - height` more positions, all on the
 --| map.
 theorem climbsPaths (map: TopographicMap): (from: Position) → (rest: List Position) → (height: Nat) → map.heightAt from = Some height →
-    climbs map from rest = True → And (height + rest.length = 9) (rest ∈ pathsOf map rest.length)
+    climbs map from rest = True → (height + rest.length = 9) ∧ (rest ∈ pathsOf map rest.length)
   | from, Nil, height, known, climbing =>
     let nine := Option.someInjective height 9 (Eq.trans (Eq.sym known) (DecEq.sound _ _ climbing))
     Both (omega [nine]) (Inl rfl)
@@ -212,7 +212,7 @@ theorem emptyIsNoTrail (map: TopographicMap): isHikingTrail map Nil = False := r
 --| Every hiking trail starts on the map and is one of `trailsFrom`'s: the
 --| spec's ten positions miss none.
 theorem trailsAreCandidates (map: TopographicMap) (start: Position) (rest: List Position) (hiking: isHikingTrail map (Cons start rest) = True):
-    And (start ∈ map.positions) (Cons start rest ∈ trailsFrom map start) :=
+    (start ∈ map.positions) ∧ (Cons start rest ∈ trailsFrom map start) :=
   let both := rewrite trailCons map start rest at hiking
   let zero: map.heightAt start = Some 0 := DecEq.sound _ _ (Bool.andLeft _ _ both)
   let paths := climbsPaths map start rest 0 zero (Bool.andRight _ _ both)

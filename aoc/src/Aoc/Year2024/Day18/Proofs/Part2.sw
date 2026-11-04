@@ -63,7 +63,7 @@ theorem part2Some (size: Nat) (bytes: List Position) (byte: Position) (answer: s
 
 --| No first blocking byte, for each count the search can end at.
 theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position) (index: Nat)
-    (got: bytes.get index = Some byte) (blockedAfter: Not (HasPath size bytes (index + 1)))
+    (got: bytes.get index = Some byte) (blockedAfter: ¬(HasPath size bytes (index + 1)))
     (openBefore: (earlier: Nat) → earlier ≤ index → HasPath size bytes earlier):
     (found: Nat) → Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → Void
   | found, ended =>
@@ -77,7 +77,7 @@ theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 si
         Bool.falseNotTrue (Eq.trans (Eq.sym startBlocked) (reachableComplete size bytes 0 (openBefore 0 (Nat.zeroLe index))))
       | Succ last =>
         let missing: bytes.get last = None := rewrite ended at answer in answer
-        let past: Not (last < bytes.length) := pastEnd bytes last missing
+        let past: ¬(last < bytes.length) := pastEnd bytes last missing
         let stillOpen := holdsBefore (index + 1) (Nat.zeroLe (index + 1)) (rewrite ended in omega [past, inside])
         blockedAfter (reachableSound size bytes (index + 1) stillOpen)
 

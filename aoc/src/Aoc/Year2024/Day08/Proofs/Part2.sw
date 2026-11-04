@@ -33,10 +33,10 @@ theorem natAbsSign: (x: Int) → (Int.natAbs x).toInt = Int.sign x * x
 --| `divideBy` the gcd, with the gcd as a variable: the difference is a
 --| nonzero multiple of the result, whose parts are coprime.
 theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
-    (nonzero: And (difference.rows = 0) (difference.columns = 0) → Void):
+    (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void):
     (divisor: Nat) → Int.natAbs difference.rows = rowTimes * divisor → Int.natAbs difference.columns = columnTimes * divisor →
       s * (Int.natAbs difference.rows).toInt + t * (Int.natAbs difference.columns).toInt = divisor.toInt →
-      ((scale: Int) → Not (scale = 0) → difference.rows = scale * (divideBy difference divisor).rows →
+      ((scale: Int) → scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
         difference.columns = scale * (divideBy difference divisor).columns → (s: Int) → (t: Int) →
         s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal) →
       goal
@@ -56,15 +56,15 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
 --| The step to grid points from `start` towards `end`: the offset between
 --| them is a nonzero multiple of it, and its parts are coprime (some whole
 --| combination of them is 1).
-theorem stepFacts (start: Position) (end: Position) (distinct: Not (start = end)) (goal: Prop)
-    (use: (scale: Int) → Not (scale = 0) → end.row.toInt - start.row.toInt = scale * (start.stepToward end).rows →
+theorem stepFacts (start: Position) (end: Position) (distinct: start ≠ end) (goal: Prop)
+    (use: (scale: Int) → scale ≠ 0 → end.row.toInt - start.row.toInt = scale * (start.stepToward end).rows →
       end.column.toInt - start.column.toInt = scale * (start.stepToward end).columns → (s: Int) → (t: Int) →
       s * (start.stepToward end).rows + t * (start.stepToward end).columns = 1 → goal):
     goal :=
   let difference := end.minus start
   let rowSize := Int.natAbs difference.rows
   let columnSize := Int.natAbs difference.columns
-  let nonzero := (both: And (difference.rows = 0) (difference.columns = 0)) =>
+  let nonzero := (both: (difference.rows = 0) ∧ (difference.columns = 0)) =>
     distinct (positionExtInt start end (omega [And.left both]) (omega [And.right both]))
   match Nat.gcdDivides rowSize columnSize with
     | Both (Witness rowTimes rows) (Witness columnTimes columns) =>
@@ -82,9 +82,9 @@ theorem crossOnLine (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (k: Int
 --| parts coprime (`s * er + t * ec = 1`) the number of steps is
 --| `s * (pr - fr) + t * (pc - fc)`.
 theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: Int) (t: Int) (pr: Int) (pc: Int) (sr: Int) (sc: Int)
-    (secondRow: sr = fr + scale * er) (secondColumn: sc = fc + scale * ec) (nonzero: Not (scale = 0)) (bezout: s * er + t * ec = 1)
+    (secondRow: sr = fr + scale * er) (secondColumn: sc = fc + scale * ec) (nonzero: scale ≠ 0) (bezout: s * er + t * ec = 1)
     (cross: (fr - pr) * (sc - pc) - (fc - pc) * (sr - pr) = 0):
-    And (pr = fr + er * (s * (pr - fr) + t * (pc - fc))) (pc = fc + ec * (s * (pr - fr) + t * (pc - fc))) :=
+    (pr = fr + er * (s * (pr - fr) + t * (pc - fc))) ∧ (pc = fc + ec * (s * (pr - fr) + t * (pc - fc))) :=
   let crossScaled: scale * ((pc - fc) * er - (pr - fr) * ec) = scale * 0 := rewrite secondRow, secondColumn at cross in ring [cross]
   let parallel := Int.mulCancelLeft scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
   Both (ring [(pr - fr) * bezout, t * parallel]) (ring [(pc - fc) * bezout, s * parallel])
@@ -100,10 +100,10 @@ theorem natAbsDiffLt (p: Nat) (a: Nat) (n: Nat) (below: p < n) (aBelow: a < n): 
 --| Between two locations on a map `n` high, fewer than `n` steps of a
 --| nonzero size.
 theorem stepsBound (a: Nat) (p: Nat) (er: Int) (k: Int) (n: Nat) (aBelow: a < n) (pBelow: p < n) (on: p.toInt = a.toInt + er * k)
-    (nonzero: Not (er = 0)):
+    (nonzero: er ≠ 0):
     Int.natAbs k < n :=
   let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = p.toInt - a.toInt) in natAbsDiffLt p a n pBelow aBelow
-  let positive: Not (Int.natAbs er = 0) := z => nonzero (Int.natAbsZero er z)
+  let positive: Int.natAbs er ≠ 0 := z => nonzero (Int.natAbsZero er z)
   omega [Int.natAbsMul er k, Nat.leMulPos (Int.natAbs k) (Int.natAbs er) (omega)]
 
 --| The harmonics `count` steps from `start`, either way.
@@ -128,9 +128,9 @@ theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: 
         [step.times (Succ count).toInt, (step.times (Succ count).toInt).negate] (Inr (Inl rfl))
         (offsetOf start (step.times (Succ count).toInt).negate point (ring [rowAt]) (ring [columnAt])))
 
-theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: Not (first = second))
+theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: first ≠ second)
     (point: Position) (inside: city.contains point = True):
-    Iff (point ∈ city.harmonics first second) (inLine point first second = True) :=
+    (point ∈ city.harmonics first second) ↔ (inLine point first second = True) :=
   stepFacts first second distinct _ (scale scaleNonzero rows columns s t bezout =>
     let step := first.stepToward second
     let reach := Nat.max city.height city.width
@@ -166,7 +166,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
           match still: step.rows == 0 with
             | True =>
               let rowStill := DecEq.sound step.rows 0 still
-              let columnMoves: Not (step.columns = 0) := z => omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
+              let columnMoves: step.columns ≠ 0 := z => omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
               let below :=
                 stepsBound first.column point.column step.columns steps city.width (omega [Bool.andRight _ _ firstOn])
                   (omega [Bool.andRight _ _ inside]) (And.right both) columnMoves

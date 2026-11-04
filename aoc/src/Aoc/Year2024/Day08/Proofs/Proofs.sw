@@ -56,7 +56,7 @@ theorem pairsIntro (city: City) (first: Antenna) (second: Antenna) (firstIn: fir
 --| that `holds`, the program's locations are the spec's.
 theorem locationsCorrect (city: City) (pick: (Position, Position) → List Position) (holds: Position → Position → Position → Bool)
     (agree: (first: Antenna) → (second: Antenna) → first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
-      (point: Position) → city.contains point = True → Iff (point ∈ pick (first.position, second.position)) (holds point first.position second.position = True)):
+      (point: Position) → city.contains point = True → (point ∈ pick (first.position, second.position)) ↔ (holds point first.position second.position = True)):
     city.locations (city.antennaPairs.flatMap pick) = antinodeLocations city (point => twoAntennas city (holds point)) :=
   let found := city.antennaPairs.flatMap pick
   let isSpec := (point: Position) => twoAntennas city (holds point)

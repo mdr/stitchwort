@@ -13,19 +13,19 @@ def FromPatterns (patterns: List Pattern) (towels: List Pattern): Prop := List.A
 
 --| `towels`, laid end to end, make `design`.
 def Makes (patterns: List Pattern) (towels: List Pattern) (design: Design): Prop :=
-  And (FromPatterns patterns towels) (towels.concat = design)
+  (FromPatterns patterns towels) ∧ (towels.concat = design)
 
 --| The spec's lists are of the patterns and no longer than `count`.
 theorem fromTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pattern) → towels ∈ towelLists patterns count →
-    And (FromPatterns patterns towels) (towels.length ≤ count)
+    (FromPatterns patterns towels) ∧ (towels.length ≤ count)
   | Zero, towels, Inl empty => rewrite <- empty in Both Trivial (omega)
   | Zero, towels, Inr none => Void.exfalso none
   | Succ count, towels, Inl empty => rewrite <- empty in Both Trivial (omega)
   | Succ count, towels, Inr later =>
-    List.anyElim (first => towels ∈ (towelLists patterns count |> .map (Cons first))) (And (FromPatterns patterns towels) (towels.length ≤ Succ count))
+    List.anyElim (first => towels ∈ (towelLists patterns count |> .map (Cons first))) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count))
       patterns (List.memFlatMapElim (first => towelLists patterns count |> .map (Cons first)) towels patterns later)
       (first firstMember mapped =>
-        List.anyElim (rest => Cons first rest = towels) (And (FromPatterns patterns towels) (towels.length ≤ Succ count)) (towelLists patterns count)
+        List.anyElim (rest => Cons first rest = towels) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count)) (towelLists patterns count)
           (List.memMapAny (towelLists patterns count) (Cons first) towels mapped)
           (rest restMember made =>
             let restFacts := fromTowelLists patterns count rest restMember
@@ -62,7 +62,7 @@ theorem memberSome: (lists: List (List Pattern)) → (list: List Pattern) → li
 --| "Not all designs will be possible": a design is possible exactly when
 --| some towels of the patterns make it.
 theorem possibleIff (patterns: List Pattern) (striped: Striped patterns) (design: Design):
-    Iff (possible patterns design = True) (Exists (List Pattern) (towels => Makes patterns towels design)) := {
+    (possible patterns design = True) ↔ (Exists (List Pattern) (towels => Makes patterns towels design)) := {
   forward = found =>
     Exists.map
       (towels member =>

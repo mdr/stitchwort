@@ -71,9 +71,7 @@ def Types (robots: Nat) (code: Code) (presses: List DirectionKey): Prop := typed
 --| on your directional keypad in order to cause the code to be typed": some
 --| sequence of that length types the code, and none shorter does.
 def Shortest (robots: Nat) (code: Code) (length: Nat): Prop :=
-  And
-    (Exists (List DirectionKey) (presses => And (Types robots code presses) (presses.length = length)))
-    ((presses: List DirectionKey) → Types robots code presses → length ≤ presses.length)
+  (Exists (List DirectionKey) (presses => (Types robots code presses) ∧ (presses.length = length))) ∧ ((presses: List DirectionKey) → Types robots code presses → length ≤ presses.length)
 
 --| "The complexity of a single code ... the result of multiplying these two
 --| values", summed over the codes, given each code's shortest length. The
@@ -85,4 +83,4 @@ def complexitySum (codes: List Code) (shortest: Code → Nat): Nat := codes.sumB
 --| with `robots` robots on directional keypads: two in part 1, 25 in part 2.
 def Answer (robots: Nat) (codes: List Code) (answer: Nat): Prop :=
   Exists (Code → Nat) (shortest =>
-    And ((code: Code) → code ∈ codes → Shortest robots code (shortest code)) (answer = complexitySum codes shortest))
+    ((code: Code) → code ∈ codes → Shortest robots code (shortest code)) ∧ (answer = complexitySum codes shortest))

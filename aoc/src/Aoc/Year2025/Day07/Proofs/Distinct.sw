@@ -15,11 +15,11 @@ import Aoc.Year2025.Day07.Spec (..)
 import Std (DecEq, Decidable, Eq, Fin, List, Option, Vec)
 
 --| Two hits at the same splitter that go different ways are different.
-theorem turnsDiffer (r: Nat) (c: Nat): Not (({ row = r, column = c, turn = Left }: Hit) = { row = r, column = c, turn = Right }) :=
+theorem turnsDiffer (r: Nat) (c: Nat): ({ row = r, column = c, turn = Left }: Hit) ≠ ({ row = r, column = c, turn = Right }) :=
   p => Decidable.toBoolFalse (DecEq.decide (Left: Turn) Right) rfl (Eq.cong Hit.turn p)
 
 --| The timelines of the two sides of a split.
-theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hit)) (ys: List (List Hit))
+theorem headsDistinct (h1: Hit) (h2: Hit) (ne: h1 ≠ h2) (xs: List (List Hit)) (ys: List (List Hit))
     (dx: xs.Distinct) (dy: ys.Distinct):
     List.Distinct (List.append (List.map xs (Cons h1)) (List.map ys (Cons h2))) :=
   List.distinctAppend (List.map xs (Cons h1)) (List.map ys (Cons h2))

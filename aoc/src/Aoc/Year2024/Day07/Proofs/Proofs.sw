@@ -18,7 +18,7 @@ theorem concatenateArithmetic (left: Nat) (right: Nat): concatenate left right =
 theorem belowPlaceValue (right: Nat): right < placeValue right := Nat.ltPowTenDigits right
 
 --| Concatenating never makes a smaller number, on either side.
-theorem concatenateAtLeast (left: Nat) (right: Nat): And (left ≤ concatenate left right) (right ≤ concatenate left right) :=
+theorem concatenateAtLeast (left: Nat) (right: Nat): (left ≤ concatenate left right) ∧ (right ≤ concatenate left right) :=
   let shifted := Nat.leMulPos left (placeValue right) (Nat.powSuccPos 9 (Nat.digitCount right))
   rewrite concatenateArithmetic left right in Both (omega) (omega)
 

@@ -39,8 +39,8 @@ theorem walkLater (lab: Lab) (guard: Option Guard) (steps: Nat) (later: Nat) (go
   Nat.iterateFixedLater (state => Option.flatMap state lab.step) guard None rfl steps later (rewrite walkIterate lab steps guard at gone) le
 
 --| Still on the map after `later` steps, she was after any fewer.
-theorem walkEarlier (lab: Lab) (guard: Option Guard) (steps: Nat) (later: Nat) (still: Not (walk lab guard later = None)) (le: steps ≤ later):
-    Not (walk lab guard steps = None) :=
+theorem walkEarlier (lab: Lab) (guard: Option Guard) (steps: Nat) (later: Nat) (still: walk lab guard later ≠ None) (le: steps ≤ later):
+    walk lab guard steps ≠ None :=
   gone => still (walkLater lab guard steps later gone le)
 
 --| A step from the map that stays on it lands on the map.
@@ -133,7 +133,7 @@ theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: on
 --| The same state at two step counts, still on the map at the later: she
 --| loops.
 theorem repeatLoops (lab: Lab) (first: Nat) (second: Nat) (earlier: first < second) (same: after lab first = after lab second)
-    (still: Not (after lab second = None)): Loops lab :=
+    (still: after lab second ≠ None): Loops lab :=
   steps gone =>
     Nat.iterateRepeatNeverNone lab.step (Some lab.startGuard) first second earlier
       (Eq.trans (Eq.sym (walkIterate lab first (Some lab.startGuard))) (Eq.trans same (walkIterate lab second (Some lab.startGuard))))
@@ -147,7 +147,7 @@ def codeOf (lab: Lab): Option Guard → Nat
 
 --| The budget is enough: still on the map after `stateCount` steps, she
 --| loops.
-theorem budgetEnough (lab: Lab) (inside: onMap lab lab.start = True) (still: Not (after lab lab.stateCount = None)): Loops lab :=
+theorem budgetEnough (lab: Lab) (inside: onMap lab lab.start = True) (still: after lab lab.stateCount ≠ None): Loops lab :=
   let small: (steps: Nat) → steps ≤ lab.stateCount → codeOf lab (after lab steps) < lab.stateCount :=
     steps le =>
       match reached: after lab steps with

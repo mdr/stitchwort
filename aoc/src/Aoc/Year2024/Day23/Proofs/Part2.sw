@@ -21,7 +21,7 @@ import Std (And, Bool, Eq, Exists, Iff, List, Nat, Not, Option, Or, Set, Void)
 --| different members are neighbours.
 def Clique (network: Network) (set: Set Computer): Prop :=
   ((member: Computer) → set.contains member = True → network.links.keySet.contains member = True)
-    ∧ ((one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → Not (one = other) →
+    ∧ ((one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → one ≠ other →
       (network.links.neighbours one).contains other = True)
 
 --| Each candidate has links, isn't in the clique yet, and is a neighbour of
@@ -86,13 +86,13 @@ theorem sizeNone (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
 
 --| The other candidates are the candidates other than the smallest.
 theorem othersElim (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
-    (key: Computer) (held: others.contains key = True): candidates.contains key = True ∧ Not (key = candidate) :=
+    (key: Computer) (held: others.contains key = True): candidates.contains key = True ∧ key ≠ candidate :=
   match DecEq.decide key candidate with
     | Yes same => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove candidates candidate)) (rewrite othersAre, same at held)))
     | No same => Both (rewrite othersAre, Set.containsRemoveOther candidates candidate key same at held) same
 
 theorem othersIntro (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
-    (key: Computer) (held: candidates.contains key = True) (different: Not (key = candidate)): others.contains key = True :=
+    (key: Computer) (held: candidates.contains key = True) (different: key ≠ candidate): others.contains key = True :=
   rewrite othersAre, Set.containsRemoveOther candidates candidate key different in held
 
 --| A candidate added to the clique keeps it a clique.
