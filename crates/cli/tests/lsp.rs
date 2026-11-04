@@ -2487,3 +2487,94 @@ fn proof_searches_are_bounded_by_the_pool() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Opens library file `path` (served as a `stitchwort-std:` document) and
+/// asks definition and hover at the first `needle`,
+/// `offset` characters in; the answers' texts.
+fn ask_in_library(client: &mut Client, path: &str, needle: &str, offset: u32) -> (Value, String) {
+    let std_uri = format!("stitchwort-std:{path}");
+    let source = stitchwort_elab::std_source(path, 64 << 20).unwrap();
+    client.open(&std_uri, &source);
+    let (line, text) = source
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.contains(needle))
+        .unwrap_or_else(|| panic!("no line with {needle:?} in {path}"));
+    let col = text.find(needle).unwrap() as u32 + offset;
+    let definition = client.at("textDocument/definition", &std_uri, line as u32, col);
+    let hover = client.at("textDocument/hover", &std_uri, line as u32, col);
+    let shown = hover["contents"]["value"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    (definition, shown)
+}
+
+/// Field projections on locals navigate inside library files, as in a
+/// program's (SW-1114): `s.items`, `o.compare`, `o.eq.decide`.
+#[test]
+fn projections_on_locals_navigate_in_library_documents() {
+    let dir = temp_dir("projections");
+    let file = dir.join("proj.sw");
+    let text = "import Std (Map, Set)\n\ndef f: Set Nat := Set.empty\n\ndef g: Bool := f == f\n\ndef h: Ordering := compare (Map.empty: Map Nat Nat) Map.empty\n\ntheorem t [auto ord: Ord k] (s: Set k) (key: k):\n    Set.toList (Set.insert s key) = Set.toList (Set.insert s key) :=\n  Std.Eq.trans (Set.toListInsert s key) (Std.Eq.sym (Set.toListInsert s key))\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    let _ = client.diagnostics(&uri, 1);
+    let mut missing: Vec<String> = Vec::new();
+    for (path, needle, offset, expect) in [
+        ("Set/Spec.sw", "s.items", 0, "s"),
+        ("Set/Spec.sw", "s.items", 2, "items"),
+        ("Map/Map.sw", "o.compare", 0, "o"),
+        ("Map/Map.sw", "o.compare", 2, "compare"),
+        ("Map/Map.sw", "o.eq.decide", 0, "o"),
+        ("Map/Map.sw", "o.eq.decide", 2, "eq"),
+        ("Map/Map.sw", "o.eq.decide", 5, "decide"),
+    ] {
+        let (definition, shown) = ask_in_library(&mut client, path, needle, offset);
+        if definition.is_null() || shown.is_empty() {
+            missing.push(format!(
+                "{needle}+{offset} ({expect}): {definition} / {shown:?}"
+            ));
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "no navigation for:\n{}",
+        missing.join("\n")
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The names inside a library test (`test "…" := …`) navigate in the
+/// library document too, though library tests aren't elaborated on load
+/// (SW-1113).
+#[test]
+fn names_in_library_tests_navigate() {
+    let dir = temp_dir("library_tests");
+    let file = dir.join("tests.sw");
+    let text = "import Std (Set)\n\ndef f: Set Nat := Set.empty\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let (definition, shown) =
+        ask_in_library(&mut client, "Set/Set.sw", "Set.remove Set.example 2", 0);
+    assert!(
+        definition["uri"]
+            .as_str()
+            .is_some_and(|u| std_rel(u) == "Set/Set.sw"),
+        "{definition}"
+    );
+    assert!(shown.contains("Set.remove"), "{shown}");
+    // `Set.example`, further along the same test.
+    let (definition, shown) =
+        ask_in_library(&mut client, "Set/Set.sw", "Set.remove Set.example 2", 11);
+    assert!(definition["uri"].is_string(), "{definition}");
+    assert!(shown.contains("Set.example"), "{shown}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

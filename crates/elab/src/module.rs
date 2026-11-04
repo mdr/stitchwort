@@ -181,6 +181,10 @@ pub(crate) struct ModuleState {
     /// Data types (by item) whose `Ord` is derived once their module's own
     /// `DecEq` instance is checked.
     pub ord_after_dec_eq: HashMap<usize, DataId>,
+    /// For navigation: the names written in the library's tests, which
+    /// aren't elaborated (they run under the library test target), with
+    /// their files; noted as references once the module is checked.
+    pub test_names: Vec<(usize, ast::Name)>,
 }
 
 impl ModuleState {
@@ -491,6 +495,15 @@ impl Elaborator {
         }
         // Names that were never checked now just name failures.
         self.fail_unchecked_names();
+        // The names in the library's tests are references too, so that an
+        // editor can navigate there; they are noted from the written names
+        // alone (a dot call on a local needs its receiver's type, and
+        // isn't).
+        for (file, name) in std::mem::take(&mut self.unit.module.test_names) {
+            self.unit.module.file = Some(file);
+            self.note_name(&name);
+        }
+        self.unit.module.file = None;
         // Tests run by file, then in source order, whatever order they were
         // checked in.
         let ranks: HashMap<FileId, usize> = self
@@ -829,6 +842,21 @@ impl Elaborator {
                     && !self.options.library_tests
                     && matches!(decl, Decl::Test { .. })
                 {
+                    if self.present.nav.is_some() {
+                        self.unit.module.test_names.extend(
+                            decl_refs(decl, &[])
+                                .into_iter()
+                                .filter_map(|(r, _)| match r {
+                                    // Not the names the compiler adds for
+                                    // syntax (`∈`, literals), which are
+                                    // written nowhere.
+                                    Ref::Name(n) if n.span.start != n.span.end => {
+                                        Some((file, n.clone()))
+                                    }
+                                    _ => None,
+                                }),
+                        );
+                    }
                     continue;
                 }
                 if let Decl::Test { name, span, .. } = decl {
@@ -2667,6 +2695,11 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut out = names_and_proofs(work);
     out.retain(|r| !is_decreasing_proof(r));
     out
+}
+
+/// The free names of the expression `e`, in order.
+pub(crate) fn free_names_of(e: &Expr) -> Vec<Ref<'_>> {
+    free_names(vec![Work::Expr(e)])
 }
 
 /// [`free_names`], with [`DECREASING_PROOF`] where a `[decreasing := …]`
