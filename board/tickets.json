@@ -1,5 +1,5 @@
 {
-  "next": 1246,
+  "next": 1250,
   "tickets": [
     {
       "id": 47,
@@ -5777,6 +5777,62 @@
         "lsp"
       ],
       "body": "Found by SW-1116, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1246,
+      "title": "auto: use proof fields of records in scope (e.g. map.widthNonZero for column % map.width), or let x % y take a named [ok := …], so programs don't need 'let nonZero := map.widthNonZero'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Found by SW-1235, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1247,
+      "title": "Counterexample generator: build proof fields that aren't equations (e.g. x ≠ 0)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "counterexamples"
+      ],
+      "body": "Found by SW-1235, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1248,
+      "title": "AoC 2021 day 15: Cave could wrap a Grid instead of copying its fields",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Found by SW-1235, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1249,
+      "title": "AoC 2020 day 4 in Stitchwort: spec, solution, proofs, input test, friction notes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2305 track. Day 3 friction review done 4 Nov 2026 (D2347; Grid made non-empty in SW-1235). Started 4 Nov 2026 on Opus, expected: 120 min.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
