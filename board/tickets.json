@@ -6267,14 +6267,14 @@
     {
       "id": 1280,
       "title": "Editor: go to definition (and a document link) on an include path opens the file",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1280",
       "labels": [
         "lsp",
         "editor"
       ],
-      "body": "The problem: `include \"../../../../../inputs/2020/day05.txt\"` in a Tests/Input.sw can't be followed in the editor; you have to find the input file by hand. Matt, 4 Nov 2026: 'it'd be nice to be able to code nav to that input'.\n\nThe change: in the language server (crates/cli/src/lsp.rs, which already answers go-to-definition; no documentLink support yet), resolve an Expr::Include path the way the checker does (relative to the including file, inside the project folder; docs/syntax.md '`include`') and (1) answer textDocument/definition on the string with the file's start, (2) offer textDocument/documentLink for every include so the path is underlined and Cmd-click works. A missing or outside path gives no link (the diagnostic already says why).\n\nWhat it should do: Cmd-click or F12 on the path in aoc/src/Aoc/Year2020/Day05/Tests/Input.sw opens aoc/inputs/2020/day05.txt; an lsp test covers both requests.",
+      "body": "The problem: `include \"../../../../../inputs/2020/day05.txt\"` in a Tests/Input.sw can't be followed in the editor; you have to find the input file by hand. Matt, 4 Nov 2026: 'it'd be nice to be able to code nav to that input'.\n\nThe change: in the language server (crates/cli/src/lsp.rs, which already answers go-to-definition; no documentLink support yet), resolve an Expr::Include path the way the checker does (relative to the including file, inside the project folder; docs/syntax.md '`include`') and (1) answer textDocument/definition on the string with the file's start, (2) offer textDocument/documentLink for every include so the path is underlined and Cmd-click works. A missing or outside path gives no link (the diagnostic already says why).\n\nWhat it should do: Cmd-click or F12 on the path in aoc/src/Aoc/Year2020/Day05/Tests/Input.sw opens aoc/inputs/2020/day05.txt; an lsp test covers both requests.\n\nMerged a9df9775; verified: merge tier 1066, audit clean; the verifier's selection was killed by the 4 GB memory cap, so the orchestrator reran binary(lsp), driver include, examples and year2025_day02 on 2 threads: 54/54. Model result: DeepSeek, worked, ~25 min (est. 40).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
