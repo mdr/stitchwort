@@ -1631,6 +1631,16 @@ theorem Parse.readsRepeat (atLeast: Nat) (atMost: Nat) (p: () → {Parse} a) (sp
           let same2: values = more := same
           rewrite same2 in Both each (Both least (omega)))
 
+--| `exactly count p` reads one part per value, each `spec` of it: exactly
+--| `count` values.
+theorem Parse.readsExactly (count: Nat) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
+    Parse.Reads (() => Parse.exactly count p)
+      (read values => Parse.Each spec read values ∧ values.length = count) :=
+  Parse.readsWeaken _ _ _ (Parse.readsRepeat count count p spec reads)
+    (read values h =>
+      match h with
+        | Both each (Both least most) => Both each (omega))
+
 --| `attemptFrom start q` that let the rest succeed: `q` succeeded, and the
 --| rest went on from its value and whether it read anything; or `q`
 --| stopped, and the input is back at `start`.

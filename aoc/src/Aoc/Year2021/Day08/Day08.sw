@@ -136,12 +136,12 @@ def Entry.wired (entry: Entry): Bool :=
 
 --| One display, `p1 … p10 | o1 o2 o3 o4`, each pattern its wires' letters.
 def Entry.parse(): {Parse} Entry :=
-  let patterns := Parse.repeat 10 10 (() =>
+  let patterns := Parse.exactly 10 (() =>
     let pattern := patternParse()
     char ' '
     pattern)
   text "| "
-  let outputs := Parse.repeat 4 4 (() =>
+  let outputs := Parse.exactly 4 (() =>
     let pattern := patternParse()
     Parse.optional (() => char ' ')
     pattern)
