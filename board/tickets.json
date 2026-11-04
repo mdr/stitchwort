@@ -1,5 +1,5 @@
 {
-  "next": 1180,
+  "next": 1181,
   "tickets": [
     {
       "id": 47,
@@ -4799,13 +4799,27 @@
     {
       "id": 1179,
       "title": "Step 6 regressions on aoc: language server heap +146-195 MB (558 vs 363 MB after the first check), 1265 MB held after the first check (322k journal entries, 208 checkpoints open until the first edit), cold CLI check +4% CPU; find the causes and fix within the approved design",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "From SW-1177 (4 Nov, overnight). Opus, est. 120 min. Overnight plan: fix issues before the full tier and push.",
+      "body": "From SW-1177 (4 Nov, overnight). Opus, est. 120 min. Overnight plan: fix issues before the full tier and push.\n\nDone c8d98bb5, 6eea8f1d (Opus, 47 min, est. 120), reviewed, merged. Findings (A/B against 3706f183, same day, alternating): the +195 MB was the harness sampling while a background check ran (same fixed harness on both builds: 360 vs 363 MB); the cold CLI +4% was drift (60.77 vs 60.81 s, +0.07%; empty cache folder -0.4%); 322k entries/208 checkpoints after the first check are the approved design (27 MB). New in-process measure crates/cli/tests/live_memory.rs (ignored, deterministic to 0.1 MB). Fixes: Logged shrinks log and map after a rewind leaves them <= 1/4 full (bytes_held 27.0 -> 0.39 MB); Caches' mark holds nothing, a rewind empties dot_heads/dot_failed (F11; orchestrator's call per decision-scope: they are caches, emptying changes no result, recheck time unchanged). aoc in process: after the first check 1420 (pre-step-6) / 1097 / 923 MB; after an early edit 365 / 373 / 347 MB; late edit 1252 / 927 / 872 MB. Criterion (b) re-judged on the in-process measure: met (497 MB below after the first check, 18 MB below after an early edit). Server keeps ~170-185 MB beyond LiveProject (answers, navigation; unmeasured). Model result: Opus, worked, 47 min (est. 120).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1180,
+      "title": "Language server memory beyond LiveProject: the server holds ~170-185 MB more than its LiveProject on aoc (answers, navigation per file?); measure what it keeps per file; also make state_edit_loop sample only when the server is idle",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1179 (4 Nov).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
