@@ -4743,13 +4743,13 @@
     {
       "id": 1175,
       "title": "Overnight 3-4 Nov: full tier at the end, fix what fails, push when green",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "test"
       ],
-      "body": "Matt (3 Nov, 23:00): after the overnight plan (6b, 6c, after-measurements, step 7, SW-1168, SW-1155, the Globals note), run the full tier (task test:full), fix any issues, and push when everything is green. Supersedes D2289 (daily tier once).",
+      "body": "Matt (3 Nov, 23:00): after the overnight plan (6b, 6c, after-measurements, step 7, SW-1168, SW-1155, the Globals note), run the full tier (task test:full), fix any issues, and push when everything is green. Supersedes D2289 (daily tier once).\n\nGreen at 0fd23d5b (4 Nov 2026, 05:26-07:34): 2002 tests passed, 16 skipped, doctests passed; peak 9.47 GB. Earlier runs failed on SW-1181, SW-1182, SW-1183 (all fixed).\n",
       "created": "2026-11-03",
       "updated": "2026-11-04",
       "commits": []
