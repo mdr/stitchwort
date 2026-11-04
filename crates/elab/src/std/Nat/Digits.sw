@@ -16,13 +16,13 @@ def Nat.digitsAcc (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
   if big: Nat.leq n 9 = False
-  then Nat.digitsAcc (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
-  else Cons n acc
+  then Nat.digitsAcc (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n big]
+  else [n, ..acc]
 
 --| Decimal digits, most significant first: `Nat.digits 1205` is `[1, 2, 0, 5]`
 --| and `Nat.digits 0` is `[0]`. `Nat.fromDigits` undoes it ([`Nat.fromDigitsDigits`]),
 --| and each is a digit ([`Nat.digitsDigits`]).
-def Nat.digits (n: Nat): List Nat := Nat.digitsAcc n Nil
+def Nat.digits (n: Nat): List Nat := Nat.digitsAcc n []
 
 --| The number whose decimal digits these are, most significant first. Digits
 --| above 9 carry into their neighbours: it is `Nat.digits`'s inverse only on
@@ -33,20 +33,20 @@ def Nat.fromDigits (digits: List Nat): Nat := List.foldLeft digits 0 (acc digit 
 --| every digit.
 theorem Nat.fromDigitsFrom: (a: Nat) → (ds: List Nat) →
     List.foldLeft ds a (acc d => acc * 10 + d) = a * Nat.pow 10 (List.length ds) + Nat.fromDigits ds
-  | a, Nil => ring
-  | a, Cons d ds => ring [Nat.fromDigitsFrom (a * 10 + d) ds, Nat.fromDigitsFrom d ds]
+  | a, [] => ring
+  | a, [d, ..ds] => ring [Nat.fromDigitsFrom (a * 10 + d) ds, Nat.fromDigitsFrom d ds]
 
 --| The first digit counts 10^n, for the n digits after it.
 theorem Nat.fromDigitsCons (d: Nat) (ds: List Nat):
-    Nat.fromDigits (Cons d ds) = d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds := Nat.fromDigitsFrom d ds
+    Nat.fromDigits [d, ..ds] = d * Nat.pow 10 (List.length ds) + Nat.fromDigits ds := Nat.fromDigitsFrom d ds
 
 --| One step of `Nat.digitsAcc`, for a number with one digit and for one with more.
-theorem Nat.digitsAccSmall (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = True): Nat.digitsAcc n acc = Cons n acc :=
+theorem Nat.digitsAccSmall (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = True): Nat.digitsAcc n acc = [n, ..acc] :=
   rewrite Nat.digitsAcc.unfold n acc in
   rewrite h in
   rfl
 
-theorem Nat.digitsAccBig (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = False): Nat.digitsAcc n acc = Nat.digitsAcc (n / 10) (Cons (n % 10) acc) :=
+theorem Nat.digitsAccBig (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = False): Nat.digitsAcc n acc = Nat.digitsAcc (n / 10) [n % 10, ..acc] :=
   rewrite Nat.digitsAcc.unfold n acc in
   rewrite h in
   rfl
@@ -64,20 +64,20 @@ theorem Nat.digitsAccBound (n: Nat) (acc: List Nat):
     | False =>
       rewrite Nat.digitsAccBig n acc e in
       Nat.leTrans (Succ n * Nat.pow 10 (List.length acc)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc))
-        (Nat.pow 10 (List.length (Nat.digitsAcc (n / 10) (Cons (n % 10) acc))))
+        (Nat.pow 10 (List.length (Nat.digitsAcc (n / 10) [n % 10, ..acc])))
         (Nat.leMulRight (Succ n) (Succ (n / 10) * 10) (Nat.pow 10 (List.length acc)) (Nat.divFuelBound n n 10 (Nat.succNotZero 9) (Nat.leRefl n)))
-        (Nat.leCongLeft (Succ (n / 10) * (Nat.pow 10 (List.length acc) * 10)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length (Nat.digitsAcc (n / 10) (Cons (n % 10) acc))))
+        (Nat.leCongLeft (Succ (n / 10) * (Nat.pow 10 (List.length acc) * 10)) ((Succ (n / 10) * 10) * Nat.pow 10 (List.length acc)) (Nat.pow 10 (List.length (Nat.digitsAcc (n / 10) [n % 10, ..acc])))
           ring
-          (Nat.digitsAccBound (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n e]))
+          (Nat.digitsAccBound (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e]))
 
 theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (List.length (Nat.digits hi)) :=
   Nat.leCongLeft (Succ hi * 1) (Succ hi) (Nat.pow 10 (List.length (Nat.digits hi))) ring
-    (Nat.digitsAccBound hi Nil)
+    (Nat.digitsAccBound hi [])
 
 --| Every element is a decimal digit.
 def Nat.Digits: List Nat → Prop
-  | Nil => Unit
-  | Cons digit digits => (digit < 10) ∧ (Nat.Digits digits)
+  | [] => Unit
+  | [digit, ..digits] => (digit < 10) ∧ (Nat.Digits digits)
 
 theorem Or.andWith: [p q r: Prop] → r → p ∨ q → p ∨ (q ∧ r)
   | hr, Inl a => Inl a
@@ -86,14 +86,14 @@ theorem Or.andWith: [p q r: Prop] → r → p ∨ q → p ∨ (q ∧ r)
 --| [`Nat.fromDigitsCons`], with the power written for another list of the
 --| same length.
 theorem Nat.fromDigitsConsLen (d: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r):
-    Nat.fromDigits (Cons d s) = d * Nat.pow 10 (List.length r) + Nat.fromDigits s :=
+    Nat.fromDigits [d, ..s] = d * Nat.pow 10 (List.length r) + Nat.fromDigits s :=
   Eq.trans (Nat.fromDigitsCons d s) (Eq.cong (n => d * Nat.pow 10 n + Nat.fromDigits s) hl)
 
 --| n digits make a number below 10^n.
 theorem Nat.fromDigitsBound: (s: List Nat) → Nat.Digits s → Nat.fromDigits s < Nat.pow 10 (List.length s)
-  | Nil, h => rfl
-  | Cons d s, Both hd hs =>
-    Nat.ltCongLeft (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits (Cons d s)) (Nat.pow 10 (List.length s) * 10)
+  | [], h => rfl
+  | [d, ..s], Both hd hs =>
+    Nat.ltCongLeft (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits [d, ..s]) (Nat.pow 10 (List.length s) * 10)
       (Eq.sym (Nat.fromDigitsCons d s))
       (Nat.leTrans (Succ (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)) (d * Nat.pow 10 (List.length s) + Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length s) * 10)
         (Nat.ltAddCong (d * Nat.pow 10 (List.length s)) (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.fromDigitsBound s hs))
@@ -102,10 +102,10 @@ theorem Nat.fromDigitsBound: (s: List Nat) → Nat.Digits s → Nat.fromDigits s
 
 --| Equal-length numbers: a smaller first digit gives a smaller number.
 theorem Nat.fromDigitsHeadLess (y: Nat) (t: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r)
-    (hd: Nat.Digits s) (h: y < t): Nat.fromDigits (Cons y s) ≤ Nat.fromDigits (Cons t r) :=
-  Nat.leCongLeft (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits (Cons y s)) (Nat.fromDigits (Cons t r))
+    (hd: Nat.Digits s) (h: y < t): Nat.fromDigits [y, ..s] ≤ Nat.fromDigits [t, ..r] :=
+  Nat.leCongLeft (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits [y, ..s]) (Nat.fromDigits [t, ..r])
     (Eq.sym (Nat.fromDigitsConsLen y s r hl))
-    (Nat.leCongRight (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (t * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits (Cons t r))
+    (Nat.leCongRight (y * Nat.pow 10 (List.length r) + Nat.fromDigits s) (t * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits [t, ..r])
       (Eq.sym (Nat.fromDigitsCons t r))
       (Nat.headLessArith y t (Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r)
         (Nat.ltCongRight (Nat.fromDigits s) (Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length r)) (Eq.cong (n => Nat.pow 10 n) hl) (Nat.fromDigitsBound s hd))
@@ -113,10 +113,10 @@ theorem Nat.fromDigitsHeadLess (y: Nat) (t: Nat) (s: List Nat) (r: List Nat) (hl
 
 --| Equal-length numbers with the same first digit: the rest decides.
 theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r)
-    (h: Nat.fromDigits s ≤ Nat.fromDigits r): Nat.fromDigits (Cons c s) ≤ Nat.fromDigits (Cons c r) :=
-  Nat.leCongLeft (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits (Cons c s)) (Nat.fromDigits (Cons c r))
+    (h: Nat.fromDigits s ≤ Nat.fromDigits r): Nat.fromDigits [c, ..s] ≤ Nat.fromDigits [c, ..r] :=
+  Nat.leCongLeft (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (Nat.fromDigits [c, ..s]) (Nat.fromDigits [c, ..r])
     (Eq.sym (Nat.fromDigitsConsLen c s r hl))
-    (Nat.leCongRight (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (c * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits (Cons c r))
+    (Nat.leCongRight (c * Nat.pow 10 (List.length r) + Nat.fromDigits s) (c * Nat.pow 10 (List.length r) + Nat.fromDigits r) (Nat.fromDigits [c, ..r])
       (Eq.sym (Nat.fromDigitsCons c r))
       (Nat.leAddCong (c * Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r) h))
 
@@ -128,17 +128,17 @@ theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.leng
 --| The digits of `n` in front of `acc` are its digits, then `acc`.
 -- Each is a proof by the same measure as `Nat.digitsAcc`, and the accumulator
 -- is just appended.
-theorem Nat.digitsAccAppend (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = List.append (Nat.digitsAcc n Nil) acc
+theorem Nat.digitsAccAppend (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = List.append (Nat.digitsAcc n []) acc
     decreasing n
 :=
   match e: Nat.leq n 9 with
     | True =>
-      Eq.trans (Nat.digitsAccSmall n acc e) (Eq.sym (Eq.cong (l => List.append l acc) (Nat.digitsAccSmall n Nil e)))
+      Eq.trans (Nat.digitsAccSmall n acc e) (Eq.sym (Eq.cong (l => List.append l acc) (Nat.digitsAccSmall n [] e)))
     | False =>
       Eq.trans (Nat.digitsAccBig n acc e)
-        (Eq.trans (Nat.digitsAccAppend (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n e])
-          (Eq.sym (Eq.trans (Eq.cong (l => List.append l acc) (Eq.trans (Nat.digitsAccBig n Nil e) (Nat.digitsAccAppend (n / 10) (Cons (n % 10) Nil) [decreasing := Nat.divTenLess n e])))
-            (List.appendAssoc (Nat.digitsAcc (n / 10) Nil) (Cons (n % 10) Nil) acc))))
+        (Eq.trans (Nat.digitsAccAppend (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e])
+          (Eq.sym (Eq.trans (Eq.cong (l => List.append l acc) (Eq.trans (Nat.digitsAccBig n [] e) (Nat.digitsAccAppend (n / 10) [n % 10] [decreasing := Nat.divTenLess n e])))
+            (List.appendAssoc (Nat.digitsAcc (n / 10) []) [n % 10] acc))))
 
 theorem Nat.digitsAccDigits (n: Nat) (acc: List Nat) (ha: Nat.Digits acc): Nat.Digits (Nat.digitsAcc n acc)
     decreasing n
@@ -147,9 +147,9 @@ theorem Nat.digitsAccDigits (n: Nat) (acc: List Nat) (ha: Nat.Digits acc): Nat.D
     | True => rewrite Nat.digitsAccSmall n acc e in Both e ha
     | False =>
       rewrite Nat.digitsAccBig n acc e in
-      Nat.digitsAccDigits (n / 10) (Cons (n % 10) acc) (Both (Nat.modLt n 10) ha) [decreasing := Nat.divTenLess n e]
+      Nat.digitsAccDigits (n / 10) [n % 10, ..acc] (Both (Nat.modLt n 10) ha) [decreasing := Nat.divTenLess n e]
 
-theorem Nat.digitsDigits (n: Nat): Nat.Digits (Nat.digits n) := Nat.digitsAccDigits n Nil Trivial
+theorem Nat.digitsDigits (n: Nat): Nat.Digits (Nat.digits n) := Nat.digitsAccDigits n [] Trivial
 
 --| a * (10^k * 10) + (b * 10^k + r) = (a * 10 + b) * 10^k + r
 theorem Nat.shiftDigitArith (a: Nat) (b: Nat) (p: Nat) (r: Nat): a * (p * 10) + (b * p + r) = (a * 10 + b) * p + r := ring
@@ -161,13 +161,13 @@ theorem Nat.fromDigitsAcc (n: Nat) (acc: List Nat): Nat.fromDigits (Nat.digitsAc
     | True => Eq.trans (Eq.cong Nat.fromDigits (Nat.digitsAccSmall n acc e)) (Nat.fromDigitsCons n acc)
     | False =>
       Eq.trans (Eq.cong Nat.fromDigits (Nat.digitsAccBig n acc e))
-        (Eq.trans (Nat.fromDigitsAcc (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n e])
+        (Eq.trans (Nat.fromDigitsAcc (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e])
           (Eq.trans (Eq.cong (t => (n / 10) * Nat.pow 10 (Succ (List.length acc)) + t) (Nat.fromDigitsCons (n % 10) acc))
             (Eq.trans (Nat.shiftDigitArith (n / 10) (n % 10) (Nat.pow 10 (List.length acc)) (Nat.fromDigits acc))
               (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Eq.sym (Nat.divModEq n 10 (Nat.succNotZero 9)))))))
 
 theorem Nat.fromDigitsDigits (n: Nat): Nat.fromDigits (Nat.digits n) = n :=
-  rewrite Nat.fromDigitsAcc n Nil in ring
+  rewrite Nat.fromDigitsAcc n [] in ring
 
 theorem Nat.digitsAccHead (n: Nat) (acc: List Nat) (hn: 1 ≤ n): 1 ≤ List.headOr (Nat.digitsAcc n acc) 0
     decreasing n
@@ -176,9 +176,9 @@ theorem Nat.digitsAccHead (n: Nat) (acc: List Nat) (hn: 1 ≤ n): 1 ≤ List.hea
     | True => rewrite Nat.digitsAccSmall n acc e in hn
     | False =>
       rewrite Nat.digitsAccBig n acc e in
-      Nat.digitsAccHead (n / 10) (Cons (n % 10) acc) (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 e)) [decreasing := Nat.divTenLess n e]
+      Nat.digitsAccHead (n / 10) [n % 10, ..acc] (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 e)) [decreasing := Nat.divTenLess n e]
 
-theorem Nat.digitsHead (n: Nat) (hn: 1 ≤ n): 1 ≤ List.headOr (Nat.digits n) 0 := Nat.digitsAccHead n Nil hn
+theorem Nat.digitsHead (n: Nat) (hn: 1 ≤ n): 1 ≤ List.headOr (Nat.digits n) 0 := Nat.digitsAccHead n [] hn
 
 theorem Nat.digitsAccNonEmpty (n: Nat) (acc: List Nat): 1 ≤ List.length (Nat.digitsAcc n acc)
     decreasing n
@@ -187,9 +187,9 @@ theorem Nat.digitsAccNonEmpty (n: Nat) (acc: List Nat): 1 ≤ List.length (Nat.d
     | True => rewrite Nat.digitsAccSmall n acc e
     | False =>
       rewrite Nat.digitsAccBig n acc e in
-      Nat.digitsAccNonEmpty (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n e]
+      Nat.digitsAccNonEmpty (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e]
 
-theorem Nat.digitsNonEmpty (n: Nat): 1 ≤ List.length (Nat.digits n) := Nat.digitsAccNonEmpty n Nil
+theorem Nat.digitsNonEmpty (n: Nat): 1 ≤ List.length (Nat.digits n) := Nat.digitsAccNonEmpty n []
 
 --| How many decimal digits `n` has: 1 from 0 to 9, 2 from 10 to 99, and so on.
 def Nat.digitCount (n: Nat): Nat := List.length (Nat.digits n)
@@ -199,43 +199,43 @@ theorem Nat.digitCountPos (n: Nat): 0 < Nat.digitCount n := Nat.digitsNonEmpty n
 
 theorem Nat.digitCountExample: Nat.digitCount 1205 = 4 := rfl
 
-theorem Nat.digitsSnoc (a: Nat) (d: Nat) (ha: 1 ≤ a) (hd: d < 10): Nat.digits (a * 10 + d) = List.append (Nat.digits a) (Cons d Nil) :=
-  Eq.trans (Nat.digitsAccBig (a * 10 + d) Nil
+theorem Nat.digitsSnoc (a: Nat) (d: Nat) (ha: 1 ≤ a) (hd: d < 10): Nat.digits (a * 10 + d) = List.append (Nat.digits a) [d] :=
+  Eq.trans (Nat.digitsAccBig (a * 10 + d) []
       (Nat.leqFalseOfLess 9 (a * 10 + d) (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d))))
-    (Eq.trans (Eq.cong (t => Nat.digitsAcc t (Cons ((a * 10 + d) % 10) Nil))
+    (Eq.trans (Eq.cong (t => Nat.digitsAcc t [(a * 10 + d) % 10])
         (Eq.trans (Eq.cong (t => t / 10) (ring: a * 10 + d = d + a * 10)) (Eq.trans (Nat.divAddMul d a 10) (Eq.cong (t => t + a) (Nat.divSmall d 10 hd)))))
-      (Eq.trans (Eq.cong (t => Nat.digitsAcc a (Cons t Nil))
+      (Eq.trans (Eq.cong (t => Nat.digitsAcc a [t])
           (Eq.trans (Eq.cong (t => t % 10) (ring: a * 10 + d = d + a * 10)) (Eq.trans (Nat.modAddMul d a 10) (Nat.modSmall d 10 hd))))
-        (Nat.digitsAccAppend a (Cons d Nil))))
+        (Nat.digitsAccAppend a [d])))
 
 theorem Nat.digitsShift: (ds: List Nat) → (a: Nat) → 1 ≤ a → Nat.Digits ds →
     Nat.digits (a * Nat.pow 10 (List.length ds) + Nat.fromDigits ds) = List.append (Nat.digits a) ds
-  | Nil, a, ha, hd => Eq.trans (Eq.cong Nat.digits (ring: a * 1 + 0 = a)) (Eq.sym (List.appendNil (Nat.digits a)))
-  | Cons d ds, a, ha, Both hd hds =>
+  | [], a, ha, hd => Eq.trans (Eq.cong Nat.digits (ring: a * 1 + 0 = a)) (Eq.sym (List.appendNil (Nat.digits a)))
+  | [d, ..ds], a, ha, Both hd hds =>
     Eq.trans (Eq.cong Nat.digits
         (Eq.trans (Eq.cong (t => a * (Nat.pow 10 (List.length ds) * 10) + t) (Nat.fromDigitsCons d ds))
           (Nat.shiftDigitArith a d (Nat.pow 10 (List.length ds)) (Nat.fromDigits ds))))
       (Eq.trans (Nat.digitsShift ds (a * 10 + d) (Nat.leTrans 1 a (a * 10 + d) ha (Nat.leTrans a (a * 10) (a * 10 + d) (Nat.leMulPos a 10 rfl) (Nat.leAddRight (a * 10) d))) hds)
         (Eq.trans (Eq.cong (l => List.append l ds) (Nat.digitsSnoc a d ha hd))
-          (List.appendAssoc (Nat.digits a) (Cons d Nil) ds)))
+          (List.appendAssoc (Nat.digits a) [d] ds)))
 
 theorem Nat.fromDigitsAppend (xs: List Nat) (ys: List Nat): Nat.fromDigits (List.append xs ys) = Nat.fromDigits xs * Nat.pow 10 (List.length ys) + Nat.fromDigits ys :=
   Eq.trans (List.foldLeftAppend xs 0 ys (acc d => acc * 10 + d)) (Nat.fromDigitsFrom (Nat.fromDigits xs) ys)
 
 theorem Nat.digitsTake: (k: Nat) → (xs: List Nat) → Nat.Digits xs → Nat.Digits (List.take xs k)
   | Zero, xs, h => Trivial
-  | Succ k, Nil, h => Trivial
-  | Succ k, Cons x xs, Both hx hs => Both hx (Nat.digitsTake k xs hs)
+  | Succ k, [], h => Trivial
+  | Succ k, [x, ..xs], Both hx hs => Both hx (Nat.digitsTake k xs hs)
 
 theorem Nat.digitsDrop: (k: Nat) → (xs: List Nat) → Nat.Digits xs → Nat.Digits (List.drop xs k)
   | Zero, xs, h => h
-  | Succ k, Nil, h => Trivial
-  | Succ k, Cons x xs, Both hx hs => Nat.digitsDrop k xs hs
+  | Succ k, [], h => Trivial
+  | Succ k, [x, ..xs], Both hx hs => Nat.digitsDrop k xs hs
 
 theorem Nat.fromDigitsHeadBound: (l: List Nat) → 1 ≤ List.headOr l 0 → Nat.pow 10 (List.length l - 1) ≤ Nat.fromDigits l
-  | Nil, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons d s, h =>
-    Nat.leCongRight (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits (Cons d s)) (Eq.sym (Nat.fromDigitsCons d s))
+  | [], h => Void.exfalso (Bool.falseNotTrue h)
+  | [d, ..s], h =>
+    Nat.leCongRight (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits [d, ..s]) (Eq.sym (Nat.fromDigitsCons d s))
       (Nat.leTrans (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)
         (Nat.leCongLeft (1 * Nat.pow 10 (List.length s)) (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s)) ring
           (Nat.leMulRight 1 d (Nat.pow 10 (List.length s)) h))
@@ -298,7 +298,7 @@ theorem Nat.digitsSeven: Nat.digits 7 = [7] := rfl
 
 theorem Nat.digitsTen: Nat.digits 10 = [1, 0] := rfl
 
-theorem Nat.fromDigitsNil: Nat.fromDigits Nil = 0 := rfl
+theorem Nat.fromDigitsNil: Nat.fromDigits [] = 0 := rfl
 
 theorem Nat.digitsRoundTrip: Nat.fromDigits (Nat.digits 9876543210) = 9876543210 := rfl
 
@@ -324,14 +324,14 @@ theorem Char.digitsOntoValues: (f: Nat) → (n: Nat) → (acc: List Char) → n 
       | True => rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e in rewrite Char.digitValueChar n e
       | False =>
         rewrite Nat.digitsAccBig n (List.filterMap acc Char.digitValue) e in
-        calc List.filterMap (Nat.digitsOnto f (n / 10) (Cons (Nat.digitChar (n % 10)) acc)) Char.digitValue
-          _ = Nat.digitsAcc (n / 10) (List.filterMap (Cons (Nat.digitChar (n % 10)) acc) Char.digitValue)
-            := Char.digitsOntoValues f (n / 10) (Cons (Nat.digitChar (n % 10)) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
-          _ = Nat.digitsAcc (n / 10) (Cons (n % 10) (List.filterMap acc Char.digitValue)) := rewrite Char.digitValueChar (n % 10) (Nat.modLt n 10)
+        calc List.filterMap (Nat.digitsOnto f (n / 10) [Nat.digitChar (n % 10), ..acc]) Char.digitValue
+          _ = Nat.digitsAcc (n / 10) (List.filterMap [Nat.digitChar (n % 10), ..acc] Char.digitValue)
+            := Char.digitsOntoValues f (n / 10) [Nat.digitChar (n % 10), ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+          _ = Nat.digitsAcc (n / 10) [n % 10, ..List.filterMap acc Char.digitValue] := rewrite Char.digitValueChar (n % 10) (Nat.modLt n 10)
 
 --| A number written in decimal reads back as its digits.
 theorem Char.toTextDigits (n: Nat): List.filterMap (Text.toList (Nat.toText n)) Char.digitValue = Nat.digits n :=
-  Char.digitsOntoValues (Succ n) n Nil (Nat.leRefl n)
+  Char.digitsOntoValues (Succ n) n [] (Nat.leRefl n)
 
 --| `Nat.toText` writes the digits' characters: `Nat.digitsOnto` is
 --| `Nat.digitsAcc` with each digit turned into its character.
@@ -343,34 +343,34 @@ theorem Char.digitsOntoMap: (f: Nat) → (n: Nat) → (acc: List Nat) → n < f 
       | True => rewrite Nat.digitsAccSmall n acc e
       | False =>
         rewrite Nat.digitsAccBig n acc e in
-        Char.digitsOntoMap f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+        Char.digitsOntoMap f (n / 10) [n % 10, ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
 
 theorem Char.toTextMap (n: Nat): Text.toList (Nat.toText n) = List.map (Nat.digits n) Nat.digitChar :=
-  Char.digitsOntoMap (Succ n) n Nil (Nat.leRefl n)
+  Char.digitsOntoMap (Succ n) n [] (Nat.leRefl n)
 
 --| Reading digit characters: each digit shifts the accumulator left, so
 --| `acc` ends up shifted past every digit.
 theorem Text.readDigitsMap: (acc: Nat) → (ds: List Nat) → Nat.Digits ds →
     Text.readDigits acc (List.map ds Nat.digitChar) = Some (acc * Nat.pow 10 (List.length ds) + Nat.fromDigits ds)
-  | acc, Nil, h => Eq.cong Some (Nat.fromDigitsFrom acc Nil)
-  | acc, Cons d ds, Both hd hs =>
-    calc Text.readDigits acc (List.map (Cons d ds) Nat.digitChar)
+  | acc, [], h => Eq.cong Some (Nat.fromDigitsFrom acc [])
+  | acc, [d, ..ds], Both hd hs =>
+    calc Text.readDigits acc (List.map [d, ..ds] Nat.digitChar)
       -- the first character is the digit `d`
       _ = Text.readDigits (acc * 10 + d) (List.map ds Nat.digitChar) := rewrite Char.digitValueChar d hd
       _ = Some ((acc * 10 + d) * Nat.pow 10 (List.length ds) + Nat.fromDigits ds) := Text.readDigitsMap (acc * 10 + d) ds hs
       -- the same fold, started from `acc`
-      _ = Some (acc * Nat.pow 10 (List.length (Cons d ds)) + Nat.fromDigits (Cons d ds))
-        := Eq.cong Some (Eq.trans (Eq.sym (Nat.fromDigitsFrom (acc * 10 + d) ds)) (Nat.fromDigitsFrom acc (Cons d ds)))
+      _ = Some (acc * Nat.pow 10 (List.length [d, ..ds]) + Nat.fromDigits [d, ..ds])
+        := Eq.cong Some (Eq.trans (Eq.sym (Nat.fromDigitsFrom (acc * 10 + d) ds)) (Nat.fromDigitsFrom acc [d, ..ds]))
 
 --| A non-empty list of digits, written out, reads back as its number.
 theorem Text.toNatMap: (ds: List Nat) → 1 ≤ List.length ds → Nat.Digits ds →
     Text.toNat (MkText (List.map ds Nat.digitChar)) = Some (Nat.fromDigits ds)
-  | Nil, hl, h => Void.exfalso (Bool.falseNotTrue hl)
-  | Cons d ds, hl, h =>
-    calc Text.toNat (MkText (List.map (Cons d ds) Nat.digitChar))
-      _ = Text.readDigits 0 (List.map (Cons d ds) Nat.digitChar) := rfl
-      _ = Some (0 * Nat.pow 10 (List.length (Cons d ds)) + Nat.fromDigits (Cons d ds)) := Text.readDigitsMap 0 (Cons d ds) h
-      _ = Some (Nat.fromDigits (Cons d ds)) := rfl
+  | [], hl, h => Void.exfalso (Bool.falseNotTrue hl)
+  | [d, ..ds], hl, h =>
+    calc Text.toNat (MkText (List.map [d, ..ds] Nat.digitChar))
+      _ = Text.readDigits 0 (List.map [d, ..ds] Nat.digitChar) := rfl
+      _ = Some (0 * Nat.pow 10 (List.length [d, ..ds]) + Nat.fromDigits [d, ..ds]) := Text.readDigitsMap 0 [d, ..ds] h
+      _ = Some (Nat.fromDigits [d, ..ds]) := rfl
 
 --| Writing a number in decimal and reading it back gives the number (`0` too:
 --| it is written "0").

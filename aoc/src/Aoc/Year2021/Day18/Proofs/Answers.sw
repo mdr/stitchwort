@@ -20,8 +20,8 @@ theorem addSound (x: Number) (y: Number) (sum: Number) (reducedX: IsReduced x) (
 
 theorem addAllSound: (total: Number) → (numbers: List Number) → (final: Number) → IsReduced total → List.All IsReduced numbers → addAll total numbers = Some final →
     AddsUpTo total numbers final
-  | total, Nil, final, _, _, done => rewrite <- Option.someInjective _ final done in NothingAdded total
-  | total, Cons next rest, final, reducedTotal, Both reducedNext reducedRest, done =>
+  | total, [], final, _, _, done => rewrite <- Option.someInjective _ final done in NothingAdded total
+  | total, [next, ..rest], final, reducedTotal, Both reducedNext reducedRest, done =>
     match a: add total next with
       | Some sum =>
         let added := addSound total next sum reducedTotal reducedNext a
@@ -32,8 +32,8 @@ theorem addAllSound: (total: Number) → (numbers: List Number) → (final: Numb
 --| is the spec's.
 theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers) (answer: Nat) (solved: solvePart1 numbers = Some answer): Part1 numbers answer :=
   match numbers with
-    | Nil => Void.exfalso (Option.noneNotSome answer solved)
-    | Cons first rest =>
+    | [] => Void.exfalso (Option.noneNotSome answer solved)
+    | [first, ..rest] =>
       match a: addAll first rest with
         | Some final =>
           Witness first
@@ -46,8 +46,8 @@ theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers
 
 --| Adding up is one number, so part 1's answer is one number.
 theorem addsUpToUnique (final2: Number): (total: Number) → (numbers: List Number) → (final1: Number) → AddsUpTo total numbers final1 → AddsUpTo total numbers final2 → final1 = final2
-  | total, Nil, final1, NothingAdded _, NothingAdded _ => rfl
-  | total, Cons next rest, final1, AddNext [total2 := sum1] first1 rest1, AddNext [total2 := sum2] first2 rest2 =>
+  | total, [], final1, NothingAdded _, NothingAdded _ => rfl
+  | total, [next, ..rest], final1, AddNext [total2 := sum1] first1 rest1, AddNext [total2 := sum2] first2 rest2 =>
     let same := sumUnique total next sum1 sum2 first1 first2
     addsUpToUnique final2 sum2 rest final1 (rewrite same at rest1 in rest1) rest2
 
@@ -88,8 +88,8 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
 theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List Nat) → sumMagnitudes pairs = Some magnitudes →
     ((k: Nat) → k ∈ magnitudes → ∃ (x: Number) => ∃ (y: Number) => ∃ (sum: Number) => (x, y) ∈ pairs ∧ add x y = Some sum ∧ magnitude sum = k)
       ∧ ((x: Number) → (y: Number) → (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes)
-  | Nil, magnitudes, done => rewrite <- Option.someInjective _ magnitudes done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
-  | Cons (x, y) rest, magnitudes, done =>
+  | [], magnitudes, done => rewrite <- Option.someInjective _ magnitudes done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
+  | [(x, y), ..rest], magnitudes, done =>
     match a: add x y with
       | None => Void.exfalso (Option.noneNotSome magnitudes done)
       | Some sum =>

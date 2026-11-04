@@ -32,12 +32,12 @@ theorem matchingAfter (patterns: List Pattern) (count: Nat) (design: Design) (pa
 
 theorem matchingSucc (patterns: List Pattern) (count: Nat) (design: Design):
     matching patterns (Succ count) design
-      = Bool.toNat (Nil == design)
+      = Bool.toNat ([] == design)
         + patterns.sumBy (pattern => if design.startsWith pattern then matching patterns count (design.drop pattern.length) else 0) :=
-  rewrite List.countCons (patterns.flatMap (first => towelLists patterns count |> .map (Cons first))) Nil (towels => towels.concat == design),
+  rewrite List.countCons (patterns.flatMap (first => towelLists patterns count |> .map (Cons first))) [] (towels => towels.concat == design),
     List.countFlatMap (first => towelLists patterns count |> .map (Cons first)) (towels => towels.concat == design) patterns
     in
-  Eq.cong (Nat.add (Bool.toNat (Nil == design)))
+  Eq.cong (Nat.add (Bool.toNat ([] == design)))
     (List.sumByCongMem patterns
       (first => (towelLists patterns count |> .map (Cons first)).count (towels => towels.concat == design))
       (pattern => if design.startsWith pattern then matching patterns count (design.drop pattern.length) else 0)
@@ -47,13 +47,13 @@ theorem matchingSucc (patterns: List Pattern) (count: Nat) (design: Design):
 
 --| With every pattern striped, the empty design is made one way, by no
 --| towels, however many are allowed.
-theorem matchingEmpty (patterns: List Pattern) (striped: Striped patterns): (count: Nat) → matching patterns count Nil = 1
+theorem matchingEmpty (patterns: List Pattern) (striped: Striped patterns): (count: Nat) → matching patterns count [] = 1
   | Zero => rfl
   | Succ count =>
-    rewrite matchingSucc patterns count Nil,
-      List.sumByZeroIntro patterns (pattern => if List.startsWith Nil pattern then matching patterns count (List.drop Nil pattern.length) else 0)
+    rewrite matchingSucc patterns count [],
+      List.sumByZeroIntro patterns (pattern => if List.startsWith [] pattern then matching patterns count (List.drop [] pattern.length) else 0)
         (pattern member =>
           match pattern with
-            | Nil => Void.exfalso (Bool.falseNotTrue (striped Nil member))
-            | Cons first rest => rfl)
+            | [] => Void.exfalso (Bool.falseNotTrue (striped [] member))
+            | [first, ..rest] => rfl)
       in rfl

@@ -7,7 +7,7 @@ import Std (List, Float, Int)
 type Leaf = { value: Nat, depth: Nat }
 
 -- `List.Mem y ys` computes to `List.Any (z => z = y) ys` on a `Cons`.
-theorem memberOfTail (y: Nat) (ys: List Nat) (h: y ∈ Cons y ys): y ∈ ys := ?
+theorem memberOfTail (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
 
 -- The order keys `Float.less` compares are `x < y` again.
 theorem keysLess (x: Float) (y: Float) (h: x < y): x = x :=

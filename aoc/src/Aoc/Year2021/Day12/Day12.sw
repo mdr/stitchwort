@@ -31,8 +31,8 @@ def main(): {IO, Fail} () :=
 --| are small).
 def isBig (cave: Text): Bool :=
   match cave.toList with
-    | Cons first _ => 65 <= first.toNat && first.toNat <= 90
-    | Nil => False
+    | [first, .._] => 65 <= first.toNat && first.toNat <= 90
+    | [] => False
 
 --| One passage per line, `a-b`, each name made of letters; fails unless no
 --| passage joins two big caves.
@@ -95,12 +95,12 @@ def without (caves: List Text) (cave: Text): List Text := caves.filter (c => not
 --| The ways on from `cave` to `end`, stepping along `next`, each as the
 --| caves after `cave`, in at most `steps` steps.
 def routesFrom (next: Text → List Text) (unvisited: List Text) (spare: Bool) (cave: Text): (steps: Nat) → List (List Text)
-  | Zero => Nil
+  | Zero => []
   | Succ more =>
     List.concat (next cave |> .map (other =>
       routesVia other (match step unvisited spare cave other with
-        | Finish => [Nil]
-        | Blocked => Nil
+        | Finish => [[]]
+        | Blocked => []
         | Continue left stillSpare => routesFrom next left stillSpare other more)))
 
 --| The routes on from `other`, with `other` in front.

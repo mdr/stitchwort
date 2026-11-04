@@ -57,12 +57,12 @@ theorem representsCong (sightlines: Sightlines) (has: Position → Bool) (other:
 theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlines) → (has: Position → Bool) → Represents sightlines has →
     Represents (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) sightlines entries)
       (position => has position || entries.any (entry => isAt entry.fst.row entry.fst.column position))
-  | Nil, sightlines, has, represents, row, column => representsCong sightlines has _ (position => Eq.sym (orFalse (has position))) represents row column
-  | Cons (key, unit) rest, sightlines, has, represents, row, column =>
+  | [], sightlines, has, represents, row, column => representsCong sightlines has _ (position => Eq.sym (orFalse (has position))) represents row column
+  | [(key, unit), ..rest], sightlines, has, represents, row, column =>
     let hasRest := (position: Position) => rest.any (entry => isAt entry.fst.row entry.fst.column position)
     representsCong (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) (sightlines.add key) rest)
       (position => (isAt key.row key.column position || has position) || hasRest position)
-      (position => has position || (Cons (key, unit) rest).any (entry => isAt entry.fst.row entry.fst.column position))
+      (position => has position || [(key, unit), ..rest].any (entry => isAt entry.fst.row entry.fst.column position))
       (position => orShift (isAt key.row key.column position) (has position) (hasRest position))
       (foldRepresents rest (sightlines.add key) (position => isAt key.row key.column position || has position) (addRepresents sightlines has represents key))
       row column

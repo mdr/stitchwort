@@ -14,60 +14,60 @@ def openOr (fallback: List Bracket): Scan → List Bracket
 theorem unclosedInjective (a: List Bracket) (b: List Bracket) (h: Unclosed a = Unclosed b): a = b := Eq.cong (openOr a) h
 
 --| A balanced line's scan ends with nothing open.
-theorem balancedScanNil (line: List Token) (balanced: Balanced line): scan Nil line = Unclosed Nil :=
-  let whole := balancedScan Nil Nil balanced
+theorem balancedScanNil (line: List Token) (balanced: Balanced line): scan [] line = Unclosed [] :=
+  let whole := balancedScan [] [] balanced
   rewrite List.appendNil line at whole in whole
 
 --| Closing what the scan leaves open completes the line.
-theorem completesOfUnclosed (line: List Token) (stack: List Bracket) (h: scan Nil line = Unclosed stack): Completes line stack :=
-  scanBalanced (line ++ stack.map Closer) (rewrite scanAppend Nil line (stack.map Closer), h in closeAll stack)
+theorem completesOfUnclosed (line: List Token) (stack: List Bracket) (h: scan [] line = Unclosed stack): Completes line stack :=
+  scanBalanced (line ++ stack.map Closer) (rewrite scanAppend [] line (stack.map Closer), h in closeAll stack)
 
 --| Only the open brackets, closed innermost first, close them all.
-theorem closersExact: (stack: List Bracket) → (closers: List Bracket) → scan stack (closers.map Closer) = Unclosed Nil → closers = stack
-  | stack, Nil, h => Eq.sym (unclosedInjective stack Nil h)
-  | Nil, Cons closer rest, h => cases
-  | Cons top below, Cons closer rest, h =>
+theorem closersExact: (stack: List Bracket) → (closers: List Bracket) → scan stack (closers.map Closer) = Unclosed [] → closers = stack
+  | stack, [], h => Eq.sym (unclosedInjective stack [] h)
+  | [], [closer, ..rest], h => cases
+  | [top, ..below], [closer, ..rest], h =>
     match same: top == closer with
       | True => rewrite closersExact below rest h, DecEq.sound top closer same in rfl
       | False => cases
 
 --| Any completion of a line is what its scan leaves open.
-theorem completionIsOpen (line: List Token) (stack: List Bracket) (open: scan Nil line = Unclosed stack) (closers: List Bracket) (completes: Completes line closers):
+theorem completionIsOpen (line: List Token) (stack: List Bracket) (open: scan [] line = Unclosed stack) (closers: List Bracket) (completes: Completes line closers):
     closers = stack :=
   let whole := balancedScanNil (line ++ closers.map Closer) completes
-  closersExact stack closers (rewrite scanAppend Nil line (closers.map Closer), open at whole in whole)
+  closersExact stack closers (rewrite scanAppend [] line (closers.map Closer), open at whole in whole)
 
 --| A line has at most one completion.
 theorem completionUnique (line: List Token) (a: List Bracket) (b: List Bracket) (first: Completes line a) (second: Completes line b): a = b :=
-  match e: scan Nil line with
+  match e: scan [] line with
     | Corrupted illegal => Void.exfalso (notCorruptedOfLegal line illegal (Witness (a.map Closer) first) e)
     | Unclosed stack => rewrite completionIsOpen line stack e a first, completionIsOpen line stack e b second in rfl
 
 --| A line whose scan leaves something open is incomplete.
-theorem incompleteOfUnclosed (line: List Token) (top: Bracket) (below: List Bracket) (e: scan Nil line = Unclosed (Cons top below)): Incomplete line :=
-  Both (legalOfUnclosed line (Cons top below) e)
+theorem incompleteOfUnclosed (line: List Token) (top: Bracket) (below: List Bracket) (e: scan [] line = Unclosed [top, ..below]): Incomplete line :=
+  Both (legalOfUnclosed line [top, ..below] e)
     (balanced =>
-      let closed: Unclosed (Cons top below) = Unclosed Nil := Eq.trans (Eq.sym e) (balancedScanNil line balanced)
+      let closed: Unclosed [top, ..below] = Unclosed [] := Eq.trans (Eq.sym e) (balancedScanNil line balanced)
       cases)
 
 theorem completionPointsAgree: (bracket: Bracket) → completionPoints bracket = autocompletePoints bracket := cases
 
 theorem completionFold: (closers: List Bracket) → (score: Nat) →
     closers.foldLeft score (total bracket => total * 5 + completionPoints bracket) = completionTotal score closers
-  | Nil, score => rfl
-  | Cons bracket rest, score => rewrite <- completionPointsAgree bracket in completionFold rest (score * 5 + completionPoints bracket)
+  | [], score => rfl
+  | [bracket, ..rest], score => rewrite <- completionPointsAgree bracket in completionFold rest (score * 5 + completionPoints bracket)
 
 --| The program's scores are the incomplete lines' completion scores, in
 --| order.
 theorem completionScoresCorrect: (lines: List (List Token)) → CompletionScores lines (lines.filterMap autocompleteScore)
-  | Nil => NoneLeft
-  | Cons line rest =>
-    match e: scan Nil line with
+  | [] => NoneLeft
+  | [line, ..rest] =>
+    match e: scan [] line with
       | Corrupted illegal => Skipped (incomplete => notCorruptedOfLegal line illegal (And.left incomplete) e) (completionScoresCorrect rest)
-      | Unclosed Nil => Skipped (incomplete => And.right incomplete (scanBalanced line e)) (completionScoresCorrect rest)
-      | Unclosed (Cons top below) =>
-        rewrite completionFold (Cons top below) 0 in
-          Scored [closers := Cons top below] (incompleteOfUnclosed line top below e) (completesOfUnclosed line (Cons top below) e) (completionScoresCorrect rest)
+      | Unclosed [] => Skipped (incomplete => And.right incomplete (scanBalanced line e)) (completionScoresCorrect rest)
+      | Unclosed [top, ..below] =>
+        rewrite completionFold [top, ..below] 0 in
+          Scored [closers := [top, ..below]] (incompleteOfUnclosed line top below e) (completesOfUnclosed line [top, ..below] e) (completionScoresCorrect rest)
 
 --| The spec's list of completion scores is unique.
 theorem completionScoresUnique (lines: List (List Token)) (a: List Nat) (b: List Nat): CompletionScores lines a → CompletionScores lines b → a = b
@@ -80,17 +80,17 @@ theorem completionScoresUnique (lines: List (List Token)) (a: List Nat) (b: List
 
 --| An incomplete line has a score.
 theorem scoredOfIncomplete (line: List Token) (incomplete: Incomplete line): exists (score: Nat) => autocompleteScore line = Some score :=
-  match e: scan Nil line with
+  match e: scan [] line with
     | Corrupted illegal => Void.exfalso (notCorruptedOfLegal line illegal (And.left incomplete) e)
-    | Unclosed Nil => Void.exfalso (And.right incomplete (scanBalanced line e))
-    | Unclosed (Cons top below) => Witness (completionScore (Cons top below)) rfl
+    | Unclosed [] => Void.exfalso (And.right incomplete (scanBalanced line e))
+    | Unclosed [top, ..below] => Witness (completionScore [top, ..below]) rfl
 
 --| A list with an element `f` keeps has a nonempty `filterMap`.
-theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): (xs: List a) → x ∈ xs → xs.filterMap f ≠ Nil
-  | Nil, member, empty => Void.exfalso member
-  | Cons z rest, Inl same, empty =>
+theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): (xs: List a) → x ∈ xs → xs.filterMap f ≠ []
+  | [], member, empty => Void.exfalso member
+  | [z, ..rest], Inl same, empty =>
     rewrite same, kept at empty in cases
-  | Cons z rest, Inr later, empty =>
+  | [z, ..rest], Inr later, empty =>
     match f z with
       | None => filterMapNotNil f x y kept rest later empty
       | Some w => cases

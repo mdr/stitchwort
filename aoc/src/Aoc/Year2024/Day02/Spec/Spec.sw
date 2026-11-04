@@ -23,8 +23,8 @@ def safe (report: Report): Bool :=
 --| The levels with one of them removed, for each one in turn: without the
 --| first, then with the first kept and one removed from the rest.
 def removals: List Nat → List (List Nat)
-  | Nil => Nil
-  | Cons level rest => Cons rest (removals rest |> .map (Cons level))
+  | [] => []
+  | [level, ..rest] => [rest, ..removals rest |> .map (Cons level)]
 
 --| "If removing a single level from an unsafe report would make it safe, the
 --| report instead counts as safe."

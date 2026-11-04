@@ -9,49 +9,49 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Void)
 --| The scan of the start ending with `stack` open, and the scan of the rest
 --| from there stopping at `illegal`: that closer is the first illegal
 --| character of the whole line.
-theorem firstIllegalFrom (before: List Token) (illegal: Bracket): (stack: List Bracket) → scan Nil before = Unclosed stack → (rest: List Token) →
+theorem firstIllegalFrom (before: List Token) (illegal: Bracket): (stack: List Bracket) → scan [] before = Unclosed stack → (rest: List Token) →
     scan stack rest = Corrupted illegal → FirstIllegal (before ++ rest) (Closer illegal)
-  | stack, open, Nil, h => cases
-  | stack, open, Cons (Opener bracket) rest, h =>
-    let next := firstIllegalFrom (before ++ [Opener bracket]) illegal (Cons bracket stack) (rewrite scanAppend Nil before [Opener bracket], open in rfl) rest h
+  | stack, open, [], h => cases
+  | stack, open, [Opener bracket, ..rest], h =>
+    let next := firstIllegalFrom (before ++ [Opener bracket]) illegal [bracket, ..stack] (rewrite scanAppend [] before [Opener bracket], open in rfl) rest h
     rewrite List.appendAssoc before [Opener bracket] rest at next in next
-  | Nil, open, Cons (Closer closer) rest, h =>
-    rewrite <- corruptedInjective closer illegal h in stopsHere before closer rest Nil open (rewrite scanAppend Nil before [Closer closer], open in rfl)
-  | Cons top below, open, Cons (Closer closer) rest, h =>
+  | [], open, [Closer closer, ..rest], h =>
+    rewrite <- corruptedInjective closer illegal h in stopsHere before closer rest [] open (rewrite scanAppend [] before [Closer closer], open in rfl)
+  | [top, ..below], open, [Closer closer, ..rest], h =>
     match same: top == closer with
       | True =>
-        let opened: scan Nil (before ++ [Closer closer]) = Unclosed below := rewrite scanAppend Nil before [Closer closer], open, same in rfl
+        let opened: scan [] (before ++ [Closer closer]) = Unclosed below := rewrite scanAppend [] before [Closer closer], open, same in rfl
         let next := firstIllegalFrom (before ++ [Closer closer]) illegal below opened rest h
         rewrite List.appendAssoc before [Closer closer] rest at next in next
       | False =>
         rewrite <- corruptedInjective closer illegal h in
-          stopsHere before closer rest (Cons top below) open (rewrite scanAppend Nil before [Closer closer], open, same in rfl)
+          stopsHere before closer rest [top, ..below] open (rewrite scanAppend [] before [Closer closer], open, same in rfl)
 
 --| The scan stops at the closer right after a start it reads to the end.
-theorem stopsHere (before: List Token) (closer: Bracket) (rest: List Token) (stack: List Bracket) (open: scan Nil before = Unclosed stack)
-    (stops: scan Nil (before ++ [Closer closer]) = Corrupted closer): FirstIllegal (before ++ Cons (Closer closer) rest) (Closer closer) :=
+theorem stopsHere (before: List Token) (closer: Bracket) (rest: List Token) (stack: List Bracket) (open: scan [] before = Unclosed stack)
+    (stops: scan [] (before ++ [Closer closer]) = Corrupted closer): FirstIllegal (before ++ [Closer closer, ..rest]) (Closer closer) :=
   At before (Closer closer) rest (legalOfUnclosed before stack open) (legal => notCorruptedOfLegal (before ++ [Closer closer]) closer legal stops)
 
 --| Where the scan stops is the first illegal character.
-theorem firstIllegalOfScan (line: List Token) (illegal: Bracket) (h: scan Nil line = Corrupted illegal): FirstIllegal line (Closer illegal) :=
-  firstIllegalFrom Nil illegal Nil rfl line h
+theorem firstIllegalOfScan (line: List Token) (illegal: Bracket) (h: scan [] line = Corrupted illegal): FirstIllegal line (Closer illegal) :=
+  firstIllegalFrom [] illegal [] rfl line h
 
 --| And the first illegal character is always a closer, where the scan
 --| stops.
-theorem scanOfFirstIllegal (line: List Token) (token: Token): FirstIllegal line token → exists (illegal: Bracket) => token = Closer illegal ∧ scan Nil line = Corrupted illegal
+theorem scanOfFirstIllegal (line: List Token) (token: Token): FirstIllegal line token → exists (illegal: Bracket) => token = Closer illegal ∧ scan [] line = Corrupted illegal
   | At before _ after legal illegal =>
-    match e: scan Nil before with
+    match e: scan [] before with
       | Corrupted stop => Void.exfalso (notCorruptedOfLegal before stop legal e)
       | Unclosed stack =>
         match token with
           | Opener bracket => Void.exfalso (illegal (legalOpener before bracket legal))
           | Closer closer =>
             match stack with
-              | Nil => Witness closer (Both rfl (rewrite scanAppend Nil before (Cons (Closer closer) after), e in rfl))
-              | Cons top below =>
+              | [] => Witness closer (Both rfl (rewrite scanAppend [] before [Closer closer, ..after], e in rfl))
+              | [top, ..below] =>
                 match same: top == closer with
-                  | True => Void.exfalso (illegal (legalOfUnclosed (before ++ [Closer closer]) below (rewrite scanAppend Nil before [Closer closer], e, same in rfl)))
-                  | False => Witness closer (Both rfl (rewrite scanAppend Nil before (Cons (Closer closer) after), e, same in rfl))
+                  | True => Void.exfalso (illegal (legalOfUnclosed (before ++ [Closer closer]) below (rewrite scanAppend [] before [Closer closer], e, same in rfl)))
+                  | False => Witness closer (Both rfl (rewrite scanAppend [] before [Closer closer, ..after], e, same in rfl))
 
 --| A line has at most one first illegal character.
 theorem firstIllegalUnique (line: List Token) (a: Token) (b: Token) (first: FirstIllegal line a) (second: FirstIllegal line b): a = b :=
@@ -64,14 +64,14 @@ theorem pointsAgree: (bracket: Bracket) → syntaxPoints bracket = errorPoints b
 
 --| Each line's score is the spec's.
 theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line) :=
-  match e: scan Nil line with
+  match e: scan [] line with
     | Corrupted illegal => rewrite pointsAgree illegal in Illegal (firstIllegalOfScan line illegal e)
     | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
 
 --| Part 1 is the total syntax error score, for every list of lines.
 theorem part1Correct: (lines: List (List Token)) → Part1Answer lines (solvePart1 lines)
-  | Nil => NoLines
-  | Cons line rest => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
+  | [] => NoLines
+  | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
 
 def bracketOf: Token → Bracket
   | Opener bracket => bracket

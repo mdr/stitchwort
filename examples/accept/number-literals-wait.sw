@@ -30,7 +30,7 @@ theorem positiveAlone (cands: List Nat) (other: Nat) (positive: 0 < other) (mem:
 -- (D2087), and then the dictionary its `+` needs, so the rule is
 -- `List.sumBy (Cons x rest) (y => 1) = 1 + List.sumBy rest (y => 1)` on
 -- `Nat`, which the goal holds.
-theorem ruleSettled (rest: List Nat) (x: Nat): List.sumBy (Cons x rest) (y => 1) = Succ (List.sumBy rest (y => 1)) :=
+theorem ruleSettled (rest: List Nat) (x: Nat): List.sumBy [x, ..rest] (y => 1) = Succ (List.sumBy rest (y => 1)) :=
   rewrite List.sumByCons rest x (y => 1) in rfl
 
 def positives (xs: List Nat): List Nat := List.filter xs (a => 0 < a ∧ a < 10)

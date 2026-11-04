@@ -40,5 +40,5 @@ theorem parsedGrid (input: Text) (levels: List (List Nat)) (parsed: Fail.toResul
 
 --| The first row read as numbers is as long as the first row of digits.
 theorem firstLength: (rows: List (List (Fin 10))) → ((rows.map (digits => digits.map Fin.toNat)).headOr []).length = firstWidth rows
-  | Nil => rfl
-  | Cons first rest => List.lengthMap first Fin.toNat
+  | [] => rfl
+  | [first, ..rest] => List.lengthMap first Fin.toNat

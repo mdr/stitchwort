@@ -27,8 +27,8 @@ def size: Packet → Nat
   | Packets items => Succ (sizeList items)
 
 def sizeList: List Packet → Nat
-  | Nil => 0
-  | Cons p rest => size p + sizeList rest
+  | [] => 0
+  | [p, ..rest] => size p + sizeList rest
 
 def example: Packet := Packets [Number 1, Packets [Number 2, Number 3], Packets []]
 
@@ -57,9 +57,9 @@ test "depth" := depth example == 2
 -- By hand, that lemma is this (for the `size` above): a packet in a list is
 -- no bigger than the list, so it's smaller than the packet that holds it.
 theorem sizeListMem (q: Packet): (items: List Packet) → List.Mem q items → size q ≤ sizeList items
-  | Nil, member => Void.exfalso member
-  | Cons p rest, Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
-  | Cons p rest, Inr member =>
+  | [], member => Void.exfalso member
+  | [p, ..rest], Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
+  | [p, ..rest], Inr member =>
     Nat.leTrans (size q) (sizeList rest) (size p + sizeList rest)
       (sizeListMem q rest member) (Nat.leAddLeft (size p) (sizeList rest))
 

@@ -25,8 +25,8 @@ def main(): {IO, Fail} () :=
 def thresholdFrom (args: List Text): {Fail} Nat :=
   let usage := "expected no arguments, or the least saving to count, such as `50`"
   match args with
-    | Nil => 100
-    | Cons saving Nil => Fail.need saving.toNat usage
+    | [] => 100
+    | [saving] => Fail.need saving.toNat usage
     | _ => Fail.fail usage
 
 --| The track positions (S and E among them), the start and the end.
@@ -43,8 +43,8 @@ def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E",
 --| The one position holding `wanted`.
 def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
   match tiles.filter (entry => entry.snd == wanted) |> .map (entry => entry.fst) with
-    | Cons position Nil => position
-    | Nil => Fail.fail "no ${name} tile"
+    | [position] => position
+    | [] => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
 
 --| One row of tiles per line, with one S and one E.

@@ -45,10 +45,10 @@ def Ordering.isLessEq: Ordering → Bool
 --| elements of both ([`List.mergeCount`]).
 @[noReceiver]
 def List.merge (le: a → a → Bool): List a → List a → List a
-  | Nil, ys => ys
-  | Cons x xs, Nil => Cons x xs
-  | Cons x xs, Cons y ys =>
-    if le x y then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)
+  | [], ys => ys
+  | [x, ..xs], [] => [x, ..xs]
+  | [x, ..xs], [y, ..ys] =>
+    if le x y then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]
 
 -- Bottom-up merge sort, structurally recursive throughout. The runs are kept
 -- like the digits of a binary counter: slot `i` is empty or holds a sorted run
@@ -59,28 +59,28 @@ def List.merge (le: a → a → Bool): List a → List a → List a
 --| Adds a sorted run to the merge sort's slots, merging runs of the same size as a binary counter carries.
 @[noReceiver]
 def List.pushRun (le: a → a → Bool) (run: List a): List (Option (List a)) → List (Option (List a))
-  | Nil => Cons (Some run) Nil
-  | Cons None rest => Cons (Some run) rest
-  | Cons (Some older) rest => Cons None (List.pushRun le (List.merge le older run) rest)
+  | [] => [Some run]
+  | [None, ..rest] => [Some run, ..rest]
+  | [Some older, ..rest] => [None, ..List.pushRun le (List.merge le older run) rest]
 
 --| The merge sort's slots after adding each element of the list as a run of one.
 @[noReceiver]
 def List.buildRuns (le: a → a → Bool) (runs: List (Option (List a))): List a → List (Option (List a))
-  | Nil => runs
-  | Cons x xs => List.buildRuns le (List.pushRun le (Cons x Nil) runs) xs
+  | [] => runs
+  | [x, ..xs] => List.buildRuns le (List.pushRun le [x] runs) xs
 
 --| Merges the runs, older (earlier) ones on the left.
 @[noReceiver]
 def List.mergeRuns (le: a → a → Bool) (acc: List a): List (Option (List a)) → List a
-  | Nil => acc
-  | Cons None rest => List.mergeRuns le acc rest
-  | Cons (Some older) rest => List.mergeRuns le (List.merge le older acc) rest
+  | [] => acc
+  | [None, ..rest] => List.mergeRuns le acc rest
+  | [Some older, ..rest] => List.mergeRuns le (List.merge le older acc) rest
 
 --| Sorts by `le`, which says whether its first argument may come before its
 --| second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
 --| order. It is sorted, for a total `le` ([`List.sortWithSorted`]), and a
 --| permutation of the list ([`List.sortWithPerm`]).
-def List.sortWith (xs: List a) (le: a → a → Bool): List a := List.mergeRuns le Nil (List.buildRuns le Nil xs)
+def List.sortWith (xs: List a) (le: a → a → Bool): List a := List.mergeRuns le [] (List.buildRuns le [] xs)
 
 --| Sorts by a comparison, such as `Nat.compare` or `Text.compare`: sorted
 --| ([`List.sortBySorted`]) and a permutation of the list ([`List.sortByPerm`]).
@@ -96,21 +96,21 @@ def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy xs Ord.compa
 --| `List.LeHead le bound xs`: `bound` may come before the first element of `xs`, if any.
 @[noReceiver]
 def List.LeHead (le: a → a → Bool) (bound: a): List a → Prop
-  | Nil => Unit
-  | Cons y ys => le bound y = True
+  | [] => Unit
+  | [y, ..ys] => le bound y = True
 
 --| Each element may come before the next. For a transitive `le`, such as
 --| `Nat.leq`, that orders every pair.
 @[noReceiver]
 def List.Sorted (le: a → a → Bool): List a → Prop
-  | Nil => Unit
-  | Cons x xs => (List.LeHead le x xs) ∧ (List.Sorted le xs)
+  | [] => Unit
+  | [x, ..xs] => (List.LeHead le x xs) ∧ (List.Sorted le xs)
 
 --| `rel` holds of each element and every later one.
 @[noReceiver]
 def List.Pairwise (rel: a → a → Prop): List a → Prop
-  | Nil => Unit
-  | Cons x xs => (List.All (y => rel x y) xs) ∧ (List.Pairwise rel xs)
+  | [] => Unit
+  | [x, ..xs] => (List.All (y => rel x y) xs) ∧ (List.Pairwise rel xs)
 
 test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] == [3, 3, 2, 1]
 
@@ -118,8 +118,8 @@ test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] =
 --| (Haskell's `Data.List.delete`). With `x` in front it is a permutation of
 --| the list ([`List.permRemoveFirst`]).
 def List.removeFirst [auto eq: DecEq a]: List a → a → List a
-  | Nil, x => Nil
-  | Cons y ys, x => if y == x then ys else Cons y (ys.removeFirst x)
+  | [], x => []
+  | [y, ..ys], x => if y == x then ys else [y, ..ys.removeFirst x]
 
 test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFirst 3 == [1, 2] ∧ [3, 1, 2].removeFirst 2 == [3, 1]
 
@@ -131,55 +131,55 @@ test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFi
 -- Proved through each step of the merge sort.
 @[noReceiver]
 def List.mapRuns (f: a → b): List (Option (List a)) → List (Option (List b))
-  | Nil => Nil
-  | Cons None rest => Cons None (List.mapRuns f rest)
-  | Cons (Some older) rest => Cons (Some (List.map older f)) (List.mapRuns f rest)
+  | [] => []
+  | [None, ..rest] => [None, ..List.mapRuns f rest]
+  | [Some older, ..rest] => [Some (List.map older f), ..List.mapRuns f rest]
 
 theorem List.mergeMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le2 x y = le (f x) (f y)):
     (xs: List a) → (ys: List a) → List.map (List.merge le2 xs ys) f = List.merge le (List.map xs f) (List.map ys f)
-  | Nil, ys => rfl
-  | Cons x xs, Nil => rfl
-  | Cons x xs, Cons y ys =>
+  | [], ys => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] =>
     rewrite h x y in
-      List.mergeMapStep f (le (f x) (f y)) x y (List.merge le2 xs (Cons y ys)) (List.merge le2 (Cons x xs) ys)
-        (List.merge le (List.map xs f) (List.map (Cons y ys) f)) (List.merge le (List.map (Cons x xs) f) (List.map ys f))
-        (List.mergeMap f le le2 h xs (Cons y ys)) (List.mergeMap f le le2 h (Cons x xs) ys)
+      List.mergeMapStep f (le (f x) (f y)) x y (List.merge le2 xs [y, ..ys]) (List.merge le2 [x, ..xs] ys)
+        (List.merge le (List.map xs f) (List.map [y, ..ys] f)) (List.merge le (List.map [x, ..xs] f) (List.map ys f))
+        (List.mergeMap f le le2 h xs [y, ..ys]) (List.mergeMap f le le2 h [x, ..xs] ys)
 
 theorem List.mergeMapStep (f: a → b) (c: Bool) (x: a) (y: a) (l1: List a) (l2: List a) (r1: List b) (r2: List b)
     (e1: List.map l1 f = r1) (e2: List.map l2 f = r2):
-    List.map (if c then Cons x l1 else Cons y l2) f = (if c then Cons (f x) r1 else Cons (f y) r2) :=
+    List.map (if c then [x, ..l1] else [y, ..l2]) f = (if c then [f x, ..r1] else [f y, ..r2]) :=
   match c with
     | True => rewrite e1 in rfl
     | False => rewrite e2 in rfl
 
 theorem List.pushRunMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le2 x y = le (f x) (f y)):
     (run: List a) → (c: List (Option (List a))) → List.mapRuns f (List.pushRun le2 run c) = List.pushRun le (List.map run f) (List.mapRuns f c)
-  | run, Nil => rfl
-  | run, Cons None rest => rfl
-  | run, Cons (Some r) rest => rewrite List.pushRunMap f le le2 h (List.merge le2 r run) rest, List.mergeMap f le le2 h r run
+  | run, [] => rfl
+  | run, [None, ..rest] => rfl
+  | run, [Some r, ..rest] => rewrite List.pushRunMap f le le2 h (List.merge le2 r run) rest, List.mergeMap f le le2 h r run
 
 theorem List.buildRunsMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le2 x y = le (f x) (f y)):
     (c: List (Option (List a))) → (xs: List a) → List.mapRuns f (List.buildRuns le2 c xs) = List.buildRuns le (List.mapRuns f c) (List.map xs f)
-  | c, Nil => rfl
-  | c, Cons x xs => rewrite List.buildRunsMap f le le2 h (List.pushRun le2 (Cons x Nil) c) xs, List.pushRunMap f le le2 h (Cons x Nil) c
+  | c, [] => rfl
+  | c, [x, ..xs] => rewrite List.buildRunsMap f le le2 h (List.pushRun le2 [x] c) xs, List.pushRunMap f le le2 h [x] c
 
 theorem List.mergeRunsMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le2 x y = le (f x) (f y)):
     (acc: List a) → (c: List (Option (List a))) → List.map (List.mergeRuns le2 acc c) f = List.mergeRuns le (List.map acc f) (List.mapRuns f c)
-  | acc, Nil => rfl
-  | acc, Cons None rest => List.mergeRunsMap f le le2 h acc rest
-  | acc, Cons (Some r) rest => rewrite List.mergeRunsMap f le le2 h (List.merge le2 r acc) rest, List.mergeMap f le le2 h r acc
+  | acc, [] => rfl
+  | acc, [None, ..rest] => List.mergeRunsMap f le le2 h acc rest
+  | acc, [Some r, ..rest] => rewrite List.mergeRunsMap f le le2 h (List.merge le2 r acc) rest, List.mergeMap f le le2 h r acc
 
 theorem List.sortWithMap (xs: List a) (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le2 x y = le (f x) (f y)):
     List.map (List.sortWith xs le2) f = List.sortWith (List.map xs f) le :=
-  rewrite List.mergeRunsMap f le le2 h Nil (List.buildRuns le2 Nil xs), List.buildRunsMap f le le2 h Nil xs in rfl
+  rewrite List.mergeRunsMap f le le2 h [] (List.buildRuns le2 [] xs), List.buildRunsMap f le le2 h [] xs in rfl
 
 theorem List.sortByMap (xs: List a) (f: a → b) (cmp: b → b → Ordering) (cmp2: a → a → Ordering) (h: (x: a) → (y: a) → cmp2 x y = cmp (f x) (f y)):
     List.map (List.sortBy xs cmp2) f = List.sortBy (List.map xs f) cmp :=
   List.sortWithMap xs f (x y => Ordering.isLessEq (cmp x y)) (x y => Ordering.isLessEq (cmp2 x y)) (x y => rewrite h x y in rfl)
 
 theorem List.mapId: (xs: List a) → List.map xs (x => x) = xs
-  | Nil => rfl
-  | Cons x xs => rewrite List.mapId xs
+  | [] => rfl
+  | [x, ..xs] => rewrite List.mapId xs
 
 --| Sorting by two comparisons that agree everywhere.
 theorem List.sortByCong (xs: List a) (cmp1: a → a → Ordering) (cmp2: a → a → Ordering) (h: (x: a) → (y: a) → cmp1 x y = cmp2 x y):
@@ -208,14 +208,14 @@ test "List.sortOnMap" := List.map (List.sortOn [MkPair 3 "c", MkPair 1 "a"] (p =
 --| order. It keeps the list's elements ([`List.memDedupIntro`],
 --| [`List.memDedupElim`]) and keeps a sorted list sorted ([`List.sortedDedup`]).
 def List.dedup [auto eq: DecEq a]: List a → List a
-  | Nil => Nil
-  | Cons x xs => Cons x (List.dedupAfter x xs)
+  | [] => []
+  | [x, ..xs] => [x, ..List.dedupAfter x xs]
 
 --| `List.dedup` after `previous`: the elements not equal to the one before.
 @[noReceiver]
 def List.dedupAfter [auto eq: DecEq a] (previous: a): List a → List a
-  | Nil => Nil
-  | Cons x xs => if x == previous then List.dedupAfter previous xs else Cons x (List.dedupAfter x xs)
+  | [] => []
+  | [x, ..xs] => if x == previous then List.dedupAfter previous xs else [x, ..List.dedupAfter x xs]
 
-test "List.dedup" := [1, 1, 2, 3, 3, 3].dedup == [1, 2, 3] ∧ [2, 1, 2].dedup == [2, 1, 2] ∧ (Nil: List Nat).dedup == Nil
+test "List.dedup" := [1, 1, 2, 3, 3, 3].dedup == [1, 2, 3] ∧ [2, 1, 2].dedup == [2, 1, 2] ∧ ([]: List Nat).dedup == []
 test "List.dedup after sorting" := [3, 1, 3, 2, 1].sort.dedup == [1, 2, 3]

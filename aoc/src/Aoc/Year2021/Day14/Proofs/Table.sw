@@ -19,8 +19,8 @@ theorem findAbsent (key: (Char, Char)) (rules: List Rule) (absent: key ∉ rules
 
 theorem lookupRules (key: (Char, Char)): (rules: List Rule) → OneRulePerPair rules →
     Map.lookupLast key (rules.map (rule => (rule.pair, rule.insert))) = Option.map (rules.find (rule => (rule.left, rule.right) == key)) (rule => rule.insert)
-  | Nil, _ => rfl
-  | Cons rule rest, Both fresh distinct =>
+  | [], _ => rfl
+  | [rule, ..rest], Both fresh distinct =>
     let earlier := lookupRules key rest distinct
     match t: (rule.left, rule.right) == key with
       | True =>

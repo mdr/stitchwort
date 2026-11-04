@@ -19,8 +19,8 @@ theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrice
 theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Map Changes Nat) →
     (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
       Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd))
-  | Nil, sales => Eq.sym (Option.orElseNone (sales.get key))
-  | Cons entry rest, sales =>
+  | [], sales => Eq.sym (Option.orElseNone (sales.get key))
+  | [entry, ..rest], sales =>
     let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
     match same: entry.fst == key with
       | True =>
@@ -39,13 +39,13 @@ theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Ma
 --| sale with that sequence.
 theorem findMapSells (sequence: Changes): (places: List (List Nat)) →
     places.findMap (sellsAt sequence) = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd)
-  | Nil => rfl
-  | Cons Nil rest => findMapSells sequence rest
-  | Cons (Cons a Nil) rest => findMapSells sequence rest
-  | Cons (Cons a (Cons b Nil)) rest => findMapSells sequence rest
-  | Cons (Cons a (Cons b (Cons c Nil))) rest => findMapSells sequence rest
-  | Cons (Cons a (Cons b (Cons c (Cons d Nil)))) rest => findMapSells sequence rest
-  | Cons (Cons a (Cons b (Cons c (Cons d (Cons e after))))) rest =>
+  | [] => rfl
+  | [[], ..rest] => findMapSells sequence rest
+  | [[a], ..rest] => findMapSells sequence rest
+  | [[a, b], ..rest] => findMapSells sequence rest
+  | [[a, b, c], ..rest] => findMapSells sequence rest
+  | [[a, b, c, d], ..rest] => findMapSells sequence rest
+  | [[a, b, c, d, e, ..after], ..rest] =>
     match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
       | True => rfl
       | False => findMapSells sequence rest

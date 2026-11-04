@@ -11,8 +11,8 @@ import Std (IO, Nat)
 type Callback = { call: Nat → Nat }
 
 def make: List Nat → Callback
-  | Nil => { call = x => x }
-  | Cons n rest => { call = x => weigh rest x + n }
+  | [] => { call = x => x }
+  | [n, ..rest] => { call = x => weigh rest x + n }
 
 def weigh (xs: List Nat) (x: Nat): Nat :=
   let callback: Callback := make xs

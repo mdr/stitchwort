@@ -30,16 +30,16 @@ type Team = { lead: Person, size: Nat }
 def leadName (t: Team): Text := t.lead.name
 
 def firstLead: List Team → Text
-  | Nil => "nobody"
-  | Cons ({ lead = { name, .. }, .. }) rest => name
+  | [] => "nobody"
+  | [{ lead = { name, .. }, .. }, ..rest] => name
 
 -- Parameters and dependent fields, as for data types: `ok` mentions the
 -- earlier fields.
 type Sized (a: Type) = { items: List a, size: Nat, ok: items.length = size }
 
-def empty: Sized Nat := { items = Nil, size = 0, ok = rfl }
+def empty: Sized Nat := { items = [], size = 0, ok = rfl }
 
-def push (x: a) (s: Sized a): Sized a := { items = Cons x s.items, size = Succ s.size, ok = Eq.cong Succ s.ok }
+def push (x: a) (s: Sized a): Sized a := { items = [x, ..s.items], size = Succ s.size, ok = Eq.cong Succ s.ok }
 
 -- An update must replace every later field whose type mentions a replaced
 -- one: here `ok`, which mentions `items` and `size`.

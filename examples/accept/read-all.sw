@@ -5,8 +5,8 @@
 import Std (IO, Pair, Text)
 
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 def result (r: Pair (List Text) a): a := Pair.snd r

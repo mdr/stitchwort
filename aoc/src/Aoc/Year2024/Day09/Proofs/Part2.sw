@@ -42,9 +42,9 @@ theorem moveFileKeeps (free: FreeSpace) (file: File): (free.moveFile file).snd.i
 --| What holds of each element and its image holds along the zip.
 theorem allZipWith (holds: a → c → Prop) (g: a → b → c) (each: (x: a) → (y: b) → holds x (g x y)):
     (xs: List a) → (ys: List b) → List.All (pair => holds pair.fst pair.snd) (List.zip xs (List.zipWith xs ys g))
-  | Nil, ys => Trivial
-  | Cons x rest, Nil => Trivial
-  | Cons x rest, Cons y others => Both (each x y) (allZipWith holds g each rest others)
+  | [], ys => Trivial
+  | [x, ..rest], [] => Trivial
+  | [x, ..rest], [y, ..others] => Both (each x y) (allZipWith holds g each rest others)
 
 --| The files are moved once each, highest number first, and keep their
 --| numbers and lengths.
@@ -82,16 +82,16 @@ theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replica
   | Zero, id => rfl
   | Succ n, id => Eq.cong (Cons id) (fileBlocksReplicate n id)
 
-theorem fileBlocksReplicateFree: (n: Nat) → fileBlocks (List.replicate n None) = Nil
+theorem fileBlocksReplicateFree: (n: Nat) → fileBlocks (List.replicate n None) = []
   | Zero => rfl
   | Succ n => fileBlocksReplicateFree n
 
 --| The files' blocks are the disk's file blocks.
 theorem layoutBlocks: (id: Nat) → (position: Nat) → (diskMap: List Nat) →
     (layoutFrom id position diskMap).fst.flatMap .blocks = fileBlocks (blocksFrom id diskMap)
-  | id, position, Nil => rfl
-  | id, position, Cons fileLength Nil => rewrite fileBlocksReplicate fileLength id in List.appendNil (List.replicate fileLength id)
-  | id, position, Cons fileLength (Cons freeLength rest) =>
+  | id, position, [] => rfl
+  | id, position, [fileLength] => rewrite fileBlocksReplicate fileLength id in List.appendNil (List.replicate fileLength id)
+  | id, position, [fileLength, freeLength, ..rest] =>
     rewrite List.filterMapAppend (List.replicate fileLength (Some id)) (List.replicate freeLength None ++ blocksFrom (Succ id) rest) (block => block),
       List.filterMapAppend (List.replicate freeLength None) (blocksFrom (Succ id) rest) (block => block),
       fileBlocksReplicate fileLength id, fileBlocksReplicateFree freeLength

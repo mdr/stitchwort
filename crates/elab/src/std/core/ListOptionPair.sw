@@ -8,40 +8,40 @@
 
 --| `Unit` (true) for the empty list and `Void` (false) for any other: how `Nil ≠ Cons x xs` is proved.
 def List.IsNil: List a → Prop
-  | Nil => Unit
-  | Cons x xs => Void
+  | [] => Unit
+  | [x, ..xs] => Void
 
-theorem List.nilNotCons (x: a) (xs: List a): Nil ≠ Cons x xs
+theorem List.nilNotCons (x: a) (xs: List a): [] ≠ [x, ..xs]
   | p => J (y q => List.IsNil y) Trivial p
 
-theorem List.consNotNil (x: a) (xs: List a): Cons x xs ≠ Nil
+theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list.
 def List.headOr: List a → (fallback: a) → a
-  | Nil, fallback => fallback
-  | Cons x xs, fallback => x
+  | [], fallback => fallback
+  | [x, ..xs], fallback => x
 
 --| The list without its first element (empty for an empty list).
 def List.tailOf: List a → List a
-  | Nil => Nil
-  | Cons x xs => xs
+  | [] => []
+  | [x, ..xs] => xs
 
 --| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
 def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
-    Decidable (x = y) → Decidable (xs = ys) → Decidable (Cons x xs = Cons y ys)
-  | Yes p, Yes q => Yes (J (y' p' => Cons x xs = Cons y' ys) (Eq.cong (Cons x) q) p)
+    Decidable (x = y) → Decidable (xs = ys) → Decidable ([x, ..xs] = [y, ..ys])
+  | Yes p, Yes q => Yes (J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) q) p)
   | No r, dq => No (e => r (Eq.cong (.headOr x) e))
   | Yes p, No r => No (e => r (Eq.cong List.tailOf e))
 
 --| Equality of lists, from equality of their elements.
 @[noReceiver]
 def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (ys: List a) → Decidable (xs = ys)
-  | Nil, Nil => Yes rfl
-  | Nil, Cons y ys => No (List.nilNotCons y ys)
-  | Cons x xs, Nil => No (List.consNotNil x xs)
-  | Cons x xs, Cons y ys => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
+  | [], [] => Yes rfl
+  | [], [y, ..ys] => No (List.nilNotCons y ys)
+  | [x, ..xs], [] => No (List.consNotNil x xs)
+  | [x, ..xs], [y, ..ys] => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
 --| Decides whether two pairs are equal, from decisions about their parts.
 def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b):
@@ -94,14 +94,14 @@ def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) →
 --| Every element of the list satisfies `p`.
 @[noReceiver]
 def List.All (p: a → Prop): List a → Prop
-  | Nil => Unit
-  | Cons x xs => (p x) ∧ (List.All p xs)
+  | [] => Unit
+  | [x, ..xs] => (p x) ∧ (List.All p xs)
 
 --| Some element of the list satisfies `p`.
 @[noReceiver]
 def List.Any (p: a → Prop): List a → Prop
-  | Nil => Void
-  | Cons x xs => (p x) ∨ (List.Any p xs)
+  | [] => Void
+  | [x, ..xs] => (p x) ∨ (List.Any p xs)
 
 --| `x` is an element of the list.
 @[noReceiver]
@@ -120,9 +120,9 @@ def Pair.All (p: a → Prop) (q: b → Prop): Pair a b → Prop
 
 --| What holds of every element holds of each one.
 theorem List.memOfAll (p: a → Prop): (xs: List a) → List.All p xs → (x: a) → List.Mem x xs → p x
-  | Nil, all, x, member => Void.exfalso member
-  | Cons y ys, Both here rest, x, Inl same => J (z e => p z) here same
-  | Cons y ys, Both here rest, x, Inr member => List.memOfAll p ys rest x member
+  | [], all, x, member => Void.exfalso member
+  | [y, ..ys], Both here rest, x, Inl same => J (z e => p z) here same
+  | [y, ..ys], Both here rest, x, Inr member => List.memOfAll p ys rest x member
 
 --| What holds of the value, if any, holds of the value there is.
 theorem Option.memOfAll (p: a → Prop): (o: Option a) → Option.All p o → (x: a) → o = Some x → p x

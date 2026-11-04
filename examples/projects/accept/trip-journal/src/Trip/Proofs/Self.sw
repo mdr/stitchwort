@@ -109,9 +109,9 @@ theorem holdsOf (album: Album) (photo: Photo) (m: photo ∈ album.photos): holds
 -- photo is the album it is in.
 theorem holderOf: (albums: List Album) → List.Distinct (photoIds albums) → (album: Album) → album ∈ albums → (photo: Photo)
     → photo ∈ album.photos → holder albums photo.id = Some album.id
-  | Nil, d, album, m, photo, p => Void.exfalso m
-  | Cons first rest, d, album, Inl e, photo, p => rewrite e, holdsOf album photo p in rfl
-  | Cons first rest, d, album, Inr m, photo, p =>
+  | [], d, album, m, photo, p => Void.exfalso m
+  | [first, ..rest], d, album, Inl e, photo, p => rewrite e, holdsOf album photo p in rfl
+  | [first, ..rest], d, album, Inr m, photo, p =>
     let inRest: photo.id ∈ photoIds rest :=
       List.memFlatMapIntro (a => a.photos.map Photo.id) album photo.id rest m (List.memMap album.photos photo p Photo.id)
     let notHere: holds first photo.id = False :=

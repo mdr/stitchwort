@@ -44,8 +44,8 @@ def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digitCount number)
 --| `target`. The numbers after `first` come last one first: the last operator
 --| is undone from `target`, leaving what the numbers before it must make.
 def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → Bool
-  | Nil => target == first
-  | Cons last earlier =>
+  | [] => target == first
+  | [last, ..earlier] =>
     operators.any (operator =>
       match operator with
         | Add => last <= target && canMake operators first (target - last) earlier
@@ -62,8 +62,8 @@ def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → 
 --| value.
 def Equation.couldBeTrue (equation: Equation) (operators: List Operator): Bool :=
   match equation.numbers with
-    | Nil => False
-    | Cons first rest => canMake operators first equation.testValue rest.reverse
+    | [] => False
+    | [first, ..rest] => canMake operators first equation.testValue rest.reverse
 
 --| The sum of the test values of the equations that could be true.
 def calibrationResult (operators: List Operator) (equations: List Equation): Nat :=

@@ -59,8 +59,8 @@ def merge (ranges: List Range): List Range :=
 --| Add a range, starting no earlier than the ones already merged, to them.
 def absorb (merged: List Range) (range: Range): List Range :=
   match merged with
-    | Nil => [range]
-    | Cons last earlier =>
+    | [] => [range]
+    | [last, ..earlier] =>
       if range.from ≤ last.to + 1
-      then Cons ({ from = last.from, to = Nat.max last.to range.to }) earlier
-      else Cons range merged
+      then [{ from = last.from, to = Nat.max last.to range.to }, ..earlier]
+      else [range, ..merged]

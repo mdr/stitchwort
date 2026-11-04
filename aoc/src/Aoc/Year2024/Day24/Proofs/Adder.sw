@@ -189,8 +189,8 @@ theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries de
 --| them.
 theorem zWithinBound (bits: Nat) (bit: Nat): (gates: List Gate) → zWithin gates bits = True →
     Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output]) → bit ≤ bits
-  | Nil, within, member => Void.exfalso member
-  | Cons gate rest, within, member =>
+  | [], within, member => Void.exfalso member
+  | [gate, ..rest], within, member =>
     match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
       | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft _ _ within) (Z bit) here
       | Inr there => zWithinBound bits bit rest (Bool.andRight _ _ within) there

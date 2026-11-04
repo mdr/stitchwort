@@ -15,13 +15,13 @@ def Clear (position: Position) (monsters: List Monster): Prop := monsterAt posit
 theorem someNotNone (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster (Eq.sym found)
 
 --| The first monster of a clear list isn't on the cell, and the rest are clear.
-theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position (Cons monster others)):
+theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     (monster.position == position) = False :=
   match same: monster.position == position with
     | True => Void.exfalso (someNotNone monster clear)
     | False => rfl
 
-theorem clearTail (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position (Cons monster others)):
+theorem clearTail (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     Clear position others :=
   match same: monster.position == position with
     | True => Void.exfalso (someNotNone monster clear)
@@ -30,7 +30,7 @@ theorem clearTail (position: Position) (monster: Monster) (others: List Monster)
 theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False):
     (monsters: List Monster) → Clear position monsters → Clear position (monsters ++ [monster])
   | [], clear => rewrite away
-  | Cons first rest, clear =>
+  | [first, ..rest], clear =>
     match same: first.position == position with
       | True => Void.exfalso (someNotNone first clear)
       | False => clearSnoc position monster away rest clear
@@ -39,7 +39,7 @@ theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.positi
 theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
     (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → (destination == player) = False
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
-  | Cons choice rest, destination, picked =>
+  | [choice, ..rest], destination, picked =>
     match wall: isWall level choice with
       | True => pickFreeAway level player others rest destination picked
       | False =>
@@ -54,14 +54,14 @@ theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
 theorem clearMap (position: Position) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):
     (monsters: List Monster) → Clear position monsters → Clear position (monsters.map change)
   | [], clear => rfl
-  | Cons first rest, clear =>
+  | [first, ..rest], clear =>
     rewrite stays first, clearHead position first rest clear in clearMap position change stays rest (clearTail position first rest clear)
 
 --| Dropping monsters keeps the rest off the cell.
 theorem clearFilter (position: Position) (keep: Monster → Bool):
     (monsters: List Monster) → Clear position monsters → Clear position (monsters.filter keep)
   | [], clear => rfl
-  | Cons first rest, clear =>
+  | [first, ..rest], clear =>
     match kept: keep first with
       | True => rewrite clearHead position first rest clear in clearFilter position keep rest (clearTail position first rest clear)
       | False => clearFilter position keep rest (clearTail position first rest clear)
@@ -77,7 +77,7 @@ theorem actAllClear (dice: Dice) (level: Level) (player: Position):
     (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
     Clear player outcome.moved → Clear player waiting → Clear player (actAll dice level player index outcome waiting).moved
   | index, outcome, [], moved, rest => moved
-  | index, outcome, Cons monster waiting, moved, clear =>
+  | index, outcome, [monster, ..waiting], moved, clear =>
     let away := clearHead player monster waiting clear
     let rest := clearTail player monster waiting clear
     match next: monster.position.isNextTo player with

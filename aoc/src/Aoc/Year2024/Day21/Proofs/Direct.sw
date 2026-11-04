@@ -27,8 +27,8 @@ theorem movedNear (aim: Position) (to: Position): (direction: Direction) → (ne
 --| A walk has at least as many moves as the distance between its ends.
 theorem walkDistance (rows: List (List (Option k))): (start: Position) → (route: List Direction) → (end: Position) →
     walk rows start route = Some end → distance start end ≤ route.length
-  | start, Nil, end, walked => rewrite <- Option.someInjective start end walked in omega
-  | start, Cons direction rest, end, walked =>
+  | start, [], end, walked => rewrite <- Option.someInjective start end walked in omega
+  | start, [direction, ..rest], end, walked =>
     match step: moved start direction with
       | None => Void.exfalso (Option.noneNotSome end walked)
       | Some next =>

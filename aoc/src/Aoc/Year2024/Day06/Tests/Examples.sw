@@ -37,7 +37,7 @@ def stepsFrom (lab: Lab) (guard: Guard): Nat → List Guard
   | Succ count =>
     match lab.step guard with
       | None => []
-      | Some next => Cons next (stepsFrom lab next count)
+      | Some next => [next, ..stepsFrom lab next count]
 
 test "example, part 1" := exampleLab.map solvePart1 == Ok (Some 41)
 test "example, part 2" := exampleLab.map solvePart2 == Ok (Some 6)

@@ -43,8 +43,8 @@ def finalScore (drawn: List Nat) (justCalled: Nat) (board: Board): Nat :=
 --| order they are listed, each with its score. The scores of the boards that
 --| win, in the order they win.
 def play (drawn: List Nat) (playing: List Board): (toDraw: List Nat) → List Nat
-  | Nil => Nil
-  | Cons number later =>
+  | [] => []
+  | [number, ..later] =>
     let drawnNow := drawn ++ [number]
     let won := playing.filter (wins drawnNow)
     let stillPlaying := playing.filter (board => not (wins drawnNow board))

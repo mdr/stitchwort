@@ -14,14 +14,14 @@ import Std (Bool, DecEq, Eq, Finite, List, Nat, Option, Void)
 --| Where the arrows of `route` take an arm from `aim`: none if it is ever
 --| aimed at a gap or off the keypad.
 def walk (rows: List (List (Option k))) (aim: Position): List Direction → Option Position
-  | Nil => Some aim
-  | Cons direction rest => moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => walk rows next rest))
+  | [] => Some aim
+  | [direction, ..rest] => moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => walk rows next rest))
 
 --| Arrows, then other keys: the arrows walk the arm first.
 theorem operateArrows (rows: List (List (Option k))): (aim: Position) → (route: List Direction) → (rest: List DirectionKey) →
     operate rows aim (List.append (route.map Arrow) rest) = walk rows aim route |> .flatMap (end => operate rows end rest)
-  | aim, Nil, rest => rfl
-  | aim, Cons direction others, rest =>
+  | aim, [], rest => rfl
+  | aim, [direction, ..others], rest =>
     match step: moved aim direction with
       | None => rfl
       | Some next =>
@@ -65,8 +65,8 @@ type Fitted (k: Type) = {
 --| The cheapest of a non-empty list of routes passes a test they all pass.
 theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
     List.all choices passes = True → passes (costs.cheapestRoute choices) = True
-  | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
-  | Cons first others, some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
+  | [], some, all => Void.exfalso (Bool.falseNotTrue some)
+  | [first, ..others], some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
 
 theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
@@ -93,11 +93,11 @@ def directionalFitted: Fitted DirectionKey := fitted Keypad.directional directio
 --| A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
 theorem drivingKeysType (fit: Fitted k) (costs: Costs): (from: k) → (keys: List k) →
     operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys
-  | from, Nil => rfl
-  | from, Cons to rest =>
+  | from, [] => rfl
+  | from, [to, ..rest] =>
     let route := costs.cheapestRoute (fit.keypad.routes from to)
     rewrite List.appendAssoc (route.map Arrow) [Activate] (drivingKeys fit.keypad costs to rest),
-      operateArrows fit.rows (fit.keypad.place from) route (Cons Activate (drivingKeys fit.keypad costs to rest)),
+      operateArrows fit.rows (fit.keypad.place from) route [Activate, ..drivingKeys fit.keypad costs to rest],
       fit.cheapestWalks costs from to,
       fit.onKey to,
       drivingKeysType fit costs to rest

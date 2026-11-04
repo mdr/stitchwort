@@ -16,31 +16,31 @@ def filesystemChecksum (blocks: List (Option Nat)): Nat :=
 
 --| The file of the last file block, if there is a file block.
 def lastFile: List (Option Nat) → Option Nat
-  | Nil => None
-  | Cons block rest => (lastFile rest).orElse block
+  | [] => None
+  | [block, ..rest] => (lastFile rest).orElse block
 
 --| The blocks with the last file block made free.
 def freeLastFileBlock: List (Option Nat) → List (Option Nat)
-  | Nil => Nil
-  | Cons block rest => if (lastFile rest).isSome then Cons block (freeLastFileBlock rest) else Cons None rest
+  | [] => []
+  | [block, ..rest] => if (lastFile rest).isSome then [block, ..freeLastFileBlock rest] else [None, ..rest]
 
 --| Part 1's one move: "move file blocks one at a time from the end of the
 --| disk to the leftmost free space block". Past the file blocks at the front,
 --| the leftmost free block takes the last file block, if there is one after
 --| it.
 def moveLastBlock: List (Option Nat) → List (Option Nat)
-  | Nil => Nil
-  | Cons (Some id) rest => Cons (Some id) (moveLastBlock rest)
-  | Cons None rest =>
+  | [] => []
+  | [Some id, ..rest] => [Some id, ..moveLastBlock rest]
+  | [None, ..rest] =>
     match lastFile rest with
-      | Some id => Cons (Some id) (freeLastFileBlock rest)
-      | None => Cons None rest
+      | Some id => [Some id, ..freeLastFileBlock rest]
+      | None => [None, ..rest]
 
 --| A gap between file blocks: a free block with a file block after it.
 def hasGap: List (Option Nat) → Bool
-  | Nil => False
-  | Cons (Some id) rest => hasGap rest
-  | Cons None rest => rest.any (block => block.isSome)
+  | [] => False
+  | [Some id, ..rest] => hasGap rest
+  | [None, ..rest] => rest.any (block => block.isSome)
 
 --| "Until there are no gaps remaining between file blocks", for at most
 --| `moves` moves. The proofs show the disk's length is enough moves.

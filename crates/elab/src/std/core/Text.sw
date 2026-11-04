@@ -37,10 +37,10 @@ def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (Lis
 
 --| Lists of characters compared lexicographically, by scalar value.
 def Text.compareChars: List Char → List Char → Ordering
-  | Nil, Nil => Equal
-  | Nil, Cons y ys => Less
-  | Cons x xs, Nil => Greater
-  | Cons x xs, Cons y ys =>
+  | [], [] => Equal
+  | [], [y, ..ys] => Less
+  | [x, ..xs], [] => Greater
+  | [x, ..xs], [y, ..ys] =>
     Ordering.andThen (Nat.compare (Char.toNat x) (Char.toNat y)) (Text.compareChars xs ys)
 
 --| How `a` compares with `b`, lexicographically by scalar value: `"ab"` is `Less` than `"b"`. (Not JavaScript's order, which compares
@@ -67,7 +67,7 @@ def Nat.digitChar: Nat → Char
 def Nat.digitsOnto: Nat → Nat → List Char → List Char
   | Zero, n, acc => acc
   | Succ fuel, n, acc =>
-    if Nat.leq n 9 then Cons (Nat.digitChar n) acc else Nat.digitsOnto fuel (n / 10) (Cons (Nat.digitChar (n % 10)) acc)
+    if Nat.leq n 9 then [Nat.digitChar n, ..acc] else Nat.digitsOnto fuel (n / 10) [Nat.digitChar (n % 10), ..acc]
 
 --| The number in decimal, without leading zeros: `Nat.toText 42` is `"42"`.
-def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n Nil)
+def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n [])

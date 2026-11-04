@@ -72,11 +72,11 @@ theorem changeAgrees (stone: Nat): changeStone stone = change stone :=
 --| number, and so is any non-empty start of it.
 theorem digitsOfLeading: (xs: List Nat) → (count: Nat) → Nat.Digits xs → 1 ≤ xs.headOr 0 → 1 ≤ count →
     Nat.digits (Nat.fromDigits (xs.take count)) = xs.take count
-  | Nil, count, digits, lead, some => Void.exfalso (Bool.falseNotTrue lead)
-  | Cons first rest, Zero, digits, lead, some => Void.exfalso (Bool.falseNotTrue some)
-  | Cons first rest, Succ count, Both small digits, lead, some =>
+  | [], count, digits, lead, some => Void.exfalso (Bool.falseNotTrue lead)
+  | [first, ..rest], Zero, digits, lead, some => Void.exfalso (Bool.falseNotTrue some)
+  | [first, ..rest], Succ count, Both small digits, lead, some =>
     rewrite Nat.fromDigitsCons first (rest.take count), Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits),
-      Nat.digitsAccSmall first Nil small
+      Nat.digitsAccSmall first [] small
       in rfl
 
 --| The left stone shows exactly the left half of the digits: its first digit

@@ -8,11 +8,11 @@ import Std (Bool, Eq, Exists, List, Nat, Void)
 --| A route on from `cave`: its first cave is a neighbour, and the step to it
 --| ends the route there, or goes on along a route from it.
 def Follows (next: Text → List Text) (unvisited: List Text) (spare: Bool) (cave: Text): List Text → Prop
-  | Nil => Void
-  | Cons other rest =>
+  | [] => Void
+  | [other, ..rest] =>
     other ∈ next cave
       ∧ (match step unvisited spare cave other with
-        | Finish => rest = Nil
+        | Finish => rest = []
         | Blocked => Void
         | Continue left stillSpare => Follows next left stillSpare other rest)
 
@@ -38,9 +38,9 @@ theorem routesFollow (next: Text → List Text) (unvisited: List Text) (spare: B
 theorem followRoutes (next: Text → List Text) (unvisited: List Text) (spare: Bool) (cave: Text):
     (steps: Nat) → (rest: List Text) → reach unvisited spare cave < steps → Follows next unvisited spare cave rest → rest ∈ routesFrom next unvisited spare cave steps
   | Zero, rest, enough, follows => Void.exfalso (omega)
-  | Succ more, Nil, enough, follows => Void.exfalso follows
-  | Succ more, Cons other tail, enough, Both member after =>
-    List.memFlatMapIntro _ other (Cons other tail) (next cave) member
+  | Succ more, [], enough, follows => Void.exfalso follows
+  | Succ more, [other, ..tail], enough, Both member after =>
+    List.memFlatMapIntro _ other [other, ..tail] (next cave) member
       (match e: step unvisited spare cave other with
         | Finish => rewrite after in Inl rfl
         | Blocked => Void.exfalso after

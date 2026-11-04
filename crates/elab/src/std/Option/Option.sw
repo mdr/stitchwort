@@ -89,7 +89,7 @@ def Option.filter: Option a → (p: a → Bool) → Option a
 
 --| The value as a one-element list, or the empty list.
 def Option.toList: Option a → List a
-  | None => Nil
+  | None => []
   | Some x => [x]
 
 theorem Option.toListExample: (Some 3).toList = [3] := rfl

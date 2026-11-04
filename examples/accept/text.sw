@@ -80,8 +80,8 @@ def roundTrips: Nat → Bool
   | Succ n => if someIs (Succ n) ((Nat.toText (Succ n)).toNat) then roundTrips n else False
 
 def allRoundTrip: List Nat → Bool
-  | Nil => True
-  | Cons n ns => if someIs n ((Nat.toText n).toNat) then allRoundTrip ns else False
+  | [] => True
+  | [n, ..ns] => if someIs n ((Nat.toText n).toNat) then allRoundTrip ns else False
 
 test "natToText round trip" := roundTrips 100
 test "natToText round trip, larger" :=
@@ -89,8 +89,8 @@ test "natToText round trip, larger" :=
 
 -- Splitting keeps empty fields.
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 test "split" := eqTexts ("a,b".split ',') ["a", "b"]

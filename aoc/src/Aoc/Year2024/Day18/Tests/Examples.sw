@@ -39,7 +39,7 @@ def example: Text := """
 
 def parsed (input: Text): Result (List Position) Text := Fail.toResult (() => parseBytes input)
 
-def bytes (input: Text): List Position := Fail.orElse Nil (() => parseBytes input)
+def bytes (input: Text): List Position := Fail.orElse [] (() => parseBytes input)
 
 --| The puzzle's X,Y: column X, row Y.
 def at (x: Nat) (y: Nat): Position := { row = y, column = x }
@@ -47,7 +47,7 @@ def at (x: Nat) (y: Nat): Position := { row = y, column = x }
 test "example, part 1" := solvePart1 7 12 (bytes example) == Some 22
 test "example, part 2" := solvePart2 7 (bytes example) == Some (at 6 1)
 
-test "no bytes" := solvePart1 7 0 Nil == Some 12 && solvePart2 7 Nil == None
+test "no bytes" := solvePart1 7 0 [] == Some 12 && solvePart2 7 [] == None
 test "bytes that never cut the exit off" :=
   let aside := [at 3 3, at 1 0, at 5 2]
   solvePart1 7 3 aside == Some 12 && solvePart2 7 aside == None
@@ -63,7 +63,7 @@ test "a wall across, completed by the last byte" :=
 test "a winding path between two walls" :=
   let walls := [at 1 0, at 1 1, at 1 2, at 1 3, at 3 1, at 3 2, at 3 3, at 3 4]
   solvePart1 5 8 walls == Some 16 && solvePart2 5 walls == None
-test "one position, the start and the exit" := solvePart1 1 0 Nil == Some 0
+test "one position, the start and the exit" := solvePart1 1 0 [] == Some 0
 test "bytes outside the memory space change nothing" := solvePart1 3 1 [at 5 5] == Some 4 && solvePart2 3 [at 5 5] == None
 test "a byte falling twice" := solvePart2 3 [at 1 1, at 1 1, at 0 1, at 1 0] == Some (at 1 0)
 
@@ -79,8 +79,8 @@ test "edges out of the start" :=
   memory.graph.edges (at 0 0) == [(at 0 1, 1)]
 test "the spec's paths" :=
   isPath (isSafe 3 [at 1 1]) (at 0 0) [at 0 1, at 0 2, at 1 2, at 2 2] (at 2 2) && !isPath (isSafe 3 [at 1 1]) (at 0 0) [at 1 0, at 1 1] (at 1 1)
-    && !isPath (isSafe 3 Nil) (at 0 0) [at 1 1] (at 1 1) && !isPath (isSafe 3 Nil) (at 0 0) [at 0 1, at 0 2, at 0 3] (at 0 3)
-test "the spec's safety" := isSafe 3 [at 1 1] (at 0 0) && !isSafe 3 [at 1 1] (at 1 1) && !isSafe 3 Nil (at 3 0)
+    && !isPath (isSafe 3 []) (at 0 0) [at 1 1] (at 1 1) && !isPath (isSafe 3 []) (at 0 0) [at 0 1, at 0 2, at 0 3] (at 0 3)
+test "the spec's safety" := isSafe 3 [at 1 1] (at 0 0) && !isSafe 3 [at 1 1] (at 1 1) && !isSafe 3 [] (at 3 0)
 test "fewest steps to each position" :=
   let memory := MemorySpace.after 2 [at 1 0] 1
   (memory.fromStart.toList |> .map (entry => (entry.fst, entry.snd))) == [(at 0 0, 0), (at 0 1, 1), (at 1 1, 2)]

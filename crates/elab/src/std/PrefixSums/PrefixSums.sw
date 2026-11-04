@@ -11,7 +11,7 @@
 type PrefixSums = { sums: Map Nat (Map Nat Nat) }
 
 --| The cells of rows of numbers, row r and column c; 0 outside them.
-def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr r Nil |> .getOr c 0
+def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr r [] |> .getOr c 0
 
 --| The sum of a block of cells, added cell by cell: what `PrefixSums.block` computes in four lookups.
 --| The block is rows `top` up to, not including, `bottom`, and columns `left`
@@ -31,8 +31,8 @@ def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft row 0 Nat.
 --| The table's rows from the running sums of each row: `above` is the row of
 --| the table for the rows before.
 def PrefixSums.table (above: List Nat): List (List Nat) → List (List Nat)
-  | Nil => [above]
-  | Cons sums rest => Cons above (PrefixSums.table (List.zipWith above sums Nat.add) rest)
+  | [] => [above]
+  | [sums, ..rest] => [above, ..PrefixSums.table (List.zipWith above sums Nat.add) rest]
 
 --| Entry (r, c) of the table.
 def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.getOr r Map.empty |> .getOr c 0
@@ -54,4 +54,4 @@ test "PrefixSums.block" :=
     ∧ (PrefixSums.of PrefixSums.example).block 2 2 0 3 == 0
 test "PrefixSums.blockSpec" := PrefixSums.blockSpec PrefixSums.example 1 3 1 3 == 22
 test "PrefixSums.table" := PrefixSums.table [0, 0] [[0, 1], [0, 2]] == [[0, 0], [0, 1], [0, 3]]
-test "PrefixSums of no rows" := (PrefixSums.of Nil).block 0 0 0 0 == 0
+test "PrefixSums of no rows" := (PrefixSums.of []).block 0 0 0 0 == 0

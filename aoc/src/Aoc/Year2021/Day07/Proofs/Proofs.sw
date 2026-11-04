@@ -57,12 +57,12 @@ theorem leastFuelIs (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
 --| The spec's total fuel is the program's, for the same fuel.
 theorem totalFuelIs (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n: Nat) → specFuel n = fuel n): (crabs: List Nat) → (position: Nat) →
     totalFuel specFuel crabs position = fuelAt fuel crabs position
-  | Nil, position => rfl
-  | Cons crab rest, position =>
-    calc totalFuel specFuel (Cons crab rest) position
+  | [], position => rfl
+  | [crab, ..rest], position =>
+    calc totalFuel specFuel [crab, ..rest] position
       _ = specFuel (distance crab position) + totalFuel specFuel rest position := List.sumCons (specFuel (distance crab position)) (rest.map (c => specFuel (distance c position)))
       _ = fuel (Nat.absDiff crab position) + fuelAt fuel rest position := rewrite same (distance crab position), distanceIs crab position, totalFuelIs fuel specFuel same rest position in rfl
-      _ = fuelAt fuel (Cons crab rest) position := Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
+      _ = fuelAt fuel [crab, ..rest] position := Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
 
 --| The spec's distance is `Nat.absDiff`.
 theorem distanceIs (crab: Nat) (position: Nat): distance crab position = Nat.absDiff crab position := cases
@@ -74,15 +74,15 @@ theorem growingFuelMonotone (a: Nat) (b: Nat) (le: a ≤ b): growingFuel a ≤ g
 
 --| Folding `Nat.min` gives at most the start and each element.
 theorem foldMinLe: (xs: List Nat) → (start: Nat) → xs.foldLeft start Nat.min ≤ start
-  | Nil, start => Nat.leRefl start
-  | Cons x rest, start =>
+  | [], start => Nat.leRefl start
+  | [x, ..rest], start =>
     Nat.leTrans (rest.foldLeft (Nat.min start x) Nat.min) (Nat.min start x) start (foldMinLe rest (Nat.min start x)) (Nat.minLeLeft start x)
 
 theorem foldMinLeMember: (xs: List Nat) → (start: Nat) → (x: Nat) → x ∈ xs → xs.foldLeft start Nat.min ≤ x
-  | Nil, start, x, member => Void.exfalso member
-  | Cons y rest, start, x, Inl same =>
+  | [], start, x, member => Void.exfalso member
+  | [y, ..rest], start, x, Inl same =>
     rewrite <- same in Nat.leTrans (rest.foldLeft (Nat.min start y) Nat.min) (Nat.min start y) y (foldMinLe rest (Nat.min start y)) (Nat.minLeRight start y)
-  | Cons y rest, start, x, Inr member => foldMinLeMember rest (Nat.min start y) x member
+  | [y, ..rest], start, x, Inr member => foldMinLeMember rest (Nat.min start y) x member
 
 --| The scan's ends hold every crab between them.
 theorem rightmostGe (crabs: List Nat) (crab: Nat) (member: crab ∈ crabs): crab ≤ rightmost crabs := List.leFoldMax crabs crab 0 member
@@ -94,8 +94,8 @@ theorem leftmostLeRightmost (crabs: List Nat): leftmost crabs ≤ rightmost crab
 
 --| A sum over a list is at most another when each term is.
 theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat): (xs: List Nat) → ((x: Nat) → x ∈ xs → g x ≤ f x) → xs.sumBy g ≤ xs.sumBy f
-  | Nil, each => Nat.leRefl 0
-  | Cons x rest, each =>
+  | [], each => Nat.leRefl 0
+  | [x, ..rest], each =>
     rewrite List.sumByCons rest x g, List.sumByCons rest x f in
       omega [each x (Inl rfl), sumByLeMember f g rest (y member => each y (Inr member))]
 

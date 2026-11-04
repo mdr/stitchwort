@@ -7,7 +7,7 @@ def front (xs: List Nat): List Nat := [1, 2, ..xs]
 
 test "front" := front [3, 4] == [1, 2, 3, 4]
 
-theorem frontIsCons (xs: List Nat): front xs = Cons 1 (Cons 2 xs) := rfl
+theorem frontIsCons (xs: List Nat): front xs = [1, 2, ..xs] := rfl
 
 -- Equations step through a spread as through `Cons`.
 def total: List Nat → Nat
@@ -35,7 +35,7 @@ theorem bothIsAppend (xs: List Nat) (ys: List Nat): both xs ys = xs ++ ys := rfl
 
 def mixed (xs: List Nat) (ys: List Nat): List Nat := [1, ..xs, 2, ..ys]
 
-theorem mixedIsAppendCons (xs: List Nat) (ys: List Nat): mixed xs ys = Cons 1 (xs ++ Cons 2 ys) := rfl
+theorem mixedIsAppendCons (xs: List Nat) (ys: List Nat): mixed xs ys = [1, ..xs ++ [2, ..ys]] := rfl
 
 test "mixed" := mixed [10, 11] [20] == [1, 10, 11, 2, 20]
 

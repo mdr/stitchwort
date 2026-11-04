@@ -27,7 +27,7 @@ theorem resolveQuit (dice: Dice) (state: State) (playing: state.phase = Playing)
 --| strength.
 def threat (player: Position): List Monster → Nat
   | [] => 0
-  | Cons monster rest => (if monster.position.isNextTo player then monster.kind.strength else 0) + threat player rest
+  | [monster, ..rest] => (if monster.position.isNextTo player then monster.kind.strength else 0) + threat player rest
 
 theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   omega [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
@@ -44,7 +44,7 @@ theorem actAllDamage (dice: Dice) (level: Level) (player: Position):
     (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
     (actAll dice level player index outcome waiting).damage ≤ outcome.damage + threat player waiting
   | index, outcome, [] => omega
-  | index, outcome, Cons monster waiting =>
+  | index, outcome, [monster, ..waiting] =>
     match next: monster.position.isNextTo player with
       | True =>
         let rest := actAllDamage dice level player (index + 1) (outcome.add monster _ _) waiting
@@ -64,7 +64,7 @@ theorem monstersTurnHurt (dice: Dice) (state: State):
 
 theorem threatNone (player: Position): (monsters: List Monster) → List.All (monster => monster.position.isNextTo player = False) monsters → threat player monsters = 0
   | [], none => rfl
-  | Cons monster rest, Both far others => rewrite far, threatNone player rest others in rfl
+  | [monster, ..rest], Both far others => rewrite far, threatNone player rest others in rfl
 
 theorem monstersTurnNoHeal (dice: Dice) (state: State): (monstersTurn dice state).hitPoints ≤ state.hitPoints :=
   match phase: state.phase with

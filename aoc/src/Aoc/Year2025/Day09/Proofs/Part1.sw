@@ -13,12 +13,12 @@ theorem largestIsLargest (areas: List Nat): Largest areas (largest areas) :=
   Both (other m => List.leFoldMax areas other 0 m) (largestInList areas)
 
 --| It is one of the areas, or 0 when there are none.
-theorem largestInList: (areas: List Nat) → (List.Mem (largest areas) areas) ∨ ((areas = Nil) ∧ (largest areas = 0))
-  | Nil => Inr (Both rfl rfl)
-  | Cons first rest =>
-    match List.foldMaxMem (Cons first rest) 0 with
+theorem largestInList: (areas: List Nat) → (List.Mem (largest areas) areas) ∨ ((areas = []) ∧ (largest areas = 0))
+  | [] => Inr (Both rfl rfl)
+  | [first, ..rest] =>
+    match List.foldMaxMem [first, ..rest] 0 with
       | Inr m => Inl m
       -- The largest is 0, and the first area is at most that: 0 too.
-      | Inl zero => Inl (Inl (omega [List.leFoldMax (Cons first rest) first 0 (Inl rfl)]))
+      | Inl zero => Inl (Inl (omega [List.leFoldMax [first, ..rest] first 0 (Inl rfl)]))
 
 theorem part1Correct (tiles: List Tile): Part1 tiles (solvePart1 tiles) := largestIsLargest (List.map (List.pairs tiles) pairArea)

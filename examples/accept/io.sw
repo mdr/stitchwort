@@ -5,8 +5,8 @@
 import Std (IO, List, Nat, Pair)
 
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 -- What a simulated run printed, and its result.
@@ -59,7 +59,7 @@ def readThree(): {IO} List (Option Text) :=
   [a, b, c]
 
 def maybesAre: List (Option Text) → Bool
-  | Cons a (Cons b (Cons c Nil)) =>
+  | [a, b, c] =>
     if isSomeText "x" a then (if isNone b then isNone c else False) else False
   | _ => False
 

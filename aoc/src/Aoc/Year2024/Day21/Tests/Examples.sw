@@ -84,18 +84,18 @@ type State = { aims: List Position, done: Nat }
 --| arm on the numeric keypad); none if a robot panics or the door gets a
 --| key that isn't the code's next.
 def pushed (code: Code) (done: Nat): (aims: List Position) → (key: DirectionKey) → Option State
-  | Nil, key => None
-  | Cons aim Nil, Arrow direction =>
+  | [], key => None
+  | [aim], Arrow direction =>
     moved aim direction |> .flatMap (next => keyAt numericRows next |> .map (found => { aims = [next], done }))
-  | Cons aim Nil, Activate =>
+  | [aim], Activate =>
     keyAt numericRows aim |> .flatMap (found => if code.get done == Some found then Some ({ aims = [aim], done = done + 1 }) else None)
-  | Cons aim (Cons below others), Arrow direction =>
-    moved aim direction |> .flatMap (next => keyAt directionalRows next |> .map (found => { aims = Cons next (Cons below others), done }))
-  | Cons aim (Cons below others), Activate =>
+  | [aim, below, ..others], Arrow direction =>
+    moved aim direction |> .flatMap (next => keyAt directionalRows next |> .map (found => { aims = [next, below, ..others], done }))
+  | [aim, below, ..others], Activate =>
     keyAt directionalRows aim |> .flatMap (found =>
-      pushed code done (Cons below others) found |> .map (state => { state | aims = Cons aim state.aims }))
+      pushed code done [below, ..others] found |> .map (state => { state | aims = [aim, ..state.aims] }))
 
-def stateKey (state: State): List Nat := Cons state.done (state.aims.flatMap (aim => [aim.row, aim.column]))
+def stateKey (state: State): List Nat := [state.done, ..state.aims.flatMap (aim => [aim.row, aim.column])]
 
 --| Breadth first: the number of presses after which some state has the
 --| whole code, giving up after `fuel` presses.
@@ -109,7 +109,7 @@ def searchFrom (code: Code) (fuel: Nat) (presses: Nat) (frontier: List State) (s
       else
         let (fresh, seenNow) :=
           reached.foldLeft ([], seen) (((kept, seenSoFar)) state =>
-            if seenSoFar.contains (stateKey state) then (kept, seenSoFar) else (Cons state kept, seenSoFar.insert (stateKey state)))
+            if seenSoFar.contains (stateKey state) then (kept, seenSoFar) else ([state, ..kept], seenSoFar.insert (stateKey state)))
         searchFrom code fuel (presses + 1) fresh seenNow
 
 def bruteForce (robots: Nat) (code: Code): Option Nat :=
@@ -126,8 +126,8 @@ test "brute force agrees on short codes, up to three robots" :=
 
 --| Every list of at most `count` moves.
 def moveLists: (count: Nat) → List (List Direction)
-  | Zero => [Nil]
-  | Succ count => Cons Nil ([Up, Down, Left, Right].flatMap (direction => moveLists count |> .map (Cons direction)))
+  | Zero => [[]]
+  | Succ count => [[], ..[Up, Down, Left, Right].flatMap (direction => moveLists count |> .map (Cons direction))]
 
 --| The walk fact the optimality proof needs (`CheapestWalks`), for walks of
 --| at most `count` moves: each costs at least the program's cheapest route

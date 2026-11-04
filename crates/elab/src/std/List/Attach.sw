@@ -13,8 +13,8 @@ type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
 --| The elements of `rest`, a part of `whole`, as members of `whole`: `sub`
 --| says that what is in `rest` is in `whole`. One pass, structural.
 def List.attachFrom (whole: List a): (rest: List a) → ((x: a) → List.Mem x rest → List.Mem x whole) → List (List.Member a whole)
-  | Nil, sub => Nil
-  | Cons x xs, sub => Cons ({ value = x, isIn = sub x (Inl rfl) }) (List.attachFrom whole xs (y h => sub y (Inr h)))
+  | [], sub => []
+  | [x, ..xs], sub => [{ value = x, isIn = sub x (Inl rfl) }, ..List.attachFrom whole xs (y h => sub y (Inr h))]
 
 --| The elements of `xs`, in order, each with the proof that it's in `xs`.
 --| It builds a new list (for now: returning `xs` itself at run time is a
@@ -30,8 +30,8 @@ theorem List.attachExample: List.map (List.attach [3, 1, 2]) (e => e.value) = [3
 --| Dropping the proofs gives back the list.
 theorem List.attachFromValues (whole: List a): (rest: List a) → (sub: (x: a) → List.Mem x rest → List.Mem x whole) →
     List.map (List.attachFrom whole rest sub) (e => e.value) = rest
-  | Nil, sub => rfl
-  | Cons x xs, sub => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
+  | [], sub => rfl
+  | [x, ..xs], sub => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
 
 theorem List.attachValues (xs: List a): List.map (List.attach xs) (e => e.value) = xs := List.attachFromValues xs xs (x h => h)
 

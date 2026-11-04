@@ -170,7 +170,7 @@ def Map.Tree.remove [auto ord: Ord k] (key: k): Map.Tree k v → Map.Tree k v
 --| The entries in key order, followed by `acc`.
 def Map.Tree.toListOnto: Map.Tree k v → List (k, v) → List (k, v)
   | Tip, acc => acc
-  | Bin _ l kk vv r, acc => Map.Tree.toListOnto l (Cons (kk, vv) (Map.Tree.toListOnto r acc))
+  | Bin _ l kk vv r, acc => Map.Tree.toListOnto l [(kk, vv), ..Map.Tree.toListOnto r acc]
 
 --| Left fold over the tree's entries in key order.
 @[noReceiver]
@@ -559,8 +559,8 @@ theorem Map.Tree.mapWithKeySized (f: k → v → w): (t: Map.Tree k v) → Map.T
 
 --| The value for the first entry with that key.
 def Map.Tree.lookupList [auto ord: Ord k] (key: k): List (k, v) → Option v
-  | Nil => None
-  | Cons (kk, vv) rest => match Ord.compare key kk with
+  | [] => None
+  | [(kk, vv), ..rest] => match Ord.compare key kk with
     | Equal => Some vv
     | _ => Map.Tree.lookupList key rest
 
@@ -599,7 +599,7 @@ theorem Map.Tree.lookupOnto [auto ord: Ord k] (key: k): (lo: Option k) → (hi: 
     Map.Tree.lookupList key (Map.Tree.toListOnto t acc) = Map.Tree.orElse (Map.Tree.get key t) (Map.Tree.lookupList key acc)
   | lo, hi, Tip, acc, w => rfl
   | lo, hi, Bin s l kk vv r, acc, Both (Both a b) (Both wl wr) =>
-    rewrite Map.Tree.lookupOnto key lo (Some kk) l (Cons (kk, vv) (Map.Tree.toListOnto r acc)) wl in
+    rewrite Map.Tree.lookupOnto key lo (Some kk) l [(kk, vv), ..Map.Tree.toListOnto r acc] wl in
     match e: Ord.compare key kk with
       | Less =>
         rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr,
@@ -610,8 +610,8 @@ theorem Map.Tree.lookupOnto [auto ord: Ord k] (key: k): (lo: Option k) → (hi: 
           Map.Tree.lookupOnto key (Some kk) hi r acc wr in rfl
 
 theorem Map.Tree.getLookup [auto ord: Ord k] (key: k) (lo: Option k) (hi: Option k) (t: Map.Tree k v)
-    (w: Map.Tree.Within ord lo hi t): Map.Tree.get key t = Map.Tree.lookupList key (Map.Tree.toListOnto t Nil) :=
-  Eq.sym (Eq.trans (Map.Tree.lookupOnto key lo hi t Nil w) (Map.Tree.orElseNone (Map.Tree.get key t)))
+    (w: Map.Tree.Within ord lo hi t): Map.Tree.get key t = Map.Tree.lookupList key (Map.Tree.toListOnto t []) :=
+  Eq.sym (Eq.trans (Map.Tree.lookupOnto key lo hi t [] w) (Map.Tree.orElseNone (Map.Tree.get key t)))
 
 --| Rotations keep the entries in order.
 theorem Map.Tree.rebuildOnto: (s: Map.Tree.Shape) → (l: Map.Tree k v) → (key: k) → (value: v) → (r: Map.Tree k v) →
@@ -636,7 +636,7 @@ theorem Map.Tree.getBalance [auto ord: Ord k] (key: k) (lo: Option k) (hi: Optio
     (wl: Map.Tree.Within ord lo (Some kk) l) (wr: Map.Tree.Within ord (Some kk) hi r):
     Map.Tree.get key (Map.Tree.balance l kk vv r) = Map.Tree.get key (Map.Tree.bin l kk vv r) :=
   Eq.trans (Map.Tree.getLookup key lo hi (Map.Tree.balance l kk vv r) (Map.Tree.balanceWithin ord lo hi l kk vv r ab be wl wr))
-    (Eq.trans (Eq.cong (Map.Tree.lookupList key) (Map.Tree.rebuildOnto (Map.Tree.shape l r) l kk vv r Nil))
+    (Eq.trans (Eq.cong (Map.Tree.lookupList key) (Map.Tree.rebuildOnto (Map.Tree.shape l r) l kk vv r []))
       (Eq.sym (Map.Tree.getLookup key lo hi (Map.Tree.bin l kk vv r) (Both (Both ab be) (Both wl wr)))))
 
 --| What `insertWith` stores: `value`, or `f value old`.
@@ -761,7 +761,7 @@ def Map.Raw.size (m: Map.Raw k v [ord := o]): Nat := Map.Tree.size m.tree
 def Map.Raw.isEmpty (m: Map.Raw k v [ord := o]): Bool := Nat.equal (Map.Raw.size m) 0
 
 --| The entries, in key order.
-def Map.Raw.toList (m: Map.Raw k v [ord := o]): List (k, v) := Map.Tree.toListOnto m.tree Nil
+def Map.Raw.toList (m: Map.Raw k v [ord := o]): List (k, v) := Map.Tree.toListOnto m.tree []
 
 --| The keys, in order.
 def Map.Raw.keys (m: Map.Raw k v [ord := o]): List k := List.map (Map.Raw.toList m) Pair.fst
@@ -875,8 +875,8 @@ theorem Map.Raw.getMapWithKey [auto ord: Ord k] (m: Map.Raw k v) (key: k) (f: k 
 
 --| The value of the last pair with that key, which is what `fromList` keeps.
 def Map.lookupLast [auto ord: Ord k] (key: k): List (k, v) → Option v
-  | Nil => None
-  | Cons (kk, vv) rest => match Map.lookupLast key rest with
+  | [] => None
+  | [(kk, vv), ..rest] => match Map.lookupLast key rest with
     | Some x => Some x
     | None => match Ord.compare key kk with
       | Equal => Some vv
@@ -886,8 +886,8 @@ def Map.lookupLast [auto ord: Ord k] (key: k): List (k, v) → Option v
 theorem Map.Raw.getFoldInsert [auto ord: Ord k]: (m: Map.Raw k v) → (key: k) → (xs: List (k, v)) →
     Map.Raw.get key (List.foldLeft xs m (acc entry => Map.Raw.insert entry.fst entry.snd acc))
       = Map.Tree.orElse (Map.lookupLast key xs) (Map.Raw.get key m)
-  | m, key, Nil => rfl
-  | m, key, Cons (kk, vv) rest =>
+  | m, key, [] => rfl
+  | m, key, [(kk, vv), ..rest] =>
     rewrite Map.Raw.getFoldInsert (Map.Raw.insert kk vv m) key rest in
     match found: Map.lookupLast key rest with
       | Some x => rfl

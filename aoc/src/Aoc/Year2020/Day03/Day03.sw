@@ -37,21 +37,14 @@ def parseMap (input: Text): {Fail} Grid Square := parseGrid input square
 --| How far the toboggan moves at each step.
 type Slope = { right: Nat, down: Nat }
 
---| Where `column` falls in a row of `width` squares repeated to the right.
---| A row with no squares has nowhere to wrap to, and `%` needs a divisor
---| known not to be 0.
-def wrap (column: Nat) (width: Nat): Nat :=
-  match width with
-    | Zero => column
-    | Succ less => column % Succ less
-
 --| The trees at each step on `slope` from the top left, the first step's
 --| square onwards, until a step goes past the bottom.
 def treesOn (map: Grid Square) (slope: Slope): Nat :=
+  let nonZero := map.widthNonZero
   let find := map.lookupOr Open
   List.rangeFrom map.height 1
     |> .takeWhile (step => step * slope.down < map.height)
-    |> .count (step => find { row = step * slope.down, column = wrap (step * slope.right) map.width } == Tree)
+    |> .count (step => find { row = step * slope.down, column = step * slope.right % map.width } == Tree)
 
 def solvePart1 (map: Grid Square): Nat := treesOn map { right = 3, down = 1 }
 

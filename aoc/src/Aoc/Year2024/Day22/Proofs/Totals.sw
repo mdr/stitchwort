@@ -20,8 +20,8 @@ theorem unionGetOr (totals: Map Changes Nat) (sales: Map Changes Nat) (key: Chan
 theorem totalsGetOr (count: Nat) (key: Changes): (buyers: List Nat) → (totals: Map Changes Nat) →
     (buyers.foldLeft totals (totals buyer => totals.unionWith (firstSales (prices count buyer)) Nat.add)).getOr key 0 =
       totals.getOr key 0 + buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0)
-  | Nil, totals => (omega: totals.getOr key 0 = totals.getOr key 0 + 0)
-  | Cons buyer rest, totals =>
+  | [], totals => (omega: totals.getOr key 0 = totals.getOr key 0 + 0)
+  | [buyer, ..rest], totals =>
     let sales := firstSales (prices count buyer)
     Eq.trans (totalsGetOr count key rest (totals.unionWith sales Nat.add))
       (omega [

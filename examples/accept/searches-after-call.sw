@@ -26,9 +26,9 @@ def lambdaFirst (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (given: 
 -- Day 14: the `[auto eq: DecEq a]` dictionary of
 -- `List.memOfCountPositive`, found once its type is known, before `omega`
 -- reads its goal.
-theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count (Cons first tail) (== c)):
-    c ∈ Cons first tail :=
-  List.memOfCountPositive c (Cons first tail) (omega [positive])
+theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count [first, ..tail] (== c)):
+    c ∈ [first, ..tail] :=
+  List.memOfCountPositive c [first, ..tail] (omega [positive])
 
 -- Only the call's own instances are found before its searches: here the
 -- `+` of the lambda of the call around it (`x => x + 5`) is left until

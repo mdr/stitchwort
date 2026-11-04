@@ -11,4 +11,4 @@ def replay (state: State) (turns: List (Nat, Command)): State :=
 
 theorem replayValid: (turns: List (Nat, Command)) → (state: State) → Valid state → Valid (replay state turns)
   | [], state, valid => valid
-  | Cons (seed, command) rest, state, valid => replayValid rest (Random.withSeed seed (() => step state command)) (stepValid seed state command valid)
+  | [(seed, command), ..rest], state, valid => replayValid rest (Random.withSeed seed (() => step state command)) (stepValid seed state command valid)

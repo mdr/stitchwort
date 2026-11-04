@@ -19,21 +19,21 @@ theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ 
 
 --| Every dot of the list is inside the width and height `render` uses.
 theorem widthCovers: (dots: List Dot) → (spot: Dot) → spot ∈ dots → spot.x < width dots
-  | Nil, spot, member => Void.exfalso member
-  | Cons dot rest, spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
-  | Cons dot rest, spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later, Nat.leMaxRight (dot.x + 1) (width rest)]
+  | [], spot, member => Void.exfalso member
+  | [dot, ..rest], spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
+  | [dot, ..rest], spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later, Nat.leMaxRight (dot.x + 1) (width rest)]
 
 theorem heightCovers: (dots: List Dot) → (spot: Dot) → spot ∈ dots → spot.y < height dots
-  | Nil, spot, member => Void.exfalso member
-  | Cons dot rest, spot, Inl same => rewrite <- same in omega [heightCons dot rest, Nat.leMaxLeft (dot.y + 1) (height rest)]
-  | Cons dot rest, spot, Inr later => omega [heightCons dot rest, heightCovers rest spot later, Nat.leMaxRight (dot.y + 1) (height rest)]
+  | [], spot, member => Void.exfalso member
+  | [dot, ..rest], spot, Inl same => rewrite <- same in omega [heightCons dot rest, Nat.leMaxLeft (dot.y + 1) (height rest)]
+  | [dot, ..rest], spot, Inr later => omega [heightCons dot rest, heightCovers rest spot later, Nat.leMaxRight (dot.y + 1) (height rest)]
 
 --| `foldRight` is a `foldLeft` over the reversed list, so these don't hold
 --| by computing.
-theorem widthCons (dot: Dot) (rest: List Dot): width (Cons dot rest) = Nat.max (dot.x + 1) (width rest) :=
+theorem widthCons (dot: Dot) (rest: List Dot): width [dot, ..rest] = Nat.max (dot.x + 1) (width rest) :=
   List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)
 
-theorem heightCons (dot: Dot) (rest: List Dot): height (Cons dot rest) = Nat.max (dot.y + 1) (height rest) :=
+theorem heightCons (dot: Dot) (rest: List Dot): height [dot, ..rest] = Nat.max (dot.y + 1) (height rest) :=
   List.foldRightCons rest dot 0 (dot lowest => Nat.max (dot.y + 1) lowest)
 
 --| Inside the picture, a spot shows `#` if it is in the list and `.` if it

@@ -18,8 +18,8 @@ theorem forwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size 
 --| give `Some wanted`.
 theorem countFilterMap [auto eq: DecEq b] (f: a → Option b) (wanted: b):
     (xs: List a) → (xs.filterMap f).count (== wanted) = xs.count (x => f x == Some wanted)
-  | Nil => rfl
-  | Cons x rest =>
+  | [] => rfl
+  | [x, ..rest] =>
     rewrite List.countCons rest x (y => f y == Some wanted)
     in match e: f x with
       | None => countFilterMap f wanted rest

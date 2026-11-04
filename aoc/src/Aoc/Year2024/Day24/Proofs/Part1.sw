@@ -35,8 +35,8 @@ def fireOnto (values: Values) (settled: Values) (ready: List Gate): Values :=
 theorem fireOntoSound (device: Device) (values: Values) (sound: Sound device values):
     (ready: List Gate) → ((gate: Gate) → gate ∈ ready → gate ∈ device.gates ∧ gate.ready values = True) →
     (settled: Values) → Sound device settled → Sound device (fireOnto values settled ready)
-  | Nil, fit, settled, settledSound, wire, value, found => settledSound wire value found
-  | Cons gate rest, fit, settled, settledSound, wire, value, found =>
+  | [], fit, settled, settledSound, wire, value, found => settledSound wire value found
+  | [gate, ..rest], fit, settled, settledSound, wire, value, found =>
     let gateFits := fit gate (Inl rfl)
     match fired: gate.fire values with
       | None => Void.exfalso (Bool.falseNotTrue gateFits.right)

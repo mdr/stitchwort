@@ -75,7 +75,7 @@ theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: 
 theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → (group: Set Cell) → (pending: List Cell) →
     (result: Set Cell) → warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
     ((box: Cell) → group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ ((cell: Cell) → cell ∈ pending → Clear warehouse result cell))
-  | fuel, group, Nil, result, found, invariant =>
+  | fuel, group, [], result, found, invariant =>
     rewrite <- Option.someInjective _ _ found in
       Both (box held => held)
         (Both
@@ -86,8 +86,8 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
                   | Inl none => Void.exfalso none
                   | Inr clear => clear))
           (cell none => Void.exfalso none))
-  | Zero, group, Cons cell rest, result, found, invariant => Void.exfalso (Option.noneNotSome result found)
-  | Succ fuel, group, Cons cell rest, result, gathered, invariant =>
+  | Zero, group, [cell, ..rest], result, found, invariant => Void.exfalso (Option.noneNotSome result found)
+  | Succ fuel, group, [cell, ..rest], result, gathered, invariant =>
     match wall: warehouse.walls.contains cell with
       | True => Void.exfalso (Option.noneNotSome result gathered)
       | False =>
@@ -381,17 +381,17 @@ theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.
 --| nothing did at the start (so the robot is never on a wall or a box), and
 --| every box is whole.
 theorem moveAllWideWalls: (warehouse: Warehouse) → (moves: List Direction) → (warehouse.moveAllWide moves).walls = warehouse.walls
-  | warehouse, Nil => rfl
-  | warehouse, Cons move rest => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
+  | warehouse, [] => rfl
+  | warehouse, [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
 
 theorem moveAllWideSeparate: (warehouse: Warehouse) → (moves: List Direction) → WideSeparate warehouse → WideSeparate (warehouse.moveAllWide moves)
-  | warehouse, Nil, separate => separate
-  | warehouse, Cons move rest, separate => moveAllWideSeparate (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)
+  | warehouse, [], separate => separate
+  | warehouse, [move, ..rest], separate => moveAllWideSeparate (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)
 
 theorem moveAllWideWhole (warehouse: Warehouse) (moves: List Direction) (separate: WideSeparate warehouse): Whole (warehouse.moveAllWide moves) :=
   wholeOfSeparate (warehouse.moveAllWide moves) (moveAllWideSeparate warehouse moves separate)
 
 theorem moveAllWideCount: (warehouse: Warehouse) → (moves: List Direction) → WideSeparate warehouse → boxCount (warehouse.moveAllWide moves) = boxCount warehouse
-  | warehouse, Nil, separate => rfl
-  | warehouse, Cons move rest, separate =>
+  | warehouse, [], separate => rfl
+  | warehouse, [move, ..rest], separate =>
     Eq.trans (moveAllWideCount (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)) (moveWideCount warehouse move separate)

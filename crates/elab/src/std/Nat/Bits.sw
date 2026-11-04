@@ -339,18 +339,18 @@ theorem Nat.fromBitsExample: Nat.fromBits [True, False, True, True] = 11 := rfl
 --| every bit.
 theorem Nat.fromBitsFrom: (a: Nat) → (bits: List Bool) →
     List.foldLeft bits a (acc bit => acc * 2 + Bool.toNat bit) = a * Nat.pow 2 (List.length bits) + Nat.fromBits bits
-  | a, Nil => ring
-  | a, Cons bit rest => ring [Nat.fromBitsFrom (a * 2 + Bool.toNat bit) rest, Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest]
+  | a, [] => ring
+  | a, [bit, ..rest] => ring [Nat.fromBitsFrom (a * 2 + Bool.toNat bit) rest, Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest]
 
 --| The first bit counts 2^n, for the n bits after it.
 theorem Nat.fromBitsCons (bit: Bool) (rest: List Bool):
-    Nat.fromBits (Cons bit rest) = Bool.toNat bit * Nat.pow 2 (List.length rest) + Nat.fromBits rest :=
+    Nat.fromBits [bit, ..rest] = Bool.toNat bit * Nat.pow 2 (List.length rest) + Nat.fromBits rest :=
   rewrite Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest in ring
 
 --| A number and its bits flipped add up to all 1s, `2^n - 1` for n bits.
 theorem Nat.fromBitsFlipped: (bits: List Bool) → Nat.fromBits bits + Nat.fromBits (List.map bits Bool.not) + 1 = Nat.pow 2 (List.length bits)
-  | Nil => rfl
-  | Cons bit rest =>
+  | [] => rfl
+  | [bit, ..rest] =>
     rewrite Nat.fromBitsCons bit rest, Nat.fromBitsCons (Bool.not bit) (List.map rest Bool.not), List.lengthMap rest Bool.not in
       match bit with
         | True => omega [Nat.fromBitsFlipped rest]

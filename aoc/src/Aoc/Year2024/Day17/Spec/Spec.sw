@@ -96,11 +96,11 @@ def StepMatches (program: List Nat) (machine: Machine) (step: Step): Prop :=
 --| From `machine`, the program runs until it halts, outputting `output`,
 --| every step as the puzzle says.
 type Halts (program: List Nat): Machine → List Nat → Prop =
-  | Stops (machine: Machine) (stop: StepMatches program machine Halt): Halts program machine Nil
+  | Stops (machine: Machine) (stop: StepMatches program machine Halt): Halts program machine []
   | Quiet (machine: Machine) (after: Machine) (output: List Nat) (move: StepMatches program machine (Next after None)) (rest: Halts program after output):
     Halts program machine output
   | Prints (machine: Machine) (after: Machine) (value: Nat) (output: List Nat) (move: StepMatches program machine (Next after (Some value)))
-    (rest: Halts program after output): Halts program machine (Cons value output)
+    (rest: Halts program after output): Halts program machine [value, ..output]
 
 --| "Initialize the registers to the given values, then run the given
 --| program": the instruction pointer "starts at 0".
@@ -114,4 +114,4 @@ def OutputsItself (debugger: Debugger) (a: Nat): Prop := Halts debugger.program 
 --| the programs it gives have: each pass of a loop outputs one number, shifts
 --| A right by 3 bits and starts again unless A is 0, so what A outputs is a
 --| number, then what A / 8 outputs if A / 8 isn't 0. Assumed, not checked.
-def LoopShape (output: Nat → List Nat): Prop := (a: Nat) → ∃ (first: Nat) => output a = Cons first (if a < 8 then Nil else output (a / 8))
+def LoopShape (output: Nat → List Nat): Prop := (a: Nat) → ∃ (first: Nat) => output a = [first, ..(if a < 8 then [] else output (a / 8))]

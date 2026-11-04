@@ -29,27 +29,27 @@ type Exploding = { before: List Leaf, left: Leaf, right: Leaf, after: List Leaf 
 --| the puzzle explodes), these are the leftmost pair nested inside four
 --| pairs: that pair's elements can't be pairs, so they are its two values.
 def firstDeep: List Leaf → Option Exploding
-  | Nil => None
-  | Cons leaf rest =>
+  | [] => None
+  | [leaf, ..rest] =>
     if 4 < leaf.depth then
       match rest with
-        | Cons next after => Some ({ before = Nil, left = leaf, right = next, after })
-        | Nil => None
+        | [next, ..after] => Some ({ before = [], left = leaf, right = next, after })
+        | [] => None
     else
       match firstDeep rest with
-        | Some found => Some ({ found | before = Cons leaf found.before })
+        | Some found => Some ({ found | before = [leaf, ..found.before] })
         | None => None
 
 --| `amount` added to the first regular number, if there is one.
 def addToFirst (amount: Nat): List Leaf → List Leaf
-  | Nil => Nil
-  | Cons leaf rest => Cons ({ value = leaf.value + amount, depth = leaf.depth }) rest
+  | [] => []
+  | [leaf, ..rest] => [{ value = leaf.value + amount, depth = leaf.depth }, ..rest]
 
 --| `amount` added to the last regular number, if there is one.
 def addToLast (amount: Nat): List Leaf → List Leaf
-  | Nil => Nil
-  | Cons leaf Nil => [{ value = leaf.value + amount, depth = leaf.depth }]
-  | Cons leaf rest => Cons leaf (addToLast amount rest)
+  | [] => []
+  | [leaf] => [{ value = leaf.value + amount, depth = leaf.depth }]
+  | [leaf, ..rest] => [leaf, ..addToLast amount rest]
 
 --| Exploding: the pair's left value is added to the first regular number to
 --| its left (the last one before it), its right value to the first regular
@@ -57,19 +57,19 @@ def addToLast (amount: Nat): List Leaf → List Leaf
 --| one pair fewer than its values were.
 def explodeLeaves (leaves: List Leaf): Option (List Leaf) :=
   match firstDeep leaves with
-    | Some found => Some (addToLast found.left.value found.before ++ Cons ({ value = 0, depth = found.left.depth - 1 }) (addToFirst found.right.value found.after))
+    | Some found => Some (addToLast found.left.value found.before ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value found.after])
     | None => None
 
 --| Splitting: the leftmost regular number of 10 or more becomes a pair of
 --| its half rounded down and its half rounded up.
 def splitLeaves: List Leaf → Option (List Leaf)
-  | Nil => None
-  | Cons leaf rest =>
+  | [] => None
+  | [leaf, ..rest] =>
     if 10 ≤ leaf.value then
-      Some (Cons ({ value = leaf.value / 2, depth = leaf.depth + 1 }) (Cons ({ value = (leaf.value + 1) / 2, depth = leaf.depth + 1 }) rest))
+      Some [{ value = leaf.value / 2, depth = leaf.depth + 1 }, { value = (leaf.value + 1) / 2, depth = leaf.depth + 1 }, ..rest]
     else
       match splitLeaves rest with
-        | Some after => Some (Cons leaf after)
+        | Some after => Some [leaf, ..after]
         | None => None
 
 --| One step of reducing: explode if a pair can, else split if a number can.
@@ -93,7 +93,7 @@ def IsSum (x: Number) (y: Number) (sum: Number): Prop := ReducesTo (leaves 0 (Pa
 
 --| `total`, then each of `numbers` added to it in turn, is `final`.
 type AddsUpTo: Number → List Number → Number → Prop =
-  | NothingAdded (total: Number): AddsUpTo total Nil total
+  | NothingAdded (total: Number): AddsUpTo total [] total
   | AddNext (sum: IsSum total next total2) (rest: AddsUpTo total2 numbers final): AddsUpTo total (Cons next numbers) final
 
 def magnitude: Number → Nat
@@ -102,7 +102,7 @@ def magnitude: Number → Nat
 
 --| Part 1: the magnitude of the numbers added up in order.
 def Part1 (numbers: List Number) (answer: Nat): Prop :=
-  ∃ (first: Number) (rest: List Number) (final: Number) => numbers = Cons first rest ∧ AddsUpTo first rest final ∧ magnitude final = answer
+  ∃ (first: Number) (rest: List Number) (final: Number) => numbers = [first, ..rest] ∧ AddsUpTo first rest final ∧ magnitude final = answer
 
 --| Part 2: the largest magnitude of `x + y` for numbers `x` and `y` on
 --| different lines.

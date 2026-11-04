@@ -24,8 +24,8 @@ theorem neighboursStartingAt (network: Network) (one: Computer) (other: Computer
     Map.getGroupBy Pair.fst one network.bothWays
     in
   match network.bothWays.filter ((pair: (Computer, Computer)) => Map.Spec.sameKey one pair.fst) with
-    | Nil => rfl
-    | Cons first rest => Set.containsFromList other (Cons first rest |> .map Pair.snd)
+    | [] => rfl
+    | [first, ..rest] => Set.containsFromList other ([first, ..rest] |> .map Pair.snd)
 
 --| The program's neighbours are the connections both ways round.
 theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
@@ -145,13 +145,13 @@ theorem hasLinksIff (network: Network) (computer: Computer):
       | Some set =>
         List.anyTrueElim (startingAt network computer) (pair => True) (computer ∈ computers network)
           (match starting: network.bothWays.filter ((pair: (Computer, Computer)) => Map.Spec.sameKey computer pair.fst) with
-            | Nil =>
+            | [] =>
               Void.exfalso
                 (Option.noneNotSome set
                   (rewrite Map.getMap (Map.groupBy network.bothWays Pair.fst) computer (pairs => pairs.map Pair.snd |> Set.fromList),
                     Map.getGroupBy Pair.fst computer network.bothWays, starting
                     at found))
-            | Cons first rest => rfl)
+            | [first, ..rest] => rfl)
           (pair kept unused =>
             match pair with
               | (start, end) =>

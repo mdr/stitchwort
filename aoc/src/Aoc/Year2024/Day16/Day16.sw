@@ -36,8 +36,8 @@ def tile(): {Parse} Tile :=
 --| The one position holding `wanted`.
 def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
   match tiles.filter (entry => entry.snd == wanted) |> .map (entry => entry.fst) with
-    | Cons position Nil => position
-    | Nil => Fail.fail "no ${name} tile"
+    | [position] => position
+    | [] => Fail.fail "no ${name} tile"
     | _ => Fail.fail "more than one ${name} tile"
 
 --| One row of tiles per line, every row as long as the first (`parseGrid`
@@ -96,14 +96,14 @@ def Reindeer.turned (reindeer: Reindeer) (facing: Heading): Reindeer := { reinde
 --| The reindeer one tile forward, if that tile is open.
 def Maze.forward (maze: Maze) (reindeer: Reindeer): List Reindeer :=
   match reindeer.position.step reindeer.facing.toDirection with
-    | Some next => if maze.isOpen next then [{ reindeer | position = next }] else Nil
-    | None => Nil
+    | Some next => if maze.isOpen next then [{ reindeer | position = next }] else []
+    | None => []
 
 --| The reindeer one tile back, if that tile is open.
 def Maze.backward (maze: Maze) (reindeer: Reindeer): List Reindeer :=
   match reindeer.position.step reindeer.facing.toDirection.opposite with
-    | Some previous => if maze.isOpen previous then [{ reindeer | position = previous }] else Nil
-    | None => Nil
+    | Some previous => if maze.isOpen previous then [{ reindeer | position = previous }] else []
+    | None => []
 
 --| The two turns, each costing 1000.
 def Reindeer.turns (reindeer: Reindeer): List (Reindeer, Nat) :=
@@ -173,7 +173,7 @@ theorem Maze.stepsHold (maze: Maze) (moved: List Reindeer) (movedHold: (other: R
 --| The moves out of a way of standing on an open tile, with their costs, or
 --| into it if `backwards`; none from anywhere else.
 def Maze.moves (maze: Maze) (backwards: Bool) (reindeer: Reindeer): List (Reindeer, Nat) :=
-  if maze.holds reindeer then (if backwards then maze.before reindeer else maze.after reindeer) else Nil
+  if maze.holds reindeer then (if backwards then maze.before reindeer else maze.after reindeer) else []
 
 --| The moves lead to ways of standing on open tiles.
 theorem Maze.movesListed (maze: Maze) (backwards: Bool) (reindeer: Reindeer) (next: Reindeer) (weight: Nat)

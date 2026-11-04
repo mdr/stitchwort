@@ -19,7 +19,7 @@ test "touching" := touching (at 1 1) (at 0 0) ∧ touching (at 1 1) (at 2 1) ∧
 test "a path" := isPath (p => p.row == 0) (at 0 0) [at 0 1, at 0 2] (at 0 2) ∧ not (isPath (p => True) (at 0 0) [at 1 1] (at 1 1))
 test "positions" := positions 2 3 == [at 0 0, at 0 1, at 0 2, at 1 0, at 1 1, at 1 2]
 
-def small: Grid Nat := { rows = [[1, 2, 3], [4, 5, 6]] }
+def small: Grid Nat := Grid.of [[1, 2, 3], [4, 5, 6]]
 
 test "a grid's size" := small.height == 2 ∧ small.width == 3 ∧ small.positions == positions 2 3
 test "cells" := small.cells == [(at 0 0, 1), (at 0 1, 2), (at 0 2, 3), (at 1 0, 4), (at 1 1, 5), (at 1 2, 6)]
@@ -36,12 +36,15 @@ test "parse a grid" := parsedGrid "123\n456\n" == Ok small
 test "parse a short row" := parsedGrid "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "parse a letter" := parsedGrid "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 test "parse nothing" := parsedGrid "" == Err "expected a grid, got no cells"
+test "an empty line has no cells" := parsedGrid "\n\n" == Err "line 1, column 1: expected a digit, got the end of the line"
+
+test "a rectangle" := small.isRectangle ∧ not (Grid.of [[1, 2], [3]]).isRectangle ∧ not (Grid.of [[1], [2, 3]]).isRectangle
 
 --| The cells a breadth-first search reaches from the top left, through
 --| the cells that aren't 9.
 def reached (grid: Grid Nat): List Position :=
   (grid.graph (p cell => if cell == 9 then None else Some 1)).breadthFirst [at 0 0] |> .keys
 
-test "a grid's graph" := reached { rows = [[1, 9, 1], [1, 9, 1], [1, 1, 1]] } == [at 0 0, at 0 2, at 1 0, at 1 2, at 2 0, at 2 1, at 2 2]
-test "a wall" := reached { rows = [[1, 9, 1], [9, 9, 1]] } == [at 0 0]
+test "a grid's graph" := reached (Grid.of [[1, 9, 1], [1, 9, 1], [1, 1, 1]]) == [at 0 0, at 0 2, at 1 0, at 1 2, at 2 0, at 2 1, at 2 2]
+test "a wall" := reached (Grid.of [[1, 9, 1], [9, 9, 1]]) == [at 0 0]
 test "a box's distances" := ((boxGraph 2 2 (p => p.row + p.column)).distances [(at 0 0, 0)]).get (at 1 1) == Some 3

@@ -63,13 +63,13 @@ def bank(): {Parse} Bank :=
 def Bank.best: Bank → Nat → Bank
   | _, Zero => []
   | [], Succ _ => []
-  | Cons first rest, Succ remaining =>
+  | [first, ..rest], Succ remaining =>
     -- The leftmost largest of the next `window` digits, and what follows it. The
     -- candidate so far is `candidate`, followed by `after`.
     def pick: Nat → Bank → Fin 10 → Bank → (Fin 10, Bank)
       | Zero, _, candidate, after => (candidate, after)
       | Succ _, [], candidate, after => (candidate, after)
-      | Succ window, Cons x more, candidate, after =>
+      | Succ window, [x, ..more], candidate, after =>
         if candidate < x then pick window more x more else pick window more candidate after
     let (top, after) := pick (rest.length - remaining) rest first rest
     Cons top (Bank.best after remaining)

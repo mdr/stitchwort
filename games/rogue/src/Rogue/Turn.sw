@@ -84,7 +84,7 @@ def monstersTurn (dice: Dice) (state: State): State :=
     | Playing =>
       let outcome := actAll dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters
       let hitPoints := state.hitPoints - outcome.damage
-      let events := Text.join (Cons state.message outcome.events |> .filter (≠ "")) ' '
+      let events := Text.join ([state.message, ..outcome.events] |> .filter (≠ "")) ' '
       let message := if hitPoints == 0 then "${events} You die..." else events
       let phase := if hitPoints == 0 then Died else Playing
       { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
@@ -103,7 +103,7 @@ def Outcome.add (outcome: Outcome) (monster: Monster) (damage: Nat) (events: Lis
 --| otherwise moves. `index` numbers the monsters, to give each its own rolls.
 def actAll (dice: Dice) (level: Level) (player: Position) (index: Nat) (outcome: Outcome): List Monster → Outcome
   | [] => outcome
-  | Cons monster waiting =>
+  | [monster, ..waiting] =>
     if monster.position.isNextTo player then
       let damage := 1 + dice.upTo (3 * index + 1) (monster.kind.strength - 1)
       let event := "The ${monster.kind.name} hits you for ${damage}."
@@ -143,6 +143,6 @@ def Position.closerTo (position: Position) (target: Position): List Position :=
 def pickFree (level: Level) (choices: List Position) (player: Position) (others: List Monster): Option Position :=
   match choices with
     | [] => None
-    | Cons choice rest =>
+    | [choice, ..rest] =>
       if isWall level choice ∨ choice == player ∨ (monsterAt choice others).isSome then pickFree level rest player others
       else Some choice

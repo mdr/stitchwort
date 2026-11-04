@@ -29,8 +29,8 @@ def main(): {IO, Fail} () :=
 def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
   let usage := "expected no arguments, or a size and a number of bytes, such as `7 12`"
   match args with
-    | Nil => (71, 1024)
-    | Cons sizeText (Cons fallenText Nil) => (Fail.need sizeText.toNat usage, Fail.need fallenText.toNat usage)
+    | [] => (71, 1024)
+    | [sizeText, fallenText] => (Fail.need sizeText.toNat usage, Fail.need fallenText.toNat usage)
     | _ => Fail.fail usage
 
 --| One byte's position: "5,4" is X = 5 from the left edge, its column, and

@@ -10,7 +10,7 @@ import Std (List, Nat)
 
 def Counts: Type := List Nat
 
-def Counts.add (counts: Counts) (n: Nat): Counts := Cons n counts
+def Counts.add (counts: Counts) (n: Nat): Counts := [n, ..counts]
 
 def Counts.size (counts: Counts) (extra: Nat): Nat := counts.length + extra
 

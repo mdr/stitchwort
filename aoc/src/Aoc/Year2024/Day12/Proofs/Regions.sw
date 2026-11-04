@@ -54,8 +54,8 @@ def regionsWith (regions: List (List Position)) (position: Position): Nat := reg
 theorem atMostOnce (garden: Garden) (position: Position): (starts: List Position) → (seen: Set Position) → Closed garden seen →
     ((start: Position) → start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) →
     (regionsWith (garden.regionsFrom starts seen) position ≤ 1) ∧ (seen.contains position = True → regionsWith (garden.regionsFrom starts seen) position = 0)
-  | Nil, seen, closed, plots => Both (omega) (has => rfl)
-  | Cons start rest, seen, closed, plots =>
+  | [], seen, closed, plots => Both (omega) (has => rfl)
+  | [start, ..rest], seen, closed, plots =>
     match taken: seen.contains start with
       | True => atMostOnce garden position rest seen closed (other member => plots other (Inr member))
       | False =>
@@ -87,8 +87,8 @@ theorem atMostOnce (garden: Garden) (position: Position): (starts: List Position
 theorem covered (garden: Garden) (position: Position): (starts: List Position) → (seen: Set Position) →
     ((start: Position) → start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) → position ∈ starts →
     (seen.contains position = True) ∨ (1 ≤ regionsWith (garden.regionsFrom starts seen) position)
-  | Nil, seen, plots, none => Void.exfalso none
-  | Cons start rest, seen, plots, member =>
+  | [], seen, plots, none => Void.exfalso none
+  | [start, ..rest], seen, plots, member =>
     match taken: seen.contains start with
       | True =>
         match member with
@@ -125,8 +125,8 @@ theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: 
 --| Each region found is the region of one of the starts.
 theorem fromStarts (garden: Garden) (region: List Position): (starts: List Position) → (seen: Set Position) → region ∈ garden.regionsFrom starts seen →
     Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start))
-  | Nil, seen, none => Void.exfalso none
-  | Cons start rest, seen, member =>
+  | [], seen, none => Void.exfalso none
+  | [start, ..rest], seen, member =>
     match taken: seen.contains start with
       | True =>
         Exists.elim (fromStarts garden region rest seen member) (other both => Witness other (Both (Inr (And.left both)) (And.right both)))

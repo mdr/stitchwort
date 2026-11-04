@@ -1,12 +1,16 @@
 # Proposal: treating two proofs of the same fact as equal (proof irrelevance)
 
-**Status:** Draft 3, 19 October 2026. Design only: nothing is built. Drafts 1
+**Status:** Draft 4, 4 November 2026. Design only: nothing is built. Drafts 1
 and 2 each had an independent review; the responses are in
 [Appendix A](#appendix-a-response-to-the-draft-1-review) and
 [Appendix B](#appendix-b-response-to-the-draft-2-review). The draft 2 review's
-verdict was "adopt D1′ with changes"; draft 3 makes them. **Stage 1 is ready
-to implement once Matt answers §10 question 1.** No third review is planned
-(§11 says why).
+verdict was "adopt D1′ with changes"; draft 3 made them, and Matt adopted D1′
+(§10). Draft 4 fixes a problem found since: glued calls (SW-257) compare two
+calls by their arguments before unfolding, and with D1′'s masks that shortcut
+would equate things unfolding doesn't (§5.1, §5.7). Matt's D2349 restricts
+the masks on definitions; draft 4 specifies that, and finds that constructor
+masks need a matching change in the shortcut (§7.2, §7.10). **Stage 1 waits
+for §10's D2352 to D2354.**
 
 This note can be read without knowing type theory. §1 explains the words it
 needs, with Stitchwort examples. Claims about Stitchwort were checked against
@@ -14,9 +18,14 @@ the source at commit `80c87a8` (draft 1), `69dd68a` (draft 2) and `bc89481`
 (draft 3). `crates/core/src` and `crates/elab/src` are unchanged across the
 three apart from `pretty.rs` and the prelude, which lost four lines after
 line 231 (prelude line numbers below are as of `bc89481`); other line numbers
-hold for all three. Programs marked **[run]** were run with a release build
-of the CLI on 19 October 2026 (draft 3's at `bc89481`, files kept outside the
-repository). New Stitchwort code in draft 3 uses the new house style
+hold for all three. **Draft 4** was checked at `f3769d45`. The code has moved
+a lot since `bc89481` (`value.rs`'s `conv` is now at line 2266, and the
+prelude became `crates/elab/src/std`), so line numbers in text new in draft 4
+are as of `f3769d45`, and older ones are left as they were: they locate the
+code as it was when draft 3 was reviewed, and stage 1 has to find the current
+places anyway. Programs marked **[run]** were run with a release build of the
+CLI on 19 October 2026 (draft 3's at `bc89481`) or, for draft 4, on 4
+November 2026 at `f3769d45` (files kept outside the repository). New Stitchwort code in draft 3 uses the new house style
 (`(x: Nat)`); older blocks are left as they were. Labels:
 
 - **[checked: S]**: read in source S (listed in [Sources](#sources)), or in
@@ -25,7 +34,71 @@ repository). New Stitchwort code in draft 3 uses the new house style
 - **[inferred]**: my reasoning from checked facts, not stated in a source;
 - **[unverified]**: believed, but not confirmed.
 
-## Changes since draft 2
+## Changes since draft 3
+
+1. **The problem: glued calls.** Since draft 3 the kernel and the elaborator
+   compare two glued calls of the same definition by their arguments first,
+   and unfold only if those differ (SW-257, docs/core.md "Glued calls",
+   `value.rs:2401` `conv_step`). Draft 3's §6 claimed D1′ "never equates an
+   unreduced term with a reduced one". With masks applied to those
+   arguments, it would: `steps l 0` and `steps (MkLoop (Loop.inv l)) 0`
+   become equal (the `Loop` argument is skipped, `0 = 0`), while the second
+   unfolds to `steps (Loop.inv l) 1`, which differs from `steps l 0`. That
+   is Carneiro's non-transitivity (§3.1.1 of L4), and with it his
+   subject-reduction failure (§3.1.2). The everyday shape is a transport:
+   `cast a a rfl x` and `cast a a h x` would be equal by the shortcut, yet
+   the first computes to `x` and `x` isn't `cast a a h x`. Not unsound (the
+   relation stays inside the proof-irrelevant model), but gluing would stop
+   being an optimisation: the same comparison would get different answers
+   with gluing on and off. §5.1, §5.7, §6 corrected.
+2. **Masks on a definition's arguments only for *inert* proof parameters**
+   (Matt's D2349): a proof parameter the definition never computes with.
+   §7.1 states it, §7.3 says how it's computed (one flag per parameter,
+   from the checked body, a greatest fixed point over a recursion group).
+   Working it out sharpened D2349 in three places, each a question for Matt
+   (§10): a `case` with no possible branch (`Void.absurd`) doesn't count as
+   computing (D2353; without this `Int.modNat`, §2.1's own example, loses
+   its mask); passing the proof on is allowed only to another inert
+   parameter, not into a constructor field (D2354); and calls of local
+   function variables keep their arguments relevant, as in draft 3.
+3. **New finding: constructor masks break the shortcut too.**
+   `Box.unbox (MkBox p)` and `Box.unbox (MkBox q)` would be equal by the
+   shortcut (the boxes are equal by the field mask), yet they compute to `p`
+   and `q`, which differ. D2349 doesn't touch this: `Box.unbox` has no proof
+   parameter. So the shortcut compares arguments with the constructor masks
+   off and the inert masks on (§7.2, D2352). With both changes, a shortcut's
+   "equal" implies that the unfoldings are equal, so gluing is again a pure
+   optimisation (§7.10, an argument by induction on evaluation, not a
+   proof), and the masked relation is transitive on values of one type
+   (§6). Constructor masks still don't survive substitution, which is the
+   §5.7 gap, now its only source.
+4. **§5.6 rests on Carneiro's ideal/algorithmic split**: his Lemma 3.4(3)
+   (algorithmic equality of two terms of one type implies ideal equality)
+   and his model (§6) cover D1′'s comparison for the rules Stitchwort shares
+   with Lean, given §7.4's same-type invariant; Stitchwort's extra rules
+   still need their own arguments. His §4.1 split of ideal equality into
+   reduction and proof irrelevance (`κ` and `≡p`) shows which side D1′ is
+   on: Stitchwort has no type-directed reduction like his `K+`, so D1′ only
+   adds to the comparison side.
+5. **Which std definitions lose masks** (§7.3): none of the motivating ones
+   (`Nat.mod`, `Nat.div`, `Int.modNat` and the other `Int` divisions,
+   `Fin.ofNatLt`, the fuel proof of `decreasing`), given D2353. Losing:
+   `List.chunksOfPositive`'s `pos` (it reaches a `decreasing` proof, an
+   argument of the local `%rec`), `Float.make`'s `p` and
+   `Map.Raw.fromSorted`'s `sorted` (into a record's proof field, D2354),
+   and theorems that take a hypothesis apart. What that costs is small:
+   those definitions always unfold or sit in proof positions (§7.3).
+6. **Tests** (§8): 17 to 23, comparing the `cast`, `Loop` and `Box.unbox`
+   shapes with gluing on and off and the shortcut disabled, `Int.modNat`'s
+   mask still applying, and must-rejects for non-inert parameters (a
+   one-branch `case`, a group, a stored proof). Mutation tests for the
+   shortcut's mode.
+7. **Smaller**: Stitchwort refuses a quotient of a proposition
+   (`E-UNIVERSE` **[run]**), which removes Carneiro's second source of
+   non-transitivity (§5.1); the masks stay out of hashes, as erasure flags
+   do (§7.7); §0, §1, §2.4, §4.5's row, §9, §10 and §12 updated.
+
+## Changes in draft 3 (since draft 2)
 
 1. **Reworded what D1′ implies** (§0, §1, §5.1, §5.7, §6): not "its rules
    imply full irrelevance", but "D1′ is enough to *derive* propositional
@@ -132,15 +205,20 @@ worked around both: `[auto]` arguments in the `Int` lemmas, and an
 elaborator pass (`canonical`, commit `55c48eb`) for character patterns.
 
 **Recommendation: option D1′, "skip proof positions when comparing".** When
-the kernel compares two values with the same head and reaches an argument or
-constructor field that the declaration says is a proof (its declared type is
-in `Prop`), it skips it. That is the whole rule. Nothing new is *computed*:
+the kernel compares two values with the same head and reaches a constructor
+field that the declaration says is a proof (its declared type is in
+`Prop`), or a definition's proof argument that the definition never
+computes with (an *inert* parameter, D2349), it skips it. Comparing two
+calls by their arguments before unfolding them (the glued-call shortcut)
+skips only the inert arguments, not proof fields, so that it never says
+"equal" where unfolding wouldn't (§7.2, §7.10). Nothing new is *computed*:
 the evaluator is untouched, `J` still only computes on `rfl`, a `case` on a
 proof still needs a constructor, and `rfl` is still checked only by
 comparison. It uses the "relevance marks" idea from Rocq's `SProp` (read the
 binder's declared sort, don't infer types during comparison). It fixes all
 three programs in §2, needs no change to JS extraction, erasure or hashing,
-and comparison only does less work than before.
+and comparison does no more work than before, except that the shortcut
+sometimes unfolds where it didn't (§7.3).
 
 What it is, honestly: a *sound but incomplete* version of the proof
 irrelevance Lean has. D1′ is enough to *derive* that every two proofs of a
@@ -149,9 +227,16 @@ proposition are equal (as a theorem) and to write a computing K by hand
 positions of definitions, constructors and data types, not for two bare
 proof variables `p` and `q`. Because of the gap, a well-typed term can
 compute to one the checker would reject at the same type (§5.7). Assuming
-the model argument of §5.6, that can make elaboration or checking fail (or
+the model argument of §5.6 (Carneiro's for Lean: an equality checked between
+two terms of one type lies inside the ideal equality his model validates),
+that can make elaboration or checking fail (or
 run into the budget), but doesn't by itself let a false term through; Lean
-has a gap of the same kind for other reasons (§5.1).
+has a gap of the same kind for other reasons (§5.1). With the inert rule
+the gap has one source, constructor fields; the masked comparison is
+transitive on values of one type, and the same with gluing on or off (§6,
+§7.10). The cost of the inert rule: whether `f p` and `f q` are equal
+depends on `f`'s body, and `cast a a rfl x` and `cast a a h x` stay
+different, as today.
 
 Three prerequisites: comparison is only ever asked about two values of the
 same type (audited call by call, §7.4: holds today); the unifier never looks
@@ -171,10 +256,11 @@ it doesn't try to be complete: Lean's full rule is known to make type
 checking undecidable (Carneiro 2019, §5.1), and Stitchwort's `Prop` admits
 the same counterexample (§5.1, a program accepted today).
 
-Stage 1 is a small kernel change plus the matching change in the
-elaborator's unifier and the reference evaluator; stage 2 removes the
-elaborator workarounds. **The design is ready for stage 1** once Matt agrees
-to D1′ (§10 question 1); the other questions only affect stage 2 or later.
+Stage 1 is a kernel change (the masks, the inert analysis, the skips and the
+shortcut's mode) plus the matching change in the elaborator's unifier and
+the reference evaluator; stage 2 removes the elaborator workarounds. Matt
+adopted D1′ on 19 October and restricted it with D2349 on 4 November.
+**Stage 1 is ready once Matt answers D2352 to D2354** (§10).
 
 ## 1. The words, in plain terms
 
@@ -260,6 +346,22 @@ so if some terms have no normal form, comparison can loop.
 **Transitivity.** If `a ≡ b` and `b ≡ c` then `a ≡ c`. A checker whose
 equality isn't transitive surprises users: two steps that each check can
 fail when combined.
+
+**Glued calls and the shortcut** (new in draft 4). While checking, a
+definition applied to all its arguments is kept as a *call*, `f a b`, and
+unfolded only when something looks inside it (docs/core.md "Glued calls").
+Two calls of the same definition are compared by their arguments first:
+same definition, equal arguments, so equal results. Only if the arguments
+differ are the unfoldings compared. That is an optimisation only if
+"arguments equal" really implies "unfoldings equal" for the relation being
+used; §7.10 is about keeping it so.
+
+**Inert parameter** (new in draft 4). A proof parameter of a definition that
+the definition never computes with: its body doesn't take it apart, use it
+as `J`'s proof, apply it, return it or store it, and only passes it on to
+inert parameters of other definitions (§7.3). Changing an inert argument
+can never change what a call computes to, except inside other inert
+arguments, which is what makes it safe to skip in every comparison.
 
 **Subject reduction.** "Computing doesn't change a term's type": if the
 checker accepts `t : T` and `t` computes to `t'`, the checker also accepts
@@ -363,6 +465,17 @@ Yes, by this reasoning **[inferred from the code cited]**:
   the mask skips position 2. The `E-REFL` may come from the elaborator first
   (`elab/src/check.rs:1229` unifies the two sides of an `rfl` goal), which is
   why §7.5 gives the unifier the same masks.
+
+  *Draft 4.* With gluing on, each side is first a call,
+  `Call(Int.modNat, [x, 100, ok])`; the shortcut compares the arguments
+  (§7.2), and position 2 is skipped because `ok` is inert in `Int.modNat`.
+  Its body (`std/Int/Basics.sw:27-30`) uses `ok` only in
+  `| x, Zero => Void.absurd (ok rfl)`, inside the argument of
+  `Void.absurd`, whose parameter is inert because its `case` has no
+  branch (D2353, §7.3) **[checked: the source]**. With gluing off, the
+  call unfolds, takes the `Succ` branch for 100, sticks on `x` and stays
+  folded with its original spine, as above; the same mask applies. Without
+  D2353's clause, `ok` would not be inert and §2.1 would stay `E-REFL`.
 - **2.2.** Both sides are `Ctor(Char, 0, [97, …])` (a single character is a
   constructor value, not a compact `Chars` range); field 1, `valid`, has
   sort `Prop`, so it's skipped (`value.rs:1275`).
@@ -546,7 +659,7 @@ i.e. Idris 2 has erasure without irrelevance.
 | Agda `--prop` (calculus of G) | All of `Prop` | Only `()` | No | Yes **[inferred from G]** | Yes **[inferred]** |
 | Agda `.x` | Arguments marked `.` | No matching | n/a | Yes | Yes |
 | Stitchwort today | None | Subsingletons (Lean's rule) | No | Budgeted | Assumed |
-| **Option D1′** | **Derivable as a theorem: all of `Prop`. Seen by the checker: proof positions of definitions, constructors, data types** | **Unchanged** | **No rule; a user can write K by hand (§5.7)** | **Budgeted, as today** | **Evaluator unchanged; no non-normalising term known; unproved (§5.7)** |
+| **Option D1′** | **Derivable as a theorem: all of `Prop`. Seen by the checker: inert proof parameters of definitions, proof fields of constructors, proof parameters of data types** | **Unchanged** | **No rule; a user can write K by hand (§5.7)** | **Budgeted, as today** | **Evaluator unchanged; no non-normalising term known; unproved (§5.7)** |
 
 ## 5. What can go wrong: the known pitfalls
 
@@ -583,6 +696,46 @@ design must therefore not *promise* full irrelevance; it must specify the
 decidable part it implements. (D1′ is enough to *derive* propositional
 proof irrelevance, §5.7; what its checker promises is only the masked
 comparison of §7.1.)
+
+**The same shape through glued calls (new in draft 4).** Carneiro's
+algorithmic equality has a congruence rule for applications (two
+applications are equal if their parts are) beside its reduction rule, and
+no transitivity rule **[checked: L4 §2.3]**. So `f 0 a ⇔ f 0 (intro 0 (inv0
+a))` holds by congruence and proof irrelevance, without reducing either
+side, while the right side also reduces; that is where his
+non-transitivity comes from. Since SW-257
+Stitchwort's checker does the same with glued calls (§1, `value.rs:2401`).
+Today the shortcut is harmless, because "equal arguments" means equal
+values. With draft 3's masks it would not be, even without full
+irrelevance:
+
+- `steps l 0` against `steps (MkLoop (Loop.inv l)) 0`: both are calls of
+  `steps`; position 0 has type `Loop: Prop`, so draft 3 masks it, and
+  `0 = 0`, so the shortcut says "equal".
+- With gluing off, the right side unfolds (its argument is a constructor) to
+  `steps (Loop.inv l) 1`, and that differs from `steps l 0` in its second
+  argument. Today's message says exactly this: "`steps l 0` and
+  `steps (MkLoop (Loop.inv l)) 0` aren't equal; computing the right side
+  gives `steps (Loop.inv l) 1`" **[run]**.
+- So `steps l 0 ≡ steps (MkLoop (Loop.inv l)) 0` and
+  `steps (MkLoop (Loop.inv l)) 0 ⟶ steps (Loop.inv l) 1`, but
+  `steps l 0 ≢ steps (Loop.inv l) 1`: Carneiro's §3.1.1 non-transitivity,
+  with the "creative step" supplied by whoever wrote the middle term, and
+  by §3.1.2 a failure of subject reduction **[inferred from the code at
+  `f3769d45` and L4 §3.1.1-3.1.2]**.
+
+Two things remove it. `steps` computes with its `Loop` argument (it takes it
+apart), so under D2349 that position isn't masked at all (§7.3). And the
+shortcut never skips constructor proof fields (§7.2), which the inert rule
+doesn't cover. §7.10 argues that the two together make the shortcut's
+"equal" imply the unfoldings' "equal", so the problem can't come back in
+another shape.
+
+Carneiro names a second source of non-transitivity: a quotient of a
+proposition, whose `lift` acts like a subsingleton eliminator
+**[checked: L4 §3.1.1, last paragraph]**. Stitchwort refuses that quotient:
+`Quot Unit R` with `Unit: Prop` is `E-UNIVERSE`, "the carrier of a quotient
+must be a type in `Type`" **[run]**.
 
 ### 5.2 Non-termination through impredicativity and K-like transport (Abel and Coquand)
 
@@ -713,6 +866,55 @@ Three things **[inferred]**:
 Soundness does *not* need subject reduction or completeness (§5.7): the
 checker only has to never call two things equal that differ in the model.
 
+**Carneiro's frame (new in draft 4).** Carneiro separates two relations:
+the *ideal* definitional equality `≡`, a transitive congruence with β, δ,
+ζ, ι, η and a rule that any two proofs of one proposition are equal; and
+the *algorithmic* `⇔` that Lean actually checks, which "will imply `≡`" and
+has no transitivity rule **[checked: L4 §2.2, §2.3]**. The bridge is his
+Lemma 3.4(3): if `e : α`, `e' : α` and `e ⇔ e'`, then `e ≡ e'`; he notes
+that the induction needs both sides to have the same type at the
+application rule **[checked: L4 §3.2]**. His model (§6) interprets `≡`
+soundly in ZFC with inaccessible cardinals, every proposition a set with at
+most one element, and Corollary 6.8 concludes that no proof of `⊥` passes
+the kernel "since algorithmic equality implies definitional equality"
+**[checked: L4 §6, Corollary 6.8]**. That is the argument point 1 above
+borrows, and it fixes what D1′ has to show:
+
+- **D1′'s comparison is inside the ideal `≡`, given the same-type
+  invariant.** Each skip compares two proofs of the same proposition
+  (point 2, §7.4), an instance of the ideal proof-irrelevance rule; the
+  rest of `conv` is structural comparison of values, which are reached by
+  the reduction rules, plus η **[inferred]**. Lemma 3.4(3)'s
+  same-type premise is exactly §7.4's invariant: that is why it matters for
+  soundness and not just for the answer.
+- **Lean's model covers the rules Stitchwort shares with Lean**: β, δ
+  (unfolding), `let`, `case` on a constructor (ι), `J` on `rfl` (Eq's
+  recursor), `Quot.lift` on `Quot.mk` (his ιq), impredicative `Prop` and
+  subsingleton elimination **[inferred: the correspondence is mine]**.
+- **Stitchwort's extra rules still need their own justification**, as
+  point 1 says: `NumCase` and the natives (checked against their
+  definitions), `+` on its second argument (docs/core.md; equations that
+  are theorems, so they hold in any model of the theorems), compact text,
+  the comparison of different definitions by their case trees (SW-386, a
+  congruence for `case`), and the termination checks that make every
+  definition denote a total function (size-change, handlers, `decreasing`).
+  None of them looks at a proof, so none distinguishes two proofs the model
+  identifies **[inferred]**.
+
+Carneiro's §4.1 splits the ideal relation in two: a reduction `κ` (β, δ, ζ,
+ι, ιq, and `K+`, which runs a subsingleton's recursor on *any* proof `h` by
+replacing it with `intro inv[p, h]`, and so needs the context and types to
+fire), and a relation `≡p` for proof irrelevance and η that "picks up the
+pieces"; Church–Rosser holds for `κ` up to `≡p` **[checked: L4 §4.1,
+Theorem 4.7]**. In those terms D1′ adds only to the `≡p` side: Stitchwort's
+evaluator is untyped and has no `K+` (it computes on a proof only when the
+proof is a constructor or `rfl`, §3), and D1′ leaves it so. That is the easy
+side: no reduction depends on a type or on which proof was given, so the
+evaluator's confluence is untouched **[inferred]**. Lean's difficulties
+(undecidability, §5.1; Abel and Coquand's loop, §5.2) come from the `K+`
+side and from comparing unreduced terms by congruence; draft 4's inert
+rule and shortcut mode (§7.2, §7.10) keep Stitchwort away from the second.
+
 ### 5.7 What masks are enough to derive: proof irrelevance, hand-written K, and a subject-reduction gap
 
 Masks let `rfl` prove `MkBox p = MkBox q` for any two proofs `p q : a`
@@ -756,6 +958,44 @@ masked positions (the draft 2 reviewer agrees the construction is right).
 That is the same kind of gap as Lean's (§5.1), from a different cause:
 Lean's comparison is typed and sees `p ≡ q` here, but misses Carneiro's
 creative unfoldings.
+
+**A second source, through glued calls (new in draft 4).** Draft 3 had only
+the subject-reduction gap above, which needs a term to compute. The glued
+shortcut (§1) adds a gap in *one* comparison: the answer would depend on
+whether gluing is on. Two shapes, each rejected today with the message
+shown **[run]**:
+
+```
+def cast (a: Type) (b: Type) (h: a = b) (x: a): b := J (y e => y) x h
+
+theorem castRefl (a: Type) (h: a = a) (x: a): cast a a rfl x = cast a a h x := rfl
+--  today: computing both sides gives `x` and `J (y e => y) x h`
+
+theorem unboxBoth (a: Prop) (p: a) (q: a): Box.unbox (MkBox p) = Box.unbox (MkBox q) := rfl
+--  today: computing both sides gives `p` and `q`
+```
+
+- **`cast`, a definition's mask.** Both sides are calls of `cast` (every
+  definition applied to all its arguments glues, `value.rs:1715`). With
+  draft 3's masks the shortcut skips position 2 (`a = b` is in `Prop`) and
+  says "equal". Unglued, the sides are `x` and `J (y e => y) x h`, stuck on
+  `h`: "different". Under D2349 `h` isn't inert (it's `J`'s proof), so the
+  shortcut compares `rfl` with `h` and falls back to the unfoldings:
+  "different" both ways.
+- **`Box.unbox`, a constructor's mask.** Both sides are calls of
+  `Box.unbox`, whose only explicit argument has type `Box a: Type`, so
+  D2349 has nothing to restrict. But the shortcut compares `MkBox p` with
+  `MkBox q`, and the constructor mask says "equal". Unglued, the sides
+  compute to `p` and `q`: "different". This one needs the shortcut change
+  of §7.2: the shortcut compares arguments with constructor masks off, so
+  it falls back to the unfoldings, and the answer is "different" both ways
+  **[inferred from the code at `f3769d45`]**.
+
+Neither is unsound: `cast a a rfl x` and `cast a a h x`, and `p` and `q`,
+are equal in the model. But a comparison whose answer depends on an
+optimisation is a checker with two meanings, the problem draft 2 removed
+from draft 1's `rfl` rule (§6, D1). After §7.2, §7.10 argues, the shortcut
+says "equal" only where unfolding does.
 
 **What the gap costs.**
 
@@ -820,6 +1060,19 @@ creative unfoldings.
     today and `bad` is again `E-TERMINATION` **[run]**. This is test 14.
   - If some other term does loop, the budget turns it into `E-RESOURCE`, as
     today.
+
+**Where the gap comes from, after D2349 (new in draft 4).** A subject
+reduction failure is a comparison that changes when a variable is replaced
+by a value. Draft 3's definition masks had that problem of their own:
+`steps l 0 ≡ steps l2 0` for two variables `l l2: Loop` (both stuck,
+position 0 masked), but replacing `l2` by `MkLoop (Loop.inv l)` lets the
+right side compute to `steps (Loop.inv l) 1`, which differs. An inert
+parameter can't do that: the definition never computes with it, so
+replacing it never lets a call step that couldn't before (§7.10). So the
+gap now comes only from constructor fields: `g (MkBox p) n` and
+`g (MkBox q) n`, stuck on `n`, are equal, and once `n` is known `g` may take
+the box apart and use the proof where it's compared. The `castViaBox`
+example above is of this kind **[inferred]**.
 
 **Could the gap be closed?** Partly, by stage 3 (§9): give `conv` Rocq-style
 marks for the *context's* variables, so two neutral values whose heads are
@@ -889,8 +1142,9 @@ Three levels:
 
 **D1′ (recommended): skip proof positions when comparing; nothing else.**
 When `conv` compares two values with the same head, it skips the arguments
-whose declared type is in `Prop`: a definition's parameters, a
-constructor's fields, a data type's parameters. `rfl`, `J`, `case` and
+whose declared type is in `Prop`: a definition's *inert* parameters (D2349,
+§7.3), a constructor's fields, a data type's parameters. The glued-call
+shortcut skips only the inert parameters (§7.2). `rfl`, `J`, `case` and
 evaluation are unchanged.
 
 - *Gains:* §2.1, §2.2 and §2.3 all become `rfl` (§2.4); `canonical` and the
@@ -899,9 +1153,11 @@ evaluation are unchanged.
   MkSortedList xs q`, docs/proposals/records.md R7); propositional proof
   irrelevance becomes a provable theorem (§5.7).
 - *Not gained:* two bare proofs (`rfl : p = q` for variables `p q : a`, or
-  `f p ≡ f q` with `f` a hypothesis: `conv` doesn't know their types), and
+  `f p ≡ f q` with `f` a hypothesis: `conv` doesn't know their types),
   anything needing computation on a non-canonical proof (`J … h` with
-  `h : a = a` a variable still stuck; `steps l 0` still stuck). Stage 3 (§9)
+  `h : a = a` a variable still stuck; `steps l 0` still stuck), and, since
+  D2349, two calls of a definition that computes with its proof argument
+  (`cast a a rfl x ≢ cast a a h x`; `steps l 0 ≢ steps l2 0`). Stage 3 (§9)
   can add the first.
 - *Known gap:* algorithmic subject reduction (§5.7): failures to check, not
   false acceptances (given §5.6).
@@ -914,13 +1170,26 @@ evaluation are unchanged.
   relation is structural equality of normal forms with the masked parts
   ignored, plus the existing eta rules, and is intended to remain an
   equivalence relation (reflexive, symmetric, transitive)
-  **[inferred; to be tested, §8]**. It doesn't fail transitivity the way
-  §5.1 describes, because it never equates an unreduced term with a reduced
-  one (the price is the same incompleteness: `steps l 0` and
-  `steps (MkLoop (Loop.inv l)) 0` stay different). It is *not* a congruence
-  for computation: `MkBox p ≡ MkBox q`, yet `Box.unbox (MkBox p)` computes
-  to `p`, `Box.unbox (MkBox q)` to `q`, and those differ (§5.7). The claim is
-  not made for values of different types: that's what §7.4 excludes.
+  **[inferred; to be tested, §8]**. *Corrected in draft 4.* Draft 3 said it
+  doesn't fail transitivity the way §5.1 describes "because it never
+  equates an unreduced term with a reduced one". That stopped being true of
+  `conv` once glued calls landed: the shortcut compares two calls, unreduced,
+  by their arguments, and with draft 3's masks `steps l 0 ≡
+  steps (MkLoop (Loop.inv l)) 0` while the right side reduces to something
+  different (§5.1). What makes the claim true again is §7.10: with inert
+  masks and the shortcut's constructor masks off, a shortcut's "equal"
+  implies that the unfoldings are equal, so `conv` with gluing gives the
+  same answers as `conv` comparing normal forms, and the masked relation on
+  normal forms is transitive: masks are fixed by the head, so if `a` and
+  `b` agree outside the masked positions, and `b` and `c` do, then `a` and
+  `c` do **[inferred]**. That holds for argument masks and field masks
+  alike. The price is incompleteness: `steps l 0` and
+  `steps (MkLoop (Loop.inv l)) 0` stay different, and so do `steps l 0` and
+  `steps l2 0`. It is *not* a congruence for computation: `MkBox p ≡ MkBox
+  q`, yet `Box.unbox (MkBox p)` computes to `p`, `Box.unbox (MkBox q)` to
+  `q`, and those differ (§5.7); inert argument masks *are*, which is the
+  point of D2349. The claim is not made for values of different types:
+  that's what §7.4 excludes.
 - *Hashing, JS, erasure:* unchanged (§7.7).
 
 **D1 (draft 1, withdrawn): D1′ plus "`rfl : p = q` whenever the equation is
@@ -954,7 +1223,7 @@ computation for `J`.
 | New kernel code | 1 constant | ~D1′ | new sort + rules | **masks + skips** | typed `conv` + K |
 | Termination of checking | as today | as today | as today | **evaluator unchanged; no non-normalising term known; unproved (§5.7)** | lost (§5.2) |
 | Subject reduction gap | no | no | no | **yes; failures, not false acceptances (§5.7)** | Carneiro's only |
-| Users' mental model | "use `proofIrrel`" | "Bool equations only" | two logics | **"proofs in arguments and fields never matter for equality, but still compute"** | "proofs never matter" (mostly) |
+| Users' mental model | "use `proofIrrel`" | "Bool equations only" | two logics | **"proofs in fields, and in arguments the function only passes along, never matter for equality, but still compute"** | "proofs never matter" (mostly) |
 | JS / erasure | unchanged | unchanged | `SProp` erased too | **unchanged** | unchanged |
 
 ## 7. The recommended design in detail
@@ -962,19 +1231,50 @@ computation for `J`.
 ### 7.1 The rule
 
 > **Proof positions.** A *proof position* is: parameter `i` of a definition
-> whose type's `i`-th domain is in `Prop`; field `i` of a constructor whose
-> `field_sorts[i]` is `Prop`; parameter `i` of a data type whose declared
-> type is in `Prop`. When comparing two values of the same type with the
-> same head, arguments at proof positions are equal without being compared.
+> whose type's `i`-th domain is in `Prop` and which is *inert* (below);
+> field `i` of a constructor whose `field_sorts[i]` is `Prop`; parameter `i`
+> of a data type whose declared type is in `Prop`. When comparing two values
+> of the same type with the same head, arguments at proof positions are
+> equal without being compared.
+>
+> **Inert** (D2349, as sharpened in draft 4). A definition's parameter `x`
+> whose type is in `Prop` is inert if every occurrence of `x` in the
+> definition's checked body is
+>
+> 1. inside an argument at an inert position of a call of a definition
+>    (one of the call's leading arguments, as in §7.2), or
+> 2. inside a part of the term that values don't keep (a lambda's domain, a
+>    `let`'s type), or
+> 3. the scrutinee of a `case` all of whose branches are impossible (no
+>    body: `Void.absurd`, `Void.exfalso`), which never computes whatever its
+>    scrutinee is (D2353).
+>
+> So a parameter isn't inert if the body takes it apart (`case` with a
+> branch), uses it as `J`'s proof or in a quotient form, applies it,
+> returns it, stores it in a constructor field (D2354), passes it to a
+> local function variable, or mentions it in a type that survives into
+> values (`J`'s motive, an equation's sides). Inertness is a greatest fixed
+> point over a recursion group: a parameter passed only to itself in a
+> recursive call is inert.
+>
+> **The shortcut.** Wherever two calls of the same definition are compared
+> by their arguments before (or instead of) unfolding (§7.2), the argument
+> comparison skips inert positions but compares constructor proof fields,
+> at every depth (D2352). Data types' proof parameters stay skipped: a type
+> is never taken apart, so nothing computes with them. If that says "different", the calls are unfolded
+> and compared with all the masks, as today.
 >
 > Nothing else: evaluation, `rfl`, `J` and `case` are unchanged.
 
-In docs/core.md, "There's no definitional proof irrelevance" (line 121)
-becomes this rule, with the sentences: "Proofs in arguments and fields are
-ignored when comparing, but still used when computing: `J` needs `rfl`, and
-a `case` on a proof needs a constructor. Two proof *variables* are still
-compared, so `rfl : p = q` needs `p` and `q` to be the same." And the
-precondition of §7.4 goes in `conv`'s doc comment.
+In docs/core.md, "There's no definitional proof irrelevance" (line 143 at
+`f3769d45`) becomes this rule, with the sentences: "Proofs in constructor
+fields, and proof arguments a definition only passes along, are ignored when
+comparing, but still used when computing: `J` needs `rfl`, and a `case` on a
+proof needs a constructor. A proof argument the definition computes with
+(a `J` on it, a `match`) is compared, so `cast a a rfl x` and `cast a a h x`
+differ. Two proof *variables* are still compared, so `rfl : p = q` needs `p`
+and `q` to be the same." The "Glued calls" bullet gets the shortcut's rule.
+And the precondition of §7.4 goes in `conv`'s doc comment.
 
 ### 7.2 Where `conv` changes (`crates/core/src/value.rs`)
 
@@ -1003,6 +1303,40 @@ precondition of §7.4 goes in `conv`'s doc comment.
 - **`reference.rs` `conv`** (`:373`): the same change, independently
   written, so the differential tests still mean something.
 
+**The shortcuts (new in draft 4).** These places answer "equal" for two
+calls of one definition from their arguments, without unfolding
+**[checked: `value.rs` at `f3769d45`]**:
+
+- the glued-call shortcut at the top of `conv_step` (`value.rs:2409-2425`,
+  through `same_spines`, `:2374`), which numbers reach too
+  (`native::compare_lazily` hands their bases back to `conv`);
+- definitions folded by name, dictionaries, theorems, `decreasing`
+  definitions and `k * x` (`is_folded`, `:1790`; `conv_step` `:2432-2445`);
+- partially applied definitions (`same_spines(…) || push_eta(…)`, `:2552`, in the
+  `Neutral` arm);
+- the elaborator's unifier on two calls (`unify.rs:981-983`).
+
+Each compares the arguments in a **shortcut mode**: inert positions skipped,
+constructor proof fields compared, for the whole of each argument
+comparison (nested calls inside it use the same mode, and so do their
+fallback unfoldings). A comparison not inside a shortcut is in the normal
+mode, with every mask. Two details follow:
+
+- `CallMemo` (`value.rs`, D483) records pairs of calls found different. A
+  pair different in shortcut mode may be equal in normal mode, so the
+  record's key includes the mode.
+- `set_shortcuts_disabled` turns off only the glued-call shortcut today; the
+  folded-by-name one stays on (it is what keeps theorems folded). The
+  differential tests of §8 therefore compare glued against unglued
+  checking (`Globals::glue` off, as `STITCHWORT_GLUE=0` does in the
+  elaborator) as well as shortcuts on and off.
+
+Stuck calls are different: a definition stuck on a `case` stays folded as
+`Neutral(Def(f), spine)`, and two of those are compared by their spines with
+every mask, because they can't be unfolded. That isn't a shortcut, and it
+needs no mode: inert positions are safe there for the reason of §7.10, and
+constructor fields are the §5.7 gap.
+
 ### 7.3 Deciding "is this a proof position?" cheaply
 
 Like Rocq's relevance marks (§4.2), but read from what the kernel already
@@ -1011,21 +1345,124 @@ elaborator can get wrong. Positions count from the start of a `Def` spine
 and stop at its first `J` entry (§7.2):
 
 - **Constructors**: `field_sorts` exists (`globals.rs:117`).
-- **Definitions**: a new `proof_params: Box<[bool]>` on `Def`, computed once
-  from the checked signature with `check::telescope` (`check.rs:1744`) and
-  `sort_of(dom) == Sort::Prop`, at `declare_def` (`check.rs:943`), so it's
-  available while the definition's own group is being checked (pending
-  definitions appear as stuck heads). Not `erase::of_def`, which (a) only
-  works for final definitions and (b) also marks types. Positions beyond the
-  telescope (a definition whose result is a function computed by its case
-  tree) count as relevant.
+- **Definitions** (draft 4, D2349): a new `inert_params: Box<[bool]>` on
+  `Def`, set in two steps.
+  1. *Candidates*, from the checked signature with `check::telescope` and
+     `sort_of(dom) == Sort::Prop`, as draft 3 had it. Not `erase::of_def`,
+     which also marks types. Positions beyond the telescope (a definition
+     whose result is a function computed by its case tree) are never
+     candidates.
+  2. *Inert*, from the checked bodies, once per recursion group when the
+     group is admitted (`check.rs` `admit_group`, `:1715`): start with every
+     candidate of every member marked, then repeatedly clear any marked
+     parameter with an occurrence that §7.1's three clauses don't allow
+     (clause 1 reads the marks of the group's members as they currently
+     stand, and the final marks of earlier definitions), until nothing
+     changes. That is the greatest fixed point, so a parameter passed only
+     to itself, or around a cycle of members, stays inert. It needs one walk
+     of each body per round, and each round clears at least one mark, so at
+     most (candidates + 1) rounds; in practice one or two **[inferred]**.
+
+  The walk is over the kernel's own terms, so it follows the case tree: a
+  `Case(x, …)` on a candidate `x` with a branch clears it; a case on another
+  variable doesn't, but the walk goes into every branch. The kernel's terms
+  have `rfl`, `J` and the five quotient forms as term formers
+  (docs/core.md), so "is `x` used as `J`'s proof" is a syntactic test, and
+  an occurrence in any argument of a `Quot` form clears it (those forms are
+  compared "structurally, every argument included", so nothing there is
+  masked).
+
+  While a group is being checked its own members have no marks (every
+  argument compared, as today), in the kernel and in the elaborator; the
+  marks exist once the group is admitted. That costs nothing that matters:
+  the comparisons inside a definition's own body rarely compare two calls of
+  that definition with different proofs, and if one does it fails as it
+  does today. It also means the elaborator and the kernel agree without the
+  elaborator computing the marks itself before the kernel has the bodies.
+  (My decision, as an implementation detail; say if it should be a
+  question.)
+
+  Like the erasure flags, the marks are a function of the checked
+  definition, so they aren't hashed, and the check cache stores and
+  replays them (§7.7). An *opaque* definition's marks come from its hidden
+  body too: with marks from the signature alone, `f p ≡ f q` would hold
+  where `f` is opaque and fail where it's unfolded, the same two-meanings
+  problem as gluing. So an opaque body can change what checks outside it,
+  through its marks, as it already can through a hash.
 - **Data types**: `proof_params` from the checked parameter telescope, at
   `declare_data`. A parameter `p : Prop` is *not* a proof position
   (`sort_of(Prop)` is `Type 0`); test 9 pins this.
 
-Cost: one pass over each signature at declaration; then a bit lookup per
-argument compared. Comparison does strictly less work than today
-**[inferred]**; worth confirming with `bench` (§9).
+Cost: one pass over each signature at declaration and a few passes over each
+group's bodies when it's admitted; then a bit lookup per argument compared.
+Comparison does no more work than today except where the shortcut now falls
+back to unfolding (two calls whose arguments differ only in a constructor's
+proof field, §7.2) **[inferred]**; worth confirming with `bench` (§9).
+
+**What the motivating definitions get** **[checked: the std source at
+`f3769d45`; the walk done by hand]**:
+
+| Definition | Its proof parameter's uses | Inert? |
+|---|---|---|
+| `Nat.div` (`std/core/Division.sw:31`) | unused | yes |
+| `Nat.mod` (`:37`) | at most in `n / divisor`'s `auto` proof, `Nat.div`'s inert `ok` | yes. `Nat.mod x 100 [ok := p] = Nat.mod x 100 [ok := q]` is accepted *today* **[run]**: the proof is gone once the calls unfold, so the mask only saves the unfolding |
+| `Int.modNat` (`std/Int/Basics.sw:27`) | `Void.absurd (ok rfl)` in the `Zero` branch | yes, by D2353 (no otherwise) |
+| `Int.div`, `Int.mod`, `Int.tdiv`, `Int.tmod`, `Int.fdiv`, `Int.fmod` | the same `Void.absurd (ok rfl)` | yes, by D2353 |
+| `Nat.divMod`, `Nat.ceilDiv`, `Int.divMod` | passed to `/` and `%` | yes |
+| `Fin.ofNatLt` (`std/Fin/Fin.sw:21`) | `Void.absurd (Bool.falseNotTrue h)`; itself, recursively | yes, by D2353 and the fixed point |
+| `Fin.ofNat`, `Vec.getLt` | passed to `Fin.ofNatLt` | yes |
+| `Mod.toFin` (`std/Mod/Mod.sw:196`) | into `Mod.ltOfNeZero … ok …` inside `Fin.ofNatLt`'s inert argument | yes (clause 1: the occurrence is inside an inert argument, whatever `Mod.ltOfNeZero` does) |
+| `f.%go`, the fuel of every `decreasing` definition (docs/core.md "Recursion on a measure") | absurd at `Zero`; at `Succ`, into `f.%go`'s own `h` | yes, by D2353 and the fixed point **[inferred from the documented shape, not walked]** |
+| `Mod.ofNat` (`std/Mod/Mod.sw:36`) | none: no proof parameter. Its `if h:` binds `h` in a lambda, and puts it in `isLt`, a constructor field | n/a; the field mask applies |
+| `gcd.induct` / the `if h: b = 0` shape of function-equations.md | the refutation `h` passed as `%`'s `ok` | yes (`Nat.mod`'s `ok`); `Nat.gcd`'s own `[decreasing := …]` goes to `%rec` (below), which `f.unfold` drops anyway |
+| D2180's `if h: i < n then Some (Fin.ofNatLt n i h)` | the equation needs `Fin.ofNatLt n i h' ≡ Fin.ofNatLt n i h` | yes, as above |
+| characters (`MkChar n p`) | a constructor field | unchanged |
+
+**Which std definitions lose their masks**, from a search of std's `def`s
+with a proof-typed binder (`grep` for binders whose type has `<`, `≤`, `≠`,
+`=` or `∈`, then each read) and of every `def` body using `J` or `rewrite`
+**[checked; the search can miss binders of other proposition types]**:
+
+- `List.chunksOfPositive`'s `pos` (`std/List/Toolkit.sw:551`): it goes into
+  `[decreasing := List.dropConsLess ys n y pos]`, an argument of `%rec`, a
+  local function variable, whose arguments are all compared (until
+  stage 3). Two calls with different `pos` proofs, stuck on the list, stay
+  different. The function computes with the list, so it's stuck only on an
+  unknown list.
+- `Float.make`'s `p` (`std/Float/Float.sw:51`) and
+  `Map.Raw.fromSorted`'s `sorted` (`std/Map/Spec.sw:1419`): each goes into
+  a record's proof field, through a definition that returns it
+  (`Bool.canonicalTrue`'s `| False, p => p`, `Float.sw:45-47`) or stores it
+  (`Map.Tree.buildWithin`'s `Both Trivial asc`, `Spec.sw:1366`), so neither
+  occurrence is inside an inert argument, and under D2354 a constructor
+  field isn't an allowed place. It costs nothing in practice: neither has a
+  `case`, so a call always unfolds at once to the record, where the field
+  mask applies; the mask would only have helped the shortcut, which then
+  falls back to unfolding. (`Bool.canonicalTrue` exists to make `Float`
+  records with known bits equal whatever their proof, D731; the field mask
+  does that by itself, so it's a stage 2 candidate for removal.)
+- The two `def`s using `J` (`List.decCons`, `Pair.decMk`,
+  `std/core/ListOptionPair.sw`) use it on proofs bound by patterns, not on
+  parameters: no change.
+- **Theorems.** A theorem whose proof takes a hypothesis apart, rewrites
+  along it, returns it or applies it outside an absurd branch loses that
+  parameter's mask, which is most theorems with hypotheses. Those whose
+  hypotheses only feed recursive calls and absurd branches keep them
+  (`Nat.leTrans`, `std/core/Division.sw`, by the same clauses as
+  `Fin.ofNatLt`). The cost: a theorem call compared at a *relevant*
+  position with two different hypothesis proofs, for example as the proof
+  of two `J`s (`J P d (lemma x h1)` against `J P d (lemma x h2)`), stays
+  different, as today. A theorem call in a proof position (the common case:
+  an argument to an inert parameter, a constructor field) is skipped
+  whole, so its own marks don't matter there.
+
+Apart from `Void.absurd` and `Void.exfalso` (`std/core/Logic.sw:34`, `:39`),
+whose `case` has no branch, I found no `def` in std that cases on, or uses
+as `J`'s proof, one of its own proof parameters, so the losses above come
+from the clauses about returning, local functions and constructor fields,
+not from D2349's core **[checked, with the same caveat]**. Stage 1 should print the list the
+analysis actually computes for std (a debug listing of every candidate it
+clears, and why), and compare it with this one.
 
 ### 7.4 The same-type invariant, the audit of every caller, and undoing failed unifications
 
@@ -1224,6 +1661,13 @@ Separately, two definitionally equal terms can have different hashes (they
 already can: `2 + 2` and `4`). Hashes identify terms, not meanings, so that's
 fine.
 
+**The inert marks (draft 4)** aren't hashed: they are computed from the
+checked body, which the hash already covers, as the erasure flags are. Since
+they depend on bodies, they are one more way a theorem's body reaches its
+dependents (rewriting a lemma so that it takes a hypothesis apart clears a
+mark), which is one more reason to keep proof bodies in hashes. JS and
+erasure don't use them.
+
 ### 7.8 `auto` and `Decidable` (multi-file note §4.9.4)
 
 Multi-file §4.9.4 says the decision procedure `auto` picks is visible to
@@ -1240,8 +1684,16 @@ run as data (`if`, `==`)", and the order rules there stay as they are.
 
 ### 7.9 What users will still hit
 
-"Proofs in arguments and fields are ignored when comparing, but still used
-when computing." So these remain:
+"Proofs in fields, and in arguments a function only passes along, are
+ignored when comparing, but still used when computing." So these remain:
+
+- Two calls of a function that computes with its proof argument, with
+  different proofs: compared. `cast a a rfl x` and `cast a a h x` differ,
+  and so do `steps l 0` and `steps l2 0`. Whether a function's proof
+  argument counts depends on its body, which a user can't see in its
+  signature; `stitchwort doc` (or hover) should say which proof parameters
+  are ignored, and the `E-REFL` note could name the one that differs. New in
+  draft 4 (D2349).
 
 - `rfl : p = q` for two different proof variables: rejected. Prove it
   through a box as in §5.7 (`piViaBox a p q rfl`), or wait for stage 3. A
@@ -1259,6 +1711,88 @@ when computing." So these remain:
 The `E-REFL`/`E-TYPE-MISMATCH` message could add a note when the two sides
 print the same, saying they differ in a part the printer hides; that's a
 small independent improvement.
+
+### 7.10 Why gluing stays an optimisation (new in draft 4)
+
+The goal: `conv` gives the same answer with gluing on and off (up to the
+budget). That holds if every shortcut's "equal" implies that unfolding
+would also say "equal": a shortcut's "different" falls back to unfolding
+anyway, and `CallMemo` only ever answers "different" for a pair already
+found different in the same mode. This is an argument, not a proof
+**[inferred]**; tests 17 to 19 check it on the shapes that break it.
+
+Write `≈` for the normal mode's relation on values (every mask: inert
+arguments, constructor proof fields, data types' proof parameters, plus
+eta), and `≈ᵢ` for the shortcut mode's (the same, except constructor proof
+fields are compared). `≈ᵢ` skips less, so `a ≈ᵢ b` implies `a ≈ b`.
+
+**Claim.** Take a definition `f`, and two lists of arguments that are `≈ᵢ`
+at every non-inert position and anything (of the right type) at the inert
+ones. Then `f`'s unfoldings on them are `≈ᵢ`.
+
+**Why**, by induction on the evaluation of `f`'s body, with the second
+environment differing from the first only as allowed:
+
+- *An inert parameter is never looked at.* By §7.1's clauses, each of its
+  occurrences is inside an argument at an inert position of a call, in a
+  type annotation that values don't keep, or the scrutinee of a `case` with
+  no branch. The first kind may evaluate to different things on the two
+  sides, but only inside inert arguments, which the relation skips; the
+  second disappears; the third is stuck on both sides.
+- *A call `g …`* gets `≈ᵢ` arguments at `g`'s non-inert positions (by
+  induction) and possibly different ones at its inert positions. If it
+  stays a call or gets stuck, the two results are `≈ᵢ` because `g`'s inert
+  positions are skipped. If it unfolds, the claim for `g` applies (a
+  shorter evaluation; for a recursion group this is where the greatest
+  fixed point is used: each member's inert parameters were checked assuming
+  the others').
+- *A `case` on a non-inert variable* sees `≈ᵢ` values: both the same
+  constructor with `≈ᵢ` fields, *all* fields, so both take the same branch
+  with `≈ᵢ` fields bound; or both stuck. This is the step that needs the
+  constructor masks off. With them on, `MkBox p` and `MkBox q` would be
+  related, `Box.unbox` would take its branch on both and bind `p` and `q`,
+  and the results would be unrelated: §5.7's `Box.unbox` example.
+- *`J`*: its proof contains no inert variable outside inert arguments, so
+  the two proofs are `≈ᵢ`, and one is `rfl` exactly when the other is; the
+  motive and base are `≈ᵢ`. *`Quot.lift` on `Quot.mk`*, natives on numbers
+  and text, `NumCase`, and `+`'s rules all decide from values on which `≈ᵢ`
+  is equality, or structural.
+- *A constructor* gets `≈ᵢ` fields: an inert variable can't be a field
+  (D2354). That's the step that needs D2354: with `wrap p := MkBox p`
+  allowed, `wrap p ≈ᵢ wrap q` by the mask, but their unfoldings `MkBox p`
+  and `MkBox q` aren't `≈ᵢ`, and `Box.unbox (wrap p)` against
+  `Box.unbox (wrap q)` is the `Box.unbox` example again.
+- *A lambda* gives closures that are `≈ᵢ` at a fresh variable, by induction
+  under the binder; *`let`* evaluates its value and goes on with the body.
+
+**So:** if a shortcut finds the arguments `≈ᵢ` (which is what shortcut mode
+checks), the unfoldings are `≈ᵢ`, hence `≈`, and unfolding would have said
+"equal". The nested comparisons inside a shortcut must stay in shortcut mode
+(§7.2) because the claim's premise is `≈ᵢ`, not `≈`.
+
+**What else follows.**
+
+- *Transitivity.* With the shortcuts implied by unfolding, `conv` answers
+  as a comparison of normal forms by `≈` would, and `≈` on normal forms is
+  transitive on values of one type (masks are fixed by the head; eta as
+  today), for argument and field masks alike **[inferred; the property test
+  of §8]**.
+- *Substitution.* The claim's environments can be any values, so replacing
+  a variable in two calls related through an inert argument keeps them
+  related: inert masks don't cause subject-reduction failures. Field masks
+  do (§5.7), and that is now the only source.
+- *Stuck calls* (`Neutral(Def(f), spine)`) compared with every mask are
+  safe for inert positions by the same claim: if a later substitution lets
+  them unfold, the unfoldings are related.
+- *The elaborator.* The argument is for the kernel's `conv`, which has no
+  metavariables. The unifier's shortcut uses the same mode, so that it
+  never solves or accepts more than the kernel will; that it agrees is
+  tested (§8), not argued.
+
+**What it doesn't cover**: termination (a fallback unfolding is the same
+work as with gluing off, so no worse than today) and the budget (the
+shortcut fires less often, so a check near the budget may need more steps
+than before; `bench`, §9).
 
 ## 8. Tests
 
@@ -1286,6 +1820,24 @@ pairings of 4 and 6 are new in draft 2; 11b and 14-16 in draft 3.
 | 15 | With `def fnEq (n: Nat) (h: Unit): (Nat -> Nat) = (Nat -> Nat)` stuck on `n` and `def apply (f: Nat -> Nat) (x: Nat): Nat := f x`: `rfl : apply (J (y e => y) (x => x) (fnEq n u)) 3 = apply (J … (fnEq n u)) 4` | `E-REFL` | Masks cover only a definition's leading arguments, never an argument after a `J` entry (§7.2). A `J` entry can only come after at least the whole telescope (the proof must be an equation), so a mask indexed by spine position already gets this right; the test pins the rule against a looser implementation **[inferred]**. (`J` with a fourth argument is `E-ARITY`, hence `apply`.) Today: `E-REFL` **[run]** | the same with `fnEq n u1` and `fnEq n u2` and both applied to `3` (position 1 of `fnEq` is a proof position). Today `E-REFL` **[run]**; D1′ must accept |
 | 16 | `undo.rs` unit test: inside `undo::unify`, `MkT ?p 1` against `MkT q 2` (field 0 a proof) | unit test | §7.4: a whole-proof solution made before a failure is undone by the transaction (`?p` unsolved afterwards); bare `cx.unify` leaves `?p := q`, documenting why the transaction is needed | `MkT ?p 1` against `MkT q 1` solves `?p := q` |
 
+**New in draft 4: gluing (§7.10) and inert parameters (§7.3).** Each of 17
+to 19 is run three ways, and must give the same answer in all three:
+gluing on (the kernel's default inside a body); `set_shortcuts_disabled(true)`
+(`value.rs:3248`, the glued-call shortcut off); and gluing off
+(`Globals::glue` off in the kernel, `STITCHWORT_GLUE=0` in the elaborator).
+As `.sw` tests they're in the accept/reject example sets; the three-way
+runs are a Rust test over the same programs.
+
+| # | Must be rejected | Code | Why it matters | Paired accepted example |
+|---|---|---|---|---|
+| 17 | `castRefl` (§5.7): `cast a a rfl x = cast a a h x` for `h: a = a`, with `cast := J (y e => y) x h`. Today `E-REFL`, "computing both sides gives `x` and `J (y e => y) x h`" **[run]** | `E-REFL` | A definition's mask on a parameter it computes with (here `J`'s proof) makes the shortcut disagree with unfolding (§5.7); D2349 clears the mask | `cast a a rfl x = x` (J on `rfl` computes); and test 20 |
+| 18 | `stepsUnfold` (§5.1): `steps l 0 = steps (MkLoop (Loop.inv l)) 0`. Today `E-REFL`, "computing the right side gives `steps (Loop.inv l) 1`" **[run]**. Also `steps l 0 = steps l2 0` for two variables | `E-REFL` | Carneiro's non-transitivity through the shortcut (§5.1); and a parameter that's taken apart isn't inert, so stuck calls compare it | `steps (MkLoop l) 0 = steps l 1` (one step of computation) |
+| 19 | `unboxBoth` (§5.7): `Box.unbox (MkBox p) = Box.unbox (MkBox q)` for `p q: a`. Today `E-REFL`, "computing both sides gives `p` and `q`" **[run]** | `E-REFL` | The shortcut must compare constructor proof fields (D2352): with the field mask on in the shortcut, this is accepted glued and rejected unglued | `MkBox p = MkBox q` (the field mask, normal mode); and `Box.unbox (MkBox p) = p` |
+| 20 | `Int.modNat x 100 [ok := p] = Int.modNat y 100 [ok := p]` for variables `x y` | `E-REFL` | Skipping the inert `ok` must not skip the relevant `x` | `Int.modNat x 100 [ok := p] = Int.modNat x 100 [ok := q]` (§2.1; today `E-REFL` **[run]**), with `x` a variable (stuck on `x`) and with `x` a literal (computes), and `Int.modNat x d [ok := p] = Int.modNat x d [ok := q]` with `d` a variable too (stuck on `d`; inert by D2353). Also `Nat.mod x 100 [ok := p] = Nat.mod x 100 [ok := q]` (accepted today too **[run]**; under D1′ the shortcut takes it without unfolding: a Rust test asserts that from the step count) |
+| 21 | `def loopNat (l: Loop): Nat := match l with \| MkLoop n => 0`; `loopNat l = loopNat l2`. Today `E-REFL` **[run]** | `E-REFL` | D2353 is only for a `case` with no possible branch: a one-branch `case` on a proof computes | `Void.absurd (p rfl) = Void.absurd (q rfl)` at `Nat`, `p q: 0 ≠ 0` (today `E-REFL` **[run]**; accepted by D2353) |
+| 22 | A group of two definitions passing a proof parameter to each other, one of which also takes it apart: the comparison of two calls of the other member with different proofs | `E-REFL` | The fixed point must clear a mark through the group, not just in the member that computes | The same group with neither taking it apart (both stay inert, by the greatest fixed point); and `Fin.ofNatLt n i h1 = Fin.ofNatLt n i h2` (D2180's shape, recursive) |
+| 23 | `def keep (d: Nat) (ok: d ≠ 0): Box (d ≠ 0) := MkBox ok`: `Box.unbox (keep d p) = Box.unbox (keep d q)` at `d ≠ 0` | `E-REFL` | D2354: a parameter stored in a field isn't inert, so the shortcut doesn't skip it (with it skipped, this is test 19 again, accepted glued only) | `keep d p = keep d q`: accepted both ways (no shortcut; the unfoldings are equal by the field mask) |
+
 Must not hang: `steps l 0 = steps (MkLoop (Loop.inv l)) 0` is rejected
 promptly (`E-REFL`), documenting the incompleteness of §5.1.
 
@@ -1296,13 +1848,25 @@ Also:
   every argument must fail tests 3, 4 (second part), 6 and 8; unifying
   inside skipped proofs must fail tests 11 and 11b; skipping every `App`
   after a head that has any proof position must fail test 15; solving proof metavariables without the undo
-  trail must fail test 16.
+  trail must fail test 16. New in draft 4: masking every `Prop` parameter
+  (draft 3's rule) must fail tests 17, 18, 21 and 22; keeping the field
+  masks in shortcut mode must fail test 19; allowing a constructor field as
+  an inert use must fail test 23; dropping D2353's clause must fail test 20
+  and the accepted half of 21; a `CallMemo` key without the mode must fail
+  a unit test that compares the same pair of calls in both modes in one
+  `conv`.
 - **Differential**: `value::conv` against `reference::conv` on the kernel
   test programs, as for the evaluator.
 - **Equivalence (property test)**: on generated well-typed values of one
   type, the masked `conv` is reflexive, symmetric and transitive, including
   pairs that need the existing eta rules (`push_eta`, lambda against
   neutral, partially applied definitions).
+- **Gluing (property test, draft 4)**: on the same values, `conv` gives the
+  same answer with gluing on, with the shortcut disabled and with gluing
+  off (§7.10); generated values should include calls of definitions with
+  inert and non-inert proof parameters and constructors with proof fields.
+- **The std listing**: the inert analysis's debug listing for std matches
+  §7.3's table, or the differences are explained on the ticket.
 - **Unifier**: an implicit proof argument solved only by unification still
   gets solved.
 - **Regression**: `examples/accept/char-pattern-proofs.sw` checks with and
@@ -1310,19 +1874,26 @@ Also:
 
 ## 9. Stages
 
-1. **Kernel and unifier** (Sonnet, from this note): the masks (§7.3), the
-   `conv` skips with the `J` boundary (§7.2), the reference `conv`, the
+1. **Kernel and unifier** (Opus, as CLAUDE.md has it for kernel work: a
+   mistake in the inert analysis or the shortcut mode changes what the
+   kernel accepts):
+   the masks and the inert analysis (§7.3), the `conv` skips with the `J`
+   boundary and the shortcut mode in every shortcut, `CallMemo` keyed by
+   mode (§7.2), the reference `conv`, the
    unifier rule with proof solutions through `solve` (§7.5), the
    precondition comments ("homogeneous values"; retry only inside
    `undo::transaction`, §7.4), the tests in §8 (including 11b and 14-16),
    docs/core.md and DESIGN §6 line 459 ("isn't needed for the POC" becomes
    the rule), the pointer in mutual-recursion.md §6.7. Bench comparison
-   before and after. Needs only §10 question 1.
+   before and after. Needs D2352 to D2354.
 2. **Remove workarounds** (Sonnet or DeepSeek): delete `canonical`
    (`elab/src/lib.rs:2370` and its callers at `:2479`, `:2528`) and check
    char-pattern proofs and `aoc/` still pass; optionally simplify
    `Char.mkExt` and the second `[auto]` proofs of `Int.modNatToInt`,
-   `Int.toIntDiv`, `Int.toIntMod`; update hash snapshots. No `Prop.irrel`
+   `Int.toIntDiv`, `Int.toIntMod`; perhaps `Bool.canonicalTrue` in `Float`
+   (§7.3); the `if h:` limit of function-equations.md (D2180), for branches
+   whose `h` reaches only inert parameters and fields; update hash
+   snapshots. No `Prop.irrel`
    in the prelude unless a program needs it (question 2).
 3. **Later, if a program needs it**: proofs that are *context variables*.
    `conv` would take one mark per context variable ("its type is a
@@ -1340,7 +1911,55 @@ Also:
 
 **Decided (Matt, 19 October 2026):** all four as recommended: adopt D1′; leave `Prop.irrel` out of the prelude for now; remove `canonical` in stage 2, accepting the hash changes; wait for a real need before stage 3.
 
-Only question 1 blocks stage 1. The rest affect stage 2 or later.
+**Decided (Matt, 4 November 2026), D2349:** masks on a definition's
+arguments only for proof parameters the definition never computes with
+(§7.1, §7.3).
+
+**Open (draft 4).** All three block stage 1.
+
+- **D2352. The shortcut compares constructor proof fields.** In plain terms:
+  when the checker compares two calls of the same function by their
+  arguments, to save unfolding them, it treats a proof stored inside a
+  constructor as mattering; only if that says "different" does it unfold
+  the calls, and then the proof is ignored as usual. Without this, D2349
+  isn't enough: `Box.unbox (MkBox p)` and `Box.unbox (MkBox q)` would be
+  equal with gluing on and different with it off (§5.7, §7.10). The cost is
+  speed only: two calls whose arguments differ only in such a proof (say
+  `f 'a'` against `f (MkChar 97 p)`) are unfolded instead of matched.
+  *Recommendation: yes.* The alternative that also works is a shortcut that
+  skips no proofs at all (inert ones included): simpler to argue, but it
+  gives up the shortcut for exactly the `Int.modNat x 100 [ok := …]` calls
+  §2.1 is about.
+- **D2353. A `case` with no possible branch doesn't count as computing.** In
+  plain terms: `Void.absurd h` never computes, whatever `h` is, so a
+  function that only hands its proof to `Void.absurd` (as `Int.modNat`
+  does with `ok rfl` when the divisor is 0) still ignores that proof. Without
+  it, `Int.modNat`, the other `Int` divisions, `Fin.ofNatLt` and every
+  `decreasing` definition's fuel proof lose their masks, and §2.1 and
+  D2180's `if h:` equations aren't fixed (§7.3). *Recommendation: yes.* It
+  is safe for the reason §7.10 gives: such a `case` is stuck on both sides
+  of any comparison.
+- **D2354. Storing a proof parameter in a constructor field doesn't count
+  as "passing it on".** D2349 said a parameter may be passed on to "other
+  masked positions"; constructor fields are masked, but a field can be
+  taken apart later and its proof used where it is compared, so allowing it
+  makes the shortcut wrong again (`keep d p := MkBox p`, test 23, §7.10).
+  The cost is that `Float.make` and `Map.Raw.fromSorted` lose their masks,
+  which changes nothing in practice: they always unfold at once, to a
+  record whose field mask applies (§7.3). *Recommendation: yes.* The
+  alternative, two marks per parameter (one allowing fields, used only for
+  stuck calls; one not, used by the shortcut), is more machinery for
+  definitions that are almost never stuck.
+
+- **D2355. A short independent review of draft 4's §7.3 and §7.10 before
+  stage 1?** Draft 4 changes the design (the inert analysis, the shortcut's
+  mode), and §7.10 is a new argument that the kernel's answers don't
+  depend on gluing; the earlier reviews didn't see it. *Recommendation: yes*,
+  scoped to §5.1's glued-call part, §5.7's new part, §7.1-7.3 and §7.10, by
+  a reviewer given the code (`value.rs` `conv_step`, `same_spines`,
+  `CallMemo`) rather than this note's conclusion.
+
+Draft 3's questions follow, as decided.
 
 1. **Adopt D1′?** In plain terms: when the checker compares two values, it
    stops caring *which* proof was given in a function argument or a
@@ -1370,12 +1989,21 @@ reviewers accept.)
 
 ## 11. Questions for the reviewer
 
-None. The draft 2 review's changes are wording, tests and one requirement
-already met by existing code (§7.4); none changes the design, and nothing it
-raised is still disputed (Appendix B). A third review isn't needed before
-stage 1. The implementation itself will be reviewed as usual, and the open
-theoretical question (normalisation, §5.7) isn't one that another review of
-this note can settle.
+Draft 3 said none was needed. Draft 4 changes the design, so D2355 proposes
+a focused review. Questions for it:
+
+1. Is §7.10's induction right, and are §7.1's three clauses for "inert"
+   enough for it? In particular: are there places other than the four in
+   §7.2 that answer "equal" for two calls without unfolding?
+2. Is D2353 (a `case` with no possible branch never computes) right in the
+   presence of indexed families, where "impossible" is decided by index
+   unification (docs/core.md "Unifying indices")?
+3. Is the claim that the masked relation on normal forms is transitive on
+   values of one type (§6) right once eta and the comparison of different
+   definitions by their case trees (SW-386) are included?
+
+The open theoretical question (normalisation, §5.7) isn't one that another
+review of this note can settle.
 
 ## 12. What I couldn't verify
 
@@ -1399,6 +2027,17 @@ this note can settle.
 - §2.4 is reasoning about code, not a run: masks aren't built. The §5.7
   programs, tests 10, 14 and 15 and the box `E-REFL` were run on today's
   build; what they do under D1′ is inferred.
+- Draft 4: what the glued shortcut does with masks (§5.1, §5.7) is read
+  from `value.rs` at `f3769d45`, not run, since masks aren't built; the
+  programs were run only to confirm today's rejections and messages.
+  §7.10 is an argument, not a proof, and it covers the kernel's `conv`,
+  not the unifier. §7.3's table was worked out by hand from the source, and
+  its std search was by `grep` for binders of a few proposition shapes,
+  so it can miss definitions; stage 1's listing is the check. The
+  `f.%go` row is from docs/core.md's description of `decreasing`, not from
+  generated terms. That Lean's lazy delta compares a constant's arguments
+  before unfolding, like the glued shortcut, is from Carneiro's rules
+  (L4 §2.3), not from re-reading Lean's source.
 - Experiments in §2 and §5.1–5.2 used the release build of `80c87a8`; the
   `E-REFL` in §2.1 wasn't traced to the elaborator or the kernel.
 
@@ -1415,8 +2054,12 @@ this note can settle.
 - **[L3]** The Lean Language Reference, "The Type System".
   <https://lean-lang.org/doc/reference/latest/The-Type-System>
 - **[L4]** Mario Carneiro, *The Type Theory of Lean*, MS thesis, CMU, 2019:
-  abstract; §2.6 (subsingleton elimination, K-like reduction); §3.1
-  (undecidability); §3.1.1 (non-transitivity); §3.1.2 (subject reduction).
+  abstract; §2.2 (ideal `≡` and algorithmic `⇔`); §2.3 (the rules of `⇔`,
+  no transitivity); §2.6 (subsingleton elimination, K-like reduction); §3.1
+  (undecidability); §3.1.1 (non-transitivity, and quotients of
+  propositions); §3.1.2 (subject reduction); §3.2 Lemma 3.4(3); §4.1 (`κ`,
+  `K+`, `≡p`) and Theorem 4.7; §6 Corollary 6.8. Draft 4 read these from a
+  copy of the PDF (text extracted locally), 4 November 2026.
   <https://github.com/digama0/lean-type-theory>
 - **[L6]** The Lean Language Reference, "Propositional Equality", §20.4.1
   "Uniqueness of Equality Proofs" (latest, read 19 October 2026).

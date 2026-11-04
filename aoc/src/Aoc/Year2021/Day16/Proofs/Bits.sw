@@ -53,10 +53,10 @@ theorem parityOfDouble (acc: Nat) (bit: Bool): ((acc * 2 + Bool.toNat bit) % 2 =
 --| more bits, gives `acc`'s bits and then those bits.
 theorem bitsOfFold (k: Nat): (acc: Nat) → (bits: List Bool) →
     bitsOf (k + bits.length) (List.foldLeft bits acc (acc bit => acc * 2 + Bool.toNat bit)) = bitsOf k acc ++ bits
-  | acc, Nil => rewrite Nat.addZero k, List.appendNil (bitsOf k acc) in rfl
-  | acc, Cons bit rest =>
+  | acc, [] => rewrite Nat.addZero k, List.appendNil (bitsOf k acc) in rfl
+  | acc, [bit, ..rest] =>
     let more := bitsOfFold (Succ k) (acc * 2 + Bool.toNat bit) rest
-    let step: bitsOf (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = bitsOf k acc ++ Cons bit rest :=
+    let step: bitsOf (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = bitsOf k acc ++ [bit, ..rest] :=
       rewrite parityOfDouble acc bit, halfOfDouble acc bit, List.appendAssoc (bitsOf k acc) [bit] rest in rfl
     Eq.trans more step
 

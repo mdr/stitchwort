@@ -124,7 +124,7 @@ def arrive (state: State) (plan: Plan): State :=
 --| where it was planned: not in a wall, on the start, or on another monster.
 def placeMonsters (level: Level) (start: Position) (placed: List Monster): List Monster → List Monster
   | [] => placed
-  | Cons monster rest =>
+  | [monster, ..rest] =>
     match pickFree level [monster.position] start placed with
       | Some position => placeMonsters level start (placed ++ [{ monster | position }]) rest
       | None => placeMonsters level start placed rest
@@ -133,7 +133,7 @@ def placeMonsters (level: Level) (start: Position) (placed: List Monster): List 
 --| start, on the stairs, or on another item.
 def placeItems (level: Level) (start: Position) (placed: List Item): List Item → List Item
   | [] => placed
-  | Cons item rest =>
+  | [item, ..rest] =>
     if isWall level item.position ∨ item.position == start ∨ isStairs level item.position ∨ (itemAt item.position placed).isSome then placeItems level start placed rest
     else placeItems level start (placed ++ [item]) rest
 

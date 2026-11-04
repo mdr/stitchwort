@@ -13,8 +13,8 @@ import Std (List, Nat)
 --| A design is possible exactly when there are ways to make it.
 theorem possibleWays (patterns: List Pattern) (design: Design): (ways patterns design > 0) = possible patterns design :=
   match arrangements patterns design with
-    | Nil => rfl
-    | Cons first rest => rfl
+    | [] => rfl
+    | [first, ..rest] => rfl
 
 theorem part1Correct (onsen: Onsen) (striped: Striped onsen.patterns): solvePart1 onsen = part1 onsen :=
   List.countCongMem onsen.designs (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns)

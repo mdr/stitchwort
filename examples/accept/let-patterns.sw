@@ -109,8 +109,8 @@ def swapLines(): {IO} Nat :=
   n + m
 
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 test "tuple" := digitsSum 23 == 5

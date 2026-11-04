@@ -19,8 +19,8 @@ theorem twiceUsed (n: Nat): n ≤ Succ (Succ (Succ n)) :=
 
 -- Termination sees through a `let`: `r` is exactly as small as `rest`.
 def len: List Nat → Nat
-  | Nil => 0
-  | Cons _ rest =>
+  | [] => 0
+  | [_, ..rest] =>
     let r := rest
     1 + len r
 
@@ -48,8 +48,8 @@ theorem helperKnows (xs: List Nat) (b: Bool): xs.length = xs.length :=
 theorem matchAlias (xs: List Nat): xs.length + 0 = xs.length :=
   let ys := xs
   match ys with
-    | Nil => rfl
-    | Cons y zs => Nat.addZero ys.length
+    | [] => rfl
+    | [y, ..zs] => Nat.addZero ys.length
 
 -- A local definition after a `let` knows its value too.
 def afterLet (n: Nat): Nat :=

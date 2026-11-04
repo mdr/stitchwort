@@ -9,8 +9,8 @@ instance Same.instNat: Same Nat :=
   { same = m n => m == n }
 
 def sameLists [auto s: Same a]: List a → List a → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => Same.same x y ∧ sameLists xs ys
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => Same.same x y ∧ sameLists xs ys
   | _, _ => False
 
 instance Same.instList [auto s: Same a]: Same (List a) :=

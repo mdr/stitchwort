@@ -216,6 +216,30 @@ search for something summing to a fixed target will keep hitting this.
   string interpolation, and the tests compare with `Ok (Some 1016619)`. Both
   read well.
 
+### After SW-1235 (Matt, 4 Nov 2026)
+
+- **Item 1:** `Aoc.Common.Grid` carries a proof that its first row has a
+  cell, `nonEmpty: (firstWidth rows == 0) = False` (an equation, so grids
+  keep `==` and the counterexample search can make them), and
+  `Grid.widthNonZero: grid.width ≠ 0` follows. `auto` doesn't search a
+  record's fields, but it does use a `let`-bound proof in scope, so
+  `let nonZero := map.widthNonZero` and then `step * slope.right % map.width`
+  checks, with no `wrap`. `parseGrid` refuses an empty map ("expected a grid,
+  got no cells"); a literal grid is `Grid.of rows`, which finds the proof.
+  `Cave` (2021 day 15) carries the same field, and `Cave.of`.
+- **Item 3:** `Grid.isRectangle: Bool` with `isRectangleIff`; `treesOnSpec`,
+  `part1Correct` and `part2Correct` take `map.isRectangle = True` (the same
+  statement, by `isRectangleIff`), and `check --counterexamples` now searches
+  them (none found in about 5000 cases; with `List.rangeFrom map.height 0`
+  it finds `map = { rows = [[Tree]], nonEmpty = rfl }, slope = { right = 0,
+  down = 1 }` at once).
+- **Item 4:** `List.takeWhileMap` and `List.takeWhileRangeCutoff` are in std
+  (List/Lemmas.sw), `checkGridRows` is in `Aoc.Common.Proofs`; both
+  messages are improved (a note on a `Bool` function found as a `Prop`
+  function; no "build it by its fields" suggestion for a constructor with no
+  fields). `<=` for `<` in `treesOn` is no bug (the extra step looks up a
+  square off the map, which is `Open`), though the proof fails on the shape.
+
 ### Size and time
 
 CPU time (the machine had a load average near 100 while this was measured,
@@ -486,20 +510,19 @@ repository), and an `awk` brute force over the input agrees slope by slope.
 
 The program parses with `Aoc.Common.parseGrid` and counts steps, looking
 squares up through `Grid.lookupOr`, with the column wrapped to the map's
-width:
+width by `%` (a `Grid` has a column, `Grid.widthNonZero`, SW-1235):
 
 ```stitchwort
-def wrap (column: Nat) (width: Nat): Nat :=
-  match width with
-    | Zero => column
-    | Succ less => column % Succ less
-
 def treesOn (map: Grid Square) (slope: Slope): Nat :=
+  let nonZero := map.widthNonZero
   let find := map.lookupOr Open
   List.rangeFrom map.height 1
     |> .takeWhile (step => step * slope.down < map.height)
-    |> .count (step => find { row = step * slope.down, column = wrap (step * slope.right) map.width } == Tree)
+    |> .count (step => find { row = step * slope.down, column = step * slope.right % map.width } == Tree)
 ```
+
+(The first version matched on the width in a `wrap` helper; items 1, 3 and 4
+below were fixed afterwards, see "After SW-1235".)
 
 It printed the right answers on the first run, and 15 of the 16 tests passed
 the first time (the one that didn't guessed a parse error's wording). The
@@ -514,8 +537,10 @@ Proved (`Aoc.Year2020.Day03.Proofs`):
 
 - `treesOnSpec`: on every rectangular map, for every slope, `treesOn` is the
   spec's count, including slopes that go 0 rows down or 0 columns right, and
-  maps with no columns. `part1Correct`, `part2Correct` follow.
-- `repeatingAtMod`, `repeatingAtWrap`: the repeating row is the pattern at
+  maps with no columns (no longer: a map has a column, SW-1235).
+  `part1Correct`, `part2Correct` follow.
+- `repeatingAtMod` (and, in the first version, `repeatingAtWrap`; now
+  dropped with `wrap`): the repeating row is the pattern at
   the column's remainder, so `wrap` is right; `lookupSquareAt`: the
   program's lookup at the wrapped column is the spec's square.
 - `pathRange`: the spec's path, step after step, is the start plus 1, 2, …

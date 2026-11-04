@@ -26,8 +26,8 @@ test "function last" := (m3.combine m3 (a b => a * b)).v == 9
 -- attribute says so, and there's no warning.
 @[noReceiver]
 def Meter.sumOnto (acc: Nat): List Meter → Nat
-  | Nil => acc
-  | Cons m rest => Meter.sumOnto (acc + m.v) rest
+  | [] => acc
+  | [m, ..rest] => Meter.sumOnto (acc + m.v) rest
 
 -- Not a `Meter` first, but no `Meter` at all: nothing to warn about.
 def Meter.fromNat (n: Nat): Meter := { v = n }

@@ -100,15 +100,15 @@ def magnitude: Number → Nat
 
 --| `total` with each of `numbers` added to it in turn.
 def addAll (total: Number): List Number → Option Number
-  | Nil => Some total
-  | Cons next rest =>
+  | [] => Some total
+  | [next, ..rest] =>
     match add total next with
       | Some sum => addAll sum rest
       | None => None
 
 def solvePart1: List Number → Option Nat
-  | Nil => None
-  | Cons first rest => (addAll first rest).map magnitude
+  | [] => None
+  | [first, ..rest] => (addAll first rest).map magnitude
 
 --| Every ordered pair of numbers on different lines.
 def orderedPairs (numbers: List Number): List (Number, Number) :=
@@ -117,10 +117,10 @@ def orderedPairs (numbers: List Number): List (Number, Number) :=
 
 --| The magnitude of each pair's sum, or `None` if a sum runs out of steps.
 def sumMagnitudes: List (Number, Number) → Option (List Nat)
-  | Nil => Some Nil
-  | Cons (x, y) rest =>
+  | [] => Some []
+  | [(x, y), ..rest] =>
     match add x y, sumMagnitudes rest with
-      | Some sum, Some others => Some (Cons (magnitude sum) others)
+      | Some sum, Some others => Some [magnitude sum, ..others]
       | _, _ => None
 
 def solvePart2 (numbers: List Number): Option Nat :=

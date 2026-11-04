@@ -1,5 +1,5 @@
 {
-  "next": 1250,
+  "next": 1268,
   "tickets": [
     {
       "id": 47,
@@ -69,7 +69,7 @@
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conversion skips arguments and fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 including the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nThird motivating example: Aoc/Day01/Proofs/Part2.sw:65-68 `dialExt`/`dialExtAt`: two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs; under D1' the proof field is masked and that step becomes `rfl`.\n\nHistory: Matt (19 Oct): on hold, multi-file first. Multi-file is now done (SW-89, SW-106). Multi-file is done; D240 (Matt, 21 Oct 2026): stays in the backlog.\n\nDone when: tests 1-16 of the note pass, `dialExt` is `rfl`-checkable, the full gate is green and hashes are re-baselined.\n\n\n\n\nWARNING, read before starting (Matt, 30 Oct 2026; from the kernel research register, docs/research/kernel.md §5.1, read in full texts): the recursive-proposition trap. If a proposition can be eliminated into data AND holds a proof of itself in a field, definitional proof irrelevance makes conversion undecidable: any proof X can be unfolded once more, X ≡ MkLoop (Loop.inv X), with no bound on how many unfoldings conversion must try (Gilbert et al. POPL19 §2.3; Abel & Coquand; Lean answered with lean4#13851/#14977). Stitchwort accepts such a type TODAY: E-PROP-ELIM (crates/core/src/check.rs:915-929) lets a single-constructor Prop whose fields are all Prop eliminate into data, without asking whether a field mentions the type itself. Checked by the orchestrator on 30 Oct with main's binary: `type Loop: Prop = | MkLoop (next: Loop)` with `def steps (l: Loop): Nat := match l with | MkLoop n => Succ (steps n)` checks. It is harmless now (no definitional irrelevance yet), but becomes the trap once D1′ masks proof positions. proof-irrelevance.md §5.1 currently defends Loop by making D1′ deliberately incomplete; the register recommends closing the hole instead: add a condition to E-PROP-ELIM that no constructor field mentions the type itself (Lean's rule), after measuring that nothing in std, examples, AoC or rogue relies on it (register ticket T2; decision D1980, open). Do this BEFORE or AS PART OF stage 1, with Loop/steps as a must-reject test.\n\n\nD1980 (Matt, 30 Oct 2026): yes, refuse eliminating a self-referential proposition into data (the warning above), but as part of THIS ticket's work, not before it: when SW-93 starts, measure first that nothing in std, examples, AoC or rogue eliminates such a proposition into data, then add the E-PROP-ELIM condition with Loop/steps as a must-reject test.\nReminder (D1981, Matt, 30 Oct): record eta interacts with this ticket. Once proofs are irrelevant, a record whose fields are all proofs behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26, Rocq requires a relevant field). If record eta (SW-55/SW-789) exists or lands after this, it must be limited to records with at least one field that isn't a proof.\n\n\nD2348 (Matt, 4 Nov 2026): yes, schedule as designed (docs/proposals/proof-irrelevance.md, D1-prime, decided 19 Oct). Opus. After SW-1226 merges, before SW-1227 (both touch the unifier). Merge tier plus a daily-tier run (ask Matt first). Then revisit D2180: if h: equations for any condition.\n",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conversion skips arguments and fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 including the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nThird motivating example: Aoc/Day01/Proofs/Part2.sw:65-68 `dialExt`/`dialExtAt`: two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs; under D1' the proof field is masked and that step becomes `rfl`.\n\nHistory: Matt (19 Oct): on hold, multi-file first. Multi-file is now done (SW-89, SW-106). Multi-file is done; D240 (Matt, 21 Oct 2026): stays in the backlog.\n\nDone when: tests 1-16 of the note pass, `dialExt` is `rfl`-checkable, the full gate is green and hashes are re-baselined.\n\n\n\n\nWARNING, read before starting (Matt, 30 Oct 2026; from the kernel research register, docs/research/kernel.md §5.1, read in full texts): the recursive-proposition trap. If a proposition can be eliminated into data AND holds a proof of itself in a field, definitional proof irrelevance makes conversion undecidable: any proof X can be unfolded once more, X ≡ MkLoop (Loop.inv X), with no bound on how many unfoldings conversion must try (Gilbert et al. POPL19 §2.3; Abel & Coquand; Lean answered with lean4#13851/#14977). Stitchwort accepts such a type TODAY: E-PROP-ELIM (crates/core/src/check.rs:915-929) lets a single-constructor Prop whose fields are all Prop eliminate into data, without asking whether a field mentions the type itself. Checked by the orchestrator on 30 Oct with main's binary: `type Loop: Prop = | MkLoop (next: Loop)` with `def steps (l: Loop): Nat := match l with | MkLoop n => Succ (steps n)` checks. It is harmless now (no definitional irrelevance yet), but becomes the trap once D1′ masks proof positions. proof-irrelevance.md §5.1 currently defends Loop by making D1′ deliberately incomplete; the register recommends closing the hole instead: add a condition to E-PROP-ELIM that no constructor field mentions the type itself (Lean's rule), after measuring that nothing in std, examples, AoC or rogue relies on it (register ticket T2; decision D1980, open). Do this BEFORE or AS PART OF stage 1, with Loop/steps as a must-reject test.\n\n\nD1980 (Matt, 30 Oct 2026): yes, refuse eliminating a self-referential proposition into data (the warning above), but as part of THIS ticket's work, not before it: when SW-93 starts, measure first that nothing in std, examples, AoC or rogue eliminates such a proposition into data, then add the E-PROP-ELIM condition with Loop/steps as a must-reject test.\nReminder (D1981, Matt, 30 Oct): record eta interacts with this ticket. Once proofs are irrelevant, a record whose fields are all proofs behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26, Rocq requires a relevant field). If record eta (SW-55/SW-789) exists or lands after this, it must be limited to records with at least one field that isn't a proof.\n\n\nD2348 (Matt, 4 Nov 2026): yes, schedule as designed (docs/proposals/proof-irrelevance.md, D1-prime, decided 19 Oct). Opus. After SW-1226 merges, before SW-1227 (both touch the unifier). Merge tier plus a daily-tier run (ask Matt first). Then revisit D2180: if h: equations for any condition.\n\n\nD2349 (Matt, 4 Nov 2026): restrict masks at definitions' arguments to proof parameters the definition never computes on (no case, J or Quot.ind on it, only passed to other masked positions); constructor fields masked as before. Reason: glued calls (SW-257, after draft 3) compare same-head calls argument-first, so unrestricted masks reintroduce Carneiro's non-transitivity (steps l 0 / cast rfl x) and make gluing change what is accepted. D2350: draft 4 of the note first (SW-1250).\n\n\nDecided by the orchestrator, delegated by Matt (4 Nov 2026: \"above my pay grade - can you make good decisions?\"), per note draft 4: D2352 yes (shortcut mode: inert arguments skipped, constructor proof fields compared); D2353 yes (an impossible case, as in Void.absurd, is not computing); D2354 yes (storing a proof parameter in a constructor field makes it non-inert); D2355 yes (independent Opus review of the new parts of 5.1, 5.7, 7.1-7.3, 7.10 before stage 1; to start when Matt lifts the hold on new lanes). Order: review, then SW-93 stage 1 on Opus.\n",
       "created": "2026-10-19",
       "updated": "2026-11-04",
       "commits": []
@@ -5422,13 +5422,13 @@
     {
       "id": 1221,
       "title": "Sweep: Cons patterns and expressions to the bracket form ([a, ..rest], [x, ..xs]) across std, aoc, games, examples; keep Cons used as a function (t => Cons t rs, fold Cons)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "scratch-sw-1221",
       "labels": [
         "cleanup"
       ],
-      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1221, expected: 90 min.\n",
+      "body": "D2324 (Matt, 4 Nov 2026): 'almost all the cons patterns should be moved to the bracket form ... if we're actually putting together a list, it's nice to use that form'; exceptions where Cons is used as a function. After the list-spread lane, and after SW-1212 and SW-1216 so the repo-wide edits don't collide. Check: no hash changes, audit unchanged.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1221, expected: 90 min.\n\n\nDeepSeek finished 4 Nov 2026 18:2x: 2234 rewrites (1482 patterns, 752 expressions) in 336 files, hashes and audit unchanged. Fetched to lane/SW-1221; review and merge after the hold. Model result: DeepSeek, worked, about 55 min (est. 90).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5499,14 +5499,14 @@
     {
       "id": 1226,
       "title": "Elaborator: when a lemma's arguments depend only on _, compare its conclusion with the goal before checking its proof arguments (removes the doubling re-checks)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "performance"
       ],
-      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n",
+      "body": "D2342. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After the std lemmas. Expected (estimated in the note): 8 parser steps from 73 M evaluation steps to under 1 M; measure with the note's bench.py.\n\nStarted 4 Nov 2026 on Opus, expected: 180 min.\n\nProgress (lane, 4 Nov 2026, 15:06-17:53, about 165 min):\n- Done on lane/SW-1226, commit c5048507. As built: the note's \"As built: D2342\" section.\n- Built as a limit on checks in place, not the literal B: the literal B (and two narrower variants) changed std content hashes (106, then 50, then 2 declarations), because `_`s got solved from the goal instead of from the arguments. The built version changes no hash.\n- Opaque-leaf proofs: 8 steps 12.1 M -> 0.54 M, 12 steps 240 M -> 1.06 M, 16 steps 1.8 M. Copy-shaped proofs (Day 2, bench.py copy) barely move (Day 2 20.47 M -> 19.84 M): their cost is cause 1 (D2343/D2341).\n- aoc whole: decl steps 1,147.3 M -> 1,146.7 M; instructions 695-700 G before, 699 G after (noise ~0.6%).\n- Tests: elab lane, goals lane, postponement + hash_stability + pinned_hashes, std's own tests, examples lane NAME=reads-nested-binds,parse, audit Day02 and 2021 Day16 (same as before): all pass.\n\n\nProgress (lane, 4 Nov 2026, 17:54-18:20, about 26 min, after the orchestrator's correction that hash changes don't count):\n- Replaced the limit mechanism with the literal B: commit 4a2ee231 (on top of c5048507). The limit cells are gone; one cell, `no_hole_propagation`. As-built section rewritten.\n- Opaque: 8 steps 0.13 M, 12 steps 0.24 M, 16 steps 0.38 M (about 35 K per step). Copy: 8 steps 70.8 M (cause 1). Day 2 readsLine 20.47 M -> 18.80 M.\n- aoc whole (std included): decl steps 1,203.1 M -> 1,195.6 M; instructions 695.5 G -> 693.0 G. Largest rise: 2024 Day06 keepsTrapsAt 32.9 M -> 39.5 M.\n- Hashes: 106 std declarations, examples let-proof-pattern-unfold and reads-nested-binds (snapshots updated). No message changes: check on all 1,274 example files prints the same before and after.\n- Tests: elab lane, goals lane, postponement + hash_stability + pinned_hashes, std's own tests: pass. std, aoc, games/rogue check. Audits of 2020 Day02, 2021 Day08 and Day16, 2024 Day06 match main.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5627,16 +5627,18 @@
     {
       "id": 1235,
       "title": "Day 3 friction: Aoc.Common Grid is non-empty (carries width ≠ 0, so column % map.width works); a Bool rectangle check; List.takeWhileMap and takeWhile-over-a-range lemmas; checkGrid keeps its rows; two messages",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc-friction"
       ],
-      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).\n\nMatt, 4 Nov 2026: \"I can't imagine that any Advent of Code puzzle is going to have an empty grid ... fair to assume that they're all not empty.\" So instead of Nat.wrap: make Aoc.Common's Grid non-empty (the parser rejects an empty map; the grid carries a proof its width is not 0) so that `column % map.width` works directly, and Day 3 drops its wrap helper. Keep the Bool rectangle check, the lemmas and the two messages.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n",
+      "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. Move Day03's local wrap helper and lemmas to them. Opus reviews (proofs).\n\nMatt, 4 Nov 2026: \"I can't imagine that any Advent of Code puzzle is going to have an empty grid ... fair to assume that they're all not empty.\" So instead of Nat.wrap: make Aoc.Common's Grid non-empty (the parser rejects an empty map; the grid carries a proof its width is not 0) so that `column % map.width` works directly, and Day 3 drops its wrap helper. Keep the Bool rectangle check, the lemmas and the two messages.\n\n\nStarted 4 Nov 2026 on Sonnet, expected: 120 min.\n\nProgress (lane/SW-1235, 4 Nov 2026, about 45 min): done and committed. Grid carries `nonEmpty: (firstWidth rows == 0) = False` (an equation, so `==` and the counterexample search still work); `Grid.widthNonZero`, `Grid.of`, `Grid.isRectangle` + `isRectangleIff`; Day 3 uses `%` with `let nonZero := map.widthNonZero`; 2021 day 15's Cave carries the same field; std gains List.takeWhileMap and List.takeWhileRangeCutoff; checkGridRows in Aoc.Common.Proofs; two messages (reject examples with snapshots). Awaiting Opus review.\n\n\nMerged 4 Nov 2026 (conflicts with SW-1216 resolved by the orchestrator; doc-comment fixup). Model result: Sonnet, worked, about 45 min (est. 120).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
-      "commits": []
+      "commits": [
+        "6c842c97"
+      ]
     },
     {
       "id": 1236,
@@ -5826,13 +5828,267 @@
     {
       "id": 1249,
       "title": "AoC 2020 day 4 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track. Day 3 friction review done 4 Nov 2026 (D2347; Grid made non-empty in SW-1235). Started 4 Nov 2026 on Opus, expected: 120 min.",
+      "body": "D2305 track. Day 3 friction review done 4 Nov 2026 (D2347; Grid made non-empty in SW-1235). Started 4 Nov 2026 on Opus, expected: 120 min.\n\nProgress (lane, 4 Nov 2026): done in about 22 min (17:30-17:52), commit 9411330c on lane/SW-1249. Answers 200 / 116 (example 2 / 2), matching Matt's Scala and an awk check. Proved: validSpec (each key's check is the puzzle's rule for its code), hasRequiredSpec, part1Correct, part2Correct for every list of passports; parseWritten (the parser reads the batch format). Not proved: that every well-formed file parses (Parse.Reads is soundness only). Audit: 69 theorems, 0 failed, 11 warnings (all false vacuity warnings on generated equations, NOTES item 6). Tests: stitchwort test Aoc.Year2020.Day04 25/25; task test:one -- year2020_day04 passed. Friction: NOTES-2020.md \"Day 4\", ranked list at its end.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1250,
+      "title": "Proof irrelevance note, draft 4: masks only on proof arguments a definition never computes on (D2349); correct §6's transitivity claim for glued calls; cite Carneiro's ideal-vs-algorithmic split (Lemma 3.4) for §5.6",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "kernel",
+        "design"
+      ],
+      "body": "D2350 (Matt, 4 Nov 2026). Before SW-93. Started 4 Nov 2026 on Opus, expected: 60 min.\n\nProgress (Opus lane, 4 Nov 2026, 17:54-18:15): draft 4 written and committed on lane/SW-1250 (25a2d990). Design: masks on definitions only for inert proof parameters (gfp per group, computed at admit_group); the glued/folded/partial-application shortcuts compare arguments in a \"shortcut mode\" (inert masks on, constructor field masks off; CallMemo keyed by mode), which §7.10 argues makes gluing a pure optimisation. Finding: constructor masks alone break the shortcut (`Box.unbox (MkBox p)` vs `(MkBox q)`), so D2349 isn't enough without D2352. Open: D2352 (shortcut compares proof fields), D2353 (a case with no possible branch isn't computing; needed for Int.modNat/§2.1, Fin.ofNatLt/D2180), D2354 (storing in a constructor field isn't an inert use), D2355 (focused review of §7.3/§7.10). Only .sw checks of today's behaviour run (release CLI at f3769d45); no test suites.\n\n\nMerged 4 Nov 2026. Open: D2352-D2355.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1251,
+      "title": "Std: reconsider List.rangeFrom's argument order: `List.rangeFrom count start` reads backwards (day 3's `List.rangeFrom map.height 1` is 1, 2, … map.height steps). Options: start first (`List.rangeFrom 1 map.height`), named arguments, or a from/until form like `List.range 1 (map.height + 1)` / `1 ..< n`",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 4 Nov 2026: finds the order unintuitive. Today: `def List.rangeFrom: Nat → Nat → List Nat`, `List.rangeFrom 3 5` is `[5, 6, 7]` (crates/elab/src/std/List/Toolkit.sw:227). Count first because `List.range n = List.rangeFrom n 0` and recursion is on the count. Uses across std, aoc, games, examples: see grep -w rangeFrom. Migration cost doesn't count (hashes, sweep); judge by the end state, including how lemmas like List.lengthRangeFrom and List.mapRangeShift read.\n\nMatt, 4 Nov 2026: \"it might just be a matter of picking a better name or using it with named arguments.\" Note: rangeFrom's parameters are unnamed today (`Nat → Nat → List Nat`), so named arguments need them named first (e.g. `(count: Nat) (start: Nat)`, then `List.rangeFrom (count := map.height) (start := 1)`). Name candidates that say the count comes first: e.g. `List.countUp n from`. Prefer the smallest change that reads right.\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1252,
+      "title": "Kernel: set_shortcuts_disabled doesn't turn off the folded-by-name shortcut (value.rs ~2432), so shortcuts-off differential tests only half-cover the shortcuts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1253,
+      "title": "After proof irrelevance stage 1: check whether Bool.canonicalTrue (D731, used by Float.make) is still needed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1254,
+      "title": "stitchwort doc / hover: show which proof parameters a definition ignores (inert, proof-irrelevance draft 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Found by SW-1250, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1255,
+      "title": "Elab: 2024 day 6 keepsTrapsAt got 20% slower under conclusion-first checking (32.9 M → 39.5 M steps; 2021 day 8 scoreDrawn 3.17 → 3.64 M): probably a _ solved from the goal in a costlier shape",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance",
+        "elab"
+      ],
+      "body": "Found by SW-1226 (D2342 B), 4 Nov 2026. Measurements in the SW-1226 report.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1256,
+      "title": "Cons sweep leftovers: list expressions whose elements perform abilities, and 4 aoc constructor result types, still use Cons (SW-1221 kept them because a list literal elaborates them differently, changing hashes). Convert them (hash changes are fine; verify by audit and tests instead)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Found by SW-1221, 4 Nov 2026. Remaining full Cons applications: std 46, aoc 9, games 3, examples/accept 18, goals 1.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1257,
+      "title": "Elab: a variable bound only by a constructor's result type isn't auto-bound through a list literal ([x, ..xs] in a result type), though it is through Cons x xs (aoc 2021 days 10 and 18 Spec)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Found by SW-1221, 4 Nov 2026.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1258,
+      "title": "Std: give every public function's parameters revealing names, for self-documentation (signatures, hover, stitchwort doc) and so callers can use named arguments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 4 Nov 2026, from SW-1251 (List.rangeFrom count start). A signature written as a type (`def List.rangeFrom: Nat → Nat → List Nat` with match arms) leaves parameters unnamed, so `List.rangeFrom (count := n) (start := 1)` is impossible and the signature doesn't say which Nat is which. Naming them in the type keeps the match arms unchanged: `def List.rangeFrom: (count: Nat) → (start: Nat) → List Nat` (checked 4 Nov: named arguments then work in either order; positional calls unchanged). Rough count by grep: about 71 defs and 284 theorems in std have at least one unnamed explicit parameter. Scope: defs first (theorems: names help hover and named use too, judge which). Also check that existing named parameters reveal meaning (`n`, `i`, `x` where a role name says more). Hash changes don't count. Comment style: std's full API docs (D2351). SW-1251 (rangeFrom's order) can be folded in. Probably a mechanical lane (DeepSeek) from a name-choosing pass by a stronger model, or Sonnet end to end.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1259,
+      "title": "Std scope: is PrefixSums (a 2D summed-area table, crates/elab/src/std/PrefixSums) standard-library material? Its only user is AoC 2025 day 9; consider moving it to aoc/src/Aoc/Common, and review std's other top-level modules against a written rule for what belongs in std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 4 Nov 2026: \"PrefixSums is in stdlib, I dunno if that's stdlib material.\" Added to std by SW-13 (24 Oct 2026, AoC 2025 day 9) with BlockSum.sw (its correctness proof). Only users: aoc/src/Aoc/Year2025/Day09 (program, Proofs/Floor.sw, tests). Other std modules worth the same question: Graph, Random, Terminal, Omega (tactic support?), Finite, Ring. Output: a short rule for what belongs in std (general, widely reusable, part of the language's story) vs a project library (aoc Common, games), then moves. Migration cost doesn't count.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1260,
+      "title": "Std: lemmas for Text.toNat, Text.stripSuffix (sameChar bridge), List contains-on-distinct, heads of equal lists",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From AoC 2020 day 4's friction review (SW-1249, NOTES-2020.md items 1 and 8, ranked 1 and 8). Part 2's proofs spent ~50 lines on text plumbing because std proves nothing about Text.toNat or Text.stripSuffix, and stripSuffix compares by Text.sameChar, not ==. Wanted: Text.toNatSome (cf. day 4's toNatDigits / readDigitsAll), Text.stripSuffixSome: text.stripSuffix suffix = Some rest ↔ text = rest ++ suffix (and stripPrefix's), a sameChar bridge (sameCharEq: Text.sameChar c d = (c == d)) or stripPrefix/stripSuffix defined via ==; List: contains on a list of distinct values (count ≤ 1 / exactly one), and the heads of equal lists are equal (List.consInjective covers tails). Day 4's Proofs/Rules.sw lemmas are candidates to move. Afterwards day 4's proofs should shrink to a few rewrites.\n\nD2356 (Matt, 4 Nov): yes to the small std lemmas and the text lemmas.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1261,
+      "title": "Audit vacuity check: false warnings on generated equations; is random search viable?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1262,
+      "title": "Parse.all: a failure after an extra blank line is reported a line late as 'expected the end of the input'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 3 (ranked 3). parsed \"cid:1\\n\\n\\ncid:2\" gives 'line 4, column 1: expected the end of the input'; the mistake is line 3. The furthest failure (a key expected, line 3) loses to the final line breaks. Parse.all could prefer a failure inside the last section, or add 'another section' as an expectation after a blank line.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1263,
+      "title": "cases after rewrite, in an arm, fails with E-MATCH-MOTIVE and 'rfl can't prove this'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 2 (ranked 4). In Day04 yearChars, 'rewrite betweenToNat low high [char, ..rest] in cases' fails; the same cases as a separate lemma (andShape) checks. Probably splits something stuck in a fold whose generalisation is ill-typed. Message points at 'this match' though the user wrote cases, and doesn't say what it split. Needs a minimal repro; then skip untypeable splits or name the split.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1264,
+      "title": "cases on two enumeration values splits stuck comparisons before the second variable (E-CASES-BUDGET)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 5). codeEq (a b: Key): (a.code == b.code) = (a == b) := cases split a, then four List.decEq comparisons, before b; splitting b first closes all 64 cases by computing. Prefer splitting variables over stuck terms. Workaround used: Finite.check plus DecEq.sound.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1265,
+      "title": "Name errors: BirthYear.valid has no note; Passport.mk's error printed three times",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 5 (ranked 6). 'BirthYear.valid \"2002\"' is E-UNKNOWN-NAME 'not in scope' with no note; could say '`BirthYear` is a `Key`: write `Key.valid BirthYear`' (or resolve as dot notation on the constructor's value). Passport.mk (…) for a record: E-UNKNOWN-NAME printed three times for one use (bug).",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1266,
+      "title": "pick's expectation lists 'a' or 'b' or … or 'h'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 4 (ranked 7). 'expected 'byr' or 'iyr' or … or 'cid'' should read 'expected 'byr', 'iyr', …, 'pid' or 'cid''. Affects every pick-parsed enumeration.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1267,
+      "title": "First stitchwort search in a fresh worktree took over two minutes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 9). 'List.filter (List.map _ _) _ = _' took >2 min wall clock the first time, 3.4 s user the second, under load average ~70. Time it on an idle machine first; likely a cold index or cache build.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []

@@ -30,15 +30,15 @@ def Result.isOk: Result a e → Bool
 
 --| `f` of each element in turn: every value, or the first error. A loop, so
 --| it is stack-safe on long lists; [`Result.traverseCons`] is its step.
-def Result.traverse (xs: List a) (f: a → Result b e): Result (List b) e := Result.traverseLoop f Nil xs
+def Result.traverse (xs: List a) (f: a → Result b e): Result (List b) e := Result.traverseLoop f [] xs
 
 --| The loop of `Result.traverse`: `done` holds the values so far, last first.
 --| It stops at the first error.
 def Result.traverseLoop (f: a → Result b e) (done: List b): List a → Result (List b) e
-  | Nil => Ok (List.reverseOnto done Nil)
-  | Cons x xs =>
+  | [] => Ok (List.reverseOnto done [])
+  | [x, ..xs] =>
     match f x with
-      | Ok y => Result.traverseLoop f (Cons y done) xs
+      | Ok y => Result.traverseLoop f [y, ..done] xs
       | Err m => Err m
 
 --| Two maps are one map of the composite.
@@ -55,33 +55,33 @@ theorem Result.flatMapEqOk [goal: Prop]: (r: Result a e) → (f: a → Result b 
 
 --| The values done so far go in front of what the rest gives.
 theorem Result.traverseLoopDone (f: a → Result b e): (xs: List a) → (done: List b) →
-    Result.traverseLoop f done xs = Result.map (Result.traverseLoop f Nil xs) (ys => List.reverseOnto done ys)
-  | Nil, done => rfl
-  | Cons x xs, done =>
+    Result.traverseLoop f done xs = Result.map (Result.traverseLoop f [] xs) (ys => List.reverseOnto done ys)
+  | [], done => rfl
+  | [x, ..xs], done =>
     match e: f x with
       | Ok y =>
-        rewrite Result.traverseLoopDone f xs (Cons y done), Result.traverseLoopDone f xs (Cons y Nil),
-          Result.mapMap (ys => List.reverseOnto (Cons y Nil) ys) (ys => List.reverseOnto done ys) (Result.traverseLoop f Nil xs) in rfl
+        rewrite Result.traverseLoopDone f xs [y, ..done], Result.traverseLoopDone f xs [y],
+          Result.mapMap (ys => List.reverseOnto [y] ys) (ys => List.reverseOnto done ys) (Result.traverseLoop f [] xs) in rfl
       | Err m => rfl
 
 --| The step of `Result.traverse`, which the loop form hides.
 theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
-    Result.traverse (Cons x xs) f = Result.flatMap (f x) (y => Result.map (Result.traverse xs f) (Cons y)) :=
+    Result.traverse [x, ..xs] f = Result.flatMap (f x) (y => Result.map (Result.traverse xs f) (Cons y)) :=
   match e: f x with
-    | Ok y => rewrite Result.traverseLoopDone f xs (Cons y Nil) in rfl
+    | Ok y => rewrite Result.traverseLoopDone f xs [y] in rfl
     | Err m => rfl
 
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
 theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: (x: a) → (y: b) → f x = Ok y → r x y):
     (xs: List a) → (ys: List b) → Result.traverse xs f = Ok ys → List.All2 r xs ys
-  | Nil, ys, done => rewrite <- Result.okInjective Nil ys done in Trivial
-  | Cons x rest, ys, done =>
+  | [], ys, done => rewrite <- Result.okInjective [] ys done in Trivial
+  | [x, ..rest], ys, done =>
     Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
       (y first later =>
         match e: Result.traverse rest f with
           | Err m => Void.exfalso (Result.errNotOk m ys later)
-          | Ok zs => rewrite <- Result.okInjective (Cons y zs) ys later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+          | Ok zs => rewrite <- Result.okInjective [y, ..zs] ys later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: Option a → (err: e) → Result a e

@@ -102,7 +102,7 @@ theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get (Circuits.separate n
 
 theorem labelAtStart (n: Nat) (b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h in rfl
 
-theorem labelledAtStart (n: Nat): Labelled n Nil (Circuits.separate n) :=
+theorem labelledAtStart (n: Nat): Labelled n [] (Circuits.separate n) :=
   {
     stored = b h => rewrite storedAtStart n b h in rfl,
     inRange = a b m => Void.exfalso m,
@@ -188,8 +188,8 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
 theorem labelledJoinAll (n: Nat): (rest: List (Nat, Nat)) → (done: List (Nat, Nat)) → (c: Circuits) →
     List.all rest (boxesBelow n) = True → Labelled n done c →
     Labelled n (List.append done rest) (joinAll c rest)
-  | Nil, done, c, ok, inv => rewrite List.appendNil done in inv
-  | Cons (f, s) rest, done, c, ok, inv =>
+  | [], done, c, ok, inv => rewrite List.appendNil done in inv
+  | [(f, s), ..rest], done, c, ok, inv =>
     match r: boxesBelow n (f, s) with
       | True =>
         rewrite <- List.appendAssoc done [(f, s)] rest in
@@ -211,4 +211,4 @@ theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labell
 --| of the boxes have the same label exactly when the connections join them.
 theorem labelsTell (n: Nat) (connections: List (Nat, Nat)) (ok: List.all connections (boxesBelow n) = True):
     Tells n connections (a b => (joinAll (Circuits.separate n) connections).labelOf a == (joinAll (Circuits.separate n) connections).labelOf b) :=
-  labelsTellOf n connections (joinAll (Circuits.separate n) connections) (labelledJoinAll n connections Nil (Circuits.separate n) ok (labelledAtStart n))
+  labelsTellOf n connections (joinAll (Circuits.separate n) connections) (labelledJoinAll n connections [] (Circuits.separate n) ok (labelledAtStart n))

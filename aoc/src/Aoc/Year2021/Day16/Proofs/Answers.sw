@@ -14,8 +14,8 @@ theorem versionSumTotal: (packet: Packet) → versionSum packet = (packetsIn pac
     rewrite List.sumByCons (packetsInAll subPackets) (Operator version operation lengthType subPackets) versionOf, versionSumsTotal subPackets in rfl
 
 theorem versionSumsTotal: (packets: List Packet) → versionSums packets = (packetsInAll packets).sumBy versionOf
-  | Nil => rfl
-  | Cons packet rest => rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal packet, versionSumsTotal rest in rfl
+  | [] => rfl
+  | [packet, ..rest] => rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal packet, versionSumsTotal rest in rfl
 
 --| Part 1, for every packet.
 theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
@@ -23,8 +23,8 @@ theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet :
 --| A literal's value: its groups, each below 16, read as one binary number.
 theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => group < 16) = True →
     List.foldLeft groups acc (value group => value * 16 + group) = List.foldLeft (groups.flatMap (bitsOf 4)) acc (acc bit => acc * 2 + Bool.toNat bit)
-  | Nil, small => rfl
-  | Cons group rest, small =>
+  | [], small => rfl
+  | [group, ..rest], small =>
     let fits: group < Nat.pow 2 4 := omega [Bool.andLeft _ _ small]
     let ih := groupsValue (acc * 16 + group) rest (Bool.andRight _ _ small)
     let inner: List.foldLeft (bitsOf 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
@@ -50,8 +50,8 @@ theorem applyComputes (operation: Operation) (values: List Nat) (fits: fitsOpera
           MinimumOf found.left found.right
         | None =>
           match values with
-            | Nil => cases
-            | Cons _ _ => cases
+            | [] => cases
+            | [_, .._] => cases
     | Maximum, values =>
       match m: List.maximum values with
         | Some most =>
@@ -59,8 +59,8 @@ theorem applyComputes (operation: Operation) (values: List Nat) (fits: fitsOpera
           MaximumOf found.left found.right
         | None =>
           match values with
-            | Nil => cases
-            | Cons _ _ => cases
+            | [] => cases
+            | [_, .._] => cases
     | GreaterThan, [first, second] =>
       match h: (second < first: Bool) with
         | True => Greater first second (omega [h])
@@ -76,8 +76,8 @@ theorem applyComputes (operation: Operation) (values: List Nat) (fits: fitsOpera
     | _, _ => cases
 
 theorem lengthEvaluateAll: (packets: List Packet) → (evaluateAll packets).length = packets.length
-  | Nil => rfl
-  | Cons _ rest => rewrite lengthEvaluateAll rest in rfl
+  | [] => rfl
+  | [_, ..rest] => rewrite lengthEvaluateAll rest in rfl
 
 --| Part 2: a well-formed packet that keeps the promise has the value the
 --| program computes.
@@ -91,8 +91,8 @@ theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → promi
       (applyComputes operation (evaluateAll subPackets) (rewrite lengthEvaluateAll subPackets in Bool.andLeft _ _ kept))
 
 theorem evaluateAllCorrect: (packets: List Packet) → allWellFormed packets = True → allPromised packets = True → Values packets (evaluateAll packets)
-  | Nil, formed, kept => NoValues
-  | Cons packet rest, formed, kept =>
+  | [], formed, kept => NoValues
+  | [packet, ..rest], formed, kept =>
     NextValue (evaluateCorrect packet (Bool.andLeft _ _ formed) (Bool.andLeft _ _ kept)) (evaluateAllCorrect rest (Bool.andRight _ _ formed) (Bool.andRight _ _ kept))
 
 theorem part2Correct (packet: Packet) (formed: wellFormed packet = True) (kept: promised packet = True): HasValue packet (solvePart2 packet) :=

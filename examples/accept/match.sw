@@ -9,8 +9,8 @@ import Std (Eq, Nat, Void)
 -- In the tree: the whole right-hand side.
 def describe (xs: List Nat): Text :=
   match xs with
-    | Nil => "empty"
-    | Cons x Nil => "one"
+    | [] => "empty"
+    | [x] => "one"
     | _ => "many"
 
 -- Lifted: the `match` is an argument of `+`. Not a tail call.
@@ -23,21 +23,21 @@ def countTail (n: Nat): Nat := match n with | Zero => 0 | Succ k => countTail k
 
 -- Lifted, with a variable of the equation used in a branch.
 def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
-  | Nil => n
-  | Cons x _ => x + n
+  | [] => n
+  | [x, .._] => x + n
 
 -- A proof by `match`, in the tree.
-theorem appendNil (xs: List a): xs.append Nil = xs :=
+theorem appendNil (xs: List a): xs.append [] = xs :=
   match xs with
-    | Nil => rfl
-    | Cons y ys => Eq.cong (Cons y) (appendNil ys)
+    | [] => rfl
+    | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
 
 -- A `match` in a test.
 test "describe" := describe [1, 2] == "many"
 test "count" := count 3 == 4
 test "countTail" := countTail 5 == 0
 test "f" := f 2 [5] == 8
-test "f nil" := f 2 Nil == 3
+test "f nil" := f 2 [] == 3
 test "lifted in test" := (match 3 with | Zero => False | Succ _ => True)
 
 -- Expression scrutinee, named: `h` is an equation about the expression.
@@ -69,10 +69,10 @@ def pred (n: Nat) (q: n ≠ 0): Nat := 0 + match n with
 
 -- Nested matches.
 def both (xs: List Nat) (ys: List Nat): Nat := 1 + match xs with
-  | Nil => 0
-  | Cons x _ => x + match ys with
-    | Nil => 0
-    | Cons y _ => y
+  | [] => 0
+  | [x, .._] => x + match ys with
+    | [] => 0
+    | [y, .._] => y
 
 -- A `match` in a signature.
 def Pick (b: Bool): Type := match b with | True => Nat | False => Text
@@ -83,7 +83,7 @@ def pickType (b: Bool): (match b with | True => Nat | False => Text) := match b 
 
 -- Two scrutinees.
 def zipLen (xs: List Nat) (ys: List Nat): Nat := 1 + match xs, ys with
-  | Cons _ a, Cons _ b => zipLen a b
+  | [_, ..a], [_, ..b] => zipLen a b
   | _, _ => 0
 
 -- A user function named `match1` next to a match: no clash with the
@@ -108,7 +108,7 @@ def swapIfZero (p: (Nat, Nat)): (Nat, Nat) := match p with
   | (0, y) => (y, 0)
   | (x, y) => (x, y)
 
-test "isEmpty" := isEmpty Nil
+test "isEmpty" := isEmpty []
 test "both" := both [1] [2] == 4
 test "pickType" := pickType True == 1
 test "zipLen" := zipLen [1, 2, 3] [4, 5] == 3
@@ -129,8 +129,8 @@ def sndOf: Pair a b → b
   | MkPair x y => y
 
 def eqNats: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqNats xs ys else False
   | _, _ => False
 
 ability Log where
@@ -138,7 +138,7 @@ ability Log where
 
 def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)

@@ -10,33 +10,33 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Void)
 
 --| A step keeps the first element...
-theorem stepKeepsFirst (rules: List Rule) (a: Char) (rest: List Char): ∃ (tail: List Char) => step rules (Cons a rest) = Cons a tail :=
+theorem stepKeepsFirst (rules: List Rule) (a: Char) (rest: List Char): ∃ (tail: List Char) => step rules [a, ..rest] = [a, ..tail] :=
   match rest with
-    | Nil => Witness Nil rfl
-    | Cons b more => Witness (List.append (between rules a b) (step rules (Cons b more))) rfl
+    | [] => Witness [] rfl
+    | [b, ..more] => Witness (List.append (between rules a b) (step rules [b, ..more])) rfl
 
 --| ...and so do any number of steps.
 theorem stepsKeepFirst (rules: List Rule): (steps: Nat) → (a: Char) → (rest: List Char) →
-    ∃ (tail: List Char) => Nat.iterate steps (step rules) (Cons a rest) = Cons a tail
+    ∃ (tail: List Char) => Nat.iterate steps (step rules) [a, ..rest] = [a, ..tail]
   | Zero, a, rest => Witness rest rfl
   | Succ steps, a, rest =>
     match stepKeepsFirst rules a rest with
       | Witness tail e => rewrite e in stepsKeepFirst rules steps a tail
 
 --| Steps leave an empty polymer empty.
-theorem stepsEmpty (rules: List Rule): (steps: Nat) → Nat.iterate steps (step rules) Nil = Nil
+theorem stepsEmpty (rules: List Rule): (steps: Nat) → Nat.iterate steps (step rules) [] = []
   | Zero => rfl
   | Succ steps => stepsEmpty rules steps
 
 --| An element's count: the first element, if it is that one, and the
 --| pairs that end with it.
 theorem countByPairs (c: Char) (a: Char): (rest: List Char) →
-    List.count (Cons a rest) (== c) = Bool.toNat (a == c) + List.sumBy (List.zipWithNext (Cons a rest)) (pair => Bool.toNat (pair.snd == c))
-  | Nil => omega [List.countCons Nil a (== c)]
-  | Cons b more =>
+    List.count [a, ..rest] (== c) = Bool.toNat (a == c) + List.sumBy (List.zipWithNext [a, ..rest]) (pair => Bool.toNat (pair.snd == c))
+  | [] => omega [List.countCons [] a (== c)]
+  | [b, ..more] =>
     omega [
-      List.countCons (Cons b more) a (== c),
-      List.sumByCons (List.zipWithNext (Cons b more)) (a, b) (pair => Bool.toNat (pair.snd == c)),
+      List.countCons [b, ..more] a (== c),
+      List.sumByCons (List.zipWithNext [b, ..more]) (a, b) (pair => Bool.toNat (pair.snd == c)),
       countByPairs c b more
     ]
 
@@ -49,6 +49,6 @@ theorem elementCountWeight (first: Char) (counts: PairCounts) (c: Char):
   omega [each]
 
 --| ...so it is the element's count in the polymer the counts stand for.
-theorem elementCountQuantity (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts (Cons first tail)) (c: Char):
-    elementCount first counts c = quantity (Cons first tail) c :=
+theorem elementCountQuantity (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (c: Char):
+    elementCount first counts c = quantity [first, ..tail] c :=
   omega [elementCountWeight first counts c, represents (pair => Bool.toNat (pair.snd == c)), countByPairs c first tail]

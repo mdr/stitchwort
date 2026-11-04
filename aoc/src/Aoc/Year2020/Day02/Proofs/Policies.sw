@@ -15,18 +15,18 @@ theorem part1Correct (entries: List Entry): solvePart1 entries = part1Answer ent
 --| Characters numbered from `start` hold nothing at a position before `start`.
 theorem holdsNothingBefore (letter: Char): (chars: List Char) → (start: Nat) → (position: Nat) → position < start →
     List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = False
-  | Nil, start, position, before => rfl
-  | Cons c rest, start, position, before =>
+  | [], start, position, before => rfl
+  | [c, ..rest], start, position, before =>
     rewrite holdsNothingBefore letter rest (Succ start) position (Nat.lessLe position start before) in cases
 
 --| Numbered from `start`, the character at `start + index` is the list's
 --| `index`th, counting from 0.
 theorem holdsGet (letter: Char): (chars: List Char) → (start: Nat) → (index: Nat) → (position: Nat) → position = start + index →
     List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (List.get chars index == Some letter)
-  | Nil, start, index, position, is => rfl
-  | Cons c rest, start, Zero, position, is =>
+  | [], start, index, position, is => rfl
+  | [c, ..rest], start, Zero, position, is =>
     rewrite holdsNothingBefore letter rest (Succ start) position omega in cases
-  | Cons c rest, start, Succ index, position, is =>
+  | [c, ..rest], start, Succ index, position, is =>
     rewrite holdsGet letter rest (Succ start) index position omega in cases
 
 theorem letterAtSpec (entry: Entry) (position: Nat): entry.letterAt position = holdsLetter entry position :=

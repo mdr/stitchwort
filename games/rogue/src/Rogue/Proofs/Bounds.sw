@@ -70,14 +70,14 @@ theorem roomFits (index: Nat) (small: index < 6) (downRoll: Nat) (acrossRoll: Na
 theorem getOrFits (fallback: Area) (fallbackFits: OnMap fallback):
     (rooms: List Area) → ((area: Area) → List.Mem area rooms → OnMap area) → (index: Nat) → OnMap (rooms.getOr index fallback)
   | [], fit, index => fallbackFits
-  | Cons room rest, fit, Zero => fit room (Inl rfl)
-  | Cons room rest, fit, Succ index => getOrFits fallback fallbackFits rest (area listed => fit area (Inr listed)) index
+  | [room, ..rest], fit, Zero => fit room (Inl rfl)
+  | [room, ..rest], fit, Succ index => getOrFits fallback fallbackFits rest (area listed => fit area (Inr listed)) index
 
 theorem roomOfFits (rooms: List Area) (fit: (area: Area) → List.Mem area rooms → OnMap area) (index: Nat): OnMap (roomOf rooms index) :=
   let fallbackFits: OnMap (rooms.headOr fallbackRoom) :=
     match rooms with
       | [] => { bottom = omega, right = omega }
-      | Cons room rest => fit room (Inl rfl)
+      | [room, ..rest] => fit room (Inl rfl)
   getOrFits (rooms.headOr fallbackRoom) fallbackFits rooms fit index
 
 --| A corridor between two cells on the screen fits.
@@ -211,7 +211,7 @@ theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingS
 
 theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
   | [], state, sound => sound
-  | Cons (seed, command) rest, state, sound =>
+  | [(seed, command), ..rest], state, sound =>
     replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
 
 --| In a sound state, `render` draws `@` at the player's row and column,

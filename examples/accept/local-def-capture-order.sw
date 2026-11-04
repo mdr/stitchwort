@@ -7,8 +7,8 @@ import Std (Nat)
 
 def reach: List Nat → Nat → Nat → Nat → Bool
   | ls, c, Zero, d => c == d
-  | Nil, c, Succ k, d => False
-  | Cons line rest, c, Succ k, d =>
+  | [], c, Succ k, d => False
+  | [line, ..rest], c, Succ k, d =>
     def left: Nat → Bool
       | Zero => False
       | Succ b => reach rest b k d
@@ -19,7 +19,7 @@ theorem leftZero (rest: List Nat) (k: Nat) (d: Nat): reach.left rest k d Zero = 
 theorem leftSucc (rest: List Nat) (k: Nat) (d: Nat) (b: Nat): reach.left rest k d (Succ b) = reach rest b k d := rfl
 
 theorem reachSplit (line: Nat) (rest: List Nat) (c: Nat) (k: Nat) (d: Nat) (s: Nat.leq line c = True):
-    reach (Cons line rest) c (Succ k) d = (reach.left rest k d c ∨ reach rest (c + 1) k d) :=
+    reach [line, ..rest] c (Succ k) d = (reach.left rest k d c ∨ reach rest (c + 1) k d) :=
   rewrite s
 
 -- Header parameters come first, then pattern variables as written, whatever

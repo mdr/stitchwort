@@ -116,7 +116,7 @@ def sightRange: Nat := 7
 --| The first monster standing on a cell, if any.
 def monsterAt (position: Position): List Monster → Option Monster
   | [] => None
-  | Cons monster others => if monster.position == position then Some monster else monsterAt position others
+  | [monster, ..others] => if monster.position == position then Some monster else monsterAt position others
 
 --| The first item lying on a cell, if any.
 def itemAt (position: Position) (items: List Item): Option Item := items.find (item => item.position == position)

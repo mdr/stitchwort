@@ -54,9 +54,9 @@ theorem splitSomeLeaves (depth: Nat): (number: Number) → (split2: Number) → 
 
 --| At the top.
 theorem splitSome (number: Number) (split2: Number) (some: split number = Some split2): splitLeaves (leaves 0 number) = Some (leaves 0 split2) :=
-  let found := splitSomeLeaves 0 number split2 some Nil
+  let found := splitSomeLeaves 0 number split2 some []
   rewrite List.appendNil (leaves 0 number), List.appendNil (leaves 0 split2) at found in found
 
 theorem splitNone (number: Number) (none: split number = None): splitLeaves (leaves 0 number) = None :=
-  let found := splitNoneLeaves 0 number none Nil
+  let found := splitNoneLeaves 0 number none []
   rewrite List.appendNil (leaves 0 number) at found in found

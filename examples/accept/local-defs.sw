@@ -51,8 +51,8 @@ test "sumTo2" := sumTo2 4 == 10
 -- `count.go`, so recursion on a smaller list is accepted as at top level.
 def count [a: Type] (xs: List a) (p: a → Bool): Nat :=
   def go: List a → Nat
-    | Nil => 0
-    | Cons x rest => if p x then Succ (go rest) else go rest
+    | [] => 0
+    | [x, ..rest] => if p x then Succ (go rest) else go rest
   go xs
 
 test "count" := count [1, 2, 3, 4] (== 2) == 1
@@ -106,8 +106,8 @@ test "usesNested" := usesNested == 8
 
 -- In an arm, capturing a pattern variable.
 def addAll: List Nat → Nat → Nat
-  | Nil, n => n
-  | Cons x rest, n =>
+  | [], n => n
+  | [x, ..rest], n =>
     def plusX (m: Nat): Nat := m + x
     plusX (addAll rest n)
 
@@ -126,8 +126,8 @@ test "inMatch" := inMatch 3 5 == 11
 -- A `match` inside a local definition.
 def withMatch (xs: List Nat): Nat :=
   def go: List Nat → Nat
-    | Nil => 0
-    | Cons x rest => 2 * (match x with
+    | [] => 0
+    | [x, ..rest] => 2 * (match x with
       | Zero => 1
       | Succ _ => go rest)
   go xs

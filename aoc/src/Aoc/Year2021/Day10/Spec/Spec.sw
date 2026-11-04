@@ -13,9 +13,9 @@ import Std (Exists, List, Nat)
 --| one after the other, or a balanced line between an opener and the closer
 --| of the same pair.
 type Balanced: List Token → Prop =
-  | Empty: Balanced Nil
+  | Empty: Balanced []
   | Concat (first: Balanced xs) (second: Balanced ys): Balanced (xs ++ ys)
-  | Wrap (bracket: Bracket) (inner: Balanced xs): Balanced (Cons (Opener bracket) (xs ++ [Closer bracket]))
+  | Wrap (bracket: Bracket) (inner: Balanced xs): Balanced [Opener bracket, ..xs ++ [Closer bracket]]
 
 --| A start of a line that some ending finishes as a balanced line.
 def Legal (start: List Token): Prop := exists (ending: List Token) => Balanced (start ++ ending)
@@ -26,7 +26,7 @@ def Legal (start: List Token): Prop := exists (ending: List Token) => Balanced (
 --| `legalOfLonger` in the proofs.)
 type FirstIllegal: List Token → Token → Prop =
   | At (before: List Token) (token: Token) (after: List Token) (legal: Legal before) (illegal: ¬(Legal (before ++ [token]))):
-    FirstIllegal (before ++ Cons token after) token
+    FirstIllegal (before ++ [token, ..after]) token
 
 --| The syntax error score of each illegal closer.
 def errorPoints: Bracket → Nat
@@ -43,8 +43,8 @@ type ErrorScore: List Token → Nat → Prop =
 
 --| Part 1: the total syntax error score of the lines.
 type Part1Answer: List (List Token) → Nat → Prop =
-  | NoLines: Part1Answer Nil 0
-  | NextLine (line: ErrorScore first score) (rest: Part1Answer lines total): Part1Answer (Cons first lines) (score + total)
+  | NoLines: Part1Answer [] 0
+  | NextLine (line: ErrorScore first score) (rest: Part1Answer lines total): Part1Answer [first, ..lines] (score + total)
 
 --| An incomplete line: not corrupted, but not balanced either.
 def Incomplete (line: List Token): Prop := Legal line ∧ ¬(Balanced line)
@@ -62,12 +62,12 @@ def autocompletePoints: Bracket → Nat
 --| A completion's score: start at 0, and for each closer multiply by 5 and
 --| add its points.
 def completionTotal (score: Nat): List Bracket → Nat
-  | Nil => score
-  | Cons closer rest => completionTotal (score * 5 + autocompletePoints closer) rest
+  | [] => score
+  | [closer, ..rest] => completionTotal (score * 5 + autocompletePoints closer) rest
 
 --| The completion scores of the incomplete lines, in order.
 type CompletionScores: List (List Token) → List Nat → Prop =
-  | NoneLeft: CompletionScores Nil Nil
+  | NoneLeft: CompletionScores [] []
   | Scored (incomplete: Incomplete first) (completes: Completes first closers) (rest: CompletionScores lines scores):
     CompletionScores (Cons first lines) (Cons (completionTotal 0 closers) scores)
   | Skipped (complete: ¬(Incomplete first)) (rest: CompletionScores lines scores): CompletionScores (Cons first lines) scores

@@ -52,8 +52,8 @@ def mustPrecede (rules: Set (Nat, Nat)) (earlier: Nat) (later: Nat): Bool := rul
 
 --| No page is followed by one that must be printed before it.
 def inOrder (precedes: Nat → Nat → Bool): List Nat → Bool
-  | Nil => True
-  | Cons page later => later.all (laterPage => !(precedes laterPage page)) && inOrder precedes later
+  | [] => True
+  | [page, ..later] => later.all (laterPage => !(precedes laterPage page)) && inOrder precedes later
 
 --| The pages sorted so that each comes before the next unless a rule says
 --| otherwise.

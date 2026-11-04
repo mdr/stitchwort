@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: braces after `None` as an argument need brackets
+   ╭─[ reject/ctor-construction-prelude-fieldless-as-argument.sw:5:41 ]
+   │
+ 5 │ def d: Option (Option Nat) := Some None { value = 1 }
+   │                                         ┬  
+   │                                         ╰── braces after `None` as an argument need brackets
+   │ 
+   │ Note: `None` has no fields to build it by, so write the record in brackets, `({ … })`, to pass it as an argument
+───╯

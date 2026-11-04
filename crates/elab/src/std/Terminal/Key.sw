@@ -158,7 +158,7 @@ def Key.afterEscape: List Nat → Key.Decoded
   | [byte, ..rest] =>
     if byte == 91 then Key.csi [] rest
     else if byte == 79 then Key.ss3 rest
-    else Got Escape (Cons byte rest)
+    else Got Escape [byte, ..rest]
 
 --| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence
@@ -166,9 +166,9 @@ def Key.afterEscape: List Nat → Key.Decoded
 def Key.csi (parameters: List Nat): List Nat → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
-    if 32 ≤ byte && byte ≤ 63 then Key.csi (Cons byte parameters) rest
+    if 32 ≤ byte && byte ≤ 63 then Key.csi [byte, ..parameters] rest
     else if 64 ≤ byte && byte ≤ 126 then Got (Key.ofCsi (List.reverse parameters) byte) rest
-    else Got Unknown (Cons byte rest)
+    else Got Unknown [byte, ..rest]
 
 --| The key a CSI sequence stands for, from its parameter bytes and final byte.
 --| `ESC [A` to `ESC [D` are the arrows, `ESC [H` and `ESC [F` are `Home` and
@@ -221,7 +221,7 @@ def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
   | Succ count, [] => Incomplete
   | Succ count, [byte, ..rest] =>
     if 128 ≤ byte && byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest
-    else Got Unknown (Cons byte rest)
+    else Got Unknown [byte, ..rest]
 
 --| The bytes a terminal sends for a key: what `Key.next` reads back
 --| ([`Key.nextBytes`]). A `Ctrl` with something other than a lower-case
@@ -257,7 +257,7 @@ def Key.allWithin: Nat → List Nat → List Key
   | 0, bytes => []
   | Succ limit, bytes =>
     match Key.next bytes with
-      | Got key rest => Cons key (Key.allWithin limit rest)
+      | Got key rest => [key, ..Key.allWithin limit rest]
       | Incomplete => []
       | NoBytes => []
 
@@ -293,7 +293,7 @@ theorem Key.nextBytes (rest: List Nat): (key: Key) → Key.isNamed key = True �
 --| the end of the bytes is `Incomplete` (the handler decides).
 -- (§3.2)
 theorem Key.nextEscape (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
-    Key.next (List.append (Key.bytes Escape) (Cons byte rest)) = Got Escape (Cons byte rest) :=
+    Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
   rewrite notCsi, notSs3 in rfl
 
 theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := rfl

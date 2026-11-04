@@ -30,7 +30,7 @@ theorem fromStartResult (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
     Graph.SearchResult racetrack.graph [(racetrack.start, 0)] (FromStart racetrack) racetrack.fromStart :=
   Graph.breadthFirstCorrect racetrack.graph [racetrack.start] (FromStart racetrack)
     (source member =>
-      rewrite onlySource racetrack.start source member in Both startOnTrack (Witness Nil (Both rfl rfl)))
+      rewrite onlySource racetrack.start source member in Both startOnTrack (Witness [] (Both rfl rfl)))
     (state time reached next weight edge =>
       let (Both moves isOne) := edgesSound racetrack state next weight edge
       Exists.elim moves (direction moved =>
@@ -46,13 +46,13 @@ theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetr
     Graph.SearchResult racetrack.graph [(racetrack.end, 0)] (ToEnd racetrack) racetrack.toEnd :=
   Graph.breadthFirstCorrect racetrack.graph [racetrack.end] (ToEnd racetrack)
     (source member =>
-      rewrite onlySource racetrack.end source member in Both endOnTrack (Witness Nil (Both rfl rfl)))
+      rewrite onlySource racetrack.end source member in Both endOnTrack (Witness [] (Both rfl rfl)))
     (state time reaches next weight edge =>
       let (Both moves isOne) := edgesSound racetrack state next weight edge
       Exists.elim moves (direction moved =>
         Exists.elim (And.right reaches) (steps parts =>
           Both (edgeOnTrack racetrack state next weight edge)
-            (Witness (Cons (opposite direction) steps)
+            (Witness [opposite direction, ..steps]
               (Both
                 (Eq.trans (raceCons racetrack next (opposite direction) state (moveBack racetrack state (And.left reaches) direction next moved) steps)
                   (And.left parts))
@@ -65,9 +65,9 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
     (position: Position) → (time: Nat) → Graph.Bound result time position → (moves: List Direction) → (last: Position) →
       race racetrack position moves = Some last → Graph.Bound result (time + moves.length) last
-  | position, time, bound, Nil, last, ended =>
-    rewrite <- Option.someInjective _ _ ended in Graph.boundWeaken result time (time + List.length (Nil: List Direction)) position bound (omega)
-  | position, time, bound, Cons direction rest, last, ended =>
+  | position, time, bound, [], last, ended =>
+    rewrite <- Option.someInjective _ _ ended in Graph.boundWeaken result time (time + List.length ([]: List Direction)) position bound (omega)
+  | position, time, bound, [direction, ..rest], last, ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
@@ -75,7 +75,7 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
           let stepped := closed position found (And.left both) next 1 (edgesComplete racetrack position direction next moved)
           let along := boundFrom racetrack result closed next (time + 1)
             (Graph.boundWeaken result (found + 1) (time + 1) next stepped (omega [And.right both])) rest last ended
-          Graph.boundWeaken result (time + 1 + rest.length) (time + List.length (Cons direction rest)) last along (omega))
+          Graph.boundWeaken result (time + 1 + rest.length) (time + List.length [direction, ..rest]) last along (omega))
 
 --| From track, a race to the end takes at least the search back's bound.
 theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Graph.Bound result 0 racetrack.end)
@@ -83,8 +83,8 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
     (position: Position) → onTrack racetrack position = True → (moves: List Direction) → race racetrack position moves = Some racetrack.end →
       Graph.Bound result moves.length position
-  | position, onIt, Nil, ended => rewrite Option.someInjective _ _ ended in endBound
-  | position, onIt, Cons direction rest, ended =>
+  | position, onIt, [], ended => rewrite Option.someInjective _ _ ended in endBound
+  | position, onIt, [direction, ..rest], ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome racetrack.end ended)
       | Some next =>
@@ -92,7 +92,7 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
         Exists.elim (boundTo racetrack result endBound closed next nextOnTrack rest ended) (found both =>
           let stepped := closed next found (And.left both) position 1
             (edgesComplete racetrack next (opposite direction) position (moveBack racetrack position onIt direction next moved))
-          Graph.boundWeaken result (found + 1) (List.length (Cons direction rest)) position stepped (omega [And.right both]))
+          Graph.boundWeaken result (found + 1) (List.length [direction, ..rest]) position stepped (omega [And.right both]))
 
 --| The search's time from the start is the fastest, to a position on track.
 theorem fromStartFastest (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True) (position: Position) (time: Nat)

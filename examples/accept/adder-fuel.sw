@@ -48,8 +48,8 @@ def main(): {IO} () :=
 -- Testing `main` with scripted input
 
 def eqTexts: List Text → List Text → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 def printed (input: List Text): List Text := Pair.fst (IO.simulate input main)

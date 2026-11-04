@@ -46,7 +46,7 @@ def FreeSpace: Type := List Nat
 
 def FreeSpace.of (spans: List Nat): FreeSpace := spans
 
-def FreeSpace.add (free: FreeSpace) (span: Nat): FreeSpace := Cons span free
+def FreeSpace.add (free: FreeSpace) (span: Nat): FreeSpace := [span, ..free]
 
 def steps (spans: List Nat): List FreeSpace :=
   List.scanLeft spans (FreeSpace.of []) (free span => free.add span)

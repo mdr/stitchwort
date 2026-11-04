@@ -101,7 +101,7 @@ ability Log where
 
 def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | say n, k =>
       let rest := k()
       MkPair (Cons n (rest.fst)) (rest.snd)

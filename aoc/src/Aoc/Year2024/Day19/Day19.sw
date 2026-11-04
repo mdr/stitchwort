@@ -51,11 +51,11 @@ def parseOnsen (input: Text): {Fail} Onsen := Parse.all input onsen
 --| whose pattern it starts with, then the rest, which is a shorter suffix
 --| whose count is already in the table. Every pattern has a stripe.
 def waysForSuffixes (patterns: List Pattern): (design: Design) → List Nat
-  | Nil => [1]
-  | Cons first rest =>
+  | [] => [1]
+  | [first, ..rest] =>
     let later := waysForSuffixes patterns rest
     let ways := patterns.sumBy (pattern =>
-      if (Cons first rest).startsWith pattern then later.getOr (pattern.length - 1) 0 else 0)
+      if [first, ..rest].startsWith pattern then later.getOr (pattern.length - 1) 0 else 0)
     Cons ways later
 
 --| The number of different ways to make `design`.

@@ -75,11 +75,11 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
     decreasing (garden.unvisited visited, stack.length)
 :=
   match stack with
-    | Nil => members
-    | Cons position rest =>
+    | [] => members
+    | [position, ..rest] =>
       if fresh: visited.contains position = False then
         if grows: garden.plantAt position = Some plant then
-          garden.fill plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+          garden.fill plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
             [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
         else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
       else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
@@ -87,13 +87,13 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
 --| The region containing `start`: the plots joined to it.
 def Garden.regionOf (garden: Garden) (start: Position): List Position :=
   match garden.plantAt start with
-    | Some plant => garden.fill plant [start] Set.empty Nil
-    | None => Nil
+    | Some plant => garden.fill plant [start] Set.empty []
+    | None => []
 
 --| The regions, each once, from the positions not yet in a region.
 def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List (List Position)
-  | Nil, seen => Nil
-  | Cons start rest, seen =>
+  | [], seen => []
+  | [start, ..rest], seen =>
     if seen.contains start then garden.regionsFrom rest seen
     else
       let region := garden.regionOf start

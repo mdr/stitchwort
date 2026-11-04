@@ -22,8 +22,8 @@ def main(): {IO, Fail} () := solveIn (Space.fromArgs IO.args())
 def Space.fromArgs (args: List Text): {Fail} Space :=
   let usage := "expected no arguments, or a width and a height above 0, such as `11 7`"
   match args with
-    | Nil => Space.of 101 103
-    | Cons widthText (Cons heightText Nil) =>
+    | [] => Space.of 101 103
+    | [widthText, heightText] =>
       let width := widthText.toNat |> .getOrElse 0
       let height := heightText.toNat |> .getOrElse 0
       if widthPositive: width ≠ 0 then

@@ -216,13 +216,13 @@ theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: N
 --| After every move: the walls are where they were, the number of boxes is
 --| the same, and nothing overlaps if nothing did at the start.
 theorem moveAllWalls: (warehouse: Warehouse) → (moves: List Direction) → (warehouse.moveAll moves).walls = warehouse.walls
-  | warehouse, Nil => rfl
-  | warehouse, Cons move rest => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
+  | warehouse, [] => rfl
+  | warehouse, [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
 
 theorem moveAllCount: (warehouse: Warehouse) → (moves: List Direction) → boxCount (warehouse.moveAll moves) = boxCount warehouse
-  | warehouse, Nil => rfl
-  | warehouse, Cons move rest => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
+  | warehouse, [] => rfl
+  | warehouse, [move, ..rest] => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
 
 theorem moveAllSeparate: (warehouse: Warehouse) → (moves: List Direction) → Separate warehouse → Separate (warehouse.moveAll moves)
-  | warehouse, Nil, separate => separate
-  | warehouse, Cons move rest, separate => moveAllSeparate (warehouse.move move) rest (moveSeparate warehouse move separate)
+  | warehouse, [], separate => separate
+  | warehouse, [move, ..rest], separate => moveAllSeparate (warehouse.move move) rest (moveSeparate warehouse move separate)

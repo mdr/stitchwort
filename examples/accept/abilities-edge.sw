@@ -10,8 +10,8 @@ def sndOf: Pair a b → b
   | MkPair x y => y
 
 def eqNats: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqNats xs ys else False
   | _, _ => False
 
 ability State (s: Type) where
@@ -37,7 +37,7 @@ def runState (init: s) (prog: () → {State s | e} a): {e} Pair a s :=
 
 def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
@@ -109,8 +109,8 @@ test "four abilities, handled in another order" :=
 -- Choice outermost: each branch has its own state and log. True: says 10,
 -- state 11. False: says 10 then 0, state 1.
 def pairNats: List (Pair (Pair (List Nat) Nat) Nat) → List Nat
-  | Nil => Nil
-  | Cons (MkPair (MkPair said x) s) r => List.append said (Cons x (Cons s (pairNats r)))
+  | [] => []
+  | [MkPair (MkPair said x) s, ..r] => List.append said [x, s, ..pairNats r]
 
 test "four abilities, choice outermost" :=
   let r := allResults (u => runState 1 (v => collect (w => answer 10 everything)))

@@ -80,19 +80,19 @@ type List (a: Type): Type =
 --| [`List.length`], so a long list doesn't run out of stack
 --| (`List.lengthOntoEq` proves them equal).
 def List.lengthOnto: List a → Nat → Nat
-  | Nil, n => n
-  | Cons x xs, n => List.lengthOnto xs (Succ n)
+  | [], n => n
+  | [x, ..xs], n => List.lengthOnto xs (Succ n)
 
 --| The number of elements: `[5, 6, 7].length` is 3.
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
 def List.length: List a → Nat
-  | Nil => 0
-  | Cons x xs => Succ (List.length xs)
+  | [] => 0
+  | [x, ..xs] => Succ (List.length xs)
 
 --| `xs ++ ys`: the elements of `xs`, then those of `ys`.
 def List.append: List a → List a → List a
-  | Nil, ys => ys
-  | Cons x xs, ys => Cons x (List.append xs ys)
+  | [], ys => ys
+  | [x, ..xs], ys => [x, ..List.append xs ys]
 
 --| A value that may be missing.
 type Option (a: Type): Type =
@@ -106,5 +106,5 @@ type Pair (a: Type) (b: Type): Type =
 
 --| `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`.
 def List.reverseOnto: List a → List a → List a
-  | Nil, acc => acc
-  | Cons x xs, acc => List.reverseOnto xs (Cons x acc)
+  | [], acc => acc
+  | [x, ..xs], acc => List.reverseOnto xs [x, ..acc]

@@ -67,8 +67,8 @@ def checkManual (manual: Manual): {Fail} Manual :=
 
 --| The first pair that is listed again further on.
 def firstRepeated: List (Char, Char) → Option (Char, Char)
-  | Nil => None
-  | Cons pair rest => if rest.contains pair then Some pair else firstRepeated rest
+  | [] => None
+  | [pair, ..rest] => if rest.contains pair then Some pair else firstRepeated rest
 
 --| What each pair's rule inserts.
 def ruleTable (rules: List Rule): Map (Char, Char) Char := Map.fromList (rules.map (rule => (rule.pair, rule.insert)))
@@ -106,10 +106,10 @@ def elementCount (first: Char) (counts: PairCounts) (element: Char): Nat :=
 --| least 1. The filter saves the proofs from showing that.)
 def spread (template: List Char) (counts: PairCounts): Nat :=
   match template with
-    | Nil => 0
-    | Cons first _ =>
+    | [] => 0
+    | [first, .._] =>
       let quantities :=
-        Cons first (counts.keys.map Pair.snd)
+        [first, ..counts.keys.map Pair.snd]
           |> .distinct
           |> .map (elementCount first counts)
           |> .filter (quantity => 0 < quantity)

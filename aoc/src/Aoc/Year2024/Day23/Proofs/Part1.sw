@@ -78,11 +78,11 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
   let distinct: List.Distinct set.toList := Map.keysDistinct set.items
   let sized: set.toList.length = 3 := rewrite <- Set.sizeToList set in three
   match keys: set.toList with
-    | Nil => Void.exfalso (omega [sized])
-    | Cons first Nil => Void.exfalso (omega [sized])
-    | Cons first (Cons second Nil) => Void.exfalso (omega [sized])
-    | Cons first (Cons second (Cons third (Cons fourth rest))) => Void.exfalso (omega [sized])
-    | Cons first (Cons second (Cons third Nil)) =>
+    | [] => Void.exfalso (omega [sized])
+    | [first] => Void.exfalso (omega [sized])
+    | [first, second] => Void.exfalso (omega [sized])
+    | [first, second, third, fourth, ..rest] => Void.exfalso (omega [sized])
+    | [first, second, third] =>
       let (Both firstOut (Both secondOut unused)) := distinct
       found first second third
         (Set.extIff set (Set.fromList [first, second, third]) (key => {
