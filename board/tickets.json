@@ -1,5 +1,5 @@
 {
-  "next": 1272,
+  "next": 1273,
   "tickets": [
     {
       "id": 47,
@@ -6146,6 +6146,20 @@
         "std"
       ],
       "body": "From SW-1260: stripPrefix/stripSuffix now have ↔ characterisations (stripPrefixSome, stripSuffixSome); splitOn, startsWith and endsWith have none yet. Natural follow-up when an AoC day needs them.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1272,
+      "title": "Messages print a <= b as Succ a < b",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1236's check on day 3 (treesOn with <= for <): the first-difference note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`'. The user wrote <=; the printer shows its unfolding. Resugar Succ a < b as a <= b in messages (or keep <= folded until needed).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
