@@ -421,9 +421,15 @@ def Parse.repeatFrom (count: Nat) (extra: Nat) (parser: () → {Parse} a) (found
 
 --| `parser`'s values, `atLeast` to `atMost` of them, as Megaparsec's `count'`:
 --| the first `atLeast` must match, then it stops at the first failure or at
---| `atMost`. `repeat 3 3 digit` is exactly three digits.
+--| `atMost`. For exactly `count` values, [`Parse.exactly`] says so more
+--| plainly: `exactly 3 digit` is three digits.
 def Parse.repeat (atLeast: Nat) (atMost: Nat) (parser: () → {Parse} a): {Parse} List a :=
   Parse.repeatFrom atLeast (atMost - atLeast) parser []
+
+--| `parser`'s values, exactly `count` of them: `Parse.exactly 3 Parse.digit`
+--| reads three digits. Fails if `parser` does before the `count`th value.
+def Parse.exactly (count: Nat) (parser: () → {Parse} a): {Parse} List a :=
+  Parse.repeat count count parser
 
 --| `parser`, then `separator` and `parser` again as long as both match: at
 --| least one value.
@@ -1201,15 +1207,16 @@ test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigi
 test "Parse: natDigits, a range" := Parse.Tests.lineResult "123456" (() => Parse.natDigits 2 5) == Err "column 1: expected a number of 2 to 5 digits, got '1'"
 test "Parse: natDigits, one digit" := Parse.Tests.lineResult "10" (() => Parse.natDigits 1 1) == Err "column 1: expected a 1-digit number, got '1'"
 test "Parse: repeat" := Parse.Tests.lineResult "aab" (() =>
-  let found := Parse.repeat 1 3 (() => Parse.satisfy "an a" (== 'a'))
+  let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
   Parse.char 'b'
   found) == Ok ['a', 'a']
 test "Parse: repeat, at most" := Parse.Tests.lineResult "aaaa" (() =>
-  let found := Parse.repeat 1 3 (() => Parse.satisfy "an a" (== 'a'))
+  let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
   Parse.char 'a'
   found) == Ok ['a', 'a', 'a']
-test "Parse: repeat, too few" := Parse.Tests.lineResult "ab" (() => Parse.repeat 2 3 (() => Parse.satisfy "an a" (== 'a'))) == Err "column 2: expected an a, got 'b'"
-test "Parse: repeat, exactly" := Parse.Tests.lineResult "123" (() => Parse.repeat 3 3 Parse.digit |> .map (digit => digit.toNat)) == Ok [1, 2, 3]
+test "Parse: repeat, too few" := Parse.Tests.lineResult "ab" (() => Parse.repeat (atLeast := 2) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))) == Err "column 2: expected an a, got 'b'"
+test "Parse: exactly" := Parse.Tests.lineResult "123" (() => Parse.exactly 3 Parse.digit |> .map (digit => digit.toNat)) == Ok [1, 2, 3]
+test "Parse: exactly, too few" := Parse.Tests.lineResult "12" (() => Parse.exactly 3 Parse.digit) == Err "column 3: expected a digit, got the end of the line"
 
 --| The values of `nat` among other characters.
 def Parse.Tests.numbers (line: Text): Result (List Nat) Text := Parse.Tests.lineResult line (() => Parse.findAll Parse.nat)

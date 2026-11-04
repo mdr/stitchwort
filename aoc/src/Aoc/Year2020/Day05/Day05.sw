@@ -36,8 +36,8 @@ type Pass = { row: List Bool, column: List Bool }
 def Pass.seatId (pass: Pass): Nat := Nat.fromBits (pass.row ++ pass.column)
 
 def pass(): {Parse} Pass :=
-  let row := Parse.repeat 7 7 frontBack
-  let column := Parse.repeat 3 3 leftRight
+  let row := Parse.exactly 7 frontBack
+  let column := Parse.exactly 3 leftRight
   { row, column }
 
 def parsePasses (input: Text): {Fail} List Pass := Parse.eachLine input pass
