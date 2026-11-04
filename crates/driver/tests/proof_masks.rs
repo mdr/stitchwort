@@ -158,7 +158,37 @@ def t22pL (n: Nat) (h1: 0 = 0) (h2: 0 = 0): Nat := quietB n h1
 def t22pR (n: Nat) (h1: 0 = 0) (h2: 0 = 0): Nat := quietB n h2
 def t22fL (n: Nat) (i: Nat) (h1: i < n) (h2: i < n): Fin n := Fin.ofNatLt n i h1
 def t22fR (n: Nat) (i: Nat) (h1: i < n) (h2: i < n): Fin n := Fin.ofNatLt n i h2
+
+-- For the memo tests: `wrap` glues, and unfolds to its argument.
+def wrap [a: Prop] (b: Box a): Box a := b
+def zero [a: Prop] (b: Box a): Nat := 0
+type P2 (a: Prop): Type =
+  | MkP2 (n: Nat) (b: Box a)
+def memoL (a: Prop) (p: a) (q: a): P2 a :=
+  let x := wrap (MkBox p)
+  MkP2 (zero x) x
+def memoR (a: Prop) (p: a) (q: a): P2 a :=
+  let y := wrap (MkBox q)
+  MkP2 (zero y) y
 "#;
+
+/// The program, with test 29's chains `wrap (wrap (… (MkBox p)))` of the
+/// depths given.
+fn program() -> String {
+    let mut text = PROGRAM.to_string();
+    for depth in CHAINS {
+        for (side, proof) in [("L", "p"), ("R", "q")] {
+            let open = "wrap (".repeat(*depth);
+            let close = ")".repeat(*depth);
+            text.push_str(&format!(
+                "def chain{depth}{side} (a: Prop) (p: a) (q: a): Box a := {open}MkBox {proof}{close}\n"
+            ));
+        }
+    }
+    text
+}
+
+const CHAINS: &[usize] = &[1, 2, 24];
 
 fn find(g: &Ev, name: &str) -> DefId {
     DefId(
@@ -213,7 +243,7 @@ fn answers(g: &Ev, name: &str) -> [bool; 4] {
 
 fn session() -> Session {
     let mut session = Session::eager();
-    if let Err(e) = session.load("masks.sw", PROGRAM) {
+    if let Err(e) = session.load("masks.sw", &program()) {
         panic!("{e:?}");
     }
     session
@@ -247,6 +277,11 @@ const CASES: &[(&str, bool)] = &[
     ("t22", false),
     ("t22p", true),
     ("t22f", true),
+    // The same pair of glued calls, `wrap (MkBox p)` and `wrap (MkBox q)`,
+    // first inside a shortcut (different: the field is compared) and then
+    // in the normal mode (equal): `CallMemo` must keep the two apart.
+    ("memo", true),
+    ("chain24", true),
 ];
 
 #[test]
@@ -292,4 +327,29 @@ fn the_marks() {
     assert_eq!(marks("quietA"), [false, true]);
     assert_eq!(marks("quietB"), [false, true]);
     assert_eq!(marks("myAbsurd"), [true]);
+}
+
+/// Test 29: two chains of glued calls differing only in the innermost proof
+/// field take steps linear in their depth. Each inner pair is compared at
+/// most once per mode.
+#[test]
+fn a_deep_chain_is_compared_in_linear_steps() {
+    let session = session();
+    let g = &session.elab.ev();
+    let steps = |depth: usize| {
+        let was = g.machine.glue.replace(true);
+        let (level, a) = applied(g, &format!("chain{depth}L"), false);
+        let (_, b) = applied(g, &format!("chain{depth}R"), false);
+        let before = g.machine.budget.total_work();
+        assert!(conv(g, level, &a, &b).unwrap(), "depth {depth}");
+        let used = g.machine.budget.total_work() - before;
+        g.machine.glue.set(was);
+        used
+    };
+    let (one, two, deep) = (steps(1), steps(2), steps(24));
+    let per_level = two - one;
+    assert!(
+        deep <= one + 23 * per_level * 2,
+        "depth 1: {one} steps, 2: {two}, 24: {deep}"
+    );
 }
