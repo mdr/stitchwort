@@ -6239,13 +6239,13 @@
     {
       "id": 1278,
       "title": "AoC 2020 day 6 in Stitchwort: spec, solution, proofs, input test, friction notes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1278",
       "labels": [
         "aoc"
       ],
-      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.\n\nLane notes (Sonnet, 4 Nov): answers 6630 and 3437 (example 11, 6). Domain types Person/Group, Spec on lines, parser and both parts proved (Proofs/Parse, Sets, Proofs). Main finding: std Parse.SepBy does not tie the first value to the first read (day 4 affected); worked around locally. Notes in aoc/NOTES-2020.md \"Day 6\". About 25 min. Not run: Matt's Scala.",
+      "body": "D2305 track. Day 5 friction review done 4 Nov 2026 (D2359). Opus, expected: 120 min.\n\nD2365 (Matt, 4 Nov): Sonnet first for routine work; escalate to Opus if the lane reports it's stuck.\n\nLane notes (Sonnet, 4 Nov): answers 6630 and 3437 (example 11, 6). Domain types Person/Group, Spec on lines, parser and both parts proved (Proofs/Parse, Sets, Proofs). Main finding: std Parse.SepBy does not tie the first value to the first read (day 4 affected); worked around locally. Notes in aoc/NOTES-2020.md \"Day 6\". About 25 min. Not run: Matt's Scala.\n\nMerged and verified (search_at_aoc 2/2, year2020_day06, day 6 tests and audit, merge tier 1066, full audit clean). Model result: Sonnet, needed fixes (headline theorems first stated about some lines rather than the input; fixed in 35 min), 35+35 min (est. 120).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -6424,7 +6424,7 @@
     {
       "id": 1291,
       "title": "Audit AoC code for bracket-heavy expressions that read better as dot/pipe chains",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1291",
       "labels": [
@@ -6452,13 +6452,13 @@
     {
       "id": 1293,
       "title": "search_at_on_real_2021_goals: six stale source strings from the Cons sweep",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1293",
       "labels": [
         "tests"
       ],
-      "body": "crates/driver/tests/search_at_aoc.rs, search_at_on_real_2021_goals fails on main: six cases' from/to strings still say 'Cons x rest' where the sources now say '[x, ..rest]' (sweep fb367c1bc, SW-1221): Day13/Proofs/Picture.sw '| Cons dot rest, spot, Inl same', Day18/Proofs/Leaves.sw '| Cons leaf rest => Eq.cong', Day16/Proofs/Answers.sw '| Cons _ rest => rewrite lengthEvaluateAll rest in rfl' (now line 80), Day14/Proofs/Pairs.sw 'pairsStep rules (Cons b rest) in rfl', Day12/Proofs/Rules.sw '| Cons x rest, Inl same' and '| Cons x rest, Inr later'. Update the strings to the current text; the test is not in the merge tier, which is why it wasn't caught. Also check search_at_on_aoc_goals' strings for the same.",
+      "body": "crates/driver/tests/search_at_aoc.rs, search_at_on_real_2021_goals fails on main: six cases' from/to strings still say 'Cons x rest' where the sources now say '[x, ..rest]' (sweep fb367c1bc, SW-1221): Day13/Proofs/Picture.sw '| Cons dot rest, spot, Inl same', Day18/Proofs/Leaves.sw '| Cons leaf rest => Eq.cong', Day16/Proofs/Answers.sw '| Cons _ rest => rewrite lengthEvaluateAll rest in rfl' (now line 80), Day14/Proofs/Pairs.sw 'pairsStep rules (Cons b rest) in rfl', Day12/Proofs/Rules.sw '| Cons x rest, Inl same' and '| Cons x rest, Inr later'. Update the strings to the current text; the test is not in the merge tier, which is why it wasn't caught. Also check search_at_on_aoc_goals' strings for the same.\n\nMerged and verified (search_at_aoc 2/2, year2020_day06, day 6 tests and audit, merge tier 1066, full audit clean). Model result: DeepSeek, worked, ~12 min (est. 25).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
