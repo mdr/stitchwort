@@ -1222,6 +1222,118 @@ until step 8):
   step of this note moves onto the journal: they are written through
   shared references (`RefCell`), so they need their own change (§9, F11).
 
+#### 4.8.11 As built: entries from write-sets (step 6c, SW-1176)
+
+- **Segments.** `Journal::set_unit(unit)` begins a segment (the logs'
+  positions and the unit, and a new generation) while something is open;
+  `Elaborator::unit_changed` calls it after each change of `Owners`'
+  current unit: `elaborate_namespace`'s `begin`, `enter_nested_unit`,
+  `leave_nested_unit`, and a library load's own unit (below). Every
+  checkpoint and transaction begins one too, in the unit current then, so a
+  rewind truncates the segments to the checkpoint's and goes on in its
+  unit (the journal keeps its own copy of the current unit for that). The
+  segments are dropped with the logs when the stack empties.
+  `Journal::segments_since(t, own)` gives the parts of the logs written,
+  since transaction `t` began, by the units `own` picks, and
+  `Logged::changed_in(parts)` each key they logged once, with its value
+  where the first part that logged it starts. `Scope::writes` and
+  `Tables::writes` read the write-sets of the tables an entry holds rows of
+  (the scope's declarations and members, `instances`, `helper_keys`).
+- **Transactions.** A project namespace that may be cached begins one in
+  `elaborate_namespace_cached`, before its replay is tried (so that after
+  a late miss its write-set spans the failed replay's writes and the
+  elaboration's, as the early names did with `start_keys`), and commits it
+  after a hit, after its entry is written or refused, and when cancelled.
+  The transaction and the namespace's `UnitId` are in its `Capture`. A
+  library file that may be cached begins one in `cache_before` and commits
+  it in `cache_after`. So a command-line check logs only while a unit may
+  be cached, and holds at most one namespace's log (with the library files
+  loading inside it): on `aoc` with an empty cache directory, 266
+  transactions logged 16,501 entries in all, at most 4,313 at once, and
+  none were held after any namespace (`JournalStats`, printed by a
+  temporary patch, not committed).
+- **Whose writes.** A namespace's entry is the write-set of its own unit
+  (`u == unit`): its segments before its library files load and after.
+  A library file's is that of the units begun since `cache_before`
+  (`u > after`, `UnitId`s increase): the file's, and any nested in it.
+- **A library load is a unit of its own** (*decided here*). Replaying a
+  library file's entry, and dropping the index's entries it didn't
+  declare (`drop_unconfirmed`), happened in the unit it loads in: in a
+  namespace's segment, so its write-set would have held the replayed
+  file's names, and the removal refused it ("`Std.Nat.pow.induct` was
+  removed", 29 namespaces of the projects below). Before, the timing hid
+  both: they ran before the namespace's `Before`. `load_library_file` now
+  enters a unit (`Owners::enter`) for the whole load, so the declarations a
+  replay admits are owned by it as an elaborated file's are by the file's
+  unit, and nothing of the load is the outer unit's.
+- **The policy** (§4.8.3), per key of the write-set, the value before
+  against the value now. The scope, for a namespace: new and not early, a
+  late name; changed, a changed row; removed, refused; the early names are
+  the new ones in its write-set when its library files start loading
+  (`capture_before_needs`). For a library file: changed rows, and a
+  removal refuses it (none happen). Members: those new in the unit's
+  write-set. `instances`: new rows; a change of `def` or `valid`, or a
+  removal, refuses the entry. `helper_keys`: new keys; a removal refuses.
+  Both refusals were the cache's before, against the copies.
+- **The "loaded part way through" refusal stays**, as recommended, and a
+  second one covers what it doesn't: a segment of another unit after the
+  namespace's `Before` (on-demand equations made after its loads, whose
+  declarations would be in its entry and their names not). Neither fires
+  on the projects below.
+- **`ScopeOp` stays** (*decided here*), as the ordered list of a library
+  file's new names and members marked. The journal's log can't give it
+  byte for byte: a library entry lists its new names in the order they
+  were declared, with the follower flag they were declared with (a
+  `%`-named follower is in no follower list, so its position can't say),
+  and its members in the order they were marked, a member marked twice
+  twice, without those `insert` adds. A namespace's entry sorts its names
+  by follower position, so it needs no such list.
+- **The file-to-unit lookup** for on-demand equations (6a's deviation) isn't
+  needed: on-demand equations are a dependency of the unit that asks
+  (`needs.equations`), made again by its replay, so whose unit they are in
+  doesn't change any entry; and every write they make is to their own
+  declarations' rows, which the ownership assertions check.
+- **Gone:** `Before.scope`, `Before.copies` (`Tables::copies`, `Copies`),
+  `Capture.start_keys`, `Capture.start_members`, `Scope::copy_entries`,
+  `Scope::copy_members`, `Scope::members`, `Logged::copy` and `Copied`.
+  `Before` keeps the lengths and cuts of the tables that only grow
+  (`TablesMark`), the data types with defaults and navigation's lengths.
+- **Entries.** Checked as in step 5: every entry for `aoc` (266), the
+  roguelike (32) and the 26 example projects under
+  `examples/projects/accept` (200), 498 in all, written by the build
+  before and the build after into caches with the same salt. 484 are byte
+  for byte the same apart from the key and the checksum; the other 14 are
+  namespaces that load library files inside them (`Aoc.Common`, `Rogue`,
+  `Trip.Model` and others), whose entries are shorter by the members of
+  those files (F8: 1 to 31 each, all `Std.`). With a temporary patch that
+  computed the members the old way, all 498 were the same, so the members
+  section is the only difference. The format is unchanged, so `FORMAT`
+  stays: an old entry's extra members are marked again by its replay,
+  which changes nothing, as before. The earlier build's 498 entries, given
+  the new build's key, all load as hits (no entry rewritten); the new
+  build's own entries all hit on a second run; and with only the library
+  files' entries, the namespaces it elaborates write the same 498 entries
+  as with none (a library replayed inside a namespace is not its
+  write-set).
+- **Tests added.** `check_cache.rs`:
+  `a_namespace_writes_the_same_entry_whether_its_library_files_hit_or_miss`
+  (§4.8.6 item 2's nested loads: a cache with the file's entry, without
+  it, and with it corrupt; the namespace's entry the same bytes each time,
+  and the result as fresh; it fails without the library load's own unit),
+  `a_check_with_the_cache_holds_no_log_between_units` (`JournalStats`:
+  nothing open or held after a cold and a warm check) and
+  `a_replayed_namespaces_instances_and_extensions_are_usable` (replay then
+  depend: an interface, a type and an instance replayed, an extension of
+  the older type replayed, and namespaces using them elaborated, as
+  fresh). `state/journal/tests.rs`: `a_units_write_set_is_its_own_segments`
+  (nested units' writes, a key written by both, a rewind inside a
+  transaction). §4.8.6's "changes to older rows" is covered by the
+  extension of an older namespace's type in the last of these, and by
+  every name's move from `Unchecked` to its global, which is in its own
+  unit; no test makes a namespace change another's name, as nothing in the
+  language does.
+- **Not done:** F11 (the dot-call caches): not trivial, as §9 says.
+
 ### 4.9 Keeping parallel checking possible
 
 Parallel checking isn't planned (D2281). This section says what it would
@@ -1465,7 +1577,7 @@ orchestrator.
 | 5 | **Table kinds and `Tables`.** `GrowVec`, `OwnedBy`, `Derived`; move the `Tables` fields; `Tables::{mark, rewind, encode_since, replay, dump}` destructure exhaustively. Encoded bytes unchanged (no `FORMAT` bump) | SW-1128's class | `check_cache.rs`, `rewind.rs`, `hash_stability.rs` (bytes unchanged) |
 | 6a | **Ownership tag and the journal** (§4.8.2, §4.8.4). `UnitId` in `Session`, `owners` beside `defs`/`datas`, `OwnedBy` checks `owner(id) == current unit` (the count check becomes a debug assertion); the `Journal`, `Checkpoint`, `Transaction` and `Logged` with stamps, and `nav::Logged` moved onto them. Take §4.8.7's "before" measurements first. *Done (SW-1171): §4.8.8, §4.8.9; `Owners` in `Session`, tagged at unit changes; marks are checkpoints; nothing releases one until 6b* | the floor (§4.8.1); `touched`'s O(capacity) mark | the model-based test (§4.8.6 item 1), `OwnedBy`'s unit test, `navigation.rs`, `rewind.rs` (normal sample) |
 | 6b | **The copied tables onto the journal.** `Scope`'s maps (fields private, §4.8.5's escapes removed), `instances` (owned by `info.def`), `helper_keys` and `Session`'s copied maps become `Logged`; `Mark` stops copying them; `LiveProject` holds `Checkpoint`s. *Done (SW-1173): §4.8.10; the host's whole-set maps shared (`Arc`) rather than logged; marks released by `LiveProject`, `cancellable` and the rewind test's hook; a mark on `aoc` 1.04 → 0.26 ms, 3.7 → 2.1 MB (the rest is the dot-call cache)* | mark memory and time (F3) | `rewind.rs` (`STITCHWORT_SLOW=1` once, with Matt's approval), `navigation.rs`, the differential scenarios of §4.8.6 item 2 that are about rewinding |
-| 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
+| 6c | **Entries from write-sets** (§4.8.3). Segments by unit; each unit's entry from its write-set; `Before.scope`, `start_keys`, `start_members` go; entries byte for byte unchanged (as step 5 checked); then §4.8.7's "after" measurements. *Done (SW-1176): §4.8.11; a library load is a unit of its own, replayed or elaborated; `ScopeOp` stays; every entry the same but 14 namespace entries, which no longer list the members of library files loaded inside them (F8); the measurements are a lane of their own* | the per-unit copies; the members a namespace's entry repeats | `check_cache.rs`, `hash_stability.rs`, the cache scenarios of §4.8.6 item 2 |
 | 7 | **`Presentation`.** `nav`, `goal_snapshots`, `counterexample_log` | last loose fields | `navigation.rs`, `search_at.rs` |
 | 8 | **The `Globals` split** (review step 9; design in [globals-split.md](globals-split.md)): the meta store into `Attempt`, `Env` private as `Kernel`, `erasure`/`js` as `OwnedBy` tables | review issue 3 | per that note |
 | 9 | **Frozen base** (optional, after measuring): its own short design note with the fork's measured value | SW-1109, search's second session | per that note |
@@ -1573,7 +1685,7 @@ opt-in; step 6 as three lanes 6a-6c in that order.
 - **F8** (draft 2). A namespace's entry lists the members (constructors,
   fields, methods) of the library files loaded inside it, because
   `start_members` is copied before the loads (`cache/mod.rs:433`, `:605`).
-  Harmless (members are a set); step 6c removes it.
+  Harmless (members are a set). Fixed by step 6c (§4.8.11).
 - **F9** (draft 2). `OwnedBy`'s floor doesn't stop a namespace writing a
   row for a declaration of a library file loaded inside it, and the
   encoder's count check misses an overwritten row (§4.8.1). Latent: no
@@ -1631,7 +1743,7 @@ by hand where a regex missed (`records` is dumped).
 | `globals` | `-CRED` | Kernel / Attempt | split (review step 9) | mixed: kernel env + metas + backend facts |
 | `tests` | `--RED` | Tables | grow | in `state::Tables`: `GrowVec` |
 | `sides_capture` | `--r--` | Decl | scratch |  |
-| `scope` | `--RED` | Tables | logged | 6b: its seven maps `Logged` (the module's imports and a load's flags copied per mark); still copied per cached unit (Before) until 6c |
+| `scope` | `--RED` | Tables | logged | 6b: its seven maps `Logged` (the module's imports and a load's flags copied per mark); 6c: a cached unit's entry reads its names and members from its write-set, with no copy; `ScopeOp` stays as a library file's ordered list of new names and members marked (§4.8.11) |
 | `namespace_root` | `--RE-` | Unit | swap |  |
 | `project_namespaces` | `--R--` | Session | set once | set by the host per project; 6b: an `Arc`, shared with the marks |
 | `project_prefixes` | `--R--` | Session | set once | 6b: shared with the marks |
@@ -1696,7 +1808,7 @@ by hand where a regex missed (`records` is dumped).
 | `owner_unfolding` | `--r--` | Decl | dynamic extent |  |
 | `owner_helpers` | `--r--` | Decl | scratch |  |
 | `local_helpers` | `--R--` | Decl | scratch (per group) | empty at a mark (asserted) |
-| `helper_keys` | `--RED` | Tables | logged | in `state::Tables`; 6b: a `LoggedSet`; still copied per cached unit until 6c |
+| `helper_keys` | `--RED` | Tables | logged | in `state::Tables`; 6b: a `LoggedSet`; 6c: an entry's new keys from its unit's write-set |
 | `local_metas` | `UCr--` | Attempt | meta-keyed |  |
 | `meta_names` | `UCr--` | Attempt | trail |  |
 | `operator_dictionaries` | `UCr--` | Attempt | meta-keyed |  |
@@ -1714,7 +1826,7 @@ by hand where a regex missed (`records` is dumped).
 | `total_rows_only` | `--r--` | Decl | dynamic extent |  |
 | `total_rows` | `--r--` | Tables | owned by DefId | in `state::Tables`: `OwnedBy`; F1, fixed in step 0 (SW-1140) |
 | `interfaces` | `--RED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
-| `instances` | `--RED` | Tables | logged | in `state::Tables`; 6b: `Instances`, `Logged`, a row owned by `info.def`'s unit (asserted); still copied per cached unit until 6c; an older row may change (valid flag), by its own unit only |
+| `instances` | `--RED` | Tables | logged | in `state::Tables`; 6b: `Instances`, `Logged`, a row owned by `info.def`'s unit (asserted); 6c: an entry's new rows from its unit's write-set; an older row may change (valid flag), by its own unit only |
 | `data_owners` | `--rED` | Tables | owned by DataId | in `state::Tables`: `OwnedBy` |
 | `instance_steps` | `-Cr--` | Attempt | budget, keyed by meta | reset with the metas; deliberately not refunded when an attempt is undone |
 | `instance_budget` | `--sE-` | Options | setting |  |
@@ -1726,7 +1838,7 @@ by hand where a regex missed (`records` is dumped).
 | `cache_stats` | `--sE-` | Session | statistic |  |
 | `namespace_sources` | `--RE-` | Session | set once | 6b: set whole by the host, so an `Arc` shared with the marks rather than logged |
 | `namespace_keys` | `--RE-` | Session | logged | 6b: `Logged` |
-| `namespace_capture` | `--rE-` | Unit | swap |  |
+| `namespace_capture` | `--rE-` | Unit | swap | 6c: holds the namespace's `Transaction` and `UnitId`; no copies |
 | `skip_navigation_walk` | `--rE-` | Unit | swap |  |
 | `omega_for_auto` | `--R--` | Unit | swap | copied per mark. Cleared when a module starts and set after its loads. A nested library load starts with the outer unit's value and the outer's comes back with it (SW-1150); a mark keeps it. Typed-in expressions (`eval`, the REPL) see the last module's, or `false` before any |
 | `replayed_names` | `--RE-` | Session | copied | 6b: still copied per mark: one failed replay's early names, emptied as each namespace begins |
