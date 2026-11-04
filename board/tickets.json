@@ -6522,13 +6522,13 @@
     {
       "id": 1298,
       "title": "Std follow-ups from day 6: Parse.SepBy first value, Set size/unions/intersect lemmas, Bool.andAssoc",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "From SW-1278 (day 6) friction notes: (1) Parse.SepBy doesn't tie values' first element to the first read; day 4's parseWritten is silent about its first passport for the same reason. Fix SepBy in std and update day 4's proofs (~1h). (2) Set.size from members (day 6's local sizeCount), membership through Set.unions and the intersect fold (~40 min). (3) Bool.andAssoc (5 min). Move day 6's local versions into std and use them.",
+      "body": "From SW-1278 (day 6) friction notes: (1) Parse.SepBy doesn't tie values' first element to the first read; day 4's parseWritten is silent about its first passport for the same reason. Fix SepBy in std and update day 4's proofs (~1h). (2) Set.size from members (day 6's local sizeCount), membership through Set.unions and the intersect fold (~40 min). (3) Bool.andAssoc (5 min). Move day 6's local versions into std and use them.\n\nProgress (lane/SW-1298, 12da1a30f): Bool.andAssoc/andComm; Set.containsFoldUnion, containsUnions, containsFoldIntersect, sizeOfMembers in std; day 6 uses them (sizeCount, unionContains deleted); Parse.SepBy now ties the first value (callers unchanged); day 4 firstPassportWritten added. Std/aoc checks, audits and hash_stability pass (prelude snapshot updated). About 25 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
