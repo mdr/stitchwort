@@ -8,9 +8,10 @@
 --| Every element one place right, towards the end: element i moves to i + 1,
 --| the last one drops off, and `fill` comes in at the front.
 --| `[1, 2, 3].shiftRight 0` is `[0, 1, 2]`.
-def Vec.shiftRight: Vec a n → (fill: a) → Vec a n
-  | VNil, fill => VNil
-  | VCons x xs, fill => VCons fill (Vec.shiftRight xs x)
+def Vec.shiftRight (row: Vec a n) (fill: a): Vec a n :=
+  match row with
+    | VNil => VNil
+    | VCons x xs => VCons fill (Vec.shiftRight xs x)
 
 --| Every element one place left, towards the front: element i + 1 moves to i,
 --| the first one drops off, and `fill` comes in at the end.

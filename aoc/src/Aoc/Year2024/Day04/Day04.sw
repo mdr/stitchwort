@@ -16,7 +16,7 @@
 --| `Aoc.Year2024.Day04.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day04
-import Std (IO, List, Nat, Text)
+import Std (IO, List, Nat, Text, id)
 
 --| The rows of the word search, top to bottom, letter by letter.
 type Grid = { rows: List (List Char) }
@@ -37,7 +37,7 @@ def spellsXmas (first: Char) (second: Char) (third: Char) (fourth: Char): Bool :
 --| The lines of four that spell XMAS, taking one cell from each list at the
 --| same index.
 def countXmas (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
-  List.zipWith4 first second third fourth spellsXmas |> .count (found => found)
+  List.zipWith4 first second third fourth spellsXmas |> .count id
 
 --| Across one row: four cells side by side.
 def countAcross (row: List Char): Nat := countXmas row (row.drop 1) (row.drop 2) (row.drop 3)
@@ -64,7 +64,7 @@ def spellsMas (first: Char) (second: Char) (third: Char): Bool :=
 def countCrosses (above: List Char) (middle: List Char) (below: List Char): Nat :=
   let downRight := List.zipWith3 above (middle.drop 1) (below.drop 2) spellsMas
   let downLeft := List.zipWith3 (above.drop 2) (middle.drop 1) below spellsMas
-  List.zipWith downRight downLeft (one other => one ∧ other) |> .count (found => found)
+  List.zipWith downRight downLeft (one other => one ∧ other) |> .count id
 
 --| Part 2: the crosses in every run of three rows.
 def solvePart2 (grid: Grid): Nat :=

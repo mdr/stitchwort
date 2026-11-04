@@ -8,6 +8,21 @@ def List.concatMap: List a → (f: a → List b) → List b
   | [], f => []
   | [x, ..xs], f => List.append (f x) (List.concatMap xs f)
 
+--| The value itself: `id 3` is `3`. It is the function to pass where one is
+--| wanted and nothing should change, as in `options.filterMap id`
+--| ([`List.somes`] is that).
+def id (x: a): a := x
+
+--| `f` applied to the two parts of a pair: `uncurry (+) (2, 3)` is `5`. It lets a
+--| two-argument function take the pairs a list holds, as in
+--| `pairs.map (uncurry Connection.between)`; where the parts deserve names in
+--| the body, a lambda `(((first, second)) => …)` reads better.
+def uncurry (f: a → b → c) (pair: (a, b)): c := f pair.fst pair.snd
+
+test "uncurry" := uncurry (+) (2, 3) == 5 ∧ uncurry (a b => a) (True, 4) == True
+
+test "id" := id 3 == 3 ∧ id True == True
+
 -- Lemmas the rest of the prelude uses. (Sorting and the lemmas around it are
 -- the library file std/List/Sort.sw; these stay because the core, or a
 -- later section that hasn't moved, needs them.)

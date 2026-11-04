@@ -224,6 +224,13 @@ def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
   | [], f => []
   | [x, ..xs], f => List.consSome (f x) (List.filterMap xs f)
 
+--| The values of the `Some` elements, in order, dropping the `None`s:
+--| `[Some 1, None, Some 3].somes` is `[1, 3]`. It is `filterMap id`, so
+--| [`List.memFilterMap`] applies, and [`List.memSomes`] says it directly.
+def List.somes (xs: List (Option a)): List a := List.filterMap xs id
+
+test "List.somes" := [Some 1, None, Some 3].somes == [1, 3] ∧ ([]: List (Option Nat)).somes == [] ∧ [None, None].somes == ([]: List Nat)
+
 --| Joins a list of lists, in order: `[[1, 2], [], [3]].concat` is `[1, 2, 3]`.
 def List.concat: List (List a) → List a
   | [] => []
@@ -235,9 +242,10 @@ def List.replicate: Nat → a → List a
   | Succ n, x => [x, ..List.replicate n x]
 
 --| `n` numbers counting up from `i`: `List.rangeFrom 3 5` is `[5, 6, 7]` ([`List.lengthRangeFrom`]).
-def List.rangeFrom: Nat → Nat → List Nat
-  | Zero, i => []
-  | Succ n, i => [i, ..List.rangeFrom n (Succ i)]
+def List.rangeFrom (count: Nat) (start: Nat): List Nat :=
+  match count with
+    | Zero => []
+    | Succ n => [start, ..List.rangeFrom n (Succ start)]
 
 --| The numbers from 0 up to, not including, `n`: `List.range 3` is `[0, 1, 2]`.
 def List.range (n: Nat): List Nat := List.rangeFrom n 0

@@ -22,7 +22,7 @@
 
 namespace Aoc.Year2021.Day03
 import Aoc.Common (Bits)
-import Std (Fail, IO, List, Nat, Parse)
+import Std (Fail, IO, List, Nat, Parse, id)
 import Std.Parse (label, many1, pick)
 
 def main(): {IO, Fail} () :=
@@ -44,7 +44,7 @@ def bit(): {Parse} Bool := label "0 or 1" (() => pick [("0", False), ("1", True)
 
 --| A column's most common bit: 1 when at least half of the bits are 1s, so a
 --| tie is 1.
-def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count (bit => bit)
+def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count id
 
 --| Part 1: the gamma rate times the epsilon rate, which is the gamma rate's
 --| bits flipped.

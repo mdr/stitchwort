@@ -18,7 +18,7 @@
 --| The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day08
-import Std (Fail, IO, List, Map, Nat, Option, Parse, Text)
+import Std (Fail, IO, List, Map, Nat, Option, Parse, Text, uncurry)
 import Std.Parse (char, nat, token)
 
 def main(): {IO, Fail} () :=
@@ -73,7 +73,7 @@ type Connection = { distance: Nat, first: Nat, second: Nat }
 --| Every pair of boxes, closest first.
 def closestFirst (points: List Point): List Connection :=
   points.withIndex.pairs
-    |> .map (((first, second)) => Connection.between first second)
+    |> .map (uncurry Connection.between)
     |> .sort
 
 --| The connection of two numbered boxes.

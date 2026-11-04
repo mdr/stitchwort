@@ -38,7 +38,7 @@ def secrets: (count: Nat) → (secret: Nat) → List Nat
   | Zero, secret => [secret]
   | Succ count, secret => [secret, ..secrets count (nextSecret secret)]
 
-def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (Nat.iterate 2000 nextSecret)
+def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (Nat.iterate (count := 2000) (step := nextSecret))
 
 -- Part 2.
 

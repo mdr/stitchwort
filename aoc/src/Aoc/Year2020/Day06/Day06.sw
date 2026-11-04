@@ -53,7 +53,7 @@ def parseLines (input: Text): {Fail} List (Option Person) := Parse.eachLine inpu
 
 --| The people between blank lines.
 def groupsOf (lines: List (Option Person)): List Group :=
-  (lines.splitBy .isNone).map (people => { people = people.filterMap (answers => answers) })
+  (lines.splitBy .isNone).map (people => { people = people.somes })
 
 def parseGroups (input: Text): {Fail} List Group := groupsOf (parseLines input)
 

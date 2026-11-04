@@ -42,7 +42,7 @@ type Slope = { right: Nat, down: Nat }
 def treesOn (map: Grid Square) (slope: Slope): Nat :=
   let nonZero := map.widthNonZero
   let find := map.lookupOr Open
-  List.rangeFrom map.height 1
+  List.rangeFrom (count := map.height) (start := 1)
     |> .takeWhile (step => step * slope.down < map.height)
     |> .count (step => find { row = step * slope.down, column = step * slope.right % map.width } == Tree)
 

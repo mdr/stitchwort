@@ -23,4 +23,4 @@ def Range.contains (range: Range) (id: Nat): Bool := range.from ≤ id ∧ id �
 def Range.size (range: Range): Nat := range.to + 1 - range.from
 
 --| Every id in the range, one by one: only for small ranges and specs.
-def Range.ids (range: Range): List Nat := List.rangeFrom range.size range.from
+def Range.ids (range: Range): List Nat := List.rangeFrom (count := range.size) (start := range.from)

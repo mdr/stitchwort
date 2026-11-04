@@ -2119,6 +2119,12 @@ theorem List.memFilterMap (f: a → Option b) (y: b) (xs: List a): (y ∈ List.f
   backward = found => Exists.elim found (x both => List.memFilterMapIntro f x y xs (And.left both) (And.right both))
 }
 
+--| `somes` keeps `y` exactly when `Some y` is an element.
+theorem List.memSomes (y: a) (xs: List (Option a)): (y ∈ List.somes xs) ↔ (Some y ∈ xs) := {
+  forward = m => Exists.elim ((List.memFilterMap id y xs).forward m) (x both => Eq.subst (z => z ∈ xs) (And.right both: x = Some y) (And.left both)),
+  backward = m => (List.memFilterMap id y xs).backward (Witness (Some y) (Both m (rfl: id (Some y) = Some y)))
+}
+
 --| Everything `filterMap` keeps has `q` when every element's `Some` result
 --| would; and back.
 theorem List.allFilterMap (q: b → Prop) (f: a → Option b): (xs: List a) → List.All (x => (y: b) → f x = Some y → q y) xs → List.All q (List.filterMap xs f)
