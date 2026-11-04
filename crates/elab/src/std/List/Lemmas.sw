@@ -2110,6 +2110,15 @@ theorem List.memFilterMapElim (f: a → Option b) (y: b): (xs: List a) → y ∈
           | Inl q => Inl (Eq.cong Some q)
           | Inr r => Inr (List.memFilterMapElim f y zs r)
 
+--| What `filterMap` keeps is exactly the `Some` results of the elements: `y` is in `xs.filterMap f`
+--| just when some element `x` of `xs` has `f x = Some y`. This is [`List.memFilterMapIntro`] and
+--| [`List.memFilterMapElim`] as one statement, to rewrite with. It holds for `filterMap (match some | …)`
+--| as for any `f`.
+theorem List.memFilterMap (f: a → Option b) (y: b) (xs: List a): (y ∈ List.filterMap xs f) ↔ (∃ (x: a) => (x ∈ xs) ∧ (f x = Some y)) := {
+  forward = m => List.anyMember (x => f x = Some y) xs (List.memFilterMapElim f y xs m),
+  backward = found => Exists.elim found (x both => List.memFilterMapIntro f x y xs (And.left both) (And.right both))
+}
+
 --| Everything `filterMap` keeps has `q` when every element's `Some` result
 --| would; and back.
 theorem List.allFilterMap (q: b → Prop) (f: a → Option b): (xs: List a) → List.All (x => (y: b) → f x = Some y → q y) xs → List.All q (List.filterMap xs f)

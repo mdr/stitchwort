@@ -8,7 +8,7 @@
 //! frames, since the nesting limit is measured in stack.
 
 use super::{Parser, Result, describe, error, has_absurd};
-use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
+use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, MatchKind, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
 use crate::{Diagnostic, Span};
 
@@ -313,13 +313,33 @@ impl Parser<'_> {
             Some(Tok::ColonEq) => {
                 self.bump();
                 let rhs = self.expr()?;
-                decls.push(Decl::Equation {
-                    span: name.span.to(rhs.span()),
-                    name,
-                    patterns: header,
-                    rhs: Some(rhs),
-                    arm: None,
-                });
+                match &rhs {
+                    // `:= match | …` is the arms form: the same equations,
+                    // so the definition has the same case tree.
+                    Expr::Lam(_, body, _) if clause_match(body) => {
+                        let Expr::Match { alts, .. } = &**body else {
+                            unreachable!("`clause_match` checked")
+                        };
+                        for alt in alts.iter().cloned() {
+                            let mut patterns = header.clone();
+                            patterns.extend(alt.patterns);
+                            decls.push(Decl::Equation {
+                                name: name.clone(),
+                                patterns,
+                                rhs: Some(alt.body),
+                                arm: Some(header.len()),
+                                span: alt.span,
+                            });
+                        }
+                    }
+                    _ => decls.push(Decl::Equation {
+                        span: name.span.to(rhs.span()),
+                        name,
+                        patterns: header,
+                        rhs: Some(rhs),
+                        arm: None,
+                    }),
+                }
                 if self.peek() == Some(&Tok::Pipe) {
                     return Err(error(
                         self.here(),
@@ -715,6 +735,18 @@ impl Parser<'_> {
 /// The elaborator auto-binds type variables once over this complete type,
 /// as it does for an old-style signature: no parameter is elaborated on its
 /// own.
+/// Whether `body` is the `match` of a clause lambda written as it is
+/// (`match | …`, `match some | …`, `matches | …`).
+fn clause_match(body: &Expr) -> bool {
+    matches!(
+        body,
+        Expr::Match {
+            kind: MatchKind::Clause | MatchKind::ClauseSome | MatchKind::ClauseMatches,
+            ..
+        }
+    )
+}
+
 fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Pattern>) {
     let mut patterns = Vec::new();
     debug_assert!(header_defaults(&params).is_empty(), "defaults taken first");

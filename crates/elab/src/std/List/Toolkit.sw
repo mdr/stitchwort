@@ -216,7 +216,9 @@ def List.consSome: Option b → List b → List b
   | Some y, rest => [y, ..rest]
 
 --| Keeps the `Some` results, in order. `[1, 2, 3].filterMap (x => if x > 1 then Some (x * 10) else None)`
---| is `[20, 30]`. `f` may perform abilities, which run in
+--| is `[20, 30]`. This is Scala's `collect`: `match some` writes the function as the cases to keep,
+--| `lines.filterMap (match some | Corrupted illegal => illegal)`, and the lemma
+--| [`List.memFilterMap`] says what is kept. `f` may perform abilities, which run in
 --| list order (`f x` is the first argument, so it runs before the rest).
 def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
   | [], f => []
@@ -753,7 +755,8 @@ def List.findMapStep: Option b → (rest: () → {e} Option b) → {e} Option b
   | Some y, rest => Some y
   | None, rest => rest ()
 
---| The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
+--| The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`):
+--| `lines.findMap (match some | Header title => title)` is the first header's title.
 --| `f` may perform abilities: it runs in list order and isn't called after the
 --| first `Some`.
 def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=

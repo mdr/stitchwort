@@ -2453,6 +2453,13 @@ impl<'t> Parser<'t> {
             self.bump();
             return self.reify_expr(start);
         }
+        if self.peek() == Some(&Tok::Pipe) {
+            return self.clause_lambda(start, MatchKind::Clause);
+        }
+        if self.some_bar_ahead() {
+            self.bump();
+            return self.clause_lambda(start, MatchKind::ClauseSome);
+        }
         let mut scrutinees = Vec::new();
         loop {
             let name = if matches!(self.peek(), Some(Tok::Lower(_)))
@@ -2530,6 +2537,129 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// Whether `some |` is next, after `match`: the keyword of the partial
+    /// clause lambda. `some` is a name anywhere else, so `match some with`
+    /// still matches on a variable called `some`.
+    fn some_bar_ahead(&self) -> bool {
+        matches!(self.peek(), Some(Tok::Lower(word)) if word == "some")
+            && self.peek_at(1) == Some(&Tok::Pipe)
+    }
+
+    /// Whether `matches |` is next: the Boolean clause lambda. Not a record
+    /// update `{matches | field = e}`, whose `|` is followed by a field.
+    fn matches_bar_ahead(&self) -> bool {
+        matches!(self.peek(), Some(Tok::Lower(word)) if word == "matches")
+            && self.peek_at(1) == Some(&Tok::Pipe)
+            && !(matches!(self.peek_at(2), Some(Tok::Lower(_)))
+                && self.peek_at(3) == Some(&Tok::Equals))
+    }
+
+    /// `match | p, q => e | …`, after `match` (or `match some`, or the
+    /// `matches` word): a lambda over a `match` on its parameters, which the
+    /// alternatives' patterns are for (docs/proposals/partial-lambdas.md).
+    /// For `ClauseSome` each result is wrapped in `Some` and for
+    /// `ClauseMatches` an alternative may leave its result out, which is
+    /// `True`; both end with an alternative for every other value, `None` or
+    /// `False`, which has no place in the source: its span is empty, at the
+    /// end of the construct.
+    #[inline(never)]
+    fn clause_lambda(&mut self, start: Span, kind: MatchKind) -> Result<Expr> {
+        let keyword = start.to(self.prev_span());
+        let mut alts: Vec<Alt> = Vec::new();
+        let mut column = None;
+        while self.peek() == Some(&Tok::Pipe) {
+            let token = &self.tokens[self.pos];
+            if token.line_start {
+                match column {
+                    None => column = Some(token.column),
+                    Some(c) if c != token.column => break,
+                    Some(_) => {}
+                }
+            }
+            let bar = self.bump().span;
+            let mut patterns = vec![self.alt_pattern()?];
+            while self.eat(&Tok::Comma) {
+                patterns.push(self.alt_pattern()?);
+            }
+            if let Some(first) = alts.first()
+                && first.patterns.len() != patterns.len()
+            {
+                let (n, m) = (patterns.len(), first.patterns.len());
+                return Err(error(
+                    bar.to(self.prev_span()),
+                    format!(
+                        "this alternative has {n} pattern{}, but the first has {m}",
+                        if n == 1 { "" } else { "s" },
+                    ),
+                )
+                .with_label(
+                    first.patterns[0].span(),
+                    format!("the first alternative has {m}"),
+                )
+                .with_note(
+                    "every alternative of a clause lambda has one pattern for each parameter",
+                )
+                .into());
+            }
+            let body = if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
+                library_var("Std.Bool.True", Span::point(bar.file, bar.start))
+            } else {
+                self.expect_fat_arrow("`=>`")?;
+                let body = self.expr()?;
+                if kind == MatchKind::ClauseSome {
+                    let some =
+                        library_var("Std.Option.Some", Span::point(bar.file, body.span().start));
+                    Expr::App(Box::new(some), Box::new(body))
+                } else {
+                    body
+                }
+            };
+            alts.push(Alt {
+                span: bar.to(self.prev_span()),
+                patterns,
+                body,
+            });
+        }
+        if alts.is_empty() {
+            return Err(self.unexpected("`|` and an alternative").into());
+        }
+        let end = self.prev_span();
+        let arity = alts[0].patterns.len();
+        if kind != MatchKind::Clause {
+            let rest = if kind == MatchKind::ClauseSome {
+                "Std.Option.None"
+            } else {
+                "Std.Bool.False"
+            };
+            alts.push(Alt {
+                patterns: vec![Pattern::Wildcard(keyword); arity],
+                body: library_var(rest, Span::point(keyword.file, keyword.start)),
+                span: Span::point(end.file, end.end),
+            });
+        }
+        let span = start.to(end);
+        let names: Vec<Name> = (0..arity)
+            .map(|i| Name {
+                text: format!("%arg{i}"),
+                span: keyword,
+            })
+            .collect();
+        let scrutinees = names
+            .iter()
+            .map(|name| Scrutinee {
+                name: None,
+                expr: Expr::Var(name.clone()),
+            })
+            .collect();
+        let matched = Expr::Match {
+            scrutinees,
+            alts,
+            span,
+            kind,
+        };
+        Ok(Expr::Lam(names, Box::new(matched), span))
+    }
+
     /// A pattern of a `match` alternative: what may stand inside brackets in
     /// an equation, so a constructor's arguments need no parentheses
     /// (`Cons x Nil`); or several, `p | q`.
@@ -2545,7 +2675,16 @@ impl<'t> Parser<'t> {
             return self.ctor_args(name, start, |t| {
                 matches!(
                     t,
-                    Some(Tok::Comma | Tok::Arrow | Tok::FatArrow | Tok::Pipe) | None
+                    Some(
+                        Tok::Comma
+                            | Tok::Arrow
+                            | Tok::FatArrow
+                            | Tok::Pipe
+                            // After the last pattern of a `matches | A` in brackets.
+                            | Tok::RParen
+                            | Tok::RBracket
+                            | Tok::RBrace
+                    ) | None
                 )
             });
         }
@@ -3709,6 +3848,10 @@ impl<'t> Parser<'t> {
             let start = self.bump().span;
             return self.match_expr(start);
         }
+        if self.matches_bar_ahead() {
+            let start = self.bump().span;
+            return self.clause_lambda(start, MatchKind::ClauseMatches);
+        }
         // A negative numeral is one atom (D1474): `-1.abs` is `(-1).abs`.
         if self.peek() == Some(&Tok::Minus) && negative_numeral(self.tokens, self.pos) {
             return self.app();
@@ -4463,6 +4606,15 @@ fn exists_chain(keyword: Span, lambda: Expr, outer: Span) -> Expr {
 
 /// `-operand`, or with `bang` `!operand`, which is `Std.Bool.not operand`.
 #[inline(never)]
+/// A reference to a library name the compiler writes into a desugaring. Its
+/// span is empty, which is how the elaborator tells it from one written.
+fn library_var(path: &str, span: Span) -> Expr {
+    Expr::Var(Name {
+        text: path.into(),
+        span,
+    })
+}
+
 fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
     if bang {
         let not = Expr::Var(Name {
@@ -5923,6 +6075,87 @@ mod tests {
             .message;
         assert!(
             message.contains("has 2 patterns, but the `match` has 1 scrutinee"),
+            "{message}"
+        );
+    }
+
+    /// The `match` of a clause lambda `e`, and its kind.
+    fn clause_parts(e: &Expr) -> (&[Alt], MatchKind) {
+        let Expr::Lam(names, body, _) = e else {
+            panic!("expected a lambda, got {e:?}");
+        };
+        let Expr::Match {
+            scrutinees,
+            alts,
+            kind,
+            ..
+        } = &**body
+        else {
+            panic!("expected a `match`, got {body:?}");
+        };
+        assert_eq!(names.len(), scrutinees.len());
+        (alts, *kind)
+    }
+
+    /// The argument of the call `g (…)` that is the right side of `text`.
+    fn bracketed_arg(text: &str) -> Expr {
+        let e = rhs(&format!("def f: T := g ({text})\n"));
+        let Expr::App(_, arg) = &e else {
+            panic!("{e:?}")
+        };
+        (**arg).clone()
+    }
+
+    #[test]
+    fn clause_lambdas_are_lambdas_over_a_match() {
+        let e = bracketed_arg("match | A => 1 | B => 2");
+        let (alts, kind) = clause_parts(&e);
+        assert_eq!((alts.len(), kind), (2, MatchKind::Clause));
+
+        // Two parameters: two patterns in each arm.
+        let e = bracketed_arg("match | 0, y => y | x, _ => x");
+        let Expr::Lam(names, ..) = &e else {
+            panic!("{e:?}")
+        };
+        assert_eq!(names.len(), 2);
+
+        // `some` and `matches` are keywords only before `|`.
+        let e = bracketed_arg("match some | A x => x");
+        let (alts, kind) = clause_parts(&e);
+        assert_eq!((alts.len(), kind), (2, MatchKind::ClauseSome));
+        let e = rhs("def f: T := match some with | 0 => 1 | _ => 2\n");
+        assert_eq!(match_parts(&e).1.len(), 2);
+        let e = bracketed_arg("matches | A | B");
+        let (alts, kind) = clause_parts(&e);
+        assert_eq!((alts.len(), kind), (2, MatchKind::ClauseMatches));
+        assert_eq!(alts[0].patterns.len(), 1);
+        assert!(matches!(alts[0].patterns[0], Pattern::Or(..)));
+        assert!(matches!(rhs("def f: T := matches + 1\n"), Expr::Binary(..)));
+    }
+
+    #[test]
+    fn a_definition_whose_body_is_a_clause_lambda_has_the_arms_form() {
+        let module = parse("def f: Nat → Option Nat := match some | 0 => 1 | 1 => 2\n");
+        let arms: Vec<_> = module
+            .decls
+            .iter()
+            .filter(|d| matches!(d, Decl::Equation { .. }))
+            .collect();
+        // Two written arms, and the one for everything else.
+        assert_eq!(arms.len(), 3);
+        assert!(
+            arms.iter()
+                .all(|d| matches!(d, Decl::Equation { arm: Some(0), .. }))
+        );
+    }
+
+    #[test]
+    fn clause_lambda_arms_have_the_same_number_of_patterns() {
+        let message = rhs_of("def f: T := match | 0, y => y | x => x\n")
+            .unwrap_err()
+            .message;
+        assert!(
+            message.contains("has 1 pattern, but the first has 2"),
             "{message}"
         );
     }

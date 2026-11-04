@@ -310,6 +310,18 @@ pub enum MatchKind {
     /// `p => body`: the lambda's parameters are generated variables
     /// matched against its patterns.
     Lambda,
+    /// `match | p => e | …`: a clause lambda, whose parameters are
+    /// generated variables matched against the alternatives
+    /// (docs/proposals/partial-lambdas.md).
+    Clause,
+    /// `match some | p => e | …`: a clause lambda whose alternatives' results
+    /// are wrapped in `Some`, with a last alternative `_ => None` the parser
+    /// adds (it is zero-width, at the end of the construct).
+    ClauseSome,
+    /// `matches | p => c | …`: a clause lambda whose results are `Bool`s
+    /// (`True` for an alternative with none), with a last alternative
+    /// `_ => False` the parser adds.
+    ClauseMatches,
 }
 
 /// One scrutinee of a `match`: the expression, and the name of its equation if written (`h : e`).

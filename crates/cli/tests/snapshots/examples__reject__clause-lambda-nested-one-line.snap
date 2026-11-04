@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Square`
+| Square => ?
+    ╭─[ reject/clause-lambda-nested-one-line.sw:11:32 ]
+    │
+ 11 │ def area: Shape → Nat := match | Circle r => match r with | 0 => 1 | _ => 2 | Square => 3
+    │                                ─────────────────────────────┬────────────────────────────  
+    │                                                             ╰────────────────────────────── missing case: no arm matches `Square`
+────╯

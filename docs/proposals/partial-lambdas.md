@@ -1,7 +1,11 @@
 # Keeping only the cases that match: Scala's `collect` in Stitchwort (SW-1292)
 
-**Status:** design note, 4 November 2026, for Matt's decisions (§10). Nothing
-is built. Background: Matt (4 Nov): "one of the nicest features of Scala is
+**Status:** design note, 4 November 2026. Matt decided in D2370: the
+spellings are `match | …`, `match some | …` (this note's earlier `match?`,
+renamed throughout) and `matches | …`, with `some` a keyword only between
+`match` and `|`; P4, P5, P6, P8 and P10 as recommended; guards follow in
+SW-1295. Stages 1 and 2 are SW-1294. The text below still has the
+original recommendations in §10. Background: Matt (4 Nov): "one of the nicest features of Scala is
 that you can do a map with a partial function that's based on your match,
 and you can just emit things that don't match ... if we could figure out a
 way to steal that sort of vibe". D2368 (Matt): a `match` whose result is
@@ -34,24 +38,24 @@ Scala says it in one: `lines.map(scan).collect { case Corrupted(illegal) => ille
    lambda*): `match | Add => … | Multiply => …` is
    `x => match x with | Add => … | Multiply => …`. It is total, and checked
    like any `match`.
-2. **`match?` is the same, but it keeps only what matches**: each arm's
+2. **`match some` is the same, but it keeps only what matches**: each arm's
    result is wrapped in `Some`, and the values no arm matches give `None`.
-   `match? | Corrupted illegal => illegal` is
+   `match some | Corrupted illegal => illegal` is
    `x => match x with | Corrupted illegal => Some illegal | _ => None`, a
-   `Scan → Option Bracket`. The `?` is the visible mark D2368 asks for: a
+   `Scan → Option Bracket`. The word `some` is the visible mark D2368 asks for: a
    plain `match` never drops a case.
 
 So the example becomes
 
 ```
-example.map (scan []) |> .filterMap (match? | Corrupted illegal => illegal)
+example.map (scan []) |> .filterMap (match some | Corrupted illegal => illegal)
 ```
 
 and `illegalOf` goes away.
 
 **What it should do.** Anything that takes an `a → Option b` takes a
-`match?`: `filterMap` (Scala's `collect`), `findMap` (Scala's
-`collectFirst`), `Map.filterMap`, `Option.flatMap`. A `match?` can also be a
+`match some`: `filterMap` (Scala's `collect`), `findMap` (Scala's
+`collectFirst`), `Map.filterMap`, `Option.flatMap`. A `match some` can also be a
 definition's whole body, which turns the AoC lookup tables (`| '+' => Some
 Add … | _ => None`) into lists of what they recognise. Proofs see an ordinary
 `match`, so nothing new is needed in the kernel, and the `filterMap` lemmas
@@ -121,7 +125,7 @@ test "the example's first illegal characters" :=
 
 -- after
 test "the example's first illegal characters" :=
-  example.map (scan []) |> .filterMap (match? | Corrupted illegal => illegal) == [Curly, Round, Square, Round, Angle]
+  example.map (scan []) |> .filterMap (match some | Corrupted illegal => illegal) == [Curly, Round, Square, Round, Angle]
 ```
 
 **2. Day 8 (2024), antennas on the grid.** The `Option` is taken apart by
@@ -133,7 +137,7 @@ cells.withIndex.filterMap (((column, cell)) =>
   cell.map (frequency => ({ frequency, position = { row, column } }: Antenna)))
 
 -- after
-cells.withIndex.filterMap (match? | (column, Some frequency) => ({ frequency, position = { row, column } }: Antenna))
+cells.withIndex.filterMap (match some | (column, Some frequency) => ({ frequency, position = { row, column } }: Antenna))
 ```
 
 **3. Day 9 (2024) spec, the checksum.** `pair.fst`, `pair.snd` and a nested
@@ -143,7 +147,7 @@ cells.withIndex.filterMap (match? | (column, Some frequency) => ({ frequency, po
 -- before
 blocks.withIndex |> .filterMap (pair => pair.snd.map (id => pair.fst * id)) |> .sum
 -- after
-blocks.withIndex |> .filterMap (match? | (index, Some id) => index * id) |> .sum
+blocks.withIndex |> .filterMap (match some | (index, Some id) => index * id) |> .sum
 ```
 
 **4. Day 3 (2024) spec, the last do() or don't().** The helper `setting`
@@ -161,14 +165,14 @@ def enabledAfter (earlier: List Instruction): Bool :=
 
 -- after
 def enabledAfter (earlier: List Instruction): Bool :=
-  match earlier.filterMap (match? | Do => True | Dont => False) |> .last with …
+  match earlier.filterMap (match some | Do => True | Dont => False) |> .last with …
 ```
 
 (Whether this one should change is taste: the named `setting` documents the
 puzzle. The point is that it can.)
 
 **5. Day 22 (2024), the first five prices of each window.** As a definition
-whose whole body is a `match?`:
+whose whole body is a `match some`:
 
 ```
 -- before
@@ -178,7 +182,7 @@ def sale (prices: List Nat): Option (Changes, Nat) :=
     | _ => None
 
 -- after
-def sale: List Nat → Option (Changes, Nat) := match?
+def sale: List Nat → Option (Changes, Nat) := match some
   | [a, b, c, d, e, .._] => ({ first = change a b, second = change b c, third = change c d, fourth = change d e }, e)
 ```
 
@@ -198,7 +202,7 @@ def operationOf: Nat → Option Operation
   | _ => None
 
 -- after
-def operationOf: Nat → Option Operation := match?
+def operationOf: Nat → Option Operation := match some
   | 0 => Sum
   | 1 => Product
   | 2 => Minimum
@@ -209,7 +213,7 @@ def operationOf: Nat → Option Operation := match?
 ```
 
 and `Wire.zBit` (`match wire with | Z bit => Some bit | _ => None`) becomes
-`def Wire.zBit: Wire → Option Nat := match? | Z bit => bit`.
+`def Wire.zBit: Wire → Option Nat := match some | Z bit => bit`.
 
 **7. Day 15 (2024), positions of one kind of tile (needs guards, §6).** A
 filter and a map that take the same pair apart twice become one step:
@@ -222,7 +226,7 @@ rows.gridCells
 
 -- after
 rows.gridCells
-  |> .filterMap (match? | ((row, column), here) if here == wanted => ({ rows = row.toInt, columns = column.toInt }: Cell))
+  |> .filterMap (match some | ((row, column), here) if here == wanted => ({ rows = row.toInt, columns = column.toInt }: Cell))
 ```
 
 Day 6 (2024, `positionsOf`) and Day 20 (2024, `onlyTile` and the track) have
@@ -234,7 +238,7 @@ the same filter-then-map shape on `(position, tile)` pairs.
 -- before
 numbers.withIndex |> .filterMap (((j, y)) => if i == j then None else Some (x, y))
 -- after
-numbers.withIndex |> .filterMap (match? | (j, y) if j != i => (x, y))
+numbers.withIndex |> .filterMap (match some | (j, y) if j != i => (x, y))
 ```
 
 **9. Day 7 (2024), a total clause lambda.** A lambda whose body is a `match`
@@ -259,9 +263,9 @@ letter with …)`) are the same.
 **Not a fit, and why.** The roguelike's `marksIn`
 (`filterMap (monster => if monster.position.row == row then Some (…) else
 None)`) gains nothing: the pattern is a plain variable, so the guard is the
-whole test and `match? | monster if monster.position.row == row => (…)` is no
+whole test and `match some | monster if monster.position.row == row => (…)` is no
 shorter. `Instruction.decode` (Day 17) has arms that are themselves `Option`s
-(`Combo.decode operand |> .map Adv`), so `match?` would give an
+(`Combo.decode operand |> .map Adv`), so `match some` would give an
 `Option (Option …)`; it stays a `match`. `filterMap (block => block)` (Day 9,
 Day 24) is "keep the `Some`s", which wants a named `List.somes`, not syntax.
 `filterMap` with a named function (`filterMap position.step`,
@@ -275,13 +279,13 @@ Day 24) is "keep the `Some`s", which wants a named `List.somes`, not syntax.
 | a helper defined only to be passed to `filterMap` (examples 1, 4, 5) | 3 | 0 |
 | filter then map on a pattern (example 7 and its siblings) | 4 | 4 |
 | `Option` lookup tables ending in `_ => None` (example 6) | 10 | 0 |
-| a `match` on a value with `Some` arms and `_ => None` (`seat`, `letterAlong`, `readPacket`, …; `e \|> match? \| …`, P8) | 6 | 0 |
+| a `match` on a value with `Some` arms and `_ => None` (`seat`, `letterAlong`, `readPacket`, …; `e \|> match some \| …`, P8) | 6 | 0 |
 | lambdas whose body matches their parameter (example 9) | 4 in programs, 8 in proofs | 0 |
 | not a fit (above) | about 8 | |
 
 So about **10 sites** would use the partial form in pipelines (5 without
 guards, 5 more with them), **10 lookup tables** would use it as a definition
-body, 6 `match`es on a value could be `e |> match? | …` (P8), and
+body, 6 `match`es on a value could be `e |> match some | …` (P8), and
 **12 lambdas** would use the total clause form; the Boolean form adds 6 sites
 here and 13 in std (§7). For comparison, the
 repository has 43 `filterMap`/`findMap` calls in its programs, most of them
@@ -313,13 +317,13 @@ example.map (scan []) |> .filterMap (match | Corrupted illegal => Some illegal |
 - **Exhaustiveness**: the ordinary check, unchanged.
 - **Proofs**: an ordinary lambda over a `match` (see §5).
 
-### B. Clause lambdas plus a marked partial form, `match?` (recommended)
+### B. Clause lambdas plus a marked partial form, `match some` (recommended)
 
-A, plus `match? | p => e | …`: the arms' results are wrapped in `Some`, and a
+A, plus `match some | p => e | …`: the arms' results are wrapped in `Some`, and a
 final `_ => None` arm is added.
 
 ```
-example.map (scan []) |> .filterMap (match? | Corrupted illegal => illegal)
+example.map (scan []) |> .filterMap (match some | Corrupted illegal => illegal)
 ```
 
 - **Reads**: as short as Scala's, and the mark is on the function itself, so
@@ -327,7 +331,7 @@ example.map (scan []) |> .filterMap (match? | Corrupted illegal => illegal)
   `filterMap` does. It works with any consumer of `a → Option b`, including
   user code, with no change to their types.
 - **Type**: `a → Option b` (or `a → b → Option c` with two patterns per arm).
-  A `let corrupted := match? | Corrupted c => c` can be named and reused.
+  A `let corrupted := match some | Corrupted c => c` can be named and reused.
 - **Exhaustiveness**: the arms are checked as a `match` whose last arm is
   `_ => None`, so there is no missing case to report. If the written arms
   already cover every value, the `None` is never reached; the compiler-made
@@ -378,7 +382,7 @@ A record of a domain test and a function, as Scala's class is.
   compiled straight to `Option`.
 - `orElse` is the one combinator worth having, and it is one line on plain
   functions: `def Function.orElse (f: a → Option b) (g: a → Option b): a →
-  Option b := x => (f x).orElse (g x)`. More arms in one `match?` usually say
+  Option b := x => (f x).orElse (g x)`. More arms in one `match some` usually say
   it better.
 - **Not recommended**: it adds a type and an apparatus for what `Option`
   already says.
@@ -395,10 +399,10 @@ Not pursued here.
 
 ### Side by side
 
-| | A | B `match?` | C callee | D record |
+| | A | B `match some` | C callee | D record |
 | --- | --- | --- | --- | --- |
-| Day 10 example | `match \| Corrupted c => Some c \| _ => None` | `match? \| Corrupted c => c` | `.collect (match \| Corrupted c => c)` | `PartialFn.mk …` |
-| partiality visible at the lambda | yes (written out) | yes (`?`) | no (in the callee's type) | yes |
+| Day 10 example | `match \| Corrupted c => Some c \| _ => None` | `match some \| Corrupted c => c` | `.collect (match \| Corrupted c => c)` | `PartialFn.mk …` |
+| partiality visible at the lambda | yes (written out) | yes (`some`) | no (in the callee's type) | yes |
 | works with any `a → Option b` consumer | yes | yes | only retyped ones | via `lift` |
 | new in the checker | none (parser desugar) | none (parser desugar) | type-directed rule | a type |
 | proofs see | a `match` | a `match` | a `match` | a record and a proof obligation |
@@ -410,7 +414,7 @@ Not pursued here.
 
 ```
 clause-lambda ::= "match" "|" arms          -- total
-                | "match?" "|" arms         -- partial: a → Option b
+                | "match some" "|" arms         -- partial: a → Option b
 arms          ::= arm ("|" arm)*            -- as in `match … with`
 arm           ::= pattern ("," pattern)* guard? "=>" expr
 guard         ::= "if" expr                 -- §6, a later stage
@@ -419,30 +423,32 @@ guard         ::= "if" expr                 -- §6, a later stage
 - **Desugaring, in the parser**: `match | p1, q1 => e1 | p2, q2 => e2` is
   `%a %b => match %a, %b with | p1, q1 => e1 | p2, q2 => e2`, with hidden
   names as today's pattern lambdas use (`%arg0`, lambda-syntax.md §1)
-  **[checked]**. `match?` also wraps each `ei` in `Some` and adds
+  **[checked]**. `match some` also wraps each `ei` in `Some` and adds
   `| _, _ => None` with no source position. The syntax tree keeps a flag so
   the formatter and printer give back what was written.
 - **Where it may stand**: wherever a lambda may (lambda-syntax.md §4.2):
   after `:=`, `=>`, `then`, `else`, `|>`, an opening bracket, a comma. As an
-  argument it needs brackets, like any lambda: `xs.filterMap (match? | …)`.
+  argument it needs brackets, like any lambda: `xs.filterMap (match some | …)`.
   After `|>` it needs none, so `scan [] line |> match | Corrupted _ => 0 |
   Unclosed s => score s` matches on a pipeline's value, a small bonus.
-- **`match?`, lexically**: `?` is a token of its own, the goal hole
-  (`lexer.rs:699`) **[checked]**. The parser reads `match` `?` `|` as the
-  partial form; `match ? with` stays a `match` on a hole. Only the token
-  after `?` decides, with no backtracking. Other spellings are in P2.
+- **`match some`, lexically**: `some` is a keyword only between `match` and
+  `|`. The parser reads `match` `some` `|` as the partial form; `match some
+  with` still matches on a variable named `some`, and `some` elsewhere is an
+  ordinary name. Only the token after `some` decides, with no backtracking.
+  Likewise `matches` is a keyword only when a `|` follows it. (D2370.)
+
 - **Layout**: arms on their own lines line up, as `match … with` arms do
   (`match_expr` checks the `|` column) **[checked]**; inside brackets layout
   ends nothing, so
 
   ```
-  |> .filterMap (match?
+  |> .filterMap (match some
       | Corrupted illegal => illegal
       | Unclosed [] => Round)
   ```
 
   works as a bracketed `match` does today.
-- **As a definition's whole body**: `def f: A → Option B := match? | …`
+- **As a definition's whole body**: `def f: A → Option B := match some | …`
   should mean exactly the arms form `def f: A → Option B` then
   `| … => Some …` and `| _ => None`, so that it is part of the definition's
   case tree and gets the same generated equations as written arms, not a
@@ -473,9 +479,9 @@ These are the ones `match … with` already has; nothing new is introduced.
 ### 5.3 Types and inference
 
 Checked against a function type, the hidden parameters take its domain and
-the arms are checked against its codomain (for `match?`, against `b` where
+the arms are checked against its codomain (for `match some`, against `b` where
 the codomain is `Option b`; anything else is a type mismatch saying
-"`match?` makes an `Option`"). With no expected type (`let f := match | A =>
+"`match some` makes an `Option`"). With no expected type (`let f := match | A =>
 1 | B => 2`), the parameters start unknown and the patterns fix them, as for
 `let f := x => match x with …` **[estimate]**; where they don't (a record
 pattern), it is the existing `E-CANNOT-INFER` with its note.
@@ -502,10 +508,10 @@ An ordinary `match`: the kernel sees nothing new. In detail:
   `List.allFilterMap`, `List.findMapIsHeadFilterMap`. I propose one more,
   the two halves as one statement:
   `theorem List.memFilterMap: y ∈ xs.filterMap f ↔ ∃ x, x ∈ xs ∧ f x = Some y`.
-- A spec and a program that both write the same `match?` make two generated
+- A spec and a program that both write the same `match some` make two generated
   functions; those are compared by their bodies (SW-386, D1091), so they are
   equal by `rfl` unless the `match` calls the definition it is in. Naming the
-  function (a local `def`, or a definition whose body is the `match?`) is the
+  function (a local `def`, or a definition whose body is the `match some`) is the
   way round, as for any inner `match`.
 - As a definition's body (§5.1, P4), it is the arms form, so the generated
   equations and `f.induct` are what they are for written arms.
@@ -513,7 +519,7 @@ An ordinary `match`: the kernel sees nothing new. In detail:
 ## 6. Guards
 
 Five of the ten pipeline sites (§3) are "this shape, and this condition".
-Without guards a `match?` can only test shapes, and those sites stay a filter
+Without guards a `match some` can only test shapes, and those sites stay a filter
 followed by a map. Guards were proposed before (SW-237, pruned in October
 without a note), so this section is a sketch, enough to decide whether they
 come with this work.
@@ -522,7 +528,7 @@ come with this work.
   `when`). `if` after a pattern can't be confused with an `if` expression,
   which never follows a pattern.
 - **Meaning**: the arm is chosen when `p` matches and `c` is true; when `c`
-  is false, the arms below are tried. In a `match?`, falling past the last
+  is false, the arms below are tried. In a `match some`, falling past the last
   arm gives `None`.
 - **Compiling**: in the case tree, a guarded arm becomes an `if c` whose
   `else` continues with the arms below it, matched against the same values,
@@ -531,13 +537,13 @@ come with this work.
   on a `Bool`.
 - **Exhaustiveness**: a guarded arm covers nothing, since the guard may be
   false. So a plain `match` needs an unguarded arm for those values too, and
-  `E-NONEXHAUSTIVE` lists them as today. In `match?` the hidden `_ => None`
-  covers them, which is why guards and `match?` fit so well together.
+  `E-NONEXHAUSTIVE` lists them as today. In `match some` the hidden `_ => None`
+  covers them, which is why guards and `match some` fit so well together.
 - **Proofs**: inside the arm, `c` holds: the guard is an `if`, so a `match
   h: c with` in a proof, or `if h: c` style, gives `h: c = True` there, and
   `False` below.
 
-Guards could be allowed only in `match?` at first (where coverage is never
+Guards could be allowed only in `match some` at first (where coverage is never
 affected), or in every `match` and definition arm at once (P3).
 
 ## 7. The Boolean side: `matches`
@@ -549,7 +555,7 @@ optional and then truthful stuff." Scala has this as
 `PartialFunction.cond(x) { case P => true }` (and `condOpt`, the `Option`
 version) [S1]; Rust as `matches!(x, P if g)`; C# and Kotlin as `x is P`.
 
-**The change.** The same mechanism as `match?`, with `False` where `match?`
+**The change.** The same mechanism as `match some`, with `False` where `match some`
 has `None`, and nothing to wrap:
 
 - `matches | p => c | q => d` is `x => match x with | p => c | q => d | _ => False`.
@@ -557,7 +563,7 @@ has `None`, and nothing to wrap:
 - An arm may leave out its result, which then is `True`:
   `matches | Incomplete` is `x => match x with | Incomplete => True | _ => False`.
 - With `|>`, it tests one value, as Scala's `cond(x)` does:
-  `Key.next [27] |> matches | Incomplete`. (Likewise `e |> match? | …` is
+  `Key.next [27] |> matches | Incomplete`. (Likewise `e |> match some | …` is
   Scala's `condOpt(e)`.)
 
 ```
@@ -565,13 +571,13 @@ xs.filter (matches | [_, 'x', .._])          -- Matt's example
 lines.count (matches | Corrupted _)
 ```
 
-**Why a word of its own rather than `match?` with a `Bool` result.** One
+**Why a word of its own rather than `match some` with a `Bool` result.** One
 spelling whose default follows the result type (`None` for an `Option`,
 `False` for a `Bool`) was considered. It would make
-`let isDont := match? | Dont => True` an `Instruction → Option Bool`, since
-nothing says which is meant, and in `.filter (match? | …)` the reader has to
+`let isDont := match some | Dont => True` an `Instruction → Option Bool`, since
+nothing says which is meant, and in `.filter (match some | …)` the reader has to
 know `filter`'s type to know what the arms do. Two spellings say it at the
-lambda: `match?` keeps values, `matches` tests. The implementation is the same
+lambda: `match some` keeps values, `matches` tests. The implementation is the same
 desugaring with a different hidden arm. I don't propose a general
 "default value" (`0` for `Nat`, `[]` for lists): a silent `0` is exactly the
 missing-case bug D2368 guards against.
@@ -667,30 +673,30 @@ lambda matches on its argument (the search of §3); the pipeline use Matt
 describes is natural, but today's code reaches for `.isSome`, `==` and named
 predicates there, so most uses would be definitions and tests.
 
-**Proofs.** As for `match?`: an ordinary `match` returning `Bool`, whose
+**Proofs.** As for `match some`: an ordinary `match` returning `Bool`, whose
 hidden last arm is `_ => False`. `isDont Do = False` is `rfl`; the `filter`,
 `count` and `any` lemmas apply unchanged. As a definition's whole body it is
 the arms form (P4), so `isDont`'s generated equations stay as they are, and
 the Day 3 proofs that use `instructions.any isDont` keep working.
 
-**Warnings.** As `W-MATCH-TOTAL` for `match?` (P5): a `matches` whose arms
+**Warnings.** As `W-MATCH-TOTAL` for `match some` (P5): a `matches` whose arms
 cover every value never gives `False` by default; "this covers every case:
 write `match`".
 
 ## 8. Other uses
 
-- **`findMap` is `collectFirst`**: `lines.findMap (match? | Header title =>
+- **`findMap` is `collectFirst`**: `lines.findMap (match some | Header title =>
   title)`. Its doc comment already names Scala's `collectFirst` **[checked]**.
-- **`Map.filterMap`** takes `k → v → Option w`: a two-pattern `match?`,
-  `m.filterMap (match? | key, Some v if key > 2 => v)`.
-- **`Option.flatMap`**: `parsed.flatMap (match? | Ok v => v)`.
+- **`Map.filterMap`** takes `k → v → Option w`: a two-pattern `match some`,
+  `m.filterMap (match some | key, Some v if key > 2 => v)`.
+- **`Option.flatMap`**: `parsed.flatMap (match some | Ok v => v)`.
 - **Several partial functions tried in turn** (Scala's `orElse`): more arms
-  in one `match?`, or the one-line `Function.orElse` of §4.D if it turns out
+  in one `match some`, or the one-line `Function.orElse` of §4.D if it turns out
   to be wanted.
 - **Parsing**: `Std.Parse` has no combinator taking `a → Option b` today
   **[checked]** (`satisfy` takes a `Char → Bool`), but a
   `Parse.charMap (what: Text) (f: Char → Option a)` would make
-  `Parse.charMap "a hex digit" (match? | '0' => 0 | … )` one step instead of
+  `Parse.charMap "a hex digit" (match some | '0' => 0 | … )` one step instead of
   `satisfy` then a lookup (Day 16 2021 does both today).
 - **Folds and the like, total**: `foldLeft 0 (match | acc, Do => … | acc,
   Dont => …)`, `any (match | Add => … | Multiply => …)` (example 9).
@@ -698,10 +704,10 @@ write `match`".
 ## 9. Recommendation
 
 **Design B**: clause lambdas (`match | …`, total and checked like any
-`match`), and `match? | …` for "keep what matches", which wraps each result
+`match`), and `match some | …` for "keep what matches", which wraps each result
 in `Some` and gives `None` for the rest. Both are parser desugarings into an
 ordinary `match`, so the checker, the kernel and proofs see nothing new, and
-`match?` works with every existing `a → Option b` function: `filterMap` is
+`match some` works with every existing `a → Option b` function: `filterMap` is
 Stitchwort's `collect` and `findMap` its `collectFirst`, with no new names.
 `matches | …` is the Boolean side (Scala's `cond`): the same desugaring with
 `False` for the rest, and an arm's result `True` when left out.
@@ -720,8 +726,8 @@ useful content is its `Option` form, which exists.
    formatter round-trip; the definition-body case (P4) put into the case
    tree; docs (`docs/syntax.md` `match`, guide chapter 4); accept and reject
    examples (arity mismatch, nested one-line `match`).
-2. **`match?`** (Sonnet; small, est. 1 h, can share stage 1's lane): the
-   `Some` wrapping and hidden catch-all, the "`match?` makes an `Option`"
+2. **`match some`** (Sonnet; small, est. 1 h, can share stage 1's lane): the
+   `Some` wrapping and hidden catch-all, the "`match some` makes an `Option`"
    mismatch note, `W-MATCH-TOTAL` (P5), docs, examples; the
    `List.memFilterMap` lemma (P6).
 2b. **`matches`** (Sonnet; small, est. 45 min, same lane as stage 2): the
@@ -741,41 +747,41 @@ useful content is its `Option` form, which exists.
 
 Numbered P1 to P10 here; the orchestrator gives them D numbers.
 
-- **P1. Direction: design B** (clause lambdas, plus `match?` that keeps what
+- **P1. Direction: design B** (clause lambdas, plus `match some` that keeps what
   matches), rather than C (partial because the callee is `collect`) or D (a
   `PartialFn` type). **[rec: B]**
-- **P2. How the partial form is spelled.** `match?` (Lean, Swift and Kotlin
+- **P2. How the partial form is spelled.** `match some` (Lean, Swift and Kotlin
   use `?` for "maybe"; one token after `match`); or `match some` (says what
   it makes, longer); or a final arm the reader writes, `| _ => none`
-  (explicit, but that is design A). **[rec: `match?`]**
-- **P3. Guards: when, and where.** (a) with this work, only in `match?`,
+  (explicit, but that is design A). **[rec: `match some`]**
+- **P3. Guards: when, and where.** (a) with this work, only in `match some`,
   where they never affect coverage; (b) a separate stage, in every `match`,
   clause lambda and definition arm, with guarded arms covering nothing; (c)
   not now. **[rec: (b), after stages 1 and 2; five of the ten sites wait
   for it]**
-- **P4. `def f: A → Option B := match? | …` as a definition's body**, meaning
+- **P4. `def f: A → Option B := match some | …` as a definition's body**, meaning
   exactly the arms form with `Some`s and `| _ => None`, so the ten lookup
   tables can use it and keep their equations; `:= matches | …` likewise
   for the Boolean tables (§7). **[rec: yes]**
-- **P5. A warning when a `match?` covers every value** (`W-MATCH-TOTAL`,
+- **P5. A warning when a `match some` covers every value** (`W-MATCH-TOTAL`,
   "this never gives `None`; use `match` and `map`"). **[rec: yes]**
 - **P6. Names: no `List.collect`.** `filterMap` and `findMap` stay the names,
   with their docs saying they are Scala's `collect` and `collectFirst`;
   `collect` already means `Each.collect`. Add `List.memFilterMap` (the `↔`
   form of the two existing lemmas). **[rec: yes, both]**
 - **P7. Migrate the existing sites** (§3, stage 3), including turning
-  single-use helpers like `illegalOf` and `setting` into inline `match?`s
+  single-use helpers like `illegalOf` and `setting` into inline `match some`s
   where the helper's name doesn't document anything the puzzle needs.
   **[rec: yes, the five pipeline sites and the tables; leave `setting`,
   whose doc comment quotes the puzzle]**
-- **P8. No separate `match? e with | …` form for a value.** `e |> match? | …`
+- **P8. No separate `match some e with | …` form for a value.** `e |> match some | …`
   already says it (Scala's `condOpt`), for the six sites like Day 5 2020's
   `seat` (`match (row …, column …) with | (Some row, Some column) => Some …
   | _ => None`); some of those read better still as `Option.map2`.
   **[rec: no separate form]**
 - **P9. The Boolean side, `matches | …`** (§7): the same mechanism as
-  `match?` with `False` for the values no arm matches, spelled with its own
-  word rather than `match?` with a default chosen by the result type.
+  `match some` with `False` for the values no arm matches, spelled with its own
+  word rather than `match some` with a default chosen by the result type.
   `matches` is a contextual keyword (only before `|`), since proofs use it as
   a variable name (Day 7 and Day 23 2024); the one clash is a one-line arm
   whose result is a variable named `matches`. **[rec: yes, `matches`, in

@@ -44,15 +44,14 @@ type Packet =
   | Operator (version: Nat) (operation: Operation) (lengthType: LengthType) (subPackets: List Packet)
 
 --| The operation for a type id other than 4.
-def operationOf: Nat → Option Operation
-  | 0 => Some Sum
-  | 1 => Some Product
-  | 2 => Some Minimum
-  | 3 => Some Maximum
-  | 5 => Some GreaterThan
-  | 6 => Some LessThan
-  | 7 => Some EqualTo
-  | _ => None
+def operationOf: Nat → Option Operation := match some
+  | 0 => Sum
+  | 1 => Product
+  | 2 => Minimum
+  | 3 => Maximum
+  | 5 => GreaterThan
+  | 6 => LessThan
+  | 7 => EqualTo
 
 --| A hexadecimal digit's value.
 def hexValue: Char → Option Nat

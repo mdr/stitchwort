@@ -28,3 +28,12 @@ test("glued numerals", () => {
   assert.deepStrictEqual(numbers("-1.5"), ["-1.5"]);
   assert.deepStrictEqual(numbers("if c then-1 else 2"), ["-1", "2"]);
 });
+
+const keywords = (text) => marks(text).filter(([k]) => k === "keyword").map(([, t]) => t);
+
+test("clause lambda words are keywords only before a bar", () => {
+  assert.deepStrictEqual(keywords("xs.filterMap (match some | A x => x)"), ["match", "some"]);
+  assert.deepStrictEqual(keywords("xs.filter (matches | A)"), ["matches"]);
+  assert.deepStrictEqual(keywords("match some with | 0 => 1"), ["match", "with"]);
+  assert.deepStrictEqual(keywords("matches + some || x"), []);
+});

@@ -235,7 +235,7 @@ fn in_context(
         return d;
     }
     match kind {
-        MatchKind::Match => {
+        MatchKind::Match | MatchKind::Clause => {
             let reword =
                 |s: &str| s.replace("no arm matches", "no alternative of this `match` matches");
             let mut d = d;
@@ -245,6 +245,8 @@ fn in_context(
             }
             d
         }
+        // The hidden last alternative of the others covers whatever is left.
+        MatchKind::ClauseSome | MatchKind::ClauseMatches => d,
         MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, patterns, columns),
     }
 }
@@ -334,6 +336,73 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     let result = lifted(cx, scrutinees, alts, span, kind, goal, base);
     cx.reset(mark);
     result
+}
+
+/// A result the parser wrote into a clause lambda: `Some e` and the last
+/// arm's `None` for `match some`, the last arm's `False` for `matches`.
+/// They have empty spans, since there is nothing in the source for them; what is wrong
+/// with them is the keyword's (`Option` or `Bool`).
+fn clause_result(expr: &Expr) -> Option<(&'static str, &'static str)> {
+    let hidden = |name: &ast::Name| name.span.start == name.span.end;
+    let (name, arg) = match expr {
+        Expr::Var(name) if hidden(name) => (name, false),
+        Expr::App(f, _) => match &**f {
+            Expr::Var(name) if hidden(name) => (name, true),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    match (&*name.text, arg) {
+        ("Std.Option.Some", true) | ("Std.Option.None", false) => Some(("Option", "match some")),
+        ("Std.Bool.False", false) => Some(("Bool", "matches")),
+        _ => None,
+    }
+}
+
+/// Where a `match some` or `matches` is expected to give something else
+/// than an `Option` or a `Bool`, says so, rather than leave the reader with
+/// a mismatch on the `Some` or `False` the parser wrote.
+pub(crate) fn check_clause_result(cx: &Ctx, expr: &Expr, expected: &Value) -> Result<()> {
+    if !matches!(expr, Expr::Var(_) | Expr::App(..)) {
+        return Ok(());
+    }
+    let Some((what, word)) = clause_result(expr) else {
+        return Ok(());
+    };
+    let builtin = if what == "Option" {
+        stitchwort_core::registry::Builtin::Option
+    } else {
+        stitchwort_core::registry::Builtin::Bool
+    };
+    let right = crate::check::builtin_data(cx, builtin)?;
+    if !(matches!(expected, Value::Data(d, _) if *d != right) || matches!(expected, Value::Pi(..)))
+    {
+        return Ok(());
+    }
+    let span = expr.span();
+    let (label, note) = if what == "Option" {
+        (
+            "gives `Some` of each result, or `None`",
+            "write `match` to give the results as they are, with an arm for every case, or \
+             `matches` for a `Bool`",
+        )
+    } else {
+        (
+            "gives a `Bool`: `True` where an arm matches, `False` otherwise",
+            "write `match` to give the results as they are, with an arm for every case, or \
+             `match some` for an `Option`",
+        )
+    };
+    Err(Diagnostic::error(
+        "E-TYPE-MISMATCH",
+        format!(
+            "`{word}` gives {} `{what}`, but a `{}` is expected here",
+            if what == "Option" { "an" } else { "a" },
+            cx.show(expected)
+        ),
+    )
+    .with_label(span, label)
+    .with_note(note))
 }
 
 /// The body of a thunk `() => body`, if `expr` is the `match` its `()`

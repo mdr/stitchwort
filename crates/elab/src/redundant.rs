@@ -5,7 +5,7 @@
 //! an indexed family drops because their constructor can't be there are
 //! leaves of the tree, so they're left to `W-UNREACHABLE` (`families.rs`).
 
-use stitchwort_syntax::ast::Pattern;
+use stitchwort_syntax::ast::{self, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::{Elaborator, Row, Tree};
@@ -27,6 +27,10 @@ impl Elaborator {
                 continue;
             }
             if !reached(row.span) {
+                if let Some(warning) = never_reached_rest(row) {
+                    found.push(warning);
+                    continue;
+                }
                 let mut warning = Diagnostic::warning(
                     "W-REDUNDANT",
                     "this arm can never be chosen: earlier arms match everything it matches",
@@ -68,6 +72,35 @@ impl Elaborator {
             }
         }
     }
+}
+
+/// `W-MATCH-TOTAL`: the last arm of a `match some` or `matches`, which the
+/// parser added, for the values no written arm matches, when there are
+/// none. It has an empty span and a pattern `_` at the keyword.
+fn never_reached_rest(row: &Row) -> Option<Diagnostic> {
+    let (Some(Pattern::Wildcard(keyword)), Some(rhs)) = (row.pats.last().map(|p| &**p), row.rhs)
+    else {
+        return None;
+    };
+    if row.span.start != row.span.end || *keyword == Span::NOWHERE {
+        return None;
+    }
+    let ast::Expr::Var(rest) = rhs else {
+        return None;
+    };
+    let (gives, instead) = match &*rest.text {
+        "Std.Option.None" => ("`None`", "`match` and `map`"),
+        "Std.Bool.False" => ("`False`", "`match`"),
+        _ => return None,
+    };
+    Some(
+        Diagnostic::warning(
+            "W-MATCH-TOTAL",
+            format!("every value matches an arm, so this never gives {gives}"),
+        )
+        .with_label(*keyword, "the arms cover every case")
+        .with_note(format!("write {instead} instead")),
+    )
 }
 
 /// The span from an arm's first pattern to its last, or the arm's own.

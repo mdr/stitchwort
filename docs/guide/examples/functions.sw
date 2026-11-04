@@ -108,6 +108,33 @@ test "local definition" := sumOfSquares 3 == 14
 test "named from outside" := sumOfSquares.go 2 0 == 5
 -- end local
 
+-- begin clauses
+type Reading =
+  | Valid (value: Nat)
+  | Garbled (text: Text)
+  | Missing
+
+def Reading.score: Reading → Nat := match
+  | Valid value => value
+  | Garbled text => text.length
+  | Missing => 0
+
+def valid: Reading → Option Nat := match some
+  | Valid value => value
+
+def isMissing: Reading → Bool := matches | Missing
+
+def sample: List Reading := [Valid 4, Garbled "xx", Missing, Valid 9]
+
+test "a lambda written as its cases" := sample.map (match | Valid value => value | _ => 0) == [4, 0, 0, 9]
+test "a definition written as cases" := sample.map Reading.score == [4, 2, 0, 9]
+test "keeping what matches" := sample.filterMap valid == [4, 9]
+test "inline" := sample.filterMap (match some | Garbled text => text.length) == [2]
+test "the first match" := sample.findMap (match some | Valid value => value * 10) == Some 40
+test "testing a value" := sample.filter (matches | Valid _ | Missing) == [Valid 4, Missing, Valid 9]
+test "a name is tested" := sample.count isMissing == 1
+-- end clauses
+
 -- begin higher-order
 def applyAll (functions: List (Nat → Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
 

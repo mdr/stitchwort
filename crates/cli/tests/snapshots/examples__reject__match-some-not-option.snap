@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `match some` gives an `Option`, but a `Nat` is expected here
+    ╭─[ reject/match-some-not-option.sw:10:56 ]
+    │
+ 10 │ def illegal: Scan → Nat := match some | Corrupted n => n
+    │                                                        ┬  
+    │                                                        ╰── gives `Some` of each result, or `None`
+    │ 
+    │ Note: write `match` to give the results as they are, with an arm for every case, or `matches` for a `Bool`
+────╯
+[E-TYPE-MISMATCH] Error: `match some` gives an `Option`, but a `Nat` is expected here
+    ╭─[ reject/match-some-not-option.sw:10:28 ]
+    │
+ 10 │ def illegal: Scan → Nat := match some | Corrupted n => n
+    │                            │ 
+    │                            ╰─ gives `Some` of each result, or `None`
+    │ 
+    │ Note: write `match` to give the results as they are, with an arm for every case, or `matches` for a `Bool`
+────╯
