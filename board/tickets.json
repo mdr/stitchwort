@@ -5347,13 +5347,13 @@
     {
       "id": 1216,
       "title": "Sweep: rewrite prefix connectives (And/Or/Not/Iff, Not (x = y)) as operators (∧ ∨ ¬ ↔ ≠) across std, aoc, games and examples",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
-      "where": "scratch-sw-1216",
+      "where": "",
       "labels": [
         "cleanup"
       ],
-      "body": "Matt, 4 Nov 2026: standing rule (proving guide 'Writing statements', CLAUDE.md) and sweep existing code to favour the shorthand. About 950 sites (Or ( 306, And ( 283, Not ( 278, Iff ( 78). Same terms, so the check is that no hash changes: hash_stability/pinned_hashes snapshots unchanged, audit unchanged. Leave Or.elim/And.left etc. and partial applications (e.g. a bare Or passed as a function) alone; mind precedence (add parentheses where needed). After SW-1212 (fmt drops row parentheses) so the two repo-wide edits don't collide.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1216, expected: 75 min.\n\n\nDone in scratch-sw-1216 (159 files; 209 ∧, 106 ∨, 66 ↔, 272 ¬ of which 208 ≠; hashes and audit unchanged); reviewed; merges after the SW-1224 verifier. Model result: DeepSeek, worked, about 45 min (est. 75).\n",
+      "body": "Matt, 4 Nov 2026: standing rule (proving guide 'Writing statements', CLAUDE.md) and sweep existing code to favour the shorthand. About 950 sites (Or ( 306, And ( 283, Not ( 278, Iff ( 78). Same terms, so the check is that no hash changes: hash_stability/pinned_hashes snapshots unchanged, audit unchanged. Leave Or.elim/And.left etc. and partial applications (e.g. a bare Or passed as a function) alone; mind precedence (add parentheses where needed). After SW-1212 (fmt drops row parentheses) so the two repo-wide edits don't collide.\n\nStarted 4 Nov 2026 on DeepSeek in scratch-sw-1216, expected: 75 min.\n\n\nDone in scratch-sw-1216 (159 files; 209 ∧, 106 ∨, 66 ↔, 272 ¬ of which 208 ≠; hashes and audit unchanged); reviewed; merges after the SW-1224 verifier. Model result: DeepSeek, worked, about 45 min (est. 75).\n\n\nMerged.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
