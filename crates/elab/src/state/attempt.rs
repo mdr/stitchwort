@@ -2,24 +2,26 @@
 //! that a failed attempt takes back (`undo.rs`), and that is emptied before
 //! each declaration (`Elaborator::clear_metas`).
 //!
-//! The metavariables themselves are still in `Globals` (`metas`,
-//! `meta_trail`, `frozen_metas`, `lifted_calls`, the placeholder tables):
-//! they move here with the `Globals` split (D2260). Until then
-//! `undo::Snapshot` marks and restores them, and passes their lengths to
-//! [`Attempt::restore`] for the tables keyed by metavariable.
+//! The metavariables themselves are its [`MetaStore`] (`Attempt::store`,
+//! globals-split.md step 8e): [`Attempt::mark`] and [`Attempt::restore`]
+//! mark and put back the store first, and cut the tables keyed by
+//! metavariable (or by place in the trail) at its mark.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::{DefId, Globals, Value};
+use stitchwort_core::{DefId, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
+use super::metas::{MetaStore, MetasMark};
 use crate::unify::{RowConstraint, Waiting};
 use crate::{auto, defaults, lift, numbers, queue, rows};
 
 #[derive(Default)]
 pub(crate) struct Attempt {
+    /// The metavariables, their solutions and the tables beside them.
+    pub(crate) store: MetaStore,
     /// Auto arguments still to be proved in the current declaration.
     pub(crate) obligations: RefCell<Vec<auto::Obligation>>,
     /// Row unknowns made for row-polymorphic functions' implicit row
@@ -82,7 +84,7 @@ pub(crate) struct Attempt {
     pub(crate) operator_dictionaries: RefCell<HashMap<usize, (DefId, usize)>>,
     /// The dictionaries found in scope (§5.5 step 4: a local variable, or
     /// a superclass path from one), by metavariable, each with the length
-    /// of `Globals::meta_trail` before it was solved, so a snapshot's
+    /// of `MetaStore::meta_trail` before it was solved, so a snapshot's
     /// restore drops those it undoes. Such an operator dictionary stays
     /// generic at the end, even when its solution (a `let`'s value, written
     /// in place of the variable) has since become a global instance's
@@ -140,7 +142,7 @@ pub(crate) struct Attempt {
     pub(crate) solving_arguments: Cell<bool>,
     /// The solutions made while comparing two calls of a definition stuck
     /// on an unknown by their arguments (`unify::unify_step`): each
-    /// metavariable and its place in `Globals::meta_trail`. Equal arguments
+    /// metavariable and its place in `MetaStore::meta_trail`. Equal arguments
     /// are enough for equal calls, not needed for them, so for a definition
     /// that isn't injective such a solution is one of several. Only counted
     /// (`unify::solved_lossily`, for `queue.rs`), never acted on. Cut at the
@@ -162,6 +164,7 @@ pub(crate) struct Attempt {
 /// metavariables' own mark, which `undo::Snapshot` keeps.
 #[derive(Clone, Copy)]
 pub(crate) struct Mark {
+    store: MetasMark,
     obligations: usize,
     row_metas: usize,
     row_constraints: usize,
@@ -179,6 +182,17 @@ pub(crate) struct Mark {
 }
 
 impl Mark {
+    /// How many metavariables there were: those numbered below were made
+    /// before the mark.
+    pub(crate) fn metas(&self) -> usize {
+        self.store.metas
+    }
+
+    /// How long the trail of solutions was.
+    pub(crate) fn trail(&self) -> usize {
+        self.store.trail
+    }
+
     /// How many number literals had been made `Nat` at once
     /// (`numbers::Defaulted`).
     pub(crate) fn defaulted(&self) -> usize {
@@ -195,6 +209,7 @@ impl Attempt {
     /// Where this is now, to [`Attempt::restore`] to.
     pub(crate) fn mark(&self) -> Mark {
         let Attempt {
+            store,
             obligations,
             row_metas,
             row_constraints,
@@ -229,6 +244,7 @@ impl Attempt {
             waiting: _,
         } = self;
         Mark {
+            store: store.mark(),
             obligations: obligations.borrow().len(),
             row_metas: row_metas.borrow().len(),
             row_constraints: row_constraints.borrow().len(),
@@ -244,11 +260,11 @@ impl Attempt {
         }
     }
 
-    /// Back to `mark`, once the metavariables have been put back: `metas`
-    /// is how many there are now and `trail` how long `Globals::meta_trail`
-    /// is, both as at the mark.
-    pub(crate) fn restore(&self, mark: Mark, g: &Globals, metas: usize, trail: usize) {
+    /// Back to `mark`: the metavariables first, then the tables keyed by
+    /// them, cut at the metavariables' mark.
+    pub(crate) fn restore(&self, mark: Mark) {
         let Attempt {
+            store,
             obligations,
             row_metas,
             row_constraints,
@@ -277,6 +293,8 @@ impl Attempt {
             pending: _,
             waiting: _,
         } = self;
+        store.restore(mark.store);
+        let (metas, trail) = (mark.store.metas, mark.store.trail);
         lossy.borrow_mut().retain(|(_, at)| *at < trail);
         local_metas.borrow_mut().retain(|m, _| *m < metas);
         operator_dictionaries.borrow_mut().retain(|m, _| *m < metas);
@@ -287,7 +305,7 @@ impl Attempt {
         obligations.borrow_mut().truncate(mark.obligations);
         row_metas.borrow_mut().truncate(mark.row_metas);
         row_constraints.borrow_mut().truncate(mark.row_constraints);
-        queue.restore(mark.queue, g, metas);
+        queue.restore(mark.queue, store, metas);
         awaiting_helpers
             .borrow_mut()
             .truncate(mark.awaiting_helpers);
@@ -311,6 +329,7 @@ impl Attempt {
     /// (`Elaborator::clear_metas`, with the metavariables).
     pub(crate) fn reset(&self) {
         let Attempt {
+            store,
             obligations,
             row_metas,
             row_constraints,
@@ -340,6 +359,7 @@ impl Attempt {
             pending: _,
             waiting: _,
         } = self;
+        store.clear_metas();
         proof_holes.borrow_mut().clear();
         parameter_metas.borrow_mut().clear();
         drafts.borrow_mut().clear();
@@ -362,6 +382,7 @@ impl Attempt {
     /// Empties everything, for `Elaborator::rewind`.
     pub(crate) fn rewind(&mut self) {
         let Attempt {
+            store,
             obligations,
             row_metas,
             row_constraints,
@@ -392,6 +413,8 @@ impl Attempt {
             pending: _,
             waiting: _,
         } = self;
+        // Bumps the epoch, so no kept unfolding is trusted.
+        store.clear_metas();
         obligations.get_mut().clear();
         row_metas.get_mut().clear();
         row_constraints.get_mut().clear();

@@ -15,7 +15,7 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::{DefId, Globals, Icit, Name, Term};
+use stitchwort_core::{DefId, Ev, Icit, Name, Term};
 use stitchwort_syntax::{Diagnostic, Span};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -36,7 +36,7 @@ pub struct Expanded {
 /// `members` with every partial occurrence of a member applied to all its
 /// parameters, and what was rewritten. Unchanged bodies are returned as
 /// they were.
-pub fn saturate(g: &Globals, members: &[(DefId, Term)]) -> Result<(Members, Vec<Expanded>)> {
+pub fn saturate(g: &Ev, members: &[(DefId, Term)]) -> Result<(Members, Vec<Expanded>)> {
     let params: Vec<(DefId, Vec<(Name, Icit)>)> = members
         .iter()
         .map(|(id, body)| (*id, entry_params(body)))
@@ -105,7 +105,7 @@ fn entry_params(body: &Term) -> Vec<(Name, Icit)> {
 }
 
 struct Saturator<'a> {
-    g: &'a Globals,
+    g: &'a Ev<'a>,
     /// Each member's parameters.
     params: &'a [(DefId, Vec<(Name, Icit)>)],
     /// The innermost location around the term being rewritten.
@@ -279,7 +279,7 @@ impl Saturator<'_> {
         let mut call = Term::Def(id);
         for (arg, icit) in args {
             let arg = self.expand(arg)?.unwrap_or_else(|| (*arg).clone());
-            call = Term::app_icit(call, arg.shift(&self.g.ev(), shift, 0)?, *icit);
+            call = Term::app_icit(call, arg.shift(self.g, shift, 0)?, *icit);
         }
         for (k, (_, icit)) in missing.iter().enumerate() {
             call = Term::app_icit(call, Term::Var(shift - 1 - k), *icit);

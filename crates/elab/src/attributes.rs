@@ -352,7 +352,7 @@ impl Elaborator {
             .with_label(first.span, "on an interface")
             .with_note("an interface's dictionaries never cross the JS boundary"));
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         if let Some(builtin) = g.env.registry().boundary_form(d) {
             return Err(Diagnostic::error(

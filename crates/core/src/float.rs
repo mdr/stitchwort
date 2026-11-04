@@ -51,6 +51,7 @@
 //! a primitive means changes every hash that depends on it.
 
 use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
@@ -58,7 +59,7 @@ use num_traits::{ToPrimitive, Zero};
 use stitchwort_syntax::Diagnostic;
 
 use crate::budget::{self, Limits};
-use crate::globals::{Globals, State};
+use crate::globals::{Kernel, State};
 use crate::hash::{data_hash, def_hash};
 use crate::native::{Force, as_nat_with, nat_value};
 use crate::registry::Builtin;
@@ -633,29 +634,31 @@ pub fn bindings(g: &Ev) -> Vec<(String, Option<String>, &'static str)> {
 
 /// Binds the library's `Float`, which must be a record of a `Nat` and a
 /// proof, with the pinned content hash.
-pub fn register_data(g: &mut Globals, d: DataId) -> Result<()> {
-    let data = g.data(d);
-    let span = data.span;
-    let shaped = data.state == State::Final
-        && data.record
-        && data.params.is_empty()
-        && data.indices.is_empty()
-        && data.sort == Sort::Type(0)
-        && data.ctors.len() == 1
-        && data.ctors[0].fields.len() == 2
-        && matches!(data.ctors[0].fields[0].1.strip_loc(), Term::Data(n, args) if Some(*n) == g.env.builtins().nat && args.is_empty());
-    if !shaped {
-        return Err(refused(span, "Float", "not the record of a double's bits"));
-    }
-    if hex_of(&g.ev(), || data_hash(&g.ev(), d)).as_deref() != Some(FLOAT_DATA_HASH) {
-        return Err(refused(
-            span,
-            "Float",
-            "its content hash isn't the pinned one",
-        ));
-    }
-    g.env.builtins_mut().float.data = Some(d);
-    Ok(())
+pub fn register_data(g: &mut Kernel, d: DataId) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let data = g.data(d);
+        let span = data.span;
+        let shaped = data.state == State::Final
+            && data.record
+            && data.params.is_empty()
+            && data.indices.is_empty()
+            && data.sort == Sort::Type(0)
+            && data.ctors.len() == 1
+            && data.ctors[0].fields.len() == 2
+            && matches!(data.ctors[0].fields[0].1.strip_loc(), Term::Data(n, args) if Some(*n) == g.env.builtins().nat && args.is_empty());
+        if !shaped {
+            return Err(refused(span, "Float", "not the record of a double's bits"));
+        }
+        if hex_of(&g.ev(), || data_hash(&g.ev(), d)).as_deref() != Some(FLOAT_DATA_HASH) {
+            return Err(refused(
+                span,
+                "Float",
+                "its content hash isn't the pinned one",
+            ));
+        }
+        g.env.builtins_mut().float.data = Some(d);
+        Ok(())
+    })
 }
 
 /// The bound `Float` type, as a term.
@@ -683,93 +686,97 @@ fn primitive_type(g: &Ev, op: FloatOp) -> Option<Term> {
 /// primitive `op`: final, with no body. Its type must be exactly the one
 /// [`Signature`] gives it (`Float -> Float -> Float` for `add`), for the
 /// bound `Float`.
-pub fn define_primitive(g: &mut Globals, id: DefId, op: FloatOp) -> Result<()> {
-    let Some(def) = g.env.defs().get(id.0) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: reference to an unknown definition",
-        ));
-    };
-    if def.state != State::Pending {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            format!(
-                "malformed core term: `{}` has already been defined",
-                def.name
-            ),
-        ));
-    }
-    let taken = g
-        .env
-        .builtins()
-        .float_defs
-        .values()
-        .any(|d| *d == FloatDef::Primitive(op));
-    let fits = !taken
-        && match primitive_type(&g.ev(), op) {
-            Some(expected) => conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?,
-            None => false,
+pub fn define_primitive(g: &mut Kernel, id: DefId, op: FloatOp) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let Some(def) = g.env.defs().get(id.0) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: reference to an unknown definition",
+            ));
         };
-    if !fits {
-        let e = Diagnostic::error(
-            "E-BUILTIN",
-            format!(
-                "the library's `{}` doesn't have the type the compiler expects, `{}`",
-                op.name(),
-                op.signature().text()
-            ),
-        )
-        .with_label(g.def(id).span, "here");
-        g.env.defs_mut()[id.0].state = State::Failed;
-        return Err(e);
-    }
-    let def = &mut g.env.defs_mut()[id.0];
-    def.state = State::Final;
-    def.arity = 0;
-    g.env
-        .builtins_mut()
-        .float_defs
-        .insert(id, FloatDef::Primitive(op));
-    Ok(())
+        if def.state != State::Pending {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                format!(
+                    "malformed core term: `{}` has already been defined",
+                    def.name
+                ),
+            ));
+        }
+        let taken = g
+            .env
+            .builtins()
+            .float_defs
+            .values()
+            .any(|d| *d == FloatDef::Primitive(op));
+        let fits = !taken
+            && match primitive_type(&g.ev(), op) {
+                Some(expected) => conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?,
+                None => false,
+            };
+        if !fits {
+            let e = Diagnostic::error(
+                "E-BUILTIN",
+                format!(
+                    "the library's `{}` doesn't have the type the compiler expects, `{}`",
+                    op.name(),
+                    op.signature().text()
+                ),
+            )
+            .with_label(g.def(id).span, "here");
+            g.env.defs_mut()[id.0].state = State::Failed;
+            return Err(e);
+        }
+        let def = &mut g.env.defs_mut()[id.0];
+        def.state = State::Final;
+        def.arity = 0;
+        g.env
+            .builtins_mut()
+            .float_defs
+            .insert(id, FloatDef::Primitive(op));
+        Ok(())
+    })
 }
 
 /// Binds a definition with a native here, or a theorem a native refers to,
 /// after checking its content hash against the pinned one (which fixes its
 /// type and its definition). `Float` must be bound first.
-pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
-    let Some(&(_, pinned)) = NATIVE_HASHES.iter().find(|(nb, _)| *nb == b) else {
-        return Ok(());
-    };
-    let span = g.def(id).span;
-    if g.env.builtins().float.data.is_none() {
-        return Err(refused(span, b.name(), "`Float` isn't bound"));
-    }
-    if hex_of(&g.ev(), || def_hash(&g.ev(), id)).as_deref() != Some(pinned) {
-        return Err(refused(
-            span,
-            b.name(),
-            "its content hash isn't the pinned one",
-        ));
-    }
-    match b {
-        Builtin::FloatBitsExt => g.env.builtins_mut().float.bits_ext = Some(id),
-        Builtin::FloatBitsNe => g.env.builtins_mut().float.bits_ne = Some(id),
-        _ => {
-            let native = FloatNative::ALL
-                .into_iter()
-                .find(|n| n.builtin() == b)
-                .expect("every pinned definition is a native or a theorem");
-            let arity = g.def(id).arity;
-            if arity != native.arity() {
-                return Err(refused(span, b.name(), "its arity isn't the native's"));
-            }
-            g.env
-                .builtins_mut()
-                .float_defs
-                .insert(id, FloatDef::Native(native));
+pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let Some(&(_, pinned)) = NATIVE_HASHES.iter().find(|(nb, _)| *nb == b) else {
+            return Ok(());
+        };
+        let span = g.def(id).span;
+        if g.env.builtins().float.data.is_none() {
+            return Err(refused(span, b.name(), "`Float` isn't bound"));
         }
-    }
-    Ok(())
+        if hex_of(&g.ev(), || def_hash(&g.ev(), id)).as_deref() != Some(pinned) {
+            return Err(refused(
+                span,
+                b.name(),
+                "its content hash isn't the pinned one",
+            ));
+        }
+        match b {
+            Builtin::FloatBitsExt => g.env.builtins_mut().float.bits_ext = Some(id),
+            Builtin::FloatBitsNe => g.env.builtins_mut().float.bits_ne = Some(id),
+            _ => {
+                let native = FloatNative::ALL
+                    .into_iter()
+                    .find(|n| n.builtin() == b)
+                    .expect("every pinned definition is a native or a theorem");
+                let arity = g.def(id).arity;
+                if arity != native.arity() {
+                    return Err(refused(span, b.name(), "its arity isn't the native's"));
+                }
+                g.env
+                    .builtins_mut()
+                    .float_defs
+                    .insert(id, FloatDef::Native(native));
+            }
+        }
+        Ok(())
+    })
 }
 
 /// The record `{ bits = k, valid = Eq.refl True }`.

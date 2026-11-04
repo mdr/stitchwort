@@ -47,7 +47,7 @@ use std::rc::Rc;
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, builtin_ctor, builtin_data, builtin_def};
@@ -159,7 +159,7 @@ impl Elaborator {
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
-                    force(&cx.g().ev(), placeholder.clone())?,
+                    force(&cx.g(), placeholder.clone())?,
                     Value::Neutral(Head::Meta(_), _)
                 ) {
                     continue; // already determined by unification
@@ -237,7 +237,7 @@ impl Elaborator {
             );
             let placeholder = cx.eval(&meta)?;
             if !matches!(
-                force(&cx.g().ev(), placeholder.clone())?,
+                force(&cx.g(), placeholder.clone())?,
                 Value::Neutral(Head::Meta(_), _)
             ) {
                 continue;
@@ -246,7 +246,7 @@ impl Elaborator {
                 self.solve_now(&meta)?;
                 let placeholder = cx.eval(&meta)?;
                 proved |= !matches!(
-                    force(&cx.g().ev(), placeholder)?,
+                    force(&cx.g(), placeholder)?,
                     Value::Neutral(Head::Meta(_), _)
                 );
                 continue;
@@ -269,7 +269,7 @@ impl Elaborator {
 /// A proof of `goal`. (For an instance, an obligation to find it, solved
 /// with the declaration's others.)
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
-    let goal = force(&cx.g().ev(), goal.clone())?;
+    let goal = force(&cx.g(), goal.clone())?;
     if interfaces::interface_goal(cx.e, &goal)?.is_some() {
         return Ok(crate::check::implicit_arg(cx, Icit::Auto, &goal));
     }
@@ -284,7 +284,7 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
-    match force(&cx.g().ev(), cx.eval(&decision)?)? {
+    match force(&cx.g(), cx.eval(&decision)?)? {
         Value::Ctor(_, 0, _) => from_yes(cx, &goal, decision),
         Value::Ctor(_, _, _) => {
             let message = match not_in_list(cx, &goal)? {
@@ -367,7 +367,7 @@ fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<
             let Some(decision) = instantiate(cx, id, decidable, goal, depth, true)? else {
                 return Ok(None);
             };
-            match force(&cx.g().ev(), cx.eval(&decision)?)? {
+            match force(&cx.g(), cx.eval(&decision)?)? {
                 Value::Ctor(_, 0, _) => Ok(Some(decision)),
                 _ => Ok(None),
             }
@@ -411,15 +411,15 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let divisor = cx.fresh_meta();
     let mut ty = g.def(lemma).ty_value().clone();
     for arg in [&below, &divisor] {
-        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
             return Ok(None);
         };
-        ty = cod.apply(&g.ev(), cx.eval(arg)?)?;
+        ty = cod.apply(&g, cx.eval(arg)?)?;
     }
-    let Value::Pi(_, _, fact, cod) = force(&g.ev(), ty)? else {
+    let Value::Pi(_, _, fact, cod) = force(&g, ty)? else {
         return Ok(None);
     };
-    let conclusion = cod.apply(&g.ev(), Value::var(cx.level()))?;
+    let conclusion = cod.apply(&g, Value::var(cx.level()))?;
     if !cx.unify(&conclusion, goal)? {
         return Ok(None);
     }
@@ -465,7 +465,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
         let Some((elem, _)) = args.first() else {
             continue;
         };
-        let Value::Data(t, _) = force(&cx.g().ev(), elem.clone())? else {
+        let Value::Data(t, _) = force(&cx.g(), elem.clone())? else {
             continue;
         };
         for lemma in size_lemmas(cx, t) {
@@ -476,17 +476,17 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                 let mut metas = Vec::new();
                 // Every parameter but the last, the membership, is unknown.
                 loop {
-                    let Value::Pi(_, icit, dom, cod) = force(&g.ev(), lemma_ty)? else {
+                    let Value::Pi(_, icit, dom, cod) = force(&g, lemma_ty)? else {
                         return Ok(None);
                     };
                     if !matches!(
-                        force(&g.ev(), cod.apply(&g.ev(), Value::var(cx.level()))?)?,
+                        force(&g, cod.apply(&g, Value::var(cx.level()))?)?,
                         Value::Pi(..)
                     ) {
                         if !cx.unify(&dom, &ty)? {
                             return Ok(None);
                         }
-                        let conclusion = cod.apply(&g.ev(), cx.eval(&proof)?)?;
+                        let conclusion = cod.apply(&g, cx.eval(&proof)?)?;
                         if !cx.unify(&conclusion, goal)? {
                             return Ok(None);
                         }
@@ -497,10 +497,10 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                     let value = cx.eval(&meta)?;
                     metas.push(value.clone());
                     term = Term::app_icit(term, meta, icit);
-                    lemma_ty = cod.apply(&g.ev(), value)?;
+                    lemma_ty = cod.apply(&g, value)?;
                 }
                 for m in &metas {
-                    if matches!(force(&g.ev(), m.clone())?, Value::Neutral(Head::Meta(_), _)) {
+                    if matches!(force(&g, m.clone())?, Value::Neutral(Head::Meta(_), _)) {
                         return Ok(None);
                     }
                 }
@@ -528,7 +528,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
             facts.push((here, ty));
             continue;
         }
-        let Value::Data(r, params) = force(&g.ev(), ty)? else {
+        let Value::Data(r, params) = force(&g, ty)? else {
             continue;
         };
         let Some(info) = cx.e.tables.records.get(&r) else {
@@ -539,19 +539,19 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
             let mut ty = g.def(*projection).ty_value().clone();
             let mut params = params.iter();
             loop {
-                let Value::Pi(_, icit, _, cod) = force(&g.ev(), ty.clone())? else {
+                let Value::Pi(_, icit, _, cod) = force(&g, ty.clone())? else {
                     break;
                 };
                 if icit == Icit::Explicit {
                     term = Term::app(term, here.clone());
-                    ty = cod.apply(&g.ev(), Value::var(level))?;
+                    ty = cod.apply(&g, Value::var(level))?;
                     break;
                 }
                 let Some(p) = params.next() else {
                     break;
                 };
                 term = Term::app_icit(term, cx.quote(p)?, icit);
-                ty = cod.apply(&g.ev(), p.clone())?;
+                ty = cod.apply(&g, p.clone())?;
             }
             if is_mem(&ty) {
                 facts.push((term, ty));
@@ -599,10 +599,10 @@ fn not_in_list(cx: &Ctx, goal: &Value) -> Result<Option<String>> {
     let mut items: Vec<String> = Vec::new();
     let mut rest = goal.clone();
     loop {
-        match force(&cx.g().ev(), rest)? {
+        match force(&cx.g(), rest)? {
             Value::Data(d, params) if d == void && params.is_empty() => break,
             Value::Data(d, params) if d == or && params.len() == 2 => {
-                let Value::Eq(_, item, sought) = force(&cx.g().ev(), params[0].clone())? else {
+                let Value::Eq(_, item, sought) = force(&cx.g(), params[0].clone())? else {
                     return Ok(None);
                 };
                 let sought = cx.show(&sought);
@@ -715,7 +715,7 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         }
     }
     // An equation: through `DecEq`.
-    if let Value::Eq(ty, x, y) = force(&cx.g().ev(), prop.clone())?
+    if let Value::Eq(ty, x, y) = force(&cx.g(), prop.clone())?
         && interfaces::dec_eq(cx.e).is_some()
     {
         return interfaces::decide_eq(cx, &ty, &x, &y);
@@ -729,7 +729,7 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         )
         .with_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
     // A record of propositions whose decision couldn't be derived: why.
-    let error = match force(&cx.g().ev(), prop.clone())? {
+    let error = match force(&cx.g(), prop.clone())? {
         Value::Data(d, _) if cx.e.tables.no_decide.contains_key(&d) => error.with_note(format!(
             "`{}` has no derived decision: {}",
             cx.e.relative_to_root(cx.g().data(d).name()),
@@ -842,7 +842,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
     {
         return order.candidates.clone();
     }
-    let g = &e.globals;
+    let g = &e.ev();
     let ordered: Vec<DefId> = match &e.unit.module.closure {
         None => (0..first_def).rev().map(DefId).collect(),
         Some(closure) => {
@@ -959,7 +959,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
     let mut ty = g.def(id).ty_value().clone();
     let mut level = 0;
     while let Value::Pi(_, _, _, cod) = &ty {
-        ty = force(&g.ev(), cod.apply(&g.ev(), Value::var(level))?)?;
+        ty = force(&g, cod.apply(&g, Value::var(level))?)?;
         level += 1;
     }
     let head = match ty {
@@ -1013,7 +1013,7 @@ fn instantiate(
         }
         let found = match force(g, dom)? {
             Value::Data(d, params) if d == decidable => {
-                let cost = if size(g.store, &params[0])? < size(g.store, prop)? {
+                let cost = if size(&g.ev, &params[0])? < size(&g.ev, prop)? {
                     1
                 } else {
                     LEVEL
@@ -1036,7 +1036,7 @@ fn instantiate(
 
 /// The number of data types, constructors and equations in a proposition: a
 /// measure of whether one is part of another.
-fn size(g: &Globals, value: &Value) -> Result<usize> {
+fn size(g: &Ev, value: &Value) -> Result<usize> {
     let sum = |parts: &[Value]| -> Result<usize> {
         let mut total = 1;
         for part in parts {
@@ -1044,7 +1044,7 @@ fn size(g: &Globals, value: &Value) -> Result<usize> {
         }
         Ok(total)
     };
-    Ok(match force(&g.ev(), value.clone())? {
+    Ok(match force(g, value.clone())? {
         Value::Data(_, parts) => sum(&parts)?,
         Value::Ctor(_, _, fields) => sum(&fields)?,
         Value::Eq(ty, x, y) => sum(&[(*ty).clone(), (*x).clone(), (*y).clone()])?,

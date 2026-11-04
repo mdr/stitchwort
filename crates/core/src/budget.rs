@@ -150,7 +150,7 @@ impl Default for Limits {
 /// flag: a fraction of a millisecond.
 pub const POLL: u64 = 1 << 14;
 
-/// What one operation has used so far. Lives in [`crate::Globals`]; an
+/// What one operation has used so far. Lives in [`crate::machine::Machine`]; an
 /// operation starts with [`Budget::operation`].
 #[derive(Debug)]
 pub struct Budget {

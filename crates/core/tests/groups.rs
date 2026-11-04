@@ -14,7 +14,7 @@ use stitchwort_core::globals::State;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, Limits, termination};
+use stitchwort_core::{DataId, DefId, Kernel, Limits, termination};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
@@ -57,7 +57,7 @@ fn even_odd_bodies(p: &Prelude, even: DefId, odd: DefId) -> Vec<(DefId, Term)> {
 }
 
 /// Evaluates `f` applied to these numbers, fully, within `work` steps.
-fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<usize> {
+fn run(g: &Kernel, f: DefId, args: &[usize], work: u64) -> Option<usize> {
     let nat = g.find_data("Nat").unwrap();
     let num = |n: usize| {
         (0..n).fold(Term::ctor(nat, 0, vec![]), |t, _| {
@@ -82,7 +82,7 @@ fn nat_of(term: &Term) -> Option<usize> {
     }
 }
 
-fn hash_of(g: &Globals, id: DefId) -> Option<stitchwort_core::hash::ContentHash> {
+fn hash_of(g: &Kernel, id: DefId) -> Option<stitchwort_core::hash::ContentHash> {
     let _op = g.machine.budget.operation(Limits::default());
     def_hash(&g.ev(), id).unwrap()
 }

@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::eval;
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Term, Value};
 
 use crate::decreasing::{Binder, map_vars, spine, split_pis};
 use crate::matching::same;
@@ -78,13 +78,13 @@ pub(crate) type Candidates = Rc<[Rc<Contextual>]>;
 /// [`lookup`], those whose statement fits ([`validate_contextual`]); looked
 /// up once per definition until another declaration is added.
 pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
-    let defs = e.globals.env.defs().len();
+    let defs = e.kernel.env.defs().len();
     if let Some((at, found)) = e.caches.cong_candidates.borrow().get(&f)
         && *at == defs
     {
         return Ok(found.clone());
     }
-    let g = &e.globals;
+    let g = &e.ev();
     let r = &g.env.registry();
     let lemmas: Vec<DefId> = if Some(f) == r.def(Builtin::ElimDec) {
         r.def(Builtin::ElimDecCong).into_iter().collect()
@@ -132,7 +132,7 @@ pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
 /// the left side mentions every other parameter, so unifying it with a
 /// call finds them all.
 pub(crate) fn validate_contextual(
-    g: &Globals,
+    g: &Ev,
     f: DefId,
     lemma: DefId,
 ) -> std::result::Result<Contextual, String> {
@@ -255,7 +255,7 @@ pub(crate) fn validate_contextual(
 /// however a call spelled `F`), checked against `F`. `Decidable.elim` and
 /// `Bool.ifThenElse` have theirs in the prelude.
 pub(crate) fn lookup(e: &Elaborator, f: DefId) -> Result<Lookup> {
-    let g = &e.globals;
+    let g = &e.ev();
     let name = g.def(f).name().to_string();
     let lemma_name = format!("{name}Cong");
     let r = &g.env.registry();
@@ -321,7 +321,7 @@ pub(crate) enum Lookup {
 /// The implicit parameter types fixed in a congruence lemma's call, each
 /// with its constant: `Effects` at the empty row, and a bare row's hidden
 /// divergence index (docs/proposals/partial-stage-3.md §2.2) at `Total`.
-fn fixed_params(g: &Globals) -> Vec<(DataId, (DataId, usize))> {
+fn fixed_params(g: &Ev) -> Vec<(DataId, (DataId, usize))> {
     [
         (Builtin::Row, Builtin::RowEmpty),
         (Builtin::Divergence, Builtin::DivTotal),
@@ -334,11 +334,7 @@ fn fixed_params(g: &Globals) -> Vec<(DataId, (DataId, usize))> {
 /// `F`'s telescope and result with its effect-row parameters (implicit, of
 /// type `Effects`) replaced by the empty row and its divergence indices by
 /// `Total` ([`fixed_params`]) and left out, and where they were.
-fn at_empty_row(
-    g: &Globals,
-    tel: Vec<Binder>,
-    res: Term,
-) -> Result<(Vec<Binder>, Term, Vec<usize>)> {
+fn at_empty_row(g: &Ev, tel: Vec<Binder>, res: Term) -> Result<(Vec<Binder>, Term, Vec<usize>)> {
     let fixed = fixed_params(g);
     let constant = |b: &Binder| match b.ty.strip_loc() {
         Term::Data(d, args) if b.icit.is_implicit() && args.is_empty() => fixed
@@ -386,7 +382,7 @@ fn at_empty_row(
 /// `args` without those at `rows`, each of which must be the empty row (or,
 /// for a divergence index, `Total`); `None` if one isn't.
 pub(crate) fn without_rows<T: Clone + std::borrow::Borrow<Term>>(
-    g: &Globals,
+    g: &Ev,
     args: &[(T, Icit)],
     rows: &[usize],
 ) -> Option<Vec<(T, Icit)>> {
@@ -409,7 +405,7 @@ pub(crate) fn without_rows<T: Clone + std::borrow::Borrow<Term>>(
 /// Checks that `lemma`'s statement is a congruence lemma for `f` (3a.4 step
 /// 2), and describes it; or says what's wrong with it.
 pub(crate) fn validate_cong(
-    g: &Globals,
+    g: &Ev,
     f: DefId,
     lemma: DefId,
 ) -> Result<std::result::Result<CongDesc, String>> {
@@ -546,9 +542,9 @@ pub(crate) fn validate_cong(
             )));
         }
         let env: Vec<Value> = (0..i).map(Value::var).collect();
-        let a = eval(&g.ev(), &env, &moved)?;
-        let b = eval(&g.ev(), &env, &ftel[i].ty)?;
-        if !stitchwort_core::value::conv(&g.ev(), i, &a, &b)? {
+        let a = eval(g, &env, &moved)?;
+        let b = eval(g, &env, &ftel[i].ty)?;
+        if !stitchwort_core::value::conv(g, i, &a, &b)? {
             return Ok(Err(what()));
         }
     }
@@ -607,11 +603,11 @@ pub(crate) fn validate_cong(
 /// A statement of the congruence lemma `F` would need, for messages:
 /// `theorem FCong (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x): F f1 xs = F f2 xs`.
 /// Type parameters and effect rows are left to be bound automatically.
-pub(crate) fn sketch(g: &Globals, f: DefId) -> String {
+pub(crate) fn sketch(g: &Ev, f: DefId) -> String {
     let name = g.def(f).name().to_string();
     let (tel, _) = split_pis(g.def(f).ty(), None);
     let row = g.env.registry().data(Builtin::Row);
-    let print = |names: &[Name], t: &Term| stitchwort_core::pretty::term(&g.ev(), names, t);
+    let print = |names: &[Name], t: &Term| stitchwort_core::pretty::term(g, names, t);
     let mut names: Vec<Name> = Vec::new();
     let mut params = String::new();
     let mut premises = String::new();

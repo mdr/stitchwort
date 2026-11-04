@@ -16,19 +16,19 @@ use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, Name, Sort};
+use stitchwort_core::{DataId, DefId, Kernel, Name, Sort};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
 }
 
 /// Declares a group with these names, parameters and universe.
-fn group(g: &mut Globals, names: &[&str], params: Vec<(&str, Term)>, sort: Sort) -> Vec<DataId> {
+fn group(g: &mut Kernel, names: &[&str], params: Vec<(&str, Term)>, sort: Sort) -> Vec<DataId> {
     try_group(g, names, params, sort).expect("the group's parameters check")
 }
 
 fn try_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     names: &[&str],
     params: Vec<(&str, Term)>,
     sort: Sort,
@@ -44,7 +44,7 @@ fn try_group(
     )
 }
 
-fn state(g: &Globals, d: DataId) -> State {
+fn state(g: &Kernel, d: DataId) -> State {
     g.data(d).state()
 }
 
@@ -121,7 +121,7 @@ fn size_bodies(
 }
 
 /// Evaluates a closed term to a number.
-fn number(g: &Globals, term: &Term) -> Option<usize> {
+fn number(g: &Kernel, term: &Term) -> Option<usize> {
     let (term, _) = check::infer_closed(&g.ev(), term, span()).ok()?;
     let value = eval(&g.ev(), &[], &term).ok()?;
     nat_of(&quote(&g.ev(), 0, &value).ok()?)

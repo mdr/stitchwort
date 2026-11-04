@@ -28,12 +28,12 @@ fn well_formed(program: &Program, what: &str) {
 
 /// Every definition with a body (or a primitive), lowered together.
 fn lower_everything(session: &Session, what: &str) -> usize {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
         .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
         .collect();
-    let program = lower_definitions(&g.ev(), session.elab.options.limits, &ids)
+    let program = lower_definitions(g, session.elab.options.limits, &ids)
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"));
     // Well formed, and printable.
     well_formed(&program, what);
@@ -130,8 +130,8 @@ fn every_example_lowers() {
             let main = session
                 .main()
                 .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
-            let g = &session.elab.globals;
-            let program = lower_main(&g.ev(), session.elab.options.limits, main.term(), main.row)
+            let g = &session.elab.ev();
+            let program = lower_main(g, session.elab.options.limits, main.term(), main.row)
                 .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"));
             well_formed(&program, &what);
             return (1, tests);
@@ -159,7 +159,7 @@ fn lower_project(dir: &Path) -> usize {
         .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));
     let tests = lower_everything(&session, &name);
     eprintln!("{name}: ran {tests} tests on the IR");
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mains: Vec<String> = g
         .env
         .defs()
@@ -171,8 +171,8 @@ fn lower_project(dir: &Path) -> usize {
         let main = session
             .main_named(main_name, &name)
             .unwrap_or_else(|e| panic!("{name}: {main_name}: {e:?}"));
-        let g = &session.elab.globals;
-        let program = lower_main(&g.ev(), session.elab.options.limits, main.term(), main.row)
+        let g = &session.elab.ev();
+        let program = lower_main(g, session.elab.options.limits, main.term(), main.row)
             .unwrap_or_else(|e| panic!("{name}: lowering {main_name}: {e:?}"));
         well_formed(&program, main_name);
     }
@@ -215,13 +215,12 @@ fn every_aoc_main_lowers() {
 fn the_library_lowers_and_its_tests_agree() {
     with_stack(STACK, || {
         let session = Session::with_library_tests();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let ids: Vec<DefId> = (0..g.env.defs().len())
             .map(DefId)
             .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
             .collect();
-        let program =
-            lower_definitions(&g.ev(), session.elab.options.limits, &ids).expect("lowers");
+        let program = lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
         well_formed(&program, "the library");
         let ran = run_tests(&session, &program, "the library", true);
         eprintln!("ran {ran} library tests on the IR");
@@ -237,8 +236,8 @@ fn ir(source: &str) -> String {
             .load("test.sw", source)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
-        let g = &session.elab.globals;
-        let program = lower_main(&g.ev(), session.elab.options.limits, main.term(), main.row)
+        let g = &session.elab.ev();
+        let program = lower_main(g, session.elab.options.limits, main.term(), main.row)
             .unwrap_or_else(|e| panic!("lowering: {e:?}"));
         well_formed(&program, "main");
         program.to_string()
@@ -449,8 +448,8 @@ fn loops_over_arguments_that_bind_are_well_formed() {
             .load("trmc-argument-binders.sw", &text)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
-        let g = &session.elab.globals;
-        let program = lower_main(&g.ev(), session.elab.options.limits, main.term(), main.row)
+        let g = &session.elab.ev();
+        let program = lower_main(g, session.elab.options.limits, main.term(), main.row)
             .unwrap_or_else(|e| panic!("lowering main: {e:?}"));
         well_formed(&program, "trmc-argument-binders.sw");
         let mut names: Vec<&str> = program.globals.iter().map(|g| &*g.name).collect();

@@ -34,7 +34,7 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
     if let Err(errors) = session.load("negative.sw", SOURCE) {
         panic!("{errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget
@@ -46,7 +46,7 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
                 g.def(*d).path().ends_with(&format!(".{name}")) || &**g.def(*d).path() == name
             })
             .unwrap_or_else(|| panic!("no `{name}`"));
-        def_hash(&g.ev(), id).unwrap().unwrap().hex()
+        def_hash(g, id).unwrap().unwrap().hex()
     };
     for (written, bracketed) in [
         ("argument", "bracketed"),

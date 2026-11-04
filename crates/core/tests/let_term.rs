@@ -13,7 +13,7 @@ use common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::value::{conv, eval, quote};
-use stitchwort_core::{DefId, Globals, Limits, Sort, Term};
+use stitchwort_core::{DefId, Kernel, Limits, Sort, Term};
 
 fn rc(t: Term) -> Rc<Term> {
     Rc::new(t)
@@ -32,7 +32,7 @@ fn code<T>(r: Result<T, &'static str>) -> &'static str {
     r.err().unwrap_or("ok")
 }
 
-fn infer_code(g: &Globals, term: &Term) -> &'static str {
+fn infer_code(g: &Kernel, term: &Term) -> &'static str {
     infer_closed(&g.ev(), term, span())
         .err()
         .map_or("ok", |d| d.code)
@@ -549,7 +549,7 @@ fn lit(n: u32) -> Term {
 }
 
 /// The work checking `term` takes, and its result.
-fn work(g: &Globals, term: &Term) -> (u64, &'static str) {
+fn work(g: &Kernel, term: &Term) -> (u64, &'static str) {
     let _op = g.machine.budget.operation(Limits::default());
     let before = g.machine.budget.total_work();
     let r = infer_code(g, term);

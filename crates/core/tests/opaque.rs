@@ -15,7 +15,7 @@ use stitchwort_core::check::{self, define_group};
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, conv, eval, quote};
-use stitchwort_core::{DefId, Globals, Limits, Sort};
+use stitchwort_core::{DefId, Kernel, Limits, Sort};
 
 /// How a declaration is submitted: opaque or not, and what it unfolds.
 #[derive(Clone, Copy, Default)]
@@ -54,7 +54,7 @@ fn unfolding(unfolding: &[DefId]) -> How<'_> {
 
 /// Declares and defines `name: ty := body` as `how` says, or the error code.
 fn submit(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &str,
     how: How,
     ty: Term,
@@ -78,7 +78,7 @@ fn submit(
     Ok(id)
 }
 
-fn hash_of(g: &Globals, id: DefId) -> ContentHash {
+fn hash_of(g: &Kernel, id: DefId) -> ContentHash {
     let _op = g.machine.budget.operation(Limits::default());
     def_hash(&g.ev(), id).unwrap().expect("final")
 }
@@ -140,6 +140,28 @@ fn rfl_through_an_opaque_constant_is_refused() {
     let two = self::two(&mut p, PLAIN);
     let n2 = p.num(2);
     assert!(rfl_about(&mut p, "twoIsTwo", THEOREM, two, None, n2).is_ok());
+}
+
+/// Admission checks with erasure off whatever its caller is doing (D2294,
+/// globals-split.md G1): while a program runs, an opaque definition
+/// unfolds, but a proof submitted then still can't see through one.
+#[test]
+fn admission_ignores_a_running_program() {
+    let mut p = Prelude::new();
+    let two = self::two(&mut p, OPAQUE);
+    let n2 = p.num(2);
+    // As if a program were running around the submission: the guard's
+    // flags stay set.
+    std::mem::forget(p.g.machine.erasure.running());
+    assert!(p.g.machine.erasure.program_running());
+    assert_eq!(
+        rfl_about(&mut p, "twoIsTwo", THEOREM, two, None, n2),
+        Err("E-REFL")
+    );
+    assert!(
+        p.g.machine.erasure.program_running(),
+        "the caller's mode is put back"
+    );
 }
 
 #[test]

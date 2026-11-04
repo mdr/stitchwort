@@ -5,7 +5,6 @@
 //! primitive lowering, D187) gives the same terms as finding and projecting
 //! the dictionary; and §5.16's four cases.
 
-use stitchwort_core::globals::Globals;
 use stitchwort_core::{Icit, Term};
 use stitchwort_driver::driver::Session;
 
@@ -24,7 +23,7 @@ fn load(source: &str, uniform: bool) -> Session {
 /// application and argument, with definitions by name and variables by
 /// index, so that two terms print the same only if they're the same.
 fn body(session: &Session, name: &str) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let def = g
         .env
         .defs()
@@ -34,7 +33,7 @@ fn body(session: &Session, name: &str) -> String {
     raw(g, def.body().expect("a body"))
 }
 
-fn raw(g: &Globals, t: &Term) -> String {
+fn raw(g: &stitchwort_core::Ev, t: &Term) -> String {
     match t {
         Term::Loc(_, t) => raw(g, t),
         Term::Var(i) => format!("#{i}"),
@@ -195,10 +194,10 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
         if let Err(errors) = session.load_project(&DiskFiles { root }, "aoc", &Target::Everything) {
             panic!("aoc doesn't load: {errors:#?}");
         }
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let mut out = std::collections::BTreeMap::new();
         for (i, def) in g.env.defs().iter().enumerate() {
-            let h = def_hash(&g.ev(), stitchwort_core::DefId(i))
+            let h = def_hash(g, stitchwort_core::DefId(i))
                 .unwrap()
                 .map(|h| h.hex());
             out.insert(def.path().to_string(), h);

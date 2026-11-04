@@ -4,6 +4,7 @@
 //! evaluation needs.
 
 use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 use num_bigint::BigUint;
 use std::rc::Rc;
 
@@ -11,7 +12,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
 use crate::globals::{
-    Ctor, Data, Def, FieldValidator, Globals, NotNestable, ParamUse, State, Validator,
+    Ctor, Data, Def, FieldValidator, Kernel, NotNestable, ParamUse, State, Validator,
 };
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm, Sort, Term};
@@ -1598,8 +1599,8 @@ pub fn def_type(g: &Ev, def: &Def) -> budget::Result<Value> {
 /// final, or failed if it's refused: a group of one ([`define_group`]).
 /// Until then the definition has no body, so it never unfolds: recursive
 /// references inside its own body stay opaque while it's being checked.
-pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    define_group(g, &[(id, body.clone())])
+pub fn define_def(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
+    in_kernel_modes(g, |g| define_group(g, &[(id, body.clone())]))
 }
 
 /// Checks the bodies of a group of definitions, each added by
@@ -1618,8 +1619,8 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 ///   all are accepted, so checking can't unfold an unchecked definition.
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
-pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    install_group(g, members, admit_group)
+pub fn define_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
+    in_kernel_modes(g, |g| install_group(g, members, admit_group))
 }
 
 /// [`define_group`] with `bodies` deciding the bodies to install: the
@@ -1628,14 +1629,10 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
 /// (its arity, group, transparency set, `lift_leaf`, `recursive`) is worked
 /// out here, the same either way.
 fn install_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     members: &[(DefId, Term)],
     bodies: impl FnOnce(&Ev, &[(DefId, Term)]) -> Result<Vec<Term>>,
 ) -> Result<()> {
-    debug_assert!(
-        !g.machine.glue.get(),
-        "the kernel is entered unglued (D483)"
-    );
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
     if members.is_empty() {
@@ -1652,7 +1649,7 @@ fn install_group(
     }
     let ids: Rc<[DefId]> = members.iter().map(|(id, _)| *id).collect();
     // From here on, a refusal leaves every member that was pending failed.
-    let fail = |g: &mut Globals, e: Diagnostic| {
+    let fail = |g: &mut Kernel, e: Diagnostic| {
         for id in ids.iter() {
             let def = &mut g.env.defs_mut()[id.0];
             if def.state == State::Pending {
@@ -1775,7 +1772,7 @@ fn admit_group(g: &Ev, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
 
 /// Checks a definition's type and adds it without a body.
 pub fn declare_def(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &Name,
     path: &Name,
     ty: &Term,
@@ -1783,46 +1780,44 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(
-        !g.machine.glue.get(),
-        "the kernel is entered unglued (D483)"
-    );
-    // A type is checked with every opaque definition hidden.
-    let _set = g.machine.transparent.set(Rc::default());
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, span);
-    if !case_only_in_tree(ty, false) {
-        return Err(malformed(
-            &cx,
-            "`case` may only appear at the top of a definition",
-        ));
-    }
-    // A failed reference is let through: `define_def` finds it again.
-    admissible(&cx, [ty], None)?;
-    let (ty, sort) = check_type(&mut cx, ty)?;
-    if theorem && sort != Sort::Prop {
-        let ty_value = cx.eval(&ty)?;
-        return Err(Diagnostic::error(
-            "E-NOT-A-PROP",
-            format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
-        )
-        .with_label(
-            span,
-            format!(
-                "`{}` is a type of data, not a proposition",
-                cx.show(&ty_value)
-            ),
-        )
-        .with_note("remove `theorem` to make it an ordinary definition"));
-    }
-    push_def(g, name, path, ty, theorem, export, span)
+    in_kernel_modes(g, |g| {
+        // A type is checked with every opaque definition hidden.
+        let _set = g.machine.transparent.set(Rc::default());
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        // A failed reference is let through: `define_def` finds it again.
+        admissible(&cx, [ty], None)?;
+        let (ty, sort) = check_type(&mut cx, ty)?;
+        if theorem && sort != Sort::Prop {
+            let ty_value = cx.eval(&ty)?;
+            return Err(Diagnostic::error(
+                "E-NOT-A-PROP",
+                format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
+            )
+            .with_label(
+                span,
+                format!(
+                    "`{}` is a type of data, not a proposition",
+                    cx.show(&ty_value)
+                ),
+            )
+            .with_note("remove `theorem` to make it an ordinary definition"));
+        }
+        push_def(g, name, path, ty, theorem, export, span)
+    })
 }
 
 /// Adds a pending definition with the checked type `ty`, for
 /// [`declare_def`] and [`admit_trusted_def`]. Its type's value is evaluated
 /// with every opaque definition hidden (the caller's transparency set).
 fn push_def(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &Name,
     path: &Name,
     ty: Term,
@@ -1863,43 +1858,43 @@ fn push_def(
 /// variable total, docs/proposals/partial-stage-3.md §2.2) before anything
 /// has been admitted against the old type; the body is then checked
 /// against this one, as always.
-pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
-    debug_assert!(
-        !g.machine.glue.get(),
-        "the kernel is entered unglued (D483)"
-    );
-    let _set = g.machine.transparent.set(Rc::default());
-    let span = g.env.defs()[id.0].span;
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, span);
-    if g.env.defs()[id.0].state != State::Pending {
-        return Err(malformed(
-            &cx,
-            "only a pending definition can be given another type",
-        ));
-    }
-    if !case_only_in_tree(ty, false) {
-        return Err(malformed(
-            &cx,
-            "`case` may only appear at the top of a definition",
-        ));
-    }
-    admissible(&cx, [ty], None)?;
-    let (ty, _) = check_type(&mut cx, ty)?;
-    let ty_value = eval(&g.ev(), &[], &ty)?;
-    let def = &mut g.env.defs_mut()[id.0];
-    def.ty = ty;
-    def.ty_value = ty_value;
-    Ok(())
+pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let span = g.env.defs()[id.0].span;
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        if g.env.defs()[id.0].state != State::Pending {
+            return Err(malformed(
+                &cx,
+                "only a pending definition can be given another type",
+            ));
+        }
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        admissible(&cx, [ty], None)?;
+        let (ty, _) = check_type(&mut cx, ty)?;
+        let ty_value = eval(&g.ev(), &[], &ty)?;
+        let def = &mut g.env.defs_mut()[id.0];
+        def.ty = ty;
+        def.ty_value = ty_value;
+        Ok(())
+    })
 }
 
 /// Marks pending definition `id` as an instance
 /// (docs/proposals/interfaces.md §9.3): part of its hash, and nothing else.
-pub fn mark_instance(g: &mut Globals, id: DefId) {
-    let def = &mut g.env.defs_mut()[id.0];
-    if def.state == State::Pending {
-        def.instance = true;
-    }
+pub fn mark_instance(g: &mut Kernel, id: DefId) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.instance = true;
+        }
+    })
 }
 
 /// Gives final definition `id` a body for the runtimes to run instead of its
@@ -1909,16 +1904,18 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
 /// checked for termination, never unfolds in
 /// the kernel and isn't hashed: the runtimes are untrusted (docs/core.md),
 /// and a proof never depends on what they compute.
-pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    run_body_shape(&g.ev(), id, body)?;
-    let def = g.def(id);
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, def.span);
-    let _set = g.machine.transparent.set(def.transparent.clone());
-    let ty = def_type(&g.ev(), def)?;
-    let checked = check(&mut cx, body, &ty)?;
-    g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
-    Ok(())
+pub fn set_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        run_body_shape(&g.ev(), id, body)?;
+        let def = g.def(id);
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, def.span);
+        let _set = g.machine.transparent.set(def.transparent.clone());
+        let ty = def_type(&g.ev(), def)?;
+        let checked = check(&mut cx, body, &ty)?;
+        g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
+        Ok(())
+    })
 }
 
 /// What [`set_run_body`] asks of a run body before checking its type: the
@@ -1951,42 +1948,50 @@ fn run_body_shape(g: &Ev, id: DefId, body: &Term) -> Result<()> {
 
 /// Marks pending definition `id` as a dictionary, which stays folded until
 /// it's taken apart ([`Def::fold`]): how it computes, not what it means.
-pub fn mark_folded(g: &mut Globals, id: DefId) {
-    let def = &mut g.env.defs_mut()[id.0];
-    if def.state == State::Pending {
-        def.fold = true;
-    }
+pub fn mark_folded(g: &mut Kernel, id: DefId) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.fold = true;
+        }
+    })
 }
 
 /// Marks pending definition `id` as the helper of a parameter's default
 /// value ([`Def::param_default`]): a constant one stays folded while
 /// gluing, so a call that left the default out reads back as written. How
 /// calls are shown, not what they mean; not hashed.
-pub fn mark_param_default(g: &mut Globals, id: DefId) {
-    let def = &mut g.env.defs_mut()[id.0];
-    if def.state == State::Pending {
-        def.param_default = true;
-    }
+pub fn mark_param_default(g: &mut Kernel, id: DefId) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.param_default = true;
+        }
+    })
 }
 
 /// Marks pending definition `id` opaque to the checker ([`Def::opaque`],
 /// docs/proposals/opaque-definitions.md §6.4): once final, it has a type and
 /// no body while checking any declaration that doesn't unfold it. Hashed.
-pub fn mark_opaque(g: &mut Globals, id: DefId) {
-    let def = &mut g.env.defs_mut()[id.0];
-    if def.state == State::Pending {
-        def.opaque = true;
-    }
+pub fn mark_opaque(g: &mut Kernel, id: DefId) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.opaque = true;
+        }
+    })
 }
 
 /// Gives pending definition `id` its `unfolding` list ([`Def::unfolding`]),
 /// as written: the opaque definitions its body may unfold. Checked when its
 /// group is submitted ([`define_group`]); hashed.
-pub fn set_unfolding(g: &mut Globals, id: DefId, unfolding: &[DefId]) {
-    let def = &mut g.env.defs_mut()[id.0];
-    if def.state == State::Pending {
-        def.unfolding = unfolding.into();
-    }
+pub fn set_unfolding(g: &mut Kernel, id: DefId, unfolding: &[DefId]) {
+    in_kernel_modes(g, |g| {
+        let def = &mut g.env.defs_mut()[id.0];
+        if def.state == State::Pending {
+            def.unfolding = unfolding.into();
+        }
+    })
 }
 
 /// The transparency set member `id` of group `ids` is checked under, with its
@@ -2078,26 +2083,30 @@ fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
 /// Marks which parameters of pending data type `id` are `auto`
 /// (docs/proposals/interfaces.md §7.5): part of its hash when any is, and
 /// how its applications are printed; nothing else.
-pub fn mark_auto_params(g: &mut Globals, id: DataId, auto: Vec<bool>) {
-    let data = &mut g.env.datas_mut()[id.0];
-    if data.state == State::Pending && auto.contains(&true) {
-        data.auto_params = auto;
-    }
+pub fn mark_auto_params(g: &mut Kernel, id: DataId, auto: Vec<bool>) {
+    in_kernel_modes(g, |g| {
+        let data = &mut g.env.datas_mut()[id.0];
+        if data.state == State::Pending && auto.contains(&true) {
+            data.auto_params = auto;
+        }
+    })
 }
 
 /// Checks a data type's parameters and adds it with no constructors yet, so
 /// its constructors can refer to it: a data group of one
 /// ([`declare_data_group`]).
 pub fn declare_data(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: Name,
     path: Name,
     params: Vec<(Name, Term)>,
     sort: Sort,
     span: Span,
 ) -> Result<DataId> {
-    let ids = declare_data_group(g, params, sort, vec![(name, path, span)])?;
-    Ok(ids[0])
+    in_kernel_modes(g, |g| {
+        let ids = declare_data_group(g, params, sort, vec![(name, path, span)])?;
+        Ok(ids[0])
+    })
 }
 
 /// Declares a group of data types whose constructors may mention each other
@@ -2109,16 +2118,18 @@ pub fn declare_data(
 /// including one a member is about to become, is refused before anything is
 /// added.
 pub fn declare_data_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     params: Vec<(Name, Term)>,
     sort: Sort,
     members: Vec<(Name, Name, Span)>,
 ) -> Result<Vec<DataId>> {
-    let members = members
-        .into_iter()
-        .map(|(name, path, span)| (name, path, span, false))
-        .collect();
-    declare_data_group_as(g, params, sort, members)
+    in_kernel_modes(g, |g| {
+        let members = members
+            .into_iter()
+            .map(|(name, path, span)| (name, path, span, false))
+            .collect();
+        declare_data_group_as(g, params, sort, members)
+    })
 }
 
 /// [`declare_data_group`], saying for each member whether it's a record
@@ -2126,22 +2137,24 @@ pub fn declare_data_group(
 /// `define_data_group` checks, and which extracted JS represents without a
 /// tag. The flag is fixed here and hashed; nothing in checking depends on it.
 pub fn declare_data_group_as(
-    g: &mut Globals,
+    g: &mut Kernel,
     params: Vec<(Name, Term)>,
     sort: Sort,
     members: Vec<(Name, Name, Span, bool)>,
 ) -> Result<Vec<DataId>> {
-    let members = members
-        .into_iter()
-        .map(|(name, path, span, record)| DataDecl {
-            name,
-            path,
-            span,
-            record,
-            indices: Vec::new(),
-        })
-        .collect();
-    declare_indexed_data_group(g, params, sort, members)
+    in_kernel_modes(g, |g| {
+        let members = members
+            .into_iter()
+            .map(|(name, path, span, record)| DataDecl {
+                name,
+                path,
+                span,
+                record,
+                indices: Vec::new(),
+            })
+            .collect();
+        declare_indexed_data_group(g, params, sort, members)
+    })
 }
 
 /// A member of a data group, for [`declare_indexed_data_group`].
@@ -2166,87 +2179,89 @@ pub struct DataDecl {
 /// constructor's field must (§6.2, §6.6): `Ty: Type -> Type` is refused
 /// (`E-UNIVERSE`), `Ty: Type -> Type 1` accepted.
 pub fn declare_indexed_data_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     params: Vec<(Name, Term)>,
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    let _set = g.machine.transparent.set(Rc::default());
-    let Some(span) = members.first().map(|m| m.span) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: an empty group of data types",
-        ));
-    };
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, span);
-    // The members' type ends in `sort`, which must itself have a type.
-    universe_above(&cx, sort)?;
-    // A failed reference is let through: `define_data_group` finds it again.
-    admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
-    let mut checked = Vec::new();
-    for (x, ty) in params {
-        let (ty, _) = check_type(&mut cx, &ty)?;
-        let value = cx.eval(&ty)?;
-        cx.bind(x.clone(), value);
-        checked.push((x, ty));
-    }
-    let mut member_indices = Vec::new();
-    for member in &members {
-        cx.span = member.span;
-        if member.record && !member.indices.is_empty() {
-            return Err(malformed(
-                &cx,
-                format!("`{}` is a record, so it can't have indices", member.name),
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let Some(span) = members.first().map(|m| m.span) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: an empty group of data types",
             ));
-        }
-        admissible(&cx, member.indices.iter().map(|(_, ty)| ty), None)?;
-        let mut indices = Vec::new();
-        for (x, ty) in &member.indices {
-            if !case_only_in_tree(ty, false) {
-                return Err(malformed(
-                    &cx,
-                    "`case` may only appear at the top of a definition",
-                ));
-            }
-            let (ty, index_sort) = check_type(&mut cx, ty)?;
-            if !index_sort.fits_in(sort) {
-                return Err(cx
-                    .error(
-                        "E-UNIVERSE",
-                        format!("index `{x}` is too large for `{}`", member.name),
-                        format!(
-                            "its type is in `{}`, but `{}` is in `{}`",
-                            pretty::term(&g.ev(), &[], &Term::Sort(index_sort)),
-                            member.name,
-                            pretty::term(&g.ev(), &[], &Term::Sort(sort))
-                        ),
-                    )
-                    .with_note(
-                        "an index's type must fit in the data type's universe, as a field's \
-                         must: a type indexed by types lives one universe up",
-                    ));
-            }
+        };
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        // The members' type ends in `sort`, which must itself have a type.
+        universe_above(&cx, sort)?;
+        // A failed reference is let through: `define_data_group` finds it again.
+        admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
+        let mut checked = Vec::new();
+        for (x, ty) in params {
+            let (ty, _) = check_type(&mut cx, &ty)?;
             let value = cx.eval(&ty)?;
             cx.bind(x.clone(), value);
-            indices.push((x.clone(), ty));
+            checked.push((x, ty));
         }
-        cx.unbind(indices.len());
-        member_indices.push(indices);
-    }
-    let members = members
-        .into_iter()
-        .zip(member_indices)
-        .map(|(member, indices)| DataDecl { indices, ..member })
-        .collect();
-    Ok(push_data_group(g, checked, sort, members))
+        let mut member_indices = Vec::new();
+        for member in &members {
+            cx.span = member.span;
+            if member.record && !member.indices.is_empty() {
+                return Err(malformed(
+                    &cx,
+                    format!("`{}` is a record, so it can't have indices", member.name),
+                ));
+            }
+            admissible(&cx, member.indices.iter().map(|(_, ty)| ty), None)?;
+            let mut indices = Vec::new();
+            for (x, ty) in &member.indices {
+                if !case_only_in_tree(ty, false) {
+                    return Err(malformed(
+                        &cx,
+                        "`case` may only appear at the top of a definition",
+                    ));
+                }
+                let (ty, index_sort) = check_type(&mut cx, ty)?;
+                if !index_sort.fits_in(sort) {
+                    return Err(cx
+                        .error(
+                            "E-UNIVERSE",
+                            format!("index `{x}` is too large for `{}`", member.name),
+                            format!(
+                                "its type is in `{}`, but `{}` is in `{}`",
+                                pretty::term(&g.ev(), &[], &Term::Sort(index_sort)),
+                                member.name,
+                                pretty::term(&g.ev(), &[], &Term::Sort(sort))
+                            ),
+                        )
+                        .with_note(
+                            "an index's type must fit in the data type's universe, as a field's \
+                         must: a type indexed by types lives one universe up",
+                        ));
+                }
+                let value = cx.eval(&ty)?;
+                cx.bind(x.clone(), value);
+                indices.push((x.clone(), ty));
+            }
+            cx.unbind(indices.len());
+            member_indices.push(indices);
+        }
+        let members = members
+            .into_iter()
+            .zip(member_indices)
+            .map(|(member, indices)| DataDecl { indices, ..member })
+            .collect();
+        Ok(push_data_group(g, checked, sort, members))
+    })
 }
 
 /// Adds a data group with checked parameters `params` and members with
 /// checked indices, pending and with no constructors yet, for
 /// [`declare_indexed_data_group`] and [`admit_trusted_data_decls`].
 fn push_data_group(
-    g: &mut Globals,
+    g: &mut Kernel,
     checked: Vec<(Name, Term)>,
     sort: Sort,
     members: Vec<DataDecl>,
@@ -2299,8 +2314,8 @@ pub struct CtorDecl {
 /// Checks and adds the constructors of a data type added by
 /// [`declare_data`], which makes it final, or failed if they're refused: a
 /// data group of one ([`define_data_group`]).
-pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
-    define_data_group(g, vec![(d, ctors)])
+pub fn define_ctors(g: &mut Kernel, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
+    in_kernel_modes(g, |g| define_data_group(g, vec![(d, ctors)]))
 }
 
 /// Checks and adds the constructors of every member of a data group added
@@ -2315,15 +2330,15 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
 /// - Strict positivity is checked for every member in every field of every
 ///   member's constructors: a member can't occur to the left of an arrow,
 ///   even in a sibling's constructor.
-pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
-    install_data_group(g, members, admit_data_group)
+pub fn define_data_group(g: &mut Kernel, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
+    in_kernel_modes(g, |g| install_data_group(g, members, admit_data_group))
 }
 
 /// [`define_data_group`] with `admit` deciding the constructors to install:
 /// the checked ones ([`admit_data_group`]), or for the check cache the
 /// trusted ones ([`admit_trusted_data_group`]).
 fn install_data_group<C>(
-    g: &mut Globals,
+    g: &mut Kernel,
     members: Vec<(DataId, Vec<C>)>,
     admit: impl FnOnce(&Ev, &[DataId], Vec<(DataId, Vec<C>)>) -> Result<Vec<(DataId, Vec<Ctor>)>>,
 ) -> Result<()> {
@@ -2345,7 +2360,7 @@ fn install_data_group<C>(
     let listed: Vec<DataId> = members.iter().map(|(d, _)| *d).collect();
     // From here on, a refusal leaves failed every pending member of every
     // group a listed type belongs to.
-    let fail = |g: &mut Globals, e: Diagnostic| {
+    let fail = |g: &mut Kernel, e: Diagnostic| {
         let groups: Vec<Rc<[DataId]>> = listed.iter().map(|d| g.data(*d).group.clone()).collect();
         for d in groups.iter().flat_map(|group| group.iter()) {
             let data = &mut g.env.datas_mut()[d.0];
@@ -2631,114 +2646,118 @@ fn check_result_indices(
 /// without checking the type: `ty` must be the type `declare_def` gave back
 /// when it was checked. Never an export. The trust boundary (above).
 pub fn admit_trusted_def(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &Name,
     path: &Name,
     ty: &Term,
     theorem: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(
-        !g.machine.glue.get(),
-        "the kernel is entered unglued (D483)"
-    );
-    let _set = g.machine.transparent.set(Rc::default());
-    let ev = g.ev();
-    let cx = Ctx::new(&ev, span);
-    if !case_only_in_tree(ty, false) {
-        return Err(malformed(
-            &cx,
-            "`case` may only appear at the top of a definition",
-        ));
-    }
-    if let Some(dep) = admissible(&cx, [ty], None)? {
-        return Err(failed_dependency(&cx, name, &dep));
-    }
-    push_def(g, name, path, ty.clone(), theorem, false, span)
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let ev = g.ev();
+        let cx = Ctx::new(&ev, span);
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        if let Some(dep) = admissible(&cx, [ty], None)? {
+            return Err(failed_dependency(&cx, name, &dep));
+        }
+        push_def(g, name, path, ty.clone(), theorem, false, span)
+    })
 }
 
 /// Makes a group of definitions added by [`admit_trusted_def`] (or
 /// [`declare_def`]) final with the given bodies, as [`define_group`] does,
 /// without checking them or their termination: each body must be the one
 /// `define_group` installed. The trust boundary (above).
-pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    install_group(g, members, |g, members| {
-        let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
-        let mut bodies = Vec::with_capacity(members.len());
-        for (id, body) in members {
-            let def = g.def(*id);
-            let cx = Ctx::new(g, def.span);
-            if let Some(dep) = admissible(&cx, [body], Some(Itself::Group(&ids)))? {
-                return Err(failed_dependency(&cx, &def.name, &dep));
+pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        install_group(g, members, |g, members| {
+            let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
+            let mut bodies = Vec::with_capacity(members.len());
+            for (id, body) in members {
+                let def = g.def(*id);
+                let cx = Ctx::new(g, def.span);
+                if let Some(dep) = admissible(&cx, [body], Some(Itself::Group(&ids)))? {
+                    return Err(failed_dependency(&cx, &def.name, &dep));
+                }
+                if !case_only_in_tree(body.peel_lams(def.arity), true) {
+                    return Err(malformed(
+                        &cx,
+                        "`case` may only appear at the top of a definition",
+                    ));
+                }
+                bodies.push(body.clone());
             }
-            if !case_only_in_tree(body.peel_lams(def.arity), true) {
-                return Err(malformed(
-                    &cx,
-                    "`case` may only appear at the top of a definition",
-                ));
-            }
-            bodies.push(body.clone());
-        }
-        Ok(bodies)
+            Ok(bodies)
+        })
     })
 }
 
 /// Gives final definition `id` the run body `body`, as [`set_run_body`]
 /// does, without checking its type: it must be the run body `set_run_body`
 /// installed. The trust boundary (above).
-pub fn admit_trusted_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    run_body_shape(&g.ev(), id, body)?;
-    g.env.defs_mut()[id.0].run_body = Some(Rc::new(body.clone()));
-    Ok(())
+pub fn admit_trusted_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        run_body_shape(&g.ev(), id, body)?;
+        g.env.defs_mut()[id.0].run_body = Some(Rc::new(body.clone()));
+        Ok(())
+    })
 }
 
 /// Declares a data group, as [`declare_indexed_data_group`] does, without
 /// checking its parameters' and indices' types: they must be the ones that
 /// function stored. The trust boundary (above).
 pub fn admit_trusted_data_decls(
-    g: &mut Globals,
+    g: &mut Kernel,
     params: Vec<(Name, Term)>,
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    let _set = g.machine.transparent.set(Rc::default());
-    let Some(span) = members.first().map(|m| m.span) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: an empty group of data types",
-        ));
-    };
-    let ev = g.ev();
-    let cx = Ctx::new(&ev, span);
-    universe_above(&cx, sort)?;
-    let first = members[0].name.clone();
-    let types = params.iter().map(|(_, ty)| ty).chain(
-        members
-            .iter()
-            .flat_map(|m| m.indices.iter().map(|(_, ty)| ty)),
-    );
-    if let Some(dep) = admissible(&cx, types, None)? {
-        return Err(failed_dependency(&cx, &first, &dep));
-    }
-    for member in &members {
-        if member.record && !member.indices.is_empty() {
-            return Err(malformed(
-                &cx,
-                format!("`{}` is a record, so it can't have indices", member.name),
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let Some(span) = members.first().map(|m| m.span) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: an empty group of data types",
             ));
+        };
+        let ev = g.ev();
+        let cx = Ctx::new(&ev, span);
+        universe_above(&cx, sort)?;
+        let first = members[0].name.clone();
+        let types = params.iter().map(|(_, ty)| ty).chain(
+            members
+                .iter()
+                .flat_map(|m| m.indices.iter().map(|(_, ty)| ty)),
+        );
+        if let Some(dep) = admissible(&cx, types, None)? {
+            return Err(failed_dependency(&cx, &first, &dep));
         }
-        if !member
-            .indices
-            .iter()
-            .all(|(_, ty)| case_only_in_tree(ty, false))
-        {
-            return Err(malformed(
-                &cx,
-                "`case` may only appear at the top of a definition",
-            ));
+        for member in &members {
+            if member.record && !member.indices.is_empty() {
+                return Err(malformed(
+                    &cx,
+                    format!("`{}` is a record, so it can't have indices", member.name),
+                ));
+            }
+            if !member
+                .indices
+                .iter()
+                .all(|(_, ty)| case_only_in_tree(ty, false))
+            {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
         }
-    }
-    Ok(push_data_group(g, params, sort, members))
+        Ok(push_data_group(g, params, sort, members))
+    })
 }
 
 /// Gives every member of a data group added by [`admit_trusted_data_decls`]
@@ -2747,54 +2766,58 @@ pub fn admit_trusted_data_decls(
 /// positivity): they must be the constructors `define_data_group`
 /// installed, with their field sorts and erasure. The trust boundary
 /// (above).
-pub fn admit_trusted_data_group(g: &mut Globals, members: Vec<(DataId, Vec<Ctor>)>) -> Result<()> {
-    install_data_group(g, members, |g, group, members| {
-        for (d, ctors) in &members {
-            let data = g.data(*d);
-            let cx = Ctx::new(g, data.span);
-            for ctor in ctors {
-                let n = ctor.fields.len();
-                if ctor.field_sorts.len() != n
-                    || ctor.field_erased.len() != n
-                    || ctor.implicit.len() != n
-                    || ctor.result.len() != data.indices.len()
-                {
-                    return Err(malformed(
-                        &cx,
-                        format!("`{}` has the wrong shape", ctor.name),
-                    ));
-                }
-                let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
-                if let Some(dep) = admissible(&cx, terms, Some(Itself::DataGroup(group)))? {
-                    return Err(failed_dependency(&cx, &data.name, &dep));
-                }
-                let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
-                if !terms.into_iter().all(|t| case_only_in_tree(t, false)) {
-                    return Err(malformed(
-                        &cx,
-                        "`case` may only appear at the top of a definition",
-                    ));
+pub fn admit_trusted_data_group(g: &mut Kernel, members: Vec<(DataId, Vec<Ctor>)>) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        install_data_group(g, members, |g, group, members| {
+            for (d, ctors) in &members {
+                let data = g.data(*d);
+                let cx = Ctx::new(g, data.span);
+                for ctor in ctors {
+                    let n = ctor.fields.len();
+                    if ctor.field_sorts.len() != n
+                        || ctor.field_erased.len() != n
+                        || ctor.implicit.len() != n
+                        || ctor.result.len() != data.indices.len()
+                    {
+                        return Err(malformed(
+                            &cx,
+                            format!("`{}` has the wrong shape", ctor.name),
+                        ));
+                    }
+                    let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
+                    if let Some(dep) = admissible(&cx, terms, Some(Itself::DataGroup(group)))? {
+                        return Err(failed_dependency(&cx, &data.name, &dep));
+                    }
+                    let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
+                    if !terms.into_iter().all(|t| case_only_in_tree(t, false)) {
+                        return Err(malformed(
+                            &cx,
+                            "`case` may only appear at the top of a definition",
+                        ));
+                    }
                 }
             }
-        }
-        Ok(members)
+            Ok(members)
+        })
     })
 }
 
 /// Marks every pending declaration failed. For an elaborator that gives up
 /// on a declaration before submitting its body or constructors: failing is
 /// always safe, and it stops later declarations tripping over a pending one.
-pub fn abandon_pending(g: &mut Globals) {
-    for def in g.env.defs_mut().iter_mut() {
-        if def.state == State::Pending {
-            def.state = State::Failed;
+pub fn abandon_pending(g: &mut Kernel) {
+    in_kernel_modes(g, |g| {
+        for def in g.env.defs_mut().iter_mut() {
+            if def.state == State::Pending {
+                def.state = State::Failed;
+            }
         }
-    }
-    for data in g.env.datas_mut().iter_mut() {
-        if data.state == State::Pending {
-            data.state = State::Failed;
+        for data in g.env.datas_mut().iter_mut() {
+            if data.state == State::Pending {
+                data.state = State::Failed;
+            }
         }
-    }
+    })
 }
 
 /// The declarations being admitted, which may refer to each other.
@@ -3543,51 +3566,53 @@ fn occurs(term: &Term, group: &[DataId]) -> Option<DataId> {
 /// That's what lets extracted code treat the first constructor as "the
 /// precondition holds".
 pub fn add_validator(
-    g: &mut Globals,
+    g: &mut Kernel,
     id: DefId,
     param: usize,
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
-    let _set = g.machine.transparent.set(Rc::default());
-    let Some(def) = g.env.defs().get(id.0) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: reference to an unknown definition",
-        ));
-    };
-    let span = def.span;
-    let tel = telescope(&g.ev(), &def.ty_value, span)?;
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, span);
-    if def.state != State::Final {
-        return Err(malformed(
-            &cx,
-            "a validator for a definition that isn't final",
-        ));
-    }
-    let Some((_, prop, true)) = tel.params.get(param) else {
-        return Err(malformed(
-            &cx,
-            "a validator for a parameter that isn't erased",
-        ));
-    };
-    if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
-        return Err(malformed(&cx, "a validator that isn't a decision"));
-    }
-    let failed = admissible(&cx, [decision], None)?;
-    for (x, ty, _) in &tel.params[..param] {
-        cx.bind(x.clone(), ty.clone());
-    }
-    let expected = Value::Data(decidable, vec![prop.clone()]);
-    let decision = check(&mut cx, decision, &expected)?;
-    if let Some(dep) = failed {
-        return Err(failed_dependency(&cx, &def.name, &dep));
-    }
-    g.env.defs_mut()[id.0]
-        .validators
-        .push(Validator { param, decision });
-    Ok(())
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let Some(def) = g.env.defs().get(id.0) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: reference to an unknown definition",
+            ));
+        };
+        let span = def.span;
+        let tel = telescope(&g.ev(), &def.ty_value, span)?;
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        if def.state != State::Final {
+            return Err(malformed(
+                &cx,
+                "a validator for a definition that isn't final",
+            ));
+        }
+        let Some((_, prop, true)) = tel.params.get(param) else {
+            return Err(malformed(
+                &cx,
+                "a validator for a parameter that isn't erased",
+            ));
+        };
+        if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
+            return Err(malformed(&cx, "a validator that isn't a decision"));
+        }
+        let failed = admissible(&cx, [decision], None)?;
+        for (x, ty, _) in &tel.params[..param] {
+            cx.bind(x.clone(), ty.clone());
+        }
+        let expected = Value::Data(decidable, vec![prop.clone()]);
+        let decision = check(&mut cx, decision, &expected)?;
+        if let Some(dep) = failed {
+            return Err(failed_dependency(&cx, &def.name, &dep));
+        }
+        g.env.defs_mut()[id.0]
+            .validators
+            .push(Validator { param, decision });
+        Ok(())
+    })
 }
 
 /// Adds a decision procedure for proof field `field` of constructor `ctor`
@@ -3596,65 +3621,67 @@ pub fn add_validator(
 /// must have type `Decidable P`, where `P` is the field's type, in the
 /// context of the type's parameters and the constructor's earlier fields.
 pub fn add_field_validator(
-    g: &mut Globals,
+    g: &mut Kernel,
     d: DataId,
     ctor: usize,
     field: usize,
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
-    let _set = g.machine.transparent.set(Rc::default());
-    let Some(data) = g.env.datas().get(d.0) else {
-        return Err(Diagnostic::error(
-            "E-MALFORMED",
-            "malformed core term: reference to an unknown data type",
-        ));
-    };
-    let ev = g.ev();
-    let mut cx = Ctx::new(&ev, data.span);
-    if data.state != State::Final {
-        return Err(malformed(
-            &cx,
-            "a validator for a data type that isn't final",
-        ));
-    }
-    let Some(c) = data.ctors.get(ctor) else {
-        return Err(malformed(
-            &cx,
-            "a validator for a constructor that doesn't exist",
-        ));
-    };
-    if c.field_sorts.get(field) != Some(&Sort::Prop) {
-        return Err(malformed(&cx, "a validator for a field that isn't a proof"));
-    }
-    if data
-        .validators
-        .iter()
-        .any(|v| v.ctor == ctor && v.field == field)
-    {
-        return Err(malformed(&cx, "a second validator for one field"));
-    }
-    if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
-        return Err(malformed(&cx, "a validator that isn't a decision"));
-    }
-    let failed = admissible(&cx, [decision], None)?;
-    let telescope = data.params.iter().chain(&c.fields[..field]);
-    for (x, ty) in telescope {
-        let value = cx.eval(ty)?;
-        cx.bind(x.clone(), value);
-    }
-    let prop = cx.eval(&c.fields[field].1)?;
-    let expected = Value::Data(decidable, vec![prop]);
-    let decision = check(&mut cx, decision, &expected)?;
-    if let Some(dep) = failed {
-        return Err(failed_dependency(&cx, &data.name, &dep));
-    }
-    g.env.datas_mut()[d.0].validators.push(FieldValidator {
-        ctor,
-        field,
-        decision,
-    });
-    Ok(())
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let Some(data) = g.env.datas().get(d.0) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: reference to an unknown data type",
+            ));
+        };
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, data.span);
+        if data.state != State::Final {
+            return Err(malformed(
+                &cx,
+                "a validator for a data type that isn't final",
+            ));
+        }
+        let Some(c) = data.ctors.get(ctor) else {
+            return Err(malformed(
+                &cx,
+                "a validator for a constructor that doesn't exist",
+            ));
+        };
+        if c.field_sorts.get(field) != Some(&Sort::Prop) {
+            return Err(malformed(&cx, "a validator for a field that isn't a proof"));
+        }
+        if data
+            .validators
+            .iter()
+            .any(|v| v.ctor == ctor && v.field == field)
+        {
+            return Err(malformed(&cx, "a second validator for one field"));
+        }
+        if !shaped_like_decidable(&g.ev(), decidable) || !case_only_in_tree(decision, false) {
+            return Err(malformed(&cx, "a validator that isn't a decision"));
+        }
+        let failed = admissible(&cx, [decision], None)?;
+        let telescope = data.params.iter().chain(&c.fields[..field]);
+        for (x, ty) in telescope {
+            let value = cx.eval(ty)?;
+            cx.bind(x.clone(), value);
+        }
+        let prop = cx.eval(&c.fields[field].1)?;
+        let expected = Value::Data(decidable, vec![prop]);
+        let decision = check(&mut cx, decision, &expected)?;
+        if let Some(dep) = failed {
+            return Err(failed_dependency(&cx, &data.name, &dep));
+        }
+        g.env.datas_mut()[d.0].validators.push(FieldValidator {
+            ctor,
+            field,
+            decision,
+        });
+        Ok(())
+    })
 }
 
 /// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`

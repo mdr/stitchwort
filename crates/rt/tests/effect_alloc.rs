@@ -63,7 +63,7 @@ fn load(name: &str) -> Session {
 }
 
 fn def_named(session: &Session, name: &str) -> DefId {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     (0..g.env.defs().len())
         .map(DefId)
         .rfind(|id| &**g.def(*id).name() == name)
@@ -97,14 +97,11 @@ fn allocation_per_element() {
             ),
         ] {
             let session = load(file);
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             for name in names {
-                let program = lower_global(
-                    &g.ev(),
-                    session.elab.options.limits,
-                    def_named(&session, name),
-                )
-                .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
+                let program =
+                    lower_global(g, session.elab.options.limits, def_named(&session, name))
+                        .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
                 let limits = Limits::from_core(session.elab.options.limits);
                 let s = &program.shapes;
                 let mut xs = Value::Tag(s.nil);

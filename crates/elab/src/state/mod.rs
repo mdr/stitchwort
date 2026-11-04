@@ -8,12 +8,12 @@
 //!
 //! The components planned (§4.1), of which [`Options`], [`Session`],
 //! [`Unit`], [`Decl`], [`Attempt`], [`Caches`], [`Tables`] and [`Presentation`] exist so far (§7
-//! steps 1 to 5 and 7); the rest of the state is still fields of the `Elaborator`
-//! and of `Globals`:
+//! steps 1 to 5 and 7); the rest of the state is still fields of the
+//! `Elaborator`:
 //!
 //! - [`Options`]: settings and test switches, and the cache key;
-//! - `Kernel`: the kernel's half of `Globals` (definitions, data types,
-//!   builtins);
+//! - `Kernel` (core's): the declarations, the machine and the derived
+//!   caches, with no metavariables;
 //! - [`Tables`]: what later units read (records, instances, tests, ...),
 //!   each table of a kind that says how it is marked, rewound, encoded and
 //!   dumped ([`table`]); the scope joins them in step 6;
@@ -31,6 +31,7 @@ mod attempt;
 mod caches;
 mod decl;
 mod journal;
+mod metas;
 mod options;
 mod owners;
 mod presentation;
@@ -46,6 +47,7 @@ pub(crate) use caches::Mark as CachesMark;
 pub(crate) use decl::Decl;
 pub use journal::JournalStats;
 pub(crate) use journal::{Checkpoint, Journal, Logged, LoggedSet, Logs, Transaction};
+pub use metas::MetaStore;
 pub use options::Options;
 pub(crate) use owners::UnitId;
 pub(crate) use presentation::Mark as PresentationMark;

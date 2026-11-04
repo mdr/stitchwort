@@ -148,7 +148,7 @@ enum CallError {
 impl Session {
     /// Finds the loaded program's `main`, and checks its type.
     pub fn main(&mut self) -> Result<Main, Diagnostic> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let main_name = self
             .elab
             .current_namespace()
@@ -178,7 +178,7 @@ impl Session {
     /// [`main_calls`] that checks) as a computation in the row
     /// `{IO, Partial}` or `{IO, Fail, Partial}`.
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
-        let def = &self.elab.globals.env.defs()[index];
+        let def = &self.elab.kernel.env.defs()[index];
         let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
         // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
         if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
@@ -299,17 +299,17 @@ impl Session {
         );
         let expr = self.parse_internal("<simulate>", &source)?;
         let (term, _) = self.elab.infer_expr(&expr)?;
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let s = Shapes::new(self);
         let _op = g.machine.budget.operation(self.elab.options.limits);
         // Proofs and types aren't computed (`erase.rs`).
         let _erasing = g.machine.erasure.running();
         let run = || -> Result<Vec<String>, ResourceError> {
             let mut printed = Vec::new();
-            let mut list = force(&g.ev(), eval(&g.ev(), &[], &term)?)?;
+            let mut list = force(g, eval(g, &[], &term)?)?;
             while let Value::Ctor(_, 1, cell) = list {
                 printed.push(s.text_to_string(self, &cell[0])?);
-                list = force(&g.ev(), cell[1].clone())?;
+                list = force(g, cell[1].clone())?;
             }
             Ok(printed)
         };
@@ -403,7 +403,7 @@ impl Session {
     /// [`Session::run_main_fast`] does before running it.
     pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
         stitchwort_rt::lower_main(
-            &self.elab.globals.ev(),
+            &self.elab.ev(),
             self.elab.options.limits,
             main.term(),
             main.row,
@@ -469,7 +469,7 @@ impl Session {
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
         let result = self.run_loop_inner(main, input, output, terminal, policy, trace);
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         match result {
             Err(RunError::Resource(ResourceError::Depth)) => {
                 let deepest = g.machine.budget.take_deepest();
@@ -498,7 +498,7 @@ impl Session {
         policy: &Policy,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let s = Shapes::new(self);
         // Proofs and types aren't computed (`erase.rs`).
         let _erasing = g.machine.erasure.running();
@@ -506,12 +506,12 @@ impl Session {
         let mut ticks = 0;
         let mut machine = {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            Machine::start(&g.ev(), force(&g.ev(), eval(&g.ev(), &[], &main.term)?)?)
+            Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
             let mut obs = {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                machine.step(&g.ev())?
+                machine.step(g)?
             };
             // Perform operations until the step ends.
             loop {
@@ -534,7 +534,7 @@ impl Session {
                             self.perform(&s, o, input, output, terminal, &mut lines, trace)?
                         };
                         let _op = g.machine.budget.operation(self.elab.options.limits);
-                        obs = pending.reply(&g.ev(), reply)?;
+                        obs = pending.reply(g, reply)?;
                     }
                 }
             }
@@ -546,16 +546,16 @@ impl Session {
     /// steps `main`: each stretch between two ticks is one operation, with
     /// its own resource limits, and there's no tick limit.
     pub(crate) fn run_partial(&self, term: &Term) -> Result<Value, ResourceError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let _erasing = g.machine.erasure.running();
         let mut machine = {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            Machine::start(&g.ev(), force(&g.ev(), eval(&g.ev(), &[], term)?)?)
+            Machine::start(g, force(g, eval(g, &[], term)?)?)
         };
         loop {
             let _op = g.machine.budget.operation(self.elab.options.limits);
-            match machine.step(&g.ev())? {
-                Obs::Now(v) => return force(&g.ev(), v),
+            match machine.step(g)? {
+                Obs::Now(v) => return force(g, v),
                 Obs::Later(rest) => machine = rest,
                 Obs::Call(..) => unreachable!("a test performs nothing"),
             }
@@ -577,16 +577,16 @@ impl Session {
         lines: &mut usize,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Value, RunError> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         // `{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
         // `Plus Fail (Plus IO NoOp)`: an operation is `L` of an `IO` or `Fail`
         // operation, or `R (L …)` of an `IO` one.
-        let mut o = force(&g.ev(), o)?;
+        let mut o = force(g, o)?;
         let op = loop {
             let Value::Ctor(_, side, fields) = o else {
                 unreachable!("an operation in `{{IO}}` or `{{Fail, IO}}`")
             };
-            let inner = force(&g.ev(), fields[0].clone())?;
+            let inner = force(g, fields[0].clone())?;
             if side == 0 {
                 break inner;
             }
@@ -643,7 +643,8 @@ impl Session {
                 )
             }
             Value::Ctor(d, c, payload) if d == s.io && c == s.keys_mode => {
-                let on = matches!(force(&g.ev(), payload[0].clone())?, Value::Ctor(_, c, _) if c == s.true_);
+                let on =
+                    matches!(force(g, payload[0].clone())?, Value::Ctor(_, c, _) if c == s.true_);
                 terminal.keys_mode(on, output)?;
                 trace(Event::KeysMode(on));
                 s.unit()
@@ -723,7 +724,7 @@ struct Shapes {
 
 impl Shapes {
     fn new(session: &Session) -> Shapes {
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let r = &g.env.registry();
         let data = |b: Builtin| r.data(b).expect("the prelude declares it");
         let ctor = |b: Builtin| r.ctor(b).expect("the prelude declares it").1;
@@ -784,25 +785,25 @@ impl Shapes {
     /// A `Text` value's characters. A checked program's text is always made
     /// of scalar values.
     fn text_to_string(&self, session: &Session, value: &Value) -> Result<String, ResourceError> {
-        let g = &session.elab.globals;
-        let Value::Ctor(d, 0, fields) = force(&g.ev(), value.clone())? else {
+        let g = &session.elab.ev();
+        let Value::Ctor(d, 0, fields) = force(g, value.clone())? else {
             unreachable!("a `Text` value")
         };
         debug_assert_eq!(d, self.text);
         let mut out = String::new();
         // A compact list (a literal's) is taken a cell at a time, as matching
         // would.
-        let mut list = expand_step(&g.ev(), force(&g.ev(), fields[0].clone())?);
+        let mut list = expand_step(g, force(g, fields[0].clone())?);
         while let Value::Ctor(_, 1, cell) = list {
-            let Value::Ctor(_, 0, c) = force(&g.ev(), cell[0].clone())? else {
+            let Value::Ctor(_, 0, c) = force(g, cell[0].clone())? else {
                 unreachable!("a `Char` value")
             };
-            let code = native::as_nat(&g.ev(), &c[0])?
+            let code = native::as_nat(g, &c[0])?
                 .and_then(|n| u32::try_from(n).ok())
                 .and_then(char::from_u32)
                 .expect("a `Char` holds a scalar value");
             out.push(code);
-            list = expand_step(&g.ev(), force(&g.ev(), cell[1].clone())?);
+            list = expand_step(g, force(g, cell[1].clone())?);
         }
         Ok(out)
     }

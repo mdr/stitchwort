@@ -7,7 +7,7 @@ mod common;
 
 use common::*;
 use stitchwort_core::check::{self, DataDecl};
-use stitchwort_core::globals::{Ctor, Globals, State};
+use stitchwort_core::globals::{Ctor, Kernel, State};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DefId, Sort, Term};
 
@@ -18,8 +18,8 @@ fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
 /// `a` again, every declaration admitted trusted with the terms checking
 /// gave back, in the same order, as a cache replay does. For environments
 /// whose groups each have one member, defined right after being declared.
-fn trusted_copy(a: &Globals) -> Globals {
-    let mut b = Globals::default();
+fn trusted_copy(a: &Kernel) -> Kernel {
+    let mut b = Kernel::default();
     let (mut i, mut j) = (0, 0);
     while i < a.env.defs().len() || j < a.env.datas().len() {
         if j < a.env.datas().len() && a.env.datas()[j].defs_before() == i {

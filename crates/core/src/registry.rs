@@ -5,7 +5,7 @@
 //! `a + b` means the prelude's `add`, whatever `add` means where it's
 //! written; a user's own `List` never gets the list codec. Its invariants:
 //!
-//! 1. Each entry is a final declaration of these [`Globals`], so ids are
+//! 1. Each entry is a final declaration of these [`Kernel`], so ids are
 //!    never carried between environments.
 //! 2. Only loading the prelude binds entries ([`bind_data`], [`bind_def`]),
 //!    and an entry is never rebound, so user name resolution can't change
@@ -28,10 +28,11 @@
 
 use crate::collections::HashMap;
 use crate::ev::Ev;
+use crate::machine::in_kernel_modes;
 
 use stitchwort_syntax::Diagnostic;
 
-use crate::globals::{Globals, State};
+use crate::globals::{Kernel, State};
 use crate::term::{DataId, DefId};
 
 /// What kind of declaration a built-in is.
@@ -637,40 +638,46 @@ impl Registry {
 
 /// Records that a library is installed (see [`Registry::library_installed`]):
 /// the one write to the registry from outside the kernel's declarations.
-pub fn install_library(g: &mut Globals) {
-    g.env.registry_mut().install_library();
+pub fn install_library(g: &mut Kernel) {
+    in_kernel_modes(g, |g| {
+        g.env.registry_mut().install_library();
+    })
 }
 
 /// Binds the built-in data type the prelude's final data type `d` is, if
 /// any, with its constructors. Only for the prelude, as it loads.
-pub fn bind_data(g: &mut Globals, d: DataId) -> Option<Builtin> {
-    let data = g.data(d);
-    if data.state != State::Final {
-        return None;
-    }
-    let b = unbound(&g.ev(), &data.name, |k| k == Kind::Data)?;
-    let mut new = vec![(b, Entry::Data(d))];
-    for &ctor in Builtin::ALL {
-        if ctor.kind() == Kind::Ctor(b)
-            && let Some(c) = data.ctors.iter().position(|c| &*c.name == ctor.name())
-        {
-            new.push((ctor, Entry::Ctor(d, c)));
+pub fn bind_data(g: &mut Kernel, d: DataId) -> Option<Builtin> {
+    in_kernel_modes(g, |g| {
+        let data = g.data(d);
+        if data.state != State::Final {
+            return None;
         }
-    }
-    g.env.registry_mut().entries.extend(new);
-    Some(b)
+        let b = unbound(&g.ev(), &data.name, |k| k == Kind::Data)?;
+        let mut new = vec![(b, Entry::Data(d))];
+        for &ctor in Builtin::ALL {
+            if ctor.kind() == Kind::Ctor(b)
+                && let Some(c) = data.ctors.iter().position(|c| &*c.name == ctor.name())
+            {
+                new.push((ctor, Entry::Ctor(d, c)));
+            }
+        }
+        g.env.registry_mut().entries.extend(new);
+        Some(b)
+    })
 }
 
 /// Binds the built-in definition the prelude's final definition `id` is, if
 /// any. Only for the prelude, as it loads.
-pub fn bind_def(g: &mut Globals, id: DefId) -> Option<Builtin> {
-    let def = g.def(id);
-    if def.state != State::Final {
-        return None;
-    }
-    let b = unbound(&g.ev(), &def.name, |k| k == Kind::Def)?;
-    g.env.registry_mut().entries.insert(b, Entry::Def(id));
-    Some(b)
+pub fn bind_def(g: &mut Kernel, id: DefId) -> Option<Builtin> {
+    in_kernel_modes(g, |g| {
+        let def = g.def(id);
+        if def.state != State::Final {
+            return None;
+        }
+        let b = unbound(&g.ev(), &def.name, |k| k == Kind::Def)?;
+        g.env.registry_mut().entries.insert(b, Entry::Def(id));
+        Some(b)
+    })
 }
 
 fn unbound(g: &Ev, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Builtin> {

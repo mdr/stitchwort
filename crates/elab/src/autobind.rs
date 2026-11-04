@@ -195,12 +195,12 @@ fn type_former(
     }
     let is_sort = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(_));
     let data = match e.named(&name.text)? {
-        (Global::Data(d), _) => e.globals.data(*d),
+        (Global::Data(d), _) => e.kernel.data(*d),
         // An ability's parameters are those of its operations' type.
-        (Global::Ability(a), _) => e.globals.data(e.tables.abilities[*a].op_data),
+        (Global::Ability(a), _) => e.kernel.data(e.tables.abilities[*a].op_data),
         (Global::Def(id), _) => {
             let mut params = Vec::new();
-            let mut ty = e.globals.def(*id).ty();
+            let mut ty = e.kernel.def(*id).ty();
             while let Term::Pi(x, icit, dom, cod) = ty.strip_loc() {
                 if *icit == Icit::Explicit {
                     params.push((Some(x.to_string()), Some(is_sort(dom))));
@@ -237,7 +237,7 @@ fn auto_param(e: &Elaborator, head: &Expr, x: &str, bound: &[String]) -> bool {
     let Some((Global::Data(d), _)) = e.named(&name.text) else {
         return false;
     };
-    let data = e.globals.data(*d);
+    let data = e.kernel.data(*d);
     data.params()
         .iter()
         .zip(data.auto_params())
@@ -252,7 +252,7 @@ fn walk_index(
     bound: &mut Vec<String>,
     uses: &mut Vec<Use>,
 ) -> Result<()> {
-    e.globals.machine.budget.nesting(crate::check::PASS)?;
+    e.kernel.machine.budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::Var(_) => walk_at(e, expr, bound, Position::Index, uses),
         Expr::App(a, b) | Expr::Binary(_, a, b) => {
@@ -290,7 +290,7 @@ fn walk_at(
     position: Position,
     uses: &mut Vec<Use>,
 ) -> Result<()> {
-    e.globals.machine.budget.nesting(crate::check::PASS)?;
+    e.kernel.machine.budget.nesting(crate::check::PASS)?;
     let is_type = position == Position::Type;
     match expr {
         Expr::Var(name) => {

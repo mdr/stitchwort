@@ -157,7 +157,7 @@ impl Elaborator {
     /// (`Ord.%compare`), the field's method (`Ord.compare`) and the name its
     /// dictionary is passed by (`ord`), for the printer (SW-1000).
     pub(crate) fn method_of(&self, projection: DefId) -> Option<(DefId, String)> {
-        if !self.globals.def(projection).name().contains('%') {
+        if !self.kernel.def(projection).name().contains('%') {
             return None;
         }
         self.tables.interfaces.values().find_map(|info| {
@@ -225,8 +225,8 @@ impl Elaborator {
         field: &ast::Name,
         ty: &Value,
     ) -> Result<()> {
-        let g = &self.globals;
-        let Value::Data(j, args) = force(&g.ev(), ty.clone())? else {
+        let g = &self.ev();
+        let Value::Data(j, args) = force(g, ty.clone())? else {
             return Ok(());
         };
         if group.contains(&j) {
@@ -250,7 +250,7 @@ impl Elaborator {
         if !self.is_interface(j) {
             return Ok(());
         }
-        let on_param = matches!(args.as_slice(), [a] if matches!(force(&g.ev(), a.clone())?, Value::Neutral(Head::Var(0, _), s) if s.is_empty()));
+        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0, _), s) if s.is_empty()));
         if !on_param {
             return Err(error(
                 "E-INTERFACE-SHAPE",
@@ -269,7 +269,7 @@ impl Elaborator {
     /// `projections` (registered under hidden names): its methods, and what
     /// resolution needs to know.
     pub(crate) fn after_interface(&mut self, d: DataId, projections: Vec<DefId>) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let dict = dictionary_name(data.name());
         let fields: Vec<(Name, Term)> = data.ctors()[0].fields.clone();
@@ -281,8 +281,7 @@ impl Elaborator {
             // Earlier fields aren't needed: a superclass's type doesn't
             // mention them.
             if !(0..i).any(|j| ty.mentions(i - 1 - j))
-                && let Value::Data(j, _) =
-                    force(&g.ev(), stitchwort_core::value::eval(&g.ev(), &env, ty)?)?
+                && let Value::Data(j, _) = force(g, stitchwort_core::value::eval(g, &env, ty)?)?
                 && self.is_interface(j)
             {
                 supers.push((i, j));
@@ -298,7 +297,7 @@ impl Elaborator {
             let proj = projections[i];
             // `Proj: [a: Type] -> (r: I a) -> T` becomes
             // `I.f: [a: Type] -> [auto i: I a] -> T`, defined as `Proj [a] i`.
-            let proj_ty = self.globals.def(proj).ty().clone();
+            let proj_ty = self.kernel.def(proj).ty().clone();
             let Term::Pi(a, _, a_ty, rest) = &proj_ty else {
                 unreachable!("a projection's type")
             };
@@ -327,7 +326,7 @@ impl Elaborator {
             );
             let method: Name = format!("{name}.{field}").into();
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &method,
@@ -336,7 +335,7 @@ impl Elaborator {
                 false,
                 span,
             )?;
-            kernel::define_def(&mut self.globals, &self.tables, id, &body)?;
+            kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
             // `Ord.compare` is the compiler's (crates/js).
             if self.unit.loading_prelude {
                 self.bind_builtin_def(id)?;
@@ -386,26 +385,26 @@ impl Elaborator {
     /// 3), and registers it. It's used once it's valid
     /// ([`Elaborator::validate_instance`]).
     pub(crate) fn register_instance(&mut self, id: DefId, def_name: &ast::Name) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(id);
         let span = def_name.span;
         let shown_name = def_name.text.clone();
         // The parameters, as variables.
         let mut params: Vec<(Name, Icit, Value)> = Vec::new();
         let mut ty = def.ty_value().clone();
-        while let Value::Pi(x, icit, dom, cod) = force(&g.ev(), ty.clone())? {
+        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
             let level = params.len();
             params.push((x, icit, (*dom).clone()));
-            ty = cod.apply(&g.ev(), Value::var(level))?;
+            ty = cod.apply(g, Value::var(level))?;
         }
         let names: Vec<Name> = params.iter().map(|(x, _, _)| x.clone()).collect();
-        let show = |v: &Value| pretty::value_for_message_in(&g.ev(), self, &names, v);
+        let show = |v: &Value| pretty::value_for_message_in(g, self, &names, v);
         // The result as written, for the synonym note.
         let mut written = def.ty();
         while let Term::Pi(_, _, _, cod) = written.strip_loc() {
             written = cod;
         }
-        let ty = force(&g.ev(), ty)?;
+        let ty = force(g, ty)?;
         // A decision procedure (D163): marked, so the search for one uses
         // it, and none of the rules below apply (§5.12).
         if let Value::Data(d, _) = &ty
@@ -414,7 +413,7 @@ impl Elaborator {
                     .registry()
                     .data(stitchwort_core::registry::Builtin::Decidable)
         {
-            kernel::mark_instance(&mut self.globals, id);
+            kernel::mark_instance(&mut self.kernel, id);
             return Ok(());
         }
         let (interface, arg) = match &ty {
@@ -469,13 +468,13 @@ impl Elaborator {
                 None => d,
             }
         };
-        let (head, args) = match force(&g.ev(), arg)? {
+        let (head, args) = match force(g, arg)? {
             Value::Data(d, args) => (d, args),
             _ => return Err(head_error()),
         };
         let mut position: Vec<Option<usize>> = vec![None; params.len()];
         for (k, a) in args.iter().enumerate() {
-            match force(&g.ev(), a.clone())? {
+            match force(g, a.clone())? {
                 Value::Neutral(Head::Var(l, _), s) if s.is_empty() && position[l].is_none() => {
                     position[l] = Some(k);
                 }
@@ -487,9 +486,9 @@ impl Elaborator {
             match (position[l], icit) {
                 (Some(k), _) => kinds.push(InstanceParam::Head(k)),
                 (None, Icit::Auto) => {
-                    let on_head = match force(&g.ev(), dom.clone())? {
+                    let on_head = match force(g, dom.clone())? {
                         Value::Data(j, a) if self.is_interface(j) && a.len() == 1 => matches!(
-                            force(&g.ev(), a[0].clone())?,
+                            force(g, a[0].clone())?,
                             Value::Neutral(Head::Var(m, _), s) if s.is_empty() && position[m].is_some()
                         ),
                         _ => false,
@@ -581,7 +580,7 @@ impl Elaborator {
                  ordering, say, as a named alternative (a `def`), passed by name",
             ));
         }
-        kernel::mark_instance(&mut self.globals, id);
+        kernel::mark_instance(&mut self.kernel, id);
         self.tables.instances.insert(
             &self.session.owners,
             (interface, head),
@@ -621,7 +620,7 @@ impl Elaborator {
         interface: DataId,
         paths: &[Vec<(usize, DataId)>],
     ) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(id);
         let span = def.span();
         let inst_name = def.name().to_string();
@@ -630,13 +629,13 @@ impl Elaborator {
         let mut names = Vec::new();
         let mut icits = Vec::new();
         let mut ty = def.ty_value().clone();
-        while let Value::Pi(x, icit, dom, cod) = force(&g.ev(), ty.clone())? {
+        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
             let level = env.len();
             env.push(Value::var(level));
             types.push((*dom).clone());
             names.push(x);
             icits.push(icit);
-            ty = cod.apply(&g.ev(), Value::var(level))?;
+            ty = cod.apply(g, Value::var(level))?;
         }
         let level = env.len();
         let inst = icits
@@ -645,7 +644,7 @@ impl Elaborator {
             .fold(Term::Def(id), |t, (l, icit)| {
                 Term::app_icit(t, Term::Var(level - 1 - l), *icit)
             });
-        let arg = match force(&g.ev(), ty)? {
+        let arg = match force(g, ty)? {
             Value::Data(_, args) => args[0].clone(),
             _ => unreachable!("an instance's type is an interface"),
         };
@@ -688,16 +687,16 @@ impl Elaborator {
                 }
             };
             let (have, want) = (cx.eval(&term)?, cx.eval(&found)?);
-            if !conv(&g.ev(), level, &have, &want)? {
+            if !conv(g, level, &have, &want)? {
                 // The instance found, by name if it's a global one (its
                 // value would show as its body).
-                let global = match force(&g.ev(), arg.clone())? {
+                let global = match force(g, arg.clone())? {
                     Value::Data(h, _) => {
                         self.tables.instances.get(&(at, h)).map(|i| i.name.clone())
                     }
                     _ => None,
                 };
-                let shown_found = global.unwrap_or_else(|| pretty::term(&g.ev(), &names, &found));
+                let shown_found = global.unwrap_or_else(|| pretty::term(g, &names, &found));
                 return Err(Diagnostic::error(
                     "E-INSTANCE-SUPER",
                     format!(
@@ -740,32 +739,32 @@ impl Elaborator {
         if asking < 2 {
             return Ok(());
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let mut asked: Vec<(Name, DataId, Value)> = Vec::new();
-        let mut value = stitchwort_core::value::eval(&g.ev(), &[], ty)?;
+        let mut value = stitchwort_core::value::eval(g, &[], ty)?;
         let mut level = 0;
         let mut names = Vec::new();
-        while let Value::Pi(x, icit, dom, cod) = force(&g.ev(), value.clone())? {
+        while let Value::Pi(x, icit, dom, cod) = force(g, value.clone())? {
             if icit == Icit::Auto
-                && let Value::Data(i, args) = force(&g.ev(), (*dom).clone())?
+                && let Value::Data(i, args) = force(g, (*dom).clone())?
                 && self.is_interface(i)
             {
                 asked.push((x.clone(), i, args[0].clone()));
             }
             names.push(x);
-            value = cod.apply(&g.ev(), Value::var(level))?;
+            value = cod.apply(g, Value::var(level))?;
             level += 1;
         }
         for (x, i, a) in &asked {
             for path in self.super_paths(*i) {
                 let parent = path.last().expect("not empty").1;
                 for (y, j, b) in &asked {
-                    if *j == parent && conv(&g.ev(), level, a, b)? {
+                    if *j == parent && conv(g, level, a, b)? {
                         let shown = |d: DataId, v: &Value| {
                             format!(
                                 "{} {}",
                                 g.data(d).name(),
-                                pretty::value_for_message_in(&g.ev(), self, &names, v)
+                                pretty::value_for_message_in(g, self, &names, v)
                             )
                         };
                         let param = |n: &Name, d: DataId, v: &Value| {
@@ -810,7 +809,7 @@ impl Elaborator {
         if self.tables.interfaces.is_empty() {
             return Ok(false);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let mut result = ty.strip_loc();
         let mut level = 0;
         while let Term::Pi(_, _, _, cod) = result {
@@ -822,7 +821,7 @@ impl Elaborator {
             Term::Def(_) => {
                 let env: Vec<Value> = (0..level).map(Value::var).collect();
                 matches!(
-                    force(&g.ev(), stitchwort_core::value::eval(&g.ev(), &env, result)?)?,
+                    force(g, stitchwort_core::value::eval(g, &env, result)?)?,
                     Value::Data(i, _) if self.is_interface(i)
                 )
             }
@@ -837,7 +836,7 @@ pub(crate) fn interface_goal(e: &Elaborator, goal: &Value) -> Result<Option<(Dat
     if e.tables.interfaces.is_empty() {
         return Ok(None);
     }
-    Ok(match force(&e.globals.ev(), goal.clone())? {
+    Ok(match force(&e.ev(), goal.clone())? {
         Value::Data(i, args) if e.is_interface(i) && args.len() == 1 => Some((i, args[0].clone())),
         _ => None,
     })
@@ -877,7 +876,7 @@ pub(crate) fn attempt(
     let placeholder = cx.eval(&ob.meta)?;
     // 1. Already solved, by unification.
     if !matches!(
-        force(&g.ev(), placeholder.clone())?,
+        force(&g, placeholder.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
         return Ok(Attempt::Solved);
@@ -888,7 +887,7 @@ pub(crate) fn attempt(
     let dict = cx.e.tables.interfaces[&interface].dict.clone();
     step(cx, ob.tree, &goal)?;
     // 3. Wait while the type's head is unknown.
-    let target = force(&g.ev(), arg.clone())?;
+    let target = force(&g, arg.clone())?;
     if let Value::Neutral(Head::Meta(_), _) = target {
         return Ok(Attempt::Wait(
             cx.error(
@@ -947,7 +946,7 @@ pub(crate) fn attempt(
         0 => {}
         1 => {
             let (_, value) = distinct.pop().expect("one");
-            let trail = g.meta_trail.borrow().len();
+            let trail = cx.metas().meta_trail.borrow().len();
             let solved = solve(cx, &placeholder, &value)?;
             if let Term::Meta(m) = ob.meta.spine().0 {
                 cx.e.attempt
@@ -1000,7 +999,7 @@ pub(crate) fn attempt(
     if !info.valid {
         let name = info.name.clone();
         let failed = g.def(info.def).state() == stitchwort_core::globals::State::Failed;
-        let reason = if failed || cx.e.globals.def(info.def).body().is_some() {
+        let reason = if failed || cx.e.kernel.def(info.def).body().is_some() {
             format!("`{name}` has errors")
         } else {
             format!(
@@ -1026,7 +1025,7 @@ pub(crate) fn attempt(
     for ((_, ty), value) in binders.zip(&args) {
         if let Term::Data(j, _) = ty.strip_loc()
             && cx.e.is_interface(*j)
-            && let Value::Neutral(Head::Meta(m), _) = force(&g.ev(), value.clone())?
+            && let Value::Neutral(Head::Meta(m), _) = force(&g, value.clone())?
         {
             return Ok(Attempt::Wait(stuck(
                 cx,
@@ -1045,7 +1044,7 @@ pub(crate) fn attempt(
     let mut term = Term::Def(def);
     let mut ty = g.def(def).ty_value().clone();
     for p in &params {
-        let Value::Pi(_, icit, dom, cod) = force(&g.ev(), ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
             unreachable!("an instance's parameters")
         };
         let (arg_term, value) = match p {
@@ -1060,7 +1059,7 @@ pub(crate) fn attempt(
             }
         };
         term = Term::app_icit(term, arg_term, icit);
-        ty = cod.apply(&g.ev(), value)?;
+        ty = cod.apply(&g, value)?;
     }
     let value = cx.eval(&term)?;
     solve(cx, &placeholder, &value)
@@ -1098,7 +1097,7 @@ fn stuck(cx: &Ctx, goal: &Value, m: usize, what: &str) -> Diagnostic {
         format!("can't tell {what} until `{shown_meta}` is known"),
         format!("this needs `{}`", cx.show(goal)),
     );
-    let span = cx.g().metas.borrow()[m].span;
+    let span = cx.metas().metas.borrow()[m].span;
     if span != cx.span {
         d = d.with_label(span, format!("`{shown_meta}` is what goes here"));
     }
@@ -1122,7 +1121,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     );
     // For equality: why `==` wasn't derived, or why it can't be.
     if Some(interface) == dec_eq(e) {
-        match force(&g.ev(), arg.clone()).unwrap_or(arg.clone()) {
+        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
                 if let Some(why) = e.tables.no_eq.get(&t) {
                     d = d.with_note(format!(
@@ -1142,7 +1141,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     }
     // For `Show`: why it wasn't derived.
     if Some(interface) == show(e) {
-        match force(&g.ev(), arg.clone()).unwrap_or(arg.clone()) {
+        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
                 if let Some(why) = e.tables.no_show.get(&t) {
                     d = d.with_note(format!(
@@ -1159,7 +1158,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     }
     // For `Finite`: why it wasn't derived.
     if Some(interface) == finite(e) {
-        match force(&g.ev(), arg.clone()).unwrap_or(arg.clone()) {
+        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
                 if let Some(why) = e.tables.no_finite.get(&t) {
                     d = d.with_note(format!(
@@ -1176,7 +1175,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     }
     // For `Ord`: why it wasn't derived.
     if Some(interface) == ord(e) {
-        match force(&g.ev(), arg.clone()).unwrap_or(arg.clone()) {
+        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
             Value::Data(t, _) => {
                 if let Some(why) = e.tables.no_ord.get(&t) {
                     d = d.with_note(format!(
@@ -1223,7 +1222,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         }
         None => {
             if let Value::Neutral(Head::Var(_, _), _) =
-                force(&g.ev(), arg.clone()).unwrap_or(arg.clone())
+                force(&g, arg.clone()).unwrap_or(arg.clone())
             {
                 d = d.with_note(format!(
                     "`{}` is a type variable: ask for its instance with `[auto {dict}: {}]`",
@@ -1251,7 +1250,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         }
         if let Value::Data(i, args) = def.ty_value()
             && *i == interface
-            && conv(&g.ev(), cx.level(), &args[0], &arg).unwrap_or(false)
+            && conv(&g, cx.level(), &args[0], &arg).unwrap_or(false)
             && !e.tables.helper_keys.contains_key(&def.name().to_string())
         {
             let _ = k;
@@ -1273,7 +1272,7 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
     let g = cx.g();
     let mut out = Vec::new();
     for level in (0..cx.level()).rev() {
-        let Value::Data(i, args) = force(&g.ev(), cx.types[level].clone())? else {
+        let Value::Data(i, args) = force(&g, cx.types[level].clone())? else {
             continue;
         };
         if !cx.e.is_interface(i) {
@@ -1313,7 +1312,7 @@ fn tri(cx: &mut Ctx, a: &Value, b: &Value) -> Result<Tri> {
     // A computation that was stuck on an unknown solved since is run again.
     let (a, b) = (&refresh(cx, a)?, &refresh(cx, b)?);
     let snapshot = crate::undo::Snapshot::take(cx);
-    let before = cx.g().metas.borrow().len();
+    let before = cx.metas().metas.borrow().len();
     let unified = cx.unify(a, b);
     let solved = snapshot.solved_since(cx);
     snapshot.restore(cx);
@@ -1344,9 +1343,9 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
     let g = cx.g();
     let mut pending = vec![(a.clone(), b.clone())];
     while let Some((a, b)) = pending.pop() {
-        let (a, b) = (force(&g.ev(), a)?, force(&g.ev(), b)?);
-        let a = unfold_folded(&g.ev(), &a)?.unwrap_or(a);
-        let b = unfold_folded(&g.ev(), &b)?.unwrap_or(b);
+        let (a, b) = (force(&g, a)?, force(&g, b)?);
+        let a = unfold_folded(&g, &a)?.unwrap_or(a);
+        let b = unfold_folded(&g, &b)?.unwrap_or(b);
         match (&a, &b) {
             (Value::Data(d1, a1), Value::Data(d2, a2)) => {
                 if d1 != d2 || a1.len() != a2.len() {
@@ -1370,7 +1369,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
             // Different rigid heads, as the row rule classifies them
             // (`unify::rigid_head`); two data types were compared above.
             _ => {
-                if let (Some(k), Some(l)) = (rigid_head(g, &a), rigid_head(g, &b))
+                if let (Some(k), Some(l)) = (rigid_head(&g, &a), rigid_head(&g, &b))
                     && k != l
                 {
                     return Ok(true);
@@ -1386,7 +1385,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
 /// computes a large structure). Then calls are read back as calls, which is
 /// the same value and still shows the unknowns among their arguments.
 pub(crate) fn scanned(cx: &Ctx, v: &Value) -> Result<Term> {
-    match quote_at_most(&cx.g().ev(), cx.level(), v, SCAN_LIMIT)? {
+    match quote_at_most(&cx.g(), cx.level(), v, SCAN_LIMIT)? {
         Some(term) => Ok(term),
         None => cx.quote_folded(v),
     }
@@ -1568,8 +1567,8 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
     cx.e.solve_tree(&meta, true)?;
     // A definition, applied or not (not a lambda, whose type the kernel
     // can't infer where it's applied).
-    let dict = force(&cx.g().ev(), cx.eval(&meta)?)?;
-    if let Value::Ctor(_, 0, fields) = unfold_folded(&cx.g().ev(), &dict)?.unwrap_or(dict)
+    let dict = force(&cx.g(), cx.eval(&meta)?)?;
+    if let Value::Ctor(_, 0, fields) = unfold_folded(&cx.g(), &dict)?.unwrap_or(dict)
         && let Some(decide) = fields.first()
         && matches!(decide, Value::Neutral(Head::Def(_), _))
     {
@@ -1671,7 +1670,7 @@ impl Elaborator {
 /// metavariable, or one solved only by pruning to another unsolved one.
 fn unsolved_placeholder(cx: &Ctx, meta: &Term) -> Result<bool> {
     Ok(matches!(
-        force(&cx.g().ev(), cx.eval(meta)?)?,
+        force(&cx.g(), cx.eval(meta)?)?,
         Value::Neutral(Head::Meta(_), _)
     ))
 }
@@ -1733,7 +1732,7 @@ pub(crate) fn find_ready_dictionaries(
     if cx.e.solve_ready_instances_keeping(&keep, only)? {
         stale |= stuck_term(cx, &cx.e.zonk_keeping(&term, cx.level(), &|_| true)?);
     }
-    if stale && matches!(force(&g.ev(), ty.clone())?, Value::Eq(..)) {
+    if stale && matches!(force(&g, ty.clone())?, Value::Eq(..)) {
         Ok(Some(refresh(cx, ty)?))
     } else {
         Ok(None)
@@ -1789,8 +1788,8 @@ pub(crate) fn method_call(
         .position(|(n, _)| &**n == field)
         .expect("the interface has the field");
     // A global instance is found by name; its record is what's projected.
-    let found = force(&g.ev(), cx.eval(&meta)?)?;
-    let found = unfold_folded(&g.ev(), &found)?.unwrap_or(found);
+    let found = force(&g, cx.eval(&meta)?)?;
+    let found = unfold_folded(&g, &found)?.unwrap_or(found);
     let head = match found {
         Value::Ctor(_, 0, fields) if matches!(fields[index], Value::Neutral(Head::Def(_), _)) => {
             cx.quote(&fields[index])?
@@ -1844,7 +1843,7 @@ impl Elaborator {
         depth: usize,
         failed: &std::cell::Cell<Option<Diagnostic>>,
     ) -> Result<Option<Term>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let hook = |t: &Term, under: usize| -> Option<Term> {
             if !matches!(t, Term::App(..)) {
                 return None;
@@ -1891,19 +1890,15 @@ impl Elaborator {
     /// variables), if it is now a global instance's record literal whose
     /// field is a definition, applied or not: what [`method_call`] projects.
     fn projected(&self, dict: &Term, field: usize, depth: usize) -> Result<Option<Term>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
-        let found = force(&g.ev(), stitchwort_core::value::eval(&g.ev(), &env, dict)?)?;
-        let found = unfold_folded(&g.ev(), &found)?.unwrap_or(found);
+        let found = force(g, stitchwort_core::value::eval(g, &env, dict)?)?;
+        let found = unfold_folded(g, &found)?.unwrap_or(found);
         Ok(match found {
             Value::Ctor(_, 0, fields)
                 if matches!(fields[field], Value::Neutral(Head::Def(_), _)) =>
             {
-                Some(stitchwort_core::value::quote(
-                    &g.ev(),
-                    depth,
-                    &fields[field],
-                )?)
+                Some(stitchwort_core::value::quote(g, depth, &fields[field])?)
             }
             _ => None,
         })
@@ -1919,7 +1914,7 @@ pub(crate) fn relation_decider(cx: &Ctx, prop: &Value) -> Result<Option<Term>> {
     if cx.e.tables.interfaces.is_empty() {
         return Ok(None);
     }
-    let Value::Neutral(Head::Def(p), spine) = force(&cx.g().ev(), prop.clone())? else {
+    let Value::Neutral(Head::Def(p), spine) = force(&cx.g(), prop.clone())? else {
         return Ok(None);
     };
     for info in cx.e.tables.interfaces.values() {

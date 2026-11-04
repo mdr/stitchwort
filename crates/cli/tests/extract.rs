@@ -3493,7 +3493,7 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
     session
         .load("empty.sw", "")
         .expect("an empty module checks");
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     let nat = g.find_data("Nat").expect("Nat");
     let add = DefId(
         g.env

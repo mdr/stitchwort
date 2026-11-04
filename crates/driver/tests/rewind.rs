@@ -67,22 +67,16 @@ fn check(session: &mut Session, source: &Source) -> Result<(), Vec<Diagnostic>> 
 /// content hashes, the navigation index and the diagnostics.
 fn outcome(session: &Session, result: &Result<(), Vec<Diagnostic>>) -> String {
     let mut out = canonical_dump(&session.elab);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget
         .operation(stitchwort_core::Limits::for_stack(STACK));
     for id in 0..g.env.defs().len() {
-        out.push_str(&format!(
-            "hash def {id} {:?}\n",
-            def_hash(&g.ev(), DefId(id))
-        ));
+        out.push_str(&format!("hash def {id} {:?}\n", def_hash(g, DefId(id))));
     }
     for id in 0..g.env.datas().len() {
-        out.push_str(&format!(
-            "hash data {id} {:?}\n",
-            data_hash(&g.ev(), DataId(id))
-        ));
+        out.push_str(&format!("hash data {id} {:?}\n", data_hash(g, DataId(id))));
     }
     drop(_op);
     let diagnostics = match result {

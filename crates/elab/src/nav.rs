@@ -528,7 +528,7 @@ impl Elaborator {
         if self.present.nav.is_none() {
             return;
         }
-        let def = self.globals.def(id);
+        let def = self.kernel.def(id);
         // The declaration's name, as a written name finds it; a definition's
         // own span covers all of it.
         let path = def.path().to_string();
@@ -656,7 +656,7 @@ impl Elaborator {
         let mut nav = nav.borrow_mut();
         let pending = std::mem::take(&mut nav.pending);
         for (span, ty, names, expr) in pending {
-            let text = pretty::value_for_message(&self.globals.ev(), &names, &ty);
+            let text = pretty::value_for_message(&self.ev(), &names, &ty);
             if expr {
                 nav.expr_types.insert(span, text);
             } else {
@@ -985,7 +985,7 @@ impl Elaborator {
     fn global_kind(&self, global: Global) -> &'static str {
         match global {
             Global::Def(id) => {
-                let def = self.globals.def(id);
+                let def = self.kernel.def(id);
                 if def.theorem() {
                     "theorem"
                 } else if def.instance() {
@@ -997,7 +997,7 @@ impl Elaborator {
             Global::Data(d) => {
                 if self.tables.interfaces.contains_key(&d) {
                     "interface"
-                } else if self.globals.data(d).record() {
+                } else if self.kernel.data(d).record() {
                     "record"
                 } else {
                     "data"
@@ -1018,13 +1018,13 @@ impl Elaborator {
     /// The declared type of constructor `c`'s field `name`, in terms of the
     /// type's parameters and the constructor's earlier fields.
     fn ctor_field_type(&self, d: stitchwort_core::DataId, c: usize, name: &str) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let ctor = &data.ctors()[c];
         let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
         let mut names: Vec<Name> = data.params().iter().map(|(n, _)| n.clone()).collect();
         names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
-        Some(pretty::term(&g.ev(), &names, &ctor.fields[i].1))
+        Some(pretty::term(g, &names, &ctor.fields[i].1))
     }
 
     /// The parameters of a definition's type with their names (all of
@@ -1034,12 +1034,12 @@ impl Elaborator {
         let Global::Def(id) = global else {
             return None;
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
         while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
-            let shown = pretty::term(&g.ev(), &names, dom);
+            let shown = pretty::term(g, &names, dom);
             // A bare row's divergence index isn't written
             // (docs/proposals/partial-stage-3.md §2.2).
             if name.starts_with("%div.") {
@@ -1062,14 +1062,14 @@ impl Elaborator {
         if parts.is_empty() {
             return None;
         }
-        parts.push(pretty::term(&g.ev(), &names, &ty));
+        parts.push(pretty::term(g, &names, &ty));
         Some(parts.join(" -> "))
     }
 
     /// The value of definition `id`'s parameter `i`'s default, if it has
     /// one: its helper's body, in the names of the parameters it takes.
     pub(crate) fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let table = self.tables.param_defaults.get(&id)?;
         let default = table.params.get(i)?.as_ref()?;
         let mut body: Term = (**g.def(default.helper).body()?).clone();
@@ -1078,13 +1078,13 @@ impl Elaborator {
             names.push(x.clone());
             body = (**inner).clone();
         }
-        Some(pretty::term(&g.ev(), &names, &body))
+        Some(pretty::term(g, &names, &body))
     }
 
     /// A definition with parameter defaults, as its header is written:
     /// `def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat`.
     fn defaulted_header(&self, id: DefId) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(id);
         let table = self.tables.param_defaults.get(&id)?;
         let mut names: Vec<Name> = Vec::new();
@@ -1095,7 +1095,7 @@ impl Elaborator {
                 return None;
             };
             if !name.starts_with("%div.") {
-                let shown = pretty::term(&g.ev(), &names, dom);
+                let shown = pretty::term(g, &names, dom);
                 parts.push(match (icit, self.param_default_shown(id, names.len())) {
                     (Icit::Explicit, Some(d)) => format!("({name}: {shown} := {d})"),
                     (Icit::Explicit, None) => format!("({name}: {shown})"),
@@ -1110,19 +1110,19 @@ impl Elaborator {
         Some(format!(
             "{kind} {short} {}: {}",
             parts.join(" "),
-            pretty::term(&g.ev(), &names, &ty)
+            pretty::term(g, &names, &ty)
         ))
     }
 
     fn global_type(&self, global: Global) -> Option<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         match global {
             Global::Def(id) => {
                 let ty = match self.defaulted_header(id) {
                     Some(header) => header,
                     // The type as elaborated, with calls as written
                     // (`Float.isValid a`): unfolded, it can run to megabytes.
-                    None => pretty::term(&g.ev(), &[], g.def(id).ty()),
+                    None => pretty::term(g, &[], g.def(id).ty()),
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
@@ -1143,7 +1143,7 @@ impl Elaborator {
                 for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
                 }
-                Some(pretty::term(&g.ev(), &[], &ty))
+                Some(pretty::term(g, &[], &ty))
             }
             Global::Ctor(d, c) => {
                 let data = g.data(d);
@@ -1163,7 +1163,7 @@ impl Elaborator {
                 for (name, t) in data.params().iter().rev() {
                     ty = Term::Pi(name.clone(), Icit::Implicit, t.clone().into(), ty.into());
                 }
-                Some(pretty::term(&g.ev(), &[], &ty))
+                Some(pretty::term(g, &[], &ty))
             }
             _ => None,
         }

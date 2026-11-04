@@ -63,7 +63,7 @@ pub(crate) fn check_member(
 }
 
 fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
-    Ok(matches!(force(&cx.g().ev(), ty.clone())?,
+    Ok(matches!(force(&cx.g(), ty.clone())?,
         Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d)))
 }
 
@@ -73,7 +73,7 @@ fn container_kind(cx: &mut Ctx, container: &Expr) -> Result<Container> {
     let snapshot = crate::undo::Snapshot::take(cx);
     let found = infer(cx, container);
     let ty = match found {
-        Ok((_, ty)) => force(&cx.g().ev(), ty),
+        Ok((_, ty)) => force(&cx.g(), ty),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         // Its own error is reported when it's elaborated as part of the
         // proposition.

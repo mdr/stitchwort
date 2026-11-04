@@ -21,7 +21,7 @@ use stitchwort_core::native::{as_nat, nat_value};
 use stitchwort_core::reference;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{self, Apart, Elim, Head, Value};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Icit, Kernel, Term};
 use stitchwort_driver::driver::{Session, par_map, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
@@ -44,7 +44,7 @@ fn session_with(text: &str) -> Session {
 }
 
 /// The last definition called `name`.
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -54,11 +54,11 @@ fn def(g: &Globals, name: &str) -> DefId {
     )
 }
 
-fn nat(g: &Globals) -> DataId {
+fn nat(g: &stitchwort_core::Ev) -> DataId {
     g.env.builtins().nat.expect("the prelude's `Nat`")
 }
 
-fn nat_ty(g: &Globals) -> Term {
+fn nat_ty(g: &stitchwort_core::Ev) -> Term {
     Term::Data(nat(g), Vec::new())
 }
 
@@ -90,7 +90,7 @@ fn num_case(ix: usize, arms: Vec<(u64, Term)>, default: Term) -> Term {
 /// Declares a definition of type `ty` and defines it as `body` (which may
 /// refer to itself as `Term::Def` of the returned id, the next one): the
 /// kernel's error code, or "ok".
-fn define(g: &mut Globals, ty: Term, body: impl FnOnce(DefId) -> Term) -> &'static str {
+fn define(g: &mut Kernel, ty: Term, body: impl FnOnce(DefId) -> Term) -> &'static str {
     let id = match declare_def(g, &"t".into(), &"t".into(), &ty, false, false, span()) {
         Ok(id) => id,
         Err(d) => return d.code,
@@ -112,12 +112,12 @@ def Shape : Nat -> Type
 #[test]
 fn the_kernel_refines_each_arm_and_nothing_else() {
     let mut session = session_with(SHAPE);
-    let g = &mut session.elab.globals;
-    let shape = def(g, "Shape");
+    let g = &mut session.elab.kernel;
+    let shape = def(&g.ev(), "Shape");
     // (n : Nat) -> Shape n -> Nat
     let ty = pi(
-        nat_ty(g),
-        pi(Term::app(Term::Def(shape), Term::Var(0)), nat_ty(g)),
+        nat_ty(&g.ev()),
+        pi(Term::app(Term::Def(shape), Term::Var(0)), nat_ty(&g.ev())),
     );
     let body = |arms: Vec<(u64, Term)>, default: Term| lam(lam(num_case(1, arms, default)));
     // In the `404` arm, `s : Shape 404`, which is `Nat`.
@@ -145,7 +145,7 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
     );
     // (n : Nat) -> n = 404: `rfl` checks in the `404` arm, but not in the
     // default, nor in an arm for a different number.
-    let eq = |g: &Globals| {
+    let eq = |g: &stitchwort_core::Ev| {
         pi(
             nat_ty(g),
             Term::Eq(
@@ -155,7 +155,7 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
             ),
         )
     };
-    let ty = eq(g);
+    let ty = eq(&g.ev());
     assert_eq!(
         define(g, ty.clone(), |_| lam(num_case(
             0,
@@ -181,13 +181,13 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
 #[test]
 fn the_kernel_checks_the_default_apart_from_the_numbers() {
     let mut session = session_with(SHAPE);
-    let g = &mut session.elab.globals;
-    let shape = def(g, "Shape");
+    let g = &mut session.elab.kernel;
+    let shape = def(&g.ev(), "Shape");
     let bool_data = g.find_data("Bool").unwrap();
     let false_ = || Term::Ctor(bool_data, 0, Vec::new());
     // (n : Nat) -> Shape n -> Bool
     let ty = pi(
-        nat_ty(g),
+        nat_ty(&g.ev()),
         pi(
             Term::app(Term::Def(shape), Term::Var(0)),
             Term::Data(bool_data, Vec::new()),
@@ -232,8 +232,8 @@ fn the_kernel_checks_the_default_apart_from_the_numbers() {
 #[test]
 fn the_kernel_checks_the_shape_of_a_number_case() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let nat_to_nat = pi(nat_ty(g), nat_ty(g));
+    let g = &mut session.elab.kernel;
+    let nat_to_nat = pi(nat_ty(&g.ev()), nat_ty(&g.ev()));
     let bool_data = g.find_data("Bool").unwrap();
     let cases: Vec<(&str, Term, Term)> = vec![
         (
@@ -260,14 +260,14 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
             "inside an expression",
             nat_to_nat.clone(),
             lam(Term::ctor(
-                nat(g),
+                nat(&g.ev()),
                 1,
                 vec![num_case(0, vec![(3, num(1))], num(0))],
             )),
         ),
         (
             "a scrutinee that isn't a number",
-            pi(Term::Data(bool_data, Vec::new()), nat_ty(g)),
+            pi(Term::Data(bool_data, Vec::new()), nat_ty(&g.ev())),
             lam(num_case(0, vec![(1, num(1))], num(0))),
         ),
     ];
@@ -276,7 +276,7 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
     }
     // A number case on a `Nat` that isn't finished (not expressible through
     // the elaborator, which only registers a finished `Nat`).
-    let nat = nat(g);
+    let nat = nat(&g.ev());
     g.env
         .data_mut_for_tests(nat)
         .set_state_unchecked_for_tests(State::Pending);
@@ -293,8 +293,8 @@ fn the_kernel_checks_the_shape_of_a_number_case() {
 #[test]
 fn a_number_case_is_no_evidence_for_termination_but_keeps_what_came_before() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let ty = pi(nat_ty(g), nat_ty(g));
+    let g = &mut session.elab.kernel;
+    let ty = pi(nat_ty(&g.ev()), nat_ty(&g.ev()));
     let call = |id: DefId, arg: Term| Term::app(Term::Def(id), arg);
     // `loop n` hidden in an arm, and in the default.
     assert_eq!(
@@ -315,7 +315,7 @@ fn a_number_case_is_no_evidence_for_termination_but_keeps_what_came_before() {
     );
     // A predecessor matched before the number case is still smaller inside
     // every arm and the default.
-    let nat = nat(g);
+    let nat = nat(&g.ev());
     assert_eq!(
         define(g, ty, |id| lam(Term::Case(
             0,
@@ -361,8 +361,8 @@ def hitD : Nat -> Bool
   | _   => False
 ",
     );
-    let g = &session.elab.globals;
-    let hash = |name| def_hash(&g.ev(), def(g, name)).unwrap().unwrap();
+    let g = &session.elab.ev();
+    let hash = |name| def_hash(g, def(g, name)).unwrap().unwrap();
     assert_ne!(hash("hitA"), hash("hitB"));
     assert_ne!(hash("hitA"), hash("hitC"));
     // A control: the same body hashes the same.
@@ -372,29 +372,29 @@ def hitD : Nat -> Bool
 // Evaluation
 
 /// The normal form of `value`, as printed by the reference.
-fn normal(g: &Globals, level: usize, value: &Value) -> String {
+fn normal(g: &stitchwort_core::Ev, level: usize, value: &Value) -> String {
     format!(
         "{:?}",
-        reference::quote(&g.ev(), level, value).expect("no limits")
+        reference::quote(g, level, value).expect("no limits")
     )
 }
 
 /// `f arg` by both evaluators, which must agree: its normal form.
-fn call_both(g: &Globals, f: DefId, arg: &Value) -> String {
+fn call_both(g: &stitchwort_core::Ev, f: DefId, arg: &Value) -> String {
     let fast = value::apply(
-        &g.ev(),
+        g,
         Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
         arg.clone(),
     )
-    .and_then(|v| value::force(&g.ev(), v))
+    .and_then(|v| value::force(g, v))
     .expect("no limits");
     let slow = reference::apply_icit(
-        &g.ev(),
+        g,
         Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new()),
         arg.clone(),
         Icit::Explicit,
     )
-    .and_then(|v| reference::force(&g.ev(), v))
+    .and_then(|v| reference::force(g, v))
     .expect("no limits");
     let (fast, slow) = (normal(g, 1, &fast), normal(g, 1, &slow));
     assert_eq!(fast, slow, "the evaluators disagree");
@@ -409,7 +409,7 @@ fn plus(k: u64, base: Value) -> Value {
 fn evaluation_follows_the_table() {
     with_stack(STACK, || {
         let session = session_with("def hit : Nat -> Bool\n  | 404 => True\n  | _   => False\n");
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let hit = def(g, "hit");
         let bool_data = g.find_data("Bool").unwrap();
         let t = format!("{:?}", Term::Ctor(bool_data, 1, Vec::new()));
@@ -433,18 +433,18 @@ fn evaluation_follows_the_table() {
         let succ = Value::Ctor(nat(g), 1, vec![plus(404, x.clone())].into());
         assert_eq!(call_both(g, hit, &succ), f);
         // A metavariable in the tail: stuck, then decided once it's solved.
-        let m = g.new_meta(span());
+        let m = session.elab.metas().new_meta(span());
         let pending = plus(
             403,
             Value::Neutral(Head::Meta(m), stitchwort_core::value::Spine::new()),
         );
         stuck(&pending);
-        g.solve_meta(m, n(1));
+        session.elab.metas().solve_meta(m, n(1));
         assert_eq!(call_both(g, hit, &pending), t);
         // A solved metavariable applied to an argument, inside a prefix.
-        let m2 = g.new_meta(span());
-        let id = value::eval(&g.ev(), &[], &lam(Term::Var(0))).unwrap();
-        g.solve_meta(m2, id);
+        let m2 = session.elab.metas().new_meta(span());
+        let id = value::eval(g, &[], &lam(Term::Var(0))).unwrap();
+        session.elab.metas().solve_meta(m2, id);
         let applied = Value::Neutral(Head::Meta(m2), vec![Elim::App(n(4), Icit::Explicit)].into());
         assert_eq!(call_both(g, hit, &plus(400, applied)), t);
         // A variable known apart from some numbers
@@ -453,7 +453,7 @@ fn evaluation_follows_the_table() {
         let apart = |numbers: &[u64]| {
             let numbers: Vec<BigUint> = numbers.iter().map(|&k| BigUint::from(k)).collect();
             Value::Neutral(
-                Head::Var(0, Apart::new(&g.ev(), numbers.into())),
+                Head::Var(0, Apart::new(g, numbers.into())),
                 stitchwort_core::value::Spine::new(),
             )
         };
@@ -465,9 +465,9 @@ fn evaluation_follows_the_table() {
         assert_eq!(call_both(g, hit, &plus(4, apart(&[400]))), f);
         stuck(&plus(4, apart(&[404])));
         // Still the variable: equal to it whatever it's known apart from.
-        assert!(value::conv(&g.ev(), 1, &apart(&[404]), &x).unwrap());
-        assert!(value::conv(&g.ev(), 1, &apart(&[404]), &apart(&[7])).unwrap());
-        assert!(!value::conv(&g.ev(), 1, &apart(&[404]), &n(405)).unwrap());
+        assert!(value::conv(g, 1, &apart(&[404]), &x).unwrap());
+        assert!(value::conv(g, 1, &apart(&[404]), &apart(&[7])).unwrap());
+        assert!(!value::conv(g, 1, &apart(&[404]), &n(405)).unwrap());
     });
 }
 
@@ -477,7 +477,7 @@ fn evaluation_follows_the_table() {
 /// on `Zero` and `Succ` it stands for. Each copy of an arm or the default is
 /// shifted past the predecessors bound on the way; the kernel's refinement
 /// gives the matched variable its value on each path.
-fn expand(g: &Globals, term: &Term) -> Term {
+fn expand(g: &stitchwort_core::Ev, term: &Term) -> Term {
     match term {
         Term::Loc(_, t) => expand(g, t),
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, Rc::new(expand(g, b))),
@@ -505,17 +505,23 @@ fn expand(g: &Globals, term: &Term) -> Term {
 
 /// The `case` at depth `j`: the variable matched is `j` more than the
 /// predecessor matched last (or the original variable, at depth 0).
-fn chain(g: &Globals, ix: usize, arms: &[(BigUint, Term)], default: &Term, j: usize) -> Term {
+fn chain(
+    g: &stitchwort_core::Ev,
+    ix: usize,
+    arms: &[(BigUint, Term)],
+    default: &Term,
+    j: usize,
+) -> Term {
     let last = arms.last().expect("a number").0.clone();
     let here = BigUint::from(j);
     let zero = arms
         .iter()
         .find(|(k, _)| *k == here)
         .map_or(default, |(_, body)| body)
-        .shift(&g.ev(), j, 0)
+        .shift(g, j, 0)
         .unwrap();
     let succ = if here == last {
-        default.shift(&g.ev(), j + 1, 0).unwrap()
+        default.shift(g, j + 1, 0).unwrap()
     } else {
         chain(g, ix, arms, default, j + 1)
     };
@@ -541,9 +547,9 @@ fn has_num_case(term: &Term) -> bool {
 }
 
 /// Defines the expansion of `f` alongside it, which the kernel must accept.
-fn define_expansion(g: &mut Globals, f: DefId) -> DefId {
+fn define_expansion(g: &mut Kernel, f: DefId) -> DefId {
     let def = g.def(f);
-    let (ty, body) = (def.ty().clone(), expand(g, def.body().unwrap()));
+    let (ty, body) = (def.ty().clone(), expand(&g.ev(), def.body().unwrap()));
     let id = declare_def(
         g,
         &"expanded".into(),
@@ -573,7 +579,7 @@ enum Arg {
 }
 
 /// `f args`, by the machine: `None` if it's stuck (stays a folded call).
-fn run(g: &Globals, f: DefId, args: &[Arg]) -> Option<String> {
+fn run(g: &stitchwort_core::Ev, f: DefId, args: &[Arg]) -> Option<String> {
     let bool_data = g.find_data("Bool").unwrap();
     let mut value = Value::Neutral(Head::Def(f), stitchwort_core::value::Spine::new());
     for (i, arg) in args.iter().enumerate() {
@@ -583,13 +589,13 @@ fn run(g: &Globals, f: DefId, args: &[Arg]) -> Option<String> {
             Arg::Open(0) => Value::var(i),
             Arg::Open(k) => plus(*k, Value::var(i)),
         };
-        value = value::apply(&g.ev(), value, arg).unwrap();
+        value = value::apply(g, value, arg).unwrap();
     }
-    let value = value::force(&g.ev(), value).unwrap();
+    let value = value::force(g, value).unwrap();
     if matches!(value, Value::Neutral(Head::Def(_), _)) {
         return None;
     }
-    Some(match as_nat(&g.ev(), &value).unwrap() {
+    Some(match as_nat(g, &value).unwrap() {
         Some(n) => n.to_string(),
         None => normal(g, args.len(), &value),
     })
@@ -824,24 +830,29 @@ fn generated_matches_agree_with_the_rows_the_old_compilation_and_the_expansion()
         let mut old = Session::new();
         old.elab.options.numbers_as_succ = true;
         load(&mut old, &text);
-        let f = def(&new.elab.globals, &name);
-        let f_old = def(&old.elab.globals, &name);
-        let had_num_case = has_num_case(new.elab.globals.def(f).body().unwrap());
-        assert!(!has_num_case(old.elab.globals.def(f_old).body().unwrap()));
-        let g = &mut new.elab.globals;
+        let f = def(&new.elab.ev(), &name);
+        let f_old = def(&old.elab.ev(), &name);
+        let had_num_case = has_num_case(new.elab.kernel.def(f).body().unwrap());
+        assert!(!has_num_case(old.elab.kernel.def(f_old).body().unwrap()));
+        let g = &mut new.elab.kernel;
         let expanded = define_expansion(g, f);
         for args in product(&generated.cols, closed) {
             let expected = generated.expected(&args);
             let what = || format!("{text}on {args:?}");
-            assert_eq!(run(g, f, &args).as_deref(), Some(&*expected), "{}", what());
             assert_eq!(
-                run(g, expanded, &args).as_deref(),
+                run(&g.ev(), f, &args).as_deref(),
                 Some(&*expected),
                 "{}",
                 what()
             );
             assert_eq!(
-                run(&old.elab.globals, f_old, &args).as_deref(),
+                run(&g.ev(), expanded, &args).as_deref(),
+                Some(&*expected),
+                "{}",
+                what()
+            );
+            assert_eq!(
+                run(&old.elab.ev(), f_old, &args).as_deref(),
                 Some(&*expected),
                 "old: {}",
                 what()
@@ -849,8 +860,8 @@ fn generated_matches_agree_with_the_rows_the_old_compilation_and_the_expansion()
         }
         for args in product(&generated.cols, open) {
             assert_eq!(
-                run(g, f, &args),
-                run(g, expanded, &args),
+                run(&g.ev(), f, &args),
+                run(&g.ev(), expanded, &args),
                 "{text}on {args:?}"
             );
         }
@@ -875,7 +886,7 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
             let text = std::fs::read_to_string(root.join(name)).unwrap();
             let mut session = Session::eager();
             load(&mut session, &text);
-            let g = &mut session.elab.globals;
+            let g = &mut session.elab.kernel;
             for i in 0..g.env.defs().len() {
                 let id = DefId(i);
                 // A number case in another's default on the same variable,

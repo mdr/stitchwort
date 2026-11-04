@@ -7,7 +7,7 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_core::check;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
-use stitchwort_core::{DataId, Globals, Icit, Sort, Term};
+use stitchwort_core::{DataId, Icit, Kernel, Sort, Term};
 
 /// Defines `name : ty = body` in a fresh prelude and returns its hash.
 fn hash(
@@ -139,7 +139,7 @@ fn hashes_print_as_short_hex() {
 /// constructor names (registered as the built-in `Nat`). It mentions `Nat`
 /// only through the literal.
 fn literal_hash_with_nat_ctors(zero: &str, succ: &str) -> ContentHash {
-    let mut g = Globals::default();
+    let mut g = Kernel::default();
     let nat = data(&mut g, "Nat", vec![], Sort::Type(0));
     let nat_ty = Term::Data(nat, vec![]);
     check::define_ctors(

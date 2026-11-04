@@ -197,7 +197,7 @@ impl Session {
         budget: Budget,
         keep: &dyn Fn(&str) -> bool,
     ) -> Vec<TheoremSearch> {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let theorems: Vec<(DefId, String, bool)> = (0..g.env.defs().len())
             .map(DefId)
             .filter_map(|id| {
@@ -207,7 +207,7 @@ impl Session {
                 (def.theorem()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_generated_name(&g.ev(), def.name())
+                    && !stitchwort_elab::is_generated_name(g, def.name())
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
                 .then(|| (id, def.name().to_string(), state == State::Final))

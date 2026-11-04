@@ -679,7 +679,7 @@ mod tests {
 
     /// The hash of a closed term on its own.
     fn hash_term(term: &Term) -> ContentHash {
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         let ev = g.ev();
         let mut h = Hasher::new(&ev, Itself::Def(DefId(usize::MAX)));
         h.term(term).unwrap();

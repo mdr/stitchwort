@@ -4,7 +4,7 @@
 //! A helper (a lifted `match`, or a local definition) is elaborated where
 //! it's written, in the owner's context, and recorded as a [`Draft`].
 //! Where it's used, the owner's term has a frozen metavariable
-//! (`Globals::meta_frozen`) applied to the variables in scope: unification
+//! (`MetaStore::meta_frozen`) applied to the variables in scope: unification
 //! treats it as rigid, so nothing is learnt from it before the helper
 //! exists. Once the owner's body (or signature) is elaborated, the drafts
 //! are *resolved* together ([`Elaborator::lift`]):
@@ -35,7 +35,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{State, UpdateShown};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Head, eval, force, quote_folded};
-use stitchwort_core::{DefId, Globals, Icit, Name, Sort, Term, Value};
+use stitchwort_core::{DefId, Ev, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
@@ -184,10 +184,9 @@ pub(crate) fn draft_with(
     motive_later: bool,
     columns: Option<(Vec<usize>, Vec<Option<usize>>)>,
 ) -> Result<Term> {
-    let g = cx.g();
     let goal = cx.quote_folded(goal)?;
-    let meta = g.new_meta(span);
-    g.freeze_meta(meta);
+    let meta = cx.metas().new_meta(span);
+    cx.metas().freeze_meta(meta);
     let mut call = Term::Meta(meta);
     for level in spine(&cx.env[..base], &cx.lets) {
         call = Term::app(call, Term::Var(base - 1 - level));
@@ -324,18 +323,13 @@ impl Elaborator {
 /// Rebuilds `term` (in a context of `depth` variables) with each free
 /// variable, by level, replaced by `f(level)`: a term in the target context.
 /// A case split's variable must be replaced by a variable.
-fn replace(
-    g: &Globals,
-    term: &Term,
-    depth: usize,
-    f: &dyn Fn(usize) -> Result<Term>,
-) -> Result<Term> {
+fn replace(g: &Ev, term: &Term, depth: usize, f: &dyn Fn(usize) -> Result<Term>) -> Result<Term> {
     go_replace(g, term, depth, 0, f, &|_, _| None)
 }
 
 /// [`replace`], where `hook(t, binders)` may replace a whole sub-term `t` first.
 pub(crate) fn replace_with(
-    g: &Globals,
+    g: &Ev,
     term: &Term,
     depth: usize,
     f: &dyn Fn(usize) -> Result<Term>,
@@ -345,7 +339,7 @@ pub(crate) fn replace_with(
 }
 
 fn go_replace(
-    g: &Globals,
+    g: &Ev,
     term: &Term,
     depth: usize,
     under: usize,
@@ -361,7 +355,7 @@ fn go_replace(
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        Ok(f(depth - 1 - (ix - under))?.shift(&g.ev(), under, 0)?)
+        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
     };
     let split = |ix: usize| -> Result<usize> {
         match var(ix)? {
@@ -488,12 +482,12 @@ pub(crate) fn uses(
 /// may have replaced a variable it uses by a constructor whose fields are
 /// bound after it.
 fn erased_type(e: &Elaborator, draft: &Draft, ty: &Value) -> Result<bool> {
-    let g = &e.globals;
+    let g = &e.ev();
     let (mut at, mut result) = (draft.env.len(), ty.clone());
     loop {
-        match force(&g.ev(), result)? {
+        match force(g, result)? {
             Value::Pi(_, _, _, codomain) => {
-                result = codomain.apply(&g.ev(), Value::var(at))?;
+                result = codomain.apply(g, Value::var(at))?;
                 at += 1;
             }
             Value::Sort(_) | Value::Eq(..) => return Ok(true),
@@ -727,19 +721,20 @@ impl Elaborator {
                             .insert(&self.session.owners, id, Rc::new(shown));
                     }
                 }
-                let g = &self.globals;
+                let g = &self.ev();
                 let mut call = Term::Def(id);
                 for (arg, icit) in args {
                     call = Term::app_icit(call, arg, icit);
                 }
                 let s = spine(&d.env[..d.base], &d.lets).len();
-                g.lifted_calls
+                self.metas()
+                    .lifted_calls
                     .borrow_mut()
                     .insert(d.meta, (s, Rc::new(call.clone())));
                 for _ in 0..s {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
-                g.solve_meta(d.meta, eval(&g.ev(), &[], &call)?);
+                self.metas().solve_meta(d.meta, eval(g, &[], &call)?);
                 if let Some(item) = self.unit.module.item {
                     self.unit.module.def_items.insert(id, item);
                 }
@@ -748,7 +743,7 @@ impl Elaborator {
                         self.decl
                             .local_helpers
                             .push((local.key.clone(), id, local.whole));
-                        self.globals.print_labels.borrow_mut().push(
+                        self.attempt.store.print_labels.borrow_mut().push(
                             stitchwort_core::globals::PrintLabel {
                                 head: Term::Def(id),
                                 name: local.name.as_str().into(),
@@ -788,8 +783,7 @@ impl Elaborator {
             let pending = bodies.iter().any(|(_, body)| {
                 defs(body).any(|d| {
                     !ids.contains(&d)
-                        && (joined_ids.contains(&d)
-                            || self.globals.def(d).state() == State::Pending)
+                        && (joined_ids.contains(&d) || self.kernel.def(d).state() == State::Pending)
                 })
             });
             for &(i, id) in &members {
@@ -806,7 +800,7 @@ impl Elaborator {
                 joined_ids.extend(ids);
                 joined.extend(bodies);
             } else {
-                kernel::define_group(&mut self.globals, &self.tables, &bodies)
+                kernel::define_group(&mut self.kernel, &self.tables, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
                 for (_, id) in &members {
                     self.opaque_helper_admitted(*id);
@@ -868,7 +862,7 @@ impl Elaborator {
             ));
         };
         let value = self.unrefine_let(draft, level, &def.value, &|_| false)?;
-        replace(&self.globals, &value, draft.env.len(), &|l| {
+        replace(&self.ev(), &value, draft.env.len(), &|l| {
             self.in_helper(draft, captures, l)
         })
     }
@@ -882,7 +876,7 @@ impl Elaborator {
         // written, except what generalising a scrutinee changed: if the
         // kernel refuses it, that's why (§4.4).
         kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name.into(),
@@ -991,7 +985,7 @@ impl Elaborator {
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
         let n = draft.env.len();
-        let term = term.shift(&self.globals.ev(), n - level, 0)?;
+        let term = term.shift(&self.ev(), n - level, 0)?;
         self.unrefine_before(draft, &term, n, keep, true, level)
     }
 
@@ -1006,7 +1000,7 @@ impl Elaborator {
         lets: bool,
         before: usize,
     ) -> Result<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         // The obligations are solved by now (`lift`): an operator's
         // dictionary found since is projected, as `finish` does.
         self.specialise_fills()?;
@@ -1023,7 +1017,7 @@ impl Elaborator {
             if is_var(&draft.env[l], l) || (lets && draft.lets[l].is_some()) {
                 Ok(Term::Var(depth - 1 - l))
             } else {
-                Ok(quote_folded(&g.ev(), depth, &draft.env[l])?)
+                Ok(quote_folded(g, depth, &draft.env[l])?)
             }
         })
     }
@@ -1034,8 +1028,8 @@ impl Elaborator {
     /// They're the same for every term of the draft until a metavariable is
     /// solved, so they're computed once ([`Arounds`]).
     fn around(&self, draft: &Draft, depth: usize) -> Vec<crate::unify::Around> {
-        let g = &self.globals;
-        let trail = g.meta_trail.borrow().len();
+        let g = &self.ev();
+        let trail = self.metas().meta_trail.borrow().len();
         let upto = depth.min(draft.lets.len());
         let mut cache = self.decl.arounds.borrow_mut();
         let (made, done, around) = cache.entry(draft.meta).or_default();
@@ -1128,7 +1122,7 @@ impl Elaborator {
         passed: &BTreeSet<usize>,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
-        self.globals.machine.budget.nesting(crate::check::PASS)?;
+        self.kernel.machine.budget.nesting(crate::check::PASS)?;
         let go = |t: &Term, under, params| {
             self.recreate(draft, t, under, params, passed, keep)
                 .map(Rc::new)
@@ -1180,7 +1174,7 @@ impl Elaborator {
         passed: &BTreeSet<usize>,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let n = draft.env.len();
         let c = n + under;
         let lets_in = |t: &Term, depth: usize, out: &mut Vec<usize>| {
@@ -1247,7 +1241,7 @@ impl Elaborator {
         drafts: &[Draft],
         index: &HashMap<usize, usize>,
     ) -> Result<(Vec<Vec<usize>>, Unrefined)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let in_batch = |m: usize| index.contains_key(&m);
         // Bodies and types, and the types of the variables, as the fixed
         // point reads them (each variable's computed once, when needed).
@@ -1296,7 +1290,7 @@ impl Elaborator {
                         continue;
                     }
                     if types[i][l].is_none() {
-                        let ty = quote_folded(&g.ev(), n, &d.types[l])?;
+                        let ty = quote_folded(g, n, &d.types[l])?;
                         types[i][l] = Some(self.unrefine(d, &ty, n, &in_batch)?);
                     }
                     let mut deps = BTreeSet::new();
@@ -1377,12 +1371,12 @@ impl Elaborator {
     /// kept when running needs them, and only `let`s whose values are; a
     /// local definition's parameters are as written, so it takes none.
     fn passable_lets(&self, draft: &Draft) -> Result<BTreeSet<usize>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut out = BTreeSet::new();
         if draft.local.is_some() || draft.lets.iter().all(Option::is_none) {
             return Ok(out);
         }
-        let goal = eval(&g.ev(), &draft.env, &draft.goal)?;
+        let goal = eval(g, &draft.env, &draft.goal)?;
         if erased_type(self, draft, &goal)? {
             return Ok(out);
         }
@@ -1407,7 +1401,7 @@ impl Elaborator {
         if passed.is_empty() {
             return Ok(None);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let n = draft.env.len();
         let keep = |_| false;
         let body = self.unrefine_as(draft, &draft.body, n, &keep, true)?;
@@ -1437,9 +1431,9 @@ impl Elaborator {
     /// body, which computes the `let` again.
     pub(crate) fn set_run_bodies(&mut self) -> Result<()> {
         for (id, body) in std::mem::take(&mut self.decl.pending_run_bodies) {
-            match self.globals.def(id).state() {
+            match self.kernel.def(id).state() {
                 State::Final => {
-                    if let Err(e) = kernel::set_run_body(&mut self.globals, id, &body)
+                    if let Err(e) = kernel::set_run_body(&mut self.kernel, id, &body)
                         && crate::undo::fatal(&e)
                     {
                         return Err(e);
@@ -1493,7 +1487,7 @@ impl Elaborator {
         keep: &dyn Fn(usize) -> bool,
         body: bool,
     ) -> Result<Parts> {
-        let g = &self.globals;
+        let g = &self.ev();
         let n = draft.env.len();
         let body = if body {
             self.unrefine_body(draft, &draft.body, keep)?
@@ -1521,7 +1515,7 @@ impl Elaborator {
         let mut ty = into(&goal, n, k)?;
         let mut lam = into(&body, n, k)?;
         for (p, &l) in ordered.iter().enumerate().rev() {
-            let dom = quote_folded(&g.ev(), n, &draft.types[l])?;
+            let dom = quote_folded(g, n, &draft.types[l])?;
             let dom = into(&self.unrefine(draft, &dom, n, keep)?, n, p)?;
             let x = draft.names[l].clone();
             ty = Term::Pi(x.clone(), kind(l), Rc::new(dom), Rc::new(ty));
@@ -1577,7 +1571,7 @@ impl Elaborator {
             _ => &[],
         };
         for (_, id, _) in helpers {
-            let def = self.globals.def(*id);
+            let def = self.kernel.def(*id);
             let full = format!("`{}`", def.name());
             let Some((_, short)) = def.name().rsplit_once('.') else {
                 continue;
@@ -1596,7 +1590,7 @@ impl Elaborator {
             .tables
             .lifted
             .iter()
-            .map(|&(id, span)| (self.globals.def(id).name().to_string(), span))
+            .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span))
             .collect();
         lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
         let mut owners: Vec<String> = Vec::new();

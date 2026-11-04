@@ -21,49 +21,49 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, Globals, chars, float, nat_add};
+use stitchwort_core::{DataId, chars, float, nat_add};
 use stitchwort_driver::driver::{Session, with_session};
 use stitchwort_rt::natives;
 
 const STACK: usize = 64 * 1024 * 1024;
 
-fn data(g: &Globals, name: &str) -> DataId {
+fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
     g.find_data(name)
         .unwrap_or_else(|| panic!("the prelude defines `{name}`"))
 }
 
 /// Each binding by content hash: its name, the hash its declaration has now,
 /// and whether that is the pinned one.
-fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
+fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
     // R3 and R4 of `+`: off unless `Nat.add` is the pinned declaration.
-    let add = nat_add::add_hash(&g.ev());
+    let add = nat_add::add_hash(g);
     let on =
         add.as_deref() == Some(nat_add::NAT_ADD_HASH) && g.env.builtins().nat_add_rule.is_some();
     out.push(("Nat.add (R3, R4)".to_string(), add, on));
     // Compact text.
-    let text = chars::binding(&g.ev(), data(g, "List"), data(g, "Char"));
+    let text = chars::binding(g, data(g, "List"), data(g, "Char"));
     let on = text.bound && g.env.builtins().text.is_some();
     out.push(("List (compact text)".to_string(), text.list_hash, on));
     out.push(("Char (compact text)".to_string(), text.char_hash, on));
     // `Float` and its kernel natives; a mismatch refuses the library, so
     // this is a second line.
-    for (name, hash, pinned) in float::bindings(&g.ev()) {
+    for (name, hash, pinned) in float::bindings(g) {
         let on = hash.as_deref() == Some(pinned);
         out.push((format!("{name} (kernel)"), hash, on));
     }
     // The runtimes' representations and natives.
     let rt =
         |name: &str, hash: Option<String>, bound: bool| (format!("{name} (runtimes)"), hash, bound);
-    let int = natives::bind_int(&g.ev()).expect("hashes");
+    let int = natives::bind_int(g).expect("hashes");
     out.push(rt("Int", int.hash, int.bound));
     for b in int.natives {
         out.push(rt(b.name, b.hash, b.bound));
     }
-    for b in natives::bind_text_natives(&g.ev()).expect("hashes") {
+    for b in natives::bind_text_natives(g).expect("hashes") {
         out.push(rt(b.name, b.hash, b.bound));
     }
-    for b in natives::bind_float_natives(&g.ev()).expect("hashes") {
+    for b in natives::bind_float_natives(g).expect("hashes") {
         out.push(rt(b.name, b.hash, b.bound));
     }
     for (name, builtin, pinned, found) in [
@@ -71,25 +71,25 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
             "Nat",
             Builtin::Nat,
             natives::NAT_DATA_HASH,
-            natives::nat_data(&g.ev()),
+            natives::nat_data(g),
         ),
         (
             "Text",
             Builtin::Text,
             natives::TEXT_DATA_HASH,
-            natives::text_data(&g.ev()),
+            natives::text_data(g),
         ),
         (
             "SafeNat",
             Builtin::SafeNat,
             natives::SAFE_NAT_HASH,
-            natives::safe_nat_data(&g.ev()),
+            natives::safe_nat_data(g),
         ),
         (
             "SafeInt",
             Builtin::SafeInt,
             natives::SAFE_INT_HASH,
-            natives::safe_int_data(&g.ev()),
+            natives::safe_int_data(g),
         ),
     ] {
         let d = g
@@ -104,14 +104,14 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
                 .operation(stitchwort_core::Limits::stack_only(
                     stitchwort_core::Limits::default().stack,
                 ));
-            stitchwort_core::hash::data_hash(&g.ev(), d)
+            stitchwort_core::hash::data_hash(g, d)
                 .expect("hashes")
                 .map(|h| h.hex())
         };
         let bound = hash.as_deref() == Some(pinned) && found == Some(d);
         out.push(rt(name, hash, bound));
     }
-    match natives::float_data(&g.ev()) {
+    match natives::float_data(g) {
         Some(_) => {}
         None => out.push(rt("Float", None, false)),
     }
@@ -162,7 +162,7 @@ fn pinned_in(text: &str) -> Vec<String> {
 #[test]
 fn every_binding_by_hash_applies_to_the_library() {
     let found = with_session(STACK, Session::eager_from_source_for_stack, |session| {
-        bindings(&session.elab.globals)
+        bindings(&session.elab.ev())
     });
     let unbound: Vec<String> = found
         .iter()

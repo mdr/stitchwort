@@ -35,7 +35,7 @@ pub mod value;
 pub use budget::{Limits, ResourceError};
 pub use env::Env;
 pub use ev::{Ev, Metas, NoMetas, NoShown, Shown};
-pub use globals::Globals;
+pub use globals::Kernel;
 pub use num_bigint::BigUint;
 pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
 pub use value::Value;

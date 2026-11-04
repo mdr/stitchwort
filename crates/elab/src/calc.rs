@@ -179,7 +179,7 @@ fn ordering(cx: &Ctx, which: Builtin, a: Term, b: Term) -> Result<Term> {
 fn written(cx: &Ctx, term: &Term) -> String {
     let filled = cx.e.zonk_keeping(term, cx.level(), &|_| true);
     let term = filled.as_ref().unwrap_or(term);
-    stitchwort_core::pretty::term_for_message_in(&cx.g().ev(), cx.e, &cx.shown_names(false), term)
+    stitchwort_core::pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), term)
 }
 
 /// A step's proof, checked against its line's proposition. A proof that
@@ -253,7 +253,7 @@ fn step_error(cx: &mut Ctx, proof: &Expr, line: &str, e: Diagnostic) -> Diagnost
 
 /// A step with no proof: `rfl` against the step's proposition.
 fn by_computation(cx: &mut Ctx, step: &CalcStep, prop: &Value, line: &str) -> Result<Term> {
-    let computed = force(&cx.g().ev(), prop.clone())?;
+    let computed = force(&cx.g(), prop.clone())?;
     if let Value::Eq(_, a, b) = &computed
         && cx.unify(a, b)?
     {
@@ -282,13 +282,13 @@ fn order_sides(cx: &Ctx, value: &Value) -> Option<(Value, Value)> {
         return None;
     };
     let (bool_data, true_ix) = builtin_ctor(cx, Builtin::True).ok()?;
-    let Value::Ctor(d, c, _) = force(&cx.g().ev(), (**r).clone()).ok()? else {
+    let Value::Ctor(d, c, _) = force(&cx.g(), (**r).clone()).ok()? else {
         return None;
     };
     if (d, c) != (bool_data, true_ix) {
         return None;
     }
-    let Value::Neutral(Head::Def(id), elims) = force(&cx.g().ev(), (**l).clone()).ok()? else {
+    let Value::Neutral(Head::Def(id), elims) = force(&cx.g(), (**l).clone()).ok()? else {
         return None;
     };
     if builtin_def(cx, Builtin::Leq).ok() != Some(id) {
@@ -303,9 +303,9 @@ fn order_sides(cx: &Ctx, value: &Value) -> Option<(Value, Value)> {
 /// A proposition read as `a = b`, `a <= b` or `a < b` (`Succ a <= b` is read
 /// as `a < b`).
 fn reading(cx: &Ctx, prop: &Value) -> Option<(Rel, Value, Value)> {
-    let prop = force(&cx.g().ev(), prop.clone()).ok()?;
+    let prop = force(&cx.g(), prop.clone()).ok()?;
     if let Some((x, y)) = order_sides(cx, &prop) {
-        let (k, base) = stitchwort_core::native::view(&cx.g().ev(), &x).ok()?;
+        let (k, base) = stitchwort_core::native::view(&cx.g(), &x).ok()?;
         if k == num_bigint::BigUint::default() {
             return Some((Rel::Le, x, y));
         }
@@ -391,7 +391,7 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
         (Rel::Eq, r) => {
             let sym = with_ends(cx, Builtin::EqSym, ty_term, &[&a, &b])?;
             let sym = Term::app(sym, acc.proof.clone());
-            let c = c.shift(&cx.g().ev(), 2, 0)?;
+            let c = c.shift(&cx.g(), 2, 0)?;
             let motive = motive(ordering_of(cx, r, Term::Var(1), c)?);
             (
                 r,
@@ -399,7 +399,7 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
             )
         }
         (r, Rel::Eq) => {
-            let a = a.shift(&cx.g().ev(), 2, 0)?;
+            let a = a.shift(&cx.g(), 2, 0)?;
             let motive = motive(ordering_of(cx, r, a, Term::Var(1))?);
             (
                 r,
@@ -470,7 +470,7 @@ fn with_ends(cx: &Ctx, which: Builtin, ty: &Rc<Term>, ends: &[&Term]) -> Result<
 /// found from their types.
 pub(crate) fn lemma(cx: &mut Ctx, which: Builtin, args: &[Piped]) -> Result<Term> {
     let id = builtin_def(cx, which)?;
-    let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
+    let head = (Term::Def(id), crate::kernel::def_ty(&cx.g(), id)?);
     let args: Vec<Arg> = args.iter().map(Arg::Piped).collect();
     Ok(apply_args(cx, head, &args)?.0)
 }

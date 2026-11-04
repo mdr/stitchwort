@@ -19,7 +19,7 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::value::{conv, eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, QuotForm, Sort, Term, Value};
+use stitchwort_core::{DataId, DefId, Kernel, QuotForm, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 use QuotForm::{Ind, Lift, Mk, Sound, Type as QuotType};
@@ -81,7 +81,7 @@ impl Fix {
         }
     }
 
-    fn g(&mut self) -> &mut Globals {
+    fn g(&mut self) -> &mut Kernel {
         &mut self.p.g
     }
 
@@ -154,7 +154,7 @@ impl Fix {
 
 /// Declares and defines `name : ty = body`, returning the kernel's
 /// diagnostic if it refuses either.
-fn try_define(g: &mut Globals, name: &str, ty: Term, body: Term) -> Result<DefId, Diagnostic> {
+fn try_define(g: &mut Kernel, name: &str, ty: Term, body: Term) -> Result<DefId, Diagnostic> {
     let id = check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span())?;
     check::define_def(g, id, &body)?;
     Ok(id)
@@ -177,7 +177,7 @@ fn refused<T: std::fmt::Debug>(result: Result<T, Diagnostic>, code: &str, reason
     }
 }
 
-fn infer(g: &Globals, term: &Term) -> Result<(Term, Value), Diagnostic> {
+fn infer(g: &Kernel, term: &Term) -> Result<(Term, Value), Diagnostic> {
     infer_closed(&g.ev(), term, span())
 }
 

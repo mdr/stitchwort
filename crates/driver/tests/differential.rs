@@ -12,7 +12,7 @@ use std::path::Path;
 use stitchwort_core::reference;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{self, Elim, Head, Spine, Value, machine_runs};
-use stitchwort_core::{DefId, Globals, Icit};
+use stitchwort_core::{DefId, Icit};
 use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
@@ -25,15 +25,15 @@ use stitchwort_syntax::{SourceMap, Span};
 const STACK: usize = if cfg!(debug_assertions) { 512 } else { 128 } * 1024 * 1024;
 
 /// The normal form of `value`, as printed by the reference.
-fn normal(g: &Globals, level: usize, value: &Value) -> String {
+fn normal(g: &stitchwort_core::Ev, level: usize, value: &Value) -> String {
     format!(
         "{:?}",
-        reference::quote(&g.ev(), level, value).expect("no limits")
+        reference::quote(g, level, value).expect("no limits")
     )
 }
 
 /// The icits of a definition's parameters, from its body's lambdas.
-fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
+fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
     let def = g.def(id);
     let mut icits = Vec::new();
     let Some(mut term) = def.body().map(|b| &**b) else {
@@ -123,7 +123,7 @@ fn listed(list: &[&str], what: &str, name: &str) -> bool {
 /// Compares the two evaluators on everything `g` defines: each definition
 /// applied to fresh variables (open terms, stuck case trees, partial
 /// application), and each definition's type.
-fn compare_definitions(g: &Globals, what: &str) -> usize {
+fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
     let mut compared = 0;
     for i in 0..g.env.defs().len() {
         let id = DefId(i);
@@ -138,13 +138,11 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         let too_big = listed(NORMAL_FORM_TOO_BIG, what, def.name());
         let prefixes = if too_big { 0..0 } else { 0..icits.len() + 1 };
         for n in prefixes {
-            let mut fast = value::eval(&g.ev(), &[], &Term::Def(id)).expect("no limits");
-            let mut slow = reference::eval(&g.ev(), &[], &Term::Def(id)).expect("no limits");
+            let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
+            let mut slow = reference::eval(g, &[], &Term::Def(id)).expect("no limits");
             for (level, icit) in icits.iter().take(n).enumerate() {
-                fast =
-                    value::apply_icit(&g.ev(), fast, Value::var(level), *icit).expect("no limits");
-                slow = reference::apply_icit(&g.ev(), slow, Value::var(level), *icit)
-                    .expect("no limits");
+                fast = value::apply_icit(g, fast, Value::var(level), *icit).expect("no limits");
+                slow = reference::apply_icit(g, slow, Value::var(level), *icit).expect("no limits");
             }
             assert_eq!(
                 normal(g, n, &fast),
@@ -157,24 +155,21 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
             assert_eq!(
                 format!(
                     "{:?}",
-                    reference::expand_term(
-                        &g.ev(),
-                        &value::quote(&g.ev(), n, &fast).expect("no limits")
-                    )
+                    reference::expand_term(g, &value::quote(g, n, &fast).expect("no limits"))
                 ),
                 normal(g, n, &fast),
                 "{what}: quoting `{}` applied to {n} variable(s)",
                 def.name()
             );
             assert!(
-                value::conv(&g.ev(), n, &fast, &slow).expect("no limits"),
+                value::conv(g, n, &fast, &slow).expect("no limits"),
                 "{what}: `{}` applied to {n} variable(s) isn't convertible with itself",
                 def.name()
             );
             compared += 1;
         }
-        let ty = reference::eval(&g.ev(), &[], def.ty()).expect("no limits");
-        assert!(value::conv(&g.ev(), 0, def.ty_value(), &ty).expect("no limits"));
+        let ty = reference::eval(g, &[], def.ty()).expect("no limits");
+        assert!(value::conv(g, 0, def.ty_value(), &ty).expect("no limits"));
         if listed(TYPE_NORMAL_FORM_TOO_BIG, what, def.name()) {
             continue;
         }
@@ -193,19 +188,19 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
 /// definition's value (unapplied, so partially applied definitions and eta
 /// are covered) with every other definition's whose type is convertible
 /// with its own, and each definition's type with the next few types.
-fn compare_conversion(g: &Globals, what: &str) -> usize {
+fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.env.defs().len())
         .filter(|&i| g.env.defs()[i].body().is_some())
         .filter(|&i| !listed(CONVERSION_TOO_SLOW, what, g.env.defs()[i].name()))
         .map(|i| {
             let def = &g.env.defs()[i];
-            let value = value::eval(&g.ev(), &[], &Term::Def(DefId(i))).expect("no limits");
+            let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
             (def.name().to_string(), value, def.ty_value().clone())
         })
         .collect();
     let agree = |x: &Value, y: &Value, what: &str| {
-        let fast = value::conv(&g.ev(), 0, x, y).expect("no limits");
-        let slow = reference::conv(&g.ev(), 0, x, y).expect("no limits");
+        let fast = value::conv(g, 0, x, y).expect("no limits");
+        let slow = reference::conv(g, 0, x, y).expect("no limits");
         assert_eq!(fast, slow, "{what}");
         fast
     };
@@ -257,9 +252,9 @@ fn examples() -> Vec<(String, String)> {
 fn the_evaluators_agree_on_the_prelude_and_every_example() {
     with_stack(STACK, || {
         let session = Session::for_stack(STACK);
-        let prelude = compare_definitions(&session.elab.globals, "prelude");
+        let prelude = compare_definitions(&session.elab.ev(), "prelude");
         assert!(prelude > 200, "only {prelude} comparisons in the prelude");
-        let conversions = compare_conversion(&session.elab.globals, "prelude");
+        let conversions = compare_conversion(&session.elab.ev(), "prelude");
         assert!(
             conversions > 100,
             "only {conversions} conversions in the prelude"
@@ -269,7 +264,7 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
         par_map(STACK, &tier_sample(examples(), 4), |(name, text)| {
             let mut session = Session::for_stack(STACK);
             session.load(name, text).expect("examples check");
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             compare_definitions(g, name);
             compare_conversion(g, name);
             for test in session.elab.tests() {
@@ -277,8 +272,8 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
                     continue;
                 }
                 let term = Term::Def(test.def);
-                let fast = value::eval(&g.ev(), &[], &term).expect("no limits");
-                let slow = reference::eval(&g.ev(), &[], &term).expect("no limits");
+                let fast = value::eval(g, &[], &term).expect("no limits");
+                let slow = reference::eval(g, &[], &term).expect("no limits");
                 assert_eq!(
                     normal(g, 0, &fast),
                     normal(g, 0, &slow),
@@ -294,7 +289,7 @@ fn span() -> Span {
     Span::point(SourceMap::new().add("test", ""), 0)
 }
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -305,18 +300,14 @@ fn def(g: &Globals, name: &str) -> DefId {
 }
 
 /// Both evaluators on `value` forced, and on `f` applied to it.
-fn agree_after_forcing(g: &Globals, f: DefId, value: &Value) -> String {
-    let fast = value::force(&g.ev(), value.clone()).expect("no limits");
-    let slow = reference::force(&g.ev(), value.clone()).expect("no limits");
+fn agree_after_forcing(g: &stitchwort_core::Ev, f: DefId, value: &Value) -> String {
+    let fast = value::force(g, value.clone()).expect("no limits");
+    let slow = reference::force(g, value.clone()).expect("no limits");
     assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
-    let fast = value::apply(
-        &g.ev(),
-        Value::Neutral(Head::Def(f), Spine::new()),
-        value.clone(),
-    )
-    .expect("no limits");
+    let fast = value::apply(g, Value::Neutral(Head::Def(f), Spine::new()), value.clone())
+        .expect("no limits");
     let slow = reference::apply_icit(
-        &g.ev(),
+        g,
         Value::Neutral(Head::Def(f), Spine::new()),
         value.clone(),
         Icit::Explicit,
@@ -332,10 +323,10 @@ fn agree_after_forcing(g: &Globals, f: DefId, value: &Value) -> String {
 #[test]
 fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let pred = def(g, "Nat.pred");
     // `?m 3`, with `?m` unsolved: `pred (?m 3)` is stuck.
-    let m = g.new_meta(span());
+    let m = session.elab.metas().new_meta(span());
     let stuck = Value::Neutral(
         Head::Meta(m),
         vec![Elim::App(
@@ -357,7 +348,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
     // `?m := x => Succ (Succ x)`: now `pred (?m 3)` is 4.
     let nat = g.env.builtins().nat.unwrap();
     let solution = value::eval(
-        &g.ev(),
+        g,
         &[],
         &Term::Lam(
             "x".into(),
@@ -370,7 +361,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
         ),
     )
     .unwrap();
-    g.solve_meta(m, solution);
+    session.elab.metas().solve_meta(m, solution);
     assert_eq!(agree_after_forcing(g, pred, &stuck), "Nat(4)");
 }
 
@@ -380,7 +371,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
 #[test]
 fn j_with_reflexive_and_stuck_proofs() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let nat = g.env.builtins().nat.unwrap();
     let zero = Term::ctor(nat, 0, vec![]);
     let motive = Term::Lam(
@@ -395,20 +386,20 @@ fn j_with_reflexive_and_stuck_proofs() {
     let j = |proof: Term| Term::J(motive.clone().into(), zero.clone().into(), proof.into());
     // Stuck on a variable.
     let env = [Value::var(0)];
-    let fast = value::eval(&g.ev(), &env, &j(Term::Var(0))).unwrap();
-    let slow = reference::eval(&g.ev(), &env, &j(Term::Var(0))).unwrap();
+    let fast = value::eval(g, &env, &j(Term::Var(0))).unwrap();
+    let slow = reference::eval(g, &env, &j(Term::Var(0))).unwrap();
     assert_eq!(normal(g, 1, &fast), normal(g, 1, &slow));
     assert!(
         matches!(fast, Value::Neutral(Head::Var(0, _), ref s) if matches!(s[..], [Elim::J { .. }]))
     );
     // Stuck on an unsolved metavariable, then solved with `rfl`.
-    let m = g.new_meta(span());
-    let fast = value::eval(&g.ev(), &[], &j(Term::Meta(m))).unwrap();
-    let slow = reference::eval(&g.ev(), &[], &j(Term::Meta(m))).unwrap();
+    let m = session.elab.metas().new_meta(span());
+    let fast = value::eval(g, &[], &j(Term::Meta(m))).unwrap();
+    let slow = reference::eval(g, &[], &j(Term::Meta(m))).unwrap();
     assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
-    g.solve_meta(m, Value::Refl);
-    let forced = value::force(&g.ev(), fast.clone()).unwrap();
-    let forced_ref = reference::force(&g.ev(), slow).unwrap();
+    session.elab.metas().solve_meta(m, Value::Refl);
+    let forced = value::force(g, fast.clone()).unwrap();
+    let forced_ref = reference::force(g, slow).unwrap();
     assert_eq!(normal(g, 0, &forced), normal(g, 0, &forced_ref));
     assert_eq!(normal(g, 0, &forced), "Nat(0)");
 }
@@ -429,16 +420,16 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
                  def total (n : Nat) : Nat := List.length (replicate n 1) + List.length (replicate n 2)\n",
             )
             .unwrap();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let term = Term::app(
             Term::Def(def(g, "total")),
             Term::Nat(std::rc::Rc::new(1000u32.into())),
         );
         let before = machine_runs();
-        let fast = value::eval(&g.ev(), &[], &term).unwrap();
+        let fast = value::eval(g, &[], &term).unwrap();
         assert_eq!(machine_runs() - before, 1);
         let before = machine_runs();
-        let slow = reference::eval(&g.ev(), &[], &term).unwrap();
+        let slow = reference::eval(g, &[], &term).unwrap();
         assert_eq!(machine_runs(), before, "the reference started the machine");
         assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
     });
@@ -482,13 +473,13 @@ fn the_evaluators_agree_on_quotients() {
                  def propLift (q: Q): Prop := Quot.lift (b => Unit) (x y r => rfl) q\n",
             )
             .unwrap();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         assert!(compare_definitions(g, "quotients.sw") > 20);
         assert!(compare_conversion(g, "quotients.sw") > 20);
         let closed = |name: &str| {
             let term = Term::Def(def(g, name));
-            let fast = value::eval(&g.ev(), &[], &term).expect("no limits");
-            let slow = reference::eval(&g.ev(), &[], &term).expect("no limits");
+            let fast = value::eval(g, &[], &term).expect("no limits");
+            let slow = reference::eval(g, &[], &term).expect("no limits");
             assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow), "{name}");
             normal(g, 0, &fast)
         };
@@ -504,14 +495,14 @@ fn the_evaluators_agree_on_quotients() {
         let observe = def(g, "observe");
         let applied = |f: DefId| {
             let fast = value::apply(
-                &g.ev(),
-                value::eval(&g.ev(), &[], &Term::Def(f)).unwrap(),
+                g,
+                value::eval(g, &[], &Term::Def(f)).unwrap(),
                 Value::var(0),
             )
             .unwrap();
             let slow = reference::apply_icit(
-                &g.ev(),
-                reference::eval(&g.ev(), &[], &Term::Def(f)).unwrap(),
+                g,
+                reference::eval(g, &[], &Term::Def(f)).unwrap(),
                 Value::var(0),
                 Icit::Explicit,
             )
@@ -534,7 +525,7 @@ fn the_evaluators_agree_on_quotients() {
 fn the_evaluators_agree_on_let() {
     with_stack(STACK, || {
         let session = Session::eager_for_stack(STACK);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let nat = g.env.builtins().nat.unwrap();
         let nat_ty = || Term::data(nat, vec![]);
         let num = |n: u32| Term::Nat(std::rc::Rc::new(n.into()));
@@ -622,11 +613,11 @@ fn the_evaluators_agree_on_let() {
         ];
         for (what, level, term) in cases {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let fast = value::eval(&g.ev(), &env, &term).expect("no limits");
-            let slow = reference::eval(&g.ev(), &env, &term).expect("no limits");
+            let fast = value::eval(g, &env, &term).expect("no limits");
+            let slow = reference::eval(g, &env, &term).expect("no limits");
             assert_eq!(normal(g, level, &fast), normal(g, level, &slow), "{what}");
             assert!(
-                value::conv(&g.ev(), level, &fast, &slow).expect("no limits"),
+                value::conv(g, level, &fast, &slow).expect("no limits"),
                 "{what}"
             );
         }
@@ -637,7 +628,7 @@ fn the_evaluators_agree_on_let() {
         }
         let chain = let_("x", num(0), chain);
         let before = machine_runs();
-        let fast = value::eval(&g.ev(), &[], &chain).expect("no limits");
+        let fast = value::eval(g, &[], &chain).expect("no limits");
         assert_eq!(machine_runs() - before, 1);
         assert_eq!(normal(g, 0, &fast), "Nat(10000)");
     });

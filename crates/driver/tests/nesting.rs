@@ -260,7 +260,7 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
             "def f (n : Nat) : Nat := n\n\nexport def g (n : Nat) : Nat := n\n",
         )
         .expect("checks");
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     let f = DefId(
         g.env
             .defs()
@@ -286,12 +286,12 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
 fn deep_terms_in_later_passes() {
     isolated("deep_terms_in_later_passes", || {
         let (session, id) = with_deep_definition(1_000_000);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let body = g.def(id).body().unwrap();
         {
             let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
-            let mut cx = kernel::Ctx::new(&g.ev(), def.span());
+            let mut cx = kernel::Ctx::new(g, def.span());
             let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
@@ -299,26 +299,26 @@ fn deep_terms_in_later_passes() {
         {
             let _op = g.machine.budget.operation(Limits::default());
             assert_eq!(
-                pretty::term_in_full(&g.ev(), &[], body),
+                pretty::term_in_full(g, &[], body),
                 Err(ResourceError::Nesting("printer"))
             );
         }
         {
             // For an error message, the part it can't reach is `…`.
             let _op = g.machine.budget.operation(Limits::default());
-            assert!(pretty::term(&g.ev(), &[], body).contains('…'));
+            assert!(pretty::term(g, &[], body).contains('…'));
         }
         {
             let _op = g.machine.budget.operation(Limits::default());
             let span = g.def(id).span();
-            let e = stitchwort_core::termination::check(&g.ev(), body, id, "g", span).unwrap_err();
+            let e = stitchwort_core::termination::check(g, body, id, "g", span).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("termination"), "{}", e.message);
         }
         {
             // Hashing walks a term with a work list, so any depth hashes.
             let _op = g.machine.budget.operation(Limits::default());
-            assert!(def_hash(&g.ev(), id).unwrap().is_some());
+            assert!(def_hash(g, id).unwrap().is_some());
         }
         let e = session.extract().err().expect("too deep to generate");
         assert_eq!(e.code, "E-RESOURCE");
@@ -333,17 +333,17 @@ fn deep_terms_in_later_passes() {
 fn long_chains_of_definitions_to_hash() {
     isolated("long_chains_of_definitions_to_hash", || {
         let (mut session, _) = with_deep_definition(1);
-        let g = &mut session.elab.globals;
+        let g = &mut session.elab.kernel;
         let first = g.env.defs().len() - 1;
         for i in 0..1_000_000 {
             let body = Some(Rc::new(Term::Def(DefId(g.env.defs().len() - 1))));
             g.env
                 .push_copy_unchecked_for_tests(DefId(first), format!("chain{i}").into(), body);
         }
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let _op = g.machine.budget.operation(Limits::default());
         assert_eq!(
-            def_hash(&g.ev(), DefId(g.env.defs().len() - 1)),
+            def_hash(g, DefId(g.env.defs().len() - 1)),
             Err(ResourceError::Nesting("hasher"))
         );
     });

@@ -332,8 +332,8 @@ fn main_value(session: &mut Session) -> stitchwort_core::Value {
         .parse_expression("<main>", "((u => main ()) : () -> {IO, Partial} ()) ()")
         .unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();
-    let g = &session.elab.globals;
-    force(&g.ev(), eval(&g.ev(), &[], &term).unwrap()).unwrap()
+    let g = &session.elab.ev();
+    force(g, eval(g, &[], &term).unwrap()).unwrap()
 }
 
 /// `step` describes host requests and never performs them
@@ -343,16 +343,16 @@ fn main_value(session: &mut Session) -> stitchwort_core::Value {
 fn a_step_returns_operations_without_performing_them() {
     let mut session = load(&io_program("echo 0"));
     let main = main_value(&mut session);
-    let g = &session.elab.globals;
-    let machine = Machine::start(&g.ev(), main);
-    let Obs::Call(op, pending) = machine.step(&g.ev()).unwrap() else {
+    let g = &session.elab.ev();
+    let machine = Machine::start(g, main);
+    let Obs::Call(op, pending) = machine.step(g).unwrap() else {
         panic!("the first thing `echo` does is read a line");
     };
     // `L (IO.%readLine ())`: an operation of `{IO}`, unperformed.
-    let stitchwort_core::Value::Ctor(_, 0, io) = force(&g.ev(), op).unwrap() else {
+    let stitchwort_core::Value::Ctor(_, 0, io) = force(g, op).unwrap() else {
         panic!("an operation of `{{IO}}`");
     };
-    let stitchwort_core::Value::Ctor(d, c, _) = force(&g.ev(), io[0].clone()).unwrap() else {
+    let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
     assert_eq!(&*g.data(d).ctors()[c].name, "%readLine");
@@ -360,13 +360,13 @@ fn a_step_returns_operations_without_performing_them() {
     // is again returned rather than performed.
     let nothing =
         stitchwort_core::Value::Ctor(g.find_data("Option").unwrap(), 0, Vec::new().into());
-    let Obs::Call(op, _) = pending.reply(&g.ev(), nothing).unwrap() else {
+    let Obs::Call(op, _) = pending.reply(g, nothing).unwrap() else {
         panic!("then `main` prints");
     };
-    let stitchwort_core::Value::Ctor(_, 0, io) = force(&g.ev(), op).unwrap() else {
+    let stitchwort_core::Value::Ctor(_, 0, io) = force(g, op).unwrap() else {
         panic!("an operation of `{{IO}}`");
     };
-    let stitchwort_core::Value::Ctor(d, c, _) = force(&g.ev(), io[0].clone()).unwrap() else {
+    let stitchwort_core::Value::Ctor(d, c, _) = force(g, io[0].clone()).unwrap() else {
         panic!("an `IO` operation");
     };
     assert_eq!(&*g.data(d).ctors()[c].name, "%print");
@@ -379,11 +379,11 @@ fn a_step_returns_operations_without_performing_them() {
 fn building_a_partial_computation_runs_nothing() {
     let mut session = load(&printing("spin 0", false));
     let main = main_value(&mut session);
-    let g = &session.elab.globals;
-    let mut machine = Machine::start(&g.ev(), main);
+    let g = &session.elab.ev();
+    let mut machine = Machine::start(g, main);
     let mut frames = None;
     for _ in 0..1000 {
-        match machine.step(&g.ev()).unwrap() {
+        match machine.step(g).unwrap() {
             Obs::Later(rest) => machine = rest,
             _ => panic!("`spin` only ticks"),
         }
@@ -652,7 +652,7 @@ fn a_loop_under_a_handler_runs_in_constant_frames() {
             lines.join(", ")
         )));
         let main = main_value(&mut session);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let unit = stitchwort_core::Value::Ctor(
             g.env
                 .registry()
@@ -661,11 +661,11 @@ fn a_loop_under_a_handler_runs_in_constant_frames() {
             0,
             Vec::new().into(),
         );
-        let mut machine = Machine::start(&g.ev(), main);
+        let mut machine = Machine::start(g, main);
         let mut frames = std::collections::BTreeSet::new();
         let mut ticks = 0;
         loop {
-            let mut obs = machine.step(&g.ev()).unwrap();
+            let mut obs = machine.step(g).unwrap();
             loop {
                 match obs {
                     Obs::Now(_) => return (frames, ticks),
@@ -676,7 +676,7 @@ fn a_loop_under_a_handler_runs_in_constant_frames() {
                         break;
                     }
                     // `print`, the only operation that reaches the runner.
-                    Obs::Call(_, pending) => obs = pending.reply(&g.ev(), unit.clone()).unwrap(),
+                    Obs::Call(_, pending) => obs = pending.reply(g, unit.clone()).unwrap(),
                 }
             }
         }

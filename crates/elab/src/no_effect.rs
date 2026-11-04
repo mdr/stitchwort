@@ -58,7 +58,7 @@ pub(crate) fn check_value(cx: &Ctx, expr: &Expr, term: &Term, ty: &Value) -> Res
     if !applies(expr) {
         return Ok(());
     }
-    let forced = force(&cx.g().ev(), ty.clone())?;
+    let forced = force(&cx.g(), ty.clone())?;
     if matches!(forced, Value::Neutral(Head::Meta(_), _)) {
         if crate::queue::waiting_literal(cx.e, term) {
             return warn(cx, expr, &forced);
@@ -83,10 +83,10 @@ pub(crate) fn pure_as_plain_calls(cx: &mut Ctx, expr: &Expr) -> Result<Option<Va
     }
     let snapshot = crate::undo::Snapshot::take(cx);
     let first_new = cx.e.attempt.row_constraints.borrow().len();
-    let first_meta = cx.g().metas.borrow().len();
+    let first_meta = cx.metas().metas.borrow().len();
     let found = crate::check::infer_value(cx, expr).and_then(|(_, ty)| {
         while cx.e.retry_rows_from(first_new)? {}
-        let ty = force(&cx.g().ev(), ty)?;
+        let ty = force(&cx.g(), ty)?;
         let ty = match crate::effects::comp_parts(cx, &ty)? {
             None => ty,
             // A row nothing has settled: the callbacks performed nothing, so
@@ -97,11 +97,11 @@ pub(crate) fn pure_as_plain_calls(cx: &mut Ctx, expr: &Expr) -> Result<Option<Va
                 if row.labels.is_empty()
                     && !row.partial
                     && row.tail.iter().chain(row.div.iter()).all(|v| {
-                        matches!(force(&cx.g().ev(), v.clone()),
+                        matches!(force(&cx.g(), v.clone()),
                             Ok(Value::Neutral(Head::Meta(m), _)) if m >= first_meta)
                     }) =>
             {
-                force(&cx.g().ev(), value)?
+                force(&cx.g(), value)?
             }
             Some(_) => return Ok(None),
         };
@@ -174,7 +174,7 @@ pub(crate) fn warn(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
         Value::Pi(_, Icit::Explicit, dom, _) => {
             let unit = builtin_data(cx, Builtin::UnitType).ok();
             let takes_unit = matches!(
-                force(&cx.g().ev(), (**dom).clone())?,
+                force(&cx.g(), (**dom).clone())?,
                 Value::Data(d, ref params) if Some(d) == unit && params.is_empty()
             );
             match (named(expr), takes_unit) {
@@ -216,7 +216,7 @@ pub(crate) fn missing_arguments(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<boo
         return Ok(false);
     }
     Ok(matches!(
-        force(&cx.g().ev(), ty.clone())?,
+        force(&cx.g(), ty.clone())?,
         Value::Pi(_, Icit::Explicit, ..)
     ))
 }

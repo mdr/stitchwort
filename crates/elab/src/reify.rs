@@ -82,8 +82,8 @@ fn return_display(
         _ => None,
     })?;
     let base = cx.level();
-    let computation = quote(&cx.g().ev(), base, &cx.eval(term).ok()?).ok()?;
-    let folded = quote_folded(&cx.g().ev(), base, goal).ok()?;
+    let computation = quote(&cx.g(), base, &cx.eval(term).ok()?).ok()?;
+    let folded = quote_folded(&cx.g(), base, goal).ok()?;
     let thunk = match thunk {
         Expr::Var(name) => cx.lookup(&name.text),
         _ => None,
@@ -134,7 +134,7 @@ fn computation(cx: &mut Ctx, thunk: &Expr) -> Result<(Term, Value, Row)> {
         }
         None => {
             let (term, ty) = infer(cx, thunk)?;
-            let ty = force(&cx.g().ev(), ty)?;
+            let ty = force(&cx.g(), ty)?;
             let unit = builtin_data(cx, Builtin::UnitType)?;
             let Value::Pi(_, stitchwort_core::Icit::Explicit, dom, cod) = &ty else {
                 return Err(not_a_thunk(cx, span, &ty));
@@ -143,11 +143,11 @@ fn computation(cx: &mut Ctx, thunk: &Expr) -> Result<(Term, Value, Row)> {
                 return Err(not_a_thunk(cx, span, &ty));
             }
             // `t ()`.
-            let result = cod.apply(&cx.g().ev(), Value::Ctor(unit, 0, Vec::new().into()))?;
+            let result = cod.apply(&cx.g(), Value::Ctor(unit, 0, Vec::new().into()))?;
             (Term::app(term, Term::Ctor(unit, 0, Vec::new())), result)
         }
     };
-    let ty = force(&cx.g().ev(), ty)?;
+    let ty = force(&cx.g(), ty)?;
     let Some((row, _)) = comp_parts(cx, &ty)? else {
         return Err(Diagnostic::error(
             "E-REIFY",

@@ -115,7 +115,7 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     };
     let span = *span;
     let lib = Lib::new(cx, span)?;
-    let goal = force(&cx.g().ev(), expected.clone())?;
+    let goal = force(&cx.g(), expected.clone())?;
     let Some((sort, l, r)) = equation(cx, &lib, &goal)? else {
         return Err(Diagnostic::error(
             "E-RING",
@@ -137,7 +137,7 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         split_fact(fact, false, Vec::new(), &mut minus, &mut terms);
         for term in terms {
             let (proof, ty) = crate::Elaborator::settled_fact(cx, term.proof)?;
-            let forced = force(&cx.g().ev(), ty.clone())?;
+            let forced = force(&cx.g(), ty.clone())?;
             let (hl, hr) = match equation(cx, &lib, &forced)? {
                 Some((s, hl, hr)) if s == sort => (hl, hr),
                 _ => {
@@ -328,7 +328,7 @@ fn flipped(cx: &Ctx, lib: &Lib, sort: Sort, h: Hyp) -> Result<Hyp> {
         Term::Def(flip),
         vec![cx.quote(&h.l)?, cx.quote(&h.r)?, h.proof],
     );
-    let Value::Eq(t, l, r) = force(&cx.g().ev(), h.ty)? else {
+    let Value::Eq(t, l, r) = force(&cx.g(), h.ty)? else {
         unreachable!("a hypothesis is an equation")
     };
     Ok(Hyp {
@@ -346,7 +346,7 @@ fn scaled(cx: &mut Ctx, lib: &Lib, sort: Sort, coefficients: &[&Expr], h: Hyp) -
         Sort::Nat => (lib.mul, lib.scale_nat),
         Sort::Int => (lib.int_mul, lib.scale_int),
     };
-    let Value::Eq(t, _, _) = force(&cx.g().ev(), h.ty.clone())? else {
+    let Value::Eq(t, _, _) = force(&cx.g(), h.ty.clone())? else {
         unreachable!("a hypothesis is an equation")
     };
     let mut c: Option<Term> = None;
@@ -400,7 +400,7 @@ fn equation(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(Sort, Value, V
     let Value::Eq(ty, l, r) = value else {
         return Ok(None);
     };
-    let ty = force(&cx.g().ev(), (**ty).clone())?;
+    let ty = force(&cx.g(), (**ty).clone())?;
     let sort = match ty {
         Value::Data(d, _) if d == lib.nat => Sort::Nat,
         Value::Data(d, _) if d == lib.int => Sort::Int,
@@ -769,9 +769,9 @@ impl Reader {
         value: &Value,
     ) -> Result<(Value, Option<Value>)> {
         if !matches!(value, Value::Call(..)) {
-            return Ok((force(&cx.g().ev(), value.clone())?, None));
+            return Ok((force(&cx.g(), value.clone())?, None));
         }
-        let forced = force(&cx.g().ev(), value.clone())?;
+        let forced = force(&cx.g(), value.clone())?;
         let arithmetic = match sort {
             Sort::Nat => {
                 matches!(forced, Value::Nat(_) | Value::NatAdd(..))
@@ -801,7 +801,7 @@ impl Reader {
         if let Some(call) = folded {
             return Ok(Ok(N::Atom(self.atom(cx, lib, Sort::Nat, call)?)));
         }
-        let (k, base) = stitchwort_core::native::view(&cx.g().ev(), &value)?;
+        let (k, base) = stitchwort_core::native::view(&cx.g(), &value)?;
         let Some(base) = base else {
             return Ok(Ok(N::Num(k)));
         };
@@ -816,7 +816,7 @@ impl Reader {
                 N::Add(Box::new(N::Num(k)), Box::new(inner))
             }));
         }
-        let base = force(&cx.g().ev(), base)?;
+        let base = force(&cx.g(), base)?;
         if let Value::Neutral(Head::Meta(_), _) = base {
             return Ok(Err(Unknown));
         }
@@ -944,11 +944,11 @@ impl Reader {
                 size: 10_000,
                 frames: 10_000,
             });
-            if conv(&g.ev(), cx.level(), &a.value, &value) == Ok(true) {
+            if conv(&g, cx.level(), &a.value, &value) == Ok(true) {
                 return Ok(self.index[i]);
             }
         }
-        let forced = force(&g.ev(), value.clone())?;
+        let forced = force(&g, value.clone())?;
         let unsupported = match def_args(&forced) {
             Some((id, _)) if id == lib.sub => Some(SUBTRACTION),
             Some((id, _)) if id == lib.div || id == lib.int_div => {
@@ -1239,20 +1239,20 @@ fn emit(
     };
     let mut ty = g.def(which).ty_value().clone();
     for arg in &args {
-        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
             return Err(shape());
         };
-        ty = cod.apply(&g.ev(), cx.eval(arg)?)?;
+        ty = cod.apply(&g, cx.eval(arg)?)?;
     }
-    let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
+    let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
         return Err(shape());
     };
-    ty = cod.apply(&g.ev(), Value::var(cx.level()))?;
+    ty = cod.apply(&g, Value::var(cx.level()))?;
     if !sides.is_empty() {
-        let Value::Pi(_, _, dom, cod) = force(&g.ev(), ty)? else {
+        let Value::Pi(_, _, dom, cod) = force(&g, ty)? else {
             return Err(shape());
         };
-        let mut meaning = force(&g.ev(), (*dom).clone())?;
+        let mut meaning = force(&g, (*dom).clone())?;
         for h in hyps {
             let Value::Data(d, params) = &meaning else {
                 return Err(shape());
@@ -1270,9 +1270,9 @@ fn emit(
                     ),
                 ));
             }
-            meaning = force(&g.ev(), params[1].clone())?;
+            meaning = force(&g, params[1].clone())?;
         }
-        ty = cod.apply(&g.ev(), Value::var(cx.level()))?;
+        ty = cod.apply(&g, Value::var(cx.level()))?;
     }
     if !cx.unify(&ty, expected)? {
         return Err(internal(

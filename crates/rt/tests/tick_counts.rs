@@ -77,7 +77,7 @@ fn reference(session: &mut Session, input: &str, limit: u64) -> (Ended, String, 
 fn fast(session: &mut Session, input: &str, limit: u64) -> (Ended, String) {
     let main = session.main().expect("`main` has the right type");
     let program = lower_main(
-        &session.elab.globals.ev(),
+        &session.elab.ev(),
         session.elab.options.limits,
         main.term(),
         main.row,

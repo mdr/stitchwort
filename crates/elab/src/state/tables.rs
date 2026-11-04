@@ -23,14 +23,14 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use stitchwort_core::backend::DataFacts;
-use stitchwort_core::globals::{FieldDefaults, HashKey, ParamDefaults, PrintHints, UpdateShown};
+use stitchwort_core::globals::{FieldDefaults, HashKey, ParamDefaults, UpdateShown};
 use stitchwort_core::js_repr::JsRepr;
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::Span;
 
 use super::journal::{Logged, LoggedSet, Logs};
 use super::owners::Owners;
-use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, SharedOwnedBy, Table, owned};
+use super::table::{Codec, Dump, GrowVec, Ids, OwnedBy, OwnedMark, Table, owned};
 use crate::TestDecl;
 use crate::cache::{Body, Encoding, Read};
 use crate::effects::AbilityInfo;
@@ -90,13 +90,13 @@ pub(crate) struct Tables {
     /// The default values of a definition's header's parameters,
     /// `(step: Nat := 1)` (docs/proposals/signature-defaults.md §7.1): the
     /// header's length and each parameter's helper. Never hashed; the kernel
-    /// never reads it. Shared with the printer's `PrintHints`.
-    pub(crate) param_defaults: SharedOwnedBy<DefId, Rc<ParamDefaults>>,
+    /// never reads it. The printer reads it through the elaborator's `Shown`.
+    pub(crate) param_defaults: OwnedBy<DefId, Rc<ParamDefaults>>,
     /// For the helper a record update `{ x | f = s }` of a type with several
     /// constructors is lifted to: how the printer shows a call of it, as the
-    /// update. Only messages read it, so it isn't hashed. Shared with the
-    /// printer's `PrintHints`.
-    pub(crate) update_shown: SharedOwnedBy<DefId, Rc<UpdateShown>>,
+    /// update. Only messages read it (through the elaborator's `Shown`), so
+    /// it isn't hashed.
+    pub(crate) update_shown: OwnedBy<DefId, Rc<UpdateShown>>,
     /// How a data type crosses the JS boundary, when `js.*` attributes on it
     /// say (docs/proposals/attributes.md §4.6): resolved and checked once the
     /// type is final. A type without them has no row; the backend resolves
@@ -198,13 +198,6 @@ impl Mark {
 }
 
 impl Tables {
-    /// Shares the rows the printer reads with `hints`, which the session's
-    /// `Globals` holds (the tables are empty).
-    pub(crate) fn share_print_hints(&mut self, hints: &PrintHints) {
-        self.param_defaults.share(hints.param_defaults.clone());
-        self.update_shown.share(hints.update_shown.clone());
-    }
-
     /// Whether definition `id` or data type `d` (as `key`) is one the
     /// elaborator gave up on for an open goal.
     pub(crate) fn is_unfinished(&self, key: HashKey) -> bool {
@@ -441,8 +434,8 @@ impl Tables {
     ) -> Read<Delta> {
         let records = OwnedBy::decode(b)?;
         let field_defaults = OwnedBy::decode(b)?;
-        let param_defaults = SharedOwnedBy::decode(b)?;
-        let update_shown = SharedOwnedBy::decode(b)?;
+        let param_defaults = OwnedBy::decode(b)?;
+        let update_shown = OwnedBy::decode(b)?;
         let js_repr = OwnedBy::decode(b)?;
         let interfaces = OwnedBy::decode(b)?;
         let n = b.count()?;

@@ -1122,8 +1122,8 @@ impl Session {
     /// The full name's elaborated type, if the session has it: a
     /// definition's or theorem's, a constructor's.
     pub fn declared_type(&self, path: &str) -> Option<String> {
-        let g = &self.elab.globals;
-        let ty = match def_named(&g.ev(), path) {
+        let g = &self.elab.ev();
+        let ty = match def_named(g, path) {
             Some(id) => g.def(id).ty().clone(),
             None => {
                 let (data, ctor) = path.rsplit_once('.')?;
@@ -1134,7 +1134,7 @@ impl Session {
                 stitchwort_elab::search::Item::Ctor(d, c).ty(g)
             }
         };
-        Some(stitchwort_core::pretty::term(&g.ev(), &[], &ty))
+        Some(stitchwort_core::pretty::term(g, &[], &ty))
     }
 
     /// The theorems whose statement mentions `path`, a definition (§5.5):
@@ -1170,8 +1170,8 @@ impl Session {
                 None => return Err(d),
             },
         };
-        let g = &self.elab.globals;
-        let target = def_named(&g.ev(), path);
+        let g = &self.elab.ev();
+        let target = def_named(g, path);
         let iff = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).path() == "Std.Iff");
@@ -1186,7 +1186,7 @@ impl Session {
             if example || r.generated || !seen.insert(r.name.clone()) {
                 continue;
             }
-            let ty = def_named(&g.ev(), &r.name).map(|id| g.def(id).ty().clone());
+            let ty = def_named(g, &r.name).map(|id| g.def(id).ty().clone());
             let named = named_after(&r.name, path);
             let group = match (&ty, target) {
                 (Some(ty), Some(x)) if named && rewrites(ty, x, iff) => 0,
@@ -1194,7 +1194,7 @@ impl Session {
                 _ => 2,
             };
             let statement = match &ty {
-                Some(ty) => statement(&g.ev(), ty),
+                Some(ty) => statement(g, ty),
                 None => r.ty.clone(),
             };
             groups[group].push(TheoremJson {
@@ -1237,16 +1237,14 @@ impl Session {
         command_extra: &str,
     ) -> Result<Option<Equations>, stitchwort_syntax::Diagnostic> {
         self.elab.generate_deferred_equations()?;
-        let g = &self.elab.globals;
-        let Some(f) = def_named(&g.ev(), path) else {
+        let g = &self.elab.ev();
+        let Some(f) = def_named(g, path) else {
             return Ok(None);
         };
         // `f.eq2`, `f.eq2.or1`: the owner's path, then the reserved suffix.
-        let found = generated_equations(&g.ev())
-            .remove(path)
-            .unwrap_or_default();
+        let found = generated_equations(g).remove(path).unwrap_or_default();
         let transparent_tree =
-            def_named(&g.ev(), &format!("{path}.%step")).is_none() && !g.def(f).opaque();
+            def_named(g, &format!("{path}.%step")).is_none() && !g.def(f).opaque();
         let shown_name = |p: &str| shown(p).to_string();
         let mut induct = None;
         let mut equations: Vec<EquationJson> = Vec::new();
@@ -1256,14 +1254,14 @@ impl Session {
                 let (file, line) = crate::render::location(&self.sources, d.span());
                 EquationJson {
                     name: shown_name(d.path()),
-                    statement: statement(&g.ev(), d.ty()),
+                    statement: statement(g, d.ty()),
                     line,
                     file,
-                    stuck: !stitchwort_elab::is_function_induct(&g.ev(), d.name())
+                    stuck: !stitchwort_elab::is_function_induct(g, d.name())
                         && (!transparent_tree || has_overlap_hypothesis(d.ty())),
                 }
             };
-            if stitchwort_elab::is_function_induct(&g.ev(), g.def(*id).name()) {
+            if stitchwort_elab::is_function_induct(g, g.def(*id).name()) {
                 induct = Some(json);
             } else {
                 equations.push(json);
@@ -1277,8 +1275,7 @@ impl Session {
                 continue;
             }
             let name = format!("{path}.{suffix}");
-            if def_named(&g.ev(), &name).is_some()
-                || skipped.iter().any(|s| s.name == shown_name(&name))
+            if def_named(g, &name).is_some() || skipped.iter().any(|s| s.name == shown_name(&name))
             {
                 continue;
             }

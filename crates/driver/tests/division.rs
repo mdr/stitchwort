@@ -11,7 +11,7 @@
 
 use stitchwort_core::reference;
 use stitchwort_core::value::{self, Value, set_shortcuts_disabled};
-use stitchwort_core::{DefId, Globals, Name, Term};
+use stitchwort_core::{DefId, Name, Term};
 use stitchwort_driver::driver::{Session, with_session};
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -23,7 +23,7 @@ const LCG: &str = "def lcg (seed: Nat): Nat := (seed * 1103515245 + 12345) % 214
                    def later (x: Nat): Nat := (x + 5) / 3\n\
                    def bothOpen (x: Nat) (d: Nat): Nat := (x + 5) / (d + 2)\n";
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -34,13 +34,13 @@ fn def(g: &Globals, name: &str) -> DefId {
 }
 
 /// `name` applied to `arity` variables, evaluated by the machine.
-fn applied(g: &Globals, name: &str, arity: usize) -> Value {
+fn applied(g: &stitchwort_core::Ev, name: &str, arity: usize) -> Value {
     let mut term = Term::Def(def(g, name));
     for i in (0..arity).rev() {
         term = Term::app(term, Term::Var(i));
     }
     let env: Vec<Value> = (0..arity).map(Value::var).collect();
-    value::eval(&g.ev(), &env, &term).expect("no limits")
+    value::eval(g, &env, &term).expect("no limits")
 }
 
 /// The normal form of `lcg seed`, by both evaluators, stays small: it was
@@ -49,22 +49,22 @@ fn applied(g: &Globals, name: &str, arity: usize) -> Value {
 fn an_open_dividend_has_a_small_normal_form() {
     with_session(STACK, Session::for_stack, |session| {
         assert!(session.load("lcg.sw", LCG).is_ok());
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         for name in ["lcg", "quotient"] {
             let machine = applied(g, name, 1);
-            let term = value::quote(&g.ev(), 1, &machine).expect("no limits");
+            let term = value::quote(g, 1, &machine).expect("no limits");
             let size = format!("{term:?}").len();
             assert!(
                 size < 2_000,
                 "{name}: the machine's normal form is {size} characters"
             );
             let slow = reference::eval(
-                &g.ev(),
+                g,
                 &[Value::var(0)],
                 &Term::app(Term::Def(def(g, name)), Term::Var(0)),
             )
             .expect("no limits");
-            let term = reference::quote(&g.ev(), 1, &slow).expect("no limits");
+            let term = reference::quote(g, 1, &slow).expect("no limits");
             let size = format!("{term:?}").len();
             assert!(
                 size < 2_000,
@@ -81,15 +81,15 @@ fn an_open_dividend_has_a_small_normal_form() {
 fn a_stuck_step_of_division_is_shown_as_division() {
     with_session(STACK, Session::for_stack, |session| {
         assert!(session.load("lcg.sw", LCG).is_ok());
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let x: Vec<Name> = vec!["x".into()];
         let xd: Vec<Name> = vec!["x".into(), "d".into()];
         let shown = |names: &[Name], name: &str| {
             let v = applied(g, name, names.len());
-            let printed = stitchwort_core::pretty::value(&g.ev(), names, &v);
+            let printed = stitchwort_core::pretty::value(g, names, &v);
             assert_eq!(
                 printed,
-                stitchwort_core::pretty::value_for_message(&g.ev(), names, &v),
+                stitchwort_core::pretty::value_for_message(g, names, &v),
                 "{name}"
             );
             printed
@@ -118,7 +118,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
     for shortcuts in [true, false] {
         with_session(STACK, Session::for_stack, |session| {
             set_shortcuts_disabled(!shortcuts);
-            let before = session.elab.globals.machine.budget.total_work();
+            let before = session.elab.kernel.machine.budget.total_work();
             let loaded = session.load(
                 "sw920.sw",
                 &format!(
@@ -128,7 +128,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             );
             set_shortcuts_disabled(false);
             assert!(loaded.is_ok(), "{loaded:?}");
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             let work = g.machine.budget.total_work() - before;
             eprintln!("shortcuts {shortcuts}: work {work}");
             assert!(
@@ -137,7 +137,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             );
             let ty = &g.def(def(g, "t")).ty_value();
             assert_eq!(
-                stitchwort_core::pretty::value(&g.ev(), &[], ty),
+                stitchwort_core::pretty::value(g, &[], ty),
                 "(seed: Nat) → (seed * 1103515245 + 12345) % 2147483648 ≤ 2147483647"
             );
         });

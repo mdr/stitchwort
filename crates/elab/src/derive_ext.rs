@@ -44,7 +44,7 @@ impl Elaborator {
     /// After record `d` is admitted, and its `DecEq` derived: `T.ext`, if
     /// it can be generated and the module doesn't declare one.
     pub(crate) fn derive_record_ext(&mut self, d: DataId) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         if self.unit.loading_prelude
             || data.sort() == Sort::Prop
             || data.group().len() > 1
@@ -66,7 +66,7 @@ impl Elaborator {
         // `T.%mk%P%k`, the proof fields' types, unless `==` made them.
         for (k, kind) in plan.fields[0].iter().enumerate() {
             if *kind == crate::derive::Field::Proof {
-                let ctor = &self.globals.data(d).ctors()[0].name;
+                let ctor = &self.kernel.data(d).ctors()[0].name;
                 let key = Self::member_key(&self.data_key(d), &format!("%{ctor}%P%{k}"));
                 if self.scope.get(&key).is_none() {
                     self.derive_proof_type(d, 0, k)?;
@@ -94,7 +94,7 @@ impl Elaborator {
 
     /// The signature and the equation of `T.ext`.
     fn ext_source(&self, d: DataId, kinds: &[crate::derive::Field]) -> (Decl, Decl) {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let span = data.span();
         let n = |text: &str| ast::Name {

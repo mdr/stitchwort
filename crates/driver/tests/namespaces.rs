@@ -46,7 +46,7 @@ fn types_are_hashed_with_their_full_names() {
          type Geometry.Shape : Type =\n  | Square (side : Nat)\n\n\
          type UI.Shape : Type =\n  | Square (side : Nat)\n",
     );
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget
@@ -61,7 +61,7 @@ fn types_are_hashed_with_their_full_names() {
     assert_eq!(&**g.data(library).path(), "Std.List");
     let own = find("Main.List");
     assert_ne!(own, library);
-    let hash = |d| data_hash(&g.ev(), d).unwrap().unwrap();
+    let hash = |d| data_hash(g, d).unwrap().unwrap();
     assert_ne!(hash(own), hash(library));
     assert_ne!(
         hash(find("Main.Geometry.Shape")),
@@ -184,25 +184,25 @@ fn an_imported_name_in_a_type_is_not_a_type_variable() {
 }
 
 fn path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = g
         .env
         .defs()
         .iter()
         .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
-    stitchwort_core::hash::def_hash(&g.ev(), stitchwort_core::DefId(id))
+    stitchwort_core::hash::def_hash(g, stitchwort_core::DefId(id))
         .unwrap()
         .expect("checked")
 }
 
 fn data_path_hash(session: &Session, path: &str) -> stitchwort_core::hash::ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = (0..g.env.datas().len())
         .map(stitchwort_core::DataId)
         .find(|d| &**g.data(*d).path() == path)
         .unwrap_or_else(|| panic!("no type `{path}`"));
-    data_hash(&g.ev(), id).unwrap().unwrap()
+    data_hash(g, id).unwrap().unwrap()
 }
 
 /// A namespace line puts a file's types in the namespace, and their hashes

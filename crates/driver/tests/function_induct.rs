@@ -86,12 +86,12 @@ def double (n: Nat): Nat := n + n
 "#;
 
 /// `ty`, a closed `Π` type, with every binder's name shown.
-fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
+fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
     let mut names: Vec<Name> = Vec::new();
     let mut out = String::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(x, icit, dom, cod) = t {
-        let shown = stitchwort_core::pretty::term(&g.ev(), &names, dom);
+        let shown = stitchwort_core::pretty::term(g, &names, dom);
         let (open, close) = if icit.is_implicit() {
             ("[", "]")
         } else {
@@ -101,7 +101,7 @@ fn statement(g: &stitchwort_core::Globals, ty: &Term) -> String {
         names.push(x.clone());
         t = cod.strip_loc();
     }
-    out + &stitchwort_core::pretty::term(&g.ev(), &names, t)
+    out + &stitchwort_core::pretty::term(g, &names, t)
 }
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
@@ -120,7 +120,7 @@ fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
 }
 
 fn generated(session: &Session, name: &str) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let def = g
         .env
         .defs()
@@ -133,7 +133,7 @@ fn generated(session: &Session, name: &str) -> String {
 }
 
 fn skipped(session: &Session, name: &str) -> String {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     session
         .elab
         .equation_skips()
@@ -246,7 +246,7 @@ fn each_kind_of_recursion_and_split() {
             "{why}"
         );
         // Not recursive: neither made nor recorded.
-        let g = &s.elab.globals;
+        let g = &s.elab.ev();
         assert!(!g.env.defs().iter().any(|d| &**d.name() == "double.induct"));
         assert!(
             !s.elab
@@ -538,9 +538,9 @@ fn a_projects_inducts() {
 /// How many `f.induct`s of the definitions `own` picks were made, and why
 /// the others weren't; none refused by the kernel.
 fn report(session: &Session, own: impl Fn(&stitchwort_core::globals::Def) -> bool) {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let made = (g.env.defs().iter())
-        .filter(|d| own(d) && d.theorem() && stitchwort_elab::is_function_induct(&g.ev(), d.name()))
+        .filter(|d| own(d) && d.theorem() && stitchwort_elab::is_function_induct(g, d.name()))
         .count();
     eprintln!("made {made} `f.induct`");
     let mut reasons: std::collections::BTreeMap<String, Vec<String>> = Default::default();

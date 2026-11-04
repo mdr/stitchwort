@@ -807,7 +807,7 @@ struct Run {
 }
 
 fn hashes(session: &Session) -> BTreeMap<String, String> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let show =
         |h: stitchwort_core::budget::Result<Option<stitchwort_core::hash::ContentHash>>| match h {
             Ok(Some(h)) => h.hex(),
@@ -817,13 +817,13 @@ fn hashes(session: &Session) -> BTreeMap<String, String> {
     for i in 0..g.env.datas().len() {
         out.insert(
             format!("data {}", g.env.datas()[i].path()),
-            show(data_hash(&g.ev(), DataId(i))),
+            show(data_hash(g, DataId(i))),
         );
     }
     for i in 0..g.env.defs().len() {
         out.insert(
             g.env.defs()[i].path().to_string(),
-            show(def_hash(&g.ev(), DefId(i))),
+            show(def_hash(g, DefId(i))),
         );
     }
     out

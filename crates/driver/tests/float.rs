@@ -64,7 +64,7 @@ fn the_float_bindings_are_the_pinned_declarations() {
     // A binding that doesn't match fails the load; its hash is printed below
     // all the same (fix `Float`'s first: the others depend on it).
     let loaded = session.load("uses.sw", "import Std (Float)\ndef zero: Float := 0.0\n");
-    let bindings = float::bindings(&session.elab.globals.ev());
+    let bindings = float::bindings(&session.elab.ev());
     assert_eq!(bindings.len(), 1 + float::NATIVE_HASHES.len());
     let wrong: Vec<String> = bindings
         .iter()
@@ -93,7 +93,7 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     use stitchwort_core::hash::{def_hash, float_primitive_hash};
     use stitchwort_core::registry::Builtin;
     let session = loaded();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let mul = g
         .env
@@ -105,11 +105,11 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
         .registry()
         .loaded_def(Builtin::FloatDiv)
         .expect("loaded");
-    let hash = |id| def_hash(&g.ev(), id).unwrap().expect("final");
+    let hash = |id| def_hash(g, id).unwrap().expect("final");
     assert_ne!(hash(mul), hash(div), "the same type, different operations");
     for id in [mul, div] {
-        let now = float_primitive_hash(&g.ev(), id, float::FLOAT_CONTRACT).unwrap();
-        let bumped = float_primitive_hash(&g.ev(), id, float::FLOAT_CONTRACT + 1).unwrap();
+        let now = float_primitive_hash(g, id, float::FLOAT_CONTRACT).unwrap();
+        let bumped = float_primitive_hash(g, id, float::FLOAT_CONTRACT + 1).unwrap();
         assert_eq!(now, Some(hash(id)));
         assert_ne!(now, bumped);
     }
@@ -153,7 +153,7 @@ fn the_fingerprint_changes_with_the_toolchain_and_target() {
 #[test]
 fn the_runtime_float_natives_are_bound() {
     let session = loaded();
-    let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.globals.ev()).unwrap();
+    let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.ev()).unwrap();
     assert_eq!(bindings.len(), 4);
     for b in &bindings {
         assert!(b.bound, "{}: {:?}", b.name, b.hash);

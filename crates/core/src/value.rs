@@ -40,7 +40,7 @@ pub enum Value {
     /// folded definition.
     Neutral(Head, Spine),
     /// A definition applied to all its parameters, kept as the call while
-    /// gluing ([`Globals::glue`], docs/proposals/folded-calls.md). It means
+    /// gluing ([`Machine::glue`](crate::machine::Machine::glue), docs/proposals/folded-calls.md). It means
     /// its unfolding, which [`force`] computes the first time something
     /// looks inside and every copy of the call then shares. The spine has
     /// only applications.
@@ -55,16 +55,17 @@ pub enum Value {
 
 /// The unfolding of a [`Value::Call`] once computed: the value the call
 /// unfolds to, forced (no `Call` or solved metavariable at its top), with
-/// the [`Globals::meta_epoch`] it was computed at. One from an earlier epoch
-/// may have used a metavariable solution that's since been taken back, so
-/// it's computed again.
+/// the [`Metas::epoch`](crate::ev::Metas::epoch) it was computed at. One
+/// from another epoch may have used a metavariable solution that's since
+/// been taken back, so it's computed again; one from epoch 0 was made with
+/// no metavariables (by the kernel: `Def::ty_value`), so it holds in any.
 #[derive(Debug, Default)]
 pub struct Unfolding(std::cell::RefCell<Option<(u64, Value)>>);
 
 impl Unfolding {
     fn get(&self, g: &Ev) -> Option<Value> {
         match &*self.0.borrow() {
-            Some((epoch, value)) if *epoch == g.metas.epoch() => Some(value.clone()),
+            Some((epoch, value)) if *epoch == 0 || *epoch == g.metas.epoch() => Some(value.clone()),
             _ => None,
         }
     }
@@ -121,7 +122,7 @@ impl std::hash::Hash for Head {
 }
 
 /// The numbers a variable is known not to be (docs/proposals/
-/// literal-match-facts.md): nothing, or a set in [`Globals::apart_sets`].
+/// literal-match-facts.md): nothing, or a set in [`Machine::apart_sets`](crate::machine::Machine::apart_sets).
 ///
 /// A number case's default arm is taken only for a number none of its arms
 /// has, so there the matched variable is checked as a `Var` apart from them.
@@ -1662,7 +1663,7 @@ fn unfold(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
 }
 
 /// Whether definition `id`, about to run its case tree, is kept as a call
-/// ([`Value::Call`]) instead: gluing is on ([`Globals::glue`]), no program
+/// ([`Value::Call`]) instead: gluing is on ([`Machine::glue`](crate::machine::Machine::glue)), no program
 /// is running, and it isn't a native (which computes at once on numbers).
 /// Dictionaries, folded by name already, never get this far.
 #[cold]
@@ -1735,7 +1736,7 @@ fn folds(g: &Ev, id: DefId) -> bool {
 
 /// Whether definition `id` is opaque and its body can't be used now
 /// (docs/proposals/opaque-definitions.md §6.4): no program is running, and
-/// it isn't in the current transparency set ([`Globals::transparent`]). Then
+/// it isn't in the current transparency set ([`Machine::transparent`](crate::machine::Machine::transparent)). Then
 /// a call of it is neutral, like a variable applied to arguments: it never
 /// unfolds (not even by a native implementation), and no shortcut of
 /// conversion or matching looks at its body ([`body_seen`]).
@@ -2816,8 +2817,8 @@ pub fn same_stuck_trees(
 // the same `meta_epoch`. Within an epoch solutions are only added, and an
 // equality found with fewer solutions still holds with more; taking a
 // solution back starts a new epoch, which makes everything remembered before
-// it unusable. (The kernel's `conv` solves nothing, so its epoch doesn't
-// move.) Only "equal" is remembered: a "different" nearly always ends the
+// it unusable. (The kernel's `conv` solves nothing, and its epoch is 0
+// (`NoMetas`).) Only "equal" is remembered: a "different" nearly always ends the
 // comparison it's part of, and in the elaborator it may be followed by
 // solutions being taken back. The record lives as long as the outermost tree
 // comparison (the one not inside another) and is dropped when it ends, so
@@ -3645,7 +3646,7 @@ mod tests {
             ),
         );
         assert!(same_closure(&a, &b));
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         let (equal, with, without) = conv_both(&g.ev(), &lam(a), &lam(b));
         assert!(equal);
         assert!(with < without, "the shortcut was taken: {with} < {without}");
@@ -3656,7 +3657,7 @@ mod tests {
         // The same closures as above, inside separately built constructors
         // and calls: identical, so filed under the same hash, each with a
         // cache of its own and with one shared.
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         let a = closure(vec![Value::var(7), Value::var(3)], call_last());
         let b = closure(vec![Value::var(9), Value::var(3)], call_last());
         let wrap = |c: Closure| {
@@ -3688,30 +3689,42 @@ mod tests {
         let a = closure(vec![Value::var(3)], call_last());
         let b = closure(vec![Value::var(4)], call_last());
         assert!(!same_closure(&a, &b));
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
 
     /// SW-920: for the elaborator, a solved metavariable is its solution.
     #[test]
     fn a_solved_metavariable_is_the_same_as_its_solution_for_the_elaborator() {
-        let g = crate::globals::Globals::default();
-        let span =
-            stitchwort_syntax::Span::point(stitchwort_syntax::SourceMap::new().add("t", ""), 0);
-        let m = g.new_meta(span);
-        let unknown = Value::Neutral(Head::Meta(m), Spine::from(Vec::new()));
+        /// One metavariable, `?0`, with the solution the test gives it.
+        struct One(std::cell::RefCell<Option<Value>>);
+        impl crate::ev::Metas for One {
+            fn solution(&self, _m: usize) -> Option<Value> {
+                self.0.borrow().clone()
+            }
+            fn epoch(&self) -> u64 {
+                1
+            }
+        }
+        let g = crate::globals::Kernel::default();
+        let metas = One(std::cell::RefCell::new(None));
+        let ev = Ev {
+            metas: &metas,
+            ..g.ev()
+        };
+        let unknown = Value::Neutral(Head::Meta(0), Spine::from(Vec::new()));
         let a = closure(vec![unknown], call_last());
         let b = closure(vec![Value::var(3)], call_last());
-        assert!(!same_closure_solved(&g.ev(), &a, &b), "unsolved");
-        g.solve_meta(m, Value::var(3));
-        assert!(same_closure_solved(&g.ev(), &a, &b));
+        assert!(!same_closure_solved(&ev, &a, &b), "unsolved");
+        *metas.0.borrow_mut() = Some(Value::var(3));
+        assert!(same_closure_solved(&ev, &a, &b));
         assert!(
             !same_closure(&a, &b),
             "the kernel's form looks at no solution"
         );
-        g.solve_meta(m, Value::var(4));
+        *metas.0.borrow_mut() = Some(Value::var(4));
         assert!(
-            !same_closure_solved(&g.ev(), &a, &b),
+            !same_closure_solved(&ev, &a, &b),
             "solved with another value"
         );
     }
@@ -3729,7 +3742,7 @@ mod tests {
             Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Implicit),
         );
         assert!(!same_closure(&a, &implicit));
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a.clone()), &lam(b)).0);
         // (Conversion ignores how an argument is passed, so this pair is
         // equal the long way; `conv_both` checks the two ways agree.)
@@ -3754,7 +3767,7 @@ mod tests {
         let a = closure(vec![f], call_last());
         let b = closure(vec![eta], call_last());
         assert!(!same_closure(&a, &b));
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         assert!(conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
 
@@ -3768,7 +3781,7 @@ mod tests {
                 closure(env, call_last()),
             )
         };
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         let (equal, with, without) =
             conv_both(&g.ev(), &pi(vec![Value::var(2)]), &pi(vec![Value::var(2)]));
         assert!(equal);

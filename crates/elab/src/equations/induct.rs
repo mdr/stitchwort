@@ -54,6 +54,7 @@
 //! get none (D2181).
 
 use super::*;
+use stitchwort_core::Ev;
 
 /// One recursive call in a case's right side: `f`'s arguments, and the
 /// decrease proof it was made with (`decreasing`).
@@ -156,7 +157,7 @@ fn case_name(suffix: &str) -> String {
 
 /// Whether `h`, one of `f`'s own helpers (`f.%match1`, `f.go`), calls `f`,
 /// itself or through another.
-fn helper_calls(g: &Globals, f: DefId, h: DefId, seen: &mut Vec<DefId>) -> bool {
+fn helper_calls(g: &Ev, f: DefId, h: DefId, seen: &mut Vec<DefId>) -> bool {
     if seen.contains(&h) {
         return false;
     }
@@ -176,7 +177,7 @@ fn helper_calls(g: &Globals, f: DefId, h: DefId, seen: &mut Vec<DefId>) -> bool 
 }
 
 /// Whether `f`'s tree calls `f`, directly or through its own helpers.
-fn recursive(g: &Globals, d: &Def) -> bool {
+fn recursive(g: &Ev, d: &Def) -> bool {
     if matches!(d.kind, Kind::Decreasing { .. }) {
         return true;
     }
@@ -191,7 +192,7 @@ fn recursive(g: &Globals, d: &Def) -> bool {
 /// Records why `f.induct` isn't made when `f`'s equations aren't (`why`),
 /// if `f` calls itself.
 pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) {
-    let g = &e.globals;
+    let g = &e.ev();
     let calls = match kind {
         Kind::Decreasing { .. } => true,
         _ => g.def(f).body().is_some_and(|body| {
@@ -214,7 +215,7 @@ pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) 
 
 /// The recursive calls in `t` (at `depth`, under `under` binders of its
 /// own), innermost first, as terms at `depth - under`.
-fn calls(g: &Globals, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih>) -> R<()> {
+fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih>) -> R<()> {
     g.machine.budget.nesting("equations")?;
     let n = d.binders.len();
     let decreasing = matches!(d.kind, Kind::Decreasing { .. });
@@ -332,7 +333,7 @@ impl Elaborator {
         leaves: &[Option<Found>],
         helpers: &mut HashMap<DefId, Rc<Helper>>,
     ) -> Result<()> {
-        if !recursive(&self.globals, d) {
+        if !recursive(&self.ev(), d) {
             return Ok(());
         }
         let suffix = "induct".to_string();
@@ -344,7 +345,7 @@ impl Elaborator {
             ));
             return Ok(());
         }
-        let mark = self.globals.mark();
+        let mark = self.kernel.mark();
         d.mark_rec.set(true);
         let result = self.attempt(|e| e.make_induct(d, shapes, leaves, helpers));
         d.mark_rec.set(false);
@@ -475,7 +476,7 @@ impl Elaborator {
             for ((binders, steps, cur, choices), (suffix, eq)) in
                 stepped.into_iter().zip(suffixes.iter().zip(eqs))
             {
-                let g = &self.globals;
+                let g = &self.ev();
                 let depth = binders.len();
                 let mut ihs = Vec::new();
                 calls(g, d, &cur, depth, 0, &mut ihs)?;
@@ -518,7 +519,7 @@ impl Elaborator {
         let sp = Splitters {
             inspect: self.lookup_def("Std.Bool.inspect").ok_or_else(none)?,
             elim_proof,
-            elim_proof_icits: split_pis(self.globals.def(elim_proof).ty(), None)
+            elim_proof_icits: split_pis(self.kernel.def(elim_proof).ty(), None)
                 .0
                 .iter()
                 .map(|b| b.icit)
@@ -529,7 +530,7 @@ impl Elaborator {
             // Not recursive after all (a call only in a proof): nothing.
             return skip("");
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let n = d.binders.len();
         let decreasing = matches!(d.kind, Kind::Decreasing { .. });
         // The fixed prefix: a parameter every case's left side has as a
@@ -540,7 +541,7 @@ impl Elaborator {
                 if !matches!(l.strip_loc(), Term::Var(_)) {
                     return Ok(false);
                 }
-                let at = l.shift(&g.ev(), c.binders.len() - c.tk, 0)?;
+                let at = l.shift(g, c.binders.len() - c.tk, 0)?;
                 if c.ihs.iter().any(|ih| !same_var(&ih.args[i].0, &at)) {
                     return Ok(false);
                 }
@@ -628,7 +629,7 @@ impl Elaborator {
                 ty,
             });
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let base = lay.case(cases.len());
         for (j, &i) in others_of.iter().enumerate() {
             params.push(Binder {
@@ -650,7 +651,7 @@ impl Elaborator {
         let name: Name = format!("{}.induct", d.display).into();
         let span = d.rows[cases[0].row].span;
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -713,7 +714,7 @@ impl Elaborator {
             let (m1, m2) = self
                 .decreasing_measure(d.f)
                 .ok_or_else(|| Stop::Skip("its measure couldn't be read off it".into()))?;
-            let g = &self.globals;
+            let g = &self.ev();
             let measure = reindex(g, &lay, &m1, n, pn, &|j| base + j)?;
             let second = match m2 {
                 Some(m) => Some(reindex(g, &lay, &m, n, pn, &|j| base + j)?),
@@ -724,7 +725,7 @@ impl Elaborator {
                 id, &display, params, conclusion, measure, second, span, tree,
             )?;
         } else {
-            kernel::define_group(&mut self.globals, &self.tables, &[(id, lams(&names, tree))])?;
+            kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
         }
         if let Some(item) = self.unit.module.item {
             self.unit.module.def_items.insert(id, item);
@@ -762,7 +763,7 @@ impl Elaborator {
     /// binders, the induction hypotheses, and the motive at the left side
     /// and the right side.
     fn induct_case_type(&self, d: &Def, lay: &Layout, case: &Case, at: usize) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         // The row's variables that are fixed parameters.
         let mut fixed_of: HashMap<usize, usize> = HashMap::default();
         for (i, (t, _)) in case.lhs.iter().enumerate() {
@@ -859,17 +860,17 @@ impl Elaborator {
         let (ci, first) = cases[0];
         // The goal here: `motive lhs (f lhs)`.
         let goal = |e: &Elaborator, rd: usize| -> R<Term> {
-            let g = &e.globals;
+            let g = &e.ev();
             let depth = q + rd;
             e.induct_motive_at(
                 d,
                 lay,
                 depth,
-                &|i, _| Ok(first.lhs[i].0.shift(&g.ev(), rd - first.tk, 0)?),
+                &|i, _| Ok(first.lhs[i].0.shift(g, rd - first.tk, 0)?),
                 &|_| {
                     let mut call = Term::Def(d.f);
                     for (a, icit) in &first.lhs {
-                        call = Term::app_icit(call, a.shift(&g.ev(), rd - first.tk, 0)?, *icit);
+                        call = Term::app_icit(call, a.shift(g, rd - first.tk, 0)?, *icit);
                     }
                     Ok(call)
                 },
@@ -899,7 +900,7 @@ impl Elaborator {
         let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
         let lib = self.branch_lib()?;
         let up = |e: &Elaborator, t: &Term, from: usize| -> R<Term> {
-            Ok(t.shift(&e.globals.ev(), rd - from, 0)?)
+            Ok(t.shift(&e.ev(), rd - from, 0)?)
         };
         match &first.steps[level] {
             Step::Ite { depth, args, .. } => {
@@ -949,7 +950,7 @@ impl Elaborator {
                 let Term::Def(h) = head else {
                     return skip("its `match` isn't a call of a lifted `match`'s helper here");
                 };
-                let g = &self.globals;
+                let g = &self.ev();
                 // The scrutinee's type, the helper's parameter's.
                 let (hb, _) = split_pis(g.def(*h).ty(), Some(args.len()));
                 let at: Vec<(Term, usize)> = args[..col]
@@ -958,11 +959,8 @@ impl Elaborator {
                     .collect();
                 let col_ty = instantiate(g, &hb[col].ty, col, &at, depth)?;
                 let env: Vec<Value> = (0..depth).map(Value::var).collect();
-                let col_ty = stitchwort_core::value::quote(
-                    &g.ev(),
-                    depth,
-                    &force(&g.ev(), eval(&g.ev(), &env, &col_ty)?)?,
-                )?;
+                let col_ty =
+                    stitchwort_core::value::quote(g, depth, &force(g, eval(g, &env, &col_ty)?)?)?;
                 let Term::Data(data, data_args) = col_ty.strip_loc() else {
                     return skip("a lifted `match`'s scrutinee isn't of a data type");
                 };
@@ -1034,7 +1032,7 @@ impl Elaborator {
                     }
                     by_ctor[c] = Some((after, group.clone(), pat));
                 }
-                let e = args[col].0.shift(&g.ev(), rd - depth, 0)?;
+                let e = args[col].0.shift(g, rd - depth, 0)?;
                 let data_args: Vec<Term> = data_args.iter().map(|a| (**a).clone()).collect();
                 let gl = goal(self, rd)?;
                 let split = match splits.get(&data) {
@@ -1095,12 +1093,8 @@ impl Elaborator {
 
     /// `Bool.inspect b (_ => goal) t f`.
     fn induct_inspect(&self, sp: &Splitters, b: Term, goal: Term, t: Term, f: Term) -> R<Term> {
-        let g = &self.globals;
-        let motive = Term::Lam(
-            "b".into(),
-            Icit::Explicit,
-            Rc::new(goal.shift(&g.ev(), 1, 0)?),
-        );
+        let g = &self.ev();
+        let motive = Term::Lam("b".into(), Icit::Explicit, Rc::new(goal.shift(g, 1, 0)?));
         Ok(apps(
             Term::Def(sp.inspect),
             [b, motive, t, f].into_iter().map(|t| (t, Icit::Explicit)),
@@ -1112,7 +1106,7 @@ impl Elaborator {
     /// case's equation (`J`, twice: the equation turned round, then the
     /// motive).
     fn induct_leaf(&self, d: &Def, lay: &Layout, id: DefId, c: usize, case: &Case) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let q = lay.prefix();
         let rd = case.binders.len();
         let depth = q + rd;
@@ -1125,7 +1119,7 @@ impl Elaborator {
         let lhs: Vec<(Term, Icit)> = case
             .lhs
             .iter()
-            .map(|(t, icit)| Ok((t.shift(&g.ev(), rd - case.tk, 0)?, *icit)))
+            .map(|(t, icit)| Ok((t.shift(g, rd - case.tk, 0)?, *icit)))
             .collect::<R<_>>()?;
         let f_lhs = apps(Term::Def(d.f), lhs.clone());
         // The case, applied.
@@ -1179,7 +1173,7 @@ impl Elaborator {
             Rc::new(lam2(Term::Eq(
                 None,
                 Rc::new(Term::Var(1)),
-                Rc::new(f_lhs.shift(&g.ev(), 2, 0)?),
+                Rc::new(f_lhs.shift(g, 2, 0)?),
             ))),
             Rc::new(Term::Refl),
             Rc::new(eqn),
@@ -1189,7 +1183,7 @@ impl Elaborator {
             d,
             lay,
             depth + 2,
-            &|i, _| Ok(lhs[i].0.shift(&g.ev(), 2, 0)?),
+            &|i, _| Ok(lhs[i].0.shift(g, 2, 0)?),
             &|_| Ok(Term::Var(1)),
         )?;
         Ok(Term::J(
@@ -1203,7 +1197,7 @@ impl Elaborator {
     /// `[params] → (P: Prop) → (x: data params) → ((fields) → x = C fields
     /// → P) → … → P`, by a case on `x`.
     fn induct_declare_split(&mut self, d: &Def, data: DataId, n: usize) -> R<DefId> {
-        let g = &self.globals;
+        let g = &self.ev();
         let decl = g.data(data);
         let np = decl.params().len();
         let k = decl.ctors().len();
@@ -1294,7 +1288,7 @@ impl Elaborator {
         let name: Name = format!("{}.induct.%split{n}", d.display).into();
         let span = d.rows[0].span;
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1303,7 +1297,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, lams(&names, tree))])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
         Ok(id)
     }
 
@@ -1337,7 +1331,7 @@ impl Elaborator {
     }
 
     fn field_names(&self, data: DataId, ctor: usize) -> Vec<(Name, Icit)> {
-        let mut names: Vec<(Name, Icit)> = self.globals.data(data).ctors()[ctor]
+        let mut names: Vec<(Name, Icit)> = self.kernel.data(data).ctors()[ctor]
             .fields
             .iter()
             .map(|(x, _)| (x.clone(), Icit::Explicit))
@@ -1357,7 +1351,7 @@ impl Elaborator {
         target: Option<usize>,
         at: usize,
     ) -> NestNode {
-        let m = self.globals.data(data).ctors()[ctor].fields.len();
+        let m = self.kernel.data(data).ctors()[ctor].fields.len();
         NestNode {
             data,
             ctor,
@@ -1382,7 +1376,7 @@ impl Elaborator {
         mut work: Vec<(usize, usize)>,
         cur: usize,
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let up = cur - n.depth;
         let Some((ni, k)) = work.first().copied() else {
             // The leaves' variables, and the equation `e = pattern`.
@@ -1445,11 +1439,7 @@ impl Elaborator {
         }
         let fty = instantiate(g, &decl.ctors()[node.ctor].fields[k].1, np + k, &vals, cur)?;
         let env: Vec<Value> = (0..cur).map(Value::var).collect();
-        let fty = stitchwort_core::value::quote(
-            &g.ev(),
-            cur,
-            &force(&g.ev(), eval(&g.ev(), &env, &fty)?)?,
-        )?;
+        let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
         let Term::Data(fd, fargs) = fty.strip_loc() else {
             return skip("a nested pattern's field isn't of a data type");
         };
@@ -1486,7 +1476,7 @@ impl Elaborator {
         for a in fargs {
             out = Term::app_icit(out, a, Icit::Implicit);
         }
-        out = Term::app(out, n.goal.shift(&self.globals.ev(), up, 0)?);
+        out = Term::app(out, n.goal.shift(&self.ev(), up, 0)?);
         out = Term::app(out, Term::Var(cur - 1 - node.fields[k]));
         Ok(Term::app(out, lams(&names, body)))
     }
@@ -1529,7 +1519,7 @@ fn parse_pat(t: &Term, n: usize, seen: &mut usize) -> Option<Pat> {
 
 /// Whether a nested pattern can't be split: somewhere in it, a constructor
 /// of a type with indices or with several constructors.
-fn nested_unsplittable(g: &Globals, pat: &Pat) -> bool {
+fn nested_unsplittable(g: &Ev, pat: &Pat) -> bool {
     match pat {
         Pat::Leaf => false,
         Pat::Node { data, fields, .. } => {
@@ -1575,17 +1565,11 @@ struct NestNode {
 
 /// The term of a nested pattern's node and a proof `target = term` of it,
 /// from the equations bound on the way, in a context of `cur` variables.
-fn nested_proof(
-    g: &Globals,
-    n: &Nest,
-    nodes: &[NestNode],
-    i: usize,
-    cur: usize,
-) -> R<(Term, Term)> {
+fn nested_proof(g: &Ev, n: &Nest, nodes: &[NestNode], i: usize, cur: usize) -> R<(Term, Term)> {
     let node = &nodes[i];
     let target = match node.target {
         Some(l) => Term::Var(cur - 1 - l),
-        None => n.scrut.shift(&g.ev(), cur - n.depth, 0)?,
+        None => n.scrut.shift(g, cur - n.depth, 0)?,
     };
     let mut args: Vec<Term> = node
         .fields
@@ -1597,7 +1581,7 @@ fn nested_proof(
         node.data,
         node.args
             .iter()
-            .map(|a| a.shift(&g.ev(), cur - node.args_at, 0))
+            .map(|a| a.shift(g, cur - node.args_at, 0))
             .collect::<std::result::Result<Vec<_>, _>>()?,
     );
     for k in 0..args.len() {
@@ -1608,7 +1592,7 @@ fn nested_proof(
             shifted.push(if j == k {
                 Term::Var(1)
             } else {
-                a.shift(&g.ev(), 2, 0)?
+                a.shift(g, 2, 0)?
             });
         }
         let motive = Term::Lam(
@@ -1618,8 +1602,8 @@ fn nested_proof(
                 "e".into(),
                 Icit::Explicit,
                 Rc::new(Term::Eq(
-                    Some(Rc::new(ty.shift(&g.ev(), 2, 0)?)),
-                    Rc::new(target.shift(&g.ev(), 2, 0)?),
+                    Some(Rc::new(ty.shift(g, 2, 0)?)),
+                    Rc::new(target.shift(g, 2, 0)?),
                     Rc::new(Term::ctor(node.data, node.ctor, shifted)),
                 )),
             )),
@@ -1633,7 +1617,7 @@ fn nested_proof(
 /// `t`, a term in the context of `f`'s first `from` parameters, at `to`,
 /// where the fixed ones are at their levels and the others at `other(j)`.
 fn reindex(
-    g: &Globals,
+    g: &Ev,
     lay: &Layout,
     t: &Term,
     from: usize,
@@ -1684,7 +1668,7 @@ struct RowProof {
 }
 
 /// `t` as a constructor applied to fields (a number as `Zero` or `Succ`).
-fn ctor_of(g: &Globals, t: &Term) -> Option<(DataId, usize, Vec<Term>)> {
+fn ctor_of(g: &Ev, t: &Term) -> Option<(DataId, usize, Vec<Term>)> {
     match t.strip_loc() {
         Term::Ctor(d, c, args) => Some((*d, *c, args.iter().map(|a| (**a).clone()).collect())),
         Term::Nat(n) => {
@@ -1703,7 +1687,7 @@ fn ctor_of(g: &Globals, t: &Term) -> Option<(DataId, usize, Vec<Term>)> {
 /// on the way there (each a type, `a`'s constructor and the field taken),
 /// and the type and `a`'s constructor there.
 fn clash(
-    g: &Globals,
+    g: &Ev,
     a: &Term,
     b: &Term,
     path: &mut Vec<(DataId, usize, usize)>,
@@ -1727,8 +1711,8 @@ fn clash(
 }
 
 impl Tree<'_> {
-    fn g(&self) -> &Globals {
-        &self.e.globals
+    fn g(&self) -> Ev<'_> {
+        self.e.ev()
     }
 
     /// A proof, at the leaf (`depth`), of an overlap hypothesis whose type
@@ -1763,7 +1747,7 @@ impl Tree<'_> {
         for e in 0..eqs {
             if let Term::Eq(_, a, b) = binders[vars + e].strip_loc() {
                 let mut path = Vec::new();
-                if let Some(at) = clash(g, a, b, &mut path) {
+                if let Some(at) = clash(&g, a, b, &mut path) {
                     found = Some((e, path, at));
                     break;
                 }
@@ -1778,11 +1762,8 @@ impl Tree<'_> {
         };
         // The type of the equation's sides: the row variable's.
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
-        let root_ty = stitchwort_core::value::quote(
-            &g.ev(),
-            depth,
-            &force(&g.ev(), eval(&g.ev(), &env, &types[e])?)?,
-        )?;
+        let root_ty =
+            stitchwort_core::value::quote(&g, depth, &force(&g, eval(&g, &env, &types[e])?)?)?;
         let Term::Data(root, args) = root_ty.strip_loc() else {
             return skip("an overlap hypothesis's equation isn't about a data type");
         };
@@ -1808,7 +1789,7 @@ impl Tree<'_> {
         let inner = vars + eqs;
         let mut applied = Term::Def(disc);
         for a in &args {
-            applied = Term::app_icit(applied, a.shift(&g.ev(), inner + 2, 0)?, Icit::Implicit);
+            applied = Term::app_icit(applied, a.shift(&g, inner + 2, 0)?, Icit::Implicit);
         }
         let motive = Term::Lam(
             "y".into(),
@@ -1878,7 +1859,7 @@ impl Tree<'_> {
         // `depth`, at step `i` of the path.
         #[allow(clippy::too_many_arguments)]
         fn build(
-            g: &Globals,
+            g: &Ev,
             path: &[(DataId, usize, usize)],
             at: (DataId, usize),
             unit: DataId,
@@ -1913,14 +1894,14 @@ impl Tree<'_> {
                 .collect();
             Term::Case(depth - 1 - level, data, branches.into())
         }
-        let tree = build(g, path, at, unit, void, np, np + 1, 0);
+        let tree = build(&g, path, at, unit, void, np, np + 1, 0);
         let ty = pis(&binders, Term::Sort(sort));
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
         let name: Name = format!("{}.induct.%apart{}", self.d.display, self.discs.len() + 1).into();
         let span = self.d.rows[0].span;
         let e = &mut *self.e;
         let id = kernel::declare_def(
-            &mut e.globals,
+            &mut e.kernel,
             &e.tables,
             &e.unit,
             &name,
@@ -1929,7 +1910,7 @@ impl Tree<'_> {
             false,
             span,
         )?;
-        kernel::define_group(&mut e.globals, &e.tables, &[(id, lams(&names, tree))])?;
+        kernel::define_group(&mut e.kernel, &e.tables, &[(id, lams(&names, tree))])?;
         self.discs.insert(key, id);
         self.made.push(id);
         Ok(id)
@@ -1964,7 +1945,7 @@ impl Tree<'_> {
                     .collect::<R<_>>()?,
             ),
             PV::Nat(n) => Term::Nat(n),
-            PV::Term(t, at) => t.shift(&self.g().ev(), depth - at, 0)?,
+            PV::Term(t, at) => t.shift(&self.g(), depth - at, 0)?,
             PV::Rec => return skip("`%rec` escaped into a proof term"),
         })
     }
@@ -2105,7 +2086,7 @@ impl Tree<'_> {
                 && !matches!(self.lay.roles[i], Role::Special(_))
             {
                 let v = self.resolve(v);
-                bind(self.g(), &shape.lhs[i], shape, &v, &mut vals)?;
+                bind(&self.g(), &shape.lhs[i], shape, &v, &mut vals)?;
             }
         }
         let mut terms = Vec::new();
@@ -2118,7 +2099,7 @@ impl Tree<'_> {
         let to = self.depth();
         // The overlap hypotheses, refuted here.
         let at_leaf = |me: &Self, t: &Term, from: usize, terms: &[Term]| -> R<Term> {
-            remap(me.g(), t, from, to, &|l| terms.get(l).cloned())?.ok_or_else(|| {
+            remap(&me.g(), t, from, to, &|l| terms.get(l).cloned())?.ok_or_else(|| {
                 Stop::Skip("a case's hypothesis couldn't be read at its leaf".into())
             })
         };
@@ -2135,7 +2116,7 @@ impl Tree<'_> {
         let q = self.lay.prefix();
         let tk = rp.binders.len();
         let proof = &rp.term;
-        remap(self.g(), proof, q + tk, to, &|l| {
+        remap(&self.g(), proof, q + tk, to, &|l| {
             Some(if l < q {
                 Term::Var(to - 1 - l)
             } else {
@@ -2149,7 +2130,7 @@ impl Tree<'_> {
 /// Matches the arm's pattern `pat` (a term of its shape) against `v`,
 /// recording the value of each of its variables (by position in the
 /// shape's telescope).
-fn bind(g: &Globals, pat: &Term, shape: &Shape, v: &PV, out: &mut Vec<Option<PV>>) -> R<()> {
+fn bind(g: &Ev, pat: &Term, shape: &Shape, v: &PV, out: &mut Vec<Option<PV>>) -> R<()> {
     let mismatch = || Stop::Skip("an arm's patterns don't match its leaf".into());
     match pat.strip_loc() {
         Term::Var(i) => {

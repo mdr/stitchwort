@@ -69,18 +69,18 @@ fn hashes(text: &str) -> Vec<(String, String)> {
     use stitchwort_core::DefId;
     use stitchwort_core::hash::def_hash;
     let mut session = Session::new();
-    let first = session.elab.globals.env.defs().len();
+    let first = session.elab.kernel.env.defs().len();
     session
         .load("test.sw", &format!("{TYPES}{text}"))
         .unwrap_or_else(|e| panic!("{e:#?}"));
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     (first..g.env.defs().len())
         .filter(|&i| {
             let path = g.env.defs()[i].path().to_string();
             NAMES.iter().any(|n| path == format!("Main.{n}"))
         })
         .map(|i| {
-            let h = def_hash(&g.ev(), DefId(i)).unwrap().expect("a hash").hex();
+            let h = def_hash(g, DefId(i)).unwrap().expect("a hash").hex();
             (g.env.defs()[i].path().to_string(), h)
         })
         .collect()

@@ -34,16 +34,16 @@ fn load(text: &str) -> Result<Session, String> {
 /// The definitions `text` adds, by full name, with their hashes.
 fn hashes(text: &str) -> BTreeMap<String, String> {
     with_session(STACK, Session::eager_for_stack, |session| {
-        let first = session.elab.globals.env.defs().len();
+        let first = session.elab.kernel.env.defs().len();
         if let Err(errors) = session.load("defaults.sw", text) {
             panic!("doesn't load: {errors:#?}");
         }
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         (first..g.env.defs().len())
             .map(|i| {
                 (
                     g.env.defs()[i].path().to_string(),
-                    show(def_hash(&g.ev(), DefId(i))),
+                    show(def_hash(g, DefId(i))),
                 )
             })
             .collect()
@@ -52,7 +52,7 @@ fn hashes(text: &str) -> BTreeMap<String, String> {
 
 /// The definition called `name` (its short name).
 fn def(session: &Session, name: &str) -> DefId {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let i = g
         .env
         .defs()
@@ -71,11 +71,11 @@ fn refused(text: &str) -> String {
 }
 
 fn hash_of(session: &Session, name: &str) -> String {
-    show(def_hash(&session.elab.globals.ev(), def(session, name)))
+    show(def_hash(&session.elab.ev(), def(session, name)))
 }
 
 fn body_of(session: &Session, name: &str) -> Term {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     (**g.def(def(session, name)).body().expect("checked")).clone()
 }
 
@@ -402,7 +402,7 @@ theorem rangeFrom0IsWritten: rangeFrom0 = rangeWritten := rfl
         );
         assert_eq!(lambda_names(&session, "rangeFrom0"), ["stop"]);
         // The bare name's body calls `b`'s helper.
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let helper = def(&session, "f.b%default");
         assert!(
             body_of(&session, "bare")

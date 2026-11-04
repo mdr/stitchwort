@@ -5,10 +5,11 @@
 //! if it doesn't work, another, runs the first inside a transaction.
 //!
 //! The elaborator's inference state, all of it reachable from a [`Ctx`].
-//! Most of it is in [`crate::state::Attempt`], whose `mark` and `restore`
-//! name every field; the rest is listed in [`Snapshot`]:
-//! - the metavariables (`Globals::metas`): their solutions are undone from
-//!   `Globals::meta_trail`, and those created since are dropped;
+//! Most of it is in [`crate::state::Attempt`], metavariables included,
+//! whose `mark` and `restore` name every field; the rest is listed in
+//! [`Snapshot`]:
+//! - the metavariables (the attempt's `MetaStore`): their solutions are
+//!   undone from its trail, and those created since are dropped;
 //! - lifted helpers not yet resolved (`lift.rs`), and the local
 //!   definitions' keys met so far (`local.rs`);
 //! - pending auto obligations and defaulted-literal records;
@@ -52,13 +53,11 @@ use crate::state::AttemptMark;
 
 /// The inference state at some point, to return to with [`Snapshot::restore`]:
 /// the [`Attempt`](crate::state::Attempt)'s mark, and what is still outside
-/// it (the metavariables in `Globals`, the local types and goals noted for
-/// presentation, the local context and span).
+/// it (the local types and goals noted for presentation, the local context
+/// and span).
 pub(crate) struct Snapshot {
     mark: Mark,
     span: Span,
-    metas: usize,
-    trail: usize,
     attempt: AttemptMark,
     local_types: usize,
     goals: usize,
@@ -66,12 +65,9 @@ pub(crate) struct Snapshot {
 
 impl Snapshot {
     pub(crate) fn take(cx: &Ctx) -> Snapshot {
-        let g = cx.g();
         Snapshot {
             mark: cx.mark(),
             span: cx.span,
-            metas: g.metas.borrow().len(),
-            trail: g.meta_trail.borrow().len(),
             attempt: cx.e.attempt.mark(),
             local_types: cx.e.pending_local_types(),
             goals: cx.e.pending_goals(),
@@ -81,7 +77,7 @@ impl Snapshot {
     /// How many metavariables there were: those numbered below were made
     /// before the snapshot.
     pub(crate) fn metas(&self) -> usize {
-        self.metas
+        self.attempt.metas()
     }
 
     /// How many number literals had been made `Nat` at once
@@ -98,7 +94,7 @@ impl Snapshot {
 
     /// The metavariables solved (or re-solved) since the snapshot was taken.
     pub(crate) fn solved_since(&self, cx: &Ctx) -> Vec<usize> {
-        cx.g().meta_trail.borrow()[self.trail..]
+        cx.e.attempt.store.meta_trail.borrow()[self.attempt.trail()..]
             .iter()
             .map(|(m, _)| *m)
             .collect()
@@ -106,30 +102,7 @@ impl Snapshot {
 
     /// Undoes everything done since the snapshot was taken.
     pub(crate) fn restore(self, cx: &mut Ctx) {
-        let g = cx.g();
-        {
-            let mut metas = g.metas.borrow_mut();
-            let mut trail = g.meta_trail.borrow_mut();
-            // A call's kept unfolding may have used what's taken back here
-            // (or a metavariable whose number is about to be reused).
-            if trail.len() > self.trail || metas.len() > self.metas {
-                g.metas_taken_back();
-            }
-            while trail.len() > self.trail {
-                let (m, old) = trail.pop().expect("longer than the snapshot's");
-                if let Some(meta) = metas.get_mut(m) {
-                    meta.solution = old;
-                }
-            }
-            metas.truncate(self.metas);
-            g.frozen_metas.borrow_mut().retain(|m| *m < self.metas);
-            g.lifted_calls.borrow_mut().retain(|m, _| *m < self.metas);
-            g.print_labels
-                .borrow_mut()
-                .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
-        }
-        cx.e.attempt
-            .restore(self.attempt, g, self.metas, self.trail);
+        cx.e.attempt.restore(self.attempt);
         cx.e.drop_local_types_since(self.local_types);
         cx.e.drop_goals_since(self.goals);
         cx.reset(self.mark);
@@ -212,7 +185,7 @@ mod tests {
 
     /// A fresh metavariable applied to the variables at `levels`.
     fn meta(cx: &Ctx, levels: &[usize]) -> (usize, Value) {
-        let m = cx.g().new_meta(span());
+        let m = cx.metas().new_meta(span());
         let spine = levels
             .iter()
             .map(|l| Elim::App(Value::var(*l), Icit::Explicit))
@@ -242,7 +215,7 @@ mod tests {
         // ...and inside one, nothing survives.
         assert!(!unify(&mut cx, &lhs, &rhs).unwrap());
         assert!(!solved(&cx, a));
-        assert_eq!(cx.g().metas.borrow().len(), 1);
+        assert_eq!(cx.metas().metas.borrow().len(), 1);
     }
 
     #[test]
@@ -257,16 +230,16 @@ mod tests {
         let (b, b_applied) = meta(&cx, &[0]);
         let lhs = eq(a_value, ty(1));
         let rhs = eq(eq(b_applied, ty(0)), ty(0));
-        let metas = cx.g().metas.borrow().len();
-        let trail = cx.g().meta_trail.borrow().len();
+        let metas = cx.metas().metas.borrow().len();
+        let trail = cx.metas().meta_trail.borrow().len();
         assert!(!unify(&mut cx, &lhs, &rhs).unwrap());
         assert!(!solved(&cx, a));
         assert!(!solved(&cx, b));
-        assert_eq!(cx.g().metas.borrow().len(), metas);
-        assert_eq!(cx.g().meta_trail.borrow().len(), trail);
+        assert_eq!(cx.metas().metas.borrow().len(), metas);
+        assert_eq!(cx.metas().meta_trail.borrow().len(), trail);
         // The same comparison outside a transaction does prune.
         assert!(!cx.unify(&lhs, &rhs).unwrap());
-        assert!(cx.g().metas.borrow().len() > metas);
+        assert!(cx.metas().metas.borrow().len() > metas);
     }
 
     #[test]
@@ -291,7 +264,7 @@ mod tests {
         assert_eq!(cx.level(), level);
         assert!(cx.lookup("y").is_none());
         assert!(cx.e.attempt.obligations.borrow().is_empty());
-        assert!(cx.g().metas.borrow().is_empty());
+        assert!(cx.metas().metas.borrow().is_empty());
         assert!(spent.get() > work);
         assert_eq!(cx.g().machine.budget.total_work(), spent.get());
     }
@@ -326,7 +299,7 @@ mod tests {
         let _op = cx.g().machine.budget.operation(limits);
         let (a, _) = meta(&cx, &[]);
         let result: Result<Option<()>> = transaction(&mut cx, |cx| {
-            cx.g().solve_meta(a, ty(0));
+            cx.metas().solve_meta(a, ty(0));
             loop {
                 cx.g().machine.budget.step()?;
             }
@@ -336,7 +309,7 @@ mod tests {
         // Any other error means this way didn't work: undone.
         let (b, _) = meta(&cx, &[]);
         let found = attempt(&mut cx, |cx| -> Result<()> {
-            cx.g().solve_meta(b, ty(0));
+            cx.metas().solve_meta(b, ty(0));
             Err(Diagnostic::error("E-TYPE-MISMATCH", "no"))
         })
         .unwrap();

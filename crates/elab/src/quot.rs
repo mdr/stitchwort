@@ -28,7 +28,7 @@ use std::rc::Rc;
 use stitchwort_core::collections::HashSet;
 use stitchwort_core::term::QuotForm;
 use stitchwort_core::value::Head;
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -202,7 +202,7 @@ fn elaborate_own(
         ));
     }
     let g = cx.g();
-    let shift = |t: &Term, by: usize| t.shift(&g.ev(), by, 0);
+    let shift = |t: &Term, by: usize| t.shift(&g, by, 0);
     let pi = |x: &str, dom: Term, cod: Term| {
         Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
     };
@@ -407,7 +407,7 @@ pub(crate) fn match_note(ty: &Value) -> Option<String> {
 /// constructor of the `group`, in order, as given to the kernel; `params`
 /// names the group's parameters.
 pub(crate) fn recursive_through_quotient(
-    g: &Globals,
+    g: &Ev,
     group: &[DataId],
     params: &[Name],
     ctors: &[Vec<(Name, Term, Span)>],
@@ -444,7 +444,7 @@ pub(crate) fn recursive_through_quotient(
             let label = if depth == 0 {
                 format!(
                     "field `{x}` has `{name}` inside `{}`, {what}",
-                    pretty::term(&g.ev(), &names, inner)
+                    pretty::term(g, &names, inner)
                 )
             } else {
                 format!("field `{x}` has `{name}` inside a type that is or contains a quotient")
@@ -486,7 +486,7 @@ fn mentions_group(term: &Term, group: &[DataId]) -> Option<DataId> {
 /// Whether `term` is a quotient type, or a type built on one: a data type
 /// outside `group` whose fields reach a quotient type, or a type-valued
 /// definition (applied or not) whose body does.
-fn quotient_like(g: &Globals, term: &Term, group: &[DataId], seen: &mut Seen) -> bool {
+fn quotient_like(g: &Ev, term: &Term, group: &[DataId], seen: &mut Seen) -> bool {
     match term.strip_loc() {
         Term::Quot(QuotForm::Type, ..) => true,
         Term::Data(d, _) => !group.contains(d) && data_reaches(g, *d, seen),
@@ -502,7 +502,7 @@ fn quotient_like(g: &Globals, term: &Term, group: &[DataId], seen: &mut Seen) ->
 
 /// Whether `term` contains a quotient type, directly or through the data
 /// types and type-valued definitions it mentions.
-fn reaches(g: &Globals, term: &Term, seen: &mut Seen) -> bool {
+fn reaches(g: &Ev, term: &Term, seen: &mut Seen) -> bool {
     term.subterms().any(|(t, _)| match t {
         Term::Quot(QuotForm::Type, ..) => true,
         Term::Data(d, _) => data_reaches(g, *d, seen),
@@ -511,7 +511,7 @@ fn reaches(g: &Globals, term: &Term, seen: &mut Seen) -> bool {
     })
 }
 
-fn data_reaches(g: &Globals, d: DataId, seen: &mut Seen) -> bool {
+fn data_reaches(g: &Ev, d: DataId, seen: &mut Seen) -> bool {
     if !seen.datas.insert(d) {
         return false;
     }
@@ -529,7 +529,7 @@ fn data_reaches(g: &Globals, d: DataId, seen: &mut Seen) -> bool {
 /// Only a definition whose type ends in a sort (one that makes a type) is
 /// looked into: another's body may compute with quotients without being
 /// one.
-fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
+fn def_reaches(g: &Ev, f: DefId, seen: &mut Seen) -> bool {
     let def = g.def(f);
     let mut ty = def.ty().strip_loc();
     while let Term::Pi(_, _, _, cod) = ty {
@@ -540,8 +540,7 @@ fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
     }
     // Not an opaque definition's hidden body
     // (docs/proposals/opaque-definitions.md §6.4).
-    let found =
-        stitchwort_core::value::body_seen(&g.ev(), f).is_some_and(|body| reaches(g, body, seen));
+    let found = stitchwort_core::value::body_seen(g, f).is_some_and(|body| reaches(g, body, seen));
     seen.defs.remove(&f);
     found
 }

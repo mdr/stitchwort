@@ -18,7 +18,7 @@
 use stitchwort_core::budget::ResourceError;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force, quote};
-use stitchwort_core::{Globals, Name, Term, Value};
+use stitchwort_core::{Ev, Name, Term, Value};
 use stitchwort_syntax::Span;
 
 use crate::Elaborator;
@@ -74,7 +74,7 @@ impl Postponed {
 /// Records `meta`, made for an implicit parameter of type `ty`, if `ty` is
 /// `Effect.Effects`.
 pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
-    let Ok(Value::Data(d, _)) = force(&cx.g().ev(), ty.clone()) else {
+    let Ok(Value::Data(d, _)) = force(&cx.g(), ty.clone()) else {
         return;
     };
     let divergence = cx.g().env.registry().is_data(Builtin::Divergence, d);
@@ -101,7 +101,7 @@ fn row_meta_value(e: &Elaborator, item: &RowMeta) -> Result<Value> {
         item.names.clone(),
         item.span,
     );
-    Ok(force(&cx.g().ev(), cx.eval(&item.meta)?)?)
+    Ok(force(&cx.g(), cx.eval(&item.meta)?)?)
 }
 
 /// Runs `settle`, which sets row unknowns to the empty row before the end of
@@ -122,7 +122,7 @@ pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> R
     }
     settle()?;
     for i in unsolved {
-        if is_empty_row(cx.g(), &row_meta_value(cx.e, &metas[i])?)
+        if is_empty_row(&cx.g(), &row_meta_value(cx.e, &metas[i])?)
             && let Some(item) = cx.e.attempt.row_metas.borrow_mut().get_mut(i)
         {
             item.settled_empty = true;
@@ -132,7 +132,7 @@ pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> R
 }
 
 /// Whether `value`, forced, is the empty row.
-fn is_empty_row(g: &Globals, value: &Value) -> bool {
+fn is_empty_row(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Ctor(d, c, _) if Some((*d, *c)) == g.env.registry().ctor(Builtin::RowEmpty))
 }
 
@@ -155,7 +155,7 @@ pub(crate) enum RowFault {
 /// Rows are made by `effects::row_value` (the rows of `{A | e}` types),
 /// `unify::row_rule` (a row unknown solved from a `Comp`) and
 /// `default_rows` (an unsolved row unknown set to the empty row).
-pub(crate) fn empty_row(g: &Globals) -> Option<Value> {
+pub(crate) fn empty_row(g: &Ev) -> Option<Value> {
     let (data, ctor) = g.env.registry().ctor(Builtin::RowEmpty)?;
     Some(Value::Ctor(data, ctor, Vec::new().into()))
 }
@@ -167,14 +167,14 @@ pub(crate) fn empty_row(g: &Globals) -> Option<Value> {
 /// crash: `CompIn (Ops NoOp NoRes) a` is a tree where `CompIn Empty a` is
 /// `a`, so the same pure function would compile two ways. It costs one
 /// `force` of a term the caller just built.
-pub(crate) fn ops_row(g: &Globals, op: Value, res: Value) -> std::result::Result<Value, RowFault> {
+pub(crate) fn ops_row(g: &Ev, op: Value, res: Value) -> std::result::Result<Value, RowFault> {
     let (Some((data, ctor)), Some(no_op)) = (
         g.env.registry().ctor(Builtin::RowOps),
         g.env.registry().data(Builtin::NoOp),
     ) else {
         return Err(RowFault::Missing);
     };
-    let forced = force(&g.ev(), op.clone()).map_err(RowFault::Resource)?;
+    let forced = force(g, op.clone()).map_err(RowFault::Resource)?;
     let none = matches!(forced, Value::Data(d, _) if d == no_op);
     debug_assert!(
         !none,
@@ -188,7 +188,7 @@ pub(crate) fn ops_row(g: &Globals, op: Value, res: Value) -> std::result::Result
 
 /// [`empty_row`], for the elaborator: an error if the prelude lacks it.
 pub(crate) fn empty_row_in(cx: &Ctx) -> Result<Value> {
-    match empty_row(cx.g()) {
+    match empty_row(&cx.g()) {
         Some(value) => Ok(value),
         None => Err(missing(cx, Builtin::RowEmpty)),
     }
@@ -196,7 +196,7 @@ pub(crate) fn empty_row_in(cx: &Ctx) -> Result<Value> {
 
 /// [`ops_row`], for the elaborator: a violation is an `E-INTERNAL` error.
 pub(crate) fn ops_row_in(cx: &Ctx, op: Value, res: Value) -> Result<Value> {
-    ops_row(cx.g(), op, res).map_err(|fault| match fault {
+    ops_row(&cx.g(), op, res).map_err(|fault| match fault {
         RowFault::Missing => missing(cx, Builtin::RowOps),
         RowFault::Resource(e) => e.into(),
         RowFault::NoAbilities => cx
@@ -247,11 +247,7 @@ pub(crate) fn postpone(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<
 /// definition stuck on an unknown solved since takes its step.
 pub(crate) fn refresh_at(cx: &Ctx, level: usize, value: &Value) -> Result<Value> {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    Ok(eval(
-        &cx.g().ev(),
-        &env,
-        &quote(&cx.g().ev(), level, value)?,
-    )?)
+    Ok(eval(&cx.g(), &env, &quote(&cx.g(), level, value)?)?)
 }
 
 impl Elaborator {
@@ -365,7 +361,7 @@ impl Elaborator {
         let metas = self.attempt.row_metas.borrow().clone();
         let mut spans = Vec::new();
         for item in metas.iter().filter(|item| item.settled_empty) {
-            if is_empty_row(&self.globals, &row_meta_value(self, item)?) {
+            if is_empty_row(&self.ev(), &row_meta_value(self, item)?) {
                 spans.push(item.span);
             }
         }
@@ -382,7 +378,7 @@ impl Elaborator {
             let cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
             let value = cx.eval(&item.meta)?;
             if !matches!(
-                force(&cx.g().ev(), value.clone())?,
+                force(&cx.g(), value.clone())?,
                 Value::Neutral(Head::Meta(_), _)
             ) {
                 continue;
@@ -449,8 +445,7 @@ fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<S
             let Some(stitchwort_core::value::Elim::App(div, _)) = spine.first() else {
                 continue;
             };
-            if !matches!(force(&g.ev(), div.clone())?, Value::Ctor(d, c, _) if Some((d, c)) == total)
-            {
+            if !matches!(force(&g, div.clone())?, Value::Ctor(d, c, _) if Some((d, c)) == total) {
                 continue;
             }
             spine.get(1)
@@ -460,13 +455,13 @@ fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<S
         let Some(stitchwort_core::value::Elim::App(row, _)) = row else {
             continue;
         };
-        if !matches!(force(&g.ev(), row.clone())?, Value::Ctor(d, c, _) if (d, c) == empty) {
+        if !matches!(force(&g, row.clone())?, Value::Ctor(d, c, _) if (d, c) == empty) {
             continue;
         }
-        let other = force(&g.ev(), other.clone())?;
+        let other = force(&g, other.clone())?;
         let decided = match &other {
             Value::Data(d, args) if *d == comp && args.len() == 3 => {
-                match force(&g.ev(), args[0].clone())? {
+                match force(&g, args[0].clone())? {
                     Value::Data(p, _) if p == plus => {
                         return Ok(SettledFirst::Abilities(other));
                     }
@@ -474,7 +469,7 @@ fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<S
                     _ => false,
                 }
             }
-            _ => crate::unify::rigid_head(g, &other).is_some(),
+            _ => crate::unify::rigid_head(&g, &other).is_some(),
         };
         if !decided && crate::interfaces::unsolved_in(cx, &other)?.is_some() {
             return Ok(SettledFirst::Waiting);
@@ -531,7 +526,7 @@ mod tests {
 
     use stitchwort_core::partial::Primitive;
     use stitchwort_core::value::{Elim, Head};
-    use stitchwort_core::{Globals, Icit, Sort};
+    use stitchwort_core::{Icit, Sort};
     use stitchwort_syntax::SourceMap;
 
     use super::*;
@@ -568,7 +563,7 @@ mod tests {
         Span::point(sources.add("test", ""), 0)
     }
 
-    fn data(g: &Globals, builtin: Builtin, args: Vec<Value>) -> Value {
+    fn data(g: &crate::unify::Unifier<'_>, builtin: Builtin, args: Vec<Value>) -> Value {
         Value::Data(g.env.registry().data(builtin).expect("a built-in"), args)
     }
 
@@ -581,23 +576,23 @@ mod tests {
         )
     }
 
-    fn nat(g: &Globals) -> Value {
+    fn nat(g: &crate::unify::Unifier<'_>) -> Value {
         data(g, Builtin::Nat, Vec::new())
     }
 
     /// A fresh row unknown `?e`, and `CompIn ?e result`.
-    fn comp_in(g: &Globals, result: Value) -> (usize, Value) {
-        let meta = g.new_meta(span());
+    fn comp_in(g: &crate::unify::Unifier<'_>, result: Value) -> (usize, Value) {
+        let meta = g.store.new_meta(span());
         let comp_in = g.env.registry().def(Builtin::CompIn).expect("CompIn");
         let row = applied(Head::Meta(meta), Vec::new());
         (meta, applied(Head::Def(comp_in), vec![row, result]))
     }
 
     /// Whether `?meta` was solved with the row constructor `which`.
-    fn solved_with(g: &Globals, meta: usize, which: Builtin) -> bool {
+    fn solved_with(g: &crate::unify::Unifier<'_>, meta: usize, which: Builtin) -> bool {
         let (d, c) = g.env.registry().ctor(which).expect("a constructor");
         matches!(
-            g.meta_solution(meta).map(|v| force(&g.ev(), v)),
+            g.meta_solution(meta).map(|v| force(g, v)),
             Some(Ok(Value::Ctor(d2, c2, _))) if d2 == d && c2 == c
         )
     }
@@ -606,11 +601,11 @@ mod tests {
     fn a_data_type_makes_the_row_empty_and_the_results_are_compared() {
         with_core(|e| {
             let g = &e.unifier();
-            let (meta, left) = comp_in(g.store, nat(g.store));
-            assert!(unify(g, 0, &left, &nat(g.store)).unwrap());
-            assert!(solved_with(g.store, meta, Builtin::RowEmpty));
-            let (_, left) = comp_in(g.store, nat(g.store));
-            let boolean = data(g.store, Builtin::Bool, Vec::new());
+            let (meta, left) = comp_in(g, nat(g));
+            assert!(unify(g, 0, &left, &nat(g)).unwrap());
+            assert!(solved_with(g, meta, Builtin::RowEmpty));
+            let (_, left) = comp_in(g, nat(g));
+            let boolean = data(g, Builtin::Bool, Vec::new());
             assert!(!unify(g, 0, &left, &boolean).unwrap());
         });
     }
@@ -632,9 +627,9 @@ mod tests {
                 (0, Value::Sort(Sort::Type(0))),
                 (1, Value::var(0)),
             ] {
-                let (meta, left) = comp_in(g.store, other.clone());
+                let (meta, left) = comp_in(g, other.clone());
                 assert!(unify(g, level, &left, &other).unwrap());
-                assert!(solved_with(g.store, meta, Builtin::RowEmpty));
+                assert!(solved_with(g, meta, Builtin::RowEmpty));
             }
         });
     }
@@ -643,8 +638,8 @@ mod tests {
     fn a_comp_over_abilities_gives_its_row() {
         with_core(|e| {
             let g = &e.unifier();
-            let no_op = data(g.store, Builtin::NoOp, Vec::new());
-            let ops = data(g.store, Builtin::Plus, vec![nat(g.store), no_op]);
+            let no_op = data(g, Builtin::NoOp, Vec::new());
+            let ops = data(g, Builtin::Plus, vec![nat(g), no_op]);
             // Closed, so that it can be part of `?e`'s solution.
             let res = eval(
                 g,
@@ -656,10 +651,10 @@ mod tests {
                 ),
             )
             .unwrap();
-            let comp = data(g.store, Builtin::Comp, vec![ops, res, nat(g.store)]);
-            let (meta, left) = comp_in(g.store, nat(g.store));
+            let comp = data(g, Builtin::Comp, vec![ops, res, nat(g)]);
+            let (meta, left) = comp_in(g, nat(g));
             assert!(unify(g, 0, &left, &comp).unwrap());
-            assert!(solved_with(g.store, meta, Builtin::RowOps));
+            assert!(solved_with(g, meta, Builtin::RowOps));
         });
     }
 
@@ -667,16 +662,12 @@ mod tests {
     fn a_comp_over_no_abilities_is_data() {
         with_core(|e| {
             let g = &e.unifier();
-            let no_op = data(g.store, Builtin::NoOp, Vec::new());
-            let comp = data(
-                g.store,
-                Builtin::Comp,
-                vec![no_op, Value::var(0), nat(g.store)],
-            );
+            let no_op = data(g, Builtin::NoOp, Vec::new());
+            let comp = data(g, Builtin::Comp, vec![no_op, Value::var(0), nat(g)]);
             // `?e := Empty`, so the result is compared with the whole `Comp`.
-            let (meta, left) = comp_in(g.store, comp.clone());
+            let (meta, left) = comp_in(g, comp.clone());
             assert!(unify(g, 1, &left, &comp).unwrap());
-            assert!(solved_with(g.store, meta, Builtin::RowEmpty));
+            assert!(solved_with(g, meta, Builtin::RowEmpty));
         });
     }
 
@@ -689,8 +680,8 @@ mod tests {
                 .builtins()
                 .primitive_id(Primitive::Delay)
                 .expect("Delay");
-            let partial = applied(Head::Def(delay), vec![nat(g.store)]);
-            let (meta, left) = comp_in(g.store, nat(g.store));
+            let partial = applied(Head::Def(delay), vec![nat(g)]);
+            let (meta, left) = comp_in(g, nat(g));
             assert!(!unify(g, 0, &left, &partial).unwrap());
             assert!(unify_postponing(g, 0, &left, &partial).unwrap().is_none());
             assert!(g.meta_solution(meta).is_none());
@@ -705,20 +696,17 @@ mod tests {
         use stitchwort_core::QuotForm;
         with_core(|e| {
             let g = &e.unifier();
-            let quotient = applied(
-                Head::Quot(QuotForm::Type),
-                vec![nat(g.store), Value::var(0)],
-            );
-            let (meta, left) = comp_in(g.store, quotient.clone());
+            let quotient = applied(Head::Quot(QuotForm::Type), vec![nat(g), Value::var(0)]);
+            let (meta, left) = comp_in(g, quotient.clone());
             assert!(unify(g, 1, &left, &quotient).unwrap());
-            assert!(solved_with(g.store, meta, Builtin::RowEmpty));
+            assert!(solved_with(g, meta, Builtin::RowEmpty));
 
             let unknown = applied(Head::Meta(g.store.new_meta(span())), Vec::new());
             let mut args = vec![Value::var(0); QuotForm::Lift.arity() - 1];
             args.push(unknown);
             let stuck = applied(Head::Quot(QuotForm::Lift), args);
-            assert_eq!(crate::unify::rigid_head(g.store, &stuck), None);
-            let (meta, left) = comp_in(g.store, nat(g.store));
+            assert_eq!(crate::unify::rigid_head(g, &stuck), None);
+            let (meta, left) = comp_in(g, nat(g));
             let put_aside = unify_postponing(g, 1, &left, &stuck).unwrap();
             assert_eq!(put_aside.map(|p| p.len()), Some(1));
             assert!(g.meta_solution(meta).is_none());
@@ -733,7 +721,7 @@ mod tests {
             let row_op = g.env.registry().def(Builtin::RowOp).expect("rowOp");
             let unknown = applied(Head::Meta(g.store.new_meta(span())), Vec::new());
             let stuck = applied(Head::Def(row_op), vec![unknown]);
-            let (meta, left) = comp_in(g.store, nat(g.store));
+            let (meta, left) = comp_in(g, nat(g));
             assert!(!unify(g, 0, &left, &stuck).unwrap());
             let put_aside = unify_postponing(g, 0, &left, &stuck).unwrap();
             assert_eq!(put_aside.map(|p| p.len()), Some(1));
@@ -747,7 +735,7 @@ mod tests {
     #[test]
     fn ops_row_refuses_no_abilities_and_accepts_an_ability() {
         with_core(|e| {
-            let g = &e.globals;
+            let g = &e.unifier();
             let no_op = data(g, Builtin::NoOp, Vec::new());
             let res = Value::Sort(Sort::Type(0));
             // `Plus Nat NoOp`: one ability.

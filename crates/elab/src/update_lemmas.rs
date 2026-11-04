@@ -47,7 +47,7 @@ impl Elaborator {
     /// for each shared field `f` that can be updated and each `g` that can
     /// be read back. Source can't declare such a name itself.
     pub(crate) fn derive_update_lemmas(&mut self, d: DataId, decl: &Decl) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         if data.record() || data.sort() == Sort::Prop || !data.indices().is_empty() {
             return Ok(());
         }
@@ -111,7 +111,7 @@ impl Elaborator {
     /// The lemmas `d` gets, in the shared fields' order.
     fn update_lemmas_of(&self, d: DataId) -> Result<Vec<Lemma>> {
         let shared = self.shared_fields(d)?.shared;
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let is_shared = |f: &Name| shared.iter().any(|(s, _)| s == f);
         // Read back: data whose type, in every constructor, mentions no field.
         let readable: Vec<&Name> = shared
@@ -187,7 +187,7 @@ impl Elaborator {
         lemma: &Lemma,
         span: Span,
     ) -> (Decl, Vec<Decl>) {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let n = |text: &str| ast::Name {
             text: text.to_string(),

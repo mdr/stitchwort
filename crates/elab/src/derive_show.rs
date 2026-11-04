@@ -66,7 +66,7 @@ impl Elaborator {
     /// After data type or record `d` is admitted: its `Show` instance, if
     /// one can be derived, or else why not.
     pub(crate) fn derive_data_show(&mut self, d: DataId) -> Result<()> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         let Some(show) = interfaces::show(self) else {
             return Ok(());
@@ -106,7 +106,7 @@ impl Elaborator {
     }
 
     fn show_plan(&mut self, d: DataId, show: DataId) -> Result<std::result::Result<Plan, String>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let name = data.name().to_string();
         let np = data.params().len();
@@ -131,7 +131,7 @@ impl Elaborator {
             Ok(members) => members,
             Err(why) => return Ok(Err(why)),
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
         let param_is_type: Vec<bool> = data.params().iter().map(|(_, t)| is_type(t)).collect();
@@ -163,7 +163,7 @@ impl Elaborator {
                     .map(Value::var)
                     .chain((0..i).map(|_| unused()))
                     .collect();
-                let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
+                let value = force(g, eval(g, &env, ty)?)?;
                 if matches!(value, Value::Pi(..)) {
                     return Ok(Err(format!(
                         "{what} is a function, and functions can't be shown"
@@ -225,7 +225,7 @@ impl Elaborator {
                         .cloned()
                         .chain((0..i).map(|_| unused()))
                         .collect();
-                    let value = force(&g.ev(), eval(&g.ev(), &env, ty)?)?;
+                    let value = force(g, eval(g, &env, ty)?)?;
                     if matches!(value, Value::Pi(..)) {
                         return Ok(Err(format!(
                             "{what} has a function inside `{}`, and functions can't be shown",
@@ -236,7 +236,7 @@ impl Elaborator {
                         kinds.push(Field::Recursive(m));
                         continue;
                     }
-                    let term = quote(&g.ev(), np, &value)?;
+                    let term = quote(g, np, &value)?;
                     for j in 0..np {
                         if term.mentions(np - 1 - j) {
                             dicts[j] |= param_is_type[j];
@@ -252,8 +252,8 @@ impl Elaborator {
         let nested: Vec<(Member, Vec<Vec<Field>>)> =
             members.into_iter().skip(1).zip(nested_fields).collect();
         self.clear_metas();
-        let span = self.globals.data(d).span();
-        let params: Vec<(Name, Term)> = self.globals.data(d).params().to_vec();
+        let span = self.kernel.data(d).span();
+        let params: Vec<(Name, Term)> = self.kernel.data(d).params().to_vec();
         let mut why = None;
         {
             let mut cx = Ctx::new(self, span);
@@ -301,7 +301,7 @@ impl Elaborator {
     /// each container it's in (`T.%m1%show`, and `T.%m1%items` for a
     /// list), to be defined together.
     fn show_source(&self, d: DataId, plan: &Plan) -> (Vec<Equations>, Equations) {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
         let span = data.span();
         let n = |text: &str| ast::Name {
@@ -408,8 +408,8 @@ impl Elaborator {
             arm: None,
             span,
         };
-        let list = self.globals.env.registry().data(Builtin::List);
-        let pair = self.globals.env.registry().data(Builtin::Pair);
+        let list = self.kernel.env.registry().data(Builtin::List);
+        let pair = self.kernel.env.registry().data(Builtin::Pair);
 
         let mut functions = Vec::new();
         for m in 0..=plan.nested.len() {
@@ -422,7 +422,7 @@ impl Elaborator {
                 let container = plan.nested[m - 1].0.data;
                 (
                     container,
-                    self.globals.data(container).path().to_string(),
+                    self.kernel.data(container).path().to_string(),
                     apps(
                         var(&format!("{prefix}type")),
                         (0..np).map(|j| var(&param(j))).collect(),
@@ -434,7 +434,7 @@ impl Elaborator {
             } else {
                 &plan.nested[m - 1].1
             };
-            let ctors = self.globals.data(matched).ctors();
+            let ctors = self.kernel.data(matched).ctors();
             let name = n(&show_of(m));
             let pattern = |c: usize| {
                 let ctor = &ctors[c];

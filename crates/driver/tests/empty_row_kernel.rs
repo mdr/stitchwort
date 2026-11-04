@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use stitchwort_core::check;
 use stitchwort_core::value::{conv, eval};
-use stitchwort_core::{DefId, Globals, Icit, Term};
+use stitchwort_core::{DefId, Icit, Term};
 use stitchwort_driver::driver::Session;
 use stitchwort_syntax::{SourceMap, Span};
 
@@ -18,7 +18,7 @@ fn span() -> Span {
     Span::point(file, 0)
 }
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -32,7 +32,7 @@ fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
 }
 
-fn comp_nat(g: &Globals) -> (Term, Term) {
+fn comp_nat(g: &stitchwort_core::Ev) -> (Term, Term) {
     let nat = Term::Data(g.find_data("Nat").unwrap(), vec![]);
     let no_op = Term::Data(g.find_data("Effect.NoOp").unwrap(), vec![]);
     let no_res = Term::Def(def(g, "Effect.NoRes"));
@@ -55,9 +55,9 @@ const SOURCE: &str = "import Std.Effect (Comp, NoOp, NoRes)\n\
 fn the_elaborator_runs_the_computation_with_run_pure() {
     let mut session = Session::new();
     session.load("test.sw", SOURCE).unwrap();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let body = g.def(def(g, "g")).body().expect("g has a body").clone();
-    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &body);
+    let printed = stitchwort_core::pretty::term(g, &[], &body);
     assert!(
         printed.contains("Effect.runPure") && printed.contains('f'),
         "g's core body: {printed}"
@@ -70,20 +70,20 @@ fn the_elaborator_runs_the_computation_with_run_pure() {
 fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
     let mut session = Session::new();
     session.load("test.sw", SOURCE).unwrap();
-    let g = &mut session.elab.globals;
-    let (comp, nat) = comp_nat(g);
+    let g = &mut session.elab.kernel;
+    let (comp, nat) = comp_nat(&g.ev());
     let a = eval(&g.ev(), &[], &comp).unwrap();
     let b = eval(&g.ev(), &[], &nat).unwrap();
     assert!(!conv(&g.ev(), 0, &a, &b).unwrap());
 
-    let f = Term::Def(def(g, "f"));
+    let f = Term::Def(def(&g.ev(), "f"));
     let bad =
         check::declare_def(g, &"bad".into(), &"bad".into(), &nat, false, false, span()).unwrap();
     assert_eq!(code(check::define_def(g, bad, &f)), "E-TYPE-MISMATCH");
 
     let run = Term::app_icit(
         Term::app_icit(
-            Term::Def(def(g, "Effect.runPure")),
+            Term::Def(def(&g.ev(), "Effect.runPure")),
             nat.clone(),
             Icit::Implicit,
         ),
@@ -155,9 +155,9 @@ fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
     if let Err(ds) = session.load("test.sw", HANDLERS) {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ty = g.def(def(g, "same")).ty().clone();
-    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &ty);
+    let printed = stitchwort_core::pretty::term(g, &[], &ty);
     assert!(
         !printed.contains("Effect.bind")
             && !printed.contains("Effect.runPure")
@@ -181,7 +181,7 @@ fn a_pure_use_of_an_effect_polymorphic_function_has_no_computation() {
     if let Err(ds) = session.load("test.sw", source) {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let comp = g.find_data("Effect.Comp").unwrap();
     let row = g.find_data("Effect.Effects").unwrap();
     let run_pure = def(g, "Effect.runPure");
@@ -235,9 +235,9 @@ fn an_equation_between_computations_compares_them() {
     ) {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ty = g.def(def(g, "same")).ty().clone();
-    let printed = stitchwort_core::pretty::term(&g.ev(), &[], &ty);
+    let printed = stitchwort_core::pretty::term(g, &[], &ty);
     assert!(
         !printed.contains("Effect.runPure") && !printed.contains("Effect.bind"),
         "same's statement: {printed}"

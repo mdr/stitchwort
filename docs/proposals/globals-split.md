@@ -479,6 +479,57 @@ clears it, and `Decl::rewind` clears it (before, a rewind put back the mark's
 value, which the next component's start overwrote anyway). Modes' behaviour
 under admission is untouched (8e).
 
+*As built (SW-1190, step 8e).* Two commits. 8e-1 added `core::ev`
+(`Ev`, `Metas`, `NoMetas`, `Shown`, `NoShown`) and moved every evaluator,
+printer and checker signature from `&Globals` to `&Ev`; `Ev` is `Copy`
+(five references), `check::Ctx` and `backend::View` hold one by value, and
+elab's `Unifier` is `{ ev, store, attempt, stats }` and derefs to its `Ev`.
+8e-2 split the store off and deleted `Globals`:
+
+- What was `Globals` less the store and the hints is `core::Kernel { env,
+  machine, caches }`, not the `(&mut Env, &Machine)` pair of §4: admission
+  needs the caches (hashes, erasure's) as well, and one struct keeps the
+  entry points' signatures and `KernelMark`/`rewind` as they were. The
+  boundary is the same: `Kernel` has no field a metavariable or a hint can
+  be reached through, and `Kernel::ev()` is `Ev::kernel`, with `NoMetas` and
+  `NoShown`. A host that wants the elaborator's view calls
+  `Elaborator::ev()` (metas from the attempt's store, hints from the
+  elaborator itself); `elab.kernel.ev()` is only for what never meets an
+  unknown.
+- Each admission entry point (`check.rs`, and the registering ones in
+  `native`, `float`, `registry`, `nat_add`, `chars`, `partial`) runs its body
+  in `machine::in_kernel_modes`, which sets glue off, the transparency set
+  empty and erasure off (`Erasure::stop`: `active` and `program` both
+  false), and puts the caller's back after (D2294). The budget stays the
+  caller's. It is a closure, not a guard, so the body can borrow the
+  `Kernel` mutably. `debug_assert!`s that the kernel is entered unglued are
+  gone (it no longer has to be), and elab's `unglued` wrapper became
+  `timed`. This closes G1; `opaque.rs`'s
+  `admission_ignores_a_running_program` is its test.
+- The nine fields are `elab::state::MetaStore` (`state/metas.rs`), the
+  `Attempt`'s `store`, with `Meta` and the meta methods. `Attempt::mark`
+  and `restore` carry a `MetasMark`; `MetaStore::restore` and `clear_metas`
+  destructure the store, so a new field doesn't compile until it says how
+  it is undone. The queue's three mirrors are still put back by the queue's
+  own restore (G2 unchanged). `Snapshot` lost its separate `metas`/`trail`.
+- `Metas::epoch` is the store's `meta_epoch`, from 1; `NoMetas` says 0. A
+  kept unfolding (`Unfolding::get`) from epoch 0 is used at any epoch: a
+  value computed with no metavariables can't have used a solution, so an
+  unfolding the kernel computed stays shared with the elaborator.
+- `Shown` covers what the printer read from `Globals`: `placeholder`,
+  `print_label` (a search, with `has_print_labels` for the common empty
+  case), `update_shown`, `param_defaults`, and the failed-mention flag
+  (`wants_failed_mention`, `note_failed_mentioned`). `impl Shown for
+  Elaborator` reads the store, `Tables` and `Decl`. `PrintHints`,
+  `SharedOwnedBy`, `share_print_hints` and `FailedMention` are gone:
+  `Tables::update_shown`/`param_defaults` are plain `OwnedBy` tables and
+  `Decl::failed_mentioned` a `Cell<bool>`.
+- Kernel messages print with `NoShown`: a refusal's terms never hold a
+  placeholder or a lifted call, and the unknowns it can show are the
+  ones admission refuses anyway.
+- G3 is gone with the field. G5's test is elab's
+  `kernel::tests::admission_refuses_a_solved_metavariable`.
+
 **Order** (an implementation decision, made here). 8a-8f run one at a
 time: every one edits core and its callers. 8a can start any time after
 step 6c, since it doesn't touch elab's state. 8b and 8c touch

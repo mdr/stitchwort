@@ -1733,7 +1733,7 @@ impl<'g> Printer<'g> {
     }
 
     /// An unfilled placeholder of a queued check, as the source it stands
-    /// for (`Globals::placeholder_syntax`, D2091), if it is applied to the
+    /// for (`Shown::placeholder`, D2091), if it is applied to the
     /// variables it was made with: those left out, any further arguments
     /// shown. Applied to anything else (a lambda's parameter replaced by an
     /// argument), the source would name the wrong variables: `None`.
@@ -1766,7 +1766,7 @@ impl<'g> Printer<'g> {
         Some(self.applied(names, text, args.into_iter().skip(context)))
     }
 
-    /// A call of a local definition, by its name (`Globals::print_labels`).
+    /// A call of a local definition, by its name (`Shown::print_label`).
     fn label(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
         if !self.g.shown.has_print_labels() {
             return None;
@@ -1920,7 +1920,7 @@ impl<'g> Printer<'g> {
             })
     }
 
-    /// A call of an update's helper (`PrintHints::update_shown`), as the update:
+    /// A call of an update's helper (`Shown::update_shown`), as the update:
     /// `{ x | f = s, g = t }`.
     fn update(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
         let (head, args) = term.spine();
@@ -2652,7 +2652,7 @@ fn list_literal<'t>(g: &Ev, term: &'t Term) -> Option<Vec<&'t Term>> {
 
 /// Records on `g` that a message showed a term that uses a definition that
 /// failed: whatever went wrong then is fallout of that failure (see
-/// `Globals::failed_mentioned`). Looks at the whole term, whatever the
+/// `Shown::note_failed_mentioned`). Looks at the whole term, whatever the
 /// message elides.
 fn note_failed_mention(g: &Ev, term: &Term) {
     if !g.shown.wants_failed_mention() || g.machine.budget.stack_exhausted() {

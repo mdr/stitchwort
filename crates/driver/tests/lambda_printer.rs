@@ -13,7 +13,7 @@ fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
     if let Err(errors) = session.load("test.sw", &format!("def t : {sig} := {body}\n")) {
         panic!("{body}: {errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let (id, def) = g
         .env
         .defs()
@@ -21,8 +21,8 @@ fn printed_and_hash(sig: &str, body: &str) -> (String, String) {
         .enumerate()
         .find(|(_, d)| &**d.name() == "t")
         .expect("def t");
-    let printed = pretty::term(&g.ev(), &[], def.body().expect("a body"));
-    let hash = def_hash(&g.ev(), stitchwort_core::DefId(id))
+    let printed = pretty::term(g, &[], def.body().expect("a body"));
+    let hash = def_hash(g, stitchwort_core::DefId(id))
         .unwrap()
         .unwrap()
         .hex();

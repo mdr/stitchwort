@@ -24,7 +24,7 @@ use std::cell::RefCell;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use stitchwort_core::{Globals, Term};
+use stitchwort_core::{Ev, Term};
 
 /// Whether `STITCHWORT_TIMINGS` is set. Read once.
 #[inline]
@@ -74,7 +74,7 @@ struct Frame {
 }
 
 impl Frame {
-    fn new(g: &Globals) -> Frame {
+    fn new(g: &Ev) -> Frame {
         Frame {
             start: Instant::now(),
             kernel: Duration::ZERO,
@@ -135,13 +135,13 @@ pub fn kernel_call<T>(f: impl FnOnce() -> T) -> T {
 }
 
 /// Starts a unit.
-pub(crate) fn begin(g: &Globals) {
+pub(crate) fn begin(g: &Ev) {
     let frame = Frame::new(g);
     STACK.with(|s| s.borrow_mut().push(frame));
 }
 
 /// Ends the innermost unit and records its row.
-pub(crate) fn end(g: &Globals, label: String) {
+pub(crate) fn end(g: &Ev, label: String) {
     let Some(frame) = STACK.with(|s| s.borrow_mut().pop()) else {
         return;
     };
@@ -180,14 +180,14 @@ pub(crate) fn end(g: &Globals, label: String) {
 }
 
 /// Starts checking a declaration (a component of them).
-pub(crate) fn decl_begin(g: &Globals) {
+pub(crate) fn decl_begin(g: &Ev) {
     let frame = Frame::new(g);
     DECLS.with(|d| d.borrow_mut().push(frame));
 }
 
 /// Ends the innermost declaration and records its row. Called after its
 /// operation has ended, so that its steps are counted.
-pub(crate) fn decl_end(g: &Globals, label: String) {
+pub(crate) fn decl_end(g: &Ev, label: String) {
     let Some(frame) = DECLS.with(|d| d.borrow_mut().pop()) else {
         return;
     };
@@ -209,7 +209,7 @@ pub(crate) fn decl_end(g: &Globals, label: String) {
 
 /// The core term nodes of the definitions and types made since `frame`
 /// began, and how many there are.
-fn made(g: &Globals, frame: &Frame) -> (usize, usize) {
+fn made(g: &Ev, frame: &Frame) -> (usize, usize) {
     let (mut nodes, mut decls) = (0, 0);
     for def in &g.env.defs()[frame.defs_before..] {
         nodes += size(def.ty());

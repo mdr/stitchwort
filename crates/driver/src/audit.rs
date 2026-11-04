@@ -4,7 +4,7 @@
 //! reports
 //! - the axioms it depends on beyond an allowlist (a failure; [`axioms`]),
 //! - whether it, or anything it uses, is unfinished, with an open goal `?`
-//!   (a failure; `Globals::unfinished`), or failed to check (a failure),
+//!   (a failure; `Kernel::unfinished`), or failed to check (a failure),
 //! - and, for a theorem that checked, what the counterexample search says
 //!   about its statement: a counterexample is a failure (the proof checked,
 //!   so an axiom, the compiler or the search is wrong), and hypotheses that
@@ -151,7 +151,7 @@ impl Session {
     }
 
     fn audit_one(&mut self, id: DefId, name: &str, options: &Options) -> TheoremAudit {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let status = match g.def(id).state() {
             State::Final => Status::Checked,
             _ if self.elab.marked_unfinished(HashKey::Def(id)) => Status::Unfinished,
@@ -185,7 +185,7 @@ impl Session {
             }
             Status::Checked => {}
         }
-        audit.axioms = crate::axioms::axioms(&g.ev(), id).into_iter().collect();
+        audit.axioms = crate::axioms::axioms(g, id).into_iter().collect();
         let refused: Vec<&str> = (audit.axioms.iter().copied())
             .filter(|a| !options.allowed.contains(*a))
             .collect();
@@ -252,9 +252,9 @@ impl Session {
         budget: Budget,
     ) -> TheoremSearch {
         let (log, note) = self.elab.search_counterexample(id, budget);
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let saved = g.machine.budget.start(self.elab.options.limits);
-        let refutes = concludes_empty(&g.ev(), id);
+        let refutes = concludes_empty(g, id);
         g.machine.budget.restore(saved);
         TheoremSearch {
             name: name.to_string(),

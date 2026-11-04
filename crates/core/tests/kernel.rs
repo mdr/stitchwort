@@ -9,7 +9,7 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_core::check::infer_closed;
 use stitchwort_core::value::{conv, eval, quote};
-use stitchwort_core::{Globals, Icit, Sort, Term, Value};
+use stitchwort_core::{Icit, Kernel, Sort, Term, Value};
 
 fn nat_value(term: &Term) -> Option<usize> {
     match term.strip_loc() {
@@ -20,12 +20,12 @@ fn nat_value(term: &Term) -> Option<usize> {
 }
 
 /// Checks a closed term with the kernel and normalises it.
-fn normalise(g: &Globals, term: &Term) -> Term {
+fn normalise(g: &Kernel, term: &Term) -> Term {
     let (term, _) = infer_closed(&g.ev(), term, span()).expect("term checks");
     quote(&g.ev(), 0, &eval(&g.ev(), &[], &term).unwrap()).unwrap()
 }
 
-fn infer_code(g: &Globals, term: &Term) -> &'static str {
+fn infer_code(g: &Kernel, term: &Term) -> &'static str {
     infer_closed(&g.ev(), term, span())
         .err()
         .map_or("ok", |d| d.code)
@@ -380,7 +380,7 @@ fn a_function_type_lives_in_the_larger_universe() {
 // Data declarations
 
 fn data_code(
-    g: &mut Globals,
+    g: &mut Kernel,
     name: &str,
     params: Vec<(&str, Term)>,
     sort: Sort,

@@ -17,7 +17,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_core::{DataId, DefId, Term};
 use stitchwort_driver::driver::{Session, Tier, full_tier, tier, with_session};
 use stitchwort_elab::search::{Candidate, Item, Kind, Mode, Opts, Pattern, Side};
 
@@ -77,13 +77,13 @@ impl Score {
 
 /// The library's theorems, as search candidates (helpers left out).
 fn theorems(session: &Session) -> Vec<Candidate> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     session
         .elab
         .search_candidates(&|item, path| item.kind(g) == Kind::Theorem && !path.contains('%'))
 }
 
-fn iff(g: &Globals) -> Option<DataId> {
+fn iff(g: &stitchwort_core::Ev) -> Option<DataId> {
     (0..g.env.datas().len())
         .map(DataId)
         .find(|d| &**g.data(*d).path() == "Std.Iff")
@@ -144,7 +144,7 @@ fn run(
             Some(i) => score.ranks.push(i + 1),
             None => score
                 .missed
-                .push(session.elab.globals.def(*wanted).path().to_string()),
+                .push(session.elab.kernel.def(*wanted).path().to_string()),
         }
     }
     score
@@ -156,14 +156,14 @@ fn self_retrieval(left: bool) -> Score {
     with_session(STACK, Session::for_stack, |session| {
         load_library(session);
         let candidates = theorems(session);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let iff = iff(g);
         // The written theorems: a generated equation (`f.eqK`,
         // docs/proposals/function-equations.md §7.2) is a candidate, not a
         // query.
         let queries: Vec<(DefId, Option<DefId>)> = sample(
             (candidates.iter())
-                .filter(|c| !c.item.generated_equation(&g.ev()))
+                .filter(|c| !c.item.generated_equation(g))
                 .filter_map(|c| match c.item {
                     Item::Def(id) => Some((g.def(id).path().to_string(), (id, None))),
                     Item::Ctor(..) | Item::Part(..) => None,
@@ -218,7 +218,7 @@ type Use = (DefId, DefId, Vec<Term>, usize);
 
 /// The first use of each std theorem in each std proof (and its helpers),
 /// applied to all its arguments.
-fn lemma_uses(g: &Globals, theorems: &BTreeSet<DefId>) -> Vec<Use> {
+fn lemma_uses(g: &stitchwort_core::Ev, theorems: &BTreeSet<DefId>) -> Vec<Use> {
     let by_path: BTreeMap<String, DefId> = (theorems.iter())
         .map(|id| (g.def(*id).path().to_string(), *id))
         .collect();
@@ -277,7 +277,7 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
     let score = with_session(STACK, Session::for_stack, |session| {
         load_library(session);
         let candidates = theorems(session);
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let ids: BTreeSet<DefId> = (candidates.iter())
             .filter_map(|c| match c.item {
                 Item::Def(id) => Some(id),

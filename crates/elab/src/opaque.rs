@@ -29,7 +29,7 @@ use std::rc::Rc;
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::{DefId, Globals, Icit, Name, Term};
+use stitchwort_core::{DefId, Ev, Icit, Name, Term};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Decl};
 
@@ -86,7 +86,7 @@ impl Elaborator {
         } = signature
             && (*opaque || (*theorem && !unfolding.is_empty()))
         {
-            kernel::mark_opaque(&mut self.globals, id);
+            kernel::mark_opaque(&mut self.kernel, id);
         }
     }
 
@@ -138,7 +138,7 @@ impl Elaborator {
                 .with_label(name.span, format!("`{}` is in the same group", name.text))
                 .with_note("prove what needs the body in a theorem after both"));
             }
-            let def = self.globals.def(other);
+            let def = self.kernel.def(other);
             if def.state() == State::Final && !def.opaque() {
                 return Err(Diagnostic::error(
                     "E-NOT-OPAQUE",
@@ -149,7 +149,7 @@ impl Elaborator {
             }
             found.push(other);
         }
-        kernel::set_unfolding(&mut self.globals, id, &found);
+        kernel::set_unfolding(&mut self.kernel, id, &found);
         Ok(())
     }
 
@@ -166,26 +166,26 @@ impl Elaborator {
         ids: &[DefId],
         body: impl FnOnce(&mut Self) -> Result<T>,
     ) -> Result<T> {
-        let unfolding = self.globals.def(id).unfolding().clone();
+        let unfolding = self.kernel.def(id).unfolding().clone();
         if unfolding.is_empty() {
             return body(self);
         }
-        let set = kernel::transparency_set(&self.globals.ev(), id, ids)?;
+        let set = kernel::transparency_set(&self.ev(), id, ids)?;
         *self.decl.owner_unfolding.borrow_mut() = Some(unfolding.clone());
         self.decl.owner_helpers.borrow_mut().clear();
         // A glued call keeps its unfolding for as long as the metavariable
         // epoch stands; a different set may unfold it differently.
-        self.globals.metas_taken_back();
-        let guard = self.globals.machine.transparent.set(set);
+        self.attempt.store.metas_taken_back();
+        let guard = self.kernel.machine.transparent.set(set);
         let result = body(self);
         drop(guard);
-        self.globals.metas_taken_back();
+        self.attempt.store.metas_taken_back();
         *self.decl.owner_unfolding.borrow_mut() = None;
         let helpers = std::mem::take(&mut *self.decl.owner_helpers.borrow_mut());
         if result.is_ok() && !helpers.is_empty() {
             let mut list: Vec<DefId> = unfolding.to_vec();
             list.extend(helpers);
-            kernel::set_unfolding(&mut self.globals, id, &list);
+            kernel::set_unfolding(&mut self.kernel, id, &list);
         }
         result
     }
@@ -198,14 +198,14 @@ impl Elaborator {
         let Some(unfolding) = self.decl.owner_unfolding.borrow().clone() else {
             return;
         };
-        kernel::mark_opaque(&mut self.globals, id);
-        kernel::set_unfolding(&mut self.globals, id, &unfolding);
+        kernel::mark_opaque(&mut self.kernel, id);
+        kernel::set_unfolding(&mut self.kernel, id, &unfolding);
     }
 
     /// Helper `id` (made opaque by [`Self::opaque_helper`]) was admitted
     /// on its own: its owner unfolds it.
     pub(crate) fn opaque_helper_admitted(&mut self, id: DefId) {
-        if self.decl.owner_unfolding.borrow().is_some() && self.globals.def(id).opaque() {
+        if self.decl.owner_unfolding.borrow().is_some() && self.kernel.def(id).opaque() {
             self.decl.owner_helpers.borrow_mut().push(id);
         }
     }
@@ -225,7 +225,7 @@ impl Elaborator {
     /// one of `f.%body` by conversion, but in each branch both take the same
     /// step.
     pub(crate) fn opaque_unfold(&mut self, def_name: &ast::Name, f: DefId) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(f);
         if !def.opaque()
             || def.theorem()
@@ -270,7 +270,7 @@ impl Elaborator {
         };
         let name: Name = format!("{display}.%body").into();
         let copy = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -279,8 +279,8 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::mark_folded(&mut self.globals, copy);
-        kernel::define_group(&mut self.globals, &self.tables, &[(copy, (*body).clone())])?;
+        kernel::mark_folded(&mut self.kernel, copy);
+        kernel::define_group(&mut self.kernel, &self.tables, &[(copy, (*body).clone())])?;
         let ty = pis(
             &binders,
             Term::Eq(
@@ -291,7 +291,7 @@ impl Elaborator {
         );
         let name: Name = format!("{display}.unfold").into();
         let unfold = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -300,11 +300,11 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::mark_opaque(&mut self.globals, unfold);
-        kernel::set_unfolding(&mut self.globals, unfold, &[f]);
+        kernel::mark_opaque(&mut self.kernel, unfold);
+        kernel::set_unfolding(&mut self.kernel, unfold, &[f]);
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
         kernel::define_group(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &[(unfold, lams(&names, proof))],
         )?;
@@ -331,7 +331,7 @@ const MAX_NUMBER_SPLIT: usize = 64;
 /// becomes the `Zero`/`Succ` cases it stands for (docs/core.md, `NumCase`),
 /// down to one past its largest number, where both calls take the default.
 /// `None` if a number is too large for that.
-fn refl_tree(g: &Globals, tree: &Term) -> Result<Option<Term>> {
+fn refl_tree(g: &Ev, tree: &Term) -> Result<Option<Term>> {
     g.machine.budget.nesting("elaborator")?;
     Ok(Some(match tree {
         Term::Loc(span, inner) => match refl_tree(g, inner)? {
@@ -384,13 +384,13 @@ fn refl_tree(g: &Globals, tree: &Term) -> Result<Option<Term>> {
             let largest = values.iter().copied().max().unwrap_or(0);
             // From the deepest level up: below `j` `Succ`s, the number is
             // `j` plus the newest variable, and `j` binders are new.
-            let mut proof = default.shift(&g.ev(), largest + 1, 0)?;
+            let mut proof = default.shift(g, largest + 1, 0)?;
             for j in (0..=largest).rev() {
                 let at = match values.iter().position(|v| *v == j) {
                     Some(k) => &proofs[k],
                     None => &default,
                 };
-                let at_zero = at.shift(&g.ev(), j, 0)?;
+                let at_zero = at.shift(g, j, 0)?;
                 let scrutinee = if j == 0 { *ix } else { 0 };
                 let mut branches = vec![
                     Branch {
@@ -436,10 +436,7 @@ fn has_case(term: &Term) -> bool {
 /// order of first appearance. Only called on the error path
 /// (docs/proposals/opaque-definitions.md §6.10); a generated helper
 /// (`f.%body`, `f.unfold`, a lifted helper) is never named.
-pub(crate) fn declined_in<'t>(
-    g: &Globals,
-    terms: impl IntoIterator<Item = &'t Term>,
-) -> Vec<DefId> {
+pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>) -> Vec<DefId> {
     if !g.env.defs().iter().any(|d| d.opaque()) {
         return Vec::new();
     }
@@ -452,7 +449,7 @@ pub(crate) fn declined_in<'t>(
             if def.opaque()
                 && def.body().is_some()
                 && !def.name().contains('%')
-                && stitchwort_core::value::hidden(&g.ev(), *id)
+                && stitchwort_core::value::hidden(g, *id)
                 && !found.contains(id)
             {
                 found.push(*id);
@@ -468,7 +465,7 @@ pub(crate) fn declined_in<'t>(
 /// Of the opaque definitions declined in `terms` ([`declined_in`]), those
 /// whose body applies `pattern`'s head function: where a `rewrite` rule
 /// that found nothing may have its pattern, hidden.
-pub(crate) fn declined_holding(g: &Globals, terms: &[Term], pattern: &Term) -> Vec<DefId> {
+pub(crate) fn declined_holding(g: &Ev, terms: &[Term], pattern: &Term) -> Vec<DefId> {
     let Term::Def(head) = pattern.strip_loc().spine().0.strip_loc() else {
         return Vec::new();
     };
@@ -499,7 +496,7 @@ impl Elaborator {
         };
         let mut found = false;
         for (id, owner) in &self.unit.module.def_items {
-            let def = self.globals.def(*id);
+            let def = self.kernel.def(*id);
             if *owner == item && !def.name().contains('%') {
                 if def.theorem() || def.opaque() {
                     return true;
@@ -518,7 +515,7 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     if ids.is_empty() {
         return Vec::new();
     }
-    let g = &e.globals;
+    let g = &e.ev();
     let quoted: Vec<String> = ids
         .iter()
         .map(|id| format!("`{}`", g.def(*id).name()))
@@ -575,14 +572,14 @@ pub(crate) fn no_unfold_equation(e: &Elaborator, name: &ast::Name) -> Option<Dia
     let Some((Global::Def(f), _)) = e.named(owner) else {
         return None;
     };
-    let def = e.globals.def(*f);
+    let def = e.kernel.def(*f);
     if !def.opaque() || def.unfolding().is_empty() || def.theorem() {
         return None;
     }
     let unfolded: Vec<String> = def
         .unfolding()
         .iter()
-        .map(|id| e.globals.def(*id).name())
+        .map(|id| e.kernel.def(*id).name())
         // Not the helpers lifted from its body, which it unfolds too.
         .filter(|n| !n.contains('%'))
         .map(|n| format!("`{n}`"))

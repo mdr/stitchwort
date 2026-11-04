@@ -14,7 +14,7 @@ use stitchwort_core::check::{self, define_def};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::term::{NumArm, Term};
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, termination};
+use stitchwort_core::{BigUint, DefId, Icit, Kernel, Limits, termination};
 
 /// `Nat -> … -> Nat` with `n` parameters.
 fn nats_to_nat(p: &Prelude, n: usize) -> Term {
@@ -55,7 +55,7 @@ fn zero(p: &Prelude) -> Term {
 }
 
 /// Evaluates `f` applied to these numbers, fully.
-fn run(g: &Globals, f: DefId, args: &[usize], work: u64) -> Option<Term> {
+fn run(g: &Kernel, f: DefId, args: &[usize], work: u64) -> Option<Term> {
     let nat = g.find_data("Nat").unwrap();
     let num = |n: usize| {
         (0..n).fold(Term::ctor(nat, 0, vec![]), |t, _| {

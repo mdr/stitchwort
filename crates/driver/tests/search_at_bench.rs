@@ -24,7 +24,7 @@ const STACK: usize = 64 * 1024 * 1024;
 /// stage 2 is for. Not a helper (`%`), and not a lemma whose conclusion
 /// names nothing (`Eq.trans`, `Eq.cong`), which needs a middle term.
 fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let def = g.def(id);
     let mut body: &Term = def.body()?.strip_loc();
     let mut ty = def.ty().strip_loc();
@@ -68,12 +68,12 @@ fn names_something(ty: &Term) -> bool {
 /// The goal of theorem `id`'s statement, as `search --at` would read it: its
 /// parameters as hypotheses, printed as the session's scope writes them.
 fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let mut names: Vec<Name> = Vec::new();
     let mut hypotheses = Vec::new();
     let mut t = g.def(id).ty().strip_loc();
     while let Term::Pi(name, _, dom, cod) = t {
-        let ty = stitchwort_core::pretty::term_in(&g.ev(), &session.elab, &names, dom);
+        let ty = stitchwort_core::pretty::term_in(g, &session.elab, &names, dom);
         let mut fresh = name.to_string();
         if fresh == "_" || fresh.is_empty() || names.iter().any(|n| **n == *fresh) {
             fresh = format!("x{}", names.len());
@@ -86,7 +86,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         names.push(fresh.as_str().into());
         t = cod.strip_loc();
     }
-    let target = stitchwort_core::pretty::term_in(&g.ev(), &session.elab, &names, t);
+    let target = stitchwort_core::pretty::term_in(g, &session.elab, &names, t);
     let unwritable = |s: &str| s.contains(['%', '✝', '?', '…', '\n']);
     if unwritable(&target) || hypotheses.iter().any(|h| unwritable(&h.ty)) {
         return None;
@@ -131,7 +131,7 @@ fn run(
             .load_all_libraries()
             .expect("the library checks");
         session.import_library_namespaces();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let picked: Vec<(DefId, Option<DefId>)> = (0..g.env.defs().len())
             .map(DefId)
             .filter(|id| g.def(*id).theorem() && g.def(*id).path().starts_with("Std."))
@@ -154,9 +154,9 @@ fn run(
             let Some(found) = goal_of(session, theorem) else {
                 continue;
             };
-            let g = &session.elab.globals;
+            let g = &session.elab.ev();
             let theorem_path = g.def(theorem).path().to_string();
-            let lemma_path = lemma.map(|l| Item::Def(l).path(&g.ev()));
+            let lemma_path = lemma.map(|l| Item::Def(l).path(g));
             let options = AtOptions {
                 exclude: vec![theorem_path.clone()],
                 ..AtOptions::default()

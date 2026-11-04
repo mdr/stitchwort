@@ -40,7 +40,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Elim, Head, eval, force, same_term};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Term, Value};
 use stitchwort_syntax::ast::{self, Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -130,7 +130,7 @@ fn var(depth: usize, level: usize) -> Term {
 /// for each variable, where `binders` is how many binders inside `t` it's
 /// under. A `case` must stay on a variable.
 pub(crate) fn map_vars(
-    g: &Globals,
+    g: &Ev,
     t: &Term,
     depth: usize,
     f: &dyn Fn(usize, usize) -> Result<Term>,
@@ -219,13 +219,7 @@ pub(crate) fn map_vars(
 
 /// `t`, a term in a context of `src` variables, moved to a context of `tgt`
 /// variables where the variable at level `l` is at level `map(l)`.
-fn reindex(
-    g: &Globals,
-    t: &Term,
-    src: usize,
-    tgt: usize,
-    map: &dyn Fn(usize) -> usize,
-) -> Result<Term> {
+fn reindex(g: &Ev, t: &Term, src: usize, tgt: usize, map: &dyn Fn(usize) -> usize) -> Result<Term> {
     map_vars(g, t, 0, &|ix, d| {
         Ok(if ix < d {
             Term::Var(ix)
@@ -238,17 +232,17 @@ fn reindex(
 
 /// `t` with the variable at level `from` replaced by the one at `to`, in a
 /// context of `depth` variables.
-fn rename(g: &Globals, t: &Term, depth: usize, from: usize, to: usize) -> Result<Term> {
+fn rename(g: &Ev, t: &Term, depth: usize, from: usize, to: usize) -> Result<Term> {
     reindex(g, t, depth, depth, &|l| if l == from { to } else { l })
 }
 
 /// `body`, under one binder, with `value` (outside it) for that binder.
-fn instantiate(g: &Globals, body: &Term, value: &Term) -> Result<Term> {
+fn instantiate(g: &Ev, body: &Term, value: &Term) -> Result<Term> {
     map_vars(g, body, 0, &|ix, d| {
         Ok(if ix < d {
             Term::Var(ix)
         } else if ix == d {
-            value.shift(&g.ev(), d, 0)?
+            value.shift(g, d, 0)?
         } else {
             Term::Var(ix - 1)
         })
@@ -257,7 +251,7 @@ fn instantiate(g: &Globals, body: &Term, value: &Term) -> Result<Term> {
 
 /// `t` with every `let` replaced by its value (they're transparent, so this
 /// changes no meaning): the proofs rewrite under them.
-fn zeta(g: &Globals, t: &Term) -> Result<Term> {
+fn zeta(g: &Ev, t: &Term) -> Result<Term> {
     g.machine.budget.nesting(PASS)?;
     let go = |t: &Rc<Term>| -> Result<Rc<Term>> { Ok(Rc::new(zeta(g, t)?)) };
     Ok(match t {
@@ -328,7 +322,7 @@ struct Prelude {
 }
 
 impl Prelude {
-    fn new(g: &Globals) -> Result<Prelude> {
+    fn new(g: &Ev) -> Result<Prelude> {
         let r = &g.env.registry();
         let missing = || {
             Diagnostic::error(
@@ -395,17 +389,12 @@ impl Plan {
 
     /// The measure of parameters at levels `level(0) … level(header - 1)`,
     /// in a context of `depth` variables.
-    fn measure_at(
-        &self,
-        g: &Globals,
-        depth: usize,
-        level: &dyn Fn(usize) -> usize,
-    ) -> Result<Term> {
+    fn measure_at(&self, g: &Ev, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
         reindex(g, &self.measure, self.header, depth, level)
     }
 
     /// The second measure of a lexicographic pair, as [`Plan::measure_at`].
-    fn second_at(&self, g: &Globals, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
+    fn second_at(&self, g: &Ev, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
         let second = self
             .second
             .as_ref()
@@ -418,7 +407,7 @@ impl Plan {
     /// (m2 x)`.
     fn obligation(
         &self,
-        g: &Globals,
+        g: &Ev,
         depth: usize,
         ys: &dyn Fn(usize) -> usize,
         xs: &dyn Fn(usize) -> usize,
@@ -444,7 +433,7 @@ impl Plan {
     /// context of `depth` variables.
     fn param_ty(
         &self,
-        g: &Globals,
+        g: &Ev,
         i: usize,
         depth: usize,
         level: &dyn Fn(usize) -> usize,
@@ -452,7 +441,7 @@ impl Plan {
         reindex(g, &self.tel[i].ty, i, depth, level)
     }
 
-    fn result_at(&self, g: &Globals, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
+    fn result_at(&self, g: &Ev, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
         reindex(g, &self.result, self.n(), depth, level)
     }
 
@@ -469,7 +458,7 @@ impl Plan {
     }
 
     /// The parameters again, as binders, starting at level `base`.
-    fn binders(&self, g: &Globals, base: usize) -> Result<Vec<Binder>> {
+    fn binders(&self, g: &Ev, base: usize) -> Result<Vec<Binder>> {
         (0..self.n())
             .map(|i| {
                 Ok(Binder {
@@ -487,7 +476,7 @@ impl Plan {
 
     /// The type of `%rec` in a context of `depth` variables where the
     /// header's parameter `l` is at level `level(l)`.
-    fn rec_ty(&self, g: &Globals, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
+    fn rec_ty(&self, g: &Ev, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
         let n = self.n();
         let ys = self.binders(g, depth)?;
         let inner = depth + n;
@@ -505,7 +494,7 @@ impl Plan {
     /// context of `depth` variables, where `x`'s are at `level`).
     fn rec_lam(
         &self,
-        g: &Globals,
+        g: &Ev,
         go: DefId,
         depth: usize,
         fuel: &Term,
@@ -514,8 +503,8 @@ impl Plan {
     ) -> Result<Term> {
         let n = self.n();
         let inner = depth + n + 1;
-        let fuel = fuel.shift(&g.ev(), n + 1, 0)?;
-        let hyp = hyp.shift(&g.ev(), n + 1, 0)?;
+        let fuel = fuel.shift(g, n + 1, 0)?;
+        let hyp = hyp.shift(g, n + 1, 0)?;
         let glue = self.glue(g, inner, depth, Term::Var(0), &fuel, hyp, level)?;
         let call = apps(
             Term::Def(go),
@@ -534,7 +523,7 @@ impl Plan {
     #[allow(clippy::too_many_arguments)]
     fn glue(
         &self,
-        g: &Globals,
+        g: &Ev,
         depth: usize,
         ys: usize,
         p: Term,
@@ -565,7 +554,7 @@ impl Plan {
     #[allow(clippy::too_many_arguments)]
     fn lex_parts(
         &self,
-        g: &Globals,
+        g: &Ev,
         go: DefId,
         depth: usize,
         fuels: (&Term, &Term),
@@ -575,7 +564,7 @@ impl Plan {
         let n = self.n();
         let inner = depth + n + 1;
         let ys = |l: usize| depth + l;
-        let up = |t: &Term, by: usize| t.shift(&g.ev(), by, 0);
+        let up = |t: &Term, by: usize| t.shift(g, by, 0);
         let m1y = self.measure_at(g, inner, &ys)?;
         let m2y = self.second_at(g, inner, &ys)?;
         let m1x = self.measure_at(g, inner, level)?;
@@ -977,7 +966,7 @@ impl Elaborator {
     ) -> Result<()> {
         let key = self.declaration_key(def_name)?;
         let display = scope::display(&key).to_string();
-        let (tel, result) = split_pis(&self.globals.def(f).ty().clone(), None);
+        let (tel, result) = split_pis(&self.kernel.def(f).ty().clone(), None);
         // The header's parameters: those up to the last one the equations
         // name before their own patterns.
         let named = match equations.first() {
@@ -1026,7 +1015,7 @@ impl Elaborator {
             Some(b) => Some(self.measure_term(&key, &tel[..header], b)?),
             None => None,
         };
-        let p = Prelude::new(&self.globals)?;
+        let p = Prelude::new(&self.ev())?;
         let plan = Plan {
             f,
             name: display.clone(),
@@ -1043,7 +1032,7 @@ impl Elaborator {
         let step = self.decreasing_step(&plan, &key, def_name, equations)?;
         let first_helper = step.1;
         let step = step.0;
-        let g = &self.globals;
+        let g = &self.ev();
         let n = plan.n();
         if g.def(step).arity() != n + 1 {
             return Err(Diagnostic::error(
@@ -1058,7 +1047,7 @@ impl Elaborator {
                 "match every argument after the colon in its arms, or name them in the header",
             ));
         }
-        let helpers: Vec<DefId> = (first_helper..self.globals.env.defs().len())
+        let helpers: Vec<DefId> = (first_helper..self.kernel.env.defs().len())
             .map(DefId)
             .collect();
         let mut made = vec![step];
@@ -1084,7 +1073,7 @@ impl Elaborator {
             })?;
             made.push(unfold);
             // What the runtimes run: the recursion as written.
-            let g = &self.globals;
+            let g = &self.ev();
             let r_f = plan_rec_f(&plan, g, n)?;
             let run = lams(
                 &plan.lam_names(),
@@ -1097,7 +1086,7 @@ impl Elaborator {
                 ),
             );
             self.generated(&plan, |e| {
-                kernel::set_run_body(&mut e.globals, f, &run)?;
+                kernel::set_run_body(&mut e.kernel, f, &run)?;
                 Ok(f)
             })?;
             // Named from outside as `f.unfold`, as a local definition is
@@ -1136,7 +1125,7 @@ impl Elaborator {
     /// `f` itself: `go (Succ (m x)) x (Nat.leRefl (m x))`, with a fuel for
     /// each measure of a pair.
     fn decreasing_wrapper(&mut self, plan: &Plan, go: DefId) -> Result<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let n = plan.n();
         let mut measures = vec![plan.measure_at(g, n, &|l| l)?];
         if plan.second.is_some() {
@@ -1158,7 +1147,7 @@ impl Elaborator {
                 starts.chain(plan.args(n, &|l| l, 0..n)).chain(refls),
             ),
         );
-        kernel::mark_folded(&mut self.globals, plan.f);
+        kernel::mark_folded(&mut self.kernel, plan.f);
         self.generated_admit(plan, &[(plan.f, body)])
     }
 
@@ -1166,7 +1155,7 @@ impl Elaborator {
     /// pair), in the context of all its parameters, read off its body `go
     /// (Succ m) … x… (Nat.leRefl m) …`.
     pub(crate) fn decreasing_measure(&self, f: DefId) -> Option<(Term, Option<Term>)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(f);
         let n = def.arity();
         let body = def.body()?;
@@ -1206,7 +1195,7 @@ impl Elaborator {
         span: Span,
         step: Term,
     ) -> Result<()> {
-        let p = Prelude::new(&self.globals)?;
+        let p = Prelude::new(&self.ev())?;
         let n = tel.len();
         let plan = Plan {
             f: id,
@@ -1220,7 +1209,7 @@ impl Elaborator {
             span,
             p,
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let mut binders = plan.binders(g, 0)?;
         binders.push(Binder {
             name: REC.into(),
@@ -1230,7 +1219,7 @@ impl Elaborator {
         let ty = pis(&binders, plan.result_at(g, n + 1, &|l| l)?);
         let step_name: Name = format!("{name}.%step").into();
         let step_id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &step_name,
@@ -1242,7 +1231,7 @@ impl Elaborator {
         let mut names = plan.lam_names();
         names.push((REC.into(), Icit::Explicit));
         kernel::define_group(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &[(step_id, lams(&names, step))],
         )?;
@@ -1263,7 +1252,7 @@ impl Elaborator {
         self.clear_metas();
         *self.decl.owner.borrow_mut() = vec![key.to_string()];
         let nat = self
-            .globals
+            .kernel
             .env
             .registry()
             .data(Builtin::Nat)
@@ -1303,7 +1292,7 @@ impl Elaborator {
         def_name: &ast::Name,
         equations: &[Decl],
     ) -> Result<(DefId, usize)> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // Parameter `l` of `f` is at level `l` before `%rec` and `l + 1` after.
         let after = |l: usize| if l < s { l } else { l + 1 };
@@ -1332,7 +1321,7 @@ impl Elaborator {
         let ty = pis(&binders, plan.result_at(g, n + 1, &after)?);
         let step_key = format!("{key}.%step");
         let step = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &scope::display(&step_key).into(),
@@ -1342,7 +1331,7 @@ impl Elaborator {
             plan.span,
         )
         .map_err(|d| self.generator_failed(plan, d))?;
-        let first_helper = self.globals.env.defs().len();
+        let first_helper = self.kernel.env.defs().len();
         // The equations, with a pattern for `%rec` after the header's.
         let equations: Vec<Decl> = equations
             .iter()
@@ -1381,8 +1370,8 @@ impl Elaborator {
             second: plan.second.clone(),
             header: s,
         });
-        let ty_value = self.globals.def(step).ty_value().clone();
-        let written = Rc::new(self.globals.def(step).ty().clone());
+        let ty_value = self.kernel.def(step).ty_value().clone();
+        let written = Rc::new(self.kernel.def(step).ty().clone());
         let (body, joined) = self.with_local_retries(&step_key, def_name, |e| {
             let mut cx = Ctx::new(e, def_name.span);
             let term = e.with_body_type(&ty_value, def_name.span, || {
@@ -1402,7 +1391,7 @@ impl Elaborator {
                 "a `match` in a definition with `decreasing` refers to it directly",
             ));
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(step, body)])
+        kernel::define_group(&mut self.kernel, &self.tables, &[(step, body)])
             .map_err(|d| self.explain_lifted(d))?;
         Ok((step, first_helper))
     }
@@ -1418,7 +1407,7 @@ impl Elaborator {
     }
 
     fn generated_admit(&mut self, plan: &Plan, members: &[(DefId, Term)]) -> Result<()> {
-        kernel::define_group(&mut self.globals, &self.tables, members)
+        kernel::define_group(&mut self.kernel, &self.tables, members)
             .map_err(|d| self.generator_failed(plan, d))
     }
 
@@ -1449,7 +1438,7 @@ impl Elaborator {
         if plan.second.is_some() {
             return self.lex_go(plan, step);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // k at level 0, x… at 1…n, h at n + 1.
         let x = |l: usize| 1 + l;
@@ -1467,7 +1456,7 @@ impl Elaborator {
         let ty = pis(&binders, plan.result_at(g, n + 2, &x)?);
         let name: Name = format!("{}.%go", plan.name).into();
         let go = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1476,7 +1465,7 @@ impl Elaborator {
             false,
             plan.span,
         )?;
-        let g = &self.globals;
+        let g = &self.ev();
         // `Zero`: `h: m x < 0` is `False = True`.
         let zero = plan.absurd(plan.result_at(g, n + 2, &x)?, var(n + 2, n + 1));
         // `Succ k'`, with `k'` at level n + 2.
@@ -1508,7 +1497,7 @@ impl Elaborator {
         let mut names = vec![("k".into(), Icit::Explicit)];
         names.extend(plan.lam_names());
         names.push(("h".into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &self.tables, &[(go, lams(&names, tree))])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(go, lams(&names, tree))])?;
         Ok(go)
     }
 
@@ -1523,7 +1512,7 @@ impl Elaborator {
         if plan.second.is_some() {
             return self.lex_irrel(plan, go, respects);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // k at 0, j at 1, x… at 2…n+1, h at n+2, g at n+3.
         let x = |l: usize| 2 + l;
@@ -1567,7 +1556,7 @@ impl Elaborator {
         let ty = pis(&binders, goal(n + 4));
         let name: Name = format!("{}.%irrel", plan.name).into();
         let irrel = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1576,7 +1565,7 @@ impl Elaborator {
             false,
             plan.span,
         )?;
-        let g = &self.globals;
+        let g = &self.ev();
         // Case on k (level 0); in its `Succ` branch k' is at n + 4, then a
         // case on j (level 1), whose `Succ` branch has j' at n + 5.
         let depth = n + 6;
@@ -1661,7 +1650,7 @@ impl Elaborator {
         names.push(("h".into(), Icit::Explicit));
         names.push(("g".into(), Icit::Explicit));
         kernel::define_group(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &[(irrel, lams(&names, tree))],
         )?;
@@ -1677,7 +1666,7 @@ impl Elaborator {
         irrel: DefId,
         respects: DefId,
     ) -> Result<DefId> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         let id = |l: usize| l;
         let r_f = plan_rec_f(plan, g, n)?;
@@ -1697,7 +1686,7 @@ impl Elaborator {
         );
         let name: Name = format!("{}.unfold", plan.name).into();
         let unfold = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1708,11 +1697,11 @@ impl Elaborator {
         )?;
         // Of an opaque `f`, it unfolds `f`, so it's opaque too
         // (docs/proposals/opaque-definitions.md §6.3).
-        if self.globals.def(plan.f).opaque() {
-            kernel::mark_opaque(&mut self.globals, unfold);
-            kernel::set_unfolding(&mut self.globals, unfold, &[plan.f]);
+        if self.kernel.def(plan.f).opaque() {
+            kernel::mark_opaque(&mut self.kernel, unfold);
+            kernel::set_unfolding(&mut self.kernel, unfold, &[plan.f]);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let (r_go, e) = if plan.second.is_some() {
             lex_unfold_parts(plan, g, go, irrel)?
         } else {
@@ -1726,7 +1715,7 @@ impl Elaborator {
                 .chain(plan.args(n, &id, s..n)),
         );
         kernel::define_group(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &[(unfold, lams(&plan.lam_names(), proof))],
         )?;
@@ -1736,7 +1725,7 @@ impl Elaborator {
 
 /// For `f.unfold` with one measure: `%rec` as `f`'s unfolding has it, and
 /// `e`, the proof that it agrees with `y… => f y…`.
-fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
+fn single_unfold_parts(plan: &Plan, g: &Ev, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
     let n = plan.n();
     let id = |l: usize| l;
     let m_x = plan.measure_at(g, n, &id)?;
@@ -1744,7 +1733,7 @@ fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Res
     let r_go = plan.rec_lam(g, go, n, &m_x, &refl_x, &id)?;
     // e: y… p => irrel (m x) (Succ (m y)) y… (glue p (leRefl (m x))) (leRefl (m y))
     let inner = n + n + 1;
-    let m_x_in = m_x.shift(&g.ev(), n + 1, 0)?;
+    let m_x_in = m_x.shift(g, n + 1, 0)?;
     let m_y_in = plan.measure_at(g, inner, &|l| n + l)?;
     let e = {
         let call = apps(
@@ -1759,7 +1748,7 @@ fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Res
                         n,
                         Term::Var(0),
                         &m_x_in,
-                        refl_x.shift(&g.ev(), n + 1, 0)?,
+                        refl_x.shift(g, n + 1, 0)?,
                         &id,
                     )?,
                     Term::app(Term::Def(plan.p.le_refl), m_y_in),
@@ -1780,7 +1769,7 @@ impl Elaborator {
         if let Some(id) = st.respects.get(&d) {
             return Ok(*id);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let def = g.def(d);
         let a = def.arity();
         let body = def
@@ -1813,7 +1802,7 @@ impl Elaborator {
                 binders.push(Binder {
                     name: "r2".into(),
                     icit: b.icit,
-                    ty: b.ty.shift(&g.ev(), 1, 0)?,
+                    ty: b.ty.shift(g, 1, 0)?,
                 });
                 // e: y… (p: P) -> r1 y… p = r2 y… p
                 let ys = arity - 1;
@@ -1870,7 +1859,7 @@ impl Elaborator {
         let name: Name = format!("{}.%respects", def.name()).into();
         let span = def.span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1881,7 +1870,7 @@ impl Elaborator {
         )?;
         st.respects.insert(d, id);
         st.made.push(id);
-        let g = &self.globals;
+        let g = &self.ev();
         let tree = reindex(g, &Term::peel_lams_rc(&body, a), a, depth, &map)?;
         let leaf = Leaf {
             depth,
@@ -1892,11 +1881,7 @@ impl Elaborator {
         };
         let proof = self.tree_proofs(st, &tree, &result, a, &map, leaf)?;
         let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
-        kernel::define_group(
-            &mut self.globals,
-            &self.tables,
-            &[(id, lams(&names, proof))],
-        )?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, proof))])?;
         Ok(id)
     }
 
@@ -1911,7 +1896,7 @@ impl Elaborator {
         map: &dyn Fn(usize) -> usize,
         leaf: Leaf,
     ) -> Result<Term> {
-        self.globals.machine.budget.nesting(PASS)?;
+        self.kernel.machine.budget.nesting(PASS)?;
         Ok(match tree {
             Term::Loc(span, inner) => Term::Loc(
                 *span,
@@ -1949,7 +1934,7 @@ impl Elaborator {
                 Term::NumCase(*ix, out.into(), Rc::new(default))
             }
             t => {
-                let ty = reindex(&self.globals, result, a, leaf.depth, map)?;
+                let ty = reindex(&self.ev(), result, a, leaf.depth, map)?;
                 self.cong(st, t, &ty, leaf, None)?.unwrap_or(Term::Refl)
             }
         })
@@ -1966,16 +1951,16 @@ impl Elaborator {
         leaf: Leaf,
         span: Option<Span>,
     ) -> Result<Option<Term>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let t = zeta(g, t)?;
         if !leaf.mentions(&t) {
             return Ok(None);
         }
         let mut sites = Vec::new();
         let tpl = self.template(st, &t, leaf, &mut sites, span)?;
-        let g = &self.globals;
-        let ty2 = ty.shift(&g.ev(), 2, 0)?;
-        let orig2 = t.shift(&g.ev(), 2, 0)?;
+        let g = &self.ev();
+        let ty2 = ty.shift(g, 2, 0)?;
+        let orig2 = t.shift(g, 2, 0)?;
         let mut proof = Term::Refl;
         for i in 0..sites.len() {
             let choose = |j: usize| match j.cmp(&i) {
@@ -2016,11 +2001,11 @@ impl Elaborator {
         sites: &mut Vec<Site>,
         span: Option<Span>,
     ) -> Result<Tpl> {
-        self.globals.machine.budget.nesting(PASS)?;
+        self.kernel.machine.budget.nesting(PASS)?;
         if !leaf.mentions(t) {
             return Ok(Tpl::Plain(t.clone()));
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let depth = leaf.depth;
         let r1 = var(depth, leaf.r1);
         Ok(match t {
@@ -2083,7 +2068,7 @@ impl Elaborator {
                         for (a, icit) in &args[..leaf.arity] {
                             targs.push((self.template(st, a, leaf, sites, span)?, *icit));
                         }
-                        let g = &self.globals;
+                        let g = &self.ev();
                         let mut post = Vec::new();
                         for (a, icit) in &targs {
                             post.push((
@@ -2132,9 +2117,9 @@ impl Elaborator {
                     && let Some(c) = args.iter().position(|(a, _)| {
                         matches!(a.strip_loc(), Term::Var(ix) if *ix == depth - 1 - leaf.r1)
                     })
-                    && c < self.globals.def(k).arity()
+                    && c < self.kernel.def(k).arity()
                 {
-                    let ka = self.globals.def(k).arity();
+                    let ka = self.kernel.def(k).arity();
                     if args.len() < ka {
                         return Err(unsupported(span, "a `match` that returns a function"));
                     }
@@ -2147,7 +2132,7 @@ impl Elaborator {
                             targs.push((self.template(st, a, leaf, sites, span)?, *icit));
                         }
                     }
-                    let g = &self.globals;
+                    let g = &self.ev();
                     // Its arguments as they are once everything before it is
                     // rewritten: every site so far, with `r2`.
                     let mut proof_args = Vec::new();
@@ -2252,7 +2237,7 @@ impl Elaborator {
             return Ok(None);
         }
         let lambda = args.iter().any(|(a, _)| leaf.mentions(a) && is_lambda(a));
-        let f_name = self.globals.def(f).name().to_string();
+        let f_name = self.kernel.def(f).name().to_string();
         let desc = match self.cong_lookup(st, f)? {
             Lookup::Found(desc) => desc,
             Lookup::Missing(lemma) if lambda => {
@@ -2267,7 +2252,7 @@ impl Elaborator {
         // The effect-row arguments left out: the lemma is about the empty
         // row's, so a call in another row isn't rewritten.
         let all_args = args;
-        let Some(kept) = without_rows(&self.globals, all_args, &desc.rows) else {
+        let Some(kept) = without_rows(&self.ev(), all_args, &desc.rows) else {
             return Ok(None);
         };
         let args: &[(Term, Icit)] = &kept;
@@ -2325,7 +2310,7 @@ impl Elaborator {
             match arg {
                 CongArg::Ordinary(tpl, _) => {
                     let t = rebuild(
-                        &self.globals,
+                        &self.ev(),
                         tpl,
                         sites,
                         leaf,
@@ -2338,7 +2323,7 @@ impl Elaborator {
                     level += 1;
                 }
                 CongArg::Callback(c, _) => {
-                    let c2 = rename(&self.globals, c, depth, leaf.r1, leaf.r2)?;
+                    let c2 = rename(&self.ev(), c, depth, leaf.r1, leaf.r2)?;
                     values.push(c.clone());
                     values.push(c2.clone());
                     lemma_args.push((c.clone(), desc.tel[level].icit));
@@ -2357,7 +2342,7 @@ impl Elaborator {
             let names: Vec<(Name, Icit)> =
                 binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
             let proof = if leaf.mentions(callback) {
-                let g = &self.globals;
+                let g = &self.ev();
                 let mut env = values.clone();
                 env.extend(std::iter::repeat_n(Term::Refl, m));
                 let ty = substitute(g, &premise.ty, &env)?;
@@ -2383,7 +2368,7 @@ impl Elaborator {
                         Some(&format!(
                             "`{}` needs the results of the two functions it compares to be \
                              equal, and equal functions would need function extensionality",
-                            self.globals.def(desc.lemma).name()
+                            self.kernel.def(desc.lemma).name()
                         )),
                     ));
                 }
@@ -2453,9 +2438,9 @@ fn leaf_lambda(t: &Term) -> bool {
 
 /// `c x1 … xk`, in a context `k` deeper than `c`'s, with the lambdas `c`
 /// starts with applied: the callback's body under the premise's binders.
-fn beta(g: &Globals, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
+fn beta(g: &Ev, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
     let k = binders.len();
-    let mut t = c.shift(&g.ev(), k, 0)?;
+    let mut t = c.shift(g, k, 0)?;
     for (j, (_, icit)) in binders.iter().enumerate() {
         let x = Term::Var(k - 1 - j);
         let mut head = &t;
@@ -2472,20 +2457,20 @@ fn beta(g: &Globals, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
 
 /// `t`, in a context of `env.len()` variables, with `env[l]` (a term of the
 /// context `t` is moved to) for the variable at level `l`.
-fn substitute(g: &Globals, t: &Term, env: &[Term]) -> Result<Term> {
+fn substitute(g: &Ev, t: &Term, env: &[Term]) -> Result<Term> {
     let n = env.len();
     map_vars(g, t, 0, &|ix, d| {
         if ix < d {
             Ok(Term::Var(ix))
         } else {
             let level = n - 1 - (ix - d);
-            Ok(env[level].shift(&g.ev(), d, 0)?)
+            Ok(env[level].shift(g, d, 0)?)
         }
     })
 }
 
 /// `y… => [p] => f y…`, in a context of `depth` variables.
-fn plan_rec_f(plan: &Plan, g: &Globals, depth: usize) -> Result<Term> {
+fn plan_rec_f(plan: &Plan, g: &Ev, depth: usize) -> Result<Term> {
     let _ = g;
     let n = plan.n();
     let inner = depth + n + 1;
@@ -2511,7 +2496,7 @@ fn plan_exfalso(plan: &Plan, goal: Term, proof: Term) -> Term {
 /// The term `tpl` stands for, with each site as `choose` says, moved under
 /// `shift` more binders, a hole being `hole`.
 fn rebuild(
-    g: &Globals,
+    g: &Ev,
     tpl: &Tpl,
     sites: &[Site],
     leaf: Leaf,
@@ -2522,11 +2507,11 @@ fn rebuild(
     g.machine.budget.nesting(PASS)?;
     let go = |t: &Tpl| rebuild(g, t, sites, leaf, choose, shift, hole);
     Ok(match tpl {
-        Tpl::Plain(t) => t.shift(&g.ev(), shift, 0)?,
+        Tpl::Plain(t) => t.shift(g, shift, 0)?,
         Tpl::Site(i) => match choose(*i) {
-            Choice::Pre => sites[*i].pre.shift(&g.ev(), shift, 0)?,
+            Choice::Pre => sites[*i].pre.shift(g, shift, 0)?,
             Choice::Post => {
-                rename(g, &sites[*i].pre, leaf.depth, leaf.r1, leaf.r2)?.shift(&g.ev(), shift, 0)?
+                rename(g, &sites[*i].pre, leaf.depth, leaf.r1, leaf.r2)?.shift(g, shift, 0)?
             }
             Choice::Hole => hole.clone(),
         },
@@ -2570,7 +2555,7 @@ fn rebuild(
                 Choice::Pre => false,
                 Choice::Post => true,
             };
-            let mut term = head.shift(&g.ev(), shift, 0)?;
+            let mut term = head.shift(g, shift, 0)?;
             for a in args {
                 let (a, icit) = match a {
                     CongArg::Ordinary(t, icit) => (go(t)?, *icit),
@@ -2580,7 +2565,7 @@ fn rebuild(
                         } else {
                             c.clone()
                         };
-                        (c.shift(&g.ev(), shift, 0)?, *icit)
+                        (c.shift(g, shift, 0)?, *icit)
                     }
                 };
                 term = Term::app_icit(term, a, icit);
@@ -2596,9 +2581,7 @@ fn rebuild(
                 .map(|f| Ok(Rc::new(go(f)?)))
                 .collect::<Result<_>>()?,
         ),
-        Tpl::Ann(inner, ty) => {
-            Term::Ann(Rc::new(go(inner)?), Rc::new(ty.shift(&g.ev(), shift, 0)?))
-        }
+        Tpl::Ann(inner, ty) => Term::Ann(Rc::new(go(inner)?), Rc::new(ty.shift(g, shift, 0)?)),
         Tpl::Loc(span, inner) => Term::Loc(*span, Rc::new(go(inner)?)),
     })
 }
@@ -2727,7 +2710,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     };
     // In the obligation's context, where a case may have refined the parameters.
     let env: Vec<Value> = cx.env[..header].to_vec();
-    let Ok(old) = eval(&g.ev(), &env, &measure) else {
+    let Ok(old) = eval(&g, &env, &measure) else {
         return error;
     };
     // Is the goal `_ < m x`?
@@ -2735,12 +2718,8 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         let meta = cx.fresh_meta();
         let new = cx.eval(&meta)?;
         let shape = stitchwort_core::value::apply(
-            &cx.g().ev(),
-            stitchwort_core::value::apply(
-                &cx.g().ev(),
-                eval(&cx.g().ev(), &[], &Term::Def(less))?,
-                new,
-            )?,
+            &cx.g(),
+            stitchwort_core::value::apply(&cx.g(), eval(&cx.g(), &[], &Term::Def(less))?, new)?,
             old.clone(),
         )?;
         if cx.unify(goal, &shape)? {
@@ -2778,7 +2757,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
         if name.starts_with('%') || name.is_empty() {
             continue;
         }
-        if let Ok(Value::Eq(..)) = force(&cx.g().ev(), cx.types[level].clone()) {
+        if let Ok(Value::Eq(..)) = force(&cx.g(), cx.types[level].clone()) {
             hypotheses.push(format!("`{name}: {}`", cx.show(&cx.types[level].clone())));
         }
     }
@@ -2792,7 +2771,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
 /// [`explain_obligation`] for a pair: the goal is `Nat.LexLess n1 n2 o1 o2`.
 fn explain_lex(cx: &mut Ctx, goal: &Value, error: Diagnostic) -> Diagnostic {
     let lex = cx.g().env.registry().data(Builtin::LexLess);
-    let params = match force(&cx.g().ev(), goal.clone()) {
+    let params = match force(&cx.g(), goal.clone()) {
         Ok(Value::Data(d, params)) if Some(d) == lex && params.len() == 4 => params,
         _ => return error,
     };
@@ -2824,7 +2803,7 @@ impl Elaborator {
     /// B`. `Zero` for either fuel is impossible; with both `Succ`, it's
     /// `f.%step` with `%rec` from [`Plan::lex_parts`].
     fn lex_go(&mut self, plan: &Plan, step: DefId) -> Result<DefId> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // k1 at level 0, k2 at 1, x… at 2…n+1, h1 at n + 2, h2 at n + 3.
         let x = |l: usize| 2 + l;
@@ -2855,7 +2834,7 @@ impl Elaborator {
         let ty = pis(&binders, plan.result_at(g, n + 4, &x)?);
         let name: Name = format!("{}.%go", plan.name).into();
         let go = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -2864,7 +2843,7 @@ impl Elaborator {
             false,
             plan.span,
         )?;
-        let g = &self.globals;
+        let g = &self.ev();
         // `k1` is `Zero`: `h1: m1 x < 0` is `False = True`.
         let zero1 = plan.absurd(plan.result_at(g, n + 4, &x)?, var(n + 4, n + 2));
         // `k1` is `Succ k1'` (k1' at n + 4) and `k2` is `Zero`.
@@ -2899,7 +2878,7 @@ impl Elaborator {
         names.extend(plan.lam_names());
         names.push(("h1".into(), Icit::Explicit));
         names.push(("h2".into(), Icit::Explicit));
-        kernel::define_group(&mut self.globals, &self.tables, &[(go, lams(&names, tree))])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(go, lams(&names, tree))])?;
         Ok(go)
     }
 
@@ -2908,7 +2887,7 @@ impl Elaborator {
     /// same decision (`Decidable.elimCong`), and each branch is this lemma
     /// again on smaller fuels.
     fn lex_irrel(&mut self, plan: &Plan, go: DefId, respects: DefId) -> Result<DefId> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // k1 k2 j1 j2 at 0…3, x… at 4…n+3, then h1 h2 g1 g2.
         let x = |l: usize| 4 + l;
@@ -2959,7 +2938,7 @@ impl Elaborator {
         let ty = pis(&binders, goal(n + 8));
         let name: Name = format!("{}.%irrel", plan.name).into();
         let irrel = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -2968,7 +2947,7 @@ impl Elaborator {
             false,
             plan.span,
         )?;
-        let g = &self.globals;
+        let g = &self.ev();
         // The fuels' predecessors: k1' k2' j1' j2' at n + 8 … n + 11.
         let depth = n + 12;
         let (k1, k2, j1, j2) = (n + 8, n + 9, n + 10, n + 11);
@@ -3050,7 +3029,7 @@ impl Elaborator {
             names.push((name.into(), Icit::Explicit));
         }
         kernel::define_group(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &[(irrel, lams(&names, tree))],
         )?;
@@ -3082,7 +3061,7 @@ fn nat_case(plan: &Plan, depth: usize, level: usize, zero: Term, name: &str, suc
 /// x` and `m2 x`), and `e`, the proof that it agrees with `y… => f y…`:
 /// whichever branch the decision takes, it's `go` on other fuels, which
 /// `f.%irrel` equates with `f y…`'s own.
-fn lex_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
+fn lex_unfold_parts(plan: &Plan, g: &Ev, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
     let n = plan.n();
     let id = |l: usize| l;
     let m1x = plan.measure_at(g, n, &id)?;
@@ -3137,7 +3116,7 @@ fn lex_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result
 /// reading the goal's own arguments instead of the solved metavariable
 /// keeps `n / 2` from showing as its unfolding, `Nat.divFuel n n 2`.
 fn folded_new_measure(cx: &Ctx, goal: &Value, less: DefId) -> Option<Value> {
-    let goal = stitchwort_core::value::force_solved(&cx.g().ev(), goal.clone()).ok()?;
+    let goal = stitchwort_core::value::force_solved(&cx.g(), goal.clone()).ok()?;
     let spine = match &goal {
         Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) if *id == less => spine,
         _ => return None,

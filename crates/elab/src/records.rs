@@ -20,6 +20,7 @@
 
 use std::borrow::Cow;
 use std::rc::Rc;
+use stitchwort_core::Ev;
 
 use crate::kernel;
 use stitchwort_core::collections::HashSet;
@@ -78,7 +79,7 @@ impl Elaborator {
     /// the way of its methods (`interfaces.rs`).
     fn projections(&mut self, d: DataId, interface: bool) -> Result<Vec<Option<DefId>>> {
         let made = self.accessors(d, if interface { "%" } else { "" })?;
-        Ok(self.globals.data(d).ctors()[0]
+        Ok(self.kernel.data(d).ctors()[0]
             .fields
             .iter()
             .map(|(f, _)| made.get(f).copied())
@@ -98,35 +99,35 @@ impl Elaborator {
     ) -> Result<()> {
         let mut pending = vec![ty.clone()];
         while let Some(ty) = pending.pop() {
-            let Value::Data(d, args) = force(&self.globals.ev(), ty)? else {
+            let Value::Data(d, args) = force(&self.ev(), ty)? else {
                 continue;
             };
             pending.extend(args);
             // The library's `Map` is no record to decode field by field: a
             // `Map Text V` crosses as an object, built by `Map.fromList`, and
             // any other map is refused by the extractor, saying so.
-            if self.globals.env.registry().loaded_data(Builtin::Map) == Some(d) {
+            if self.kernel.env.registry().loaded_data(Builtin::Map) == Some(d) {
                 continue;
             }
             if !seen.insert(d) {
                 continue;
             }
-            let data = self.globals.data(d);
+            let data = self.kernel.data(d);
             let (np, ctors) = (data.params().len(), data.ctors().len());
             for c in 0..ctors {
                 // The parameters and fields, as variables, and their types.
                 let mut env: Vec<Value> = Vec::new();
                 let mut types: Vec<Value> = Vec::new();
                 for k in 0..np {
-                    let param_ty = &self.globals.data(d).params()[k].1;
-                    types.push(eval(&self.globals.ev(), &env, param_ty)?);
+                    let param_ty = &self.kernel.data(d).params()[k].1;
+                    types.push(eval(&self.ev(), &env, param_ty)?);
                     env.push(Value::var(k));
                 }
-                let fields = self.globals.data(d).ctors()[c].fields.len();
+                let fields = self.kernel.data(d).ctors()[c].fields.len();
                 for i in 0..fields {
-                    let data = self.globals.data(d);
+                    let data = self.kernel.data(d);
                     let ctor = &data.ctors()[c];
-                    let ty = eval(&self.globals.ev(), &env, &ctor.fields[i].1)?;
+                    let ty = eval(&self.ev(), &env, &ctor.fields[i].1)?;
                     let erased = ctor.field_erased[i];
                     let missing = data.record()
                         && ctor.field_sorts[i] == Sort::Prop
@@ -161,16 +162,16 @@ impl Elaborator {
         what: &str,
         span: Span,
     ) -> Result<()> {
-        let Some(decidable) = self.globals.env.registry().data(Builtin::Decidable) else {
+        let Some(decidable) = self.kernel.env.registry().data(Builtin::Decidable) else {
             return Ok(());
         };
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let (record, field) = (data.name().clone(), data.ctors()[c].fields[i].0.clone());
         let mut names: Vec<Name> = data.params().iter().map(|(x, _)| x.clone()).collect();
         names.extend(data.ctors()[c].fields[..i].iter().map(|(x, _)| x.clone()));
         let field_ty = data.ctors()[c].fields[i].1.clone();
         self.clear_metas();
-        let shown = stitchwort_core::pretty::term(&self.globals.ev(), &names, &field_ty);
+        let shown = stitchwort_core::pretty::term(&self.ev(), &names, &field_ty);
         let mut cx = Ctx::from_parts(self, env.to_vec(), types.to_vec(), names, span);
         let prop = cx.eval(&field_ty)?;
         let decision = auto::decide(&mut cx, &prop, 0).map_err(|e| {
@@ -192,7 +193,7 @@ impl Elaborator {
         })?;
         let decision = self.finish(&decision, env.len())?;
         self.clear_metas();
-        kernel::add_field_validator(&mut self.globals, d, c, i, decidable, &decision)
+        kernel::add_field_validator(&mut self.kernel, d, c, i, decidable, &decision)
     }
 
     /// The constructor pattern a record pattern stands for, matching a value
@@ -205,8 +206,8 @@ impl Elaborator {
         span: Span,
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
-        let g = &self.globals;
-        let d = match ty.map(|t| force(&g.ev(), t.clone())).transpose()? {
+        let g = &self.ev();
+        let d = match ty.map(|t| force(g, t.clone())).transpose()? {
             Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
                 return Err(error(
@@ -275,7 +276,7 @@ impl Elaborator {
         span: Span,
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let ctor = &g.data(d).ctors()[c];
         let explicit: Vec<usize> = (0..ctor.fields.len())
             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
@@ -373,7 +374,7 @@ impl Elaborator {
     ) -> Result<Option<DataId>> {
         Ok(self
             .held_data(d, c, explicit, ty)?
-            .filter(|&r| self.globals.data(r).record()))
+            .filter(|&r| self.kernel.data(r).record()))
     }
 
     /// The data type of constructor `c`'s one explicit field, if it has
@@ -386,7 +387,7 @@ impl Elaborator {
         explicit: &[usize],
         ty: Option<&Value>,
     ) -> Result<Option<DataId>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let [only] = explicit else {
             return Ok(None);
         };
@@ -394,7 +395,7 @@ impl Elaborator {
         let Some(Some(field_ty)) = types.get(*only) else {
             return Ok(None);
         };
-        Ok(match force(&g.ev(), field_ty.clone())? {
+        Ok(match force(g, field_ty.clone())? {
             Value::Data(r, _) if g.data(r).ctors().len() == 1 => Some(r),
             _ => None,
         })
@@ -413,7 +414,7 @@ impl Elaborator {
         argument: Option<DataId>,
         verb: &str,
     ) -> Diagnostic {
-        let g = &self.globals;
+        let g = &self.ev();
         let ctor = &g.data(d).ctors()[c];
         if ctor.fields.iter().any(|(f, _)| **f == *name.text) {
             return error(
@@ -601,7 +602,7 @@ fn not_a_ctor(
 }
 
 /// Whether record type `r` has a field `name`.
-fn record_has(g: &stitchwort_core::Globals, r: DataId, name: &str) -> bool {
+fn record_has(g: &Ev, r: DataId, name: &str) -> bool {
     g.data(r).ctors()[0]
         .fields
         .iter()
@@ -610,7 +611,7 @@ fn record_has(g: &stitchwort_core::Globals, r: DataId, name: &str) -> bool {
 
 /// Refuses a field name that `d` doesn't have, or one given twice.
 fn check_field_names<'n>(
-    g: &stitchwort_core::Globals,
+    g: &Ev,
     d: DataId,
     names: impl Iterator<Item = &'n ast::Name>,
 ) -> Result<()> {
@@ -637,7 +638,7 @@ fn check_field_names<'n>(
     Ok(())
 }
 
-fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> Diagnostic {
+fn unknown_field(g: &Ev, d: DataId, name: &ast::Name) -> Diagnostic {
     let data = g.data(d);
     let fields: Vec<String> = data.ctors()[0]
         .fields
@@ -661,7 +662,7 @@ fn unknown_field(g: &stitchwort_core::Globals, d: DataId, name: &ast::Name) -> D
 /// `what` (a literal, an update, or `.field`) on it.
 fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)> {
     let g = cx.g();
-    match force(&g.ev(), ty.clone())? {
+    match force(&g, ty.clone())? {
         Value::Data(d, params) if g.data(d).record() => Ok((d, params)),
         Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
             .error(
@@ -682,7 +683,7 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
 /// rebuilds by their constructor (docs/proposals/variant-fields.md §6).
 fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    Ok(matches!(force(&g.ev(), ty.clone())?, Value::Data(d, _) if !g.data(d).record()))
+    Ok(matches!(force(&g, ty.clone())?, Value::Data(d, _) if !g.data(d).record()))
 }
 
 /// The record types a literal with these fields may be, when nothing says
@@ -838,7 +839,7 @@ pub(crate) fn check_record(
     match base {
         None => {
             if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
-                force(&cx.g().ev(), expected.clone())?
+                force(&cx.g(), expected.clone())?
             {
                 return queue_literal(cx, fields, expected);
             }
@@ -877,8 +878,8 @@ pub(crate) fn infer_update(
     let Ok((d, params)) = record_type(cx, &ty, "this update") else {
         return Ok((update(cx, base, &ty, None, fields)?, ty));
     };
-    check_field_names(cx.g(), d, fields.iter().map(|(n, _)| n))?;
-    let uses = param_uses(cx.g(), d, fields);
+    check_field_names(&cx.g(), d, fields.iter().map(|(n, _)| n))?;
+    let uses = param_uses(&cx.g(), d, fields);
     if !uses.iter().any(|u| matches!(u, ParamUse::Free)) {
         return Ok((update(cx, base, &ty, None, fields)?, ty));
     }
@@ -915,11 +916,7 @@ enum ParamUse {
 /// For each parameter of record `d`, what an update of `fields` does with it
 /// (as in Haskell's type-changing update: a parameter can change only if
 /// every field whose type mentions it is replaced).
-fn param_uses(
-    g: &stitchwort_core::Globals,
-    d: DataId,
-    fields: &[(ast::Name, Expr)],
-) -> Vec<ParamUse> {
+fn param_uses(g: &Ev, d: DataId, fields: &[(ast::Name, Expr)]) -> Vec<ParamUse> {
     let data = g.data(d);
     let np = data.params().len();
     let ctor = &data.ctors()[0];
@@ -959,7 +956,7 @@ fn changing_update(
     expected: &Value,
 ) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Data(d, wanted) = force(&g.ev(), expected.clone())? else {
+    let Value::Data(d, wanted) = force(&g, expected.clone())? else {
         return Ok(None);
     };
     let data = g.data(d);
@@ -971,7 +968,7 @@ fn changing_update(
     {
         return Ok(None);
     }
-    let uses = param_uses(g, d, fields);
+    let uses = param_uses(&g, d, fields);
     if uses.iter().all(|u| matches!(u, ParamUse::Unused)) {
         return Ok(None);
     }
@@ -979,7 +976,7 @@ fn changing_update(
     let snapshot = crate::undo::Snapshot::take(cx);
     let found = infer(cx, base).and_then(|(term, ty)| insert(cx, term, ty));
     let learnt = match found {
-        Ok((_, ty)) => match force(&cx.g().ev(), ty.clone())? {
+        Ok((_, ty)) => match force(&cx.g(), ty.clone())? {
             Value::Data(d2, have) if d2 == d => Some((ty, have)),
             _ => None,
         },
@@ -1038,7 +1035,7 @@ fn literal(
     fields: &[(ast::Name, Expr)],
 ) -> Result<Term> {
     let g = cx.g();
-    check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
+    check_field_names(&g, d, fields.iter().map(|(n, _)| n))?;
     fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let ctor = &g.data(d).ctors()[0];
     // An interface's superclass fields may be left out: they're filled in
@@ -1090,7 +1087,7 @@ fn literal(
     let mut env = params.to_vec();
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(&g.ev(), &env, field_ty)?;
+        let ty = eval(&g, &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
             Some((_, expr)) => check(cx, expr, &ty)?,
             None => {
@@ -1126,13 +1123,13 @@ fn update(
 ) -> Result<Term> {
     let g = cx.g();
     let (d, params) = record_type(cx, ty, "this update")?;
-    let uses = param_uses(g, d, fields);
+    let uses = param_uses(&g, d, fields);
     let new_ty = match &result {
         Some(new) => Value::Data(d, new.clone()),
         None => ty.clone(),
     };
     let new_params = result.unwrap_or_else(|| params.clone());
-    check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
+    check_field_names(&g, d, fields.iter().map(|(n, _)| n))?;
     fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let data = g.data(d);
     let ctor = &data.ctors()[0];
@@ -1236,7 +1233,7 @@ fn update_fields(
     let mut env = new_params.to_vec();
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
-        let ty = eval(&g.ev(), &env, field_ty)?;
+        let ty = eval(&g, &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
             Some((_, expr)) => crate::queue::framed(
                 cx,

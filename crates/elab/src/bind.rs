@@ -111,7 +111,7 @@ pub(crate) fn bind_argument(
         // The use's type, outside the binder: it doesn't mention it.
         let mut env = cx.env.clone();
         env.push(unused());
-        let ty = eval(&cx.g().ev(), &env, &ty_term)?;
+        let ty = eval(&cx.g(), &env, &ty_term)?;
         Ok(Some((
             Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), arg.clone()),
             ty,
@@ -327,10 +327,10 @@ impl Shape {
     /// The proposition inside `n` binders, one per operand.
     fn build(&self, cx: &Ctx, n: usize) -> Result<Term> {
         Ok(match self {
-            Shape::Kept(t) => t.shift(&cx.g().ev(), n, 0)?,
+            Shape::Kept(t) => t.shift(&cx.g(), n, 0)?,
             Shape::Operand(i) => Term::Var(n - 1 - i),
             Shape::Eq(ty, a, b) => Term::Eq(
-                Some(Rc::new(ty.shift(&cx.g().ev(), n, 0)?)),
+                Some(Rc::new(ty.shift(&cx.g(), n, 0)?)),
                 Rc::new(a.build(cx, n)?),
                 Rc::new(b.build(cx, n)?),
             ),
@@ -381,7 +381,7 @@ fn shape(
     let g = cx.g();
     match prop.strip_loc() {
         Term::Eq(Some(ty), a, b) => {
-            let dom = eval(&g.ev(), outer, ty)?;
+            let dom = eval(&g, outer, ty)?;
             let a = operand(cx, outer.len(), &dom, a, binders, operands)?;
             let b = operand(cx, outer.len(), &dom, b, binders, operands)?;
             Ok(Shape::Eq(ty.clone(), Box::new(a), Box::new(b)))
@@ -391,14 +391,14 @@ fn shape(
             let Term::Def(id) = head.strip_loc() else {
                 return Ok(Shape::Kept(term.clone()));
             };
-            let mut ty = crate::kernel::def_ty(g, *id)?;
+            let mut ty = crate::kernel::def_ty(&g, *id)?;
             let mut built = Shape::Kept(head.clone());
             for arg in args {
-                let Value::Pi(_, icit, dom, cod) = force(&g.ev(), ty)? else {
+                let Value::Pi(_, icit, dom, cod) = force(&g, ty)? else {
                     return Ok(Shape::Kept(term.clone()));
                 };
                 let level = cx.level();
-                let part = match force(&g.ev(), (*dom).clone())? {
+                let part = match force(&g, (*dom).clone())? {
                     // A proposition or type: looked into.
                     Value::Sort(_) => shape(cx, outer, arg, binders, operands)?,
                     _ if icit == Icit::Explicit => {
@@ -407,8 +407,8 @@ fn shape(
                     _ => Shape::Kept(arg.clone()),
                 };
                 ty = match part {
-                    Shape::Operand(_) => cod.apply(&g.ev(), Value::var(level))?,
-                    _ => cod.apply_lazy(&g.ev(), || eval(&g.ev(), outer, arg))?,
+                    Shape::Operand(_) => cod.apply(&g, Value::var(level))?,
+                    _ => cod.apply_lazy(&g, || eval(&g, outer, arg))?,
                 };
                 built = Shape::App(Box::new(built), Box::new(part), icit);
             }

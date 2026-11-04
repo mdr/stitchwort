@@ -1,5 +1,5 @@
 //! Glued evaluation (docs/proposals/folded-calls.md, stages 1 and 3): with
-//! `Globals::glue` on, a definition applied to all its arguments evaluates to
+//! `Kernel::glue` on, a definition applied to all its arguments evaluates to
 //! a `Value::Call`, which means exactly its unfolding. Gluing is off
 //! everywhere by default, so these tests are what exercises it: everything
 //! that looks inside a value must see the same as without gluing.
@@ -8,7 +8,7 @@ mod common;
 
 use common::*;
 use stitchwort_core::value::{Value, apply, conv, eval, force, quote, quote_folded};
-use stitchwort_core::{DefId, Globals, Term};
+use stitchwort_core::{DefId, Kernel, Term};
 
 /// The prelude, with `double n = n + n` written as recursion (so it isn't
 /// a native), `isZero : Nat -> Bool`-like `isZero n = case n of Zero -> 1;
@@ -82,7 +82,7 @@ fn defs() -> Defs {
 
 /// `term`'s value and its read-back, with gluing off and then on: the
 /// read-backs must be the same.
-fn both_ways(g: &Globals, level: usize, term: &Term) -> (Value, Value) {
+fn both_ways(g: &Kernel, level: usize, term: &Term) -> (Value, Value) {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
     g.machine.glue.set(false);
     let off = eval(&g.ev(), &env, term).unwrap();
@@ -127,20 +127,25 @@ fn a_call_stuck_on_a_variable_unfolds_to_the_folded_definition() {
 fn copies_share_the_unfolding_until_metavariables_are_taken_back() {
     let d = defs();
     let g = &d.p.g;
+    let metas = Epoch(std::cell::Cell::new(1));
+    let ev = stitchwort_core::Ev {
+        metas: &metas,
+        ..g.ev()
+    };
     g.machine.glue.set(true);
-    let call = eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(20)])).unwrap();
+    let call = eval(&ev, &[], &app(Term::Def(d.double), [d.p.num(20)])).unwrap();
     g.machine.glue.set(false);
     let copy = call.clone();
     let steps = |v: Value| {
         let before = g.machine.budget.total_work();
-        force(&g.ev(), v).unwrap();
+        force(&ev, v).unwrap();
         g.machine.budget.total_work() - before
     };
     let first = steps(call.clone());
     assert!(first > 20, "unfolding runs the definition: {first} steps");
     assert_eq!(steps(copy.clone()), 0, "the copy reuses the unfolding");
     // An unfolding may have used a metavariable solution that's gone.
-    g.metas_taken_back();
+    metas.0.set(2);
     assert_eq!(steps(copy), first, "computed again after taking back");
 }
 
@@ -195,7 +200,7 @@ fn natives_never_glue() {
 
 /// `term` (with `level` variables) evaluated with gluing on and read back
 /// folded; checked convertible with its value without gluing.
-fn folded(g: &Globals, level: usize, term: &Term) -> Term {
+fn folded(g: &Kernel, level: usize, term: &Term) -> Term {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
     g.machine.glue.set(true);
     let on = eval(&g.ev(), &env, term).unwrap();
@@ -288,4 +293,17 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
     assert!(steps < 100, "the occurs check took {steps} steps");
     assert!(on_y, "`double y` mentions `y`");
     assert!(!dropped, "`isZero (Succ y)` is `0`");
+}
+
+/// Metavariables with no solutions, at an epoch the test moves.
+struct Epoch(std::cell::Cell<u64>);
+
+impl stitchwort_core::Metas for Epoch {
+    fn solution(&self, _m: usize) -> Option<Value> {
+        None
+    }
+
+    fn epoch(&self) -> u64 {
+        self.0.get()
+    }
 }

@@ -22,11 +22,11 @@
 use stitchwort_syntax::{Diagnostic, Span};
 
 use stitchwort_core::budget::Result as Fallible;
-use stitchwort_core::globals::Globals;
+use stitchwort_core::globals::Kernel;
 use stitchwort_core::term::{DataId, DefId, Term};
 
 pub fn check(
-    g: &Globals,
+    g: &Kernel,
     body: &Term,
     self_id: DefId,
     name: &str,
@@ -88,7 +88,7 @@ struct Info {
 }
 
 struct Walker<'g> {
-    g: &'g Globals,
+    g: &'g Kernel,
     self_id: DefId,
     /// Indexed by de Bruijn level.
     infos: Vec<Info>,

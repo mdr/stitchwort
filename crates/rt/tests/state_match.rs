@@ -107,7 +107,7 @@ export def opened (n: Nat): Nat := Count.open 0 (() => total 0 n)
 ";
 
 fn def_named(session: &Session, name: &str) -> DefId {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     (0..g.env.defs().len())
         .map(DefId)
         .rfind(|id| &**g.def(*id).name() == name)
@@ -124,15 +124,11 @@ fn resuming_inside_a_match_runs_as_a_loop() {
         session
             .load("state-match.sw", PROGRAM)
             .unwrap_or_else(|e| panic!("state-match.sw doesn't check: {e:?}"));
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let limits = Limits::from_core(session.elab.options.limits);
         for name in ["byState", "byPair", "nested", "opened"] {
-            let program = lower_global(
-                &g.ev(),
-                session.elab.options.limits,
-                def_named(&session, name),
-            )
-            .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
+            let program = lower_global(g, session.elab.options.limits, def_named(&session, name))
+                .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"));
             let mut peaks = Vec::new();
             for n in [1_000u64, 100_000] {
                 let mut m = Machine::new(&program, limits);

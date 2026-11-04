@@ -192,7 +192,6 @@ fn components(defs: &[LocalDef]) -> Vec<Vec<usize>> {
 /// name in scope) every body, each recorded as a draft.
 fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]) -> Result<()> {
     let e = cx.e;
-    let g = cx.g();
     let base = cx.level();
     // How many implicit parameters each type gets in front of its written
     // ones, before the members' names are in scope.
@@ -246,8 +245,8 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         let (name, ty, _, span) = signature(&defs[i]);
         let ty = local_type(cx, ty, span)?;
         let value = cx.eval(&ty)?;
-        let meta = g.new_meta(name.span);
-        g.freeze_meta(meta);
+        let meta = cx.metas().new_meta(name.span);
+        cx.metas().freeze_meta(meta);
         e.attempt
             .local_metas
             .borrow_mut()
@@ -257,7 +256,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
         for &level in &levels {
             call = Term::app(call, Term::Var(base - 1 - level));
         }
-        g.print_labels.borrow_mut().push(PrintLabel {
+        cx.metas().print_labels.borrow_mut().push(PrintLabel {
             head: Term::Meta(meta),
             name: name.text.as_str().into(),
             levels,
@@ -387,7 +386,7 @@ pub(crate) fn admitted_call(
 ) -> Result<(Term, Value)> {
     let g = cx.g();
     let mut term = Term::Def(id);
-    let mut ty = crate::kernel::def_ty(g, id)?;
+    let mut ty = crate::kernel::def_ty(&g, id)?;
     for (level, icit, x) in captures {
         if *level >= cx.level() || cx.names[*level] != *x {
             return Err(Diagnostic::error(
@@ -400,15 +399,15 @@ pub(crate) fn admitted_call(
             .with_note("this is a bug in the compiler, not in your program"));
         }
         term = Term::app_icit(term, Term::Var(cx.level() - 1 - level), *icit);
-        let Value::Pi(_, _, _, cod) = force(&g.ev(), ty)? else {
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
             return Err(Diagnostic::error(
                 "E-INTERNAL",
                 "internal error: a lifted definition takes fewer captures than it was given",
             ));
         };
-        ty = cod.apply(&g.ev(), cx.env[*level].clone())?;
+        ty = cod.apply(&g, cx.env[*level].clone())?;
     }
-    g.print_labels.borrow_mut().push(PrintLabel {
+    cx.metas().print_labels.borrow_mut().push(PrintLabel {
         head: Term::Def(id),
         name: name.into(),
         levels: captures.iter().map(|(l, _, _)| *l).collect(),
@@ -429,10 +428,9 @@ pub(crate) fn draft(
     goal: Term,
 ) -> Result<Term> {
     let e = cx.e;
-    let g = cx.g();
     let base = cx.level();
-    let meta = g.new_meta(span);
-    g.freeze_meta(meta);
+    let meta = cx.metas().new_meta(span);
+    cx.metas().freeze_meta(meta);
     e.attempt
         .local_metas
         .borrow_mut()
@@ -442,7 +440,7 @@ pub(crate) fn draft(
     for &level in &levels {
         call = Term::app(call, Term::Var(base - 1 - level));
     }
-    g.print_labels.borrow_mut().push(PrintLabel {
+    cx.metas().print_labels.borrow_mut().push(PrintLabel {
         head: Term::Meta(meta),
         name: name.into(),
         levels,
@@ -495,7 +493,7 @@ impl Elaborator {
             .enumerate()
             .map(|(i, d)| (d.meta, i))
             .collect();
-        let frozen = |m: usize| self.globals.meta_frozen(m);
+        let frozen = |m: usize| self.attempt.store.meta_frozen(m);
         // A candidate: a local definition, or a `match` inside one; finished
         // except for frozen metavariables; referring to nothing pending.
         let mut candidate = Vec::new();
@@ -519,7 +517,7 @@ impl Elaborator {
                                     None => ok = false,
                                 },
                                 Term::Def(id)
-                                    if self.globals.def(*id).state()
+                                    if self.kernel.def(*id).state()
                                         != stitchwort_core::globals::State::Final =>
                                 {
                                     ok = false;

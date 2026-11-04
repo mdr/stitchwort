@@ -13,7 +13,7 @@ use stitchwort_core::check::{self, DataDecl, infer_closed};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, eval, quote};
-use stitchwort_core::{DataId, DefId, Globals, Sort, pretty};
+use stitchwort_core::{DataId, DefId, Kernel, Sort, pretty};
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     r.err().map_or("ok", |d| d.code)
@@ -114,7 +114,7 @@ impl Fams {
         }
     }
 
-    fn g(&mut self) -> &mut Globals {
+    fn g(&mut self) -> &mut Kernel {
         &mut self.p.g
     }
 
@@ -273,7 +273,7 @@ impl Fams {
 }
 
 /// The number a closed term computes to.
-fn nat_of(g: &Globals, term: &Term) -> Option<usize> {
+fn nat_of(g: &Kernel, term: &Term) -> Option<usize> {
     let (term, _) = infer_closed(&g.ev(), term, span()).expect("checks");
     let value = eval(&g.ev(), &[], &term).unwrap();
     match value {
@@ -537,7 +537,7 @@ fn hashes_cover_indices_and_result_indices() {
 
 /// Defines `stuck: ty := body`, which must be refused with `E-INDEX-STUCK`:
 /// its label and notes.
-fn stuck(g: &mut Globals, ty: Term, body: Term) -> String {
+fn stuck(g: &mut Kernel, ty: Term, body: Term) -> String {
     let id = check::declare_def(
         g,
         &"stuck".into(),

@@ -998,7 +998,7 @@ impl Elaborator {
     /// with a row but pass it on.
     pub(crate) fn is_internal(&self, global: Global) -> bool {
         use stitchwort_core::registry::Builtin;
-        let registry = &self.globals.env.registry();
+        let registry = &self.kernel.env.registry();
         match global {
             Global::Ctor(d, _) => {
                 registry.is_data(Builtin::Row, d) || registry.is_data(Builtin::Divergence, d)
@@ -1037,7 +1037,7 @@ impl Elaborator {
     /// is represented (docs/proposals/proof-reification.md, D1145, stage R2).
     pub(crate) fn is_proof_only(&self, global: Global) -> bool {
         use stitchwort_core::registry::Builtin;
-        let registry = &self.globals.env.registry();
+        let registry = &self.kernel.env.registry();
         match global {
             Global::Ctor(d, _) => registry.is_data(Builtin::Comp, d),
             Global::Def(id) => [
@@ -1621,7 +1621,7 @@ pub(crate) enum Extension {
 impl Elaborator {
     /// The key of data type `d`.
     pub(crate) fn data_key(&self, d: stitchwort_core::DataId) -> String {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         if data.path().starts_with("Std.") {
             data.path().to_string()
         } else {
@@ -1642,7 +1642,7 @@ impl Elaborator {
         match global {
             Global::Data(_) | Global::Ability(_) => true,
             Global::Def(id) => {
-                let mut ty = self.globals.def(id).ty().strip_loc();
+                let mut ty = self.kernel.def(id).ty().strip_loc();
                 while let stitchwort_core::Term::Pi(_, _, _, cod) = ty {
                     ty = cod.strip_loc();
                 }
@@ -1798,11 +1798,11 @@ impl Elaborator {
     fn declaration_key_of(&self, declaration: Declaration) -> String {
         let (name, path) = match declaration {
             Declaration::Def(id) => {
-                let def = self.globals.def(id);
+                let def = self.kernel.def(id);
                 (def.name(), def.path())
             }
             Declaration::Data(d) => {
-                let data = self.globals.data(d);
+                let data = self.kernel.data(d);
                 (data.name(), data.path())
             }
         };

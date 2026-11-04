@@ -607,7 +607,7 @@ impl Session {
             query.mentions.push(p);
             query.pattern = None;
         }
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let all = options.all;
         let candidates = self.elab.search_candidates(&|item, path| {
             options.kinds.allows(item.kind(g))
@@ -645,7 +645,7 @@ impl Session {
             for reading in resolutions(&expr, text) {
                 match self.search_patterns(&reading, &query.holes) {
                     Ok((patterns, named)) => {
-                        let g = &self.elab.globals;
+                        let g = &self.elab.ev();
                         let shown = patterns[0].show(g);
                         // The same pattern up to how its holes are
                         // numbered (`List.length (_ ++ _) = _` as written,
@@ -673,7 +673,7 @@ impl Session {
                 return Err(first_error.expect("the pattern as written was tried"));
             }
         }
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let elaborated = readings.first().map(|(s, _)| s.clone());
         let resolutions: Vec<String> = if readings.len() > 1 {
             readings.iter().map(|(s, _)| s.clone()).collect()
@@ -682,14 +682,14 @@ impl Session {
         };
         let pattern = !readings.is_empty();
         let found = if pattern {
-            merge(&g.ev(), readings.into_iter().map(|(_, f)| f).collect())
+            merge(g, readings.into_iter().map(|(_, f)| f).collect())
         } else {
             let mut stats = Stats::default();
-            let mut hits = list(&g.ev(), &candidates, &keep, &mut stats);
+            let mut hits = list(g, &candidates, &keep, &mut stats);
             // Only `"text"` parts: a name that is the text itself first
             // (D2154).
             if query.mentions.is_empty() {
-                exact_name_first(&g.ev(), &mut hits, &query.names);
+                exact_name_first(g, &mut hits, &query.names);
             }
             Found {
                 hits,
@@ -707,7 +707,7 @@ impl Session {
             ),
             _ => {}
         }
-        if let Some(w) = out_of_budget_warning(&self.elab.globals.ev(), &found.stats) {
+        if let Some(w) = out_of_budget_warning(&self.elab.ev(), &found.stats) {
             warnings.push(w);
         }
         if found.stats.internal_errors > 0 {
@@ -756,7 +756,7 @@ impl Session {
     /// Imports every namespace of the library (`import Std (List, Map,
     /// …)`), so that a query can say `List.length` or `Map.insert`.
     pub fn import_library_namespaces(&mut self) {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let tops = (0..g.env.defs().len())
             .map(|i| g.def(stitchwort_core::DefId(i)).path().to_string())
             .chain((0..g.env.datas().len()).map(|d| g.data(DataId(d)).path().to_string()));
@@ -814,28 +814,28 @@ impl Session {
         scope: &Scope,
         docs: &mut DocCache,
     ) -> Result1 {
-        let g = &self.elab.globals;
+        let g = &self.elab.ev();
         let item = hit.item;
-        let (file, line) = crate::render::location(&self.sources, item.span(&g.ev()));
+        let (file, line) = crate::render::location(&self.sources, item.span(g));
         // A constructor's span is its type's, so its doc would be the type's:
         // none is shown.
         let summary = match item {
             Item::Ctor(..) => None,
-            _ => docs.summary(&self.sources, item.span(&g.ev()), &item.path(&g.ev())),
+            _ => docs.summary(&self.sources, item.span(g), &item.path(g)),
         };
-        let path = item.path(&g.ev());
+        let path = item.path(g);
         Result1 {
             kind: item.kind(g).name(),
-            ty: stitchwort_core::pretty::term(&g.ev(), &[], &item.ty(g)),
+            ty: stitchwort_core::pretty::term(g, &[], &item.ty(g)),
             file,
             line,
             summary,
-            import: import_line(&g.ev(), item, scope),
+            import: import_line(g, item, scope),
             relation: pattern.then(|| hit.relation.name()),
             place: pattern.then(|| hit.place.name()),
             equation: (pattern && rewrite).then_some(if hit.iff { "iff" } else { "eq" }),
             via: hit.via.iter().map(|v| Via::name(*v)).collect(),
-            generated: item.generated_equation(&g.ev()),
+            generated: item.generated_equation(g),
             absorbed: hit.absorbed,
             instantiated: hit.instantiated,
             premises: hit.premises,

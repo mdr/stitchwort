@@ -721,7 +721,7 @@ mod tests {
 
     impl Term {
         fn shifted(&self, by: usize, cutoff: usize) -> Term {
-            self.shift(&crate::globals::Globals::default().ev(), by, cutoff)
+            self.shift(&crate::globals::Kernel::default().ev(), by, cutoff)
                 .unwrap()
         }
     }
@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn instantiating_a_body_with_a_variable_renumbers_around_it() {
-        let g = crate::globals::Globals::default();
+        let g = crate::globals::Kernel::default();
         // Body `v0 v1 (y => v0 v1 v2)` applied to outer v3: the bound v0
         // becomes v3, free v1 becomes v0; under y, v1 is that same bound
         // variable (now v4), v2 is the old v1 (now v1), v0 is y.

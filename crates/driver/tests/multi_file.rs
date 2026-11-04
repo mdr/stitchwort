@@ -38,14 +38,14 @@ fn passes(session: &Session) {
 }
 
 fn hash_of_path(session: &Session, path: &str) -> ContentHash {
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let id = g
         .env
         .defs()
         .iter()
         .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
-    def_hash(&g.ev(), DefId(id)).unwrap().expect("checked")
+    def_hash(g, DefId(id)).unwrap().expect("checked")
 }
 
 #[test]

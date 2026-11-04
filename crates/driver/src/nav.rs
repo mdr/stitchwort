@@ -385,10 +385,10 @@ pub fn index_data_of(
         }
     }
     // The equations generated so far, by definition (function-equations §3.4).
-    let generated = crate::doc::generated_equations(&session.elab.globals.ev());
+    let generated = crate::doc::generated_equations(&session.elab.ev());
     let equations_text = |name: &str| -> Option<String> {
         let ids = generated.get(name)?;
-        Some(crate::doc::equations_hover(&session.elab.globals.ev(), ids))
+        Some(crate::doc::equations_hover(&session.elab.ev(), ids))
     };
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {

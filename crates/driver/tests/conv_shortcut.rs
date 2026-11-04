@@ -88,10 +88,10 @@ fn a_solved_unknown_is_seen_through_by_the_identity_shortcut() {
                  theorem metaSeed (seed: Nat): body seed < 2147483648 :=\n  \
                  Std.Nat.modLt ({hole} * 1103515245 + 12345) 2147483648\n"
             );
-            let before = session.elab.globals.machine.budget.total_work();
+            let before = session.elab.kernel.machine.budget.total_work();
             let loaded = session.load("sw920.sw", &text);
             assert!(loaded.is_ok(), "{hole}: {loaded:?}");
-            session.elab.globals.machine.budget.total_work() - before
+            session.elab.kernel.machine.budget.total_work() - before
         })
     };
     let written = work("seed");

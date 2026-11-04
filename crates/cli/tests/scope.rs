@@ -20,21 +20,21 @@ fn codes(diagnostics: &[Diagnostic]) -> Vec<&'static str> {
 
 /// The definitions added after the prelude, in the kernel's order.
 fn new_defs(session: &Session) -> Vec<String> {
-    let prelude = Session::new().elab.globals.env.defs().len();
-    session.elab.globals.env.defs()[prelude..]
+    let prelude = Session::new().elab.kernel.env.defs().len();
+    session.elab.kernel.env.defs()[prelude..]
         .iter()
         .map(|d| d.name().to_string())
         .collect()
 }
 
 fn def_named(session: &Session, name: &str) -> DefId {
-    let defs = &session.elab.globals.env.defs();
+    let defs = &session.elab.kernel.env.defs();
     DefId(defs.iter().rposition(|d| &**d.name() == name).expect(name))
 }
 
 /// How many definitions are in `name`'s group.
 fn group_size(session: &Session, name: &str) -> usize {
-    let def = session.elab.globals.def(def_named(session, name));
+    let def = session.elab.kernel.def(def_named(session, name));
     def.group().as_ref().map_or(0, |g| g.len())
 }
 
@@ -127,11 +127,10 @@ fn a_duplicate_is_reported_and_the_first_definition_kept() {
         load("def use : Nat := twice\n\ndef twice : Nat := 2\n\ndef twice : Nat := 3\n");
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-DUPLICATE"]);
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
     let use_id = def_named(&session, "use");
-    let value =
-        stitchwort_core::value::eval(&g.ev(), &[], &stitchwort_core::Term::Def(use_id)).unwrap();
+    let value = stitchwort_core::value::eval(g, &[], &stitchwort_core::Term::Def(use_id)).unwrap();
     assert_eq!(session.elab.show(&value), "2");
 }
 
@@ -201,19 +200,17 @@ fn abilities_are_ordered_by_where_they_are_written() {
         };
         let (session, result) = load(&text);
         result.unwrap();
-        let g = &session.elab.globals;
+        let g = &session.elab.ev();
         let _op = g.machine.budget.operation(Limits::default());
-        def_hash(&g.ev(), def_named(&session, "f"))
-            .unwrap()
-            .unwrap()
+        def_hash(g, def_named(&session, "f")).unwrap().unwrap()
     };
     assert_eq!(module(true), module(false));
 }
 
 /// The data types added after the prelude, and the size of each one's group.
 fn new_datas(session: &Session) -> Vec<(String, usize)> {
-    let prelude = Session::new().elab.globals.env.datas().len();
-    session.elab.globals.env.datas()[prelude..]
+    let prelude = Session::new().elab.kernel.env.datas().len();
+    session.elab.kernel.env.datas()[prelude..]
         .iter()
         .map(|d| (d.name().to_string(), d.group().len()))
         .collect()
@@ -254,8 +251,8 @@ fn a_failed_data_group_fails_every_member_without_cascading() {
     );
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-UNKNOWN-NAME"], "{errors:#?}");
-    let g = &session.elab.globals;
-    let prelude = Session::new().elab.globals.env.datas().len();
+    let g = &session.elab.ev();
+    let prelude = Session::new().elab.kernel.env.datas().len();
     for data in &g.env.datas()[prelude..] {
         assert_eq!(
             data.state(),

@@ -1016,12 +1016,12 @@ fn build_app_here(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, V
     let output = session
         .extract_namespace("App")
         .expect("extraction succeeds");
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let ours = |path: &str| path.contains("Shapes.") || path.contains("App.");
     let mut hashes = Vec::new();
     for d in (0..g.env.datas().len()).map(stitchwort_core::DataId) {
         if ours(g.data(d).path()) {
-            let hash = stitchwort_core::hash::data_hash(&g.ev(), d).expect("hashes");
+            let hash = stitchwort_core::hash::data_hash(g, d).expect("hashes");
             hashes.push(format!(
                 "{} {}",
                 g.data(d).path(),
@@ -1031,7 +1031,7 @@ fn build_app_here(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, V
     }
     for id in (0..g.env.defs().len()).map(stitchwort_core::DefId) {
         if ours(g.def(id).path()) {
-            let hash = stitchwort_core::hash::def_hash(&g.ev(), id).expect("hashes");
+            let hash = stitchwort_core::hash::def_hash(g, id).expect("hashes");
             hashes.push(format!("{} {:?}", g.def(id).path(), hash.map(|h| h.hex())));
         }
     }

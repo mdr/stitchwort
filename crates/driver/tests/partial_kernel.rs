@@ -10,7 +10,7 @@ use stitchwort_core::globals::State;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::partial::{self, Primitive};
 use stitchwort_core::value::{conv, eval};
-use stitchwort_core::{DataId, DefId, Globals, Icit, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, Sort, Term};
 use stitchwort_driver::driver::Session;
 use stitchwort_elab::{Elaborator, prelude};
 use stitchwort_syntax::{SourceMap, Span};
@@ -21,11 +21,11 @@ fn span() -> Span {
     Span::point(file, 0)
 }
 
-fn data(g: &Globals, name: &str) -> DataId {
+fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
     g.find_data(name).expect("the prelude declares it")
 }
 
-fn def(g: &Globals, name: &str) -> DefId {
+fn def(g: &stitchwort_core::Ev, name: &str) -> DefId {
     DefId(
         g.env
             .defs()
@@ -35,7 +35,7 @@ fn def(g: &Globals, name: &str) -> DefId {
     )
 }
 
-fn prim(g: &Globals, p: Primitive) -> DefId {
+fn prim(g: &stitchwort_core::Ev, p: Primitive) -> DefId {
     g.env.builtins().primitive_id(p).expect("admitted")
 }
 
@@ -78,7 +78,7 @@ struct Rows {
     ans: Term,
 }
 
-fn rows(g: &Globals) -> Rows {
+fn rows(g: &stitchwort_core::Ev) -> Rows {
     let nat = Term::Data(data(g, "Nat"), vec![]);
     let no_op = Term::Data(data(g, "Effect.NoOp"), vec![]);
     let no_res = Term::Def(def(g, "Effect.NoRes"));
@@ -109,7 +109,7 @@ fn rows(g: &Globals) -> Rows {
     }
 }
 
-fn delay(g: &Globals, ops: Term, res: Term, a: Term) -> Term {
+fn delay(g: &stitchwort_core::Ev, ops: Term, res: Term, a: Term) -> Term {
     app(
         Term::Def(prim(g, Primitive::Delay)),
         [exp(ops), exp(res), exp(a)],
@@ -118,7 +118,7 @@ fn delay(g: &Globals, ops: Term, res: Term, a: Term) -> Term {
 
 /// `\x -> pfix [{}] [Nat] [\_ -> Nat] (\y -> body y) x`, where `body`
 /// builds the description's result from `y` (variable 0).
-fn wrapper(g: &Globals, r: &Rows, body: Term) -> Term {
+fn wrapper(g: &stitchwort_core::Ev, r: &Rows, body: Term) -> Term {
     let pfix = app(
         Term::Def(prim(g, Primitive::Pfix)),
         [
@@ -133,7 +133,7 @@ fn wrapper(g: &Globals, r: &Rows, body: Term) -> Term {
 
 /// `mapSig sigRight d`: a computation over `{}` moved into the
 /// description's row `{Rec Nat}`.
-fn map_right(g: &Globals, r: &Rows, d: Term) -> Term {
+fn map_right(g: &stitchwort_core::Ev, r: &Rows, d: Term) -> Term {
     let sig_right = app(
         Term::Def(def(g, "Effect.sigRight")),
         [
@@ -160,7 +160,7 @@ fn map_right(g: &Globals, r: &Rows, d: Term) -> Term {
     )
 }
 
-fn nat_to_delay(g: &Globals, r: &Rows) -> Term {
+fn nat_to_delay(g: &stitchwort_core::Ev, r: &Rows) -> Term {
     arrow(
         r.nat.clone(),
         delay(g, r.no_op.clone(), r.no_res.clone(), r.nat.clone()),
@@ -170,7 +170,7 @@ fn nat_to_delay(g: &Globals, r: &Rows) -> Term {
 #[test]
 fn delay_and_its_constants_are_final_opaque_and_hashed() {
     let session = Session::new();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     assert!(
         g.find_data("Effect.Delay").is_none(),
         "`Effect.Delay` isn't a data type"
@@ -181,11 +181,7 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
         assert_eq!(&**d.name(), p.name());
         assert_eq!(d.state(), State::Final, "{}", p.name());
         assert!(d.body().is_none(), "{} has no computation rule", p.name());
-        assert!(
-            def_hash(&g.ev(), id).unwrap().is_some(),
-            "{} is hashed",
-            p.name()
-        );
+        assert!(def_hash(g, id).unwrap().is_some(), "{} is hashed", p.name());
     }
 }
 
@@ -247,10 +243,10 @@ fn a_constant_with_another_type_is_refused() {
 #[test]
 fn a_constant_is_admitted_once() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
+    let g = &mut session.elab.kernel;
     // A second `now`, with exactly the right type: refused, since `now` is
     // admitted already.
-    let ty = g.def(prim(g, Primitive::Now)).ty().clone();
+    let ty = g.def(prim(&g.ev(), Primitive::Now)).ty().clone();
     let again =
         check::declare_def(g, &"now2".into(), &"now2".into(), &ty, false, false, span()).unwrap();
     assert_eq!(
@@ -259,7 +255,7 @@ fn a_constant_is_admitted_once() {
     );
     assert_eq!(g.def(again).state(), State::Failed);
     // Admitting a final definition again is malformed.
-    let now = prim(g, Primitive::Now);
+    let now = prim(&g.ev(), Primitive::Now);
     assert_eq!(
         code(partial::define_primitive(g, now, Primitive::Now)),
         "E-MALFORMED"
@@ -272,11 +268,11 @@ fn a_constant_is_admitted_once() {
 #[test]
 fn a_delay_cant_be_matched_on() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let r = rows(g);
-    let nat = data(g, "Nat");
+    let g = &mut session.elab.kernel;
+    let r = rows(&g.ev());
+    let nat = data(&g.ev(), "Nat");
     let ty = arrow(
-        delay(g, r.no_op.clone(), r.no_res.clone(), r.nat.clone()),
+        delay(&g.ev(), r.no_op.clone(), r.no_res.clone(), r.nat.clone()),
         r.nat.clone(),
     );
     let f = check::declare_def(
@@ -323,16 +319,16 @@ fn a_delay_cant_be_matched_on() {
 #[test]
 fn a_description_calling_its_own_wrapper_is_refused() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let r = rows(g);
-    let ty = nat_to_delay(g, &r);
+    let g = &mut session.elab.kernel;
+    let r = rows(&g.ev());
+    let ty = nat_to_delay(&g.ev(), &r);
     let bad =
         check::declare_def(g, &"bad".into(), &"bad".into(), &ty, false, false, span()).unwrap();
     // bad x = pfix (\y -> mapSig sigRight (bad y)) x
     let calls_itself = wrapper(
-        g,
+        &g.ev(),
         &r,
-        map_right(g, &r, app(Term::Def(bad), [exp(Term::Var(0))])),
+        map_right(&g.ev(), &r, app(Term::Def(bad), [exp(Term::Var(0))])),
     );
     assert_eq!(
         code(check::define_def(g, bad, &calls_itself)),
@@ -343,11 +339,15 @@ fn a_description_calling_its_own_wrapper_is_refused() {
     // good x = pfix (\y -> lift (Call (L (Recur y)) (\v -> Done v))) x
     let good =
         check::declare_def(g, &"good".into(), &"good".into(), &ty, false, false, span()).unwrap();
-    let comp = data(g, "Effect.Comp");
+    let comp = data(&g.ev(), "Effect.Comp");
     let request = Term::ctor(
-        data(g, "Effect.Plus"),
+        data(&g.ev(), "Effect.Plus"),
         0,
-        vec![Term::ctor(data(g, "Effect.Rec"), 0, vec![Term::Var(0)])],
+        vec![Term::ctor(
+            data(&g.ev(), "Effect.Rec"),
+            0,
+            vec![Term::Var(0)],
+        )],
     );
     let call = Term::ctor(
         comp,
@@ -355,7 +355,7 @@ fn a_description_calling_its_own_wrapper_is_refused() {
         vec![request, lam("v", Term::ctor(comp, 0, vec![Term::Var(0)]))],
     );
     let lift = app(
-        Term::Def(prim(g, Primitive::Lift)),
+        Term::Def(prim(&g.ev(), Primitive::Lift)),
         [
             imp(r.ops.clone()),
             imp(r.res.clone()),
@@ -364,7 +364,7 @@ fn a_description_calling_its_own_wrapper_is_refused() {
         ],
     );
     assert_eq!(
-        code(check::define_def(g, good, &wrapper(g, &r, lift))),
+        code(check::define_def(g, good, &wrapper(&g.ev(), &r, lift))),
         "ok"
     );
 }
@@ -374,9 +374,9 @@ fn a_description_calling_its_own_wrapper_is_refused() {
 #[test]
 fn a_description_calling_an_unfinished_wrapper_is_refused() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let r = rows(g);
-    let ty = nat_to_delay(g, &r);
+    let g = &mut session.elab.kernel;
+    let r = rows(&g.ev());
+    let ty = nat_to_delay(&g.ev(), &r);
     let first = check::declare_def(
         g,
         &"first".into(),
@@ -398,9 +398,9 @@ fn a_description_calling_an_unfinished_wrapper_is_refused() {
     )
     .unwrap();
     let calls_second = wrapper(
-        g,
+        &g.ev(),
         &r,
-        map_right(g, &r, app(Term::Def(second), [exp(Term::Var(0))])),
+        map_right(&g.ev(), &r, app(Term::Def(second), [exp(Term::Var(0))])),
     );
     assert_eq!(
         code(check::define_def(g, first, &calls_second)),
@@ -423,7 +423,7 @@ fn conversion_never_unfolds_a_partial_computation() {
              def spin (n : Nat) : {Partial} Nat := spin n\n",
         )
         .unwrap();
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let r = rows(g);
     let one = Term::Nat(Rc::new(1u32.into()));
     let steps = app(Term::Def(def(g, "collatzSteps")), [exp(one)]);
@@ -436,31 +436,31 @@ fn conversion_never_unfolds_a_partial_computation() {
             exp(Term::Nat(Rc::new(0u32.into()))),
         ],
     );
-    let a = eval(&g.ev(), &[], &steps).unwrap();
-    let b = eval(&g.ev(), &[], &now).unwrap();
-    assert!(!conv(&g.ev(), 0, &a, &b).unwrap());
-    assert!(conv(&g.ev(), 0, &a, &eval(&g.ev(), &[], &steps).unwrap()).unwrap());
+    let a = eval(g, &[], &steps).unwrap();
+    let b = eval(g, &[], &now).unwrap();
+    assert!(!conv(g, 0, &a, &b).unwrap());
+    assert!(conv(g, 0, &a, &eval(g, &[], &steps).unwrap()).unwrap());
     // `spin 0` never finishes, and comparing it with itself, or with
     // something else, takes a few steps.
     let spin = app(
         Term::Def(def(g, "spin")),
         [exp(Term::Nat(Rc::new(0u32.into())))],
     );
-    let s = eval(&g.ev(), &[], &spin).unwrap();
-    assert!(conv(&g.ev(), 0, &s, &s).unwrap());
-    assert!(!conv(&g.ev(), 0, &s, &b).unwrap());
+    let s = eval(g, &[], &spin).unwrap();
+    assert!(conv(g, 0, &s, &s).unwrap());
+    assert!(!conv(g, 0, &s, &b).unwrap());
 }
 
 /// A data type can't recurse through `Delay`: it's a nested occurrence.
 #[test]
 fn a_data_type_recursing_through_delay_is_refused() {
     let mut session = Session::new();
-    let g = &mut session.elab.globals;
-    let r = rows(g);
+    let g = &mut session.elab.kernel;
+    let r = rows(&g.ev());
     let bad =
         check::declare_data(g, "Bad".into(), "Bad".into(), vec![], Sort::Type(0), span()).unwrap();
     let field = delay(
-        g,
+        &g.ev(),
         r.no_op.clone(),
         r.no_res.clone(),
         Term::Data(bad, vec![]),

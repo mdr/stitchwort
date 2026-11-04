@@ -8,7 +8,7 @@
 //! shows up as a disagreement.
 //!
 //! It must stay independent: it shares the data types (`Term`, `Value`,
-//! `Globals`) and the native number functions, which it calls with its own
+//! `Kernel`) and the native number functions, which it calls with its own
 //! `force`, but never calls anything in `value.rs` that evaluates. It isn't
 //! optimised, and only changes when the language's evaluation rules do. It
 //! recurses on the Rust stack, so it's only for small inputs, and it doesn't

@@ -258,7 +258,7 @@ impl Elaborator {
         if !crate::timings::enabled() {
             return run(self).0;
         }
-        crate::timings::begin(&self.globals);
+        crate::timings::begin(&self.ev());
         let (diagnostics, hit) = run(self);
         let label = namespace
             .map(str::to_string)
@@ -277,7 +277,7 @@ impl Elaborator {
         } else {
             label
         };
-        crate::timings::end(&self.globals, label);
+        crate::timings::end(&self.ev(), label);
         diagnostics
     }
 
@@ -292,7 +292,7 @@ impl Elaborator {
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.unit.loading_prelude
-            && let Err(d) = stitchwort_core::registry::check_complete_core(&self.globals.ev())
+            && let Err(d) = stitchwort_core::registry::check_complete_core(&self.ev())
         {
             return vec![d];
         }
@@ -323,7 +323,7 @@ impl Elaborator {
                 .collect(),
             namespace: namespace.map(str::to_string),
             closure: closure.map(<[String]>::to_vec),
-            first_def: self.globals.env.defs().len(),
+            first_def: self.kernel.env.defs().len(),
             first_test,
             ..ModuleState::default()
         };
@@ -365,7 +365,7 @@ impl Elaborator {
                 return errors;
             }
             // Not the definitions and tests the files made.
-            self.unit.module.first_def = self.globals.env.defs().len();
+            self.unit.module.first_def = self.kernel.env.defs().len();
             first_test = self.tables.tests.len();
             self.unit.module.first_test = first_test;
         }
@@ -382,26 +382,24 @@ impl Elaborator {
 
         for component in order {
             // Each component is one operation, with its own resource limits.
-            let saved = self.globals.machine.budget.start(self.options.limits);
+            let saved = self.kernel.machine.budget.start(self.options.limits);
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
-            let (defs_before, datas_before) = (
-                self.globals.env.defs().len(),
-                self.globals.env.datas().len(),
-            );
+            let (defs_before, datas_before) =
+                (self.kernel.env.defs().len(), self.kernel.env.datas().len());
             // Goals from before (an expression typed in) aren't this
             // component's.
             self.clear_goals();
             self.decl.failed_mentioned.set(false);
             let timed = crate::timings::enabled();
             if timed {
-                crate::timings::decl_begin(&self.globals);
+                crate::timings::decl_begin(&self.ev());
             }
             self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
-            self.globals.machine.budget.restore(saved);
+            self.kernel.machine.budget.restore(saved);
             if timed {
                 let label = self.component_label(&items, &component);
-                crate::timings::decl_end(&self.globals, label);
+                crate::timings::decl_end(&self.ev(), label);
             }
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
             // The open goals, printed while their metavariables are solved.
@@ -440,11 +438,11 @@ impl Elaborator {
             // too.
             if failed {
                 self.clear_metas();
-                kernel::abandon_pending(&mut self.globals);
+                kernel::abandon_pending(&mut self.kernel);
                 // Running out of resources is reported where it happened
                 // only as precisely as the declaration.
-                let too_large = self.globals.machine.budget.take_too_large();
-                let ran_out_in = self.globals.machine.budget.take_ran_out_in();
+                let too_large = self.kernel.machine.budget.take_too_large();
+                let ran_out_in = self.kernel.machine.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
                     if d.code == "E-RESOURCE" {
                         d.notes.push(self.while_checking_note(&component));
@@ -475,11 +473,11 @@ impl Elaborator {
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
             if !self.unit.module.ord_after_dec_eq.is_empty() {
-                let saved = self.globals.machine.budget.start(self.options.limits);
+                let saved = self.kernel.machine.budget.start(self.options.limits);
                 if let Err(d) = self.glued(|e| e.derive_pending_ord(&component)) {
                     diagnostics.push((position, d));
                 }
-                self.globals.machine.budget.restore(saved);
+                self.kernel.machine.budget.restore(saved);
                 self.clear_metas();
             }
         }
@@ -490,7 +488,7 @@ impl Elaborator {
         if let (Some(ns), Some(_)) = (namespace, closure) {
             self.tables.namespace_defs.insert(
                 ns.to_string(),
-                self.unit.module.first_def..self.globals.env.defs().len(),
+                self.unit.module.first_def..self.kernel.env.defs().len(),
             );
         }
         // Names that were never checked now just name failures.
@@ -603,11 +601,11 @@ impl Elaborator {
             return;
         };
         // The theorem's own definition, declared once its statement checked.
-        let Some(def) = (self.unit.module.first_def..self.globals.env.defs().len())
+        let Some(def) = (self.unit.module.first_def..self.kernel.env.defs().len())
             .rev()
             .map(DefId)
             .find(|id| {
-                let def = self.globals.def(*id);
+                let def = self.kernel.def(*id);
                 def.theorem() && def.span() == *span
             })
         else {
@@ -648,7 +646,7 @@ impl Elaborator {
     /// frames; a function the compiler made is named by the definition it
     /// was made for.
     fn ran_out_note(&self, definition: Option<usize>) -> Option<String> {
-        let name = &self.globals.env.defs().get(definition?)?.name();
+        let name = &self.kernel.env.defs().get(definition?)?.name();
         let shown = crate::scope::display(name);
         Some(match shown.split_once(".%") {
             None if !shown.contains('%') => format!("it ran out while unfolding `{shown}`"),
@@ -675,7 +673,7 @@ impl Elaborator {
     /// index recorded where the reading-back gave up), and the opaque
     /// definitions the declaration unfolds, whose bodies were computed with.
     fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut notes = Vec::new();
         if let Some(head) = head.filter(|h| *h < g.env.defs().len()) {
             let name = g.env.defs()[head].name();
@@ -719,7 +717,7 @@ impl Elaborator {
     /// definition `defs` and data type `datas` on) that aren't final: failed,
     /// or pending until the component is abandoned.
     fn mark_unfinished(&mut self, component: &[usize], defs: usize, datas: usize) {
-        let g = &self.globals;
+        let g = &self.ev();
         let mut def_ids: Vec<DefId> = Vec::new();
         for (id, item) in &self.unit.module.def_items {
             if component.contains(item) && g.def(*id).state() != State::Final {
@@ -977,7 +975,7 @@ impl Elaborator {
         }
         // Whether a signature's result is the library's `Decidable`, by what
         // its head means here, not how it's spelt.
-        let decidable = self.globals.env.registry().data(Builtin::Decidable);
+        let decidable = self.kernel.env.registry().data(Builtin::Decidable);
         for (index, item) in items.iter().enumerate() {
             self.unit.module.file = Some(self.unit.module.items[index].file);
             if let Decl::Signature {
@@ -1310,7 +1308,7 @@ impl Elaborator {
         // Decision procedures keep their own rule (D9): only those checked
         // and above the use.
         let decidable = self
-            .globals
+            .kernel
             .env
             .registry()
             .data(Builtin::Decidable)
@@ -2110,7 +2108,7 @@ impl Elaborator {
     /// Whether `auto` may use definition `id` where it's being elaborated:
     /// it's final, and (if it's from this module) declared above.
     pub(crate) fn auto_eligible(&self, id: DefId) -> bool {
-        if self.globals.def(id).body().is_none() {
+        if self.kernel.def(id).body().is_none() {
             return false; // not finished checking (e.g. one being defined)
         }
         match (self.unit.module.def_items.get(&id), self.unit.module.item) {

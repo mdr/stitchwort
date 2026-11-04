@@ -53,6 +53,7 @@
 //! for those.
 
 use std::rc::Rc;
+use stitchwort_core::Ev;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
@@ -275,7 +276,7 @@ impl Elaborator {
         if self.unit.loading_prelude {
             return Ok(());
         }
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         if data.group().len() != 1 || data.sort() != Sort::Type(0) || data.ctors().is_empty() {
             return Ok(());
         }
@@ -296,7 +297,7 @@ impl Elaborator {
             Ok(()) | Err(Stop::Unsupported) => Ok(()),
             Err(Stop::Error(e)) if e.code == "E-RESOURCE" => Err(e),
             Err(Stop::Error(e)) => {
-                let name = self.globals.data(d).name().to_string();
+                let name = self.kernel.data(d).name().to_string();
                 Err(Diagnostic::error(
                     "E-INTERNAL",
                     format!(
@@ -304,7 +305,7 @@ impl Elaborator {
                         e.message
                     ),
                 )
-                .with_label(self.globals.data(d).span(), "generated for this type")
+                .with_label(self.kernel.data(d).span(), "generated for this type")
                 .with_note(
                     "this is a bug in the compiler (docs/proposals/nested-data-types.md, stage 3)",
                 ))
@@ -314,7 +315,7 @@ impl Elaborator {
 
     /// The declarations the generated terms use, once the core has them.
     fn nested_lib(&self) -> Option<Lib> {
-        let reg = &self.globals.env.registry();
+        let reg = &self.kernel.env.registry();
         let def = |name: &str| match self.named(name) {
             Some((Global::Def(id), _)) => Some(*id),
             _ => None,
@@ -348,14 +349,14 @@ impl Elaborator {
         let d = st.d;
         let np = st.np;
         // How each field holds `T`.
-        let ctor_count = self.globals.data(d).ctors().len();
+        let ctor_count = self.kernel.data(d).ctors().len();
         let nestable_t = self.view(d, false);
         let mut nested = false;
         for c in 0..ctor_count {
-            let fields = self.globals.data(d).ctors()[c].fields.len();
+            let fields = self.kernel.data(d).ctors()[c].fields.len();
             let mut row = Vec::new();
             for i in 0..fields {
-                if self.globals.data(d).ctors()[c].field_erased[i] {
+                if self.kernel.data(d).ctors()[c].field_erased[i] {
                     row.push(None);
                     continue;
                 }
@@ -407,7 +408,7 @@ impl Elaborator {
     /// Which of `d`'s parameters get a predicate in its `All` (`preds`):
     /// the nestable ones that are types.
     fn view(&self, d: DataId, preds: bool) -> Vec<bool> {
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         data.params()
             .iter()
             .enumerate()
@@ -422,17 +423,17 @@ impl Elaborator {
     /// Field `i` of constructor `c` of `d`, its type in normal form in the
     /// generic context (parameters, then the earlier fields).
     fn field_type(&self, d: DataId, c: usize, i: usize) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let depth = data.params().len() + i;
-        let value = eval(&g.ev(), &vars(0..depth), &data.ctors()[c].fields[i].1)?;
-        Ok(quote(&g.ev(), depth, &value)?)
+        let value = eval(g, &vars(0..depth), &data.ctors()[c].fields[i].1)?;
+        Ok(quote(g, depth, &value)?)
     }
 
     /// How `ty` (in a context of `depth` variables, `owner`'s parameters
     /// first) holds `owner`, with `preds` saying which parameters count.
     fn classify(&self, owner: DataId, preds: &[bool], ty: &Term, depth: usize) -> R<Option<Shape>> {
-        let g = &self.globals;
+        let g = &self.ev();
         let np = g.data(owner).params().len();
         let counted = |l: usize| l < np && preds[l];
         let relevant =
@@ -503,10 +504,10 @@ impl Elaborator {
         params: &[Pred],
         me: &Me,
     ) -> R<Pred> {
-        let g = &self.globals;
+        let g = &self.ev();
         let ev = |ts: &[Term]| -> R<Vec<Value>> {
             ts.iter()
-                .map(|t| Ok(eval(&g.ev(), env, t)?))
+                .map(|t| Ok(eval(g, env, t)?))
                 .collect::<R<Vec<Value>>>()
         };
         Ok(match shape {
@@ -580,7 +581,7 @@ impl Elaborator {
         // Only the scope's fields, if any: not `T`'s fields after them, nor
         // the container's own (a container's parameter that depends on its
         // own fields isn't covered).
-        let g = &self.globals;
+        let g = &self.ev();
         let probe = Pred::All {
             all: *all,
             data: *data,
@@ -624,9 +625,9 @@ impl Elaborator {
 
     /// Calls `found` with each variable level `pred`'s values mention.
     fn pred_levels(&self, pred: &Pred, depth: usize, found: &mut dyn FnMut(usize)) -> R<()> {
-        let g = &self.globals;
+        let g = &self.ev();
         let value = |v: &Value, found: &mut dyn FnMut(usize)| -> R<()> {
-            let t = quote(&g.ev(), depth, v)?;
+            let t = quote(g, depth, v)?;
             for (s, under) in t.subterms() {
                 if let Term::Var(ix) = s
                     && *ix >= under
@@ -665,12 +666,12 @@ impl Elaborator {
     fn member_parts(&mut self, st: &mut Gen, m: usize) -> R<()> {
         let (data, scope) = (st.members[m].data, st.members[m].scope);
         let base = st.np + st.members[m].scope_len();
-        let ctors = self.globals.data(data).ctors().len();
+        let ctors = self.kernel.data(data).ctors().len();
         for c in 0..ctors {
             let parts = self.member_fields_preds(st, m, c, base)?;
             for pred in parts.into_iter().flatten() {
                 if let Pred::All { .. } = pred {
-                    let depth = base + self.globals.data(data).ctors()[c].fields.len();
+                    let depth = base + self.kernel.data(data).ctors()[c].fields.len();
                     self.add_member(st, &pred, scope, depth)?;
                 }
             }
@@ -689,9 +690,9 @@ impl Elaborator {
         base: usize,
     ) -> R<Vec<Option<Pred>>> {
         let data = st.members[m].data;
-        let ne = self.globals.data(data).params().len();
+        let ne = self.kernel.data(data).params().len();
         let view = self.view(data, true);
-        let fields = self.globals.data(data).ctors()[c].fields.len();
+        let fields = self.kernel.data(data).ctors()[c].fields.len();
         let params = st.members[m].params.clone();
         let preds = st.members[m].preds.clone();
         let me = Me::All {
@@ -702,7 +703,7 @@ impl Elaborator {
         };
         let mut out = Vec::new();
         for i in 0..fields {
-            if self.globals.data(data).ctors()[c].field_erased[i] {
+            if self.kernel.data(data).ctors()[c].field_erased[i] {
                 out.push(None);
                 continue;
             }
@@ -740,7 +741,7 @@ impl Elaborator {
         if let Some(id) = self.tables.generated_alls.get(&e) {
             return Ok(*id);
         }
-        let data = self.globals.data(e);
+        let data = self.kernel.data(e);
         if data.group().len() != 1 || data.sort() != Sort::Type(0) {
             return Err(Stop::Unsupported);
         }
@@ -764,7 +765,7 @@ impl Elaborator {
     /// recursion on `x`: each constructor's fields' predicates, joined by
     /// `And` (`Unit` for none), as `List.All` is written.
     fn define_all(&mut self, st: &mut Gen, e: DataId, owner: DataId, member: &str) -> R<DefId> {
-        let data = self.globals.data(e);
+        let data = self.kernel.data(e);
         let np = data.params().len();
         let ni = data.indices().len();
         let view = self.view(e, true);
@@ -779,8 +780,8 @@ impl Elaborator {
         let mut shapes = Vec::new();
         for c in 0..ctors {
             let mut row = Vec::new();
-            for i in 0..self.globals.data(e).ctors()[c].fields.len() {
-                if self.globals.data(e).ctors()[c].field_erased[i] {
+            for i in 0..self.kernel.data(e).ctors()[c].fields.len() {
+                if self.kernel.data(e).ctors()[c].field_erased[i] {
                     row.push(None);
                     continue;
                 }
@@ -795,7 +796,7 @@ impl Elaborator {
             }
             shapes.push(row);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(e);
         // [params] (p: a → Prop)… [indices] (x: D params indices) → Prop
         let pred_level = |k: usize| np + k;
@@ -814,8 +815,8 @@ impl Elaborator {
                 .collect()
         };
         for k in (0..ni).rev() {
-            let value = eval(&g.ev(), &index_env(k), &data.indices()[k].1)?;
-            let dom = quote(&g.ev(), np + preds.len() + k, &value)?;
+            let value = eval(g, &index_env(k), &data.indices()[k].1)?;
+            let dom = quote(g, np + preds.len() + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         for (k, &j) in preds.iter().enumerate().rev() {
@@ -829,7 +830,7 @@ impl Elaborator {
         let name: Name = format!("{}.{member}", g.data(owner).name()).into();
         let span = g.data(st.d).span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -854,7 +855,7 @@ impl Elaborator {
         let depth0 = x_level + 1;
         let mut branches = Vec::new();
         for (c, row) in shapes.iter().enumerate() {
-            let ctor = &self.globals.data(e).ctors()[c];
+            let ctor = &self.kernel.data(e).ctors()[c];
             let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
             let depth = depth0 + names.len();
             let mut parts = Vec::new();
@@ -876,15 +877,15 @@ impl Elaborator {
         let mut body = Term::Case(0, e, branches.into());
         body = lam("x", Icit::Explicit, body);
         for k in (0..ni).rev() {
-            body = lam(&self.globals.data(e).indices()[k].0, Icit::Implicit, body);
+            body = lam(&self.kernel.data(e).indices()[k].0, Icit::Implicit, body);
         }
         for k in (0..preds.len()).rev() {
             body = lam(names_at(k), Icit::Explicit, body);
         }
-        for (x, _) in self.globals.data(e).params().iter().rev() {
+        for (x, _) in self.kernel.data(e).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, body)])?;
         self.bind_generated(owner, member, id);
         Ok(id)
     }
@@ -892,7 +893,7 @@ impl Elaborator {
     /// Makes `T.member` name `id`.
     fn bind_generated(&mut self, owner: DataId, member: &str, id: DefId) {
         let key = Self::member_key(&self.data_key(owner), member);
-        let span = self.globals.data(owner).span();
+        let span = self.kernel.data(owner).span();
         self.scope.insert(&key, Global::Def(id), span, false);
     }
 
@@ -924,14 +925,14 @@ impl Elaborator {
     /// The predicate as a function, in a context of `depth` variables with
     /// the motive at level `motive`.
     fn pred_term(&self, st: &Gen, pred: &Pred, depth: usize, motive: Option<usize>) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         Ok(match pred {
             Pred::Unit => lam("x", Icit::Explicit, Term::data(st.lib.unit, Vec::new())),
             Pred::Var(l) => var(depth, *l),
             Pred::Motive(is) => {
                 let mut args = Vec::new();
                 for v in is {
-                    args.push(quote(&g.ev(), depth, v)?);
+                    args.push(quote(g, depth, v)?);
                 }
                 apps(var(depth, motive.expect("a motive")), explicit(args))
             }
@@ -944,7 +945,7 @@ impl Elaborator {
             } => {
                 let mut t = Term::Def(*all);
                 for v in params {
-                    t = Term::app_icit(t, quote(&g.ev(), depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
                 }
                 let view = self.view(pred_data(pred), true);
                 for (j, p) in preds.iter().enumerate() {
@@ -953,7 +954,7 @@ impl Elaborator {
                     }
                 }
                 for v in indices {
-                    t = Term::app_icit(t, quote(&g.ev(), depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
                 }
                 t
             }
@@ -981,7 +982,7 @@ impl Elaborator {
     fn define_sizes(&mut self, st: &mut Gen) -> R<()> {
         let d = st.d;
         let np = st.np;
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let ni = data.indices().len();
         let nat = Term::data(st.lib.nat, Vec::new());
@@ -998,7 +999,7 @@ impl Elaborator {
         ty = self.wrap_params_pi(d, ty);
         let name: Name = format!("{}.{SIZE}", data.name()).into();
         let size_id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1013,9 +1014,9 @@ impl Elaborator {
         let mut member_ids = vec![None; st.members.len()];
         for &m in &sized {
             let ty = self.member_size_type(st, m)?;
-            let name: Name = format!("{}.%m{}%{SIZE}", self.globals.data(d).name(), m + 1).into();
+            let name: Name = format!("{}.%m{}%{SIZE}", self.kernel.data(d).name(), m + 1).into();
             let id = kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &name,
@@ -1035,7 +1036,7 @@ impl Elaborator {
         {
             let depth0 = np + ni + 1;
             let mut branches = Vec::new();
-            for c in 0..self.globals.data(d).ctors().len() {
+            for c in 0..self.kernel.data(d).ctors().len() {
                 let names = self.ctor_names(d, c);
                 let depth = depth0 + names.len();
                 let mut parts = Vec::new();
@@ -1077,7 +1078,7 @@ impl Elaborator {
             let body = self.member_size_body(st, &sizes, m)?;
             bodies.push((sizes.members[m].expect("declared"), body));
         }
-        kernel::define_group(&mut self.globals, &self.tables, &bodies)?;
+        kernel::define_group(&mut self.kernel, &self.tables, &bodies)?;
         self.bind_generated(d, SIZE, size_id);
         for &m in &sized {
             let member = format!("%m{}%{SIZE}", m + 1);
@@ -1089,7 +1090,7 @@ impl Elaborator {
 
     /// The constructor's fields' names.
     fn ctor_names(&self, d: DataId, c: usize) -> Vec<Name> {
-        self.globals.data(d).ctors()[c]
+        self.kernel.data(d).ctors()[c]
             .fields
             .iter()
             .map(|(x, _)| x.clone())
@@ -1107,7 +1108,7 @@ impl Elaborator {
     /// `[indices…] → rest`, the indices' types with `d`'s parameters at
     /// levels `0..np` and the first index at `first`; `rest` is under them.
     fn wrap_indices_pi(&self, st: &Gen, d: DataId, first: usize, rest: Term) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let np = st.np;
         let mut ty = rest;
@@ -1116,8 +1117,8 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(first + j)))
                 .collect();
-            let value = eval(&g.ev(), &env, &data.indices()[k].1)?;
-            let dom = quote(&g.ev(), first + k, &value)?;
+            let value = eval(g, &env, &data.indices()[k].1)?;
+            let dom = quote(g, first + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         Ok(ty)
@@ -1126,7 +1127,7 @@ impl Elaborator {
     /// `[params…] → ty`.
     fn wrap_params_pi(&self, d: DataId, ty: Term) -> Term {
         let mut ty = ty;
-        for (x, t) in self.globals.data(d).params().iter().rev() {
+        for (x, t) in self.kernel.data(d).params().iter().rev() {
             ty = pi(x, Icit::Implicit, t.clone(), ty);
         }
         ty
@@ -1138,14 +1139,14 @@ impl Elaborator {
     fn wrap_lams(&self, d: DataId, ni: usize, extra: Option<&[Name]>, body: Term) -> Term {
         let mut body = lam("x", Icit::Explicit, body);
         for k in (0..ni).rev() {
-            body = lam(&self.globals.data(d).indices()[k].0, Icit::Implicit, body);
+            body = lam(&self.kernel.data(d).indices()[k].0, Icit::Implicit, body);
         }
         if let Some(extra) = extra {
             for x in extra.iter().rev() {
                 body = lam(x, Icit::Explicit, body);
             }
         }
-        for (x, _) in self.globals.data(d).params().iter().rev() {
+        for (x, _) in self.kernel.data(d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
         body
@@ -1182,14 +1183,14 @@ impl Elaborator {
         here: Option<&Field>,
         scope_levels: &[usize],
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let np = st.np;
         let ps: Vec<Term> = (0..np).map(|j| var(depth, j)).collect();
         Ok(match pred {
             Pred::Motive(is) => {
                 let mut args = implicit(ps);
                 for v in is {
-                    args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
+                    args.push((quote(g, depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(sizes.size), args)
@@ -1200,7 +1201,7 @@ impl Elaborator {
                 let mut args = implicit(ps);
                 args.extend(explicit(self.scope_args(st, m, depth, here, scope_levels)));
                 for v in indices {
-                    args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
+                    args.push((quote(g, depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(id), args)
@@ -1241,7 +1242,7 @@ impl Elaborator {
         else {
             unreachable!()
         };
-        let g = &self.globals;
+        let g = &self.ev();
         let np = st.np;
         // Seen from a constructor of `T`, the pred's values have the fields
         // at their levels there; a member's are at `np…`. Bring them over.
@@ -1250,7 +1251,7 @@ impl Elaborator {
             Some(f) => {
                 let move_to = |v: &Value| -> R<Value> {
                     let depth = f.field_levels.last().map_or(np, |l| l + 1).max(np);
-                    let t = quote(&g.ev(), depth, v)?;
+                    let t = quote(g, depth, v)?;
                     let mut env: Vec<Value> = vec![stitchwort_core::value::unused(); depth];
                     for (j, slot) in env.iter_mut().enumerate().take(np) {
                         *slot = Value::var(j);
@@ -1258,7 +1259,7 @@ impl Elaborator {
                     for (k, l) in f.field_levels.iter().enumerate() {
                         env[*l] = Value::var(np + k);
                     }
-                    Ok(eval(&g.ev(), &env, &t)?)
+                    Ok(eval(g, &env, &t)?)
                 };
                 let params = params.iter().map(move_to).collect::<R<Vec<_>>>()?;
                 let preds = preds
@@ -1304,7 +1305,7 @@ impl Elaborator {
         extra: &[Extra<'_>],
         result: &dyn Fn(usize, usize) -> R<Term>,
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let member = &st.members[m];
         let np = st.np;
         let ns = member.scope_len();
@@ -1316,7 +1317,7 @@ impl Elaborator {
         // (x: D args indices)
         let mut args = Vec::new();
         for v in &member.params {
-            args.push(quote(&g.ev(), x_level, v)?);
+            args.push(quote(g, x_level, v)?);
         }
         args.extend((0..ne_i).map(|k| var(x_level, first_index + k)));
         ty = pi("x", Icit::Explicit, Term::data(member.data, args), ty);
@@ -1327,11 +1328,11 @@ impl Elaborator {
                 .cloned()
                 .chain((0..k).map(|j| Value::var(first_index + j)))
                 .collect();
-            let value = eval(&g.ev(), &env, &e.indices()[k].1)?;
+            let value = eval(g, &env, &e.indices()[k].1)?;
             ty = pi(
                 &e.indices()[k].0,
                 Icit::Implicit,
-                quote(&g.ev(), first_index + k, &value)?,
+                quote(g, first_index + k, &value)?,
                 ty,
             );
         }
@@ -1340,13 +1341,9 @@ impl Elaborator {
         }
         if let Some((c, n)) = member.scope {
             for k in (0..n).rev() {
-                let value = eval(
-                    &g.ev(),
-                    &vars(0..np + k),
-                    &g.data(st.d).ctors()[c].fields[k].1,
-                )?;
+                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
                 let x = &g.data(st.d).ctors()[c].fields[k].0;
-                ty = pi(x, Icit::Explicit, quote(&g.ev(), np + k, &value)?, ty);
+                ty = pi(x, Icit::Explicit, quote(g, np + k, &value)?, ty);
             }
         }
         Ok(self.wrap_params_pi(st.d, ty))
@@ -1354,7 +1351,7 @@ impl Elaborator {
 
     /// `[params] (scope…) (extra…) [indices] (x) => body`.
     fn member_lams(&self, st: &Gen, m: usize, extra: &[Name], body: Term) -> Term {
-        let g = &self.globals;
+        let g = &self.ev();
         let member = &st.members[m];
         let e = g.data(member.data);
         let mut body = lam("x", Icit::Explicit, body);
@@ -1381,11 +1378,11 @@ impl Elaborator {
         let np = st.np;
         let ns = st.members[m].scope_len();
         let data = st.members[m].data;
-        let ne_i = self.globals.data(data).indices().len();
+        let ne_i = self.kernel.data(data).indices().len();
         let depth0 = np + ns + ne_i + 1;
         let scope_levels: Vec<usize> = (np..np + ns).collect();
         let mut branches = Vec::new();
-        for c in 0..self.globals.data(data).ctors().len() {
+        for c in 0..self.kernel.data(data).ctors().len() {
             let names = self.ctor_names(data, c);
             let depth = depth0 + names.len();
             let parts = self.member_fields_preds(st, m, c, depth0)?;
@@ -1435,7 +1432,7 @@ impl Elaborator {
             }
         }
         let d = st.d;
-        for c in 0..self.globals.data(d).ctors().len() {
+        for c in 0..self.kernel.data(d).ctors().len() {
             for i in 0..st.shapes[c].len() {
                 let Some(shape) = st.shapes[c][i].clone() else {
                     continue;
@@ -1477,7 +1474,7 @@ impl Elaborator {
     /// params is)) (h: List.Mem q xs) → T.size q < T.%m{m}%size xs`, by
     /// recursion on `xs`.
     fn define_member_size_mem(&mut self, st: &Gen, sizes: &Sizes, m: usize) -> R<DefId> {
-        let g = &self.globals;
+        let g = &self.ev();
         let np = st.np;
         let ns = st.members[m].scope_len();
         let lib = &st.lib;
@@ -1490,10 +1487,10 @@ impl Elaborator {
         let scope_terms =
             |depth: usize| -> Vec<Term> { (np..np + ns).map(|l| var(depth, l)).collect() };
         // size q, size_m xs at a depth
-        let size_t = |g: &stitchwort_core::Globals, depth: usize, at: Term| -> R<Term> {
+        let size_t = |g: &Ev, depth: usize, at: Term| -> R<Term> {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &is {
-                args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
+                args.push((quote(g, depth, v)?, Icit::Implicit));
             }
             args.push((at, Icit::Explicit));
             Ok(apps(Term::Def(sizes.size), args))
@@ -1513,7 +1510,7 @@ impl Elaborator {
             apps(
                 Term::Def(lib.less_than),
                 explicit(vec![
-                    size_t(&self.globals, depth, var(depth, q))?,
+                    size_t(&self.ev(), depth, var(depth, q))?,
                     size_list(depth, var(depth, xs)),
                 ]),
             )
@@ -1523,7 +1520,7 @@ impl Elaborator {
             let mem = apps(
                 Term::Def(lib.list_mem),
                 vec![
-                    (quote(&g.ev(), depth, &elem)?, Icit::Implicit),
+                    (quote(g, depth, &elem)?, Icit::Implicit),
                     (var(depth, q), Icit::Explicit),
                     (var(depth, xs), Icit::Explicit),
                 ],
@@ -1533,21 +1530,17 @@ impl Elaborator {
         ty = pi(
             "xs",
             Icit::Explicit,
-            Term::data(lib.list, vec![quote(&g.ev(), xs, &elem)?]),
+            Term::data(lib.list, vec![quote(g, xs, &elem)?]),
             ty,
         );
-        ty = pi("q", Icit::Explicit, quote(&g.ev(), q, &elem)?, ty);
+        ty = pi("q", Icit::Explicit, quote(g, q, &elem)?, ty);
         if let Some((c, n)) = st.members[m].scope {
             for k in (0..n).rev() {
-                let value = eval(
-                    &g.ev(),
-                    &vars(0..np + k),
-                    &g.data(st.d).ctors()[c].fields[k].1,
-                )?;
+                let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
                 ty = pi(
                     &g.data(st.d).ctors()[c].fields[k].0,
                     Icit::Explicit,
-                    quote(&g.ev(), np + k, &value)?,
+                    quote(g, np + k, &value)?,
                     ty,
                 );
             }
@@ -1556,7 +1549,7 @@ impl Elaborator {
         let name: Name = format!("{}.%m{}%sizeMem", g.data(st.d).name(), m + 1).into();
         let span = g.data(st.d).span();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1565,7 +1558,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        let g = &self.globals;
+        let g = &self.ev();
         // The body: cases on xs, then on h.
         // Nil: h is `Void`.
         let nil = Term::Case(0, lib.void, Vec::<Branch>::new().into());
@@ -1588,11 +1581,11 @@ impl Elaborator {
                             apps(
                                 Term::Def(lib.less_eq),
                                 explicit(vec![
-                                    size_t(&self.globals, inner, var(inner, z))?,
+                                    size_t(&self.ev(), inner, var(inner, z))?,
                                     apps(
                                         Term::Def(lib.add),
                                         explicit(vec![
-                                            size_t(&self.globals, inner, var(inner, y))?,
+                                            size_t(&self.ev(), inner, var(inner, y))?,
                                             size_list(inner, var(inner, ys)),
                                         ]),
                                     ),
@@ -1601,7 +1594,7 @@ impl Elaborator {
                         ),
                     )
                 };
-                let sy = size_t(&self.globals, depth, var(depth, y))?;
+                let sy = size_t(&self.ev(), depth, var(depth, y))?;
                 let base = apps(
                     Term::Def(lib.add_left),
                     explicit(vec![
@@ -1617,7 +1610,7 @@ impl Elaborator {
             let inr = {
                 let depth = ys + 2;
                 let member = ys + 1;
-                let sq = size_t(&self.globals, depth, var(depth, q))?;
+                let sq = size_t(&self.ev(), depth, var(depth, q))?;
                 let sys = size_list(depth, var(depth, ys));
                 let mut rec_args = implicit((0..np).map(|j| var(depth, j)).collect());
                 rec_args.extend(explicit(scope_terms(depth)));
@@ -1633,12 +1626,7 @@ impl Elaborator {
                 );
                 apps(
                     Term::Def(lib.add_right),
-                    explicit(vec![
-                        sq,
-                        size_t(&self.globals, depth, var(depth, y))?,
-                        sys,
-                        le,
-                    ]),
+                    explicit(vec![sq, size_t(&self.ev(), depth, var(depth, y))?, sys, le]),
                 )
             };
             // h is at level `hc`, under the two fields.
@@ -1687,7 +1675,7 @@ impl Elaborator {
         for (x, _) in g.data(st.d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, body)])?;
         let member = format!("%m{}%sizeMem", m + 1);
         self.bind_generated(st.d, &member, id);
         Ok(id)
@@ -1740,7 +1728,7 @@ impl Elaborator {
         let Some(at) = at else { return Ok(()) };
         // Which fields the statement needs: those its sizes mention, and
         // what their types mention, closed.
-        let g = &self.globals;
+        let g = &self.ev();
         let ctor = &g.data(d).ctors()[c];
         let mut needed = vec![false; nf];
         let mark = |t: &Term, depth: usize, needed: &mut Vec<bool>| {
@@ -1761,7 +1749,7 @@ impl Elaborator {
         let elem_ty = Term::data(d, {
             let mut a: Vec<Term> = (0..np).map(|j| var(depth_all, j)).collect();
             for v in &elem_is {
-                a.push(quote(&g.ev(), depth_all, v)?);
+                a.push(quote(g, depth_all, v)?);
             }
             a
         });
@@ -1786,8 +1774,8 @@ impl Elaborator {
                     env[np + k] = Value::var(new_level(k));
                 }
             }
-            let v = eval(&g.ev(), &env, t)?;
-            Ok(quote(&g.ev(), to, &v)?)
+            let v = eval(g, &env, t)?;
+            Ok(quote(g, to, &v)?)
         };
         let nk = kept.len();
         let q = np + nk;
@@ -1796,7 +1784,7 @@ impl Elaborator {
         let sq = {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &elem_is {
-                let t = quote(&g.ev(), depth_all, v)?;
+                let t = quote(g, depth_all, v)?;
                 args.push((reindex(&t, depth_all, depth)?, Icit::Implicit));
             }
             args.push((var(depth, q), Icit::Explicit));
@@ -1837,7 +1825,7 @@ impl Elaborator {
         let span = g.data(d).span();
         let field_names: Vec<Name> = kept.iter().map(|k| ctor.fields[*k].0.clone()).collect();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1847,7 +1835,7 @@ impl Elaborator {
             span,
         )?;
         // The proof: lessLe of the list's lemma, then into the sum.
-        let g = &self.globals;
+        let g = &self.ev();
         let s_i = comps[at].clone();
         let mut lemma_args = implicit((0..np).map(|j| var(depth, j)).collect());
         if let Some((_, n)) = st.members[m].scope {
@@ -1887,7 +1875,7 @@ impl Elaborator {
         for (x, _) in g.data(d).params().iter().rev() {
             body = lam(x, Icit::Implicit, body);
         }
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, body)])?;
         self.bind_generated(d, &member, id);
         Ok(())
     }
@@ -1898,7 +1886,7 @@ impl Elaborator {
     fn define_inducts(&mut self, st: &mut Gen) -> R<()> {
         let d = st.d;
         let np = st.np;
-        let data = self.globals.data(d);
+        let data = self.kernel.data(d);
         let ni = data.indices().len();
         let nc = data.ctors().len();
         let span = data.span();
@@ -1922,9 +1910,9 @@ impl Elaborator {
             ty = pi("motive", Icit::Explicit, self.motive_type(st, np)?, ty);
             self.wrap_params_pi(d, ty)
         };
-        let name: Name = format!("{}.{INDUCT}", self.globals.data(d).name()).into();
+        let name: Name = format!("{}.{INDUCT}", self.kernel.data(d).name()).into();
         let induct = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -1936,9 +1924,9 @@ impl Elaborator {
         let mut ids = Vec::new();
         for m in 0..st.members.len() {
             let ty = self.member_induct_type(st, m)?;
-            let name: Name = format!("{}.%m{}%{INDUCT}", self.globals.data(d).name(), m + 1).into();
+            let name: Name = format!("{}.%m{}%{INDUCT}", self.kernel.data(d).name(), m + 1).into();
             ids.push(kernel::declare_def(
-                &mut self.globals,
+                &mut self.kernel,
                 &self.tables,
                 &self.unit,
                 &name,
@@ -2001,7 +1989,7 @@ impl Elaborator {
             let body = self.member_induct_body(st, &inducts, m)?;
             bodies.push((inducts.members[m], body));
         }
-        kernel::define_group(&mut self.globals, &self.tables, &bodies)?;
+        kernel::define_group(&mut self.kernel, &self.tables, &bodies)?;
         self.bind_generated(d, INDUCT, induct);
         for m in 0..st.members.len() {
             let member = format!("%m{}%{INDUCT}", m + 1);
@@ -2013,7 +2001,7 @@ impl Elaborator {
 
     /// The cases' names: each constructor's, starting lower case.
     fn case_names(&self, d: DataId) -> Vec<Name> {
-        self.globals
+        self.kernel
             .data(d)
             .ctors()
             .iter()
@@ -2033,7 +2021,7 @@ impl Elaborator {
     /// Prop`.
     fn motive_type(&self, st: &Gen, depth: usize) -> R<Term> {
         let d = st.d;
-        let ni = self.globals.data(d).indices().len();
+        let ni = self.kernel.data(d).indices().len();
         let x = depth + ni;
         let ty = pi(
             "x",
@@ -2042,7 +2030,7 @@ impl Elaborator {
             Term::Sort(Sort::Prop),
         );
         // The indices, explicit.
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let mut ty = ty;
         for k in (0..ni).rev() {
@@ -2050,11 +2038,11 @@ impl Elaborator {
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
-            let value = eval(&g.ev(), &env, &data.indices()[k].1)?;
+            let value = eval(g, &env, &data.indices()[k].1)?;
             ty = pi(
                 &data.indices()[k].0,
                 Icit::Explicit,
-                quote(&g.ev(), depth + k, &value)?,
+                quote(g, depth + k, &value)?,
                 ty,
             );
         }
@@ -2078,7 +2066,7 @@ impl Elaborator {
         mem: bool,
     ) -> R<Term> {
         let d = st.d;
-        let nc = self.globals.data(d).ctors().len();
+        let nc = self.kernel.data(d).ctors().len();
         let names = self.case_names(d);
         let mut tys = Vec::new();
         for c in 0..nc {
@@ -2123,7 +2111,7 @@ impl Elaborator {
             .enumerate()
             .filter_map(|(i, p)| p.clone().map(|p| (i, p)))
             .collect();
-        let g = &self.globals;
+        let g = &self.ev();
         let data = g.data(d);
         let ctor = &data.ctors()[c];
         let end = depth + nf + hyps.len();
@@ -2134,7 +2122,7 @@ impl Elaborator {
             .collect();
         let mut args = Vec::new();
         for t in &ctor.result {
-            args.push(quote(&g.ev(), end, &eval(&g.ev(), &env, t)?)?);
+            args.push(quote(g, end, &eval(g, &env, t)?)?);
         }
         args.push(Term::ctor(
             d,
@@ -2150,20 +2138,15 @@ impl Elaborator {
             };
             ty = pi(&format!("{}Ih", fields[*i]), Icit::Explicit, dom, ty);
         }
-        let g = &self.globals;
+        let g = &self.ev();
         let ctor = &g.data(d).ctors()[c];
         for k in (0..nf).rev() {
             let env: Vec<Value> = vars(0..np)
                 .into_iter()
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
-            let value = eval(&g.ev(), &env, &ctor.fields[k].1)?;
-            ty = pi(
-                &fields[k],
-                Icit::Explicit,
-                quote(&g.ev(), depth + k, &value)?,
-                ty,
-            );
+            let value = eval(g, &env, &ctor.fields[k].1)?;
+            ty = pi(&fields[k], Icit::Explicit, quote(g, depth + k, &value)?, ty);
         }
         Ok(ty)
     }
@@ -2192,7 +2175,7 @@ impl Elaborator {
         depth: usize,
         motive: usize,
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let (list, is) = form;
         let Pred::All { params, .. } = pred else {
             unreachable!()
@@ -2202,7 +2185,7 @@ impl Elaborator {
         let inner = depth + 2;
         let mut margs = Vec::new();
         for v in is {
-            margs.push(quote(&g.ev(), inner, v)?);
+            margs.push(quote(g, inner, v)?);
         }
         margs.push(var(inner, q));
         let result = apps(var(inner, motive), explicit(margs));
@@ -2210,13 +2193,13 @@ impl Elaborator {
             apps(
                 Term::Def(st.lib.list_mem),
                 vec![
-                    (quote(&g.ev(), depth + 1, elem)?, Icit::Implicit),
+                    (quote(g, depth + 1, elem)?, Icit::Implicit),
                     (var(depth + 1, q), Icit::Explicit),
                     (var(depth + 1, f), Icit::Explicit),
                 ],
             )
         } else {
-            let opt = Term::data(st.lib.option, vec![quote(&g.ev(), depth + 1, elem)?]);
+            let opt = Term::data(st.lib.option, vec![quote(g, depth + 1, elem)?]);
             Term::Eq(
                 Some(Rc::new(opt)),
                 Rc::new(var(depth + 1, f)),
@@ -2226,7 +2209,7 @@ impl Elaborator {
         Ok(pi(
             "q",
             Icit::Explicit,
-            quote(&g.ev(), depth, elem)?,
+            quote(g, depth, elem)?,
             pi("member", Icit::Explicit, member, result),
         ))
     }
@@ -2240,7 +2223,7 @@ impl Elaborator {
         at: usize,
         here: &Here,
     ) -> R<Term> {
-        let g = &self.globals;
+        let g = &self.ev();
         let depth = here.depth;
         let np = st.np;
         let common = |head: DefId, scope: Vec<Term>, indices: &[Value]| -> R<Term> {
@@ -2251,7 +2234,7 @@ impl Elaborator {
                 here.cases.iter().map(|l| var(depth, *l)).collect(),
             ));
             for v in indices {
-                args.push((quote(&g.ev(), depth, v)?, Icit::Implicit));
+                args.push((quote(g, depth, v)?, Icit::Implicit));
             }
             args.push((var(depth, at), Icit::Explicit));
             Ok(apps(Term::Def(head), args))
@@ -2273,7 +2256,7 @@ impl Elaborator {
     fn member_induct_type(&mut self, st: &mut Gen, m: usize) -> R<Term> {
         let np = st.np;
         let ns = st.members[m].scope_len();
-        let nc = self.globals.data(st.d).ctors().len();
+        let nc = self.kernel.data(st.d).ctors().len();
         let motive = np + ns;
         // The extra binders' types, built ahead (they need `&mut self`).
         let motive_ty = self.motive_type(st, motive)?;
@@ -2301,7 +2284,7 @@ impl Elaborator {
             preds: member.preds.clone(),
             indices: Vec::new(),
         };
-        let ne_i = self.globals.data(member.data).indices().len();
+        let ne_i = self.kernel.data(member.data).indices().len();
         let first_index = np + ns + 1 + nc;
         let result = |depth: usize, x: usize| -> R<Term> {
             let Pred::All {
@@ -2331,15 +2314,15 @@ impl Elaborator {
     fn member_induct_body(&mut self, st: &mut Gen, inducts: &Inducts, m: usize) -> R<Term> {
         let np = st.np;
         let ns = st.members[m].scope_len();
-        let nc = self.globals.data(st.d).ctors().len();
+        let nc = self.kernel.data(st.d).ctors().len();
         let data = st.members[m].data;
-        let ne_i = self.globals.data(data).indices().len();
+        let ne_i = self.kernel.data(data).indices().len();
         let motive = np + ns;
         let cases: Vec<usize> = (motive + 1..motive + 1 + nc).collect();
         let depth0 = motive + 1 + nc + ne_i + 1;
         let scope_levels: Vec<usize> = (np..np + ns).collect();
         let mut branches = Vec::new();
-        for c in 0..self.globals.data(data).ctors().len() {
+        for c in 0..self.kernel.data(data).ctors().len() {
             let names = self.ctor_names(data, c);
             let depth = depth0 + names.len();
             let parts = self.member_fields_preds(st, m, c, depth0)?;
@@ -2373,8 +2356,8 @@ impl Elaborator {
     fn define_induct_mem(&mut self, st: &mut Gen) -> R<()> {
         let d = st.d;
         let np = st.np;
-        let nc = self.globals.data(d).ctors().len();
-        let ni = self.globals.data(d).indices().len();
+        let nc = self.kernel.data(d).ctors().len();
+        let ni = self.kernel.data(d).indices().len();
         // Is there such a field?
         let mut any = false;
         for c in 0..nc {
@@ -2410,10 +2393,10 @@ impl Elaborator {
             ty = pi("motive", Icit::Explicit, self.motive_type(st, np)?, ty);
             self.wrap_params_pi(d, ty)
         };
-        let span = self.globals.data(d).span();
-        let name: Name = format!("{}.{INDUCT_MEM}", self.globals.data(d).name()).into();
+        let span = self.kernel.data(d).span();
+        let name: Name = format!("{}.{INDUCT_MEM}", self.kernel.data(d).name()).into();
         let id = kernel::declare_def(
-            &mut self.globals,
+            &mut self.kernel,
             &self.tables,
             &self.unit,
             &name,
@@ -2443,7 +2426,7 @@ impl Elaborator {
         let mut extra: Vec<Name> = vec!["motive".into()];
         extra.extend(self.case_names(d));
         let body = self.wrap_lams(d, ni, Some(&extra), body);
-        kernel::define_group(&mut self.globals, &self.tables, &[(id, body)])?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, body)])?;
         self.bind_generated(d, INDUCT_MEM, id);
         Ok(())
     }
@@ -2474,7 +2457,7 @@ impl Elaborator {
         }
         let nh = preds.len();
         let inner = depth + nf + nh;
-        let g = &self.globals;
+        let g = &self.ev();
         let mut args: Vec<Term> = (0..nf).map(|k| var(inner, depth + k)).collect();
         for (h, (i, p)) in preds.iter().enumerate() {
             let hyp = var(inner, depth + nf + h);
@@ -2488,7 +2471,7 @@ impl Elaborator {
                     let d2 = inner + 2;
                     let mut margs = Vec::new();
                     for v in is {
-                        margs.push(quote(&g.ev(), d2, v)?);
+                        margs.push(quote(g, d2, v)?);
                     }
                     let pred = apps(var(d2, motive), explicit(margs));
                     let lemma = if list {
@@ -2499,7 +2482,7 @@ impl Elaborator {
                     let call = apps(
                         Term::Def(lemma),
                         vec![
-                            (quote(&g.ev(), d2, &params[0])?, Icit::Implicit),
+                            (quote(g, d2, &params[0])?, Icit::Implicit),
                             (pred, Icit::Explicit),
                             (var(d2, depth + i), Icit::Explicit),
                             (var(d2, depth + nf + h), Icit::Explicit),
@@ -2592,16 +2575,16 @@ fn map_pred(pred: &Pred, f: &dyn Fn(&Value) -> R<Value>) -> R<Pred> {
     })
 }
 
-fn pred_eq_all(g: &stitchwort_core::Globals, level: usize, a: &[Value], b: &[Value]) -> R<bool> {
+fn pred_eq_all(g: &Ev, level: usize, a: &[Value], b: &[Value]) -> R<bool> {
     for (x, y) in a.iter().zip(b) {
-        if !conv(&g.ev(), level, x, y)? {
+        if !conv(g, level, x, y)? {
             return Ok(false);
         }
     }
     Ok(a.len() == b.len())
 }
 
-fn preds_eq(g: &stitchwort_core::Globals, level: usize, a: &[Pred], b: &[Pred]) -> R<bool> {
+fn preds_eq(g: &Ev, level: usize, a: &[Pred], b: &[Pred]) -> R<bool> {
     if a.len() != b.len() {
         return Ok(false);
     }

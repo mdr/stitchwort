@@ -16,7 +16,7 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
     if let Err(errors) = session.load(&path.display().to_string(), &text) {
         panic!("{errors:#?}");
     }
-    let g = &session.elab.globals;
+    let g = &session.elab.ev();
     let _op = g
         .machine
         .budget
@@ -26,7 +26,7 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
             .map(DefId)
             .find(|d| &**g.def(*d).path() == name)
             .unwrap_or_else(|| panic!("no `{name}`"));
-        def_hash(&g.ev(), id).unwrap().unwrap().hex()
+        def_hash(g, id).unwrap().unwrap().hex()
     };
     let mut pairs = 0;
     for i in 0..g.env.defs().len() {
