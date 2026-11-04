@@ -5119,7 +5119,7 @@
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 1 (dev/measurements/cache-load-profile.md). Mostly Day22.Proofs.digitChangesPossible (76% of slow loads) and eight Year2021 Tests examplePartN rfl theorems. Change: evaluate ty_value on first use (or only for replayed declarations). Est. test 3.3 -> ~1.5 s, check --index 3.9 -> ~2.1 s. Core, ~100 call sites; design note and Opus review; after Globals split 8e (both change core's evaluator entry points).",
+      "body": "SW-1199 item 1 (dev/measurements/cache-load-profile.md). Mostly Day22.Proofs.digitChangesPossible (76% of slow loads) and eight Year2021 Tests examplePartN rfl theorems. Change: evaluate ty_value on first use (or only for replayed declarations). Est. test 3.3 -> ~1.5 s, check --index 3.9 -> ~2.1 s. Core, ~100 call sites; design note and Opus review; after Globals split 8e (both change core's evaluator entry points).\n\nD2303 (Matt, 4 Nov 2026): keep on the backlog.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5127,13 +5127,13 @@
     {
       "id": 1201,
       "title": "audit: memoise the axiom walk across theorems (35% of audit --no-search on aoc, ~1.6 s of 4.7 s)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.",
+      "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.\n\nD2303 (Matt, 4 Nov 2026): do it. DeepSeek in scratch clone scratch-sw-1201, expected: 45 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5141,13 +5141,13 @@
     {
       "id": 1202,
       "title": "Cache decode repeats work per namespace: name->id map rebuilt 207 times (quadratic, ~0.13 s) and dependency hashes recomputed (~0.13 s)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.",
+      "body": "SW-1199 item 3. Keep the map in the session; store each entry's hashes in the entry (format bump). Est. ~0.25 s per whole load. Small, low risk.\n\nD2303 (Matt, 4 Nov 2026): do it; cache format bumps are fine, aim for the best end state. Sonnet, expected: 60 min.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
