@@ -5,6 +5,7 @@
 -- `stitchwort run Aoc.Year2024.Day24.main` doesn't check them.
 
 namespace Aoc.Year2024.Day24.Tests
+import Aoc.Common (Bits)
 import Aoc.Year2024.Day24 (..)
 import Std (Bool, Fail, List, Map, Nat, Option, Result, Text)
 
@@ -96,7 +97,7 @@ test "a missing z wire counts as 0" := onDevice "x00: 1\n\nx00 OR x00 -> z02\n" 
 
 test "gates fire in any order" := onDevice "x00: 1\ny00: 1\n\nbbb XOR aaa -> z01\naaa AND x00 -> bbb\nx00 XOR y00 -> aaa\nx00 AND y00 -> z00\n" solvePart1 == Ok (Some 1)
 
-test "bits" := fromBits [True, False, True, True] == 13 && fromBits [] == 0
+test "bits" := (Bits.fromLowFirst [True, False, True, True]).value == 13 && (Bits.fromLowFirst []).value == 0
 
 --| A ripple-carry adder of `bits` bits, as the program expects it, with
 --| the other wires named after their part and bit: p03 for x03 XOR y03.

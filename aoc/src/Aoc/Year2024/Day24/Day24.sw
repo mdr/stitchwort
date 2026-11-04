@@ -11,6 +11,7 @@
 --| `Aoc.Year2024.Day24.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day24
+import Aoc.Common (Bits)
 import Std (Bool, Char, Fail, IO, List, Map, Nat, Option, Parse, Text, Void)
 import Std.Parse (label, lines, pick, section, takeWhile1, text)
 
@@ -134,11 +135,6 @@ def Wire.xBit (wire: Wire): Option Nat :=
     | X bit => Some bit
     | _ => None
 
---| The number with these bits, lowest first.
-def fromBits: List Bool → Nat
-  | [] => 0
-  | [bit, ..rest] => bit.toNat + fromBits rest * 2
-
 --| The bits on the z wires, lowest first, a missing z wire counting as 0,
 --| if every z wire has a value.
 def Device.zBits (device: Device) (values: Values): Option (List Bool) :=
@@ -151,7 +147,7 @@ def Device.settled (device: Device): Values := settle (Map.fromList device.initi
 
 --| The number on the z wires once the gates settle, unless one of them
 --| gets no value.
-def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .map fromBits
+def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .map (bits => (Bits.fromLowFirst bits).value)
 
 -- Part 2. The device should be a ripple-carry adder: bit 0 is a half
 -- adder, x00 XOR y00 -> z00 and x00 AND y00 -> the carry, and each later

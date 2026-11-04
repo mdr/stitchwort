@@ -2,6 +2,8 @@
 --| spec (Spec/), which looks each bit up by its position in every number.
 
 namespace Aoc.Year2021.Day03.Proofs
+import Aoc.Common (Bits)
+import Aoc.Common.Proofs (..)
 import Aoc.Year2021.Day03 (..)
 import Aoc.Year2021.Day03.Spec (..)
 import Std (Eq, List, Nat, Option)
@@ -41,8 +43,8 @@ theorem mostCommonColumn (bitOf: Bits → Option Bool) (numbers: List Bits):
 --| The spec's most common bit at a position is the program's for the column
 --| there.
 theorem mostCommonAtColumn (numbers: List Bits) (position: Nat):
-    mostCommonAt numbers position = mostCommon (List.filterMap numbers (number => List.get number position)) :=
-  Eq.sym (mostCommonColumn (number => List.get number position) numbers)
+    mostCommonAt numbers position = mostCommon (List.filterMap numbers (number => Bits.get number position)) :=
+  Eq.sym (mostCommonColumn (number => Bits.get number position) numbers)
 
 --| The least common bit is the one the most common bit isn't, ties
 --| included.
@@ -51,75 +53,88 @@ theorem leastIsNotMost (numbers: List Bits) (position: Nat): leastCommonAt numbe
 
 -- Part 1.
 
+--| The program's columns, read from the numbers' bits, are the spec's: the
+--| bits at each position of the first number's width.
+theorem columns (report: List Bits):
+    List.transpose (List.map report Bits.bits)
+      = List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i)) :=
+  let first: List.length (List.headOr (List.map report Bits.bits) []) = width report :=
+    match report with
+      | [] => rfl
+      | [number, ..others] => rfl
+  calc List.transpose (List.map report Bits.bits)
+    _ = List.map (List.range (List.length (List.headOr (List.map report Bits.bits) [])))
+      (i => List.filterMap (List.map report Bits.bits) (row => List.get row i)) := List.transposeColumns _
+    _ = List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i)) :=
+      rewrite first, List.filterMapMap in rfl
+
 --| The program's gamma rate's bits are the spec's.
 theorem gammaBits (report: List Bits):
-    List.map (List.transpose report) mostCommon = List.map (List.range (width report)) (mostCommonAt report) :=
-  calc List.map (List.transpose report) mostCommon
-    _ = List.map (List.map (List.range (width report)) (i => List.filterMap report (number => List.get number i))) mostCommon :=
-      Eq.cong (cols => List.map cols mostCommon) (List.transposeColumns report)
-    _ = List.map (List.range (width report)) (i => mostCommon (List.filterMap report (number => List.get number i))) := List.mapMap _ _ _
+    List.map (List.transpose (List.map report Bits.bits)) mostCommon = List.map (List.range (width report)) (mostCommonAt report) :=
+  calc List.map (List.transpose (List.map report Bits.bits)) mostCommon
+    _ = List.map (List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i))) mostCommon :=
+      Eq.cong (cols => List.map cols mostCommon) (columns report)
+    _ = List.map (List.range (width report)) (i => mostCommon (List.filterMap report (number => Bits.get number i))) := List.mapMap _ _ _
     _ = List.map (List.range (width report)) (mostCommonAt report) := List.mapCong _ _ _ (i => Eq.sym (mostCommonAtColumn report i))
 
 --| And the epsilon rate's are them flipped.
 theorem epsilonBits (report: List Bits):
-    List.map (List.range (width report)) (leastCommonAt report) = List.map (List.map (List.range (width report)) (mostCommonAt report)) not :=
-  Eq.trans (List.mapCong _ _ _ (i => leastIsNotMost report i)) (Eq.sym (List.mapMap _ _ _))
+    epsilon report = Bits.complement (gamma report) :=
+  Eq.cong (bits => { bits }) (Eq.trans (List.mapCong _ _ _ (i => leastIsNotMost report i)) (Eq.sym (List.mapMap _ _ _)))
 
 --| The epsilon rate is the gamma rate's bits flipped: the two add up to the
 --| number with a 1 in every position, 2^width - 1.
 theorem epsilonComplement (report: List Bits): gammaRate report + epsilonRate report + 1 = Nat.pow 2 (width report) :=
-  let gamma := List.map (List.range (width report)) (mostCommonAt report)
   calc gammaRate report + epsilonRate report + 1
-    _ = Nat.fromBits gamma + Nat.fromBits (List.map gamma not) + 1 := Eq.cong (e => Nat.fromBits gamma + Nat.fromBits e + 1) (epsilonBits report)
-    _ = Nat.pow 2 (List.length gamma) := Nat.fromBitsFlipped gamma
+    _ = (gamma report).value + (Bits.complement (gamma report)).value + 1 := Eq.cong (e => (gamma report).value + e.value + 1) (epsilonBits report)
+    _ = Nat.pow 2 (gamma report).width := Bits.complementValue (gamma report)
     _ = Nat.pow 2 (width report) := rewrite List.lengthMap (List.range (width report)) (mostCommonAt report), List.lengthRangeFrom (width report) 0 in rfl
 
 --| Part 1 is the puzzle's answer, for every list of numbers.
 theorem part1Correct (report: List Bits): solvePart1 report = powerConsumption report :=
-  let gamma := List.map (List.range (width report)) (mostCommonAt report)
-  let flipped: Nat.pow 2 (List.length gamma) - 1 - Nat.fromBits gamma = Nat.fromBits (List.map gamma not) := omega [Nat.fromBitsFlipped gamma]
+  let ours: Bits := { bits = List.map (List.transpose (List.map report Bits.bits)) mostCommon }
+  let sameGamma: ours = gamma report := Eq.cong (bits => { bits }) (gammaBits report)
   calc solvePart1 report
-    _ = Nat.fromBits gamma * (Nat.pow 2 (List.length gamma) - 1 - Nat.fromBits gamma) := rewrite gammaBits report in rfl
-    _ = Nat.fromBits gamma * Nat.fromBits (List.map gamma not) := rewrite flipped in rfl
-    _ = powerConsumption report := Eq.cong (e => Nat.fromBits gamma * Nat.fromBits e) (Eq.sym (epsilonBits report))
+    _ = ours.value * ours.complement.value := rfl
+    _ = (gamma report).value * (Bits.complement (gamma report)).value := Eq.cong (g => g.value * g.complement.value) sameGamma
+    _ = powerConsumption report := Eq.cong (e => (gamma report).value * Bits.value e) (Eq.sym (epsilonBits report))
 
 -- Part 2. The spec filters whole numbers by the bit at a position; the
 -- program has dropped the bits before it, which every number left shares
 -- (`prefix`).
 
 --| The bit after a shared prefix is the first bit of the rest.
-theorem getAfterPrefix (t: Bits): (prefix: Bits) → List.get (List.append prefix t) (List.length prefix) = List.head t
-  | [] => cases
-  | [first, ..rest] => getAfterPrefix t rest
+theorem getAfterPrefix (t: Bits) (prefix: Bits): Bits.get (Bits.append prefix t) prefix.width = Bits.first t :=
+  Bits.getAppendWidth t prefix
 
 --| Keeping the numbers with `bit` after the prefix is keeping the rests that
 --| start with it, without it.
 theorem keepAfterPrefix (prefix: Bits) (bit: Bool): (rests: List Bits) →
-    keep (List.map rests (rest => List.append prefix rest)) (List.length prefix) bit
-      = List.map (List.filterMap rests (afterBit bit)) (rest => List.append prefix [bit, ..rest])
+    keep (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) bit
+      = List.map (List.filterMap rests (rest => Bits.afterBit rest bit)) (rest => Bits.append prefix (Bits.cons rest bit))
   | [] => rfl
-  | [rest, ..others] =>
-    rewrite getAfterPrefix rest prefix, keepAfterPrefix prefix bit others in cases
+  | [{ bits }, ..others] =>
+    rewrite getAfterPrefix { bits } prefix, keepAfterPrefix prefix bit others in cases
 
 --| The bit kept moves onto the prefix.
 theorem growPrefix (prefix: Bits) (bit: Bool) (rests: List Bits):
-    List.map rests (rest => List.append prefix [bit, ..rest]) = List.map rests (rest => List.append (List.append prefix [bit]) rest) :=
-  List.mapCong _ _ _ (rest => Eq.sym (List.appendAssoc prefix [bit] rest))
+    List.map rests (rest => Bits.append prefix (Bits.cons rest bit)) = List.map rests (rest => Bits.append (Bits.append prefix (Bits.cons Bits.empty bit)) rest) :=
+  List.mapCong _ _ _ (rest => Eq.sym (Bits.appendAssoc prefix (Bits.cons Bits.empty bit) rest))
 
 --| How many numbers have `bit` after the prefix: the rests that start with it.
 theorem howManyAfterPrefix (prefix: Bits) (rests: List Bits) (bit: Bool):
-    howMany (List.map rests (rest => List.append prefix rest)) (List.length prefix) bit
-      = List.count rests (rest => List.head rest == Some bit) :=
+    howMany (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) bit
+      = List.count rests (rest => Bits.first rest == Some bit) :=
   rewrite List.countMap _ _ _, getAfterPrefix _ prefix in rfl
 
 --| The two criteria pick the same bits as the program's.
 theorem mostCommonAfterPrefix (prefix: Bits) (rests: List Bits):
-    mostCommonAt (List.map rests (rest => List.append prefix rest)) (List.length prefix) = mostCommon (List.filterMap rests List.head) :=
-  rewrite howManyAfterPrefix prefix rests False, howManyAfterPrefix prefix rests True in Eq.sym (mostCommonColumn List.head rests)
+    mostCommonAt (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) = mostCommon (List.filterMap rests Bits.first) :=
+  rewrite howManyAfterPrefix prefix rests False, howManyAfterPrefix prefix rests True in Eq.sym (mostCommonColumn Bits.first rests)
 
 theorem leastCommonAfterPrefix (prefix: Bits) (rests: List Bits):
-    leastCommonAt (List.map rests (rest => List.append prefix rest)) (List.length prefix)
-      = not (mostCommon (List.filterMap rests List.head)) :=
+    leastCommonAt (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix)
+      = not (mostCommon (List.filterMap rests Bits.first)) :=
   rewrite leastIsNotMost _ _, mostCommonAfterPrefix prefix rests in rfl
 
 --| One step of the filtering, with the steps after it (`later`) done: the
@@ -127,44 +142,44 @@ theorem leastCommonAfterPrefix (prefix: Bits) (rests: List Bits):
 --| finds as the rests that start with it, and the prefix grows by it.
 theorem ratingStep (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)
     (agree: (prefix: Bits) → (rests: List Bits) →
-      criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix) = choose (List.filterMap rests List.head))
+      criterion (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (List.filterMap rests Bits.first))
     (k: Nat) (prefix: Bits) (rests: List Bits)
     (later: (prefix: Bits) → (rests: List Bits) →
-      findRating criterion (List.map rests (rest => List.append prefix rest)) (List.rangeFrom k (List.length prefix))
-        = Option.map (rating choose k rests) (rest => List.append prefix rest)):
+      findRating criterion (List.map rests (rest => Bits.append prefix rest)) (List.rangeFrom k (Bits.width prefix))
+        = Option.map (rating choose k rests) (rest => Bits.append prefix rest)):
     findRating criterion
-        (keep (List.map rests (rest => List.append prefix rest)) (List.length prefix)
-          (criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix)))
-        (List.rangeFrom k (Succ (List.length prefix)))
+        (keep (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix)
+          (criterion (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix)))
+        (List.rangeFrom k (Succ (Bits.width prefix)))
       = Option.map
-        (Option.map (rating choose k (List.filterMap rests (afterBit (choose (List.filterMap rests List.head)))))
-          (Cons (choose (List.filterMap rests List.head))))
-        (rest => List.append prefix rest) :=
-  let bit := choose (List.filterMap rests List.head)
-  let kept := List.filterMap rests (afterBit bit)
+        (Option.map (rating choose k (List.filterMap rests (rest => Bits.afterBit rest (choose (List.filterMap rests Bits.first)))))
+          (rest => Bits.cons rest (choose (List.filterMap rests Bits.first))))
+        (rest => Bits.append prefix rest) :=
+  let bit := choose (List.filterMap rests Bits.first)
+  let kept := List.filterMap rests (rest => Bits.afterBit rest bit)
   calc findRating criterion
-      (keep (List.map rests (rest => List.append prefix rest)) (List.length prefix)
-        (criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix)))
-      (List.rangeFrom k (Succ (List.length prefix)))
-    _ = findRating criterion (List.map kept (rest => List.append prefix [bit, ..rest])) (List.rangeFrom k (Succ (List.length prefix))) :=
+      (keep (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix)
+        (criterion (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix)))
+      (List.rangeFrom k (Succ (Bits.width prefix)))
+    _ = findRating criterion (List.map kept (rest => Bits.append prefix (Bits.cons rest bit))) (List.rangeFrom k (Succ (Bits.width prefix))) :=
       rewrite agree prefix rests, keepAfterPrefix prefix bit rests in rfl
-    _ = findRating criterion (List.map kept (rest => List.append (List.append prefix [bit]) rest))
-        (List.rangeFrom k (List.length (List.append prefix [bit]))) :=
-      rewrite growPrefix prefix bit kept, List.lengthSnoc prefix bit in rfl
-    _ = Option.map (rating choose k kept) (rest => List.append (List.append prefix [bit]) rest) := later (List.append prefix [bit]) kept
-    _ = Option.map (rating choose k kept) (rest => List.append prefix [bit, ..rest]) :=
-      Option.mapCong _ _ _ (rest => List.appendAssoc prefix [bit] rest)
-    _ = Option.map (Option.map (rating choose k kept) (Cons bit)) (rest => List.append prefix rest) := Eq.sym (Option.mapMap _ _ _)
+    _ = findRating criterion (List.map kept (rest => Bits.append (Bits.append prefix (Bits.cons Bits.empty bit)) rest))
+        (List.rangeFrom k (Bits.width (Bits.append prefix (Bits.cons Bits.empty bit)))) :=
+      rewrite growPrefix prefix bit kept, Bits.widthAppendBit prefix bit in rfl
+    _ = Option.map (rating choose k kept) (rest => Bits.append (Bits.append prefix (Bits.cons Bits.empty bit)) rest) := later (Bits.append prefix (Bits.cons Bits.empty bit)) kept
+    _ = Option.map (rating choose k kept) (rest => Bits.append prefix (Bits.cons rest bit)) :=
+      Option.mapCong _ _ _ (rest => Bits.appendAssoc prefix (Bits.cons Bits.empty bit) rest)
+    _ = Option.map (Option.map (rating choose k kept) (rest => Bits.cons rest bit)) (rest => Bits.append prefix rest) := Eq.sym (Option.mapMap _ _ _)
 
 --| The spec's filtering, from the numbers that share a prefix, finds the
 --| program's rating of their rests, after the prefix; for any criterion that
 --| picks the bit the program's `choose` picks.
 theorem ratingAfterPrefix (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)
     (agree: (prefix: Bits) → (rests: List Bits) →
-      criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix) = choose (List.filterMap rests List.head)):
+      criterion (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (List.filterMap rests Bits.first)):
     (k: Nat) → (prefix: Bits) → (rests: List Bits) →
-    findRating criterion (List.map rests (rest => List.append prefix rest)) (List.rangeFrom k (List.length prefix))
-      = Option.map (rating choose k rests) (rest => List.append prefix rest)
+    findRating criterion (List.map rests (rest => Bits.append prefix rest)) (List.rangeFrom k (Bits.width prefix))
+      = Option.map (rating choose k rests) (rest => Bits.append prefix rest)
   | k, prefix, [rest] => rfl
   | Zero, prefix, [] => rfl
   | Zero, prefix, [first, second, ..others] => rfl
@@ -175,14 +190,17 @@ theorem ratingAfterPrefix (choose: List Bool → Bool) (criterion: List Bits →
 --| From the whole report.
 theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)
     (agree: (prefix: Bits) → (rests: List Bits) →
-      criterion (List.map rests (rest => List.append prefix rest)) (List.length prefix) = choose (List.filterMap rests List.head))
+      criterion (List.map rests (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (List.filterMap rests Bits.first))
     (report: List Bits):
     findRating criterion report (List.range (width report)) = rating choose (width report) report :=
+  let unprefixed: List.map report (rest => Bits.append Bits.empty rest) = report :=
+    Eq.trans (List.mapCong _ _ _ (rest => Bits.emptyAppend rest)) (List.mapId report)
   calc findRating criterion report (List.range (width report))
-    _ = findRating criterion (List.map report (rest => rest)) (List.range (width report)) :=
-      Eq.cong (numbers => findRating criterion numbers (List.range (width report))) (Eq.sym (List.mapId report))
-    _ = Option.map (rating choose (width report) report) (rest => rest) := ratingAfterPrefix choose criterion agree (width report) [] report
-    _ = rating choose (width report) report := Option.mapId _
+    _ = findRating criterion (List.map report (rest => Bits.append Bits.empty rest)) (List.rangeFrom (width report) (Bits.width Bits.empty)) :=
+      rewrite unprefixed in rfl
+    _ = Option.map (rating choose (width report) report) (rest => Bits.append Bits.empty rest) :=
+      ratingAfterPrefix choose criterion agree (width report) Bits.empty report
+    _ = rating choose (width report) report := Eq.trans (Option.mapCong _ _ _ (rest => Bits.emptyAppend rest)) (Option.mapId _)
 
 --| Part 2 is the puzzle's answer, for every list of numbers: the same
 --| number, or no number on both sides.

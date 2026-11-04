@@ -24,11 +24,11 @@
 --| input, but the spec is defined for it).
 
 namespace Aoc.Year2021.Day03.Spec
-import Aoc.Year2021.Day03 (Bits)
+import Aoc.Common (Bits)
 import Std (List, Nat)
 
 --| How many bits each number has: the first number's.
-def width (report: List Bits): Nat := (report.headOr []).length
+def width (report: List Bits): Nat := (report.headOr Bits.empty).width
 
 --| How many of the numbers have `bit` at `position`.
 def howMany (numbers: List Bits) (position: Nat) (bit: Bool): Nat :=
@@ -45,9 +45,13 @@ def leastCommonAt (numbers: List Bits) (position: Nat): Bool :=
 --| Part 1: "each bit in the gamma rate can be determined by finding the most
 --| common bit in the corresponding position of all numbers", and the epsilon
 --| rate likewise from the least common bit. Each is read as a binary number.
-def gammaRate (report: List Bits): Nat := List.range (width report) |> .map (mostCommonAt report) |> Nat.fromBits
+def gamma (report: List Bits): Bits := { bits = List.range (width report) |> .map (mostCommonAt report) }
 
-def epsilonRate (report: List Bits): Nat := List.range (width report) |> .map (leastCommonAt report) |> Nat.fromBits
+def epsilon (report: List Bits): Bits := { bits = List.range (width report) |> .map (leastCommonAt report) }
+
+def gammaRate (report: List Bits): Nat := (gamma report).value
+
+def epsilonRate (report: List Bits): Nat := (epsilon report).value
 
 --| The power consumption: the gamma rate times the epsilon rate.
 def powerConsumption (report: List Bits): Nat := gammaRate report * epsilonRate report
@@ -68,10 +72,10 @@ def findRating (criterion: List Bits → Nat → Bool): List Bits → (positions
 --| rating the least common; each starts from the whole report at the first
 --| bit.
 def oxygenGeneratorRating (report: List Bits): Option Nat :=
-  findRating mostCommonAt report (List.range (width report)) |> .map Nat.fromBits
+  findRating mostCommonAt report (List.range (width report)) |> .map Bits.value
 
 def co2ScrubberRating (report: List Bits): Option Nat :=
-  findRating leastCommonAt report (List.range (width report)) |> .map Nat.fromBits
+  findRating leastCommonAt report (List.range (width report)) |> .map Bits.value
 
 --| The life support rating: the oxygen generator rating times the CO2
 --| scrubber rating, when both exist.

@@ -3,6 +3,7 @@
 -- doesn't check them.
 
 namespace Aoc.Year2021.Day03.Tests
+import Aoc.Common (Bits)
 import Aoc.Year2021.Day03 (..)
 import Aoc.Year2021.Day03.Spec (..)
 import Std (Fail, List, Text)
@@ -24,9 +25,12 @@ def example: Text := """
 
 def exampleReport: List Bits := Fail.orElse [] (() => parseReport example)
 
+--| A report of numbers written as lists of bits.
+def report (rows: List (List Bool)): List Bits := rows.map (bits => { bits })
+
 def parsed (input: Text): Result (List Bits) Text := Fail.toResult (() => parseReport input)
 
-test "parse the example" := exampleReport.length == 12 ∧ exampleReport.headOr [] == [False, False, True, False, False]
+test "parse the example" := exampleReport.length == 12 ∧ exampleReport.headOr Bits.empty == { bits = [False, False, True, False, False] }
 test "example, part 1" := solvePart1 exampleReport == 198
 test "example, part 2" := solvePart2 exampleReport == Some 230
 test "example, the rates" := (gammaRate exampleReport, epsilonRate exampleReport) == (22, 9)
@@ -39,17 +43,17 @@ test "a number with too few bits" := parsed "0101\n011\n1100" == Err "line 2: 3 
 test "no lines" := parsed "" == Ok []
 
 --| Ties: the most common bit is 1, the least common 0.
-test "a tie, part 1" := (gammaRate [[True], [False]], epsilonRate [[True], [False]], solvePart1 [[True], [False]]) == (1, 0, 0)
+test "a tie, part 1" := (gammaRate (report [[True], [False]]), epsilonRate (report [[True], [False]]), solvePart1 (report [[True], [False]])) == (1, 0, 0)
 test "a tie keeps 1s for oxygen and 0s for CO2" :=
-  (oxygenGeneratorRating [[False, True], [True, False]], co2ScrubberRating [[False, True], [True, False]]) == (Some 2, Some 1)
+  (oxygenGeneratorRating (report [[False, True], [True, False]]), co2ScrubberRating (report [[False, True], [True, False]])) == (Some 2, Some 1)
 
 --| Every number left has a 1 there: the least common bit is 0, and no number
 --| is kept, so there is no CO2 scrubber rating.
-test "no number left" := (co2ScrubberRating [[True, False], [True, True]], solvePart2 [[True, False], [True, True]]) == (None, None)
+test "no number left" := (co2ScrubberRating (report [[True, False], [True, True]]), solvePart2 (report [[True, False], [True, True]])) == (None, None)
 --| The same number twice: no bit tells them apart, so more than one is left.
-test "the same number twice" := (oxygenGeneratorRating [[True], [True]], solvePart2 [[True], [True]]) == (None, None)
+test "the same number twice" := (oxygenGeneratorRating (report [[True], [True]]), solvePart2 (report [[True], [True]])) == (None, None)
 --| One number is its own rating, with no filtering at all.
-test "one number" := solvePart2 [[True, True, False]] == Some 36
+test "one number" := solvePart2 (report [[True, True, False]]) == Some 36
 test "no numbers" := (solvePart1 [], solvePart2 [], lifeSupportRating []) == (0, None, None)
 
 --| The examples, proved by computing them.

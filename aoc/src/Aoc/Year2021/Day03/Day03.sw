@@ -21,6 +21,7 @@
 --| and the tests in `Aoc.Year2021.Day03.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2021.Day03
+import Aoc.Common (Bits)
 import Std (Fail, IO, List, Nat, Parse)
 import Std.Parse (label, many1, pick)
 
@@ -29,17 +30,14 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 numbers}"
   IO.print "Part 2: ${solvePart2 numbers |> .orFail "the filtering didn't end with one number"}"
 
---| A number is its bits, the most significant first; `True` is a 1.
-type Bits = List Bool
-
 --| One number per line. A line that isn't all 0s and 1s fails, naming the
 --| line and column, and so does a number with a different number of bits
 --| from the first.
 def parseReport (input: Text): {Fail} List Bits :=
-  let numbers := Parse.eachLine input (() => many1 bit)
-  let width := (numbers.headOr []).length
-  match numbers.withIndex.find (((_, number)) => number.length != width) with
-    | Some (index, number) => Fail.fail "line ${index + 1}: ${number.length} bits, but the first line has ${width}"
+  let numbers := Parse.eachLine input (() => { bits = many1 bit })
+  let width := (numbers.headOr Bits.empty).width
+  match numbers.withIndex.find (((_, number)) => number.width != width) with
+    | Some (index, number) => Fail.fail "line ${index + 1}: ${number.width} bits, but the first line has ${width}"
     | None => numbers
 
 def bit(): {Parse} Bool := label "0 or 1" (() => pick [("0", False), ("1", True)])
@@ -51,13 +49,8 @@ def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count (
 --| Part 1: the gamma rate times the epsilon rate, which is the gamma rate's
 --| bits flipped.
 def solvePart1 (numbers: List Bits): Nat :=
-  let gamma: Bits := numbers.transpose |> .map mostCommon
-  Nat.fromBits gamma * (Nat.pow 2 gamma.length - 1 - Nat.fromBits gamma)
-
---| The bits after the first, of a number whose first bit is `bit`.
-def afterBit (bit: Bool): Bits → Option Bits
-  | [] => None
-  | [first, ..rest] => if first == bit then Some rest else None
+  let gamma: Bits := { bits = numbers.map .bits |> .transpose |> .map mostCommon }
+  gamma.value * gamma.complement.value
 
 --| The rating found from `numbers`, with `columns` columns left to filter on:
 --| the bits it starts with are chosen by `choose` from the numbers' first
@@ -66,13 +59,13 @@ def rating (choose: List Bool → Bool): (columns: Nat) → List Bits → Option
   | _, [number] => Some number
   | Zero, _ => None
   | Succ later, numbers =>
-    let bit := choose (numbers.filterMap .head)
-    rating choose later (numbers.filterMap (afterBit bit)) |> .map (Cons bit)
+    let bit := choose (numbers.filterMap .first)
+    rating choose later (numbers.filterMap (number => number.afterBit bit)) |> .map (rest => rest.cons bit)
 
 --| Part 2: the oxygen generator rating, from the most common bits, times the
 --| CO2 scrubber rating, from the least common.
 def solvePart2 (numbers: List Bits): Option Nat :=
-  let width := (numbers.headOr []).length
+  let width := (numbers.headOr Bits.empty).width
   let oxygen := rating mostCommon width numbers
   let carbonDioxide := rating (column => not (mostCommon column)) width numbers
-  oxygen.flatMap (o => carbonDioxide.map (c => Nat.fromBits o * Nat.fromBits c))
+  oxygen.flatMap (o => carbonDioxide.map (c => o.value * c.value))
