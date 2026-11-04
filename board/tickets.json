@@ -1,5 +1,5 @@
 {
-  "next": 1179,
+  "next": 1180,
   "tickets": [
     {
       "id": 47,
@@ -4771,13 +4771,13 @@
     {
       "id": 1177,
       "title": "Step 6 after-measurements: fix the harness's first-check wait, print JournalStats, run task measure:state on main after 6c, compare with dev/measurements/state-step6-before.md against §4.8.7's criteria (heap and CPU, not RSS)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "D2287 (approved). Overnight plan. Sonnet, est. 75 min.",
+      "body": "D2287 (approved). Overnight plan. Sonnet, est. 75 min.\n\nDone 2987550a, 43670b8b (Sonnet, ~30 min, est. 75), merged. dev/measurements/state-step6-after.md. Verdicts: (a) heap stable over cycles: met (aoc 558 -> 554 MB). (b) aoc server heap >= 100 MB below before: NOT met, it is higher: 363 -> 558 MB at cycle 10, 408 -> 554 MB at the end (+146-195 MB); journal bytes_held ~27 MB; rogue level (334 vs 335). (c) edit latency p95 no worse: met (all six cells at or below before; before was at higher load). (d) CLI CPU: warm -8.6%, mixed -4.7% met; cold +4.3% / +4.0% NOT met (spread <0.1%, quiet machine; could be drift, needs an A/B). Mark 1.05 -> 0.25 ms, rewind 1.43 -> 0.29 ms. After the first check on aoc: 322,334 journal entries held, 208 checkpoints open, heap 1265 MB, until the first edit (then 8.7k held, 5 open, 558 MB). bytes_held tracks capacity, never shrinks. Model result: Sonnet, worked, ~30 min (est. 75).\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -4792,6 +4792,20 @@
         "elab"
       ],
       "body": "Overnight plan (Matt, 3 Nov). Sonnet, est. 60 min.\n\nDone 960d2729 (Sonnet, 12 min, est. 60), reviewed, merged. state::Presentation (present: nav, goal_snapshots, counterexample_log from Session); mark/rewind/dump destructure it; nav stays on the journal; behaviour unchanged (goal_snapshots emptied by a rewind, counterexample_log grows only). goals stays with Attempt. Elaborator 11 fields. Tests: navigation, search_at, counterexamples 59; search, goal_index, lsp, check_cache, hash_stability 71; lane elab 141; lane lsp 6. Orchestrator ran navigation, counterexamples, search_at, core: 412 passed. Verifier deferred until SW-1177's measurement run ends (keeps its numbers clean); the next merge waits for it. Model result: Sonnet, worked, 12 min (est. 60).\n",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1179,
+      "title": "Step 6 regressions on aoc: language server heap +146-195 MB (558 vs 363 MB after the first check), 1265 MB held after the first check (322k journal entries, 208 checkpoints open until the first edit), cold CLI check +4% CPU; find the causes and fix within the approved design",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1177 (4 Nov, overnight). Opus, est. 120 min. Overnight plan: fix issues before the full tier and push.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
