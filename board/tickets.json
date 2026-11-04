@@ -5302,13 +5302,13 @@
     {
       "id": 1213,
       "title": "Design note: a checked @[tailrec] attribute (error naming any recursive call not in tail position); what each backend (JS, interpreter, native) does with tail calls; performance as well as stack safety",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n",
+      "body": "D2308 (Matt, 4 Nov 2026): write a design note and see whether it's worth adding. Matt: it matters for performance (a tail-recursive function can run as a loop, cheaper than one that returns to finish work on the stack), not only stack safety; it should be possible to state that a function must be tail recursive and have the compiler shout if it isn't. Note in docs/proposals/; implementation waits for Matt's decisions.\n\nStarted 4 Nov 2026 on Opus, expected: 90 min.\n\n4 Nov 2026 (lane, Opus): note written, docs/proposals/tailrec.md, commit eb7b028e on lane/SW-1213. Measured (user CPU, loaded machine): loops vs non-tail recursion 1.1-1.2x faster on run, 3.4-14x on --native, 2.8x on JS; JS non-tail recursion overflows at 6,000-8,000 deep. Machine and native already eliminate every tail call; JS loops self-calls and inlined forms. Recommendation: add it (one Sonnet lane, half a day to a day). Decisions D2310-D2315 in the note §7. Moved to review.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
@@ -5401,14 +5401,14 @@
     },
     {
       "id": 1220,
-      "title": "List spread: [a, b, ..xs] in expressions (.. last, once), goals print open Cons chains as [a, ..xs], no ::; per docs/proposals/list-spread.md",
+      "title": "List spread: [a, ..xs, b, ..ys] in expressions (.. anywhere; non-final means ++), goals print open Cons chains as [a, ..xs], patterns .. last only, no ::; per docs/proposals/list-spread.md and D2325",
       "status": "next",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "syntax"
       ],
-      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).",
+      "body": "D2320-D2323 (Matt, 4 Nov 2026): accepted as the note recommends. Sonnet, about 2 h (note's estimate).\n\nD2325 (Matt, 4 Nov 2026), revising D2321: allow .. in any position in list expressions with the obvious meaning ([..xs, y] = xs ++ [y], [..xs, ..ys] = xs ++ ys, [a, ..xs, b] = Cons a (xs ++ [b])); a final spread stays a plain Cons chain; goals print ++ as ++. Patterns stay .. last only for now (a pattern [..init, last] gets an error explaining why). Update docs/proposals/list-spread.md to match. Estimate now about 2.5 h.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
