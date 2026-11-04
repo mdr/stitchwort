@@ -6311,9 +6311,9 @@
     {
       "id": 1283,
       "title": "Survey AoC solutions for raw data that should be a domain type (puzzle's language, methods on it)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "read-only survey",
       "labels": [
         "aoc",
         "design"
