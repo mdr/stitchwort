@@ -3875,29 +3875,29 @@
     {
       "id": 1113,
       "title": "LSP: names inside library test bodies have no definition or hover",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "Found in SW-1110: library tests (test \"…\" := …) aren't elaborated on load, so names inside them in stitchwort-std: documents don't navigate.",
+      "body": "Found in SW-1110: library tests (test \"…\" := …) aren't elaborated on load, so names inside them in stitchwort-std: documents don't navigate.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
       "id": 1114,
       "title": "LSP: field projections on locals (s.items, o.compare) don't navigate in library files",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "Found in SW-1110: projections such as s.items, o.compare, o.eq.decide in library files have no definition. Not checked whether program files share the gap.",
+      "body": "Found in SW-1110: projections such as s.items, o.compare, o.eq.decide in library files have no definition. Not checked whether program files share the gap.\n\nD2298 (Matt, 4 Nov 2026): start; one lane with SW-1113/SW-1114 (worktree SW-1113), Sonnet, expected: 60 min.\n",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-04",
       "commits": []
     },
     {
