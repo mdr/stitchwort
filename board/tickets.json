@@ -4785,7 +4785,7 @@
     {
       "id": 1178,
       "title": "State step 7: Presentation (nav, goal_snapshots, counterexample_log) (elaborator-state.md §7 row 7)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
