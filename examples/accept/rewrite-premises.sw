@@ -41,8 +41,8 @@ theorem both (n: Nat) (xs: List Nat) (h: (x: Nat) → List.Mem x xs → x ≤ n)
 -- A program's own function, with a congruence lemma that gives facts:
 -- `CongRange` after its name, beside it.
 def total (f: Nat → Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => f x + total f xs
+  | [] => 0
+  | [x, ..xs] => f x + total f xs
 
 theorem totalCongRange (f1: Nat → Nat) (f2: Nat → Nat) (c: Nat) (s: Nat)
     (ef: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 x = f2 x):

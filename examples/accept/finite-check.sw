@@ -7,8 +7,8 @@ import Std (Bool, Fin, Finite, List)
 -- Parity doesn't depend on the order of the bits (decide/scale.sw's
 -- statement).
 def xorAll: List Bool → Bool
-  | Nil => False
-  | Cons x rest => Bool.xor x (xorAll rest)
+  | [] => False
+  | [x, ..rest] => Bool.xor x (xorAll rest)
 
 def sameBothWays (bits: List Bool): Bool := xorAll bits == xorAll (List.reverse bits)
 

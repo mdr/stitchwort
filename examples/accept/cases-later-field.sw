@@ -9,4 +9,4 @@ theorem sndEqual (x: Nat) (p: Bool) (y: Nat) (q: Bool) (h: (x, p) = (y, q)): p =
 
 theorem sndEqualSwapped (x: Bool) (p: Nat) (y: Bool) (q: Nat) (h: (x, p) = (y, q)): p = q := cases
 
-theorem tailEqual (x: Nat) (xs: List Nat) (y: Nat) (ys: List Nat) (h: Cons x xs = Cons y ys): xs = ys := cases
+theorem tailEqual (x: Nat) (xs: List Nat) (y: Nat) (ys: List Nat) (h: [x, ..xs] = [y, ..ys]): xs = ys := cases

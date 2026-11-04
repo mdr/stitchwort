@@ -4,8 +4,8 @@
 import Std (Eq, List)
 
 def mapList (f: a → b): List a → List b
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (mapList f xs)
+  | [] => []
+  | [x, ..xs] => [f x, ..mapList f xs]
 
 -- Inferred from the arguments.
 def lengths: List Nat := mapList (xs => List.length xs) [[1], [2, 3]]
@@ -25,9 +25,9 @@ theorem orComm: Or p q → Or q p
   | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil: (xs: List a) → xs.append Nil = xs
-  | Nil => rfl
-  | Cons x xs => Eq.cong (ys => Cons x ys) (appendNil xs)
+theorem appendNil: (xs: List a) → xs.append [] = xs
+  | [] => rfl
+  | [x, ..xs] => Eq.cong (ys => [x, ..ys]) (appendNil xs)
 
 theorem plusZeroNat: (n: Nat) → n + 0 = n
   | Zero => rfl
@@ -52,10 +52,10 @@ def three: Nat := applyToThree (x => x)
 
 -- A constructor with both fields missing, used as a function.
 def foldRight (f: a → b → b) (z: b): List a → b
-  | Nil => z
-  | Cons x xs => f x (foldRight f z xs)
+  | [] => z
+  | [x, ..xs] => f x (foldRight f z xs)
 
-def copy (xs: List Nat): List Nat := foldRight Cons Nil xs
+def copy (xs: List Nat): List Nat := foldRight Cons [] xs
 
 theorem copyWorks: copy [1, 2] = [1, 2] := rfl
 

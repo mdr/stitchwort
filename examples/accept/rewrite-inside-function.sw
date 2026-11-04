@@ -37,13 +37,13 @@ theorem atFact (xs: List Nat) (ys: List Nat) (h: List.map xs (x => x * 1) = ys):
 -- A program's own function works the same, given its congruence lemma,
 -- named after it with `Cong`, beside it.
 def total (f: Nat → Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => f x + total f xs
+  | [] => 0
+  | [x, ..xs] => f x + total f xs
 
 theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (xs: List Nat) (ef: (x: Nat) → f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
-    | Nil => rfl
-    | Cons x rest => rewrite ef x, totalCong f1 f2 rest ef
+    | [] => rfl
+    | [x, ..rest] => rewrite ef x, totalCong f1 f2 rest ef
 
 theorem totalled (xs: List Nat): total (x => x * 1) xs = total (x => x) xs :=
   rewrite Nat.mulOne _

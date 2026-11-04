@@ -71,9 +71,9 @@ type Trip = {
 
 -- Where the trip ends: the end of its last leg, 0 with none.
 def lastEnd: List Leg → Float
-  | Nil => 0.0
-  | Cons leg Nil => leg.end
-  | Cons _ rest => lastEnd rest
+  | [] => 0.0
+  | [leg] => leg.end
+  | [_, ..rest] => lastEnd rest
 
 def summarize (legs: List Leg): Summary :=
   { legCount = legs.length, pointCount = (legs.map (leg => leg.points.length)).sum, length = lastEnd legs }
@@ -106,8 +106,8 @@ def photoIds (albums: List Album): List Nat := albums.flatMap (album => album.ph
 
 -- Each leg starts where the one before it ends, the first at `at`.
 def ContiguousFrom: Float → List Leg → Prop
-  | at, Nil => Unit
-  | at, Cons leg rest => (leg.start = at) ∧ (ContiguousFrom (at + leg.duration) rest)
+  | at, [] => Unit
+  | at, [leg, ..rest] => (leg.start = at) ∧ (ContiguousFrom (at + leg.duration) rest)
 
 -- A duration is not negative in the total order, which rules out `-0.0`
 -- (below `0.0` there), and finite, which rules out the NaN and the
@@ -128,17 +128,17 @@ def PlaceIdsDistinct: Option Itinerary → Prop
 -- search can try the theorems that assume it.
 
 def decAll (p: a → Prop) (dec: (x: a) → Decidable (p x)): (xs: List a) → Decidable (List.All p xs)
-  | Nil => Yes Trivial
-  | Cons x xs => Decidable.and (dec x) (decAll p dec xs)
+  | [] => Yes Trivial
+  | [x, ..xs] => Decidable.and (dec x) (decAll p dec xs)
 
 def decSorted (le: a → a → Bool): (xs: List a) → Decidable (List.Sorted le xs)
-  | Nil => Yes Trivial
-  | Cons x Nil => Decidable.and (Yes Trivial) (Yes Trivial)
-  | Cons x (Cons y ys) => Decidable.and (if h: le x y = True then Yes h else No h) (decSorted le (Cons y ys))
+  | [] => Yes Trivial
+  | [x] => Decidable.and (Yes Trivial) (Yes Trivial)
+  | [x, y, ..ys] => Decidable.and (if h: le x y = True then Yes h else No h) (decSorted le [y, ..ys])
 
 instance decContiguousFrom: (start: Float) → (legs: List Leg) → Decidable (ContiguousFrom start legs)
-  | start, Nil => Yes Trivial
-  | start, Cons leg rest =>
+  | start, [] => Yes Trivial
+  | start, [leg, ..rest] =>
     Decidable.and (if h: leg.start = start then Yes h else No h) (decContiguousFrom (start + leg.duration) rest)
 
 instance decLegsOk (legs: List Leg): Decidable (List.All LegOk legs) :=

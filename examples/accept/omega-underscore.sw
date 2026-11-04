@@ -5,15 +5,15 @@ import Std (Nat, List)
 
 def tally (label: Nat): List Nat → Nat
   | [] => 0
-  | Cons head rest => 1 + tally label rest
+  | [head, ..rest] => 1 + tally label rest
 
 def size: List Nat → Nat
   | [] => 0
-  | Cons head rest => 1 + size rest
+  | [head, ..rest] => 1 + size rest
 
 theorem tallyAtMostSize (label: Nat): (xs: List Nat) → tally label xs ≤ size xs
   | [] => omega
-  | Cons head rest => omega [tallyAtMostSize label rest]
+  | [head, ..rest] => omega [tallyAtMostSize label rest]
 
 theorem listed (xs: List Nat): tally 3 xs ≤ size xs + 1 :=
   omega [tallyAtMostSize _ xs]

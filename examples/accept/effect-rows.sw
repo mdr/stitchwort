@@ -21,19 +21,19 @@ def Log.collect (program: () → {Log} a): Pair a (List Nat) :=
 -- The pure use of `List.map` is the plain map: probe 5's theorems, about a
 -- map written here with a pure callback, hold by the same proofs.
 def pureMap [a b: Type] (f: a → b): List a → List b
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (pureMap f xs)
+  | [] => []
+  | [x, ..xs] => [f x, ..pureMap f xs]
 
 theorem mapIsPureMap [a b: Type] (f: a → b): (xs: List a) → List.map xs f = pureMap f xs
-  | Nil => rfl
-  | Cons x xs => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
+  | [] => rfl
+  | [x, ..xs] => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
 theorem lengthMap [a b: Type] (f: a → b): (xs: List a) → List.length (List.map xs f) = List.length xs
-  | Nil => rfl
-  | Cons x xs => Eq.cong Succ (lengthMap f xs)
+  | [] => rfl
+  | [x, ..xs] => Eq.cong Succ (lengthMap f xs)
 
 theorem mapCons [a b: Type] (f: a → b) (x: a) (xs: List a):
-    List.map (Cons x xs) f = Cons (f x) (List.map xs f) := rfl
+    List.map [x, ..xs] f = [f x, ..List.map xs f] := rfl
 
 -- A data type: `Nat`.
 def lengths (words: List Text): List Nat := List.map words Text.length

@@ -3,7 +3,7 @@ namespace Shop.Spec
 
 def total: List Nat -> Nat
   | [] => 0
-  | Cons p rest => p + total rest
+  | [p, ..rest] => p + total rest
 
 type Status =
   | Paid

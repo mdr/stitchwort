@@ -16,8 +16,8 @@ def runState (init: s) (prog: () → {State s | e} a): {e} Pair a s :=
 def tally (xs: List Nat) (u: ()): {State Nat} Nat :=
   let start := get()
   def add: List Nat → {State Nat} ()
-    | Nil => ()
-    | Cons x rest =>
+    | [] => ()
+    | [x, ..rest] =>
       put (get() + x)
       add rest
   add xs

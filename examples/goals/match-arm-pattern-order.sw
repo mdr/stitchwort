@@ -3,5 +3,5 @@
 -- it as if they were bound later.
 def sumRestOrZero (xs: List Nat): Nat :=
   match h: xs with
-    | Nil => 0
+    | [] => 0
     | [x, ..rest] => ?

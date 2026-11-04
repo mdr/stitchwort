@@ -18,7 +18,7 @@ def firstTwo (xs: List Nat): Nat :=
   match xs with
     | [] => 0
     | [a, b] => a * b
-    | Cons a _ => a
+    | [a, .._] => a
 
 test "firstTwoPair" := firstTwo [3, 4] == 12
 test "firstTwoLonger" := firstTwo [5, 6, 7] == 5

@@ -10,8 +10,8 @@ import Std (Bool, Eq, List, Nat, Option, Or, Void)
 -- Structural, with a fixed prefix (`k`) and an `if`: `countAbove.induct k
 -- motive eq1 eq2IfTrue eq2IfFalse xs`.
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   countAbove.induct k (xs result => result ≤ List.length xs)
@@ -35,8 +35,8 @@ theorem halvingsGe (n: Nat) (count: Nat): count ≤ halvings n count :=
 
 -- A named `match` on a `Bool`: the case has its equation `big`.
 def firstBig: List Nat → Option Nat
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     match big: Nat.leq 10 x with
       | True => Some x
       | False => firstBig rest
@@ -51,15 +51,15 @@ theorem firstBigIsBig (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 
 -- A `match` on an expression: the case has the alternative's variable and
 -- the equation `isSome: List.head rest = Some y`.
 def lastOr (d: Nat): List Nat → Nat
-  | Nil => d
-  | Cons x rest =>
+  | [] => d
+  | [x, ..rest] =>
     match List.head rest with
       | Some y => lastOr y rest
       | None => x
 
 theorem headMem: (xs: List Nat) → (y: Nat) → List.head xs = Some y → List.Mem y xs
-  | Nil, y, h => cases
-  | Cons z zs, y, h => Inl (Option.someInjective z y h)
+  | [], y, h => cases
+  | [z, ..zs], y, h => Inl (Option.someInjective z y h)
 
 theorem lastOrOfMem (d: Nat) (xs: List Nat): lastOr d xs = d ∨ List.Mem (lastOr d xs) xs :=
   lastOr.induct (d xs result => result = d ∨ List.Mem result xs)

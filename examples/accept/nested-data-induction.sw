@@ -64,8 +64,8 @@ def numbers: Packet → Nat
   | Packets items => numbersIn items
 
 def numbersIn: List Packet → Nat
-  | Nil => 0
-  | Cons p rest => numbers p + numbersIn rest
+  | [] => 0
+  | [p, ..rest] => numbers p + numbersIn rest
 
 -- A proof by `Packet.induct`: the `Packets` case gets `List.All` of the
 -- claim for its items, which a lemma over the list takes apart. Each step
@@ -73,8 +73,8 @@ def numbersIn: List Packet → Nat
 -- list is known, so the lemma can state its bound with it.
 theorem numbersInLe: (items: List Packet) → List.All (q => numbers q ≤ Packet.size q) items →
     numbersIn items ≤ Packet.size (Packets items)
-  | Nil, all => rfl
-  | Cons p rest, Both here others =>
+  | [], all => rfl
+  | [p, ..rest], Both here others =>
     let ih := numbersInLe rest others
     omega
 
@@ -94,7 +94,7 @@ def Rose.labels (t: Rose a): List a
     decreasing Rose.size t
 :=
   match t with
-    | Bloom x kids => Cons x (kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append)
+    | Bloom x kids => [x, ..kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append]
 
 test "labels" := Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) == [1, 2, 3, 4]
 

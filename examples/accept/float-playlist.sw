@@ -7,22 +7,22 @@ type Track = { title: Text, duration: Float }
 
 -- The start time of each track, the first at `start`.
 def startTimes (start: Float): List Track → List Float
-  | Nil => Nil
-  | Cons track rest => Cons start (startTimes (start + track.duration) rest)
+  | [] => []
+  | [track, ..rest] => [start, ..startTimes (start + track.duration) rest]
 
 def NoNegativeDurations: List Track → Prop
-  | Nil => Unit
-  | Cons track rest => (0.0 <= track.duration) ∧ (NoNegativeDurations rest)
+  | [] => Unit
+  | [track, ..rest] => (0.0 <= track.duration) ∧ (NoNegativeDurations rest)
 
 theorem nextStartNotEarlier (start: Float) (duration: Float) (nonNegative: 0.0 <= duration):
     (rest: List Track) → List.LeHead Float.leq start (startTimes (start + duration) rest)
-  | Nil => Trivial
-  | Cons next more => Float.addMonotoneRight start duration nonNegative
+  | [] => Trivial
+  | [next, ..more] => Float.addMonotoneRight start duration nonNegative
 
 theorem startTimesAscend: (start: Float) → (tracks: List Track) → NoNegativeDurations tracks
     → List.Sorted Float.leq (startTimes start tracks)
-  | start, Nil, ok => Trivial
-  | start, Cons track rest, Both nonNegative restOk =>
+  | start, [], ok => Trivial
+  | start, [track, ..rest], Both nonNegative restOk =>
     Both (nextStartNotEarlier start track.duration nonNegative rest)
       (startTimesAscend (start + track.duration) rest restOk)
 

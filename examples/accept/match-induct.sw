@@ -7,8 +7,8 @@
 import Std (Bool, Eq, List, Nat, Option, Or, Void)
 
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
 -- Function-induct.sw proves this with the motive written out.
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
@@ -39,8 +39,8 @@ theorem halvingsGe (n: Nat) (count: Nat): count ≤ halvings n count :=
 -- the first, `Cons x rest` in the others), and each `ih` takes it as a
 -- premise.
 def firstBig: List Nat → Option Nat
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     match big: Nat.leq 10 x with
       | True => Some x
       | False => firstBig rest

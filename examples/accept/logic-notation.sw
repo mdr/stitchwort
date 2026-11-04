@@ -7,16 +7,16 @@ import Std (Exists, Iff, List, Map, Set)
 import Std.Exists (Witness)
 
 -- Membership in a list is `List.Mem`, element first.
-theorem headIn (x: Nat) (xs: List Nat): x in Cons x xs := Inl rfl
+theorem headIn (x: Nat) (xs: List Nat): x in [x, ..xs] := Inl rfl
 
-theorem headInUnicode (x: Nat) (xs: List Nat): x ∈ Cons x xs := Inl rfl
+theorem headInUnicode (x: Nat) (xs: List Nat): x ∈ [x, ..xs] := Inl rfl
 
 theorem sameAsMem (x: Nat) (xs: List Nat) (h: List.Mem x xs): x in xs := h
 
 -- `!in` is `!(x in xs)`; on propositions that is `Not (List.Mem x xs)`.
-theorem notInEmpty (x: Nat): x !in Nil := none => none
+theorem notInEmpty (x: Nat): x !in [] := none => none
 
-theorem notInEmptyUnicode (x: Nat): x ∉ Nil := none => none
+theorem notInEmptyUnicode (x: Nat): x ∉ [] := none => none
 
 theorem notInIsNot (x: Nat) (xs: List Nat) (h: ¬(List.Mem x xs)): x ∉ xs := h
 

@@ -9,8 +9,8 @@ import Std (List, Nat)
 -- of them is. Before SW-944 this needed `((List.foldLeft … < k): Bool)`.
 theorem foldMaxBelow (k: Nat): (xs: List Nat) → (start: Nat) →
     (List.foldLeft xs start Nat.max < k) = (start < k ∧ List.all xs (x => x < k))
-  | Nil, start => cases
-  | Cons x rest, start => rewrite foldMaxBelow k rest (Nat.max start x) in cases
+  | [], start => cases
+  | [x, ..rest], start => rewrite foldMaxBelow k rest (Nat.max start x) in cases
 
 -- The `Bool` on the left is fine as it always was.
 theorem withFlag (b: Bool) (k: Nat): (b ∧ k < 3) = (k < 3 ∧ b) := cases

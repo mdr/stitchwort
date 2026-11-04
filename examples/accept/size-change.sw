@@ -19,16 +19,16 @@ def ack: Nat → Nat → Nat
 -- The arguments swap places, so no one position gets smaller in every call,
 -- but two calls in a row make both smaller.
 def interleave: List Nat → List Nat → List Nat
-  | Nil, ys => ys
-  | Cons x xs, ys => Cons x (interleave ys xs)
+  | [], ys => ys
+  | [x, ..xs], ys => [x, ..interleave ys xs]
 
 -- Each call keeps one list (rebuilt from its pattern) and takes from the
 -- other.
 def merge: List Nat → List Nat → List Nat
-  | Nil, ys => ys
-  | Cons x xs, Nil => Cons x xs
-  | Cons x xs, Cons y ys =>
-    if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+  | [], ys => ys
+  | [x, ..xs], [] => [x, ..xs]
+  | [x, ..xs], [y, ..ys] =>
+    if Nat.leq x y then [x, ..merge xs [y, ..ys]] else [y, ..merge [x, ..xs] ys]
 
 -- A recursive call passed to another function must be given all its
 -- arguments: `x => sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).
@@ -39,10 +39,10 @@ def sumWith: Nat → Nat → Nat
   | Succ n, acc => applyTo (x => sumWith n x) (acc + Succ n)
 
 def eqList: List Nat → List Nat → Bool
-  | Nil, Nil => True
-  | Cons x xs, Cons y ys => if x == y then eqList xs ys else False
-  | Nil, Cons y ys => False
-  | Cons x xs, Nil => False
+  | [], [] => True
+  | [x, ..xs], [y, ..ys] => if x == y then eqList xs ys else False
+  | [], [y, ..ys] => False
+  | [x, ..xs], [] => False
 
 test "ack 2 3" := ack 2 3 == 9
 test "interleave" := eqList (interleave [1, 3, 5] [2, 4]) [1, 2, 3, 4, 5]

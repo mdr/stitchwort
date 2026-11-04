@@ -105,7 +105,7 @@ def both(): {Log} Text := (pick "a").shout (sfx "!")
 
 def collect (f: () → {Log | e} a): {e} Pair (List Text) a :=
   handle f() with
-    | return x => MkPair Nil x
+    | return x => MkPair [] x
     | log t, k =>
       let r := k()
       MkPair (Cons t (Pair.fst r)) (Pair.snd r)

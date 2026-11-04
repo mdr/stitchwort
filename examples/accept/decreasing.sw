@@ -24,10 +24,10 @@ def digitsOnto (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
   if big: Nat.leq n 9 = False
-  then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
-  else Cons n acc
+  then digitsOnto (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n big]
+  else [n, ..acc]
 
-def digits (n: Nat): List Nat := digitsOnto n Nil
+def digits (n: Nat): List Nat := digitsOnto n []
 
 test "digits" := digits 1234 == [1, 2, 3, 4]
 test "digits of 0" := digits 0 == [0]
@@ -38,7 +38,7 @@ theorem digitsByRfl: digits 1234 = [1, 2, 3, 4] := rfl
 -- The equation the compiler proves, with `digitsOnto` itself in the
 -- recursive call.
 theorem digitsOntoStep (n: Nat) (acc: List Nat):
-    digitsOnto n acc = (if big: Nat.leq n 9 = False then digitsOnto (n / 10) (Cons (n % 10) acc) else Cons n acc) :=
+    digitsOnto n acc = (if big: Nat.leq n 9 = False then digitsOnto (n / 10) [n % 10, ..acc] else [n, ..acc]) :=
   digitsOnto.unfold n acc
 
 -- Euclid's algorithm: `a % b < b` when `b != 0`.
@@ -72,11 +72,11 @@ test "sum of digits" := sumDigits 1234 == 10
 -- parameter.
 def takeFirst [a: Type] (xs: List a): Nat → List a
     decreasing List.length xs
-  | Zero => Nil
+  | Zero => []
   | Succ k =>
     match xs with
-      | Nil => Nil
-      | Cons x rest => Cons x (takeFirst rest k [decreasing := Nat.leRefl (List.length rest)])
+      | [] => []
+      | [x, ..rest] => [x, ..takeFirst rest k [decreasing := Nat.leRefl (List.length rest)]]
 
 test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 == [1, 2, 3]
 
@@ -104,9 +104,9 @@ def evens (n: Nat): List Nat
     decreasing n
 :=
   match n with
-    | Zero => Nil
-    | Succ Zero => Nil
-    | Succ (Succ k) => Cons k (evens k [decreasing := Nat.leSucc k])
+    | Zero => []
+    | Succ Zero => []
+    | Succ (Succ k) => [k, ..evens k [decreasing := Nat.leSucc k]]
 
 test "evens" := evens 7 == [5, 3, 1]
 

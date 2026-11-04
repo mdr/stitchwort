@@ -6,11 +6,11 @@
 import Std (Bool, List, Nat)
 
 def allTrue: List Bool → Bool
-  | Nil => True
-  | Cons first Nil => first
-  | Cons first (Cons second more) => first && allTrue (Cons second more)
+  | [] => True
+  | [first] => first
+  | [first, second, ..more] => first && allTrue [second, ..more]
 
-theorem shown (rest: List Bool) (all: allTrue (Cons True rest) = True): allTrue rest = True :=
+theorem shown (rest: List Bool) (all: allTrue [True, ..rest] = True): allTrue rest = True :=
   match rest with
-    | Cons next Nil => ?
+    | [next] => ?
     | other => ?

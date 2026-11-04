@@ -96,8 +96,8 @@ def AlbumOk (album: Album): Prop := List.Distinct (album.photos.map Photo.id)
 
 -- Each album of a trip whose photo ids are distinct has distinct photo ids.
 theorem albumsOk: (albums: List Album) → List.Distinct (photoIds albums) → List.All AlbumOk albums
-  | Nil, d => Trivial
-  | Cons album rest, d =>
+  | [], d => Trivial
+  | [album, ..rest], d =>
     Both (List.distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
       (albumsOk rest (List.distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
 
@@ -179,8 +179,8 @@ theorem ownedOf (own: Nat → Option Nat) (album: Album) (x: Nat) (m: x ∈ List
 
 theorem ownedIn (own: Nat → Option Nat): (albums: List Album) → (x: Nat) → x ∈ photoIds (albums.map (album => keepOwned own album))
     → List.Any (album => own x = Some album.id) albums
-  | Nil, x, m => m
-  | Cons album rest, x, m =>
+  | [], x, m => m
+  | [album, ..rest], x, m =>
     match List.memAppend x (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a))) m with
       | Inl here => Inl (ownedOf own album x here)
       | Inr there => Inr (ownedIn own rest x there)
@@ -189,8 +189,8 @@ theorem ownedIn (own: Nat → Option Nat): (albums: List Album) → (x: Nat) →
 -- it, have distinct photo ids.
 theorem ownedDistinct (own: Nat → Option Nat): (albums: List Album) → List.Distinct (List.map albums (album => album.id))
     → List.All AlbumOk albums → List.Distinct (photoIds (albums.map (album => keepOwned own album)))
-  | Nil, ids, oks => Trivial
-  | Cons album rest, Both out ids, Both ok oks =>
+  | [], ids, oks => Trivial
+  | [album, ..rest], Both out ids, Both ok oks =>
     List.distinctAppend (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a)))
       (List.distinctMapFilter album.photos Photo.id (p => own p.id == Some album.id) ok)
       (ownedDistinct own rest ids oks)

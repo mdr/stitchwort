@@ -27,12 +27,12 @@ def step: Nat → Nat
 -- lists: `total` makes the outer list smaller, `inner` the inner one, and
 -- `inner` passes the outer list on unchanged.
 def total: List (List Nat) → Nat
-  | Nil => 0
-  | Cons xs xss => inner xs xss
+  | [] => 0
+  | [xs, ..xss] => inner xs xss
 
 def inner: List Nat → List (List Nat) → Nat
-  | Nil, xss => total xss
-  | Cons x xs, xss => x + inner xs xss
+  | [], xss => total xss
+  | [x, ..xs], xss => x + inner xs xss
 
 -- Proofs by mutual induction, about `isEven` and `isOdd`, which are finished
 -- before these are checked, so their types compute.

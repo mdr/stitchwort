@@ -11,8 +11,8 @@ def prefixAll (c: Nat) (xs: List (List Hit)): List (List Hit) :=
   xs.map (Cons ({ row = 0, column = c }))
 
 def paths (r: Nat) (c: Nat): List Bool → List (List Hit)
-  | Nil => [Nil]
-  | Cons b rest =>
+  | [] => [[]]
+  | [b, ..rest] =>
     if b then
       List.append
         (match c with

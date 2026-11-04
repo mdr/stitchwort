@@ -28,10 +28,10 @@ def Map.empty [auto ord: Ordered k]: Map k v := { entries = [] }
 
 def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) → List (k, v)
   | [] => [(key, value)]
-  | Cons (k2, v2) rest => match compare key k2 with
-    | Less => Cons (key, value) (Cons (k2, v2) rest)
-    | Equal => Cons (key, value) rest
-    | Greater => Cons (k2, v2) (Map.insertList key value rest)
+  | [(k2, v2), ..rest] => match compare key k2 with
+    | Less => [(key, value), (k2, v2), ..rest]
+    | Equal => [(key, value), ..rest]
+    | Greater => [(k2, v2), ..Map.insertList key value rest]
 
 def Map.insert [auto ord: Ordered k] (m: Map k v) (key: k) (value: v): Map k v :=
   { entries = Map.insertList key value m.entries }
@@ -82,7 +82,7 @@ interface Pretty (a: Type) =
 
 instance Map.instPretty: Pretty (Map k v [ord := o]) :=
   { pretty = m => match m.entries with
-    | Cons (a, _) (Cons (b, _) _) => match compare [ordered := o] a b with
+    | [(a, _), (b, _), .._] => match compare [ordered := o] a b with
       | Less => "in order"
       | _ => "out of order"
     | _ => "short" }

@@ -10,11 +10,11 @@ def takeFirst (xs: List Nat) (count: Nat): List Nat
     decreasing xs.length
 :=
   match xs with
-    | Nil => Nil
-    | Cons x rest =>
+    | [] => []
+    | [x, ..rest] =>
       match count with
-        | Zero => Nil
-        | Succ fewer => Cons x (takeFirst rest fewer)
+        | Zero => []
+        | Succ fewer => [x, ..takeFirst rest fewer]
 
 test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 == [1, 2, 3]
 
@@ -23,7 +23,7 @@ def digitsOnto (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
   if big: Nat.leq n 9 = False
-  then digitsOnto (n / 10) (Cons (n % 10) acc)
-  else Cons n acc
+  then digitsOnto (n / 10) [n % 10, ..acc]
+  else [n, ..acc]
 
-test "digits" := digitsOnto 1234 Nil == [1, 2, 3, 4]
+test "digits" := digitsOnto 1234 [] == [1, 2, 3, 4]

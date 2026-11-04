@@ -25,7 +25,7 @@ def label: Shape → Text
   | Circle { start, text = t, .. } => t
   | Polygon { points = [], .. } => "empty"
   -- After `=`, a constructor takes its arguments without brackets.
-  | Polygon { points = Cons p _, .. } => "from a point"
+  | Polygon { points = [p, .._], .. } => "from a point"
   | _ => "dot"
 
 def textOf: Shape → Option Text
