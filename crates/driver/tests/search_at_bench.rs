@@ -27,7 +27,7 @@ fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
     let g = &session.elab.globals;
     let def = g.def(id);
     let mut body: &Term = def.body()?.strip_loc();
-    let mut ty = def.ty.strip_loc();
+    let mut ty = def.ty().strip_loc();
     while let (Term::Lam(_, _, b), Term::Pi(_, _, _, cod)) = (body, ty) {
         body = b.strip_loc();
         ty = cod.strip_loc();
@@ -42,12 +42,12 @@ fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
             if *l != id
                 && simple
                 && !args.is_empty()
-                && g.def(*l).theorem
-                && !g.def(*l).path.contains('%')
+                && g.def(*l).theorem()
+                && !g.def(*l).path().contains('%')
                 // The reflective tactics' own lemmas take a certificate.
-                && !g.def(*l).path.starts_with("Std.Ring.")
-                && !g.def(*l).path.starts_with("Std.Omega.")
-                && names_something(&g.def(*l).ty) =>
+                && !g.def(*l).path().starts_with("Std.Ring.")
+                && !g.def(*l).path().starts_with("Std.Omega.")
+                && names_something(g.def(*l).ty()) =>
         {
             Some(*l)
         }
@@ -71,7 +71,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
     let g = &session.elab.globals;
     let mut names: Vec<Name> = Vec::new();
     let mut hypotheses = Vec::new();
-    let mut t = g.def(id).ty.strip_loc();
+    let mut t = g.def(id).ty().strip_loc();
     while let Term::Pi(name, _, dom, cod) = t {
         let ty = stitchwort_core::pretty::term_in(g, &session.elab, &names, dom);
         let mut fresh = name.to_string();
@@ -132,10 +132,10 @@ fn run(
             .expect("the library checks");
         session.import_library_namespaces();
         let g = &session.elab.globals;
-        let picked: Vec<(DefId, Option<DefId>)> = (0..g.defs.len())
+        let picked: Vec<(DefId, Option<DefId>)> = (0..g.env.defs().len())
             .map(DefId)
-            .filter(|id| g.def(*id).theorem && g.def(*id).path.starts_with("Std."))
-            .filter(|id| !g.def(*id).path.contains('%') && !session.elab.is_unfinished(*id))
+            .filter(|id| g.def(*id).theorem() && g.def(*id).path().starts_with("Std."))
+            .filter(|id| !g.def(*id).path().contains('%') && !session.elab.is_unfinished(*id))
             .filter_map(|id| Some((id, pick(session, id)?)))
             .step_by(stride)
             .collect();
@@ -155,7 +155,7 @@ fn run(
                 continue;
             };
             let g = &session.elab.globals;
-            let theorem_path = g.def(theorem).path.to_string();
+            let theorem_path = g.def(theorem).path().to_string();
             let lemma_path = lemma.map(|l| Item::Def(l).path(g));
             let options = AtOptions {
                 exclude: vec![theorem_path.clone()],

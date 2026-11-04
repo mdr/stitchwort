@@ -354,12 +354,13 @@ impl Elaborator {
         }
         let g = &self.globals;
         let data = g.data(d);
-        if let Some(builtin) = g.registry.boundary_form(d) {
+        if let Some(builtin) = g.env.registry().boundary_form(d) {
             return Err(Diagnostic::error(
                 "E-ATTRIBUTE",
                 format!(
                     "`{}` can't be used on `{}` or inside it",
-                    first.name.text, data.name
+                    first.name.text,
+                    data.name()
                 ),
             )
             .with_label(first.span, "here")
@@ -414,7 +415,7 @@ impl Elaborator {
                 .with_note("a type without constructors has no values to cross"));
             }
             for (c, ctor) in ctors.iter().enumerate() {
-                let core = &data.ctors[c];
+                let core = &data.ctors()[c];
                 let mut i = 0;
                 for binder in &ctor.fields {
                     for n in &binder.names {
@@ -442,14 +443,14 @@ impl Elaborator {
             requested.string_enum = true;
         }
         if let Some((a, _)) = type_attrs.get("js.unboxed") {
-            unboxed_record(data, name, ctors, a, g.registry.data(Builtin::Option))?;
+            unboxed_record(data, name, ctors, a, g.env.registry().data(Builtin::Option))?;
             requested.unboxed = true;
         }
         // Where each core field is written: the binders' names in order.
         let mut sites: FieldSites = Vec::new();
-        let option = g.registry.data(Builtin::Option);
+        let option = g.env.registry().data(Builtin::Option);
         for (c, ctor) in ctors.iter().enumerate() {
-            let core = &data.ctors[c];
+            let core = &data.ctors()[c];
             let ctor_attrs = check(&ctor.attrs, Place::Target(Target::Ctor))?;
             let mut tag = None;
             if let Some((a, value)) = ctor_attrs.get("js.name") {
@@ -603,7 +604,7 @@ impl Elaborator {
             let repr = js_repr::names(data, &requested);
             clash_diagnostic(data, &repr, &clashes[0], ctors, &sites, name.span)
         })?;
-        self.globals.datas[d.0].js = Some(Rc::new(repr));
+        self.globals.set_data_js(d, Rc::new(repr));
         Ok(())
     }
 }
@@ -625,7 +626,7 @@ fn unboxed_record(
             format!("`js.unboxed` can't be used on `{}`: {why}", name.text),
         )
     };
-    if let Some((x, _)) = data.params.first() {
+    if let Some((x, _)) = data.params().first() {
         return Err(refuse("it has type parameters".into())
             .with_label(a.span, "here")
             .with_note(format!(
@@ -633,7 +634,7 @@ fn unboxed_record(
                  stands for"
             )));
     }
-    let ctor = &data.ctors[0];
+    let ctor = &data.ctors()[0];
     let written: Vec<Span> = ctors
         .iter()
         .flat_map(|c| &c.fields)

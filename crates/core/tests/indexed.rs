@@ -330,7 +330,7 @@ fn test_8_negative_occurrence_through_an_index_varying_field() {
     let ctors = vec![ictor("MkBad", vec![("f", field)], vec![f.p.num(1)])];
     assert_eq!(code(check::define_ctors(f.g(), bad, ctors)), "E-POSITIVITY");
     // Paired: `Vec`, whose `xs: Vec a n` is strictly positive (`Fams::new`).
-    assert_eq!(f.p.g.data(f.vec).ctors.len(), 2);
+    assert_eq!(f.p.g.data(f.vec).ctors().len(), 2);
 }
 
 #[test]

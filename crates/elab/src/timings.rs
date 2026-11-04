@@ -83,8 +83,8 @@ impl Frame {
             child_decls: 0,
             child_steps: 0,
             steps_before: g.budget.total_work(),
-            defs_before: g.defs.len(),
-            datas_before: g.datas.len(),
+            defs_before: g.env.defs().len(),
+            datas_before: g.env.datas().len(),
             decl_depth: DECLS.with(|d| d.borrow().len()),
         }
     }
@@ -203,18 +203,18 @@ pub(crate) fn decl_end(g: &Globals, label: String) {
 /// began, and how many there are.
 fn made(g: &Globals, frame: &Frame) -> (usize, usize) {
     let (mut nodes, mut decls) = (0, 0);
-    for def in &g.defs[frame.defs_before..] {
-        nodes += size(&def.ty);
+    for def in &g.env.defs()[frame.defs_before..] {
+        nodes += size(def.ty());
         if let Some(body) = def.body() {
             nodes += size(body);
         }
         decls += 1;
     }
-    for data in &g.datas[frame.datas_before..] {
-        for (_, t) in data.params.iter().chain(&data.indices) {
+    for data in &g.env.datas()[frame.datas_before..] {
+        for (_, t) in data.params().iter().chain(data.indices()) {
             nodes += size(t);
         }
-        for c in &data.ctors {
+        for c in data.ctors() {
             for (_, t) in &c.fields {
                 nodes += size(t);
             }

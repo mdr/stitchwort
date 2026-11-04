@@ -192,7 +192,7 @@ impl Walker<'_> {
                         ctor: c,
                         fields: level..level + branch.names.len(),
                     });
-                    let recursive: Vec<bool> = g.data(*d).ctors[c]
+                    let recursive: Vec<bool> = g.data(*d).ctors()[c]
                         .fields
                         .iter()
                         .map(|(_, ty)| is_recursive_fn(ty, *d))

@@ -37,9 +37,11 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
     let g = &session.elab.globals;
     let _op = g.budget.operation(stitchwort_core::Limits::default());
     let hash = |name: &str| {
-        let id = (0..g.defs.len())
+        let id = (0..g.env.defs().len())
             .map(DefId)
-            .find(|d| g.def(*d).path.ends_with(&format!(".{name}")) || &*g.def(*d).path == name)
+            .find(|d| {
+                g.def(*d).path().ends_with(&format!(".{name}")) || &**g.def(*d).path() == name
+            })
             .unwrap_or_else(|| panic!("no `{name}`"));
         def_hash(g, id).unwrap().unwrap().hex()
     };

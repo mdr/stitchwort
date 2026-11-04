@@ -95,11 +95,11 @@ fn proof_ctor(cx: &Ctx, name: &str) -> Option<(DataId, Vec<DefId>)> {
         return None;
     };
     let data = cx.g().data(d);
-    let single = data.ctors.len() == 1 && data.indices.is_empty();
-    if !rest.is_empty() || data.sort != Sort::Prop || !single {
+    let single = data.ctors().len() == 1 && data.indices().is_empty();
+    if !rest.is_empty() || data.sort() != Sort::Prop || !single {
         return None;
     }
-    let ctor = &data.ctors[0];
+    let ctor = &data.ctors()[0];
     if ctor.implicit.iter().any(|&i| i) {
         return None;
     }
@@ -146,7 +146,7 @@ pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {
         Value::Eq(..) => true,
-        Value::Data(d, _) => g.data(d).sort == Sort::Prop,
+        Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         Value::Pi(_, _, _, cod) => {
             // A fresh variable no binder in scope has, for the test only.
             proposition(cx, &cod.apply(g, Value::var(usize::MAX - 2))?)?
@@ -279,7 +279,7 @@ fn destructure(
                 Value::Data(d, params) if d == data => params,
                 other => {
                     let mut params = Vec::new();
-                    for _ in 0..g.data(data).params.len() {
+                    for _ in 0..g.data(data).params().len() {
                         let meta = cx.fresh_meta();
                         params.push(cx.eval(&meta)?);
                     }

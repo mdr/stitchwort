@@ -20,9 +20,10 @@ fn span() -> Span {
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .rposition(|d| &*d.name == name)
+            .rposition(|d| &**d.name() == name)
             .expect("declared"),
     )
 }
@@ -136,7 +137,7 @@ fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }
     let g = &session.elab.globals;
-    let ty = g.def(def(g, "same")).ty.clone();
+    let ty = g.def(def(g, "same")).ty().clone();
     let printed = stitchwort_core::pretty::term(g, &[], &ty);
     assert!(
         !printed.contains("Effect.bind")
@@ -169,7 +170,7 @@ fn a_pure_use_of_an_effect_polymorphic_function_has_no_computation() {
         let d = g.def(def(g, name));
         let body = d.body().expect("checked").clone();
         let mut empty_rows = 0;
-        for term in [&d.ty, &*body] {
+        for term in [d.ty(), &*body] {
             for (t, _) in term.subterms() {
                 match t {
                     Term::Data(id, _) => assert_ne!(*id, comp, "`{name}` mentions `Comp`"),
@@ -216,7 +217,7 @@ fn an_equation_between_computations_compares_them() {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }
     let g = &session.elab.globals;
-    let ty = g.def(def(g, "same")).ty.clone();
+    let ty = g.def(def(g, "same")).ty().clone();
     let printed = stitchwort_core::pretty::term(g, &[], &ty);
     assert!(
         !printed.contains("Effect.runPure") && !printed.contains("Effect.bind"),

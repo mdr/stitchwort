@@ -319,7 +319,7 @@ impl Elaborator {
                 .collect(),
             namespace: namespace.map(str::to_string),
             closure: closure.map(<[String]>::to_vec),
-            first_def: self.globals.defs.len(),
+            first_def: self.globals.env.defs().len(),
             first_test,
             ..ModuleState::default()
         };
@@ -361,7 +361,7 @@ impl Elaborator {
                 return errors;
             }
             // Not the definitions and tests the files made.
-            self.unit.module.first_def = self.globals.defs.len();
+            self.unit.module.first_def = self.globals.env.defs().len();
             first_test = self.tables.tests.len();
             self.unit.module.first_test = first_test;
         }
@@ -381,7 +381,10 @@ impl Elaborator {
             let saved = self.globals.budget.start(self.options.limits);
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
-            let (defs_before, datas_before) = (self.globals.defs.len(), self.globals.datas.len());
+            let (defs_before, datas_before) = (
+                self.globals.env.defs().len(),
+                self.globals.env.datas().len(),
+            );
             // Goals from before (an expression typed in) aren't this
             // component's.
             self.clear_goals();
@@ -483,7 +486,7 @@ impl Elaborator {
         if let (Some(ns), Some(_)) = (namespace, closure) {
             self.tables.namespace_defs.insert(
                 ns.to_string(),
-                self.unit.module.first_def..self.globals.defs.len(),
+                self.unit.module.first_def..self.globals.env.defs().len(),
             );
         }
         // Names that were never checked now just name failures.
@@ -587,12 +590,12 @@ impl Elaborator {
             return;
         };
         // The theorem's own definition, declared once its statement checked.
-        let Some(def) = (self.unit.module.first_def..self.globals.defs.len())
+        let Some(def) = (self.unit.module.first_def..self.globals.env.defs().len())
             .rev()
             .map(DefId)
             .find(|id| {
                 let def = self.globals.def(*id);
-                def.theorem && def.span == *span
+                def.theorem() && def.span() == *span
             })
         else {
             return;
@@ -632,7 +635,7 @@ impl Elaborator {
     /// frames; a function the compiler made is named by the definition it
     /// was made for.
     fn ran_out_note(&self, definition: Option<usize>) -> Option<String> {
-        let name = &self.globals.defs.get(definition?)?.name;
+        let name = &self.globals.env.defs().get(definition?)?.name();
         let shown = crate::scope::display(name);
         Some(match shown.split_once(".%") {
             None if !shown.contains('%') => format!("it ran out while unfolding `{shown}`"),
@@ -661,8 +664,8 @@ impl Elaborator {
     fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
         let g = &self.globals;
         let mut notes = Vec::new();
-        if let Some(head) = head.filter(|h| *h < g.defs.len()) {
-            let name = &g.defs[head].name;
+        if let Some(head) = head.filter(|h| *h < g.env.defs().len()) {
+            let name = g.env.defs()[head].name();
             if !name.contains('%') {
                 notes.push(format!(
                     "the value being shown was a call of `{name}`, computed far enough to be \
@@ -673,8 +676,8 @@ impl Elaborator {
         let mut unfolded: Vec<String> = Vec::new();
         for i in component {
             if let Some((Global::Def(id), _)) = self.named(&self.unit.module.items[*i].name) {
-                for u in g.def(*id).unfolding.iter() {
-                    let name = &g.def(*u).name;
+                for u in g.def(*id).unfolding().iter() {
+                    let name = g.def(*u).name();
                     if !name.contains('%') && !unfolded.contains(&format!("`{name}`")) {
                         unfolded.push(format!("`{name}`"));
                     }
@@ -710,13 +713,13 @@ impl Elaborator {
                 unfinished.insert(HashKey::Def(*id));
             }
         }
-        for id in defs..g.defs.len() {
-            if g.defs[id].state() != State::Final {
+        for id in defs..g.env.defs().len() {
+            if g.env.defs()[id].state() != State::Final {
                 unfinished.insert(HashKey::Def(DefId(id)));
             }
         }
-        for d in datas..g.datas.len() {
-            if g.datas[d].state() != State::Final {
+        for d in datas..g.env.datas().len() {
+            if g.env.datas()[d].state() != State::Final {
                 unfinished.insert(HashKey::Data(DataId(d)));
             }
         }
@@ -940,7 +943,7 @@ impl Elaborator {
         }
         // Whether a signature's result is the library's `Decidable`, by what
         // its head means here, not how it's spelt.
-        let decidable = self.globals.registry.data(Builtin::Decidable);
+        let decidable = self.globals.env.registry().data(Builtin::Decidable);
         for (index, item) in items.iter().enumerate() {
             self.unit.module.file = Some(self.unit.module.items[index].file);
             if let Decl::Signature {
@@ -1274,7 +1277,8 @@ impl Elaborator {
         // and above the use.
         let decidable = self
             .globals
-            .registry
+            .env
+            .registry()
             .data(Builtin::Decidable)
             .map(Global::Data);
         let instances: Vec<usize> = (0..self.unit.module.items.len())

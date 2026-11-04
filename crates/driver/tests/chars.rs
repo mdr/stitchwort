@@ -10,9 +10,10 @@ use stitchwort_syntax::{SourceMap, Span};
 
 fn mk_char(g: &Globals) -> DataId {
     DataId(
-        g.datas
+        g.env
+            .datas()
             .iter()
-            .position(|d| &*d.name == "Char")
+            .position(|d| &**d.name() == "Char")
             .expect("the prelude defines `Char`"),
     )
 }

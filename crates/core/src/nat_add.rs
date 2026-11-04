@@ -91,7 +91,7 @@ pub fn stuck(
     n: &Value,
     force: Force,
 ) -> budget::Result<Option<(BigUint, Value)>> {
-    if g.builtins.nat_add_rule != Some(id) {
+    if g.env.builtins().nat_add_rule != Some(id) {
         return Ok(None);
     }
     let (k, base) = view_with(g, n, force)?;
@@ -141,7 +141,7 @@ pub struct CriticalPair {
 /// two variables, `m` (level 0) and `n` (level 1): each sum with what the
 /// first rule rewrites it to and what the second does.
 pub fn critical_pairs(g: &Globals, id: DefId) -> Option<Vec<CriticalPair>> {
-    let nat = g.builtins.nat?;
+    let nat = g.env.builtins().nat?;
     let zero = || Term::Ctor(nat, 0, Vec::new());
     let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
     let add = |a: Term, b: Term| Term::app(Term::app(Term::Def(id), a), b);
@@ -187,7 +187,7 @@ fn refused(span: Span, why: &str) -> Diagnostic {
 /// The content hash of the bound `Nat.add`, if it has one: for the test
 /// that fails when the library changes it, which prints the new one.
 pub fn add_hash(g: &Globals) -> Option<String> {
-    let id = g.registry.def(Builtin::Add)?;
+    let id = g.env.registry().def(Builtin::Add)?;
     let _op = g
         .budget
         .operation(Limits::stack_only(Limits::default().stack));
@@ -204,9 +204,9 @@ pub fn add_hash(g: &Globals) -> Option<String> {
 pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
     let span = g.def(add_succ).span;
     let (Some(nat), Some(add), Some(add_zero)) = (
-        g.builtins.nat,
-        g.registry.def(Builtin::Add),
-        g.registry.def(Builtin::NatAddZero),
+        g.env.builtins().nat,
+        g.env.registry().def(Builtin::Add),
+        g.env.registry().def(Builtin::NatAddZero),
     ) else {
         return Err(refused(
             span,
@@ -263,6 +263,6 @@ pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
             .with_label(def.span, "here"));
         }
     }
-    g.builtins.nat_add_rule = Some(add);
+    g.env.builtins_mut().nat_add_rule = Some(add);
     Ok(())
 }

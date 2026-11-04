@@ -19,15 +19,15 @@ fn dot_calls_have_the_hash_of_their_prefix_forms() {
     let g = &session.elab.globals;
     let _op = g.budget.operation(stitchwort_core::Limits::default());
     let hash = |name: &str| {
-        let id = (0..g.defs.len())
+        let id = (0..g.env.defs().len())
             .map(DefId)
-            .find(|d| &*g.def(*d).path == name)
+            .find(|d| &**g.def(*d).path() == name)
             .unwrap_or_else(|| panic!("no `{name}`"));
         def_hash(g, id).unwrap().unwrap().hex()
     };
     let mut pairs = 0;
-    for i in 0..g.defs.len() {
-        let path = &*g.defs[i].path;
+    for i in 0..g.env.defs().len() {
+        let path = &**g.env.defs()[i].path();
         if let Some(stem) = path.strip_suffix("Dot") {
             assert_eq!(
                 hash(path),

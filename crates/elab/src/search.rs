@@ -150,11 +150,11 @@ pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Opt
         Term::Pi(..) | Term::Data(..) | Term::Eq(..) | Term::Sort(..) if args.is_empty() => {
             return Ok(Some(Ty::Type));
         }
-        Term::Nat(_) if args.is_empty() => match g.builtins.nat {
+        Term::Nat(_) if args.is_empty() => match g.env.builtins().nat {
             Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new())))),
             None => return Ok(None),
         },
-        Term::Def(id) => g.def(*id).ty_value.clone(),
+        Term::Def(id) => g.def(*id).ty_value().clone(),
         Term::Var(_) => match force(g, eval(g, env, head)?)? {
             Value::Neutral(Head::Meta(m), s) if s.is_empty() => match g.meta_type(m) {
                 Some((ty, 0)) => ty,
@@ -457,7 +457,7 @@ impl Item {
     /// interface's law, such as `Ord.flip`); a definition; a constructor.
     pub fn kind(self, g: &Globals) -> Kind {
         match self {
-            Item::Def(id) if g.def(id).theorem || concludes_in_prop(g, &g.def(id).ty) => {
+            Item::Def(id) if g.def(id).theorem() || concludes_in_prop(g, g.def(id).ty()) => {
                 Kind::Theorem
             }
             Item::Def(_) => Kind::Definition,
@@ -471,7 +471,7 @@ impl Item {
     pub fn generated_equation(self, g: &Globals) -> bool {
         match self {
             Item::Def(id) | Item::Part(id, _) => {
-                g.def(id).theorem && crate::equations::is_generated_name(g, &g.def(id).name)
+                g.def(id).theorem() && crate::equations::is_generated_name(g, g.def(id).name())
             }
             Item::Ctor(..) => false,
         }
@@ -489,8 +489,8 @@ impl Item {
     /// A conjunct's is its theorem's.
     pub fn path(self, g: &Globals) -> String {
         match self {
-            Item::Def(id) | Item::Part(id, _) => g.def(id).path.to_string(),
-            Item::Ctor(d, c) => format!("{}.{}", g.data(d).path, g.data(d).ctors[c].name),
+            Item::Def(id) | Item::Part(id, _) => g.def(id).path().to_string(),
+            Item::Ctor(d, c) => format!("{}.{}", g.data(d).path(), g.data(d).ctors()[c].name),
         }
     }
 
@@ -498,16 +498,16 @@ impl Item {
     /// the module's namespace).
     pub fn name(self, g: &Globals) -> String {
         match self {
-            Item::Def(id) | Item::Part(id, _) => g.def(id).name.to_string(),
-            Item::Ctor(d, c) => format!("{}.{}", g.data(d).name, g.data(d).ctors[c].name),
+            Item::Def(id) | Item::Part(id, _) => g.def(id).name().to_string(),
+            Item::Ctor(d, c) => format!("{}.{}", g.data(d).name(), g.data(d).ctors()[c].name),
         }
     }
 
     /// Where it is declared (a constructor: its type's declaration).
     pub fn span(self, g: &Globals) -> Span {
         match self {
-            Item::Def(id) | Item::Part(id, _) => g.def(id).span,
-            Item::Ctor(d, _) => g.data(d).span,
+            Item::Def(id) | Item::Part(id, _) => g.def(id).span(),
+            Item::Ctor(d, _) => g.data(d).span(),
         }
     }
 
@@ -515,12 +515,12 @@ impl Item {
     /// fields, then the type applied to the parameters and its indices.
     pub fn ty(self, g: &Globals) -> Term {
         match self {
-            Item::Def(id) => g.def(id).ty.clone(),
+            Item::Def(id) => g.def(id).ty().clone(),
             Item::Part(id, part) => {
-                let ty = &g.def(id).ty;
-                let and = (0..g.datas.len())
+                let ty = g.def(id).ty();
+                let and = (0..g.env.datas().len())
                     .map(DataId)
-                    .find(|d| &*g.data(*d).path == "Std.And");
+                    .find(|d| &**g.data(*d).path() == "Std.And");
                 (and.map(|and| conjuncts(g, ty, and)).unwrap_or_default())
                     .into_iter()
                     .find(|(p, _)| *p == part)
@@ -528,8 +528,8 @@ impl Item {
             }
             Item::Ctor(d, c) => {
                 let data = g.data(d);
-                let ctor = &data.ctors[c];
-                let (p, f) = (data.params.len(), ctor.fields.len());
+                let ctor = &data.ctors()[c];
+                let (p, f) = (data.params().len(), ctor.fields.len());
                 let mut args: Vec<Term> = (0..p).map(|i| Term::Var(p + f - 1 - i)).collect();
                 args.extend(ctor.result.iter().cloned());
                 let mut ty = Term::data(d, args);
@@ -541,8 +541,8 @@ impl Item {
                     };
                     ty = Term::Pi(name.clone(), icit, Rc::new(field.clone()), Rc::new(ty));
                 }
-                for (i, (name, param)) in data.params.iter().enumerate().rev() {
-                    let icit = if data.auto_params.get(i) == Some(&true) {
+                for (i, (name, param)) in data.params().iter().enumerate().rev() {
+                    let icit = if data.auto_params().get(i) == Some(&true) {
                         Icit::Auto
                     } else {
                         Icit::Implicit
@@ -564,7 +564,7 @@ fn concludes_in_prop(g: &Globals, ty: &Term) -> bool {
     }
     match t {
         Term::Eq(..) => true,
-        Term::Data(d, _) => g.data(*d).sort == stitchwort_core::term::Sort::Prop,
+        Term::Data(d, _) => g.data(*d).sort() == stitchwort_core::term::Sort::Prop,
         _ => false,
     }
 }
@@ -1079,9 +1079,9 @@ impl Elaborator {
             let _op = g.budget.attempt(ATTEMPT);
             let def = g.def(id);
             let mut env: Vec<Value> = Vec::new();
-            let mut t = def.ty.strip_loc();
+            let mut t = def.ty().strip_loc();
             while let Term::Pi(_, _, dom, cod) = t {
-                let m = g.new_meta(def.span);
+                let m = g.new_meta(def.span());
                 g.set_meta_type(m, eval(g, &env, dom)?, 0);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
@@ -1120,7 +1120,7 @@ impl Elaborator {
             let def = g.def(lemma);
             let mut env: Vec<Value> = Vec::new();
             for _ in 0..depth {
-                let m = g.new_meta(def.span);
+                let m = g.new_meta(def.span());
                 env.push(eval(g, &[], &Term::Meta(m))?);
             }
             // The proof's variables have no recorded type, so unification
@@ -1135,18 +1135,18 @@ impl Elaborator {
                     _ => None,
                 })
                 .collect();
-            type_holes(g, &env, &holes, def.ty_value.clone(), args)?;
+            type_holes(g, &env, &holes, def.ty_value().clone(), args)?;
             for arg in args {
                 for (sub, binders) in arg.subterms() {
                     if binders == 0
                         && let (Term::Def(id), sub_args) = sub.spine()
                         && !sub_args.is_empty()
                     {
-                        type_holes(g, &env, &holes, g.def(*id).ty_value.clone(), &sub_args)?;
+                        type_holes(g, &env, &holes, g.def(*id).ty_value().clone(), &sub_args)?;
                     }
                 }
             }
-            let mut ty = eval(g, &[], &def.ty)?;
+            let mut ty = eval(g, &[], def.ty())?;
             for arg in args {
                 let Value::Pi(_, _, _, closure) = force(g, ty)? else {
                     return Ok(None);
@@ -1196,16 +1196,16 @@ impl Elaborator {
     /// in full (unfinished, or failed).
     pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
         let g = &self.globals;
-        let defs = (0..g.defs.len())
+        let defs = (0..g.env.defs().len())
             .map(DefId)
             .filter(|id| !self.is_unfinished(*id))
             .map(Item::Def);
-        let ctors = (0..g.datas.len()).flat_map(|d| {
-            (0..g.data(DataId(d)).ctors.len()).map(move |c| Item::Ctor(DataId(d), c))
+        let ctors = (0..g.env.datas().len()).flat_map(|d| {
+            (0..g.data(DataId(d)).ctors().len()).map(move |c| Item::Ctor(DataId(d), c))
         });
-        let and = (0..g.datas.len())
+        let and = (0..g.env.datas().len())
             .map(DataId)
-            .find(|d| &*g.data(*d).path == "Std.And");
+            .find(|d| &**g.data(*d).path() == "Std.And");
         let candidate = |item: Item, ty: Term| {
             let (size, premises) = shape(&ty);
             Candidate {
@@ -1665,7 +1665,7 @@ fn is_dictionary(g: &Globals, arg: &Term) -> bool {
     match arg.spine().0.strip_loc() {
         Term::Def(id) => {
             let def = g.def(*id);
-            def.instance || def.fold
+            def.instance() || def.fold()
         }
         _ => false,
     }

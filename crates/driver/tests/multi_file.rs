@@ -40,9 +40,10 @@ fn passes(session: &Session) {
 fn hash_of_path(session: &Session, path: &str) -> ContentHash {
     let g = &session.elab.globals;
     let id = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .position(|d| &*d.path == path)
+        .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
     def_hash(g, DefId(id)).unwrap().expect("checked")
 }

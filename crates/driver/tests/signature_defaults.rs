@@ -34,13 +34,18 @@ fn load(text: &str) -> Result<Session, String> {
 /// The definitions `text` adds, by full name, with their hashes.
 fn hashes(text: &str) -> BTreeMap<String, String> {
     with_session(STACK, Session::eager_for_stack, |session| {
-        let first = session.elab.globals.defs.len();
+        let first = session.elab.globals.env.defs().len();
         if let Err(errors) = session.load("defaults.sw", text) {
             panic!("doesn't load: {errors:#?}");
         }
         let g = &session.elab.globals;
-        (first..g.defs.len())
-            .map(|i| (g.defs[i].path.to_string(), show(def_hash(g, DefId(i)))))
+        (first..g.env.defs().len())
+            .map(|i| {
+                (
+                    g.env.defs()[i].path().to_string(),
+                    show(def_hash(g, DefId(i))),
+                )
+            })
             .collect()
     })
 }
@@ -49,9 +54,10 @@ fn hashes(text: &str) -> BTreeMap<String, String> {
 fn def(session: &Session, name: &str) -> DefId {
     let g = &session.elab.globals;
     let i = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .rposition(|d| d.name.as_ref() == name)
+        .rposition(|d| d.name().as_ref() == name)
         .unwrap_or_else(|| panic!("`{name}` is defined"));
     DefId(i)
 }

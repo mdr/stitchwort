@@ -139,7 +139,7 @@ impl Elaborator {
                 .with_note("prove what needs the body in a theorem after both"));
             }
             let def = self.globals.def(other);
-            if def.state() == State::Final && !def.opaque {
+            if def.state() == State::Final && !def.opaque() {
                 return Err(Diagnostic::error(
                     "E-NOT-OPAQUE",
                     format!("`{}` isn't opaque, so it always unfolds", name.text),
@@ -166,7 +166,7 @@ impl Elaborator {
         ids: &[DefId],
         body: impl FnOnce(&mut Self) -> Result<T>,
     ) -> Result<T> {
-        let unfolding = self.globals.def(id).unfolding.clone();
+        let unfolding = self.globals.def(id).unfolding().clone();
         if unfolding.is_empty() {
             return body(self);
         }
@@ -205,7 +205,7 @@ impl Elaborator {
     /// Helper `id` (made opaque by [`Self::opaque_helper`]) was admitted
     /// on its own: its owner unfolds it.
     pub(crate) fn opaque_helper_admitted(&mut self, id: DefId) {
-        if self.decl.owner_unfolding.borrow().is_some() && self.globals.def(id).opaque {
+        if self.decl.owner_unfolding.borrow().is_some() && self.globals.def(id).opaque() {
             self.decl.owner_helpers.borrow_mut().push(id);
         }
     }
@@ -227,7 +227,11 @@ impl Elaborator {
     pub(crate) fn opaque_unfold(&mut self, def_name: &ast::Name, f: DefId) -> Result<()> {
         let g = &self.globals;
         let def = g.def(f);
-        if !def.opaque || def.theorem || !def.unfolding.is_empty() || def.state() != State::Final {
+        if !def.opaque()
+            || def.theorem()
+            || !def.unfolding().is_empty()
+            || def.state() != State::Final
+        {
             return Ok(());
         }
         let Some(body) = def.body().cloned() else {
@@ -235,9 +239,9 @@ impl Elaborator {
         };
         let key = self.declaration_key(def_name)?;
         let display = crate::scope::display(&key).to_string();
-        let span = def.span;
-        let def_ty = def.ty.clone();
-        let arity = def.arity;
+        let span = def.span();
+        let def_ty = def.ty().clone();
+        let arity = def.arity();
         // The parameters the body's lambdas bind, as far as the type shows
         // them (a synonym for a function type shows none).
         let (binders, _) = split_pis(&def_ty, Some(arity));
@@ -331,9 +335,9 @@ fn refl_tree(g: &Globals, tree: &Term) -> Result<Option<Term>> {
         }
         Term::NumCase(ix, arms, default) => {
             let (Some(nat), Some((_, zero)), Some((_, succ))) = (
-                g.registry.data(Builtin::Nat),
-                g.registry.ctor(Builtin::Zero),
-                g.registry.ctor(Builtin::Succ),
+                g.env.registry().data(Builtin::Nat),
+                g.env.registry().ctor(Builtin::Zero),
+                g.env.registry().ctor(Builtin::Succ),
             ) else {
                 return Ok(None);
             };
@@ -414,7 +418,7 @@ pub(crate) fn declined_in<'t>(
     g: &Globals,
     terms: impl IntoIterator<Item = &'t Term>,
 ) -> Vec<DefId> {
-    if !g.defs.iter().any(|d| d.opaque) {
+    if !g.env.defs().iter().any(|d| d.opaque()) {
         return Vec::new();
     }
     let mut found = Vec::new();
@@ -423,9 +427,9 @@ pub(crate) fn declined_in<'t>(
     while let Some(term) = pending.pop() {
         if let Term::Def(id) = term {
             let def = g.def(*id);
-            if def.opaque
+            if def.opaque()
                 && def.body().is_some()
-                && !def.name.contains('%')
+                && !def.name().contains('%')
                 && stitchwort_core::value::hidden(g, *id)
                 && !found.contains(id)
             {
@@ -474,8 +478,8 @@ impl Elaborator {
         let mut found = false;
         for (id, owner) in &self.unit.module.def_items {
             let def = self.globals.def(*id);
-            if *owner == item && !def.name.contains('%') {
-                if def.theorem || def.opaque {
+            if *owner == item && !def.name().contains('%') {
+                if def.theorem() || def.opaque() {
                     return true;
                 }
                 found = true;
@@ -495,7 +499,7 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     let g = &e.globals;
     let quoted: Vec<String> = ids
         .iter()
-        .map(|id| format!("`{}`", g.def(*id).name))
+        .map(|id| format!("`{}`", g.def(*id).name()))
         .collect();
     let list = join_and(&quoted, "and");
     let first = if ids.len() == 1 {
@@ -505,17 +509,18 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     };
     let unfolding = join_and(
         &ids.iter()
-            .map(|id| format!("`unfolding {}`", g.def(*id).name))
+            .map(|id| format!("`unfolding {}`", g.def(*id).name()))
             .collect::<Vec<_>>(),
         "and",
     );
     let equations: Vec<String> = ids
         .iter()
         .filter_map(|id| {
-            let name = format!("{}.unfold", g.def(*id).name);
-            g.defs
+            let name = format!("{}.unfold", g.def(*id).name());
+            g.env
+                .defs()
                 .iter()
-                .any(|d| d.theorem && d.name.as_ref() == name.as_str())
+                .any(|d| d.theorem() && d.name().as_ref() == name.as_str())
                 .then(|| format!("`{name}`"))
         })
         .collect();
@@ -549,13 +554,13 @@ pub(crate) fn no_unfold_equation(e: &Elaborator, name: &ast::Name) -> Option<Dia
         return None;
     };
     let def = e.globals.def(*f);
-    if !def.opaque || def.unfolding.is_empty() || def.theorem {
+    if !def.opaque() || def.unfolding().is_empty() || def.theorem() {
         return None;
     }
     let unfolded: Vec<String> = def
-        .unfolding
+        .unfolding()
         .iter()
-        .map(|id| &e.globals.def(*id).name)
+        .map(|id| e.globals.def(*id).name())
         // Not the helpers lifted from its body, which it unfolds too.
         .filter(|n| !n.contains('%'))
         .map(|n| format!("`{n}`"))
@@ -563,19 +568,19 @@ pub(crate) fn no_unfold_equation(e: &Elaborator, name: &ast::Name) -> Option<Dia
     Some(
         Diagnostic::error(
             "E-NO-UNFOLD-EQUATION",
-            format!("`{}` has no `unfold` equation", def.name),
+            format!("`{}` has no `unfold` equation", def.name()),
         )
         .with_label(
             name.span,
             format!(
                 "`{}.unfold` can't be stated without unfolding {}",
-                def.name,
+                def.name(),
                 unfolded.join(", ")
             ),
         )
         .with_note(format!(
             "prove what you need in a theorem with `unfolding {}`",
-            def.name
+            def.name()
         )),
     )
 }

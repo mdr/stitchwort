@@ -739,7 +739,7 @@ impl<'e> Ctx<'e> {
     /// of a failed comparison. Error path only.
     pub fn with_opaque_notes(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
         let g = self.g();
-        if !g.defs.iter().any(|def| def.opaque) {
+        if !g.env.defs().iter().any(|def| def.opaque()) {
             return d;
         }
         let terms: Vec<Term> = values
@@ -1019,7 +1019,7 @@ impl<'e> Ctx<'e> {
             // A call shown in notation (`n < 3`, whose definition's name
             // isn't in the text) is a relation, not a name to explain.
             if let Value::Call(id, ..) = alias
-                && let Some(last) = g.def(*id).path.rsplit('.').next()
+                && let Some(last) = g.def(*id).path().rsplit('.').next()
                 && !shown.contains(last)
             {
                 return;
@@ -1493,7 +1493,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
             let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
             let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
-            let chars = match cx.g().builtins.compact_literals() {
+            let chars = match cx.g().env.builtins().compact_literals() {
                 Some(text_rep) => {
                     let buffer: std::rc::Rc<[char]> = s.chars().collect();
                     compact::term(text_rep, &Chars::whole(buffer))
@@ -2121,7 +2121,7 @@ fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
 /// The fields of constructor `c` of `d` as a signature, for named
 /// arguments.
 fn ctor_signature(cx: &Ctx, d: DataId, c: usize) -> crate::named::Signature {
-    let ctor = &cx.g().data(d).ctors[c];
+    let ctor = &cx.g().data(d).ctors()[c];
     crate::named::declared(ctor.fields.iter().enumerate().map(|(i, (name, _))| {
         let implicit = ctor.implicit.get(i).copied().unwrap_or(false);
         let icit = if implicit {
@@ -2141,7 +2141,7 @@ fn ctor_fill<'a>(
     c: usize,
     args: &[CtorArg<'a>],
 ) -> Result<Vec<Option<&'a Expr>>> {
-    let ctor = &cx.g().data(d).ctors[c];
+    let ctor = &cx.g().data(d).ctors()[c];
     let as_args: Vec<Arg<'a>> = (args.iter())
         .map(|a| match a {
             CtorArg::Pos(e) => Arg::Explicit(e),
@@ -2198,7 +2198,7 @@ fn ctor_fill<'a>(
 /// parameters of the function the application is.
 fn ctor_missing(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg]) -> Result<Vec<Name>> {
     let given = ctor_fill(cx, d, c, args)?;
-    let ctor = &cx.g().data(d).ctors[c];
+    let ctor = &cx.g().data(d).ctors()[c];
     Ok((ctor.fields.iter().enumerate())
         .filter(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false) && given[*i].is_none())
         .map(|(_, (name, _))| name.clone())
@@ -2856,7 +2856,7 @@ pub(crate) fn negative_argument_note(arg: &Expr) -> Option<String> {
 /// The name of the definition or local variable an application calls.
 fn called_name(cx: &Ctx, head: &Term) -> Option<String> {
     match head.spine().0.strip_loc() {
-        Term::Def(id) => Some(cx.g().def(*id).name.to_string()),
+        Term::Def(id) => Some(cx.g().def(*id).name().to_string()),
         Term::Var(ix) => Some(cx.names[cx.level() - 1 - ix].to_string()),
         _ => None,
     }
@@ -2880,7 +2880,7 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
     let Some(at) = cx.e.tables.total_rows.get(id).copied() else {
         return e;
     };
-    let name = cx.g().def(*id).name.to_string();
+    let name = cx.g().def(*id).name().to_string();
     e.with_label(
         at,
         format!("`{name}`'s body needs its row to be total here"),
@@ -2897,12 +2897,17 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
 fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
     if let Term::Def(id) = head.spine().0 {
         let def = cx.g().def(*id);
-        if cx.e.tables.helper_keys.contains_key(&def.name.to_string()) {
+        if cx
+            .e
+            .tables
+            .helper_keys
+            .contains_key(&def.name().to_string())
+        {
             // The telescope with its parameters' names, as a signature.
             let g = cx.g();
             let mut names: Vec<Name> = Vec::new();
             let mut shown = Vec::new();
-            let mut ty = def.ty.strip_loc();
+            let mut ty = def.ty().strip_loc();
             while let Term::Pi(x, icit, dom, cod) = ty {
                 let dom = pretty::term_for_message_in(g, cx.e, &names, dom);
                 shown.push(match (&**x, icit) {
@@ -2918,7 +2923,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
                 "`{}` is a local definition with the signature `{}`; its leading parameters \
                  are the variables it uses, in the order they are written (the header's \
                  parameters, then the arm's pattern variables from left to right)",
-                def.name,
+                def.name(),
                 shown.join(" -> ")
             ));
         }
@@ -2956,7 +2961,7 @@ fn expects_total_result(cx: &mut Ctx, dom: &Value) -> bool {
 /// the callback builds that computation as a value, so it must finish.
 fn builds_delay_value(cx: &mut Ctx, dom: &Value) -> bool {
     let g = cx.g();
-    let Some(delay) = g.builtins.primitive_id(Primitive::Delay) else {
+    let Some(delay) = g.env.builtins().primitive_id(Primitive::Delay) else {
         return false;
     };
     let mark = cx.mark();
@@ -3008,7 +3013,7 @@ fn helper_name(cx: &Ctx, head: &Term) -> Option<(String, bool)> {
     match head.spine().0 {
         Term::Def(id) => {
             let def = cx.g().def(*id);
-            Some((def.name.to_string(), def.path.starts_with("Std.")))
+            Some((def.name().to_string(), def.path().starts_with("Std.")))
         }
         _ => None,
     }
@@ -3216,7 +3221,7 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
     let (helper, in_std) = match head.spine().0 {
         Term::Def(id) => {
             let def = cx.g().def(*id);
-            (def.name.to_string(), def.path.starts_with("Std."))
+            (def.name().to_string(), def.path().starts_with("Std."))
         }
         Term::Var(ix) => (cx.names[cx.level() - 1 - ix].to_string(), false),
         _ => return None,
@@ -3738,7 +3743,7 @@ pub(crate) fn check_value(
         }
         // `()` where a proof of the proposition `Unit` is wanted is its one
         // proof, `Trivial`.
-        (Expr::Unit(_), Value::Data(d, _)) if g.registry.is_data(Builtin::Unit, *d) => {
+        (Expr::Unit(_), Value::Data(d, _)) if g.env.registry().is_data(Builtin::Unit, *d) => {
             let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
             Ok(Term::Ctor(unit, trivial, Vec::new()))
         }
@@ -4001,7 +4006,7 @@ pub(crate) fn check_value(
                 // (`List.map Succ xs`) is a pure function, made to fit the
                 // row by `compare` (SW-393).
                 Some((d, _, _))
-                    if Some(d) != cx.g().registry.data(Builtin::Comp)
+                    if Some(d) != cx.g().env.registry().data(Builtin::Comp)
                         && returns_computation(cx, &expected)? =>
                 {
                     fallback_named(cx, expr, &expected, named)
@@ -4687,7 +4692,7 @@ fn decide_to_bool(
         return Ok(None);
     }
     if !matches!(force(cx.g(), expected.clone())?,
-        Value::Data(d, _) if cx.g().registry.is_data(Builtin::Bool, d))
+        Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d))
     {
         return Ok(None);
     }
@@ -5334,7 +5339,7 @@ fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
         return is_pi(&cx.types[level]);
     }
     match cx.e.named(name) {
-        Some((Global::Def(id), _)) => is_pi(&g.def(*id).ty_value),
+        Some((Global::Def(id), _)) => is_pi(g.def(*id).ty_value()),
         Some((Global::Op(..), _)) => Ok(true),
         Some((Global::Unchecked(item), _)) => Ok(cx.e.item_is_function(*item)),
         // A library name whose file isn't loaded: the index knows its type's shape.
@@ -5473,7 +5478,8 @@ fn implicits(
 /// its name means here.
 pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
     cx.g()
-        .registry
+        .env
+        .registry()
         .data(b)
         .ok_or_else(|| missing_builtin(cx, b))
 }
@@ -5481,14 +5487,19 @@ pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
 /// The prelude's constructor `b`: its data type and index.
 pub fn builtin_ctor(cx: &Ctx, b: Builtin) -> Result<(DataId, usize)> {
     cx.g()
-        .registry
+        .env
+        .registry()
         .ctor(b)
         .ok_or_else(|| missing_builtin(cx, b))
 }
 
 /// The prelude's definition `b`.
 pub fn builtin_def(cx: &Ctx, b: Builtin) -> Result<stitchwort_core::DefId> {
-    cx.g().registry.def(b).ok_or_else(|| missing_builtin(cx, b))
+    cx.g()
+        .env
+        .registry()
+        .def(b)
+        .ok_or_else(|| missing_builtin(cx, b))
 }
 
 /// Only while the prelude loads, before `b`'s declaration is admitted: user
@@ -5594,7 +5605,7 @@ fn ctor_app(
 ) -> Result<(Term, Value)> {
     let g = cx.g();
     let data = g.data(d);
-    let ctor = &data.ctors[c];
+    let ctor = &data.ctors()[c];
     let k = ctor.fields.len();
     let implicit: Vec<bool> = (0..k)
         .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
@@ -5617,7 +5628,7 @@ fn ctor_app(
     let fallback_params: Vec<Value> = if missing.is_empty() {
         Vec::new()
     } else {
-        data.params
+        data.params()
             .iter()
             .map(|_| {
                 let meta = cx.fresh_meta();
@@ -5647,7 +5658,7 @@ fn ctor_app(
         }
     }
 
-    let np = data.params.len();
+    let np = data.params().len();
     // A callback of an effect-polymorphic function whose row isn't known yet
     // (`xs.map (Cons { … })`, a `CompIn ?e (List Hit)` result): the
     // parameters are the value type's. The comparison below settles the row.
@@ -5659,7 +5670,7 @@ fn ctor_app(
         Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
         _ if !missing.is_empty() => fallback_params,
         _ => data
-            .params
+            .params()
             .iter()
             .map(|_| {
                 let meta = cx.fresh_meta();
@@ -5733,7 +5744,7 @@ fn ctor_app(
 /// can only check constructors of parameterised types) can infer it too.
 fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
     Ok(match force(cx.g(), ty.clone())? {
-        Value::Data(d, _) if !cx.g().data(d).params.is_empty() => {
+        Value::Data(d, _) if !cx.g().data(d).params().is_empty() => {
             Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(ty)?))
         }
         _ => term,
@@ -5914,7 +5925,8 @@ fn motive_error(cx: &Ctx) -> Diagnostic {
 /// `Nat`, which numbers need.
 pub(crate) fn nat(cx: &Ctx) -> Result<DataId> {
     cx.e.globals
-        .builtins
+        .env
+        .builtins()
         .nat
         .ok_or_else(|| cx.error("E-UNKNOWN-NAME", "numbers need the prelude's `Nat`", "here"))
 }

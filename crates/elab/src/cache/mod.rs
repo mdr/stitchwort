@@ -259,8 +259,8 @@ impl Elaborator {
         let g = &self.globals;
         format!(
             "natives {} compact {} {} nav {:?}",
-            !g.builtins.disable_natives,
-            g.builtins.compact_literals().is_some(),
+            !g.env.builtins().disable_natives,
+            g.env.builtins().compact_literals().is_some(),
             self.options.cache_key(),
             self.nav_tag(),
         )
@@ -343,8 +343,8 @@ impl Elaborator {
     /// What a unit's load is compared against.
     fn snapshot(&self) -> Before {
         Before {
-            defs: self.globals.defs.len(),
-            datas: self.globals.datas.len(),
+            defs: self.globals.env.defs().len(),
+            datas: self.globals.env.datas().len(),
             tables: self.tables.mark(self.ids()),
             defaults: self.with_defaults(),
             nav: self.present.nav.as_ref().map(|nav| {
@@ -357,7 +357,7 @@ impl Elaborator {
     /// How many data types have fields' defaults.
     fn with_defaults(&self) -> usize {
         let g = &self.globals;
-        (0..g.datas.len())
+        (0..g.env.datas().len())
             .filter(|d| g.data(DataId(*d)).defaults.is_some())
             .count()
     }
@@ -749,7 +749,7 @@ impl Elaborator {
                 .collect(),
             namespace: Some(ns.to_string()),
             closure: Some(closure.to_vec()),
-            first_def: self.globals.defs.len(),
+            first_def: self.globals.env.defs().len(),
             first_test: self.tables.tests.len(),
             ..crate::module::ModuleState::default()
         };
@@ -778,13 +778,13 @@ impl Elaborator {
         }
         let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut d.rest.warnings);
-        let base_defs = self.globals.defs.len();
+        let base_defs = self.globals.env.defs().len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound)
             .map_err(late)?;
         self.replay_tables(d.rest, &pre.early);
         self.tables
             .namespace_defs
-            .insert(ns.to_string(), base_defs..self.globals.defs.len());
+            .insert(ns.to_string(), base_defs..self.globals.env.defs().len());
         Ok(warnings)
     }
 }
@@ -837,15 +837,15 @@ impl Refs for Out<'_> {
         let hash = match def_hash(self.g, id) {
             Ok(Some(hash)) => hash,
             _ => {
-                self.fail(format!("`{}` has no content hash", def.path));
+                self.fail(format!("`{}` has no content hash", def.path()));
                 ContentHash([0; 32])
             }
         };
-        if self.def_paths.get(&*def.path) != Some(&1) {
-            self.fail(format!("`{}` names more than one definition", def.path));
+        if self.def_paths.get(&**def.path()) != Some(&1) {
+            self.fail(format!("`{}` names more than one definition", def.path()));
         }
         let i = self.deps.len();
-        self.deps.push((0, def.path.to_string(), hash));
+        self.deps.push((0, def.path().to_string(), hash));
         self.ext_defs.insert(id, i);
         w.uint(((i as u64) << 1) | 1);
     }
@@ -863,15 +863,15 @@ impl Refs for Out<'_> {
         let hash = match data_hash(self.g, id) {
             Ok(Some(hash)) => hash,
             _ => {
-                self.fail(format!("`{}` has no content hash", data.path));
+                self.fail(format!("`{}` has no content hash", data.path()));
                 ContentHash([0; 32])
             }
         };
-        if self.data_paths.get(&*data.path) != Some(&1) {
-            self.fail(format!("`{}` names more than one data type", data.path));
+        if self.data_paths.get(&**data.path()) != Some(&1) {
+            self.fail(format!("`{}` names more than one data type", data.path()));
         }
         let i = self.deps.len();
-        self.deps.push((1, data.path.to_string(), hash));
+        self.deps.push((1, data.path().to_string(), hash));
         self.ext_datas.insert(id, i);
         w.uint(((i as u64) << 1) | 1);
     }
@@ -1007,19 +1007,21 @@ impl Encoding<'_> {
 /// place after those, and the built-in. A data type's constructors are
 /// bound with it.
 fn bound_builtins(g: &Globals, defs: usize, datas: usize) -> Vec<(u8, usize, Builtin)> {
-    let missing = g.registry.missing();
+    let missing = g.env.registry().missing();
     let mut out: Vec<(u8, usize, Builtin)> = Builtin::ALL
         .iter()
         .copied()
         .filter(|b| !missing.contains(b))
         .filter_map(|b| match b.kind() {
             Kind::Def => g
-                .registry
+                .env
+                .registry()
                 .def(b)
                 .filter(|id| id.0 >= defs)
                 .map(|id| (0, id.0 - defs, b)),
             Kind::Data => g
-                .registry
+                .env
+                .registry()
                 .data(b)
                 .filter(|d| d.0 >= datas)
                 .map(|d| (1, d.0 - datas, b)),
@@ -1228,27 +1230,30 @@ impl Elaborator {
     ) -> Result<Vec<u8>, String> {
         let g = &self.globals;
         let _op = g.budget.operation(self.options.limits);
-        let (defs, datas) = (before.defs..g.defs.len(), before.datas..g.datas.len());
+        let (defs, datas) = (
+            before.defs..g.env.defs().len(),
+            before.datas..g.env.datas().len(),
+        );
         for id in defs.clone().map(DefId) {
             let def = g.def(id);
             if def.state() != State::Final || def.body().is_none() {
-                return Err(format!("`{}` isn't admitted with a body", def.path));
+                return Err(format!("`{}` isn't admitted with a body", def.path()));
             }
-            if def.export || !def.validators.is_empty() {
-                return Err(format!("`{}` is exported", def.path));
+            if def.export() || !def.validators().is_empty() {
+                return Err(format!("`{}` is exported", def.path()));
             }
-            if g.builtins.primitive(id).is_some() {
-                return Err(format!("`{}` is a primitive", def.path));
+            if g.env.builtins().primitive(id).is_some() {
+                return Err(format!("`{}` is a primitive", def.path()));
             }
             // Replay declares it again under its module.
-            module_of(&def.name, &def.path).map_err(|Bad(why)| why)?;
+            module_of(def.name(), def.path()).map_err(|Bad(why)| why)?;
         }
         for d in datas.clone().map(DataId) {
             let data = g.data(d);
-            if data.state() != State::Final || !data.validators.is_empty() {
-                return Err(format!("`{}` isn't admitted plainly", data.path));
+            if data.state() != State::Final || !data.validators().is_empty() {
+                return Err(format!("`{}` isn't admitted plainly", data.path()));
             }
-            module_of(&data.name, &data.path).map_err(|Bad(why)| why)?;
+            module_of(data.name(), data.path()).map_err(|Bad(why)| why)?;
         }
         // The built-ins the file binds: only library ones, which are just
         // registry entries (a core built-in may also tell the evaluator
@@ -1271,19 +1276,19 @@ impl Elaborator {
         }
 
         let mut def_paths: HashMap<&str, usize> = HashMap::default();
-        for def in &g.defs {
-            *def_paths.entry(&def.path).or_default() += 1;
+        for def in g.env.defs() {
+            *def_paths.entry(def.path()).or_default() += 1;
         }
         let mut data_paths: HashMap<&str, usize> = HashMap::default();
-        for data in &g.datas {
-            *data_paths.entry(&data.path).or_default() += 1;
+        for data in g.env.datas() {
+            *data_paths.entry(data.path()).or_default() += 1;
         }
         // Each `unfolding` entry is written as a reference term. The term
         // writer knows a term by its address, so these live as long as the
         // encoding: a temporary would share its address with the next.
-        let unfolding_refs: Vec<Box<[Term]>> = g.defs[before.defs..]
+        let unfolding_refs: Vec<Box<[Term]>> = g.env.defs()[before.defs..]
             .iter()
-            .map(|def| def.unfolding.iter().map(|&id| Term::Def(id)).collect())
+            .map(|def| def.unfolding().iter().map(|&id| Term::Def(id)).collect())
             .collect();
         let mut e = Encoding {
             out: Out {
@@ -1339,27 +1344,30 @@ impl Elaborator {
         e.w.usize(defs.len());
         for id in defs.clone().map(DefId) {
             let def = g.def(id);
-            e.str(&def.name);
-            e.str(&def.path);
-            e.w.bool(def.theorem);
-            e.w.bool(def.instance);
-            e.w.bool(def.fold);
+            e.str(def.name());
+            e.str(def.path());
+            e.w.bool(def.theorem());
+            e.w.bool(def.instance());
+            e.w.bool(def.fold());
             // Opacity, and the `unfolding` list as written, each name as a
             // reference (docs/proposals/opaque-definitions.md §6.4).
-            e.w.bool(def.opaque);
+            e.w.bool(def.opaque());
             let refs = &unfolding_refs[id.0 - before.defs];
             e.w.usize(refs.len());
             for reference in refs.iter() {
                 e.term(reference);
             }
-            e.span(def.span);
-            e.term(&def.ty);
+            e.span(def.span());
+            e.term(def.ty());
             e.term(def.body().expect("checked above"));
-            let group = def.group.as_ref().expect("a final definition has a group");
+            let group = def
+                .group()
+                .as_ref()
+                .expect("a final definition has a group");
             e.w.usize(group.len());
             for m in group.iter() {
                 if m.0 < before.defs {
-                    return Err(format!("`{}`'s group is older", def.path));
+                    return Err(format!("`{}`'s group is older", def.path()));
                 }
                 e.w.usize(m.0 - before.defs);
             }
@@ -1372,25 +1380,25 @@ impl Elaborator {
         e.w.usize(datas.len());
         for d in datas.clone().map(DataId) {
             let data = g.data(d);
-            e.str(&data.name);
-            e.str(&data.path);
-            e.w.usize(data.params.len());
-            for (x, ty) in &data.params {
+            e.str(data.name());
+            e.str(data.path());
+            e.w.usize(data.params().len());
+            for (x, ty) in data.params() {
                 e.str(x);
                 e.term(ty);
             }
-            e.w.usize(data.auto_params.len());
-            for a in &data.auto_params {
+            e.w.usize(data.auto_params().len());
+            for a in data.auto_params() {
                 e.w.bool(*a);
             }
-            e.w.usize(data.indices.len());
-            for (x, ty) in &data.indices {
+            e.w.usize(data.indices().len());
+            for (x, ty) in data.indices() {
                 e.str(x);
                 e.term(ty);
             }
-            codec::sort(&mut e.w, data.sort);
-            e.w.usize(data.ctors.len());
-            for ctor in &data.ctors {
+            codec::sort(&mut e.w, data.sort());
+            e.w.usize(data.ctors().len());
+            for ctor in data.ctors() {
                 e.str(&ctor.name);
                 e.w.usize(ctor.fields.len());
                 for (x, ty) in &ctor.fields {
@@ -1416,20 +1424,20 @@ impl Elaborator {
                     e.term(r);
                 }
             }
-            e.w.bool(data.record);
-            e.w.usize(data.group.len());
-            for m in data.group.iter() {
+            e.w.bool(data.record());
+            e.w.usize(data.group().len());
+            for m in data.group().iter() {
                 if m.0 < before.datas {
-                    return Err(format!("`{}`'s group is older", data.path));
+                    return Err(format!("`{}`'s group is older", data.path()));
                 }
                 e.w.usize(m.0 - before.datas);
             }
-            if data.defs_before < before.defs || data.datas_before < before.datas {
-                return Err(format!("`{}` is declared before the file", data.path));
+            if data.defs_before() < before.defs || data.datas_before() < before.datas {
+                return Err(format!("`{}` is declared before the file", data.path()));
             }
-            e.w.usize(data.defs_before - before.defs);
-            e.w.usize(data.datas_before - before.datas);
-            e.span(data.span);
+            e.w.usize(data.defs_before() - before.defs);
+            e.w.usize(data.datas_before() - before.datas);
+            e.span(data.span());
         }
         // The built-ins bound: replay binds them again the same way, and
         // checks it got these.
@@ -2191,16 +2199,16 @@ impl Elaborator {
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
         let mut def_paths: HashMap<&str, Option<DefId>> = HashMap::default();
-        for (i, def) in g.defs.iter().enumerate() {
+        for (i, def) in g.env.defs().iter().enumerate() {
             def_paths
-                .entry(&def.path)
+                .entry(def.path())
                 .and_modify(|e| *e = None)
                 .or_insert(Some(DefId(i)));
         }
         let mut data_paths: HashMap<&str, Option<DataId>> = HashMap::default();
-        for (i, data) in g.datas.iter().enumerate() {
+        for (i, data) in g.env.datas().iter().enumerate() {
             data_paths
-                .entry(&data.path)
+                .entry(data.path())
                 .and_modify(|e| *e = None)
                 .or_insert(Some(DataId(i)));
         }
@@ -2240,8 +2248,8 @@ impl Elaborator {
                 strings,
             },
             refs: In {
-                base_defs: g.defs.len(),
-                base_datas: g.datas.len(),
+                base_defs: g.env.defs().len(),
+                base_datas: g.env.datas().len(),
                 n_defs: usize::MAX >> 2,
                 n_datas: usize::MAX >> 2,
                 ext_defs,
@@ -2456,8 +2464,8 @@ impl Elaborator {
         datas: &[DataEntry],
         bound: &[(u8, usize, Builtin)],
     ) -> Read<()> {
-        let base_defs = self.globals.defs.len();
-        let base_datas = self.globals.datas.len();
+        let base_defs = self.globals.env.defs().len();
+        let base_datas = self.globals.env.datas().len();
         let module = self.globals.module.clone();
         let result = self
             .submit(defs, datas, base_defs, base_datas)
@@ -2471,16 +2479,10 @@ impl Elaborator {
         if let Err(why) = result {
             // Undo: nothing else refers to what was added yet.
             let g = &mut self.globals;
-            g.registry.forget_from(base_defs, base_datas);
-            g.defs.truncate(base_defs);
-            g.datas.truncate(base_datas);
+            g.forget_declarations_from(base_defs, base_datas);
             self.session.owners.truncate(crate::state::Ids {
                 defs: base_defs,
                 datas: base_datas,
-            });
-            g.hashes.borrow_mut().retain(|k, _| match k {
-                stitchwort_core::globals::HashKey::Def(id) => id.0 < base_defs,
-                stitchwort_core::globals::HashKey::Data(d) => d.0 < base_datas,
             });
             return Err(why);
         }
@@ -2614,7 +2616,7 @@ impl Elaborator {
                         group
                             .members
                             .iter()
-                            .all(|m| *m < self.globals.datas.len() - base_datas)
+                            .all(|m| *m < self.globals.env.datas().len() - base_datas)
                     } else {
                         group.members.iter().all(|m| *m < next_def)
                     };
@@ -2704,7 +2706,7 @@ impl Elaborator {
                     .map_err(refused)?;
                 for (&m, id) in groups[gi].members.iter().zip(&ids) {
                     let data = &datas[m];
-                    if id.0 != base_datas + m || self.globals.data(*id).path != data.path {
+                    if id.0 != base_datas + m || *self.globals.data(*id).path() != data.path {
                         return bad("a data type came out differently");
                     }
                     if data.params.len() != first.params.len() || data.sort != first.sort {
@@ -2725,7 +2727,7 @@ impl Elaborator {
                         kernel::admit_trusted_def(g, &def.name, &def.ty, def.theorem, def.span)
                     })
                     .map_err(refused)?;
-                if id.0 != base_defs + next_def || self.globals.def(id).path != def.path {
+                if id.0 != base_defs + next_def || *self.globals.def(id).path() != def.path {
                     return bad("a definition came out differently");
                 }
                 if def.fold {
@@ -2796,16 +2798,16 @@ impl Elaborator {
             self.scope.mark_member(&key);
         }
         for (d, table) in t.facts.field_defaults {
-            self.globals.datas[d.0].defaults = Some(Rc::new(table));
+            self.globals.set_data_defaults(d, Rc::new(table));
         }
         for (id, table) in t.facts.param_defaults {
             self.globals.set_param_defaults(id, table);
         }
         for (id, shown) in t.facts.update_shown {
-            self.globals.defs[id.0].update_shown = Some(Rc::new(shown));
+            self.globals.set_update_shown(id, Rc::new(shown));
         }
         for (d, repr) in t.facts.js_repr {
-            self.globals.datas[d.0].js = Some(Rc::new(repr));
+            self.globals.set_data_js(d, Rc::new(repr));
         }
         for (key, target) in t.extensions {
             self.scope.add_extension(&key, &target);

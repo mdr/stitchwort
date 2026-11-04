@@ -496,7 +496,7 @@ fn lifted(
 /// `if` on the same decision mentions.
 fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
     use stitchwort_core::registry::Builtin;
-    let reg = &cx.g().registry;
+    let reg = &cx.g().env.registry();
     let is = |t: &Term, b| matches!(t, Term::Def(id) if reg.def(b) == Some(*id));
     let (head, args) = normal.spine();
     let [_, d] = args[..] else {
@@ -1106,10 +1106,10 @@ fn cannot_occur<'a>(
     };
     let closed = closed(s, base);
     let other = |f: &DefId| {
-        let Some(def) = g.defs.get(f.0) else {
+        let Some(def) = g.env.defs().get(f.0) else {
             return false;
         };
-        let mut ty = def.ty.strip_loc();
+        let mut ty = def.ty().strip_loc();
         while let Term::Pi(_, _, _, b) = ty {
             ty = b.strip_loc();
         }

@@ -1804,9 +1804,10 @@ fn io_crossing_translations_runs_alike_in_js() {
         let g = &session.elab.globals;
         let def = |name: &str| {
             DefId(
-                g.defs
+                g.env
+                    .defs()
                     .iter()
-                    .rposition(|d| &*d.name == name)
+                    .rposition(|d| &**d.name() == name)
                     .unwrap_or_else(|| panic!("no `{name}`")),
             )
         };

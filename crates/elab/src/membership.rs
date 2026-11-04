@@ -64,7 +64,7 @@ pub(crate) fn check_member(
 
 fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(cx.g(), ty.clone())?,
-        Value::Data(d, _) if cx.g().registry.is_data(Builtin::Bool, d)))
+        Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d)))
 }
 
 /// The kind of `container`, from its type, worked out and then forgotten:
@@ -85,9 +85,9 @@ fn container_kind(cx: &mut Ctx, container: &Expr) -> Result<Container> {
     let kind = match &ty {
         Ok(Value::Data(d, _)) => {
             let g = cx.g();
-            if g.registry.is_data(Builtin::List, *d) {
+            if g.env.registry().is_data(Builtin::List, *d) {
                 Some(Container::List)
-            } else if g.registry.loaded_data(Builtin::Map) == Some(*d)
+            } else if g.env.registry().loaded_data(Builtin::Map) == Some(*d)
                 || matches!(cx.e.named("Std.Set"), Some((Global::Data(set), _)) if set == d)
             {
                 Some(Container::Keys)

@@ -12,15 +12,15 @@ use stitchwort_driver::driver::Session;
 /// The hash of each definition `text` adds, by name.
 fn hashes_by_name(text: &str) -> BTreeMap<String, String> {
     let mut session = Session::new();
-    let first = session.elab.globals.defs.len();
+    let first = session.elab.globals.env.defs().len();
     if let Err(errors) = session.load("pipe-forms.sw", text) {
         panic!("{errors:#?}");
     }
     let g = &session.elab.globals;
-    (first..g.defs.len())
+    (first..g.env.defs().len())
         .map(|i| {
             let hash = def_hash(g, DefId(i)).unwrap().map(|h| h.hex());
-            (g.defs[i].name.to_string(), format!("{hash:?}"))
+            (g.env.defs()[i].name().to_string(), format!("{hash:?}"))
         })
         .collect()
 }

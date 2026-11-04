@@ -26,12 +26,12 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
         return None;
     };
     let def = e.globals.def(*f);
-    if def.theorem || def.instance || e.named(&name.text).is_some() {
+    if def.theorem() || def.instance() || e.named(&name.text).is_some() {
         return None;
     }
     // `f.induct` of a definition that doesn't call itself.
     if suffix == "induct" {
-        let written = &def.name;
+        let written = def.name();
         return Some(
             Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{written}.induct`"))
                 .with_label(name.span, "no such induction principle")
@@ -44,19 +44,23 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
     }
     // The arm numbers there are: `f.eq1`, `f.eq2`, … (an `or` or a branch
     // below an arm has its arm's number).
-    let prefix = format!("{}.eq", def.path);
-    let mut arms: Vec<usize> = (0..e.globals.defs.len())
+    let prefix = format!("{}.eq", def.path());
+    let mut arms: Vec<usize> = (0..e.globals.env.defs().len())
         .map(stitchwort_core::DefId)
         .filter_map(|id| {
             let d = e.globals.def(id);
-            let rest = d.path.strip_prefix(&prefix)?;
+            let rest = d.path().strip_prefix(&prefix)?;
             let number = rest.split('.').next()?;
-            if d.theorem { number.parse().ok() } else { None }
+            if d.theorem() {
+                number.parse().ok()
+            } else {
+                None
+            }
         })
         .collect();
     arms.sort_unstable();
     arms.dedup();
-    let written = &def.name;
+    let written = def.name();
     let have = match (arms.first(), arms.last()) {
         (Some(first), Some(last)) if first == last => {
             format!("`{written}` has the equation `{written}.eq{first}`")
@@ -126,7 +130,7 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
     for t in terms {
         for (s, _) in t.subterms() {
             if let Term::Def(id) = s
-                && g.def(*id).name.contains(".%match")
+                && g.def(*id).name().contains(".%match")
                 && !helpers.contains(id)
             {
                 helpers.push(*id);
@@ -140,12 +144,12 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
     // helper without stepping through it: `(match …) || …`.)
     let lemmas: Vec<String> = helpers
         .iter()
-        .map(|h| format!("{}.eq", g.def(*h).name))
+        .map(|h| format!("{}.eq", g.def(*h).name()))
         .collect();
     let is_lemma = |id: &DefId| {
         lemmas
             .iter()
-            .any(|n| g.def(*id).name.starts_with(n.as_str()))
+            .any(|n| g.def(*id).name().starts_with(n.as_str()))
     };
     let states_helper = |ty: &Term| {
         let mut t = ty.strip_loc();
@@ -156,9 +160,9 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
             if matches!(lhs.spine().0, Term::Def(id) if helpers.contains(id)))
     };
     let mut found: Vec<String> = Vec::new();
-    for i in 0..g.defs.len() {
+    for i in 0..g.env.defs().len() {
         let d = g.def(DefId(i));
-        if !d.theorem || d.name.contains('%') || !crate::equations::is_equation_name(&d.name) {
+        if !d.theorem() || d.name().contains('%') || !crate::equations::is_equation_name(d.name()) {
             continue;
         }
         let Some(body) = d.body() else { continue };
@@ -167,10 +171,10 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
             Term::Ann(_, ty) => states_helper(ty),
             _ => false,
         }) {
-            found.push(format!("`{}`", d.name));
+            found.push(format!("`{}`", d.name()));
         }
     }
-    let owner = g.def(first).name.rsplit_once(".%match")?.0.to_string();
+    let owner = g.def(first).name().rsplit_once(".%match")?.0.to_string();
     let listed = match found.len() {
         0 => return None,
         1..=4 => found.join(", "),

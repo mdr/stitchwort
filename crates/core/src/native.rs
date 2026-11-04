@@ -313,7 +313,7 @@ pub fn register_nat(g: &mut Globals, d: DataId) -> Result<()> {
     if !ok {
         return Err(shape_error(data.span, "Nat"));
     }
-    g.builtins.nat = Some(d);
+    g.env.builtins_mut().nat = Some(d);
     Ok(())
 }
 
@@ -328,7 +328,7 @@ pub fn register_bool(g: &mut Globals, d: DataId) -> Result<()> {
     {
         return Err(shape_error(data.span, "Bool"));
     }
-    g.builtins.bool = Some(d);
+    g.env.builtins_mut().bool = Some(d);
     Ok(())
 }
 
@@ -339,7 +339,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     let data = g.data(d);
     let p = Value::var(0);
     // `No`'s field relies on `Void` being empty, so it must be final.
-    let void = g.registry.data(Builtin::Void);
+    let void = g.env.registry().data(Builtin::Void);
     let shaped = data.state == State::Final
         && data.params.len() == 1
         && data.indices.is_empty()
@@ -370,7 +370,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
     if !shaped {
         return Err(shape_error(data.span, "Decidable"));
     }
-    g.builtins.decidable = Some(d);
+    g.env.builtins_mut().decidable = Some(d);
     Ok(())
 }
 
@@ -379,7 +379,7 @@ pub fn register_decidable(g: &mut Globals, d: DataId) -> Result<()> {
 pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()> {
     let def = g.def(id);
     let span = def.span;
-    let (State::Final, Some(nat)) = (def.state, g.builtins.nat) else {
+    let (State::Final, Some(nat)) = (def.state, g.env.builtins().nat) else {
         return Err(shape_error(span, native.name()));
     };
     let nat_ty = || Term::Data(nat, Vec::new());
@@ -387,12 +387,13 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
         |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
     let result = match native {
         Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
-        Native::Leq | Native::EqNat => g.builtins.bool.map(|b| Term::Data(b, Vec::new())),
+        Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
         // (m : Nat) -> (n : Nat) -> Decidable (m = n), and `natNeq` must exist.
         Native::DecEqNat => g
-            .builtins
+            .env
+            .builtins()
             .decidable
-            .filter(|_| g.builtins.nat_neq.is_some())
+            .filter(|_| g.env.builtins().nat_neq.is_some())
             .map(|dec| {
                 Term::data(
                     dec,
@@ -405,7 +406,8 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
             }),
         // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
         Native::EqNatSound => {
-            g.builtins
+            g.env
+                .builtins()
                 .bool
                 .zip(native_def(g, Native::EqNat))
                 .map(|(bool, eq_nat)| {
@@ -428,7 +430,8 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
         }
         // (n : Nat) -> eqNat n n = True
         Native::EqNatRefl => {
-            g.builtins
+            g.env
+                .builtins()
                 .bool
                 .zip(native_def(g, Native::EqNat))
                 .map(|(bool, eq_nat)| {
@@ -452,13 +455,14 @@ pub fn register_native(g: &mut Globals, id: DefId, native: Native) -> Result<()>
     if def.arity != native.arity() || !conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)? {
         return Err(shape_error(span, native.name()));
     }
-    g.builtins.natives.insert(id, native);
+    g.env.builtins_mut().natives.insert(id, native);
     Ok(())
 }
 
 /// The definition registered with native implementation `native`.
 fn native_def(g: &Globals, native: Native) -> Option<DefId> {
-    g.builtins
+    g.env
+        .builtins()
         .natives
         .iter()
         .find(|(_, n)| **n == native)
@@ -471,10 +475,10 @@ pub fn register_nat_neq(g: &mut Globals, id: DefId) -> Result<()> {
     let span = def.span;
     let (State::Final, Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
         def.state,
-        g.builtins.nat,
-        g.builtins.bool,
+        g.env.builtins().nat,
+        g.env.builtins().bool,
         native_def(g, Native::EqNat),
-        g.registry.data(Builtin::Void),
+        g.env.registry().data(Builtin::Void),
     ) else {
         return Err(shape_error(span, "natNeq"));
     };
@@ -505,7 +509,7 @@ pub fn register_nat_neq(g: &mut Globals, id: DefId) -> Result<()> {
     if def.arity != 4 || !conv(g, 0, &eval(g, &[], &expected)?, &def.ty_value)? {
         return Err(shape_error(span, "natNeq"));
     }
-    g.builtins.nat_neq = Some(id);
+    g.env.builtins_mut().nat_neq = Some(id);
     Ok(())
 }
 
@@ -516,7 +520,7 @@ pub fn nat_value(n: BigUint) -> Value {
 
 /// Builds a constructor value, keeping numbers compact.
 pub fn ctor(g: &Globals, d: DataId, c: usize, fields: Vec<Value>) -> Value {
-    if Some(d) == g.builtins.nat {
+    if Some(d) == g.env.builtins().nat {
         match (c, fields.as_slice()) {
             (0, []) => return nat_value(BigUint::zero()),
             (1, [Value::Nat(n)]) => return nat_value(&**n + 1u32),
@@ -555,8 +559,8 @@ pub fn view_with(
                 k += &*n;
                 value = force(g, (*base).clone())?;
             }
-            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Ok((k, None)),
-            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+            Value::Ctor(d, 0, _) if Some(d) == g.env.builtins().nat => return Ok((k, None)),
+            Value::Ctor(d, 1, fields) if Some(d) == g.env.builtins().nat && fields.len() == 1 => {
                 k += 1u32;
                 value = force(g, fields[0].clone())?;
             }
@@ -591,7 +595,7 @@ pub fn folds_mul(g: &Globals, id: DefId, spine: &[Elim]) -> bool {
             Elim::App(Value::Neutral(Head::Var(..), _), _),
         ] => {
             !k.is_zero()
-                && g.builtins.native(id) == Some(Native::Mul)
+                && g.env.builtins().native(id) == Some(Native::Mul)
                 && !g.erasure.program_running()
         }
         _ => false,
@@ -602,7 +606,7 @@ pub fn folds_mul(g: &Globals, id: DefId, spine: &[Elim]) -> bool {
 pub fn nat_like(g: &Globals, value: &Value) -> bool {
     match value {
         Value::Nat(_) | Value::NatAdd(..) => true,
-        Value::Ctor(d, _, _) => Some(*d) == g.builtins.nat,
+        Value::Ctor(d, _, _) => Some(*d) == g.env.builtins().nat,
         _ => false,
     }
 }
@@ -719,8 +723,8 @@ fn view_to_call(
                 k += &*n;
                 value = (*base).clone();
             }
-            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => return Ok((k, None)),
-            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+            Value::Ctor(d, 0, _) if Some(d) == g.env.builtins().nat => return Ok((k, None)),
+            Value::Ctor(d, 1, fields) if Some(d) == g.env.builtins().nat && fields.len() == 1 => {
                 k += 1u32;
                 value = fields[0].clone();
             }
@@ -755,7 +759,7 @@ pub fn nat_add_shown(g: &Globals, k: &BigUint, base: Term) -> Term {
 /// The term for `k + base`: `Succ base` when `k` is 1 (as proofs usually
 /// write it), and otherwise an application of `add`.
 pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {
-    if let Some(nat) = g.builtins.nat
+    if let Some(nat) = g.env.builtins().nat
         && *k == BigUint::from(1u32)
     {
         return Term::ctor(nat, 1, vec![base]);
@@ -766,7 +770,7 @@ pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {
             base,
         ),
         None => {
-            let nat = g.builtins.nat.expect("`k + x` values need `Nat`");
+            let nat = g.env.builtins().nat.expect("`k + x` values need `Nat`");
             let mut term = base;
             let mut i = BigUint::zero();
             while &i < k {
@@ -872,10 +876,10 @@ pub fn as_nat_with(g: &Globals, value: &Value, force: Force) -> budget::Result<O
     loop {
         match value {
             Value::Nat(n) => return Ok(Some(&*n + succs)),
-            Value::Ctor(d, 0, _) if Some(d) == g.builtins.nat => {
+            Value::Ctor(d, 0, _) if Some(d) == g.env.builtins().nat => {
                 return Ok(Some(BigUint::from(succs)));
             }
-            Value::Ctor(d, 1, fields) if Some(d) == g.builtins.nat && fields.len() == 1 => {
+            Value::Ctor(d, 1, fields) if Some(d) == g.env.builtins().nat && fields.len() == 1 => {
                 succs += 1;
                 value = force(g, fields[0].clone())?;
             }
@@ -894,7 +898,7 @@ pub fn split(n: &BigUint) -> (usize, Vec<Value>) {
 }
 
 fn bool_value(g: &Globals, b: bool) -> Option<Value> {
-    Some(Value::Ctor(g.builtins.bool?, b as usize, [].into()))
+    Some(Value::Ctor(g.env.builtins().bool?, b as usize, [].into()))
 }
 
 /// Runs a native implementation of definition `id`, if all its arguments
@@ -966,7 +970,7 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
         // from `h`, which can only be a hypothesis).
         (Native::EqNatSound, [m, n]) => (m == n).then_some(Value::Refl),
         (Native::DecEqNat, [m, n]) => {
-            let dec = g.builtins.decidable?;
+            let dec = g.env.builtins().decidable?;
             if m == n {
                 Some(Value::Ctor(dec, 0, [Value::Refl].into()))
             } else {
@@ -975,7 +979,7 @@ fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
                 // it's given a proof of `m = n`, and there isn't one.
                 let arg = |v| Elim::App(v, Icit::Explicit);
                 let refutation = Value::Neutral(
-                    Head::Def(g.builtins.nat_neq?),
+                    Head::Def(g.env.builtins().nat_neq?),
                     vec![
                         arg(nat_value(m.clone())),
                         arg(nat_value(n.clone())),

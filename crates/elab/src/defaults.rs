@@ -85,19 +85,19 @@ impl Elaborator {
         let mut table: Vec<Vec<Option<FieldDefault>>> = self
             .globals
             .data(d)
-            .ctors
+            .ctors()
             .iter()
             .map(|c| vec![None; c.fields.len()])
             .collect();
         for (c, field, value) in written {
-            let i = self.globals.data(d).ctors[c]
+            let i = self.globals.data(d).ctors()[c]
                 .fields
                 .iter()
                 .position(|(x, _)| **x == *field.text)
                 .expect("the constructor has the field it declares");
             table[c][i] = Some(self.default_helper(d, c, i, value)?);
         }
-        self.globals.datas[d.0].defaults = Some(Rc::new(table));
+        self.globals.set_data_defaults(d, Rc::new(table));
         Ok(())
     }
 
@@ -112,19 +112,19 @@ impl Elaborator {
     ) -> Result<FieldDefault> {
         let g = &self.globals;
         let data = g.data(d);
-        let ctor = &data.ctors[c];
-        let np = data.params.len();
+        let ctor = &data.ctors()[c];
+        let np = data.params().len();
         let field = ctor.fields[i].0.clone();
-        let label: Name = if data.record {
-            format!("{}.{field}%default", data.name)
+        let label: Name = if data.record() {
+            format!("{}.{field}%default", data.name())
         } else {
-            format!("{}.{}.{field}%default", data.name, ctor.name)
+            format!("{}.{}.{field}%default", data.name(), ctor.name)
         }
         .into();
         // Each variable of the context: its name and type, in the context of
         // the variables before it, and how the helper takes it.
         let context: Vec<(Name, Term, Icit)> = data
-            .params
+            .params()
             .iter()
             .chain(&ctor.fields[..i])
             .enumerate()
@@ -163,8 +163,8 @@ impl Elaborator {
         }
         let front = self.front_binders(ty)?;
         let def = self.globals.def(id);
-        let owner = def.name.clone();
-        let telescope = telescope(&def.ty);
+        let owner = def.name().clone();
+        let telescope = telescope(def.ty());
         let table = self.header_helpers(&owner, &telescope, front, defaults)?;
         self.globals.set_param_defaults(id, table);
         Ok(())
@@ -225,7 +225,8 @@ impl Elaborator {
         let auto = crate::autobind::auto_bound(self, ty)?;
         let indexed = match self
             .globals
-            .registry
+            .env
+            .registry()
             .data(stitchwort_core::registry::Builtin::Divergence)
         {
             Some(_) if !self.decl.total_rows_only.get() => auto.indexed_rows.len(),
@@ -336,7 +337,7 @@ impl Elaborator {
 
     /// The names of the fields of constructor `c` of `d` that have defaults.
     pub(crate) fn defaulted_fields(&self, d: DataId, c: usize) -> Vec<&str> {
-        let ctor = &self.globals.data(d).ctors[c];
+        let ctor = &self.globals.data(d).ctors()[c];
         (0..ctor.fields.len())
             .filter(|&i| self.field_default(d, c, i).is_some())
             .map(|i| &*ctor.fields[i].0)
@@ -475,7 +476,7 @@ pub(crate) fn construct(
     missing: &mut Missing,
 ) -> Result<(Term, Vec<Value>)> {
     let g = cx.g();
-    let ctor = &g.data(d).ctors[c];
+    let ctor = &g.data(d).ctors()[c];
     let np = params.len();
     let given = |i: usize| written.iter().find(|(n, _)| *n.text == *ctor.fields[i].0);
     // The written fields a default left out needs.
@@ -607,7 +608,7 @@ fn left_out_notes(
     defaulted: &[usize],
 ) -> Vec<String> {
     let g = cx.g();
-    let ctor = &g.data(d).ctors[c];
+    let ctor = &g.data(d).ctors()[c];
     let mut notes = Vec::new();
     for &j in defaulted {
         if ctor.fields[i].1.mentions(i - 1 - j) {
@@ -655,7 +656,7 @@ pub(crate) fn ctor_with_defaults(
 ) -> Result<(Term, Value)> {
     let g = cx.g();
     let data = g.data(d);
-    let np = data.params.len();
+    let np = data.params().len();
     let known = match expected {
         Some(t) => match force(g, t.clone())? {
             Value::Data(e, args) if e == d => Some(args[..np].to_vec()),
@@ -667,9 +668,9 @@ pub(crate) fn ctor_with_defaults(
         Some(params) => params,
         None => {
             let mut params: Vec<Value> = Vec::new();
-            for (k, (_, ty)) in data.params.iter().enumerate() {
+            for (k, (_, ty)) in data.params().iter().enumerate() {
                 let ty = eval(g, &params, ty)?;
-                let icit = if data.auto_params.get(k).copied().unwrap_or(false) {
+                let icit = if data.auto_params().get(k).copied().unwrap_or(false) {
                     Icit::Auto
                 } else {
                     Icit::Implicit
@@ -683,7 +684,7 @@ pub(crate) fn ctor_with_defaults(
     let mut missing = |cx: &mut Ctx, _: usize, ty: &Value| Ok(implicit_arg(cx, Icit::Implicit, ty));
     let (term, env) = construct(cx, d, c, &params, written, &mut missing)?;
     let mut args = params;
-    for index in &data.ctors[c].result {
+    for index in &data.ctors()[c].result {
         args.push(eval(g, &env, index)?);
     }
     let ty = Value::Data(d, args);
@@ -792,7 +793,7 @@ pub(crate) fn of_head(cx: &Ctx, head: &Term) -> Option<HeadDefaults> {
                 prefix: 0,
                 header: table.header,
                 defaulted: table.params.iter().map(Option::is_some).collect(),
-                name: crate::scope::display(&def.name).to_string(),
+                name: crate::scope::display(def.name()).to_string(),
             })
         }
         Term::Meta(m) => local_of(cx, LocalHead::Meta(*m), args.len()),
@@ -846,7 +847,7 @@ fn resolve(cx: &Ctx, r: DefaultRef) -> Result<(Term, Vec<(usize, Icit)>)> {
                 .as_ref()
                 .and_then(|t| t.params.get(r.param)?.as_ref())
                 .ok_or_else(internal)?;
-            let icits = telescope(&g.def(found.helper).ty)
+            let icits = telescope(g.def(found.helper).ty())
                 .into_iter()
                 .map(|(_, _, icit)| icit);
             Ok((

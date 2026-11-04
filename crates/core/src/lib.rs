@@ -8,6 +8,7 @@ pub mod budget;
 pub mod chars;
 pub mod check;
 pub mod collections;
+pub mod env;
 pub mod erase;
 pub mod float;
 pub mod globals;
@@ -28,6 +29,7 @@ pub mod unify_index;
 pub mod value;
 
 pub use budget::{Limits, ResourceError};
+pub use env::Env;
 pub use globals::Globals;
 pub use num_bigint::BigUint;
 pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};

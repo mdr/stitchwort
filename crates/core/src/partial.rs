@@ -171,7 +171,7 @@ struct Prelude {
 }
 
 fn prelude(g: &Globals) -> Option<Prelude> {
-    let r = &g.registry;
+    let r = &g.env.registry();
     Some(Prelude {
         comp: r.data(Builtin::Comp)?,
         plus: r.data(Builtin::Plus)?,
@@ -179,7 +179,7 @@ fn prelude(g: &Globals) -> Option<Prelude> {
         rec: r.data(Builtin::Rec)?,
         plus_res: r.def(Builtin::PlusRes)?,
         rec_res: r.def(Builtin::RecRes)?,
-        delay: g.builtins.primitive_id(Primitive::Delay),
+        delay: g.env.builtins().primitive_id(Primitive::Delay),
     })
 }
 
@@ -396,7 +396,7 @@ fn shape_error(g: &Globals, id: DefId, prim: Primitive) -> Diagnostic {
 /// above. Each primitive is admitted once, `Delay` first; the prelude's
 /// `Comp`, `Plus`, `PlusRes`, `SigMap`, `Rec` and `RecRes` must be final.
 pub fn define_primitive(g: &mut Globals, id: DefId, prim: Primitive) -> Result<()> {
-    let Some(def) = g.defs.get(id.0) else {
+    let Some(def) = g.env.defs().get(id.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown definition",
@@ -411,19 +411,19 @@ pub fn define_primitive(g: &mut Globals, id: DefId, prim: Primitive) -> Result<(
             ),
         ));
     }
-    let fits = g.builtins.primitive_id(prim).is_none()
+    let fits = g.env.builtins().primitive_id(prim).is_none()
         && match prelude(g).and_then(|p| expected(&p, prim)) {
             Some(shape) => conv(g, 0, &eval(g, &[], &shape.term(0))?, &def.ty_value)?,
             None => false,
         };
     if !fits {
         let e = shape_error(g, id, prim);
-        g.defs[id.0].state = State::Failed;
+        g.env.defs_mut()[id.0].state = State::Failed;
         return Err(e);
     }
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     def.state = State::Final;
     def.arity = 0;
-    g.builtins.register_primitive(prim, id);
+    g.env.builtins_mut().register_primitive(prim, id);
     Ok(())
 }

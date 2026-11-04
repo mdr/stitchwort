@@ -31,15 +31,19 @@ fn load(session: &mut Session, text: &str) {
 /// The last definition called `name`.
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .rposition(|d| &*d.name == name)
+            .rposition(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("no `{name}`")),
     )
 }
 
 fn int_data(g: &Globals) -> DataId {
-    g.registry.data(Builtin::Int).expect("`Int` is registered")
+    g.env
+        .registry()
+        .data(Builtin::Int)
+        .expect("`Int` is registered")
 }
 
 fn nat(n: u128) -> Value {
@@ -92,10 +96,10 @@ fn slow(g: &Globals, f: DefId, args: &[Value], level: usize) -> String {
 fn run4(g: &mut Globals, f: DefId, args: &[Value], level: usize, what: &str) -> (Value, String) {
     let (v, on) = machine(g, f, args, level);
     let on_slow = slow(g, f, args, level);
-    g.builtins.disable_natives = true;
+    g.env.set_disable_natives(true);
     let (_, off) = machine(g, f, args, level);
     let off_slow = slow(g, f, args, level);
-    g.builtins.disable_natives = false;
+    g.env.set_disable_natives(false);
     assert_eq!(on, on_slow, "{what}: the evaluators disagree, natives on");
     assert_eq!(
         off, off_slow,

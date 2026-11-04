@@ -267,7 +267,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let owner_args = match owner_def {
         Some(d) => {
             let mut binders = 0;
-            let mut t = g.def(d).ty.strip_loc();
+            let mut t = g.def(d).ty().strip_loc();
             while let Term::Pi(_, _, _, cod) = t {
                 binders += 1;
                 t = cod.strip_loc();
@@ -381,9 +381,11 @@ pub(crate) fn unfinished_dependency<'t>(
     for term in terms {
         for (t, _) in term.subterms() {
             let (key, state) = match t {
-                Term::Def(id) if id.0 < g.defs.len() => (HashKey::Def(*id), g.def(*id).state()),
+                Term::Def(id) if id.0 < g.env.defs().len() => {
+                    (HashKey::Def(*id), g.def(*id).state())
+                }
                 Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _)
-                    if d.0 < g.datas.len() =>
+                    if d.0 < g.env.datas().len() =>
                 {
                     (HashKey::Data(*d), g.data(*d).state())
                 }
@@ -628,15 +630,15 @@ impl Elaborator {
                         || (i - binders < level && shown.contains(&(level - 1 - (i - binders))))
                 }
                 Term::Meta(_) => false,
-                Term::Def(id) if id.0 < g.defs.len() => {
+                Term::Def(id) if id.0 < g.env.defs().len() => {
                     declarations.push(Declaration::Def(*id));
                     true
                 }
-                Term::Data(d, _) if d.0 < g.datas.len() => {
+                Term::Data(d, _) if d.0 < g.env.datas().len() => {
                     declarations.push(Declaration::Data(*d));
                     true
                 }
-                Term::Ctor(d, c, _) if d.0 < g.datas.len() => {
+                Term::Ctor(d, c, _) if d.0 < g.env.datas().len() => {
                     ctors.push((*d, *c));
                     true
                 }
@@ -677,7 +679,7 @@ impl Elaborator {
         // A constructor is shown by its own name (`Done y`), unless as a
         // literal or a record.
         for (d, c) in ctors {
-            let name = &*g.data(d).ctors[c].name;
+            let name = &*g.data(d).ctors()[c].name;
             let resolves = matches!(
                 self.resolve(name),
                 Resolved::Found { global: crate::Global::Ctor(e, k), .. } if e == d && k == c

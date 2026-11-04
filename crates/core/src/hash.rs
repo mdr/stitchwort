@@ -94,7 +94,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     g.budget.nesting(PASS)?;
     let def = g.def(id);
     if def.state == State::Final
-        && let Some(prim) = g.builtins.primitive(id)
+        && let Some(prim) = g.env.builtins().primitive(id)
     {
         // `Delay` and its constants have no body: they're their name and
         // type (docs/proposals/partial.md §7.2).
@@ -106,7 +106,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
         g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
-    if def.state == State::Final && g.builtins.float_primitive(id).is_some() {
+    if def.state == State::Final && g.env.builtins().float_primitive(id).is_some() {
         let hash =
             float_primitive_hash(g, id, crate::float::FLOAT_CONTRACT)?.expect("a float primitive");
         g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
@@ -141,7 +141,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
 /// changes every hash that depends on one. [`def_hash`] uses the current
 /// contract; another is for the test that a bump changes the hashes.
 pub fn float_primitive_hash(g: &Globals, id: DefId, contract: u32) -> Result<Option<ContentHash>> {
-    let Some(op) = g.builtins.float_primitive(id) else {
+    let Some(op) = g.env.builtins().float_primitive(id) else {
         return Ok(None);
     };
     let def = g.def(id);
@@ -541,7 +541,8 @@ impl<'g> Hasher<'g> {
                 Term::Nat(n) => {
                     let nat = self
                         .g
-                        .builtins
+                        .env
+                        .builtins()
                         .nat
                         .expect("internal error: a number without `Nat`");
                     self.tag("nat");
@@ -554,7 +555,8 @@ impl<'g> Hasher<'g> {
                 Term::Chars(chars) => {
                     let text = self
                         .g
-                        .builtins
+                        .env
+                        .builtins()
                         .text
                         .as_ref()
                         .expect("internal error: a compact list without `List` and `Char`");
@@ -613,7 +615,8 @@ impl<'g> Hasher<'g> {
                     self.usize(*ix);
                     let nat = self
                         .g
-                        .builtins
+                        .env
+                        .builtins()
                         .nat
                         .expect("internal error: a number case without `Nat`");
                     self.data_ref(nat)?;

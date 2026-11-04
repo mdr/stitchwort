@@ -97,7 +97,7 @@ fn even_and_odd_are_accepted_together() {
     define_group(&mut p.g, &bodies).unwrap();
     for id in &ids {
         assert_eq!(p.g.def(*id).state(), State::Final);
-        assert_eq!(p.g.def(*id).group.as_deref(), Some(&ids[..]));
+        assert_eq!(p.g.def(*id).group().as_deref(), Some(&ids[..]));
     }
     assert_eq!(run(&p.g, ids[0], &[4], 10_000), Some(1));
     assert_eq!(run(&p.g, ids[1], &[4], 10_000), Some(0));
@@ -198,14 +198,14 @@ fn every_member_must_be_pending_and_listed_once() {
     assert!(ids.iter().all(|id| p.g.def(*id).state() == State::Failed));
     // Empty, or naming a definition that doesn't exist: refused, and
     // nothing changes.
-    let before: Vec<State> = p.g.defs.iter().map(|d| d.state()).collect();
+    let before: Vec<State> = p.g.env.defs().iter().map(|d| d.state()).collect();
     assert_eq!(code(define_group(&mut p.g, &[])), "E-MALFORMED");
-    let missing = DefId(p.g.defs.len() + 3);
+    let missing = DefId(p.g.env.defs().len() + 3);
     assert_eq!(
         code(define_group(&mut p.g, &[(missing, lam("n", v(0)))])),
         "E-MALFORMED"
     );
-    let after: Vec<State> = p.g.defs.iter().map(|d| d.state()).collect();
+    let after: Vec<State> = p.g.env.defs().iter().map(|d| d.state()).collect();
     assert_eq!(before, after);
     // A member of a failed group can't be submitted again.
     assert_eq!(code(define_group(&mut p.g, &bodies)), "E-MALFORMED");
@@ -505,8 +505,8 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
         let before = p.g.budget.total_work();
         for (id, body) in &probe {
             let def = p.g.def(*id);
-            let mut cx = check::Ctx::new(&p.g, def.span);
-            check::check(&mut cx, body, &def.ty_value).expect("the body type-checks");
+            let mut cx = check::Ctx::new(&p.g, def.span());
+            check::check(&mut cx, body, def.ty_value()).expect("the body type-checks");
         }
         p.g.budget.total_work() - before
     };
@@ -517,7 +517,9 @@ fn running_out_while_deciding_a_groups_termination_fails_every_member() {
     );
     let members = many_calls(&p, f, g);
     for (id, _) in &members {
-        p.g.defs[id.0].arity = 3;
+        p.g.env
+            .def_mut_for_tests(*id)
+            .set_arity_unchecked_for_tests(3);
     }
     let group: Vec<termination::Member> = members
         .iter()

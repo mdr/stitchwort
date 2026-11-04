@@ -62,7 +62,7 @@ impl Elaborator {
     /// its `Ord` instance, if one can be derived, or else why not.
     pub(crate) fn derive_data_ord(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
-        let generated = !data.record && data.ctors.iter().any(|c| c.name.starts_with('%'));
+        let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
         };
@@ -139,13 +139,13 @@ impl Elaborator {
             }
         };
         // The helpers `DecEq` declares, in case it didn't.
-        let ctors = self.globals.data(d).ctors.len();
+        let ctors = self.globals.data(d).ctors().len();
         if ctors > 1 && !self.has_member(d, "%tag") {
             self.derive_tag(d)?;
         }
         for c in 0..ctors {
             for (k, field) in plan.fields[c].iter().enumerate() {
-                let member = format!("%{}%P%{k}", self.globals.data(d).ctors[c].name);
+                let member = format!("%{}%P%{k}", self.globals.data(d).ctors()[c].name);
                 if *field == Field::Proof && !self.has_member(d, &member) {
                     self.derive_proof_type(d, c, k)?;
                 }
@@ -209,8 +209,8 @@ impl Elaborator {
     /// `T.%instOrd`.
     fn ord_instance_source(&self, d: DataId, plan: &Plan) -> Definition {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let s = Src { span: data.span };
+        let ty_name = self.relative_to_root(data.name());
+        let s = Src { span: data.span() };
         let member = |m: &str| format!("{ty_name}.%{m}");
         let with_params = ord_params(&s, data, plan);
         let this = s.this(&ty_name, data);
@@ -236,9 +236,9 @@ impl Elaborator {
     /// (4), each with its kind.
     fn ord_member_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let s = Src { span: data.span };
-        let np = data.params.len();
+        let ty_name = self.relative_to_root(data.name());
+        let s = Src { span: data.span() };
+        let np = data.params().len();
         let prefix = member_prefix(&ty_name, m);
         let param = |j: usize| format!("%p{j}");
         // The type matched on, how source names its constructors, and the
@@ -249,14 +249,14 @@ impl Elaborator {
             let container = plan.nested[m - 1].member.data;
             (
                 container,
-                self.globals.data(container).path.to_string(),
+                self.globals.data(container).path().to_string(),
                 s.app(
                     s.var(&format!("{prefix}type")),
                     (0..np).map(|j| s.var(&param(j))).collect(),
                 ),
             )
         };
-        let ctor_list = &self.globals.data(matched).ctors;
+        let ctor_list = self.globals.data(matched).ctors();
         let member_fields = plan.member_fields(m);
         let ctors = ctor_list.len();
         let enumeration = ctors > 1 && ctor_list.iter().all(|c| c.fields.is_empty());
@@ -647,14 +647,14 @@ fn ord_params<'a>(
     data: &'a stitchwort_core::globals::Data,
     plan: &'a Plan,
 ) -> impl Fn(Expr) -> Expr + 'a {
-    let np = data.params.len();
+    let np = data.params().len();
     let dicts: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
     move |rest: Expr| {
         let dict = |j: usize| {
             if dicts.len() == 1 {
                 "ord".to_string()
             } else {
-                let p = data.params[j].0.to_string();
+                let p = data.params()[j].0.to_string();
                 let mut chars = p.chars();
                 match chars.next() {
                     Some(ch) => format!("ord{}{}", ch.to_uppercase(), chars.as_str()),
@@ -682,15 +682,15 @@ pub(crate) struct Src {
 impl Src {
     /// `T %p0 …`, an `auto` parameter given by name: `T %p0 [ord := %p1]`.
     pub(crate) fn this(&self, ty_name: &str, data: &stitchwort_core::globals::Data) -> Expr {
-        let np = data.params.len();
+        let np = data.params().len();
         self.app(
             self.var(ty_name),
             (0..np)
                 .map(|j| {
                     let p = self.var(&format!("%p{j}"));
-                    if data.auto_params.get(j) == Some(&true) {
+                    if data.auto_params().get(j) == Some(&true) {
                         Expr::NamedArg(
-                            self.n(&data.params[j].0),
+                            self.n(&data.params()[j].0),
                             Box::new(p),
                             self.span,
                             Bracket::Square,

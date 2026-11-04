@@ -243,12 +243,12 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             Ok((term.clone(), cx.types[cx.level() - 1 - ix].clone()))
         }
         Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
-        Term::Def(id) => match g.defs.get(id.0) {
+        Term::Def(id) => match g.env.defs().get(id.0) {
             Some(def) => Ok((term.clone(), def_type(g, def)?)),
             None => Err(malformed(cx, "reference to an unknown definition")),
         },
         Term::Data(d, args) => {
-            let Some(data) = g.datas.get(d.0) else {
+            let Some(data) = g.env.datas().get(d.0) else {
                 return Err(malformed(cx, "reference to an unknown data type"));
             };
             if args.len() != data.params.len() + data.indices.len() {
@@ -284,14 +284,14 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             Ok((Term::data(*d, out), Value::Sort(data.sort)))
         }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(universe_above(cx, *s)?))),
-        Term::Nat(_) => match g.builtins.nat {
+        Term::Nat(_) => match g.env.builtins().nat {
             Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
         },
         // A compact list of characters is a `List Char`: its expansion's
         // `rfl`s prove `isScalar c = True` because each `c` is a Rust `char`
         // (a scalar value) and `isScalar` is the one it was registered with.
-        Term::Chars(_) => match &g.builtins.text {
+        Term::Chars(_) => match &g.env.builtins().text {
             Some(text) => Ok((
                 term.clone(),
                 Value::Data(text.list, vec![Value::Data(text.char, Vec::new())]),
@@ -383,7 +383,8 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         Term::Quot(form, args, _) => infer_quot(cx, *form, args),
         // A constructor of a data type without parameters has only one possible type.
         Term::Ctor(d, _, _)
-            if g.datas
+            if g.env
+                .datas()
                 .get(d.0)
                 .is_some_and(|d| d.params.is_empty() && d.indices.is_empty()) =>
         {
@@ -392,7 +393,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         // With indices but no parameters, its type is the type applied to
         // its result indices.
-        Term::Ctor(d, c, args) if g.datas.get(d.0).is_some_and(|d| d.params.is_empty()) => {
+        Term::Ctor(d, c, args) if g.env.datas().get(d.0).is_some_and(|d| d.params.is_empty()) => {
             if *c >= g.data(*d).ctors.len() {
                 return Err(malformed(cx, "reference to an unknown constructor"));
             }
@@ -443,7 +444,13 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Ctor(d, c, _), _) if g.datas.get(d.0).and_then(|d| d.ctors.get(*c)).is_none() => {
+        (Term::Ctor(d, c, _), _)
+            if g.env
+                .datas()
+                .get(d.0)
+                .and_then(|d| d.ctors.get(*c))
+                .is_none() =>
+        {
             Err(malformed(cx, "reference to an unknown constructor"))
         }
         (Term::Ctor(d, c, args), Value::Data(d2, type_args)) if d == d2 => {
@@ -857,7 +864,7 @@ fn check_case(
     // `let`, so nothing's pending here; this keeps it so.)
     cx.force_all()?;
     let x = cx.level() - 1 - ix;
-    let Some(data) = g.datas.get(d.0) else {
+    let Some(data) = g.env.datas().get(d.0) else {
         return Err(malformed(cx, "reference to an unknown data type"));
     };
     // A data type whose constructors aren't in yet isn't empty.
@@ -1199,7 +1206,7 @@ fn check_num_case(
     // `let`, so nothing's pending here; this keeps it so.)
     cx.force_all()?;
     let x = cx.level() - 1 - ix;
-    let Some(nat) = g.builtins.nat else {
+    let Some(nat) = g.env.builtins().nat else {
         return Err(malformed(cx, "a number case without `Nat`"));
     };
     // Registering `Nat` requires it to be finished, but as for `case`, the
@@ -1466,7 +1473,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
                 // number (`native::ctor`), so reads back differently:
                 // matching made it, as the matched variable's value.
                 Value::Ctor(d, c, fields)
-                    if Some(*d) == self.g.builtins.nat
+                    if Some(*d) == self.g.env.builtins().nat
                         && (*c == 0
                             || matches!(
                                 fields.first(),
@@ -1633,7 +1640,7 @@ fn install_group(
             "malformed core term: an empty group of definitions",
         ));
     }
-    if members.iter().any(|(id, _)| id.0 >= g.defs.len()) {
+    if members.iter().any(|(id, _)| id.0 >= g.env.defs().len()) {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown definition",
@@ -1643,7 +1650,7 @@ fn install_group(
     // From here on, a refusal leaves every member that was pending failed.
     let fail = |g: &mut Globals, e: Diagnostic| {
         for id in ids.iter() {
-            let def = &mut g.defs[id.0];
+            let def = &mut g.env.defs_mut()[id.0];
             if def.state == State::Pending {
                 def.state = State::Failed;
             }
@@ -1669,21 +1676,21 @@ fn install_group(
     // graph dimensions and parameters, the evaluator's unfolding,
     // extraction) reads these.
     for (id, body) in members {
-        let def = &mut g.defs[id.0];
+        let def = &mut g.env.defs_mut()[id.0];
         def.arity = body.count_lams();
         def.group = Some(ids.clone());
     }
     // Each member's transparency set, also fixed before anything is checked.
     for (id, _) in members {
         match transparency(g, *id, &ids) {
-            Ok(set) => g.defs[id.0].transparent = set,
+            Ok(set) => g.env.defs_mut()[id.0].transparent = set,
             Err(e) => return fail(g, e),
         }
     }
     match bodies(g, members) {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
-                let def = &mut g.defs[id.0];
+                let def = &mut g.env.defs_mut()[id.0];
                 def.lift_leaf =
                     def.arity > 0 && crate::value::has_lift_leaf(body.peel_lams(def.arity));
                 def.recursive = def.group.as_ref().is_none_or(|group| group.len() > 1)
@@ -1811,9 +1818,10 @@ fn push_def(
     span: Span,
 ) -> Result<DefId> {
     let ty_value = eval(g, &[], &ty)?;
-    g.defs.push(Def {
+    let path = g.path(name);
+    g.env.defs_mut().push(Def {
         name: name.clone(),
-        path: g.path(name),
+        path,
         ty,
         ty_value,
         body: None,
@@ -1836,7 +1844,7 @@ fn push_def(
         update_shown: None,
         span,
     });
-    Ok(DefId(g.defs.len() - 1))
+    Ok(DefId(g.env.defs().len() - 1))
 }
 
 /// Gives pending definition `id` the type `ty` instead of the one it was
@@ -1848,9 +1856,9 @@ fn push_def(
 pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
     debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     let _set = g.transparent.set(Rc::default());
-    let span = g.defs[id.0].span;
+    let span = g.env.defs()[id.0].span;
     let mut cx = Ctx::new(g, span);
-    if g.defs[id.0].state != State::Pending {
+    if g.env.defs()[id.0].state != State::Pending {
         return Err(malformed(
             &cx,
             "only a pending definition can be given another type",
@@ -1865,7 +1873,7 @@ pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
     admissible(&cx, [ty], None)?;
     let (ty, _) = check_type(&mut cx, ty)?;
     let ty_value = eval(g, &[], &ty)?;
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     def.ty = ty;
     def.ty_value = ty_value;
     Ok(())
@@ -1874,7 +1882,7 @@ pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
 /// Marks pending definition `id` as an instance
 /// (docs/proposals/interfaces.md §9.3): part of its hash, and nothing else.
 pub fn mark_instance(g: &mut Globals, id: DefId) {
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     if def.state == State::Pending {
         def.instance = true;
     }
@@ -1894,7 +1902,7 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     let _set = g.transparent.set(def.transparent.clone());
     let ty = def_type(g, def)?;
     let checked = check(&mut cx, body, &ty)?;
-    g.defs[id.0].run_body = Some(Rc::new(checked));
+    g.env.defs_mut()[id.0].run_body = Some(Rc::new(checked));
     Ok(())
 }
 
@@ -1929,7 +1937,7 @@ fn run_body_shape(g: &Globals, id: DefId, body: &Term) -> Result<()> {
 /// Marks pending definition `id` as a dictionary, which stays folded until
 /// it's taken apart ([`Def::fold`]): how it computes, not what it means.
 pub fn mark_folded(g: &mut Globals, id: DefId) {
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     if def.state == State::Pending {
         def.fold = true;
     }
@@ -1939,7 +1947,7 @@ pub fn mark_folded(g: &mut Globals, id: DefId) {
 /// docs/proposals/opaque-definitions.md §6.4): once final, it has a type and
 /// no body while checking any declaration that doesn't unfold it. Hashed.
 pub fn mark_opaque(g: &mut Globals, id: DefId) {
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     if def.state == State::Pending {
         def.opaque = true;
     }
@@ -1949,7 +1957,7 @@ pub fn mark_opaque(g: &mut Globals, id: DefId) {
 /// as written: the opaque definitions its body may unfold. Checked when its
 /// group is submitted ([`define_group`]); hashed.
 pub fn set_unfolding(g: &mut Globals, id: DefId, unfolding: &[DefId]) {
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     if def.state == State::Pending {
         def.unfolding = unfolding.into();
     }
@@ -1989,7 +1997,7 @@ fn transparency(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
             .with_note("make it opaque, or use the opaque definition's `unfold` equation"));
     }
     for &other in def.unfolding.iter() {
-        let Some(unfolded) = g.defs.get(other.0) else {
+        let Some(unfolded) = g.env.defs().get(other.0) else {
             return Err(malformed(&cx, "reference to an unknown definition"));
         };
         if ids.contains(&other) {
@@ -2045,7 +2053,7 @@ fn transparency(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
 /// (docs/proposals/interfaces.md §7.5): part of its hash when any is, and
 /// how its applications are printed; nothing else.
 pub fn mark_auto_params(g: &mut Globals, id: DataId, auto: Vec<bool>) {
-    let data = &mut g.datas[id.0];
+    let data = &mut g.env.datas_mut()[id.0];
     if data.state == State::Pending && auto.contains(&true) {
         data.auto_params = auto;
     }
@@ -2212,7 +2220,7 @@ fn push_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Vec<DataId> {
-    let (defs_before, datas_before) = (g.defs.len(), g.datas.len());
+    let (defs_before, datas_before) = (g.env.defs().len(), g.env.datas().len());
     let group: Rc<[DataId]> = (0..members.len())
         .map(|i| DataId(datas_before + i))
         .collect();
@@ -2224,7 +2232,7 @@ fn push_data_group(
     } in members
     {
         let path = g.path(&name);
-        g.datas.push(Data {
+        g.env.datas_mut().push(Data {
             name,
             path,
             params: checked.clone(),
@@ -2299,7 +2307,7 @@ fn install_data_group<C>(
             "malformed core term: an empty group of data types",
         ));
     }
-    if members.iter().any(|(d, _)| d.0 >= g.datas.len()) {
+    if members.iter().any(|(d, _)| d.0 >= g.env.datas().len()) {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown data type",
@@ -2311,7 +2319,7 @@ fn install_data_group<C>(
     let fail = |g: &mut Globals, e: Diagnostic| {
         let groups: Vec<Rc<[DataId]>> = listed.iter().map(|d| g.data(*d).group.clone()).collect();
         for d in groups.iter().flat_map(|group| group.iter()) {
-            let data = &mut g.datas[d.0];
+            let data = &mut g.env.datas_mut()[d.0];
             if data.state == State::Pending {
                 data.state = State::Failed;
             }
@@ -2363,14 +2371,14 @@ fn install_data_group<C>(
             // Every member at once: until now none had constructors, could
             // be matched on, or had a hash.
             for (d, ctors) in ctors {
-                g.datas[d.0].ctors = ctors;
-                g.datas[d.0].state = State::Final;
+                g.env.datas_mut()[d.0].ctors = ctors;
+                g.env.datas_mut()[d.0].state = State::Final;
             }
             // Which parameters later groups may nest in, now that the
             // constructors are final.
             let nestable: Rc<[_]> = nestable_params(g, &group).into();
             for d in group.iter() {
-                g.datas[d.0].nestable = nestable.clone();
+                g.env.datas_mut()[d.0].nestable = nestable.clone();
             }
             Ok(())
         }
@@ -2646,7 +2654,7 @@ pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result
 /// installed. The trust boundary (above).
 pub fn admit_trusted_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     run_body_shape(g, id, body)?;
-    g.defs[id.0].run_body = Some(Rc::new(body.clone()));
+    g.env.defs_mut()[id.0].run_body = Some(Rc::new(body.clone()));
     Ok(())
 }
 
@@ -2742,12 +2750,12 @@ pub fn admit_trusted_data_group(g: &mut Globals, members: Vec<(DataId, Vec<Ctor>
 /// on a declaration before submitting its body or constructors: failing is
 /// always safe, and it stops later declarations tripping over a pending one.
 pub fn abandon_pending(g: &mut Globals) {
-    for def in &mut g.defs {
+    for def in g.env.defs_mut().iter_mut() {
         if def.state == State::Pending {
             def.state = State::Failed;
         }
     }
-    for data in &mut g.datas {
+    for data in g.env.datas_mut().iter_mut() {
         if data.state == State::Pending {
             data.state = State::Failed;
         }
@@ -2785,27 +2793,29 @@ fn admissible<'t>(
     for term in terms {
         for (t, _) in term.subterms() {
             let (state, name) = match t {
-                Term::Def(id) if !in_group(id) => match g.defs.get(id.0) {
+                Term::Def(id) if !in_group(id) => match g.env.defs().get(id.0) {
                     Some(def) => (def.state, &def.name),
                     None => return Err(malformed(cx, "reference to an unknown definition")),
                 },
                 Term::Data(d, _) if in_data_group(d) => continue,
                 Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) => {
-                    match g.datas.get(d.0) {
+                    match g.env.datas().get(d.0) {
                         Some(data) => (data.state, &data.name),
                         None => return Err(malformed(cx, "reference to an unknown data type")),
                     }
                 }
                 // A number case uses `Nat`. Its arms and default are walked
                 // like any other subterms.
-                Term::NumCase(..) => match g.builtins.nat.and_then(|d| g.datas.get(d.0)) {
-                    Some(data) => (data.state, &data.name),
-                    None => return Err(malformed(cx, "a number case without `Nat`")),
-                },
+                Term::NumCase(..) => {
+                    match g.env.builtins().nat.and_then(|d| g.env.datas().get(d.0)) {
+                        Some(data) => (data.state, &data.name),
+                        None => return Err(malformed(cx, "a number case without `Nat`")),
+                    }
+                }
                 // A compact list uses `List` and `Char`, as its expansion
                 // would. (Registering them requires both to be final, so
                 // this always passes; it's checked as any reference is.)
-                Term::Chars(_) => match &g.builtins.text {
+                Term::Chars(_) => match &g.env.builtins().text {
                     Some(text) => {
                         let (list, char) = (g.data(text.list), g.data(text.char));
                         if list.state != State::Final {
@@ -2872,19 +2882,28 @@ fn declared_later(g: &Globals, term: &Term, d: DataId) -> Option<String> {
     let data = g.data(d);
     let later_data = |d2: DataId| {
         (d2.0 >= data.datas_before && !data.group.contains(&d2)).then(|| {
-            let name = g.datas.get(d2.0).map_or("?".into(), |x| x.name.to_string());
+            let name = g
+                .env
+                .datas()
+                .get(d2.0)
+                .map_or("?".into(), |x| x.name.to_string());
             format!("the data type `{name}`")
         })
     };
     term.subterms().find_map(|(t, _)| match t {
         Term::Def(id) => (id.0 >= data.defs_before).then(|| {
-            let name = g.defs.get(id.0).map_or("?".into(), |x| x.name.to_string());
+            let name = g
+                .env
+                .defs()
+                .get(id.0)
+                .map_or("?".into(), |x| x.name.to_string());
             format!("`{name}`")
         }),
         Term::Data(d2, _) | Term::Ctor(d2, _, _) | Term::Case(_, d2, _) => later_data(*d2),
         // A compact list refers to `List` and `Char`, as its expansion would.
         Term::Chars(_) => g
-            .builtins
+            .env
+            .builtins()
             .text
             .as_ref()
             .and_then(|text| later_data(text.list).or_else(|| later_data(text.char))),
@@ -2998,7 +3017,7 @@ impl Container {
 
     fn describe(self, g: &Globals) -> String {
         match self {
-            Container::Def(id) => match g.defs.get(id.0) {
+            Container::Def(id) => match g.env.defs().get(id.0) {
                 Some(def) => format!("`{}`, which is a definition, not a data type", def.name),
                 None => "a definition, not a data type".to_string(),
             },
@@ -3496,7 +3515,7 @@ pub fn add_validator(
     decision: &Term,
 ) -> Result<()> {
     let _set = g.transparent.set(Rc::default());
-    let Some(def) = g.defs.get(id.0) else {
+    let Some(def) = g.env.defs().get(id.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown definition",
@@ -3529,7 +3548,9 @@ pub fn add_validator(
     if let Some(dep) = failed {
         return Err(failed_dependency(&cx, &def.name, &dep));
     }
-    g.defs[id.0].validators.push(Validator { param, decision });
+    g.env.defs_mut()[id.0]
+        .validators
+        .push(Validator { param, decision });
     Ok(())
 }
 
@@ -3547,7 +3568,7 @@ pub fn add_field_validator(
     decision: &Term,
 ) -> Result<()> {
     let _set = g.transparent.set(Rc::default());
-    let Some(data) = g.datas.get(d.0) else {
+    let Some(data) = g.env.datas().get(d.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown data type",
@@ -3591,7 +3612,7 @@ pub fn add_field_validator(
     if let Some(dep) = failed {
         return Err(failed_dependency(&cx, &data.name, &dep));
     }
-    g.datas[d.0].validators.push(FieldValidator {
+    g.env.datas_mut()[d.0].validators.push(FieldValidator {
         ctor,
         field,
         decision,
@@ -3602,7 +3623,7 @@ pub fn add_field_validator(
 /// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`
 /// parameter, and two constructors, the first holding a proof of it.
 fn shaped_like_decidable(g: &Globals, decidable: DataId) -> bool {
-    g.datas.get(decidable.0).is_some_and(|d| {
+    g.env.datas().get(decidable.0).is_some_and(|d| {
         d.state == State::Final
             && d.params.len() == 1
             && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))

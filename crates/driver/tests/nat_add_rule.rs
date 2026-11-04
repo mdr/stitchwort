@@ -61,7 +61,7 @@ fn in_every_mode(
     mut check: impl FnMut(&Globals, &[Value], Evaluator, bool),
 ) {
     for natives in [true, false] {
-        g.builtins.disable_natives = !natives;
+        g.env.set_disable_natives(!natives);
         let fast: Vec<Value> = terms
             .iter()
             .map(|t| eval(g, env, t, Evaluator::Machine))
@@ -79,12 +79,15 @@ fn in_every_mode(
         }
         check(g, &fast, Evaluator::Machine, natives);
         check(g, &slow, Evaluator::Reference, natives);
-        g.builtins.disable_natives = false;
+        g.env.set_disable_natives(false);
     }
 }
 
 fn add_id(g: &Globals) -> DefId {
-    g.registry.def(Builtin::Add).expect("`Nat.add` is bound")
+    g.env
+        .registry()
+        .def(Builtin::Add)
+        .expect("`Nat.add` is bound")
 }
 
 fn num(n: u64) -> Term {
@@ -100,7 +103,7 @@ fn nat_add_is_the_pinned_declaration() {
     let session = Session::new();
     let g = &session.elab.globals;
     assert_eq!(nat_add::add_hash(g).as_deref(), Some(nat_add::NAT_ADD_HASH));
-    assert_eq!(g.builtins.nat_add_rule, Some(add_id(g)));
+    assert_eq!(g.env.builtins().nat_add_rule, Some(add_id(g)));
 }
 
 /// Each critical pair of R1 to R4 joins: the sum and the two terms the
@@ -162,7 +165,7 @@ fn the_parallel_rule_is_reached() {
         let mut session = Session::new();
         let g = &mut session.elab.globals;
         let add = add_id(g);
-        let nat = g.builtins.nat.expect("`Nat` is bound");
+        let nat = g.env.builtins().nat.expect("`Nat` is bound");
         let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
         let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
         // `m` and `n` are levels 0 and 1: indices 1 and 0.
@@ -214,7 +217,7 @@ fn stuck_sums_compute_on_their_second_argument() {
         let mut session = Session::new();
         let g = &mut session.elab.globals;
         let add = add_id(g);
-        let nat = g.builtins.nat.expect("`Nat` is bound");
+        let nat = g.env.builtins().nat.expect("`Nat` is bound");
         let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
         let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
         let (x, y) = (|| Term::Var(1), || Term::Var(0));
@@ -361,7 +364,7 @@ fn stuck_sums_are_printed_as_written() {
     let session = Session::new();
     let g = &session.elab.globals;
     let add = add_id(g);
-    let nat = g.builtins.nat.expect("`Nat` is bound");
+    let nat = g.env.builtins().nat.expect("`Nat` is bound");
     let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
     let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
     let (x, y) = (|| Term::Var(1), || Term::Var(0));

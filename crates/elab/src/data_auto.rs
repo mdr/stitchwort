@@ -88,17 +88,17 @@ impl Elaborator {
 pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, Value)> {
     let g = cx.g();
     let data = g.data(d);
-    let auto = |k: usize| data.auto_params.get(k).copied().unwrap_or(false);
+    let auto = |k: usize| data.auto_params().get(k).copied().unwrap_or(false);
     if let Some(Arg::NamedExplicit(name, _)) =
         args.iter().find(|a| matches!(a, Arg::NamedExplicit(..)))
     {
         return Err(Diagnostic::error(
             "E-UNKNOWN-NAME",
-            format!("`{}`'s parameters are given by position", data.name),
+            format!("`{}`'s parameters are given by position", data.name()),
         )
         .with_label(name.span, "a type's parameters can't be given by name"));
     }
-    let all = data.params.len() + data.indices.len();
+    let all = data.params().len() + data.indices().len();
     let needed = (0..all).filter(|k| !auto(*k)).count();
     let given = args
         .iter()
@@ -108,14 +108,14 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
     if given < needed {
         return Err(cx.error(
             "E-ARITY",
-            format!("`{}` needs {needed} argument(s)", data.name),
+            format!("`{}` needs {needed} argument(s)", data.name()),
             "here",
         ));
     }
     let mut env = Vec::new();
     let mut terms = Vec::new();
     let mut next = 0;
-    for (k, (x, param_ty)) in data.params.iter().chain(&data.indices).enumerate() {
+    for (k, (x, param_ty)) in data.params().iter().chain(data.indices()).enumerate() {
         let ty = stitchwort_core::value::eval(g, &env, param_ty)?;
         let term = if auto(k) {
             match args.get(next) {
@@ -141,7 +141,7 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
         env.push(cx.eval(&term)?);
         terms.push(term);
     }
-    let head = (Term::data(d, terms), Value::Sort(data.sort));
+    let head = (Term::data(d, terms), Value::Sort(data.sort()));
     match args.get(next) {
         Some(Arg::Named(name, _)) => Err(misplaced_named(cx, d, name)),
         _ => apply_args(cx, head, &args[next..]),
@@ -151,7 +151,7 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
 /// `E-INSTANCE-HEAD`: in an instance's type, a data type's `auto` parameter
 /// is a head variable, written `[ord := o]`, never found (§7.5).
 fn unwritten_in_head(cx: &Ctx, d: DataId, x: &stitchwort_core::Name) -> Diagnostic {
-    let name = &cx.g().data(d).name;
+    let name = cx.g().data(d).name();
     cx.error(
         "E-INSTANCE-HEAD",
         format!(
@@ -170,19 +170,21 @@ fn unwritten_in_head(cx: &Ctx, d: DataId, x: &stitchwort_core::Name) -> Diagnost
 fn misplaced_named(cx: &Ctx, d: DataId, name: &stitchwort_syntax::ast::Name) -> Diagnostic {
     let data = cx.g().data(d);
     let is_auto = data
-        .params
+        .params()
         .iter()
-        .zip(&data.auto_params)
+        .zip(data.auto_params())
         .any(|((x, _), a)| *a && **x == *name.text);
     let message = if is_auto {
         format!(
             "`[{} := …]` goes in its place among `{}`'s parameters, as declared",
-            name.text, data.name
+            name.text,
+            data.name()
         )
     } else {
         format!(
             "`{}` has no `auto` parameter named `{}`",
-            data.name, name.text
+            data.name(),
+            name.text
         )
     };
     Diagnostic::error("E-UNKNOWN-NAME", message).with_label(name.span, "here")
@@ -200,7 +202,7 @@ pub(crate) fn auto_mismatch_note(cx: &Ctx, expected: &Value, found: &Value) -> O
         return None;
     };
     let data = g.data(d);
-    if d != e || !data.auto_params.contains(&true) || a.len() != b.len() {
+    if d != e || !data.auto_params().contains(&true) || a.len() != b.len() {
         return None;
     }
     let level = cx.level();
@@ -209,16 +211,16 @@ pub(crate) fn auto_mismatch_note(cx: &Ctx, expected: &Value, found: &Value) -> O
         if conv(g, level, x, y).ok()? {
             continue;
         }
-        if data.auto_params.get(k) != Some(&true) {
+        if data.auto_params().get(k) != Some(&true) {
             return None;
         }
-        differing.push(data.params[k].0.clone());
+        differing.push(data.params()[k].0.clone());
     }
     let x = differing.first()?;
     Some(format!(
         "the `{x}` dictionaries differ: `{}`'s `{x}` is part of its type, so a value built with \
          one is a different type from one built with another (they're compared as whole \
          dictionaries, not just their functions)",
-        data.name
+        data.name()
     ))
 }

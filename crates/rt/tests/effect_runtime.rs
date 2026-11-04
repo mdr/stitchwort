@@ -37,9 +37,9 @@ fn example(name: &str) -> (Session, String) {
 
 fn def_named(session: &Session, name: &str) -> DefId {
     let g = &session.elab.globals;
-    (0..g.defs.len())
+    (0..g.env.defs().len())
         .map(DefId)
-        .rfind(|id| &*g.def(*id).name == name)
+        .rfind(|id| &**g.def(*id).name() == name)
         .unwrap_or_else(|| panic!("no definition `{name}`"))
 }
 
@@ -519,7 +519,8 @@ fn run_lines_agree_with_the_reference_evaluator() {
                 let value = stitchwort_core::value::eval(g, &[], &term).expect("evaluates");
                 let expected = stitchwort_core::value::quote(g, 0, &value).expect("quotes");
                 let (pair, _) = g
-                    .registry
+                    .env
+                    .registry()
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);

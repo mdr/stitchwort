@@ -614,7 +614,7 @@ fn hex_of(
 /// which prints the new ones.
 pub fn bindings(g: &Globals) -> Vec<(String, Option<String>, &'static str)> {
     let mut out = Vec::new();
-    if let Some(d) = g.registry.loaded_data(Builtin::Float) {
+    if let Some(d) = g.env.registry().loaded_data(Builtin::Float) {
         out.push((
             "Float".to_string(),
             hex_of(g, || data_hash(g, d)),
@@ -622,7 +622,7 @@ pub fn bindings(g: &Globals) -> Vec<(String, Option<String>, &'static str)> {
         ));
     }
     for &(b, pinned) in NATIVE_HASHES {
-        if let Some(id) = g.registry.loaded_def(b) {
+        if let Some(id) = g.env.registry().loaded_def(b) {
             out.push((b.name().to_string(), hex_of(g, || def_hash(g, id)), pinned));
         }
     }
@@ -641,7 +641,7 @@ pub fn register_data(g: &mut Globals, d: DataId) -> Result<()> {
         && data.sort == Sort::Type(0)
         && data.ctors.len() == 1
         && data.ctors[0].fields.len() == 2
-        && matches!(data.ctors[0].fields[0].1.strip_loc(), Term::Data(n, args) if Some(*n) == g.builtins.nat && args.is_empty());
+        && matches!(data.ctors[0].fields[0].1.strip_loc(), Term::Data(n, args) if Some(*n) == g.env.builtins().nat && args.is_empty());
     if !shaped {
         return Err(refused(span, "Float", "not the record of a double's bits"));
     }
@@ -652,13 +652,13 @@ pub fn register_data(g: &mut Globals, d: DataId) -> Result<()> {
             "its content hash isn't the pinned one",
         ));
     }
-    g.builtins.float.data = Some(d);
+    g.env.builtins_mut().float.data = Some(d);
     Ok(())
 }
 
 /// The bound `Float` type, as a term.
 fn float_ty(g: &Globals) -> Option<Term> {
-    Some(Term::Data(g.builtins.float.data?, Vec::new()))
+    Some(Term::Data(g.env.builtins().float.data?, Vec::new()))
 }
 
 /// The type primitive `op` must have, for the bound `Float` and the core's
@@ -671,9 +671,9 @@ fn primitive_type(g: &Globals, op: FloatOp) -> Option<Term> {
     Some(match op.signature() {
         Signature::Binary => arrow(f.clone(), arrow(f.clone(), f)),
         Signature::Unary => arrow(f.clone(), f),
-        Signature::OfInt => arrow(data(g.registry.loaded_data(Builtin::Int)?), f),
-        Signature::OfNat => arrow(data(g.builtins.nat?), f),
-        Signature::ToText => arrow(f, data(g.registry.loaded_data(Builtin::Text)?)),
+        Signature::OfInt => arrow(data(g.env.registry().loaded_data(Builtin::Int)?), f),
+        Signature::OfNat => arrow(data(g.env.builtins().nat?), f),
+        Signature::ToText => arrow(f, data(g.env.registry().loaded_data(Builtin::Text)?)),
     })
 }
 
@@ -682,7 +682,7 @@ fn primitive_type(g: &Globals, op: FloatOp) -> Option<Term> {
 /// [`Signature`] gives it (`Float -> Float -> Float` for `add`), for the
 /// bound `Float`.
 pub fn define_primitive(g: &mut Globals, id: DefId, op: FloatOp) -> Result<()> {
-    let Some(def) = g.defs.get(id.0) else {
+    let Some(def) = g.env.defs().get(id.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
             "malformed core term: reference to an unknown definition",
@@ -698,7 +698,8 @@ pub fn define_primitive(g: &mut Globals, id: DefId, op: FloatOp) -> Result<()> {
         ));
     }
     let taken = g
-        .builtins
+        .env
+        .builtins()
         .float_defs
         .values()
         .any(|d| *d == FloatDef::Primitive(op));
@@ -717,13 +718,16 @@ pub fn define_primitive(g: &mut Globals, id: DefId, op: FloatOp) -> Result<()> {
             ),
         )
         .with_label(g.def(id).span, "here");
-        g.defs[id.0].state = State::Failed;
+        g.env.defs_mut()[id.0].state = State::Failed;
         return Err(e);
     }
-    let def = &mut g.defs[id.0];
+    let def = &mut g.env.defs_mut()[id.0];
     def.state = State::Final;
     def.arity = 0;
-    g.builtins.float_defs.insert(id, FloatDef::Primitive(op));
+    g.env
+        .builtins_mut()
+        .float_defs
+        .insert(id, FloatDef::Primitive(op));
     Ok(())
 }
 
@@ -735,7 +739,7 @@ pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
         return Ok(());
     };
     let span = g.def(id).span;
-    if g.builtins.float.data.is_none() {
+    if g.env.builtins().float.data.is_none() {
         return Err(refused(span, b.name(), "`Float` isn't bound"));
     }
     if hex_of(g, || def_hash(g, id)).as_deref() != Some(pinned) {
@@ -746,8 +750,8 @@ pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
         ));
     }
     match b {
-        Builtin::FloatBitsExt => g.builtins.float.bits_ext = Some(id),
-        Builtin::FloatBitsNe => g.builtins.float.bits_ne = Some(id),
+        Builtin::FloatBitsExt => g.env.builtins_mut().float.bits_ext = Some(id),
+        Builtin::FloatBitsNe => g.env.builtins_mut().float.bits_ne = Some(id),
         _ => {
             let native = FloatNative::ALL
                 .into_iter()
@@ -757,7 +761,10 @@ pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
             if arity != native.arity() {
                 return Err(refused(span, b.name(), "its arity isn't the native's"));
             }
-            g.builtins.float_defs.insert(id, FloatDef::Native(native));
+            g.env
+                .builtins_mut()
+                .float_defs
+                .insert(id, FloatDef::Native(native));
         }
     }
     Ok(())
@@ -792,10 +799,10 @@ fn known_bits(
 /// all its arguments, and their bits are known: `None` otherwise (it's
 /// stuck, or its definition unfolds).
 pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Option<Value>> {
-    let Some(def) = g.builtins.float_def(id, g.erasure.program_running()) else {
+    let Some(def) = g.env.builtins().float_def(id, g.erasure.program_running()) else {
         return Ok(None);
     };
-    let Some(data) = g.builtins.float.data else {
+    let Some(data) = g.env.builtins().float.data else {
         return Ok(None);
     };
     let arity = match def {
@@ -836,7 +843,8 @@ pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Resu
         bits.push(b);
     }
     let boolean = |b: bool| {
-        g.builtins
+        g.env
+            .builtins()
             .bool
             .map(|d| Value::Ctor(d, usize::from(b), [].into()))
     };
@@ -866,8 +874,8 @@ pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Resu
 /// number.
 fn known_int(g: &Globals, value: &Value, force: Force) -> budget::Result<Option<BigInt>> {
     let (Some((int, of_nat)), Some((_, neg_succ))) = (
-        g.registry.ctor(Builtin::OfNat),
-        g.registry.ctor(Builtin::NegSucc),
+        g.env.registry().ctor(Builtin::OfNat),
+        g.env.registry().ctor(Builtin::NegSucc),
     ) else {
         return Ok(None);
     };
@@ -892,10 +900,10 @@ fn known_int(g: &Globals, value: &Value, force: Force) -> budget::Result<Option<
 /// What `Float.toInt` computes for known bits: `None`, `Some (OfNat n)` or
 /// `Some (NegSucc n)` (what `Int.neg (OfNat (n + 1))` reduces to).
 fn to_int_value(g: &Globals, bits: u64) -> Option<Value> {
-    let (option, none) = g.registry.ctor(Builtin::None)?;
-    let (_, some) = g.registry.ctor(Builtin::Some)?;
-    let (int, of_nat) = g.registry.ctor(Builtin::OfNat)?;
-    let (_, neg_succ) = g.registry.ctor(Builtin::NegSucc)?;
+    let (option, none) = g.env.registry().ctor(Builtin::None)?;
+    let (_, some) = g.env.registry().ctor(Builtin::Some)?;
+    let (int, of_nat) = g.env.registry().ctor(Builtin::OfNat)?;
+    let (_, neg_succ) = g.env.registry().ctor(Builtin::NegSucc)?;
     Some(match to_int(bits) {
         None => Value::Ctor(option, none, [].into()),
         Some(n) => {
@@ -916,18 +924,18 @@ fn to_int_value(g: &Globals, bits: u64) -> Option<Value> {
 /// rfl))` (what `Nat.decEq m n` gives, passed on by `Float.decEqFrom`). The
 /// theorems stay folded, as they do when the definition runs.
 fn dec_eq(g: &Globals, args: &[Value], m: u64, n: u64) -> Option<Value> {
-    let dec = g.builtins.decidable?;
+    let dec = g.env.builtins().decidable?;
     let arg = |v: Value| Elim::App(v, Icit::Explicit);
     let (x, y) = (args[0].clone(), args[1].clone());
     if m == n {
         let proof = Value::Neutral(
-            Head::Def(g.builtins.float.bits_ext?),
+            Head::Def(g.env.builtins().float.bits_ext?),
             vec![arg(x), arg(y), arg(Value::Refl)].into(),
         );
         Some(Value::Ctor(dec, 0, [proof].into()))
     } else {
         let differ = Value::Neutral(
-            Head::Def(g.builtins.nat_neq?),
+            Head::Def(g.env.builtins().nat_neq?),
             vec![
                 arg(nat_value(m.into())),
                 arg(nat_value(n.into())),
@@ -936,7 +944,7 @@ fn dec_eq(g: &Globals, args: &[Value], m: u64, n: u64) -> Option<Value> {
             .into(),
         );
         let proof = Value::Neutral(
-            Head::Def(g.builtins.float.bits_ne?),
+            Head::Def(g.env.builtins().float.bits_ne?),
             vec![arg(x), arg(y), arg(differ)].into(),
         );
         Some(Value::Ctor(dec, 1, [proof].into()))

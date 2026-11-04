@@ -59,18 +59,19 @@ fn passes(session: &Session) {
 fn def_hash_of(session: &Session, path: &str) -> ContentHash {
     let g = &session.elab.globals;
     let id = g
-        .defs
+        .env
+        .defs()
         .iter()
-        .position(|d| &*d.path == path)
+        .position(|d| &**d.path() == path)
         .unwrap_or_else(|| panic!("no definition `{path}`"));
     def_hash(g, DefId(id)).unwrap().expect("checked")
 }
 
 fn data_hash_of(session: &Session, path: &str) -> ContentHash {
     let g = &session.elab.globals;
-    let id = (0..g.datas.len())
+    let id = (0..g.env.datas().len())
         .map(DataId)
-        .find(|d| &*g.data(*d).path == path)
+        .find(|d| &**g.data(*d).path() == path)
         .unwrap_or_else(|| panic!("no type `{path}`"));
     data_hash(g, id).unwrap().expect("checked")
 }
@@ -386,15 +387,18 @@ test \"area\" := (Rect 2 3).area == 6 && Square 2 == Square 2
     let hashes = |session: &Session| -> BTreeMap<String, ContentHash> {
         let g = &session.elab.globals;
         let mut out = BTreeMap::new();
-        for (i, d) in g.defs.iter().enumerate() {
-            if d.path.starts_with("Solo.") {
-                out.insert(d.path.to_string(), def_hash(g, DefId(i)).unwrap().unwrap());
+        for (i, d) in g.env.defs().iter().enumerate() {
+            if d.path().starts_with("Solo.") {
+                out.insert(
+                    d.path().to_string(),
+                    def_hash(g, DefId(i)).unwrap().unwrap(),
+                );
             }
         }
-        for (i, d) in g.datas.iter().enumerate() {
-            if d.path.starts_with("Solo.") {
+        for (i, d) in g.env.datas().iter().enumerate() {
+            if d.path().starts_with("Solo.") {
                 out.insert(
-                    d.path.to_string(),
+                    d.path().to_string(),
                     data_hash(g, DataId(i)).unwrap().unwrap(),
                 );
             }
@@ -921,7 +925,7 @@ fn assert_reaches_only_planned_in(
         .collect();
     // Definitions in `Std` are the library's, wherever they loaded.
     let def_namespace = |id: DefId| {
-        if g.def(id).path.starts_with("Std.") {
+        if g.def(id).path().starts_with("Std.") {
             return Some(None);
         }
         ranges
@@ -930,7 +934,7 @@ fn assert_reaches_only_planned_in(
             .map(|(n, _)| Some(n.as_str()))
     };
     let data_namespace = |d: DataId| {
-        let path = &*g.data(d).path;
+        let path = &**g.data(d).path();
         loaded
             .checked
             .iter()
@@ -940,16 +944,16 @@ fn assert_reaches_only_planned_in(
     };
     for (namespace, range) in &ranges {
         let mut terms: Vec<&Term> = Vec::new();
-        for def in &g.defs[range.clone()] {
-            terms.push(&def.ty);
+        for def in &g.env.defs()[range.clone()] {
+            terms.push(def.ty());
             terms.extend(def.body().map(|b| &**b));
         }
-        for d in (0..g.datas.len()).map(DataId) {
+        for d in (0..g.env.datas().len()).map(DataId) {
             if data_namespace(d) == Some(namespace.as_str()) {
                 let data = g.data(d);
-                terms.extend(data.params.iter().map(|(_, t)| t));
+                terms.extend(data.params().iter().map(|(_, t)| t));
                 terms.extend(
-                    data.ctors
+                    data.ctors()
                         .iter()
                         .flat_map(|c| c.fields.iter().map(|(_, t)| t)),
                 );

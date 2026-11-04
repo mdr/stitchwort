@@ -517,7 +517,7 @@ impl Registry {
     }
 
     /// Records that a library is installed (see [`Registry::library_installed`]).
-    pub fn install_library(&mut self) {
+    pub(crate) fn install_library(&mut self) {
         self.library = true;
     }
 
@@ -617,19 +617,27 @@ impl Registry {
     /// Forgets the built-ins bound to definitions from `defs` on and data
     /// types from `datas` on: for undoing declarations that are removed
     /// again (a check cache entry the kernel refused part of).
-    pub fn forget_from(&mut self, defs: usize, datas: usize) {
+    pub(crate) fn forget_from(&mut self, defs: usize, datas: usize) {
         self.entries.retain(|_, e| match e {
             Entry::Def(id) => id.0 < defs,
             Entry::Data(d) | Entry::Ctor(d, _) => d.0 < datas,
         });
     }
+}
 
+impl Registry {
     /// For a test of what depends on the registry: forgets entry `b`, as
     /// if the prelude didn't declare it.
-    #[doc(hidden)]
-    pub fn forget_for_test(&mut self, b: Builtin) {
+    #[cfg(feature = "test-bypass")]
+    pub(crate) fn forget_for_test(&mut self, b: Builtin) {
         self.entries.remove(&b);
     }
+}
+
+/// Records that a library is installed (see [`Registry::library_installed`]):
+/// the one write to the registry from outside the kernel's declarations.
+pub fn install_library(g: &mut Globals) {
+    g.env.registry_mut().install_library();
 }
 
 /// Binds the built-in data type the prelude's final data type `d` is, if
@@ -648,7 +656,7 @@ pub fn bind_data(g: &mut Globals, d: DataId) -> Option<Builtin> {
             new.push((ctor, Entry::Ctor(d, c)));
         }
     }
-    g.registry.entries.extend(new);
+    g.env.registry_mut().entries.extend(new);
     Some(b)
 }
 
@@ -660,7 +668,7 @@ pub fn bind_def(g: &mut Globals, id: DefId) -> Option<Builtin> {
         return None;
     }
     let b = unbound(g, &def.name, |k| k == Kind::Def)?;
-    g.registry.entries.insert(b, Entry::Def(id));
+    g.env.registry_mut().entries.insert(b, Entry::Def(id));
     Some(b)
 }
 
@@ -669,19 +677,19 @@ fn unbound(g: &Globals, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Built
         .iter()
         .copied()
         .find(|b| b.name() == name && kind(b.kind()))
-        .filter(|b| !g.registry.entries.contains_key(b))
+        .filter(|b| !g.env.registry().entries.contains_key(b))
 }
 
 /// Refuses an incomplete registry: user code can't be elaborated until every
 /// built-in is bound.
 pub fn check_complete(g: &Globals) -> Result<(), Diagnostic> {
-    complete(&g.registry.missing())
+    complete(&g.env.registry().missing())
 }
 
 /// [`check_complete`] for the core built-ins only: what user code needs
 /// before it is elaborated. A library built-in is bound when its file loads.
 pub fn check_complete_core(g: &Globals) -> Result<(), Diagnostic> {
-    complete(&g.registry.missing_core())
+    complete(&g.env.registry().missing_core())
 }
 
 fn complete(missing: &[Builtin]) -> Result<(), Diagnostic> {

@@ -618,9 +618,9 @@ impl Session {
         let keep = |c: &Candidate| {
             mentions_defs.is_subset(&c.index.ty) && mentions_data.is_subset(&c.index.data)
         };
-        let iff = (0..g.datas.len())
+        let iff = (0..g.env.datas().len())
             .map(DataId)
-            .find(|d| &*g.data(*d).path == "Std.Iff");
+            .find(|d| &**g.data(*d).path() == "Std.Iff");
         let opts = Opts {
             mode: if options.rewrite {
                 Mode::Rewrite
@@ -757,9 +757,9 @@ impl Session {
     /// …)`), so that a query can say `List.length` or `Map.insert`.
     pub fn import_library_namespaces(&mut self) {
         let g = &self.elab.globals;
-        let tops = (0..g.defs.len())
-            .map(|i| g.def(stitchwort_core::DefId(i)).path.to_string())
-            .chain((0..g.datas.len()).map(|d| g.data(DataId(d)).path.to_string()));
+        let tops = (0..g.env.defs().len())
+            .map(|i| g.def(stitchwort_core::DefId(i)).path().to_string())
+            .chain((0..g.env.datas().len()).map(|d| g.data(DataId(d)).path().to_string()));
         let mut namespaces: Vec<String> = tops
             .filter_map(|path| {
                 let rest = path.strip_prefix("Std.")?;

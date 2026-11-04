@@ -63,7 +63,9 @@ pub(crate) fn classify<'a>(cx: &Ctx, expr: &'a Expr) -> Option<Logic<'a>> {
                 return None;
             }
             match cx.e.named(&name.text) {
-                Some((Global::Def(id), _)) if cx.g().registry.is_def(Builtin::BoolNot, *id) => {
+                Some((Global::Def(id), _))
+                    if cx.g().env.registry().is_def(Builtin::BoolNot, *id) =>
+                {
                     Some(Logic::Not(a, *id))
                 }
                 _ => None,

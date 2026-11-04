@@ -198,19 +198,19 @@ impl Session {
         keep: &dyn Fn(&str) -> bool,
     ) -> Vec<TheoremSearch> {
         let g = &self.elab.globals;
-        let theorems: Vec<(DefId, String, bool)> = (0..g.defs.len())
+        let theorems: Vec<(DefId, String, bool)> = (0..g.env.defs().len())
             .map(DefId)
             .filter_map(|id| {
                 let def = g.def(id);
-                let path = def.path.to_string();
+                let path = def.path().to_string();
                 let state = def.state();
-                (def.theorem
+                (def.theorem()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_generated_name(g, &def.name)
+                    && !stitchwort_elab::is_generated_name(g, def.name())
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
-                .then(|| (id, def.name.to_string(), state == State::Final))
+                .then(|| (id, def.name().to_string(), state == State::Final))
             })
             .collect();
         theorems
@@ -229,7 +229,7 @@ pub fn run_fast(
     inputs: &[Vec<Term>],
     each: &mut dyn FnMut(usize, Option<u64>) -> bool,
 ) -> bool {
-    let Some((pair, _)) = g.registry.ctor(Builtin::MkPair) else {
+    let Some((pair, _)) = g.env.registry().ctor(Builtin::MkPair) else {
         return false;
     };
     let arity = inputs.first().map_or(0, Vec::len);

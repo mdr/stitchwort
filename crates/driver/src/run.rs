@@ -153,7 +153,7 @@ impl Session {
             .elab
             .current_namespace()
             .map_or("main".to_string(), |n| format!("{n}.main"));
-        let Some(index) = g.defs.iter().rposition(|d| *d.name == *main_name) else {
+        let Some(index) = g.env.defs().iter().rposition(|d| **d.name() == *main_name) else {
             return Err(
                 Diagnostic::error("E-NO-MAIN", "there's no `main` to run").with_note(
                     "define `def main(): {IO} () := …`, or `def main(): {IO, Partial} () := …`",
@@ -178,8 +178,8 @@ impl Session {
     /// [`main_calls`] that checks) as a computation in the row
     /// `{IO, Partial}` or `{IO, Fail, Partial}`.
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
-        let def = &self.elab.globals.defs[index];
-        let (span, ty) = (def.span, self.elab.show(&def.ty_value));
+        let def = &self.elab.globals.env.defs()[index];
+        let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
         // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
         if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
             return Err(CallError::Other(
@@ -187,7 +187,7 @@ impl Session {
                     "E-UNFINISHED",
                     format!(
                         "`{}` isn't finished: it, or something it uses, has an open goal (`?`)",
-                        def.name
+                        def.name()
                     ),
                 )
                 .with_label(
@@ -479,7 +479,7 @@ impl Session {
                 let parts: Vec<String> = deepest
                     .iter()
                     .map(|&(id, count)| {
-                        let name = &g.def(stitchwort_core::DefId(id)).name;
+                        let name = &g.def(stitchwort_core::DefId(id)).name();
                         format!("`{name}` ({count} frames pending)")
                     })
                     .collect();
@@ -725,7 +725,7 @@ struct Shapes {
 impl Shapes {
     fn new(session: &Session) -> Shapes {
         let g = &session.elab.globals;
-        let r = &g.registry;
+        let r = &g.env.registry();
         let data = |b: Builtin| r.data(b).expect("the prelude declares it");
         let ctor = |b: Builtin| r.ctor(b).expect("the prelude declares it").1;
         Shapes {

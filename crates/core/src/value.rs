@@ -1538,7 +1538,8 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
 /// evaluated, and the kernel refuses `Term::Chars` without it.
 fn chars_value(g: &Globals, c: &Chars) -> Value {
     let text = g
-        .builtins
+        .env
+        .builtins()
         .text
         .as_ref()
         .expect("internal error: compact text without `List` and `Char`");
@@ -1548,7 +1549,7 @@ fn chars_value(g: &Globals, c: &Chars) -> Value {
 /// One step of the expansion of a compact list `value`, as matching sees it
 /// (see [`chars::step`]); anything else as it is.
 pub fn expand_step(g: &Globals, value: Value) -> Value {
-    match (&value, &g.builtins.text) {
+    match (&value, &g.env.builtins().text) {
         (Value::Chars(c), Some(text)) => chars::step(text, c),
         _ => value,
     }
@@ -1600,14 +1601,14 @@ fn branch(
     };
     let (c, fields) = match value {
         Value::Ctor(_, c, fields) => (c, fields.to_vec()),
-        other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
+        other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
             match native::split_value(&other) {
                 Some(split) => split,
                 None => return stuck_tree(g, stuck),
             }
         }
         // A compact list: what matching its expansion would find.
-        Value::Chars(chars) => match &g.builtins.text {
+        Value::Chars(chars) => match &g.env.builtins().text {
             Some(text) if text.list == *d => chars::split(text, &chars),
             _ => return stuck_tree(g, stuck),
         },
@@ -1645,7 +1646,7 @@ pub fn apart_of(value: &Value) -> Apart {
 fn stuck_tree(g: &Globals, stuck: Stuck) -> Result<Control> {
     match stuck {
         Some((id, spine, _)) => {
-            if g.builtins.nat_add_rule == Some(id)
+            if g.env.builtins().nat_add_rule == Some(id)
                 && let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
                 && let Some(value) = crate::nat_add::stuck_value(g, id, m, n, force)?
             {
@@ -1671,7 +1672,7 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
 #[cold]
 #[inline(never)]
 fn glues(g: &Globals, id: DefId) -> bool {
-    !g.erasure.program_running() && g.builtins.native(id).is_none()
+    !g.erasure.program_running() && g.env.builtins().native(id).is_none()
 }
 
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
@@ -1683,14 +1684,15 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
-    if g.builtins
+    if g.env
+        .builtins()
         .float_def(id, g.erasure.program_running())
         .is_some()
         && let Some(value) = crate::float::run(g, id, &spine, force)?
     {
         return Ok(Control::Return(value));
     }
-    if let Some(op) = g.builtins.native(id)
+    if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
         match native::run(g, id, op, &spine, force)? {
@@ -2139,7 +2141,7 @@ fn visit(
         Value::Sort(s) => done.push(Term::Sort(s)),
         Value::Nat(n) => done.push(Term::Nat(n)),
         // The range, as a term; it means what its expansion would.
-        Value::Chars(c) => done.push(match &g.builtins.text {
+        Value::Chars(c) => done.push(match &g.env.builtins().text {
             Some(text) => chars::term(text, &c),
             None => unreachable!("a compact list without `List` and `Char`"),
         }),
@@ -2160,7 +2162,7 @@ fn visit(
         // Read back folded, `Succ` of a call stays that: the call is what
         // was written.
         Value::Ctor(d, 1, args)
-            if mode.unfolds() && Some(d) == g.builtins.nat && has_call_base(g, &args) =>
+            if mode.unfolds() && Some(d) == g.env.builtins().nat && has_call_base(g, &args) =>
         {
             visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
         }
@@ -2221,7 +2223,7 @@ fn has_call_base(g: &Globals, args: &[Value]) -> bool {
     loop {
         match field {
             Value::Call(..) => return true,
-            Value::Ctor(d, 1, inner) if Some(*d) == g.builtins.nat => field = &inner[0],
+            Value::Ctor(d, 1, inner) if Some(*d) == g.env.builtins().nat => field = &inner[0],
             _ => return false,
         }
     }
@@ -2235,7 +2237,7 @@ fn has_call_base(g: &Globals, args: &[Value]) -> bool {
 #[cold]
 #[inline(never)]
 fn succ_unglued(g: &Globals, field: &Value) -> Result<Value> {
-    let nat = g.builtins.nat.expect("a `Succ` value needs `Nat`");
+    let nat = g.env.builtins().nat.expect("a `Succ` value needs `Nat`");
     let mut succs = 1usize;
     let mut base = field.clone();
     loop {
@@ -2685,8 +2687,8 @@ pub fn opens_by_tree(g: &Globals, value: &Value) -> bool {
         && def.arity > 0
         && spine.len() == def.arity
         && spine.iter().all(|e| matches!(e, Elim::App(..)))
-        && g.builtins.native(*id).is_none()
-        && !g.builtins.float_bound(*id)
+        && g.env.builtins().native(*id).is_none()
+        && !g.env.builtins().float_bound(*id)
 }
 
 /// Where a case tree, walked with its environment, ends up.

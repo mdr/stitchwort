@@ -361,8 +361,15 @@ fn comparing_long_values_runs_without_using_the_stack() {
     let mut session = Session::new();
     session.load("lists.sw", LISTS).expect("checks");
     let g = &session.elab.globals;
-    let def =
-        |name: &str| stitchwort_core::DefId(g.defs.iter().position(|d| &*d.name == name).unwrap());
+    let def = |name: &str| {
+        stitchwort_core::DefId(
+            g.env
+                .defs()
+                .iter()
+                .position(|d| &**d.name() == name)
+                .unwrap(),
+        )
+    };
     let call = |name: &str| {
         let term = stitchwort_core::Term::app(
             stitchwort_core::Term::Def(def(name)),

@@ -45,9 +45,10 @@ fn data(g: &Globals, name: &str) -> DataId {
 
 fn def(g: &Globals, name: &str) -> DefId {
     DefId(
-        g.defs
+        g.env
+            .defs()
             .iter()
-            .position(|d| &*d.name == name)
+            .position(|d| &**d.name() == name)
             .unwrap_or_else(|| panic!("`{name}` is defined")),
     )
 }
@@ -96,10 +97,10 @@ fn codes(session: &mut Session, source: &str) -> Vec<&'static str> {
 
 /// Elaborates `expr` with text literals compact or not, and evaluates it.
 fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
-    session.elab.globals.builtins.disable_compact_text = !compact;
+    session.elab.globals.env.set_disable_compact_text(!compact);
     let parsed = session.parse_expression("<test>", expr).unwrap();
     let result = session.elab.infer_expr(&parsed);
-    session.elab.globals.builtins.disable_compact_text = false;
+    session.elab.globals.env.set_disable_compact_text(false);
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
     let g = &session.elab.globals;
     let _op = g.budget.operation(session.elab.options.limits);
@@ -290,7 +291,7 @@ const AWKWARD: [char; 13] = [
 fn small_texts_mean_the_same_compact_with_natives_off() {
     with_stack(64 * 1024 * 1024, || {
         let mut session = session_with_helpers();
-        session.elab.globals.builtins.disable_natives = true;
+        session.elab.globals.env.set_disable_natives(true);
         for t in texts(&SMALL, 3) {
             one_text(&mut session, &t);
         }
@@ -751,7 +752,7 @@ fn unification_solves_through_a_compact_list() {
 /// as constructors: the same programs check, and fail, either way.
 fn unification_solves(compact: bool) {
     let mut session = Session::new();
-    session.elab.globals.builtins.disable_compact_text = !compact;
+    session.elab.globals.env.set_disable_compact_text(!compact);
     load(
         &mut session,
         r#"
@@ -875,7 +876,7 @@ fn hashes_cover_the_characters_not_the_buffer() {
     assert_eq!(plain, in_middle);
     assert_ne!(plain, other);
     let mut cons = Session::new();
-    cons.elab.globals.builtins.disable_compact_text = true;
+    cons.elab.globals.env.set_disable_compact_text(true);
     load(&mut cons, "def plain : Text := \"abc\"\n");
     let g = &cons.elab.globals;
     let _op = g.budget.operation(Limits::default());
@@ -984,7 +985,7 @@ fn compact_text_is_bound_to_the_prelude() {
         "`List` or `Char` changed: their hashes are now {:?} and {:?}",
         binding.list_hash, binding.char_hash
     );
-    assert!(g.builtins.text.is_some());
+    assert!(g.env.builtins().text.is_some());
 }
 
 /// A prelude whose `isScalar` is changed, keeping its type, isn't the one the
@@ -1007,7 +1008,7 @@ fn a_changed_builtin_isnt_bound() {
     load(&mut session, &changed);
     session.elab.set_loading_prelude(false);
     let g = &session.elab.globals;
-    assert!(g.builtins.text.is_none());
+    assert!(g.env.builtins().text.is_none());
     assert!(!chars::binding(g, data(g, "List"), data(g, "Char")).bound);
     // Literals still work, as constructors.
     load(

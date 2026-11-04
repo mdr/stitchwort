@@ -235,8 +235,8 @@ impl<'g> Inputs<'g> {
         }
         let at = self.plans.len();
         self.keys.insert(key, at);
-        let core = |b: Builtin| g.registry.is_data(b, *d);
-        let library = |b: Builtin| g.registry.loaded_data(b) == Some(*d);
+        let core = |b: Builtin| g.env.registry().is_data(b, *d);
+        let library = |b: Builtin| g.env.registry().loaded_data(b) == Some(*d);
         if core(Builtin::Nat) {
             self.plans.push(Plan::Nat);
             return Some(at);
@@ -252,7 +252,7 @@ impl<'g> Inputs<'g> {
             self.fin_plan(args)
         } else if library(Builtin::Map) {
             self.map_plan(*d, args)
-        } else if g.data(*d).path.to_string() == "Std.Vec" {
+        } else if g.data(*d).path().to_string() == "Std.Vec" {
             self.vec_plan(*d, args)
         } else {
             self.data_plan(*d, args)
@@ -276,7 +276,7 @@ impl<'g> Inputs<'g> {
         let Value::Nat(n) = force(g, n.clone()).ok()? else {
             return None;
         };
-        let of_nat_lt = g.registry.loaded_def(Builtin::FinOfNatLt)?;
+        let of_nat_lt = g.env.registry().loaded_def(Builtin::FinOfNatLt)?;
         Some(Plan::Fin {
             of_nat_lt,
             n: (*n).clone(),
@@ -293,7 +293,7 @@ impl<'g> Inputs<'g> {
             return None;
         };
         let n = usize::try_from(n.as_ref()).ok().filter(|n| *n <= MAX_VEC)?;
-        let [nil, cons] = &data.ctors[..] else {
+        let [nil, cons] = data.ctors() else {
             return None;
         };
         if !nil.fields.is_empty() || cons.fields.len() != 3 {
@@ -301,7 +301,7 @@ impl<'g> Inputs<'g> {
         }
         // The length is the field of type `Nat`; the tail the one of a type
         // of this data type; the head the other.
-        let nat = g.registry.data(Builtin::Nat)?;
+        let nat = g.env.registry().data(Builtin::Nat)?;
         let is = |t: &Term, f: &dyn Fn(&Term) -> bool| f(t.strip_loc());
         let length = cons.fields.iter().position(|(_, t)| {
             is(
@@ -316,9 +316,10 @@ impl<'g> Inputs<'g> {
         let head = (0..3).find(|i| *i != length && *i != tail)?;
         let elem = self.plan(a)?;
         let from_list = g
-            .defs
+            .env
+            .defs()
             .iter()
-            .position(|def| def.path.to_string() == "Std.Vec.fromList")
+            .position(|def| def.path().to_string() == "Std.Vec.fromList")
             .map(DefId);
         Some(Plan::Vec {
             vec: d,
@@ -332,17 +333,17 @@ impl<'g> Inputs<'g> {
     /// `Map k v [ord]`: `Map.fromList` of a list of pairs.
     fn map_plan(&mut self, d: DataId, args: &[Value]) -> Option<Plan> {
         let g = self.g;
-        let from_list = g.registry.loaded_def(Builtin::MapFromList)?;
-        let list = g.registry.data(Builtin::List)?;
-        let pair = g.registry.data(Builtin::Pair)?;
-        let params = &g.data(d).params;
+        let from_list = g.env.registry().loaded_def(Builtin::MapFromList)?;
+        let list = g.env.registry().data(Builtin::List)?;
+        let pair = g.env.registry().data(Builtin::Pair)?;
+        let params = g.data(d).params();
         if params.len() != args.len() {
             return None;
         }
         // `Map.fromList`'s implicit arguments, by name: the map's
         // parameters.
         let mut head = Term::Def(from_list);
-        let mut ty = force(g, g.def(from_list).ty_value.clone()).ok()?;
+        let mut ty = force(g, g.def(from_list).ty_value().clone()).ok()?;
         let mut explicit = 0;
         while let Value::Pi(x, icit, _, cod) = ty.clone() {
             if icit == Icit::Explicit {
@@ -368,11 +369,14 @@ impl<'g> Inputs<'g> {
     fn data_plan(&mut self, d: DataId, args: &[Value]) -> Option<Plan> {
         let g = self.g;
         let data = g.data(d);
-        if !data.indices.is_empty() || data.sort == Sort::Prop || args.len() != data.params.len() {
+        if !data.indices().is_empty()
+            || data.sort() == Sort::Prop
+            || args.len() != data.params().len()
+        {
             return None;
         }
         let mut ctors = Vec::new();
-        for ctor in &data.ctors {
+        for ctor in data.ctors() {
             let mut env: Vec<Value> = args.to_vec();
             let mut fields = Vec::new();
             for (j, ((_, field_ty), (erased, sort))) in ctor
@@ -400,7 +404,7 @@ impl<'g> Inputs<'g> {
             }
             ctors.push(fields);
         }
-        let list = if g.registry.is_data(Builtin::List, d) {
+        let list = if g.env.registry().is_data(Builtin::List, d) {
             match ctors.get(1).map(Vec::as_slice) {
                 Some([Field::Data(elem), Field::Data(_)]) => Some(*elem),
                 _ => None,
@@ -431,10 +435,10 @@ impl<'g> Inputs<'g> {
         let g = self.g;
         match value {
             Value::Eq(..) => true,
-            Value::Data(d, args) if depth < 8 && g.registry.is_data(Builtin::And, *d) => args
+            Value::Data(d, args) if depth < 8 && g.env.registry().is_data(Builtin::And, *d) => args
                 .iter()
                 .all(|a| force(g, a.clone()).is_ok_and(|a| self.decidable_value(&a, depth + 1))),
-            Value::Data(d, _) => g.registry.is_data(Builtin::Unit, *d),
+            Value::Data(d, _) => g.env.registry().is_data(Builtin::Unit, *d),
             _ => false,
         }
     }
@@ -447,14 +451,14 @@ impl<'g> Inputs<'g> {
         let prop = force(g, prop).ok()?;
         match prop {
             Value::Eq(_, a, b) => conv(g, 0, &a, &b).ok()?.then_some(Term::Refl),
-            Value::Data(d, args) if depth < 8 && g.registry.is_data(Builtin::And, d) => {
+            Value::Data(d, args) if depth < 8 && g.env.registry().is_data(Builtin::And, d) => {
                 let parts = args
                     .into_iter()
                     .map(|a| self.proof(a, depth + 1))
                     .collect::<Option<Vec<Term>>>()?;
                 Some(Term::ctor(d, 0, parts))
             }
-            Value::Data(d, _) if g.registry.is_data(Builtin::Unit, d) => {
+            Value::Data(d, _) if g.env.registry().is_data(Builtin::Unit, d) => {
                 Some(Term::ctor(d, 0, Vec::new()))
             }
             _ => None,
@@ -1092,7 +1096,7 @@ impl<'g> Inputs<'g> {
                     .iter()
                     .map(|item| self.shown(*elem, item))
                     .collect();
-                match (from_list, self.g.registry.data(Builtin::List)) {
+                match (from_list, self.g.env.registry().data(Builtin::List)) {
                     (Some(from_list), Some(list)) => {
                         Term::app(Term::Def(*from_list), list_term(list, items))
                     }
@@ -1466,11 +1470,15 @@ mod tests {
         assert!(errors.is_empty(), "{errors:?}");
         let g = &e.globals;
         let data = |name: &str| {
-            let at = g.datas.iter().position(|d| d.name.to_string() == name);
+            let at = g
+                .env
+                .datas()
+                .iter()
+                .position(|d| d.name().to_string() == name);
             Value::Data(DataId(at.expect("declared")), Vec::new())
         };
         let packet = data("Packet");
-        let list = g.registry.data(Builtin::List).expect("List");
+        let list = g.env.registry().data(Builtin::List).expect("List");
         let mut inputs = Inputs::new(g, 1000);
         let plans: Vec<usize> = [
             data("Rose"),

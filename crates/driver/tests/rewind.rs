@@ -71,10 +71,10 @@ fn outcome(session: &Session, result: &Result<(), Vec<Diagnostic>>) -> String {
     let _op = g
         .budget
         .operation(stitchwort_core::Limits::for_stack(STACK));
-    for id in 0..g.defs.len() {
+    for id in 0..g.env.defs().len() {
         out.push_str(&format!("hash def {id} {:?}\n", def_hash(g, DefId(id))));
     }
-    for id in 0..g.datas.len() {
+    for id in 0..g.env.datas().len() {
         out.push_str(&format!("hash data {id} {:?}\n", data_hash(g, DataId(id))));
     }
     drop(_op);

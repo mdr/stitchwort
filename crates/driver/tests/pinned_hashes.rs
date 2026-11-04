@@ -38,11 +38,12 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
     // R3 and R4 of `+`: off unless `Nat.add` is the pinned declaration.
     let add = nat_add::add_hash(g);
-    let on = add.as_deref() == Some(nat_add::NAT_ADD_HASH) && g.builtins.nat_add_rule.is_some();
+    let on =
+        add.as_deref() == Some(nat_add::NAT_ADD_HASH) && g.env.builtins().nat_add_rule.is_some();
     out.push(("Nat.add (R3, R4)".to_string(), add, on));
     // Compact text.
     let text = chars::binding(g, data(g, "List"), data(g, "Char"));
-    let on = text.bound && g.builtins.text.is_some();
+    let on = text.bound && g.env.builtins().text.is_some();
     out.push(("List (compact text)".to_string(), text.list_hash, on));
     out.push(("Char (compact text)".to_string(), text.char_hash, on));
     // `Float` and its kernel natives; a mismatch refuses the library, so
@@ -92,7 +93,8 @@ fn bindings(g: &Globals) -> Vec<(String, Option<String>, bool)> {
         ),
     ] {
         let d = g
-            .registry
+            .env
+            .registry()
             .loaded_data(builtin)
             .unwrap_or_else(|| panic!("the library declares `{name}`"));
         let hash = {

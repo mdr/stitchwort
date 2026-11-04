@@ -157,7 +157,7 @@ impl Elaborator {
     /// (`Ord.%compare`), the field's method (`Ord.compare`) and the name its
     /// dictionary is passed by (`ord`), for the printer (SW-1000).
     pub(crate) fn method_of(&self, projection: DefId) -> Option<(DefId, String)> {
-        if !self.globals.def(projection).name.contains('%') {
+        if !self.globals.def(projection).name().contains('%') {
             return None;
         }
         self.tables.interfaces.values().find_map(|info| {
@@ -231,13 +231,13 @@ impl Elaborator {
         };
         if group.contains(&j) {
             let cycle = if j == d {
-                format!("`{}` contains itself", g.data(d).name)
+                format!("`{}` contains itself", g.data(d).name())
             } else {
                 format!(
                     "`{}` contains `{}`, which contains `{}`",
-                    g.data(d).name,
-                    g.data(j).name,
-                    g.data(d).name
+                    g.data(d).name(),
+                    g.data(j).name(),
+                    g.data(d).name()
                 )
             };
             return Err(error(
@@ -258,7 +258,7 @@ impl Elaborator {
                 format!(
                     "the superclass field `{}` must be `{}` applied to the interface's parameter",
                     field.text,
-                    g.data(j).name
+                    g.data(j).name()
                 ),
             ));
         }
@@ -271,8 +271,8 @@ impl Elaborator {
     pub(crate) fn after_interface(&mut self, d: DataId, projections: Vec<DefId>) -> Result<()> {
         let g = &self.globals;
         let data = g.data(d);
-        let dict = dictionary_name(&data.name);
-        let fields: Vec<(Name, Term)> = data.ctors[0].fields.clone();
+        let dict = dictionary_name(data.name());
+        let fields: Vec<(Name, Term)> = data.ctors()[0].fields.clone();
         // Superclasses: fields whose type is an interface (on the parameter,
         // as `check_interface_field` made sure).
         let mut supers = Vec::new();
@@ -289,15 +289,15 @@ impl Elaborator {
             env.push(stitchwort_core::value::unused());
         }
         let data_key = self.data_key(d);
-        let span = data.span;
-        let name = data.name.clone();
-        let relations = relation_pairs(&fields, g.builtins.decidable);
+        let span = data.span();
+        let name = data.name().clone();
+        let relations = relation_pairs(&fields, g.env.builtins().decidable);
         let mut methods = Vec::new();
         for (i, (field, _)) in fields.iter().enumerate() {
             let proj = projections[i];
             // `Proj: [a: Type] -> (r: I a) -> T` becomes
             // `I.f: [a: Type] -> [auto i: I a] -> T`, defined as `Proj [a] i`.
-            let proj_ty = self.globals.def(proj).ty.clone();
+            let proj_ty = self.globals.def(proj).ty().clone();
             let Term::Pi(a, _, a_ty, rest) = &proj_ty else {
                 unreachable!("a projection's type")
             };
@@ -382,7 +382,7 @@ impl Elaborator {
         let shown_name = def_name.text.clone();
         // The parameters, as variables.
         let mut params: Vec<(Name, Icit, Value)> = Vec::new();
-        let mut ty = def.ty_value.clone();
+        let mut ty = def.ty_value().clone();
         while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
             let level = params.len();
             params.push((x, icit, (*dom).clone()));
@@ -391,7 +391,7 @@ impl Elaborator {
         let names: Vec<Name> = params.iter().map(|(x, _, _)| x.clone()).collect();
         let show = |v: &Value| pretty::value_for_message_in(g, self, &names, v);
         // The result as written, for the synonym note.
-        let mut written = &def.ty;
+        let mut written = def.ty();
         while let Term::Pi(_, _, _, cod) = written.strip_loc() {
             written = cod;
         }
@@ -400,7 +400,8 @@ impl Elaborator {
         // it, and none of the rules below apply (§5.12).
         if let Value::Data(d, _) = &ty
             && Some(*d)
-                == g.registry
+                == g.env
+                    .registry()
                     .data(stitchwort_core::registry::Builtin::Decidable)
         {
             kernel::mark_instance(&mut self.globals, id);
@@ -423,7 +424,7 @@ impl Elaborator {
                 ));
             }
         };
-        let iface_name = g.data(interface).name.clone();
+        let iface_name = g.data(interface).name().clone();
         let goal = show(&ty);
         // A synonym written as the head, for the notes: its name.
         let synonym = match written.strip_loc() {
@@ -431,7 +432,7 @@ impl Elaborator {
                 written_args
                     .first()
                     .and_then(|a| match a.strip_loc().spine().0.strip_loc() {
-                        Term::Def(syn) => Some(g.def(*syn).name.to_string()),
+                        Term::Def(syn) => Some(g.def(*syn).name().to_string()),
                         _ => None,
                     })
             }
@@ -532,7 +533,7 @@ impl Elaborator {
         };
         let (iface_owner, head_owner) = (owner_of(interface), owner_of(head));
         if here != iface_owner && here != head_owner {
-            let head_name = g.data(head).name.clone();
+            let head_name = g.data(head).name().clone();
             let mut d = error(
                 "E-INSTANCE-ORPHAN",
                 span,
@@ -555,7 +556,7 @@ impl Elaborator {
         }
         // Overlap (§5.6 rule 3).
         if let Some(first) = self.tables.instances.get(&(interface, head)) {
-            let head_name = g.data(head).name.clone();
+            let head_name = g.data(head).name().clone();
             return Err(error(
                 "E-INSTANCE-OVERLAP",
                 span,
@@ -612,13 +613,13 @@ impl Elaborator {
     ) -> Result<()> {
         let g = &self.globals;
         let def = g.def(id);
-        let span = def.span;
-        let inst_name = def.name.to_string();
+        let span = def.span();
+        let inst_name = def.name().to_string();
         let mut env = Vec::new();
         let mut types = Vec::new();
         let mut names = Vec::new();
         let mut icits = Vec::new();
-        let mut ty = def.ty_value.clone();
+        let mut ty = def.ty_value().clone();
         while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
             let level = env.len();
             env.push(Value::var(level));
@@ -652,7 +653,7 @@ impl Elaborator {
                     Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
                     term,
                 );
-                shown.push(g.data(at).ctors[0].fields[field].0.to_string());
+                shown.push(g.data(at).ctors()[0].fields[field].0.to_string());
                 at = parent;
             }
             let goal = Value::Data(at, vec![arg.clone()]);
@@ -753,7 +754,7 @@ impl Elaborator {
                         let shown = |d: DataId, v: &Value| {
                             format!(
                                 "{} {}",
-                                g.data(d).name,
+                                g.data(d).name(),
                                 pretty::value_for_message_in(g, self, &names, v)
                             )
                         };
@@ -873,7 +874,7 @@ pub(crate) fn attempt(
     }
     let arg = &refresh(cx, arg)?;
     let goal = Value::Data(interface, vec![arg.clone()]);
-    let iface_name = g.data(interface).name.to_string();
+    let iface_name = g.data(interface).name().to_string();
     let dict = cx.e.tables.interfaces[&interface].dict.clone();
     step(cx, ob.tree, &goal)?;
     // 3. Wait while the type's head is unknown.
@@ -1011,7 +1012,7 @@ pub(crate) fn attempt(
     // An argument of the head that's a dictionary, equated with an unknown,
     // isn't a solution: wait for the unknown's own obligation (§5.5 step 5).
     let data = g.data(head);
-    let binders = data.params.iter().chain(&data.indices);
+    let binders = data.params().iter().chain(data.indices());
     for ((_, ty), value) in binders.zip(&args) {
         if let Term::Data(j, _) = ty.strip_loc()
             && cx.e.is_interface(*j)
@@ -1024,7 +1025,7 @@ pub(crate) fn attempt(
                 &format!(
                     "the dictionary that `{}` gives `{}`",
                     cx.show(&target),
-                    g.def(def).name
+                    g.def(def).name()
                 ),
             )));
         }
@@ -1032,7 +1033,7 @@ pub(crate) fn attempt(
     // Commit: the instance, applied to the head's arguments and a new
     // obligation for each prerequisite.
     let mut term = Term::Def(def);
-    let mut ty = g.def(def).ty_value.clone();
+    let mut ty = g.def(def).ty_value().clone();
     for p in &params {
         let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? else {
             unreachable!("an instance's parameters")
@@ -1098,7 +1099,7 @@ fn stuck(cx: &Ctx, goal: &Value, m: usize, what: &str) -> Diagnostic {
 fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diagnostic {
     let g = cx.g();
     let e = cx.e;
-    let iface_name = g.data(interface).name.to_string();
+    let iface_name = g.data(interface).name().to_string();
     let dict = e.tables.interfaces[&interface].dict.clone();
     let arg = match goal {
         Value::Data(_, args) => args[0].clone(),
@@ -1116,7 +1117,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                 if let Some(why) = e.tables.no_eq.get(&t) {
                     d = d.with_note(format!(
                         "`==` isn't derived for `{}`: {why}",
-                        g.data(t).name
+                        g.data(t).name()
                     ));
                 }
             }
@@ -1136,7 +1137,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                 if let Some(why) = e.tables.no_show.get(&t) {
                     d = d.with_note(format!(
                         "`Show` isn't derived for `{}`: {why}",
-                        g.data(t).name
+                        g.data(t).name()
                     ));
                 }
             }
@@ -1153,7 +1154,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                 if let Some(why) = e.tables.no_finite.get(&t) {
                     d = d.with_note(format!(
                         "`Finite` isn't derived for `{}`: {why}",
-                        g.data(t).name
+                        g.data(t).name()
                     ));
                 }
             }
@@ -1170,7 +1171,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
                 if let Some(why) = e.tables.no_ord.get(&t) {
                     d = d.with_note(format!(
                         "`Ord` isn't derived for `{}`: {why}",
-                        g.data(t).name
+                        g.data(t).name()
                     ));
                 }
             }
@@ -1200,13 +1201,13 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             } else {
                 format!(
                     "in `{io}` (which owns `{iface_name}`) or `{ho}` (which owns `{}`)",
-                    g.data(h).name
+                    g.data(h).name()
                 )
             };
             if !(user && io == "Std" && ho == "Std") {
                 d = d.with_note(format!(
                     "an instance of `{iface_name}` for `{}` can be declared {where_}",
-                    g.data(h).name
+                    g.data(h).name()
                 ));
             }
         }
@@ -1230,24 +1231,24 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
     }
     // Named alternatives of the right type.
     let mut hints = 0;
-    for (k, def) in g.defs.iter().enumerate() {
+    for (k, def) in g.env.defs().iter().enumerate() {
         if hints == 3 {
             break;
         }
-        if def.body().is_none() || def.instance {
+        if def.body().is_none() || def.instance() {
             continue;
         }
-        if let Value::Data(i, args) = &def.ty_value
+        if let Value::Data(i, args) = def.ty_value()
             && *i == interface
             && conv(g, cx.level(), &args[0], &arg).unwrap_or(false)
-            && !e.tables.helper_keys.contains_key(&def.name.to_string())
+            && !e.tables.helper_keys.contains_key(&def.name().to_string())
         {
             let _ = k;
             d = d.with_note(format!(
                 "`{}` has type `{}`: pass it with `[{dict} := {}]`",
-                def.name,
+                def.name(),
                 cx.show(goal),
-                def.name
+                def.name()
             ));
             hints += 1;
         }
@@ -1278,7 +1279,7 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
             for &(field, parent) in &info.supers {
                 let proj = info.projections[field];
                 let arg_term = cx.quote(&c.arg)?;
-                let field_name = &g.data(c.interface).ctors[0].fields[field].0;
+                let field_name = &g.data(c.interface).ctors()[0].fields[field].0;
                 pending.push(Candidate {
                     term: Term::app(
                         Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
@@ -1682,7 +1683,7 @@ fn stuck_term(cx: &Ctx, term: &Term) -> bool {
             && args.len() >= 2
             && match args[1].strip_loc().spine().0 {
                 Term::Ctor(..) => true,
-                Term::Def(d) => cx.g().def(*d).fold,
+                Term::Def(d) => cx.g().def(*d).fold(),
                 _ => false,
             }
     })
@@ -1771,7 +1772,7 @@ pub(crate) fn method_call(
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
     let g = cx.g();
-    let index = g.data(interface).ctors[0]
+    let index = g.data(interface).ctors()[0]
         .fields
         .iter()
         .position(|(n, _)| &**n == field)

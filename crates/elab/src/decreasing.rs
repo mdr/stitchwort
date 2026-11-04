@@ -329,7 +329,7 @@ struct Prelude {
 
 impl Prelude {
     fn new(g: &Globals) -> Result<Prelude> {
-        let r = &g.registry;
+        let r = &g.env.registry();
         let missing = || {
             Diagnostic::error(
                 "E-DECREASING",
@@ -977,7 +977,7 @@ impl Elaborator {
     ) -> Result<()> {
         let key = self.declaration_key(def_name)?;
         let display = scope::display(&key).to_string();
-        let (tel, result) = split_pis(&self.globals.def(f).ty.clone(), None);
+        let (tel, result) = split_pis(&self.globals.def(f).ty().clone(), None);
         // The header's parameters: those up to the last one the equations
         // name before their own patterns.
         let named = match equations.first() {
@@ -1045,7 +1045,7 @@ impl Elaborator {
         let step = step.0;
         let g = &self.globals;
         let n = plan.n();
-        if g.def(step).arity != n + 1 {
+        if g.def(step).arity() != n + 1 {
             return Err(Diagnostic::error(
                 "E-DECREASING",
                 format!(
@@ -1058,7 +1058,9 @@ impl Elaborator {
                 "match every argument after the colon in its arms, or name them in the header",
             ));
         }
-        let helpers: Vec<DefId> = (first_helper..self.globals.defs.len()).map(DefId).collect();
+        let helpers: Vec<DefId> = (first_helper..self.globals.env.defs().len())
+            .map(DefId)
+            .collect();
         let mut made = vec![step];
         // 2. The fuelled function.
         let go = self.generated(&plan, |e| e.decreasing_go(&plan, step))?;
@@ -1166,10 +1168,10 @@ impl Elaborator {
     pub(crate) fn decreasing_measure(&self, f: DefId) -> Option<(Term, Option<Term>)> {
         let g = &self.globals;
         let def = g.def(f);
-        let n = def.arity;
+        let n = def.arity();
         let body = def.body()?;
         let (head, args) = spine(body.peel_lams(n));
-        if !matches!(head.strip_loc(), Term::Def(go) if g.def(*go).name.ends_with(".%go")) {
+        if !matches!(head.strip_loc(), Term::Def(go) if g.def(*go).name().ends_with(".%go")) {
             return None;
         }
         let p = Prelude::new(g).ok()?;
@@ -1249,7 +1251,8 @@ impl Elaborator {
         *self.decl.owner.borrow_mut() = vec![key.to_string()];
         let nat = self
             .globals
-            .registry
+            .env
+            .registry()
             .data(Builtin::Nat)
             .ok_or_else(|| internal_error("no `Nat`"))?;
         let term = (|| {
@@ -1324,7 +1327,7 @@ impl Elaborator {
             plan.span,
         )
         .map_err(|d| self.generator_failed(plan, d))?;
-        let first_helper = self.globals.defs.len();
+        let first_helper = self.globals.env.defs().len();
         // The equations, with a pattern for `%rec` after the header's.
         let equations: Vec<Decl> = equations
             .iter()
@@ -1363,8 +1366,8 @@ impl Elaborator {
             second: plan.second.clone(),
             header: s,
         });
-        let ty_value = self.globals.def(step).ty_value.clone();
-        let written = Rc::new(self.globals.def(step).ty.clone());
+        let ty_value = self.globals.def(step).ty_value().clone();
+        let written = Rc::new(self.globals.def(step).ty().clone());
         let (body, joined) = self.with_local_retries(&step_key, def_name, |e| {
             let mut cx = Ctx::new(e, def_name.span);
             let term = e.with_body_type(&ty_value, def_name.span, || {
@@ -1665,7 +1668,7 @@ impl Elaborator {
         let unfold = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
         // Of an opaque `f`, it unfolds `f`, so it's opaque too
         // (docs/proposals/opaque-definitions.md §6.3).
-        if self.globals.def(plan.f).opaque {
+        if self.globals.def(plan.f).opaque() {
             kernel::mark_opaque(&mut self.globals, unfold);
             kernel::set_unfolding(&mut self.globals, unfold, &[plan.f]);
         }
@@ -1738,12 +1741,12 @@ impl Elaborator {
         }
         let g = &self.globals;
         let def = g.def(d);
-        let a = def.arity;
+        let a = def.arity();
         let body = def
             .body()
             .cloned()
             .ok_or_else(|| internal_error("a helper without a body"))?;
-        let (tel, result) = split_pis(&def.ty, Some(a));
+        let (tel, result) = split_pis(def.ty(), Some(a));
         if tel.len() < a || c >= a {
             return Err(internal_error(
                 "a helper whose type doesn't show its parameters",
@@ -1823,8 +1826,8 @@ impl Elaborator {
             &binders,
             Term::Eq(None, Rc::new(call(c)), Rc::new(call(c + 1))),
         );
-        let name: Name = format!("{}.%respects", def.name).into();
-        let span = def.span;
+        let name: Name = format!("{}.%respects", def.name()).into();
+        let span = def.span();
         let id = kernel::declare_def(&mut self.globals, &name, &ty, true, false, span)?;
         st.respects.insert(d, id);
         st.made.push(id);
@@ -2075,9 +2078,9 @@ impl Elaborator {
                     && let Some(c) = args.iter().position(|(a, _)| {
                         matches!(a.strip_loc(), Term::Var(ix) if *ix == depth - 1 - leaf.r1)
                     })
-                    && c < self.globals.def(k).arity
+                    && c < self.globals.def(k).arity()
                 {
-                    let ka = self.globals.def(k).arity;
+                    let ka = self.globals.def(k).arity();
                     if args.len() < ka {
                         return Err(unsupported(span, "a `match` that returns a function"));
                     }
@@ -2195,7 +2198,7 @@ impl Elaborator {
             return Ok(None);
         }
         let lambda = args.iter().any(|(a, _)| leaf.mentions(a) && is_lambda(a));
-        let f_name = self.globals.def(f).name.to_string();
+        let f_name = self.globals.def(f).name().to_string();
         let desc = match self.cong_lookup(st, f)? {
             Lookup::Found(desc) => desc,
             Lookup::Missing(lemma) if lambda => {
@@ -2326,7 +2329,7 @@ impl Elaborator {
                         Some(&format!(
                             "`{}` needs the results of the two functions it compares to be \
                              equal, and equal functions would need function extensionality",
-                            self.globals.def(desc.lemma).name
+                            self.globals.def(desc.lemma).name()
                         )),
                     ));
                 }
@@ -2663,7 +2666,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         return explain_lex(cx, goal, error);
     }
     let g = cx.g();
-    let Some(less) = g.registry.def(Builtin::LessThan) else {
+    let Some(less) = g.env.registry().def(Builtin::LessThan) else {
         return error;
     };
     // In the obligation's context, where a case may have refined the parameters.
@@ -2728,7 +2731,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
 
 /// [`explain_obligation`] for a pair: the goal is `Nat.LexLess n1 n2 o1 o2`.
 fn explain_lex(cx: &mut Ctx, goal: &Value, error: Diagnostic) -> Diagnostic {
-    let lex = cx.g().registry.data(Builtin::LexLess);
+    let lex = cx.g().env.registry().data(Builtin::LexLess);
     let params = match force(cx.g(), goal.clone()) {
         Ok(Value::Data(d, params)) if Some(d) == lex && params.len() == 4 => params,
         _ => return error,

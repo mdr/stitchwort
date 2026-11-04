@@ -273,7 +273,7 @@ fn is_type_former(value: &Value) -> bool {
 fn constructor(g: &Globals, d: crate::term::DataId, value: &Value) -> Option<(usize, Vec<Value>)> {
     match value {
         Value::Ctor(d2, c, fields) if *d2 == d => Some((*c, fields.to_vec())),
-        Value::Nat(_) | Value::NatAdd(..) if Some(d) == g.builtins.nat => {
+        Value::Nat(_) | Value::NatAdd(..) if Some(d) == g.env.builtins().nat => {
             native::split_value(value)
         }
         Value::Chars(_) => match expand_step(g, value.clone()) {

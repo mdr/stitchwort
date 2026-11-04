@@ -84,9 +84,9 @@ fn theorems(session: &Session) -> Vec<Candidate> {
 }
 
 fn iff(g: &Globals) -> Option<DataId> {
-    (0..g.datas.len())
+    (0..g.env.datas().len())
         .map(DataId)
-        .find(|d| &*g.data(*d).path == "Std.Iff")
+        .find(|d| &**g.data(*d).path() == "Std.Iff")
 }
 
 /// FNV-1a, 64 bits: a hash fixed by its definition, the same on every Rust
@@ -144,7 +144,7 @@ fn run(
             Some(i) => score.ranks.push(i + 1),
             None => score
                 .missed
-                .push(session.elab.globals.def(*wanted).path.to_string()),
+                .push(session.elab.globals.def(*wanted).path().to_string()),
         }
     }
     score
@@ -165,7 +165,7 @@ fn self_retrieval(left: bool) -> Score {
             (candidates.iter())
                 .filter(|c| !c.item.generated_equation(g))
                 .filter_map(|c| match c.item {
-                    Item::Def(id) => Some((g.def(id).path.to_string(), (id, None))),
+                    Item::Def(id) => Some((g.def(id).path().to_string(), (id, None))),
                     Item::Ctor(..) | Item::Part(..) => None,
                 })
                 .collect(),
@@ -220,14 +220,14 @@ type Use = (DefId, DefId, Vec<Term>, usize);
 /// applied to all its arguments.
 fn lemma_uses(g: &Globals, theorems: &BTreeSet<DefId>) -> Vec<Use> {
     let by_path: BTreeMap<String, DefId> = (theorems.iter())
-        .map(|id| (g.def(*id).path.to_string(), *id))
+        .map(|id| (g.def(*id).path().to_string(), *id))
         .collect();
     let mut uses = Vec::new();
     let mut seen: BTreeSet<(DefId, DefId)> = BTreeSet::new();
-    for i in 0..g.defs.len() {
+    for i in 0..g.env.defs().len() {
         let id = DefId(i);
         let def = g.def(id);
-        let path = def.path.to_string();
+        let path = def.path().to_string();
         let owner = if theorems.contains(&id) {
             id
         } else if let Some((stem, _)) = path.split_once('%')

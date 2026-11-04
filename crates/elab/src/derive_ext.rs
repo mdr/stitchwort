@@ -46,10 +46,10 @@ impl Elaborator {
     pub(crate) fn derive_record_ext(&mut self, d: DataId) -> Result<()> {
         let data = self.globals.data(d);
         if self.unit.loading_prelude
-            || data.sort == Sort::Prop
-            || data.group.len() > 1
-            || !data.indices.is_empty()
-            || data.ctors.len() != 1
+            || data.sort() == Sort::Prop
+            || data.group().len() > 1
+            || !data.indices().is_empty()
+            || data.ctors().len() != 1
         {
             return Ok(());
         }
@@ -66,7 +66,7 @@ impl Elaborator {
         // `T.%mk%P%k`, the proof fields' types, unless `==` made them.
         for (k, kind) in plan.fields[0].iter().enumerate() {
             if *kind == crate::derive::Field::Proof {
-                let ctor = &self.globals.data(d).ctors[0].name;
+                let ctor = &self.globals.data(d).ctors()[0].name;
                 let key = Self::member_key(&self.data_key(d), &format!("%{ctor}%P%{k}"));
                 if self.scope.get(&key).is_none() {
                     self.derive_proof_type(d, 0, k)?;
@@ -95,8 +95,8 @@ impl Elaborator {
     /// The signature and the equation of `T.ext`.
     fn ext_source(&self, d: DataId, kinds: &[crate::derive::Field]) -> (Decl, Decl) {
         let data = self.globals.data(d);
-        let ty_name = self.relative_to_root(&data.name);
-        let span = data.span;
+        let ty_name = self.relative_to_root(data.name());
+        let span = data.span();
         let n = |text: &str| ast::Name {
             text: text.to_string(),
             span,
@@ -111,10 +111,10 @@ impl Elaborator {
             cod: Box::new(cod),
             span,
         };
-        let np = data.params.len();
-        let ctor = &data.ctors[0];
+        let np = data.params().len();
+        let ctor = &data.ctors()[0];
         let count = ctor.fields.len();
-        let params: Vec<String> = data.params.iter().map(|(x, _)| x.to_string()).collect();
+        let params: Vec<String> = data.params().iter().map(|(x, _)| x.to_string()).collect();
         let mut taken: Vec<String> = params.clone();
         let mut fresh = |base: String| {
             let mut name = base;
@@ -140,7 +140,7 @@ impl Elaborator {
         };
         let this = (0..np).fold(var(&ty_name), |f, j| {
             let arg = var(&params[j]);
-            let arg = if data.auto_params.get(j) == Some(&true) {
+            let arg = if data.auto_params().get(j) == Some(&true) {
                 Expr::NamedArg(n(&params[j]), Box::new(arg), span, Bracket::Square)
             } else {
                 arg

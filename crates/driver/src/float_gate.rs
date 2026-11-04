@@ -262,9 +262,10 @@ fn check(out: &mut Vec<Check>, mode: Mode, name: String, result: Result<(), Stri
 }
 
 fn def(g: &Globals, name: &str) -> Result<DefId, String> {
-    g.defs
+    g.env
+        .defs()
         .iter()
-        .position(|d| &*d.name == name)
+        .position(|d| &**d.name() == name)
         .map(DefId)
         .ok_or_else(|| format!("no `{name}`"))
 }
@@ -282,9 +283,9 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     let mut session = Session::new();
     session.elab.options.limits = limits;
     {
-        let b = &mut session.elab.globals.builtins;
-        b.disable_natives = mode == Mode::AllNativesOff;
-        b.disable_float_natives = mode == Mode::FloatNativesOff;
+        let env = &mut session.elab.globals.env;
+        env.set_disable_natives(mode == Mode::AllNativesOff);
+        env.set_disable_float_natives(mode == Mode::FloatNativesOff);
     }
     if let Err(errors) = session.load("float-gate.sw", PROGRAM) {
         let detail = errors
@@ -307,9 +308,9 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         let g = &session.elab.globals;
         for native in FloatNative::ALL {
             let result = def(g, native.name()).and_then(|id| {
-                let bound = g.builtins.float_native(id) == Some(native);
-                let checking = g.builtins.float_def(id, false).is_some();
-                let running = g.builtins.float_def(id, true).is_some();
+                let bound = g.env.builtins().float_native(id) == Some(native);
+                let checking = g.env.builtins().float_def(id, false).is_some();
+                let running = g.env.builtins().float_def(id, true).is_some();
                 match (bound, checking, running, mode == Mode::NativesOn) {
                     (true, false, true, true) | (true, false, false, false) => Ok(()),
                     _ => Err(format!(
@@ -330,7 +331,11 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     }
     // From here on the natives fire in evaluation, as in a run, so that the
     // normal forms below compare them with their definitions.
-    session.elab.globals.builtins.float_natives_outside_runs = mode == Mode::NativesOn;
+    session
+        .elab
+        .globals
+        .env
+        .set_float_natives_outside_runs(mode == Mode::NativesOn);
     let g = &session.elab.globals;
     let _op = g.budget.operation(limits);
     let value_of = |name: &str| -> Result<Value, String> {
@@ -359,7 +364,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         }
     }
     // A record with known bits and a variable for its witness.
-    let Some(data) = g.registry.loaded_data(Builtin::Float) else {
+    let Some(data) = g.env.registry().loaded_data(Builtin::Float) else {
         check(
             &mut checks,
             mode,
