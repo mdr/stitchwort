@@ -1,0 +1,85 @@
+total 0.231 s CPU (threadCPUDelta in us)
+
+-- inclusive --
+  0.217  93.9%  _pthread_start
+  0.217  93.9%  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+  0.217  93.9%  stitchwort::run
+  0.214  92.7%  <stitchwort_driver::driver::Session>::start
+  0.214  92.7%  <stitchwort_driver::driver::Session>::for_stack
+  0.108  46.9%  <std::sys::sync::once::queue::Once>::call
+  0.106  45.8%  <stitchwort_elab::library::LibraryIndex>::standard
+  0.106  45.8%  <std::sync::once::Once>::call_once_force::<<std::sync::once_lock::OnceLock<core::result::Result<alloc::sync::Arc<stitchwort_elab::library::LibraryIndex>, alloc:
+  0.106  45.8%  <std::sync::once_lock::OnceLock<core::result::Result<alloc::sync::Arc<stitchwort_elab::library::LibraryIndex>, alloc::string::String>>>::initialize::<<std::sync
+  0.106  45.8%  <stitchwort_elab::library::LibraryIndex>::build
+  0.106  45.8%  <stitchwort_elab::Elaborator>::elaborate_namespace_untimed
+  0.106  45.8%  <stitchwort_elab::Elaborator>::elaborate_module
+  0.106  45.8%  <stitchwort_elab::Elaborator>::elaborate_namespace
+  0.104  44.8%  <stitchwort_elab::Elaborator>::check_component
+  0.096  41.5%  <stitchwort_elab::Elaborator>::group
+  0.060  25.8%  stitchwort_syntax::parser::parse_module_within
+  0.060  25.8%  stitchwort_syntax::parser::parse_module_recovering
+  0.051  21.8%  <stitchwort_elab::Elaborator>::lifted_body
+  0.044  19.0%  <stitchwort_syntax::parser::Parser>::decl
+  0.041  17.7%  <stitchwort_elab::Elaborator>::body_in
+  0.041  17.7%  <stitchwort_elab::Elaborator>::body_term
+  0.040  17.5%  <stitchwort_syntax::parser::Parser>::definition
+  0.038  16.4%  <stitchwort_syntax::parser::Parser>::expr_inline
+  0.038  16.2%  stitchwort_elab::check::check
+  0.037  16.2%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, <stitchwort_elab::Elaborator>::body_in_parts::{closure#7}>
+  0.037  16.2%  stitchwort_elab::check_tree
+  0.037  15.9%  stitchwort_elab::check::check_inner
+  0.036  15.4%  stitchwort_core::value::run
+  0.035  15.1%  stitchwort_elab::check::check_value
+  0.032  14.0%  <stitchwort_syntax::parser::Parser>::append_expr
+  0.032  13.8%  <stitchwort_syntax::parser::Parser>::app
+  0.032  13.8%  <stitchwort_syntax::parser::Parser>::mul_expr
+  0.032  13.8%  <stitchwort_syntax::parser::Parser>::add_expr
+  0.030  13.1%  stitchwort_elab::check::fallback_named
+  0.029  12.7%  stitchwort_elab::kernel::define_group
+  0.029  12.6%  <stitchwort_syntax::parser::Parser>::cmp_expr
+  0.028  12.3%  <stitchwort_syntax::parser::Parser>::atom
+  0.028  11.9%  stitchwort_core::check::define_group
+  0.027  11.5%  stitchwort_core::check::check
+  0.026  11.1%  stitchwort_elab::check::apply_args_with
+
+-- self --
+  0.016   6.9%  _platform_memmove
+  0.013   5.5%  <stitchwort_syntax::parser::Parser>::peek
+  0.013   5.4%  stitchwort_core::value::run
+  0.006   2.6%  mi_free
+  0.006   2.6%  stitchwort_syntax::lexer::lex_keeping
+  0.006   2.5%  stitchwort_elab::module::names_and_proofs
+  0.006   2.4%  stitchwort_core::value::resume
+  0.005   2.1%  <clap_builder::parser::validator::Conflicts>::gather_conflicts
+  0.005   2.1%  mi_malloc_aligned
+  0.005   2.1%  stitchwort_core::value::detach
+  0.005   2.0%  _platform_memcmp
+  0.004   1.9%  mi_theap_malloc_zero_aligned_at_overalloc
+  0.004   1.8%  stitchwort_core::check::check_case
+  0.004   1.8%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  0.004   1.5%  __open
+  0.003   1.5%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  0.003   1.5%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  0.003   1.4%  <stitchwort_syntax::lexer::Tok as core::cmp::PartialEq>::eq
+  0.003   1.4%  stitchwort_elab::check::apply_args_postponing
+  0.003   1.2%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slice::iter::I
+  0.003   1.2%  <stitchwort_core::collections::QuickHasher as core::hash::Hasher>::write
+  0.003   1.2%  <stitchwort_elab::Elaborator>::resolve_short_in
+  0.003   1.2%  mi_page_free_list_extend
+  0.002   1.1%  stitchwort_core::value::take_apart
+  0.002   1.1%  <stitchwort_elab::scope::Scope>::entry
+  0.002   1.0%  <stitchwort_syntax::parser::Parser>::atom
+  0.002   1.0%  stitchwort_core::value::conv_with
+  0.002   0.9%  <stitchwort_syntax::parser::Parser>::peek_at
+  0.002   0.9%  __open_nocancel
+  0.002   0.9%  <alloc::raw_vec::RawVecInner>::finish_grow
+  0.002   0.8%  stitchwort_elab::unify::run
+  0.002   0.8%  madvise
+  0.002   0.8%  <stitchwort_syntax::parser::Parser>::expr_inline
+  0.002   0.8%  stitchwort_core::value::apply_step
+  0.002   0.8%  read
+  0.002   0.7%  mi_theap_malloc_zero_aligned_at_generic
+  0.002   0.7%  <alloc::string::String as core::fmt::Write>::write_str
+  0.002   0.7%  <alloc::collections::btree::map::BTreeMap<usize, alloc::collections::btree::set_val::SetValZST>>::insert
+  0.002   0.6%  <core::fmt::Formatter>::pad
+  0.001   0.6%  stitchwort_syntax::parser::split_decls

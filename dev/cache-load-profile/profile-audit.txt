@@ -1,0 +1,85 @@
+total 5.969 s CPU (threadCPUDelta in us)
+
+-- inclusive --
+  5.955  99.8%  _pthread_start
+  5.954  99.7%  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+  5.954  99.7%  stitchwort::run
+  3.597  60.3%  <stitchwort_elab::Elaborator>::elaborate_namespace
+  3.504  58.7%  <stitchwort_driver::driver::Session>::load_analysis_for
+  3.488  58.4%  <stitchwort_driver::driver::Session>::check_in_order
+  3.486  58.4%  <stitchwort_driver::driver::Session>::check_project_namespace
+  3.480  58.3%  <stitchwort_elab::Elaborator>::elaborate_namespace_cached
+  2.596  43.5%  <stitchwort_elab::Elaborator>::admit_replayed
+  2.364  39.6%  stitchwort_elab::kernel::admit_trusted_def
+  2.364  39.6%  stitchwort_core::check::admit_trusted_def
+  2.334  39.1%  stitchwort_core::value::run
+  2.322  38.9%  stitchwort_core::value::eval
+  2.309  38.7%  stitchwort_core::check::push_def
+  2.100  35.2%  stitchwort::audit_loaded
+  2.100  35.2%  <stitchwort_driver::driver::Session>::audit_one
+  2.100  35.2%  <stitchwort_driver::driver::Session>::audit
+  2.100  35.2%  <alloc::vec::Vec<stitchwort_driver::audit::TheoremAudit> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<stitchwort_driver::audit::TheoremAudit, core::
+  2.091  35.0%  stitchwort_driver::axioms::axioms
+  1.654  27.7%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  0.622  10.4%  <stitchwort_elab::Elaborator>::decode
+  0.477   8.0%  stitchwort_core::value::resume
+  0.405   6.8%  <stitchwort_core::value::Values as core::ops::drop::Drop>::drop
+  0.392   6.6%  stitchwort_core::value::apply_step
+  0.305   5.1%  <stitchwort_elab::Elaborator>::load_needs
+  0.304   5.1%  <stitchwort_elab::Elaborator>::load_libraries
+  0.277   4.6%  core::iter::adapters::try_process::<core::iter::adapters::map::Map<core::slice::iter::Iter<stitchwort_core::value::Elim>, stitchwort_core::value::unfold_now::{c
+  0.271   4.5%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::GenericShunt<co
+  0.263   4.4%  <stitchwort_elab::cache::codec::Terms>::read_nodes
+  0.217   3.6%  <stitchwort_driver::driver::Session>::start
+  0.217   3.6%  <stitchwort_driver::driver::Session>::for_stack
+  0.206   3.5%  <blake3::Hasher>::update
+  0.202   3.4%  stitchwort_core::value::detach
+  0.188   3.1%  stitchwort_core::value::fields
+  0.181   3.0%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  0.175   2.9%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slice::iter::I
+  0.159   2.7%  _platform_memmove
+  0.147   2.5%  stitchwort_core::hash::def_hash
+  0.146   2.5%  <stitchwort_core::hash::Hasher>::term
+  0.136   2.3%  _mi_malloc_generic
+
+-- self --
+  1.611  27.0%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  0.704  11.8%  stitchwort_core::value::run
+  0.399   6.7%  stitchwort_driver::axioms::axioms
+  0.186   3.1%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::GenericShunt<co
+  0.159   2.7%  _platform_memmove
+  0.140   2.3%  stitchwort_core::value::detach
+  0.128   2.1%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  0.125   2.1%  mi_malloc_aligned
+  0.124   2.1%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slice::iter::I
+  0.104   1.7%  stitchwort_core::value::resume
+  0.103   1.7%  <stitchwort_elab::cache::codec::Terms>::read_nodes
+  0.100   1.7%  blake3_hash_many_neon
+  0.099   1.7%  <stitchwort_core::value::Values as core::ops::drop::Drop>::drop
+  0.088   1.5%  read
+  0.087   1.5%  mi_free
+  0.083   1.4%  blake3::portable::compress_in_place
+  0.073   1.2%  mi_page_free_list_extend
+  0.067   1.1%  stitchwort_core::value::quick
+  0.066   1.1%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  0.057   1.0%  <hashbrown::map::HashMap<stitchwort_core::term::DefId, (), core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::insert
+  0.053   0.9%  stitchwort_core::value::push
+  0.050   0.8%  stitchwort_core::value::take_apart
+  0.050   0.8%  <stitchwort_core::value::Spine>::push
+  0.049   0.8%  stitchwort_core::value::apply_step
+  0.041   0.7%  <hashbrown::map::HashMap<stitchwort_core::term::DataId, (), core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::insert
+  0.041   0.7%  <hashbrown::map::HashMap<*const stitchwort_core::term::Term, (), core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::insert
+  0.040   0.7%  <stitchwort_elab::Elaborator>::decode
+  0.038   0.6%  <hashbrown::raw::RawTable<(*const stitchwort_core::term::Term, ())>>::reserve_rehash::<hashbrown::map::make_hasher<*const stitchwort_core::term::Term, (), core:
+  0.037   0.6%  <alloc::vec::Vec<stitchwort_core::value::Value> as core::clone::Clone>::clone
+  0.036   0.6%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_extend::SpecExtend<stitchwort_core::value::Value, alloc::vec::into_iter::IntoIter<stitchwort
+  0.035   0.6%  stitchwort_core::value::branch
+  0.035   0.6%  mi_theap_malloc_zero_aligned_at_overalloc
+  0.035   0.6%  __open
+  0.035   0.6%  <stitchwort_elab::cache::codec::Reader>::uint
+  0.034   0.6%  <stitchwort_core::collections::QuickHasher as core::hash::Hasher>::write
+  0.026   0.4%  _mi_theap_realloc_zero
+  0.025   0.4%  <stitchwort_core::hash::Hasher>::term
+  0.025   0.4%  <hashbrown::map::HashMap<&str, core::option::Option<stitchwort_core::term::DefId>, core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::
+  0.024   0.4%  stitchwort_core::value::fields
+  0.024   0.4%  madvise

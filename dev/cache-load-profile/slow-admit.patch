@@ -1,0 +1,22 @@
+diff --git a/crates/elab/src/kernel.rs b/crates/elab/src/kernel.rs
+index 5b649261..01f0f759 100644
+--- a/crates/elab/src/kernel.rs
++++ b/crates/elab/src/kernel.rs
+@@ -138,7 +138,16 @@ pub fn admit_trusted_def(
+     theorem: bool,
+     span: Span,
+ ) -> Result<DefId> {
+-    unglued(g, |g| k::admit_trusted_def(g, name, ty, theorem, span))
++    // SW-1199 (temporary, this branch only): slow admissions.
++    let t = std::time::Instant::now();
++    let r = unglued(g, |g| k::admit_trusted_def(g, name, ty, theorem, span));
++    if std::env::var_os("STITCHWORT_SLOW_ADMIT").is_some() {
++        let ms = t.elapsed().as_secs_f64() * 1e3;
++        if ms >= 1.0 {
++            eprintln!("slow-admit {ms:9.2} ms  {}", g.path(name));
++        }
++    }
++    r
+ }
+ 
+ pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {

@@ -1,0 +1,85 @@
+total 7.759 s CPU (threadCPUDelta in us)
+
+-- inclusive --
+  7.734  99.7%  _pthread_start
+  7.731  99.6%  stitchwort::run
+  7.731  99.6%  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+  6.046  77.9%  stitchwort::load_project_counting
+  6.046  77.9%  <stitchwort_driver::driver::Session>::load_project_for
+  6.008  77.4%  <stitchwort_elab::Elaborator>::elaborate_namespace
+  5.823  75.0%  <stitchwort_driver::driver::Session>::load_analysis_for
+  5.801  74.8%  <stitchwort_driver::driver::Session>::check_in_order
+  5.800  74.7%  <stitchwort_driver::driver::Session>::check_project_namespace
+  5.790  74.6%  <stitchwort_elab::Elaborator>::elaborate_namespace_cached
+  4.166  53.7%  <stitchwort_elab::Elaborator>::admit_replayed
+  3.776  48.7%  stitchwort_elab::kernel::admit_trusted_def
+  3.776  48.7%  stitchwort_core::check::admit_trusted_def
+  3.715  47.9%  stitchwort_core::value::eval
+  3.710  47.8%  stitchwort_core::value::run
+  3.688  47.5%  stitchwort_core::check::push_def
+  1.288  16.6%  stitchwort::write_index
+  1.280  16.5%  stitchwort_driver::nav::index_json
+  1.174  15.1%  <stitchwort_elab::Elaborator>::decode
+  1.054  13.6%  stitchwort_driver::nav::index_data_of
+  0.745   9.6%  stitchwort_core::value::resume
+  0.701   9.0%  <stitchwort_core::value::Values as core::ops::drop::Drop>::drop
+  0.546   7.0%  <stitchwort_elab::Elaborator>::load_needs
+  0.545   7.0%  <stitchwort_elab::Elaborator>::load_libraries
+  0.533   6.9%  stitchwort_core::value::apply_step
+  0.514   6.6%  <stitchwort_elab::Elaborator>::navigation_index
+  0.485   6.3%  <stitchwort_elab::cache::codec::Terms>::read_nodes
+  0.432   5.6%  stitchwort_syntax::parser::parse_module_recovering
+  0.410   5.3%  stitchwort_core::value::detach
+  0.395   5.1%  <stitchwort_driver::driver::Session>::start
+  0.395   5.1%  <stitchwort_driver::driver::Session>::navigable_for_stack
+  0.350   4.5%  _platform_memmove
+  0.343   4.4%  <blake3::Hasher>::update
+  0.341   4.4%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  0.334   4.3%  core::iter::adapters::try_process::<core::iter::adapters::map::Map<core::slice::iter::Iter<stitchwort_core::value::Elim>, stitchwort_core::value::unfold_now::{c
+  0.329   4.2%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::GenericShunt<co
+  0.319   4.1%  stitchwort_core::value::fields
+  0.302   3.9%  <stitchwort_syntax::parser::Parser>::decl
+  0.283   3.7%  <stitchwort_syntax::parser::Parser>::definition
+  0.283   3.6%  <hashbrown::map::HashMap<&str, core::option::Option<stitchwort_core::term::DefId>, core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::
+
+-- self --
+  1.173  15.1%  stitchwort_core::value::run
+  0.350   4.5%  _platform_memmove
+  0.312   4.0%  stitchwort_core::value::detach
+  0.279   3.6%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  0.243   3.1%  mi_malloc_aligned
+  0.219   2.8%  stitchwort_core::value::resume
+  0.184   2.4%  mi_free
+  0.172   2.2%  <stitchwort_elab::cache::codec::Terms>::read_nodes
+  0.166   2.1%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  0.164   2.1%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::GenericShunt<co
+  0.154   2.0%  blake3_hash_many_neon
+  0.143   1.8%  <core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<core::iter::adapters::map::Map<core::iter::adapters::filter::Filter<core::slice::iter::Iter
+  0.139   1.8%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  0.134   1.7%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slice::iter::I
+  0.131   1.7%  blake3::portable::compress_in_place
+  0.127   1.6%  <stitchwort_core::value::Values as core::ops::drop::Drop>::drop
+  0.118   1.5%  mi_page_free_list_extend
+  0.098   1.3%  stitchwort_syntax::lexer::lex_keeping
+  0.090   1.2%  stitchwort_core::value::quick
+  0.088   1.1%  stitchwort_core::value::take_apart
+  0.086   1.1%  __open
+  0.080   1.0%  <stitchwort_driver::nav::Lines>::position
+  0.079   1.0%  <stitchwort_core::value::Spine>::push
+  0.079   1.0%  <stitchwort_elab::cache::codec::Reader>::uint
+  0.077   1.0%  <stitchwort_core::collections::QuickHasher as core::hash::Hasher>::write
+  0.077   1.0%  <hashbrown::map::HashMap<*const stitchwort_core::term::Term, (), core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::insert
+  0.076   1.0%  stitchwort_core::value::push
+  0.066   0.8%  <stitchwort_syntax::parser::Parser>::peek
+  0.065   0.8%  <hashbrown::raw::RawTable<(*const stitchwort_core::term::Term, ())>>::reserve_rehash::<hashbrown::map::make_hasher<*const stitchwort_core::term::Term, (), core:
+  0.065   0.8%  <stitchwort_elab::Elaborator>::navigation_index
+  0.063   0.8%  stitchwort_core::value::branch
+  0.060   0.8%  stitchwort_core::value::apply_step
+  0.058   0.7%  <hashbrown::map::HashMap<&str, core::option::Option<stitchwort_core::term::DefId>, core::hash::BuildHasherDefault<stitchwort_core::collections::QuickHasher>>>::
+  0.058   0.7%  madvise
+  0.053   0.7%  stitchwort_driver::nav::string
+  0.052   0.7%  <hashbrown::raw::RawTable<(&str, core::option::Option<stitchwort_core::term::DefId>)>>::reserve_rehash::<hashbrown::map::make_hasher<&str, core::option::Option<
+  0.050   0.6%  <stitchwort_elab::Elaborator>::decode
+  0.049   0.6%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_extend::SpecExtend<stitchwort_core::value::Value, alloc::vec::into_iter::IntoIter<stitchwort
+  0.048   0.6%  <stitchwort_core::term::Term>::peel_lams_rc
+  0.044   0.6%  <stitchwort_core::term::Term>::for_each_child::<stitchwort_core::check::case_only_in_tree::{closure#2}>
