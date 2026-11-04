@@ -5984,7 +5984,7 @@
     {
       "id": 1260,
       "title": "Std: lemmas for Text.toNat, Text.stripSuffix (sameChar bridge), List contains-on-distinct, heads of equal lists",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1260",
       "labels": [
