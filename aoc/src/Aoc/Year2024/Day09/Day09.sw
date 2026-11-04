@@ -40,7 +40,7 @@ def blocksFrom (id: Nat): List Nat → List (Option Nat)
 def blocks (diskMap: List Nat): List (Option Nat) := blocksFrom 0 diskMap
 
 --| The file numbers of the file blocks, left to right.
-def fileBlocks (blocks: List (Option Nat)): List Nat := blocks.filterMap (block => block)
+def fileBlocks (blocks: List (Option Nat)): List Nat := blocks.somes
 
 --| Part 1's compaction, front to back: of the first `count` blocks, a file
 --| block stays and a free one takes the next block of `moving`; the rest are
@@ -126,6 +126,6 @@ def compactFiles (diskMap: List Nat): List File :=
   layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) FreeSpace.moveFile |> .snd
 
 --| A file's part of the checksum: its blocks' positions times its number.
-def File.checksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (* file.id)
+def File.checksum (file: File): Nat := List.rangeFrom (count := file.span.length) (start := file.span.start) |> .sumBy (* file.id)
 
 def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy .checksum

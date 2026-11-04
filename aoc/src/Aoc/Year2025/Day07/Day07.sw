@@ -26,7 +26,7 @@
 --| `Aoc.Year2025.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day07
-import Std (Abort, Fail, Fin, IO, List, Nat, Option, Parse, Result, Text, Vec)
+import Std (Abort, Fail, Fin, IO, List, Nat, Option, Parse, Result, Text, Vec, id)
 import Std.Abort (toOption)
 import Std.Parse (looseGrid, pick)
 
@@ -104,14 +104,14 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
   | [row, ..rest] => splitsIn row beams + splitsBelow (fall row beams) rest
 
 --| The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := Vec.zipWith row beams (∧) |> .count (hit => hit)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := Vec.zipWith row beams (∧) |> .count id
 
 --| The beams falling out of a row: a beam passes a column with no splitter,
 --| and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
   let hit := Vec.zipWith row beams (∧)
   Vec.zipWith3 (Vec.zipWith row beams (splitter beam => beam ∧ not splitter))
-    (hit.shiftRight False) (hit.shiftLeft False) (pass left right => pass ∨ (left ∨ right))
+    (hit.shiftRight (fill := False)) (hit.shiftLeft (fill := False)) (pass left right => pass ∨ (left ∨ right))
 
 --| Part 2: the timelines of a particle starting at S.
 def solvePart2 (manifold: Manifold): Nat := manifold.timelineCounts |> .get manifold.start

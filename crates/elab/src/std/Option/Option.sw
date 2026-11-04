@@ -92,8 +92,19 @@ def Option.toList: Option a → List a
   | None => []
   | Some x => [x]
 
+--| Removes one layer of option: `Some (Some 3)` becomes `Some 3`, and a `None` at either layer
+--| becomes `None`. It is `flatMap id`: `(Some (Some 3)).flatten` is `Some 3`.
+def Option.flatten: Option (Option a) → Option a
+  | None => None
+  | Some inner => inner
+
+theorem Option.flattenFlatMap: (x: Option (Option a)) → Option.flatten x = Option.flatMap x id
+  | None => rfl
+  | Some inner => rfl
+
 theorem Option.toListExample: (Some 3).toList = [3] := rfl
 
+test "Option.flatten" := (Some (Some 3)).flatten == Some 3 ∧ (Some (None: Option Nat)).flatten == None ∧ (None: Option (Option Nat)).flatten == None
 test "Option.isSome" := (Some 1).isSome == True ∧ (None: Option Nat).isSome == False
 test "Option.isNone" := (Some 1).isNone == False ∧ (None: Option Nat).isNone == True
 test "Option.orElse" := (Some 1).orElse (Some 2) == Some 1 ∧ (None: Option Nat).orElse (Some 2) == Some 2 ∧ (None: Option Nat).orElse None == None

@@ -11,7 +11,7 @@
 
 namespace Aoc.Year2024.Day08
 import Aoc.Common (Offset, Position)
-import Std (Char, Fail, IO, Int, List, Nat, Option, Parse, Set, Text)
+import Std (Char, Fail, IO, Int, List, Nat, Option, Parse, Set, Text, uncurry)
 
 def main(): {IO, Fail} () :=
   let city := parseCity IO.readAll()
@@ -84,7 +84,7 @@ def City.harmonics (city: City) (start: Position) (end: Position): List Position
     |> .flatMap (count => [step.times count.toInt, (step.times count.toInt).negate] |> .filterMap start.offset)
 
 def solvePart1 (city: City): Nat :=
-  city.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> city.locations |> .size
+  city.antennaPairs |> .flatMap (uncurry antinodesOf) |> city.locations |> .size
 
 def solvePart2 (city: City): Nat :=
   city.antennaPairs |> .flatMap (((start, end)) => city.harmonics start end) |> city.locations |> .size

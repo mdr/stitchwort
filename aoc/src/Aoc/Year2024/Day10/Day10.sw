@@ -41,7 +41,7 @@ def parseMap (input: Text): {Fail} TopographicMap := TopographicMap.ofGrid (pars
 def TopographicMap.ofGrid (grid: Grid (Option Nat)): TopographicMap := { rows = grid.rows }
 
 --| The height at `position`; `None` off the map or on an impassable tile.
-def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat := cellAt map.rows position |> .flatMap (tile => tile)
+def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat := cellAt map.rows position |> .flatten
 
 --| Every position of the map, row by row.
 def TopographicMap.positions (map: TopographicMap): List Position := cells map.rows |> .map Pair.fst

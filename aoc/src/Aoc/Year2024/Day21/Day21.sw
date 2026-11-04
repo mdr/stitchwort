@@ -11,7 +11,7 @@
 --| `Aoc.Year2024.Day21.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day21
-import Std (Fail, IO, List, Nat, Option, Parse, Text)
+import Std (Fail, IO, List, Nat, Option, Parse, Text, uncurry)
 import Std.Parse (label, lines, many1, pick)
 
 def main(): {IO, Fail} () :=
@@ -169,7 +169,7 @@ def Costs.yours: Costs := from to => 1
 
 --| Your presses to press `keys` in turn on a keypad whose arm aims at A.
 def Costs.sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
-  [Activate, ..keys] |> .zipWithNext |> .sumBy (((from, to)) => costs from to)
+  [Activate, ..keys] |> .zipWithNext |> .sumBy (uncurry costs)
 
 --| The keys to press on the driving keypad to take a route and press the
 --| key at its end.

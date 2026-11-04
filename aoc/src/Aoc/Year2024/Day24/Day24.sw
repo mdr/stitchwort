@@ -199,7 +199,7 @@ def bitOutputs (gates: List Gate) (bit: Nat) (carry: Wire): List Wire :=
   let sum := partial.flatMap (known => outputOf gates Xor known carry)
   let passed := partial.flatMap (known => outputOf gates And known carry)
   let carryOut := generated.flatMap (made => passed.flatMap (outputOf gates Or made))
-  [partial, generated, sum, passed, carryOut].filterMap (found => found)
+  [partial, generated, sum, passed, carryOut].somes
 
 --| Bit 0, the half adder.
 def checkHalfAdder (gates: List Gate): BitCheck :=
@@ -236,7 +236,7 @@ def checkAdder (gates: List Gate) (bits: Nat): BitCheck :=
     | Succ higher =>
       match checkHalfAdder gates with
         | Passes carry => checkFrom gates higher 1 carry
-        | Faulty fixes _ => Faulty fixes [Z 0, ..[outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].filterMap (found => found)]
+        | Faulty fixes _ => Faulty fixes [Z 0, ..[outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].somes]
 
 --| The gates with the outputs `first` and `second` swapped.
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=

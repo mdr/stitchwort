@@ -11,7 +11,7 @@
 --| `Aoc.Year2024.Day13.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day13
-import Std (Fail, IO, Int, List, Nat, Option, Parse, Text)
+import Std (Fail, IO, Int, List, Nat, Option, Parse, Text, uncurry)
 import Std.Parse (nat, newline, sections, text)
 
 def main(): {IO, Fail} () :=
@@ -81,7 +81,7 @@ def Machine.fewestTokensWithin (machine: Machine) (limit: Nat): Option Nat :=
   if nonzero: machine.determinant ≠ 0 then
     machine.onlyPresses nonzero
       |> .filter (((aPresses, bPresses)) => aPresses ≤ limit && bPresses ≤ limit)
-      |> .map (((aPresses, bPresses)) => tokens aPresses bPresses)
+      |> .map (uncurry tokens)
   else machine.searchTokens limit
 
 --| How many presses of a button that moves the claw `step` move it exactly
@@ -113,7 +113,7 @@ def Machine.collinearTokens (machine: Machine): Option Nat :=
 --| The fewest tokens that win, with no limit on presses.
 def Machine.fewestTokens (machine: Machine): Option Nat :=
   if nonzero: machine.determinant ≠ 0 then
-    machine.onlyPresses nonzero |> .map (((aPresses, bPresses)) => tokens aPresses bPresses)
+    machine.onlyPresses nonzero |> .map (uncurry tokens)
   else machine.collinearTokens
 
 --| Part 2's prize, 10000000000000 further along both axes.
