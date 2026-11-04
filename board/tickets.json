@@ -1,5 +1,5 @@
 {
-  "next": 1297,
+  "next": 1299,
   "tickets": [
     {
       "id": 47,
@@ -6501,6 +6501,34 @@
         "aoc"
       ],
       "body": "Batch 1 of the SW-1291 survey's stage 2: every main site (21), orFail messages in the puzzle's words, 2024 day 14's 'main with no picture' test. See docs/research/aoc-chaining-survey.md on lane/SW-1291.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1297,
+      "title": "Std: named parameters on Nat.iterate, List.rangeFrom, Vec.shiftRight; add id, Option.flatten, List.somes, uncurry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From the SW-1291 survey: std definitions declared with arrow types have no parameter names, so D2367's named arguments fail (Nat.iterate (count := 2000) … gives E-UNKNOWN-NAME; also List.rangeFrom, Vec.shiftRight's first parameter). Give them named parameters. Also add small missing helpers the AoC code works around: id (8 identity lambdas), Option.flatten, List.somes (= filterMap (x => x); the partial-lambdas note also wants it), uncurry (43 tuple-pattern lambdas might use it; judge whether it reads better). Full API docs. Then use them at the survey's sites.",
+      "created": "2026-11-04",
+      "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1298,
+      "title": "Std follow-ups from day 6: Parse.SepBy first value, Set size/unions/intersect lemmas, Bool.andAssoc",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1278 (day 6) friction notes: (1) Parse.SepBy doesn't tie values' first element to the first read; day 4's parseWritten is silent about its first passport for the same reason. Fix SepBy in std and update day 4's proofs (~1h). (2) Set.size from members (day 6's local sizeCount), membership through Set.unions and the intersect fold (~40 min). (3) Bool.andAssoc (5 min). Move day 6's local versions into std and use them.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
