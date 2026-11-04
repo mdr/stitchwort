@@ -5005,13 +5005,13 @@
     {
       "id": 1193,
       "title": "Warm CLI check after a one-namespace edit replays untouched namespaces: 3.8 s on aoc vs 0.5-1.7 s checking only the affected ones",
-      "status": "review",
-      "agent": "Sonnet",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
-      "body": "SW-1170 finding 1 (dev/measurements/parallel-checking.md). A sequential fix would help the edit loop more than parallelism. Check whether a warm check must replay a cached namespace to report its diagnostics or build --index.\n\nD2300 (Matt, 4 Nov 2026): investigate and measure whether check can load only the namespaces it needs; fix only if the saving is real. Investigation lane now (no code change), Sonnet, expected: 45 min; the fix, if any, after 8b (SW-1187) merges.\n\n\nInvestigation done (dev/measurements/check-skip-unneeded.md): plain check after a one-namespace edit on aoc, CPU 3.3-3.5 s -> 0.56-0.69 s with a prototype that loads only misses and their imports (measured, medians of 3, load 30-80); Aoc.Common edit 22.0 -> 18.5 s. Only plain check gains (not --index, test, run, audit, LSP). Fix: ~300 lines, cache format 22 -> 23 (warnings, exports flag, doc-link info in the entry head); risks: late replay misses, doc links (SW-1045), exports. Prototype kept as a patch on the branch history only (dce02078), not merged. Model result: Sonnet, worked, 21 min (est. 45). Fix pending D2301.\n",
+      "body": "SW-1170 finding 1 (dev/measurements/parallel-checking.md). A sequential fix would help the edit loop more than parallelism. Check whether a warm check must replay a cached namespace to report its diagnostics or build --index.\n\nD2300 (Matt, 4 Nov 2026): investigate and measure whether check can load only the namespaces it needs; fix only if the saving is real. Investigation lane now (no code change), Sonnet, expected: 45 min; the fix, if any, after 8b (SW-1187) merges.\n\n\nInvestigation done (dev/measurements/check-skip-unneeded.md): plain check after a one-namespace edit on aoc, CPU 3.3-3.5 s -> 0.56-0.69 s with a prototype that loads only misses and their imports (measured, medians of 3, load 30-80); Aoc.Common edit 22.0 -> 18.5 s. Only plain check gains (not --index, test, run, audit, LSP). Fix: ~300 lines, cache format 22 -> 23 (warnings, exports flag, doc-link info in the entry head); risks: late replay misses, doc links (SW-1045), exports. Prototype kept as a patch on the branch history only (dce02078), not merged. Model result: Sonnet, worked, 21 min (est. 45). Fix pending D2301.\n\n\nD2301 (Matt, 4 Nov 2026): build the fix. Opus (the cache decides which results are trusted), expected: 120 min. Runs before 8c (both edit cache/mod.rs), orchestrator's call.\n",
       "created": "2026-11-04",
       "updated": "2026-11-04",
       "commits": []
