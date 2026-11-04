@@ -12,6 +12,7 @@ theorem Nat.divTenLess: (n: Nat) → Nat.leq n 9 = False → Succ (n / 10) ≤ n
         (Nat.leAddLeft 8 (n * 10)))
 
 --| The decimal digits of `n`, most significant first, in front of `acc`.
+@[tailrec]
 def Nat.digitsAcc (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=

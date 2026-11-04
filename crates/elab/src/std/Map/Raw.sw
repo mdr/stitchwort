@@ -113,6 +113,7 @@ def Map.Tree.insertWith [auto ord: Ord k] (f: v → v → v) (key: k) (value: v)
 
 --| The value at `key` in the tree, if there is one, found by comparing down one path.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.get [auto ord: Ord k] (key: k): Map.Tree k v → Option v
   | Tip => None
   | Bin _ l kk vv r => match Ord.compare key kk with
@@ -123,12 +124,14 @@ def Map.Tree.get [auto ord: Ord k] (key: k): Map.Tree k v → Option v
 --| The smallest key of a node whose key is `key` and whose left subtree is
 --| the tree given, and its value.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.minKey (key: k): Map.Tree k v → k
   | Tip => key
   | Bin _ l lk _ _ => Map.Tree.minKey lk l
 
 --| The value at the smallest key of the tree, or `value` for an empty tree.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.minValue (value: v): Map.Tree k v → v
   | Tip => value
   | Bin _ l _ lv _ => Map.Tree.minValue lv l
@@ -192,18 +195,21 @@ def Map.Tree.mapWithKey (f: k → v → w): Map.Tree k v → Map.Tree k w
 
 --| The entry with the smallest key of the tree, or `found` for an empty tree.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.minOr (found: Option (k, v)): Map.Tree k v → Option (k, v)
   | Tip => found
   | Bin _ l kk vv r => Map.Tree.minOr (Some (kk, vv)) l
 
 --| The entry with the largest key of the tree, or `found` for an empty tree.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.maxOr (found: Option (k, v)): Map.Tree k v → Option (k, v)
   | Tip => found
   | Bin _ l kk vv r => Map.Tree.maxOr (Some (kk, vv)) r
 
 --| The entry with the largest key below `key` in the tree, or `found` if there is none.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.nearestBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): Map.Tree k v → Option (k, v)
   | Tip => found
   | Bin _ l kk vv r => match Ord.compare kk key with
@@ -212,6 +218,7 @@ def Map.Tree.nearestBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): Map
 
 --| The entry with the smallest key above `key` in the tree, or `found` if there is none.
 @[noReceiver]
+@[tailrec]
 def Map.Tree.nearestAbove [auto ord: Ord k] (key: k) (found: Option (k, v)): Map.Tree k v → Option (k, v)
   | Tip => found
   | Bin _ l kk vv r => match Ord.compare key kk with
@@ -558,6 +565,7 @@ theorem Map.Tree.mapWithKeySized (f: k → v → w): (t: Map.Tree k v) → Map.T
 -- Proofs: what `get` finds.
 
 --| The value for the first entry with that key.
+@[tailrec]
 def Map.Tree.lookupList [auto ord: Ord k] (key: k): List (k, v) → Option v
   | [] => None
   | [(kk, vv), ..rest] => match Ord.compare key kk with

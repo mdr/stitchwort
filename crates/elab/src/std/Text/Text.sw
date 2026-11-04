@@ -122,6 +122,7 @@ def Text.lastLine: List Char → List Text → List Text
 
 --| The lines of the characters, after the current line's characters
 --| (`line`, newest first) and the finished lines (`acc`, newest first).
+@[tailrec]
 def Text.linesFrom (line: List Char) (acc: List Text): List Char → List Text
   | [] => List.reverseOnto (Text.lastLine line acc) []
   | [char, ..chars] =>
@@ -154,12 +155,14 @@ def Text.drop (text: Text) (n: Nat): Text := text.toList.drop n |> Text.fromList
 def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
 
 --| The rest of the characters after the prefix `p`, if they start with it.
+@[tailrec]
 def Text.stripPrefixChars: List Char → List Char → Option (List Char)
   | [], ys => Some ys
   | [p, ..ps], [] => None
   | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
 
 --| Whether the second list of characters starts with the first.
+@[tailrec]
 def Text.startsWithChars: List Char → List Char → Bool
   | [], ys => True
   | [p, ..ps], [] => False
@@ -184,6 +187,7 @@ def Text.endsWith (text: Text) (suffix: Text): Bool :=
   Text.startsWithChars suffix.toList.reverse text.toList.reverse
 
 --| Whether `needle` occurs in the list of characters.
+@[tailrec]
 def Text.containsChars (needle: List Char): List Char → Bool
   | [] => Text.startsWithChars needle []
   | [char, ..chars] => if Text.startsWithChars needle [char, ..chars] then True else Text.containsChars needle chars
@@ -195,6 +199,7 @@ def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars needle
 --| piece's characters, newest first, `acc` the finished pieces, newest first,
 --| and `skip` how many more characters of a separator just found are still to
 --| be passed over. `n` is the separator's length less one.
+@[tailrec]
 def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char → Nat → List Text
   | [], skip => List.reverseOnto [MkText (List.reverseOnto cur []), ..acc] []
   | [char, ..chars], Succ skip => Text.splitOnLoop sep n cur acc chars skip

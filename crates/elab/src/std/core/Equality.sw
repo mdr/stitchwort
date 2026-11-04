@@ -37,6 +37,7 @@ theorem Bool.falseNotTrue: False ≠ True
   | p => J (y q => Bool.IsFalse y) Trivial p
 
 --| Whether two numbers are equal, as a `Bool`.
+@[tailrec]
 def Nat.equal: Nat → Nat → Bool
   | Zero, Zero => True
   | Zero, Succ n => False

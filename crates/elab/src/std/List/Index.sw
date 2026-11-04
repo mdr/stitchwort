@@ -5,6 +5,7 @@
 -- check these.
 
 --| The element at index i, or `fallback` past the end.
+@[tailrec]
 def List.getOr: List a → Nat → (fallback: a) → a
   | [], i, fallback => fallback
   | [x, ..xs], Zero, fallback => x

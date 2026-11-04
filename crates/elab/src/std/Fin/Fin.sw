@@ -111,6 +111,7 @@ test "char to digit" := List.map (Text.toList "0a9") (c => Option.map (Char.toDi
 --| True. It tries 0, 1, 2 and so on and stops at the first that passes, as
 --| `List.any` does along `List.range n` ([`Fin.anyRange`]). A witness is a
 --| `Fin n`, so it comes with its bound ([`Fin.toNatLt`]).
+@[tailrec]
 def Fin.any: (n: Nat) → (Fin n → Bool) → Bool
   | Zero, p => False
   | Succ n, p => if p FZero then True else Fin.any n (i => p (FSucc i))

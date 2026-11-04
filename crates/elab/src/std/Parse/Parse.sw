@@ -317,6 +317,7 @@ def Parse.pick (choices: List (Text, a)): {Parse} a :=
       Empty.absurd Parse.stop()
 
 --| Notes each word of `pick`'s choices as expected here.
+@[tailrec]
 def Parse.noteWords: List (Text, a) → {Parse} ()
   | [] => ()
   | [(word, value), ..rest] =>
@@ -410,6 +411,7 @@ def Parse.onFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse
 
 --| `parser` `count` times, failing as it fails, then at most `extra` more
 --| times while it succeeds. `found` is newest first.
+@[tailrec]
 def Parse.repeatFrom (count: Nat) (extra: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
   match count with
     | Zero => Parse.repeatOptional extra parser found

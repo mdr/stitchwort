@@ -30,6 +30,7 @@ def Nat.keepIf (x: Nat): Bool → Nat
 --| none does): a least witness, found by computation. Nothing before it passes, and if some `k` of
 --| the run passes, so does it, and it is at most `k`.
 @[noReceiver]
+@[tailrec]
 def Nat.firstFrom (passes: Nat → Bool): Nat → Nat → Nat
   | Zero, start => start
   | Succ count, start => if passes start then start else Nat.firstFrom passes count (Succ start)
@@ -65,12 +66,14 @@ def List.pushRun (le: a → a → Bool) (run: List a): List (Option (List a)) �
 
 --| The merge sort's slots after adding each element of the list as a run of one.
 @[noReceiver]
+@[tailrec]
 def List.buildRuns (le: a → a → Bool) (runs: List (Option (List a))): List a → List (Option (List a))
   | [] => runs
   | [x, ..xs] => List.buildRuns le (List.pushRun le [x] runs) xs
 
 --| Merges the runs, older (earlier) ones on the left.
 @[noReceiver]
+@[tailrec]
 def List.mergeRuns (le: a → a → Bool) (acc: List a): List (Option (List a)) → List a
   | [] => acc
   | [None, ..rest] => List.mergeRuns le acc rest

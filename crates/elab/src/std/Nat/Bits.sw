@@ -18,6 +18,7 @@ theorem Nat.halfDivPow (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (S
 
 --| `n` shifted right by `count` bits: `n / 2 ^ count` ([`Nat.shiftRightDiv`]),
 --| in at most one step per bit of `n`.
+@[tailrec]
 def Nat.shiftRight: (n: Nat) → (count: Nat) → Nat
   | Zero, count => 0
   | Succ n, Zero => Succ n
@@ -242,6 +243,7 @@ theorem Nat.testBitOr: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.o
 theorem Nat.regroupDouble (n: Nat) (p: Nat): n * 2 * p = n * (p * 2) := ring
 
 --| `n` shifted left by `count` bits: `n * 2 ^ count` ([`Nat.shiftLeftMul`]).
+@[tailrec]
 def Nat.shiftLeft: (n: Nat) → (count: Nat) → Nat
   | n, Zero => n
   | n, Succ count => Nat.shiftLeft (n * 2) count

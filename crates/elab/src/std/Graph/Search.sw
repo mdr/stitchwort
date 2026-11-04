@@ -142,6 +142,7 @@ theorem Graph.unsettledFewer [auto ord: Ord s] (universe: List s) (settled: Map 
 -- Dijkstra's algorithm
 
 --| The queue with each edge's state added, at `cost` plus the edge's.
+@[tailrec]
 def Graph.pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → Set (Nat, s)
   | [], queue => queue
   | [(next, weight), ..rest], queue => Graph.pushEdges cost rest (queue.insert (cost + weight, next))
@@ -237,6 +238,7 @@ theorem Graph.pushedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s,
 --| least first; `settled` the least cost found for each state settled so
 --| far. The least pair, `popped` with the rest of the queue, settles its
 --| state, unless it already is, and queues the state's edges.
+@[tailrec]
 def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
     (popped: Option ((Nat, s), Set (Nat, s))) → queue.popMin = popped → Map s Nat
@@ -434,6 +436,7 @@ theorem Graph.distancesShortest [auto ord: Ord s] (graph: Graph s) (sources: Lis
 
 --| Each edge's state not settled yet: settled at `depth`, and put on
 --| `next`.
+@[tailrec]
 def Graph.visitEdges [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (Map s Nat, List s)
   | [], settled, next => (settled, next)
   | [(state, weight), ..rest], settled, next =>
@@ -560,6 +563,7 @@ theorem Graph.visitFewer [auto ord: Ord s] (graph: Graph s) (depth: Nat) (fronti
 --| Breadth-first search: `frontier` holds the states settled at `depth`.
 --| The states their edges lead to that aren't settled yet are settled at
 --| `depth + 1`, `visited` with the next frontier.
+@[tailrec]
 def Graph.breadthFrom [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s):
     (visited: (Map s Nat, List s)) → graph.visitFrontier (depth + 1) frontier settled = visited → Map s Nat
     decreasing Graph.unsettledIn graph.states settled

@@ -64,6 +64,7 @@ def Nat.digitChar: Nat → Char
 
 --| The digits of `n` in front of `acc`. `fuel` keeps it structurally
 --| recursive; `n + 1` is always enough.
+@[tailrec]
 def Nat.digitsOnto: Nat → Nat → List Char → List Char
   | Zero, n, acc => acc
   | Succ fuel, n, acc =>

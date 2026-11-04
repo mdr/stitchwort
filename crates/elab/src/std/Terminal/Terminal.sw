@@ -148,6 +148,7 @@ def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
   else Terminal.printLines (Frame.plain lines)
 
 --| Prints each line, in order.
+@[tailrec]
 def Terminal.printLines: List Text → {IO} ()
   | [] => ()
   | [line, ..more] =>
@@ -234,6 +235,7 @@ test "reads: a sequence that never ends stops after the reads allowed" :=
 
 --| Draws a frame per key until `q` or the keys run out (at most 10), and
 --| gives the keys it read.
+@[tailrec]
 def Terminal.echoKeys: Nat → List Key → {Terminal} List Key
   | 0, seen => List.reverse seen
   | Succ limit, seen =>

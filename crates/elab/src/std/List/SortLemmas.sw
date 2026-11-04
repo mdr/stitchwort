@@ -519,6 +519,7 @@ theorem List.mergeSorted (le: a → a → Bool) (tot: (x: a) → (y: a) → le x
 
 --| Every run in the counter is sorted.
 @[noReceiver]
+@[tailrec]
 def List.RunsSorted (le: a → a → Bool): List (Option (List a)) → Prop
   | [] => Unit
   | [None, ..rest] => List.RunsSorted le rest
@@ -675,6 +676,7 @@ theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) �
 
 --| Every run in the counter passes `p`.
 @[noReceiver]
+@[tailrec]
 def List.RunsAll (p: a → Prop): List (Option (List a)) → Prop
   | [] => Unit
   | [None, ..rest] => List.RunsAll p rest

@@ -64,6 +64,7 @@ theorem Float.Theory.bitLengthSlowSpec: (fuel: Nat) → (n: Nat) → 0 < n → n
         Both (omega [And.left ih]) (omega [And.right ih])
 
 --| `powers` are 2^width, 2^(width / 2), …, as `bitLengthBy` needs them.
+@[tailrec]
 def Float.Theory.powersFit: List Nat → Nat → Bool
   | [], width => True
   | [p, ..rest], width => Nat.equal p (Float.Model.pow2 width) ∧ Float.Theory.powersFit rest (Nat.divFuel width width 2)

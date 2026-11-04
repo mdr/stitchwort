@@ -82,6 +82,7 @@ theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
 
 --| The greatest common divisor, by Euclid's algorithm: `Nat.gcd 12 18` is 6,
 --| and `Nat.gcd n 0` is `n`, so `Nat.gcd 0 0` is 0.
+@[tailrec]
 def Nat.gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=

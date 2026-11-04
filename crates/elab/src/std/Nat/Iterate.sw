@@ -4,6 +4,7 @@
 
 --| `Nat.iterate n f x` is `f` applied `n` times to `x`: `Nat.iterate 3 f x` is
 --| `f (f (f x))`. Written with `n.iterate f x` too.
+@[tailrec]
 def Nat.iterate: Nat → (a → a) → a → a
   | Zero, f, x => x
   | Succ n, f, x => Nat.iterate n f (f x)
@@ -35,6 +36,7 @@ test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!
 --| end: a `measure` that `shrinks` at every step that changes something.
 --| Needs `DecEq` to see that nothing changed. A simulation reads:
 --| `Nat.iterateUntilStable grid step size proof`.
+@[tailrec]
 def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
     (shrinks: (y: a) → step y ≠ y → measure (step y) < measure y): a
     decreasing measure x

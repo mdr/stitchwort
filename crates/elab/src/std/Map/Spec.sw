@@ -49,6 +49,7 @@ def Map.Spec.mapWithKey (f: k → v → w): List (k, v) → List (k, w)
   | [(kk, vv), ..rest] => [(kk, f kk vv), ..Map.Spec.mapWithKey f rest]
 
 --| Left fold over the entries: `f (f z k1 v1) k2 v2`.
+@[tailrec]
 def Map.Spec.foldLeft (f: b → k → v → b): b → List (k, v) → b
   | z, [] => z
   | z, [(kk, vv), ..rest] => Map.Spec.foldLeft f (f z kk vv) rest
@@ -651,6 +652,7 @@ theorem Map.Raw.getAdjustOther [auto ord: Ord k] (f: v → v) (key: k) (other: k
 -- The smallest and largest entries, and the nearest below or above a key
 
 --| The last element of the list, or `found` for an empty list.
+@[tailrec]
 def Map.Spec.lastOr (found: Option a): List a → Option a
   | [] => found
   | [x, ..rest] => Map.Spec.lastOr (Some x) rest
@@ -712,6 +714,7 @@ def Map.Spec.isLess [auto ord: Ord k] (a: k) (b: k): Bool := match Ord.compare a
   | _ => False
 
 --| The last entry whose key is below `key`, or `found` if there is none.
+@[tailrec]
 def Map.Spec.lastBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): List (k, v) → Option (k, v)
   | [] => found
   | [(kk, vv), ..rest] => match Ord.compare kk key with
@@ -1398,6 +1401,7 @@ theorem Map.Tree.withinNoneHigh (ord: Ord k) (lo: Option k) (t: Map.Tree k v): (
 
 --| The number of entries, counted onto `count` in a loop: `List.length`
 --| recurses once per entry, which overflows the stack in JS for long lists.
+@[tailrec]
 def Map.Spec.countOnto: Nat → List (k, v) → Nat
   | count, [] => count
   | count, [entry, ..rest] => Map.Spec.countOnto (Succ count) rest
@@ -1433,6 +1437,7 @@ theorem Map.Raw.toListFromSorted [auto ord: Ord k] (xs: List (k, v)) (sorted: Ma
     (Map.Tree.buildOnto (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs)
 
 --| Whether the keys are ascending, each above `lo`: one pass, O(n).
+@[tailrec]
 def Map.Spec.isAscending [auto ord: Ord k]: Option k → List (k, v) → Bool
   | lo, [] => True
   | None, [(kk, vv), ..rest] => Map.Spec.isAscending (Some kk) rest
