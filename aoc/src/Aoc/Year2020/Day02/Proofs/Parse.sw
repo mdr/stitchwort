@@ -24,44 +24,18 @@ def Written (line: List Char) (entry: Entry): Prop :=
       ∧ Not (entry.password.toList = []) ∧ entry.password.toList.all Char.isAsciiLowercase = True
 
 theorem readsLine: Parse.Reads line Written :=
-  Parse.readsWeaken line _ _
-    (Parse.readsBind Parse.nat
-      (low =>
-        Parse.char '-'
-        let high := Parse.nat()
-        Parse.char ' '
-        let letter := Parse.satisfy "a lowercase letter" Char.isAsciiLowercase
-        Parse.text ": "
-        let password := Parse.takeWhile1 "a password" Char.isAsciiLowercase
-        { low, high, letter, password })
-      _ _ Parse.readsNat (low =>
-      Parse.readsBind _ _ _ _ (Parse.readsChar '-') (u1 =>
-        Parse.readsBind _ _ _ _ Parse.readsNat (high =>
-          Parse.readsBind _ _ _ _ (Parse.readsChar ' ') (u2 =>
-            Parse.readsBind _ _ _ _ (Parse.readsSatisfy "a lowercase letter" Char.isAsciiLowercase) (letter =>
-              Parse.readsBind _ _ _ _ (Parse.readsText ": ") (u3 =>
-                Parse.readsBind _ _ _ _ (Parse.readsTakeWhile1 "a password" Char.isAsciiLowercase) (password =>
-                  Parse.readsPure { low, high, letter, password }))))))))
-    (read entry h =>
-      match h with
-        | Witness lowRead (Witness rest1 (Witness low (Both split1 (Both lowDigits more1)))) =>
-          match more1 with
-            | Witness dashRead (Witness rest2 (Witness u1 (Both split2 (Both dash more2)))) =>
-              match more2 with
-                | Witness highRead (Witness rest3 (Witness high (Both split3 (Both highDigits more3)))) =>
-                  match more3 with
-                    | Witness spaceRead (Witness rest4 (Witness u2 (Both split4 (Both space more4)))) =>
-                      match more4 with
-                        | Witness letterRead (Witness rest5 (Witness letter (Both split5 (Both (Both letterIs lower) more5)))) =>
-                          match more5 with
-                            | Witness colonRead (Witness rest6 (Witness u3 (Both split6 (Both colon more6)))) =>
-                              match more6 with
-                                | Witness passwordRead (Witness rest7 (Witness password (Both split7 (Both (Both nonEmpty (Both lowers made)) (Both none built))))) =>
-                                  rewrite built, made in
-                                    Witness lowRead (Witness highRead
-                                      (Both
-                                        (rewrite split1, split2, dash, split3, split4, space, split5, letterIs, split6, colon, split7, none, List.appendNil passwordRead in rfl)
-                                        (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers)))))))
+  Parse.readsThen Parse.nat _ _ _ Parse.readsNat (lowRead low lowDigits =>
+    Parse.readsThen (() => Parse.char '-') _ _ _ (Parse.readsChar '-') (dashRead u1 dash =>
+      Parse.readsThen Parse.nat _ _ _ Parse.readsNat (highRead high highDigits =>
+        Parse.readsThen (() => Parse.char ' ') _ _ _ (Parse.readsChar ' ') (spaceRead u2 space =>
+          Parse.readsThen (() => Parse.satisfy "a lowercase letter" Char.isAsciiLowercase) _ _ _ (Parse.readsSatisfy "a lowercase letter" Char.isAsciiLowercase) (letterRead letter (Both letterIs lower) =>
+            Parse.readsThen (() => Parse.text ": ") _ _ _ (Parse.readsText ": ") (colonRead u3 colon =>
+              Parse.readsThen (() => Parse.takeWhile1 "a password" Char.isAsciiLowercase) _ _ _ (Parse.readsTakeWhile1 "a password" Char.isAsciiLowercase) (passwordRead password (Both nonEmpty (Both lowers made)) =>
+                Parse.readsDone { low, high, letter, password } _
+                  (rewrite made in
+                    Witness lowRead (Witness highRead
+                      (Both (rewrite dash, space, letterIs, colon, List.appendNil passwordRead in rfl)
+                        (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))
 
 --| Every line of the input is its entry written out, and there is one entry
 --| per line.
