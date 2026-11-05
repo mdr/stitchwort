@@ -4,7 +4,9 @@
 -- A file of its own, so that programs using only the toolkit don't
 -- check these.
 
---| The element at `index`, or `fallback` past the end.
+--| The element at `index`, counting from 0, or `fallback` past the end. A result
+--| equal to `fallback` doesn't say the index was past the end; use [`List.get`]
+--| when that matters. O(index), and tail-recursive.
 @[tailrec]
 def List.getOr: (xs: List a) → (index: Nat) → (fallback: a) → a
   | [], i, fallback => fallback
@@ -190,6 +192,8 @@ test "List.withIndexRange" := ["a", "b"].withIndex == List.map (List.range 0 2) 
 
 --| The position of the first `x` in the list, counting from 0, or the list's
 --| length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
+--| Test `< length` for membership ([`List.containsIndexOf`]); for the first
+--| element satisfying a test, use [`List.findIndex`].
 def List.indexOf [auto eq: DecEq a]: (xs: List a) → (x: a) → Nat
   | [], x => 0
   | [y, ..ys], x => if y == x then 0 else Succ (List.indexOf ys x)

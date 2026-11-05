@@ -81,18 +81,18 @@ def List.mergeRuns (le: a → a → Bool) (acc: List a): (runs: List (Option (Li
 
 --| Sorts by `le`, which says whether its first argument may come before its
 --| second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
---| order. It is sorted, for a total `le` ([`List.sortWithSorted`]), and a
---| permutation of the list ([`List.sortWithPerm`]).
+--| order, in O(n log n). It is sorted, for a total `le` ([`List.sortWithSorted`]),
+--| and a permutation of the list ([`List.sortWithPerm`]).
 def List.sortWith (xs: List a) (le: a → a → Bool): List a := List.mergeRuns le [] (List.buildRuns le [] xs)
 
---| Sorts by a comparison, such as `Nat.compare` or `Text.compare`: sorted
---| ([`List.sortBySorted`]) and a permutation of the list ([`List.sortByPerm`]).
+--| Sorts by a comparison, such as `Nat.compare` or `Text.compare`: stable, and
+--| sorted ([`List.sortBySorted`]) and a permutation of the list ([`List.sortByPerm`]).
 def List.sortBy (xs: List a) (cmp: a → a → Ordering): List a := List.sortWith xs (x y => Ordering.isLessEq (cmp x y))
 
 --| Sorts into ascending order, by the type's `Ord`: numbers, texts, lists,
---| pairs, … Another order is passed by name, `List.sort [ord := …] xs`. The
---| result is sorted ([`List.sortSorted`]), a permutation of the list
---| ([`List.sortPerm`]), and as long ([`List.sortLength`]).
+--| pairs, … Another order is passed by name, `List.sort [ord := …] xs`. Stable:
+--| equal elements keep their order. The result is sorted ([`List.sortSorted`]),
+--| a permutation ([`List.sortPerm`]), and as long ([`List.sortLength`]).
 -- (docs/proposals/interfaces.md §7.4)
 def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy xs Ord.compare
 

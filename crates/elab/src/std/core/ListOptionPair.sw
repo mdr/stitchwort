@@ -17,12 +17,14 @@ theorem List.nilNotCons (x: a) (xs: List a): [] ≠ [x, ..xs]
 theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
---| The first element, or `fallback` for an empty list.
+--| The first element, or `fallback` for an empty list. A result equal to
+--| `fallback` doesn't say the list was empty; [`List.head`] does. O(1).
 def List.headOr: (xs: List a) → (fallback: a) → a
   | [], fallback => fallback
   | [x, ..xs], fallback => x
 
---| The list without its first element (empty for an empty list).
+--| The list without its first element, `[]` for an empty list; the same as
+--| `List.drop xs 1`, in O(1).
 def List.tailOf: (xs: List a) → List a
   | [] => []
   | [x, ..xs] => xs

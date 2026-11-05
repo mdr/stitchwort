@@ -39,7 +39,9 @@ def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a :=
     | [] => Void.absurd (nonEmpty rfl)
     | [x, ..rest] => { head = x, tail = rest }
 
---| The list as a `NonEmptyList`, or `None` for an empty list ([`List.nonEmptyNil`], [`List.nonEmptyCons`]).
+--| The list as a `NonEmptyList`, or `None` for an empty list
+--| ([`List.nonEmptyNil`], [`List.nonEmptyCons`]). It keeps the list's own head
+--| and tail; to keep a proof that the list isn't empty, use [`List.toNonEmpty`].
 def List.nonEmpty: (xs: List a) → Option (NonEmptyList a)
   | [] => None
   | [x, ..rest] => Some ({ head = x, tail = rest })
