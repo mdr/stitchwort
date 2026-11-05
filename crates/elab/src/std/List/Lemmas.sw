@@ -1754,6 +1754,18 @@ theorem List.findMapIsHeadFilterMap: (xs: List a) → (f: a → Option b) → Li
       | None => List.findMapIsHeadFilterMap xs f
       | Some y => rfl
 
+--| What `List.findMap` finds, `f` gives for some element of the list; the
+--| element that gave it is in the list ([`List.findMapIsHeadFilterMap`] says
+--| which one, by way of `filterMap`).
+theorem List.memOfFindMap (f: a → Option b): (xs: List a) → (y: b) → List.findMap xs f = Some y → ∃ (x: a) => x ∈ xs ∧ f x = Some y
+  | [], y, found => Void.exfalso (Option.noneNotSome y found)
+  | [x, ..xs], y, found =>
+    match c: f x with
+      | Some z => Witness x (Both (Inl rfl) (rewrite c in found))
+      | None =>
+        match List.memOfFindMap f xs y found with
+          | Witness later (Both member made) => Witness later (Both (Inr member) made)
+
 theorem List.lengthTails: (xs: List a) → List.length (List.tails xs) = Succ (List.length xs)
   | [] => rfl
   | [x, ..xs] => Eq.cong Succ (List.lengthTails xs)
@@ -2359,11 +2371,39 @@ theorem List.getPast: (xs: List a) → (k: Nat) → List.length xs ≤ k → Lis
   | [x, ..xs], Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Succ k, h => List.getPast xs k h
 
+--| An index where `get` finds something is inside the list; the converse is
+--| [`List.getInRange`].
+theorem List.getSomeLt: (xs: List a) → (i: Nat) → (x: a) → List.get xs i = Some x → i < List.length xs
+  | [], i, x, found => Void.exfalso (Option.noneNotSome x found)
+  | [x, ..xs], Zero, y, found => omega
+  | [x, ..xs], Succ i, y, found => omega [List.getSomeLt xs i y found]
+
 --| What `get` finds is an element of the list.
 theorem List.memOfGet: (xs: List a) → (k: Nat) → (v: a) → List.get xs k = Some v → v ∈ xs
   | [], k, v, h => Void.exfalso (Option.noneNotSome v h)
   | [x, ..xs], Zero, v, h => Inl (Option.someInjective h)
   | [x, ..xs], Succ k, v, h => Inr (List.memOfGet xs k v h)
+
+--| Setting an element keeps the length, whether or not the index is inside.
+theorem List.lengthSet: (xs: List a) → (i: Nat) → (v: a) → List.length (List.set xs i v) = List.length xs
+  | [], i, v => rfl
+  | [x, ..xs], Zero, v => rfl
+  | [x, ..xs], Succ i, v => Eq.cong Succ (List.lengthSet xs i v)
+
+--| Inside the list, `get` after a `set` finds the new value.
+theorem List.getSet: (xs: List a) → (i: Nat) → (v: a) → i < List.length xs → List.get (List.set xs i v) i = Some v
+  | [], i, v, below => Void.exfalso (Bool.falseNotTrue below)
+  | [x, ..xs], Zero, v, below => rfl
+  | [x, ..xs], Succ i, v, below => List.getSet xs i v (omega)
+
+--| At another index, `set` changes nothing `get` finds there; past the end
+--| both finds nothing.
+theorem List.getSetOther: (xs: List a) → (i: Nat) → (v: a) → (j: Nat) → j ≠ i → List.get (List.set xs i v) j = List.get xs j
+  | [], i, v, j, differ => rfl
+  | [x, ..xs], Zero, v, Zero, differ => Void.exfalso (differ rfl)
+  | [x, ..xs], Zero, v, Succ j, differ => rfl
+  | [x, ..xs], Succ i, v, Zero, differ => rfl
+  | [x, ..xs], Succ i, v, Succ j, differ => List.getSetOther xs i v j (same => differ (Eq.cong Succ same))
 
 theorem List.getMap: (xs: List a) → (f: a → b) → (k: Nat) → List.get (List.map xs f) k = Option.map (List.get xs k) f
   | [], f, k => rfl

@@ -36,8 +36,8 @@ theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps
     match checked: checkAdder gates bits with
       | Passes carry => repairDone bits (Succ fewer) gates swaps result found
       | Faulty fixes suspects =>
-        match findMapSome (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) result (swapsToTry fixes suspects) found with
-          | Witness fix fixed =>
+        match List.memOfFindMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) (swapsToTry fixes suspects) result found with
+          | Witness fix (Both _ fixed) =>
             match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
               | Witness more (Both isResult (Both short adder)) =>
                 Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))

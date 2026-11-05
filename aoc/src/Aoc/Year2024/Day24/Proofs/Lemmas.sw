@@ -27,14 +27,6 @@ theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)
           | Less => Void.exfalso (Option.noneNotSome value found)
           | Greater => Void.exfalso (Option.noneNotSome value found)
 
---| What `List.findMap` finds, `f` gives for some element.
-theorem findMapSome (f: a → Option b) (result: b): (xs: List a) → xs.findMap f = Some result → ∃ (x: a) => f x = Some result
-  | [], found => Void.exfalso (Option.noneNotSome result found)
-  | [x, ..rest], found =>
-    match here: f x with
-      | Some value => Witness x (Eq.trans here found)
-      | None => findMapSome f result rest found
-
 --| The lowest bit of a number written lowest first, and the rest.
 theorem fromBitsLow (bit: Bool) (rest: List Bool): Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) 0 = bit :=
   rewrite Bits.valueFromLowFirst bit rest, testBitZero (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2), Nat.modAddMul bit.toNat (Bits.fromLowFirst rest).value 2 in toNatOdd bit

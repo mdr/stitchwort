@@ -6,25 +6,7 @@ import Aoc.Year2020.Day08 (..)
 import Aoc.Year2020.Day08 (Spec)
 import Std (Eq, Fail, Int, List, Map, Nat, Option, Result, Set, Void)
 
---| Std has this for `Map.getOr` (`Map.getOrByPosition`), not for `Map.get`.
-theorem lookupLastWithIndex: (s: Nat) → (i: Nat) → (xs: List a) → Map.lookupLast (s + i) (List.withIndexFrom s xs) = xs.get i
-  | s, i, [] => rfl
-  | s, Zero, [x, ..xs] =>
-    rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
-  | s, Succ i, [x, ..xs] =>
-    rewrite Nat.addSucc s i in
-      match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
-        | Some v => rewrite <- r in lookupLastWithIndex (Succ s) i xs
-        | None =>
-          match c: Nat.compare (Succ (s + i)) s with
-            | Equal => omega [Nat.compareEqual (Succ (s + i)) s c]
-            | Less => rewrite <- r in lookupLastWithIndex (Succ s) i xs
-            | Greater => rewrite <- r in lookupLastWithIndex (Succ s) i xs
-
-theorem getByPosition (xs: List a) (i: Nat): Map.get (Map.byPosition xs) i = xs.get i :=
-  rewrite Map.getFromList i (List.withIndex xs) in lookupLastWithIndex 0 i xs
-
-theorem codeHolds (program: Program): Holds program.code program := Both rfl (position => getByPosition program.instructions position)
+theorem codeHolds (program: Program): Holds program.code program := Both rfl (position => Map.getByPosition program.instructions position)
 
 theorem unvisitedAll (length: Nat): Unvisited length [] (Set.fromList (0 ..< length)) :=
   position => {

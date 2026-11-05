@@ -22,11 +22,6 @@ def Ended (program: Program) (executed: List Int) (last: State): (outcome: Outco
 def Unvisited (length: Nat) (done: List Int) (unvisited: Set Nat): Prop :=
   (position: Nat) → unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
 
-theorem getLength: (xs: List a) → (index: Nat) → (x: a) → xs.get index = Some x → index < xs.length
-  | [], index, x, found => Void.exfalso (Option.noneNotSome x found)
-  | [y, ..ys], Zero, x, found => omega
-  | [y, ..ys], Succ index, x, found => omega [getLength ys index x found]
-
 theorem nextIs: (next: Int) → (position: Nat) → next.toNatChecked = Some position → next = position.toInt
   | OfNat n, position, found => Eq.cong OfNat (Option.someInjective found)
   | NegSucc n, position, found => Void.exfalso (Option.noneNotSome position found)
@@ -91,7 +86,7 @@ theorem runFromRuns (program: Program) (code: Code) (holds: Holds code program) 
               | False => Witness [] (Witness state (Both rfl (Both stopped ())))
           | Some instruction =>
             let listed: program.instructions.get position = Some instruction := rewrite <- And.right holds position in g
-            let below: position < code.length := rewrite And.left holds in getLength program.instructions position instruction listed
+            let below: position < code.length := rewrite And.left holds in List.getSomeLt program.instructions position instruction listed
             match c: unvisited.contains position with
               | True =>
                 let out: position.toInt ∉ done := And.right ((left position).forward c)

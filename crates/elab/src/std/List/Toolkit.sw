@@ -175,6 +175,20 @@ def List.get: (xs: List a) → (index: Nat) → Option a
   | [x, ..xs], Zero => Some x
   | [x, ..xs], Succ i => List.get xs i
 
+--| The list with the element at `index` replaced by `value`, counting from 0;
+--| past the end, and on the empty list, it is unchanged:
+--| `[1, 2, 3].set 1 9` is `[1, 9, 3]`, and `.set 3 9` is `[1, 2, 3]`.
+--| O(index): only the part up to `index` is rebuilt. Scala's `updated`. To
+--| read the element first, use [`List.get`]; the properties are
+--| [`List.lengthSet`], [`List.getSet`] and [`List.getSetOther`].
+def List.set: (xs: List a) → (index: Nat) → (value: a) → List a
+  | [], index, value => []
+  | [x, ..xs], Zero, value => [value, ..xs]
+  | [x, ..xs], Succ index, value => [x, ..List.set xs index value]
+
+test "List.set" := [1, 2, 3].set 1 9 == [1, 9, 3] ∧ ([]: List Nat).set 0 9 == []
+test "List.set past the end leaves the list" := [1, 2, 3].set 3 9 == [1, 2, 3] ∧ [1, 2].set 5 9 == [1, 2]
+
 --| Whether some element satisfies `p`. `p` may perform abilities: it runs in
 --| list order and isn't called after the first element that satisfies it.
 @[tailrec]
