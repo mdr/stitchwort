@@ -8086,13 +8086,13 @@
     {
       "id": 1409,
       "title": "Std: two-way List.memFlatMap (x ∈ xs.flatMap f ↔ ∃ y ∈ xs, x ∈ f y), and Map.groupMap for inverting a relation (2020 day 7)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1409",
       "labels": [
         "std"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nBoard audit (5 Nov 2026): List.memFlatMapIntro and memFlatMapElim exist; missing: one ↔/∃ form and Map.groupMap.",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nBoard audit (5 Nov 2026): List.memFlatMapIntro and memFlatMapElim exist; missing: one ↔/∃ form and Map.groupMap.\n\nDone on lane/SW-1409 (b98b457f9): List.memFlatMap (y ∈ xs.flatMap f ↔ ∃ x => x ∈ xs ∧ y ∈ f x), Map.groupMap / List.groupMap (values under keys, list order) with Map.getGroupMap (get = nonEmpty of the filtered, mapped values), tests and docs; prelude snapshot additions only. Statements checked by the orchestrator. Waits for batch 42's verifier. Model result: DeepSeek, worked, ~25 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
