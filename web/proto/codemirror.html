@@ -8,9 +8,8 @@
   `nix develop -c web/build.sh`), so serve web/ (`web/serve.sh --no-build`) and
   open http://127.0.0.1:8000/proto/codemirror.html.
 
-  codemirror.bundle.js is built from codemirror-entry.js:
-    cd web/proto && npm install && esbuild codemirror-entry.js --bundle --minify \
-      --format=esm --target=es2020 --outfile=codemirror.bundle.js
+  ../dist/codemirror.bundle.js is built from ../editor/src/codemirror-entry.js by
+  `nix develop -c web/editor/build.sh` (also run by web/build.sh).
 -->
 <style>
   body { font: 14px system-ui; margin: 1rem; }
@@ -36,5 +35,5 @@ def worse : Nat := missing 3
 
 theorem hole (n : Nat) : n + 0 = n := ?
 </script>
-<script type="module" src="codemirror.bundle.js"></script>
+<script type="module" src="../dist/codemirror.bundle.js"></script>
 </html>

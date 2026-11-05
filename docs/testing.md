@@ -202,6 +202,8 @@ A bring-up tool for native compilation (`docs/proposals/native-compilation.md`, 
 
 **The WebAssembly float tests.** `crates/cli/tests/float_paths.rs` runs the float gate on the playground's bundle in `web/pkg`. When the bundle is missing or built from other sources, those tests skip (a pass), so lanes work without a web build. With `STITCHWORT_REQUIRE_WASM=1` they fail instead, naming `web/build.sh`; `task test:daily` sets it and builds `web/pkg` first when it is out of date. The merge tier leaves it unset.
 
+**The editor bundle.** The playground's editor (CodeMirror 6 and `@codemirror/lsp-client`) is JavaScript that is bundled, not committed. `web/editor/` holds the entry modules (`src/`), `package.json` and `package-lock.json`; `web/editor/build.sh` runs `npm ci` and esbuild into `web/dist/` (git-ignored), and `web/build.sh` calls it after the WebAssembly steps. The `editor` flake output (`nix build .#editor`) builds the same bytes with `buildNpmPackage` and nixpkgs' esbuild, and `playground` copies it to `dist/`. After changing `package-lock.json`, set `npmDepsHash` in `flake.nix` to `lib.fakeHash`, build, and paste the hash from the error. The trial pages `web/proto/lsp.html` and `codemirror.html` load the bundles from `web/dist/`.
+
 `web/test.sh` builds the playground into `web/pkg/`, then runs `web/tests/browser.mjs` with Node: it serves `web/` itself (on a port the system picks), starts headless Chrome with a temporary profile, drives the page over the DevTools protocol, and stops Chrome at the end. Each test has a fresh tab with empty storage.
 
 ```sh

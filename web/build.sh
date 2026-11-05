@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the playground's WebAssembly bundle into web/pkg/. Run inside
-# `nix develop`, which provides wasm-bindgen and wasm-opt.
+# Builds the playground's WebAssembly bundle into web/pkg/ and the editor's
+# JavaScript bundle into web/dist/. Run inside `nix develop`, which provides
+# wasm-bindgen, wasm-opt, node and esbuild.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 cargo build -p stitchwort-web --target wasm32-unknown-unknown --release
@@ -15,4 +16,6 @@ web/bundle-projects.sh . web/pkg
 # pkg/version.json: the content hashes the page caches by (docs/proposals/
 # playground-projects.md §10.2).
 web/write-version.sh web
-ls -lh web/pkg
+# The editor (CodeMirror 6 and the language-server client), from web/editor/.
+web/editor/build.sh web/dist
+ls -lh web/pkg web/dist

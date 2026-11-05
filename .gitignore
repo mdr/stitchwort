@@ -6,6 +6,8 @@ node_modules/
 *.snap.new
 mutants.out*
 /web/pkg
+/web/dist
+/web/editor/node_modules
 /.claude/worktrees
 /bench/native/handwritten/target
 .task/
