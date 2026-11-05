@@ -1,5 +1,5 @@
 {
-  "next": 1350,
+  "next": 1351,
   "tickets": [
     {
       "id": 47,
@@ -7124,13 +7124,13 @@
     {
       "id": 1341,
       "title": "Chained comparisons: implement docs/proposals/chained-comparisons.md per D2386-D2391",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1341",
       "labels": [
         "syntax"
       ],
-      "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.",
+      "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.\n\nDone on lane/SW-1341 (f3256b9ae, review fixes 9475b9a62). Opus review: kernel side sound; B1 (chain starting with =/!=/==) and B2 (if h: computed the middle twice) fixed, with a JS snapshot showing once; S1-S3 fixed. Left: a chain nested in a larger if h: proposition still computes twice (ticket). Model result: Sonnet, needed fixes (= chains accepted; if h: twice), 40 min (est. 180).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7243,6 +7243,20 @@
         "elab"
       ],
       "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1350,
+      "title": "Chained comparisons: a chain nested inside a larger if h: proposition (if h: b != 0 && 1 <= twice b <= 9) still computes the middle twice at runtime, against D2389; also check | k if h: … guards' runtime code",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
