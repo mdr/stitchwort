@@ -7911,14 +7911,14 @@
     {
       "id": 1397,
       "title": "Playground: a 7 MB, million-line Run input hangs the page (the ioRead shape of 'effectful List.map runs at a million elements'); find whether the textarea or input handling freezes, and size the test's input",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1397",
       "labels": [
         "playground",
         "tests"
       ],
-      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on Sonnet, expected: 60 min (browser: at most 2 runs of the one test).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
