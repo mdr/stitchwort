@@ -7096,13 +7096,13 @@
     {
       "id": 1339,
       "title": "Design note: chained comparisons (entry.low <= times <= entry.high means entry.low <= times ∧ times <= entry.high)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1339",
       "labels": [
         "design"
       ],
-      "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.",
+      "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.\n\nNote merged (docs/proposals/chained-comparisons.md; Opus, 6 min, est. 30). Decisions C1-C6 put to Matt as D2386-D2391.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
