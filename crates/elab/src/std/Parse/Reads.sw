@@ -367,7 +367,7 @@ theorem Parse.thenPure (first: List Char → a → Prop) (f: a → b) (read: Lis
 
 theorem Parse.readsSatisfy (what: Text) (passes: Char → Bool): Parse.Reads (() => Parse.satisfy what passes) (read char => read = [char] ∧ passes char = True) :=
   Parse.readsWeaken _ (Parse.Then (Parse.Maybe (read char => read = [char] ∧ passes char = True)) (found read char => read = [] ∧ found = Some char)) _
-    (Parse.readsBind (() => Parse.next passes) (found => match found with | Some char => char | None => Parse.expected what) _ _ (Parse.readsNext passes)
+    (Parse.readsBind _ _ _ _ (Parse.readsNext passes)
       (found =>
         match found with
           | Some char => Parse.readsWeaken _ _ _ (Parse.readsPure char) (read v both => Both (And.left both) (Eq.cong Some (Eq.sym (And.right both))))
@@ -521,11 +521,7 @@ def Parse.Padded (spec: List Char → a → Prop) (read: List Char) (value: a): 
 
 theorem Parse.readsToken (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): Parse.Reads (() => Parse.token p) (Parse.Padded spec) :=
   Parse.readsWeaken _ _ _
-    (Parse.readsBind Parse.spaces
-      (u =>
-        let value := p()
-        Parse.spaces()
-        value)
+    (Parse.readsBind _ _
       _ (u => Parse.Then spec (v read w => read.all Parse.isSpace = True ∧ w = v)) Parse.readsSpaces
       (u =>
         Parse.readsBind p
@@ -794,7 +790,7 @@ theorem Parse.readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (
               separator()
               p()))
           (Cons first) _
-          (Parse.readsMany _ _ (Parse.readsBind separator (u => p()) separatorSpec (u => spec) readsSeparator (u => reads)))))
+          (Parse.readsMany _ _ (Parse.readsBind _ _ separatorSpec (u => spec) readsSeparator (u => reads)))))
     (read values h =>
       match h with
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
@@ -1000,25 +996,12 @@ theorem Parse.readsFinalLineBreaks (v: a):
       Parse.readsMark
       (start =>
         Parse.readsWeaken _ _ _
-          (Parse.readsBind (() => Parse.span (char => char == '\n' ∨ char == '\r'))
-            (breaks =>
-              if breaks == [] then Parse.note (Expected "a line break")
-              else if breaks == ['\n'] then ()
-              else if breaks == ['\r', '\n'] then ()
-              else if start.left == breaks.length then ()
-              else Parse.extraBlankLine start
-              v)
+          (Parse.readsBind _ _
             _ (breaks read w => read = [] ∧ w = v) (Parse.readsSpan _)
             (breaks =>
               Parse.readsWeaken _ _ _
                 (Parse.readsBind
-                  (() =>
-                    if breaks == [] then Parse.note (Expected "a line break")
-                    else if breaks == ['\n'] then ()
-                    else if breaks == ['\r', '\n'] then ()
-                    else if start.left == breaks.length then ()
-                    else Parse.extraBlankLine start)
-                  (u => v)
+                  _ _
                   (read u => read = [])
                   (u read w => read = [] ∧ w = v)
                   (Parse.readsIf (breaks == [])
@@ -1514,15 +1497,7 @@ def Parse.DigitsRead (atLeast: Nat) (atMost: Nat) (read: List Char) (n: Nat): Pr
 
 theorem Parse.readsNatDigits (atLeast: Nat) (atMost: Nat): Parse.Reads (() => Parse.natDigits atLeast atMost) (Parse.DigitsRead atLeast atMost) :=
   Parse.readsWeaken _ _ _
-    (Parse.readsBind (() => Parse.mark())
-      (start =>
-        let digits := Parse.span Parse.isDigit
-        let count := digits.length
-        if 0 < count ∧ atLeast ≤ count ∧ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
-        else
-          Parse.reset start
-          let fewest := if atLeast == 0 then 1 else atLeast
-          Parse.expected (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits"))
+    (Parse.readsBind _ _
       (read at => read = []) (start => Parse.DigitsRead atLeast atMost) Parse.readsMark
       (start =>
         Parse.readsWeaken _ _ _
@@ -1613,7 +1588,7 @@ theorem Parse.readsRepeatFrom (p: () → {Parse} a) (spec: List Char → a → P
             | Witness more (Both same (Both each (Both least most))) => Witness more (Both same (Both each (Both least (omega)))))
     | Succ more =>
       Parse.readsWeaken _ _ _
-        (Parse.readsBind p (value => Parse.repeatFrom more extra p [value, ..found]) spec (v => Parse.RepeatFound spec [v, ..found] more (more + extra)) reads
+        (Parse.readsBind _ _ spec (v => Parse.RepeatFound spec [v, ..found] more (more + extra)) reads
           (v => Parse.readsRepeatFrom p spec reads extra more [v, ..found]))
         (read values h =>
           match h with
