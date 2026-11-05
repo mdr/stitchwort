@@ -7250,9 +7250,9 @@
     {
       "id": 1350,
       "title": "Chained comparisons: a chain nested inside a larger if h: proposition (if h: b != 0 && 1 <= twice b <= 9) still computes the middle twice at runtime, against D2389; also check | k if h: … guards' runtime code",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1350",
       "labels": [
         "elab"
       ],
