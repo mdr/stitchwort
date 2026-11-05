@@ -7935,7 +7935,7 @@
     {
       "id": 1399,
       "title": "2020 day 6: prove questionsDistinct (26 letters) cheaply instead of byDecision (36,800-node term, 0.4 s): List.allDistinctCorrect or a std lemma that a strictly increasing list is distinct",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1399",
       "labels": [
