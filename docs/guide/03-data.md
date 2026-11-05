@@ -105,6 +105,8 @@ test "field punning" := (newborn "Grace").age == 0
 
 The house style for a declaration over several lines puts a comma at the end of each line, no comma after the last field, and the closing brace in column 0, as above.
 
+Give the nouns of a problem types of their own, records by default, with the operations they support as methods. A `Pass` with a `seatId` method says more than a `List Bool` and a function on it, and a `Pass` can't be passed where a row number is wanted. Write a synonym ([below](#type-synonyms)) only where a type of its own would add nothing.
+
 A record pattern takes the fields apart. `..` ignores the fields not named:
 
 <!-- snippet: data.sw#record-patterns -->

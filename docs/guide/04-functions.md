@@ -141,6 +141,35 @@ test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 
 
 `origin.shift 3 (-4)` is `Point.shift origin 3 (-4)`. There are no classes and no methods: dot notation is only a way of writing calls. It works for the library's types too (`xs.map f` is `List.map xs f`), and needs no import: the value's type picks the namespace. Nothing is searched for: if `f`'s first explicit parameter isn't a `Point`, `origin.f` is `E-DOT-NO-RECEIVER`, so a function meant to be called with a dot takes its main value first. A function in `Point`'s namespace that takes a `Point` but not first gets the warning `W-RECEIVER-NOT-FIRST`.
 
+A constructor is a value, but `Key.valid` is the name of a function, and `BirthYear.valid` isn't. The compiler reads `BirthYear.valid` as the name `valid` in a namespace `BirthYear`, and says what to write instead:
+
+<!-- snippet: errors/constructor-dot.sw -->
+```stitchwort
+type Key =
+  | BirthYear
+  | IssueYear
+
+def Key.valid (key: Key) (text: Text): Bool :=
+  match key with
+    | BirthYear => text.length == 4
+    | IssueYear => text.length == 4
+
+def check: Bool := BirthYear.valid "2002"
+```
+
+<!-- output: check errors/constructor-dot.sw -->
+```text
+[E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
+    ╭─[ errors/constructor-dot.sw:10:20 ]
+    │
+ 10 │ def check: Bool := BirthYear.valid "2002"
+    │                    ───────┬───────
+    │                           ╰───────── not in scope
+    │
+    │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
+────╯
+```
+
 A negative number as an argument needs no brackets when the `-` has a space before it and none after it: `f -4` is `f (-4)` and `f -x` is `f (-x)`. `n - 4`, `n-4` and `n- 4` are subtractions, so `n -4` for a number `n` is an error with a note saying so.
 
 ## Pipes

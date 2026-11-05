@@ -56,6 +56,11 @@
   <pre data-src="10-dot-pipes.sw"></pre>
 </section>
 
+<section data-slug="clauses" data-title="Cases as a function, and conditions on cases">
+  <p>A function that only takes its argument apart can be written as its cases: <code>match | A =&gt; … | B =&gt; …</code>. <code>match some</code> keeps only what matches, as Scala's <code>collect</code> does, and <code>matches</code> answers true or false. Any case may have a condition after its patterns, <code>| n if n &gt; 5 =&gt; …</code>; when it is false, the cases below are tried.</p>
+  <pre data-src="11-clauses.sw"></pre>
+</section>
+
 <section data-slug="option-and-list" data-title="Option and List">
   <p>There is no null: a value that may be missing has type <code>Option a</code>, which is <code>Some value</code> or <code>None</code>. Lists are written <code>[1, 2, 3]</code> and come with the usual <code>map</code>, <code>filter</code>, <code>find</code>, <code>sum</code> and many more, called with dot notation.</p>
   <pre data-src="12-option-list.sw"></pre>
@@ -128,6 +133,11 @@
 <section data-slug="induct" data-title="Induction that follows a function">
   <p>A recursive function comes with an induction principle shaped like its own equations: one case for each branch, with a hypothesis for each recursive call. <code>match induct (f args)</code> proves a statement about <code>f</code> by those cases, so a proof about a function with an <code>if</code> in it needs no case analysis of its own. The equations are theorems you can name too, such as <code>countAbove.eq2.ifFalse</code>.</p>
   <pre data-src="25-induct.sw"></pre>
+</section>
+
+<section data-slug="guard-proofs" data-title="Proofs about cases with conditions">
+  <p>For a proof, a case with a condition is an <code>if</code>. Its equation takes the condition as a hypothesis, the cases below it take that it failed, and <code>match induct</code> splits at each condition. A condition that can be decided is stated as a proposition: <code>n != 3</code> becomes <code>n ≠ 3</code>.</p>
+  <pre data-src="26-guard-proofs.sw"></pre>
 </section>
 
 <section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
