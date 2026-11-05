@@ -6970,9 +6970,9 @@
     {
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
