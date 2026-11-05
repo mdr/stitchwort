@@ -1,5 +1,5 @@
 {
-  "next": 1332,
+  "next": 1334,
   "tickets": [
     {
       "id": 47,
@@ -6991,6 +6991,34 @@
         "docs"
       ],
       "body": "Matt, 5 Nov. Last full sweep: SW-1105 (0303af796). Since: SW-1294 (guide section on clause lambdas), SW-1295/1301 (guards), SW-1305 (&& gives a ∧ b), SW-93 (proof irrelevance), SW-1227 (_ for named parsers, pending merge), SW-1276 (omega from contradictory facts), domain-type style, and more.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1332,
+      "title": "Effectful code: decide a performing comparison into Bool inside nested constructors and lists ([Some (len() < 3)] at List (Option Bool), [[len() < 3]], Cons a (Cons b Nil)) and tuples ((len() < 3, len() < 4) at (Bool, Bool))",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From the SW-1325 Opus review; the same programs without effects check. Pass the slot type to every argument run first; needs a hash run.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1333,
+      "title": "Drop redundant brackets around dot sections in aoc and games/rogue (groups.sumBy (.anyone.size) -> groups.sumBy .anyone.size)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
