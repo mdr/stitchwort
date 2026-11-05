@@ -6340,15 +6340,15 @@
     {
       "id": 1285,
       "title": "AoC domain types 2: shared Aoc.Common Point {x, y} and Line {from, to} (2021 days 5 and 13, 2025 day 9)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1285",
       "labels": [
         "aoc"
       ],
-      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. See the survey's 'Shared Point' entry.\n\nName (Matt, 4 Nov): Line, not Segment: the puzzle's word (2021 day 5's 'lines of vents'); its doc says it runs from one point to another, both ends included.\n\nD2366 (Matt, 4 Nov): keep both: Position {row, column} for grids read from text (Aoc.Common, as now), Point {x, y} for puzzles that give coordinates (Int where they can go negative), one documented conversion (point.toPosition: row = y, column = x) where an x/y puzzle draws a grid (2021 day 13). 'We can always revisit if we find ourselves repeating logic a lot or converting a lot.'",
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. See the survey's 'Shared Point' entry.\n\nName (Matt, 4 Nov): Line, not Segment: the puzzle's word (2021 day 5's 'lines of vents'); its doc says it runs from one point to another, both ends included.\n\nD2366 (Matt, 4 Nov): keep both: Position {row, column} for grids read from text (Aoc.Common, as now), Point {x, y} for puzzles that give coordinates (Int where they can go negative), one documented conversion (point.toPosition: row = y, column = x) where an x/y puzzle draws a grid (2021 day 13). 'We can always revisit if we find ourselves repeating logic a lot or converting a lot.'\n\nDone (Sonnet, 10 min, est. 120): Point {x, y: Nat} (all three puzzles count from a corner) and Line {from, to} in Aoc.Common, with point.toPosition; 2021 days 5 and 13 and 2025 day 9 converted. Statements checked by the orchestrator: re-typing only. Follow-ups noted: a Rectangle for 2025 day 9's corner pairs; Point.parse/Line.parse into Common if more days read x,y; 2024 day 13's Offset {x, y: Int}.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -6508,15 +6508,15 @@
     {
       "id": 1297,
       "title": "Std: named parameters on Nat.iterate, List.rangeFrom, Vec.shiftRight; add id, Option.flatten, List.somes, uncurry",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1297",
       "labels": [
         "std"
       ],
-      "body": "From the SW-1291 survey: std definitions declared with arrow types have no parameter names, so D2367's named arguments fail (Nat.iterate (count := 2000) … gives E-UNKNOWN-NAME; also List.rangeFrom, Vec.shiftRight's first parameter). Give them named parameters. Also add small missing helpers the AoC code works around: id (8 identity lambdas), Option.flatten, List.somes (= filterMap (x => x); the partial-lambdas note also wants it), uncurry (43 tuple-pattern lambdas might use it; judge whether it reads better). Full API docs. Then use them at the survey's sites.",
+      "body": "From the SW-1291 survey: std definitions declared with arrow types have no parameter names, so D2367's named arguments fail (Nat.iterate (count := 2000) … gives E-UNKNOWN-NAME; also List.rangeFrom, Vec.shiftRight's first parameter). Give them named parameters. Also add small missing helpers the AoC code works around: id (8 identity lambdas), Option.flatten, List.somes (= filterMap (x => x); the partial-lambdas note also wants it), uncurry (43 tuple-pattern lambdas might use it; judge whether it reads better). Full API docs. Then use them at the survey's sites.\n\nMerged be68fbf1; verified: hashes, std tests, function_equations, aoc check without the cache and tests, rogue, merge tier 1069, audit clean. Open for Matt (morning): id/uncurry are Std names, not prelude names (programs import them). Model result: Sonnet, worked, 13 min (est. 75).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
