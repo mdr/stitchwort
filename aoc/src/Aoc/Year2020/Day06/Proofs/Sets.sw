@@ -4,7 +4,7 @@
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Aoc.Year2020.Day06 (Spec)
-import Std (Bool, Char, Eq, List, NonEmptyList, Set, Void, byDecision)
+import Std (Bool, Char, Eq, List, NonEmptyList, Set, Void)
 
 --| The people's answer sets, asked about a question, say what their lines say.
 theorem anyAnswers: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
@@ -40,7 +40,8 @@ theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → Lis
   | [], [_, .._], impossible, question, found => Void.exfalso impossible
   | [_, .._], [], impossible, question, found => Void.exfalso impossible
 
-theorem questionsDistinct: List.Distinct Spec.questions := byDecision
+theorem questionsDistinct: List.Distinct Spec.questions :=
+  (List.allDistinctCorrect Spec.questions).forward rfl
 
 --| Whatever every line has is a question: there is a first line, and it is all questions.
 theorem everyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → people ≠ [] → (question: Char) →
