@@ -7492,7 +7492,7 @@
       "agent": "",
       "where": "",
       "labels": [
-        "| tail (2020 day 4 hasToList used Eq.trans chains)|std"
+        "std"
       ],
       "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
       "created": "2026-11-05",
