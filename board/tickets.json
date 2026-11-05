@@ -1,5 +1,5 @@
 {
-  "next": 1394,
+  "next": 1396,
   "tickets": [
     {
       "id": 47,
@@ -7860,6 +7860,32 @@
         "aoc"
       ],
       "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1394,
+      "title": "Test: run every std congruence lemma (FCong, FCongMem, FCongRange) through validate_cong; validate_contextual (rewrite) doesn't compare binder kinds with F's, so a lemma rewrite accepts can still fail decreasing (Option.mapCong in SW-1381's review)|tests,elab",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1395,
+      "title": "Test: every std congruence lemma (FCong, FCongMem, FCongRange) passes validate_cong; rewrite's validate_contextual doesn't compare binder kinds with F's, so a lemma rewrite accepts can still fail decreasing (Option.mapCong, SW-1381 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1381's Opus review, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
