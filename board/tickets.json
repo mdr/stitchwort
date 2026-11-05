@@ -6760,9 +6760,9 @@
     {
       "id": 1315,
       "title": "With SW-1227's guard off, 2021 day 2's aimedDepthCons fails on two terms that print identically: a gap comparing functions inside them?",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1315",
       "labels": [
         "kernel"
       ],
