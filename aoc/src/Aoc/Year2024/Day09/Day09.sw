@@ -21,49 +21,75 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 diskMap}"
   IO.print "Part 2: ${solvePart2 diskMap}"
 
---| The disk map's digits: a file's length, the free space after it, the next
---| file's length, and so on, ending with either.
+--| The disk map: a file's length, the free space after it, the next file's
+--| length, and so on, ending with either.
+type DiskMap = { lengths: List Nat }
+
+--| One block of the disk: free space, or a block of file number `id`.
+type Block =
+  | Free
+  | FileBlock (id: Nat)
+
+--| The file number of a file block.
+def Block.id: Block → Option Nat
+  | Free => None
+  | FileBlock id => Some id
+
+--| The file number of a file block, or `free` for free space.
+def Block.idOr (block: Block) (free: Nat): Nat := block.id.getOrElse free
+
+def Block.isFree: Block → Bool
+  | Free => True
+  | FileBlock id => False
+
+def Block.isFile (block: Block): Bool := !block.isFree
+
+--| The disk: its blocks, left to right.
+type Disk = { blocks: List Block }
+
+--| The disk map's digits.
 def diskMapLine(): {Parse} List Nat := many1 (() => digit().toNat)
 
 --| One line of digits.
-def parseDiskMap (input: Text): {Fail} List Nat := Parse.all input diskMapLine
+def parseDiskMap (input: Text): {Fail} DiskMap := { lengths = Parse.all input diskMapLine }
 
---| A block holds `Some id`, a block of file `id`, or `None`, free space.
 --| The blocks of the disk map's files from number `id` on, left to right.
-def blocksFrom (id: Nat): List Nat → List (Option Nat)
+def blocksFrom (id: Nat): List Nat → List Block
   | [] => []
-  | [fileLength] => List.replicate fileLength (Some id)
+  | [fileLength] => List.replicate fileLength (FileBlock id)
   | [fileLength, freeLength, ..rest] =>
-    List.replicate fileLength (Some id) ++ List.replicate freeLength None ++ blocksFrom (Succ id) rest
+    List.replicate fileLength (FileBlock id) ++ List.replicate freeLength Free ++ blocksFrom (Succ id) rest
 
---| The disk's blocks: "00...111...2...333.44.5555.6666.777.888899".
-def blocks (diskMap: List Nat): List (Option Nat) := blocksFrom 0 diskMap
+--| The disk: "00...111...2...333.44.5555.6666.777.888899".
+def DiskMap.blocks (diskMap: DiskMap): Disk := { blocks = blocksFrom 0 diskMap.lengths }
 
 --| The file numbers of the file blocks, left to right.
-def fileBlocks (blocks: List (Option Nat)): List Nat := blocks.somes
+def fileBlocks (blocks: List Block): List Nat := blocks.filterMap .id
 
 --| Part 1's compaction, front to back: of the first `count` blocks, a file
 --| block stays and a free one takes the next block of `moving`; the rest are
 --| free.
-def fillFront: (blocks: List (Option Nat)) → (moving: List Nat) → (count: Nat) → List (Option Nat)
-  | blocks, moving, Zero => List.replicate blocks.length None
+def fillFront: (blocks: List Block) → (moving: List Nat) → (count: Nat) → List Block
+  | blocks, moving, Zero => List.replicate blocks.length Free
   | [], moving, Succ count => []
-  | [Some id, ..rest], moving, Succ count => [Some id, ..fillFront rest moving count]
-  | [None, ..rest], [], Succ count => [None, ..fillFront rest [] count]
-  | [None, ..rest], [id, ..moving], Succ count => [Some id, ..fillFront rest moving count]
+  | [FileBlock id, ..rest], moving, Succ count => [FileBlock id, ..fillFront rest moving count]
+  | [Free, ..rest], [], Succ count => [Free, ..fillFront rest [] count]
+  | [Free, ..rest], [id, ..moving], Succ count => [FileBlock id, ..fillFront rest moving count]
 
---| The disk after part 1: as many blocks as there are file blocks keep their
---| files at the front, and the gaps among them take the last file blocks,
---| last first.
-def compactBlocks (blocks: List (Option Nat)): List (Option Nat) :=
+--| The blocks after part 1: as many blocks as there are file blocks keep
+--| their files at the front, and the gaps among them take the last file
+--| blocks, last first.
+def compactBlocks (blocks: List Block): List Block :=
   let files := fileBlocks blocks
   fillFront blocks files.reverse files.length
 
---| Each file block's position times its file number, added up.
-def checksum (blocks: List (Option Nat)): Nat :=
-  blocks.withIndex |> .sumBy (pair => pair.snd.map (id => pair.fst * id) |> .getOrElse 0)
+def Disk.compact (disk: Disk): Disk := { blocks = compactBlocks disk.blocks }
 
-def solvePart1 (diskMap: List Nat): Nat := blocks diskMap |> compactBlocks |> checksum
+--| Each file block's position times its file number, added up.
+def Disk.checksum (disk: Disk): Nat :=
+  disk.blocks.withIndex |> .sumBy (pair => pair.fst * pair.snd.idOr 0)
+
+def solvePart1 (diskMap: DiskMap): Nat := diskMap.blocks.compact.checksum
 
 --| A run of blocks: a file's or a free span's.
 type Span = { start: Nat, length: Nat }
@@ -121,11 +147,11 @@ def FreeSpace.moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
       (free.remove span |> .add rest, { file | span = { file.span | start = span.start } })
 
 --| Every file moved once, highest number first.
-def compactFiles (diskMap: List Nat): List File :=
-  let layout := layoutFrom (id := 0) (position := 0) diskMap
+def compactFiles (diskMap: DiskMap): List File :=
+  let layout := layoutFrom (id := 0) (position := 0) diskMap.lengths
   layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) FreeSpace.moveFile |> .snd
 
 --| A file's part of the checksum: its blocks' positions times its number.
 def File.checksum (file: File): Nat := List.rangeFrom (count := file.span.length) (start := file.span.start) |> .sumBy (* file.id)
 
-def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy .checksum
+def solvePart2 (diskMap: DiskMap): Nat := compactFiles diskMap |> .sumBy .checksum
