@@ -1191,17 +1191,23 @@ theorem Parse.readsLabel (what: Text) (p: () → {Parse} a) (spec: List Char →
             let atSame: middle.at = after := Pair.mkInjectiveSnd same
             Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
 
---| What `int` reads: digits, with a '-' in front for a negative number.
+--| What `int` reads: digits, with an optional '+' or '-' in front.
 def Parse.IntRead (read: List Char) (n: Int): Prop :=
   ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
-    ((read = ['-', ..digits] ∧ n = -(Parse.digitsValue digits).toInt) ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt))
+    ((read = ['-', ..digits] ∧ n = -(Parse.digitsValue digits).toInt) ∨
+      (read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt) ∨
+      (read = digits ∧ n = (Parse.digitsValue digits).toInt))
 
 theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
   Parse.readsWeaken
-    (Parse.readsBind (() => Parse.literal ['-']) (negative => if negative then -(Parse.nat().toInt) else Parse.nat().toInt) _
+    (Parse.readsBind (() => Parse.literal ['-'])
+      (negative => if negative then -(Parse.nat().toInt) else if Parse.literal ['+'] then Parse.nat().toInt else Parse.nat().toInt)
+      _
       (negative read n =>
-        ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ read = digits ∧
-          ((negative = True ∧ n = -(Parse.digitsValue digits).toInt) ∨ (negative = False ∧ n = (Parse.digitsValue digits).toInt)))
+        ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
+          ((negative = True ∧ read = digits ∧ n = -(Parse.digitsValue digits).toInt) ∨
+            (negative = False ∧ ((read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt) ∨
+              (read = digits ∧ n = (Parse.digitsValue digits).toInt)))))
       (Parse.readsLiteral ['-'])
       (negative =>
         match negative with
@@ -1211,21 +1217,54 @@ theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
               (read n h =>
                 match h with
                   | Witness i (Both (Witness m (Both (Both some (Both all value)) made)) negated) =>
-                    Witness read (Both some (Both all (Both rfl (Inl (Both rfl (rewrite negated, made, value in rfl)))))))
+                    Witness read (Both some (Both all (Inl (Both rfl (Both rfl (rewrite negated, made, value in rfl)))))))
           | False =>
-            Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat)
+            Parse.readsWeaken
+              (Parse.readsBind (() => Parse.literal ['+'])
+                (plus => if plus then Parse.nat().toInt else Parse.nat().toInt)
+                _
+                (plus read n =>
+                  ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ read = digits ∧ n = (Parse.digitsValue digits).toInt)
+                (Parse.readsLiteral ['+'])
+                (plus =>
+                  match plus with
+                    | True =>
+                      Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat)
+                        (read n h =>
+                          match h with
+                            | Witness m (Both (Both some (Both all value)) made) =>
+                              Witness read (Both some (Both all (Both rfl (rewrite made, value in rfl)))))
+                    | False =>
+                      Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat)
+                        (read n h =>
+                          match h with
+                            | Witness m (Both (Both some (Both all value)) made) =>
+                              Witness read (Both some (Both all (Both rfl (rewrite made, value in rfl)))))))
               (read n h =>
                 match h with
-                  | Witness m (Both (Both some (Both all value)) made) =>
-                    Witness read (Both some (Both all (Both rfl (Inr (Both rfl (rewrite made, value in rfl)))))))))
+                  | Witness plusRead (Witness digitsRead (Witness plus (Both split (Both literal (Witness digits (Both some (Both all (Both same value)))))))) =>
+                    match plus with
+                      | True =>
+                        Witness digits (Both some (Both all
+                          (Inr (Both rfl (Inl (Both (rewrite split, literal, same in rfl) value))))))
+                      | False =>
+                        Witness digits (Both some (Both all
+                          (Inr (Both rfl (Inr (Both (rewrite split, literal, same in rfl) value)))))))))
     (read n h =>
       match h with
-        | Witness sign (Witness rest (Witness negative (Both split (Both literal (Witness digits (Both some (Both all (Both same choice)))))))) =>
+        | Witness firstRead (Witness nextRead (Witness negative (Both split (Both literal (Witness digits (Both nonEmpty (Both all choice))))))) =>
           match choice with
-            | Inl (Both isTrue value) =>
-              Witness digits (Both some (Both all (Inl (Both (rewrite split, literal, isTrue, same in rfl) value))))
-            | Inr (Both isFalse value) =>
-              Witness digits (Both some (Both all (Inr (Both (rewrite split, literal, isFalse, same in rfl) value)))))
+            | Inl (Both isTrue (Both sameRead value)) =>
+              Witness digits (Both nonEmpty (Both all
+                (Inl (Both (rewrite split, literal, isTrue, sameRead in rfl) value))))
+            | Inr (Both isFalse inner) =>
+              match inner with
+                | Inl (Both plus value) =>
+                  Witness digits (Both nonEmpty (Both all
+                    (Inr (Inl (Both (rewrite split, literal, isFalse, plus in rfl) value)))))
+                | Inr (Both noSign value) =>
+                  Witness digits (Both nonEmpty (Both all
+                    (Inr (Inr (Both (rewrite split, literal, isFalse, noSign in rfl) value))))))
 
 --| `oneOf`: what the alternative that succeeded read. Every alternative
 --| with the same spec gives it to the choice.

@@ -75,14 +75,19 @@ theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) 
 --| `x == x` is `True`, for any `DecEq` instance.
 theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoolOf (DecEq.decide x x) rfl
 
---| `x != y` false says `x = y`; true says they differ.
+--| `x != y` false says `x = y`.
 theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = False): x = y :=
   match d: DecEq.decide x y with
     | Yes same => same
     | No differ => Void.exfalso (Bool.trueNotFalse h)
 
-theorem DecEq.neTrue [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = True): x ≠ y :=
+--| `x != y` true says they differ; the converse of [`DecEq.trueOfNe`].
+theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = True): x ≠ y :=
   same => Bool.falseNotTrue (rewrite Decidable.toBoolOfNot (Decidable.not (DecEq.decide x y)) (differ => differ same) at h)
+
+--| `x ≠ y` says `x != y`; the converse of [`DecEq.neTrue`].
+theorem DecEq.trueOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): ((x != y): Bool) = True :=
+  Decidable.toBoolOf (Decidable.not (DecEq.decide x y)) h
 
 --| A nonzero factor on the right doesn't change `==`: cancelling, as a `Bool`.
 -- It is here, not beside [`Nat.mulRightCancel`] in std/Nat/Arith.sw, because

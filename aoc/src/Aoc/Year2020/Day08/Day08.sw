@@ -54,10 +54,7 @@ type Outcome =
 def operation(): {Parse} Operation := Parse.pick ([Acc, Jmp, Nop].map (operation => (operation.word, operation)))
 
 --| "+3" or "-99": a sign and a whole number.
-def argument(): {Parse} Int :=
-  let negative := Parse.pick [("+", False), ("-", True)]
-  let size := Parse.nat()
-  Int.signed negative size
+def argument(): {Parse} Int := Parse.int()
 
 def instruction(): {Parse} Instruction :=
   let operation := operation()
