@@ -9,10 +9,6 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Not, Option, Or, Set, Void)
 
-theorem orFalseLeft [a: Bool] [b: Bool] (h: (a || b) = False): a = False := cases
-
-theorem orFalseRight [a: Bool] [b: Bool] (h: (a || b) = False): b = False := cases
-
 --| Stepping forward onto a free position.
 theorem stepMoves (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
     lab.step guard = Some ({ guard | position = ahead }) :=
@@ -45,10 +41,10 @@ theorem walkWithSame (lab: Lab) (blocker: Position): (steps: Nat) → (guard: Op
   | Zero, guard, absent => rfl
   | Succ steps, None, absent => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
   | Succ steps, Some here, absent =>
-    let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := orFalseRight absent
+    let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := Bool.orFalseRight _ _ absent
     let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead = False) =>
       let movedAbsent := rewrite stepMoves lab here ahead inFront blocked at restAbsent
-      let notSame: Map.Spec.sameKey blocker ahead = False := orFalseLeft movedAbsent
+      let notSame: Map.Spec.sameKey blocker ahead = False := Bool.orFalseLeft _ _ movedAbsent
       DecEq.soundFalse ahead blocker (rewrite Map.Spec.sameKeyDecide blocker ahead at notSame)
     rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
 
