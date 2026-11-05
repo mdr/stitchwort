@@ -2792,6 +2792,22 @@ impl Elaborator {
             cx.lets[l].is_none()
                 && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
         };
+        // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
+        // `rfl` on the left side, the literal's own, so the equation doesn't
+        // take it as a variable.
+        let mut to_refl: Vec<Value> = (0..depth).map(Value::var).collect();
+        let mut any_refl = false;
+        for l in 1..depth {
+            if own(l) && is_computed_bool_eq(g, depth, &cx.types[l])? {
+                to_refl[l] = Value::Refl;
+                any_refl = true;
+            }
+        }
+        if any_refl {
+            for t in &mut lhs {
+                *t = stitchwort_core::value::quote(g, depth, &eval(g, &to_refl, t)?)?;
+            }
+        }
         let mut types: HashMap<usize, Term> = HashMap::default();
         for l in 1..depth {
             if own(l) {
@@ -6092,6 +6108,19 @@ fn data_of(t: &Term) -> Option<DataId> {
         Term::Ctor(d, _, _) => Some(*d),
         _ => None,
     }
+}
+
+/// Whether `ty` is `a = b` in `Bool` with `a` computing to `b`: a proof
+/// that is `rfl` wherever the kernel ignores proofs.
+fn is_computed_bool_eq(g: &Ev, depth: usize, ty: &Value) -> R<bool> {
+    Ok(match force(g, ty.clone())? {
+        Value::Eq(ty, a, b) => {
+            matches!(force(g, (*ty).clone())?,
+                Value::Data(d, _) if g.env.registry().is_data(Builtin::Bool, d))
+                && stitchwort_core::value::conv(g, depth, &a, &b)?
+        }
+        _ => false,
+    })
 }
 
 /// A character literal `MkChar k rfl`'s character.
