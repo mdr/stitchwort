@@ -6956,13 +6956,13 @@
     {
       "id": 1329,
       "title": "Test cache key: drop std's text, and fingerprint only the Rust that runs tests (core, rt, dev-features, the driver's test runner, Cargo.lock, toolchain); docs/proposals/test-cache-key.md §9",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1329",
       "labels": [
         "tooling"
       ],
-      "body": "D2376 (Matt, 5 Nov): yes, take std's text out of the test-cache key. D2377: (b), an automatic fingerprint of only the Rust that runs tests. D2380: yes, a Sonnet lane, queued. D2379 (a daily --verify-cache over aoc and rogue): Matt, 'it depends how long it takes'; estimate from overnight runs: aoc's tests uncached ~2.5-3 min, rogue's ~12 s.\n\nD2379 (Matt, 5 Nov): add stitchwort test --verify-cache over aoc and games/rogue to the full tier, not the daily one.",
+      "body": "D2376 (Matt, 5 Nov): yes, take std's text out of the test-cache key. D2377: (b), an automatic fingerprint of only the Rust that runs tests. D2380: yes, a Sonnet lane, queued. D2379 (a daily --verify-cache over aoc and rogue): Matt, 'it depends how long it takes'; estimate from overnight runs: aoc's tests uncached ~2.5-3 min, rogue's ~12 s.\n\nD2379 (Matt, 5 Nov): add stitchwort test --verify-cache over aoc and games/rogue to the full tier, not the daily one.\n\nDone on lane/SW-1329 (b2f7c274b): EVAL_FINGERPRINT over core, rt, dev-features, driver's test_run.rs, Cargo.toml/lock, toolchain; no std text. Reuse on aoc: elab edit 100%, unused std def 100%, List.sum body rewritten 1263/1368. --verify-cache: aoc 3 min, rogue 13 s, 0 disagreements; in test:full. Model result: Sonnet, worked, 25 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7054,9 +7054,9 @@
     {
       "id": 1336,
       "title": "AoC 2020 day 6: parse with Parse.sections of Parse.lines person (groups first, then people), parse proofs redone against std's sections/lines lemmas",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1336",
       "labels": [
         "aoc"
       ],
