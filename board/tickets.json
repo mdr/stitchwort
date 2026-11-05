@@ -1,5 +1,5 @@
 {
-  "next": 1317,
+  "next": 1318,
   "tickets": [
     {
       "id": 47,
@@ -6781,6 +6781,20 @@
         "diagnostics"
       ],
       "body": "From SW-1227 (2020 day 2-style proofs).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1317,
+      "title": "Audit: build inputs from equational hypotheses (f a = C x y binds x, y from f a) instead of generate-and-filter, so 2021 day 16/18-style theorems stop warning as vacuous",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-1304: the remaining vacuity warnings (2021 day 16: 28, day 18: 17) are hypotheses like readNumber reader 3 = Some (version, after) where later inputs must equal what an earlier one computes. QuickChick-style construction; touches the checker term, input plans, shrinking and the display. Needs a design note first (Opus). Also: a constants dictionary of string literals (2021 day 12's \"end\").",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
