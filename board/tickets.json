@@ -8270,13 +8270,13 @@
     {
       "id": 1422,
       "title": "Std: Parse.int reads no leading +; add a parser for a number with a required sign (2020 day 8's +3 / -99)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1422",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8490,13 +8490,13 @@
     {
       "id": 1437,
       "title": "Std: DecEq.neTrue's converse (x ≠ y gives (x != y) = True); make x and y implicit (D2422)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1422",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 4. Small improvement.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 4. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8504,14 +8504,14 @@
     {
       "id": 1438,
       "title": "omega silently skips a let whose type is a function ending in a fact (a missing last argument); say so, as the annotated let's message does",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "omega",
         "diagnostics"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8692,13 +8692,13 @@
     {
       "id": 1451,
       "title": "E-REWRITE-NOTHING: when the goal already holds by computing, two notes now say nearly the same (drop the rewrite; rfl proves it): show one",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1410's review, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1410's review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8706,13 +8706,13 @@
     {
       "id": 1452,
       "title": "omega's failure note: when two listed atoms differ only in one argument (take … count vs take … length), say no fact connects them; that would have shown 2020 day 9's real cause",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1435, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1435, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
