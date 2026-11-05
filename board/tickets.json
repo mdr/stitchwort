@@ -1,5 +1,5 @@
 {
-  "next": 1434,
+  "next": 1439,
   "tickets": [
     {
       "id": 47,
@@ -8342,13 +8342,13 @@
     {
       "id": 1427,
       "title": "AoC 2020 day 9 (Encoding Error): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1427",
       "labels": [
         "aoc"
       ],
-      "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.\n\nStarted on Opus, expected: 90 min.",
+      "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.\n\nStarted on Opus, expected: 90 min.\n\nDone on lane/SW-1427 (a20cac932): answers 373803594 and 51152360. Spec in the puzzle's words (SumOfTwo over different values; Part1 first invalid after the preamble; Weakness a contiguous run of at least two). part1Exactly (iff), part1Unique, part2Correct, part2Complete proved; part 2 uniqueness not (puzzle expects one). Spec checked by the orchestrator. As-patterns (item 5) noted, not filed: a language design question. Waits for batch 35's verifier to merge. Model result: Opus, worked, 23 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8386,15 +8386,15 @@
     {
       "id": 1430,
       "title": "Playground: the language server's worker overflows V8's stack in an AoC project after a jump into a shared file (Common/Range.sw) then an error edit in the day; the editor restarts the server and the project reloads (~30 s). Build the wasm with function names and find the unguarded recursion in the navigable-session path",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1430",
       "labels": [
         "playground",
         "lsp",
         "bug"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8439,6 +8439,79 @@
         "playground"
       ],
       "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1434,
+      "title": "A proof can't follow a program's if a && b with one match on the Bool: the goal shows Decidable.andThen instead of &&, and nothing says to split it; matching each part works but duplicates a branch",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proofs"
+      ],
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Friction item 1, the most surprising.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1435,
+      "title": "omega treats List.sum as written and the form rewrite ... at leaves as different unknowns, then reports a model that looks like a counterexample; annotating each fact's type fixes it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "omega"
+      ],
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 2; will recur wherever a sum or fold goes through rewrite at.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1436,
+      "title": "Std list lemmas: take one more after drop, lengthTakeLe, takeNil (dropNil exists), sum monotone over prefixes and slices, toList of nonEmpty",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 3.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1437,
+      "title": "Std: DecEq.neTrue's converse (x ≠ y gives (x != y) = True); make x and y implicit (D2422)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 4. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1438,
+      "title": "omega silently skips a let whose type is a function ending in a fact (a missing last argument); say so, as the annotated let's message does",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "omega",
+        "diagnostics"
+      ],
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
