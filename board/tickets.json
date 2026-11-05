@@ -5516,16 +5516,16 @@
     {
       "id": 1227,
       "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1227",
       "labels": [
         "elab",
         "unify"
       ],
-      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.",
+      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.\n\nResumed 02:48 5 Nov on Opus after SW-93 merged (est. 150 min): rebase onto main first. Merging needs a daily-tier run, which waits for Matt (morning D question).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
