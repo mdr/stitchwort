@@ -86,18 +86,25 @@ theorem Int.modLtAbs: (a: Int) → (d: Int) → [auto ok: d ≠ 0] → a % d < N
 -- n * Succ q) - (n - r)` is `Succ m`, because `q + n * Succ q = m + (n - r)`.
 theorem Int.divAddModNeg (m: Nat) (n: Nat) (q: Nat) (r: Nat) (h: m = q * Succ n + r) (hr: r ≤ n):
     Int.add (NegSucc (q + n * Succ q)) (OfNat (n - r)) = NegSucc m :=
-  Eq.cong (Int.subNatNatFrom (n - r) (Succ (q + n * Succ q)))
-    (Eq.trans
-      (Eq.cong (t => Succ t - (n - r))
-        (Eq.sym
-          (Eq.trans (Eq.cong (t => t + (n - r)) h)
-          (Eq.trans (Nat.addAssoc (q * Succ n) r (n - r))
-          (Eq.trans (Eq.cong (t => q * Succ n + t) (Nat.addSubCancel r n hr))
-          (Eq.trans (Eq.cong (t => t + n) (Nat.mulComm q (Succ n)))
-          (Eq.trans (Nat.addAssoc q (n * q) n)
-          (Eq.trans (Eq.cong (t => q + t) (Nat.addComm (n * q) n))
-            (Eq.cong (t => q + t) (Eq.sym (Nat.mulSucc n q)))))))))))
-      (Nat.addSub (Succ m) (n - r)))
+  calc Int.add (NegSucc (q + n * Succ q)) (OfNat (n - r))
+    _ = Int.subNatNatFrom (n - r) (Succ (q + n * Succ q))
+      (Succ (q + n * Succ q) - (n - r)) := rfl
+    _ = Int.subNatNatFrom (n - r) (Succ (q + n * Succ q)) (Succ m) :=
+      Eq.cong (Int.subNatNatFrom (n - r) (Succ (q + n * Succ q)))
+        (calc Succ (q + n * Succ q) - (n - r)
+          _ = Succ (m + (n - r)) - (n - r) :=
+            Eq.cong (t => Succ t - (n - r))
+              (Eq.sym
+                (calc m + (n - r)
+                  _ = (q * Succ n + r) + (n - r) := Eq.cong (t => t + (n - r)) h
+                  _ = q * Succ n + (r + (n - r)) := Nat.addAssoc (q * Succ n) r (n - r)
+                  _ = q * Succ n + n := Eq.cong (t => q * Succ n + t) (Nat.addSubCancel r n hr)
+                  _ = Succ n * q + n := Eq.cong (t => t + n) (Nat.mulComm q (Succ n))
+                  _ = q + (n * q + n) := Nat.addAssoc q (n * q) n
+                  _ = q + (n + n * q) := Eq.cong (t => q + t) (Nat.addComm (n * q) n)
+                  _ = q + n * Succ q := Eq.cong (t => q + t) (Eq.sym (Nat.mulSucc n q))))
+          _ = Succ m := Nat.addSub (Succ m) (n - r))
+    _ = NegSucc m := rfl
 
 --| The non-negative dividend, negative divisor case: `Int.neg (OfNat q)`
 --| only computes once `q` is split.
