@@ -1,5 +1,5 @@
 {
-  "next": 1379,
+  "next": 1381,
   "tickets": [
     {
       "id": 47,
@@ -7348,13 +7348,13 @@
     {
       "id": 1357,
       "title": "Ranges step 1: two-ended List.range (from) (until) replaces one-argument List.range and List.between; lemmas of §9.1 (memRange ↔, lengthRange, …); rangeFrom stays; all callers moved (D2405-D2413)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1357",
       "labels": [
         "std"
       ],
-      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nDone on lane/SW-1357 (8 commits, 38fde7be9..65b255afb): List.range from until; between and one-arg range removed; §9.1 lemmas + memReverse; 773 callers moved; congruence lemmas over range plus a ...CongRangeFrom family (a numeral-start range evaluates to rangeFrom with the subtraction done, so rewrite can't recover the end). Orchestrator's call: keep both families for now; step 2 (SW-1358) must decide how List.range stays unevaluated for the printer and for auto/omega, and may then drop CongRangeFrom. Opus review next. Model result: Sonnet, worked (pending review), 46 min (est. 120).",
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nDone on lane/SW-1357 (8 commits, 38fde7be9..65b255afb): List.range from until; between and one-arg range removed; §9.1 lemmas + memReverse; 773 callers moved; congruence lemmas over range plus a ...CongRangeFrom family (a numeral-start range evaluates to rangeFrom with the subtraction done, so rewrite can't recover the end). Orchestrator's call: keep both families for now; step 2 (SW-1358) must decide how List.range stays unevaluated for the printer and for auto/omega, and may then drop CongRangeFrom. Opus review next. Model result: Sonnet, worked (pending review), 46 min (est. 120).\n\nOpus review: merge; no off-by-one, nothing weakened. Merged. Follow-ups filed: unifier guess for numeral-start ranges; docs sweep of one-arg List.range.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7649,6 +7649,34 @@
         "playground"
       ],
       "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1379,
+      "title": "Unifier: (List.memRange _ _ _).forward h fails for h: x ∈ List.range 2 (n + 1) (the type evaluates to rangeFrom (n - 1) 2 and ?b - ?a matches n - 1 first); compare List.range ?a ?b with a List.range call argument by argument before evaluating, or let ranges step 3's auto do it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1380,
+      "title": "Docs: sweep one-argument List.range and List.between out of docs/ (evaluator-speed, aoc-2025 :986 :2157, comparisons/aoc-day0{2,3,4}-community, research/aoc-chaining-survey :182); optional tidy: Day02 List.range 2 (copies - 1 + 1), Grid at.row + 1 + 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
