@@ -117,3 +117,38 @@ fn an_unknown_name_gets_a_quick_fix_that_adds_its_import() {
         assert_eq!(edit["range"]["start"], json!({"line": 1, "character": 16}));
     });
 }
+
+/// The signature help at `line` and `character`.
+fn help_after(s: &mut Session, line: usize, character: usize) -> Value {
+    s.request(
+        "textDocument/signatureHelp",
+        json!({"textDocument": {"uri": URI}, "position": {"line": line, "character": character}}),
+    )
+}
+
+#[test]
+fn signature_help_shows_the_function_and_the_current_parameter() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef clampTo (low: Nat) (high: Nat) (value: Nat): Nat := value\n\ndef a: Nat := clampTo 1 (high := 9) 5\n";
+        let mut s = Session::open(text);
+        let line = 4;
+        let col =
+            |needle: &str| "def a: Nat := ".len() + "clampTo 1 (high := 9) 5".find(needle).unwrap();
+        // After `clampTo `: the first parameter.
+        let help = help_after(&mut s, line, col("1"));
+        assert_eq!(
+            help["signatures"][0]["label"],
+            "clampTo (low: Nat) (high: Nat) (value: Nat): Nat"
+        );
+        assert_eq!(help["activeParameter"], 0, "{help}");
+        // After `clampTo 1 `: `(high := 9)` is still ahead of the cursor.
+        let help = help_after(&mut s, line, col("(high"));
+        assert_eq!(help["activeParameter"], 1, "{help}");
+        // Inside `(high := 9)`: the parameter named.
+        let help = help_after(&mut s, line, col("9"));
+        assert_eq!(help["activeParameter"], 1, "{help}");
+        // After it, with `high` given: `value`.
+        let help = help_after(&mut s, line, col("5"));
+        assert_eq!(help["activeParameter"], 2, "{help}");
+    });
+}

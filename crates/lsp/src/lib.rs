@@ -134,6 +134,7 @@ pub fn capabilities() -> serde_json::Value {
         "documentLinkProvider": true,
         "hoverProvider": true,
         "completionProvider": { "triggerCharacters": ["(", "["] },
+        "signatureHelpProvider": { "triggerCharacters": ["(", "[", " "] },
         "selectionRangeProvider": true,
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
@@ -988,6 +989,39 @@ impl Main {
         Some(items)
     }
 
+    /// `textDocument/signatureHelp`: the signature of the call the cursor
+    /// is in, from the types the last check published ([`pos::signature_help_at`]).
+    fn signature_help(
+        &self,
+        nav: &Nav,
+        uri: &Url,
+        at: Position,
+    ) -> Option<lsp_types::SignatureHelp> {
+        let texts = self.texts.borrow();
+        let text = texts.get(uri)?;
+        let (_, ws, place) = locate(nav, uri)?;
+        let file = ws.files.get(&place)?;
+        let help = pos::signature_help_at(file, text, offset_at(text, at))?;
+        let parameters = help
+            .parameters
+            .iter()
+            .map(|&label| lsp_types::ParameterInformation {
+                label: lsp_types::ParameterLabel::LabelOffsets(label),
+                documentation: None,
+            })
+            .collect();
+        Some(lsp_types::SignatureHelp {
+            signatures: vec![lsp_types::SignatureInformation {
+                label: help.label,
+                documentation: None,
+                parameters: Some(parameters),
+                active_parameter: None,
+            }],
+            active_signature: Some(0),
+            active_parameter: help.active.and_then(|i| u32::try_from(i).ok()),
+        })
+    }
+
     /// The text of a document: the editor's, or the file's on disk.
     fn text(&self, uri: &Url) -> Option<String> {
         if let Some(text) = self.texts.borrow().get(uri).cloned() {
@@ -1055,6 +1089,16 @@ impl Main {
                     let at = p.text_document_position;
                     let items = self.completions(&nav, &at.text_document.uri, at.position);
                     serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
+                })
+            }
+            request::SignatureHelpRequest::METHOD => {
+                parse::<lsp_types::SignatureHelpParams>(&request).map(|p| {
+                    let at = p.text_document_position_params;
+                    serde_json::to_value(self.signature_help(
+                        &nav,
+                        &at.text_document.uri,
+                        at.position,
+                    ))
                 })
             }
             request::SelectionRangeRequest::METHOD => {
