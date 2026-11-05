@@ -158,9 +158,6 @@ theorem Ring.evalSingle (env: Ring.Env) (v: Nat): Ring.Poly.eval env (Ring.singl
   Eq.trans (Int.addZero (Int.mul (OfNat 1) (Int.mul (Ring.var env v) (OfNat 1))))
     (Eq.trans (Int.oneMul (Int.mul (Ring.var env v) (OfNat 1))) (Int.mulOne (Ring.var env v)))
 
-theorem Ring.mulCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
-  Eq.trans (Eq.cong (t => Int.mul t b) p) (Eq.cong (Int.mul a2) q)
-
 -- The normal form of a side means the side.
 
 theorem Ring.NExpr.sound (env: Ring.Env): (e: Ring.NExpr) → Ring.Poly.eval env (Ring.NExpr.poly e) = OfNat (Ring.NExpr.eval env e)
@@ -169,7 +166,7 @@ theorem Ring.NExpr.sound (env: Ring.Env): (e: Ring.NExpr) → Ring.Poly.eval env
   | NAdd a b =>
     Eq.trans (Ring.evalAdd env (Ring.NExpr.poly a) (Ring.NExpr.poly b)) (Int.addCong (Ring.NExpr.sound env a) (Ring.NExpr.sound env b))
   | NMul a b =>
-    Eq.trans (Ring.evalMul env (Ring.NExpr.poly a) (Ring.NExpr.poly b)) (Ring.mulCong (Ring.NExpr.sound env a) (Ring.NExpr.sound env b))
+    Eq.trans (Ring.evalMul env (Ring.NExpr.poly a) (Ring.NExpr.poly b)) (Int.mulCong (Ring.NExpr.sound env a) (Ring.NExpr.sound env b))
   | NSucc a =>
     Eq.trans (Ring.evalAdd env (Ring.NExpr.poly a) (Ring.const (OfNat 1)))
       (Eq.trans (Int.addCong (Ring.NExpr.sound env a) (Ring.evalConst env (OfNat 1))) (Eq.cong OfNat (Ring.natAddOne (Ring.NExpr.eval env a))))
@@ -180,7 +177,7 @@ theorem Ring.ZExpr.sound (env: Ring.Env): (e: Ring.ZExpr) → Ring.Poly.eval env
   | ZAdd a b =>
     Eq.trans (Ring.evalAdd env (Ring.ZExpr.poly a) (Ring.ZExpr.poly b)) (Int.addCong (Ring.ZExpr.sound env a) (Ring.ZExpr.sound env b))
   | ZMul a b =>
-    Eq.trans (Ring.evalMul env (Ring.ZExpr.poly a) (Ring.ZExpr.poly b)) (Ring.mulCong (Ring.ZExpr.sound env a) (Ring.ZExpr.sound env b))
+    Eq.trans (Ring.evalMul env (Ring.ZExpr.poly a) (Ring.ZExpr.poly b)) (Int.mulCong (Ring.ZExpr.sound env a) (Ring.ZExpr.sound env b))
   | ZNeg a => Eq.trans (Ring.evalNeg env (Ring.ZExpr.poly a)) (Eq.cong Int.neg (Ring.ZExpr.sound env a))
   | ZSub a b =>
     Eq.trans (Ring.evalAdd env (Ring.ZExpr.poly a) (Ring.neg (Ring.ZExpr.poly b)))

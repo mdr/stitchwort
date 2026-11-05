@@ -589,14 +589,6 @@ theorem List.sumByOne: (xs: List a) → List.sumBy xs (x => 1) = List.length xs
   | [] => rfl
   | [x, ..rest] => rewrite List.sumByCons rest x (x => 1) in Eq.cong Succ (List.sumByOne rest)
 
---| Sums agree when their terms agree on the list's elements.
-theorem List.sumByCongMem [auto add: Add b]: (xs: List a) → (f: a → b) → (g: a → b) → ((x: a) → x ∈ xs → f x = g x) →
-    List.sumBy xs f = List.sumBy xs g
-  | [], f, g, agree => rfl
-  | [x, ..rest], f, g, agree =>
-    rewrite List.sumByCons rest x f, List.sumByCons rest x g, agree x (Inl rfl), List.sumByCongMem rest f g (y member => agree y (Inr member))
-      in rfl
-
 --| An element's term is at most the sum.
 theorem List.memLeSumBy (f: a → Nat): (xs: List a) → (x: a) → x ∈ xs → f x ≤ List.sumBy xs f
   | [], x, none => Void.exfalso none

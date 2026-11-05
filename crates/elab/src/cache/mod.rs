@@ -810,6 +810,8 @@ impl Elaborator {
         self.scope.clear_imports();
         self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         let mut pre = std::mem::take(&mut head.pre);
+        // For the namespaces that depend on it.
+        self.set_library_reach(&pre.needs);
         for (k, span, follower) in &pre.early {
             self.scope.insert(k, Global::Failed, *span, *follower);
         }

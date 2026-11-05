@@ -31,6 +31,7 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, BinaryHeap};
+use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 
 use stitchwort_core::collections::HashMap;
@@ -191,6 +192,7 @@ impl LibraryIndex {
             }
             parsed[f].names = names;
         }
+        congruence_lemmas_beside(&parsed, &owner)?;
         let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
         for (f, file) in parsed.iter().enumerate().skip(1) {
             // Not a definition's generated equations (`f.eq2`), which are named in
@@ -351,6 +353,19 @@ impl LibraryIndex {
         self.owner.get(key).copied()
     }
 
+    /// The file that declares the definition with full path `path`, or the
+    /// declaration it was generated for (`Std.Map.decEq.%match1` is
+    /// `Std.Map.decEq`'s): `None` for a path outside the library.
+    pub fn owner_of_path(&self, path: &str) -> Option<usize> {
+        let mut path = path;
+        loop {
+            if let Some(f) = self.owner(path) {
+                return Some(f);
+            }
+            path = path.rsplit_once('.')?.0;
+        }
+    }
+
     /// Every full name the index holds, with its file.
     pub fn names(&self) -> impl Iterator<Item = (&str, usize)> {
         self.owner.iter().map(|(k, f)| (k.as_str(), *f))
@@ -454,6 +469,44 @@ impl LibraryIndex {
             }
             [] => String::new(),
         }
+    }
+}
+
+/// Checks that every congruence lemma of a definition `F` (`FCong`,
+/// `FCongMem`, `FCongRange`: `congruence.rs`) is declared in `F`'s own file.
+///
+/// `rewrite` under a binder and `decreasing` look the lemma up by name
+/// once they meet a call of `F`, which is when `F`'s file is loaded; a
+/// lemma in another file would be found only when something else happened
+/// to load that file, so whether a program checks would depend on what
+/// else is in the run (SW-1354). Beside `F`, it is loaded whenever it can
+/// be asked for, as if every file were.
+fn congruence_lemmas_beside(
+    files: &[IndexedFile],
+    owner: &HashMap<String, usize>,
+) -> Result<(), String> {
+    let mut misplaced = Vec::new();
+    for (f, file) in files.iter().enumerate() {
+        for name in file.names.iter().filter(|n| n.kind == PendingKind::Def) {
+            for suffix in crate::congruence::SUFFIXES {
+                let lemma = format!("{}{suffix}", name.key);
+                if let Some(&g) = owner.get(&lemma)
+                    && g != f
+                {
+                    misplaced.push(format!(
+                        "`{lemma}` is declared in `{}`, but as a congruence lemma of `{}` it \
+                         must be declared beside it, in `{}`: `rewrite` and `decreasing` find \
+                         it only where `{}`'s file is loaded",
+                        files[g].path, name.key, file.path, name.key
+                    ));
+                }
+            }
+        }
+    }
+    if misplaced.is_empty() {
+        Ok(())
+    } else {
+        Err(misplaced.join("\n"))
     }
 }
 
@@ -935,6 +988,33 @@ impl Elaborator {
         }
         // The equations it names, made on demand once their files load.
         self.ensure_equations(&needs.equations).map_err(|d| vec![d])
+    }
+
+    /// Sets the module's `library_reach` from its `needs`: the files they
+    /// ask for, with the files those need, as if nothing were loaded, and
+    /// those of the namespaces it depends on (their values can be the
+    /// module's). The same set however the module is reached. A project
+    /// namespace's is kept for the namespaces that depend on it.
+    pub(crate) fn set_library_reach(&mut self, needs: &Needs) {
+        let Some(lib) = &self.session.library else {
+            self.unit.module.library_reach = None;
+            return;
+        };
+        let index = &lib.index;
+        let roots = index.resolve_needs(needs, &|_| false);
+        let mut reach = index.closure(&roots, &|_| false);
+        for namespace in self.unit.module.closure.iter().flatten() {
+            if let Some(theirs) = self.session.library_reach.get(namespace) {
+                reach.extend(theirs.iter().copied());
+            }
+        }
+        let reach = Rc::new(reach);
+        if let Some(namespace) = &self.unit.module.namespace
+            && !self.unit.loading_prelude
+        {
+            Rc::make_mut(&mut self.session.library_reach).insert(namespace.clone(), reach.clone());
+        }
+        self.unit.module.library_reach = Some(reach);
     }
 
     /// Whether the files `needs` names, with the files those need, declare

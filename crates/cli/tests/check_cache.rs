@@ -508,3 +508,53 @@ fn plain_check_checks_a_namespace_whose_entry_is_corrupt() {
     let _ = std::fs::remove_dir_all(&skipping);
     let _ = std::fs::remove_dir_all(&loading);
 }
+
+/// A namespace's result doesn't depend on which library files the other
+/// namespaces of the run load (SW-1354). `B` rewrites inside `Option.map`,
+/// which needs `Option.mapCong`; `A` loads `Option/Lemmas.sw` (for
+/// `Option.mapId`) and `B` doesn't. `B` checks the same alone, beside an
+/// `A` that loads that file and beside one that doesn't: fresh, with a cold
+/// cache and with a warm one.
+#[test]
+fn a_namespace_checks_the_same_whatever_else_the_run_loads() {
+    let b = "namespace B\nimport Std (Option)\n\ndef inc (x: Nat): Nat := Succ x\n\n\
+             theorem incIs (x: Nat): inc x = Succ x := rfl\n\n\
+             theorem t (o: Option Nat): Option.map o (x => inc x) = Option.map o (x => Succ x) := \
+             rewrite incIs\n";
+    let lemmas = "namespace A\nimport Std (Option)\n\n\
+                  theorem idem (x: Option Nat): Option.map x (y => y) = x := Option.mapId x\n";
+    let plain = "namespace A\n\ndef one: Nat := 1\n";
+    for (what, a) in [
+        ("alone", None),
+        ("with A", Some(lemmas)),
+        ("with a plain A", Some(plain)),
+    ] {
+        let project = temp_dir("loads-project");
+        std::fs::create_dir_all(project.join("src")).unwrap();
+        std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+        std::fs::write(project.join("src/B.sw"), b).unwrap();
+        if let Some(a) = a {
+            std::fs::write(project.join("src/A.sw"), a).unwrap();
+        }
+        let namespaces = if a.is_some() { 2 } else { 1 };
+        let cache = temp_dir("loads-cache");
+        let dir = project.to_str().unwrap();
+        let fresh = stitchwort(&["check", "--project", dir, "--no-cache"], &[]);
+        let runs = [
+            ("fresh", fresh),
+            ("cold", plain_check(&project, &cache, true, false)),
+            ("warm", plain_check(&project, &cache, true, false)),
+        ];
+        for (when, output) in &runs {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success()
+                    && stderr.contains(&format!("checked {namespaces} namespace")),
+                "{what}, {when}: {}",
+                shown(output)
+            );
+        }
+        let _ = std::fs::remove_dir_all(&project);
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+}

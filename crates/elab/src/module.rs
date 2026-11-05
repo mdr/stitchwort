@@ -166,6 +166,11 @@ pub(crate) struct ModuleState {
     /// In a project: the namespaces this one depends on, in canonical order.
     /// `None` in file mode.
     pub closure: Option<Vec<String>>,
+    /// The library files this module's references need, with the files
+    /// those need, worked out from the references alone, never from what
+    /// happens to be loaded: the files whose decision procedures `auto`
+    /// tries (`auto::earlier_candidates`). `None` without a library.
+    pub library_reach: Option<std::rc::Rc<std::collections::BTreeSet<usize>>>,
     /// The first definition and test the module declares.
     pub first_def: usize,
     pub first_test: usize,
@@ -337,6 +342,7 @@ impl Elaborator {
         // Claimed again by now, if this follows a failed replay.
         self.session.replayed_names.clear();
         let needs = self.dependencies(&items);
+        self.set_library_reach(&needs);
         // For the check cache: the names collected, before the library
         // files load (`cache`).
         self.capture_before_needs(&needs);

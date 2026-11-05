@@ -858,5 +858,10 @@ theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c): (c:
     List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
   c s h => List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
+--| Sums agree when their terms agree on the list's elements.
+theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: (x: a) → x ∈ xs → f x = g x):
+    List.sumBy xs f = List.sumBy xs g :=
+  List.foldLeftCongMem xs Add.zero (acc x => acc + f x) (acc x => acc + g x) (acc x m => Eq.cong (t => acc + t) (agree x m))
+
 theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
   List.foldLeftCongMem xs 0 (n x => Nat.succIf n (p1 x)) (n x => Nat.succIf n (p2 x)) (acc x m => Eq.cong (b => Nat.succIf acc b) (ep x m))
