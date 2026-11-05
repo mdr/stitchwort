@@ -1841,3 +1841,283 @@ the rest of the cold time is std's modules (the program's 4.9 s against day
    doesn't say the term checks without it (item 7). Error message; small.
 8. Nothing links `Nat`'s `Show` to `Parse.digitsValue` (item 7). Missing
    library; small.
+
+## Day 8: Handheld Halting
+
+A handheld console's boot code, one instruction a line: an operation
+(`acc`, `jmp` or `nop`) and a signed argument, "jmp -4". Part 1 is the
+accumulator just before any instruction runs a second time; part 2 repairs
+the one corrupted instruction (a `jmp` that should be a `nop`, or the other
+way round) so that the program terminates, by running into the position
+just after its last instruction, and gives the accumulator then. Answers
+on Matt's input (626 instructions): 1832 and 662; the example gives 5 and
+8. I did not run Matt's Scala (`Day8.scala`, no `sbt` run); I read it (a
+mutable machine with a visited set, and each `jmp`/`nop` swapped in turn)
+and checked both answers and the example with an independent Python script
+(the same simulation over a list), which agree. On the input exactly one
+repair terminates (a test).
+
+The domain types are the puzzle's nouns: an `Operation` (`Acc`, `Jmp`,
+`Nop`), an `Instruction` (`operation` and `argument: Int`), a `Program`, a
+machine `State` (`next`, the position of the instruction to run next, an
+`Int` because a jump can go below 0, and the `accumulator`), and an
+`Outcome` (`Loops`, `Terminates`, `JumpsAway`, each with the accumulator).
+The program indexes the code once (`Map.byPosition`) and runs it keeping
+the set of positions not yet run, which is also its termination measure:
+
+```stitchwort
+def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
+    decreasing unvisited.size
+:=
+  match state.next.toNatChecked with
+    | None => JumpsAway state.accumulator
+    | Some position =>
+      match code.byPosition.get position with
+        | None => if position == code.length then Terminates state.accumulator else JumpsAway state.accumulator
+        | Some instruction =>
+          if fresh: unvisited.contains position = True then
+            Code.runFrom code (unvisited.remove position) (instruction.execute state)
+              [decreasing := omega [Set.sizeRemovePresent unvisited position fresh, Set.sizePositive unvisited position fresh]]
+          else Loops state.accumulator
+```
+
+Part 2 tries each `jmp` and `nop` swapped with one `Map.insert` into the
+indexed code (`Code.terminatesRepaired`), and takes the first that
+terminates (`List.findMap` over `withIndex`). It printed the right
+answers on the first run, in 1.0 s for both parts.
+
+The spec (`Spec/Spec.sw`) has the format (`InstructionWritten`: the
+operation's word, a space, then `+` or `-` and decimal digits) and the
+machine in the puzzle's words: `Executes instruction before after` (what
+`acc`, `jmp` and `nop` do, quoted), `Step program before after` (the
+console executes the instruction at its position), and `Runs program state
+positions last` (from `state` it executes the instructions at `positions`,
+in order, and is then at `last`). Then `Part1 program answer`: some run
+from the start has executed no position twice (`List.Distinct
+positions`) and is at one it has executed, with `answer` in the
+accumulator; `Terminates program accumulator`: some run from the start
+reaches the position just past the last instruction; `Repair program index
+repaired`: the same length, every other instruction the same, and the one
+at `index` a `jmp` made a `nop` or the other way round, with its argument;
+and `Part2 program answer`: some repair terminates with `answer`. All are
+propositions, so there is no spec test; the answers' tests are on the
+program.
+
+Proved (`Aoc.Year2020.Day08.Proofs`):
+
+- `readsOperation`, `readsArgument`, `readsInstruction`: each parser reads
+  its piece as the spec writes it. `parseWritten`: if `parseProgram` reads
+  `input`, each line of it is its instruction written out.
+- `runFromRuns` (Run.sw): for any `Code` holding a program's instructions
+  (`Holds`), a run of `Code.runFrom` from any state, after positions `done`
+  that it hasn't revisited, is a spec run whose positions, after `done`,
+  are distinct, and it stops as its outcome says (`Ended`): at a position
+  already executed for `Loops`, at the length for `Terminates`. Its
+  induction follows `runFrom`'s own measure, `unvisited.size`.
+- `getByPosition` (Map.get on `Map.byPosition` is `List.get`; std has it
+  for `getOr` only), `codeHolds`, `unvisitedAll`, `runRuns`: the same from
+  the start, for the program's own code.
+- `part1Rules`: when part 1 gives an answer, it is `Spec.Part1`.
+- `replaceAt` and its three lemmas, `repairedHolds` (the code with one
+  `Map.insert` holds the program with one instruction replaced), `repairIs`
+  (that program is a `Spec.Repair`), `repairTerminates`, `findMapFound`;
+  `part2Rules`: when part 2 gives an answer, it is `Spec.Part2`.
+- `part1Correct`, `part2Correct`: for every input the parser reads, its
+  lines are the instructions written out and the answers are the spec's.
+
+Not proved: that every well-formed input parses (as on days 2 to 7). That
+the program always answers when the puzzle has an answer (completeness:
+a `Loops` outcome whenever `Part1` holds, and a terminating repair found
+whenever `Part2` holds); with the run deterministic, both are true and
+within reach (`runFromRuns` gives the run, and two runs from the start
+agree), but I didn't write them. That `Part1` names one answer (the same
+determinism). `Part2` names one answer only if exactly one repair
+terminates, which the puzzle promises and a test checks on the input;
+the program takes the first.
+
+Termination needed no unproved bound this time: the simulation is
+`decreasing unvisited.size`, and two std lemmas (`Set.sizeRemovePresent`,
+`Set.sizePositive`) prove each step smaller, so there is no fuel and no
+"out of steps" outcome that a proof would have to rule out. Day 7's gap
+(item 4 there) was a recursion over a relation, which has no such set to
+shrink; a simulation that marks what it has visited does.
+
+Breaking the program made the proofs fail: `position == code.length + 1`
+for the end test fails `runFromRuns` (E-TYPE-MISMATCH, at the
+`Terminates` case); starting with `1 ..< code.length` unvisited fails
+`runRuns` (the initial `Unvisited`); repairing a `jmp` to a `jmp` fails
+`repairIs` (E-REWRITE-NOTHING); `acc` subtracting fails `executeSteps`
+(E-REFL).
+
+### 1. A method named like another type's method makes `decreasing` see mutual recursion
+
+My first `Code.runFrom` called `instruction.run state` (`Instruction.run`)
+and failed:
+
+```
+[E-DECREASING] Error: `decreasing` isn't supported for definitions that call each other yet
+ 84 │     decreasing unvisited.size
+    │ Note: `Code.runFrom`, `Code.run` call each other; give them a fuel argument for now
+```
+
+They don't: `Code.run` calls `Code.runFrom`, which calls `Instruction.run`.
+Renaming it `Instruction.execute` fixed it. The call graph seems to resolve
+`.run` by its short name. A repro (file mode):
+
+```stitchwort
+type Step = { by: Nat }
+type Counter = { limit: Nat }
+
+def Step.run (step: Step) (n: Nat): Nat := n + step.by
+
+def Counter.runFrom (counter: Counter) (left: Nat) (n: Nat): Nat
+    decreasing left
+:=
+  if h: 0 < left then Counter.runFrom counter (left - 1) (({ by = 1 }: Step).run n) [decreasing := omega] else n
+
+def Counter.run (counter: Counter): Nat := counter.runFrom counter.limit 0
+```
+
+gives the same error, naming `Counter.runFrom` and `Counter.run`. A
+newcomer would believe the note and add fuel, which is what the day
+avoided. Compiler bug; `run`, `step` and `next` are the names a simulation
+reaches for.
+
+### 2. The index lemmas are for `getOr`; the program's lookups are `get`
+
+The natural lookups are `Option`s: `Map.get` on the indexed code, and the
+spec's `program.instructions.get index`. Std's lemmas are nearly all about
+`getOr`: `Map.getOrByPosition` but no `Map.getByPosition` (I wrote
+`getByPosition` with a copy of `Map.lookupLastWithIndex`'s induction, 17
+lines), and no `List.get xs i = Some x → i < xs.length` (`getLength`, 4
+lines; `stitchwort search` found only mine). There is no `List.set` /
+`updated` either (Scala's `instructions.updated(index, …)` is what Matt's
+solution uses), so the proof defines `replaceAt` with `lengthReplaceAt`,
+`getReplaceAt` and `getReplaceAtOther` (20 lines); the program avoids it
+by `Map.insert`. And `List.findMap` has only `findMapIsHeadFilterMap`: the
+membership form (`findMapFound`, "what it finds comes from some `x ∈ xs`")
+is mine, and 2024 day 24 has a weaker copy (`findMapSome`). Candidates:
+`Map.getByPosition`, `List.getLength` (or `getSomeLt`), `List.set` with
+`get`/`length` lemmas, `List.memOfFindMap`.
+
+### 3. `Parse.int` doesn't read a leading `+`
+
+Every argument here has a sign, `+0` included. `Parse.int` reads only an
+optional `-`, so `"+3"` fails. I wrote `argument()` with `Parse.pick
+[("+", False), ("-", True)]`, `Parse.nat()` and `Int.signed`, and its
+reads proof by hand (13 lines, with `Pair.mkInjectiveFst`/`Snd` on the
+`pick` membership). A `Parse.signedInt` (sign required, or an optional
+`+`) with an `IntRead`-style spec would make it one call; `Parse.IntRead`
+itself is close to what the spec says.
+
+### 4. A proof can't follow the program's `if fresh:` with its own
+
+In the proof, `if fresh: unvisited.contains position = True then ?` left
+the goal holding `Decidable.elim (Bool.decEq (Set.contains unvisited
+position) True) (fresh => Code.runFrom …) (fresh => Loops …)`: the
+proof's decision is another term, so the program's `if` doesn't compute.
+`match c: unvisited.contains position with | True | False` did (the
+program's `Bool.decEq True True` then computes). That's reasonable once
+seen, but the goal shows the elaborated `Decidable.elim`, not the `if` I
+wrote, and nothing says to match on the `Bool`. A note on such a goal, or
+the guide's §3 saying "to follow a program's `if h: b = True`, `match c:
+b`", would have saved a round.
+
+### 5. Messages
+
+- **`Eq.symm`** (it is `Eq.sym`) with `import Std (Eq)` in place gave
+  "unknown name `Eq.symm`; `Eq` is `Std.Eq`; add `import Std (Eq)`": the
+  import was there, so the note is wrong; the name is. "did you mean
+  `Eq.sym`" is what would help (Lean's is `Eq.symm`, so this will recur).
+- **`rewrite` with an `↔`** is E-REWRITE-RULE ("isn't an equation"). I
+  wanted `rewrite Set.containsFromListIff … in` and wrote the two
+  directions by hand. Fine as a rule; the message could point at
+  `.forward`/`.backward`.
+- **`rewrite r at made` after `match r:`** was E-REWRITE-NOTHING with note 1
+  "`made` is already refined: use it as it is", which was exactly right
+  (day 6's complaint about the useful note coming last is fixed here).
+- **`Some { instruction | operation = Nop }`** is E-PARSE with a note to
+  bracket it; `Some { operation = Jmp, argument }` in the spec likewise
+  (E-UNKNOWN-FIELD, then the note). Both clear; both cost a round trip.
+- **`rewrite … at (term) in …`** (E-REWRITE-TARGET) says to drop `in` or
+  name the term: clear.
+
+### 6. Smaller things
+
+- **Int support was enough.** `Int.toNatChecked` turned the position into
+  an index with a `match`, `Nat.toInt`, `Int.signed` and
+  `Int.ofNatInjective` were all there, and `State` arithmetic (`next +
+  argument`) needed no lemmas, since the proofs never reason about
+  positions as numbers, only as keys. `Int.ofNatInjective (m n: Nat)`
+  takes its two numbers explicitly, though the hypothesis fixes them (an
+  implicit-parameter candidate under D2422).
+- **The new syntax.** `0 ..< code.length` read well in the program, and
+  `List.memRange` (stated as `a ≤ x < b`) gave `unvisitedAll` at once.
+  Ranges are `Nat` only, which is right here (the positions are an `Int`
+  only until they're checked). Chained comparisons, `List.groupBy` and
+  omega's range facts weren't needed; implicit lemma parameters
+  (`Option.someInjective`, `DecEq.sound`, `Pair.mkInjectiveFst`) kept every
+  call to its hypothesis.
+- **`Set` lemmas were all there**: `containsRemove`, `containsRemoveOther`,
+  `containsFromListIff`, `sizeRemovePresent`, `sizePositive`. So were
+  `Map.getInsert`/`getInsertOther` and `List.memWithIndex`.
+- **Record updates in the spec's arms.** `Instruction.execute` uses `{
+  state | next = … }`; `Executes` matched it with `Both rfl rfl` per
+  operation (record updates on records compute).
+- **Audit.** 68 theorems, 0 failed, 1 warning: the generated equation
+  `Code.runFrom.eq.some.some.ifTrue`, whose hypotheses (a position, an
+  instruction there, still unvisited) held in none of 1500 random cases.
+  They don't contradict each other (the tests run that arm on every step);
+  random maps and sets just rarely line up.
+- **Domain types.** `Instruction.execute`, `Instruction.repaired`,
+  `Program.code`, `Code.run` and `Code.terminatesRepaired` read as the
+  puzzle; the proofs state everything about `Program`, `State` and
+  `Outcome`, and `Holds code program` is the one bridge.
+
+### Size and time
+
+126 lines of program, 92 of spec, 330 of proofs (Parse 44, Run 112,
+Part1 52, Part2 101, Proofs 21), 63 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock, 5 minutes from reading the puzzle to the
+program and its tests passing (16:20 to 16:25), and 9 more to every proof
+checking (16:34); then audit, break checks and these notes. Nearly every
+proof checked on the first or second try; the longest detours were items
+1 and 4.
+
+CPU time (load not measured):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day08.Proofs` | 7.2 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day08` | 3.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day08` (20 tests) | 8.8 s user |
+| `task audit:touched -- Aoc.Year2020.Day08` (68 theorems) | 2.0 s user |
+| `stitchwort run Aoc.Year2020.Day08.main` on the input | 1.0 s user |
+| `task test:one -- year2020_day08` | 4.8 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 152 ms of
+elaboration; the rest of the cold time is std's modules.
+
+### Ranked
+
+1. A method with the same short name as another type's (`Instruction.run`
+   beside `Code.run`) makes `decreasing` report mutual recursion that
+   isn't there, and its note says to add fuel (item 1). Compiler bug;
+   small to medium, repro in item 1.
+2. Lookup lemmas are for `getOr`, not `get`: no `Map.getByPosition`, no
+   `List.get … = Some x → i < length`, no `List.set`/`updated` with its
+   lemmas, no `List.findMap` membership lemma (2024 day 24 has a weaker
+   copy) (item 2). Missing library; small each.
+3. `Parse.int` doesn't read `+`; no signed-number parser for a required
+   sign (item 3). Missing library; small.
+4. A proof's `if h:` doesn't follow the program's; `match c:` on the
+   `Bool` does, and the goal shows `Decidable.elim` without saying so
+   (item 4). Error message or guide; small.
+5. `Eq.symm` gets a wrong "add `import Std (Eq)`" note instead of "did
+   you mean `Eq.sym`" (item 5). Error message; small.
+6. Completeness and uniqueness of both parts are unproved, though true
+   and within reach (Not proved, above). Proof work; small to medium.
+7. `rewrite` with an `↔` could point at `.forward`/`.backward` (item 5).
+   Error message; trivial.
+8. `Int.ofNatInjective` takes explicit numbers its hypothesis fixes
+   (item 6). Library (D2422 sweep); trivial.
