@@ -132,7 +132,7 @@ theorem Int.addAssoc: (a: Int) → (b: Int) → (c: Int) →
 
 theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 
---| Exclusive or: `True` when exactly one of `a` and `b` is.
+--| Exclusive or: `True` when exactly one of `x` and `y` is.
 def Bool.xor: (x: Bool) → (y: Bool) → Bool
   | False, b => b
   | True, b => ¬b
@@ -148,7 +148,7 @@ def Int.isNeg: (x: Int) → Bool
   | OfNat n => False
   | NegSucc n => True
 
---| `k`, negated if `neg`.
+--| `n`, negated if `negative`.
 def Int.signed: (negative: Bool) → (n: Nat) → Int
   | False, k => OfNat k
   | True, k => Int.neg (OfNat k)

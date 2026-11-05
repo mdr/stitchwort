@@ -155,20 +155,20 @@ theorem List.chainCong: (xs: List a) → (holds1: a → a → Bool) → (holds2:
 test "List.zipWithNext" := List.zipWithNext [1, 2, 3] == [MkPair 1 2, MkPair 2 3] ∧ List.zipWithNext [7] == [] ∧ List.zipWithNext ([]: List Nat) == []
 test "List.chain" := List.chain [1, 2, 4] (x y => x < y) ∧ ¬(List.chain [1, 3, 2] (x y => x < y)) ∧ List.chain [5] (x y => x < y)
 
---| The first n elements (all of them if there are fewer): n of them when the list is long enough ([`List.lengthTake`]).
+--| The first `count` elements (all of them if there are fewer): `count` of them when the list is long enough ([`List.lengthTake`]).
 def List.take: (xs: List a) → (count: Nat) → List a
   | xs, Zero => []
   | [], Succ n => []
   | [x, ..xs], Succ n => [x, ..List.take xs n]
 
---| All but the first n elements; after `List.take` of the same n, the whole list ([`List.appendTakeDrop`]).
+--| All but the first `count` elements; after `List.take` of the same `count`, the whole list ([`List.appendTakeDrop`]).
 @[tailrec]
 def List.drop: (xs: List a) → (count: Nat) → List a
   | xs, Zero => xs
   | [], Succ n => []
   | [x, ..xs], Succ n => List.drop xs n
 
---| The element at index i, counting from 0, or `None` past the end.
+--| The element at `index`, counting from 0, or `None` past the end.
 @[tailrec]
 def List.get: (xs: List a) → (index: Nat) → Option a
   | [], i => None
@@ -189,8 +189,8 @@ def List.all: (xs: List a) → (p: a → {e} Bool) → {e} Bool
   | [], p => True
   | [x, ..xs], p => if p x then List.all xs p else False
 
---| `n`, plus one if `b`: `List.count`'s step.
--- A function of its own so `n` is written once: `if b then Succ n else n`
+--| `n`, plus one if `cond`: `List.count`'s step.
+-- A function of its own so `n` is written once: `if cond then Succ n else n`
 -- writes it twice, so when the checker can't decide the conditions, a count
 -- doubles in size with every element.
 def Nat.succIf (n: Nat): (cond: Bool) → Nat
@@ -236,7 +236,7 @@ def List.concat: (xss: List (List a)) → List a
   | [] => []
   | [xs, ..xss] => List.append xs (List.concat xss)
 
---| n copies of `x`: `List.replicate 3 'a'` is `['a', 'a', 'a']` ([`List.lengthReplicate`]).
+--| `count` copies of `x`: `List.replicate 3 'a'` is `['a', 'a', 'a']` ([`List.lengthReplicate`]).
 def List.replicate: (count: Nat) → (x: a) → List a
   | Zero, x => []
   | Succ n, x => [x, ..List.replicate n x]
@@ -247,8 +247,8 @@ def List.rangeFrom (count: Nat) (start: Nat): List Nat :=
     | Zero => []
     | Succ n => [start, ..List.rangeFrom n (Succ start)]
 
---| The numbers from 0 up to, not including, `n`: `List.range 3` is `[0, 1, 2]`.
-def List.range (n: Nat): List Nat := List.rangeFrom n 0
+--| The numbers from 0 up to, not including, `count`: `List.range 3` is `[0, 1, 2]`.
+def List.range (count: Nat): List Nat := List.rangeFrom count 0
 
 --| `List.between lo hi` is `[lo, lo + 1, ..., hi]`, both ends included; empty
 --| when `lo > hi`.
@@ -344,12 +344,12 @@ def List.lookup [auto eq: DecEq k]: (entries: List (Pair k v)) → (key: k) → 
   | [], key => None
   | [MkPair entryKey value, ..rest], key => if entryKey == key then Some value else rest.lookup key
 
---| `List.padRight xs n x` is `xs` followed by enough copies of `x` to make it
---| n long (it is `xs` itself when that is already n long or longer).
-def List.padRight (xs: List a) (n: Nat) (x: a): List a := xs.append (List.replicate (n - xs.length) x)
+--| `List.padRight xs width x` is `xs` followed by enough copies of `x` to make it
+--| `width` long (it is `xs` itself when that is already `width` long or longer).
+def List.padRight (xs: List a) (width: Nat) (x: a): List a := xs.append (List.replicate (width - xs.length) x)
 
---| `xs` after enough copies of `x` to make it `n` long (`xs` itself when it is already that long).
-def List.padLeft (xs: List a) (n: Nat) (x: a): List a := (List.replicate (n - xs.length) x).append xs
+--| `xs` after enough copies of `x` to make it `width` long (`xs` itself when it is already that long).
+def List.padLeft (xs: List a) (width: Nat) (x: a): List a := (List.replicate (width - xs.length) x).append xs
 
 --| `Some` of every value when every option has one, else `None`.
 def List.allSome: (options: List (Option a)) → Option (List a)
@@ -360,7 +360,7 @@ theorem List.allSomeExample: List.allSome [Some 1, Some 2] = Some [1, 2] := rfl
 
 theorem List.allSomeNone: List.allSome [Some 1, None] = None := rfl
 
---| The first `n` columns of a list of rows (`List.transpose`'s loop): column i
+--| The first `count` columns of a list of rows (`List.transpose`'s loop): column i
 --| is the i-th element of each row that has one.
 @[noReceiver]
 def List.transposeN: (count: Nat) → (rows: List (List a)) → List (List a)
@@ -520,18 +520,18 @@ theorem List.dropConsLess: (xs: List a) → (n: Nat) → (x: a) → n ≠ 0 → 
 --| divide the length. `n = 0` is no sensible chunk size, so it gives the whole
 --| list as one chunk (`[xs]`, or `[]` for an empty `xs`).
 @[noReceiver]
-def List.chunksOfPositive (n: Nat) (xs: List a) [auto pos: n ≠ 0]: List (List a)
+def List.chunksOfPositive (size: Nat) (xs: List a) [auto pos: size ≠ 0]: List (List a)
     decreasing List.length xs
 :=
   match xs with
     | [] => []
-    | [y, ..ys] => [List.take [y, ..ys] n, ..List.chunksOfPositive n (List.drop [y, ..ys] n) [decreasing := List.dropConsLess ys n y pos]]
+    | [y, ..ys] => [List.take [y, ..ys] size, ..List.chunksOfPositive size (List.drop [y, ..ys] size) [decreasing := List.dropConsLess ys size y pos]]
 
---| Chunks of `n` elements, in order, the last one shorter if need be:
---| `[1, 2, 3].chunksOf 2` is `[[1, 2], [3]]`. `n = 0` gives the whole list as
+--| Chunks of `size` elements, in order, the last one shorter if need be:
+--| `[1, 2, 3].chunksOf 2` is `[[1, 2], [3]]`. `size = 0` gives the whole list as
 --| one chunk (none for an empty list).
-def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
-  match n with
+def List.chunksOf (xs: List a) (size: Nat): List (List a) :=
+  match size with
     | Zero => match xs with
       | [] => []
       | [y, ..ys] => [[y, ..ys]]
@@ -638,8 +638,8 @@ def List.spanOnto (taken: List a) (p: a → {e} Bool): (xs: List a) → {e} Pair
 --| called after the first element that fails it.
 def List.span (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := List.spanOnto [] p xs
 
---| The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
-def List.splitAt (xs: List a) (n: Nat): Pair (List a) (List a) := MkPair (List.take xs n) (List.drop xs n)
+--| The first `count` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
+def List.splitAt (xs: List a) (count: Nat): Pair (List a) (List a) := MkPair (List.take xs count) (List.drop xs count)
 
 --| Without the element at `index`, counting from 0 (the same list if there is
 --| none): `[1, 2, 3].removeAt 1` is `[1, 3]`.
@@ -648,8 +648,8 @@ def List.removeAt: (xs: List a) → (index: Nat) → List a
   | [x, ..xs], Zero => xs
   | [x, ..xs], Succ index => [x, ..List.removeAt xs index]
 
---| Without the last `n` elements (all of them if there are fewer).
-def List.dropRight (xs: List a) (n: Nat): List a := List.take xs (List.length xs - n)
+--| Without the last `count` elements (all of them if there are fewer).
+def List.dropRight (xs: List a) (count: Nat): List a := List.take xs (List.length xs - count)
 
 --| Every suffix, longest first, ending with the empty list:
 --| `[1, 2].tails` is `[[1, 2], [2], []]`: one more than the elements ([`List.lengthTails`]).
@@ -678,18 +678,18 @@ test "List.windows" :=
 --| The index of the first element satisfying `p`, counting from `i`.
 @[noReceiver]
 @[tailrec]
-def List.findIndexFrom (i: Nat) (p: a → Bool): (xs: List a) → Option Nat
+def List.findIndexFrom (start: Nat) (p: a → Bool): (xs: List a) → Option Nat
   | [] => None
-  | [x, ..xs] => if p x then Some i else List.findIndexFrom (Succ i) p xs
+  | [x, ..xs] => if p x then Some start else List.findIndexFrom (Succ start) p xs
 
 --| The index of the first element satisfying `p`, counting from 0, or `None` if none does.
 def List.findIndex (xs: List a) (p: a → Bool): Option Nat := List.findIndexFrom 0 p xs
 
 --| Each element with its index from `i`.
 @[noReceiver]
-def List.withIndexFrom (i: Nat): (xs: List a) → List (Pair Nat a)
+def List.withIndexFrom (start: Nat): (xs: List a) → List (Pair Nat a)
   | [] => []
-  | [x, ..xs] => [MkPair i x, ..List.withIndexFrom (Succ i) xs]
+  | [x, ..xs] => [MkPair start x, ..List.withIndexFrom (Succ start) xs]
 
 --| Pairs each element with its position, counting from 0, the position first:
 --| `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`. Rust's `enumerate`
@@ -765,12 +765,12 @@ test "List.contains" := [1, 2, 3].contains 2 ∧ ¬([1, 2, 3].contains 4) ∧ ¬
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] ∧ ([]: List Nat).pairs == [] ∧ [1].pairs == ([]: List (Pair Nat Nat))
 test "List.pairs count" := List.length (List.range 10).pairs == 45
 
---| Every choice of `k` elements, in the order they come: `[1, 2, 3, 4].combinations 3`
+--| Every choice of `size` elements, in the order they come: `[1, 2, 3, 4].combinations 3`
 --| is `[[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]]`. Like [`List.pairs`], it
 --| chooses by position: equal elements at different places are different
 --| choices. `xs.combinations 2` is `xs.pairs` as lists of two, and
 --| `xs.combinations 0` is `[[]]`. A choice is a subsequence of `xs` of length
---| `k`, and every such subsequence is a choice ([`List.memCombinations`],
+--| `size`, and every such subsequence is a choice ([`List.memCombinations`],
 --| [`List.combinationsMem`]).
 def List.combinations: (xs: List a) → (size: Nat) → List (List a)
   | xs, Zero => [[]]

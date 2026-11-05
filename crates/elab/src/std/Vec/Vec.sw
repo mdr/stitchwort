@@ -29,7 +29,7 @@ def Vec.headOr: (xs: Vec a n) → (fallback: a) → a
   | VNil, fallback => fallback
   | VCons x _, fallback => x
 
---| n copies of x.
+--| `n` copies of `x`.
 def Vec.replicate: (n: Nat) → (x: a) → Vec a n
   | Zero, _ => VNil
   | Succ k, x => VCons x (Vec.replicate k x)
@@ -78,7 +78,7 @@ def Vec.toList: (xs: Vec a n) → List a
   | VCons x xs => [x, ..Vec.toList xs]
 
 --| A list as a vector of its length, given the length: each `VCons` stores
---| `k`, a number already computed.
+--| `n`, a number already computed.
 -- (Building `VCons x (fromList xs)` against the type `Vec a (List.length (Cons
 -- x xs))` would store `List.length xs` at every element, which is quadratic:
 -- indexed-families.md §8.1.)
@@ -128,11 +128,11 @@ def Vec.get: (xs: Vec a n) → (i: Fin n) → a
 --| to be longer than 2, or with the proof passed by name.
 def Vec.getLt (v: Vec a n) (i: Nat) [auto ok: i < n]: a := Vec.get v (Fin.ofNatLt n i ok)
 
---| The element at a `Nat` index, or `d` past the end: `Vec.getOr [7, 8] 1 0`
+--| The element at a `Nat` index, or `fallback` past the end: `Vec.getOr [7, 8] 1 0`
 --| is 8 and `Vec.getOr [7, 8] 5 0` is 0. No proof that the index is in range,
 --| so a proof about one column of a grid can read every row at it. It is
 --| `List.getOr` of the `toList`; the lemmas below give it for each operation.
-def Vec.getOr (v: Vec a n) (i: Nat) (d: a): a := List.getOr (Vec.toList v) i d
+def Vec.getOr (v: Vec a n) (i: Nat) (fallback: a): a := List.getOr (Vec.toList v) i fallback
 
 --| Whether some element satisfies `p`.
 @[tailrec]

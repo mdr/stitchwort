@@ -525,7 +525,7 @@ theorem Nat.absDiffComm (m: Nat) (n: Nat): Nat.absDiff m n = Nat.absDiff n m :=
 theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m ≤ n): Nat.absDiff m n = n - m :=
   Eq.trans (Eq.cong (t => t + (n - m)) (Nat.subEqZero m n h)) rfl
 
---| `b` to the power `e`: `Nat.pow 2 10` is 1024.
+--| `b` to the power `exponent`: `Nat.pow 2 10` is 1024.
 def Nat.pow (b: Nat): (exponent: Nat) → Nat
   | Zero => 1
   | Succ e => Nat.pow b e * b

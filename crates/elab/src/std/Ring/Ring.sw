@@ -185,13 +185,13 @@ def Ring.mulVars: (xs: List Nat) → (ys: List Nat) → List Nat
   | [], ws => ws
   | [v, ..vs], ws => Ring.insertVar v (Ring.mulVars vs ws)
 
---| `c * vs` in front of `p`, unless `c` is 0.
+--| `c * vs` in front of `rest`, unless `c` is 0.
 def Ring.cons: (c: Int) → (vs: List Nat) → (rest: List Ring.Mono) → List Ring.Mono
   | OfNat Zero, vs, p => p
   | OfNat (Succ n), vs, p => [MkMono (OfNat (Succ n)) vs, ..p]
   | NegSucc n, vs, p => [MkMono (NegSucc n) vs, ..p]
 
---| `c * vs + p`, in normal form when `p` is: before the first monomial that
+--| `c * vs + poly`, in normal form when `poly` is: before the first monomial that
 --| comes after it, or added to the one alike (dropped if that makes 0).
 def Ring.insert (c: Int) (vs: List Nat): (poly: List Ring.Mono) → List Ring.Mono
   | [] => Ring.cons c vs []

@@ -116,7 +116,7 @@ instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.dec
 
 instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
 
---| How `a` compares with `b`: `Int.compare (-3) 2` is `Less`.
+--| How `x` compares with `y`: `Int.compare (-3) 2` is `Less`.
 def Int.compare: (x: Int) → (y: Int) → Ordering
   | OfNat m, OfNat n => Nat.compare m n
   | OfNat m, NegSucc n => Greater

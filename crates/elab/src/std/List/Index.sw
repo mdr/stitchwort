@@ -4,9 +4,9 @@
 -- A file of its own, so that programs using only the toolkit don't
 -- check these.
 
---| The element at index i, or `fallback` past the end.
+--| The element at `index`, or `fallback` past the end.
 @[tailrec]
-def List.getOr: (xs: List a) → (i: Nat) → (fallback: a) → a
+def List.getOr: (xs: List a) → (index: Nat) → (fallback: a) → a
   | [], i, fallback => fallback
   | [x, ..xs], Zero, fallback => x
   | [x, ..xs], Succ i, fallback => List.getOr xs i fallback

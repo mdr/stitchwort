@@ -326,7 +326,7 @@ theorem Map.Raw.toListAdjust [auto ord: Ord k] (f: v → v) (key: k) (m: Map.Raw
 
 -- The entries are in strictly increasing key order
 
---| Every key is above `lo`, each above the one before.
+--| Every key is above `bound`, each above the one before.
 def Map.Spec.Ascending (ord: Ord k): (bound: Option k) → (entries: List (k, v)) → Prop
   | lo, [] => Unit
   | lo, [(kk, vv), ..rest] => (Map.Tree.Above ord lo kk) ∧ (Map.Spec.Ascending ord (Some kk) rest)
@@ -334,7 +334,7 @@ def Map.Spec.Ascending (ord: Ord k): (bound: Option k) → (entries: List (k, v)
 --| The keys are in ascending order by `ord`, each above the one before.
 def Map.Spec.Sorted (ord: Ord k) (xs: List (k, v)): Prop := Map.Spec.Ascending ord None xs
 
---| The list can follow keys below `hi`: it's empty, or its first key isn't below `hi`.
+--| The list can follow keys below `bound`: it's empty, or its first key isn't below `bound`.
 def Map.Spec.Fits (ord: Ord k): (bound: Option k) → (entries: List (k, v)) → Prop
   | hi, [] => Unit
   | None, [(kk, vv), ..rest] => Void
@@ -1294,9 +1294,9 @@ def Map.Tree.joinBuilt (buildRight: List (k, v) → (Map.Tree k v, List (k, v)))
       let right := buildRight rest
       (Map.Tree.bin left.fst key value right.fst, right.snd)
 
---| A tree of the first `n` entries of `entries` (all of them if there are
---| fewer), half on each side of each node, and the entries after them: O(n).
--- `fuel` keeps the recursion structural; it is never less than `n`, so it
+--| A tree of the first `size` entries of `entries` (all of them if there are
+--| fewer), half on each side of each node, and the entries after them: O(size).
+-- `fuel` keeps the recursion structural; it is never less than `size`, so it
 -- never runs out.
 def Map.Tree.buildFuel: (fuel: Nat) → (size: Nat) → (entries: List (k, v)) → (Map.Tree k v, List (k, v))
   | Zero, n, entries => (Tip, entries)

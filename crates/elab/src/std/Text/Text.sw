@@ -5,9 +5,9 @@
 
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 
---| The character at index `i`, counting from 0, or `None` past the end: as
+--| The character at index `index`, counting from 0, or `None` past the end: as
 --| [`List.get`] on [`Text.toList`] ([`Text.getToList`]).
-def Text.get (text: Text) (i: Nat): Option Char := text.toList.get i
+def Text.get (text: Text) (index: Nat): Option Char := text.toList.get index
 
 theorem Text.getToList (text: Text) (i: Nat): Text.get text i = List.get text.toList i := rfl
 
@@ -42,19 +42,19 @@ test "Text.any and Text.all" :=
 theorem Text.lengthAppend (a: Text) (b: Text):
     Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
---| The text made n characters long with copies of `char` after it: `Text.padRight "ab" 5 '.'` is `"ab..."`.
---| It is `text` itself when that is already n long or longer.
-def Text.padRight (text: Text) (n: Nat) (char: Char): Text :=
-  text.toList.padRight n char |> Text.fromList
+--| The text made `width` characters long with copies of `char` after it: `Text.padRight "ab" 5 '.'` is `"ab..."`.
+--| It is `text` itself when that is already `width` long or longer.
+def Text.padRight (text: Text) (width: Nat) (char: Char): Text :=
+  text.toList.padRight width char |> Text.fromList
 
 theorem Text.padRightExample: Text.padRight "ab" 5 '.' = "ab..." := rfl
 
 theorem Text.padRightLongEnough: Text.padRight "ab" 1 '.' = "ab" := rfl
 
---| The text made n characters long with copies of `char` before it: `Text.padLeft "7" 2 '0'` is `"07"`.
---| It is `text` itself when that is already n long or longer.
-def Text.padLeft (text: Text) (n: Nat) (char: Char): Text :=
-  text.toList.padLeft n char |> Text.fromList
+--| The text made `width` characters long with copies of `char` before it: `Text.padLeft "7" 2 '0'` is `"07"`.
+--| It is `text` itself when that is already `width` long or longer.
+def Text.padLeft (text: Text) (width: Nat) (char: Char): Text :=
+  text.toList.padLeft width char |> Text.fromList
 
 theorem Text.padLeftExample: Text.padLeft "7" 2 '0' = "07" := rfl
 
@@ -141,11 +141,11 @@ def IO.readAllLines(): {IO} List Text := IO.readAll().lines
 -- needle or separator, so `line.stripPrefix "L"`, `line |> Text.stripPrefix
 -- "L"` and `Text.stripPrefix line "L"` all mean the same.
 
---| The first `n` characters of the text (all of it if it is shorter); with `Text.drop`, the whole text ([`Text.takeAppendDrop`]).
-def Text.take (text: Text) (n: Nat): Text := text.toList.take n |> Text.fromList
+--| The first `count` characters of the text (all of it if it is shorter); with `Text.drop`, the whole text ([`Text.takeAppendDrop`]).
+def Text.take (text: Text) (count: Nat): Text := text.toList.take count |> Text.fromList
 
---| The text without its first `n` characters (empty if it is shorter).
-def Text.drop (text: Text) (n: Nat): Text := text.toList.drop n |> Text.fromList
+--| The text without its first `count` characters (empty if it is shorter).
+def Text.drop (text: Text) (count: Nat): Text := text.toList.drop count |> Text.fromList
 
 --| Whether two characters are the same.
 def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
@@ -379,13 +379,13 @@ test "splitOn" := Text.splitOn "a, b" ", " == ["a", "b"] ∧ Text.splitOn "" "x"
 test "splitOn empty separator" := Text.splitOn "abc" "" == ["abc"]
 test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 
---| The text n times over: `"ab".repeat 3` is `"ababab"`, and `text.repeat 0` is the empty text.
-def Text.repeat (text: Text) (n: Nat): Text := List.replicate n text.toList |> .concat |> Text.fromList
+--| The text `count` times over: `"ab".repeat 3` is `"ababab"`, and `text.repeat 0` is the empty text.
+def Text.repeat (text: Text) (count: Nat): Text := List.replicate count text.toList |> .concat |> Text.fromList
 
---| The text cut into pieces of `n` characters, the last one shorter if need be:
+--| The text cut into pieces of `size` characters, the last one shorter if need be:
 --| `"abcde".chunksOf 2` is `["ab", "cd", "e"]`. As `List.chunksOf` does for
---| lists, `n = 0` gives the whole text as one chunk (none for an empty text).
-def Text.chunksOf (text: Text) (n: Nat): List Text := text.toList.chunksOf n |> .map Text.fromList
+--| lists, `size = 0` gives the whole text as one chunk (none for an empty text).
+def Text.chunksOf (text: Text) (size: Nat): List Text := text.toList.chunksOf size |> .map Text.fromList
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""
 test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] ∧ Text.chunksOf "" 2 == []

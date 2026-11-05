@@ -21,7 +21,7 @@ def Effect.foldComp [op: Type] [res: op → Type] [a r: Type]
   | Done x => done x
   | Call o rest => call o (y => foldComp done call (rest y))
 
---| Sequencing: run `c`, then `next` with its result.
+--| Sequencing: run `comp`, then `next` with its result.
 def Effect.bind: [op: Type] → [res: op → Type] → [a b: Type] →
     (comp: Comp op res a) → (next: a → Comp op res b) → Comp op res b
   | Done x, next => next x
@@ -255,7 +255,7 @@ def Effect.now: [op: Type] → [res: op → Type] → [a: Type] → (x: a) → D
 --| A computation that finishes, as one that might not.
 def Effect.lift: [op: Type] → [res: op → Type] → [a: Type] → (comp: Comp op res a) → Delay op res a
 
---| Sequencing for a computation that may not finish: run `c`, then `next` with its result, if it finishes.
+--| Sequencing for a computation that may not finish: run `delay`, then `next` with its result, if it finishes.
 def Effect.bindD: [op: Type] → [res: op → Type] → [a b: Type] →
   (delay: Delay op res a) → (next: a → Delay op res b) → Delay op res b
 
