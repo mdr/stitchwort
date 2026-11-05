@@ -11,7 +11,6 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 
---| The walk is the step, iterated.
 theorem walkIterate (lab: Lab): (steps: Nat) → (guard: Option Guard) →
     walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard
   | Zero, guard => rfl
@@ -22,12 +21,10 @@ theorem walkNone (lab: Lab): (steps: Nat) → walk lab None steps = None
   | Zero => rfl
   | Succ steps => walkNone lab steps
 
---| The last of `steps + 1` steps.
 theorem walkSucc (lab: Lab): (steps: Nat) → (guard: Option Guard) → walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step
   | Zero, guard => rfl
   | Succ steps, guard => walkSucc lab steps (guard.flatMap lab.step)
 
---| Walking `first + second` steps is walking `first`, then `second`.
 theorem walkAdd (lab: Lab): (first: Nat) → (guard: Option Guard) → (second: Nat) → walk lab guard (first + second) = walk lab (walk lab guard first) second
   | Zero, guard, second => rfl
   | Succ first, guard, second => walkAdd lab first (guard.flatMap lab.step) second
@@ -43,7 +40,6 @@ theorem walkEarlier (lab: Lab) (guard: Option Guard) (steps: Nat) (later: Nat) (
     walk lab guard steps ≠ None :=
   gone => still (walkLater lab guard steps later gone le)
 
---| A step from the map that stays on it lands on the map.
 --| On the map, if there is a position.
 def onMapIfAny (lab: Lab): Option Position → Bool
   | None => True
@@ -73,7 +69,7 @@ theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True): (steps: Nat)
       | None => Void.exfalso (Option.noneNotSome guard reachedStep)
       | Some earlier => stepOnMap lab earlier (afterOnMap lab inside steps earlier before) guard reachedStep
 
---| Each state on the map as a number below `stateCount`.
+--| A direction as 0 to 3, so `stateCode` keeps a state below `stateCount`.
 def directionIndex: Direction → Nat
   | Up => 0
   | Right => 1
@@ -103,7 +99,6 @@ theorem directionIndexInjective (one: Direction) (other: Direction) (same: direc
     _ = directionOfIndex (directionIndex other) := rewrite same in rfl
     _ = other := directionOfIndexOf other
 
---| Guards with the same row, column and facing are the same.
 theorem guardExt: (one: Guard) → (other: Guard) → one.position.row = other.position.row → one.position.column = other.position.column →
     one.facing = other.facing → one = other
   | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing }, rows, columns, facings =>

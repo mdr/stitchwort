@@ -9,7 +9,6 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Not, Option, Or, Set, Void)
 
---| Stepping forward onto a free position.
 theorem stepMoves (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
     lab.step guard = Some ({ guard | position = ahead }) :=
   rewrite inFront, blocked in rfl
@@ -75,7 +74,6 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
           let landed := aheadOnMap lab guard (Bool.andLeft settled) ahead inFront
           rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
---| Every position on the route is settled.
 theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: Option Guard) → settledIfAny lab guard = True →
     onRoute lab guard steps position = True → settledAt lab position = True
   | Zero, guard, settled, has => Void.exfalso (Bool.falseNotTrue has)
@@ -90,11 +88,10 @@ theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: O
             | Some next => stepSettled lab here settled next stepped
         routeSettled lab position steps (lab.step here) nextSettled rest)
 
---| A position is its row and column.
 theorem positionEta: (position: Position) → ({ row = position.row, column = position.column }: Position) = position
   | { row, column } => rfl
 
---| Every position on the map is in `positions`, and only those.
+--| Every position on the map is in `positions`.
 theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab position = True):
     (positions lab).any (other => Map.Spec.sameKey position other) = True :=
   let inRow: position ∈ (List.range 0 lab.width |> .map (column => ({ row = position.row, column }: Position))) :=
@@ -139,7 +136,6 @@ theorem boolOfIff [one: Bool] [other: Bool] (same: (one = True) ↔ (other = Tru
     | True, False => Void.exfalso (Bool.falseNotTrue (same.forward rfl))
     | False, True => Void.exfalso (Bool.falseNotTrue (same.backward rfl))
 
---| The start is settled.
 theorem startSettled (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
   rewrite inside, DecEq.refl lab.start in rfl
 
