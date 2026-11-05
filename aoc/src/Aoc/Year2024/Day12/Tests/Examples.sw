@@ -65,7 +65,7 @@ def at (row: Nat) (column: Nat): Position := { row, column }
 --| Each region's plant, area, perimeter and sides, in the program's order.
 def summary (input: Text): List (Option Char, Nat, Nat, Nat) :=
   let map := garden input
-  map.regions |> .map (region => (region.headOr (at 0 0) |> map.plantAt, region.length, map.perimeter region, map.sides region))
+  map.regions |> .map (region => (region.plots.headOr (at 0 0) |> map.plantAt, region.area, region.perimeter map, region.sides map))
 
 test "small example, part 1" := solvePart1 (garden small) == 140
 test "inside example, part 1" := solvePart1 (garden inside) == 772
@@ -125,7 +125,7 @@ test "a ring" :=
 --| An L: six sides.
 test "an L" := summary "AB\nAA\n" |> .headOr (None, 0, 0, 0) == (Some 'A', 3, 8, 6)
 
-test "a region covers every plot it touches" := (garden larger).regionOf (at 0 0) |> .length == 12
+test "a region covers every plot it touches" := (garden larger).regionOf (at 0 0) |> .area == 12
 test "regions cover every plot once" :=
   let map := garden larger
   map.positions.all (position => map.regions.count (region => region.contains position) == 1) && map.positions.length == 100
@@ -153,7 +153,7 @@ test "the spec's prices" :=
     && totalPrice (garden larger).regions sides == 1206
 
 --| "4 sides on the outside and 8 more sides on the inside".
-test "the spec's sides of the A region" := (garden diagonal).regions |> .headOr [] |> sides == 12
+test "the spec's sides of the A region" := (garden diagonal).regions |> .headOr { plots = [] } |> sides == 12
 
 test "the spec's chains" :=
   let map := garden small

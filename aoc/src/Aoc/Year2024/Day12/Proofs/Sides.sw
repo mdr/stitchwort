@@ -12,7 +12,7 @@ import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
 --| The region as a grid of booleans.
-def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.contains { row, column }
+def insideOf (region: Region) (row: Nat) (column: Nat): Bool := region.contains { row, column }
 
 theorem countDirections (f: Direction → Bool): directions.count f = Bool.toNat (f Up) + Bool.toNat (f Down) + Bool.toNat (f Left) + Bool.toNat (f Right) :=
   rewrite List.countCons [Right, Down, Left] Up f, List.countCons [Down, Left] Right f, List.countCons [Left] Down f, List.countCons [] Left f in omega
@@ -23,7 +23,7 @@ theorem countQuadrants (f: (Direction, Direction) → Bool):
     List.countCons [(Down, Right)] (Down, Left) f, List.countCons [] (Down, Right) f in omega
 
 --| The spec's first sections of fence at a plot are the grid's starts.
-theorem specSidesCell (region: List Position): (row: Nat) → (column: Nat) →
+theorem specSidesCell (region: Region): (row: Nat) → (column: Nat) →
     directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column
   | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
   | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
@@ -31,42 +31,42 @@ theorem specSidesCell (region: List Position): (row: Nat) → (column: Nat) →
   | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
 
 --| Each side of a plot touches the region where the grid's neighbour is in.
-theorem facesUp (region: List Position): (row: Nat) → (column: Nat) → facesRegion region { row, column } Up = above (insideOf region) row column
+theorem facesUp (region: Region): (row: Nat) → (column: Nat) → facesRegion region { row, column } Up = above (insideOf region) row column
   | Zero, column => rfl
   | Succ up, column => rfl
 
-theorem facesDown (region: List Position) (row: Nat) (column: Nat): facesRegion region { row, column } Down = below (insideOf region) row column := rfl
+theorem facesDown (region: Region) (row: Nat) (column: Nat): facesRegion region { row, column } Down = below (insideOf region) row column := rfl
 
-theorem facesLeft (region: List Position): (row: Nat) → (column: Nat) → facesRegion region { row, column } Left = leftOf (insideOf region) row column
+theorem facesLeft (region: Region): (row: Nat) → (column: Nat) → facesRegion region { row, column } Left = leftOf (insideOf region) row column
   | row, Zero => rfl
   | row, Succ before => rfl
 
-theorem facesRight (region: List Position) (row: Nat) (column: Nat): facesRegion region { row, column } Right = rightOf (insideOf region) row column := rfl
+theorem facesRight (region: Region) (row: Nat) (column: Nat): facesRegion region { row, column } Right = rightOf (insideOf region) row column := rfl
 
 --| Whether the plot diagonally across a corner, one step `vertical` then one
 --| `horizontal`, is in the region.
-def diagonalIn (region: List Position) (plot: Position) (vertical: Direction) (horizontal: Direction): Bool :=
+def diagonalIn (region: Region) (plot: Position) (vertical: Direction) (horizontal: Direction): Bool :=
   match plot.step vertical with
     | Some next => facesRegion region next horizontal
     | None => False
 
-theorem diagonalUpLeft (region: List Position): (row: Nat) → (column: Nat) →
+theorem diagonalUpLeft (region: Region): (row: Nat) → (column: Nat) →
     diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column
   | Zero, column => rfl
   | Succ up, Zero => rfl
   | Succ up, Succ before => rfl
 
-theorem diagonalUpRight (region: List Position): (row: Nat) → (column: Nat) →
+theorem diagonalUpRight (region: Region): (row: Nat) → (column: Nat) →
     diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column
   | Zero, column => rfl
   | Succ up, column => rfl
 
-theorem diagonalDownLeft (region: List Position): (row: Nat) → (column: Nat) →
+theorem diagonalDownLeft (region: Region): (row: Nat) → (column: Nat) →
     diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column
   | row, Zero => rfl
   | row, Succ before => rfl
 
-theorem diagonalDownRight (region: List Position) (row: Nat) (column: Nat):
+theorem diagonalDownRight (region: Region) (row: Nat) (column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column := rfl
 
 --| `!=` is `!` of `==`.
@@ -77,8 +77,8 @@ theorem notEqualNot (x: Option Char) (y: Option Char): ((x != y): Bool) = Bool.n
 
 --| Where a side of a plot in a region faces the same plant, the plot
 --| diagonally across grows another exactly when it isn't in the region.
-theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
-    (isRegion: IsRegion garden start region) (plot: Position) (member: plot ∈ region) (vertical: Direction) (horizontal: Direction)
+theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
+    (isRegion: IsRegion garden start region) (plot: Position) (member: plot ∈ region.plots) (vertical: Direction) (horizontal: Direction)
     (same: garden.sameAcross plot vertical = True):
     (((plot.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt plot): Bool) = Bool.not (diagonalIn region plot vertical horizontal) :=
   let plotGrows := joinedPlant garden plant start plot grows ((isRegion plot).forward member)
@@ -86,7 +86,7 @@ theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: ga
   match stepped: plot.step vertical with
     | None => Void.exfalso (Bool.falseNotTrue faces)
     | Some next =>
-      let nextIn := (List.memContains region next).forward faces
+      let nextIn := (List.memContains region.plots next).forward faces
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
       rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal, nextGrows in rfl
 
@@ -108,12 +108,12 @@ theorem isCornerSplit (garden: Garden) (plot: Position) (vertical: Direction) (h
             | False => rfl
 
 --| The program's corners at a plot of a region are the grid's.
-theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
-    (isRegion: IsRegion garden start region): (plot: Position) → plot ∈ region → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
+theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
+    (isRegion: IsRegion garden start region): (plot: Position) → plot ∈ region.plots → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
   | { row, column }, member =>
     let plot: Position := { row, column }
     let inside := insideOf region
-    let isIn: inside row column = True := (List.memContains region plot).backward member
+    let isIn: inside row column = True := (List.memContains region.plots plot).backward member
     let faces := (side: Direction) => sameAcrossFaces garden start plant grows region isRegion plot member side
     let up := Eq.trans (faces Up) (facesUp region row column)
     let down := Eq.trans (faces Down) (facesDown region row column)
@@ -169,23 +169,23 @@ theorem squareDistinct (last: Nat): List.Distinct (square last) :=
 
 --| A sum over a region's plots, of something that is 0 off the region, is
 --| the sum over a square of the grid that holds the region.
-theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (last: Nat)
-    (within: (plot: Position) → plot ∈ region → (plot.row ≤ last) ∧ (plot.column ≤ last)) (f: Nat → Nat → Nat)
+theorem sumOverGrid (region: Region) (distinct: List.Distinct region.plots) (last: Nat)
+    (within: (plot: Position) → plot ∈ region.plots → (plot.row ≤ last) ∧ (plot.column ≤ last)) (f: Nat → Nat → Nat)
     (zero: (row: Nat) → (column: Nat) → insideOf region row column = False → f row column = 0):
-    region.sumBy (plot => f plot.row plot.column) = total (Succ last) (row => total (Succ last) (column => f row column)) :=
+    region.plots.sumBy (plot => f plot.row plot.column) = total (Succ last) (row => total (Succ last) (column => f row column)) :=
   let isIn := (plot: Position) => region.contains plot
   let term := (plot: Position) => f plot.row plot.column
   let kept := (square last).filter isIn
-  let same: List.Perm kept region :=
-    List.permOfSameMembers kept region (List.distinctFilter (square last) isIn (squareDistinct last)) distinct
-      (plot member => (List.memContains region plot).forward (And.right (List.memFilter (square last) isIn plot member)))
+  let same: List.Perm kept region.plots :=
+    List.permOfSameMembers kept region.plots (List.distinctFilter (square last) isIn (squareDistinct last)) distinct
+      (plot member => (List.memContains region.plots plot).forward (And.right (List.memFilter (square last) isIn plot member)))
       (plot member =>
         List.memFilterIntro (square last) isIn plot
           (match plot with
             | { row, column } =>
               let bounds := within { row, column } member
               memSquare last row column (And.left bounds) (And.right bounds))
-          ((List.memContains region plot).backward member))
+          ((List.memContains region.plots plot).backward member))
   let filtered :=
     Eq.trans (List.sumByFilter (square last) term isIn)
       (List.sumByCong (square last) (plot => if isIn plot then term plot else Add.zero) term (plot =>
@@ -201,33 +201,33 @@ theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (la
           (row => total (Succ last) (column => f row column)) (row =>
           Eq.trans (List.sumByMap (List.range (Succ last)) term (column => ({ row, column }: Position))) (totalRange (Succ last) (column => f row column))))
         (totalRange (Succ last) (row => total (Succ last) (column => f row column))))
-  Eq.trans (Eq.sym (List.sumByPerm kept region same term)) (Eq.trans filtered bySquare)
+  Eq.trans (Eq.sym (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
 
 --| The program's count of a region's corners is the spec's count of its
 --| sides.
-theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
-    (isRegion: IsRegion garden start region) (distinct: List.Distinct region): garden.sides region = sides region :=
+theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
+    (isRegion: IsRegion garden start region) (distinct: List.Distinct region.plots): region.sides garden = sides region :=
   let inside := insideOf region
-  let last := region.sumBy (plot => plot.row + plot.column)
-  let within := (plot: Position) => (member: plot ∈ region) =>
-    let le := List.memLeSumBy (plot => plot.row + plot.column) region plot member
+  let last := region.plots.sumBy (plot => plot.row + plot.column)
+  let within := (plot: Position) => (member: plot ∈ region.plots) =>
+    let le := List.memLeSumBy (plot => plot.row + plot.column) region.plots plot member
     (Both (omega [le]) (omega [le]): (plot.row ≤ last) ∧ (plot.column ≤ last))
   let right: (row: Nat) → inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
       | False => rfl
-      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((List.memContains region { row, column = Succ last }).forward found))])
+      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((List.memContains region.plots { row, column = Succ last }).forward found))])
   let bottom: (column: Nat) → inside (Succ last) column = False := column =>
     match found: inside (Succ last) column with
       | False => rfl
-      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((List.memContains region { row = Succ last, column }).forward found))])
+      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((List.memContains region.plots { row = Succ last, column }).forward found))])
   let programSide :=
     Eq.trans
-      (List.sumByCongMem region garden.cornerCount (plot => corners inside plot.row plot.column)
+      (List.sumByCongMem region.plots garden.cornerCount (plot => corners inside plot.row plot.column)
         (plot member => programCornersCell garden start plant grows region isRegion plot member))
       (sumOverGrid region distinct last within (row column => corners inside row column) (row column outside => rewrite outside in rfl))
   let specSide :=
     Eq.trans
-      (List.sumByCong region (plot => directions.count (isFirstSection region plot)) (plot => starts inside plot.row plot.column) (plot =>
+      (List.sumByCong region.plots (plot => directions.count (isFirstSection region plot)) (plot => starts inside plot.row plot.column) (plot =>
         match plot with
           | { row, column } => specSidesCell region row column))
       (sumOverGrid region distinct last within (row column => starts inside row column) (row column outside => rewrite outside in rfl))

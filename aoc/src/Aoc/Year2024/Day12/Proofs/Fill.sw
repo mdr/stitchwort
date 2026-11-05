@@ -182,7 +182,7 @@ theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
 
 --| From a plot growing `plant`, the region is a fill.
 theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
-    garden.regionOf start = Garden.fill garden plant [start] Set.empty [] :=
+    (garden.regionOf start).plots = Garden.fill garden plant [start] Set.empty [] :=
   rewrite grows in rfl
 
 --| From a plot growing `plant`, the region the fill finds.
@@ -199,7 +199,7 @@ theorem regionOfIsRegion (garden: Garden) (start: Position) (plant: Char) (grows
             (fromStack start (Inl rfl) grows) chained)
     }
 
-theorem regionOfDistinct (garden: Garden) (start: Position): List.Distinct (garden.regionOf start) :=
+theorem regionOfDistinct (garden: Garden) (start: Position): List.Distinct (garden.regionOf start).plots :=
   match grows: garden.plantAt start with
     | Some plant => And.left (fillFromStart garden plant start)
     | None => Trivial
