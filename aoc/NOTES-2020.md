@@ -1538,3 +1538,306 @@ CPU time (load average about 50):
 6. No lemmas about `Text.lines` (and `Parse.allReads` leaves the ending any
    run of `\n`/`\r`), so a `Parse.sections` parse can't be joined to a spec
    on the input text (item 1). Missing library; medium.
+
+## Day 7: Handy Haversacks
+
+Luggage rules, one per line: "light red bags contain 1 bright white bag, 2
+muted yellow bags." or "faded blue bags contain no other bags." Part 1
+counts the colours that can eventually contain a shiny gold bag; part 2
+counts the bags a shiny gold bag must hold in all. Answers on Matt's input
+(594 rules): 126 and 220149; the first example gives 4 and 32, the second
+0 and 126. I did not run Matt's Scala (`Day7.scala`, no `sbt` run); I read
+it (a depth-first walk over the inverted rules, and the plain recursion for
+part 2) and checked both answers and the examples with an independent Python
+script (regex parse, recursive reachability, memoised total), which agree.
+
+The domain types are the puzzle's nouns: a `Colour` (two words, `shade`
+and `hue`), a `Content` ("2 muted yellow bags": `count` and `colour`), a
+`Rule` (`colour` and its `contents`) and `Rules`, with the work as methods.
+Part 1 walks outward from shiny gold with std's breadth-first search, on a
+graph whose edges go from a bag to the bags whose rules list it (the rules
+read backwards, built once with `Map.groupBy`); the colours it finds are the
+answer. Part 2 follows the rules inward, through an index of the rules by
+colour, at most one level deeper than there are rules:
+
+```stitchwort
+def Rules.graph (rules: Rules): Graph Colour :=
+  let index := holdersIndex rules.all
+  {
+    edges = colour => holdersIn index colour |> .map (holder => (holder, 1)),
+    states = rules.all.map .colour,
+    listed = colour holder weight edge => …
+  }
+
+def Rules.outside (rules: Rules) (colour: Colour): Map Colour Nat :=
+  let graph := rules.graph
+  graph.breadthFirst (graph.edges colour |> .map Pair.fst)
+
+def bagsInside (index: Map Colour (NonEmptyList Rule)): (depth: Nat) → (colour: Colour) → Option Nat
+  | 0, colour => None
+  | Succ depth, colour =>
+    contentsIn index colour
+      |> .map (content => bagsInside index depth content.colour |> .map (inside => content.count * (1 + inside)))
+      |> List.allSome
+      |> .map List.sum
+```
+
+The search starts from shiny gold's direct holders, not from shiny gold,
+so a cycle back through shiny gold counts it, as the puzzle's words say
+(a test); Matt's Scala and my Python both remove shiny gold instead, which
+agrees on any input without such a cycle. A cycle below shiny gold makes
+part 2 fail with "the rules for shiny gold bags go round in a cycle" (a
+test); a cycle elsewhere doesn't matter (a test).
+
+It printed the right answers on the first run. The spec (`Spec/Spec.sw`)
+has the format, a line at a time (`RuleWritten`: the colour's two words of
+`a` to `z`, " bags contain ", "no other bags" or the contents with ", "
+between, each a decimal count, a colour, and "bag" for one and "bags"
+otherwise, then "."), and the two questions: `Directly rules outer inner`
+(a rule for `outer` lists `inner`), `Outward` (a chain of bags each
+directly inside the next), `CanContain`, and `Part1 rules answer`: there
+is a list of colours, none twice, holding exactly those that can eventually
+contain shiny gold, and `answer` is its length. Part 2's `bagsWithin rules
+depth colour` is the puzzle's recursion ("count bags of that colour, and the
+bags inside each"), `None` when the rules go deeper than `depth`; `Part2
+rules total` says some depth settles it at `total`. The spec test runs part
+2's spec on the input (220149 at depth 30); part 1's is a proposition, so
+nothing runs it.
+
+Proved (`Aoc.Year2020.Day07.Proofs`):
+
+- `readsColour`, `readsContent`, `readsContents`, `readsRule`: each parser
+  reads its phrase as the spec writes it. `parseWritten`: if `parseRules`
+  reads `input`, each line of it is its rule written out.
+- `holderDirectly`: a colour's holders in the program's index are exactly
+  the colours whose rules list it; `walkOutward`, `outwardWalk`: a walk on
+  the graph is a chain outward, and back.
+- `outsideCanContain`: the search finds exactly the colours that can
+  eventually contain the start colour (from `Graph.breadthFirstShortest`);
+  `part1Rules`: part 1 is `Spec.Part1` for any rules.
+- `contentsAgree`, `bagsAgree`: the index gives each colour the spec's
+  contents, so the program's count is `bagsWithin` at every depth;
+  `part2Rules`: when part 2 gives an answer, it is `Spec.Part2`.
+- `bagsWithinDeeper`, `part2Unique`: a total settled at one depth stays
+  the same at every greater one, so `Part2` names one total.
+- `part1Correct`, `part2Correct`: for every input the parser reads, its
+  lines are the rules written out and the answers are the spec's for them.
+
+Not proved: that every well-formed input parses (`Parse.Reads` is
+soundness only, as on days 2 to 6). That part 2 never reports a cycle
+wrongly: when the spec settles the total at some depth, the program's depth
+(rules + 1) is enough. That needs the pigeonhole argument (a chain inward
+of more bags than there are rules repeats a colour, and a repeated colour
+can be gone round for ever), which I didn't write (item 4); the input's
+answer is by a test. Part 2's spec recursion is the program's, apart from
+the index and the depth: the proof says the index is right, not that the
+recursion is the puzzle's, which is by reading.
+
+Breaking the program made the proofs fail: listing the rule's own colour
+as the inside in `Rule.insides` fails the program itself, at the graph's
+`listed` proof; `content.count * inside` for `content.count * (1 +
+inside)` fails `bagsAgree` (E-REWRITE-NOTHING, naming the changed
+lambda); `" bag"` for every count fails `readsContent`; starting the search
+from shiny gold itself fails `outsideCanContain`.
+
+139 lines of program, 81 of spec, 247 of proofs (Parse 52, Part1 100,
+Part2 76, Proofs 19), 81 of tests (+1 answer test in `aoc_answers.rs`).
+By the clock, 11 minutes from reading the puzzle to the program and its
+tests passing (14:37 to 14:48, `date` at each step), and 5 more to every
+proof checking (14:53); then break checks, timings and these notes to
+15:00. Nearly every proof checked on the first or second try.
+
+### 1. A `readsThen` chain ending in `Witness` needs `readsDone`'s spec written out
+
+`readsColour` ends `Parse.readsDone { shade, hue } _ (rewrite … in Both …)`
+and checks. `readsContent` and `readsRule`, ending the same way but with a
+`Witness` (the spec is "there are digits and a colour such that …"), fail:
+
+```
+[E-TYPE-MISMATCH] Error: type mismatch
+ 44 │               (Both (rfl) (Both written listed))))))))
+    │                      ╰─── `rfl` proves an equation, but the expected type is `?39 colourRead colour written containRead u✝ contain contentsRead contents listed stopRead u stop`
+```
+
+With `rewrite` there instead of `rfl` it is E-REWRITE-NOTHING with the goal
+`?40 digitsRead count nonEmpty …`. The `_` (readsDone's spec) is solved from
+the expected type, but `Witness` was elaborated first, against an unknown
+type, so its parts became fresh holes. Writing the spec out,
+`Parse.readsDone { colour, contents } (read made => RuleWritten (colourRead
+++ (containRead ++ (contentsRead ++ (stopRead ++ read)))) made)`, fixed both.
+Day 5's item 5 ("a wrong length in the parser is reported as an unsolved
+spec") is the same hole seen from a failing step. Either solving `_` from
+the expected type before checking the last argument, or a message saying
+"the expected type here is an unsolved hole (`_` at …)", would have saved
+the bisecting.
+
+### 2. An inline `oneOf` alternative over `readsMap` won't check; named, it does
+
+`contents` was first `Parse.oneOf [() => Parse.before [] "no other bags", ()
+=> Parse.sepBy1 content (() => Parse.text ", ") |> .toList]`, and the second
+alternative's proof, `Parse.readsWeaken (Parse.readsMap (() => Parse.sepBy1
+…) NonEmptyList.toList _ (Parse.readsSepBy1 …)) (…)`, failed with
+
+```
+[E-TYPE-MISMATCH] Error: type mismatch
+    │ expected `(state: Parse.State) → (value: List Content) → … → Parse.runFrom state (arg => …) = Ok (value, after) → …`, but this has type `Parse.Reads (arg => Std.Effect.bind (Parse.sepBy1 content (arg1 => …)) (x => Done …)) (…)`
+    │ Note 1: they first differ at `?22 ()` against `Std.Effect.bind (Std.Effect.bind (Std.Effect.bind … …) (first => …)) (x => Done …)`
+```
+
+even with the alternatives written out in `readsOneOf`'s list (the first
+version had `_`). The expected `Parse.Reads ?22 …` had been unfolded to its
+definition before `?22` was solved, so the two sides no longer matched
+argument by argument. Naming the alternative (`def contentList()`) and
+proving `readsContentList` on its own checked at once, and the
+`readsWeaken` became `(read found listed => Inr listed)`. The message
+showed both sides, but one unfolded and one not, which hides that they
+are the same thing; a repro for a ticket is the first version above.
+
+### 3. std's graph search fits, with three adapters a newcomer has to write
+
+`Graph.breadthFirstShortest` did all of part 1's search reasoning: the
+whole of `outsideCanContain` is 25 lines, with no induction over the
+search. What the puzzle needed was "which states can reach this one", and
+std's `Graph` is a weighted shortest-path graph, so:
+
+- **Weights.** Every edge is `(holder, 1)`, and the proof needs `unit`
+  (each weight is 1) and then the costs to be thrown away.
+- **The `listed` proof in the program.** `Graph` has a proof field: every
+  edge leads into `states`. The program can't build its graph without
+  `holderListed` (8 lines, through `memMapElim`, `memFilter`,
+  `memFlatMapElim`, `anyElim`), so a proof sits in `Day07.sw`, written before
+  the program first ran. (It did catch a broken `insides` at once.)
+- **From distances to membership.** The answer is the number of keys of
+  the `Map Colour Nat` it returns, and `Shortest`'s "each cost is a walk's
+  and no walk is shorter" had to be turned into "a colour is found iff some
+  walk reaches it" (`outsideCanContain`).
+
+A `Graph.reachable (edges: s → List s) (states: List s) … (sources: List
+s): Set s` with `Graph.memReachable: x ∈ reachable … ↔ ∃ source path,
+source ∈ sources ∧ Walk …` would have made part 1 the call and one lemma.
+And a way to build a graph whose `listed` holds by construction (keep only
+edges into `states`, or take `states` from the edges) would keep proofs
+out of the program; Day 20 of 2024 has the same `listed` field, proved by
+hand too.
+
+### 4. Part 2's recursion: fuel and a cycle error, and the depth bound unproved
+
+The natural part 2 is `bagsInside colour = (contentsOf colour).sumBy
+(content => content.count * (1 + bagsInside content.colour))`. On a scratch
+file that is
+
+```
+[E-TERMINATION] Error: can't show that `bagsInside` terminates
+  ╰── this recursive call might not terminate: the 1st argument stays the same
+  Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+```
+
+and `{Partial}` would make the program unprovable. What works is fuel: the
+program recurses at most `rules.all.length + 1` deep and fails with a cycle
+message when that runs out; the spec says "some depth settles it". Proving
+that the program's depth is enough whenever some depth is (so the cycle
+error is never wrong) is the pigeonhole principle on a chain of colours,
+and std has only part of it. `Nat.pigeonhole` (std/Nat/Pigeonhole.sw,
+used by 2024 day 6's `Bound.sw`) is there, for a function into the numbers
+below `n` (found by grep while writing these notes, after I had left the
+bound unproved); it needs the colours numbered (each by its rule's
+position) and the chain turned into a `Nat → Nat`. There is no list form ("a list longer than the
+distinct values it draws from repeats one"), no notion of an acyclic
+relation, and no recursion over one. A `List.pigeonhole` over `List.Mem`
+and, further, a memoised fold over a finite acyclic graph (a topological
+order with its proof) would cover the AoC days that count over a DAG. The
+E-TERMINATION note could also mention fuel, which is what a proof needs,
+next to `{Partial}`.
+
+### 5. Inverting a relation: `Map.groupBy` of pairs, then a filter lemma
+
+The holders index is `Map.groupBy (rules.flatMap .insides) Pair.fst`, a
+`Map Colour (NonEmptyList (Colour, Colour))`; reading it needs a `match` on
+`get` (`Map.getOr` wants a `NonEmptyList` fallback) and `.map Pair.snd`.
+`Map.getGroupBy` turned that into a filter, and `holdersInIndex` (5 lines)
+into `((rules.flatMap .insides).filter …).map Pair.snd`. A `Map.groupMap
+xs key value: Map k (List v)` (Scala's `groupMap`) with its `get` lemma
+would have been the one-liner; std has `groupBy` and `indexBy` only.
+
+### 6. Membership through `map`, `filter` and `flatMap` is long-hand
+
+`holderDirectly`, "a holder in the index is a colour whose rule lists
+it", is 30 lines, nearly all `List.memMapElim` (gives `Exists`),
+`List.memFilter`, `List.memFlatMapElim` (gives `List.Any`, so then
+`List.anyElim`), their `…Intro` forms going back, and `Map.Spec.sameKey`
+to `==` to `=` (`sameKeySound`, `sameKeyDecide`, `DecEq.refl`, `DecEq.sound`).
+Each step was found at once (by grep), and each checked; there are just
+many. `List.memFilterMap` is an `↔` with an `∃`; `memFlatMap` has no `↔`,
+and its elimination returns `List.Any` where `memMapElim` returns `∃`.
+A `List.memFlatMap: y ∈ xs.flatMap f ↔ ∃ (x: a) => x ∈ xs ∧ y ∈ f x`
+would make the forward and backward halves line up.
+
+### 7. Smaller things
+
+- **The counts' digits.** The spec writes a count as decimal digits with
+  `Parse.digitsValue` (as day 4's spec does), not as `"${count}"`: nothing
+  links `Nat`'s `Show` to `digitsValue`, so a spec that prints the number
+  couldn't be met by `Parse.nat`'s reads. So the spec allows leading zeros.
+- **Part 1's spec doesn't run.** `CanContain` is an `∃` over chains, so
+  the spec test covers part 2 only, and the audit's counterexample search
+  says nothing about part 1's theorems.
+- **`rewrite Nat.addSucc` wasn't needed.** In `bagsWithinLater`, `depth +
+  Succ more` had already computed to `Succ (depth + more)`, so the rewrite
+  was E-REWRITE-NOTHING, with the goal shown fully unfolded (the whole of
+  `bagsWithin`'s body) and no note that the term without the rewrite would
+  check. In `readsRule` the same error did say "the goal already holds by
+  computing", which was right.
+- **`parseRules` wraps the parse in a record**, so `parseWritten` needs
+  `Fail.toResultThen`, a `match` and `Result.okInjective` (5 lines) before
+  `Parse.eachLineReads` applies.
+- **Domain types.** `Colour`, `Content`, `Rule` and `Rules` read as the
+  puzzle; `Colour.name` prints "shiny gold" for the cycle message (the
+  derived `Show` prints the record). The spec imports the three record
+  types from the program, as day 4's imports `Passport`.
+- **Audit.** 40 theorems, 0 failed, 0 warnings.
+
+### Size and time
+
+CPU time (load average about 40):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day07.Proofs` | 9.4 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day07` | 4.9 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day07` (20 tests) | 9.9 s user |
+| `task audit:touched -- Aoc.Year2020.Day07` (40 theorems) | 3.5 s user |
+| `stitchwort run Aoc.Year2020.Day07.main` on the input | 0.5 s user |
+| `task test:one -- year2020_day07` | 4.9 s for the test, after a 1 min 48 s build |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 1.5 s of elaboration,
+`outsideCanContain` the largest declaration (467 ms, 3.6 million steps);
+the rest of the cold time is std's modules (the program's 4.9 s against day
+6's 2.5 s is presumably `Std.Graph` and `Map`; not broken down).
+
+### Ranked
+
+1. Part 2's cycle bound is unproved: std's pigeonhole is `Nat.pigeonhole`
+   on numbered values only, with no list form, no acyclic relation and no
+   recursion over one, so programs use fuel and leave "the fuel is enough"
+   open (item 4). Missing library; medium (a list pigeonhole small, an
+   acyclic fold larger). The E-TERMINATION note
+   could mention fuel; small.
+2. `readsDone x _ (Witness …)` elaborates the `Witness` before `_` is
+   solved and reports a goal `?39 …` (item 1), as day 5's item 5. Elaborator
+   or error message; medium (repro in item 1).
+3. std's `Graph` is a weighted shortest-path graph with a `listed` proof
+   field, so a reachability question needs unit weights, a proof in the
+   program and a distances-to-membership lemma (item 3). Missing library
+   (`Graph.reachable` returning a `Set`, with its `↔` lemma; a graph built
+   with `listed` by construction); small to medium.
+4. An inline `oneOf` alternative proved by `readsWeaken (readsMap …)` fails
+   with the expected type unfolded and a `?22 ()` hole; naming it works
+   (item 2). Elaborator (unification order); medium, repro in item 2.
+5. No `List.memFlatMap` `↔`, and `memFlatMapElim` returns `List.Any` while
+   `memMapElim` returns `∃` (item 6). Missing library; small.
+6. No `Map.groupMap` for inverting a relation (item 5). Missing library;
+   small.
+7. E-REWRITE-NOTHING on a rule whose left side already computed away
+   doesn't say the term checks without it (item 7). Error message; small.
+8. Nothing links `Nat`'s `Show` to `Parse.digitsValue` (item 7). Missing
+   library; small.
