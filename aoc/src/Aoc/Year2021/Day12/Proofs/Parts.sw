@@ -9,15 +9,15 @@ import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
 --| The search starts in `start`, with every small cave unvisited and the
 --| spare visit left in part 2.
-theorem tracksStart (passages: List (Text, Text)) (twice: Bool): Tracks passages twice (smallCaves passages) twice ["start"] :=
-  let once := (c: Text) => (Bool.toNatLeOne ("start" == c): visits ["start"] c ≤ 1)
+theorem tracksStart (passages: List Passage) (twice: Bool): Tracks passages twice (smallCaves passages) twice (Path.fromStart []) :=
+  let once := (c: Cave) => (Bool.toNatLeOne (Cave.start == c): (Path.fromStart []).visits c ≤ 1)
   Both
     (c named small notStart notEnd => {
-      forward = _ => rewrite differ "start" c (same => notStart (Eq.sym same)) in rfl,
+      forward = _ => rewrite differ Cave.start c (same => notStart (Eq.sym same)) in rfl,
       backward = _ =>
         (List.memContains (smallCaves passages) c).backward
-          (List.memFilterIntro (caves passages) (cave => not (isBig cave || cave == "start" || cave == "end")) c named
-            (rewrite small, differ c "start" notStart, differ c "end" notEnd in rfl))
+          (List.memFilterIntro (caves passages) (cave => cave.isSmall && not cave.isStart && not cave.isEnd) c named
+            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd in rfl))
     })
     (Both rfl
       (Both rfl
@@ -28,69 +28,70 @@ theorem tracksStart (passages: List (Text, Text)) (twice: Bool): Tracks passages
 
 --| The paths the program lists are those from `start` to `end` along the
 --| passages that keep the visit rule.
-theorem pathsCorrect (passages: List (Text, Text)) (promise: NoBigNeighbours passages) (twice: Bool) (path: List Text):
-    path ∈ paths passages twice ↔ (startToEnd path = True ∧ followsPassages passages path = True ∧ Within twice path) := {
+theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages) (twice: Bool) (path: Path):
+    path ∈ paths passages twice ↔ (path.startToEnd = True ∧ path.follows passages = True ∧ Within twice path) := {
   forward = found =>
-    Exists.elim (List.memMapElim (Cons "start") path _ found) (rest both =>
+    Exists.elim (List.memMapElim Path.fromStart path _ found) (rest both =>
       let (Both listed same) := both
-      let follows := routesFollow (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4) rest listed
+      let follows := routesFollow (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice Cave.start (3 * (smallCaves passages).length + 4) rest listed
       let (Both last (Both along within)) :=
         followsCompletes passages (lookupNeighbours (neighbourTable passages)) (a b member => (tableMem passages a b).forward member) twice
-          rest (smallCaves passages) twice "start" ["start"] (tracksStart passages twice) follows
+          rest (smallCaves passages) twice Cave.start (Path.fromStart []) (tracksStart passages twice) follows
       rewrite <- same in
         Both
           (match rest with
-            | [] => Void.exfalso (Option.noneNotSome "end" last)
+            | [] => Void.exfalso (Option.noneNotSome Cave.end last)
             | [z, ..more] => rewrite last in rfl)
           (Both along within)),
   backward = both =>
     let (Both ends (Both along within)) := both
     match path with
-      | [] => Void.exfalso (Bool.falseNotTrue ends)
-      | [first, ..rest] =>
-        let isStart: first = "start" := Option.someInjective first "start" (DecEq.sound (Some first) (Some "start") (Bool.andLeft _ _ ends))
-        let isLast := DecEq.sound (List.last [first, ..rest]) (Some "end") (Bool.andRight _ _ ends)
-        let last: rest.last = Some "end" :=
+      | { caves = [] } => Void.exfalso (Bool.falseNotTrue ends)
+      | { caves = [first, ..rest] } =>
+        let isStart: first = Cave.start := Option.someInjective first Cave.start (DecEq.sound (Some first) (Some Cave.start) (Bool.andLeft _ _ ends))
+        let isLast := DecEq.sound (List.last [first, ..rest]) (Some Cave.end) (Bool.andRight _ _ ends)
+        let last: rest.last = Some Cave.end :=
           match rest with
-            | [] => Void.exfalso (DecEq.soundFalse "start" "end" rfl (rewrite <- isStart in Option.someInjective first "end" isLast))
+            | [] => Void.exfalso (DecEq.soundFalse Cave.start Cave.end rfl (rewrite <- isStart in Option.someInjective first Cave.end isLast))
             | [z, ..more] => isLast
-        let completes: Completes passages twice ["start"] "start" rest := Both last (rewrite isStart at Both along within)
+        let completes: Completes passages twice (Path.fromStart []) Cave.start rest := Both last (rewrite isStart at Both along within)
         let follows :=
           completesFollows passages promise (lookupNeighbours (neighbourTable passages)) (a b joined => (tableMem passages a b).backward joined) twice
-            rest (smallCaves passages) twice "start" ["start"] (tracksStart passages twice) completes
+            rest (smallCaves passages) twice Cave.start (Path.fromStart []) (tracksStart passages twice) completes
         rewrite isStart in
           List.memMap _ rest
-            (followRoutes (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4) rest (omega [Bool.toNatLeOne twice]) follows)
-            (Cons "start")
+            (followRoutes (lookupNeighbours (neighbourTable passages)) (smallCaves passages) twice Cave.start (3 * (smallCaves passages).length + 4) rest (omega [Bool.toNatLeOne twice]) follows)
+            Path.fromStart
 }
 
 --| The program lists each path once.
-theorem pathsDistinct (passages: List (Text, Text)) (twice: Bool): List.Distinct (paths passages twice) :=
-  viaDistinct "start" _
-    (routesDistinct (lookupNeighbours (neighbourTable passages)) (tableDistinct passages) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4))
+theorem pathsDistinct (passages: List Passage) (twice: Bool): List.Distinct (paths passages twice) :=
+  List.distinctMap _
+    (routesDistinct (lookupNeighbours (neighbourTable passages)) (tableDistinct passages) (smallCaves passages) twice Cave.start (3 * (smallCaves passages).length + 4))
+    Path.fromStart (a b same => Eq.cong (path => path.caves.drop 1) same)
 
 --| Part 1's rule is `Within False`...
-theorem withinOnce (path: List Text): Within False path ↔ SmallOnce path := {
+theorem withinOnce (path: Path): Within False path ↔ SmallOnce path := {
   forward = within => And.left within,
   backward = once =>
     Both once
       (Both (a b smallA smallB twiceA twiceB => Void.exfalso (omega [once a smallA]))
-        (Both (once "start" startSmall) (once "end" endSmall)))
+        (Both (once Cave.start startSmall) (once Cave.end endSmall)))
 }
 
 --| A path from `start` to `end` visits both.
-theorem endsVisited (path: List Text) (ends: startToEnd path = True): 1 ≤ visits path "start" ∧ 1 ≤ visits path "end" :=
-  let isLast := DecEq.sound (List.last path) (Some "end") (Bool.andRight _ _ ends)
+theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visits Cave.start ∧ 1 ≤ path.visits Cave.end :=
+  let isLast := DecEq.sound (List.last path.caves) (Some Cave.end) (Bool.andRight _ _ ends)
   Both
-    (match path with
+    (match path.caves with
       | [] => Void.exfalso (Bool.falseNotTrue ends)
       | [first, ..rest] =>
-        let isStart: first = "start" := Option.someInjective first "start" (DecEq.sound (Some first) (Some "start") (Bool.andLeft _ _ ends))
-        visitsMember "start" [first, ..rest] (Inl isStart))
-    (visitsMember "end" path (List.lastMem path "end" isLast))
+        let isStart: first = Cave.start := Option.someInjective first Cave.start (DecEq.sound (Some first) (Some Cave.start) (Bool.andLeft _ _ ends))
+        visitsMember Cave.start [first, ..rest] (Inl isStart))
+    (visitsMember Cave.end path.caves (List.lastMem path.caves Cave.end isLast))
 
 --| ...and part 2's, on a path from `start` to `end`, is `Within True`.
-theorem withinTwice (path: List Text) (ends: startToEnd path = True): Within True path ↔ OneSmallTwice path :=
+theorem withinTwice (path: Path) (ends: path.startToEnd = True): Within True path ↔ OneSmallTwice path :=
   let (Both startSeen endSeen) := endsVisited path ends
   {
     forward = within =>
@@ -103,7 +104,7 @@ theorem withinTwice (path: List Text) (ends: startToEnd path = True): Within Tru
 
 --| Part 1: the program's answer is the number of paths that visit no small
 --| cave twice, when no passage joins two big caves.
-theorem part1Correct (passages: List (Text, Text)) (promise: NoBigNeighbours passages): PathCount (Part1Path passages) (solvePart1 passages) :=
+theorem part1Correct (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part1Path passages) (solvePart1 passages) :=
   Witness (paths passages False)
     (Both (pathsDistinct passages False)
       (Both
@@ -119,7 +120,7 @@ theorem part1Correct (passages: List (Text, Text)) (promise: NoBigNeighbours pas
 
 --| Part 2: the number of paths that visit one small cave (not `start` or
 --| `end`) at most twice and the others at most once.
-theorem part2Correct (passages: List (Text, Text)) (promise: NoBigNeighbours passages): PathCount (Part2Path passages) (solvePart2 passages) :=
+theorem part2Correct (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part2Path passages) (solvePart2 passages) :=
   Witness (paths passages True)
     (Both (pathsDistinct passages True)
       (Both
@@ -134,10 +135,10 @@ theorem part2Correct (passages: List (Text, Text)) (promise: NoBigNeighbours pas
         rfl))
 
 --| From the input: no hypothesis left, as the parser checks the promise.
-theorem part1FromInput (input: Text) (passages: List (Text, Text)) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
+theorem part1FromInput (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part1Path passages) (solvePart1 passages) :=
   part1Correct passages (parseNoBigNeighbours input passages parsed)
 
-theorem part2FromInput (input: Text) (passages: List (Text, Text)) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
+theorem part2FromInput (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part2Path passages) (solvePart2 passages) :=
   part2Correct passages (parseNoBigNeighbours input passages parsed)
