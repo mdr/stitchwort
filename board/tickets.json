@@ -1,5 +1,5 @@
 {
-  "next": 1452,
+  "next": 1453,
   "tickets": [
     {
       "id": 47,
@@ -8114,13 +8114,13 @@
     {
       "id": 1411,
       "title": "2020 day 7 tidy: the holder and colour indexes as small types with methods instead of free functions over a bare Map Colour (NonEmptyList (Colour, Colour)); name Rule.insides' pair; rename the free bagsInside (clashes with Rules.bagsInside)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1411",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
+      "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 45 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8461,14 +8461,14 @@
     {
       "id": 1435,
       "title": "omega treats List.sum as written and the form rewrite ... at leaves as different unknowns, then reports a model that looks like a counterexample; annotating each fact's type fixes it",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1435",
       "labels": [
         "elab",
         "omega"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 2; will recur wherever a sum or fold goes through rewrite at.\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 2; will recur wherever a sum or fold goes through rewrite at.\n\nStarted on Sonnet, expected: 60 min.\n\nNot a bug (lane/SW-1435, cab4c82c0): omega's Quoter::atom already merges convertible atoms (conversion against earlier atoms of the same kind, work limit 20,000). Day 9's two 'same' atoms were take … count and take … length: a fact was missing (total never rewritten to the window), so the model was real. Kept: a regression example accept/omega-atoms-by-conversion, day 9's needless annotations removed (statements unchanged), a correction in NOTES-2020.md. Waits for batch 46's verifier. Model result: Sonnet, worked (premise disproved), 6 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8699,6 +8699,20 @@
         "diagnostics"
       ],
       "body": "From SW-1410's review, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1452,
+      "title": "omega's failure note: when two listed atoms differ only in one argument (take … count vs take … length), say no fact connects them; that would have shown 2020 day 9's real cause",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1435, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
