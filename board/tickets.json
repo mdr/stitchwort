@@ -6621,12 +6621,12 @@
       "id": 1305,
       "title": "if p && q (and auto generally) doesn't give each conjunct: 'if b != 0 && c != 0 then a % b' is E-AUTO-STUCK",
       "status": "doing",
-      "agent": "DeepSeek",
-      "where": ".claude/worktrees/scratch-sw-1305",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1305",
       "labels": [
         "language"
       ],
-      "body": "Found in the SW-1295 review, confirmed on main: neither an if on a conjunction nor auto splits p ∧ q into its parts, so 'if b != 0 && c != 0 then a % b else 0' fails with E-AUTO-STUCK (can't decide b ≠ 0); also with ∧, ≠ and b > 0 && c > 0. SW-226 only promised the right side of && knows the left. Applies to guards too ('| x if p && q =>'). Likely small in auto: split conjunction hypotheses.",
+      "body": "Found in the SW-1295 review, confirmed on main: neither an if on a conjunction nor auto splits p ∧ q into its parts, so 'if b != 0 && c != 0 then a % b else 0' fails with E-AUTO-STUCK (can't decide b ≠ 0); also with ∧, ≠ and b > 0 && c > 0. SW-226 only promised the right side of && knows the left. Applies to guards too ('| x if p && q =>'). Likely small in auto: split conjunction hypotheses.\n\nDeepSeek attempt (branch ds/SW-1305, 18c225a1b; ~60 min) works on the examples but not merged: beyond its brief it changed how every 'if b && c' on propositions elaborates (both branches elaborated twice, the conjunction form kept only if a branch's auto proof uses it; doubling cost for nested ifs) and refactored unused_proof_if, which conflicts with SW-1295's check_if. Orchestrator's call: rerun on Opus, using the attempt as a reference. Model result: DeepSeek, failed (went past the brief's limit into a general change to if; design-level), 60 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
