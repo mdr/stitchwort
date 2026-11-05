@@ -6830,13 +6830,13 @@
     {
       "id": 1320,
       "title": "Domain types: 2021 day 14 (polymer pairs and rules) and 2024 day 19 (towels and designs)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1320",
       "labels": [
         "aoc"
       ],
-      "body": "The last two days left from the domain-types review (D2363): give their nouns small record types with methods; statements re-typed only, the orchestrator checks each keeps its meaning.\n\nDone (Sonnet, 9 min, est. 60): 2024 day 19 Pattern {stripes} and Design {stripes} (a design can't be used as a pattern), Spec's laid; 2021 day 14 ElementPair {first, second}, Rule {pair, insert}, pair.becomes. Spec diffs checked by the orchestrator: re-typing only, meanings kept; specs don't use program code. Answers unchanged (2712, 8336623059567; day 19 example 6, 16). Findings: aliases give no dot methods (worth a guide line); 'Witness { … } arg' needs brackets. Model result: Sonnet, worked, 9 min (est. 60).",
+      "body": "The last two days left from the domain-types review (D2363): give their nouns small record types with methods; statements re-typed only, the orchestrator checks each keeps its meaning.\n\nDone (Sonnet, 9 min, est. 60): 2024 day 19 Pattern {stripes} and Design {stripes} (a design can't be used as a pattern), Spec's laid; 2021 day 14 ElementPair {first, second}, Rule {pair, insert}, pair.becomes. Spec diffs checked by the orchestrator: re-typing only, meanings kept; specs don't use program code. Answers unchanged (2712, 8336623059567; day 19 example 6, 16). Findings: aliases give no dot methods (worth a guide line); 'Witness { … } arg' needs brackets. Model result: Sonnet, worked, 9 min (est. 60).\n\nMerged 12b5817ad; verified: aoc check without the cache, both days' tests, audits (day 14's 3 parse-hypothesis warnings, the same as before the change), year2021_day14 answers, full audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
