@@ -6648,13 +6648,13 @@
     {
       "id": 1307,
       "title": "AoC domain types 7: 2024 day 9 Block and DiskMap",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1307",
       "labels": [
         "aoc"
       ],
-      "body": "\nSplit from SW-1289 (the survey's HIGH 2024/09 entry): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\n\nLane notes: Block/Disk/DiskMap in Day09.sw; Spec, Proofs and Tests re-typed; commit 09a515ce3 on lane/SW-1307. Answers unchanged; 32 tests, audit and aoc_answers pass.\n\nOrchestrator: statements checked (re-typing; checksumCorrect now over a Disk; scope unchanged). Answers unchanged. Audit's 77 -> 85: generated equation cases of the new Block methods. Model result: Sonnet, worked, 10 min (est. 120).",
+      "body": "\nSplit from SW-1289 (the survey's HIGH 2024/09 entry): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\n\nLane notes: Block/Disk/DiskMap in Day09.sw; Spec, Proofs and Tests re-typed; commit 09a515ce3 on lane/SW-1307. Answers unchanged; 32 tests, audit and aoc_answers pass.\n\nOrchestrator: statements checked (re-typing; checksumCorrect now over a Disk; scope unchanged). Answers unchanged. Audit's 77 -> 85: generated equation cases of the new Block methods. Model result: Sonnet, worked, 10 min (est. 120).\n\nMerged f4d551b35; verified: aoc check without the cache, day tests and audit (0 warnings), answer test, full audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
