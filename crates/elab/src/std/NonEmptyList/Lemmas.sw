@@ -43,6 +43,10 @@ theorem List.nonEmptyToNonEmpty (xs: List a) (h: xs ≠ []): List.nonEmpty xs = 
 
 --| The `List` twins.
 
+theorem NonEmptyList.countToList (xs: NonEmptyList a) (p: a → Bool): xs.count p = List.count xs.toList p := rfl
+
+theorem NonEmptyList.sumByToList [auto add: Add b] (xs: NonEmptyList a) (f: a → b): xs.sumBy f = List.sumBy xs.toList f := rfl
+
 theorem NonEmptyList.foldLeftToList (xs: NonEmptyList a) (initial: b) (f: b → a → b): xs.foldLeft initial f = List.foldLeft xs.toList initial f := rfl
 
 theorem NonEmptyList.foldRightToList (xs: NonEmptyList a) (initial: b) (f: a → b → b): xs.foldRight initial f = List.foldRight xs.toList initial f := rfl
@@ -57,6 +61,10 @@ theorem NonEmptyList.lastFromToList (x: a): (rest: List a) → List.last [x, ..r
 
 theorem NonEmptyList.lastToList (xs: NonEmptyList a): List.last xs.toList = Some xs.last := NonEmptyList.lastFromToList xs.head xs.tail
 
+theorem NonEmptyList.getToList (xs: NonEmptyList a) (index: Nat): xs.get index = List.get xs.toList index := rfl
+
+theorem NonEmptyList.getOrToList (xs: NonEmptyList a) (index: Nat) (fallback: a): xs.getOr index fallback = List.getOr xs.toList index fallback := rfl
+
 theorem NonEmptyList.maximumToList [auto ord: Ord a] (xs: NonEmptyList a): List.maximum xs.toList = Some xs.maximum := rfl
 
 theorem NonEmptyList.minimumToList [auto ord: Ord a] (xs: NonEmptyList a): List.minimum xs.toList = Some xs.minimum := rfl
@@ -70,6 +78,8 @@ theorem NonEmptyList.maximumOfToList [auto ord: Ord b] (xs: NonEmptyList a) (f: 
 theorem NonEmptyList.minimumOfToList [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): List.minimumOf xs.toList f = Some (xs.minimumOf f) := rfl
 
 theorem NonEmptyList.mapToList (xs: NonEmptyList a) (f: a → b): (xs.map f).toList = List.map xs.toList f := rfl
+
+theorem NonEmptyList.flatMapToList (xs: NonEmptyList a) (f: a → List b): xs.flatMap f = List.flatMap xs.toList f := rfl
 
 theorem NonEmptyList.zipToList (xs: NonEmptyList a) (ys: NonEmptyList b): (xs.zip ys).toList = List.zip xs.toList ys.toList := rfl
 

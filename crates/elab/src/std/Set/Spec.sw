@@ -676,9 +676,9 @@ theorem Set.containsFoldUnion [auto ord: Ord k] (key: k): (ss: List (Set k)) →
       Bool.orAssoc (Set.contains acc key) (Set.contains s key) (List.any ss (t => Set.contains t key))
 
 --| `Set.unionAll` of a list of sets holds what some set in the list holds.
-theorem Set.containsUnions [auto ord: Ord k] (ss: List (Set k)) (key: k):
-    Set.contains (Set.unionAll ss) key = List.any ss (s => Set.contains s key) :=
-  Set.containsFoldUnion key ss Set.empty
+theorem Set.containsUnionAll [auto ord: Ord k] (sets: List (Set k)) (key: k):
+    Set.contains (Set.unionAll sets) key = List.any sets (s => Set.contains s key) :=
+  Set.containsFoldUnion key sets Set.empty
 
 --| Folding a list of sets into `acc` by intersection holds what `acc` holds
 --| and every set in the list does.

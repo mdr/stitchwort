@@ -59,7 +59,7 @@ def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Ma
 --| The keys of `a` that aren't in `b` ([`Set.containsDifference`]).
 def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.difference a.items b.items }
 
---| The keys of every set in the list ([`Set.containsUnions`]).
+--| The keys of every set in the list ([`Set.containsUnionAll`]).
 def Set.unionAll [auto ord: Ord k] (sets: List (Set k)): Set k := List.foldLeft sets Set.empty Set.union
 
 --| The keys of every set in the list, as a method on the list, so

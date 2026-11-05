@@ -6,6 +6,8 @@ test "NonEmptyList.toList, length, singleton, cons" :=
   NonEmptyList.example.toList == [3, 1, 4, 1, 5] ∧ NonEmptyList.example.length == 5 ∧
     (NonEmptyList.singleton 7).toList == [7] ∧ (NonEmptyList.cons 1 [2, 3]).toList == [1, 2, 3]
 
+test "NonEmptyList.count" := NonEmptyList.example.count (x => x > 2) == 3
+
 test "NonEmptyList ==" := NonEmptyList.example == { head = 3, tail = [1, 4, 1, 5] } ∧ NonEmptyList.example != NonEmptyList.singleton 3
 
 test "NonEmptyList show" := "${NonEmptyList.example}" == "[3, 1, 4, 1, 5]"
@@ -18,6 +20,10 @@ test "NonEmptyList.reduce, foldLeft, foldRight" :=
 test "NonEmptyList.last, init" :=
   NonEmptyList.example.last == 5 ∧ (NonEmptyList.singleton 2).last == 2 ∧
     NonEmptyList.example.init == [3, 1, 4, 1] ∧ (NonEmptyList.singleton 2).init == []
+
+test "NonEmptyList.get, getOr" :=
+  NonEmptyList.example.get 2 == Some 4 ∧ NonEmptyList.example.get 5 == None ∧
+    NonEmptyList.example.getOr 2 0 == 4 ∧ NonEmptyList.example.getOr 9 0 == 0
 
 test "NonEmptyList.maximum, minimum" :=
   NonEmptyList.example.maximum == 5 ∧ NonEmptyList.example.minimum == 1 ∧ (NonEmptyList.singleton 0).maximum == 0
@@ -33,6 +39,11 @@ test "NonEmptyList.map, zip, zipWith" :=
   (NonEmptyList.example.map (x => x + 1)).toList == [4, 2, 5, 2, 6] ∧
     (NonEmptyList.example.zip { head = "a", tail = ["b"] }).toList == [(3, "a"), (1, "b")] ∧
     (NonEmptyList.example.zipWith NonEmptyList.example Nat.add).toList == [6, 2, 8, 2, 10]
+
+test "NonEmptyList.flatMap" :=
+  NonEmptyList.example.flatMap (x => [x, x * 10]) == [3, 30, 1, 10, 4, 40, 1, 10, 5, 50]
+
+test "NonEmptyList.sumBy" := NonEmptyList.example.sumBy (x => x * 2) == 28
 
 test "NonEmptyList.reverse" :=
   NonEmptyList.example.reverse.toList == [5, 1, 4, 1, 3] ∧ (NonEmptyList.singleton 1).reverse.toList == [1]

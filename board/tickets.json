@@ -7418,7 +7418,7 @@
     {
       "id": 1362,
       "title": "Library index: require a std instance for (I, T) to sit in T's file or I's file, like SW-1354's congruence rule (else check results depend on load order)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1362",
       "labels": [
@@ -7432,7 +7432,7 @@
     {
       "id": 1363,
       "title": "Rename Set.containsUnions to match unionAll (SW-1347's rename)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1363",
       "labels": [
@@ -7446,7 +7446,7 @@
     {
       "id": 1364,
       "title": "NonEmptyList: add count, and any other List conveniences the stage 2 lanes missed (headOr was asked for: check where it was wanted)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -7474,7 +7474,7 @@
     {
       "id": 1366,
       "title": "NonEmptyList: get/getOr, flatMap, sumBy (2024 day 5's middle page; .toList.map workarounds in SW-1346)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [

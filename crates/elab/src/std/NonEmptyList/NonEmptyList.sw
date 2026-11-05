@@ -47,6 +47,14 @@ def List.nonEmpty: (xs: List a) → Option (NonEmptyList a)
 --| The number of elements, at least one ([`NonEmptyList.lengthPos`]): the length of `toList` ([`NonEmptyList.lengthToList`]).
 def NonEmptyList.length (xs: NonEmptyList a): Nat := Succ (List.length xs.tail)
 
+--| How many elements satisfy `p`, at most the length; `p` may perform
+--| abilities, which run in list order ([`NonEmptyList.countToList`]).
+def NonEmptyList.count (xs: NonEmptyList a) (p: a → {e} Bool): {e} Nat := List.count xs.toList p
+
+--| The sum of `f` over the elements ([`NonEmptyList.sumByToList`]). `f` may
+--| perform abilities, which run in list order.
+def NonEmptyList.sumBy [auto add: Add b] (xs: NonEmptyList a) (f: a → {e} b): {e} b := List.sumBy xs.toList f
+
 --| Left fold: `xs.foldLeft z f` is `xs.toList.foldLeft z f`. `f` may perform abilities, which run in list order.
 def NonEmptyList.foldLeft (xs: NonEmptyList a) (initial: b) (f: b → a → {e} b): {e} b := List.foldLeft xs.toList initial f
 
@@ -69,6 +77,13 @@ def NonEmptyList.lastFrom (x: a): (xs: List a) → a
 
 --| All but the last element (empty for one element).
 def NonEmptyList.init (xs: NonEmptyList a): List a := List.init xs.toList
+
+--| The element at `index`, counting from 0, or `None` past the end
+--| ([`NonEmptyList.getToList`]).
+def NonEmptyList.get (xs: NonEmptyList a) (index: Nat): Option a := List.get xs.toList index
+
+--| The element at `index`, or `fallback` past the end ([`NonEmptyList.getOrToList`]).
+def NonEmptyList.getOr (xs: NonEmptyList a) (index: Nat) (fallback: a): a := List.getOr xs.toList index fallback
 
 --| The largest element by the type's `Ord`: `Some xs.maximum` is `xs.toList.maximum` ([`NonEmptyList.maximumToList`]).
 def NonEmptyList.maximum [auto ord: Ord a] (xs: NonEmptyList a): a := List.foldLeft xs.tail xs.head Ord.max
@@ -96,6 +111,10 @@ def NonEmptyList.minimumOf [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): 
 def NonEmptyList.map (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b :=
   let first := f xs.head
   { head = first, tail = List.map xs.tail f }
+
+--| `f` on every element, joined ([`NonEmptyList.flatMapToList`]). `f` may
+--| perform abilities, which run in list order.
+def NonEmptyList.flatMap (xs: NonEmptyList a) (f: a → {e} List b): {e} List b := List.flatMap xs.toList f
 
 --| The elements of two lists paired up, up to the shorter one's length ([`NonEmptyList.zipToList`]).
 def NonEmptyList.zip (xs: NonEmptyList a) (ys: NonEmptyList b): NonEmptyList (Pair a b) :=
