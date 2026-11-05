@@ -64,6 +64,10 @@ pub(crate) struct Decl {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     pub(crate) condition: Cell<usize>,
+    /// While `logic::condition` tries the `Bool` reading of a condition `a
+    /// && b`: the address of `a`, and the conjunction that reading decides
+    /// with its decision, once `logic::as_bool` has found them. A guard.
+    pub(crate) conjunction: RefCell<Option<Conjunction>>,
     /// While an application checked against a known type is inferred
     /// (`check::fallback`): the address of its last written argument and
     /// that type, so a lambda argument that fails where its type still has
@@ -160,6 +164,14 @@ pub(crate) struct Decl {
     pub(crate) guard_nodes: Cell<usize>,
 }
 
+/// [`Decl::conjunction`].
+pub(crate) struct Conjunction {
+    /// The address of the condition's left operand.
+    pub(crate) lhs: usize,
+    /// The conjunction of the operands and its decision.
+    pub(crate) found: Option<(Term, Term)>,
+}
+
 impl Decl {
     /// Empties everything but [`Self::failed_mentioned`].
     pub(crate) fn reset(&mut self) {
@@ -189,6 +201,7 @@ impl Decl {
             bare_rows_pure,
             late_literals,
             condition,
+            conjunction,
             app_expected,
             decreasing,
             recursion,
@@ -220,6 +233,7 @@ impl Decl {
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
+            ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
             ("decreasing", decreasing.borrow().is_none()),
             ("recursion", recursion.is_none()),

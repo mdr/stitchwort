@@ -32,7 +32,9 @@
 //! (`Nat.pow 2 (Succ k) ≠ 0` before it computes to `Nat.pow 2 k * 2 ≠ 0`),
 //! and then proved from the facts in scope where that's quick: `d ≠ 0` from a fact `Succ k ≤ d`, and, in a
 //! module that loads `omega`'s library, an arithmetic goal by `omega` within
-//! a small budget (`from_facts`).
+//! a small budget (`from_facts`). Last, the parts of a conjunction in scope
+//! are facts too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b
+//! ≠ 0 ∧ c ≠ 0`, or the proof an `if b != 0 && c != 0` gives its branch.
 //!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
@@ -304,6 +306,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             if let Some(proof) = from_facts(cx, &goal)? {
                 return Ok(proof);
             }
+            if let Some(proof) = from_conjuncts(cx, &goal)? {
+                return Ok(proof);
+            }
             let mut error = cx
                 .error(
                     "E-AUTO-STUCK",
@@ -402,6 +407,16 @@ fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
 /// `Nat.nonzeroOfSuccLe k d h` for the goal `d ≠ 0`, with `h` the latest
 /// hypothesis in scope whose type is `Succ k ≤ d` for some `k`.
 fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    let hypotheses: Vec<(Term, Value)> = (0..cx.level())
+        .rev()
+        .map(|level| (Term::Var(cx.level() - 1 - level), cx.types[level].clone()))
+        .collect();
+    nonzero_from(cx, goal, &hypotheses)
+}
+
+/// [`nonzero_from_positive`] with the first of `facts`, proofs with their
+/// types, whose type fits.
+fn nonzero_from(cx: &mut Ctx, goal: &Value, facts: &[(Term, Value)]) -> Result<Option<Term>> {
     let Some((Global::Def(lemma), _)) = cx.e.named(NONZERO_OF_SUCC_LE) else {
         return Ok(None);
     };
@@ -423,17 +438,71 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     if !cx.unify(&conclusion, goal)? {
         return Ok(None);
     }
-    for level in (0..cx.level()).rev() {
-        let ty = cx.types[level].clone();
-        if attempt(cx, |cx| Ok(cx.unify(&ty, &fact)?.then_some(())))?.is_some() {
-            let proof = Term::Var(cx.level() - 1 - level);
+    for (proof, ty) in facts {
+        if attempt(cx, |cx| Ok(cx.unify(ty, &fact)?.then_some(())))?.is_some() {
             return Ok(Some(Term::app(
                 Term::app(Term::app(Term::Def(lemma), below), divisor),
-                proof,
+                proof.clone(),
             )));
         }
     }
     Ok(None)
+}
+
+/// How deep a conjunction in scope is taken apart: `p ∧ (q ∧ r)` is two.
+const MAX_CONJUNCTS: usize = 8;
+
+/// A proof of `goal` from the parts of the conjunctions in scope: one whose
+/// type is `goal`, or `d ≠ 0` from one that is `Succ k ≤ d`.
+fn from_conjuncts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    let mut parts = Vec::new();
+    for level in (0..cx.level()).rev() {
+        let proof = Term::Var(cx.level() - 1 - level);
+        conjuncts(cx, proof, &cx.types[level].clone(), 1, &mut parts)?;
+    }
+    if parts.is_empty() {
+        return Ok(None);
+    }
+    for (proof, ty) in &parts {
+        if attempt(cx, |cx| Ok(cx.unify(ty, goal)?.then_some(())))?.is_some() {
+            return Ok(Some(proof.clone()));
+        }
+    }
+    attempt(cx, |cx| nonzero_from(cx, goal, &parts))
+}
+
+/// Adds to `parts` those of `proof: ty`, if `ty` is a conjunction `p ∧ q`:
+/// `And.left proof: p` and `And.right proof: q`, each followed by its own.
+fn conjuncts(
+    cx: &Ctx,
+    proof: Term,
+    ty: &Value,
+    depth: usize,
+    parts: &mut Vec<(Term, Value)>,
+) -> Result<()> {
+    if depth > MAX_CONJUNCTS {
+        return Ok(());
+    }
+    let g = cx.g();
+    let Value::Data(d, args) = force(&g, ty.clone())? else {
+        return Ok(());
+    };
+    if !g.env.registry().is_data(Builtin::And, d) || args.len() != 2 {
+        return Ok(());
+    }
+    let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
+    for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
+        let head = Term::Def(builtin_def(cx, side)?);
+        let head = Term::app_icit(
+            Term::app_icit(head, p.clone(), Icit::Implicit),
+            q.clone(),
+            Icit::Implicit,
+        );
+        let part = Term::app(head, proof.clone());
+        parts.push((part.clone(), part_ty.clone()));
+        conjuncts(cx, part, part_ty, depth + 1, parts)?;
+    }
+    Ok(())
 }
 
 /// For a nested type `T` (`derive_induct.rs`), a goal `T.size y < T.size

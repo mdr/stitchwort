@@ -45,7 +45,7 @@ pub(crate) use attempt::Attempt;
 pub(crate) use attempt::Mark as AttemptMark;
 pub(crate) use caches::Caches;
 pub(crate) use caches::Mark as CachesMark;
-pub(crate) use decl::Decl;
+pub(crate) use decl::{Conjunction, Decl};
 pub use journal::JournalStats;
 pub(crate) use journal::{Checkpoint, Journal, Logged, LoggedSet, Logs, Transaction};
 pub use metas::MetaStore;

@@ -4386,14 +4386,9 @@ fn check_proof_if(
         }
         None => match crate::logic::condition(cx, cond, "if")?.decided_now(cx, cond.span())? {
             crate::logic::Condition::Decided { prop, decision } => ("_", prop, decision.term(cx)?),
-            crate::logic::Condition::Bool(c) => {
-                let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-                let (d, t) = builtin_ctor(cx, Builtin::True)?;
-                let prop = Term::Eq(
-                    Some(Rc::new(bool_ty)),
-                    Rc::new(c.clone()),
-                    Rc::new(Term::Ctor(d, t, Vec::new())),
-                );
+            crate::logic::Condition::Bool(c)
+            | crate::logic::Condition::Conjunction { as_bool: c, .. } => {
+                let prop = crate::logic::true_prop(cx, c.clone())?;
                 let dec_true = builtin_def(cx, Builtin::DecTrue)?;
                 ("_", prop, Term::app(Term::Def(dec_true), c))
             }
@@ -4484,33 +4479,43 @@ fn check_if_in(
             // proofs; if they don't use them, the `Bool` it is waits.
             let waiting =
                 matches!(condition, crate::logic::Condition::Waiting { .. }).then(|| cond.span());
-            let cond = match condition.decided_now(cx, cond.span())? {
-                crate::logic::Condition::Bool(cond) => cond,
+            let (prop, decision, unused) = match condition.decided_now(cx, cond.span())? {
+                crate::logic::Condition::Bool(cond) => {
+                    let unit = Value::Data(unit_data, Vec::new());
+                    let then = branch(cx, "_", unit.clone(), then)?;
+                    let otherwise = branch(cx, "_", unit, otherwise)?;
+                    let ite = builtin_def(cx, Builtin::IfThenElse)?;
+                    let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
+                    return Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise));
+                }
                 crate::logic::Condition::Waiting { .. } => {
                     unreachable!("decided_now decides a waiting condition")
                 }
                 crate::logic::Condition::Decided { prop, decision } => {
-                    let as_bool = decision.clone();
-                    let decision = decision.term(cx)?;
-                    let decided = decided_if(
-                        cx,
-                        "_",
-                        prop.clone(),
-                        decision,
-                        result_ty.clone(),
-                        &branch,
-                        then,
-                        otherwise,
-                    )?;
-                    return unused_proof_if(cx, decided, as_bool, prop, result_ty, waiting);
+                    let unused = match waiting {
+                        Some(span) => Unused::Waiting(span),
+                        None => Unused::Decision(decision.clone()),
+                    };
+                    (prop, decision.term(cx)?, unused)
                 }
+                // `if a && b`: the branches may use its proof, `a ∧ b`.
+                crate::logic::Condition::Conjunction {
+                    as_bool,
+                    prop,
+                    decision,
+                } => (prop, decision, Unused::Bool(as_bool)),
             };
-            let unit = Value::Data(unit_data, Vec::new());
-            let then = branch(cx, "_", unit.clone(), then)?;
-            let otherwise = branch(cx, "_", unit, otherwise)?;
-            let ite = builtin_def(cx, Builtin::IfThenElse)?;
-            let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
-            Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
+            let decided = decided_if(
+                cx,
+                "_",
+                prop.clone(),
+                decision,
+                result_ty.clone(),
+                &branch,
+                then,
+                otherwise,
+            )?;
+            unused_proof_if(cx, decided, unused, prop, result_ty)
         }
         Some(h) => {
             let (prop, decision) = if_h_condition(cx, h, cond)?;
@@ -4530,6 +4535,18 @@ fn is_true_test(cond: &Expr) -> bool {
     }
 }
 
+/// What an `if` on a decided proposition is on when its branches don't use
+/// the proof ([`unused_proof_if`]).
+enum Unused {
+    /// The decision's `Bool`.
+    Decision(crate::bind::Decision),
+    /// The `Bool` of a decision that had to wait (`decision_blocker`), once
+    /// it can be made, not the one made at once.
+    Waiting(Span),
+    /// The `Bool` reading of `a && b` ([`crate::logic::Condition::Conjunction`]).
+    Bool(Term),
+}
+
 /// `if c then a else b` on a decided proposition `c` whose branches don't
 /// use the proof: `ifThenElse` on the decision's `Bool`, the term a `Bool`
 /// is expected (`filter (x => x < k)`) gives, so lemmas stated with a
@@ -4538,10 +4555,9 @@ fn is_true_test(cond: &Expr) -> bool {
 fn unused_proof_if(
     cx: &mut Ctx,
     decided: Term,
-    decision: crate::bind::Decision,
+    unused: Unused,
     prop: Term,
     result_ty: Term,
-    waiting: Option<Span>,
 ) -> Result<Term> {
     let Term::App(rest, otherwise, _) = &decided else {
         return Ok(decided);
@@ -4591,14 +4607,13 @@ fn unused_proof_if(
             return Ok(decided);
         }
     }
-    // A decision that had to wait (`decision_blocker`) is the `Bool` it
-    // decides once it can be decided, not the one made at once.
-    let cond = match waiting {
-        Some(span) => {
+    let cond = match unused {
+        Unused::Decision(decision) => decision.into_bool(cx, prop)?,
+        Unused::Waiting(span) => {
             let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
             decide_or_wait(cx, span, &prop, &bool_ty, Depth::Written)?
         }
-        None => decision.into_bool(cx, prop)?,
+        Unused::Bool(cond) => cond,
     };
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
     let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
