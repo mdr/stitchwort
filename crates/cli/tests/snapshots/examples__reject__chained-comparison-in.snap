@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-COMPARISON-CHAIN] Error: `in` can't be part of a chain of comparisons
-   ╭─[ reject/chained-comparison-in.sw:3:46 ]
+   ╭─[ reject/chained-comparison-in.sw:3:44 ]
    │
  3 │ def bad (a b: Nat) (xs: List Nat): Bool := a <= b in xs
-   │                                              ─┬   ─┬  
-   │                                               ╰─────── the chain starts here
+   │                                            ┬      ─┬  
+   │                                            ╰────────── the chain starts here
    │                                                    │  
    │                                                    ╰── this operator can't continue it
    │ 

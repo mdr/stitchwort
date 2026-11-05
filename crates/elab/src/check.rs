@@ -4426,6 +4426,12 @@ fn check_proof_if(
 
 /// The proposition of `if h: cond` and a decision for it.
 pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
+    // A chain with a computed middle: decided with the middle bound once.
+    if let Some((name, value, body)) = cond.as_chain_let() {
+        let ((prop, decision), binding) =
+            crate::chain::around(cx, name, value, |cx| if_h_condition(cx, h, body))?;
+        return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
+    }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
         if e.code == "E-NOT-A-TYPE" {
             e.with_note(format!(

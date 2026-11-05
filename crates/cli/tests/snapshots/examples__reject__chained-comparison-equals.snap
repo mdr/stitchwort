@@ -7,9 +7,9 @@ expression: output
    │
  3 │ def bad (a b c: Nat): Bool := a == b == c
    │                                 ─┬   ─┬  
-   │                                  ╰─────── the chain starts here
+   │                                  ╰─────── this comparison can't start a chain
    │                                       │  
-   │                                       ╰── this operator can't continue it
+   │                                       ╰── so this one can't follow it
    │ 
    │ Note: for now only `<` and `<=`, or `>` and `>=`, chain; write the comparisons separately, joined with `&&`: `a == b && b == c`
 ───╯

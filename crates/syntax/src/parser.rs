@@ -3793,6 +3793,7 @@ impl<'t> Parser<'t> {
             Some(Tok::Ge) => (BinOp::Le, true),
             _ => return Ok(lhs),
         };
+        let first_symbol = written(self.peek());
         let first_op = self.bump().span;
         // `a = if c then x else y`: the `if` on the right runs to the end of
         // the expression, as it does anywhere else.
@@ -3822,7 +3823,7 @@ impl<'t> Parser<'t> {
         ) {
             return Ok(binary(op, flip, lhs, rhs));
         }
-        self.comparison_chain(lhs, (op, flip, first_op), rhs)
+        self.comparison_chain(lhs, (op, flip, first_op, first_symbol), rhs)
     }
 
     /// The rest of `a <= b < c …`, after `a <= b` (SW-1339, D2386): the
@@ -3833,38 +3834,50 @@ impl<'t> Parser<'t> {
     fn comparison_chain(
         &mut self,
         first: Expr,
-        (op, flip, first_op): (BinOp, bool, Span),
+        (op, flip, first_op, first_symbol): (BinOp, bool, Span, &'static str),
         second: Expr,
     ) -> Result<Expr> {
+        let starts = first.span();
+        if matches!(op, BinOp::Eq | BinOp::Ne | BinOp::EqEq) {
+            let next = written(self.peek());
+            return Err(chain_error(
+                (first_op, "this comparison can't start a chain"),
+                (self.here(), "so this one can't follow it"),
+                format!("`{first_symbol}` can't be part of a chain of comparisons"),
+                format!(
+                    "for now only `<` and `<=`, or `>` and `>=`, chain; write the comparisons \
+                     separately, joined with `&&`: `a {first_symbol} b && b {next} c`"
+                ),
+            ));
+        }
+        let (a, b) = (operand_text(&first, "a"), operand_text(&second, "b"));
         let mut operands = vec![first, second];
         let mut links = vec![(op, flip)];
         let descending = flip;
+        let mut last_symbol = first_symbol;
         loop {
+            let symbol = written(self.peek());
             let (op, flip) = match self.peek() {
                 Some(Tok::Lt) => (BinOp::Lt, false),
                 Some(Tok::Le) => (BinOp::Le, false),
                 Some(Tok::Gt) => (BinOp::Lt, true),
                 Some(Tok::Ge) => (BinOp::Le, true),
                 Some(Tok::Equals | Tok::EqEq) => {
-                    let symbol = if self.peek() == Some(&Tok::Equals) {
-                        "="
-                    } else {
-                        "=="
-                    };
                     return Err(chain_error(
-                        self.here(),
-                        first_op,
+                        (starts, "the chain starts here"),
+                        (self.here(), "this operator can't continue it"),
                         format!("`{symbol}` can't be part of a chain of comparisons"),
                         format!(
                             "for now only `<` and `<=`, or `>` and `>=`, chain; write the \
-                             comparisons separately, joined with `&&`: `a {symbol} b && b {symbol} c`"
+                             comparisons separately, joined with `&&`: `a {last_symbol} b && b \
+                             {symbol} c`"
                         ),
                     ));
                 }
                 Some(Tok::NotEq) => {
                     return Err(chain_error(
-                        self.here(),
-                        first_op,
+                        (starts, "the chain starts here"),
+                        (self.here(), "this operator can't continue it"),
                         "`!=` can't be part of a chain of comparisons".into(),
                         "`a != b != c` would not mean that all three differ; write the \
                          comparisons separately, joined with `&&`: `a != b && b != c`",
@@ -3872,8 +3885,8 @@ impl<'t> Parser<'t> {
                 }
                 Some(Tok::KwIn | Tok::NotIn) => {
                     return Err(chain_error(
-                        self.here(),
-                        first_op,
+                        (starts, "the chain starts here"),
+                        (self.here(), "this operator can't continue it"),
                         "`in` can't be part of a chain of comparisons".into(),
                         "write the comparison and the membership test separately, joined \
                          with `&&`: `a <= x && x in xs`",
@@ -3882,15 +3895,30 @@ impl<'t> Parser<'t> {
                 _ => break,
             };
             if flip != descending {
+                let n = operands.len();
+                let (before, left) = if n == 2 {
+                    (a.clone(), b.clone())
+                } else {
+                    (
+                        operand_text(&operands[n - 2], "a"),
+                        operand_text(&operands[n - 1], "b"),
+                    )
+                };
+                let right = "c";
                 return Err(chain_error(
-                    self.here(),
-                    first_op,
+                    (starts, "the chain starts here"),
+                    (self.here(), "this operator can't continue it"),
                     "a chain of comparisons goes one way: `<` and `<=` can't be mixed with \
                      `>` and `>=`"
                         .into(),
-                    "write the comparisons separately, joined with `&&`: `a < b && c < b`",
+                    format!(
+                        "write the comparisons separately, joined with `&&`: `{before} \
+                         {last_symbol} {left} && {left} {symbol} {right}`, or turn the \
+                         later ones round"
+                    ),
                 ));
             }
+            last_symbol = symbol;
             self.bump();
             let mut operand = self.append_expr()?;
             if self.at_pipe() {
@@ -4702,19 +4730,44 @@ impl<'t> Parser<'t> {
     }
 }
 
-/// `lhs op rhs`, or with `flip` `rhs op lhs`. Out of line, so the recursive
-/// parsing functions keep small stack frames (nesting depth is bounded by
-/// stack use).
-#[inline(never)]
-/// A `Diagnostic` for a chain of comparisons that isn't allowed, at the
-/// operator `at` (the chain began at `first`).
-fn chain_error(at: Span, first: Span, message: String, note: impl Into<String>) -> Box<Diagnostic> {
+/// A `Diagnostic` for a chain of comparisons that isn't allowed: `first`
+/// says why it started a chain, `at` why it can't go on.
+fn chain_error(
+    (first, first_label): (Span, &str),
+    (at, at_label): (Span, &str),
+    message: String,
+    note: impl Into<String>,
+) -> Box<Diagnostic> {
     Box::new(
         Diagnostic::error("E-COMPARISON-CHAIN", message)
-            .with_label(first, "the chain starts here")
-            .with_label(at, "this operator can't continue it")
+            .with_label(first, first_label)
+            .with_label(at, at_label)
             .with_note(note.into()),
     )
+}
+
+/// How a comparison operator is written in a suggestion.
+fn written(tok: Option<&Tok>) -> &'static str {
+    match tok {
+        Some(Tok::Lt) => "<",
+        Some(Tok::Le) => "<=",
+        Some(Tok::Gt) => ">",
+        Some(Tok::Ge) => ">=",
+        Some(Tok::Equals) => "=",
+        Some(Tok::EqEq) => "==",
+        Some(Tok::NotEq) => "!=",
+        _ => "<",
+    }
+}
+
+/// An operand as a suggestion writes it: a name or a number as written,
+/// otherwise the placeholder `fallback`.
+fn operand_text(expr: &Expr, fallback: &str) -> String {
+    match expr {
+        Expr::Var(name) => name.text.clone(),
+        Expr::Num(n, _) => n.to_string(),
+        _ => fallback.to_string(),
+    }
 }
 
 /// Whether `expr` can be used twice with no cost and no effect: a name or
@@ -4799,6 +4852,10 @@ fn chain(operands: Vec<Expr>, links: &[(BinOp, bool)]) -> Expr {
     chain.bind(0, first, rest)
 }
 
+/// `lhs op rhs`, or with `flip` `rhs op lhs`. Out of line, so the recursive
+/// parsing functions keep small stack frames (nesting depth is bounded by
+/// stack use).
+#[inline(never)]
 fn binary(op: BinOp, flip: bool, lhs: Expr, rhs: Expr) -> Expr {
     if flip {
         Expr::Binary(op, Box::new(rhs), Box::new(lhs))
@@ -6620,6 +6677,10 @@ mod tests {
             ("a < b != x", "`!=`"),
             ("a <= b in x", "`in`"),
             ("a <= b !in x", "`in`"),
+            ("a = b < x", "`=`"),
+            ("a != b <= x", "`!=`"),
+            ("a == b < x", "`==`"),
+            ("a == b > x", "`==`"),
         ] {
             let e = rhs_of(&format!("def g : Nat := {text}\n")).expect_err(text);
             assert_eq!(e.code, "E-COMPARISON-CHAIN", "{text}");

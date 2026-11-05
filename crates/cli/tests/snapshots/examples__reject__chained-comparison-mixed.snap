@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-COMPARISON-CHAIN] Error: a chain of comparisons goes one way: `<` and `<=` can't be mixed with `>` and `>=`
-   ╭─[ reject/chained-comparison-mixed.sw:3:33 ]
+   ╭─[ reject/chained-comparison-mixed.sw:3:31 ]
    │
  3 │ def bad (a b c: Nat): Bool := a <= b > c
-   │                                 ─┬   ┬  
-   │                                  ╰────── the chain starts here
+   │                               ┬      ┬  
+   │                               ╰───────── the chain starts here
    │                                      │  
    │                                      ╰── this operator can't continue it
    │ 
-   │ Note: write the comparisons separately, joined with `&&`: `a < b && c < b`
+   │ Note: write the comparisons separately, joined with `&&`: `a <= b && b > c`, or turn the later ones round
 ───╯

@@ -4367,18 +4367,37 @@ fn guard_holds(e: &Elaborator, dec: bool, cond: Term) -> R<Term> {
     ))
 }
 
-/// A guard's condition elaborated in its arm's context `cx`, as
-/// `check_if_in` does: the proposition it decides (for a `Bool` `c`, `c =
-/// True`) and, but for `if h: P`, its `Bool` (a decided proposition's
-/// decision's, `a && b`'s reading). `None` if a placeholder is left in
-/// them.
-fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Option<Term>)>> {
+/// [`guard_condition`] before the placeholders are looked at. A chain of
+/// comparisons with a computed middle has the middle put back in place, as
+/// a guard can't perform, so the equations read as the conjunction
+/// written out.
+fn guard_terms(
+    cx: &mut Ctx,
+    binder: Option<&ast::Name>,
+    cond: &ast::Expr,
+) -> Result<Option<(Term, Option<Term>)>> {
     use crate::logic::Condition;
-    let (prop, as_bool) = match &guard.binder {
-        Some(h) => (crate::check::if_h_condition(cx, h, &guard.cond)?.0, None),
-        None => match crate::logic::condition(cx, &guard.cond, "if")?
-            .decided_now(cx, guard.cond.span())?
-        {
+    if let Some((name, value, body)) = cond.as_chain_let() {
+        let (terms, binding) =
+            crate::chain::around(cx, name, value, |cx| guard_terms(cx, binder, body))?;
+        let Some((prop, as_bool)) = terms else {
+            return Ok(None);
+        };
+        // The `Bool` is read back so the operands a decision bound as
+        // variables are applied (`(x => 2 < x) (twice k)` is `3 <= twice k`).
+        let as_bool = match as_bool {
+            Some(c) => {
+                let c = binding.inline(cx, &c)?;
+                let value = cx.eval(&c)?;
+                Some(cx.quote_folded(&value)?)
+            }
+            None => None,
+        };
+        return Ok(Some((binding.inline(cx, &prop)?, as_bool)));
+    }
+    Ok(Some(match binder {
+        Some(h) => (crate::check::if_h_condition(cx, h, cond)?.0, None),
+        None => match crate::logic::condition(cx, cond, "if")?.decided_now(cx, cond.span())? {
             Condition::Bool(c) => (crate::logic::true_prop(cx, c.clone())?, Some(c)),
             Condition::Decided { prop, decision } => {
                 let c = decision.into_bool(cx, prop.clone())?;
@@ -4387,6 +4406,17 @@ fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Opt
             Condition::Conjunction { as_bool, prop, .. } => (prop, Some(as_bool)),
             Condition::Waiting { .. } => return Ok(None),
         },
+    }))
+}
+
+/// A guard's condition elaborated in its arm's context `cx`, as
+/// `check_if_in` does: the proposition it decides (for a `Bool` `c`, `c =
+/// True`) and, but for `if h: P`, its `Bool` (a decided proposition's
+/// decision's, `a && b`'s reading). `None` if a placeholder is left in
+/// them.
+fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Option<Term>)>> {
+    let Some((prop, as_bool)) = guard_terms(cx, guard.binder.as_ref(), &guard.cond)? else {
+        return Ok(None);
     };
     let level = cx.level();
     let zonk = |t: &Term| -> Option<Term> {
