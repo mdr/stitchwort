@@ -8476,13 +8476,13 @@
     {
       "id": 1436,
       "title": "Std list lemmas: take one more after drop, lengthTakeLe, takeNil (dropNil exists), sum monotone over prefixes and slices, toList of nonEmpty",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1436",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 3.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 3.\n\nStarted on DeepSeek, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
