@@ -8846,13 +8846,13 @@
     {
       "id": 1462,
       "title": "Inlay hints: a let whose variable is never used gets no type hint, because only used locals' types are published; record let binder types in the elaborator's navigation data",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1462",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1117, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8860,13 +8860,13 @@
     {
       "id": 1463,
       "title": "Signature help matches the called function by its last name segment among the file's references, so two functions with the same short name in one file can show the wrong signature; resolve the call's head by position instead",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1462",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1117, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
