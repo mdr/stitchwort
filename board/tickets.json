@@ -7529,14 +7529,14 @@
     },
     {
       "id": 1370,
-      "title": "2021 day 16: should Sum/Product require at least one sub-packet (NonEmptyList)? The puzzle implies it; the Spec says a sum of none is 0 — decide",
+      "title": "2021 day 16: operands fit their operation in the packet type (Many (NonEmptyList Packet) | Pair Packet Packet); drop checkOperators, promised and fallback arms",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').\n\nD2414 (Matt, 5 Nov 2026): option C, agreed. Puzzle part 1: 'An operator packet contains one or more packets.'; part 2: comparisons 'always have exactly two sub-packets'. So: an operator's sub-packets are Many (NonEmptyList Packet) for sum/product/min/max, Pair for comparisons, checked once while decoding; checkOperators, Spec.promised and the getOrElse/fallback arms go; part2Correct loses its promised hypothesis; bit encoding unchanged. Spec comment 'a sum or product of none is 0 or 1' goes. Artifact: https://claude.ai/artifact/LCKFfEmB5pYMcUXM9BeybN. Sonnet ~1-1.5 h, Opus review. Next free slot.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
