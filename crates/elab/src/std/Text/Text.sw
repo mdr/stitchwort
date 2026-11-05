@@ -136,6 +136,170 @@ def Text.lines (text: Text): List Text := Text.linesFrom [] [] (Text.toList text
 --| Total: the input is read all at once.
 def IO.readAllLines(): {IO} List Text := IO.readAll().lines
 
+-- What `Text.lines` does, as lemmas. The lines of a chunk that ends with a
+-- line feed don't depend on what follows it, and a line with no carriage
+-- return in it is its characters; a carriage return is where the lines stop
+-- being the characters: "a\r\n" and "a\n" both give "a".
+
+--| `Char.isLineFeedCode` holds of the code 10 only.
+theorem Char.lineFeedCodeIs: (code: Nat) → Char.isLineFeedCode code = True → code = 10
+  | 0, h => Void.exfalso (Bool.falseNotTrue h)
+  | 1, h => Void.exfalso (Bool.falseNotTrue h)
+  | 2, h => Void.exfalso (Bool.falseNotTrue h)
+  | 3, h => Void.exfalso (Bool.falseNotTrue h)
+  | 4, h => Void.exfalso (Bool.falseNotTrue h)
+  | 5, h => Void.exfalso (Bool.falseNotTrue h)
+  | 6, h => Void.exfalso (Bool.falseNotTrue h)
+  | 7, h => Void.exfalso (Bool.falseNotTrue h)
+  | 8, h => Void.exfalso (Bool.falseNotTrue h)
+  | 9, h => Void.exfalso (Bool.falseNotTrue h)
+  | 10, h => rfl
+  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))), h => Void.exfalso (Bool.falseNotTrue h)
+
+--| A space or a tab is neither a line feed nor a carriage return.
+theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
+    Char.isLineFeedCode (Char.toNat char) = False ∧ Char.isCarriageReturnCode (Char.toNat char) = False :=
+  Bool.orElim h
+    (left => rewrite Decidable.toBoolSound (Char.decEq char ' ') left in Both rfl rfl)
+    (right => rewrite Decidable.toBoolSound (Char.decEq char '\t') right in Both rfl rfl)
+
+--| `Text.linesFrom` keeps its finished lines apart from the line it is on:
+--| the finished lines (`acc`, newest first) come first, in order.
+theorem Text.linesFromAcc: (chars: List Char) → (line: List Char) → (acc: List Text) →
+    Text.linesFrom line acc chars = List.append (List.reverseOnto acc []) (Text.linesFrom line [] chars)
+  | [], [], acc => rewrite List.appendNil (List.reverseOnto acc []) in rfl
+  | [], [c, ..cs], acc => List.reverseOntoAppend acc [MkText (List.reverseOnto [c, ..cs] [])]
+  | [char, ..chars], line, acc =>
+    match Char.isLineFeedCode (Char.toNat char) with
+      | True =>
+        rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc], Text.linesFromAcc chars [] [Text.endLine line], List.reverseOntoAppend acc [Text.endLine line],
+          List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars) in rfl
+      | False => Text.linesFromAcc chars [char, ..line] acc
+
+theorem Text.linesFromAppend: (front: List Char) → (line: List Char) → (acc: List Text) → (rest: List Char) →
+    Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom line acc (front ++ ['\n']) ++ Text.linesFrom [] [] rest
+  | [], line, acc, rest => Text.linesFromAcc rest [] [Text.endLine line, ..acc]
+  | [char, ..chars], line, acc, rest =>
+    match Char.isLineFeedCode (Char.toNat char) with
+      | True => Text.linesFromAppend chars [] [Text.endLine line, ..acc] rest
+      | False => Text.linesFromAppend chars [char, ..line] acc rest
+
+--| The lines of a text are the lines of its part up to a line feed, then
+--| the lines of the rest: a line feed ends a line whatever came before it.
+--| The split is exact, with nothing assumed of either part.
+theorem Text.linesAppend (front: List Char) (rest: List Char):
+    Text.lines (MkText (front ++ ['\n'] ++ rest)) = Text.lines (MkText (front ++ ['\n'])) ++ Text.lines (MkText rest) :=
+  Text.linesFromAppend front [] [] rest
+
+theorem Text.linesFromLine: (front: List Char) → List.All (c => Char.isLineFeedCode (Char.toNat c) = False) front → (line: List Char) → (acc: List Text) → (rest: List Char) →
+    Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom [] [Text.endLine (List.reverseOnto front line), ..acc] rest
+  | [], none, line, acc, rest => rfl
+  | [char, ..chars], Both notFeed others, line, acc, rest =>
+    rewrite notFeed in Text.linesFromLine chars others [char, ..line] acc rest
+
+--| The first line of a text with a line feed: the characters before the
+--| first line feed (less a carriage return just before it, as
+--| [`Text.endLine`] takes it off), then the lines of the rest.
+theorem Text.linesLine (front: List Char) (rest: List Char) (noFeed: List.All (c => Char.isLineFeedCode (Char.toNat c) = False) front):
+    Text.lines (MkText (front ++ ['\n'] ++ rest)) = [Text.endLine (List.reverse front), ..Text.lines (MkText rest)] :=
+  Eq.trans (Text.linesFromLine front noFeed [] [] rest) (Text.linesFromAcc rest [] [Text.endLine (List.reverse front)])
+
+theorem Text.endLinePlain (middle: List Char) (plain: List.All (c => Char.isLineFeedCode (Char.toNat c) = False ∧ Char.isCarriageReturnCode (Char.toNat c) = False) middle):
+    Text.endLine (List.reverseOnto middle []) = MkText middle :=
+  match e: List.reverseOnto middle [] with
+    | [] => Eq.cong MkText (Eq.sym (Eq.trans (Eq.sym (List.reverseOntoTwice middle [])) (rewrite e in rfl)))
+    | [char, ..chars] =>
+      let member: char ∈ List.reverseOnto middle [] := rewrite e in Inl rfl
+      let inMiddle: char ∈ middle := Or.elim ((List.memReverseOnto char middle []).forward member) (found => found) (found => Void.exfalso found)
+      match List.allMem _ char middle plain inMiddle with
+        | Both notFeed notReturn =>
+          rewrite notReturn in Eq.cong MkText (Eq.trans (Eq.cong (l => List.reverseOnto l []) (Eq.sym e)) (List.reverseOntoTwice middle []))
+
+--| A line of plain characters (no line feed, no carriage return) ended by a
+--| line feed is exactly those characters: it is the text's first line, and
+--| the lines of the rest follow.
+theorem Text.linesPlainLine (middle: List Char) (rest: List Char)
+    (plain: List.All (c => Char.isLineFeedCode (Char.toNat c) = False ∧ Char.isCarriageReturnCode (Char.toNat c) = False) middle):
+    Text.lines (MkText (middle ++ ['\n'] ++ rest)) = [MkText middle, ..Text.lines (MkText rest)] :=
+  Eq.trans (Text.linesLine middle rest (List.allImplies _ _ (c both => And.left both) middle plain))
+    (Eq.cong (l => [l, ..Text.lines (MkText rest)]) (Text.endLinePlain middle plain))
+
+--| The same, ended by a carriage return and a line feed: the carriage return
+--| is not part of the line.
+theorem Text.linesPlainLineReturn (middle: List Char) (rest: List Char)
+    (plain: List.All (c => Char.isLineFeedCode (Char.toNat c) = False ∧ Char.isCarriageReturnCode (Char.toNat c) = False) middle):
+    Text.lines (MkText (middle ++ ['\r', '\n'] ++ rest)) = [MkText middle, ..Text.lines (MkText rest)] :=
+  let noFeed: List.All (c => Char.isLineFeedCode (Char.toNat c) = False) (middle ++ ['\r']) :=
+    List.allAppend _ middle ['\r'] (List.allImplies _ _ (c both => And.left both) middle plain) (Both rfl ())
+  let endsPlain: Text.endLine (List.reverse (middle ++ ['\r'])) = MkText middle :=
+    Eq.trans (Eq.cong Text.endLine (List.reverseAppend middle ['\r'])) (Eq.cong MkText (List.reverseOntoTwice middle []))
+  Eq.trans (Eq.cong (l => Text.lines (MkText l)) (Eq.sym (List.appendAssoc middle ['\r'] ['\n', ..rest])))
+    (Eq.trans (Text.linesLine (middle ++ ['\r']) rest noFeed) (Eq.cong (e => [e, ..Text.lines (MkText rest)]) endsPlain))
+
+theorem Text.linesFromNoFeed: (chars: List Char) → List.All (c => Char.isLineFeedCode (Char.toNat c) = False) chars → (line: List Char) → (acc: List Text) →
+    Text.linesFrom line acc chars = List.reverseOnto (Text.lastLine (List.reverseOnto chars line) acc) []
+  | [], none, line, acc => rfl
+  | [char, ..chars], Both notFeed others, line, acc => rewrite notFeed in Text.linesFromNoFeed chars others [char, ..line] acc
+
+--| A text with no line feed that isn't empty is one line, whole, carriage
+--| returns and all (the empty text has no lines).
+theorem Text.linesNoFeed (first: Char) (chars: List Char) (noFeed: List.All (c => Char.isLineFeedCode (Char.toNat c) = False) [first, ..chars]):
+    Text.lines (MkText [first, ..chars]) = [MkText [first, ..chars]] :=
+  let flowed := Text.linesFromNoFeed [first, ..chars] noFeed [] []
+  let member: first ∈ List.reverseOnto [first, ..chars] [] := (List.memReverseOnto first [first, ..chars] []).backward (Inl (Inl rfl))
+  match e: List.reverseOnto [first, ..chars] [] with
+    | [] => Void.exfalso member
+    | [last, ..rest] =>
+      Eq.trans flowed (Eq.cong (l => [MkText l]) (Eq.trans (Eq.cong (l => List.reverseOnto l []) (Eq.sym e)) (List.reverseOntoTwice chars [first])))
+
+--| The characters of lines, each followed by a line feed.
+def Text.unlinesChars: (lines: List Text) → List Char
+  | [] => []
+  | [line, ..lines] => Text.toList line ++ ['\n'] ++ Text.unlinesChars lines
+
+theorem Text.unlinesAppend: (xs: List Text) → (ys: List Text) → Text.unlinesChars (xs ++ ys) = Text.unlinesChars xs ++ Text.unlinesChars ys
+  | [], ys => rfl
+  | [x, ..xs], ys =>
+    Eq.trans (Eq.cong (l => Text.toList x ++ ['\n', ..l]) (Text.unlinesAppend xs ys)) (Eq.sym (List.appendAssoc (Text.toList x) ['\n', ..Text.unlinesChars xs] (Text.unlinesChars ys)))
+
+theorem Text.endLineNoReturn: (line: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line → Text.endLine line = MkText (List.reverseOnto line [])
+  | [], none => rfl
+  | [char, ..chars], Both notReturn others => rewrite notReturn in rfl
+
+theorem Text.unlinesFrom: (front: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front →
+    (line: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line →
+    Text.unlinesChars (Text.linesFrom line [] (front ++ ['\n'])) = List.reverseOnto line [] ++ front ++ ['\n']
+  | [], none, line, noReturn => rewrite Text.endLineNoReturn line noReturn in rfl
+  | [char, ..chars], Both notReturn others, line, noReturn =>
+    match c: Char.isLineFeedCode (Char.toNat char) with
+      | True =>
+        let isFeed: char = '\n' := Char.ext char '\n' (Char.lineFeedCodeIs _ c)
+        rewrite isFeed, Text.linesFromAcc (chars ++ ['\n']) [] [Text.endLine line], Text.unlinesAppend [Text.endLine line] (Text.linesFrom [] [] (chars ++ ['\n'])),
+          Text.unlinesFrom chars others [] (), Text.endLineNoReturn line noReturn in List.appendAssoc (List.reverseOnto line []) ['\n'] (chars ++ ['\n'])
+      | False =>
+        rewrite Text.unlinesFrom chars others [char, ..line] (Both notReturn noReturn), List.reverseOntoAppend line [char] in List.appendAssoc (List.reverseOnto line []) [char] (chars ++ ['\n'])
+
+--| A text with no carriage return that ends with a line feed is its lines,
+--| each followed by a line feed: the lines lose nothing.
+theorem Text.unlinesLines (front: List Char) (noReturn: List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front):
+    Text.unlinesChars (Text.lines (MkText (front ++ ['\n']))) = front ++ ['\n'] :=
+  Text.unlinesFrom front noReturn [] ()
+
+theorem Text.linesFromUnterminated (last: Char) (notFeed: Char.isLineFeedCode (Char.toNat last) = False) (notReturn: Char.isCarriageReturnCode (Char.toNat last) = False):
+    (front: List Char) → (line: List Char) → (acc: List Text) → Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n'])
+  | [], line, acc => rewrite notFeed, notReturn in rfl
+  | [char, ..chars], line, acc =>
+    match Char.isLineFeedCode (Char.toNat char) with
+      | True => Text.linesFromUnterminated last notFeed notReturn chars [] [Text.endLine line, ..acc]
+      | False => Text.linesFromUnterminated last notFeed notReturn chars [char, ..line] acc
+
+--| A last line without its line feed gives the same lines as with one, if
+--| its last character isn't a carriage return (one there is dropped before
+--| a line feed, but kept when nothing follows).
+theorem Text.linesUnterminated (front: List Char) (last: Char) (notFeed: Char.isLineFeedCode (Char.toNat last) = False) (notReturn: Char.isCarriageReturnCode (Char.toNat last) = False):
+    Text.lines (MkText (front ++ [last])) = Text.lines (MkText (front ++ [last, '\n'])) :=
+  Text.linesFromUnterminated last notFeed notReturn front [] []
+
 -- Prefixes, suffixes and substrings. Characters are Unicode scalar values, as
 -- in `Text.length`. The main text comes first, then the prefix, suffix,
 -- needle or separator, so `line.stripPrefix "L"`, `line |> Text.stripPrefix
