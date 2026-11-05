@@ -256,6 +256,13 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             Task::Values(level, a, b) => {
                 if unify_step(g, level, &a, &b, &mut work, mode)? {
                     true
+                } else if stale(g, &a)? || stale(g, &b)? {
+                    work.push(Task::Values(
+                        level,
+                        afresh(g, level, &a)?,
+                        afresh(g, level, &b)?,
+                    ));
+                    true
                 } else if blocked(g, &a)? || blocked(g, &b)? {
                     let trail = g.store.meta_trail.borrow().len();
                     work.insert(0, Task::Later(level, a, b, trail, mode));
@@ -272,10 +279,12 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
                 sets_aside(g, level, &a, &b)?
             }
             Task::Later(level, a, b, _, later) => {
-                let env: Vec<Value> = (0..level).map(Value::var).collect();
-                let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
                 work.push(Task::Mode(mode));
-                work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
+                work.push(Task::Values(
+                    level,
+                    afresh(g, level, &a)?,
+                    afresh(g, level, &b)?,
+                ));
                 work.push(Task::Mode(later));
                 true
             }
@@ -981,6 +990,50 @@ fn blocked(g: &Unifier<'_>, v: &Value) -> Result<bool> {
 
 /// How deep [`blocked`] looks.
 const BLOCKED_DEPTH: usize = 3;
+
+/// `v` read back and evaluated again, with every solution so far put in:
+/// a computation stuck on an unknown solved since takes its steps.
+fn afresh(g: &Unifier<'_>, level: usize, v: &Value) -> Result<Value> {
+    let env: Vec<Value> = (0..level).map(Value::var).collect();
+    eval(g, &env, &quote_folded(g, level, v)?)
+}
+
+/// Whether `v` may be a definition stuck on an unknown that has been solved
+/// since: a call of one with an argument that is a solved unknown (or `k +`
+/// one), or such a call itself, [`BLOCKED_DEPTH`] calls deep at most.
+/// [`force`] replaces a solved unknown only at the head, so such a call
+/// stays stuck, though it reads back with the solution in: `pick ?b 5`,
+/// with `?b` solved with `True` after `pick ?b` was applied to `5` (or `x
+/// + y` through an `Add` dictionary solved late), prints as what it should
+/// compute to, yet doesn't unify with it. [`afresh`] lets it compute.
+fn stale(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    stale_within(g, v, BLOCKED_DEPTH)
+}
+
+fn stale_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
+    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+        return Ok(false);
+    };
+    for elim in spine.iter() {
+        let Elim::App(arg, _) = elim else {
+            continue;
+        };
+        let arg = match arg {
+            Value::NatAdd(_, base) => &**base,
+            other => other,
+        };
+        match arg {
+            Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some() => return Ok(true),
+            Value::Neutral(Head::Def(_), _) | Value::Call(..)
+                if depth > 1 && stale_within(g, arg, depth - 1)? =>
+            {
+                return Ok(true);
+            }
+            _ => {}
+        }
+    }
+    Ok(false)
+}
 
 /// Pushes `pairs` to be unified in shortcut mode, then `mode` again.
 fn push_in_shortcut(work: &mut Vec<Task>, mode: Mode, pairs: Vec<Task>) {

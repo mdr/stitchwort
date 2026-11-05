@@ -627,6 +627,17 @@ with the guard off). Neither of the std proofs the broad probe of §2.3
 broke (`Reads.sw:627`, `:1712`) is touched: two calls of one definition
 are still compared as before.
 
+That failure wasn't the solution's fault (SW-1315). Solving from
+`List.sum`'s arguments also solved its `Add` dictionary, by unification,
+after `List.sumCons`'s other side, `x + List.sum xs`, had been evaluated
+as `Add.add` stuck on that unknown. `force` replaces a solved unknown only
+at a value's head, so the call stayed stuck, and failed against `Int.add
+…` though both print as `x + …`. The unifier now evaluates such a pair
+again, solutions put in, before it gives up (`unify::stale`); with that,
+`aimedDepthCons` checks with the guard off too. The gap didn't need the
+rule: `examples/accept/solved-after-stuck.sw` hit it on `main` (a call
+stuck on an implicit argument that the first conjunct solves).
+
 **What it does.** `_` works for the parser and the continuation of
 `Parse.readsThen` and `Parse.readsBind` whenever the parser is named,
 however many steps it has, and for a named parser that is another named
