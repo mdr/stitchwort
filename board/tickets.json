@@ -7979,7 +7979,7 @@
     {
       "id": 1402,
       "title": "AoC 2020 day 7 (Handy Haversacks): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1402",
       "labels": [
