@@ -1039,15 +1039,15 @@
     {
       "id": 811,
       "title": "Consider a std non-empty list type (that many1 could return)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Day 19: every theorem carries a hypothesis that no pattern is empty, because many1's result type doesn't say so (finding 6). Haskell has Data.List.NonEmpty; Scala cats has NonEmptyList.",
+      "body": "Day 19: every theorem carries a hypothesis that no pattern is empty, because many1's result type doesn't say so (finding 6). Haskell has Data.List.NonEmpty; Scala cats has NonEmptyList.\n\nDone by other tickets (5 Nov 2026): design note SW-1337, then NonEmptyList stages SW-1343..1346 (many1 returns NonEmptyList, stage 2) and follow-ups SW-1364, SW-1366. Closed as superseded; left in backlog by mistake.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
