@@ -1,5 +1,5 @@
 {
-  "next": 1387,
+  "next": 1390,
   "tickets": [
     {
       "id": 47,
@@ -7362,13 +7362,13 @@
     {
       "id": 1358,
       "title": "Ranges step 2: syntax a ..< b and a ..= b (tokens, range_expr between cmp and append, goals print back, formatter, errors for .. and [a..b], W-RANGE-IN-BRACKETS), examples, guide, syntax.md, feature tour",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1358",
       "labels": [
         "syntax"
       ],
-      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nDone (06c2cb7ba..07009dd82): tokens, range_expr, Nat-only elaboration as List.range calls, E-PARSE for .. and [a..b], W-RANGE-IN-BRACKETS, printing back as ..< / ..=, formatter golden test, grammar, examples (accept/reject/goals), syntax.md, guide section, tour page 34-ranges. CongRangeFrom stays: rewrite reads goals back unfolded (follow-up filed); marking List.range as fold broke SortLemmas. Model result: Sonnet, worked, 50 min (est. 150).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7762,6 +7762,48 @@
         "tests"
       ],
       "body": "D2424 (Matt, 5 Nov 2026): 2-4 minutes is okay for now; backlog it to explore optimising the merge tier. Times from the batch verifiers' 2-test-merge.log files: 223, 202, 192, 183, 152, 190, 130, 151, 217, 143, 185, 165 s (tests only; build and test:features excluded).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1387,
+      "title": "rewrite reads goals back fully unfolded (cx.quote in rewrite.rs), so List.range shows as rangeFrom after a rewrite and the CongRangeFrom family is needed; read back folded, re-check std/aoc proofs that rely on the unfolded form, then drop CongRangeFrom",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab,proofs"
+      ],
+      "body": "From SW-1358, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1388,
+      "title": "W-RANGE-IN-BRACKETS: quote the range's text in the message (needs the elaborator to slice source or print the Expr)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1358, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1389,
+      "title": "Ranges: operator sections (..< n) and (a ..<), if wanted (not in the design note)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "From SW-1358, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
