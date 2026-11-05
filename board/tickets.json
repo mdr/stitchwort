@@ -1,5 +1,5 @@
 {
-  "next": 1385,
+  "next": 1386,
   "tickets": [
     {
       "id": 47,
@@ -7558,7 +7558,7 @@
     {
       "id": 1372,
       "title": "Use Std's Parse.eachMap where days re-prove it by hand: 2020 day 3 eachSquare, 2020 day 5 eachHalf, 2021 day 16 digitsBits",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1372",
       "labels": [
@@ -7600,13 +7600,13 @@
     {
       "id": 1375,
       "title": "Trial (D2421): build stitchwort lsp for the browser (wasm32, postMessage transport, no threads, std and projects from memory) and connect it to the CodeMirror prototype through @codemirror/lsp-client; report what works and what it took",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1375",
       "labels": [
         "editor"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nDone on lane/SW-1375 (898701866): stitchwort lsp's own code runs in a browser worker (lsp::Inline: receive/tick, no threads, in-memory connection) and serves CM6 via @codemirror/lsp-client 6.3.0: squiggles, hover, definition into std, references, formatting, named-argument completion; code actions with 17 lines of glue. +0.73 MB gzip wasm, +30 kB client. First diagnostics 0.8 s; edit 0.15-0.2 s small file, 2.15 s on a 226-line AoC day (native 1.46 s). Left: cancellation, searches block the checker, projects from memory, packaging as a stitchwort-lsp crate. Orchestrator's calls: web-time (wasm-only clock) in stitchwort-core is fine; cancellation to be designed in the follow-up. Model result: Opus, worked, 35 min (est. 120).",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nDone on lane/SW-1375 (898701866): stitchwort lsp's own code runs in a browser worker (lsp::Inline: receive/tick, no threads, in-memory connection) and serves CM6 via @codemirror/lsp-client 6.3.0: squiggles, hover, definition into std, references, formatting, named-argument completion; code actions with 17 lines of glue. +0.73 MB gzip wasm, +30 kB client. First diagnostics 0.8 s; edit 0.15-0.2 s small file, 2.15 s on a 226-line AoC day (native 1.46 s). Left: cancellation, searches block the checker, projects from memory, packaging as a stitchwort-lsp crate. Orchestrator's calls: web-time (wasm-only clock) in stitchwort-core is fine; cancellation to be designed in the follow-up. Model result: Opus, worked, 35 min (est. 120).\n\nOpus review: safe to merge; native LSP unchanged; core clock affects deadlines only. Merged with the +0.73 MB gzip until the editor lands (orchestrator's call: the playground isn't redeployed before then). Minor items (Checker::next_key, guard sleep on wasm, module doc) go to SW-1384.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7614,7 +7614,7 @@
     {
       "id": 1376,
       "title": "Playground: the fast check's diagnostics carry end positions (crates/web), so errors can be underlined (D2419)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1376",
       "labels": [
@@ -7733,6 +7733,18 @@
         "playground"
       ],
       "body": "From SW-1375's trial, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1385,
+      "title": "Browser tests fail on main: 7 of 64 (goals text '⊢ two = 2' vs /⊢ 2 = 2/; Run's errors timeout; effectful List.map at a million elements timeout 300 s; AoC days list; shared-file error tabs (12 tabs expected); Evaluate full names E-TYPE-MISMATCH; roguelike groups). Not in the merge tier, so drift went unnoticed|tests,playground",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
