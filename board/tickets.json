@@ -1,5 +1,5 @@
 {
-  "next": 1366,
+  "next": 1371,
   "tickets": [
     {
       "id": 47,
@@ -7194,13 +7194,13 @@
     {
       "id": 1346,
       "title": "NonEmptyList stage 4: aoc data types use NonEmptyList (2020 day 6's Group, Grid, 2024 day 7, 2021 day 16, the survey's ~95 sites); rogue's rooms as Vec Area 6 (drops fallbackRoom)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1346",
       "labels": [
         "aoc"
       ],
-      "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nPart 1 on lane/SW-1346 (7 commits): 2020 d4, d6 wrappers removed; 2024 d7, d19, d21, d8, d12 and 2021 d16 use NonEmptyList; Opus review running. Left: Grid rows (own lane), rogue rooms, 2021 d16 subPackets (design: 0 sub-packets), 2021 d7 (needs a non-empty range), 2024 d5 (needs NonEmptyList.get). Model result: Sonnet, worked (pending review), 17 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7467,6 +7467,76 @@
         "aoc"
       ],
       "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1366,
+      "title": "NonEmptyList: get/getOr, flatMap, sumBy (2024 day 5's middle page; .toList.map workarounds in SW-1346)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1367,
+      "title": "NonEmptyList rewrite lemmas: rewrite List.anyMap etc. fail once any is unfolded to head || tail (2020 day 4 hasToList used Eq.trans chains)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "| tail (2020 day 4 hasToList used Eq.trans chains)|std"
+      ],
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1368,
+      "title": "Test helpers: a NonEmptyList from a Text literal with an auto proof, to drop dummy [] arms (2024 day 19 patternOf, 2024 day 7 holds)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1369,
+      "title": "AoC Grid rows as NonEmptyList (~70 files; keep a List (List a) view for proofs) — SW-1346's skipped survey site",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1370,
+      "title": "2021 day 16: should Sum/Product require at least one sub-packet (NonEmptyList)? The puzzle implies it; the Spec says a sum of none is 0 — decide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
