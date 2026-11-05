@@ -7926,13 +7926,13 @@
     {
       "id": 1398,
       "title": "Browser tests: whereIs should throw when its needle is missing instead of using indexOf -1 (gave wrong positions silently)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1398",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on DeepSeek, expected: 20 min (1 browser run).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
