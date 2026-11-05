@@ -7998,7 +7998,7 @@
     {
       "id": 1403,
       "title": "Playground language server: a project's first diagnostics take 26-28 s in the browser (LiveProject::new loads the whole library; no check cache in the browser); bundle a check cache for std, or load lazily",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1403",
       "labels": [
@@ -8299,7 +8299,7 @@
     {
       "id": 1424,
       "title": "Messages: an unknown Eq.symm with Eq imported says to import Std (Eq) instead of suggesting Eq.sym; rewrite with an iff could point at .forward / .backward",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1424",
       "labels": [
