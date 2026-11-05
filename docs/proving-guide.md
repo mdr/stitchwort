@@ -70,6 +70,28 @@ Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
 (`t => Cons t rs`, `fold Cons`).
 
+Values that a lemma's own hypotheses or result determine go in square
+brackets, as implicit parameters, so no caller writes `_` for them (D2422).
+`Bool.andRight` is stated `[a: Bool] [b: Bool] (h: (a ∧ b) = True): b = True`
+and called `Bool.andRight settled`, not `Bool.andRight _ _ settled`: the
+checker reads `a` and `b` off the type of `settled`. Keep a parameter
+explicit when callers have to supply it:
+
+- it is not fixed by a later explicit argument or by the expected type
+  (`List.distinctRange a b`, whose statement only mentions them);
+- it is a function or predicate the hypothesis's type can't recover, such as
+  the `p` of `List.memFilter xs p x` (higher-order unification guesses wrong
+  and the error shows up far from the call);
+- the lemma is passed as a function value (`List.all2Weaken rowWritten`),
+  since implicit parameters are filled in where the name is used and the
+  value then no longer has the function type expected.
+
+When one call does need a value of an implicit parameter, name it:
+`Bool.andLeft [a := Set.contains a key] [b := Set.contains b key] (rewrite … in held)`. The compiler
+builds some calls itself, so a lemma it names (`Decidable.elimEq`, or those
+in `crates/elab/src/omega.rs`) keeps the parameter order and kinds it has
+unless the code that builds the call changes with it.
+
 ## 2. Workflow
 
 1. **State it with `?` first, and read the goal.** Write the statement with
