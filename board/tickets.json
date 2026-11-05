@@ -6816,9 +6816,9 @@
     {
       "id": 1319,
       "title": "f.induct: a case for [_, ..rest] takes (rest) then (head), the reverse of the pattern order",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1319",
       "labels": [
         "proof"
       ],
