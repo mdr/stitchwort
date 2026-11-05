@@ -8241,14 +8241,14 @@
     {
       "id": 1420,
       "title": "Bug: a method sharing a short name with another type's method (Instruction.run next to Code.run) makes decreasing report mutual recursion that isn't there, and suggests a step limit; repro in aoc/NOTES-2020.md Day 8 item 1",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1420",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.\n\nStarted on Sonnet, expected: 60 min.\n\nDone on lane/SW-1420 (6416b0451): the dependency pass linked every dot call x.run to every *.run in the module; a receiver of a written data type now links only T.run (dot_namespace; annotated receivers too). Untyped receivers keep the speculative links. Orchestrator probed: programs can't add to std namespaces, so a missed link can only make a callee not yet defined (an error, not a missed cycle). Waits for batch 35's verifier. Model result: Sonnet, worked, 14 min (est. 60).\n\nReverted (5 Nov 2026, batch 35-36 verifier): the exact T.field link missed methods added to a type from another namespace of the project (2021 day 12's Proofs defines Path.extend on Day12's Path: E-INTERNAL 'used before it's checked' at Rules.sw:33), and reordered extract's results.js. Back to the lane.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.\n\nStarted on Sonnet, expected: 60 min.\n\nDone on lane/SW-1420 (6416b0451): the dependency pass linked every dot call x.run to every *.run in the module; a receiver of a written data type now links only T.run (dot_namespace; annotated receivers too). Untyped receivers keep the speculative links. Orchestrator probed: programs can't add to std namespaces, so a missed link can only make a callee not yet defined (an error, not a missed cycle). Waits for batch 35's verifier. Model result: Sonnet, worked, 14 min (est. 60).\n\nReverted (5 Nov 2026, batch 35-36 verifier): the exact T.field link missed methods added to a type from another namespace of the project (2021 day 12's Proofs defines Path.extend on Day12's Path: E-INTERNAL 'used before it's checked' at Rules.sw:33), and reordered extract's results.js. Back to the lane.\n\nSecond round (b27e2237b): a typed receiver links to every key equal to T.field or ending in .T.field (T the type's simple name), so methods declared in another namespace are found; over-links on a same-named type, which is safe. All of aoc checks; extract snapshots reordered (fewer false edges). New example project method-in-another-namespace. Merged. Model result: Sonnet, needed fixes (under-linked methods in other namespaces; caught post-merge), 14 + 22 min (est. 60 + 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
