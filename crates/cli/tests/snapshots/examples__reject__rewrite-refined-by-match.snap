@@ -3,15 +3,15 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `isBig n` in the type of `found`
-    ╭─[ reject/rewrite-refined-by-match.sw:14:50 ]
+    ╭─[ reject/rewrite-refined-by-match.sw:14:46 ]
     │
  12 │   match c: isBig n with
     │            ───┬───  
     │               ╰───── this `match` replaced `isBig n` with `False`
     │ 
- 14 │     | False => Option.someInjective _ _ (rewrite c at found)
-    │                                                  ┬  
-    │                                                  ╰── looking for `isBig n`
+ 14 │     | False => Option.someInjective (rewrite c at found)
+    │                                              ┬  
+    │                                              ╰── looking for `isBig n`
     │ 
     │ Note 1: inside the `match`, `isBig n` is replaced with `False` in the goal, in the hypotheses and in the `let`-bound lemmas from before the `match`, so `found` is already refined: use it as it is
     │ 

@@ -86,10 +86,10 @@ theorem summaryMatches (local: Trip) (remote: Trip) (summary: Summary) (h: (merg
     ((remote.summary = Some summary) ∧ (remote.legs = (merge local remote).legs)) ∨ ((local.summary = Some summary) ∧ (local.legs = (merge local remote).legs)) :=
   let legs := mergeLegs local.legs remote.legs
   match c: remote.legs == legs with
-    | True => Inl (Both h (DecEq.sound remote.legs legs c))
+    | True => Inl (Both h (DecEq.sound c))
     | False =>
       match d: local.legs == legs with
-        | True => Inr (Both h (DecEq.sound local.legs legs d))
+        | True => Inr (Both h (DecEq.sound d))
         | False => Void.exfalso (Option.noneNotSome summary h)
 
 -- So if each copy's summary was made from its legs, the merged one is made

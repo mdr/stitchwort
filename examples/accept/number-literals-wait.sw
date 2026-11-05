@@ -18,13 +18,13 @@ test "rfl waits for the literal" := three == 3
 -- on `Nat` from the start, which a proof of `0 < other` matches.
 theorem positiveKept (cands: List Nat) (output: Nat → List Nat) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target) (mem: other ∈ cands):
     other ∈ List.filter cands (a => 0 < a ∧ output a == target) :=
-  List.memFilterIntro _ (a => 0 < a ∧ output a == target) other mem
-    (Bool.andIntro _ _ positive (rewrite outputs in DecEq.refl target))
+  List.memFilterIntro _ (a => 0 < a ∧ output a == target) mem
+    (Bool.andIntro positive (rewrite outputs in DecEq.refl target))
 
 -- The same decision directly where a `Bool` is expected.
 theorem positiveAlone (cands: List Nat) (other: Nat) (positive: 0 < other) (mem: other ∈ cands):
     other ∈ List.filter cands (a => 0 < a) :=
-  List.memFilterIntro _ (a => 0 < a) other mem positive
+  List.memFilterIntro _ (a => 0 < a) mem positive
 
 -- A `rewrite` rule's own literal gets its default before the search
 -- (D2087), and then the dictionary its `+` needs, so the rule is

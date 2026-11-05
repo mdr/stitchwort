@@ -853,7 +853,7 @@ theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrd
     Abort.needEqSome rest (label foundLabel rest =>
       Abort.needEqSome rest (bin foundBin rest =>
         Abort.ensureEqSome rest (enough picked =>
-          rewrite foundStock, <- Option.someInjective _ _ picked in
+          rewrite foundStock, <- Option.someInjective picked in
             rewrite (omega: order.quantity + (onHand - order.quantity) = onHand) in rfl))))
 ```
 

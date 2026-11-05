@@ -62,7 +62,7 @@ theorem List.memDistinctFromIntro [auto eq: DecEq a] (x: a): (seen: List a) → 
               | Inr inRest => Inr (Inr inRest)
               | Inl hit =>
                 match d: y == x with
-                  | True => Inr (Inl (DecEq.sound y x d))
+                  | True => Inr (Inl (DecEq.sound d))
                   | False => Inl hit
 
 theorem List.distinctFromFresh [auto eq: DecEq a] (z: a): (seen: List a) → (xs: List a) → z ∈ List.distinctFrom seen xs → List.any seen (== z) = False
@@ -102,7 +102,7 @@ theorem List.distinctEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct 
 theorem List.distinctSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: (z: a) → Set.contains seen z = List.any seenList (== z))
     (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any [x, ..seenList] (== z) :=
   match e: x == z with
-    | True => rewrite DecEq.sound x z e in Set.containsInsert z seen
+    | True => rewrite DecEq.sound e in Set.containsInsert z seen
     | False => rewrite Set.containsInsertOther seen x z (eq => DecEq.soundFalse x z e (Eq.sym eq)) in same z
 
 theorem List.distinctLoopFrom [auto ord: Ord a]: (seen: Set a) → (seenList: List a) → ((z: a) → Set.contains seen z = List.any seenList (== z)) →
@@ -146,7 +146,7 @@ theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: L
 theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: x ≠ y) (h: List.any seen (== y) = False):
     List.any [x, ..seen] (== y) = False :=
   match d: x == y with
-    | True => Void.exfalso (ne (DecEq.sound x y d))
+    | True => Void.exfalso (ne (DecEq.sound d))
     | False => h
 
 theorem List.distinctFromKeep [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct xs →

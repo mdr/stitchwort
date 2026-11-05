@@ -14,6 +14,6 @@ type Starts: List Nat → Nat → Prop =
 
 theorem startsOf: (xs: List Nat) → (n: Nat) → firstOf xs = Some n → Starts xs n
   | [], n, h => Void.exfalso (Option.noneNotSome n h)
-  | [m, ..rest], n, h => rewrite <- Option.someInjective m n h in Here m rest
+  | [m, ..rest], n, h => rewrite <- Option.someInjective h in Here m rest
 
 theorem rflUnderHole: Starts [3, 4] 3 := startsOf _ 3 rfl

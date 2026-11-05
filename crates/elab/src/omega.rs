@@ -849,16 +849,11 @@ fn prove_goal(
                         &p,
                         &goal,
                         extra,
-                        |cx, _| {
-                            let mut args = sides(cx)?;
-                            args.push(Term::Var(0));
-                            Ok(apps(Term::Def(lib.or_left), args))
-                        },
+                        |cx, _| Ok(or_intro(lib.or_left, sides(cx)?, Term::Var(0))),
                         |cx, extra| {
                             let q_true = bool_is(cx, lib, &q, true)?;
-                            let mut args = sides(cx)?;
-                            args.push(prove_goal(cx, lib, &q_true, extra, span)?);
-                            Ok(apps(Term::Def(lib.or_right), args))
+                            let side = prove_goal(cx, lib, &q_true, extra, span)?;
+                            Ok(or_intro(lib.or_right, sides(cx)?, side))
                         },
                     );
                 }
@@ -2519,17 +2514,13 @@ fn split_first(
     };
     let goal_term = cx.quote_folded(expected)?;
     Ok(match &d.bools {
-        Some((p, q)) => apps(
-            Term::Def(lib.or_elim),
-            vec![
-                cx.quote_folded(p)?,
-                cx.quote_folded(q)?,
-                goal_term,
-                d.proof,
-                left,
-                right,
-            ],
-        ),
+        Some((p, q)) => {
+            let elim = Term::Def(lib.or_elim);
+            let elim = Term::app_icit(elim, cx.quote_folded(p)?, Icit::Implicit);
+            let elim = Term::app_icit(elim, cx.quote_folded(q)?, Icit::Implicit);
+            let elim = Term::app_icit(elim, goal_term, Icit::Implicit);
+            apps(elim, vec![d.proof, left, right])
+        }
         None => {
             let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
             let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote_folded(&d.left)?);
@@ -3515,6 +3506,15 @@ fn emit(
         ));
     }
     Ok(term)
+}
+
+/// `Bool.orLeft` or `Bool.orRight` applied to the two sides, which are
+/// implicit, and the proof of the side that holds.
+fn or_intro(lemma: DefId, sides: Vec<Term>, proof: Term) -> Term {
+    let applied = sides.into_iter().fold(Term::Def(lemma), |f, side| {
+        Term::app_icit(f, side, Icit::Implicit)
+    });
+    Term::app(applied, proof)
 }
 
 /// `f a1 … an`.

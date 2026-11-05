@@ -280,12 +280,12 @@ theorem List.isRunSepStart (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: sep lo = 
 --| A run that starts at lo ends at the first separator after it.
 theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True) (hi: Nat) (h: Nat.isRun sep lo hi = True):
     hi = Nat.firstFrom sep (Succ (n - lo)) lo :=
-  let rest := Bool.andRight (lo == 0 ∨ sep (lo - 1)) (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi)) h
+  let rest := Bool.andRight h
   let long: Succ lo ≤ hi :=
-    Bool.andLeft (lo < hi) (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi) rest
-  let inner := Bool.andRight (lo < hi) (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi) rest
-  let none := Bool.andLeft (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c))) (sep hi) inner
-  let stop := Bool.andRight (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c))) (sep hi) inner
+    Bool.andLeft rest
+  let inner := Bool.andRight rest
+  let none := Bool.andLeft inner
+  let stop := Bool.andRight inner
   let found := Nat.firstFromFound sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo)
     (rewrite Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
   match e: Nat.leq hi (Nat.firstFrom sep (Succ (n - lo)) lo) with
@@ -306,10 +306,9 @@ theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
     (rewrite Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
   let atLeast: lo ≤ v := Nat.firstFromAtLeast sep (Succ (n - lo)) lo
   let long: Succ lo ≤ v := Nat.leNeSucc lo v atLeast (e => Bool.falseNotTrue (Eq.trans (Eq.sym h1) (rewrite e in found)))
-  Bool.andIntro (lo == 0 ∨ sep (lo - 1)) (lo < v ∧ (List.all (List.rangeFrom (v - lo) lo) (c => ¬(sep c)) ∧ sep v)) h2
-    (Bool.andIntro (lo < v) (List.all (List.rangeFrom (v - lo) lo) (c => ¬(sep c)) ∧ sep v) long
-      (Bool.andIntro (List.all (List.rangeFrom (v - lo) lo) (c => ¬(sep c))) (sep v)
-        (List.allRangeIntro (c => ¬(sep c)) (v - lo) lo (k k1 k2 =>
+  Bool.andIntro h2
+    (Bool.andIntro long
+      (Bool.andIntro (List.allRangeIntro (c => ¬(sep c)) (v - lo) lo (k k1 k2 =>
           rewrite Nat.firstFromBefore sep (Succ (n - lo)) lo k k1 (rewrite <- Nat.addSubCancel lo v atLeast in k2)))
         found))
 

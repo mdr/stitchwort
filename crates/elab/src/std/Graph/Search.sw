@@ -176,7 +176,7 @@ theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat
       | Inl inserted =>
         match same: (total, state) == (cost + weight, next) with
           | True =>
-            let equal := DecEq.sound _ _ same
+            let equal := DecEq.sound same
             Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
           | False =>
             Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
@@ -194,7 +194,7 @@ theorem Graph.minLeast [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (stat
     | [] => Void.exfalso (Option.someNotNone (cost, state) (Eq.trans (Eq.sym found) (rewrite Map.minToList queue.items, entries in rfl)))
     | [(key, unit), ..rest] =>
       let first: queue.min = Some key := rewrite Map.minToList queue.items, entries in rfl
-      let same: key = (cost, state) := Option.someInjective _ _ (Eq.trans (Eq.sym first) found)
+      let same: key = (cost, state) := Option.someInjective (Eq.trans (Eq.sym first) found)
       let member := Map.memKeysOfContains queue.items (other, otherState) there
       rewrite entries at member in
         match member with
@@ -292,7 +292,7 @@ theorem Graph.pendingKept [auto ord: Ord s] (queue: Set (Nat, s)) (newQueue: Set
     | Inl there =>
       match same: (cost, state) == (poppedCost, poppedState) with
         | True =>
-          let equal := DecEq.sound _ _ same
+          let equal := DecEq.sound same
           Inr (Witness poppedFound (Both (rewrite Eq.cong Pair.snd equal in popped) (rewrite Eq.cong Pair.fst equal in cheaper)))
         | False => Inl (kept (cost, state) there (DecEq.soundFalse _ _ same))
 

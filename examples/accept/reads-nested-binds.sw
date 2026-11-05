@@ -1,5 +1,5 @@
 -- A proof about a parser of twelve steps, each step's lemma nested in the
--- one before it, with `_` for every parser and spec (SW-1226, D2342). Each
+-- one before it, with a blank for every parser and spec (SW-1226, D2342). Each
 -- `readsBind`'s conclusion is about its `_`s, and its last argument is a
 -- lambda whose type has unknowns only that conclusion fixes. Checked in
 -- place first, such a lambda failed, and was checked again once the
@@ -38,7 +38,7 @@ def p12(): {Parse} R :=
   { fx0 = x0, fx2 = x2, fx4 = x4, fx6 = x6, fx8 = x8, fx10 = x10 }
 
 theorem reads12: Parse.Reads p12 (read value => read = read) :=
-  Parse.readsWeaken p12 _ _
+  Parse.readsWeaken [p := p12]
     (Parse.readsBind _ _ _ _ readsNat (x0 =>
       Parse.readsBind _ _ _ _ (readsChar '-') (u1 =>
         Parse.readsBind _ _ _ _ readsNat (x2 =>

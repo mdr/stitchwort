@@ -47,12 +47,12 @@ theorem Result.mapMap (f: a → b) (g: b → c): (r: Result a e) → Result.map 
   | Ok x => rfl
   | Err m => rfl
 
-theorem Result.okInjective (x: a) (y: a) (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
+theorem Result.okInjective [x: a] [y: a] (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
 
 --| If `flatMap f r` is `Ok v`, then `r` held some `u` with `f u = Ok v`.
 theorem Result.flatMapEqOk [goal: Prop]: (r: Result a e) → (f: a → Result b e) → (v: b) → Result.flatMap r f = Ok v → (cont: (u: a) → r = Ok u → f u = Ok v → goal) → goal
   | Ok u, f, v, h, use => use u rfl h
-  | Err m, f, v, h, use => Void.exfalso (Result.errNotOk m v h)
+  | Err m, f, v, h, use => Void.exfalso (Result.errNotOk h)
 
 --| The values done so far go in front of what the rest gives.
 theorem Result.traverseLoopDone (f: a → Result b e): (xs: List a) → (done: List b) →
@@ -76,13 +76,13 @@ theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
 theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: (x: a) → (y: b) → f x = Ok y → r x y):
     (xs: List a) → (ys: List b) → Result.traverse xs f = Ok ys → List.All2 r xs ys
-  | [], ys, done => rewrite <- Result.okInjective [] ys done in Trivial
+  | [], ys, done => rewrite <- Result.okInjective done in Trivial
   | [x, ..rest], ys, done =>
     Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
       (y first later =>
         match e: Result.traverse rest f with
-          | Err m => Void.exfalso (Result.errNotOk m ys later)
-          | Ok zs => rewrite <- Result.okInjective [y, ..zs] ys later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+          | Err m => Void.exfalso (Result.errNotOk later)
+          | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e

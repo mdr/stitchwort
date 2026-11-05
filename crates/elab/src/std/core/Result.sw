@@ -27,7 +27,7 @@ def Result.IsOk: (result: Result a e) → Prop
 theorem Result.okNotErr (x: a) (m: e): Ok x ≠ Err m
   | p => J (y q => Result.IsOk y) Trivial p
 
-theorem Result.errNotOk (m: e) (x: a): Err m ≠ Ok x
+theorem Result.errNotOk [m: e] [x: a]: Err m ≠ Ok x
   | p => Result.okNotErr x m (Eq.sym p)
 
 --| Decides whether two `Ok`s are equal, from a decision about their values.
@@ -46,5 +46,5 @@ def Result.decEq (da: (x: a) → (y: a) → Decidable (x = y)) (de: (m: e) → (
     (r: Result a e) → (s: Result a e) → Decidable (r = s)
   | Ok x, Ok y => Result.decOk x y (da x y)
   | Ok x, Err n => No (Result.okNotErr x n)
-  | Err m, Ok y => No (Result.errNotOk m y)
+  | Err m, Ok y => No (Result.errNotOk)
   | Err m, Err n => Result.decErr m n (de m n)

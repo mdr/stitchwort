@@ -28,9 +28,9 @@ def Written (read: List Char) (r: Range): Prop :=
   ∃ (low: List Char) => ∃ (high: List Char) => read = low ++ ['-'] ++ high
 
 theorem readsRange: Parse.Reads range Written :=
-  Parse.readsThen _ _ _ _ Parse.readsNat (lowRead low lowDigits =>
-    Parse.readsThen _ _ _ _ (Parse.readsChar '-') (dashRead u dash =>
-      Parse.readsThen _ _ _ _ Parse.readsNat (highRead high highDigits =>
+  Parse.readsThen Parse.readsNat (lowRead low lowDigits =>
+    Parse.readsThen (Parse.readsChar '-') (dashRead u dash =>
+      Parse.readsThen Parse.readsNat (highRead high highDigits =>
         Parse.readsDone { low, high } _
           (rewrite dash in Witness lowRead (Witness highRead (rewrite List.appendNil highRead in rfl))))))
 
@@ -38,12 +38,12 @@ theorem readsBounds: Parse.Reads bounds Written := readsRange
 
 --| The same proof for `bounds`, step by step.
 theorem readsBoundsStepwise: Parse.Reads bounds Written :=
-  Parse.readsThen _ _ _ _ Parse.readsNat (lowRead low lowDigits =>
-    Parse.readsThen _ _ _ _ (Parse.readsChar '-') (dashRead u dash =>
-      Parse.readsThen _ _ _ _ Parse.readsNat (highRead high highDigits =>
+  Parse.readsThen Parse.readsNat (lowRead low lowDigits =>
+    Parse.readsThen (Parse.readsChar '-') (dashRead u dash =>
+      Parse.readsThen Parse.readsNat (highRead high highDigits =>
         Parse.readsDone { low, high } _
           (rewrite dash in Witness lowRead (Witness highRead (rewrite List.appendNil highRead in rfl))))))
 
 theorem readsLabelled: Parse.Reads labelled (read r => ∃ (rest: List Char) => read = ['#'] ++ rest ∧ Written rest r) :=
-  Parse.readsThen _ _ _ _ (Parse.readsChar '#') (hashRead u hash =>
-    Parse.readsWeaken _ _ _ readsRange (rangeRead r written => Witness rangeRead (Both (rewrite hash in rfl) written)))
+  Parse.readsThen (Parse.readsChar '#') (hashRead u hash =>
+    Parse.readsWeaken readsRange (rangeRead r written => Witness rangeRead (Both (rewrite hash in rfl) written)))

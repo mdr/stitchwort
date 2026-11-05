@@ -16,7 +16,7 @@ theorem strictlyBelowIntIsLess (a: Int) (b: Int): strictlyBelowInt a b = Int.les
 
 -- A `Bool` fact about `<=` inside `&&` is what `Nat.leq` says, with no lemma in between.
 theorem andLeftLeq (a: Nat) (b: Nat) (c: Nat) (h: (a ≤ b ∧ b ≤ c) = True): Nat.leq a b = True :=
-  Bool.andLeft (a ≤ b) (b ≤ c) h
+  Bool.andLeft h
 
 def inside (lo: Nat) (x: Nat) (hi: Nat): Bool := lo ≤ x ∧ x ≤ hi
 

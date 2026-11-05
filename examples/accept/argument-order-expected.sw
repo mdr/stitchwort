@@ -25,7 +25,7 @@ theorem eachStep (f: Nat → Option Nat) (each: (x: Nat) → (y: Nat) → f x = 
   each x y h
 
 theorem lambdaBeforeHole (xs: List Nat) (x: Nat) (y: Nat) (h: next x = Some y): x < y :=
-  eachStep _ (a b found => rewrite <- Option.someInjective _ _ found in omega) xs rfl x y h
+  eachStep _ (a b found => rewrite <- Option.someInjective found in omega) xs rfl x y h
 
 -- A congruence lemma's functions, `_`, found from the goal (day 12).
 def count (n: Nat): Nat :=

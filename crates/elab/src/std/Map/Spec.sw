@@ -824,7 +824,7 @@ theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k): (found: Option (k, v)
       | Less =>
         match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
           | Inl same =>
-            let isHead: (kk, vv) = entry := Option.someInjective (kk, vv) entry same
+            let isHead: (kk, vv) = entry := Option.someInjective same
             Inr (Both (Inl isHead) (rewrite <- isHead in d))
           | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
       | Equal =>
@@ -846,7 +846,7 @@ theorem Map.Spec.lastBelowGreatest [auto ord: Ord k] (key: k): (lo: Option k) �
       | Less =>
         match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
           | Inl same =>
-            let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry same)), <- isHead at wrong
+            let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective same)), <- isHead at wrong
             Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf kk)) lessSelf)
           | Inr (Both inRest below) =>
             Map.Spec.notLessOfLess ord kk entry.fst (Map.Spec.keysAbove ord entry.fst (Some kk) rest arest (List.memMap rest entry inRest Pair.fst))
@@ -882,7 +882,7 @@ theorem Map.Spec.findAboveLeast [auto ord: Ord k] (key: k): (lo: Option k) → (
   | lo, [(kk, vv), ..rest], Both above arest, entry, h, other, Inl isHead, more, wrong =>
     match d: Ord.compare key kk with
       | Less =>
-        let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry h)), <- isHead at wrong
+        let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective h)), <- isHead at wrong
         Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf kk)) lessSelf)
       | Equal => Ordering.equalNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at more))
       | Greater => Ordering.greaterNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at more))
@@ -890,7 +890,7 @@ theorem Map.Spec.findAboveLeast [auto ord: Ord k] (key: k): (lo: Option k) → (
     match d: Ord.compare key kk with
       | Less =>
         Map.Spec.notLessOfLess ord kk other (Map.Spec.keysAbove ord other (Some kk) rest arest inRest)
-          (rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry h)) at wrong)
+          (rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective h)) at wrong)
       | Equal => Map.Spec.findAboveLeast key (Some kk) rest arest entry h other inRest more wrong
       | Greater => Map.Spec.findAboveLeast key (Some kk) rest arest entry h other inRest more wrong
 

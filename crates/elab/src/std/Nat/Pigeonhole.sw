@@ -17,7 +17,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
             Witness i
               (Witness (Succ n)
                 (Both (omega [And.right (List.memRangeFrom i (Succ n) 0 inRange)])
-                  (Both (Nat.leRefl (Succ n)) (DecEq.sound (f i) (f (Succ n)) hit)))))
+                  (Both (Nat.leRefl (Succ n)) (DecEq.sound hit)))))
       | False =>
         let missed: (i: Nat) → i ≤ n → f i ≠ f (Succ n) :=
           i le same =>
@@ -30,7 +30,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
           i le =>
             match atLast: f i == n with
               | True =>
-                let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans (DecEq.sound (f i) n atLast) (Eq.sym same))
+                let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans (DecEq.sound atLast) (Eq.sym same))
                 omega [small (Succ n) (Nat.leRefl (Succ n)), notLast]
               | False => omega [small i (omega [le]), DecEq.soundFalse (f i) n atLast]
         Exists.elim (Nat.pigeonhole n swapped swappedSmall) (i rest =>
@@ -40,7 +40,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
             let same := And.right (And.right both)
             let agree: f i = f j :=
               match atI: f i == n, atJ: f j == n with
-                | True, True => Eq.trans (DecEq.sound (f i) n atI) (Eq.sym (DecEq.sound (f j) n atJ))
+                | True, True => Eq.trans (DecEq.sound atI) (Eq.sym (DecEq.sound atJ))
                 | True, False => Void.exfalso (missed j jLast (Eq.sym same))
                 | False, True => Void.exfalso (missed i (omega [ij, jLast]) same)
                 | False, False => same

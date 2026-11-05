@@ -33,7 +33,7 @@ theorem absorbTrue (lastFrom: Nat) (id: Nat) (lastTo: Nat) (rFrom: Nat) (i: (Nat
     (e: Nat.leq rFrom (lastTo + 1) = False): id < rFrom :=
   Omega.prove (MkEnv [lastFrom, id, lastTo, rFrom] []) [FLe (NV 1) (NV 2), FLt (NAdd (NV 2) (NLit 1)) (NV 3)] (GLt (NV 1) (NV 3))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
-    rfl (Both (Bool.andRight (Nat.leq lastFrom id) (Nat.leq id lastTo) i) (Both (Nat.leqFalse rFrom (lastTo + 1) e) Trivial))
+    rfl (Both (Bool.andRight i) (Both (Nat.leqFalse rFrom (lastTo + 1) e) Trivial))
 
 -- Day 5 `absorbStacked`, False arm.
 theorem absorbFalse (id: Nat) (lastFrom: Nat) (rFrom: Nat) (h: id < lastFrom) (ok: lastFrom ≤ rFrom): id < rFrom :=
