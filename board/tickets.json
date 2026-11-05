@@ -7614,13 +7614,13 @@
     {
       "id": 1376,
       "title": "Playground: the fast check's diagnostics carry end positions (crates/web), so errors can be underlined (D2419)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1376",
       "labels": [
         "playground"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nDone on lane/SW-1376 (5c054cf35): project check diagnostics carry endLine (0-based) and endColumn (UTF-16), as the index does; the page's error jump selects the span. stitchwort-web 33/33. Two browser tests failed in the lane (goals text '⊢ two = 2'; Run's errors timeout) — checking on main. Model result: Sonnet, worked, ~15 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
