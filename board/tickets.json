@@ -1,5 +1,5 @@
 {
-  "next": 1449,
+  "next": 1450,
   "tickets": [
     {
       "id": 47,
@@ -8386,7 +8386,7 @@
     {
       "id": 1430,
       "title": "Playground: the language server's worker overflows V8's stack in an AoC project after a jump into a shared file (Common/Range.sw) then an error edit in the day; the editor restarts the server and the project reloads (~30 s). Build the wasm with function names and find the unguarded recursion in the navigable-session path",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1430",
       "labels": [
@@ -8394,7 +8394,7 @@
         "lsp",
         "bug"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.\n\nStarted on Opus, expected: 90 min.\n\nLane (Opus, 94 min, est. 90), d93d50e45, merged: cause found on one path — flush_navigation printed noted types after a declaration's operation ended, with no stack or step limit; with the playground's halved guard, Aoc.Year2021.Day11.Proofs (Parts.sw, the 79th background step) overflowed there. Fix: each noted type printed within the session's limits (shows … when out). Native with the worker's guard: >120 s → 3.7 s; wasm in Node: >900 s → 13-27 s; Node jump-then-edit sequence underlines in 4.7 s. NOT confirmed in the browser: the new headless-Chrome test still timed out (no crash seen either way); patch at scratchpad browser-test.patch. Left: restore the server's full guard (the halved one gives Day11 a false E-RESOURCE), and find why the Chrome test times out — needs a browser budget (D2435). Model result: Opus, partly worked (one cause fixed, browser case unconfirmed), 94 min (est. 90).\n\nD2435 (Matt, 5 Nov 2026): yes — a follow-up Opus lane may use up to 6 headless Chrome runs of the one test (~1 min each) to confirm the fix in the browser, retry the full guard, and commit the browser test. Started on Opus, expected: 60 min.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.\n\nStarted on Opus, expected: 90 min.\n\nLane (Opus, 94 min, est. 90), d93d50e45, merged: cause found on one path — flush_navigation printed noted types after a declaration's operation ended, with no stack or step limit; with the playground's halved guard, Aoc.Year2021.Day11.Proofs (Parts.sw, the 79th background step) overflowed there. Fix: each noted type printed within the session's limits (shows … when out). Native with the worker's guard: >120 s → 3.7 s; wasm in Node: >900 s → 13-27 s; Node jump-then-edit sequence underlines in 4.7 s. NOT confirmed in the browser: the new headless-Chrome test still timed out (no crash seen either way); patch at scratchpad browser-test.patch. Left: restore the server's full guard (the halved one gives Day11 a false E-RESOURCE), and find why the Chrome test times out — needs a browser budget (D2435). Model result: Opus, partly worked (one cause fixed, browser case unconfirmed), 94 min (est. 90).\n\nD2435 (Matt, 5 Nov 2026): yes — a follow-up Opus lane may use up to 6 headless Chrome runs of the one test (~1 min each) to confirm the fix in the browser, retry the full guard, and commit the browser test. Started on Opus, expected: 60 min.\n\nFollow-up (Opus, 15 min, est. 60; 4 of 6 browser runs), e40f923ae, merged: Chrome's timeout was the test's (the mark was off screen, CodeMirror draws only near the view; stats.published is capped at 300 so counting from its length found nothing). Crash confirmed fixed in Chrome: the new test fails with RangeError without round one's fix, passes with it (138 s, the project's check is 108 s of it). Full guard restored: Day11 Parts.sw checks clean. Worker reports whether background work remains (stats.idle). Kept the ~140 s test in the browser suite (orchestrator's call: the only check for this crash). Model result: Opus, worked, 94 + 15 min (est. 90 + 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8657,6 +8657,20 @@
         "lsp"
       ],
       "body": "From SW-1430, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1449,
+      "title": "Playground editor: stats.published keeps only the last 300 messages, so a test counting from its length after a long check sees nothing new; keep a running total; and the other project test looking for .cm-lintRange-error should scroll to the mark first (CodeMirror draws only near the view)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1430's follow-up, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
